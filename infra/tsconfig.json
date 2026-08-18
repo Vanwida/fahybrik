@@ -26,5 +26,9 @@
   // (lo resuelve web/tsconfig.json en tiempo de ejecución, no el de infra). Se
   // lanzan con `--tsconfig ../web/tsconfig.json`, así que quedan fuera del tsc
   // de infra y los comprueba el de web.
-  "exclude": ["scripts/seed_demo_coaches.ts", "scripts/backfill_zone_seconds.ts"]
+  "exclude": [
+    "scripts/seed_demo_coaches.ts",
+    "scripts/seed_demo_draft_week.ts",
+    "scripts/backfill_zone_seconds.ts"
+  ]
 }

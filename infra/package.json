@@ -13,6 +13,7 @@
     "seed:demo-dobles-race": "tsx scripts/seed_demo_dobles_race.ts",
     "seed:methodology": "tsx scripts/seed_methodology.ts",
     "seed:demo-coaches": "cd ../web && NODE_OPTIONS=--conditions=react-server ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json ../infra/scripts/seed_demo_coaches.ts",
+    "seed:demo-draft-week": "cd ../web && NODE_OPTIONS=--conditions=react-server ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json ../infra/scripts/seed_demo_draft_week.ts",
     "cloudflare:variants": "node scripts/cloudflare-image-variants.ts",
     "seed:all": "pnpm seed:exercises && pnpm seed:events",
     "import:blocks": "tsx scripts/import_blocks_xlsx.ts",
