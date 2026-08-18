@@ -53,7 +53,14 @@ export interface StrengthMaxView {
   one_rm_kg: number;
   version: number;
   recorded_at: string;
+  /** Quién produjo el número: onboarding | coach_test | athlete_test. */
   source: string;
+  /** La ocurrencia de batería que lo produjo (0200), o null si no hubo protocolo.
+   *  `source` + esto = el origen; lo lee shared/domain/strength → leerOrigen. */
+  assignment_id: string | null;
+  /** El set del que se estimó, cuando lo hubo (entrada a mano peso × reps). */
+  test_weight_kg: number | null;
+  test_reps: number | null;
   /** All versions for this lift, oldest→newest, for the progression delta. */
   history: { one_rm_kg: number; version: number; recorded_at: string }[];
 }

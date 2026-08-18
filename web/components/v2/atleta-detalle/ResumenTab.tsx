@@ -25,6 +25,7 @@ import { FichaCard, FichaLabel, FilaVacia, PillEstado } from './resumen/piezas';
 import { LesionCard } from './resumen/LesionCard';
 import { cn } from '@/lib/utils';
 import { WeekStateChip } from '@/components/v2/WeekStateChip';
+import { OrigenKilo } from './OrigenKilo';
 
 const DAY_SHORT = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'] as const;
 
@@ -266,25 +267,22 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
         </div>
 
         <FichaCard>
-          <div className="flex items-baseline justify-between gap-2">
-            <FichaLabel>Referencias</FichaLabel>
-            {squat?.recorded_at ? (
-              <span className="text-[11.5px] text-[color:var(--v2-muted)]">
-                medidas {relativeWeeks(squat.recorded_at)}
-              </span>
-            ) : null}
-          </div>
+          {/* Sin fecha de tarjeta: la llevaba la sentadilla y se la comían el peso
+              muerto y la FC máx. Cada celda dice su propio origen y su cuándo. */}
+          <FichaLabel>Referencias</FichaLabel>
           <div className="mt-3 grid grid-cols-1 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[10px] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <RefCell
               label="Sentadilla"
               value={squat ? String(Math.round(squat.one_rm_kg)) : null}
               unit="kg"
               delta={squatDelta}
+              origen={<OrigenKilo max={squat} athleteId={id} />}
             />
             <RefCell
               label="Peso muerto"
               value={muerto ? String(Math.round(muerto.one_rm_kg)) : null}
               unit="kg"
+              origen={<OrigenKilo max={muerto} athleteId={id} />}
             />
             <RefCell
               label="FC máx medida"
@@ -393,11 +391,14 @@ function RefCell({
   value,
   unit,
   delta,
+  origen,
 }: {
   label: string;
   value: string | null;
   unit: string;
   delta?: number | null;
+  /** De dónde sale el número. Solo lo llevan las celdas que leen un 1RM. */
+  origen?: React.ReactNode;
 }) {
   return (
     <div className="px-3.5 py-3">
@@ -418,17 +419,9 @@ function RefCell({
       ) : (
         <p className="mt-1 text-[13px] text-[color:var(--v2-faint)]">sin registro</p>
       )}
+      {value ? origen : null}
     </div>
   );
-}
-
-function relativeWeeks(iso: string): string {
-  const then = Date.parse(iso);
-  if (!Number.isFinite(then)) return '';
-  const days = Math.max(0, Math.round((Date.now() - then) / 86_400_000));
-  if (days < 7) return 'hace unos días';
-  const w = Math.round(days / 7);
-  return w === 1 ? 'hace 1 sem' : `hace ${w} sem`;
 }
 
 function BandaAjuste({

@@ -386,6 +386,9 @@ export async function loadAthleteDetalle(params: {
     version: m.version,
     recorded_at: m.recorded_at,
     source: m.source,
+    assignment_id: m.assignment_id != null ? String(m.assignment_id) : null,
+    test_weight_kg: m.test_weight_kg,
+    test_reps: m.test_reps,
     history: strengthHistory
       .filter((h) => h.exercise_slug === m.exercise_slug)
       .map((h) => ({ one_rm_kg: h.one_rm_kg, version: h.version, recorded_at: h.recorded_at })),
