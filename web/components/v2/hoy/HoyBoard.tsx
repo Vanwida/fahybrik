@@ -34,7 +34,10 @@ import {
   hoyEmptyBoard,
   hoyEmptyLaneById,
   hoyHeadlineKind,
+  hoyIntroCopy,
   type ClubWeekCensus,
+  type HoyIntroCopy,
+  type MethodCoverage,
 } from '@fahybrid/shared/domain/coach/club-hoy';
 import { cn } from '@/lib/utils';
 
@@ -48,11 +51,22 @@ function matches(card: V2LaneCard, q: string): boolean {
 // ("vigilas, no asignas"), not an order of steps.
 const SECTION_KEY = 'hoy';
 
-function hoyIntroLine(live: boolean): React.ReactNode {
-  if (live) {
+// «El sistema sigue tu método solo» es una AFIRMACIÓN, y en el recorrido del
+// 18-ago se decía con la entrevista a 2 de 34. El copy lo decide el dominio
+// (hoyIntroCopy): sin método escrito, Hoy describe lo que hace sin atribuirlo a
+// un método que no existe. No bloquea nada — solo deja de afirmarlo.
+function hoyIntroLine(copy: HoyIntroCopy): React.ReactNode {
+  if (copy.afirma_metodo) {
     return (
       <>
         <b>Hoy</b> reúne solo lo que necesita tu decisión. El sistema sigue tu método solo — tú aceptas las excepciones.
+      </>
+    );
+  }
+  if (copy.live) {
+    return (
+      <>
+        <b>Hoy</b> reúne solo lo que necesita tu decisión. Tú aceptas las excepciones.
       </>
     );
   }
@@ -63,11 +77,11 @@ function hoyIntroLine(live: boolean): React.ReactNode {
   );
 }
 
-function hoyIntroSteps(live: boolean): IntroMicroStep[] {
+function hoyIntroSteps(copy: HoyIntroCopy): IntroMicroStep[] {
   return [
     {
-      title: 'El sistema propone',
-      body: <>Cada atleta cae en su secuencia y recibe el plan automáticamente.</>,
+      title: copy.propone_title,
+      body: <>{copy.propone_body}</>,
     },
     {
       title: 'Solo sube lo que decide',
@@ -75,11 +89,7 @@ function hoyIntroSteps(live: boolean): IntroMicroStep[] {
     },
     {
       title: 'Tú aceptas o ajustas',
-      body: live ? (
-        <>Una bandeja vacía significa que todo va según tu método.</>
-      ) : (
-        <>Una bandeja vacía no significa que el club esté bien si nadie ve la semana.</>
-      ),
+      body: <>{copy.vacia_body}</>,
     },
   ];
 }
@@ -92,6 +102,7 @@ export function HoyBoard({
   pending_intakes,
   activity,
   week_census,
+  method_coverage,
 }: {
   data: V2HoyData;
   today: string;
@@ -100,6 +111,8 @@ export function HoyBoard({
   pending_intakes: PendingAlta[];
   activity: ActivityToday;
   week_census: ClubWeekCensus;
+  /** Cobertura de «Cómo entrenas». Decide si Hoy puede afirmar el método. */
+  method_coverage: MethodCoverage;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -145,7 +158,8 @@ export function HoyBoard({
   const live = clubHasLiveWeek(week_census);
   const headline = hoyHeadlineKind(pendientes, week_census);
   const weekPill = clubWeekPill(week_census);
-  const emptyBoard = hoyEmptyBoard(week_census);
+  const emptyBoard = hoyEmptyBoard(week_census, method_coverage);
+  const introCopy = hoyIntroCopy({ live, method: method_coverage });
 
   // `llena` (§6.1): el tablero ocupa el hueco entero y reparte por dentro. Sin
   // esto, la bandeja de un coach al día terminaba donde se acababan sus tiras y
@@ -220,8 +234,8 @@ export function HoyBoard({
         <div className="mt-5">
           <IntroStrip
             icon="visibility"
-            line={hoyIntroLine(live)}
-            steps={hoyIntroSteps(live)}
+            line={hoyIntroLine(introCopy)}
+            steps={hoyIntroSteps(introCopy)}
             expanded={orient.expanded}
             onToggle={orient.toggleExpanded}
             onDismiss={orient.dismiss}

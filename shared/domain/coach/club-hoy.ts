@@ -114,40 +114,49 @@ export function hoyEmptyBoard(
 }
 
 /**
- * Copy del intro de Hoy. La frase «el sistema sigue tu método» solo sale
- * con entrevista completa. 2 de 34 no autoriza esa afirmación.
+ * Copy del intro de Hoy. Dos ejes independientes:
+ *
+ *   · `live`  — ¿hay alguien que vea su semana? Es contexto del club.
+ *   · `afirma_metodo` — ¿podemos decir «el sistema sigue tu método solo»? Solo
+ *     con la entrevista completa Y semana viva: 2 de 34 no autoriza esa frase,
+ *     y sin nadie viendo su semana el sistema no está siguiendo nada.
+ *
+ * El primer micro-paso (título + cuerpo) se decide ENTERO aquí. Antes el título
+ * vivía en HoyBoard y el cuerpo aquí, y sin semana viva salía «Cada hueco, por
+ * su nombre» encima de «Cada atleta cae en su secuencia y recibe el plan
+ * automáticamente» — un título que no afirma sobre un cuerpo que sí.
  */
+export type HoyIntroCopy = {
+  /** ¿Hay al menos un atleta que ve su semana? Contexto, no método. */
+  live: boolean;
+  /** ¿Se puede decir «el sistema sigue tu método»? */
+  afirma_metodo: boolean;
+  /** Título del primer micro-paso. Va con `propone_body`: se deciden juntos. */
+  propone_title: string;
+  propone_body: string;
+  vacia_body: string;
+};
+
 export function hoyIntroCopy(params: {
   live: boolean;
   method?: MethodCoverage;
-}): {
-  afirma_metodo: boolean;
-  propone_body: string;
-  vacia_body: string;
-} {
+}): HoyIntroCopy {
   const afirma =
     params.live &&
     params.method != null &&
     puedeAfirmarMetodo(params.method.answered, params.method.total);
-  if (!params.live) {
-    return {
-      afirma_metodo: false,
-      propone_body: 'Cada atleta cae en su secuencia y recibe el plan automáticamente.',
-      vacia_body: 'Una bandeja vacía no significa que el club esté bien si nadie ve la semana.',
-    };
-  }
-  if (afirma) {
-    return {
-      afirma_metodo: true,
-      propone_body: 'Cada atleta cae en su secuencia y recibe el plan automáticamente.',
-      vacia_body: 'Una bandeja vacía significa que todo va según tu método.',
-    };
-  }
   return {
-    afirma_metodo: false,
-    propone_body:
-      'Si a un atleta le falta el siguiente bloque, eso. Si tu receta de nivel está vacía, eso, aparte.',
-    vacia_body: 'Una bandeja vacía no significa que el método esté escrito.',
+    live: params.live,
+    afirma_metodo: afirma,
+    propone_title: afirma ? 'El sistema propone' : 'Cada hueco, por su nombre',
+    propone_body: afirma
+      ? 'Cada atleta cae en su secuencia y recibe el plan automáticamente.'
+      : 'Si a un atleta le falta el siguiente bloque, eso. Si tu receta de nivel está vacía, eso, aparte.',
+    vacia_body: !params.live
+      ? 'Una bandeja vacía no significa que el club esté bien si nadie ve la semana.'
+      : afirma
+        ? 'Una bandeja vacía significa que todo va según tu método.'
+        : 'Una bandeja vacía no significa que el método esté escrito.',
   };
 }
 

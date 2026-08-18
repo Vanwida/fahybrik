@@ -178,4 +178,38 @@ describe('hoyIntroCopy — no afirmar método con 2 de 34', () => {
     expect(copy.afirma_metodo).toBe(false);
     expect(copy.vacia_body).toMatch(/nadie ve la semana/);
   });
+
+  // El eje entero, no el caso de delante: live × cobertura. El fallo que esto
+  // caza es el que tuvo el WIP — sin semana viva el título decía «Cada hueco,
+  // por su nombre» y debajo seguía «Cada atleta cae en su secuencia y recibe el
+  // plan automáticamente». Título que no afirma sobre cuerpo que sí.
+  const COBERTURAS = [
+    { label: 'sin entrevista cargada', method: undefined },
+    { label: '0 de 34', method: { answered: 0, total: 34 } },
+    { label: '2 de 34', method: { answered: 2, total: 34 } },
+    { label: '33 de 34', method: { answered: 33, total: 34 } },
+    { label: '34 de 34', method: { answered: 34, total: 34 } },
+    { label: 'catálogo vacío (0 de 0)', method: { answered: 0, total: 0 } },
+  ] as const;
+
+  for (const live of [true, false] as const) {
+    for (const { label, method } of COBERTURAS) {
+      test(`titular y cuerpo van juntos · live=${live} · ${label}`, () => {
+        const copy = hoyIntroCopy({ live, method });
+        const esperaAfirmar = live && method != null && method.total > 0 && method.answered >= method.total;
+
+        expect(copy.live).toBe(live);
+        expect(copy.afirma_metodo).toBe(esperaAfirmar);
+        // El título afirma exactamente cuando el cuerpo afirma.
+        expect(copy.propone_title === 'El sistema propone').toBe(esperaAfirmar);
+        expect(/autom[áa]ticamente/.test(copy.propone_body)).toBe(esperaAfirmar);
+        // Y nunca se atribuye a un método que no está escrito.
+        if (!esperaAfirmar) {
+          expect(
+            `${copy.propone_title} ${copy.propone_body} ${copy.vacia_body}`.toLowerCase(),
+          ).not.toMatch(/sigue tu método|según tu método/);
+        }
+      });
+    }
+  }
 });
