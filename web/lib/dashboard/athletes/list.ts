@@ -335,12 +335,14 @@ export async function fetchAthletesForCoach(params: {
         programming_status === 'no_month'
           ? 'Sin plan activo'
           : programming_status === 'month_2_pending'
-            ? 'Mes pendiente'
-            : programming_status === 'empty_week'
-              ? 'Semana vacía'
-              : (prog?.detail ?? programming_label);
+            ? 'Propuesta de mes pendiente'
+            : programming_status === 'block_ended'
+              ? 'Bloque terminado'
+              : programming_status === 'empty_week'
+                ? 'Semana vacía'
+                : (prog?.detail ?? programming_label);
       alert_severity =
-        programming_status === 'month_2_pending' || programming_status === 'no_month'
+        programming_status === 'block_ended' || programming_status === 'no_month'
           ? 'critical'
           : 'warning';
     } else if (readiness_score != null && readiness_score < 45) {

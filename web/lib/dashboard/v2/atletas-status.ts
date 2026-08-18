@@ -54,6 +54,7 @@ function hasPlanGap(a: AthleteRow): boolean {
   return (
     a.programming_status === 'no_month' ||
     a.programming_status === 'month_2_pending' ||
+    a.programming_status === 'block_ended' ||
     a.programming_status === 'empty_week'
   );
 }

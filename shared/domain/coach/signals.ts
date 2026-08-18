@@ -161,7 +161,13 @@ export interface SignalFacts {
 
   // Programming
   /** Programming health from getAthleteProgrammingStatus. */
-  programming_status: 'ok' | 'no_month' | 'pending_proposal' | 'empty_week' | 'month_2_pending';
+  programming_status:
+    | 'ok'
+    | 'no_month'
+    | 'pending_proposal'
+    | 'empty_week'
+    | 'month_2_pending'
+    | 'block_ended';
   programming_label: string | null;
   programming_detail: string | null;
   /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */

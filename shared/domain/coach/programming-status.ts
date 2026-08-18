@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { isPgMissingRelation } from '../db/pg-errors';
-import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
+import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '../dates';
 
 export type ProgrammingStatus =
   | 'ok'
@@ -159,9 +159,6 @@ export async function getAthleteProgrammingStatus(params: {
           from athlete_month_assignments where athlete_id = ${params.athlete_id as number}
         `;
         lastMonthEnd = lastMonth[0]?.end_date ?? null;
-        if (lastMonthEnd && parseIsoDate(lastMonthEnd) >= today) {
-          lastMonthEnd = lastMonthEnd;
-        }
       }
     }
 
