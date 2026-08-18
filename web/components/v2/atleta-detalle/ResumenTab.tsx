@@ -20,6 +20,7 @@ import {
   tendenciaAdherencia,
 } from '@/lib/dashboard/v2/ficha-resumen';
 import { mondayOfWeek, isoDateString, startOfDayInBox, addDays } from '@fahybrid/shared/domain/dates';
+import { honestWeekHeading, pickCalendarWeek } from '@fahybrid/shared/domain/coach/honest-week';
 import { FichaCard, FichaLabel, FilaVacia, PillEstado } from './resumen/piezas';
 import { LesionCard } from './resumen/LesionCard';
 import { cn } from '@/lib/utils';
@@ -40,9 +41,13 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
   const today = todayIsoLocal();
   const monday = isoDateString(mondayOfWeek(startOfDayInBox(new Date())));
   const sunday = isoDateString(addDays(mondayOfWeek(startOfDayInBox(new Date())), 6));
-
-  const week = detalle.plan?.weeks.find((w) => w.week_start === monday) ?? detalle.plan?.weeks[0] ?? null;
-  const dias = week ? diasDeLaSemana(week.days, today) : [];
+  const heading = honestWeekHeading({
+    chip: detalle.header.week_chip,
+    calendarMonday: monday,
+    calendarSunday: sunday,
+  });
+  const week = pickCalendarWeek(detalle.plan?.weeks ?? [], monday);
+  const dias = heading.paint_days && week ? diasDeLaSemana(week.days, today) : [];
   const hechas = dias.filter((d) => d.estado === 'hecha').length;
   const programadas = dias.filter((d) => d.estado !== 'descanso').length;
 
@@ -55,7 +60,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
 
   const weeks = detalle.ficha.adherence_weeks;
   const trend = tendenciaAdherencia(weeks);
-  const frase = interpretarAdherencia(weeks, week?.days ?? null, today);
+  const frase = interpretarAdherencia(weeks, heading.paint_days ? (week?.days ?? null) : null, today);
 
   const checkin = detalle.resumen?.checkin ?? null;
   const respondido = checkinRespondido(checkin?.recorded_for ?? null, detalle.chat?.messages ?? []);
@@ -86,10 +91,10 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
         <FichaCard className="p-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
             <div className="flex flex-wrap items-baseline gap-2">
-              <FichaLabel className="m-0">Esta semana</FichaLabel>
+              <FichaLabel className="m-0">{heading.title}</FichaLabel>
               <WeekStateChip chip={detalle.header.week_chip} />
               <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">
-                {formatRangoSemana(week?.week_start ?? monday, week?.week_end ?? sunday)}
+                {formatRangoSemana(heading.week_start, heading.week_end)}
                 {fase ? ` · ${fase}` : ''}
               </span>
             </div>
@@ -108,7 +113,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
             </div>
           </div>
 
-          {dias.length === 7 ? (
+          {heading.paint_days && dias.length === 7 ? (
             <div className="mt-3 grid grid-cols-7 gap-px bg-[#EDE7DE] dark:bg-[color:var(--v2-border)]">
               {dias.map((d, i) => {
                 const href = d.assignment_id
@@ -142,7 +147,9 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
             </div>
           ) : (
             <div className="px-4 pb-4 pt-3">
-              <FilaVacia texto="Sin plan esta semana" cta="Asignar" href={`/atletas/${id}?tab=plan`} />
+              <p className="text-[13px] text-[color:var(--v2-muted)]">
+                {heading.empty_copy ?? 'Sin plan esta semana'}
+              </p>
             </div>
           )}
 

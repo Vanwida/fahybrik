@@ -13,6 +13,11 @@
 // hay muestra para afirmar, se dice cuánta falta en vez de pintar un cero.
 
 import { PACING_SHAPE_LABEL } from '@fahybrid/shared/domain/running/pacing-shape';
+import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import {
+  allowsFreshnessVerdict,
+  weekHasSessions,
+} from '@fahybrid/shared/domain/coach/honest-week';
 import type { RunningAnalyticsPayload } from '@/lib/coach/running-analytics';
 import {
   BarrasSemanales,
@@ -252,7 +257,13 @@ export function PanelVolumen({ analytics }: { analytics: RunningAnalyticsPayload
 // 5 · La carga, con el veredicto delante
 // ---------------------------------------------------------------------------
 
-export function PanelCarga({ analytics }: { analytics: RunningAnalyticsPayload }) {
+export function PanelCarga({
+  analytics,
+  weekChipKind,
+}: {
+  analytics: RunningAnalyticsPayload;
+  weekChipKind: AthleteWeekChipKind;
+}) {
   const { load } = analytics;
   const { ctl, atl, tsb, acr, coverage, cold_start, allows_verdict, is_alert, freshness_alert_tsb } = load;
 
@@ -262,10 +273,12 @@ export function PanelCarga({ analytics }: { analytics: RunningAnalyticsPayload }
   const conSigno = (n: number) => (n < 0 ? `−${Math.abs(Math.round(n))}` : `+${Math.round(n)}`);
   const redondo = (n: number) => String(Math.round(n));
   const frescura = conSigno(tsb);
+  const haySemana = weekHasSessions(weekChipKind);
+  const showVerdict = allowsFreshnessVerdict(allows_verdict, weekChipKind);
 
   return (
     <Panel titulo="Carga" chip={`Fondo sobre ${cold_start.ctl_window_days} días`}>
-      {allows_verdict ? (
+      {showVerdict ? (
         <Veredicto
           frase={is_alert ? 'Está apretando.' : 'No está apretando.'}
           tono={is_alert ? 'alerta' : null}
@@ -277,12 +290,18 @@ export function PanelCarga({ analytics }: { analytics: RunningAnalyticsPayload }
         />
       ) : (
         <SinBastante>
-          Los números están, pero no se puede decir si está apretando.{' '}
-          {!cold_start.is_warmed_up
-            ? cold_start.days_of_history == null
-              ? 'No tiene ninguna sesión ejecutada desde la que contar el fondo.'
-              : `El fondo se calcula sobre ${cold_start.ctl_window_days} días y lleva ${cold_start.days_of_history}: le faltan ${cold_start.days_missing} para que se asiente.`
-            : (coverage.note_es ?? 'Falta cobertura de carga en la ventana.')}
+          {!haySemana
+            ? 'Esta semana no hay kilómetros de los que leer frescura.'
+            : (
+              <>
+                Los números están, pero no se puede decir si está apretando.{' '}
+                {!cold_start.is_warmed_up
+                  ? cold_start.days_of_history == null
+                    ? 'No tiene ninguna sesión ejecutada desde la que contar el fondo.'
+                    : `El fondo se calcula sobre ${cold_start.ctl_window_days} días y lleva ${cold_start.days_of_history}: le faltan ${cold_start.days_missing} para que se asiente.`
+                  : (coverage.note_es ?? 'Falta cobertura de carga en la ventana.')}
+              </>
+            )}
         </SinBastante>
       )}
 
@@ -291,9 +310,9 @@ export function PanelCarga({ analytics }: { analytics: RunningAnalyticsPayload }
         <Cifra etiqueta="Reciente" valor={redondo(atl)} pie="lo que ha metido estos días" />
         <Cifra
           etiqueta="Frescura"
-          valor={frescura}
-          pie="fondo menos reciente"
-          tono={is_alert ? 'var(--v2-warn)' : undefined}
+          valor={haySemana ? frescura : '—'}
+          pie={haySemana ? 'fondo menos reciente' : 'sin kilómetros esta semana'}
+          tono={showVerdict && is_alert ? 'var(--v2-warn)' : undefined}
         />
         {acr != null ? <Cifra etiqueta="Reciente contra fondo" valor={acr.toFixed(2).replace('.', ',')} /> : null}
       </Cifras>

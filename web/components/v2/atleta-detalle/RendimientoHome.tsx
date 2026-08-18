@@ -92,7 +92,7 @@ export function RendimientoHome({
           ) : carreraCapa === 'carreras' ? (
             <CarrerasTab athleteId={id} />
           ) : (
-            <CorrerTab athleteId={id} />
+            <CorrerTab athleteId={id} weekChipKind={detalle.header.week_chip.kind} />
           )}
         </div>
       ) : vista === 'fuerza' ? (

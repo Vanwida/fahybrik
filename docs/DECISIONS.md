@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-18 · Resumen y Plan titulan la semana calendario, no un bloque viejo
+
+**El hueco:** el chip del 18-ago dice la verdad (Marc: Bloque terminado; Guillem: Semana vacía / Sin plan) y Resumen/Plan seguían mintiendo al lado. Resumen titulaba «Esta semana» y pintaba `weeks[0]` si el lunes de caja no estaba en el plan anclado — Marc veía 13–19 jul en agosto. Un día sin sesión se pintaba «Descanso», así que una semana vacía eran 7 descansos y la frescura se leía sobre 0 km.
+
+**Decidido:** la semana que se titula es la del chip, siempre el lunes–domingo de caja. Función pura `honestWeekHeading` + `pickCalendarWeek` (nunca `weeks[0]`). Si no hay sesiones esta semana no se pintan los 7 días: se dice Bloque terminado / Semana vacía / Sin plan. En Plan, un payload de julio con chip `bloque_terminado` es `ended` (aterriza en la última semana), no «aún no ha arrancado». Un veredicto de frescura exige sesiones esta semana (`allowsFreshnessVerdict`). No se publica solo.
+
+**NO hacer:** no rellenar una semana vacía con Descanso. No titular un bloque cerrado «Esta semana». No leer TSB como «fresco» cuando el chip es Semana vacía / Bloque terminado / Sin plan.
+
+---
+
 ## 2026-08-18 · Chip de estado del atleta: una frase en lista, ficha y semana
 
 **El hueco:** `programming_status` cuenta `workout_assignments` de la semana calendario sin filtrar `weekly_plans.status='draft'`. Un borrador lleno salía «Plan OK» / `week_ok`. El roster metía `no_month`, `empty_week` y el bloque vencido en el mismo «Sin plan». El panel enseñaba la semana sin decir si el atleta la ve. El MCP ya lo dice (`athlete_sees_it`).

@@ -2,17 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-18** (chip de estado del atleta)
+Última actualización: **2026-08-18** (semana que no miente)
 
 ## Ahora
 
-**Chip de entrega (feat/coach-athlete-state-chip):** lista, ficha y semana
-dicen la misma frase: Visible · No lo ve · Semana vacía · Bloque terminado ·
-Sin plan. Misma puerta que MCP `athlete_sees_it` (`draft` esconde; sin fila
-se ve). `week_ok` ya no es Plan OK si él ve vacío. No se publica solo. Ley:
-DECISIONS 18-ago «chip de estado del atleta». No main, no Production, no FLEXR.
+**Semana honesta (feat/coach-honest-week, siguiente al #34):** Resumen y
+Plan titulan la semana calendario del chip. Un bloque de julio no se llama
+«Esta semana». Una semana vacía no se pinta como 7×Descanso ni se lee como
+frescura. Ley: DECISIONS 18-ago «Resumen y Plan titulan la semana
+calendario». No se publica solo. No main, no Production, no FLEXR.
 
-**Trunk 18-ago:** #29–#33 en `integration/trunk`. No main.
+**Chip de entrega (#34, en trunk):** Visible · No lo ve · Semana vacía ·
+Bloque terminado · Sin plan. Misma puerta que MCP `athlete_sees_it`.
+
+**Trunk 18-ago:** #29–#34 en `integration/trunk`. No main.
 
 **Clonabilidad iOS (#33):** marca/bundle/dominio/esquema/equipo en
 `settings.base`. Team id en AASA (público, decisión pendiente). Página de
