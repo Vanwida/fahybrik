@@ -250,7 +250,13 @@
   border-radius: inherit;
 }
 
-/* Staggered reveal on mount — one orchestrated entrance, reduced-motion safe. */
+/* Staggered reveal on mount — one orchestrated entrance, reduced-motion safe.
+   OJO: el keyframe final NO fija transform. Con fill `both`, un
+   `transform: translateY(0)` final se quedaba aplicado PARA SIEMPRE y cualquier
+   contenedor .v2-stagger se volvía containing block de sus `position: fixed`:
+   los overlays de la ficha (cajón de sesión, modales) quedaban atrapados y
+   desplazados dentro de la tarjeta (el «fondo raro movido»). Al omitirlo, el
+   transform vuelve a `none` al acabar y los fixed miden contra el viewport. */
 @keyframes v2-reveal {
   from {
     opacity: 0;
@@ -258,7 +264,6 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 .v2-stagger {
