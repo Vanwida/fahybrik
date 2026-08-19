@@ -217,11 +217,14 @@ function DiaCol({
                         className="line-clamp-1 text-[11px] leading-snug text-[color:var(--v2-muted)]"
                       >
                         {l}
-                        {i === s.dose_lines.length - 1 && s.dose_more > 0 ? (
-                          <span className="text-[color:var(--v2-faint)]"> +{s.dose_more}</span>
-                        ) : null}
                       </span>
                     ))}
+                    {/* En línea propia: dentro de la última se lo comía el recorte. */}
+                    {s.dose_more > 0 ? (
+                      <span className="text-[11px] leading-snug text-[color:var(--v2-faint)]">
+                        +{s.dose_more} más
+                      </span>
+                    ) : null}
                   </span>
                 ) : s.format || s.duration_min != null ? (
                   <span className="text-[11px] text-[color:var(--v2-muted)]">
