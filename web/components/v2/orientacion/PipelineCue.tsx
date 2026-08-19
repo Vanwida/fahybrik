@@ -109,7 +109,7 @@ export function PipelineCue({
   // ── First-run: full ribbon with named nodes ────────────────────────────────
   if (effectiveMode === 'firstrun') {
     return (
-      <div className="mb-4 flex flex-wrap items-stretch rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 py-3">
+      <div className="mb-4 flex flex-wrap items-stretch rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 py-3">
         {PIPELINE_STEP_META.map((s, i) => {
           const done = progress[s.key];
           const isNow = s.key === cur;

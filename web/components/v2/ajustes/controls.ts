@@ -17,20 +17,20 @@ export const ajustesField = cn(
 
 /** La acción que cierra el formulario: guardar. Una por tarjeta. */
 export const ajustesButtonPrimary = cn(
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-m)]',
+  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)]',
   'bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-semibold text-[color:var(--v2-accent-fg)]',
   'disabled:cursor-not-allowed disabled:opacity-50',
 );
 
 /** Acción de apoyo: subir foto, restaurar los valores por defecto, reintentar. */
 export const ajustesButtonSecondary = cn(
-  'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
+  'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)]',
   'bg-[color:var(--v2-surface)] px-3 py-1.5 text-sm font-semibold text-[color:var(--v2-fg)]',
   'hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50',
 );
 
 /** Acción de quitar: sin caja, y en rojo solo al pasar por encima. */
 export const ajustesButtonGhost = cn(
-  'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1.5',
+  'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-1.5',
   'text-sm font-medium text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]',
 );

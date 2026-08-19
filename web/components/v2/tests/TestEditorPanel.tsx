@@ -322,7 +322,7 @@ export function TestEditorPanel({
             {draft.content.map((block, i) => (
               <div
                 key={block.uid}
-                className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
+                className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-label font-bold text-[color:var(--v2-faint)]">
@@ -435,7 +435,7 @@ export function TestEditorPanel({
                   aria-pressed={s.week_offset === 0}
                   title="Antes de que arranque el plan, en los días que queden libres"
                   className={cn(
-                    'v2-focus h-7 rounded-[var(--v2-r-s)] px-2.5 text-label font-bold transition-colors',
+                    'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-bold transition-colors',
                     s.week_offset === 0
                       ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                       : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -472,7 +472,7 @@ export function TestEditorPanel({
                         aria-label={`Día ${lbl}`}
                         aria-pressed={active}
                         className={cn(
-                          'v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-label font-bold transition-colors',
+                          'v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-pill)] text-label font-bold transition-colors',
                           active
                             ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                             : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -495,7 +495,7 @@ export function TestEditorPanel({
                     aria-pressed={(s.rest_days_after ?? 0) > 0}
                     title="Deja un día libre detrás — para un test que fatiga"
                     className={cn(
-                      'v2-focus h-7 rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold transition-colors',
+                      'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors',
                       (s.rest_days_after ?? 0) > 0
                         ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                         : 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]',

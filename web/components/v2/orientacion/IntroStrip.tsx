@@ -71,7 +71,7 @@ export function IntroStrip({
   const open = expanded && hasSteps;
 
   return (
-    <div className="relative mb-4 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] border-l-[3px] border-l-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] py-3 pl-4 pr-3.5">
+    <div className="relative mb-4 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] border-l-[3px] border-l-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] py-3 pl-4 pr-3.5">
       <div className="flex items-center gap-3">
         <span className="shrink-0 text-[color:var(--v2-accent)]" aria-hidden>
           <MIcon name={icon} size={18} />

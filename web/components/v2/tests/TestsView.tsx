@@ -259,7 +259,7 @@ export function TestsView({
               setDraft(emptyTestDraft());
               setError(null);
             }}
-            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} /> Nuevo test
           </button>
@@ -353,7 +353,7 @@ export function TestsView({
                         e.stopPropagation();
                         setApplying(t);
                       }}
-                      className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
+                      className="v2-focus shrink-0 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
                     >
                       Aplicar
                     </button>
@@ -404,7 +404,7 @@ export function TestsView({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-body text-[color:var(--v2-fg)] shadow-lg"
+          className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-body text-[color:var(--v2-fg)] shadow-lg"
         >
           <MIcon name="event_available" size={16} className="text-[color:var(--v2-accent)]" />
           <span>{toast}</span>
@@ -466,7 +466,7 @@ function PurposeStrip({ onRestore, restoring }: { onRestore: () => void; restori
         type="button"
         onClick={onRestore}
         disabled={restoring}
-        className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-50"
+        className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-50"
       >
         <MIcon name="restart_alt" size={14} /> {restoring ? 'Restaurando…' : 'Restaurar batería por defecto'}
       </button>
@@ -501,14 +501,14 @@ function EmptyTests({
           type="button"
           onClick={onRestore}
           disabled={restoring}
-          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
         >
           <MIcon name="restart_alt" size={16} /> {restoring ? 'Restaurando…' : 'Restaurar batería por defecto'}
         </button>
         <button
           type="button"
           onClick={onCreate}
-          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="add" size={16} /> Crear un test
         </button>
@@ -528,7 +528,7 @@ function ConfirmDeleteDialog({
 }) {
   return (
     <DialogScrim onClose={onCancel}>
-      <div className="max-w-[420px] rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-5">
+      <div className="max-w-[420px] rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-5">
         <p className="text-reading font-bold text-[color:var(--v2-fg)]">¿Quitar «{test.name}» de la batería?</p>
         <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           Dejará de programarse en los planes nuevos. Los tests ya asignados a un atleta y sus
