@@ -17,5 +17,10 @@ export {
   adherenceBand,
   type AdherenceBand,
 } from './constants';
-// El tema del panel es único (FLEXR claro): el toggle, el provider y el script
-// pre-paint murieron con el rediseño — ver docs/DECISIONS.md.
+export { ThemeToggle } from './theme/ThemeToggle';
+export {
+  V2ThemeProvider,
+  useV2Theme,
+  type V2Theme,
+} from './theme/V2ThemeProvider';
+export { V2ThemeScript } from './theme/V2ThemeScript';

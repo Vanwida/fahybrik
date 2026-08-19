@@ -8,15 +8,18 @@ import { countNewLeads } from '@/lib/dashboard/coach/leads';
 import { countUpcomingCallsSoon } from '@/lib/citas/store';
 import { getClubSkin } from '@/lib/coach/club-skin';
 import { V2Shell } from '@/components/v2/V2Shell';
+import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
 import { PushSync } from '@/components/v2/push/PushNotifications';
 import { flexrFontVars } from './fonts';
 import './v2-theme.css';
 
 // v2 route-group layout — the FOUNDATION of the redesign. Lives ALONGSIDE the
 // v1 app: same auth gate (coach session), but a fully scoped theme + shell. The
-// FLEXR theme (claro perla, tema único) is isolated to the `.v2-root` wrapper
-// (V2Shell); we never touch the <html> dark class, so the legacy app renders
-// identically. The sidebar's Mensajes badge reads the live unread count.
+// FLEXR theme (claro perla / oscuro del panel) is isolated to `.v2-root`
+// (V2Shell → V2ThemeProvider); we never touch the <html> dark class, so the
+// landing and the legacy app stay dark. The pre-paint V2ThemeScript sets
+// data-theme before hydration. The sidebar's Mensajes badge reads the live
+// unread count.
 
 // Identidad PWA SOLO del dashboard: el icono COACH al anclar a la pantalla de
 // inicio. Scoped aquí (no en el layout raíz) para que la web pública conserve
@@ -72,6 +75,7 @@ export default async function V2Layout({
       {/* Headless: registra el SW y refresca la suscripción push de este
           navegador si ya estaba dada de alta. */}
       <PushSync />
+      <V2ThemeScript />
       <V2Shell
         font_vars={flexrFontVars}
         coach_name={session.full_name}

@@ -1,17 +1,17 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   Panel del coach — tokens FLEXR (claro perla, tema único).
+   Panel del coach — tokens FLEXR (claro perla + oscuro del mismo cromo).
 
    THEME ISOLATION (hard constraint): every token lives under `.v2-root`, NEVER
-   on <html>. The legacy app is dark-only and toggles `.dark` on <html>; v2 must
-   not bleed into it.
+   on <html>. The legacy app / landing are dark-only and toggle `.dark` on
+   <html>; v2 must not bleed into them. El panel pinta `data-theme="light|dark"`
+   en `.v2-root` (V2ThemeProvider + V2ThemeScript).
 
-   FLEXR: el cromo del panel es NEUTRO (perla + tinta, cero acento de sistema);
-   la marca la pone el coach (tenant). El antiguo tema oscuro del panel murió con
-   el rediseño (docs/DECISIONS.md); el bloque [data-theme="dark"] de abajo
-   sobrevive SOLO para los mockups embebidos de la app del atleta (guía), que
-   sí es oscura. Fuentes: Bricolage Grotesque (display) + Figtree (cuerpo y
-   números tabulares), cargadas en app/[locale]/(v2)/fonts.ts.
-   Contrato de diseño: FLEXR/DESIGN.md + artboards del canvas aprobado.
+   FLEXR: el cromo es NEUTRO (perla + tinta en claro; casi negro + tinta
+   invertida en oscuro). La marca la pone el coach: clubAccentCssVars pisa
+   --v2-accent* con la familia de esa superficie. Vacío = tinta, NUNCA el
+   naranja de sistema. Fuentes del panel: Bricolage + Figtree (fonts.ts).
+   Los mockups de la guía (.guia-phone / .guia-win) conservan naranja + Archivo
+   itálica, que es la voz de la app del atleta, no la del panel.
    ════════════════════════════════════════════════════════════════════════════ */
 
 .v2-root {
@@ -112,15 +112,15 @@
   --v2-container: 1480px;
 }
 
-/* ── DARK — SOLO para mockups embebidos de la app del atleta (guía: PhoneMockup
-      / DashboardMockup montan `.v2-root[data-theme="dark"]` anidado). El cromo
-      del panel ya no lo usa. Valores = la app iOS real (near-black + naranja). ── */
+/* ── DARK — superficies ya existentes (casi negro). Acento = tinta invertida
+      (cromo FLEXR neutro). El naranja NO vuelve aquí: o lo clava la piel del
+      club en inline, o los mockups de la guía lo pisan más abajo. ── */
 .v2-root[data-theme="dark"] {
-  --v2-accent: #f06a2a;
-  --v2-accent-press: #d85a20;
+  --v2-accent: #f5f5f5;
+  --v2-accent-press: #d0d0d0;
   --v2-accent-fg: #0a0a0a;
-  --v2-accent-soft: rgba(240, 106, 42, 0.14);
-  --v2-accent-text: #f06a2a;
+  --v2-accent-soft: rgba(245, 245, 245, 0.14);
+  --v2-accent-text: #f5f5f5;
   --v2-bg: #0a0a0a;
   --v2-surface: #141414;
   --v2-surface-2: #1a1a1a;
@@ -164,7 +164,17 @@
   --v2-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -12px rgba(0, 0, 0, 0.7);
   --v2-shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.8);
-  /* Los mockups oscuros conservan la voz de marca del tenant (Archivo itálica). */
+}
+
+/* Mockups de la app del atleta (guía): naranja + Archivo, anidados en su
+   propio `.v2-root`. No sangran al panel del coach. */
+.v2-root.guia-phone[data-theme="dark"],
+.v2-root.guia-win[data-theme="dark"] {
+  --v2-accent: #f06a2a;
+  --v2-accent-press: #d85a20;
+  --v2-accent-fg: #0a0a0a;
+  --v2-accent-soft: rgba(240, 106, 42, 0.14);
+  --v2-accent-text: #f06a2a;
   --v2-font-display: var(--font-archivo), "SF Pro Display", system-ui, sans-serif;
   --v2-font-sans: var(--font-geist-sans), "SF Pro Text", system-ui, sans-serif;
   --v2-font-mono: var(--font-geist-mono), "SF Mono", ui-monospace, monospace;
@@ -214,15 +224,16 @@
   min-height: 100dvh;
 }
 
-/* Display heading — Bricolage bold, tracking cerrado (voz neutra FLEXR; la
-   itálica-black era la voz del tenant y vive solo en el bloque dark). */
+/* Display heading — Bricolage bold, tracking cerrado (voz neutra FLEXR).
+   La itálica-black de la app vive solo en los mockups de la guía. */
 .v2-display {
   font-family: var(--v2-font-display);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
-.v2-root[data-theme="dark"] .v2-display {
+.v2-root.guia-phone[data-theme="dark"] .v2-display,
+.v2-root.guia-win[data-theme="dark"] .v2-display {
   font-weight: 900;
   font-style: italic;
   letter-spacing: -0.01em;
