@@ -38,6 +38,10 @@ import * as vivoFortime from './screens/vivo-fortime';
 import * as vivoAmrap from './screens/vivo-amrap';
 import * as vivoDobles from './screens/vivo-dobles';
 import * as watchVivo from './screens/watch-vivo';
+// La segunda vuelta del reloj (18-ago): `watch-vivo` ya resolvió el ANCHO del
+// numeral; `watch-legible` ataca el CROMO que se quedó a 9–11 pt y suma la
+// corona, el bloqueo por agua, Ahora/Después y terminar en modo espejo.
+import * as watchLegible from './screens/watch-legible';
 import * as resumenCarrera from './screens/resumen-carrera';
 import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
@@ -160,6 +164,7 @@ export const SCREENS: TwinScreenModule[] = [
   vivoAmrap,
   vivoDobles,
   watchVivo,
+  watchLegible,
   // Al terminar de correr (29-jul): un fartlek no tiene un ritmo, tiene dos, y
   // promediarlos da un número que no describe ningún momento de la carrera.
   // El sujeto lo decide la FORMA de lo que corriste (`tramos.ts`), no el
@@ -227,7 +232,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
     ],
   },
   { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera'] },
-  { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-resumen'] },
+  { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-legible', 'watch-resumen'] },
   {
     grupo: 'La muñeca, formato a formato',
     ids: [
