@@ -10,8 +10,11 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 el sistema FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C).
 Fase 1 hecha: tema claro perla único (muere dark+naranja del cromo),
 Bricolage+Figtree, sidebar flotante con slot de tenant y sello FLEXR.
-Siguen: casa=/atletas (toggle tarjetas/tabla + franja triage), restyle por
-pantalla, barrido y QA con Chrome. Ver DECISIONS.md 2026-08-19. iOS/doble/
+Editor de día/sesión restyleado (`components/v2/editor/**` + `sesion/`):
+carril de días, hoja del día, compositor, biblioteca y archetype-forms a
+tokens FLEXR; solo presentación, mecánica/gate/guardado intactos.
+Siguen: casa=/atletas (toggle tarjetas/tabla + franja triage), resto de
+pantallas, barrido y QA con Chrome. Ver DECISIONS.md 2026-08-19. iOS/doble/
 landing intactos.
 
 **UX coach (solo lectura, 18-ago):** el hueco es que el estado no se
