@@ -2,7 +2,7 @@
 
 // PrescriptionFields — THE adaptive prescription editor (spec PRESCRIPTION
 // MODEL). ONE component, reused across SCREEN 5 (session editor), SCREEN 8 (day
-// editor) and SCREEN 9 (add-block modal). Three SegmentedControls drive the
+// editor) and SCREEN 9 (add-block modal). Three axis chip groups drive the
 // fields:
 //   ① MODALIDAD   (Carrera | Ergómetro | Fuerza | Circuito)
 //   ② CÓMO SE MIDE (Distancia | Tiempo | Reps | Calorías)
@@ -22,7 +22,7 @@
 import { useId } from 'react';
 import type { Modality, Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
-import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import {
   axesOf,
   applyErgSubmodality,
@@ -96,15 +96,16 @@ export function PrescriptionFields({
           ejercicio la determina. */}
       {lockedModality ? null : (
         <Axis label="Modalidad">
-          <SegmentedControl
+          <ChipGroup
+            mono={false}
             options={MODALIDAD_OPTIONS}
             value={axes.modalidad}
             onChange={(m) => onChange(applyModalidad(value, m))}
             ariaLabel="Modalidad"
           />
           {axes.modalidad === 'ergo' ? (
-            <SegmentedControl
-              size="sm"
+            <ChipGroup
+              mono={false}
               options={ERGO_SUBMODALITIES.map((o) => ({ value: o.value, label: o.label }))}
               value={
                 value.modality === 'row' || value.modality === 'ski' || value.modality === 'bike'
@@ -121,7 +122,8 @@ export function PrescriptionFields({
 
       {/* ── ② CÓMO SE MIDE ──────────────────────────────────────────────── */}
       <Axis label="Cómo se mide">
-        <SegmentedControl
+        <ChipGroup
+          mono={false}
           options={medidaOptions}
           value={
             medidaOptions.some((o) => o.value === axes.medida)
@@ -140,7 +142,8 @@ export function PrescriptionFields({
           edita TargetCell. */}
       {!isStrength ? (
         <Axis label="Contra qué objetivo">
-          <SegmentedControl
+          <ChipGroup
+            mono={false}
             options={objetivoOptions}
             value={
               objetivoOptions.some((o) => o.value === axes.objetivo)

@@ -70,7 +70,7 @@ export function BlockEditorDrawer({
         aria-label={`Editar bloque ${block.title || 'sin nombre'}`}
         tabIndex={-1}
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-[min(680px,94vw)] flex-col border-l border-[color:var(--v2-border-strong)] bg-[color:var(--v2-bg)] shadow-[var(--v2-shadow-pop)]',
+          'fixed inset-y-0 right-0 z-50 flex w-[min(680px,94vw)] flex-col border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]',
           'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
           open ? 'translate-x-0' : 'translate-x-full',
         )}

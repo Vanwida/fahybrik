@@ -75,7 +75,7 @@ export function OptionalBadge({
   onToggle?: () => void;
 }) {
   const base =
-    'v2-focus inline-flex shrink-0 items-center rounded-[var(--v2-r-2xs)] px-1.5 py-[3px] text-[9px] font-extrabold uppercase leading-none tracking-wide transition-colors';
+    'v2-focus inline-flex shrink-0 items-center rounded-[var(--v2-r-2xs)] px-1.5 py-[3px] text-nano font-extrabold uppercase leading-none tracking-wide transition-colors';
   const onStyle =
     'border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)]';
 
@@ -286,7 +286,7 @@ export function CompositorHeader({
           placeholder={archetype?.defaultTitle ?? 'Nombre del bloque'}
           aria-label="Nombre del bloque"
           onChange={(e) => onChange({ ...block, title: e.target.value })}
-          className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-[26px] text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
+          className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-2xl text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
         />
         {shown || showOptionalToggle ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -378,7 +378,7 @@ export function QuickDoseLine({
           onKeyDown={(e) => {
             if (e.key === 'Enter') submit();
           }}
-          className="v2-num h-9 w-full bg-transparent text-[13px] outline-none placeholder:font-sans placeholder:text-[color:var(--v2-faint)]"
+          className="v2-num h-9 w-full bg-transparent text-body outline-none placeholder:font-sans placeholder:text-[color:var(--v2-faint)]"
         />
       </div>
       {error ? (
