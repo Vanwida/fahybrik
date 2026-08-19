@@ -15,7 +15,7 @@ export function UnderConstruction({ title, icon }: { title: string; icon: string
         </span>
         <p className="text-sm font-semibold text-[color:var(--v2-fg)]">En construcción</p>
         <p className="w-full max-w-sm text-pretty text-xs leading-relaxed text-[color:var(--v2-muted)]">
-          Esta pantalla llega en este build. Hoy ya está completa — el resto de la nueva versión se
+          Esta pantalla llega en este build. Hoy ya está completa; el resto de la nueva versión se
           construye a continuación.
         </p>
       </div>

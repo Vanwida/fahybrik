@@ -31,11 +31,11 @@ const CADENCE_OPTIONS: ReadonlyArray<SegmentOption<ReviewCadence>> = REVIEW_CADE
 }));
 
 const JOIN_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 const ACTION_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50';
+  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50';
 const CANCEL_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-2 text-body font-semibold text-[color:var(--v2-danger)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50';
+  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2 text-body font-semibold text-[color:var(--v2-danger)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50';
 
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);

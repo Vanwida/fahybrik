@@ -145,7 +145,7 @@ export function ClasificacionCard({
                   aria-pressed={active}
                   title={lvl.label}
                   className={cn(
-                    'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
+                    'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
                     active
                       ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                       : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -177,7 +177,7 @@ export function ClasificacionCard({
                 onClick={() => chooseDays(d)}
                 aria-pressed={active}
                 className={cn(
-                  'v2-focus inline-flex h-8 w-10 items-center justify-center rounded-[var(--v2-r-s)] border text-sm font-semibold transition-colors disabled:opacity-50',
+                  'v2-focus inline-flex h-8 w-10 items-center justify-center rounded-[var(--v2-r-pill)] border text-sm font-semibold transition-colors disabled:opacity-50',
                   active
                     ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                     : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',

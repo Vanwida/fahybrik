@@ -35,7 +35,7 @@ export function AtletaTab({
             key={s.id}
             href={`/atletas/${header.athlete_id}?tab=atleta&vista=${s.id}`}
             className={cn(
-              'v2-focus rounded-full px-3 py-1 text-[12.5px] font-semibold',
+              'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-[12.5px] font-semibold',
               seccion === s.id
                 ? 'bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
                 : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -51,7 +51,7 @@ export function AtletaTab({
           {header.status === 'alta' ? (
             <Link
               href={`/atletas/${header.athlete_id}/intake`}
-              className="v2-focus flex items-center justify-between gap-3 rounded-[14px] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-4 py-3 text-[13px] font-semibold"
+              className="v2-focus flex items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-4 py-3 text-[13px] font-semibold"
             >
               Intake pendiente de revisión
               <span className="text-[color:var(--v2-accent)]">Revisar →</span>

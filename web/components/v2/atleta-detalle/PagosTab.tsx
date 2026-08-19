@@ -117,7 +117,7 @@ function PriceEditor({
             setStatus('idle');
             setEditing(true);
           }}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="edit" size={14} /> Editar
         </button>
@@ -153,14 +153,14 @@ function PriceEditor({
           type="button"
           disabled={status === 'saving'}
           onClick={() => void save()}
-          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
         >
           {status === 'saving' ? 'Guardando…' : 'Guardar'}
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-2.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-2.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           Cancelar
         </button>
