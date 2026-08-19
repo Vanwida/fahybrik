@@ -34,7 +34,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Montar la semana es solo la mitad. La otra mitad es <b>lo que vuelve</b>: tu atleta
           entrena, marca con honestidad cómo le fue, y tú lo ves en el panel como adherencia y
-          estado. Este es el círculo completo — y por qué no necesitas perseguir a nadie por WhatsApp
+          estado. Este es el círculo completo, y por qué no necesitas perseguir a nadie por WhatsApp
           para saber si cumplió.
         </>
       }
@@ -64,7 +64,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque un plan sin respuesta es ir a ciegas. El estado honesto te dice a quién empujar, a
-            quién progresar y a quién dar margen — hoy, no la semana que viene.
+            quién progresar y a quién dar margen, hoy, no la semana que viene.
           </>
         }
       />
@@ -73,7 +73,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         En su Plan, cada día muestra un estado claro: <span style={OK}>hecha</span>,{' '}
         <span style={WARN}>parcial</span>, <span style={DNG}>no hecha</span> o pendiente. Puede
-        corregirlo desde un menú por sesión — y si deshace algo que ya tenía trabajo registrado, la
+        corregirlo desde un menú por sesión, y si deshace algo que ya tenía trabajo registrado, la
         app le avisa de que se borrará. Está pensado a propósito: marcar a medias o no hecho es tan
         fácil como marcar hecho.
       </p>
@@ -83,7 +83,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Hay dos caminos, ambos válidos. Si entrena con el cronómetro, la app guarda lo medido
         (tiempo, pulso, zonas). Si lo hizo por su cuenta, usa{' '}
         <code>Ya lo hice · registrar sin cronómetro</code> y lo anota a mano: duración, resultado,{' '}
-        <b>RPE (esfuerzo del 1 al 10)</b> y notas. No se inflan datos que no existen — lo que no se
+        <b>RPE (esfuerzo del 1 al 10)</b> y notas. No se inflan datos que no existen: lo que no se
         midió, no se inventa.
       </p>
 
@@ -172,8 +172,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Registrar.</b> Cuando entrenó sin reloj, anota lo que sí sabe — duración, RPE, notas
-              — y deja en blanco lo que no midió. Sin inventar nada.
+              <b>Registrar.</b> Cuando entrenó sin reloj, anota lo que sí sabe (duración, RPE, notas)
+              y deja en blanco lo que no midió. Sin inventar nada.
             </>
           }
         >
@@ -237,8 +237,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · Y tú lo ves de vuelta</h3>
       <p>
         Todo eso vuelve a ti sin que tu atleta tenga que escribirte. En su ficha, la pestaña{' '}
-        <b>Plan</b> muestra cada sesión con su estado — <span style={OK}>Completada</span>,{' '}
-        <span style={WARN}>Pendiente</span>, <span style={DNG}>Perdida</span> — y su RPE. Arriba, un{' '}
+        <b>Plan</b> muestra cada sesión con su estado (<span style={OK}>Completada</span>,{' '}
+        <span style={WARN}>Pendiente</span>, <span style={DNG}>Perdida</span>) y su RPE. Arriba, un{' '}
         <b>% de adherencia</b> resume su constancia. Y en tu pantalla <code>/hoy</code>, quien falla
         sesiones aparece solo en la cola <em className="em">“Falló sesiones”</em>, para que sepas a
         quién atender primero.
@@ -248,7 +248,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           Hoy el panel es tu <b>ventana de lectura</b>: ves los resultados, pero quien marca y
           corrige cada sesión es el atleta desde su móvil. Tú interpretas y decides (a quién
-          progresar, a quién empujar); él lo registra. Es a propósito — el dato es suyo, la lectura
+          progresar, a quién empujar); él lo registra. Es a propósito: el dato es suyo, la lectura
           es tuya.
         </p>
       </DocNote>
@@ -325,7 +325,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p style={{ marginTop: '18px' }}>
         Ese es el círculo entero: <b>tú montas → tu atleta hace y marca → tú ves y decides</b>. El
-        resto de la guía aplica esta misma lógica de “los dos lados” a cada parte del panel — desde
+        resto de la guía aplica esta misma lógica de “los dos lados” a cada parte del panel, desde
         tu biblioteca hasta las carreras.
       </p>
     </DocSection>

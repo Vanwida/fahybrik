@@ -109,8 +109,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque una pareja entrena como equipo pero se mide como dos. Verse en vivo los <b>engancha
-            juntos</b>, y el registro honesto —<b>prescrito 60 · hecho 60</b>, nunca un falso
-            «escalado»— mantiene <b>limpia</b> tu analítica.
+            juntos</b>, y el registro honesto (<b>prescrito 60 · hecho 60</b>, nunca un falso
+            «escalado») mantiene <b>limpia</b> tu analítica.
           </>
         }
       />
@@ -121,7 +121,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <em className="em">«Marc está entrenando ahora»</em> con un botón para <b>unirse</b>. Durante
         el entreno, una <b>franja azul</b> muestra el <b>ejercicio actual</b> del compañero, su{' '}
         <b>progreso</b> y su <b>pulso</b>, que se refrescan cada <b>~5&nbsp;segundos</b>. Es honesta:
-        si se <b>corta la señal</b>, lo dice —no congela un dato falso—. Y tú no tienes que tocar nada:
+        si se <b>corta la señal</b>, lo dice (no congela un dato falso). Y tú no tienes que tocar nada:
         va sobre la pareja de dobles que <b>ya está conectada</b>.
       </p>
 
@@ -129,7 +129,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="En directo, mientras tu pareja entrena"
         subtitle={
           <>
-            La presencia del compañero y su <b>franja en vivo</b> viven en la app del atleta —{' '}
+            La presencia del compañero y su <b>franja en vivo</b> viven en la app del atleta,{' '}
             <b>solo lo que existe de verdad</b>: ejercicio, progreso, pulso, y un aviso claro si la
             señal se corta.
           </>
@@ -269,8 +269,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · El relevo, dirigido estación a estación</h3>
       <p>
         En una <b>simulación HYROX de pareja</b>, la app <b>dirige el relevo</b> con el <b>reparto que
-        pactasteis</b> en la vista de carrera: te dice cuándo entras, cuánto te toca y quién sigue —{' '}
-        <em className="em">«Te toca a ti · 60 de 100 · luego Marc 40»</em>—. Al entrar, el{' '}
+        pactasteis</b> en la vista de carrera: te dice cuándo entras, cuánto te toca y quién sigue:{' '}
+        <em className="em">«Te toca a ti · 60 de 100 · luego Marc 40»</em>. Al entrar, el{' '}
         <b>Apple Watch</b> te avisa con una <b>doble háptica</b>, para que no tengas que mirar la
         pantalla. Y el <b>registro respeta el pacto</b>: cada atleta apunta <b>sus reps</b>, no el
         total. En tu panel verás <b>prescrito 60 · hecho 60</b>, nunca un falso «escalado» que infle a
@@ -399,7 +399,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="log" title="Cada uno apunta lo suyo">
         <p>
           El reparto pactado manda también en el <b>registro</b>: si a Laia le tocaban <b>60</b> wall
-          balls, su ficha marca <b>prescrito 60 · hecho 60</b> —no las 100 de la estación—. Así la
+          balls, su ficha marca <b>prescrito 60 · hecho 60</b> (no las 100 de la estación). Así la
           carga de cada atleta se mide <b>de verdad</b>, sin que un relevo infle a nadie.
         </p>
       </DocNote>
@@ -575,7 +575,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p style={{ marginTop: '18px' }}>
         La pareja ya no solo comparte plan y reparto: <b>se acompaña en directo</b>, se <b>reparte el
         relevo</b> sin mirar el móvil y <b>celebra junta</b> al acabar. Tú no mueves un dedo para
-        encenderlo —y sigues leyendo a cada uno por separado, con los <b>números que de verdad
+        encenderlo, y sigues leyendo a cada uno por separado, con los <b>números que de verdad
         hizo</b>.
       </p>
     </DocSection>

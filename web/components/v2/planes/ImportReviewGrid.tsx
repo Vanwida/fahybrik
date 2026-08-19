@@ -384,7 +384,7 @@ export function ImportReviewGrid({
                     disabled={!week.included}
                     className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-50"
                   >
-                    <option value="">— elige semana —</option>
+                    <option value="">(elige semana)</option>
                     {microWeeks.map((mw) => (
                       <option key={mw.id} value={mw.id}>
                         S{mw.index + 1}

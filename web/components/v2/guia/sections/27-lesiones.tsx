@@ -95,7 +95,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Cuando tu atleta se lesiona, lo <b>registras</b>, se ve <b>de un vistazo en tu roster</b> y{' '}
           <b>adaptas su plan sin perder el hilo</b>. Cada episodio es una ficha propia con su
-          evolución — y los días de reposo o las sesiones adaptadas <b>no cuentan como fallo</b>.
+          evolución, y los días de reposo o las sesiones adaptadas <b>no cuentan como fallo</b>.
         </>
       }
     >
@@ -110,7 +110,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         como={
           <>
             La registras tú o el atleta desde la ficha (<b>Registrar</b>). Mueves su estado según se
-            recupera, <b>adaptas sesiones</b> y —si es severa o larga— <b>pausas el plan</b>. Todo
+            recupera, <b>adaptas sesiones</b> y (si es severa o larga) <b>pausas el plan</b>. Todo
             queda en el mismo panel.
           </>
         }
@@ -137,7 +137,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Mientras una lesión esté <b>abierta</b>, el atleta lleva un badge en tu roster:{' '}
         <b style={{ color: TONE.danger }}>Lesión · Rodilla</b> si está activa,{' '}
         <b style={{ color: TONE.warn }}>En retorno · Isquios</b> si está en recuperación. Cuando la
-        marcas <b>resuelta</b>, el badge desaparece y el episodio pasa al histórico — nada se borra.
+        marcas <b>resuelta</b>, el badge desaparece y el episodio pasa al histórico, nada se borra.
       </p>
 
       {/* Dashboard mockup: la ficha con el InjuryPanel + el roster con el badge */}
@@ -271,7 +271,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </div>
       </DashboardMockup>
 
-      <DocNote variant="log" title="El badge sale solo — y el histórico se queda">
+      <DocNote variant="log" title="El badge sale solo, y el histórico se queda">
         <ul>
           <li>
             Solo las lesiones <span className="k">abiertas</span> muestran badge:{' '}
@@ -305,7 +305,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Hoy la lesión la <b>registras tú</b> desde la ficha (el atleta ya declara sus molestias en
-            el onboarding). El <b>auto-parte desde la app</b> —que el propio atleta abra el episodio— ya
+            el onboarding). El <b>auto-parte desde la app</b> (que el propio atleta abra el episodio) ya
             tiene su backend listo; la pantalla dentro de la app llega muy pronto.
           </>
         }
@@ -319,7 +319,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             </li>
             <li>
               Lo que el atleta <b>sí ve hoy</b>: si una lesión severa congela su plan, aparece la
-              tarjeta <span className="k">«Tu plan está en pausa»</span> (ver <b>Pausas y bajas</b>) —
+              tarjeta <span className="k">«Tu plan está en pausa»</span> (ver <b>Pausas y bajas</b>),
               sin sesiones caducadas y con su progreso guardado.
             </li>
           </ul>

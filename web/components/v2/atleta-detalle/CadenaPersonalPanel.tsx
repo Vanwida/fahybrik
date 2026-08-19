@@ -148,7 +148,7 @@ export function CadenaPersonalPanel({
       />
     ) : (
       <span className="mt-1.5 inline-flex items-center gap-1 text-eyebrow font-medium text-[color:var(--v2-faint)]">
-        <MIcon name="menu_book" size={12} /> De la biblioteca — no se edita aquí
+        <MIcon name="menu_book" size={12} /> De la biblioteca, no se edita aquí
       </span>
     ),
   }));
@@ -279,7 +279,7 @@ function ControlesMicrociclo({
       </div>
       {node.executed_count > 0 ? (
         <span className="text-eyebrow text-[color:var(--v2-faint)]">
-          {node.executed_count === 1 ? '1 sesión hecha' : `${node.executed_count} sesiones hechas`} — no
+          {node.executed_count === 1 ? '1 sesión hecha' : `${node.executed_count} sesiones hechas`}, no
           se puede mover
           {node.min_week_count != null && node.min_week_count > 0
             ? ` ni acortar de ${node.min_week_count} ${node.min_week_count === 1 ? 'semana' : 'semanas'}`

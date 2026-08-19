@@ -79,7 +79,7 @@ export function AnadirMicrocicloModal({
         </div>
         <div className="flex flex-col gap-3.5">
           <p className="text-xs text-[color:var(--v2-muted)]">
-            Se engancha justo detrás del último microciclo que este atleta ya tiene asignado — sin
+            Se engancha justo detrás del último microciclo que este atleta ya tiene asignado, sin
             hueco ni solape.
           </p>
           <label className="flex flex-col gap-1">

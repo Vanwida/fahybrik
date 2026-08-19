@@ -256,7 +256,7 @@ export function EjercicioEditor({
                 </span>
               ) : (
                 <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
-                  Será tuyo — sólo tú lo verás.
+                  Será tuyo: sólo tú lo verás.
                 </p>
               )}
             </div>

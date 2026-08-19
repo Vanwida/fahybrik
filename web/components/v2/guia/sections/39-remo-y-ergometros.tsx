@@ -166,8 +166,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           El remo y el SkiErg no son «cardio de relleno»: son estaciones de HYROX que se ganan o se
           pierden por vatios. Con el <b>monitor PM5 de Concept2</b> enlazado, la app deja de estimar y
-          registra <b>cada intervalo entero</b> —ritmo <b>/500m</b>, paladas, <b>vatios</b>, drag y
-          calorías—, te lo enseña en una <b>tabla estilo ErgData</b> a ti y a tu atleta, y saca{' '}
+          registra <b>cada intervalo entero</b> (ritmo <b>/500m</b>, paladas, <b>vatios</b>, drag y
+          calorías), te lo enseña en una <b>tabla estilo ErgData</b> a ti y a tu atleta, y saca{' '}
           <b>analíticas de potencia y calorías con tendencia</b>. Tú prescribes el ergo como siempre.
         </>
       }
@@ -176,8 +176,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             El <b>ergo a fondo</b>: con el <b>PM5</b> conectado (remo, SkiErg o bici Concept2), la app
-            lee <b>cada split</b> del monitor —tiempo, distancia, <b>/500m</b>, paladas, <b>vatios</b>,
-            descanso, <b>drag factor</b> y calorías— y lo guarda con la sesión.
+            lee <b>cada split</b> del monitor (tiempo, distancia, <b>/500m</b>, paladas, <b>vatios</b>,
+            descanso, <b>drag factor</b> y calorías) y lo guarda con la sesión.
           </>
         }
         como={
@@ -200,15 +200,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         El PM5 se conecta desde la <b>misma tarjeta «Dispositivos»</b> que la cinta (sección 34), antes
         de empezar o en un entreno libre. La app <b>busca los monitores cercanos y los lista por
-        nombre</b> con su señal; tu atleta <b>toca el suyo</b> —nunca se engancha sola al primero, que
-        en una sala con cuatro remos importa—. Desde ahí ve el stream en vivo, y tiene siempre a mano{' '}
+        nombre</b> con su señal; tu atleta <b>toca el suyo</b> (nunca se engancha sola al primero, que
+        en una sala con cuatro remos importa). Desde ahí ve el stream en vivo, y tiene siempre a mano{' '}
         <b>«Desconectar»</b> y <b>«Olvidar dispositivo»</b>. Habla el <b>perfil propio del PM5</b> de
         Concept2 (no el FTMS de la cinta), así que lee lo que el monitor calcula, sin inventar nada.
       </p>
 
       <DocNote variant="cue" title="Un monitor, tres ergos">
         <p>
-          El mismo PM5 monta el <b>remo</b>, el <b>SkiErg</b> y la <b>BikeErg</b> de Concept2 — la app
+          El mismo PM5 monta el <b>remo</b>, el <b>SkiErg</b> y la <b>BikeErg</b> de Concept2: la app
           los trata igual: se conecta, lee los splits y los guarda con la <b>modalidad</b> de la
           estación. Lo que prescribas como remo, ski o bici <b>casa solo</b> con el aparato que enlaza
           tu atleta.
@@ -220,8 +220,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Con el PM5 conectado, cada intervalo que marca el monitor entra <b>completo</b>: su{' '}
         <b>tiempo</b> y <b>distancia</b>, el <b>ritmo /500m</b> (la unidad del remo, no /km), las{' '}
         <b>paladas por minuto</b>, los <b>vatios medios</b>, las <b>calorías</b> y el <b>descanso</b>{' '}
-        entre series. Y dos que solo da el monitor: el <b>drag factor</b> —la resistencia real del
-        ventilador, para comparar de un día a otro— y las <b>calorías/hora</b>. Tu atleta lo ve al
+        entre series. Y dos que solo da el monitor: el <b>drag factor</b> (la resistencia real del
+        ventilador, para comparar de un día a otro) y las <b>calorías/hora</b>. Tu atleta lo ve al
         cerrar, en una tabla como la de <b>ErgData</b>.
       </p>
 
@@ -229,8 +229,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="La tabla de intervalos, en su móvil"
         subtitle={
           <>
-            Al cerrar la sesión, cada split con su <b>/500m</b>, paladas y calorías —y el descanso
-            entre series—, tal cual lo dio el PM5. Nada estimado.
+            Al cerrar la sesión, cada split con su <b>/500m</b>, paladas y calorías (y el descanso
+            entre series), tal cual lo dio el PM5. Nada estimado.
           </>
         }
       >
@@ -348,7 +348,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="Una sola verdad, atleta y coach">
         <p>
-          La tabla de tu atleta y la tuya salen del <b>mismo dato</b> que mandó el PM5 con la sesión —
+          La tabla de tu atleta y la tuya salen del <b>mismo dato</b> que mandó el PM5 con la sesión:
           no se recalcula ni se redondea distinto en cada lado. Si a él le sale 236 W en la serie 2, a
           ti también.
         </p>
@@ -356,8 +356,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>4 · Potencia y calorías, con tendencia</h3>
       <p>
-        Cuando hay varias sesiones de ergo, la app le arma a tu atleta —en su pestaña de{' '}
-        <b>Analíticas</b>, con selector <b>Remo / SkiErg / Bici</b>— dos cosas nuevas: la{' '}
+        Cuando hay varias sesiones de ergo, la app le arma a tu atleta (en su pestaña de{' '}
+        <b>Analíticas</b>, con selector <b>Remo / SkiErg / Bici</b>) dos cosas nuevas: la{' '}
         <b>tendencia de potencia</b> (los vatios medios de las últimas sesiones, en una línea) y el{' '}
         <b>volumen de calorías</b>. Es la lectura que faltaba: no «hice remo», sino <b>si mis vatios
         suben</b> semana a semana. Necesita al menos <b>dos sesiones</b> con PM5 para dibujar la línea;
@@ -376,7 +376,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Tendencia de potencia.</b> Vatios medios por sesión de remo — la señal de que el motor
+              <b>Tendencia de potencia.</b> Vatios medios por sesión de remo: la señal de que el motor
               mejora, no solo de que entrenó.
             </>
           }
@@ -451,7 +451,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           Todo esto vive del <b>PM5 físico en rango</b>: es él quien calcula vatios, drag y /500m. Sin
           monitor conectado, tu atleta registra el ergo <b>a mano</b> como siempre (distancia o tiempo)
-          y esas tablas y tendencias <b>no aparecen</b> — la app no rellena splits ni potencia que no
+          y esas tablas y tendencias <b>no aparecen</b>: la app no rellena splits ni potencia que no
           midió. Si no ves la tabla, es que esa sesión no se corrió con PM5.
         </p>
       </DocNote>

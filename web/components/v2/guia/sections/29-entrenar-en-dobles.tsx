@@ -144,7 +144,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Dos atletas, una pareja. Comparten sesión, se <b>reparten las estaciones</b> y compiten a
-          la vez — y tú lo lees todo desde un sitio. El sistema los trata como <b>una unidad</b> donde
+          la vez, y tú lo lees todo desde un sitio. El sistema los trata como <b>una unidad</b> donde
           entrenan juntos, sin dejar de medir a cada uno por separado donde toca.
         </>
       }
@@ -167,7 +167,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque una pareja de dobles entrena como equipo pero rinde como dos. Necesitas verlos
-            juntos <b>sin perder</b> el detalle de cada uno — y ellos, saber quién hace qué en cada
+            juntos <b>sin perder</b> el detalle de cada uno, y ellos, saber quién hace qué en cada
             estación.
           </>
         }
@@ -176,8 +176,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · Una pareja de verdad: emparejamiento por invitación</h3>
       <p>
         Un atleta <b>invita</b> a su pareja con un enlace, o acepta la invitación que recibe. La
-        invitación pasa por estados honestos — <code>pendiente</code>, <code>aceptada</code>,{' '}
-        <code>caducada</code>, <code>cancelada</code>, <code>rechazada</code> — y, al aceptarse, la
+        invitación pasa por estados honestos: <code>pendiente</code>, <code>aceptada</code>,{' '}
+        <code>caducada</code>, <code>cancelada</code>, <code>rechazada</code>; y, al aceptarse, la
         pareja queda enlazada por ambos lados. Esa pareja es la <b>fuente de verdad</b>: gobierna el
         entreno, las cuentas y la facturación. Deshacer el par <b>conserva el historial</b> de los
         dos.
@@ -186,7 +186,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · El reparto de estaciones es de la pareja</h3>
       <p>
         El reparto sale de la <b>simulación de dobles</b> que montas tú: quién hace cada una de las 8
-        estaciones. Pero es <b>de la pareja</b>, no solo tuyo — tú lo recomiendas con el botón{' '}
+        estaciones. Pero es <b>de la pareja</b>, no solo tuyo: tú lo recomiendas con el botón{' '}
         <code>Reparto</code>, y <b>cualquiera de los dos atletas</b> puede ajustarlo desde su app
         (gana el último cambio). Cada surface muestra <em className="em">quién lo tocó</em>:{' '}
         <em className="em">«Propuesta de Pablo»</em> o <em className="em">«Ajustado por Laia»</em>.
@@ -195,8 +195,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · El relevo no es tu volumen</h3>
       <p>
         En el entreno conjunto, mientras tu compañero trabaja su estación tú ves la pantalla de{' '}
-        <b>RELEVO</b>: recuperas y sigues su cronómetro. Ese tiempo <b>nunca cuenta como tu volumen</b>{' '}
-        — el motor no registra nada ahí; solo tu mitad del trabajo es tuya. Así la analítica de cada
+        <b>RELEVO</b>: recuperas y sigues su cronómetro. Ese tiempo <b>nunca cuenta como tu volumen</b>:
+        el motor no registra nada ahí; solo tu mitad del trabajo es tuya. Así la analítica de cada
         atleta sigue siendo honesta aunque la sesión sea a dos.
       </p>
 
@@ -288,13 +288,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           Tú recomiendas el reparto con <code>Reparto</code>, pero es de la pareja: <b>Marc o Laia</b>{' '}
           pueden reajustarlo desde su app cuando les convenga. Gana el último cambio, y siempre queda
-          registrado quién lo tocó — así nadie edita a espaldas del otro.
+          registrado quién lo tocó, así nadie edita a espaldas del otro.
         </p>
       </DocNote>
 
       <DocNote variant="log" title="El relevo no cuenta como volumen propio">
         <p>
-          La pantalla de <b>relevo</b> —cuando descansas mientras tu pareja trabaja su estación— no
+          La pantalla de <b>relevo</b> (cuando descansas mientras tu pareja trabaja su estación) no
           registra trabajo. Solo tu mitad computa como tuya. La carga de cada atleta se mide de
           verdad, no inflada por lo que hizo el otro.
         </p>
@@ -312,7 +312,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Los dos, en su móvil"
         subtitle={
           <>
-            El emparejamiento, el entreno a la vez y el relevo viven en la app de cada atleta —{' '}
+            El emparejamiento, el entreno a la vez y el relevo viven en la app de cada atleta:{' '}
             <b>solo lo que existe de verdad</b>, sin inventos.
           </>
         }
@@ -517,11 +517,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Cuando la carrera objetivo es de dobles y el atleta tiene <b>pareja activa</b>, el mismo
         camino al objetivo se convierte en un <b>board de pareja</b>: el predicho total de los dos
-        contra la meta, tramo a tramo, con el mismo origen honesto de cada cifra —<b>observado</b>,{' '}
-        <b>estimado</b> o <b>sin datos</b>—. La diferencia es que cada tramo dice además{' '}
+        contra la meta, tramo a tramo, con el mismo origen honesto de cada cifra: <b>observado</b>,{' '}
+        <b>estimado</b> o <b>sin datos</b>. La diferencia es que cada tramo dice además{' '}
         <em className="em">quién lo hace</em>. En las dos carreras y en la <b>RoxZone</b> van siempre{' '}
         <b>juntos</b>: manda el más lento, porque ahí no hay reparto que valga. En las 8 estaciones
-        manda el <b>reparto</b> que fijasteis — uno de los dos entero, o <b>repartida</b> entre
+        manda el <b>reparto</b> que fijasteis: uno de los dos entero, o <b>repartida</b> entre
         ambos según su share. Un tramo sin datos de ninguno de los dos se queda en{' '}
         <b>sin datos</b>, nunca en un número inventado para cuadrar el total.
       </p>
@@ -529,11 +529,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>5 · Los consejos de dobles son tuyos</h3>
       <p>
         Debajo del board (y de la simulación conjunta) el atleta lee unos <b>consejos</b> que son
-        tuyos: los editas desde <b>Atletas → Dobles</b>, en dos bloques separados — uno para el{' '}
-        <b>día de carrera</b>, otro para la <b>simulación</b> —, hasta ocho frases por bloque.
+        tuyos: los editas desde <b>Atletas → Dobles</b>, en dos bloques separados (uno para el{' '}
+        <b>día de carrera</b>, otro para la <b>simulación</b>), hasta ocho frases por bloque.
         Mientras no los toques, la pareja ve un <b>default con sentido</b> (ritmo, roles del relevo,
         repasar el reparto la víspera), nunca una pantalla vacía. En cuanto editas uno, ese pasa a
-        ser el que ve tu pareja — el otro bloque sigue con su propio default hasta que también lo
+        ser el que ve tu pareja. El otro bloque sigue con su propio default hasta que también lo
         edites.
       </p>
 
@@ -542,7 +542,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Con la meta puesta en la carrera de dobles, la pareja ve su <b>predicho contra meta</b>{' '}
-            y quién hace cada tramo — <b>juntos</b>, <b>repartida</b> o, si toca, <b>sin datos</b>{' '}
+            y quién hace cada tramo: <b>juntos</b>, <b>repartida</b> o, si toca, <b>sin datos</b>{' '}
             todavía.
           </>
         }
@@ -599,7 +599,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="Sin datos, nunca inventado">
         <p>
-          Si a la pareja le falta historial en un tramo —propio o del compañero— el board lo dice
+          Si a la pareja le falta historial en un tramo (propio o del compañero) el board lo dice
           tal cual: <b>sin datos</b>. El total mantiene ese tramo en su presupuesto en vez de
           rellenarlo con un número que no existe.
         </p>
@@ -608,7 +608,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Ponle un objetivo a la carrera de dobles">
         <p>
           El board solo aparece con la carrera objetivo <b>marcada como meta</b> y la pareja{' '}
-          <b>activa</b>. En cuanto la pongas, la pareja ve su reparto contra meta en minutos — sin
+          <b>activa</b>. En cuanto la pongas, la pareja ve su reparto contra meta en minutos: sin
           ella, no hay contra qué medir.
         </p>
       </DocNote>

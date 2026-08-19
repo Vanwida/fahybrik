@@ -282,7 +282,7 @@ export function TestEditorPanel({
              de los tests. Picar uno lo deja montado y rellena el nombre. */
           <div className="@container">
             <p className="mb-3 text-label leading-snug text-[color:var(--v2-faint)]">
-              <b className="text-[color:var(--v2-muted)]">Atajos</b> — picas uno y
+              <b className="text-[color:var(--v2-muted)]">Atajos</b>: picas uno y
               queda montado. ¿Otra cosa (10 min de remo, 40 cal, lo que sea)? Dale
               a <b className="text-[color:var(--v2-accent)]">Añadir ejercicio</b>{' '}
               y lo montas tú: ejercicio, medida (distancia · tiempo · calorías ·
@@ -493,7 +493,7 @@ export function TestEditorPanel({
                       setSchedule(i, { rest_days_after: (s.rest_days_after ?? 0) > 0 ? 0 : 1 })
                     }
                     aria-pressed={(s.rest_days_after ?? 0) > 0}
-                    title="Deja un día libre detrás — para un test que fatiga"
+                    title="Deja un día libre detrás (para un test que fatiga)"
                     className={cn(
                       'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors',
                       (s.rest_days_after ?? 0) > 0

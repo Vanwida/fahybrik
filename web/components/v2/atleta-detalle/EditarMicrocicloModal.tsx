@@ -140,7 +140,7 @@ export function EditarMicrocicloModal({
             />
             {effectiveMin > 1 ? (
               <span className="text-eyebrow text-[color:var(--v2-faint)]">
-                No puedes bajar de {effectiveMin} {effectiveMin === 1 ? 'semana' : 'semanas'} — las
+                No puedes bajar de {effectiveMin} {effectiveMin === 1 ? 'semana' : 'semanas'}: las
                 últimas ya tienen sesiones hechas.
               </span>
             ) : (

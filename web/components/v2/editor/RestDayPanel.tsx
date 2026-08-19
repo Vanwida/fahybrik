@@ -88,7 +88,7 @@ export function RestDayPanel({
           <span className="v2-display text-lg text-[color:var(--v2-fg)]">Día de descanso</span>
         </div>
         <p className="max-w-[384px] text-xs text-[color:var(--v2-muted)]">
-          Sugerencias de recuperación opcionales — siguen siendo descanso.
+          Sugerencias de recuperación opcionales. Siguen siendo descanso.
         </p>
       </div>
 

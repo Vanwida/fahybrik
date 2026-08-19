@@ -30,8 +30,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Cada ejercicio que pones en una sesión sale de tu <b>catálogo</b>: un movimiento con su
-          nombre, su tipo y, si quieres, tu <b>vídeo</b> y tus indicaciones. No escribes texto suelto
-          — eliges del catálogo, y eso es lo que tu atleta abre en el móvil para ver cómo se hace.
+          nombre, su tipo y, si quieres, tu <b>vídeo</b> y tus indicaciones. No escribes texto suelto:
+          eliges del catálogo, y eso es lo que tu atleta abre en el móvil para ver cómo se hace.
         </>
       }
     >
@@ -64,7 +64,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         filtras por tipo (<code>Fuerza</code>, <code>Cardio</code>, <code>HYROX</code>,{' '}
         <code>Core</code>, <code>Movilidad</code>…) y eliges. Arriba aparecen tus{' '}
         <em className="em">Recientes</em>, los que más usas. Cada movimiento ya trae su modalidad, y
-        al elegirlo la línea de la sesión queda enganchada a un ejercicio real — nada de nombres
+        al elegirlo la línea de la sesión queda enganchada a un ejercicio real: nada de nombres
         sueltos que se pierden al guardar.
       </p>
 
@@ -151,7 +151,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           El vídeo y las indicaciones que editas son <b>tuyos</b>: solo los ven tus atletas. El mismo
           ejercicio puede tener tu cue particular sin pisar el contenido base. Si lo dejas vacío, el
-          atleta ve el contenido base — nunca un hueco.
+          atleta ve el contenido base, nunca un hueco.
         </p>
       </DocNote>
 

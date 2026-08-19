@@ -63,7 +63,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         En tu lista de atletas, <code>Agregar atleta</code> abre una ficha breve:{' '}
         <code>Nombre completo</code>, <code>Email</code> y <code>Modalidad</code>. El email se valida
-        al vuelo — si no es válido, el botón no se activa. Eliges la modalidad con un toque y pulsas{' '}
+        al vuelo: si no es válido, el botón no se activa. Eliges la modalidad con un toque y pulsas{' '}
         <code>Crear e invitar</code>. Eso crea su sitio en tu panel con acceso completo, sin cobros.
       </p>
 
@@ -71,7 +71,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Tras crearlo, el panel te muestra el mensaje <em className="em">«Atleta creado»</em> y un{' '}
         enlace listo para <code>Copiar</code>. Es la llave de su cuenta: un solo uso y caduca. Si se
-        pierde o expira, lo <b>vuelves a generar</b> desde el perfil del atleta — nunca te quedas sin
+        pierde o expira, lo <b>vuelves a generar</b> desde el perfil del atleta, nunca te quedas sin
         forma de invitar.
       </p>
 
@@ -111,12 +111,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Dos formas de dar de alta">
         <ul>
           <li>
-            <span className="k">Agregar atleta</span> (lo de esta sección) — alta de{' '}
+            <span className="k">Agregar atleta</span> (lo de esta sección), alta de{' '}
             <b>cortesía</b>: acceso completo e inmediato, <b>sin cobro</b>. Tú generas el enlace y se
             lo mandas.
           </li>
           <li>
-            <span className="k">Dar de alta desde un lead</span> — desde la ficha del lead, tras la
+            <span className="k">Dar de alta desde un lead</span>: desde la ficha del lead, tras la
             videollamada. Ahí fijas el <b>precio acordado</b> y es el <b>pago</b> lo que activa su
             acceso. Ese camino de cobro vive en la sección <b>«Pagos»</b>.
           </li>
@@ -126,8 +126,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Modalidad: qué eliges y por qué">
         <ul>
           <li>
-            <span className="k">Individual</span> — compite solo. <span className="k">Dobles</span> —
-            corre en pareja (los splits son del equipo). <span className="k">Pro · Elite</span> —
+            <span className="k">Individual</span>: compite solo. <span className="k">Dobles</span>:
+            corre en pareja (los splits son del equipo). <span className="k">Pro · Elite</span>:
             categoría de máximo nivel.
           </li>
           <li>
@@ -195,7 +195,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Su primer día en la app"
         subtitle={
           <>
-            Nada más activar su cuenta —ya de pago o de cortesía—, el primer arranque es una{' '}
+            Nada más activar su cuenta (ya de pago o de cortesía), el primer arranque es una{' '}
             <b>bienvenida de ~30 segundos</b>, no un cuestionario: su perfil ya viajó desde el
             onboarding del funnel, así que aquí solo lo <b>confirma</b> antes de aterrizar en Inicio.
           </>
@@ -206,7 +206,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             <>
               <b>Su primer día.</b> Le saluda por su nombre y le devuelve el objetivo que puso en el
               funnel. El perfil ya está cargado: solo confirma. Los números finos los medirán sus{' '}
-              <b>tests de la semana 1</b> — sin formularios.
+              <b>tests de la semana 1</b>, sin formularios.
             </>
           }
         >
@@ -244,7 +244,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <div className="logcard" style={{ marginBottom: '10px' }}>
             <div className="lh">Tu punto de partida · semana 1</div>
             <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>
-              HYROX half-sim · 5 km · batería 1RM · remo 2K. Tus tests miden lo preciso — no hace
+              HYROX half-sim · 5 km · batería 1RM · remo 2K. Tus tests miden lo preciso, no hace
               falta que lo teclees.
             </div>
           </div>

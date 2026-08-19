@@ -37,7 +37,7 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
             style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
-            title="Borrador — aún no la has dado por buena"
+            title="Borrador: aún no la has dado por buena"
           >
             <MIcon name="edit_note" size={13} aria-hidden />
             borrador
@@ -68,7 +68,7 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
       {/* De qué está hecha */}
       <p className="mt-2 text-xs text-[color:var(--v2-muted)]">
         {sesion.segment_count === 0 ? (
-          <span className="text-[color:var(--v2-faint)]">Vacía — sin ejercicios todavía</span>
+          <span className="text-[color:var(--v2-faint)]">Vacía: sin ejercicios todavía</span>
         ) : (
           <>
             <span className="v2-num">{sesion.block_count}</span>{' '}

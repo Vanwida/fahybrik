@@ -17,7 +17,7 @@ export default function Section() {
         El panel y la app de tu atleta son{' '}
         <em className="em">la misma cosa vista desde dos lados</em>. Tú montas el trabajo desde el
         ordenador; tu atleta lo recibe en el teléfono, día a día. Esta guía está organizada por{' '}
-        <b>lo que tú quieres hacer</b> — no por menús ni botones — y en cada tema te enseñamos
+        <b>lo que tú quieres hacer</b>, no por menús ni botones, y en cada tema te enseñamos
         exactamente <b>cómo aparece en su móvil</b> lo que acabas de hacer.
       </p>
 
@@ -64,7 +64,7 @@ export default function Section() {
       <p style={{ marginTop: '14px' }}>A lo largo de la guía verás este bloque en cada tema:</p>
       <MovilBand
         title="Así lo ve tu atleta"
-        subtitle="Cada vez que aparezca esta banda, estás viendo una pantalla fiel de la app del atleta — para que sepas, sin abrir su teléfono, qué efecto tiene lo que acabas de hacer."
+        subtitle="Cada vez que aparezca esta banda, estás viendo una pantalla fiel de la app del atleta, para que sepas, sin abrir su teléfono, qué efecto tiene lo que acabas de hacer."
       />
 
       <div className="seclbl">
@@ -74,8 +74,8 @@ export default function Section() {
       <p className="lead">
         La guía está dividida en áreas: de montar tu método y tu semana, a{' '}
         <b>captar y cobrar</b> a tus atletas, seguir su día a día, llevar su{' '}
-        <b>ciclo de vida</b> —pausas, lesiones, revisiones 1:1—, los <b>dobles</b>, la{' '}
-        <b>carrera</b> y los <b>aparatos</b> con los que entrena. Empieza por donde quieras — o
+        <b>ciclo de vida</b> (pausas, lesiones, revisiones 1:1), los <b>dobles</b>, la{' '}
+        <b>carrera</b> y los <b>aparatos</b> con los que entrena. Empieza por donde quieras, o
         sigue el orden.
       </p>
       <div className="toc">

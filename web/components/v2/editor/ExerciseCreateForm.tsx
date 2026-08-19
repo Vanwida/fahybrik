@@ -159,7 +159,7 @@ export function CreateExerciseForm({
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
         <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
         <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
-          Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo — sólo tú lo
+          Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo: sólo tú lo
           verás.
         </p>
       </div>

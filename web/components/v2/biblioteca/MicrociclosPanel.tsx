@@ -33,7 +33,7 @@ export function MicrociclosPanel({
       <TeachingEmptyState
         icon="calendar_view_week"
         title="Aún no tienes microciclos"
-        whatToDo={<>Un microciclo es una estructura de varias semanas — la unidad que vivirá tu atleta.</>}
+        whatToDo={<>Un microciclo es una estructura de varias semanas, la unidad que vivirá tu atleta.</>}
         why={
           <>
             <b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.

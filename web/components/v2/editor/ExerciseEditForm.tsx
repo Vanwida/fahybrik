@@ -143,7 +143,7 @@ export function EditExerciseForm({
         <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
           {isOwn ? (
             <>
-              <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente — no hay una
+              <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente: no hay una
               versión base a la que volver.
             </>
           ) : (
@@ -261,7 +261,7 @@ function OverrideTextField({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         maxLength={2000}
-        placeholder={base ?? 'Sin contenido — escribe el tuyo…'}
+        placeholder={base ?? 'Sin contenido: escribe el tuyo…'}
         className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
       />
       <p className="text-label text-[color:var(--v2-faint)]">

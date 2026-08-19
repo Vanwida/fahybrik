@@ -92,8 +92,8 @@ export function OptionalBadge({
       aria-pressed={optional}
       title={
         optional
-          ? 'Quitar «opcional» — vuelve a ser obligatorio'
-          : 'Marcar como opcional — el atleta puede saltárselo'
+          ? 'Quitar «opcional»: vuelve a ser obligatorio'
+          : 'Marcar como opcional: el atleta puede saltárselo'
       }
       className={cn(base, optional ? onStyle : offStyle)}
     >

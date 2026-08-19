@@ -108,7 +108,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           Pablo entrena a un <b>grupo reducido</b> para poder seguir cada plan de cerca. Por eso su
           cupo tiene un tope. Cuando se llena, los leads nuevos <b>no se pierden</b>: entran en una{' '}
           <b>lista de espera</b> y pasan por orden al liberarse una plaza. Y esa escasez, bien
-          contada, <em className="em">suma</em> — no resta.
+          contada, <em className="em">suma</em>, no resta.
         </>
       }
     >
@@ -139,7 +139,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         porque={
           <>
-            Porque un buen seguimiento no escala infinito. El tope protege tu calidad — y para el lead,
+            Porque un buen seguimiento no escala infinito. El tope protege tu calidad, y para el lead,
             un grupo con lista de espera se lee como <b>club exclusivo</b>, no como puerta cerrada.
           </>
         }
@@ -158,14 +158,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · La lista de espera es una cola por orden de llegada</h3>
       <p>
         Estar «en espera» es un <b>flag del lead</b>, no un estado de tu embudo: el lead sigue siendo
-        un lead normal, solo que marcado en la cola. Se ordena por <b>orden de llegada</b> — el más
-        antiguo, primero (FIFO) — y así lo ves tú y así se respeta al avisar.
+        un lead normal, solo que marcado en la cola. Se ordena por <b>orden de llegada</b>: el más
+        antiguo, primero (FIFO), y así lo ves tú y así se respeta al avisar.
       </p>
 
       <h3>3 · Liberar una plaza: automático + tu override</h3>
       <p>
-        El sistema es <b>híbrido</b>. Cuando se abre una plaza —porque subes el cupo, o porque un
-        atleta se da de baja o pausa— avisa <b>solo</b> al más antiguo de la cola por email, con su
+        El sistema es <b>híbrido</b>. Cuando se abre una plaza (porque subes el cupo, o porque un
+        atleta se da de baja o pausa), avisa <b>solo</b> al más antiguo de la cola por email, con su
         enlace de reserva. Y si quieres saltarte el orden, el botón <code>Liberar plaza</code> te deja
         avisar a quien quieras ahora mismo. Un lead ya avisado <b>retiene su plaza</b> hasta que
         reserva, así que nunca se libera de más.
@@ -383,7 +383,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               Ahora mismo no quedan plazas.
             </div>
             <p style={{ fontSize: '12px', lineHeight: 1.55, color: 'var(--muted)', margin: '12px 6px 0' }}>
-              Pablo entrena a un grupo reducido para cuidar cada plan al detalle, Marcos — y justo ahora
+              Pablo entrena a un grupo reducido para cuidar cada plan al detalle, Marcos, y justo ahora
               está completo. Te hemos guardado sitio en la lista: en cuanto se libere una plaza te
               avisamos por email, por orden de llegada.
             </p>

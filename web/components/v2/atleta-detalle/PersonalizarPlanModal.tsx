@@ -92,8 +92,8 @@ export function PersonalizarPlanModal({
 
         <div className="flex flex-col gap-3">
           <p className="text-sm text-[color:var(--v2-fg)]">
-            Vas a coger el plan de <span className="font-semibold">{athleteName}</span> —{' '}
-            «{currentBlockName}»{currentWeek != null ? ` (semana ${currentWeek})` : ''} — y
+            Vas a coger el plan de <span className="font-semibold">{athleteName}</span>:{' '}
+            «{currentBlockName}»{currentWeek != null ? ` (semana ${currentWeek})` : ''}, y
             convertirlo en un plan solo para {athleteName}.
           </p>
           <label className="flex flex-col gap-1.5">
@@ -109,16 +109,16 @@ export function PersonalizarPlanModal({
             <li className="flex items-start gap-2">
               <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
               {start === 'next_week'
-                ? 'Esta semana sigue igual — lo ya hecho nunca cambia.'
-                : 'Lo ya hecho no cambia — solo se copia desde la semana en curso.'}
+                ? 'Esta semana sigue igual: lo ya hecho nunca cambia.'
+                : 'Lo ya hecho no cambia: solo se copia desde la semana en curso.'}
             </li>
             <li className="flex items-start gap-2">
               <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
-              La plantilla original de la biblioteca queda intacta — esto es una copia.
+              La plantilla original de la biblioteca queda intacta: esto es una copia.
             </li>
             <li className="flex items-start gap-2">
               <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-              {athleteName} deja de recibir microciclos automáticos por nivel — a partir de
+              {athleteName} deja de recibir microciclos automáticos por nivel: a partir de
               ahora sigue este plan a medida.
             </li>
           </ul>

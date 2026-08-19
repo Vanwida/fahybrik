@@ -38,7 +38,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             La periodización vive dentro de cada <b>nivel</b>: una secuencia ordenada de microciclos
-            por <b>días/semana</b>. Ese orden — no una etiqueta fija — <em className="em">es</em> la
+            por <b>días/semana</b>. Ese orden, no una etiqueta fija, <em className="em">es</em> la
             progresión.
           </>
         }
@@ -60,7 +60,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Un <b>nivel</b> clasifica al atleta y guarda su periodización. Dentro, encadenas microciclos
         por días/semana: el primero, el segundo, el tercero… y ese orden es la progresión que vivirá
-        tu atleta. No existe una entidad «fase» suelta ni una matriz aparte —{' '}
+        tu atleta. No existe una entidad «fase» suelta ni una matriz aparte:{' '}
         <em className="em">la secuencia es la fase puesta en el tiempo</em>.
       </p>
 
@@ -106,7 +106,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             marginBottom: '8px',
           }}
         >
-          Avanzado · 5 días/semana — secuencia de microciclos
+          Avanzado · 5 días/semana · secuencia de microciclos
         </div>
 
         {/* the ordered sequence: ORDER = periodization */}
@@ -134,13 +134,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         El nombre de cada microciclo es la <b>fase</b> que ve tu atleta. Lo escribes tú, en tu
         idioma de entrenador, y lo colocas en la posición que tu método pide. Reordenar la secuencia
-        reordena la progresión — sin tocar nada del lado del atleta.
+        reordena la progresión, sin tocar nada del lado del atleta.
       </p>
 
       <DocNote variant="cue" title="Duplicar una variante como punto de partida">
         <p>
           ¿Ya tienes montado <b>Nivel 3 · 5 días</b> y quieres el de <b>6 días</b>? En esa celda,{' '}
-          <span className="k">Duplicar a…</span> copia la secuencia entera —todos sus microciclos— al
+          <span className="k">Duplicar a…</span> copia la secuencia entera (todos sus microciclos) al
           nivel y los días que elijas. La copia es <b>independiente</b>: ajústala (añade el día extra,
           cambia lo que haga falta) sin tocar el original. Solo se duplica sobre una celda{' '}
           <b>vacía</b>.

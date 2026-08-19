@@ -120,7 +120,7 @@ export function DetalleHeader({
             </span>
           ))}
           {pendientes.some((p) => p.en_hoy) ? (
-            <span className="v2-num text-[11.5px] text-[color:var(--v2-faint)]">— también en Hoy</span>
+            <span className="v2-num text-[11.5px] text-[color:var(--v2-faint)]">· también en Hoy</span>
           ) : null}
         </p>
       ) : null}

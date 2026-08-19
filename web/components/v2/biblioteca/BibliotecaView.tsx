@@ -70,22 +70,22 @@ const BIBLIOTECA_STEPS: readonly PipelineStepKey[] = ['sesiones', 'microciclos']
 const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
   ejercicios: (
     <>
-      Un <b>ejercicio</b> es un movimiento — la pieza más pequeña, con la que armas tus bloques.
+      Un <b>ejercicio</b> es un movimiento: la pieza más pequeña, con la que armas tus bloques.
     </>
   ),
   bloques: (
     <>
-      Un <b>bloque</b> es una pieza reutilizable — el ladrillo con el que armas los días.
+      Un <b>bloque</b> es una pieza reutilizable: el ladrillo con el que armas los días.
     </>
   ),
   sesiones: (
     <>
-      Una <b>sesión</b> es un entreno entero — lo que tu atleta hace un día.
+      Una <b>sesión</b> es un entreno entero: lo que tu atleta hace un día.
     </>
   ),
   microciclos: (
     <>
-      Un <b>microciclo</b> es una estructura de varias semanas — la unidad que vivirá tu atleta.
+      Un <b>microciclo</b> es una estructura de varias semanas: la unidad que vivirá tu atleta.
     </>
   ),
   comunicados: (

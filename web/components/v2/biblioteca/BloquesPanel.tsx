@@ -29,7 +29,7 @@ export function BloquesPanel({ items, hasAny }: { items: V2BloqueItem[]; hasAny:
       <TeachingEmptyState
         icon="widgets"
         title="Aún no tienes bloques"
-        whatToDo={<>Un bloque es una pieza reutilizable — un ladrillo con el que armas los días.</>}
+        whatToDo={<>Un bloque es una pieza reutilizable, un ladrillo con el que armas los días.</>}
         why={
           <>
             <b>Por qué importa:</b> los bloques se insertan en los días de tus microciclos, así no

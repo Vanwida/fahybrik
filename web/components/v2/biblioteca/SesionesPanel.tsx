@@ -29,7 +29,7 @@ export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny
       <TeachingEmptyState
         icon="library_add"
         title="Aún no tienes sesiones"
-        whatToDo={<>Una sesión es un entreno entero — lo que hace tu atleta un día.</>}
+        whatToDo={<>Una sesión es un entreno entero, lo que hace tu atleta un día.</>}
         why={
           <>
             <b>Por qué importa:</b> es el peldaño entre el bloque y el microciclo. Ármala con tus

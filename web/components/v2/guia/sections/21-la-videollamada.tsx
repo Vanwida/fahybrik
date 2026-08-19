@@ -63,7 +63,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           El lead elige <b>videollamada o presencial</b>, reserva un hueco de <b>tu disponibilidad</b>{' '}
-          y la cita queda <b>confirmada al instante</b> — con Google Meet (vídeo) o la dirección de tu
+          y la cita queda <b>confirmada al instante</b>, con Google Meet (vídeo) o la dirección de tu
           box (presencial). Cero ida y vuelta. Después dejas el <b>parte 1:1</b> y ya puedes darle de
           alta.
         </>
@@ -96,7 +96,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque el ping-pong de <em className="em">«¿cuándo te va bien?»</em> mata leads. Un
-            calendario que se confirma solo hace la primera llamada fácil — y una primera llamada
+            calendario que se confirma solo hace la primera llamada fácil, y una primera llamada
             fácil es la que convierte.
           </>
         }
@@ -104,11 +104,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · Tú pones los huecos, el lead elige</h3>
       <p>
-        Defines tu disponibilidad semanal en <b>dos horarios independientes</b> —videollamadas y
-        presencial, que puedes solapar— y el sistema la trocea en <b>huecos de 30 minutos</b> para los
+        Defines tu disponibilidad semanal en <b>dos horarios independientes</b> (videollamadas y
+        presencial, que puedes solapar) y el sistema la trocea en <b>huecos de 30 minutos</b> para los
         próximos 14 días, en <b>hora de Madrid</b>. El lead elige la modalidad y solo ve los huecos de
         ESE horario que estén libres. El servidor revalida cada reserva (nunca se fía del navegador) y
-        una reserva bloquea esa hora en los <b>dos</b> horarios — no puedes estar en dos sitios a la
+        una reserva bloquea esa hora en los <b>dos</b> horarios: no puedes estar en dos sitios a la
         vez.
       </p>
 
@@ -193,12 +193,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Al marcar la cita como <b>Completada</b>, el parte se abre solo{' '}
         <em className="em">en caliente</em>, para que lo hablado no se pierda: dejas las{' '}
         <b>notas</b>, el <b>precio acordado</b> y los <b>próximos pasos</b>. Ese precio es el mismo
-        que nace luego en el alta — el parte es el puente directo a convertir al lead en atleta.
+        que nace luego en el alta: el parte es el puente directo a convertir al lead en atleta.
       </p>
 
       <DocNote variant="log" title="Se confirma al instante">
         <p>
-          Cuando el lead reserva, la cita nace <b>confirmada</b> — sin cola de aprobación. Con tu
+          Cuando el lead reserva, la cita nace <b>confirmada</b>, sin cola de aprobación. Con tu
           Google conectado, el enlace de <b>Meet</b> se crea solo en tu calendario; si no lo tienes,
           pegas tú el enlace en la cita antes de la llamada. <b>Cancelar</b> borra el evento del
           calendario, sin cabos sueltos.
@@ -207,7 +207,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="cue" title="Sin disponibilidad, lo decimos">
         <p>
-          Si no tienes huecos abiertos —o los tienes todos ocupados— el lead no se topa con un
+          Si no tienes huecos abiertos (o los tienes todos ocupados) el lead no se topa con un
           calendario vacío y confuso: ve un mensaje honesto de que ahora mismo no hay huecos. En
           cuanto abres disponibilidad, vuelven a aparecer.
         </p>
@@ -228,7 +228,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             El lead reserva desde la <b>web</b>, con el enlace que recibió al terminar el onboarding.
-            Elige hueco, confirma, y todo lo demás —Meet, calendario, recordatorio— le llega solo.
+            Elige hueco, confirma, y todo lo demás (Meet, calendario, recordatorio) le llega solo.
           </>
         }
       >
@@ -310,7 +310,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p style={{ marginTop: '18px' }}>
         La videollamada es la bisagra del embudo: entra un lead y sale un atleta. El precio que
-        acordáis aquí es el que nace en el alta — con o sin cobro por Stripe, que verás en las
+        acordáis aquí es el que nace en el alta, con o sin cobro por Stripe, que verás en las
         secciones siguientes.
       </p>
     </DocSection>

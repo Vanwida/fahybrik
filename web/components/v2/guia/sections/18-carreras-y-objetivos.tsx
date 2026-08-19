@@ -22,7 +22,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Todo plan necesita un <b>para qué</b>. La <b>carrera objetivo</b> es esa fecha: la que
           ancla la periodización, marca la cuenta atrás y ordena el resto del trabajo. Aquí la fijas,
-          añades carreras intermedias, y consultas el historial de lo que tu atleta ya ha corrido —
+          añades carreras intermedias, y consultas el historial de lo que tu atleta ya ha corrido,
           con sus tiempos, su percentil y sus parciales.
         </>
       }
@@ -45,7 +45,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque sin fecha no hay periodización: el plan se construye <b>hacia</b> algo. La cuenta
-            atrás le da sentido a cada semana — para ti al programar y para tu atleta al entrenar.
+            atrás le da sentido a cada semana: para ti al programar y para tu atleta al entrenar.
           </>
         }
       />
@@ -60,7 +60,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · El historial, sin inventar nada</h3>
       <p>
         Las <b>carreras pasadas</b> no se teclean a mano: llegan cuando tu atleta importa su historial
-        oficial de HYROX —individuales y dobles—. De cada una ves el <b>tiempo</b>, el{' '}
+        oficial de HYROX (individuales y dobles). De cada una ves el <b>tiempo</b>, el{' '}
         <b>percentil</b> (top %), su puesto, y los <b>parciales</b> de carreras y estaciones. En
         dobles, los tiempos son del equipo, y así te lo decimos en claro.
       </p>
@@ -69,7 +69,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           La pestaña <span className="k">Carreras</span> de la ficha tiene dos mitades:{' '}
           <b>Próximas · objetivos</b> con la cuenta atrás de lo que viene, y <b>Pasadas · resultados</b>{' '}
-          con lo ya corrido. La misma estructura que ve tu atleta en su hub — nunca veis cosas
+          con lo ya corrido. La misma estructura que ve tu atleta en su hub: nunca veis cosas
           distintas.
         </p>
       </DocNote>
@@ -168,7 +168,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             En cuanto fijas la carrera, tu atleta la ve: la cuenta atrás en su inicio y, en su pestaña{' '}
-            <b>Carreras</b>, el mismo hub de próximas y pasadas que tú — con los parciales de cada una.
+            <b>Carreras</b>, el mismo hub de próximas y pasadas que tú, con los parciales de cada una.
           </>
         }
       >

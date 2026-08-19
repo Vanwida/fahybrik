@@ -122,7 +122,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Rellena un microciclo desde tu Excel <b>sin perder el control</b>: tú marcas el rango, la
-          IA lo <b>tipa</b>, tú revisas lo dudoso. No subes el Excel y «aparece» el plan — el resto
+          IA lo <b>tipa</b>, tú revisas lo dudoso. No subes el Excel y «aparece» el plan: el resto
           del archivo <b>ni se toca</b>. Es tu atajo para pasar tu hoja de cálculo a plan, con tu
           mano siempre encima.
         </>
@@ -166,15 +166,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         La periodización la montas tú: creas el microciclo con sus <b>semanas vacías</b> bajo un
         nivel, y ya dentro de <code>microciclos/[id]</code> pulsas <code>＋ Importar del Excel</code>.
-        Subes el <code>.xlsx</code> y <b>señalas el rango en lenguaje natural</b> —{' '}
-        <em className="em">«de la semana 1 a la 4»</em>— más la <b>variante</b> del bloque (
+        Subes el <code>.xlsx</code> y <b>señalas el rango en lenguaje natural</b>{' '}
+        (<em className="em">«de la semana 1 a la 4»</em>) más la <b>variante</b> del bloque (
         <code>Estándar</code> / <code>Fuerza</code> / <code>Resistencia</code>). La IA lee{' '}
         <b>solo ese rango</b>; todo lo demás de la hoja queda fuera.
       </p>
 
       <DocNote variant="cue" title="Tú posees la periodización">
         <p>
-          La IA <b>solo extrae</b> el rango que tú señalas — no interpreta el resto del Excel ni
+          La IA <b>solo extrae</b> el rango que tú señalas: no interpreta el resto del Excel ni
           «adivina» el plan. Tú decides qué semanas entran y con qué variante; ella hace el trabajo
           sucio de tipar esas filas, nada más.
         </p>
@@ -183,13 +183,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · La IA lo tipa, tú revisas</h3>
       <p>
         Los <b>números</b> los saca una <b>gramática determinista</b> primero: los mismos patrones de
-        tu notación —<code>10/10/8/8/6</code>, <code>60–75% RM</code>, <code>5×3&apos;</code>,{' '}
-        <code>z2</code>, <code>c/2&apos;30&quot;</code>— con reglas exactas, no un modelo (un patrón no se
+        tu notación (<code>10/10/8/8/6</code>, <code>60–75% RM</code>, <code>5×3&apos;</code>,{' '}
+        <code>z2</code>, <code>c/2&apos;30&quot;</code>) con reglas exactas, no un modelo (un patrón no se
         inventa una cifra). La IA solo entra a apoyar en lo <b>denso o ambiguo</b> (un WOD, una
         simulación HYROX). El resultado es una <b>rejilla de la semana</b> con un estado por día:{' '}
         <b>verde = tipado</b> (se guarda tal cual), <b>ámbar = revisar</b> (propuesto, míralo) y{' '}
         <b>rojo = ejercicio fuera de tu catálogo</b> (elígelo o créalo). Esa revisión{' '}
-        <b>es tu editor de día de siempre</b> —el mismo de «Monta la semana», ya pre-poblado—: los
+        <b>es tu editor de día de siempre</b> (el mismo de «Monta la semana», ya pre-poblado): los
         verdes se guardan, los ámbar/rojos los tocas ahí mismo.
       </p>
 
@@ -269,7 +269,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               overflowWrap: 'anywhere',
             }}
           >
-            FUERZA — 5 rounds Back Squat c/2&apos;30&quot;: 10/10/8/8/6 — 60/65/70/70/75% RM
+            FUERZA · 5 rounds Back Squat c/2&apos;30&quot;: 10/10/8/8/6 · 60/65/70/70/75% RM
           </div>
           <div style={{ textAlign: 'center', color: 'var(--acc)', fontSize: '13px', fontWeight: 800, margin: '5px 0' }}>
             ↓
@@ -354,7 +354,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               flexWrap: 'wrap',
             }}
           >
-            <span>No está en tu catálogo — elígelo o créalo:</span>
+            <span>No está en tu catálogo, elígelo o créalo:</span>
             <span className="btn" style={{ fontSize: '10px', padding: '4px 9px' }}>
               Elegir del catálogo
             </span>
@@ -369,7 +369,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <ul>
           <li>
             La revisión es <b>verde / ámbar / rojo</b> y <b>cero texto libre</b>: lo que la IA no
-            tipe con confianza queda <b>para tu mano</b> —nunca se cuela en silencio—.
+            tipe con confianza queda <b>para tu mano</b> (nunca se cuela en silencio).
           </li>
           <li>
             Al confirmar, <b>cada línea</b> pasa el mismo esquema tipado que valida cualquier entreno
@@ -383,15 +383,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         No es todo o nada: cada día de la rejilla tiene un control para <b>dejarlo fuera</b>, y en
         la cabecera de cada semana puedes quitar <b>la semana entera</b> de una vez. Lo que dejas
-        fuera se ve en gris y tachado —<b>«no entra»</b>— y no se guarda nada de ese día: ni la
+        fuera se ve en gris y tachado (<b>«no entra»</b>) y no se guarda nada de ese día: ni la
         sesión ni lo que el importador hubiera aprendido de ella. El botón te dice siempre lo que va
-        a pasar —<b>«Confirmar 5 días»</b>— y te avisa de cuántos se quedan fuera.
+        a pasar (<b>«Confirmar 5 días»</b>) y te avisa de cuántos se quedan fuera.
       </p>
 
       <DocNote variant="cue" title="Un rojo no te bloquea el resto">
         <p>
           Si un día trae algo raro que no quieres resolver ahora, <b>déjalo fuera y confirma el
-          resto</b> — un ejercicio sin catálogo nunca te secuestra los demás días. Y una semana que
+          resto</b>: un ejercicio sin catálogo nunca te secuestra los demás días. Y una semana que
           dejas fuera <b>tampoco te pide destino</b>: se salta entera.
         </p>
       </DocNote>
@@ -400,7 +400,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Cuando resuelves un ejercicio fuera de catálogo, esa decisión se <b>guarda en tu mapa de
         sinónimos</b> (por entrenador): el próximo import que traiga la misma abreviatura lo{' '}
-        <b>resuelve solo</b>. El importador se afina con tu forma de escribir — cuanto más lo usas,
+        <b>resuelve solo</b>. El importador se afina con tu forma de escribir: cuanto más lo usas,
         menos rojos verás. Y es <b>idempotente</b>: re-importar el mismo rango al mismo microciclo{' '}
         <b>reemplaza</b> esos días (te lo pregunta antes), nunca los duplica.
       </p>
@@ -416,14 +416,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Reemplaza, no duplica">
         <p>
           Si vuelves a importar el mismo rango sobre el mismo microciclo, el importador{' '}
-          <b>sustituye</b> esos días en lugar de añadir copias — con una confirmación previa, para que
+          <b>sustituye</b> esos días en lugar de añadir copias, con una confirmación previa, para que
           no pierdas nada sin querer.
         </p>
       </DocNote>
 
       <p style={{ marginTop: '18px' }}>
         Esta herramienta es solo tuya: <b>no tiene cara en el móvil del atleta</b>. Es el puente entre
-        tu Excel y tu microciclo — te quita el tecleo, pero el plan sigue siendo tuyo, línea a línea.
+        tu Excel y tu microciclo: te quita el tecleo, pero el plan sigue siendo tuyo, línea a línea.
       </p>
     </DocSection>
   );

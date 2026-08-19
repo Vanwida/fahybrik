@@ -34,7 +34,7 @@ export function WeekSelect({
       className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
     >
       {microWeeks.length === 0 ? (
-        <option value="">— sin semanas —</option>
+        <option value="">(sin semanas)</option>
       ) : (
         microWeeks.map((mw) => (
           <option key={mw.id} value={mw.id}>

@@ -304,7 +304,7 @@ export function ImportSourceForm({
             rows={5}
             maxLength={20_000}
             placeholder={
-              'Martes\nFUERZA — Tren inferior\n5 rounds Back Squat c/2\'30": 10/10/8/8/6 — 60/65/70/70/75% RM'
+              'Martes\nFUERZA: Tren inferior\n5 rounds Back Squat c/2\'30": 10/10/8/8/6 al 60/65/70/70/75% RM'
             }
             className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
           />

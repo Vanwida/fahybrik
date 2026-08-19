@@ -29,7 +29,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Antes de montarle nada, sabes quién es tu atleta. Él responde un <b>cuestionario</b> al
-          entrar — objetivo, experiencia, lesiones, días disponibles, marcas — y eso te llega ordenado
+          entrar (objetivo, experiencia, lesiones, días disponibles, marcas) y eso te llega ordenado
           a tu cola de <b>altas</b>. Tú lo lees y decides los <b>tests</b> de la primera semana. El
           plan se construye sobre datos, no sobre suposiciones.
         </>
@@ -53,7 +53,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque un buen plan empieza por escuchar. Su objetivo, sus lesiones y sus días reales son
-            lo que hace que la primera semana le encaje — y los tests te dan el punto de partida medido.
+            lo que hace que la primera semana le encaje, y los tests te dan el punto de partida medido.
           </>
         }
       />
@@ -67,7 +67,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>2 · Sus respuestas, en una columna que se lee de un vistazo</h3>
       <p>
-        En la revisión, la columna derecha — <code>Respuestas del atleta</code> — agrupa lo que
+        En la revisión, la columna derecha (<code>Respuestas del atleta</code>) agrupa lo que
         declaró: <b>Objetivos</b> (y si es alcanzable en 2-4 meses), <b>Estado basal</b> (sueño /
         estrés / compromiso sobre 10), <b>Experiencia</b> en carrera y fuerza, <b>Lesiones</b> con su
         zona y severidad, <b>Disponibilidad</b> (días y franja), <b>Benchmarks</b>, instalación y
@@ -133,11 +133,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="log" title="Pasivos vs programados">
         <ul>
           <li>
-            <span className="k">Pasivos</span> — no le cuestan una sesión: salen de lo que ya entrena
+            <span className="k">Pasivos</span>: no le cuestan una sesión, salen de lo que ya entrena
             (ritmos, zonas). Déjalos activados y se calculan solos.
           </li>
           <li>
-            <span className="k">Programados</span> — son una sesión de test de verdad. Si lo añades,
+            <span className="k">Programados</span>: son una sesión de test de verdad. Si lo añades,
             tu atleta lo verá como un entreno más de su primera semana.
           </li>
         </ul>

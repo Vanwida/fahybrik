@@ -22,7 +22,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Aquí está el corazón del plan: cómo le pones <b>carga e intensidad</b> a cada ejercicio.
-          No escribes una frase libre — eliges entre opciones, y el panel construye una línea exacta.
+          No escribes una frase libre: eliges entre opciones, y el panel construye una línea exacta.
           Cada ejercicio se define con <b>tres decisiones</b>: con qué modalidad, cómo se mide el
           trabajo y contra qué objetivo. Nada queda a interpretación.
         </>
@@ -144,7 +144,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               Vista previa atleta · modelo
             </div>
             <div className="num2" style={{ fontSize: '11.5px', color: 'var(--fg)' }}>
-              Sentadilla trasera — 4×5 @ 75% RM · descanso 2&apos;
+              Sentadilla trasera · 4×5 @ 75% RM · descanso 2&apos;
             </div>
           </div>
         </div>
@@ -153,19 +153,19 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · Cada modalidad mide y apunta distinto</h3>
       <ul className="clean">
         <li>
-          <b>Correr</b> — se mide en <em className="em">distancia o tiempo</em>, contra{' '}
+          <b>Correr</b>: se mide en <em className="em">distancia o tiempo</em>, contra{' '}
           <em className="em">ritmo, zona o RPE</em>. Ej.: <code>4×1000m @ 4:10/km · r2&apos;</code>.
         </li>
         <li>
-          <b>Ergómetro</b> (remo · ski · bici) — <em className="em">distancia, tiempo o calorías</em>,
+          <b>Ergómetro</b> (remo · ski · bici): <em className="em">distancia, tiempo o calorías</em>,
           contra <em className="em">ritmo /500m o RPE</em>. Ej.: <code>40&apos; @ Z2</code>.
         </li>
         <li>
-          <b>Fuerza</b> — por serie: <em className="em">reps + carga (%máx, kg, RIR o RPE) + tempo +
+          <b>Fuerza</b>: por serie, <em className="em">reps + carga (%máx, kg, RIR o RPE) + tempo +
           descanso</em>. Ej.: <code>5×5 @ 75% RM · descanso 2&apos;</code>.
         </li>
         <li>
-          <b>Circuito / metcon</b> — eliges el <em className="em">formato</em> (Continuo,
+          <b>Circuito / metcon</b>: eliges el <em className="em">formato</em> (Continuo,
           Intervalos, AMRAP, EMOM, For Time, Rondas) y los componentes, contra RPE, zona o cap.
         </li>
       </ul>
@@ -180,7 +180,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <li>
             Cuando el plan ya está asignado a un atleta, su perfil convierte lo relativo (un{' '}
             <span className="k">%máx</span> o una <span className="k">zona</span>) en cifras
-            absolutas para él — los mismos campos, su carga concreta.
+            absolutas para él: los mismos campos, su carga concreta.
           </li>
         </ul>
       </DocNote>
@@ -190,7 +190,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Cada ejercicio llega como una línea atlética y exacta. La misma para fuerza, para correr
-            o para el ergómetro — solo cambia qué se mide y contra qué objetivo.
+            o para el ergómetro, solo cambia qué se mide y contra qué objetivo.
           </>
         }
       >

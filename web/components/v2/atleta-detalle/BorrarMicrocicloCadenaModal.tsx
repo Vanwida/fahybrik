@@ -136,7 +136,7 @@ export function BorrarMicrocicloCadenaModal({
               <li className="flex items-start gap-2">
                 <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
                 <span>
-                  Como ya tiene sesiones hechas, los microciclos siguientes NO se recolocan — quedará
+                  Como ya tiene sesiones hechas, los microciclos siguientes NO se recolocan: quedará
                   un hueco en el calendario.
                 </span>
               </li>

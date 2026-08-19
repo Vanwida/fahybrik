@@ -27,7 +27,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Cada mañana tu atleta responde un <b>check-in</b> de medio minuto: cómo durmió, cómo tiene
           las piernas, con qué ánimo y energía se levanta. Eso, junto a lo que mide su reloj, se
-          resume en un número — el <b>readiness</b> — que te dice de un vistazo a quién llega listo y
+          resume en un número (el <b>readiness</b>) que te dice de un vistazo a quién llega listo y
           a quién conviene dar margen, sin preguntárselo uno a uno.
         </>
       }
@@ -45,8 +45,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             El <b>readiness</b> es un 0–100 de cómo llega tu atleta hoy. Combina su check-in
-            subjetivo con señales del reloj — <b>variabilidad cardíaca, sueño y frecuencia en
-            reposo</b> — y lo modula con su constancia reciente.
+            subjetivo con señales del reloj (<b>variabilidad cardíaca, sueño y frecuencia en
+            reposo</b>) y lo modula con su constancia reciente.
           </>
         }
         como={
@@ -82,7 +82,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           Si pasan más de 48 h sin check-in, tu atleta aparece marcado con un{' '}
           <span className="k">Check-in 2d</span> en tu lista de atención. Un silencio largo suele
-          contar tanto como un mal dato — y aquí no se te escapa.
+          contar tanto como un mal dato, y aquí no se te escapa.
         </p>
       </DocNote>
 
@@ -91,7 +91,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             A la izquierda, lo que responde tu atleta en medio minuto. A la derecha, el readiness que
-            le devuelve la app — y el mismo número que tú lees en tu panel.
+            le devuelve la app, y el mismo número que tú lees en tu panel.
           </>
         }
       >
@@ -99,7 +99,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Su check-in.</b> Cuatro toques: sueño, piernas, ánimo y energía. Rápido a propósito —
+              <b>Su check-in.</b> Cuatro toques: sueño, piernas, ánimo y energía. Rápido a propósito:
               para que lo haga cada día.
             </>
           }
@@ -206,7 +206,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         En tu pantalla del día, el <b>Pulso del equipo</b> reparte a todos tus atletas en los tres
         tramos de un vistazo. Y quien llega flojo o lleva días sin check-in sube solo a{' '}
-        <em className="em">Necesitan atención</em>, con el motivo en claro — para que sepas con quién
+        <em className="em">Necesitan atención</em>, con el motivo en claro: para que sepas con quién
         empezar la mañana.
       </p>
 

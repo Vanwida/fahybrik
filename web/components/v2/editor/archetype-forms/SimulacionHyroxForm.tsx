@@ -138,7 +138,7 @@ export function SimulacionHyroxForm({
       {/* Race info strip */}
       <p className="text-label leading-snug text-[color:var(--v2-muted)]">
         Formato oficial: 8 × 1 km de carrera intercalados con las 8 estaciones en
-        orden. La secuencia es fija — editas la dosis de cada tramo, no el orden.
+        orden. La secuencia es fija: editas la dosis de cada tramo, no el orden.
         Cargas estándar {variant ? HYROX_VARIANTS.find((v) => v.value === variant)?.hint?.toLowerCase() : 'personalizadas'}.
       </p>
 

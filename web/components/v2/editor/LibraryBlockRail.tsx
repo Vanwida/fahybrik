@@ -289,7 +289,7 @@ function GroupChip({
   );
 }
 
-const UNTYPED_REASON = 'Sin tipar — no se puede insertar';
+const UNTYPED_REASON = 'Sin tipar: no se puede insertar';
 
 function BlockRow({
   row,

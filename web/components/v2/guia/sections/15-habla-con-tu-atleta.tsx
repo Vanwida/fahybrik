@@ -103,7 +103,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           El chat vive <b>dentro de la app</b>, no en WhatsApp. Tú respondes desde el panel con todo
-          el contexto del atleta delante; tu atleta te escribe — o te manda una <b>nota de voz</b> —
+          el contexto del atleta delante; tu atleta te escribe (o te manda una <b>nota de voz</b>)
           desde su móvil. Misma conversación en los dos lados, sin mezclarla con tu vida personal.
         </>
       }
@@ -125,7 +125,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque la conversación pegada al entreno vale más que un WhatsApp perdido. Ves su nivel y
-            su fase mientras le escribes, y todo queda ligado a su ficha — no a tu teléfono.
+            su fase mientras le escribes, y todo queda ligado a su ficha, no a tu teléfono.
           </>
         }
       />
@@ -149,7 +149,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="Texto tú, voz tu atleta">
         <p>
-          Desde el panel respondes por <b>texto</b> — limpio y rápido. Tu atleta, en cambio, puede
+          Desde el panel respondes por <b>texto</b>, limpio y rápido. Tu atleta, en cambio, puede
           mandarte una <b>nota de voz</b> desde el móvil cuando explicar algo a dedo es más fácil
           (una molestia, cómo se sintió en una serie). Llega a la conversación como un mensaje de voz
           más.
@@ -374,7 +374,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p style={{ marginTop: '18px' }}>
         Ese es el canal directo: <b>tú con contexto, él con la voz</b>, todo dentro de la app y ligado
         a su ficha. Cuando un atleta te escribe, lo ves subir a <em className="em">Espera respuesta</em>{' '}
-        en tu pantalla Hoy — y desde ahí entras a responderle en un clic.
+        en tu pantalla Hoy, y desde ahí entras a responderle en un clic.
       </p>
     </DocSection>
   );

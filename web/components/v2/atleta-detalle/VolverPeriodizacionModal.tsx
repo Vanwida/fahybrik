@@ -80,13 +80,13 @@ export function VolverPeriodizacionModal({
         <div className="flex flex-col gap-3">
           <p className="text-sm text-[color:var(--v2-fg)]">
             <span className="font-semibold">{athleteName}</span> deja «{personalPlanName}» y vuelve
-            a recibir sus microciclos automáticos por nivel — justo donde se quedó antes de
+            a recibir sus microciclos automáticos por nivel, justo donde se quedó antes de
             personalizar.
           </p>
           <ul className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 text-xs text-[color:var(--v2-muted)]">
             <li className="flex items-start gap-2">
               <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
-              Lo ya ejecutado en «{personalPlanName}» no se borra — queda en su historial.
+              Lo ya ejecutado en «{personalPlanName}» no se borra: queda en su historial.
             </li>
             <li className="flex items-start gap-2">
               <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />

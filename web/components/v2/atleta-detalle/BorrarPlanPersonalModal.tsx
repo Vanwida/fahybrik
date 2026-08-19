@@ -132,7 +132,7 @@ export function BorrarPlanPersonalModal({
                   Es el plan que <span className="font-semibold text-[color:var(--v2-fg)]">
                     {athleteName}
                   </span>{' '}
-                  ve hoy — se quedará sin plan asignado hasta que le asignes otro.
+                  ve hoy. Se quedará sin plan asignado hasta que le asignes otro.
                 </span>
               </li>
             ) : null}

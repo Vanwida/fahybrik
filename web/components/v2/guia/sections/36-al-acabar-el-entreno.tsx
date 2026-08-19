@@ -135,7 +135,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Cerrar el entreno no es el final: la app le <b>celebra los récords corriendo</b> y le
           recoge, en dos toques, <b>cómo ha ido</b> y si algo le <b>molesta</b>. Eso último no se
-          queda en su móvil — <b>te llega a ti</b>, con una <b>molestia</b> marcada para que no se te
+          queda en su móvil: <b>te llega a ti</b>, con una <b>molestia</b> marcada para que no se te
           pase.
         </>
       }
@@ -167,7 +167,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · Los récords, al cerrar</h3>
       <p>
         Si el atleta ha corrido su <b>1, 3 o 5 km más rápido</b> hasta la fecha, la app lo detecta al
-        sincronizar y se lo celebra antes de cerrar. Es siempre una <b>marca corriendo</b> —{' '}
+        sincronizar y se lo celebra antes de cerrar. Es siempre una <b>marca corriendo</b>,{' '}
         <i>no</i> el test de 5&nbsp;km, que es otra cosa: el 1&nbsp;km es su ritmo por kilómetro; el 3
         y el 5, el tiempo total. Le dice cuánto ha <b>recortado</b> sobre su marca anterior, o que es
         su <b>primera vez</b>. Y puede <b>compartir</b> una tarjeta con su tiempo, ritmo y zona.
@@ -177,7 +177,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="El récord, en su móvil"
         subtitle={
           <>
-            Su marca en grande, cuánto ha mejorado y un botón para <b>compartir</b> la tarjeta — todo
+            Su marca en grande, cuánto ha mejorado y un botón para <b>compartir</b> la tarjeta, todo
             lo que enseña es <b>real</b>, nada inventado.
           </>
         }
@@ -277,8 +277,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>2 · «Cómo ha ido»: te llega a ti</h3>
       <p>
-        Junto al RPE, tu atleta marca en un toque <b>cómo le ha ido frente a lo que le pusiste</b> —{' '}
-        <i>fácil de más</i>, <i>como debía</i> o <i>duro de más</i> — y, si algo le molesta, abre{' '}
+        Junto al RPE, tu atleta marca en un toque <b>cómo le ha ido frente a lo que le pusiste</b>:{' '}
+        <i>fácil de más</i>, <i>como debía</i> o <i>duro de más</i>, y, si algo le molesta, abre{' '}
         <b>«Molestia física»</b>, elige la <b>zona</b> (rodilla, tobillo, cadera, espalda, hombro u
         otra) y añade una <b>nota corta</b>. Todo es <b>opcional</b> y solo aparece en sesiones que{' '}
         <b>tú prescribiste</b> (una sesión libre no tiene contra qué compararse). Viaja en el mismo
@@ -324,7 +324,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Ese feedback te espera en tres sitios que ya usas: en <b>«Actividad de hoy»</b> (el vistazo de
         lo que ha entrenado tu gente), en el <b>deep-dive</b> del atleta y en el <b>detalle de la
-        sesión</b>. Y hay una diferencia clave: una <b>molestia</b> no se queda como un dato pasivo —
+        sesión</b>. Y hay una diferencia clave: una <b>molestia</b> no se queda como un dato pasivo:
         levanta una señal <b>«Vigilar»</b> en tu cola, con la zona y la nota, para que la veas aunque
         no abras la ficha.
       </p>
@@ -365,7 +365,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           El <b>«Cómo ha ido»</b> del entreno (dificultad y molestia) <b>te llega a ti</b>, el coach.
           Distinto es el <b>buzón de la app</b>: en <b>Perfil → «Enviar sugerencia o error»</b> tu
           atleta nos escribe a <b>nosotros</b> (el equipo de la app) para pedir una mejora o avisar de
-          un fallo del propio software — eso <b>no pasa por ti</b>, lo llevamos nosotros.
+          un fallo del propio software, eso <b>no pasa por ti</b>, lo llevamos nosotros.
         </p>
       </DocNote>
     </DocSection>

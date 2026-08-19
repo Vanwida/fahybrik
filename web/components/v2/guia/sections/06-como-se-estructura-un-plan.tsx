@@ -27,7 +27,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           Un plan no es una lista suelta de entrenos: es una estructura que <b>anida</b>. Una fase
           contiene semanas, una semana contiene días, un día contiene una o dos sesiones, y cada
           sesión se monta con bloques de trabajo y ejercicios de tu catálogo. Entender esta
-          anidación es saber <em className="em">dónde escribes cada cosa</em> — y dónde la lee tu
+          anidación es saber <em className="em">dónde escribes cada cosa</em>, y dónde la lee tu
           atleta.
         </>
       }
@@ -68,25 +68,25 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · Cada nivel, en una frase</h3>
       <ul className="clean">
         <li>
-          <b>Fase</b> — el tramo del plan con una intención (por ejemplo «Acumulación»). Su nombre es
+          <b>Fase</b>: el tramo del plan con una intención (por ejemplo «Acumulación»). Su nombre es
           lo que tu atleta ve arriba como <em className="em">su fase</em>.
         </li>
         <li>
-          <b>Semana</b> — la unidad que montas y entregas. Tiene un foco y siete días.
+          <b>Semana</b>: la unidad que montas y entregas. Tiene un foco y siete días.
         </li>
         <li>
-          <b>Día</b> — uno de los siete. Puede tener una o dos sesiones (mañana / tarde), o ser
+          <b>Día</b>: uno de los siete. Puede tener una o dos sesiones (mañana / tarde), o ser
           descanso.
         </li>
         <li>
-          <b>Sesión</b> — el entreno de ese momento, con su título.
+          <b>Sesión</b>: el entreno de ese momento, con su título.
         </li>
         <li>
-          <b>Bloque</b> — un tipo de trabajo dentro de la sesión: carrera, fuerza, circuito, test,
+          <b>Bloque</b>: un tipo de trabajo dentro de la sesión: carrera, fuerza, circuito, test,
           activación…
         </li>
         <li>
-          <b>Ejercicio</b> — la pieza concreta de tu catálogo, con su carga e intensidad.
+          <b>Ejercicio</b>: la pieza concreta de tu catálogo, con su carga e intensidad.
         </li>
       </ul>
 
@@ -95,7 +95,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         La semana es tu mesa de trabajo. La <b>fase</b> se nombra al abrir el microciclo; el{' '}
         <b>foco</b> y los días, en la propia semana; los <b>bloques</b> y <b>ejercicios</b>, dentro
         de cada sesión. No saltas entre pantallas: ves la semana entera y editas el día sin perder
-        el contexto. Las dos secciones siguientes entran al detalle —{' '}
+        el contexto. Las dos secciones siguientes entran al detalle:{' '}
         <em className="em">montar la semana</em> y <em className="em">la carga de cada ejercicio</em>.
       </p>
 

@@ -352,7 +352,7 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
       </div>
       {failed ? (
         <p role="alert" className="pl-1 text-label text-[color:var(--v2-warn)]">
-          No lo he entendido — prueba como <span className="font-mono">6x1000 @4:30 r2&apos;</span>{' '}
+          No lo he entendido: prueba como <span className="font-mono">6x1000 @4:30 r2&apos;</span>{' '}
           o <span className="font-mono">20&apos; Z2</span>. También puedes montarlo abajo.
         </p>
       ) : null}

@@ -145,8 +145,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Cuando tu atleta sale a la calle, no corre a ciegas. El <b>GPS del móvil</b> le pinta el
-          rodaje en vivo — mapa con su traza, <b>ritmo contra tu objetivo</b>, y los tramos que{' '}
-          <b>cierran solos</b> — se <b>pausa en el semáforo</b>, sigue en la pantalla bloqueada y{' '}
+          rodaje en vivo: mapa con su traza, <b>ritmo contra tu objetivo</b>, y los tramos que{' '}
+          <b>cierran solos</b>; se <b>pausa en el semáforo</b>, sigue en la pantalla bloqueada y{' '}
           <b>la app le habla</b>. Tú prescribes la carrera como siempre; correr fuera o en cinta no
           cambia tu trabajo.
         </>
@@ -170,7 +170,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque en la calle es fácil perder el ritmo de vista. Con el objetivo delante y al oído,
-            tu atleta <b>clava la banda</b> — y a ti te vuelve una ejecución <b>real</b>, con su
+            tu atleta <b>clava la banda</b>, y a ti te vuelve una ejecución <b>real</b>, con su
             recorrido, no una estimación a ojo.
           </>
         }
@@ -181,7 +181,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         El mapa es una <b>superficie de vistazo</b>, no el foco: arriba la traza que va dejando;
         debajo, lo que de verdad guía. El <b>ritmo GPS</b> (suavizado, sin saltos) manda grande junto
         a tu objetivo y se pinta <b>verde si va dentro</b> de la banda y <b>ámbar si se sale</b>, con
-        la palabra justa — <i>dentro</i>, <i>rápido</i> o <i>lento</i>. Debajo, distancia, tiempo y
+        la palabra justa: <i>dentro</i>, <i>rápido</i> o <i>lento</i>. Debajo, distancia, tiempo y
         pulso, y la barra del tramo que se llena sola.
       </p>
 
@@ -189,7 +189,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="El rodaje al aire libre, en su móvil"
         subtitle={
           <>
-            Mapa con la traza, ritmo GPS contra objetivo, pulso y la barra del tramo — cuando lo
+            Mapa con la traza, ritmo GPS contra objetivo, pulso y la barra del tramo; cuando lo
             completa, <b>salta al siguiente</b> sin tocar el móvil.
           </>
         }
@@ -284,10 +284,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>2 · Se pausa en el semáforo y cierra los tramos solo</h3>
       <p>
-        Si tu atleta se para — un semáforo, un cruce — la app lo detecta y <b>congela el rodaje</b>{' '}
+        Si tu atleta se para (un semáforo, un cruce), la app lo detecta y <b>congela el rodaje</b>{' '}
         con un aviso sobrio («Auto-pausa · sin movimiento»); en cuanto vuelve a moverse, <b>se reanuda
         solo</b>. Y en un tramo de distancia, cuando cubre los metros prescritos, el tramo <b>pasa al
-        siguiente por sí mismo</b> por el GPS — igual que en la muñeca. Si prefiere cerrarlo antes,{' '}
+        siguiente por sí mismo</b> por el GPS, igual que en la muñeca. Si prefiere cerrarlo antes,{' '}
         <b>«Tramo hecho»</b> siempre está.
       </p>
 
@@ -295,7 +295,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           En un tramo <b>a tiempo</b> o en una <b>recuperación cronometrada</b>, la auto-pausa está{' '}
           <b>desactivada</b> a propósito: ahí manda el reloj de la sesión, y congelarlo le regalaría
-          un descanso que no prescribiste. Solo actúa donde tiene sentido — el rodaje continuo y los
+          un descanso que no prescribiste. Solo actúa donde tiene sentido: el rodaje continuo y los
           tramos por distancia.
         </p>
       </DocNote>
@@ -303,7 +303,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · En la pantalla bloqueada y la Isla Dinámica</h3>
       <p>
         Puede guardar el móvil en el bolsillo: el rodaje sigue vivo en la <b>pantalla bloqueada</b> y
-        en la <b>Isla Dinámica</b> del iPhone — ritmo, tramo, distancia, tiempo y su zona, de un
+        en la <b>Isla Dinámica</b> del iPhone: ritmo, tramo, distancia, tiempo y su zona, de un
         vistazo y sin abrir la app. El GPS sigue grabando la traza en segundo plano. Si tu atleta
         tiene las Actividades en Directo desactivadas, no pasa nada: el rodaje no se ve afectado.
       </p>
@@ -355,7 +355,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         continuo, la cuenta atrás de los últimos segundos de un tramo a tiempo y el cierre del
         entreno. Habla en <b>español natural</b> y <b>sin ser pesada</b>: solo corrige si lleva rato
         fuera de banda, no repite el mismo aviso seguido, y si se juntan varias cosas, primero lo
-        importante — el cambio de tramo manda sobre un ajuste de ritmo, y este sobre un parcial.
+        importante: el cambio de tramo manda sobre un ajuste de ritmo, y este sobre un parcial.
       </p>
 
       <div style={{ display: 'grid', gap: '6px', margin: '10px 0 2px' }}>
@@ -376,7 +376,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>5 · Y en la muñeca, sin móvil</h3>
       <p>
         Si prefiere no llevar el teléfono, tu atleta corre la <b>misma serie desde el reloj</b>: un
-        tramo cada vez — «Tramo 3 de 13 · 800 m», el ritmo grande, la <b>banda del objetivo</b>{' '}
+        tramo cada vez: «Tramo 3 de 13 · 800 m», el ritmo grande, la <b>banda del objetivo</b>{' '}
         coloreada dentro/fuera, la barra del tramo y una tira de su zona de pulso. Cuando se sale de
         ritmo, un <b>toque en la muñeca</b> se lo avisa; un tramo de distancia <b>se cierra solo</b> y
         con «Tramo hecho» lo pasa a mano. Lo mismo que ve en el móvil, en la muñeca.

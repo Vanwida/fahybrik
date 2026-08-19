@@ -42,7 +42,7 @@ export function blockAthleteLine(block: EditorBlock): string {
   if (items.length === 1) {
     const it = items[0]!;
     const line = prescriptionToText(it.prescription);
-    return [it.exercise_name, line].filter(Boolean).join(' — ');
+    return [it.exercise_name, line].filter(Boolean).join(' · ');
   }
 
   const head = items[0]!.prescription;

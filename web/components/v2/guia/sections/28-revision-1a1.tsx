@@ -63,7 +63,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Un repaso periódico cara a cara con tu atleta, agendado <b>sin fricción</b>: tú fijas cada
           cuánto toca, el sistema te avisa cuando vence, <b>tú propones</b> y{' '}
-          <b>él elige el hueco</b>. La reunión se crea sola — con su Google Meet y su recordatorio —
+          <b>él elige el hueco</b>. La reunión se crea sola, con su Google Meet y su recordatorio,
           reutilizando el mismo sistema de citas de tus videollamadas.
         </>
       }
@@ -81,8 +81,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            Una <b>revisión 1:1 recurrente</b> por atleta. Tú fijas la cadencia —{' '}
-            <b>mensual por defecto</b> — y el sistema levanta un aviso en tu Hoy cuando pasa el plazo
+            Una <b>revisión 1:1 recurrente</b> por atleta. Tú fijas la cadencia{' '}
+            (<b>mensual por defecto</b>) y el sistema levanta un aviso en tu Hoy cuando pasa el plazo
             sin una revisión. No es una cita nueva que montar: es la de siempre, aplicada al atleta.
           </>
         }
@@ -95,7 +95,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         porque={
           <>
-            Porque el 1:1 es lo que hace premium a un coaching de alto contacto — y lo que más se
+            Porque el 1:1 es lo que hace premium a un coaching de alto contacto, y lo que más se
             olvida. El sistema te lo <b>recuerda solo</b> y te ahorra el cuadrar agendas: mantienes el
             pulso con cada atleta sin perseguir a nadie.
           </>
@@ -105,7 +105,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · La cadencia la fijas tú, por atleta</h3>
       <p>
         En la ficha del atleta eliges cada cuánto quieres verle: <code>Sin revisiones</code>,{' '}
-        <code>Mensual</code> o <code>Trimestral</code>. El default es <b>Mensual</b> — es opt-out a
+        <code>Mensual</code> o <code>Trimestral</code>. El default es <b>Mensual</b>: es opt-out a
         propósito: en un coaching 1:1 premium el repaso mensual es la norma, no la excepción. Bajas a
         trimestral o lo desactivas cuando quieras.
       </p>
@@ -114,14 +114,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         El sistema mira los días desde la última 1:1. Si pasan más de <b>30</b> (mensual) o{' '}
         <b>90</b> (trimestral) sin una revisión y no hay ninguna reservada, levanta la señal{' '}
-        <code>Revisión 1:1 vencida</code> en tu pantalla Hoy — junto al resto de tus colas. Para no
+        <code>Revisión 1:1 vencida</code> en tu pantalla Hoy, junto al resto de tus colas. Para no
         agobiar, no vuelve a dejarte proponer al mismo atleta en <b>14 días</b>.
       </p>
 
       <h3>3 · Tú propones, tu atleta elige el hueco</h3>
       <p>
-        Tú solo pulsas <b>Proponer revisión</b>. Tu atleta recibe un aviso en la app —{' '}
-        <em className="em">«Pablo te propone una revisión»</em> — y <b>reserva él</b> el hueco que
+        Tú solo pulsas <b>Proponer revisión</b>. Tu atleta recibe un aviso en la app{' '}
+        (<em className="em">«Pablo te propone una revisión»</em>) y <b>reserva él</b> el hueco que
         mejor le venga, de tu disponibilidad real. Cero ida y vuelta por WhatsApp para cuadrar día y
         hora.
       </p>
@@ -129,7 +129,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>4 · Se agenda sola: cita, Meet y recordatorio</h3>
       <p>
         Al reservar, la revisión queda <b>auto-aceptada</b>, con su <b>Google Meet</b> y su
-        recordatorio 24h — reutiliza tu sistema de citas tal cual, sin tocar el embudo de leads.
+        recordatorio 24h: reutiliza tu sistema de citas tal cual, sin tocar el embudo de leads.
         Después de la llamada la cierras como un <b>parte de seguimiento</b>, con tus notas y los
         próximos pasos.
       </p>
@@ -258,13 +258,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           La cadencia arranca en <b>Mensual</b> para cada atleta nuevo: en un coaching 1:1 premium de
           alto contacto, el repaso mensual es lo esperable. Si un atleta lleva otro ritmo, lo bajas a
-          trimestral o lo pones en <code>Sin revisiones</code> — tú mandas.
+          trimestral o lo pones en <code>Sin revisiones</code>: tú mandas.
         </p>
       </DocNote>
 
       <DocNote variant="log" title="Un atleta pausado no genera avisos">
         <p>
-          Mientras un atleta está <b>en pausa</b> o de baja, la señal de revisión se calla sola — no
+          Mientras un atleta está <b>en pausa</b> o de baja, la señal de revisión se calla sola: no
           te llena el Hoy de avisos de alguien que no está entrenando. Vuelve cuando el atleta
           vuelve.
         </p>
@@ -349,7 +349,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           caption={
             <>
               <b>Agendada.</b> Al reservar, ve su <b>próxima sesión con Pablo</b> con el enlace de{' '}
-              <b>Meet</b> — y le llega el recordatorio 24h antes.
+              <b>Meet</b>, y le llega el recordatorio 24h antes.
             </>
           }
         >

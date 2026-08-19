@@ -298,7 +298,7 @@ export function ImportMissingExercisesPanel({
                     className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
                   >
                     <option value="">
-                      {groupApplied.get(title) ? 'cambiar…' : '— elige —'}
+                      {groupApplied.get(title) ? 'cambiar…' : '(elige)'}
                     </option>
                     {MODALITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -419,7 +419,7 @@ export function ImportMissingExercisesPanel({
                                   : 'border-dashed border-[color:var(--v2-warn)]',
                               )}
                             >
-                              <option value="">— elige —</option>
+                              <option value="">(elige)</option>
                               {MODALITY_OPTIONS.map((o) => (
                                 <option key={o.value} value={o.value}>
                                   {o.label}
@@ -442,7 +442,7 @@ export function ImportMissingExercisesPanel({
                                   : 'border-dashed border-[color:var(--v2-warn)]',
                               )}
                             >
-                              <option value="">— elige —</option>
+                              <option value="">(elige)</option>
                               {CATEGORY_OPTIONS.map((o) => (
                                 <option key={o.value} value={o.value}>
                                   {o.label}

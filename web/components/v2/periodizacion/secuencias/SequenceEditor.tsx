@@ -300,7 +300,7 @@ export function SequenceEditor({
         </span>
         <span className="flex-1">
           Todo atleta clasificado a <b className="text-[color:var(--v2-fg)]">{level.name} · {days} días</b> recorrerá esta
-          secuencia automáticamente — empieza en el microciclo 1 y avanza una semana cada vez. La montas{' '}
+          secuencia automáticamente: empieza en el microciclo 1 y avanza una semana cada vez. La montas{' '}
           <b className="text-[color:var(--v2-fg)]">una vez</b>.
         </span>
       </div>

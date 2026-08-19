@@ -249,7 +249,7 @@ export function EjerciciosPanel({ query }: { query?: string }) {
           className="mt-3"
           more={
             <>
-              Personalizar una <b>Base</b> no afecta a nadie más — tu versión es tuya. Lo que define
+              Personalizar una <b>Base</b> no afecta a nadie más: tu versión es tuya. Lo que define
               el movimiento (categoría, músculos, material) es igual para todos: si necesitas otro
               movimiento, crea uno <b>tuyo</b>.
             </>

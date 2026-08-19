@@ -47,7 +47,7 @@ const INTRO_STEPS: IntroMicroStep[] = [
     title: 'Entra y ordena su periodización',
     body: (
       <>
-        Dentro de cada nivel, encadena tus microciclos por <b>días/semana</b> — ese orden es la
+        Dentro de cada nivel, encadena tus microciclos por <b>días/semana</b>. Ese orden es la
         progresión.
       </>
     ),

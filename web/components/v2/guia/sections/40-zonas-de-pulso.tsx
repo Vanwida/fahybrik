@@ -230,10 +230,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Una zona de pulso solo significa algo si cuelga de un número que tu atleta ha{' '}
-          <b>medido</b>. Hasta ahora colgaban de su <b>FC máxima</b> — y como casi nadie la ha medido,
+          <b>medido</b>. Hasta ahora colgaban de su <b>FC máxima</b>, y como casi nadie la ha medido,
           la app la estimaba por la edad y sacaba porcentajes de una estimación. Desde el <b>28 de
           julio</b> una zona es una <b>fracción de su FC de umbral</b>: lo que un test mide y contra lo
-          que tú prescribes. Y si no hay nada que la ancle, <b>no hay zonas</b> — la app lo dice, no se
+          que tú prescribes. Y si no hay nada que la ancle, <b>no hay zonas</b>: la app lo dice, no se
           las inventa.
         </>
       }
@@ -257,7 +257,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque el umbral es lo único que se <b>mide</b> y contra lo que <b>prescribes</b>. Un
-            porcentaje de un máximo estimado por la edad son <b>dos suposiciones apiladas</b> — y daban
+            porcentaje de un máximo estimado por la edad son <b>dos suposiciones apiladas</b>, y daban
             bandas que no coincidían con las tuyas.
           </>
         }
@@ -338,7 +338,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p>
         Traducido a la calle: a <b>130 ppm</b> ese atleta estaba <b>exactamente donde tú lo querías</b>{' '}
-        (Z2), y su móvil le decía <b>Z3</b> — «estás apretando de más». Peor todavía, los segundos por
+        (Z2), y su móvil le decía <b>Z3</b>: «estás apretando de más». Peor todavía, los segundos por
         zona que te llegaban a ti estaban repartidos con <b>ese</b> criterio, así que la evidencia con
         la que decidías la semana siguiente venía de un número que nadie había medido.
       </p>
@@ -347,7 +347,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <ul>
           <li>
             <span className="k">Casi nadie la ha medido.</span> Llegar a la máxima de verdad exige un
-            esfuerzo maximal que duele y no entrena nada — por eso la inmensa mayoría de las fichas la
+            esfuerzo maximal que duele y no entrena nada, por eso la inmensa mayoría de las fichas la
             tienen vacía.
           </li>
           <li>
@@ -355,7 +355,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             suposiciones: el error de la fórmula multiplica al de la banda.
           </li>
           <li>
-            <span className="k">El umbral sí se mide</span> — y es el punto contra el que prescribes de
+            <span className="k">El umbral sí se mide</span>, y es el punto contra el que prescribes de
             verdad. Por eso es el ancla.
           </li>
         </ul>
@@ -365,8 +365,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Las bandas se expresan como <b>fracción del umbral</b>, no como porcentaje de un máximo. Z4{' '}
         <b>abraza</b> el <span className="num">1,00</span>: el umbral <b>es</b> la Z4, igual que en las
-        zonas de ritmo el resultado del test es el borde inferior de Z4. Z1 <b>no tiene suelo</b> —no
-        hay un mínimo para ir suave— y Z5 <b>no tiene techo</b>. Aquí, resueltas para un atleta con un
+        zonas de ritmo el resultado del test es el borde inferior de Z4. Z1 <b>no tiene suelo</b> (no
+        hay un mínimo para ir suave) y Z5 <b>no tiene techo</b>. Aquí, resueltas para un atleta con un
         umbral de <span className="num">{EJEMPLO_UMBRAL} ppm</span>:
       </p>
 
@@ -448,7 +448,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           detail={
             <>
               Con solo su fecha de nacimiento: <span className="num">208 − 0,7 × edad</span> da un máximo
-              aproximado y de ahí el umbral. <b>Dos</b> inferencias — es lo más flojo que la app acepta,
+              aproximado y de ahí el umbral. <b>Dos</b> inferencias: es lo más flojo que la app acepta,
               y lo dice cada vez que lo usa.
             </>
           }
@@ -472,15 +472,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <ul className="clean">
         <li>
-          <b>Zonas reales</b> — hizo el test. La línea de ancla dice «umbral 168 ppm · medido en tu test
+          <b>Zonas reales</b>: hizo el test. La línea de ancla dice «umbral 168 ppm · medido en tu test
           de umbral», en gris, sin avisos.
         </li>
         <li>
-          <b>Zonas estimadas</b> — hay bandas, pero salen de su máxima o de su edad. El ancla se pinta en{' '}
+          <b>Zonas estimadas</b>: hay bandas, pero salen de su máxima o de su edad. El ancla se pinta en{' '}
           <b>color de aviso</b> y debajo se le explica cómo convertirlas en reales.
         </li>
         <li>
-          <b>Sin zonas</b> — no hay ancla de ningún tipo. No se pinta ninguna banda: se le dice, y se le
+          <b>Sin zonas</b>: no hay ancla de ningún tipo. No se pinta ninguna banda: se le dice, y se le
           dan las <b>dos salidas</b> que existen.
         </li>
       </ul>
@@ -552,7 +552,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Sin zonas.</b> Ni test, ni máxima, ni fecha de nacimiento. Cero bandas inventadas — y
+              <b>Sin zonas.</b> Ni test, ni máxima, ni fecha de nacimiento. Cero bandas inventadas, y
               las dos salidas reales, escritas.
             </>
           }
@@ -582,7 +582,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
 
-      <DocNote variant="bad" title="Sin ancla no hay zonas — y eso es lo correcto">
+      <DocNote variant="bad" title="Sin ancla no hay zonas, y eso es lo correcto">
         <ul>
           <li>
             <span className="k">Una banda inventada no se distingue de una real</span> de un vistazo: se
@@ -617,7 +617,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <li>
           Al <b>Apple Watch</b> no se le manda <b>ningún aviso de pulso</b> si el umbral es estimado: un
           reloj vibrando en la muñeca por un número que nadie midió es peor que no avisar. Y cuando sí
-          avisa, recibe <b>ppm absolutas</b>, nunca «Z4» — si le mandaras la zona, el reloj aplicaría{' '}
+          avisa, recibe <b>ppm absolutas</b>, nunca «Z4»: si le mandaras la zona, el reloj aplicaría{' '}
           <b>sus</b> zonas, calculadas con su propia estimación de FC máxima.
         </li>
         <li>
@@ -632,8 +632,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         La lectura de intensidad de tu panel ya <b>no usa un número fijo para todos</b>. Hasta ahora la{' '}
         <b>polarización</b> partía el pulso en tres franjas contra un máximo de <b>200 ppm escrito a
         mano</b>, idéntico para un atleta de 20 y para uno de 44: las líneas caían en 140 y 170 ppm para
-        todo el mundo. Ahora se clasifica contra <b>las bandas de ese atleta</b> — baja es Z1+Z2, media
-        Z3+Z4, alta Z5 —, y si no tiene ancla el panel <b>no enseña nada</b> en vez de un reparto falso.
+        todo el mundo. Ahora se clasifica contra <b>las bandas de ese atleta</b>: baja es Z1+Z2, media
+        Z3+Z4, alta Z5; y si no tiene ancla el panel <b>no enseña nada</b> en vez de un reparto falso.
       </p>
 
       <DashboardMockup url="tu-panel / atletas / laia · rendimiento">
@@ -701,7 +701,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p>
         Y en su ficha, pestaña <b>«Perfil &amp; objetivos»</b>, sigues viendo su <b>FC máx medida</b>{' '}
-        cuando la introdujo — con el mismo matiz honesto de siempre: si nunca la midió, <b>la fila no
+        cuando la introdujo, con el mismo matiz honesto de siempre: si nunca la midió, <b>la fila no
         aparece</b>. Nunca verás una estimación disfrazada de dato medido.
       </p>
 
@@ -709,7 +709,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           Si quieres que las zonas de un atleta sean <b>reales</b>, hay un solo camino: el <b>test de
           umbral de 30 minutos</b>. Pídeselo por chat y prográmaselo como cualquier otro test. Mientras
-          tanto, con su fecha de nacimiento en el perfil ya tiene una <b>referencia etiquetada</b> — y
+          tanto, con su fecha de nacimiento en el perfil ya tiene una <b>referencia etiquetada</b>, y
           sin ella, ni eso.
         </p>
       </DocNote>

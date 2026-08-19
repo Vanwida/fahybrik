@@ -30,7 +30,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Este es el paso que conecta tu trabajo con su teléfono. Primero <b>asignas</b> — y el plan
+          Este es el paso que conecta tu trabajo con su teléfono. Primero <b>asignas</b>, y el plan
           nace en <b>borrador</b>, solo para ti, para que lo revises con calma. Cuando estás conforme,
           lo <b>publicas</b> y, en ese instante, aparece en el móvil de tu atleta. Nada le llega hasta
           que tú lo decides.
@@ -72,7 +72,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · El gate: cinco puntos en verde</h3>
       <p>
         Asignar no se desbloquea hasta que todo cuadra. La barra <code>Listo para asignar</code> te
-        muestra los puntos: <b>Evento</b> (la carrera objetivo tiene que estar anclada — el plan se
+        muestra los puntos: <b>Evento</b> (la carrera objetivo tiene que estar anclada: el plan se
         construye hacia atrás desde esa fecha), <b>Nivel</b>, <b>Estructura</b>, <b>Avisos</b> por
         confirmar y <b>Bienvenida</b>. En rojo o pendiente, el botón sigue bloqueado y te dice cuántos
         puntos quedan. En verde, <code>Asignar plan</code> se enciende.
@@ -82,7 +82,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Al pulsar <code>Asignar plan</code>, el panel te lo dice tal cual:{' '}
         <em className="em">«Se creará el primer microciclo en borrador para que lo revises antes de
-        publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada — pero en borrador,
+        publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada, pero en borrador,
         invisible para él. Aquí ajustas lo que quieras sin que nadie lo vea.
       </p>
 
@@ -131,7 +131,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </li>
           <li>
             Publicar es el único acto que se lo enseña. Si está <span className="k">parcial</span>,
-            tienes semanas aún sin publicar — el botón sigue ahí hasta que todo esté publicado.
+            tienes semanas aún sin publicar: el botón sigue ahí hasta que todo esté publicado.
           </li>
         </ul>
       </DocNote>
