@@ -6,16 +6,19 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**Rediseño FLEXR del panel (19-ago, EN CURSO):** el panel del coach adopta
-el sistema FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C).
-Fase 1 hecha: tema claro perla único (muere dark+naranja del cromo),
-Bricolage+Figtree, sidebar flotante con slot de tenant y sello FLEXR.
-Editor de día/sesión restyleado (`components/v2/editor/**` + `sesion/`):
-carril de días, hoja del día, compositor, biblioteca y archetype-forms a
-tokens FLEXR; solo presentación, mecánica/gate/guardado intactos.
-Siguen: casa=/atletas (toggle tarjetas/tabla + franja triage), resto de
-pantallas, barrido y QA con Chrome. Ver DECISIONS.md 2026-08-19. iOS/doble/
-landing intactos.
+**Rediseño FLEXR del panel (19-ago, COMPLETO y EN PRODUCCIÓN):** el panel
+entero adopta FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C):
+tema claro perla único (muere dark+naranja+itálica del cromo; DECISIONS.md
+2026-08-19), Bricolage+Figtree, sidebar flotante con slot de tenant, casa =
+/atletas (toggle tarjetas/tabla, chips-filtro, franja de triage; /hoy = cola),
+todas las pantallas restyleadas, cero em dash en copy (417 sust.), QA con
+Chrome sobre prod hecho (bug del bg del tab Plan arreglado de raíz: dark:
+siempre-activo por el .dark fijo del html legacy; frase invisible de la guía;
+barras de adherencia). iOS/doble/landing intactos.
+**Pendiente de decisión (hallazgo QA):** «Editar día» desde la ficha aterriza
+en la PLANTILLA del microciclo (vacía) aunque la semana del atleta tenga
+sesiones; es el modelo de dos recibos, pero el coach aterriza en una pantalla
+vacía. Decidir si debe aterrizar en la semana viva.
 
 **UX coach (solo lectura, 18-ago):** el hueco es que el estado no se
 entiende, no el publicar-tras-MCP. Mapa:
