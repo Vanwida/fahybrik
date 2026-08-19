@@ -200,7 +200,9 @@ export function ChatComposer({
         <AttachmentPreview attachment={attachment} onDiscard={() => replaceAttachment(null)} />
       ) : null}
 
-      <div className="flex items-end gap-2">
+      {/* Un único pill: el texto entra por la izquierda y las acciones (adjuntar,
+          grabar, enviar) se apoyan a la derecha, como en el resto de la app. */}
+      <div className="flex items-end gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] py-1.5 pl-4 pr-1.5">
         <input
           ref={fileInputRef}
           type="file"
@@ -211,20 +213,6 @@ export function ChatComposer({
             e.target.value = '';
           }}
         />
-        <IconButton
-          icon="attach_file"
-          label="Adjuntar un archivo"
-          disabled={disabled || sending}
-          onClick={() => fileInputRef.current?.click()}
-        />
-        {canRecord ? (
-          <IconButton
-            icon="mic"
-            label="Grabar una nota de voz"
-            disabled={disabled || sending}
-            onClick={() => void startRecording()}
-          />
-        ) : null}
 
         <textarea
           ref={textareaRef}
@@ -246,24 +234,40 @@ export function ChatComposer({
           disabled={disabled}
           aria-label="Mensaje"
           className={cn(
-            'v2-focus min-h-9 flex-1 resize-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-3 py-2 text-body',
+            'v2-focus min-h-6 flex-1 resize-none self-center bg-transparent py-1 text-body',
             'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
-            'focus:border-[color:var(--v2-border-strong)] disabled:opacity-50',
+            'disabled:opacity-50',
           )}
         />
+
+        <IconButton
+          icon="attach_file"
+          label="Adjuntar un archivo"
+          disabled={disabled || sending}
+          onClick={() => fileInputRef.current?.click()}
+        />
+        {canRecord ? (
+          <IconButton
+            icon="mic"
+            label="Grabar una nota de voz"
+            disabled={disabled || sending}
+            onClick={() => void startRecording()}
+          />
+        ) : null}
 
         <button
           type="button"
           onClick={() => void submit()}
           disabled={!canSend}
+          aria-label="Enviar"
+          title="Enviar"
           className={cn(
-            'v2-focus flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors',
+            'v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
             'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
             'disabled:cursor-not-allowed disabled:opacity-40',
           )}
         >
           <MIcon name="send" size={16} filled />
-          Enviar
         </button>
       </div>
     </div>
@@ -289,7 +293,7 @@ function IconButton({
       aria-label={label}
       title={label}
       className={cn(
-        'v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]',
+        'v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
         'text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
         'disabled:opacity-50',
       )}
@@ -394,7 +398,7 @@ function RecordingBar({
       <button
         type="button"
         onClick={onStop}
-        className="v2-focus flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+        className="v2-focus flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
       >
         <MIcon name="stop" size={16} filled />
         Listo

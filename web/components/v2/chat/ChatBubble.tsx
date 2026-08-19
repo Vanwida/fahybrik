@@ -114,8 +114,8 @@ export function ChatBubble({
             className={cn(
               'whitespace-pre-wrap break-words rounded-[var(--v2-r-m)] px-3 py-2 text-body leading-relaxed',
               isCoach
-                ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]'
-                : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]',
+                ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-bg)] text-[color:var(--v2-fg)]',
             )}
           >
             {message.body}

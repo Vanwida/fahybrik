@@ -1,4 +1,4 @@
-// ContextPanel — the right column (248px) of the Mensajes screen. Keeps the
+// ContextPanel — the right column (280px) of the Mensajes screen. Keeps the
 // active athlete's training context one glance away while the coach replies:
 // a status/phase "context" card, two KPI tiles (adherencia 30d · readiness), and
 // quick actions (ver plan / ver ficha / reprogramar). All data is REAL, projected
@@ -19,6 +19,11 @@ import { cn } from '@/lib/utils';
 
 const ATHLETE_ROUTE = '/atletas';
 
+// El tercer panel flotante (mismo r-16 + borde + sombra que la lista y el hilo,
+// solo activo desde xl que es donde el grid le reserva su columna).
+const PANEL_ROOT =
+  'hidden h-full min-h-0 flex-col bg-[color:var(--v2-surface)] xl:flex xl:overflow-hidden xl:rounded-[var(--v2-r-l)] xl:border xl:border-[color:var(--v2-border)] xl:shadow-[var(--v2-shadow-card)]';
+
 export function ContextPanel({
   thread,
   onReprogram,
@@ -29,7 +34,7 @@ export function ContextPanel({
 }) {
   if (!thread) {
     return (
-      <aside className="hidden h-full min-h-0 flex-col border-l border-[color:var(--v2-border)] xl:flex">
+      <aside className={PANEL_ROOT}>
         <PanelHeader />
         <div className="flex flex-1 items-center justify-center p-6">
           <p className="max-w-[20rem] text-balance text-center text-xs leading-relaxed text-[color:var(--v2-muted)]">
@@ -43,7 +48,7 @@ export function ContextPanel({
   const ctx = thread.context;
 
   return (
-    <aside className="hidden h-full min-h-0 flex-col border-l border-[color:var(--v2-border)] xl:flex">
+    <aside className={PANEL_ROOT}>
       <PanelHeader />
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
@@ -56,7 +61,7 @@ export function ContextPanel({
         {/* Sesión de hoy / fase actual */}
         <section>
           <h4 className="v2-micro mb-1.5">Sesión de hoy</h4>
-          <Card className="p-3">
+          <Card variant="inset" className="p-3">
             {ctx?.phase_label ? (
               <>
                 <div className="flex items-center justify-between gap-2">
@@ -90,14 +95,14 @@ export function ContextPanel({
 
         {/* KPI tiles */}
         <section className="grid grid-cols-2 gap-3">
-          <Card className="p-3">
+          <Card variant="inset" className="p-3">
             <StatTile
               label="Adher. 30d"
               tone={adherTone(ctx?.adherence_pct ?? null)}
               value={ctx?.adherence_pct != null ? `${ctx.adherence_pct}%` : '—'}
             />
           </Card>
-          <Card className="p-3">
+          <Card variant="inset" className="p-3">
             <StatTile
               label="Readiness"
               tone={readinessTone(ctx?.readiness_score ?? null)}
@@ -141,7 +146,7 @@ function PanelHeader() {
 }
 
 const ACTION_BASE =
-  'v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:bg-[color:var(--v2-surface-2)]';
+  'v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-nav)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:bg-[color:var(--v2-surface-2)]';
 
 function ActionLink({ href, icon, label }: { href: string; icon: string; label: string }) {
   return (
