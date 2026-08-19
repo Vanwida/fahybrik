@@ -98,12 +98,24 @@ private struct PRWire: Decodable {
 struct WorkoutExecutionResponse: Decodable {
     private let prs: [PRWire]?
 
-    /// La ejecución que el servidor acaba de crear. Viaja como TEXTO (el endpoint
-    /// hace `String(executionId)`) y es de lo que cuelga la traza de la sesión, que
-    /// se sube justo después en su propia petición. Opcional: una respuesta que no lo
-    /// traiga no puede tumbar el decode y llevarse por delante la celebración de un
-    /// récord — simplemente no habrá dónde colgar la traza.
+    /// La ejecución que el servidor acaba de crear. El endpoint prescrito a veces
+    /// la manda como texto y el libre como número; las dos formas son la misma
+    /// fila. Opcional: una respuesta que no lo traiga no puede tumbar el decode.
     let executionId: String?
+
+    enum CodingKeys: String, CodingKey { case prs, executionId }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        prs = try c.decodeIfPresent([PRWire].self, forKey: .prs)
+        if let text = try? c.decodeIfPresent(String.self, forKey: .executionId) {
+            executionId = text
+        } else if let number = try? c.decodeIfPresent(Int.self, forKey: .executionId) {
+            executionId = String(number)
+        } else {
+            executionId = nil
+        }
+    }
 
     /// The records set this session, resolved to KNOWN distances (unknown `kind`
     /// values are skipped, never fatal). Empty when the athlete set none.
@@ -125,6 +137,8 @@ struct ExecutionSubmission {
     let response: WorkoutExecutionResponse?
     /// La entrada de la cola que reintentará el envío, si se encoló.
     let queuedRequestId: UUID?
+    /// El servidor contestó 2xx: hay fila. Encolar no es persistir.
+    let persisted: Bool
 
     /// La ejecución creada, numérica, o nil si aún no se sabe cuál es.
     var executionId: Int? {
@@ -132,7 +146,7 @@ struct ExecutionSubmission {
         return value
     }
 
-    static let none = ExecutionSubmission(response: nil, queuedRequestId: nil)
+    static let none = ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: false)
 }
 
 // MARK: - #58 · Structured session feedback (to the coach)

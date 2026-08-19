@@ -1181,23 +1181,25 @@ enum WorkoutExecutionAPI {
     /// needs to know which entry will eventually bring its id.
     static func submitReturning(
         _ payload: WorkoutExecutionPayload,
-        bearer: String?
+        bearer: String?,
+        enqueueOnFailure: Bool = true
     ) async -> ExecutionSubmission {
         do {
             let response: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: path, body: payload, bearer: bearer
             )
-            return ExecutionSubmission(response: response, queuedRequestId: nil)
+            return ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
-            return .none
+            return ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: true)
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
-            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
+            // El resumen pasa enqueueOnFailure=false: fallo = reintento, no «guardado».
+            if enqueueOnFailure, RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 let queued = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return ExecutionSubmission(response: nil, queuedRequestId: queued)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued, persisted: false)
             }
             return .none
         }
@@ -1235,21 +1237,22 @@ enum DoblesExecutionAPI {
     static func submitReturning(
         sessionId: String,
         _ payload: WorkoutExecutionPayload,
-        bearer: String?
+        bearer: String?,
+        enqueueOnFailure: Bool = true
     ) async -> ExecutionSubmission {
         let p = path(sessionId: sessionId)
         do {
             let response: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: p, body: payload, bearer: bearer
             )
-            return ExecutionSubmission(response: response, queuedRequestId: nil)
+            return ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
         } catch APIError.decoding {
-            return .none
+            return ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: true)
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
-            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
+            if enqueueOnFailure, RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 let queued = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
-                return ExecutionSubmission(response: nil, queuedRequestId: queued)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued, persisted: false)
             }
             return .none
         }
