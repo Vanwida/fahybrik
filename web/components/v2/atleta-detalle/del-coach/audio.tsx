@@ -139,7 +139,7 @@ export function GrabadorDeAudio({
           type="button"
           onClick={() => void empezar()}
           disabled={disabled || subiendo}
-          className="v2-focus inline-flex h-9 w-fit items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
+          className="v2-focus inline-flex h-9 w-fit items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
         >
           <MIcon name={subiendo ? 'progress_activity' : 'mic'} size={16} className={subiendo ? 'animate-spin' : undefined} />
           {subiendo ? 'Guardando el audio…' : 'Grabar una nota de voz'}
@@ -178,14 +178,14 @@ function BarraGrabando({
       <button
         type="button"
         onClick={onDescartar}
-        className="v2-focus rounded-[var(--v2-r-s)] px-2 py-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus rounded-[var(--v2-r-pill)] px-2 py-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
       >
         Descartar
       </button>
       <button
         type="button"
         onClick={onCortar}
-        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)]"
+        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)]"
       >
         <MIcon name="stop" size={15} filled />
         Listo

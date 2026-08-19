@@ -8,7 +8,6 @@
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { Pill } from '@/components/v2/Pill';
 import { Panel, Sparkline } from './parts';
 import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
 import {
@@ -180,7 +179,7 @@ export function BiometriaTab({
         {showPlanCta ? (
           <Link
             href={`/atletas/${athleteId}?tab=plan`}
-            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
             Ver plan y ajustar
             <MIcon name="arrow_forward" size={16} />
@@ -232,7 +231,7 @@ export function BiometriaTab({
                 {Math.round(body.sleep.bedtime_variance_min)} min
               </span>
               {body.sleep.bedtime_variance_min > 60
-                ? ' — horarios irregulares restan recuperación.'
+                ? '. Horarios irregulares restan recuperación.'
                 : '.'}
             </p>
           ) : null}
@@ -271,7 +270,7 @@ export function BiometriaTab({
                 ) : null}
               </div>
               <p className="text-label text-[color:var(--v2-faint)]">
-                Tendencia lenta — no mueve el veredicto de hoy.
+                Tendencia lenta, no mueve el veredicto de hoy.
               </p>
             </>
           ) : (
@@ -303,7 +302,7 @@ export function BiometriaTab({
                 </p>
               ) : (
                 <p className="text-label text-[color:var(--v2-faint)]">
-                  Contexto de bloque — no mueve el veredicto de hoy.
+                  Contexto de bloque, no mueve el veredicto de hoy.
                 </p>
               )}
             </>
@@ -401,7 +400,7 @@ function SleepCard({
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-2.5 py-2">
+    <div className="flex flex-col gap-0.5 rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface-2)] px-2.5 py-2">
       <span className="v2-micro text-nano">{label}</span>
       <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">{value}</span>
     </div>

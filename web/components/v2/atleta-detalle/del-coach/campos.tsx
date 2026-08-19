@@ -219,7 +219,7 @@ export function AlternadorCasilla({
           : 'Solo lo lee. Toca para ponerle casilla.'
       }
       className={cn(
-        'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-[var(--v2-r-s)] border px-2.5 text-label font-semibold transition-colors',
+        'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
         checkable
           ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
           : 'border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -353,7 +353,7 @@ export function FilasOrdenables<T extends { key: string }>({
             e.preventDefault();
             onMover(desde, i);
           }}
-          className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2 transition-colors hover:border-[color:var(--v2-border-strong)]"
+          className="flex items-start gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2 transition-colors hover:border-[color:var(--v2-border-strong)]"
         >
           <button
             type="button"
@@ -412,7 +412,7 @@ export function BotonAnadir({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="v2-focus self-start rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] px-3.5 py-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-solid hover:border-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+      className="v2-focus self-start rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] px-3.5 py-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-solid hover:border-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>

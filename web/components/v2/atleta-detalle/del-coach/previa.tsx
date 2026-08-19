@@ -181,7 +181,7 @@ export function ColumnaPrevia({
       </div>
 
       <details className="lg:hidden">
-        <summary className="v2-focus cursor-pointer list-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-4 py-2.5 text-center text-body font-semibold text-[color:var(--v2-fg)]">
+        <summary className="v2-focus cursor-pointer list-none rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-4 py-2.5 text-center text-body font-semibold text-[color:var(--v2-fg)]">
           Ver cómo le queda
         </summary>
         <div className="mt-3 h-[520px]">

@@ -160,7 +160,7 @@ export function PanelBiblioteca({
           type="button"
           onClick={onCerrar}
           aria-label="Cerrar la biblioteca"
-          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={16} />
         </button>
@@ -172,7 +172,7 @@ export function PanelBiblioteca({
           <button
             type="button"
             onClick={reintentar}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 py-1 text-label font-semibold text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-danger)] px-2 py-1 text-label font-semibold text-[color:var(--v2-danger)]"
           >
             <MIcon name="refresh" size={13} />
             Reintentar
@@ -245,7 +245,7 @@ function Fila({
   borrando?: boolean;
 }) {
   return (
-    <li className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
+    <li className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
       <Pill tone={c.kind === 'note' ? 'neutral' : c.kind === 'focus' ? 'info' : 'accent'} variant="soft">
         {KIND_LABEL[c.kind]}
       </Pill>
@@ -261,7 +261,7 @@ function Fila({
           onClick={onBorrar}
           disabled={borrando}
           aria-label={`Borrar el borrador ${c.title}`}
-          className="v2-focus inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-50"
+          className="v2-focus inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-50"
         >
           <MIcon name={borrando ? 'progress_activity' : 'delete'} size={15} className={borrando ? 'animate-spin' : undefined} />
         </button>
@@ -269,7 +269,7 @@ function Fila({
       <button
         type="button"
         onClick={onUsar}
-        className="v2-focus inline-flex h-7 shrink-0 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-2.5 text-label font-bold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90"
+        className="v2-focus inline-flex h-7 shrink-0 items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2.5 text-label font-bold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90"
       >
         Usar
       </button>

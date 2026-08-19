@@ -101,7 +101,7 @@ export function ComunicadoDetalle({
             type="button"
             aria-label="Cerrar"
             onClick={onCerrar}
-            className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>
@@ -249,7 +249,7 @@ export function ComunicadoDetalle({
                     type="button"
                     onClick={() => setConfirmar(false)}
                     disabled={retirando}
-                    className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+                    className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
                   >
                     Cancelar
                   </button>
@@ -257,7 +257,7 @@ export function ComunicadoDetalle({
                     type="button"
                     onClick={() => void retirar()}
                     disabled={retirando}
-                    className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-3 text-label font-bold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-danger)] px-3 text-label font-bold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {retirando ? (
                       <MIcon name="progress_activity" size={14} className="animate-spin" />
@@ -270,7 +270,7 @@ export function ComunicadoDetalle({
               <button
                 type="button"
                 onClick={() => setConfirmar(true)}
-                className="v2-focus inline-flex h-8 w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+                className="v2-focus inline-flex h-8 w-fit items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
               >
                 <MIcon name="archive" size={15} />
                 Retirar de su bandeja

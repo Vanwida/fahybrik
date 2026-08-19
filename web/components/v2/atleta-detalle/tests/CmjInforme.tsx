@@ -57,7 +57,7 @@ export function CmjInforme({
       onClick={onClose}
     >
       <article
-        className="my-auto w-full max-w-[560px] rounded-[16px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)] sm:p-7"
+        className="my-auto w-full max-w-[560px] rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)] sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-3">

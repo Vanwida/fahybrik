@@ -96,7 +96,7 @@ export function DelCoachTab({
         <button
           type="button"
           onClick={() => setComponiendo(true)}
-          className="v2-focus flex w-full items-center justify-between gap-3 rounded-[14px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-3 text-left"
+          className="v2-focus flex w-full items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-3 text-left"
         >
           <span className="text-[13px] text-[color:var(--v2-muted)]">
             Todavía no le has publicado nada a {athleteName}

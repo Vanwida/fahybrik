@@ -123,8 +123,8 @@ export function ProgramarTestSheet({
                     onClick={() => setTestId(t.id)}
                     className={
                       on
-                        ? 'v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]'
-                        : 'v2-focus rounded-[var(--v2-r-m)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
+                        ? 'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]'
+                        : 'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
                     }
                   >
                     {t.name}
@@ -168,8 +168,8 @@ export function ProgramarTestSheet({
                     onClick={() => setRepeat(o.weeks)}
                     className={
                       on
-                        ? 'v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]'
-                        : 'v2-focus rounded-[var(--v2-r-m)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
+                        ? 'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]'
+                        : 'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
                     }
                   >
                     {o.label}
@@ -190,7 +190,7 @@ export function ProgramarTestSheet({
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
+            className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
           >
             Cancelar
           </button>
@@ -198,7 +198,7 @@ export function ProgramarTestSheet({
             type="button"
             onClick={submit}
             disabled={busy || !testId}
-            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
+            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
           >
             {busy ? (
               <MIcon name="progress_activity" size={15} className="animate-spin" />

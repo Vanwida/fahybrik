@@ -76,14 +76,14 @@ export function PieCompositor({
             <button
               type="button"
               onClick={onSeguirEscribiendo}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
             >
               Seguir escribiendo
             </button>
             <button
               type="button"
               onClick={onCerrarYPerder}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-semibold text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-semibold text-[color:var(--v2-fg)]"
             >
               Cerrar y perderlo
             </button>
@@ -101,7 +101,7 @@ export function PieCompositor({
           onClick={() => void principal.hacer()}
           disabled={ocupado}
           className={cn(
-            'v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-s)] px-5 text-body font-bold transition-opacity',
+            'v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-pill)] px-5 text-body font-bold transition-opacity',
             'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:opacity-90 disabled:opacity-50',
           )}
         >
@@ -115,7 +115,7 @@ export function PieCompositor({
             type="button"
             onClick={onGuardarBorrador}
             disabled={ocupado}
-            className="v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-4 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
+            className="v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-4 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
           >
             {enviando === 'borrador' ? (
               <MIcon name="progress_activity" size={16} className="animate-spin" />

@@ -15,7 +15,7 @@ import {
 
 // ── Shared button class strings (v2 tokens only) ────────────────────────────────
 const BTN_BASE =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
 
 export const DIALOG_PRIMARY_CLS = cn(
   BTN_BASE,
@@ -91,7 +91,7 @@ export function ReasonChips({
             aria-pressed={active}
             onClick={() => onChange(r)}
             className={cn(
-              'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
+              'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
               active
                 ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                 : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
