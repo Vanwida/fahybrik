@@ -77,7 +77,6 @@ function AjustesConector() {
           fontFamily: 'var(--v2-font-display)',
           fontSize: '17px',
           fontWeight: 900,
-          fontStyle: 'italic',
           letterSpacing: '-0.02em',
           color: 'var(--v2-fg)',
           marginBottom: '14px',

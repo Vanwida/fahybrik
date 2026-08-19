@@ -189,10 +189,18 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                         ) : (
                           <span className="text-[11px] text-[color:var(--v2-faint)]">—</span>
                         )}
+                        {/* La semana actual habla en tinta (o en danger si va baja);
+                            las pasadas en un neutro que SÍ se ve sobre la card
+                            (surface-2 se fundía con el fondo y las barras
+                            desaparecían: solo se leían los números). */}
                         <div
                           className={cn(
                             'w-full rounded-[6px]',
-                            baja ? 'bg-[color:var(--v2-danger)]' : 'bg-[color:var(--v2-surface-2)]',
+                            baja
+                              ? 'bg-[color:var(--v2-danger)]'
+                              : actual
+                                ? 'bg-[color:var(--v2-fg)]'
+                                : 'bg-[color:var(--v2-border-strong)]',
                           )}
                           style={{ height: h }}
                         />

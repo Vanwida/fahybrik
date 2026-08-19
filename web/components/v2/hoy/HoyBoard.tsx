@@ -8,7 +8,6 @@
 
 import { useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
-import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { HoyLane } from '@/components/v2/hoy/HoyLane';
 import { NivelSugeridoStrip } from '@/components/v2/hoy/NivelSugeridoCard';
@@ -64,14 +63,12 @@ const HOY_INTRO_STEPS: IntroMicroStep[] = [
 export function HoyBoard({
   data,
   today,
-  coach_name,
   coachKey,
   pending_intakes,
   activity,
 }: {
   data: V2HoyData;
   today: string;
-  coach_name: string;
   coachKey: string;
   pending_intakes: PendingIntakeAthlete[];
   activity: ActivityToday;
@@ -175,7 +172,8 @@ export function HoyBoard({
               )}
             />
           </label>
-          <AthleteAvatar name={coach_name} size="md" />
+          {/* El avatar del coach vive en la barra superior (AccountMenu);
+              duplicarlo aquí confundía con un filtro de atleta. */}
         </div>
       </div>
 

@@ -65,7 +65,6 @@
 .guia-sb-brand .nm {
   font-family: var(--v2-font-display);
   font-weight: 900;
-  font-style: italic;
   font-size: 15px;
   letter-spacing: -0.02em;
   color: var(--v2-fg);
@@ -157,7 +156,6 @@
   font-family: var(--v2-font-display);
   font-size: 32px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   line-height: 1.05;
   margin-bottom: 6px;
@@ -172,7 +170,6 @@
   font-family: var(--v2-font-display);
   font-size: 24px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   margin: 10px 0 8px;
   scroll-margin-top: 24px;
@@ -273,6 +270,13 @@
 }
 .guia-doc .principle p:last-child {
   margin: 0;
+}
+/* Dentro del bloque invertido (fondo = tinta), el `.guia-doc b { color: fg }`
+   global dejaría la negrita tinta-sobre-tinta (invisible; pasó con la frase
+   clave de la sección 01). Aquí la negrita y el énfasis hablan en perla. */
+.guia-doc .principle b,
+.guia-doc .principle .em {
+  color: var(--v2-accent-fg);
 }
 
 /* qué/cómo/por qué triad */
@@ -467,7 +471,6 @@
   font-family: var(--v2-font-display);
   font-size: 17px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   margin-bottom: 4px;
   color: var(--v2-fg);
