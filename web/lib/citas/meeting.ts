@@ -19,8 +19,6 @@ import { getGoogleRefreshToken } from './google-tokens';
 import { createCalendarEventWithMeet, createCalendarEventInPerson } from './google';
 import type { CitaModality } from '@fahybrid/shared/schema';
 
-// Fallback co-attendee (coach inbox) if LEADS_NOTIFY_EMAIL isn't set.
-const COACH_NOTIFY_FALLBACK = 'hello@fahybrid.com';
 const DEFAULT_DURATION_MINUTES = 30;
 
 export interface MeetingResult {
@@ -46,6 +44,8 @@ async function createAttendeeMeeting(args: {
   modality: CitaModality;
   /** #40: presencial address string (box name + street). Ignored for video. */
   location?: string | null;
+  /** Club that owns this cita — attendees include its notify inbox when set. */
+  coach_id?: bigint | number | null;
 }): Promise<MeetingResult> {
   // Connected only if a coach completed the one-shot Google connect. Any DB hiccup here
   // must not break the accept/book flow → treat as "not connected".
@@ -60,7 +60,16 @@ async function createAttendeeMeeting(args: {
   if (!refreshToken) return { meet_link: null };
 
   const end = new Date(args.start.getTime() + args.durationMinutes * 60 * 1000);
-  const coachNotify = process.env.LEADS_NOTIFY_EMAIL ?? COACH_NOTIFY_FALLBACK;
+  let clubInbox: string | null = null;
+  try {
+    const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
+    clubInbox = await resolveClubNotifyEmail(args.coach_id ?? null);
+  } catch {
+    clubInbox = null;
+  }
+  const attendeeEmails = clubInbox
+    ? [args.attendee.email, clubInbox]
+    : [args.attendee.email];
 
   try {
     // Presencial: a Calendar event WITH the location and NO Meet — but only if we actually
@@ -71,7 +80,7 @@ async function createAttendeeMeeting(args: {
         summary: args.summary,
         startIso: args.start.toISOString(),
         endIso: end.toISOString(),
-        attendeeEmails: [args.attendee.email, coachNotify],
+        attendeeEmails,
         location: args.location,
       });
       // meet_link stays null (presencial); event_id persisted by the caller for the cancel-hook.
@@ -82,7 +91,7 @@ async function createAttendeeMeeting(args: {
       summary: args.summary,
       startIso: args.start.toISOString(),
       endIso: end.toISOString(),
-      attendeeEmails: [args.attendee.email, coachNotify],
+      attendeeEmails,
     });
     // event_id is persisted by the caller (setAppointmentMeetLink) so the cancel branch
     // can delete the calendar event — see app/api/coach/appointments/[id]/route.ts.
@@ -104,6 +113,8 @@ export interface MeetingRequest {
   modality: CitaModality;
   /** #40: presencial address string (box name + street). Ignored for video. */
   location?: string | null;
+  /** Club of this lead — calendar attendees include its notify inbox when set. */
+  coach_id?: bigint | number | null;
 }
 
 /** Best-effort meeting link for a LEAD intro appointment. Never throws. Presencial never
@@ -121,6 +132,7 @@ export async function createMeeting(req: MeetingRequest): Promise<MeetingResult>
     summary,
     modality: req.modality,
     location: req.location,
+    coach_id: req.coach_id,
   });
 }
 
@@ -131,6 +143,7 @@ export interface ReviewMeetingRequest {
   durationMinutes?: number;
   athleteEmail: string;
   athleteName: string | null;
+  coach_id?: bigint | number | null;
 }
 
 /** Best-effort Meet link for an ATHLETE 1:1 review appointment (#21). Never throws.
@@ -142,5 +155,6 @@ export async function createReviewMeeting(req: ReviewMeetingRequest): Promise<Me
     durationMinutes: req.durationMinutes ?? DEFAULT_DURATION_MINUTES,
     summary: `Revisión FAHYBRID · ${req.athleteName ?? req.athleteEmail}`,
     modality: 'video',
+    coach_id: req.coach_id,
   });
 }

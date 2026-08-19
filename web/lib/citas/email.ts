@@ -4,7 +4,7 @@
 // booking/accept flow is never blocked by delivery.
 //
 //   • booking received  → lead ("recibimos tu solicitud, tu coach la confirma")
-//   • booking internal  → coach team (LEADS_NOTIFY_EMAIL): "nueva solicitud de cita"
+//   • booking internal  → correo del club (vacío = no se envía): "nueva solicitud de cita"
 //   • accepted          → lead ("cita confirmada") + .ics attachment (+ Meet link if any)
 //   • rejected          → lead ("elige otro hueco") with the re-book link
 //   • cancelled         → lead
@@ -20,10 +20,11 @@ import { buildIcs } from '@fahybrid/shared/domain/citas/ics';
 import type { CitaModality } from '@fahybrid/shared/schema';
 import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin, type ClubEmailSkin } from '@/lib/coach/club-skin';
+import { emailFromSender } from '@fahybrid/shared/domain/coach/club-notify';
 
 export interface CitaEmailResult {
   sent: boolean;
-  skipped_reason?: 'resend_not_configured' | 'resend_send_failed';
+  skipped_reason?: 'resend_not_configured' | 'resend_send_failed' | 'no_inbox';
 }
 
 function escapeHtml(str: string): string {
@@ -168,9 +169,11 @@ export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> 
   });
 }
 
-/** Coach team: "nueva solicitud de cita". */
+/** Coach of THIS cita: "nueva solicitud de cita". Vacío = no se envía. */
 export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> {
-  const to = process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
+  const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
+  const to = await resolveClubNotifyEmail(appt.coach_id ?? null);
+  if (!to) return { sent: false, skipped_reason: 'no_inbox' };
   const when = formatMadrid(appt.requested_start);
   const name = appt.lead_nombre || appt.lead_email;
   const noun = citaNoun(appt.modality);
@@ -198,7 +201,10 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
   const when = formatMadrid(appt.requested_start);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const hiText = appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,';
-  const organizerEmail = process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
+  const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
+  const clubInbox = await resolveClubNotifyEmail(appt.coach_id ?? null);
+  const organizerEmail =
+    clubInbox ?? emailFromSender(AUTH_CONFIG.resendFromEmail()) ?? undefined;
   const v = coachVoice(appt.coach_name);
 
   if (appt.modality === 'presencial') {

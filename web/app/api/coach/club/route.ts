@@ -17,7 +17,7 @@ export async function GET() {
   return jsonOk({ club });
 }
 
-// PATCH /api/coach/club — nombre y/o color. El id sale de la sesión, nunca del cuerpo.
+// PATCH /api/coach/club — nombre, color y/o correo de avisos. El id sale de la sesión, nunca del cuerpo.
 export async function PATCH(req: Request) {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);

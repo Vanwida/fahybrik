@@ -101,6 +101,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
           leadName: a.lead_nombre,
           modality: a.modality,
           location: locationStr,
+          coach_id: session.coach_id,
         });
         if (m.meet_link) {
           a = await setAppointmentMeetLink({

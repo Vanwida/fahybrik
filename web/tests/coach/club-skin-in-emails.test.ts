@@ -39,7 +39,12 @@ const CLUB_SKIN = {
 const resolveClubEmailSkin = vi.fn().mockResolvedValue(DEFAULT_SKIN);
 vi.mock('@/lib/coach/club-skin', () => ({ resolveClubEmailSkin }));
 
+const CLUB_INBOX = 'avisos@northbox.test';
+const resolveClubNotifyEmail = vi.fn(async () => CLUB_INBOX as string | null);
+vi.mock('@/lib/coach/club-notify', () => ({ resolveClubNotifyEmail }));
+
 process.env.RESEND_API_KEY = 'test-key';
+process.env.LEADS_NOTIFY_EMAIL = 'hello@fahybrid.com';
 
 const { sendLeadConfirmation, sendLeadNotification } = await import('@/lib/leads/email');
 const { sendAltaEmail } = await import('@/lib/leads/alta-email');
@@ -71,8 +76,11 @@ const APPT = {
 
 beforeEach(() => {
   sent.length = 0;
+  sendMock.mockClear();
   resolveClubEmailSkin.mockClear();
   resolveClubEmailSkin.mockResolvedValue(DEFAULT_SKIN);
+  resolveClubNotifyEmail.mockReset();
+  resolveClubNotifyEmail.mockResolvedValue(CLUB_INBOX);
 });
 
 describe('un entrenador SIN piel produce el color de siempre', () => {
@@ -283,25 +291,49 @@ describe('un entrenador CON piel produce la suya', () => {
 describe('un correo de los NUESTROS no se personaliza nunca', () => {
   test('la notificación interna de un lead nuevo no toca la piel del club, aunque exista', async () => {
     resolveClubEmailSkin.mockResolvedValue(CLUB_SKIN);
-    await sendLeadNotification({
-      email: 'lead@example.com',
-      nombre: 'Marta',
-      telefono: '600000000',
-    } as unknown as Parameters<typeof sendLeadNotification>[0]);
+    await sendLeadNotification(
+      {
+        email: 'lead@example.com',
+        nombre: 'Marta',
+        telefono: '600000000',
+      } as unknown as Parameters<typeof sendLeadNotification>[0],
+      BigInt(1),
+    );
     const mail = sent[0]!;
+    expect(mail.to).toBe(CLUB_INBOX);
+    expect(mail.to).not.toBe('hello@fahybrid.com');
     expect(mail.html).toContain('FAHYBRID');
     expect(mail.html).toContain('#F06A2A');
     expect(mail.html).not.toContain('North Box');
-    // No llama al resolver: ni siquiera sabe qué es un coach_id.
+    // No llama al resolver de piel: el aviso interno no es del club visualmente.
     expect(resolveClubEmailSkin).not.toHaveBeenCalled();
+    expect(resolveClubNotifyEmail).toHaveBeenCalledWith(BigInt(1));
+  });
+
+  test('sin correo del club no se envía la notificación interna', async () => {
+    resolveClubNotifyEmail.mockResolvedValue(null);
+    const result = await sendLeadNotification(
+      {
+        email: 'lead@example.com',
+        nombre: 'Marta',
+        telefono: '600000000',
+      } as unknown as Parameters<typeof sendLeadNotification>[0],
+      BigInt(1),
+    );
+    expect(result.sent).toBe(false);
+    expect(result.skipped_reason).toBe('no_inbox');
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   test('el aviso interno de una reserva no toca la piel del club, aunque exista', async () => {
     resolveClubEmailSkin.mockResolvedValue(CLUB_SKIN);
     await sendBookingInternal({ ...APPT, coach_id: BigInt(1) });
     const mail = sent[0]!;
+    expect(mail.to).toBe(CLUB_INBOX);
+    expect(mail.to).not.toBe('hello@fahybrid.com');
     expect(mail.html).toContain('FAHYBRID');
     expect(mail.html).not.toContain('North Box');
     expect(resolveClubEmailSkin).not.toHaveBeenCalled();
+    expect(resolveClubNotifyEmail).toHaveBeenCalledWith(BigInt(1));
   });
 });

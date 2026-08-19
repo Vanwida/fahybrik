@@ -12,7 +12,8 @@ import {
   type ClubSkin,
 } from '@fahybrid/shared/domain/coach/club-skin';
 import { buildClubAccent } from '@fahybrid/shared/domain/coach/club-accent';
-import type { ClubSkinPatch } from '@fahybrid/shared/schema/coach-club-skin';
+import type { ClubFicha, ClubSkinPatch } from '@fahybrid/shared/schema/coach-club-skin';
+import { getClubNotifyEmail, updateClubNotifyEmail } from '@/lib/coach/club-notify';
 
 interface ClubSkinRow {
   club_skin_name: string | null;
@@ -29,10 +30,22 @@ function toSkin(row: ClubSkinRow | undefined): ClubSkin {
   };
 }
 
+async function withNotify(
+  coach_id: bigint | number,
+  skin: ClubSkin | null,
+  client: Sql,
+): Promise<ClubFicha | null> {
+  if (!skin) return null;
+  return {
+    ...skin,
+    notify_email: await getClubNotifyEmail(coach_id, client),
+  };
+}
+
 export async function getClubSkin(
   coach_id: bigint | number,
   client: Sql = defaultSql,
-): Promise<ClubSkin | null> {
+): Promise<ClubFicha | null> {
   const rows = await client<ClubSkinRow[]>`
     select club_skin_name, club_logo_url, club_accent_hex
     from coaches
@@ -40,14 +53,14 @@ export async function getClubSkin(
     limit 1
   `;
   if (rows.length === 0) return null;
-  return toSkin(rows[0]);
+  return withNotify(coach_id, toSkin(rows[0]), client);
 }
 
 export async function updateClubSkin(
   coach_id: bigint | number,
   patch: ClubSkinPatch,
   client: Sql = defaultSql,
-): Promise<ClubSkin | null> {
+): Promise<ClubFicha | null> {
   const id = Number(coach_id);
 
   await client.begin(async (tx) => {
@@ -56,6 +69,9 @@ export async function updateClubSkin(
     }
     if (patch.accent_hex !== undefined) {
       await tx`update coaches set club_accent_hex = ${patch.accent_hex} where id = ${id}`;
+    }
+    if (patch.notify_email !== undefined) {
+      await updateClubNotifyEmail(id, patch.notify_email, tx as unknown as Sql);
     }
     await tx`update coaches set updated_at = now() where id = ${id}`;
   });

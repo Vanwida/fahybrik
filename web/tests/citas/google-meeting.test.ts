@@ -25,6 +25,9 @@ vi.mock('@/lib/citas/google-tokens', () => ({
   saveGoogleRefreshToken: vi.fn(),
 }));
 
+const resolveClubNotifyEmail = vi.fn(async () => null as string | null);
+vi.mock('@/lib/coach/club-notify', () => ({ resolveClubNotifyEmail }));
+
 import { createMeeting } from '@/lib/citas/meeting';
 import { getGoogleRefreshToken } from '@/lib/citas/google-tokens';
 import { createSignedState, verifySignedState } from '@/lib/citas/google';
@@ -74,7 +77,10 @@ function installFetchMock(): { calendarCall: () => CapturedCall | null; tokenCal
 
 beforeEach(() => {
   vi.mocked(getGoogleRefreshToken).mockReset();
+  resolveClubNotifyEmail.mockReset();
+  resolveClubNotifyEmail.mockResolvedValue(null);
   vi.unstubAllGlobals();
+  delete process.env.LEADS_NOTIFY_EMAIL;
 });
 
 describe('createMeeting — not connected', () => {
@@ -153,10 +159,32 @@ describe('createMeeting — connected', () => {
     expect(body.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet');
     expect(typeof body.conferenceData.createRequest.requestId).toBe('string');
     expect(body.conferenceData.createRequest.requestId.length).toBeGreaterThan(0);
-    // Attendees: lead + coach notify (fallback hello@fahybrid.com when env unset).
+    // Sin correo del club: solo el lead. hello@ no entra nunca.
     const emails = (body.attendees as Array<{ email: string }>).map((a) => a.email);
-    expect(emails).toContain('lead@example.com');
-    expect(emails).toContain('hello@fahybrid.com');
+    expect(emails).toEqual(['lead@example.com']);
+    expect(emails).not.toContain('hello@fahybrid.com');
+  });
+
+  it('incluye el correo del club cuando existe, nunca hello@', async () => {
+    vi.mocked(getGoogleRefreshToken).mockResolvedValue('stored-refresh-token');
+    resolveClubNotifyEmail.mockResolvedValue('avisos@northbox.test');
+    const { calendarCall } = installFetchMock();
+
+    await createMeeting({
+      appointmentId: '42',
+      start: new Date('2026-07-15T09:00:00Z'),
+      durationMinutes: 30,
+      leadEmail: 'lead@example.com',
+      leadName: 'Ana Ruiz',
+      modality: 'video',
+      coach_id: BigInt(7),
+    });
+
+    const body = JSON.parse(calendarCall()!.init?.body as string);
+    const emails = (body.attendees as Array<{ email: string }>).map((a) => a.email);
+    expect(emails).toEqual(['lead@example.com', 'avisos@northbox.test']);
+    expect(emails).not.toContain('hello@fahybrid.com');
+    expect(resolveClubNotifyEmail).toHaveBeenCalledWith(BigInt(7));
   });
 
   it('falls back to a null link when the Calendar insert fails (never throws)', async () => {

@@ -2,9 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-19** (piel de club a los dispositivos; rediseño FLEXR EN PRODUCCIÓN)
+Última actualización: **2026-08-19** (correo de avisos del club; piel a dispositivos; FLEXR EN PRODUCCIÓN)
 
 ## Ahora
+
+**Correo de avisos del club (78, `feat/coach-inbox-email`):** leads, citas
+y bajas van a `coaches.club_notify_email`. Vacío = no se manda. hello@ y
+`LEADS_NOTIFY_EMAIL` ya no son el buzón de nadie. Campo en `/es/club`.
+Ley: DECISIONS 19-ago «El correo de avisos es del club». No iOS. No main.
 
 **Piel del club a los dispositivos (19-ago, en trunk):** el coach elige UN
 color y el servidor deriva la familia entera para las DOS superficies (panel
