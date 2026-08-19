@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
+import { ModalityTag, SessionLine } from '@/components/v2/SessionLine';
 import { OptionalBadge } from '@/components/v2/editor/compositor-chrome';
 import { DAY_LABELS_FULL, dayCanvasHref, type DayModalityInfo } from '@/lib/dashboard/v2/planes-model';
 import type { DaySessionInfo, DayBlockInfo } from '@/lib/dashboard/v2/planes-model';
@@ -50,6 +51,10 @@ const SIN_DOSIS_COPY = 'sin dosis · tócalo y escríbela';
 // vía planes-model, la MISMA línea que ya alimentaba los chips). Bloque sin
 // dosis utilizable → punto ámbar + texto en --v2-warn (el punto es decorativo,
 // el texto es la señal).
+// Un bloque de la plantilla, con la MISMA voz que una sesión en la semana de la
+// ficha (átomo compartido `SessionLine`): modalidad → título → dosis. Lo propio
+// del editor se conserva: el acento lateral por modalidad, el badge de opcional
+// y el aviso «sin dosis» (que aquí es un hueco a rellenar, no un dato ausente).
 function BlockLine({ block }: { block: DayBlockInfo }) {
   const sinDosis = blockSinDosis(block);
   const first = block.lines[0];
@@ -65,9 +70,7 @@ function BlockLine({ block }: { block: DayBlockInfo }) {
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <OptionalBadge optional={block.optional} />
-        <span className="truncate text-label font-bold text-[color:var(--v2-fg)]">
-          {block.title}
-        </span>
+        {block.modality ? <ModalityTag modality={block.modality} /> : null}
         {sinDosis ? (
           <span
             aria-hidden
@@ -75,15 +78,16 @@ function BlockLine({ block }: { block: DayBlockInfo }) {
           />
         ) : null}
       </div>
-      {sinDosis ? (
-        <div className="truncate text-label font-semibold text-[color:var(--v2-warn)]">
-          {SIN_DOSIS_COPY}
-        </div>
-      ) : doseLine ? (
-        <div className="v2-num truncate text-label leading-snug text-[color:var(--v2-muted)]">
-          {doseLine}
-        </div>
-      ) : null}
+      <SessionLine
+        title={block.title}
+        doseLines={!sinDosis && doseLine ? [doseLine] : []}
+        doseMore={!sinDosis && doseLine ? Math.max(0, block.item_count - 1) : 0}
+        fallback={
+          sinDosis ? (
+            <span className="font-semibold text-[color:var(--v2-warn)]">{SIN_DOSIS_COPY}</span>
+          ) : null
+        }
+      />
     </div>
   );
 }
