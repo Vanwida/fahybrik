@@ -19,9 +19,11 @@ avisa de choque con verde/rojo/ámbar y declara su alcance. Ley: DECISIONS
 viva, un binario, todos) vs por encargo (app propia con icono y nombre
 propios, build por cliente, precio muy superior). iOS y el reloj leen la piel (`ClubThemeStore`, persistida; se limpia en
 signOut; el reloj por `WatchTodayPayload`) y los correos del atleta la pintan
-(`resolveClubEmailSkin`); los correos NUESTROS siguen con nuestra marca. De
+(`resolveClubEmailSkin`: alta, código, las 4 de citas, recordatorio, resumen,
+nurture, lista de espera y aceptación de pago; `coachVoice` deja de firmar la
+marca cableada); los correos NUESTROS siguen con nuestra marca. De
 paso: el panel pintaba texto con `--v2-accent` en 179 sitios (1,9:1 con el
-naranja guardado) → todos a `--v2-accent-text`. EN PRODUCCIÓN (3a1c41cf).
+naranja guardado) → todos a `--v2-accent-text`. EN PRODUCCIÓN (99bcb4d1, con el merge de origin dentro).
 Pendiente: nombre y logo del club llegan al móvil pero no se pintan en
 ninguna pantalla de la app; un solo logo para dos fondos.
 
