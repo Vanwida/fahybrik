@@ -4,13 +4,12 @@
 // El logo se guarda al elegirlo (igual que la foto de perfil). Nombre y color
 // van juntos en PATCH /api/coach/club.
 
-import { useId, useRef, useState, type CSSProperties } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   BRAND_ACCENT_HEX,
   BRAND_WORDMARK,
   CLUB_SKIN_NAME_MAX,
-  clubAccentCssVars,
   parseAccentHex,
   resolveClubBrand,
   type ClubSkin,
@@ -24,6 +23,7 @@ import {
   ajustesField as FIELD,
 } from '@/components/v2/ajustes/controls';
 import { ClubMark } from '@/components/v2/club/ClubBrand';
+import { ClubSkinPreview } from '@/components/v2/club/ClubSkinPreview';
 import {
   CLUB_LOGO_ACCEPT_ATTR,
   CLUB_LOGO_ACCEPTED_LABEL,
@@ -142,7 +142,6 @@ export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
   };
 
   const previewHex = hexParsed.ok ? hexParsed.hex : saved.accent_hex;
-  const previewVars = clubAccentCssVars(previewHex) as CSSProperties;
   const brand = resolveClubBrand({ name: form.name || null, logo_url: logo });
   const pickerValue = (previewHex ?? BRAND_ACCENT_HEX).toLowerCase();
   const logoSrc = profilePhotoUrl(logo, PROFILE_PHOTO_VARIANTS.ficha) ?? brand.logo_src;
@@ -247,26 +246,12 @@ export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
           <p className="text-xs text-[color:var(--v2-danger)]">El color tiene que ser #RRGGBB.</p>
         ) : (
           <p className="text-xs text-[color:var(--v2-muted)]">
-            Vacío = el neutro del panel. Se aplica a botones, foco y el rail activo del dashboard.
+            Vacío = el neutro del panel. Se aplica a tu panel y a la app de tus atletas.
           </p>
         )}
       </div>
 
-      <div
-        style={previewVars}
-        className="flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-3"
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="h-8 w-8 shrink-0 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)]" aria-hidden />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{brand.wordmark}</p>
-            <p className="text-xs text-[color:var(--v2-muted)]">Así se lee el acento</p>
-          </div>
-        </div>
-        <span className="inline-flex h-9 shrink-0 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)]">
-          Acción
-        </span>
-      </div>
+      <ClubSkinPreview accentHex={previewHex} wordmark={brand.wordmark} logoSrc={logoSrc} />
 
       {error ? <p className="text-sm text-[color:var(--v2-danger)]">{error}</p> : null}
       {ok && !dirty ? <p className="text-sm font-medium text-[color:var(--v2-ok)]">Guardado</p> : null}

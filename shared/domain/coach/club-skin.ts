@@ -5,7 +5,7 @@
 // no conoce iOS ni cobros.
 
 import { tokens } from '../../tokens';
-import { buildClubAccent } from './club-accent';
+import { buildClubAccent, SOFT_ALPHA_DARK } from './club-accent';
 
 /** Wordmark de este binario cuando el club no ha puesto nombre. */
 export const BRAND_WORDMARK = 'FAHYBRID';
@@ -114,5 +114,55 @@ export function clubAccentCssVars(raw: string | null | undefined): ClubAccentCss
     '--v2-accent-fg': on_fill,
     '--v2-accent-soft': soft,
     '--v2-accent-text': text,
+  };
+}
+
+/**
+ * El acento tal y como lo consumen los dispositivos: hexes ya resueltos para el
+ * lienzo oscuro de la app y el reloj, más el alfa del tinte. Se manda resuelto a
+ * propósito — si iOS repitiera la matemática, panel y app podrían divergir.
+ */
+export interface DeviceAccent {
+  fill: string;
+  on_fill: string;
+  press: string;
+  text: string;
+  soft_alpha: number;
+}
+
+/** La piel que viaja al dispositivo. `null` en un campo = usa lo del binario. */
+export interface DeviceClubTheme {
+  /** Nombre del club, o null si nunca lo puso: la app pinta su propia marca. */
+  name: string | null;
+  /** Logo del club, o null: la app pinta el icono que trae dentro. */
+  logo_url: string | null;
+  /** Acento del club derivado para fondo oscuro, o null: la app usa el suyo. */
+  accent: DeviceAccent | null;
+}
+
+/**
+ * La piel de un club para la app del atleta y el reloj.
+ *
+ * A diferencia del panel, aquí NO se rellena con la marca de este binario: se
+ * manda null y el dispositivo pinta lo que trae. Así una app que se abre sin red
+ * y una que responde tarde enseñan lo mismo, y no hay que mandar rutas web que
+ * en un móvil no existen.
+ */
+export function deviceClubTheme(skin: ClubSkin | null | undefined): DeviceClubTheme {
+  const name = normalizeClubName(skin?.name ?? null);
+  const logo = (skin?.logo_url ?? '').trim();
+  const family = buildClubAccent(normalizeAccentHex(skin?.accent_hex));
+  return {
+    name,
+    logo_url: logo.length > 0 ? logo : null,
+    accent: family
+      ? {
+          fill: family.dark.fill,
+          on_fill: family.dark.on_fill,
+          press: family.dark.press,
+          text: family.dark.text,
+          soft_alpha: SOFT_ALPHA_DARK,
+        }
+      : null,
   };
 }

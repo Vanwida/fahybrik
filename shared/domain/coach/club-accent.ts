@@ -35,6 +35,11 @@ const AA_TEXT = 4.5;
  */
 const FILL_MIN = 2;
 
+/** Alfa del tinte suave en cada superficie: sobre el casi negro hace falta algo
+ *  más de color para que la franja se distinga del fondo. */
+export const SOFT_ALPHA_LIGHT = 0.1;
+export const SOFT_ALPHA_DARK = 0.14;
+
 /** Los lienzos reales de cada superficie (v2-theme.css y Theme.swift). */
 export const CANVAS_LIGHT = '#f1efeb';
 export const CANVAS_DARK = '#0a0a0a';
@@ -239,8 +244,8 @@ export function buildClubAccent(seedHex: string | null | undefined): ClubAccentF
   const normalized = rgbToHex(seed);
 
   const adjustments: AccentAdjustment[] = [];
-  const light = buildRole(seed, CANVAS_LIGHT, 'claro', 0.1, adjustments);
-  const dark = buildRole(seed, CANVAS_DARK, 'oscuro', 0.14, adjustments);
+  const light = buildRole(seed, CANVAS_LIGHT, 'claro', SOFT_ALPHA_LIGHT, adjustments);
+  const dark = buildRole(seed, CANVAS_DARK, 'oscuro', SOFT_ALPHA_DARK, adjustments);
 
   const hit = SEMANTIC_HUES.find((s) => looksLike(seed, hexToRgb(s.hex) as Rgb));
 

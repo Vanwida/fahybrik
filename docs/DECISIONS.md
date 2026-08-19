@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-19 · La personalización del club tiene DOS niveles: piel viva para todos, app propia solo por encargo
+
+**El contexto (Alex, 19 ago):** el panel «Tu club» se quedaba corto — dejaba cambiar nombre, logo y color, pero solo repintaba el dashboard. La app del atleta seguía naranja fija, así que un club con su color veía su marca en el panel del entrenador y la nuestra en el móvil de sus atletas, que es donde de verdad se mira.
+
+**Decidido — dos niveles, y NO se mezclan:**
+
+- **Estándar, para todos, sin coste ni build:** el club elige **un** color, un nombre y un logo desde el panel, y eso repinta en caliente el panel, la app del atleta, el reloj y los correos que reciben sus atletas. Un solo binario en la App Store; la piel es dato, viaja por API y se pinta en tiempo de ejecución.
+- **Por encargo, precio muy superior, solo para unos pocos clientes:** app propia publicada a su nombre — icono, nombre en la tienda y ficha de App Store suyos. Eso NO es dato: es un build por cliente (`BRAND_DISPLAY_NAME` en `ios/project.yml`) y una publicación aparte. No se promete en el panel ni se insinúa en el copy del nivel estándar.
+
+**El mecanismo (nuestro, en código):** el coach elige UNA semilla de color; el servidor deriva la familia completa (`shared/domain/coach/club-accent.ts`) para las DOS superficies —panel perla y app casi negra— con los cuatro papeles que juega un acento: relleno, texto encima del relleno, texto suelto y tinte. Los papeles que llevan significado se garantizan a 4,5:1 (AA); el relleno conserva el color elegido salvo que se confunda con el fondo, porque exigirle el 3:1 de AA movía el color de todos los clubes, incluido el nuestro, y a un coach al que le cambias el color recién elegido se le pierde la confianza. Cada ajuste vuelve **explicado en castellano** y el panel lo dice.
+
+**La derivación vive SOLO en el servidor.** Los dispositivos reciben hexes ya resueltos (`club` en `GET /api/auth/me`). iOS no repite la matemática: si la repitiera, panel y app podrían divergir sin que nadie lo notara.
+
+**NO hacer:** no volver a cablear el naranja como si fuera del sistema (es la piel del primer tenant); no recalcular color en el cliente; no personalizar los correos de nuestro embudo comercial con la marca de un club; no vender en el nivel estándar nada que exija un build por cliente.
+
 ## 2026-08-19 · El panel del coach adopta el sistema FLEXR: claro perla único, cromo neutro, marca = dato del tenant
 
 **El contexto (Alex, 18-19 ago):** FLEXR es el paraguas multi-coach y FAHYBRID pasa a ser el primer tenant. El rediseño del panel (canvas aprobado, dirección C «Tarjetas»; contrato en `projects/FLEXR/DESIGN.md`) se aplica DIRECTAMENTE en este repo: no hay repo FLEXR todavía, y cuando llegue la feature «personalizar», el branding se cambiará desde el dashboard como dato del coach, no en código.

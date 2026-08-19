@@ -3,6 +3,7 @@
 // Lockup del club en el chrome del dashboard: icono + wordmark.
 // Vacío = marca de este binario. El color lo pinta --v2-accent en .v2-root.
 
+import type { CSSProperties } from 'react';
 import {
   BRAND_WORDMARK,
   resolveClubBrand,
@@ -15,10 +16,13 @@ export function ClubMark({
   src,
   alt,
   className,
+  style,
 }: {
   src: string;
   alt: string;
   className?: string;
+  /** Solo para pintarlo sobre un lienzo que no es el del panel (vista previa). */
+  style?: CSSProperties;
 }) {
   const painted = profilePhotoUrl(src, PROFILE_PHOTO_VARIANTS.lista) ?? src;
   return (
@@ -26,6 +30,7 @@ export function ClubMark({
       src={painted}
       alt={alt}
       className={cn('rounded-[var(--v2-r-s)] object-contain', className)}
+      style={style}
     />
   );
 }
