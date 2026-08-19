@@ -46,6 +46,11 @@ const { sendAltaEmail } = await import('@/lib/leads/alta-email');
 const { sendEmailLoginCode } = await import('@/lib/auth/email-code');
 const { sendAppointmentAccepted, sendBookingInternal } = await import('@/lib/citas/email');
 const { sendSessionSummaryEmail } = await import('@/lib/citas/session-summary-email');
+const { sendNurtureEmail } = await import('@/lib/leads/nurture-email');
+const { sendWaitlistJoinedEmail, sendWaitlistReleasedEmail } = await import(
+  '@/lib/leads/waitlist-email'
+);
+const { sendAltaPaymentEmail } = await import('@/lib/leads/alta-payment-email');
 
 const LEAD_INPUT = {
   email: 'lead@example.com',
@@ -112,6 +117,54 @@ describe('un entrenador SIN piel produce el color de siempre', () => {
     expect(sent[0]!.subject).toBe('Resumen de tu llamada con FAHYBRID');
     expect(sent[0]!.html).toContain('#F06A2A');
   });
+
+  test('nurture (parcial_t1, el único touch que nombra la marca)', async () => {
+    await sendNurtureEmail({
+      touch_type: 'parcial_t1',
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      cita_token: null,
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    expect(sent[0]!.subject).toBe('Termina tu solicitud en FAHYBRID');
+    expect(sent[0]!.html).toContain('#F06A2A');
+  });
+
+  test('lista de espera: JOINED', async () => {
+    await sendWaitlistJoinedEmail({
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    expect(sent[0]!.subject).toBe('Estás en la lista de espera de FAHYBRID');
+    expect(sent[0]!.html).toContain('#F06A2A');
+  });
+
+  test('lista de espera: RELEASED', async () => {
+    await sendWaitlistReleasedEmail({
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      cita_token: 'tok-1234567890',
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    expect(sent[0]!.html).toContain('#F06A2A');
+  });
+
+  test('aceptación de alta con Stripe', async () => {
+    await sendAltaPaymentEmail({
+      to: 'a@b.com',
+      name: 'Marta',
+      amount_cents: 7000,
+      currency: 'eur',
+      checkoutUrl: 'https://checkout.stripe.com/x',
+      coach_id: BigInt(1),
+    });
+    expect(sent[0]!.subject).toBe('Bienvenido/a a FAHYBRID — activa tu plan');
+    expect(sent[0]!.html).toContain('#F06A2A');
+  });
 });
 
 describe('un entrenador CON piel produce la suya', () => {
@@ -166,6 +219,64 @@ describe('un entrenador CON piel produce la suya', () => {
     });
     expect(sent[0]!.subject).toBe('Resumen de tu llamada con North Box');
     expect(sent[0]!.html).toContain(CLUB_SKIN.dark.text);
+  });
+
+  test('nurture (parcial_t1): nombre del club en el único hueco que lo menciona', async () => {
+    await sendNurtureEmail({
+      touch_type: 'parcial_t1',
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      cita_token: null,
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    const mail = sent[0]!;
+    expect(mail.subject).toBe('Termina tu solicitud en North Box');
+    expect(mail.html).toContain(CLUB_SKIN.light.fill);
+    expect(mail.html).not.toContain('FAHYBRID');
+  });
+
+  test('lista de espera JOINED: nombre y acento del club', async () => {
+    await sendWaitlistJoinedEmail({
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    const mail = sent[0]!;
+    expect(mail.subject).toBe('Estás en la lista de espera de North Box');
+    // JOINED no lleva CTA (todavía no puede reservar): el acento se ve en el
+    // wordmark y en la firma, no en un botón.
+    expect(mail.html).toContain(CLUB_SKIN.light.text);
+    expect(mail.html).toContain('El equipo de North Box');
+    expect(mail.html).not.toContain('FAHYBRID');
+  });
+
+  test('lista de espera RELEASED: acento del club en el botón', async () => {
+    await sendWaitlistReleasedEmail({
+      email: 'lead@example.com',
+      nombre: 'Marta',
+      cita_token: 'tok-1234567890',
+      unsubscribe_token: 'unsub-1',
+      coach_id: '1',
+    });
+    expect(sent[0]!.html).toContain(CLUB_SKIN.light.fill);
+  });
+
+  test('aceptación de alta con Stripe: nombre y acento del club', async () => {
+    await sendAltaPaymentEmail({
+      to: 'a@b.com',
+      name: 'Marta',
+      amount_cents: 7000,
+      currency: 'eur',
+      checkoutUrl: 'https://checkout.stripe.com/x',
+      coach_id: BigInt(1),
+    });
+    const mail = sent[0]!;
+    expect(mail.subject).toBe('Bienvenido/a a North Box — activa tu plan');
+    expect(mail.html).toContain('North Box');
+    expect(mail.html).toContain(CLUB_SKIN.light.fill);
+    expect(mail.html).not.toContain('FAHYBRID');
   });
 });
 

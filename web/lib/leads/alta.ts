@@ -228,6 +228,7 @@ async function altaStripe(params: {
     amount_cents,
     currency: ALTA_CURRENCY,
     checkoutUrl: checkout.url,
+    coach_id,
   });
 
   return {

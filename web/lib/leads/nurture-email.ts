@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { NURTURE_TOUCH_TYPES, type NurtureTouchType } from '@fahybrid/shared/domain/leads/nurture';
 import { coachVoice, type CoachVoice } from '@/lib/coach/voice';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 import {
   EMPIEZA_PATH,
   appBase,
@@ -48,9 +49,11 @@ interface TouchCopy {
 // Cada entrada es FUNCIÓN del coach de ese lead: el nombre sale de `leads.coach_id` y la
 // plantilla pide el fragmento que le toca por posición (`subject` a principio de frase,
 // `object` en medio, `withCoach` como coletilla que desaparece entera si no hay nombre).
-const copyFor = (v: CoachVoice): Record<NurtureTouchType, TouchCopy> => ({
+// `wordmark` es el nombre de marca a pintar en el único hueco que lo menciona (parcial_t1);
+// el resto de copys no nombran la marca y no necesitan el parámetro.
+const copyFor = (v: CoachVoice, wordmark: string): Record<NurtureTouchType, TouchCopy> => ({
   parcial_t1: {
-    subject: 'Termina tu solicitud en FAHYBRID',
+    subject: `Termina tu solicitud en ${wordmark}`,
     heading: 'Te quedó a medias',
     body: [
       `Empezaste tu solicitud pero no llegaste a terminarla. Son un par de minutos, y con ella ${v.object} puede preparar tu plan a tu medida.`,
@@ -123,6 +126,9 @@ const nurtureInputSchema = z.object({
   /** Nombre del coach de este lead (`leads.coach_id` → `coaches.full_name`). Sin
    *  dueño o sin nombre → null, y la copia prescinde del nombre sin dejar hueco. */
   coach_name: z.string().nullable().optional(),
+  /** El coach de este lead — pinta su piel (nombre + acento) en vez de la marca de
+   *  este binario. Sin dueño → marca de este binario, como hoy. Va como texto. */
+  coach_id: z.string().nullable().optional(),
 });
 
 export type NurtureEmailInput = z.infer<typeof nurtureInputSchema>;
@@ -135,10 +141,11 @@ function ctaUrl(kind: CtaKind, citaToken: string | null): string | null {
 
 /** Sends the nurture email for one candidate touch. Guarded + validated. */
 export async function sendNurtureEmail(input: NurtureEmailInput): Promise<NurtureEmailResult> {
-  const { touch_type, email, nombre, cita_token, unsubscribe_token, coach_name } =
+  const { touch_type, email, nombre, cita_token, unsubscribe_token, coach_name, coach_id } =
     nurtureInputSchema.parse(input);
-  const voice = coachVoice(coach_name);
-  const copy = copyFor(voice)[touch_type];
+  const skin = await resolveClubEmailSkin(coach_id ? BigInt(coach_id) : null);
+  const voice = coachVoice(coach_name, skin.wordmark);
+  const copy = copyFor(voice, skin.wordmark)[touch_type];
 
   const cta = ctaUrl(copy.ctaKind, cita_token);
   if (!cta) {
@@ -167,9 +174,10 @@ export async function sendNurtureEmail(input: NurtureEmailInput): Promise<Nurtur
     `<h1 style="margin:8px 0 14px;font-size:22px;">${escapeHtml(copy.heading)}</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hiHtml}</p>
        ${bodyHtml}
-       ${ctaButton(cta, copy.ctaLabel)}
+       ${ctaButton(cta, copy.ctaLabel, skin.light)}
        <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(voice.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
+    { wordmark: skin.wordmark, text: skin.light.text },
   );
 
   const apiKey = AUTH_CONFIG.resendApiKey();

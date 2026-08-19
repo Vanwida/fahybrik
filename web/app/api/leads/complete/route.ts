@@ -74,6 +74,7 @@ export async function POST(req: Request) {
             nombre: jw.nombre,
             unsubscribe_token: jw.unsubscribe_token,
             coach_name: coachName,
+            coach_id: coachId?.toString() ?? null,
           })
         : Promise.resolve(),
     ]);

@@ -20,6 +20,7 @@ import {
   unsubscribeTextLine,
 } from './email-shell';
 import { coachVoice } from '@/lib/coach/voice';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 export interface WaitlistEmailResult {
   sent: boolean;
@@ -31,12 +32,16 @@ export interface WaitlistEmailResult {
 /** Nombre del coach de este lead (`leads.coach_id` → `coaches.full_name`). Sin dueño o
  *  sin nombre → null, y la copia prescinde del nombre sin dejar hueco. */
 const coachNameField = z.string().nullable().optional();
+/** El coach de este lead — pinta su piel (nombre + acento) en vez de la marca de
+ *  este binario. Sin dueño → marca de este binario, como hoy. Va como texto. */
+const coachIdField = z.string().nullable().optional();
 
 const joinedInputSchema = z.object({
   email: z.string().email(),
   nombre: z.string().nullable(),
   unsubscribe_token: z.string().min(1),
   coach_name: coachNameField,
+  coach_id: coachIdField,
 });
 export type WaitlistJoinedInput = z.infer<typeof joinedInputSchema>;
 
@@ -46,6 +51,7 @@ const releasedInputSchema = z.object({
   cita_token: z.string().min(1),
   unsubscribe_token: z.string().min(1),
   coach_name: coachNameField,
+  coach_id: coachIdField,
 });
 export type WaitlistReleasedInput = z.infer<typeof releasedInputSchema>;
 
@@ -91,10 +97,11 @@ async function sendEmail(args: {
 
 /** "Estás en la lista de espera" — sent when a lead completes onboarding at full capacity. */
 export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promise<WaitlistEmailResult> {
-  const { email, nombre, unsubscribe_token, coach_name } = joinedInputSchema.parse(input);
-  const v = coachVoice(coach_name);
+  const { email, nombre, unsubscribe_token, coach_name, coach_id } = joinedInputSchema.parse(input);
+  const skin = await resolveClubEmailSkin(coach_id ? BigInt(coach_id) : null);
+  const v = coachVoice(coach_name, skin.wordmark);
   const g = greeting(nombre);
-  const subject = 'Estás en la lista de espera de FAHYBRID';
+  const subject = `Estás en la lista de espera de ${skin.wordmark}`;
   const heading = 'Estás en la lista de espera';
   const body = [
     `${v.subject} entrena a un grupo reducido de atletas para poder seguir cada plan de cerca. Ahora mismo el grupo está completo.`,
@@ -114,6 +121,7 @@ export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promi
        ${paragraphsHtml(body)}
        <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(v.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
+    { wordmark: skin.wordmark, text: skin.light.text },
   );
 
   return sendEmail({ email, subject, text, html });
@@ -121,9 +129,10 @@ export async function sendWaitlistJoinedEmail(input: WaitlistJoinedInput): Promi
 
 /** "Se ha liberado una plaza" — sent when the coach manually releases a waitlisted lead. */
 export async function sendWaitlistReleasedEmail(input: WaitlistReleasedInput): Promise<WaitlistEmailResult> {
-  const { email, nombre, cita_token, unsubscribe_token, coach_name } =
+  const { email, nombre, cita_token, unsubscribe_token, coach_name, coach_id } =
     releasedInputSchema.parse(input);
-  const v = coachVoice(coach_name);
+  const skin = await resolveClubEmailSkin(coach_id ? BigInt(coach_id) : null);
+  const v = coachVoice(coach_name, skin.wordmark);
   const g = greeting(nombre);
   const subject = `Se ha liberado una plaza — reserva tu llamada${v.withCoach}`;
   const heading = 'Se ha liberado tu plaza';
@@ -144,9 +153,10 @@ export async function sendWaitlistReleasedEmail(input: WaitlistReleasedInput): P
     `<h1 style="margin:8px 0 14px;font-size:22px;">${escapeHtml(heading)}</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${g.html}</p>
        ${paragraphsHtml(body)}
-       ${ctaButton(cta, ctaLabel)}
+       ${ctaButton(cta, ctaLabel, skin.light)}
        <p style="margin:24px 0 0;color:#666;">— ${escapeHtml(v.signature)}</p>
        ${unsubscribeFooter(unsubscribe_token)}`,
+    { wordmark: skin.wordmark, text: skin.light.text },
   );
 
   return sendEmail({ email, subject, text, html });
