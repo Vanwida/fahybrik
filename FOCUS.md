@@ -12,9 +12,11 @@ tema claro perla único (muere dark+naranja+itálica del cromo; DECISIONS.md
 2026-08-19), Bricolage+Figtree, sidebar flotante con slot de tenant, casa =
 /atletas (toggle tarjetas/tabla, chips-filtro, franja de triage; /hoy = cola),
 todas las pantallas restyleadas, cero em dash en copy (417 sust.), QA con
-Chrome sobre prod hecho (bug del bg del tab Plan arreglado de raíz: dark:
-siempre-activo por el .dark fijo del html legacy; frase invisible de la guía;
-barras de adherencia). iOS/doble/landing intactos.
+Chrome sobre prod hecho. El «bg raro movido» tenía DOS raíces, ambas
+muertas: clases dark: siempre-activas (html legacy con .dark fijo) y los
+overlays fixed de la ficha atrapados por el wrapper animado (containing
+block por transform): el reveal pasa a fill backwards y el cajón de sesión
++ 10 modales se portalan al v2-root vía ModalPortal. iOS/doble/landing intactos.
 **Pendiente de decisión (hallazgo QA):** «Editar día» desde la ficha aterriza
 en la PLANTILLA del microciclo (vacía) aunque la semana del atleta tenga
 sesiones; es el modelo de dos recibos, pero el coach aterriza en una pantalla
