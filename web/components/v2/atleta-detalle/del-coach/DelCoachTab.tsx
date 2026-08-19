@@ -54,7 +54,7 @@ export function DelCoachTab({
     <button
       type="button"
       onClick={() => setComponiendo(true)}
-      className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
+      className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
     >
       Nuevo
     </button>
@@ -101,7 +101,7 @@ export function DelCoachTab({
           <span className="text-[13px] text-[color:var(--v2-muted)]">
             Todavía no le has publicado nada a {athleteName}
           </span>
-          <span className="shrink-0 text-[12.5px] font-semibold text-[#C24A0F]">Nuevo →</span>
+          <span className="shrink-0 text-[12.5px] font-semibold text-[color:var(--v2-accent)]">Nuevo →</span>
         </button>
       ) : null}
 

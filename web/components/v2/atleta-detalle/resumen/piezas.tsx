@@ -52,10 +52,10 @@ export function FilaVacia({
   return (
     <Link
       href={href}
-      className="v2-focus flex items-center justify-between gap-3 rounded-[10px] bg-[color:var(--v2-surface-2)] px-3 py-2 text-[13px]"
+      className="v2-focus flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-[13px]"
     >
       <span className="text-[color:var(--v2-muted)]">{texto}</span>
-      <span className="shrink-0 font-semibold text-[#C24A0F]">{cta} →</span>
+      <span className="shrink-0 font-semibold text-[color:var(--v2-accent)]">{cta} →</span>
     </Link>
   );
 }
@@ -66,19 +66,19 @@ export const ESTADO_PILL: Record<
 > = {
   hecha: {
     label: '✓ hecha',
-    cls: 'bg-[#EAF3ED] text-[#2F7D4F] dark:bg-[color:var(--v2-ok-soft)] dark:text-[color:var(--v2-ok)]',
+    cls: 'bg-[color:var(--v2-ok-soft)] text-[color:var(--v2-ok)]',
   },
   sin_hacer: {
     label: '✕ sin hacer',
-    cls: 'bg-[#FBEBE5] text-[#B04A2F] dark:bg-[color:var(--v2-danger-soft)] dark:text-[color:var(--v2-danger)]',
+    cls: 'bg-[color:var(--v2-danger-soft)] text-[color:var(--v2-danger)]',
   },
   en_curso: {
     label: 'en curso',
-    cls: 'bg-[#F2ECE3] text-[#8C8377] dark:bg-[color:var(--v2-surface-2)] dark:text-[color:var(--v2-muted)]',
+    cls: 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)]',
   },
   prevista: {
     label: 'prevista',
-    cls: 'bg-[#F7F4EF] text-[#ADA396] dark:bg-[color:var(--v2-surface-2)] dark:text-[color:var(--v2-faint)]',
+    cls: 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
   },
 };
 

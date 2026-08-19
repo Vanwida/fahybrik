@@ -205,7 +205,7 @@ export function PlanTab({
                           )
                         : `/atletas/${athlete_id}/dia/${editorTargetDate}`
                     }
-                    className="v2-focus inline-flex h-[34px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
                     Editar día
                   </Link>
@@ -213,7 +213,7 @@ export function PlanTab({
                 {plan.is_personal && plan.current_month_template_id ? (
                   <Link
                     href={`/microciclos/${plan.current_month_template_id}`}
-                    className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
                   >
                     Editar plan
                   </Link>
@@ -221,7 +221,7 @@ export function PlanTab({
                   <button
                     type="button"
                     onClick={() => setPersonalizeOpen(true)}
-                    className="v2-focus inline-flex h-[34px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
                     Personalizar
                   </button>
@@ -230,7 +230,7 @@ export function PlanTab({
                   <button
                     type="button"
                     onClick={() => setRevertOpen(true)}
-                    className="v2-focus inline-flex h-[34px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
                     Volver a periodización
                   </button>
@@ -333,7 +333,7 @@ export function PlanTab({
                     <div
                       key={w.week_start}
                       className={cn(
-                        'flex min-w-[56px] flex-1 flex-col gap-1 rounded-[10px] px-2 py-1.5',
+                        'flex min-w-[56px] flex-1 flex-col gap-1 rounded-[var(--v2-r-m)] px-2 py-1.5',
                         actual ? 'bg-[color:var(--v2-accent-soft)]' : 'bg-[color:var(--v2-surface-2)]',
                       )}
                     >
@@ -407,7 +407,7 @@ function AthleteWeekFocusRow({
   });
 
   return (
-    <div className="flex items-center gap-2 rounded-[10px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
+    <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
       <span className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
         Foco {weekLabel}
       </span>
@@ -473,7 +473,7 @@ function PublishMicrocicloButton({
         type="button"
         onClick={() => void publish()}
         disabled={publishing}
-        className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-60"
+        className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-60"
       >
         {publishing ? 'Publicando…' : 'Publicar'}
       </button>

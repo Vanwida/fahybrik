@@ -47,7 +47,7 @@ export function FuerzaVista({
                       <span
                         className={cn(
                           'ml-1.5 text-[12px] font-semibold not-italic',
-                          delta > 0 ? 'text-[#2F7D4F]' : 'text-[#B04A2F]',
+                          delta > 0 ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-danger)]',
                         )}
                       >
                         {delta > 0 ? '+' : ''}

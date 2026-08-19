@@ -79,7 +79,7 @@ function TestRow({
             </Pill>
             <Link
               href={`/atletas/${athleteId}?tab=rendimiento&vista=zonas`}
-              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[8px] bg-[color:var(--v2-accent)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
             >
               Registrar
             </Link>
@@ -150,7 +150,7 @@ export function TestsPanel({
               type="button"
               onClick={() => setOpen(true)}
               disabled={library.length === 0}
-              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               <MIcon name="add" size={15} />
               Programar test

@@ -25,9 +25,9 @@ function HeaderAction({
     <Link
       href={href}
       className={cn(
-        'v2-focus inline-flex h-[34px] items-center rounded-[8px] px-[13px] text-[12.5px] font-semibold transition-colors',
+        'v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] px-[15px] text-[12.5px] font-semibold transition-colors',
         primary
-          ? 'bg-[color:var(--v2-accent)] px-[15px] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]'
+          ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]'
           : 'border border-[color:var(--v2-border-strong)] text-[color:var(--v2-fg)] hover:bg-[color:var(--v2-surface-2)]',
       )}
     >
@@ -68,9 +68,9 @@ export function DetalleHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <HeaderAction href={`/atletas/${header.athlete_id}?tab=mensajes`} label="Mensaje" />
+          <HeaderAction href={`/atletas/${header.athlete_id}?tab=mensajes`} label="Mensaje" primary />
           {ocultarVerPlan ? null : (
-            <HeaderAction href={`/atletas/${header.athlete_id}?tab=plan`} label="Ver plan" primary />
+            <HeaderAction href={`/atletas/${header.athlete_id}?tab=plan`} label="Ver plan" />
           )}
           <div className="relative">
             <button
@@ -78,14 +78,14 @@ export function DetalleHeader({
               aria-label="Más acciones"
               aria-expanded={menu}
               onClick={() => setMenu((v) => !v)}
-              className="v2-focus inline-flex h-[34px] w-[34px] items-center justify-center rounded-[8px] border border-[color:var(--v2-border-strong)] text-[color:var(--v2-fg)] hover:bg-[color:var(--v2-surface-2)]"
+              className="v2-focus inline-flex h-[34px] w-[34px] items-center justify-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] text-[color:var(--v2-fg)] hover:bg-[color:var(--v2-surface-2)]"
             >
               <span aria-hidden className="text-[16px] leading-none">
                 ···
               </span>
             </button>
             {menu ? (
-              <div className="absolute right-0 z-20 mt-1.5 min-w-[200px] rounded-[10px] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 shadow-[var(--v2-shadow-card)]">
+              <div className="absolute right-0 z-20 mt-1.5 min-w-[200px] rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 shadow-[var(--v2-shadow-card)]">
                 <LifecycleControl athleteId={header.athlete_id} lifecycle={header.lifecycle} />
               </div>
             ) : null}
@@ -112,7 +112,7 @@ export function DetalleHeader({
                 href={p.href}
                 className={cn(
                   'v2-focus font-semibold underline decoration-[color:var(--v2-accent)] underline-offset-2 hover:text-[color:var(--v2-accent)]',
-                  p.bloquea ? 'text-[color:var(--v2-danger)]' : 'text-[#C24A0F]',
+                  p.bloquea ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-accent)]',
                 )}
               >
                 {p.label}

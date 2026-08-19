@@ -54,7 +54,7 @@ export function AtletaTab({
               className="v2-focus flex items-center justify-between gap-3 rounded-[14px] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-4 py-3 text-[13px] font-semibold"
             >
               Intake pendiente de revisión
-              <span className="text-[#C24A0F]">Revisar →</span>
+              <span className="text-[color:var(--v2-accent)]">Revisar →</span>
             </Link>
           ) : null}
           <ClasificacionCard athleteId={header.athlete_id} data={detalle.classification} />

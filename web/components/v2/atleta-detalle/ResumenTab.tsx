@@ -99,7 +99,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
               ) : null}
               <Link
                 href={`/atletas/${id}?tab=plan`}
-                className="text-[12.5px] font-semibold text-[#C24A0F] hover:underline"
+                className="text-[12.5px] font-semibold text-[color:var(--v2-accent)] hover:underline"
               >
                 Abrir semana →
               </Link>
@@ -107,30 +107,40 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
           </div>
 
           {dias.length === 7 ? (
-            <div className="mt-3 grid grid-cols-7 gap-px bg-[#EDE7DE] dark:bg-[color:var(--v2-border)]">
+            <div className="grid grid-cols-1 gap-2 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7">
               {dias.map((d, i) => {
                 const href = d.assignment_id
                   ? `/atletas/${id}?tab=plan&sesion=${d.assignment_id}`
                   : `/atletas/${id}?tab=plan`;
+                const vacio = d.estado === 'descanso';
                 return (
                   <Link
                     key={d.iso}
                     href={href}
                     className={cn(
-                      'flex min-h-[92px] flex-col px-2 py-2.5',
-                      d.estado === 'descanso'
-                        ? 'bg-[#FBF9F6] dark:bg-[color:var(--v2-bg)]'
-                        : 'bg-[color:var(--v2-surface)]',
-                      d.is_today && 'bg-[#FDF6F1] shadow-[inset_0_2px_0_#E85D1F] dark:bg-[color:var(--v2-accent-soft)]',
-                      i === 0 && 'rounded-bl-[14px]',
-                      i === 6 && 'rounded-br-[14px]',
+                      'flex min-h-[92px] flex-col gap-1 rounded-[var(--v2-r-m)] border px-2.5 py-2.5',
+                      vacio
+                        ? 'border-dashed border-[color:var(--v2-border)] bg-transparent'
+                        : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
+                      d.is_today && 'border-[1.5px] border-[color:var(--v2-fg)]',
                     )}
                   >
-                    <span className="v2-num text-[10px] uppercase tracking-[0.06em] text-[color:var(--v2-muted)]">
-                      {DAY_SHORT[i]} {dayNumber(d.iso)}
-                      {d.is_today ? ' · HOY' : ''}
+                    <span className="flex items-center gap-1.5">
+                      <span className="v2-num text-[10px] uppercase tracking-[0.06em] text-[color:var(--v2-muted)]">
+                        {DAY_SHORT[i]} {dayNumber(d.iso)}
+                      </span>
+                      {d.is_today ? (
+                        <span className="ml-auto inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[color:var(--v2-accent-fg)]">
+                          Hoy
+                        </span>
+                      ) : null}
                     </span>
-                    <span className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-[color:var(--v2-fg)]">
+                    <span
+                      className={cn(
+                        'line-clamp-2 text-[12.5px] font-semibold leading-snug',
+                        vacio ? 'text-[color:var(--v2-faint)]' : 'text-[color:var(--v2-fg)]',
+                      )}
+                    >
                       {d.titulo ?? 'Descanso'}
                     </span>
                     {d.estado !== 'descanso' ? <PillEstado estado={d.estado} /> : null}
@@ -158,9 +168,9 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
             <div className="flex items-baseline justify-between gap-2">
               <FichaLabel>Adherencia · 4 semanas</FichaLabel>
               {trend === 'cayendo' ? (
-                <span className="text-[11.5px] font-semibold text-[#B04A2F]">▼ cayendo</span>
+                <span className="text-[11.5px] font-semibold text-[color:var(--v2-danger)]">▼ cayendo</span>
               ) : trend === 'subiendo' ? (
-                <span className="text-[11.5px] font-semibold text-[#2F7D4F]">▲ subiendo</span>
+                <span className="text-[11.5px] font-semibold text-[color:var(--v2-ok)]">▲ subiendo</span>
               ) : null}
             </div>
             {weeks.some((w) => w.pct != null) ? (
@@ -182,7 +192,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                         <div
                           className={cn(
                             'w-full rounded-[6px]',
-                            baja ? 'bg-[#E4703E]' : 'bg-[#E9E2D7] dark:bg-[color:var(--v2-surface-2)]',
+                            baja ? 'bg-[color:var(--v2-danger)]' : 'bg-[color:var(--v2-surface-2)]',
                           )}
                           style={{ height: h }}
                         />
@@ -232,7 +242,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                   <Cifra valor={`${checkin.soreness ?? '—'}/5`} label="Agujetas" />
                 </div>
                 {checkin.notes ? (
-                  <blockquote className="mt-3 rounded-[10px] bg-[#F7F4EF] px-3 py-2.5 text-[13.5px] leading-snug text-[color:var(--v2-fg)] dark:bg-[color:var(--v2-surface-2)]">
+                  <blockquote className="mt-3 rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface-2)] px-3 py-2.5 text-[13.5px] leading-snug text-[color:var(--v2-fg)]">
                     «{checkin.notes}»
                   </blockquote>
                 ) : null}
@@ -243,7 +253,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                   {!respondido ? (
                     <Link
                       href={`/atletas/${id}?tab=mensajes`}
-                      className="v2-focus inline-flex h-[32px] items-center rounded-[8px] bg-[color:var(--v2-fg)] px-3 text-[12.5px] font-semibold text-[color:var(--v2-bg)]"
+                      className="v2-focus inline-flex h-[32px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
                     >
                       Responder
                     </Link>
@@ -265,7 +275,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
               </span>
             ) : null}
           </div>
-          <div className="mt-3 grid grid-cols-1 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[10px] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="mt-3 grid grid-cols-1 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <RefCell
               label="Sentadilla"
               value={squat ? String(Math.round(squat.one_rm_kg)) : null}
@@ -309,38 +319,36 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
         <LesionCard athleteId={id} />
 
         {race ? (
-          <section className="rounded-[14px] bg-[#1A1714] px-4 py-4 text-[#F3EFE8]">
+          <FichaCard>
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[#8C8377]">
-                Próxima carrera
-              </p>
-              <span className="text-[11px] uppercase tracking-[0.06em] text-[#ADA396]">
+              <FichaLabel>Próxima carrera</FichaLabel>
+              <span className="text-[11px] uppercase tracking-[0.06em] text-[color:var(--v2-faint)]">
                 {[detalle.ficha.race_format, detalle.ficha.race_division].filter(Boolean).join(' · ')}
               </span>
             </div>
-            <p className="mt-2 font-[family-name:var(--v2-font-display)] text-[20px] font-extrabold italic leading-none tracking-[-0.03em]">
+            <p className="mt-2 font-[family-name:var(--v2-font-display)] text-[20px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
               {race.name}
             </p>
-            <p className="mt-3 font-[family-name:var(--v2-font-display)] text-[42px] font-extrabold italic leading-none text-[#E85D1F]">
+            <p className="mt-3 font-[family-name:var(--v2-font-display)] text-[42px] font-extrabold italic leading-none text-[color:var(--v2-fg)]">
               {semanasHasta(race.days_until)}
-              <span className="ml-2 align-middle text-[12px] font-semibold not-italic tracking-[0.06em] text-[#ADA396]">
+              <span className="ml-2 align-middle text-[12px] font-semibold not-italic tracking-[0.06em] text-[color:var(--v2-faint)]">
                 SEMANAS
                 {raceDate ? ` · ${formatFechaCorta(raceDate).toUpperCase()}` : ''}
               </span>
             </p>
             {goal != null ? (
-              <dl className="mt-4 space-y-1 border-t border-white/10 pt-3 text-[13px]">
+              <dl className="mt-4 space-y-1 border-t border-[color:var(--v2-border)] pt-3 text-[13px]">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[#8C8377]">Objetivo</dt>
-                  <dd className="v2-num font-medium">{formatRaceTime(goal)}</dd>
+                  <dt className="text-[color:var(--v2-muted)]">Objetivo</dt>
+                  <dd className="v2-num font-medium text-[color:var(--v2-fg)]">{formatRaceTime(goal)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[#8C8377]">Proyección actual</dt>
-                  <dd className="text-[#8C8377]">sin dato</dd>
+                  <dt className="text-[color:var(--v2-muted)]">Proyección actual</dt>
+                  <dd className="text-[color:var(--v2-faint)]">sin dato</dd>
                 </div>
               </dl>
             ) : null}
-          </section>
+          </FichaCard>
         ) : (
           <FilaVacia texto="Sin carrera asignada" cta="Añadir objetivo" href={`/atletas/${id}?tab=atleta`} />
         )}
@@ -400,7 +408,7 @@ function RefCell({
           {value}
           <span className="ml-1 text-[12px] font-medium not-italic text-[color:var(--v2-muted)]">{unit}</span>
           {delta != null && delta !== 0 ? (
-            <span className={cn('ml-1.5 text-[12px] font-semibold not-italic', delta > 0 ? 'text-[#2F7D4F]' : 'text-[#B04A2F]')}>
+            <span className={cn('ml-1.5 text-[12px] font-semibold not-italic', delta > 0 ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-danger)]')}>
               {delta > 0 ? '+' : ''}
               {Math.round(delta)}
             </span>
@@ -458,7 +466,7 @@ function BandaAjuste({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--v2-border)] bg-[#FDFAF6] px-4 py-3 dark:bg-[color:var(--v2-accent-soft)]">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-accent-soft)] px-4 py-3">
       <p className="min-w-0 flex-1 text-[13px] text-[color:var(--v2-fg)]">
         <span className="font-semibold">Propuesta: </span>
         {summary}
@@ -469,13 +477,13 @@ function BandaAjuste({
           type="button"
           onClick={() => void aceptar()}
           disabled={busy}
-          className="v2-focus inline-flex h-[32px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-3 text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-60"
+          className="v2-focus inline-flex h-[32px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-60"
         >
           {busy ? 'Aplicando…' : 'Aceptar'}
         </button>
         <Link
           href={`/atletas/${athleteId}?tab=plan`}
-          className="v2-focus inline-flex h-[32px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-3 text-[12.5px] font-semibold"
+          className="v2-focus inline-flex h-[32px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 text-[12.5px] font-semibold"
         >
           Ver
         </Link>

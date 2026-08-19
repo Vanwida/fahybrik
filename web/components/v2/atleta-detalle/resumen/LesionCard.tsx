@@ -16,10 +16,10 @@ export function LesionCard({ athleteId }: { athleteId: string }) {
   const evoluciones = activa.updates.length;
 
   return (
-    <FichaCard className="shadow-[inset_3px_0_0_#E8A33D]">
+    <FichaCard className="shadow-[inset_3px_0_0_var(--v2-warn)]">
       <div className="flex items-start justify-between gap-2">
         <FichaLabel>Lesión activa</FichaLabel>
-        <span className="rounded-full bg-[#FAF0DC] px-2 py-0.5 text-[10.5px] font-semibold text-[#9A6B18]">
+        <span className="rounded-full bg-[color:var(--v2-warn-soft)] px-2 py-0.5 text-[10.5px] font-semibold text-[color:var(--v2-warn)]">
           {meta.label}
         </span>
       </div>
@@ -34,13 +34,13 @@ export function LesionCard({ athleteId }: { athleteId: string }) {
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href={`/atletas/${athleteId}?tab=atleta`}
-          className="v2-focus inline-flex h-[34px] items-center rounded-[8px] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
+          className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
         >
           Adaptar sesiones
         </Link>
         <Link
           href={`/atletas/${athleteId}?tab=atleta`}
-          className="v2-focus inline-flex h-[34px] items-center rounded-[8px] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-fg)]"
+          className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-fg)]"
         >
           Historial
         </Link>

@@ -23,7 +23,7 @@ function Scale({ bands, kind }: { bands: ScaleBand[]; kind: 'height' | 'lri' }) 
         <div
           key={b.level}
           className={cn(
-            'rounded-[8px] px-1 py-2 text-center',
+            'rounded-[var(--v2-r-m)] px-1 py-2 text-center',
             b.active
               ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
               : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)]',
@@ -75,7 +75,7 @@ export function CmjInforme({
               <button
                 type="button"
                 onClick={onFeedback}
-                className="v2-focus inline-flex h-8 items-center rounded-[8px] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)]"
+                className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)]"
               >
                 Dar feedback
               </button>
