@@ -9,10 +9,12 @@ describe('nav y proxy de Cómo entrenas', () => {
     expect(metodo[0]?.href).toBe('/como-entrenas');
     expect(metodo[0]?.label).toBe('Cómo entrenas');
     expect(metodo.some((i) => i.href === '/periodizacion')).toBe(true);
+    expect(metodo.some((i) => i.href === '/cuestionarios')).toBe(true);
   });
 
   it('proxy protege /:locale/como-entrenas', () => {
     const src = readFileSync(resolve(process.cwd(), 'proxy.ts'), 'utf8');
     expect(src).toContain('/:locale/como-entrenas/:path*');
+    expect(src).toContain('/:locale/cuestionarios');
   });
 });
