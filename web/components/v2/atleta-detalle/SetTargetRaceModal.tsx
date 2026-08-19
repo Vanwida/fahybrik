@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import {
   RACE_FORMAT_LABEL,
@@ -116,15 +117,6 @@ export function SetTargetRaceModal({
     };
   }, []);
 
-  // Close on Escape — the scrim covers click-out.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   // Distinct series present in the catalog → the optional family filter (only
   // worth showing when there's more than one).
   const seriesOptions = useMemo(() => {
@@ -221,6 +213,7 @@ export function SetTargetRaceModal({
       : null;
 
   return (
+    <ModalPortal onEscape={onClose}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -446,5 +439,6 @@ export function SetTargetRaceModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

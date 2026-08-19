@@ -17,6 +17,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 
 const REPEAT_OPTIONS: { label: string; weeks: number }[] = [
   { label: 'No repetir', weeks: 0 },
@@ -88,6 +89,7 @@ export function ProgramarTestSheet({
   }
 
   return (
+    <ModalPortal onEscape={onClose} escapeEnabled={!busy}>
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--v2-scrim)] p-0 sm:items-center sm:p-6"
       role="dialog"
@@ -210,5 +212,6 @@ export function ProgramarTestSheet({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

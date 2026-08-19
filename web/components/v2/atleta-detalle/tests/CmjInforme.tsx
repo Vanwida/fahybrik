@@ -5,6 +5,7 @@
 
 import { formatJumpHeightCm, formatLri } from '@fahybrid/shared/domain/jump/method';
 import { pctPoints, type CmjReport, type ScaleBand } from '@fahybrid/shared/domain/test-report/cmj';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { cn } from '@/lib/utils';
 
 function fechaCorta(raw: string | null): string | null {
@@ -48,8 +49,13 @@ export function CmjInforme({
   onFeedback?: () => void;
 }) {
   const fecha = fechaCorta(report.date_label);
+  // onClose es opcional (informe embebido sin cierre propio, p. ej. dentro de
+  // otro flujo); el portal exige un callback, así que sin cierre real Escape
+  // no hace nada — igual que antes, cuando el scrim tampoco tenía handler.
+  const handleClose = onClose ?? (() => {});
 
   return (
+    <ModalPortal onEscape={handleClose}>
     <div
       role="dialog"
       aria-label="Informe del test"
@@ -210,5 +216,6 @@ export function CmjInforme({
         </footer>
       </article>
     </div>
+    </ModalPortal>
   );
 }

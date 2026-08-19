@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 
 type StartChoice = 'current_week' | 'next_week';
@@ -65,6 +66,7 @@ export function PersonalizarPlanModal({
   }
 
   return (
+    <ModalPortal onEscape={onClose}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -153,5 +155,6 @@ export function PersonalizarPlanModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

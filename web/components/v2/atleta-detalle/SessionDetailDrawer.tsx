@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { Link } from '@/i18n/navigation';
 import { Pill } from '@/components/v2/Pill';
 import { ADHERENCE_BAND_COLOR_VAR, adherenceBand } from '@/components/v2/constants';
@@ -168,10 +169,15 @@ export function SessionDetailDrawer({
   const statusMeta = detail ? STATUS_META[detail.status] : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
-      onClick={onClose}
-    >
+    // Portalado al .v2-root (ModalPortal): un `fixed` renderizado en sitio caía
+    // dentro del wrapper animado de la ficha (containing block por transform) y
+    // el cajón salía atrapado y desplazado. El portal además trae Escape, trampa
+    // de foco y bloqueo de scroll.
+    <ModalPortal onEscape={onClose}>
+      <div
+        className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
+        onClick={onClose}
+      >
       <div
         role="dialog"
         aria-modal
@@ -341,7 +347,8 @@ export function SessionDetailDrawer({
             </div>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

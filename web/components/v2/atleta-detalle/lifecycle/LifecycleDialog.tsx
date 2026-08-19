@@ -5,8 +5,8 @@
 // footer. ESC + scrim close (blocked while `busy`, so a change in flight can't be
 // dismissed mid-request). Mirrors the AddAthleteModal chrome for visual consistency.
 
-import { useEffect } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 
 export function LifecycleDialog({
   title,
@@ -21,15 +21,8 @@ export function LifecycleDialog({
   footer: React.ReactNode;
   busy?: boolean;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !busy) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, busy]);
-
   return (
+    <ModalPortal onEscape={onClose} escapeEnabled={!busy}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -61,5 +54,6 @@ export function LifecycleDialog({
         <div className="mt-5 flex items-center justify-end gap-2">{footer}</div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -11,6 +11,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 
 const MAX_WEEKS = 20;
 
@@ -90,6 +91,7 @@ export function EditarMicrocicloModal({
   }
 
   return (
+    <ModalPortal onEscape={onClose}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -192,5 +194,6 @@ export function EditarMicrocicloModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
