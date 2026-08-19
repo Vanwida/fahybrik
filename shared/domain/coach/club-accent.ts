@@ -3,8 +3,9 @@
 // MECANISMO NUESTRO, MÉTODO DEL COACH: el coach elige UNA semilla (un hex) y
 // aquí se deriva todo lo que hace falta para pintarla, en las DOS superficies
 // del producto:
-//   · claro  → el panel del entrenador (lienzo perla).
-//   · oscuro → la app del atleta y el reloj (lienzo casi negro).
+//   · claro  → el panel del entrenador en tema claro (lienzo perla).
+//   · oscuro → el panel en tema oscuro, la app del atleta y el reloj
+//              (lienzo casi negro).
 //
 // Por qué no basta con guardar el hex y pintarlo: un color no se usa de una
 // sola forma. Se usa como RELLENO de un botón, como TEXTO encima de ese

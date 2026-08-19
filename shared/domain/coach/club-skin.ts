@@ -98,16 +98,20 @@ export type ClubAccentCssVars = Record<`--v2-${string}`, string>;
 
 /**
  * Variables que se clavan en `.v2-root`. Vacío = objeto vacío: el CSS de
- * `v2-theme.css` sigue siendo la marca. El dashboard ya lee `var(--v2-accent)`
- * (botones, foco, rail activo); no hace falta tocar cada componente.
+ * `v2-theme.css` sigue siendo el cromo neutro. El dashboard ya lee
+ * `var(--v2-accent)` (botones, foco, rail activo); no hace falta tocar cada
+ * componente.
  *
  * La familia la deriva `club-accent`: aquí solo se traduce a nombres de token.
- * El panel es la superficie CLARA; la app del atleta recibe la oscura por API.
+ * `surface` elige la familia del lienzo (claro = perla, oscuro = casi negro).
  */
-export function clubAccentCssVars(raw: string | null | undefined): ClubAccentCssVars {
+export function clubAccentCssVars(
+  raw: string | null | undefined,
+  surface: 'light' | 'dark' = 'light',
+): ClubAccentCssVars {
   const family = buildClubAccent(normalizeAccentHex(raw));
   if (!family) return {};
-  const { fill, press, on_fill, soft, text } = family.light;
+  const { fill, press, on_fill, soft, text } = family[surface];
   return {
     '--v2-accent': fill,
     '--v2-accent-press': press,

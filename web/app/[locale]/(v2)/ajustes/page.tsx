@@ -1,7 +1,7 @@
 // v2 · AJUSTES — coach settings. Server component: loads the coach session (auth)
 // + the editable profile, then renders the editable profile form and a link out
 // to Metodología/Periodización (the doc corpus that feeds the IA). v2 brand
-// tokens — el panel es tema claro único (FLEXR), sin variante oscura.
+// tokens — el panel es FLEXR (claro perla u oscuro), aislado en `.v2-root`.
 
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
