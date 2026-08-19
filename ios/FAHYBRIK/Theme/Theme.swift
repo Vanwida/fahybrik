@@ -61,13 +61,26 @@ enum Theme {
         // Brand orange is the FILL in BOTH modes (button bg, bars, active pill);
         // unchanged. accentOn (#511900 brown) is the text/glyph ON that fill —
         // 4.57:1 on #F06A2A, valid in both modes.
-        static let accent      = dyn(light: ui(0xF06A2A), dark: ui(0xF06A2A)) // #F06A2A Fabrik orange
-        static let accentPress = dyn(light: ui(0xD85A20), dark: ui(0xD85A20)) // #D85A20 pressed
-        static let accentOn    = dyn(light: ui(0x511900), dark: ui(0x511900)) // brown on orange
+        //
+        // DYNAMIC: when the athlete's coach set a club accent (`GET /api/auth/me`
+        // → ClubThemeStore, see ClubTheme.swift), its four hexes replace these
+        // 1:1 in BOTH light and dark — the club's color is how the athlete
+        // recognizes THEIR gym, so it doesn't flip with the OS appearance the
+        // way the generic brand accent does. `nil` (no coach, no club accent,
+        // or an unparseable hex) falls back to the literals below, unchanged.
+        // The source changed, not the ~hundreds of call sites reading these.
+        static var accent: SwiftUI.Color      { ClubThemeStore.current?.accent?.swiftUIFill   ?? staticAccent }
+        static var accentPress: SwiftUI.Color { ClubThemeStore.current?.accent?.swiftUIPress   ?? staticAccentPress }
+        static var accentOn: SwiftUI.Color    { ClubThemeStore.current?.accent?.swiftUIOnFill  ?? staticAccentOn }
         // Orange as TEXT/links/small glyphs fails AA on a light canvas, so on
         // light it darkens to #B5430B (5.6:1 on white / 5.2:1 on surface). On
         // dark it stays the brand orange. Use this — NOT `accent` — for text.
-        static let accentText  = dyn(light: ui(0xB5430B), dark: ui(0xF06A2A))
+        static var accentText: SwiftUI.Color  { ClubThemeStore.current?.accent?.swiftUIText    ?? staticAccentText }
+
+        private static let staticAccent      = dyn(light: ui(0xF06A2A), dark: ui(0xF06A2A)) // #F06A2A Fabrik orange
+        private static let staticAccentPress = dyn(light: ui(0xD85A20), dark: ui(0xD85A20)) // #D85A20 pressed
+        private static let staticAccentOn    = dyn(light: ui(0x511900), dark: ui(0x511900)) // brown on orange
+        private static let staticAccentText  = dyn(light: ui(0xB5430B), dark: ui(0xF06A2A))
 
         // Semantic hues. DARK = the vivid instrument set. LIGHT = darkened so
         // each still passes ≥4.5:1 as TEXT on the white/surface canvas.

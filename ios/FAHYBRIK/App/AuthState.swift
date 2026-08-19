@@ -151,6 +151,10 @@ final class AuthState {
         stage = .unauthenticated
         accessGated = nil
         hasCoach = true
+        // La piel del club es de QUIEN se va, no del binario: sin esto, la
+        // próxima persona que entre en este teléfono vería un instante los
+        // colores del coach anterior hasta que su propio /auth/me respondiera.
+        ClubThemeStore.clear()
         persist()
     }
 

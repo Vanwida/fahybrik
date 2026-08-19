@@ -115,9 +115,18 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: isDoubles,
             partnerFirstName: isDoubles ? partnerFirstName : nil,
             partnerVisibility: isDoubles ? partnerVisibility : nil,
-            detailJson: detail.flatMap(Self.encodeDetail)
+            detailJson: detail.flatMap(Self.encodeDetail),
+            clubAccent: Self.watchClubAccent()
         )
         send(payload)
+    }
+
+    /// El acento del club activo en el teléfono (`ClubThemeStore`, ver
+    /// ClubTheme.swift), mapeado a la forma que viaja al reloj. `nil` = sin
+    /// coach, coach sin acento propio — el reloj pinta su naranja de fábrica.
+    private static func watchClubAccent() -> WatchClubAccentPayload? {
+        guard let accent = ClubThemeStore.current?.accent else { return nil }
+        return WatchClubAccentPayload(fill: accent.fill, press: accent.press, text: accent.text)
     }
 
     /// A rest-day payload: no assignment fields, readiness only.
@@ -139,7 +148,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: false,
             partnerFirstName: nil,
             partnerVisibility: nil,
-            detailJson: nil
+            detailJson: nil,
+            clubAccent: Self.watchClubAccent()
         )
     }
 
@@ -348,7 +358,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: false,
             partnerFirstName: nil,
             partnerVisibility: nil,
-            detailJson: nil
+            detailJson: nil,
+            clubAccent: Self.watchClubAccent()
         )
     }
 

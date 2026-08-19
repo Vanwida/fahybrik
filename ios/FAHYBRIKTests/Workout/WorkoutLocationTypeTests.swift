@@ -109,7 +109,8 @@ private extension WatchTodayPayload {
             isDoubles: false,
             partnerFirstName: nil,
             partnerVisibility: nil,
-            detailJson: nil
+            detailJson: nil,
+            clubAccent: nil
         )
     }
 }

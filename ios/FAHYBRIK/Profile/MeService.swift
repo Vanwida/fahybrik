@@ -86,11 +86,16 @@ struct AthleteIdentity: Codable {
 
 struct MeResponse: Decodable {
     let athlete: AthleteIdentity
+    /// La piel del club del coach (nombre/logo/acento), o nil sin coach o sin
+    /// piel puesta. Persistida en `ClubThemeStore` en cuanto llega — ver
+    /// ClubTheme.swift. Optional so an older cached response still decodes.
+    let club: ClubTheme?
 }
 
 enum MeService {
     static func fetch(bearer: String) async throws -> AthleteIdentity {
         let resp: MeResponse = try await APIClient.shared.get(path: "api/auth/me", bearer: bearer)
+        ClubThemeStore.update(resp.club)
         return resp.athlete
     }
 }
@@ -123,6 +128,7 @@ enum ProfileService {
             body: body,
             bearer: bearer
         )
+        ClubThemeStore.update(resp.club)
         return resp.athlete
     }
 }

@@ -153,6 +153,7 @@
 		32BAF189A5EB1C7DCD137E6A /* splash-fahybrid.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 78D9AD0BB6A68530DAFE65EE /* splash-fahybrid.mp4 */; };
 		32DE178336119DAEA95466F4 /* HealthKitWorkoutWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710531166F66DF89AD031A05 /* HealthKitWorkoutWriter.swift */; };
 		32E39D602596E9A178401301 /* MeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CA469657CC4F5CB348FCD9 /* MeService.swift */; };
+		33002E7081FD07D879AD819E /* ClubTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E326D2A430AF0952E8177C8A /* ClubTheme.swift */; };
 		34B36E283F253D40CAD83898 /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A6593BCAA51A1D1C2F65412 /* RunActivityAttributes.swift */; };
 		34B68B858E33AB9A6B53398C /* PM5ProgramBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A230D680521FB14ED37B422F /* PM5ProgramBanner.swift */; };
 		35A37ADE9AF72E9564AAC4C3 /* GuionRodaje.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE7E41B7C0903AFD10C7D1A /* GuionRodaje.swift */; };
@@ -1333,6 +1334,7 @@
 		E2620D8F0AB7819EE83F2EA7 /* Lecturas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lecturas.swift; sourceTree = "<group>"; };
 		E2831F769AEEBFB1AA04CD24 /* WorkoutSessionLiveDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionLiveDescriptor.swift; sourceTree = "<group>"; };
 		E2EE83EF9DB5A439E0F56FCC /* Scale1to5Picker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scale1to5Picker.swift; sourceTree = "<group>"; };
+		E326D2A430AF0952E8177C8A /* ClubTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClubTheme.swift; sourceTree = "<group>"; };
 		E38DE2084485521A56ED911B /* RestSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestSurface.swift; sourceTree = "<group>"; };
 		E3B6B37C817AE7E22FF9BBF6 /* TreadmillHRProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillHRProvenanceTests.swift; sourceTree = "<group>"; };
 		E3B9F63D884A87D10ED4735A /* FijarObjetivoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FijarObjetivoView.swift; sourceTree = "<group>"; };
@@ -1512,6 +1514,7 @@
 			isa = PBXGroup;
 			children = (
 				1D68388A51BB12F5A37F852A /* Atoms.swift */,
+				E326D2A430AF0952E8177C8A /* ClubTheme.swift */,
 				FC94A17EBAE399DCC37750B5 /* Haptics.swift */,
 				8C040930274FF65628C57B9E /* LenguajeVivoCascada.swift */,
 				B76642A52EE7FF1DD4795684 /* LenguajeVivoUI.swift */,
@@ -3111,6 +3114,7 @@
 				824817A27EA2989622632399 /* CheckinView.swift in Sources */,
 				CF189219BC59E831BD6806A9 /* Chip.swift in Sources */,
 				3A9C0B5FA00A254500C22E56 /* CicloDelPlan.swift in Sources */,
+				33002E7081FD07D879AD819E /* ClubTheme.swift in Sources */,
 				46A9B950A22F7B7AFA5F1D18 /* CoachCue.swift in Sources */,
 				4941BE143A09912E9C796770 /* CoachInboxHeaderButton.swift in Sources */,
 				2DAA54D7ECBC9C70CA1A3719 /* CoachSpeaker.swift in Sources */,

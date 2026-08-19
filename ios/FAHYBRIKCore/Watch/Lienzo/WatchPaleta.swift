@@ -17,6 +17,15 @@ import SwiftUI
 // testear desde FAHYBRIKTests, que es iOS. Es sólo paleta: SwiftUI puro, sin
 // UIKit ni WatchKit. El shim de hápticos que la acompañaba se queda en el reloj
 // (FAHYBRIKWatch/WatchTheme.swift), porque ese sí necesita WKInterfaceDevice.
+/// El acento del club activo en el reloj, leído del último `WatchTodayPayload`
+/// recibido. Vive AQUÍ (FAHYBRIKCore, sin UIKit/WatchKit) porque `WatchTheme`
+/// se compila en LOS DOS targets; quien lo RELLENA — `WatchPlanModel`, al
+/// decodificar cada push y al recuperar el último persistido en el arranque
+/// en frío — vive solo en FAHYBRIKWatch. `nil` = sin coach o sin acento propio.
+enum WatchClubAccentState {
+    static var current: WatchClubAccentPayload?
+}
+
 enum WatchTheme {
 
     // MARK: - Color
@@ -45,9 +54,35 @@ enum WatchTheme {
     static let dim   = hex(0x8A8A8E)             // secondary / labels
 
     // Brand orange (the single sharp accent).
-    static let orange     = hex(0xF06A2A)        // fill (buttons, bars, active pill)
-    static let orangePress = hex(0xD85A20)       // pressed
-    static let orangeSoft = hex(0xFF8A4C)        // orange as small text / status line
+    //
+    // DYNAMIC: when the athlete's coach has a club accent, the phone pushes it
+    // inside the current `WatchTodayPayload` (see `WatchClubAccentPayload` in
+    // WatchWireModels.swift) and `WatchPlanModel` lands it in
+    // `WatchClubAccentState.current` on every push AND on cold-start disk
+    // load — the same mechanism that already persists `today`. `nil` (no
+    // coach, no accent, or an unparseable hex) falls back to the literals
+    // below, unchanged. The source changed, not the two dozen call sites.
+    static var orange: Color      { resolvedAccent(\.fill)  ?? staticOrange }
+    static var orangePress: Color { resolvedAccent(\.press) ?? staticOrangePress }
+    static var orangeSoft: Color  { resolvedAccent(\.text)  ?? staticOrangeSoft }
+
+    private static let staticOrange      = hex(0xF06A2A) // fill (buttons, bars, active pill)
+    private static let staticOrangePress = hex(0xD85A20) // pressed
+    private static let staticOrangeSoft  = hex(0xFF8A4C) // orange as small text / status line
+
+    private static func resolvedAccent(_ keyPath: KeyPath<WatchClubAccentPayload, String>) -> Color? {
+        guard let payload = WatchClubAccentState.current else { return nil }
+        return parseHex(payload[keyPath: keyPath])
+    }
+
+    /// "#rrggbb" wire hex → Color. Lenient about the leading `#`; nil on
+    /// anything that doesn't parse (the caller falls back to the static token).
+    private static func parseHex(_ wire: String) -> Color? {
+        var s = wire
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let value = UInt32(s, radix: 16) else { return nil }
+        return hex(value)
+    }
 
     // Semantic zone hues (per the mockups). Green/amber/red double as the
     // readiness score buckets and the high HR zones; blue is the low aerobic zone.

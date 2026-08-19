@@ -65,12 +65,16 @@ final class WatchPlanModel: ObservableObject {
         assignmentDetail = payload.detailJson.flatMap {
             try? WatchWire.detailDecoder.decode(AssignmentDetail.self, from: $0)
         }
+        WatchClubAccentState.current = payload.clubAccent
         UserDefaults.standard.set(data, forKey: key)
     }
 
     private func clear() {
         today = nil
         assignmentDetail = nil
+        // El acento del club es del atleta cuyo plan se acaba de limpiar (logout /
+        // sin sesión) — no debe sobrevivir a quien entre después en este reloj.
+        WatchClubAccentState.current = nil
         UserDefaults.standard.removeObject(forKey: key)
     }
 
@@ -81,5 +85,6 @@ final class WatchPlanModel: ObservableObject {
         assignmentDetail = decoded.detailJson.flatMap {
             try? WatchWire.detailDecoder.decode(AssignmentDetail.self, from: $0)
         }
+        WatchClubAccentState.current = decoded.clubAccent
     }
 }

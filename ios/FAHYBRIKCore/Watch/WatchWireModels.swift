@@ -56,6 +56,26 @@ struct WatchTodayPayload: Codable, Equatable {
     let partnerFirstName: String?     // nil on non-dobles / rest days
     let partnerVisibility: String?    // "shared" | "self_only"; nil on non-dobles
     let detailJson: Data?             // full AssignmentDetail JSON (verbatim API body) — watch builds WorkoutPlan from it
+    /// El acento del club del atleta (o nil = naranja de fábrica). Embebido AQUÍ,
+    /// no en una clave aparte del applicationContext: `updateApplicationContext`
+    /// sustituye el diccionario ENTERO en cada envío, así que una clave separada
+    /// exigiría la misma disciplina de "incluirla siempre" sin ahorrar nada — y
+    /// viaja gratis en el mismo mecanismo de persistencia + arranque en frío que
+    /// ya tiene `today` (WatchPlanModel). Ver ClubAccentPayload en iOS
+    /// (ios/FAHYBRIK/Theme/ClubTheme.swift) — mismos tres hexes, ya resueltos.
+    let clubAccent: WatchClubAccentPayload?
+}
+
+/// El acento del club, tal y como lo manda el teléfono al reloj — mismos hexes
+/// que `ClubAccentPayload.fill/press/text` en iOS (sin `onFill`: el reloj no
+/// tiene hoy ningún token de texto SOBRE el relleno naranja, así que no hay
+/// nada que remapear). `nil` en cualquier campo nunca ocurre en la práctica
+/// (el servidor solo emite un acento con los tres hexes ya resueltos), pero el
+/// hex se valida igualmente al pintar — ver WatchTheme.
+struct WatchClubAccentPayload: Codable, Equatable {
+    let fill: String
+    let press: String
+    let text: String
 }
 
 /// The two day shapes a `WatchTodayPayload` carries. String-backed (not an enum
@@ -280,7 +300,8 @@ extension WatchTodayPayload {
             isDoubles: isDoubles,
             partnerFirstName: partnerFirstName,
             partnerVisibility: partnerVisibility,
-            detailJson: detailJson
+            detailJson: detailJson,
+            clubAccent: clubAccent
         )
     }
 
