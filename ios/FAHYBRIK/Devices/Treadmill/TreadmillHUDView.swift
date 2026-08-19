@@ -34,12 +34,15 @@ struct TreadmillHUDView: View {
     /// `OutdoorRunHUDView`: sin cover propio, un `dismiss()` desde aquí se llevaría
     /// la presentación del entreno entero sin cerrar la sesión.
     let alSalir: () -> Void
-
-    init(session: WorkoutSession, hrZones: HRZoneProfile?, alSalir: @escaping () -> Void) {
+    /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
+    /// HUD vivo (reloj indoor), no a la guía de conectar.
+    init(session: WorkoutSession, hrZones: HRZoneProfile?,
+         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void) {
         // The SHARED hub — so a belt connected in the brief is already live here (no
         // re-scan), and the connection outlives this surface going away and coming back.
         _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
                                                        hub: .shared))
+        _sinCinta = State(initialValue: empiezaSinCinta)
         self.alSalir = alSalir
     }
 
@@ -883,7 +886,11 @@ struct TreadmillHUDView: View {
             onSearch: { searchBelt() },
             // «Correr sin conectar» — ver `sinCinta`: se sigue en ESTA pantalla, que
             // sin cinta enseña lo que sí se sabe. No hay otro HUD al que volver.
-            onSkip: { Haptics.light(); sinCinta = true },
+            onSkip: {
+                Haptics.light()
+                model.session.runEnvironment = .indoor
+                sinCinta = true
+            },
             onShareDiagnostics: model.diagnosticsText != nil ? { showDiagnostics = true } : nil
         )
     }

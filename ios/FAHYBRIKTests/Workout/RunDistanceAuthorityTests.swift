@@ -110,9 +110,74 @@ final class RunDistanceAuthorityTests: XCTestCase {
         XCTAssertNotEqual(MirrorWire.MessageType.distance, MirrorWire.MessageType.hr)
     }
 
+    // MARK: - El picker: tres sitios, tres fuentes
+
+    func testStreetIsAppleOutdoorAndStartsNow() {
+        XCTAssertTrue(RunEnvironment.outdoor.startsImmediately)
+        XCTAssertFalse(RunEnvironment.outdoor.usesFTMS)
+        XCTAssertTrue(RunEnvironment.outdoor.usesPhoneGPS)
+        XCTAssertFalse(RunEnvironment.outdoor.isIndoorForHealthKit)
+        XCTAssertEqual(RunDistanceAuthority.owner(environment: .outdoor, beltOwns: false), .apple)
+        XCTAssertTrue(RunDistanceAuthority.acceptsRunSample(source: .healthkit, environment: .outdoor, beltOwns: false))
+        XCTAssertFalse(RunDistanceAuthority.acceptsTreadmill(environment: .outdoor),
+                       "en la calle la cinta no firma")
+    }
+
+    func testPluggedBeltIsFTMSAndWaitsToConnect() {
+        XCTAssertFalse(RunEnvironment.treadmill.startsImmediately)
+        XCTAssertTrue(RunEnvironment.treadmill.usesFTMS)
+        XCTAssertTrue(RunEnvironment.treadmill.isIndoorForHealthKit)
+        XCTAssertEqual(RunDistanceAuthority.owner(environment: .treadmill, beltOwns: false), .none,
+                       "enchufada sin cinta: no se inventa")
+        XCTAssertFalse(RunDistanceAuthority.acceptsRunSample(source: .healthkit, environment: .treadmill, beltOwns: false))
+        XCTAssertEqual(RunDistanceAuthority.owner(environment: .treadmill, beltOwns: true), .treadmill)
+        XCTAssertTrue(RunDistanceAuthority.acceptsTreadmill(environment: .treadmill))
+    }
+
+    func testDumbBeltIsAppleIndoorAndStartsNow() {
+        XCTAssertTrue(RunEnvironment.indoor.startsImmediately)
+        XCTAssertFalse(RunEnvironment.indoor.usesFTMS)
+        XCTAssertFalse(RunEnvironment.indoor.usesPhoneGPS)
+        XCTAssertFalse(RunEnvironment.indoor.usesPhonePedometer)
+        XCTAssertTrue(RunEnvironment.indoor.isIndoorForHealthKit)
+        XCTAssertEqual(RunDistanceAuthority.owner(environment: .indoor, beltOwns: false), .apple)
+        XCTAssertTrue(RunDistanceAuthority.acceptsRunSample(source: .healthkit, environment: .indoor, beltOwns: false))
+        XCTAssertFalse(RunDistanceAuthority.acceptsRunSample(source: .gps, environment: .indoor, beltOwns: false),
+                       "pasos o GPS crudo no entran en cinta tonta")
+    }
+
+    func testAStreetSessionRejectsABeltClaim() {
+        let s = armedRun(environment: .outdoor)
+        s.claimTreadmillDistanceSource()
+        XCTAssertFalse(s.lapBeltOwnsDistance)
+        s.sampleTreadmillDistance(deltaMeters: 200)
+        XCTAssertEqual(s.lapBeltDistanceMeters, 0, accuracy: 0.001)
+        s.sampleRunDistance(deltaMeters: 300, source: .healthkit)
+        XCTAssertEqual(s.liveRunDistanceMeters ?? 0, 300, accuracy: 0.001)
+    }
+
+    func testAPluggedBeltSessionHasNoAppleMetresUntilTheBeltClaims() {
+        let s = armedRun(environment: .treadmill)
+        s.sampleRunDistance(deltaMeters: 400, source: .healthkit)
+        XCTAssertNil(s.liveRunDistanceMeters, "enchufada sin cinta: no hay cifra")
+        s.claimTreadmillDistanceSource()
+        s.sampleTreadmillDistance(deltaMeters: 150)
+        XCTAssertEqual(s.lapBeltDistanceMeters, 150, accuracy: 0.001)
+        XCTAssertNil(s.liveRunDistanceMeters)
+    }
+
+    func testADumbBeltSessionCountsAppleIndoor() {
+        let s = armedRun(environment: .indoor)
+        s.sampleRunDistance(deltaMeters: 220, source: .healthkit)
+        XCTAssertEqual(s.liveRunDistanceMeters ?? 0, 220, accuracy: 0.001)
+        s.sampleRunDistance(deltaMeters: 80, source: .gps)
+        XCTAssertEqual(s.liveRunDistanceMeters ?? 0, 220, accuracy: 0.001,
+                       "GPS crudo no suma en cinta tonta")
+    }
+
     // MARK: - Fixture
 
-    private func armedRun() -> WorkoutSession {
+    private func armedRun(environment: RunEnvironment? = nil) -> WorkoutSession {
         let seg = WorkoutSegment(order: 1, title: "Rodaje", kind: .running,
                                  targetDistanceMeters: 5_000, blockTitle: "Carrera", blockPosition: 1)
         let plan = WorkoutPlan(id: UUID(), name: "Rodaje", format: .steady,
@@ -120,6 +185,7 @@ final class RunDistanceAuthorityTests: XCTestCase {
                                zoneTargets: [], equipment: [], segments: [seg],
                                coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
+        s.runEnvironment = environment
         s.start(); s.beginBlock(); s.stop()
         return s
     }

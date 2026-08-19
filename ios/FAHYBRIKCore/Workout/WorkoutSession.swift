@@ -38,9 +38,9 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
-    /// Where the athlete said they run TODAY (cinta / calle), chosen pre-start.
-    /// Drives the auto-open of the right live HUD and keeps GPS off on a treadmill
-    /// run (indoor GPS noise reads as phantom pace). Ephemeral — never persisted.
+    /// Where the athlete said they run TODAY (calle / cinta enchufada / cinta
+    /// tonta), chosen pre-start. Drives the HUD and the fuente de los metros.
+    /// Ephemeral — never persisted.
     var runEnvironment: RunEnvironment? = nil
 
     var currentSegmentIndex: Int = 0

@@ -204,6 +204,7 @@ struct ActiveWorkoutView: View {
                                       alSalir: { requestExit() })
                 case .correrCinta:
                     TreadmillHUDView(session: session, hrZones: hrZones,
+                                     empiezaSinCinta: session.runEnvironment == .indoor,
                                      alSalir: { requestExit() })
                 }
             } else if isErgLandscapeFocus {
@@ -690,7 +691,7 @@ struct ActiveWorkoutView: View {
         // lo mismo, pero dicho donde de verdad se decide.
         // On a TREADMILL run the GPS stays off entirely — indoor GPS noise reads as
         // phantom pace ("números aleatorios"); the belt is the distance source.
-        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment != .treadmill {
+        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment?.usesPhoneGPS == true {
             // EL PERMISO DE FONDO VA CON LA CARRERA, NO CON LA PANTALLA. Sólo lo pedía
             // la superficie de calle, así que un tramo de correr dentro de un EMOM (que
             // nunca la abre) corría sin él: al bloquear la pantalla o atender una
@@ -699,18 +700,17 @@ struct ActiveWorkoutView: View {
             // cerrar, que es lo que cuida la batería.
             runGPS.setBackgroundUpdates(true)
             runGPS.start()
-            // En cinta NO: ahí la distancia la mide la máquina, que es medida directa.
-            if session.runEnvironment != .treadmill { pedometro.start(from: session.startedAt) }
+            if session.runEnvironment?.usesPhonePedometer == true {
+                pedometro.start(from: session.startedAt)
+            }
         } else {
             runGPS.stop()
             runGPS.setBackgroundUpdates(false)
             pedometro.stop()
         }
-        // El barómetro va con la CARRERA, no con la pantalla: se enciende en cuanto hay
-        // un tramo de correr que no sea en cinta —lo lleve esta vista o la de calle— y
-        // se apaga en el resto. En cinta no se enciende nunca: no hay desnivel que
-        // medir y el permiso de movimiento no se pide para nada.
-        if isRunSegment && session.runEnvironment != .treadmill {
+        // El barómetro va con la CALLE. En cinta no hay desnivel que medir y el
+        // permiso de movimiento no se pide para nada.
+        if isRunSegment && session.runEnvironment?.usesPhoneGPS == true {
             RunAltimeter.shared.start()
         } else {
             RunAltimeter.shared.stop()
@@ -937,12 +937,12 @@ struct ActiveWorkoutView: View {
             // y eso no se hace hasta que el atleta le da a EMPEZAR.
             guard !session.isAwaitingBlockStart else { return nil }
             switch session.runEnvironment {
-            case .treadmill: return .correrCinta
-            case .outdoor:   return .correrFuera
+            case .treadmill, .indoor: return .correrCinta
+            case .outdoor:            return .correrFuera
             // Todavía no ha contestado dónde corre. No se elige por él ni se pinta
             // una tercera pantalla: la puerta del bloque le pregunta, y mientras
             // tanto el suelo honesto es «CAMBIAR DE SITIO» (ver `liveSurface`).
-            case .none:      return nil
+            case .none:               return nil
             }
         }
         // …y lo que `modalityHUD` resuelve antes que el formato.

@@ -201,7 +201,9 @@ extension WorkoutSession {
     /// contando, que es lo que hacen Garmin y Strava.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
         guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
-        guard RunDistanceAuthority.acceptsRunSample(source: source, beltOwns: lapBeltOwnsDistance) else { return }
+        guard RunDistanceAuthority.acceptsRunSample(
+            source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
+        ) else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
@@ -211,6 +213,7 @@ extension WorkoutSession {
     /// metros: lo que Apple hubiera empezado a contar se suelta, para no mezclar.
     func claimTreadmillDistanceSource() {
         guard !isFinished, tramoIsRun else { return }
+        guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
         lapBeltOwnsDistance = true
         lapGpsDistanceMeters = nil
         lapHadGPS = false
@@ -244,6 +247,7 @@ extension WorkoutSession {
         // dedicated run block.
         guard !isPaused, !isFinished, !isAwaitingBlockStart,
               tramoIsRun, deltaMeters > 0 else { return }
+        guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
         // The cursor may have moved since the last sample: anchor this one in the
         // window it actually belongs to BEFORE counting it, exactly as `sampleErg`
         // does — otherwise minute 4's metres land in minute 3's bout.

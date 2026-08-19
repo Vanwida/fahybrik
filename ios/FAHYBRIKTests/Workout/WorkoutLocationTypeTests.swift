@@ -22,6 +22,11 @@ final class WorkoutLocationTypeTests: XCTestCase {
             .indoor,
             "una carrera en cinta no puede arrancar el GPS declarando exterior"
         )
+        XCTAssertEqual(
+            WorkoutLocationType.resolve(activityKind: "running", environment: .indoor),
+            .indoor,
+            "cinta tonta: HKWorkout indoor del reloj, GPS prohibido"
+        )
     }
 
     // EL DEFECTO CUANDO NADIE CONTESTÓ (la muñeca a solas, que no tiene esa pregunta):
@@ -39,7 +44,7 @@ final class WorkoutLocationTypeTests: XCTestCase {
     // respuesta. Dejar decidir a la heurística es lo que estamos quitando.
     func testItNeverAnswersUnknown() {
         let kinds: [String?] = ["running", "strength", "hyrox", "mixed", "other", nil, ""]
-        let environments: [RunEnvironment?] = [.outdoor, .treadmill, nil]
+        let environments: [RunEnvironment?] = [.outdoor, .treadmill, .indoor, nil]
         for kind in kinds {
             for environment in environments {
                 XCTAssertNotEqual(

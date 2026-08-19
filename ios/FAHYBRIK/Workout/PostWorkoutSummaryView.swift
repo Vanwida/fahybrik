@@ -332,12 +332,12 @@ struct PostWorkoutSummaryView: View {
             // el Task esperaba Salud antes de enviar y el resumen ya se había ido.
             payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
-            let treadmill = session.runEnvironment == .treadmill
+            let treadmill = session.runEnvironment?.isTreadmillSurface == true
             let mark: (slug: String, value: Double, runContext: String?)? = {
                 guard let tag = free.benchmark, payload.completeness == "full",
                       let value = benchmarkValue(tag: tag, segments: payload.segments) else { return nil }
                 let runContext: String? = free.modalityWire == "run"
-                    ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
+                    ? (session.runEnvironment?.isTreadmillSurface == true ? "treadmill" : "outdoor")
                     : nil
                 return (tag.slug, value, runContext)
             }()
