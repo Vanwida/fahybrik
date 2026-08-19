@@ -57,7 +57,10 @@ extension WorkoutSession {
         if let kg = popped.weightUsedKg { manualLoadKg = kg }
         if seg.kind == .running, let d = popped.distanceCoveredMeters {
             manualRunDistanceMeters = d
-            if popped.source == "gps" { lapGpsDistanceMeters = d; lapHadGPS = true }
+            if popped.source == "gps" || popped.source == "healthkit" {
+                lapGpsDistanceMeters = d
+                lapHadGPS = true
+            }
         }
     }
 
@@ -279,7 +282,7 @@ extension WorkoutSession {
         let computedSource: String
         if usedPM5 { computedSource = "pm5" }
         else if usedBelt { computedSource = "treadmill" }
-        else if usedGPS { computedSource = "gps" }
+        else if usedGPS { computedSource = "healthkit" }
         else if hasManualEntry { computedSource = "manual" }
         else if !lapHRSamples.isEmpty { computedSource = "healthkit" }
         else { computedSource = "manual" }
@@ -381,6 +384,7 @@ extension WorkoutSession {
         manualRunDistanceMeters = nil
         lapGpsDistanceMeters = nil
         lapHadGPS = false
+        lapBeltOwnsDistance = false
         lapInclineSum = 0
         lapInclineCount = 0
         lapBeltDistanceMeters = 0

@@ -122,7 +122,7 @@ struct ActiveWorkoutView: View {
         vSizeClass == .compact
             && (isErgSegment || (session.isTramoResting && segmentInvolvesErg))
             && !session.currentSegmentIsPartnerRelay
-            && !session.currentBlockIsStructural
+            && !(session.currentBlockIsStructural && !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo))
             && !session.isAwaitingBlockStart
     }
     private var isRunSegment: Bool {
@@ -204,6 +204,7 @@ struct ActiveWorkoutView: View {
                                       alSalir: { requestExit() })
                 case .correrCinta:
                     TreadmillHUDView(session: session, hrZones: hrZones,
+                                     empiezaSinCinta: session.runEnvironment == .indoor,
                                      alSalir: { requestExit() })
                 }
             } else if isErgLandscapeFocus {
@@ -690,7 +691,7 @@ struct ActiveWorkoutView: View {
         // lo mismo, pero dicho donde de verdad se decide.
         // On a TREADMILL run the GPS stays off entirely — indoor GPS noise reads as
         // phantom pace ("números aleatorios"); the belt is the distance source.
-        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment != .treadmill {
+        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment?.usesPhoneGPS == true {
             // EL PERMISO DE FONDO VA CON LA CARRERA, NO CON LA PANTALLA. Sólo lo pedía
             // la superficie de calle, así que un tramo de correr dentro de un EMOM (que
             // nunca la abre) corría sin él: al bloquear la pantalla o atender una
@@ -699,18 +700,17 @@ struct ActiveWorkoutView: View {
             // cerrar, que es lo que cuida la batería.
             runGPS.setBackgroundUpdates(true)
             runGPS.start()
-            // En cinta NO: ahí la distancia la mide la máquina, que es medida directa.
-            if session.runEnvironment != .treadmill { pedometro.start(from: session.startedAt) }
+            if session.runEnvironment?.usesPhonePedometer == true {
+                pedometro.start(from: session.startedAt)
+            }
         } else {
             runGPS.stop()
             runGPS.setBackgroundUpdates(false)
             pedometro.stop()
         }
-        // El barómetro va con la CARRERA, no con la pantalla: se enciende en cuanto hay
-        // un tramo de correr que no sea en cinta —lo lleve esta vista o la de calle— y
-        // se apaga en el resto. En cinta no se enciende nunca: no hay desnivel que
-        // medir y el permiso de movimiento no se pide para nada.
-        if isRunSegment && session.runEnvironment != .treadmill {
+        // El barómetro va con la CALLE. En cinta no hay desnivel que medir y el
+        // permiso de movimiento no se pide para nada.
+        if isRunSegment && session.runEnvironment?.usesPhoneGPS == true {
             RunAltimeter.shared.start()
         } else {
             RunAltimeter.shared.stop()
@@ -915,39 +915,27 @@ struct ActiveWorkoutView: View {
     private var superficieViva: SuperficieViva? {
         // Lo que `liveSurface` resuelve ANTES de llegar al HUD de modalidad.
         if session.currentSegmentIsPartnerRelay { return nil }
-        if session.currentBlockIsStructural { return nil }
+        // Un calentamiento de cinta / remo NO es checklist: la máquina mide.
+        if session.currentBlockIsStructural,
+           !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo) { return nil }
         if isErgLandscapeFocus { return nil }
-        // CORRER, y va antes del descanso a propósito: el trote de recuperación de
-        // una serie es parte de la MISMA vista (calle y cinta pintan su propia
-        // recuperación, con su ritmo y su cuenta atrás). Mandarlo a `RestSurface`
-        // haría bailar dos pantallas dentro del mismo tramo, que es justo lo que esta
-        // regla viene a quitar. Un EMOM cuyo tramo es correr NO entra: ahí manda el
-        // minuto, y el cover se abría precisamente encima de él y lo tapaba.
-        if session.currentSegment?.kind == .running,
-           session.currentSegment?.isEMOM != true {
-            // UN TRAMO DE CORRER SE RESUELVE AQUÍ DENTRO, SIEMPRE. O es una de las dos
-            // pantallas de correr, o no hay superficie — nunca cae a la de otro
-            // formato. La condición de la puerta vivía arriba, en el `if`, así que
-            // mientras el bloque estaba parado un tramo de carrera SEGUÍA bajando por
-            // la cadena y acababa en el reloj de acondicionamiento (o, sin esquema, en
-            // el suelo de hierro): dos formatos pintando una carrera.
-            //
-            // La puerta del bloque tiene la pantalla y todavía no ha empezado nada:
-            // estas dos superficies encienden GPS, cinta y Live Activity al aparecer,
-            // y eso no se hace hasta que el atleta le da a EMPEZAR.
+        // CORRER: manda el TRAMO, no el kind del segmento plegado. Un EMOM de
+        // cinta, un calentamiento de 6 min o una estación de HYROX son correr
+        // aunque el bloque se haya plegado como reps. El cover que tapaba el
+        // minuto ya no existe — TreadmillHUD ES la superficie.
+        if session.tramoIsRun {
             guard !session.isAwaitingBlockStart else { return nil }
             switch session.runEnvironment {
-            case .treadmill: return .correrCinta
-            case .outdoor:   return .correrFuera
+            case .treadmill, .indoor: return .correrCinta
+            case .outdoor:            return .correrFuera
             // Todavía no ha contestado dónde corre. No se elige por él ni se pinta
             // una tercera pantalla: la puerta del bloque le pregunta, y mientras
             // tanto el suelo honesto es «CAMBIAR DE SITIO» (ver `liveSurface`).
-            case .none:      return nil
+            case .none:               return nil
             }
         }
-        // …y lo que `modalityHUD` resuelve antes que el formato.
-        if session.isTramoResting { return nil }   // el descanso tiene su pantalla
-        if session.tramoIsErg { return nil }       // manda la máquina que mide
+        if session.isTramoResting { return nil }
+        if session.tramoIsErg { return nil }
         if session.currentSegment?.isEMOM == true { return .emom }
         // Los formatos de acondicionamiento conservan su cronómetro dedicado.
         if session.currentSegment?.isConditioningTimer == true { return nil }
@@ -1070,9 +1058,9 @@ struct ActiveWorkoutView: View {
             // "Relevo ▸" advances to their next station.
             relaySurface
             Spacer(minLength: 0)
-        } else if session.currentBlockIsStructural {
-            // Warmup / cooldown: ONE readable checklist, gated behind a single
-            // "hecho" button — never per-exercise navigation/logging.
+        } else if session.currentBlockIsStructural,
+                  !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo) {
+            // Warmup / cooldown SIN máquina: checklist. Con máquina manda el HUD.
             structuralWorkSurface
             Spacer(minLength: 0)
         } else {

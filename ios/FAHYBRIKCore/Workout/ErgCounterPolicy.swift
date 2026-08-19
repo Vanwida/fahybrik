@@ -122,6 +122,17 @@ struct ErgCounterPolicy: Equatable {
             return perBoutPolicy(tramo: tramo, allowMachineClose: true)
         }
 
+        // Series / superserie: the open set is a tramo. Same per-bout law as
+        // intervals so remo after squat reprograms and zeros.
+        if scheme == .sets || scheme == .superset || tramo.cursor.isStrengthSet {
+            return perBoutPolicy(tramo: tramo, allowMachineClose: true)
+        }
+
+        // Warmup / cooldown on a machine: one continuous window, 0 → objetivo.
+        if scheme == .warmup || scheme == .cooldown {
+            return continuousPolicy(tramo: tramo)
+        }
+
         // Steady / continuous / plain erg segment.
         return continuousPolicy(tramo: tramo)
     }
@@ -179,6 +190,10 @@ private extension LiveTramo.Cursor {
     }
     var isConditioningRound: Bool {
         if case .conditioningRound = self { return true }
+        return false
+    }
+    var isStrengthSet: Bool {
+        if case .strengthSet = self { return true }
         return false
     }
 }

@@ -120,6 +120,9 @@ extension WorkoutSession {
         registerFirstWorkingSet()
         lastSetClosedElapsed = elapsedSeconds
         startRest(setRecords[index].restS)
+        // Next set is a new tramo: remo after squat must re-zero now, not on
+        // the next PM5 sample (that sample would still belong to the squat).
+        syncTramoIfNeeded()
     }
 
     /// CUÁNTO LLEVAS DESDE QUE SOLTASTE LA BARRA. Sigue corriendo cuando el descanso

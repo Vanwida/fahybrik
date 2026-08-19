@@ -149,9 +149,9 @@ enum WorkoutLocationType {
     ) -> HKWorkoutSessionLocationType {
         guard activityKind == "running" else { return .indoor }
         switch environment {
-        case .treadmill: return .indoor
-        case .outdoor:   return .outdoor
-        case nil:        return .outdoor
+        case .treadmill, .indoor: return .indoor
+        case .outdoor:            return .outdoor
+        case nil:                 return .outdoor
         }
     }
 }

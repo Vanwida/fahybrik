@@ -30,6 +30,10 @@ final class TreadmillSessionFeeder {
     /// Hand one belt sample to the session. Safe to call for every sample of the whole
     /// workout: samples outside running work are dropped by the session's own guards.
     func ingest(_ sample: TreadmillSample) {
+        // FTMS viva en un tramo de correr: ella firma los metros, aunque esta
+        // muestra todavía no haya avanzado. Una fuente. La cinta tonta nunca
+        // llega aquí, y entonces cuenta el HKWorkout indoor del reloj.
+        session.claimTreadmillDistanceSource()
         let meters = tracker.increment(from: sample)
         if meters > 0 { session.sampleTreadmillDistance(deltaMeters: meters) }
         // A flat belt (0 %) is a real reading and counts toward the average; nil means

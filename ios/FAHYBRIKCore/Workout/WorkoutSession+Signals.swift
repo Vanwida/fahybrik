@@ -43,10 +43,12 @@ extension WorkoutSession {
         peakDriveForceLbs: Double? = nil,
         avgDriveForceLbs: Double? = nil
     ) {
-        // Gated on the TRAMO, not on the segment: a ski round inside an EMOM is erg
-        // work and its numbers are real, even though the segment that wraps it reads
-        // as strength/reps. That guard was why an EMOM on the erg recorded nothing.
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsErg else { return }
+        // Gated on the TRAMO law, not on a hard-coded format: a ski round inside
+        // an EMOM, a remo inside a superserie, or a PM5 under a free-order AMRAP
+        // all record. Connect without a live window still does not count.
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              MachineTramoLaw.recordsPM5(tramo: currentTramo, segment: currentSegment)
+        else { return }
         // The cursor may have moved since the last tick; anchor this sample in the
         // window it actually belongs to before it is counted.
         syncTramoIfNeeded()
@@ -188,37 +190,35 @@ extension WorkoutSession {
         }
     }
 
-    /// Accumulates phone-GPS covered distance for the current RUN work. The provider
-    /// passes the incremental meters since its last callback; we sum them into the
-    /// in-window total. TRAMO-gated like the belt and the monitor, so an outdoor run
-    /// leg inside ANY format (a HYROX sim, a circuit, a For Time) records its metres
-    /// instead of only a segment the coach happened to author as a pure run.
-    /// `source` es QUIÉN midió estos metros, y por eso viaja: en el teléfono los pone
-    /// un fix de CoreLocation (`gps`, el defecto), pero en la muñeca los pone la
-    /// distancia acumulada de HealthKit (`distanceWalkingRunning`), que es fusión de
-    /// Apple y no un fix. Sellar los dos como «gps» sería etiquetar el archivo con un
-    /// aparato que no lo midió. El defecto mantiene intactos los dos sitios del
-    /// teléfono que ya llamaban aquí.
+    /// Acumula los metros oficiales de carrera: los de Apple (HKWorkout outdoor /
+    /// indoor, `distanceWalkingRunning`). No es un integrador nuestro.
+    ///
+    /// UNA FUENTE. Si la cinta FTMS ha reclamado la ventana, este delta se tira.
+    /// Un `.gps` (salto entre fixes, podómetro, pasos × zancada) también se tira:
+    /// `RunDistanceAuthority` es la puerta, y los tests fallan si alguien la salta.
+    ///
     /// LA DISTANCIA ES UN HECHO FÍSICO; EL TIEMPO PARADO ES UNA POLÍTICA. Por eso la
     /// puerta mira la pausa MANUAL y no la autopausa: con la autopausa enganchada el
     /// crono se congela —eso es lo que el atleta espera— pero los metros se siguen
-    /// contando, que es lo que hacen Garmin y Strava. Antes se tiraban, así que una
-    /// autopausa disparada por señal floja mientras el atleta seguía corriendo
-    /// borraba esos metros para siempre. Sólo la pausa a mano, que es cuando el
-    /// atleta ha dicho explícitamente que pare TODO, deja de contar.
-    /// Ya no se llama «GPS» y no tiene defecto A PROPÓSITO: desde el 12-ago los metros
-    /// no los cuenta CoreLocation sino Apple (podómetro en el teléfono, HealthKit en la
-    /// muñeca), así que quien los mete tiene que DECIR de dónde salen. Un defecto `.gps`
-    /// regalaba una etiqueta falsa al siguiente que llamara.
+    /// contando, que es lo que hacen Garmin y Strava.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
         guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
+        guard RunDistanceAuthority.acceptsRunSample(
+            source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
+        ) else { return }
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
-        // La distancia va a la traza ACUMULADA sobre el eje de la sesión, no por
-        // tramo: con ella cualquier instante del gráfico se puede llevar a un punto
-        // del recorrido, que es lo que la polilínea sola no puede hacer porque no
-        // lleva tiempos.
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
+    }
+
+    /// La cinta FTMS está viva en esta ventana. A partir de aquí ella firma los
+    /// metros: lo que Apple hubiera empezado a contar se suelta, para no mezclar.
+    func claimTreadmillDistanceSource() {
+        guard !isFinished, tramoIsRun else { return }
+        guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
+        lapBeltOwnsDistance = true
+        lapGpsDistanceMeters = nil
+        lapHadGPS = false
     }
 
     /// Feeds one treadmill INCLINE reading (%) into the current run segment's average
@@ -232,7 +232,9 @@ extension WorkoutSession {
         // data is real, even though the folded segment that wraps it reads as
         // reps/functional. That guard is why a remo→ski→cinta EMOM recorded nothing
         // from the treadmill (4-ago).
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment)
+        else { return }
         lapInclineSum += inclinePct
         lapInclineCount += 1
     }
@@ -248,11 +250,14 @@ extension WorkoutSession {
         // measures the run minute of a mixed EMOM just as truly as it measures a
         // dedicated run block.
         guard !isPaused, !isFinished, !isAwaitingBlockStart,
-              tramoIsRun, deltaMeters > 0 else { return }
+              MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment),
+              deltaMeters > 0 else { return }
+        guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
         // The cursor may have moved since the last sample: anchor this one in the
         // window it actually belongs to BEFORE counting it, exactly as `sampleErg`
         // does — otherwise minute 4's metres land in minute 3's bout.
         syncTramoIfNeeded()
+        claimTreadmillDistanceSource()
         lapBeltDistanceMeters += deltaMeters
         // En cinta la distancia la da la MÁQUINA, y eso queda sellado en la fuente de
         // la traza: quien la lea sabe que estos metros no son de un GPS.
@@ -268,10 +273,11 @@ extension WorkoutSession {
             .map { Int($0.rounded()) }
     }
 
-    /// Live covered distance for the current RUN work for HUD display (GPS sum when
-    /// available, else the athlete's manual entry). Tramo-gated like the feed that
-    /// fills it, so a run station inside any format can show its covered metres.
+    /// Live covered distance for the current RUN work for HUD display (Apple when
+    /// the watch counted, else the athlete's manual entry). Nil without a source —
+    /// sin reloj y sin cinta no hay cifra. Tramo-gated like the feed that fills it.
     var liveRunDistanceMeters: Double? {
-        tramoIsRun ? (lapGpsDistanceMeters ?? manualRunDistanceMeters) : nil
+        guard tramoIsRun, !lapBeltOwnsDistance else { return nil }
+        return lapGpsDistanceMeters ?? manualRunDistanceMeters
     }
 }
