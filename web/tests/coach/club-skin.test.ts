@@ -104,12 +104,14 @@ describe('clubAccentCssVars', () => {
     expect(clubAccentCssVars('no')).toEqual({});
   });
 
-  test('un hex válido clava las cuatro variables de acento', () => {
+  test('un hex válido clava las variables de acento del panel', () => {
     const vars = clubAccentCssVars('#F06A2A');
     expect(vars['--v2-accent']).toBe('#f06a2a');
     expect(vars['--v2-accent-press']).toBe('#cc5a24');
     expect(vars['--v2-accent-fg']).toBe('#0a0a0a');
-    expect(vars['--v2-accent-soft']).toBe('color-mix(in srgb, #f06a2a 14%, transparent)');
+    expect(vars['--v2-accent-soft']).toBe('rgba(240, 106, 42, 0.1)');
+    // Como texto el naranja no llega a 4,5:1 sobre el perla: se oscurece.
+    expect(vars['--v2-accent-text']).not.toBe('#f06a2a');
   });
 
   test('sobre un acento oscuro el texto es el claro del tema', () => {

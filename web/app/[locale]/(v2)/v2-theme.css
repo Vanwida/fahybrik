@@ -22,6 +22,9 @@
   --v2-accent-press: #3a3833;
   --v2-accent-fg: #f1efeb;
   --v2-accent-soft: rgba(32, 31, 27, 0.07);
+  /* El acento cuando hace de TEXTO sobre el lienzo: distinto del relleno,
+     porque un color puede valer de botón y no llegar a 4,5:1 como letra. */
+  --v2-accent-text: #201f1b;
 
   /* ── Superficies y tinta (perla FLEXR) ── */
   --v2-bg: #f1efeb; /* lienzo perla */
@@ -117,6 +120,7 @@
   --v2-accent-press: #d85a20;
   --v2-accent-fg: #0a0a0a;
   --v2-accent-soft: rgba(240, 106, 42, 0.14);
+  --v2-accent-text: #f06a2a;
   --v2-bg: #0a0a0a;
   --v2-surface: #141414;
   --v2-surface-2: #1a1a1a;

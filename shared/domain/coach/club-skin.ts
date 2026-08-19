@@ -5,6 +5,7 @@
 // no conoce iOS ni cobros.
 
 import { tokens } from '../../tokens';
+import { buildClubAccent } from './club-accent';
 
 /** Wordmark de este binario cuando el club no ha puesto nombre. */
 export const BRAND_WORDMARK = 'FAHYBRID';
@@ -99,58 +100,19 @@ export type ClubAccentCssVars = Record<`--v2-${string}`, string>;
  * Variables que se clavan en `.v2-root`. Vacío = objeto vacío: el CSS de
  * `v2-theme.css` sigue siendo la marca. El dashboard ya lee `var(--v2-accent)`
  * (botones, foco, rail activo); no hace falta tocar cada componente.
+ *
+ * La familia la deriva `club-accent`: aquí solo se traduce a nombres de token.
+ * El panel es la superficie CLARA; la app del atleta recibe la oscura por API.
  */
 export function clubAccentCssVars(raw: string | null | undefined): ClubAccentCssVars {
-  const hex = normalizeAccentHex(raw);
-  if (!hex) return {};
-  const rgb = hexToRgb(hex);
-  if (!rgb) return {};
+  const family = buildClubAccent(normalizeAccentHex(raw));
+  if (!family) return {};
+  const { fill, press, on_fill, soft, text } = family.light;
   return {
-    '--v2-accent': hex,
-    '--v2-accent-press': darkenHex(rgb, 0.85),
-    '--v2-accent-fg': contrastOn(rgb),
-    '--v2-accent-soft': `color-mix(in srgb, ${hex} 14%, transparent)`,
+    '--v2-accent': fill,
+    '--v2-accent-press': press,
+    '--v2-accent-fg': on_fill,
+    '--v2-accent-soft': soft,
+    '--v2-accent-text': text,
   };
-}
-
-interface Rgb {
-  r: number;
-  g: number;
-  b: number;
-}
-
-function hexToRgb(hex: string): Rgb | null {
-  const match = /^#([0-9a-f]{6})$/.exec(hex);
-  const digits = match?.[1];
-  if (!digits) return null;
-  const n = Number.parseInt(digits, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-function darkenHex(rgb: Rgb, factor: number): string {
-  const to = (c: number) => Math.max(0, Math.min(255, Math.round(c * factor)));
-  return `#${[to(rgb.r), to(rgb.g), to(rgb.b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
-}
-
-/** Texto sobre el acento: negro de marca si aguanta AA, si no el claro del tema. */
-function contrastOn(rgb: Rgb): string {
-  const black = contrastRatio(rgb, { r: 10, g: 10, b: 10 });
-  return black >= 4.5 ? '#0a0a0a' : '#f5f5f5';
-}
-
-function linearize(channel: number): number {
-  const s = channel / 255;
-  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-function relativeLuminance(rgb: Rgb): number {
-  return 0.2126 * linearize(rgb.r) + 0.7152 * linearize(rgb.g) + 0.0722 * linearize(rgb.b);
-}
-
-function contrastRatio(a: Rgb, b: Rgb): number {
-  const la = relativeLuminance(a);
-  const lb = relativeLuminance(b);
-  const lighter = Math.max(la, lb);
-  const darker = Math.min(la, lb);
-  return (lighter + 0.05) / (darker + 0.05);
 }
