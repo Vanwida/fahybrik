@@ -358,11 +358,13 @@ final class WorkoutSession {
     /// prescription (target ≠ covered) so the recorded distance stays honest.
     var manualRunDistanceMeters: Double? = nil
 
-    // Per-segment RUN capture from CoreLocation (phone GPS). Distance is the
-    // in-window covered meters; pace is derived on close from distance/duration
-    // (a live GPS instantaneous pace is too noisy to average meaningfully here).
+    // Per-segment RUN capture from Apple (HKWorkout / distanceWalkingRunning).
+    // The property names keep `Gps` because the lap/undo paths already speak that
+    // vocabulary; the METERS themselves are no longer a CoreLocation integrator.
     var lapGpsDistanceMeters: Double? = nil
     var lapHadGPS: Bool = false
+    /// FTMS ha reclamado esta ventana. Una fuente: Apple deja de firmar metros.
+    var lapBeltOwnsDistance: Bool = false
 
     // Per-segment treadmill INCLINE aggregation (#62). Summed from the belt's live
     // grade over the current run segment (across all its structured legs); averaged
