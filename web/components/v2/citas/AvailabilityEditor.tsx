@@ -48,8 +48,8 @@ const WEEKDAYS: ReadonlyArray<{ weekday: number; label: string }> = [
 // #40: the two independent schedules. Order also fixes how windows are serialized on save.
 const MODALITIES: ReadonlyArray<CitaModality> = ['video', 'presencial'];
 const MODALITY_OPTIONS: ReadonlyArray<{ value: CitaModality; label: string }> = [
-  { value: 'video', label: '📹 Videollamadas' },
-  { value: 'presencial', label: '📍 Presencial' },
+  { value: 'video', label: 'Videollamadas' },
+  { value: 'presencial', label: 'Presencial' },
 ];
 
 // Default box name — a placeholder hint, never forced onto the coach.
