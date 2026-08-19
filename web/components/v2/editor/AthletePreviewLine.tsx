@@ -129,7 +129,7 @@ export function AthleteSeesBar({
         <button
           type="button"
           onClick={onSave}
-          className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+          className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
         >
           <MIcon name="check" size={15} />
           Guardar bloque

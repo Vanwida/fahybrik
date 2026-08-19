@@ -69,17 +69,26 @@ export function DayRail({
             className={cn(
               'v2-focus flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-m)] border px-3 py-2 text-left transition-colors min-[900px]:w-full',
               on
-                ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface)] shadow-[inset_0_0_0_1px_var(--v2-fg)]'
+                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)]'
                 : 'border-transparent hover:bg-[color:var(--v2-surface)]',
             )}
           >
-            <span className="v2-display w-9 shrink-0 text-xs uppercase">{d.nombre}</span>
+            <span
+              className={cn(
+                'v2-display w-9 shrink-0 text-xs uppercase',
+                on && 'text-[color:var(--v2-accent-fg)]',
+              )}
+            >
+              {d.nombre}
+            </span>
             <span
               className={cn(
                 'hidden min-w-0 flex-1 truncate text-label min-[900px]:block',
-                d.descanso
-                  ? 'italic text-[color:var(--v2-faint)]'
-                  : 'text-[color:var(--v2-muted)]',
+                on
+                  ? 'text-[color:var(--v2-accent-fg)]'
+                  : d.descanso
+                    ? 'italic text-[color:var(--v2-faint)]'
+                    : 'text-[color:var(--v2-muted)]',
               )}
             >
               {d.resumen}

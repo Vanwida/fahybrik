@@ -168,7 +168,7 @@ export function DayHeader({
             onClick={onCopy}
             disabled={!copyEnabled}
             title={copyTitle}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
+            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
           >
             <MIcon name="content_copy" size={16} />
             Copiar día a…
@@ -181,9 +181,9 @@ export function DayHeader({
           aria-live="polite"
           title={canSave ? undefined : saveBlockedReason ?? undefined}
           className={cn(
-            'v2-focus relative inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] px-4 text-sm font-bold transition-colors',
+            'v2-focus relative inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-4 text-sm font-bold transition-colors',
             saveState === 'error'
-              ? 'bg-[color:var(--v2-danger)] text-white'
+              ? 'bg-[color:var(--v2-danger)] text-[color:var(--v2-bg)]'
               : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60',
           )}
         >

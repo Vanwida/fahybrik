@@ -62,7 +62,7 @@ export function QuickAddLine({ onAdd }: { onAdd: (lines: ParsedLine[]) => void }
   return (
     <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] transition-colors focus-within:border-[color:var(--v2-accent)] focus-within:shadow-[0_0_0_3px_var(--v2-accent-soft)]">
       <div className="flex items-center gap-3 px-4">
-        <span aria-hidden className="v2-num text-[15px] font-bold text-[color:var(--v2-accent)]">
+        <span aria-hidden className="v2-num text-reading font-bold text-[color:var(--v2-accent)]">
           ›
         </span>
         <input
@@ -79,11 +79,11 @@ export function QuickAddLine({ onAdd }: { onAdd: (lines: ParsedLine[]) => void }
           spellCheck={false}
           placeholder={PLACEHOLDER}
           aria-label="Añadir al día escribiéndolo como siempre"
-          className="min-w-0 flex-1 bg-transparent py-3.5 font-mono text-sm text-[color:var(--v2-fg)] placeholder:font-sans placeholder:text-[color:var(--v2-faint)] focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent py-3.5 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
         />
         <kbd
           aria-hidden
-          className="shrink-0 rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] px-1.5 font-mono text-label text-[color:var(--v2-faint)]"
+          className="shrink-0 rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] px-1.5 text-label text-[color:var(--v2-faint)]"
         >
           /
         </kbd>
@@ -103,7 +103,7 @@ export function QuickAddLine({ onAdd }: { onAdd: (lines: ParsedLine[]) => void }
             className="v2-focus ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] px-2 py-1 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             añadir al día
-            <kbd className="rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border-strong)] px-1 font-mono text-nano">
+            <kbd className="rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border-strong)] px-1 text-nano">
               ↵
             </kbd>
           </button>

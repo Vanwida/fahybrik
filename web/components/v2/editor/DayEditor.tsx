@@ -304,7 +304,7 @@ export function DayEditor({
 
       {/* Gate honesto — nunca un «Guardado» falso: dice exactamente el porqué. */}
       {!isRest && !gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)]/30 bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>
@@ -328,7 +328,7 @@ export function DayEditor({
               <button
                 type="button"
                 onClick={day.addSession}
-                className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
               >
                 <MIcon name="add" size={16} />
                 Añadir sesión
@@ -371,7 +371,7 @@ export function DayEditor({
             <button
               type="button"
               onClick={day.addSession}
-              className="v2-focus w-full rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus w-full rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
             >
               ＋ Añadir sesión ({SLOT_LABEL[nextSlot]})
             </button>

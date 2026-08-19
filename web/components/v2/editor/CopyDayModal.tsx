@@ -264,9 +264,9 @@ export function CopyDayModal({
               onClick={onSubmit}
               disabled={busy || selectedDays.length === 0}
               className={cn(
-                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
+                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
                 confirming && conflictCount > 0
-                  ? 'bg-[color:var(--v2-danger)] text-white'
+                  ? 'bg-[color:var(--v2-danger)] text-[color:var(--v2-bg)]'
                   : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
               )}
             >

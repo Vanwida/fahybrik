@@ -189,7 +189,7 @@ export function RestDayPanel({
         </div>
       ) : null}
 
-      <p className="mt-5 text-center font-mono text-eyebrow uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
+      <p className="mt-5 text-center text-eyebrow uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
         Sin carga · no cuenta como sesión
       </p>
     </div>
