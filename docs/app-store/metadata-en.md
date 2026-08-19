@@ -26,7 +26,7 @@ Elite HYROX coaching app
 ## Promotional text (max 170 chars — editable without new review)
 
 ```
-Your coach's ATR plan, guided workout execution, daily briefing and the metrics that matter to a serious HYROX athlete. Zero noise. Only what moves the needle.
+Your coach's weekly plan, guided workout execution, daily briefing and the metrics that matter to a serious HYROX athlete. Zero noise. Only what moves the needle.
 ```
 
 ## Description (~200 words, max 4000 chars)
@@ -34,9 +34,9 @@ Your coach's ATR plan, guided workout execution, daily briefing and the metrics 
 ```
 FAHYBRID is the training app for serious HYROX athletes who work with a coach and want to execute every session with the same precision with which it was planned.
 
-This is not a plan generator. Your coach designs your ATR macrocycle (Accumulation, Transformation, Realization) on the dashboard; FAHYBRID adapts the daily session based on your HRV, sleep, RPE and accumulated fatigue — without inventing the block, without diluting the methodology.
+This is not a plan generator. Your coach designs your macrocycle on the dashboard; FAHYBRID adapts the daily session based on your HRV, sleep, RPE and accumulated fatigue — without inventing the block, without diluting the methodology.
 
-Every morning you see Today: the session, why this ATR block, the coach's briefing and a 30-second morning check-in that nudges intensity if your body asks for it. During the workout, the screen guides every set, target RPE, rest, tempo and smart substitutions if you're short on equipment or time.
+Every morning you see Today: the session, why this block, the coach's briefing and a 30-second morning check-in that nudges intensity if your body asks for it. During the workout, the screen guides every set, target RPE, rest, tempo and smart substitutions if you're short on equipment or time.
 
 We integrate what you already use: Apple Health (HRV, sleep, weight, workouts), Garmin Connect (HR zones, acute/chronic load), Concept2 PM5 via Bluetooth (rower, ski, bike erg with splits and stroke rate). The HYROX race lanes — sled, wall ball, burpees broad jumps, runs — have native tracking.
 
@@ -48,7 +48,7 @@ Designed with a single coach (Pablo Pérez Gómez, Fabrik Training Club Barcelon
 ## Keywords (max 100 chars comma-separated, no spaces after commas)
 
 ```
-HYROX,hybrid,coach,athlete,strength,endurance,ATR,RPE,race,Concept2,wall ball,sled,fitness,running
+HYROX,hybrid,coach,athlete,strength,endurance,RPE,race,Concept2,wall ball,sled,fitness,running,plan
 ```
 
 (99 chars.)
@@ -56,19 +56,25 @@ HYROX,hybrid,coach,athlete,strength,endurance,ATR,RPE,race,Concept2,wall ball,sl
 ## Support URL
 
 ```
-https://fahybrik.com/support
+https://fahybrid.com/support
 ```
+
+> 🚨 **BLOCKS REVIEW — the page does not exist.** Checked 2026-08-18: `/support`,
+> `/es/support` and `/en/support` all return 404. Apple opens the Support URL during
+> review and rejects when it fails to load (guideline 1.5). Until 2026-08-18 this field
+> also pointed at `fahybrik.com` — with a K — a domain that does **not** resolve, so the
+> failure predates the typo fix. See `metadata-es.md` for the same note.
 
 ## Marketing URL (optional)
 
 ```
-https://fahybrik.com
+https://fahybrid.com
 ```
 
 ## Privacy Policy URL (required)
 
 ```
-https://fahybrik.com/privacy
+https://fahybrid.com/privacy
 ```
 
 ## What's New in This Version
@@ -77,7 +83,7 @@ https://fahybrik.com/privacy
 First private TestFlight build for athletes of Fabrik Training Club Barcelona.
 
 Included:
-- Today: daily session with ATR block, coach briefing and morning check-in
+- Today: daily session with the current block, coach briefing and morning check-in
 - Active workout: set-by-set guided execution with target RPE, tempo, rest
 - Pre-workout brief: block context, KPIs to move, required equipment
 - Onboarding: injuries, 1RMs (squat, bench, deadlift, push press), HR zones
@@ -91,12 +97,12 @@ Report any issue to your coach via in-app chat.
 ## App Review Information (English mirror — same demo account)
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
-- Contact email: vanwida@aistudios.pro (or pablo@fabrik.training when confirmed)
-- Demo account: appstore-demo@fahybrik.com (magic link)
+- Contact email: coach@example.com
+- Demo account: appstore-demo@fahybrid.com (magic link)
 - Reviewer notes: same as Spanish locale.
 
 ## Copyright
 
 ```
-© 2026 Vanwida (vanwida@aistudios.pro). All rights reserved.
+© 2026 Vanwida (coach@example.com). All rights reserved.
 ```

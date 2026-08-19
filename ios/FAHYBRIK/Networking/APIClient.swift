@@ -7,7 +7,7 @@ enum APIBase {
            let u = URL(string: s) {
             return u
         }
-        return URL(string: "https://app.fahybrid.com")!
+        return Marca.apiPorDefecto
     }
 
     /// Una referencia de fichero de un DTO, resuelta contra esta base.

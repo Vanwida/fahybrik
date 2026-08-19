@@ -284,7 +284,7 @@ struct WorkoutShareCard: View {
 
             Spacer(minLength: 0)
 
-            Text("fahybrid.com")
+            Text(Marca.dominioWeb)
                 .font(.system(size: 12, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(Theme.Color.faint)

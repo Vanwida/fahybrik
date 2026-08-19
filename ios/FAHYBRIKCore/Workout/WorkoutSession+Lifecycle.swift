@@ -1,0 +1,503 @@
+import Foundation
+
+// LA MÁQUINA DE LA SESIÓN: arrancar y parar el motor, pausar (a mano y sola),
+// avanzar / retroceder / saltar, la puerta de bloque que pide el visto bueno del
+// atleta, y terminar. Es quien decide CUÁNDO se entra en un tramo; los motores de
+// cada formato (EMOM, conditioning, carrera) deciden QUÉ pasa dentro.
+extension WorkoutSession {
+    func start() {
+        // AUDIT-3 — (re)enable persistence for this workout; a previous session may
+        // have closed the store on finish/discard.
+        Task { await WorkoutStateStore.shared.open() }
+        guard timer == nil else { return }
+        lastTick = Date()
+        // `.common` so ticks (and with them cue haptics / audio) keep firing while
+        // the user scrolls the live HUD — default `.default` mode dies mid-gesture
+        // and was a silent killer of 3-2-1 buzzes on the wrist standalone path.
+        let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+        // First appearance: ARM the current block (show its preview, hold the
+        // clock) so the session begins with the athlete's approval, not a timer
+        // that's already running. A crash-recovered EMOM keeps its live interval
+        // state (emomSegmentIndex != nil) and resumes running, exactly as before.
+        // Re-appearances (hasArmedInitial) just resume the timer — they never
+        // re-arm a block mid-session.
+        if !hasArmedInitial {
+            hasArmedInitial = true
+            #if os(iOS)
+            AudioCoach.shared.beginWorkout()   // fresh voice-coaching state for this workout (#63, iOS-only)
+            #endif
+            if emomSegmentIndex == nil { armBlock() }
+        }
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        WorkoutAudio.shared.deactivate()
+    }
+
+    func togglePause() {
+        Haptics.medium()
+        // A MANUAL action always wins over auto-pause: pausing by hand makes it a
+        // manual hold (never auto-resumed), and resuming by hand clears any
+        // auto-pause that was holding the clock.
+        autoPaused = false
+        if isPaused {
+            isPaused = false
+            lastTick = Date()
+        } else {
+            isPaused = true
+        }
+    }
+
+    func beginAutoPauseEvaluation() { autoPauseEvaluadores += 1 }
+
+    func endAutoPauseEvaluation() {
+        autoPauseEvaluadores = Swift.max(0, autoPauseEvaluadores - 1)
+        guard autoPauseEvaluadores == 0 else { return }
+        autoResume()
+    }
+
+    /// Engage AUTO-pause (outdoor GPS #64): the athlete stopped moving, so freeze the
+    /// clock exactly like a manual pause — `elapsedSeconds` then measures MOVING time
+    /// and the covered pace stays honest — while remembering that WE paused, so
+    /// resumed movement can lift it. No-op when already paused / finished / parked on
+    /// a block preview. The caller owns the haptic + the non-modal "Auto-pausa" banner.
+    /// Sin evaluador registrado no se auto-pausa: ver `autoPauseEvaluadores`.
+    func autoPause() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
+        // Sin nadie vigilando no se auto-pausa: nadie podría deshacerlo.
+        guard autoPauseEvaluadores > 0 else { return }
+        isPaused = true
+        autoPaused = true
+    }
+
+    /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
+    /// manual pause (autoPaused == false) is the athlete's own hold and is never
+    /// touched. Resets the tick baseline so the clock can't jump by the stopped span.
+    func autoResume() {
+        guard isPaused, autoPaused, !isFinished else { return }
+        isPaused = false
+        autoPaused = false
+        lastTick = Date()
+    }
+
+    /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
+    /// taps the technique video mid-set. Unlike `togglePause` it fires no haptic
+    /// and never drives the pause modal. Returns true only when it actually paused
+    /// a running clock, so the caller knows whether to resume on dismiss (an
+    /// already-paused or finished session is left untouched).
+    @discardableResult
+    func pauseForVideo() -> Bool {
+        guard !isPaused, !isFinished else { return false }
+        isPaused = true
+        return true
+    }
+
+    /// Resume after `pauseForVideo`. Resets the tick baseline so the elapsed
+    /// clock can't jump by the time the video sheet was open.
+    func resumeFromVideo() {
+        guard isPaused, !isFinished else { return }
+        isPaused = false
+        lastTick = Date()
+    }
+
+    func tap(reps: Int = 1) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
+        repsCurrentSegment = max(0, repsCurrentSegment + reps)
+        repsConfirmed = true
+        repsSkipped = false
+        registerFirstWorkingSet()
+    }
+
+    /// Stepper setter for the pre-filled rep HUD — sets the ACTUAL reps and marks
+    /// the value confirmed (the athlete touched it), clearing any skip.
+    func setReps(_ value: Int) {
+        guard !isFinished else { return }
+        repsCurrentSegment = max(0, value)
+        repsConfirmed = true
+        repsSkipped = false
+        registerFirstWorkingSet()
+    }
+
+    /// Explicit SKIP for the current rep/strength segment → actual = null,
+    /// status = skipped. Toggleable so a mis-tap is reversible before advancing.
+    func setRepsSkipped(_ skipped: Bool) {
+        guard !isFinished else { return }
+        repsSkipped = skipped
+        repsConfirmed = true
+    }
+
+    // MARK: - Forward / back navigation
+    //
+    // ONE path drives the bottom primary button, the back chevron, the phase rail
+    // and the segment stepper: `primaryAdvance` (forward one step), `stepBack`
+    // (back one step, REOPENING the previous segment / interval), and `jumpTo`
+    // (the rail / stepper shortcut — close-then-skip forward, or reopen backward).
+
+    /// The bottom primary button. For an EMOM it advances the PHASE — finishing the
+    /// work early lands on the change window (you still have to move to the next
+    /// station), and tapping during the change starts the next round; a plain EMOM
+    /// has no change, so it advances the interval exactly as it always did. This is
+    /// the same behaviour the rotating engine gives "Serie hecha". For every other
+    /// format it closes the current segment's lap and advances — the classic manual
+    /// lap, unchanged.
+    ///
+    /// EL AVANCE ES SIEMPRE DEL ESCALÓN MÁS PEQUEÑO QUE TIENES DELANTE, y por eso
+    /// vive AQUÍ y no en una vista. Cada formato ya declaraba cuál es su escalón
+    /// —la fase del EMOM, la ronda del rotativo, la pierna de la carrera— menos la
+    /// FUERZA, cuyo escalón es LA SERIE y cuya regla («con series pendientes no se
+    /// cierra el ejercicio») solo existía dentro de `FuerzaVivoView`. Cualquier otro
+    /// mando que llame a este método —el botón «Siguiente» del reloj, vía
+    /// `PhoneMirrorService.applyCommand`— se la saltaba: un toque en la muñeca
+    /// durante la serie 1 de press de banca cerraba el ejercicio ENTERO y saltaba al
+    /// curl. Y como los dos ejercicios comparten bloque, el salto era mudo (sin
+    /// preview intermedia) y el descanso que sonaba ya era el del curl. Los dos
+    /// fallos del gym del 4-ago son el mismo agujero: una regla de dominio metida en
+    /// una pantalla.
+    func primaryAdvance() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
+        if seg.hasRunStructure {
+            runStructurePrimary()
+        } else if seg.isEMOM {
+            if emomCountInRemaining > 0 { skipCountIn(); return }
+            guard let plan = seg.emomPlan else { return }
+            rollEMOMPhase(plan)
+        } else if seg.isConditioningTimer {
+            conditioningPrimary(seg)
+        } else if seg.usesMultiSetStrength {
+            strengthPrimary()
+        } else {
+            lap()
+        }
+    }
+
+    /// El escalón de la fuerza por series: si corre el descanso, lo salta; si queda
+    /// serie por cerrar, la cierra (y arranca SU descanso); y solo cuando no queda
+    /// ninguna, cierra el ejercicio. Idéntico al ciclo trabajo→descanso→trabajo del
+    /// rotativo, con la diferencia de mando que define la fuerza: aquí quien cierra
+    /// la serie es el atleta, nunca el reloj.
+    private func strengthPrimary() {
+        if restRemainingSeconds > 0 { dismissRest(); return }
+        if let i = pendingSetIndex { confirmSet(i); return }
+        lap()
+    }
+
+    /// La serie que el atleta tiene delante: la primera sin confirmar y sin saltar.
+    /// Nil cuando el tramo no va por series o cuando ya están todas cerradas — y
+    /// entonces el escalón vuelve a ser el ejercicio.
+    var pendingSetIndex: Int? {
+        guard currentSegment?.usesMultiSetStrength == true else { return nil }
+        return setRecords.firstIndex { !$0.confirmed && $0.status != "skipped" }
+    }
+
+    // Closes current segment's lap, advances to next. Behavior shared by For
+    // Time / AMRAP / Circuit / HYROX Sim. EMOM auto-advances its intervals instead.
+    func lap() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
+        Haptics.medium()
+        let origin = currentSegmentIndex
+        closeCurrentSegmentLap()
+        if currentSegmentIndex < plan.segments.count - 1 {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        } else {
+            finishPrescribedWork()
+        }
+    }
+
+    /// #23 — advance past a PARTNER relay station. In HYROX dobles the partner
+    /// works this station while the athlete recovers, so the athlete logs NOTHING:
+    /// we DISCARD any live state and close NO work lap (mirrors jumpTo's "skipped →
+    /// no lap"), so the station never enters this athlete's volume/analytics. The
+    /// relay time still elapses on the session clock. Advances to the next segment
+    /// (or finishes on the last).
+    func advanceRelay() {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
+        Haptics.medium()
+        let origin = currentSegmentIndex
+        discardCurrentLiveState()
+        if currentSegmentIndex < plan.segments.count - 1 {
+            currentSegmentIndex += 1
+            enterOrArm(from: origin)
+        } else {
+            finishPrescribedWork()
+        }
+    }
+
+    /// Back one step. EMOM mid-block → previous interval (no data loss). Otherwise
+    /// → previous segment, REOPENED with its recorded lap restored so it can be
+    /// resumed + re-closed. No-op at the very start.
+    func stepBack() {
+        guard !isPaused, !isFinished else { return }
+        if let seg = currentSegment, seg.isEMOM, emomCountInRemaining <= 0, emomIntervalIndex > 0 {
+            Haptics.light()
+            emomIntervalIndex -= 1
+            emomCompletedIntervals = min(emomCompletedIntervals, emomIntervalIndex)
+            // Stepping back restarts the round at the top of its WORK phase.
+            emomPhase = .work
+            emomPhaseRemaining = Double(seg.emomPlan?.workSeconds ?? 60)
+            WorkoutAudio.shared.playIntervalStart()
+            return
+        }
+        guard currentSegmentIndex > 0 else { return }
+        Haptics.light()
+        let origin = currentSegmentIndex
+        clearEMOMState()
+        clearConditioning()
+        clearRunStructure()
+        currentSegmentIndex -= 1
+        reopenCurrentSegment()
+        // Stepping back into an EARLIER block lands on that block's preview (the
+        // athlete re-approves before its clock runs); stepping back WITHIN the same
+        // multi-segment block resumes the reopened segment running, as before.
+        enterOrArm(from: origin)
+    }
+
+    /// Jump to an arbitrary segment (phase rail / stepper). Forward closes the
+    /// current segment then SKIPS the intermediate ones (they produce no lap — not
+    /// performed); backward reopens segment-by-segment until the target.
+    func jumpTo(_ index: Int) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              index >= 0, index < plan.segments.count, index != currentSegmentIndex else { return }
+        Haptics.medium()
+        let origin = currentSegmentIndex
+        clearEMOMState()
+        clearConditioning()
+        clearRunStructure()
+        if index > currentSegmentIndex {
+            closeCurrentSegmentLap()
+            currentSegmentIndex = index
+        } else {
+            discardCurrentLiveState()
+            while currentSegmentIndex > index {
+                currentSegmentIndex -= 1
+                reopenCurrentSegment()
+            }
+        }
+        // A jump that lands in a DIFFERENT block (the phase rail always does)
+        // shows that block's preview; a jump within the same block runs straight in.
+        enterOrArm(from: origin)
+    }
+
+    /// The prescription just ran out on its own. EVERY natural-completion path goes
+    /// through here instead of straight to `finish()`, so the athlete is asked once
+    /// whether that is the end of his session — the prescribed work is already
+    /// closed into its lap either way, so answering "seguir" costs him nothing and
+    /// answering "terminar" saves exactly what it used to.
+    ///
+    /// The question is asked ONCE per session: after he chooses to keep going, the
+    /// engine never interrupts him again and he closes the session himself.
+    func finishPrescribedWork() {
+        guard !isFinished else { return }
+        guard !finishDecisionMade else { finish(); return }
+        finishDecisionMade = true
+        isAwaitingFinishDecision = true
+        Haptics.cueFinish()
+        WorkoutAudio.shared.playFinish()
+    }
+
+    /// "Seguir entrenando" — the prescribed work stays recorded exactly as it was
+    /// closed; the session simply stays open and the clock runs again. Extra work is
+    /// extra: nothing already logged is reopened or altered.
+    func continueAfterPrescribedWork() {
+        guard isAwaitingFinishDecision else { return }
+        isAwaitingFinishDecision = false
+        isExtraWork = true
+        isPaused = false
+        lastTick = Date()
+        resetTramoWindow()
+        Haptics.cueGo()
+    }
+
+    /// End the session and route to the post-workout summary. `completeness` is the
+    /// EARNED outcome: `.full` only when the protocol ran to its end (the default,
+    /// the happy path); `.partial` when the athlete terminated early ("Terminar y
+    /// guardar" / "Terminar bloque"). The summary reads it to mark the assignment
+    /// 'completed' vs 'partial' — never a fabricated completion. Discarding
+    /// (ABANDONAR) does NOT come through here: it saves nothing.
+    func finish(completeness: WorkoutCompleteness = .full) {
+        self.completeness = completeness
+        isAwaitingFinishDecision = false
+        Haptics.cueFinish()
+        // Capture the in-flight conditioning score before the engine is torn down
+        // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when
+        // the engine already closed itself via `closeConditioningAndAdvance`.
+        captureConditioningScore()
+        captureEMOMScore()   // a "Terminar y guardar" mid-EMOM keeps X/Y rondas (#break-1)
+        clearEMOMState()
+        clearConditioning()
+        clearRunStructure()
+        // Close the in-flight segment so the final segment is never dropped from
+        // the execution record (finish can be reached via the last lap auto-finish,
+        // "Terminar bloque", or "Terminar y guardar" mid-session). lap() will have
+        // already closed and zeroed lapElapsedSeconds, so a residual >0 means work
+        // is pending. A structural warmup/cooldown only ever logs via its own
+        // "hecho" button — an untapped one emits NO row (null = not done).
+        if !isFinished, currentSegment != nil, lapElapsedSeconds > 0, !currentBlockIsStructural {
+            closeCurrentSegmentLap()
+        }
+        // HRR anchor: recovery offsets measure from the moment the EFFORT ended.
+        // First finish wins (finish can re-enter via auto-finish + button races).
+        if finishedAt == nil { finishedAt = Date() }
+        isFinished = true
+        // Voice the total time BEFORE stop() tears the tone session down — the coach
+        // holds the session active for the cue and releases it when the cue ends (#63).
+        #if os(iOS)
+        AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
+        #endif
+        stop()
+        // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
+        // never be re-offered as "recuperar entreno en curso", and the latch stops a
+        // late autosave Task from re-creating the snapshot after this.
+        Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// AUDIT-3 — abandon (clean exit, nothing recorded): stop the engine, then close
+    /// persistence. Ordered through the store's latch so a late autosave can never
+    /// resurrect the discarded session.
+    func discardAndClose() {
+        stop()
+        Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// Open the post-effort HRR window (tests guiados). Called by the container
+    /// right after a LIVE finish when the test's contract asks for an `hrr`
+    /// result; a no-op otherwise. Snapshots the effort tail (hr_end) and starts
+    /// accepting recovery samples through `injectLiveHR` for the next 90 s.
+    func beginRecoveryWindow(now: Date = Date()) {
+        guard isFinished, hrRecovery == nil else { return }
+        let anchor = finishedAt ?? now
+        let tail = recentEffortHR.map {
+            (secondsBeforeFinish: anchor.timeIntervalSince($0.date), bpm: $0.bpm)
+        }
+        hrRecovery = HRRecoveryCapture(effortTail: tail)
+    }
+
+    // MARK: - Segment entry / EMOM lifecycle
+
+    // MARK: Block-transition gate
+
+    /// Decide, after a move that changed `currentSegmentIndex`, whether we crossed
+    /// a BLOCK boundary (→ park on the new block's preview) or merely moved within
+    /// the same block (→ enter it running, keeping intra-block auto-advance). The
+    /// block a segment belongs to is its `blockGroupingKey`; comparing origin vs
+    /// destination is the single boundary test for forward, back AND jump moves.
+    func enterOrArm(from origin: Int) {
+        if blockKey(at: origin) != blockKey(at: currentSegmentIndex) {
+            armBlock()
+        } else {
+            onEnterSegment()
+        }
+    }
+
+    private func blockKey(at index: Int) -> String? {
+        guard index >= 0, index < plan.segments.count else { return nil }
+        return plan.segments[index].blockGroupingKey
+    }
+
+    /// Park on the current block's PREVIEW: tear down any running EMOM so the
+    /// preview never shows stale interval state, prime the strength load, and clear
+    /// a stale pause (the gate is its own hold). The clock stays frozen until
+    /// `beginBlock`. Does NOT touch a reopened lap — a back-step into an earlier
+    /// block keeps its restored progress, ready to resume on Empezar.
+    private func armBlock() {
+        clearEMOMState()
+        clearConditioning()
+        clearRunStructure()
+        // A new block resets the block-scoped Rx/Scaled choice; priming re-defaults
+        // it to "rx" for a metcon block (nil otherwise).
+        rxScaled = nil
+        scaledNote = nil
+        primeManualLoadIfNeeded()
+        primeRepsIfNeeded()
+        primeSetsIfNeeded()
+        primeRxScaledIfNeeded()
+        isPaused = false
+        isAwaitingBlockStart = true
+    }
+
+    /// "Empezar" — leave the preview and START the current block. Resets the tick
+    /// baseline (no elapsed jump), then runs the real segment entry: an EMOM kicks
+    /// its 3-2-1 count-in + audio AFTER this tap (never as a between-blocks
+    /// transition); every other format just starts its clock.
+    func beginBlock() {
+        guard isAwaitingBlockStart, !isFinished else { return }
+        isAwaitingBlockStart = false
+        isPaused = false
+        lastTick = Date()
+        Haptics.medium()
+        onEnterSegment()
+    }
+
+    /// "Terminar bloque" — end the CURRENT block before it's complete (e.g. an
+    /// EMOM 15 abandoned at round 12 because the athlete is spent). The in-flight
+    /// segment is recorded HONESTLY: `closeCurrentSegmentLap` logs only the real
+    /// elapsed time + work actually done — never the full prescription — and any
+    /// remaining segments of this block are SKIPPED (not performed → no lap), so
+    /// the block reads as partial in the execution, not 100% complete. Then it
+    /// parks on the next block's preview, or finishes the session if this was the
+    /// last block. Applies to every format; EMOM is the live case today.
+    func endBlockEarly() {
+        guard canEndBlockEarly, let region = currentBlockRegion else { return }
+        Haptics.heavy()   // a firm, intentional cue — NOT the success chord
+        // An in-flight conditioning block records its partial score (rounds/time so
+        // far) before the engine is torn down.
+        captureConditioningScore()
+        clearEMOMState()
+        clearConditioning()
+        clearRunStructure()
+        // A structural warmup/cooldown closes as ONE completion, never a partial
+        // per-exercise lap.
+        if currentBlockIsStructural {
+            appendStructuralLap(for: region, durationSeconds: max(0, lapElapsedSeconds))
+            discardCurrentLiveState()
+        } else {
+            closeCurrentSegmentLap()
+        }
+        let next = region.lastIndex + 1
+        if next < plan.segments.count {
+            currentSegmentIndex = next
+            armBlock()
+        } else {
+            // Ending the LAST block early ends the session — and it's a partial:
+            // the athlete cut the protocol short, so it's never marked 'completed'.
+            finish(completeness: .partial)
+        }
+    }
+
+    // Called whenever the current segment changes. Primes the manual load for
+    // strength work and (re)starts the EMOM timer + audio when the new segment is
+    // an EMOM; tears EMOM state down otherwise.
+    private func onEnterSegment() {
+        if reopenedLap?.segmentId != currentSegment?.id { reopenedLap = nil }
+        primeManualLoadIfNeeded()
+        primeRepsIfNeeded()
+        primeSetsIfNeeded()
+        primeRxScaledIfNeeded()
+        // A structured run takes precedence over the rotating/steady conditioning
+        // engine even though its folded scheme (.intervals / .steady) reads as a
+        // conditioning timer — the leg cursor, not the rotating machine, drives it.
+        if currentSegment?.hasRunStructure == true {
+            clearEMOMState()
+            clearConditioning()
+            startRunStructure()
+        } else if currentSegment?.isEMOM == true {
+            clearConditioning()
+            clearRunStructure()
+            startEMOM()
+        } else if currentSegment?.isConditioningTimer == true {
+            clearEMOMState()
+            clearRunStructure()
+            startConditioning()
+        } else {
+            clearEMOMState()
+            clearConditioning()
+            clearRunStructure()
+        }
+    }
+}

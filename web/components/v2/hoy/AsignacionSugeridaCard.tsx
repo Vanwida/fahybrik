@@ -1,21 +1,33 @@
 'use client';
 
-// AsignacionSugeridaCard — a one-click auto-assignment proposal for a classified
-// athlete with no active sequence enrollment. The clean replacement for the failed
-// "B6" card: wired to the REAL assign-sequence endpoint, never silently failing.
+// AsignacionSugeridaCard — qué le falta a un atleta clasificado, y por qué no
+// puedo dárselo con un clic. Se renderiza en la tira horizontal sobre las 4 calles.
 //
-// Rendered in a horizontal scroll strip above the 4-lane board in HoyBoard.
+// LOS DOS EJES VIAJAN SEPARADOS (shared/domain/coach/hoy-asignacion):
 //
-// Two shapes (discriminated by card.kind):
-//   · 'ok'      → the proposal. Shows "Nivel N2 · 4 días → empezar con
-//                 «{microciclo}» ({N} semanas)". Actions:
+//   · TITULAR  = eje A, el atleta. «Terminó «Acumulación» el 26 de julio.» /
+//     «Todavía no tiene ningún bloque.» Es un hecho sobre él y no depende de lo
+//     que el coach tenga montado.
+//   · MOTIVO   = eje B, la receta de su celda (nivel × días). Solo explica por
+//     qué no cabe la propuesta de un clic. Se marca como «Tu método» para que no
+//     se lea como algo del atleta.
+//
+// Antes solo existía el segundo y hacía de titular: Marc (bloque de biblioteca
+// terminado el 26 jul) y Guillem (que nunca tuvo ninguno) salían los dos con
+// «No hay secuencia para N3·5d» y un único botón a periodización. Ver
+// docs/coach-ux-recorrido.html, hallazgo «Método vs atleta».
+//
+// Dos formas (card.kind):
+//   · 'ok'      → la receta resuelve. Propuesta de un clic, con el titular del
+//                 atleta encima para saber si repone o estrena. Acciones:
 //                   - Asignar    → POST /api/coach/athletes/{id}/assign-sequence
-//                                  → on success the card disappears (optimistic).
-//                   - Ver atleta → navigates to /v2/atletas/{id}.
-//   · 'blocked' → an ACTIONABLE "why not" (e.g. "No hay secuencia para N4·5d").
-//                 Links to the surface that fixes it (sequences editor for the
-//                 sequence gaps; the athlete's profile for the days gaps). Never
-//                 just hidden — surfacing the gap IS the point.
+//                   - Ver atleta → /atletas/{id}
+//   · 'blocked' → la receta no resuelve. El titular NO cambia: sigue siendo del
+//                 atleta. Y salen las puertas que correspondan, nunca una sola
+//                 haciéndose pasar por la otra:
+//                   - Reponer bloque → modal de biblioteca (arreglo del ATLETA)
+//                   - Editar días    → su ficha (dato del ATLETA)
+//                   - Crear receta   → periodización (arreglo del MÉTODO)
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -26,34 +38,64 @@ import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 import type { V2AsignacionSugeridaCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
+import { ReponerBloqueModal } from '@/components/v2/hoy/ReponerBloqueModal';
 import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
+import {
+  RECETA_LISTA,
+  puertasAsignacion,
+  textoAsignacion,
+  type AccionAsignacion,
+  type EstadoProgramaAtleta,
+} from '@fahybrid/shared/domain/coach/hoy-asignacion';
 
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
 const BTN_BASE =
   'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors';
 
-// ── Actionable "why not" mapping ────────────────────────────────────────────────
-// Each blocked reason maps to ONE concrete fix the coach can act on. Days-related
-// gaps live on the athlete's profile; sequence gaps live in the matrix editor.
+const BTN_GHOST =
+  'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]';
 
-function blockedFix(
-  card: Extract<V2AsignacionSugeridaCard, { kind: 'blocked' }>,
-): { label: string; href: string } {
-  switch (card.reason) {
-    case 'no_training_days':
-    case 'days_out_of_band':
-      // The fix is the athlete's training days → their profile.
-      return { label: 'Editar días', href: `/atletas/${card.athlete_id}?tab=perfil` };
-    case 'no_sequence_for_cell':
-    case 'empty_sequence':
-      // The fix is the (level × days) sequence → the level's periodization.
-      return { label: 'Crear secuencia', href: `/periodizacion` };
-    case 'not_classified':
-    default:
-      // Unreachable for these cards (classified-only), but keep a safe fallback.
-      return { label: 'Ver atleta', href: `/atletas/${card.athlete_id}` };
-  }
+/** Icono por acción. La del atleta y la del método no se parecen a propósito. */
+const ACCION_ICON: Record<AccionAsignacion, string> = {
+  reponer_bloque: 'playlist_add',
+  editar_dias: 'edit_calendar',
+  crear_receta: 'build',
+};
+
+// ── Identidad + titular (compartidos por las dos formas) ────────────────────────
+
+function CardHead({
+  athleteName,
+  levelName,
+  programa,
+}: {
+  athleteName: string;
+  levelName: string;
+  programa: EstadoProgramaAtleta;
+}) {
+  const texto = textoAsignacion({ programa, receta: RECETA_LISTA });
+  return (
+    <>
+      <div className="flex items-center gap-2.5">
+        <AthleteAvatar name={athleteName} size="md" />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
+            {athleteName}
+          </span>
+          <LevelBadge level={levelName} />
+        </div>
+      </div>
+
+      {/* Eje A — el hecho del atleta. Lo primero que se lee. */}
+      <p className="mt-1.5 text-xs leading-snug font-medium text-[color:var(--v2-fg)]">
+        {texto.titular}
+      </p>
+      {texto.hueco ? (
+        <p className="mt-0.5 text-label text-[color:var(--v2-muted)]">{texto.hueco}</p>
+      ) : null}
+    </>
+  );
 }
 
 // ── 'ok' proposal card ──────────────────────────────────────────────────────────
@@ -107,16 +149,11 @@ function ProposalCard({
 
   return (
     <div className="w-64 shrink-0 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
-      {/* Identity row */}
-      <div className="flex items-center gap-2.5">
-        <AthleteAvatar name={card.athlete_name} size="md" />
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
-            {card.athlete_name}
-          </span>
-          <LevelBadge level={card.level_name} />
-        </div>
-      </div>
+      <CardHead
+        athleteName={card.athlete_name}
+        levelName={card.level_name}
+        programa={card.programa}
+      />
 
       {/* Proposal line: Nivel N2 · 4 días → empezar con «microciclo» (N semanas) */}
       <p className="mt-1.5 text-xs leading-snug text-[color:var(--v2-muted)]">
@@ -163,10 +200,7 @@ function ProposalCard({
         <button
           type="button"
           onClick={() => router.push(`/atletas/${card.athlete_id}`)}
-          className={cn(
-            BTN_BASE,
-            'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-          )}
+          className={cn(BTN_BASE, BTN_GHOST)}
         >
           Ver atleta
           <MIcon name="arrow_forward" size={15} />
@@ -176,60 +210,103 @@ function ProposalCard({
   );
 }
 
-// ── 'blocked' actionable card ───────────────────────────────────────────────────
+// ── 'blocked' card ──────────────────────────────────────────────────────────────
 
 function BlockedCard({
   card,
+  onAssigned,
 }: {
   card: Extract<V2AsignacionSugeridaCard, { kind: 'blocked' }>;
+  onAssigned: (athleteId: number) => void;
 }) {
-  const fix = blockedFix(card);
+  const [reponiendo, setReponiendo] = useState(false);
+  // Repuesto el bloque, el atleta deja de tener hueco y el servidor ya no
+  // devolvería esta tarjeta. Se retira al cerrar el modal, no al confirmar: el
+  // modal vive dentro de la tarjeta y retirarla antes se llevaría por delante su
+  // pantalla de «queda en borrador».
+  const [repuesto, setRepuesto] = useState(false);
+  const texto = textoAsignacion({ programa: card.programa, receta: card.receta });
+  const puertas = puertasAsignacion({ programa: card.programa, receta: card.receta });
+
   return (
     <div className="w-64 shrink-0 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-surface)] p-2.5">
-      {/* Identity row */}
-      <div className="flex items-center gap-2.5">
-        <AthleteAvatar name={card.athlete_name} size="md" />
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
-            {card.athlete_name}
-          </span>
-          <LevelBadge level={card.level_name} />
+      <CardHead
+        athleteName={card.athlete_name}
+        levelName={card.level_name}
+        programa={card.programa}
+      />
+
+      {/* Eje B — por qué no cabe la propuesta de un clic. Etiquetado como método
+          para que no se lea como un hecho del atleta. */}
+      {texto.motivo ? (
+        <div className="mt-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2">
+          <p className="flex items-center gap-1 text-eyebrow font-semibold text-[color:var(--v2-warn)]">
+            <MIcon name="account_tree" size={12} className="shrink-0" />
+            Tu método
+          </p>
+          <p className="mt-0.5 text-label leading-snug text-[color:var(--v2-muted)]">
+            {texto.motivo}
+          </p>
         </div>
-      </div>
+      ) : null}
 
-      {/* Why we can't auto-assign yet (resolver message) */}
-      <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-muted)]">
-        <MIcon
-          name="warning"
-          size={14}
-          className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]"
-        />
-        <span>{card.message}</span>
-      </p>
-
-      {/* The one concrete fix */}
+      {/* Las puertas. La del atleta primero — es la que le desbloquea a él. */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <Link
-          href={fix.href}
-          className={cn(
-            BTN_BASE,
-            'border border-[color:var(--v2-warn)] text-[color:var(--v2-warn)] hover:bg-[color:var(--v2-warn-soft)]',
-          )}
-        >
-          <MIcon name="build" size={15} />
-          {fix.label}
-        </Link>
-        <Link
-          href={`/atletas/${card.athlete_id}`}
-          className={cn(
-            BTN_BASE,
-            'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-          )}
-        >
+        {puertas.map((puerta) => {
+          if (puerta.accion === 'reponer_bloque') {
+            return (
+              <button
+                key={puerta.accion}
+                type="button"
+                onClick={() => setReponiendo(true)}
+                className={cn(
+                  BTN_BASE,
+                  'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
+                )}
+              >
+                <MIcon name={ACCION_ICON[puerta.accion]} size={15} />
+                {puerta.etiqueta}
+              </button>
+            );
+          }
+          const href =
+            puerta.accion === 'editar_dias'
+              ? `/atletas/${card.athlete_id}?tab=perfil`
+              : '/periodizacion';
+          return (
+            <Link
+              key={puerta.accion}
+              href={href}
+              className={cn(
+                BTN_BASE,
+                puerta.eje === 'metodo'
+                  ? 'border border-[color:var(--v2-warn)] text-[color:var(--v2-warn)] hover:bg-[color:var(--v2-warn-soft)]'
+                  : BTN_GHOST,
+              )}
+            >
+              <MIcon name={ACCION_ICON[puerta.accion]} size={15} />
+              {puerta.etiqueta}
+            </Link>
+          );
+        })}
+        <Link href={`/atletas/${card.athlete_id}`} className={cn(BTN_BASE, BTN_GHOST)}>
           Ver atleta
           <MIcon name="arrow_forward" size={15} />
         </Link>
       </div>
+
+      {reponiendo ? (
+        <ReponerBloqueModal
+          athleteId={card.athlete_id}
+          athleteName={card.athlete_name}
+          titular={texto.titular}
+          onRepuesto={() => setRepuesto(true)}
+          onClose={() => {
+            setReponiendo(false);
+            if (repuesto) onAssigned(card.athlete_id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -246,7 +323,7 @@ export function AsignacionSugeridaCard({
   if (card.kind === 'ok') {
     return <ProposalCard card={card} onAssigned={onAssigned} />;
   }
-  return <BlockedCard card={card} />;
+  return <BlockedCard card={card} onAssigned={onAssigned} />;
 }
 
 // ── Strip (exported for HoyBoard) ─────────────────────────────────────────────

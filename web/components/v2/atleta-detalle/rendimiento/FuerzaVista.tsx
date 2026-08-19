@@ -3,8 +3,8 @@
 // Fuerza — 1RM y tests (docs/DECISIONS.md 2026-08-13). No sexta pestaña.
 
 import { FichaCard, FichaLabel } from '../resumen/piezas';
-import { formatFechaCorta } from '@/lib/dashboard/v2/ficha-resumen';
 import { TestsPanel } from '../tests/TestsPanel';
+import { OrigenKilo } from '../OrigenKilo';
 import type { V2AthleteDetalle } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
 
@@ -20,14 +20,9 @@ export function FuerzaVista({
   return (
     <div className="mx-auto flex w-full max-w-[1300px] flex-col gap-4">
       <FichaCard>
-        <div className="flex items-baseline justify-between gap-2">
-          <FichaLabel>1RM</FichaLabel>
-          {maxes[0]?.recorded_at ? (
-            <span className="v2-num text-[11.5px] text-[color:var(--v2-muted)]">
-              {formatFechaCorta(maxes[0].recorded_at.slice(0, 10))}
-            </span>
-          ) : null}
-        </div>
+        {/* Sin fecha de tarjeta: la llevaba el primer 1RM y se la comían los demás.
+            Cada celda dice su propio origen y su cuándo. */}
+        <FichaLabel>1RM</FichaLabel>
         {maxes.length > 0 ? (
           <div className="mt-3 grid grid-cols-2 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {maxes.map((m) => {
@@ -55,6 +50,7 @@ export function FuerzaVista({
                       </span>
                     ) : null}
                   </p>
+                  <OrigenKilo max={m} athleteId={detalle.header.athlete_id} />
                 </div>
               );
             })}

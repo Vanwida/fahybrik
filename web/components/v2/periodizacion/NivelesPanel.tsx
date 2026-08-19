@@ -16,6 +16,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
 import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
@@ -224,16 +225,13 @@ export function NivelesPanel({
       {/* topbar */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)]">
+          <Badge tone="neutral">
             <b className="v2-num">{levels.length}</b> niveles
-          </span>
+          </Badge>
           {classified > 0 ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-              style={{ background: 'var(--v2-ok-soft)', color: 'var(--v2-ok)' }}
-            >
+            <Badge tone="ok">
               <b className="v2-num">{classified}</b> atletas clasificados
-            </span>
+            </Badge>
           ) : null}
         </div>
         {!isEmpty ? (

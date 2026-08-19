@@ -1,5 +1,9 @@
 name: FAHYBRIK
 options:
+  # Solo lo usaría xcodegen para un target SIN PRODUCT_BUNDLE_IDENTIFIER propio, y
+  # los cinco lo tienen (todos derivados de BRAND_BUNDLE_ID, más abajo). Se queda
+  # como red por si algún día nace un target sin id: al clonar hay que moverlo
+  # igual, porque un prefijo de otra marca aquí pasaría desapercibido.
   bundleIdPrefix: com.fahybrid
   deploymentTarget:
     iOS: "18.0"
@@ -11,6 +15,44 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.10"
+    # ========================================================================
+    # LA MARCA, EN CUATRO LÍNEAS Y UNA SOLA VEZ.
+    #
+    # Este código se vende a otros entrenadores, así que antes o después habrá
+    # una SEGUNDA app iOS con otro nombre, otro bundle y otro dominio. Hasta
+    # ahora eso eran ~30 literales repartidos: el nombre visible en tres
+    # Info.plist, dentro de diez descripciones de permisos, el bundle id en
+    # cinco targets más la clave que ata el reloj al teléfono, el esquema de
+    # URL en dos sitios y el dominio en el entitlement y en cuatro ficheros
+    # Swift. Encontrarlos todos era el trabajo, y olvidar uno no rompe la
+    # build: sale a la cara del atleta (un permiso que nombra a otra marca) o
+    # deja al reloj sin emparejar.
+    #
+    # Ahora los cuatro valores viven AQUÍ y todo lo demás los expande:
+    #   · Info.plist de app / reloj / widgets  → "$(BRAND_…)"
+    #   · entitlements (associated domains)    → "$(BRAND_WEB_DOMAIN)"
+    #   · Swift                                → `Marca` los lee del bundle
+    #
+    # Lo que NO se toca al clonar y por qué está en docs/ios-clonabilidad.md
+    # (claves de almacenamiento, id de Connect IQ, appId de Zepp, firma).
+    # ========================================================================
+    #
+    # Nombre visible al atleta. Es lo que aparece bajo el icono, en las hojas
+    # de permisos del sistema y en Ajustes.
+    BRAND_DISPLAY_NAME: FAHYBRID
+    # Bundle id de la app del teléfono. El reloj, los widgets y los dos bundles
+    # de test cuelgan de él por sufijo — una extensión DEBE ir prefijada por su
+    # host o el empotrado se rechaza.
+    BRAND_BUNDLE_ID: com.fahybrid.app
+    # Dominio público de la marca: web de cuenta, legales, origen que valida el
+    # reproductor incrustado y los `applinks:` del entitlement. El backend de la
+    # app es OTRO ajuste (FAHYBRIK_API_BASE, por configuración) porque puede
+    # apuntar a otro entorno sin cambiar de marca.
+    BRAND_WEB_DOMAIN: fahybrid.com
+    # Esquema propio para los enlaces profundos (invitación de pareja de Dobles).
+    # Dos apps instaladas en el mismo teléfono NO pueden compartirlo: el sistema
+    # entrega el enlace a una de las dos, sin criterio estable.
+    BRAND_URL_SCHEME: fahybrid
     # LA VERSIÓN, UNA SOLA VEZ Y PARA LOS TRES TARGETS.
     #
     # Estaba escrita tres veces (app, reloj, widgets) con el mismo número a mano.
@@ -30,23 +72,34 @@ settings:
     ENABLE_MODULE_VERIFIER: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     GENERATE_INFOPLIST_FILE: YES
-
-# ============================================================================
-# Code signing — Alex sets these once Apple Developer Program enrolment is
-# complete (see /docs/app-store/testflight-checklist.md). Until then the
-# placeholders below build cleanly for the simulator (CODE_SIGNING_ALLOWED=NO).
-#
-# For TestFlight / App Store distribution Alex must, post-enrolment:
-#   1. Replace DEVELOPMENT_TEAM `TBD` with the 10-char team ID
-#      (developer.apple.com → Membership, e.g. "AB12CD34EF").
-#   2. Pick CODE_SIGN_STYLE:
-#        - Automatic (recommended for solo dev): Xcode manages certs/profiles.
-#        - Manual: pin a specific PROVISIONING_PROFILE_SPECIFIER. Use only if
-#          Fastlane match / a CI pipeline manages the profile lifecycle.
-#   3. Flip CODE_SIGNING_ALLOWED + CODE_SIGNING_REQUIRED to YES on the release
-#      configuration when shipping to TestFlight.
-#   4. `xcodegen generate` to regenerate the .pbxproj and commit.
-# ============================================================================
+    # ----- EL EQUIPO DE FIRMA, UNA SOLA VEZ Y PARA TODOS LOS TARGETS -----
+    #
+    # Estaba escrito CUATRO veces (app, reloj, widgets y el comentario de más
+    # abajo), y las cuatro tenían que coincidir. Divergir no rompe la build de
+    # simulador: rompe el archivado, y lo rompe tarde — el reloj o el widget
+    # firmado con otro equipo hace que el empotrado se rechace al subir a
+    # TestFlight, con la hora de build ya gastada. Aquí arriba, divergir deja
+    # de ser posible; cada target lo HEREDA.
+    #
+    # `TBD` es deliberado y tiene que seguir siendo válido: es lo que permite
+    # compilar contra el simulador sin cuenta de Apple. NO se rellena en el
+    # repo — el team id es dato del operador (ver docs/DECISIONS.md, 2026-08-16
+    # «El tip de FLEXR no nace con IDs del club 1»).
+    #
+    # Para distribuir (TestFlight / App Store), el operador:
+    #   1. Sustituye TBD por su team id de 10 caracteres
+    #      (developer.apple.com → Membership, con la forma "AB12CD34EF").
+    #      Una sola línea, aquí. O lo pasa sin tocar el repo:
+    #      `xcodebuild … DEVELOPMENT_TEAM=AB12CD34EF`.
+    #   2. Elige CODE_SIGN_STYLE:
+    #        · Automatic (recomendado en solitario): Xcode gestiona certificados
+    #          y perfiles.
+    #        · Manual: fija un PROVISIONING_PROFILE_SPECIFIER. Solo si Fastlane
+    #          match o un CI gestionan el ciclo de vida del perfil.
+    #   3. `xcodegen generate` y commit del .pbxproj regenerado.
+    # Checklist completo: docs/app-store/testflight-checklist.md
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: TBD
 
 targets:
   FAHYBRIK:
@@ -55,6 +108,10 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: FAHYBRIK
+      # El dominio compartido con la muñeca. Ver el bloque FAHYBRIKCore de abajo:
+      # el teléfono y el reloj incluyen esta MISMA carpeta, así que la pertenencia
+      # la decide dónde vive el fichero y no una lista que alguien deba recordar.
+      - path: FAHYBRIKCore
     dependencies:
       - sdk: AuthenticationServices.framework
       - sdk: HealthKit.framework
@@ -101,8 +158,9 @@ targets:
       path: FAHYBRIK/Generated-Info.plist
       properties:
         # Consumer brand is FAHYBRID (legal + domain fahybrid.com). Internal
-        # bundle id / target / project name stay FAHYBRIK (infra rename pending).
-        CFBundleDisplayName: "FAHYBRID"
+        # target / project name stay FAHYBRIK (infra rename pending). El valor
+        # sale de BRAND_DISPLAY_NAME (settings.base) — no se escribe aquí.
+        CFBundleDisplayName: "$(BRAND_DISPLAY_NAME)"
         # ES-only app: force Spanish for all SYSTEM-provided UI (Sign in with
         # Apple button, permission prompts, notification authorization sheet) so
         # they never render in the device language. CFBundleLocalizations declares
@@ -128,10 +186,14 @@ targets:
         #   Release → prod backend + demo-entry button off (TestFlight / SiwA)
         FahybrikApiBase: "$(FAHYBRIK_API_BASE)"
         FahybrikDemoEntry: "$(FAHYBRIK_DEMO_ENTRY)"
+        # El dominio público de la marca, expuesto al código: `Marca` (Swift) lo
+        # lee de aquí en vez de repetir "fahybrid.com" en cada pantalla legal.
+        # Mismo origen que los `applinks:` del entitlement.
+        BrandWebDomain: "$(BRAND_WEB_DOMAIN)"
         CFBundleURLTypes:
-          - CFBundleURLName: com.fahybrid.app.deeplink
+          - CFBundleURLName: "$(BRAND_BUNDLE_ID).deeplink"
             CFBundleURLSchemes:
-              - fahybrid
+              - "$(BRAND_URL_SCHEME)"
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         # APNS — background delivery for silent/content-available pushes
@@ -191,18 +253,18 @@ targets:
         # Nutrition path is unreachable (hidden), so the copy names only the
         # reachable camera uses (chat capture + workout-summary photo + the
         # athlete's own profile photo).
-        NSCameraUsageDescription: "FAHYBRID usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado, y para medir la altura de tus saltos."
-        NSMicrophoneUsageDescription: "FAHYBRID usa el micrófono para grabar las notas de voz que envías a tu coach en el chat."
-        NSPhotoLibraryUsageDescription: "FAHYBRID accede a tus fotos y vídeos para que puedas adjuntarlos en el chat con tu coach."
-        NSHealthShareUsageDescription: "FAHYBRID lee workouts, pulso, VFC, sueño, peso y la distancia que recorres de Apple Salud, para tu plan de entrenamiento y para comprobar que la distancia que medimos en tus carreras cuadra con la tuya."
-        NSHealthUpdateUsageDescription: "FAHYBRID guarda los entrenos que registras en la app en Apple Health."
-        NSBluetoothAlwaysUsageDescription: "FAHYBRID se conecta con tu cinta y con tu Concept2 para leer ritmo, velocidad e inclinación en vivo, y con tu reloj o banda para tu pulso durante el entreno."
-        NSLocationWhenInUseUsageDescription: "FAHYBRID usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
+        NSCameraUsageDescription: "$(BRAND_DISPLAY_NAME) usa la cámara para hacer tu foto de perfil, para las fotos y vídeos que envías a tu coach en el chat, para fotografiar el resumen de otra app (Garmin, Coros, Concept2…) y que la IA rellene tu resultado, y para medir la altura de tus saltos."
+        NSMicrophoneUsageDescription: "$(BRAND_DISPLAY_NAME) usa el micrófono para grabar las notas de voz que envías a tu coach en el chat."
+        NSPhotoLibraryUsageDescription: "$(BRAND_DISPLAY_NAME) accede a tus fotos y vídeos para que puedas adjuntarlos en el chat con tu coach."
+        NSHealthShareUsageDescription: "$(BRAND_DISPLAY_NAME) lee workouts, pulso, VFC, sueño, peso y la distancia que recorres de Apple Salud, para tu plan de entrenamiento y para comprobar que la distancia que medimos en tus carreras cuadra con la tuya."
+        NSHealthUpdateUsageDescription: "$(BRAND_DISPLAY_NAME) guarda los entrenos que registras en la app en Apple Health."
+        NSBluetoothAlwaysUsageDescription: "$(BRAND_DISPLAY_NAME) se conecta con tu cinta y con tu Concept2 para leer ritmo, velocidad e inclinación en vivo, y con tu reloj o banda para tu pulso durante el entreno."
+        NSLocationWhenInUseUsageDescription: "$(BRAND_DISPLAY_NAME) usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
         #   Movimiento → RunAltimeter (CMAltimeter) en una carrera al aire libre. Se
         #                pide junto con el GPS al empezar a correr fuera, nunca en
         #                cinta ni en el gimnasio. Si no se da, la carrera se guarda
         #                igual: se queda sin desnivel, no sin carrera.
-        NSMotionUsageDescription: "FAHYBRID usa los sensores del móvil en tus carreras al aire libre para medir el desnivel que subes y bajas. Si no lo activas, tu carrera se guarda igual, pero sin desnivel."
+        NSMotionUsageDescription: "$(BRAND_DISPLAY_NAME) usa los sensores del móvil en tus carreras al aire libre para medir el desnivel que subes y bajas. Si no lo activas, tu carrera se guarda igual, pero sin desnivel."
     settings:
       # Per-configuration runtime environment. Referenced by the Info.plist keys
       # FahybrikApiBase / FahybrikDemoEntry above and expanded at build time.
@@ -215,7 +277,12 @@ targets:
           # at the current backend project; at the single-production cutover the
           # DOMAIN moves and every installed build lands on production without a
           # rebuild. Never point builds at a *.vercel.app project name again.
-          FAHYBRIK_API_BASE: "https://app.fahybrid.com"
+          #
+          # Se deriva de BRAND_WEB_DOMAIN para que un clon no tenga que acordarse
+          # de mover también esto, pero SIGUE siendo un ajuste por configuración:
+          # si algún día hace falta apuntar a otro entorno sin cambiar de marca,
+          # se escribe el host aquí y se acabó.
+          FAHYBRIK_API_BASE: "https://app.$(BRAND_WEB_DOMAIN)"
           FAHYBRIK_DEMO_ENTRY: "1"
           # DEBUG compilation flag lives ONLY here (Debug). It must NEVER reach
           # Release: under #if DEBUG, PushManager reports apns_env="sandbox" (so a
@@ -229,13 +296,13 @@ targets:
           # SAME backend as Debug — one production universe for every build. The
           # domain is the stable seam (see Debug note); TestFlight/App Store users
           # must land where the real plans, executions and coach loop live.
-          FAHYBRIK_API_BASE: "https://app.fahybrid.com"
+          FAHYBRIK_API_BASE: "https://app.$(BRAND_WEB_DOMAIN)"
           FAHYBRIK_DEMO_ENTRY: "0"
           # Production APNS entitlement (aps-environment=production) for TestFlight
           # / App Store distribution. Pairs with the no-DEBUG Release build above.
           CODE_SIGN_ENTITLEMENTS: FAHYBRIK/FAHYBRIK-Release.entitlements
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID)"
         # CODE_SIGN_ENTITLEMENTS is per-config (see configs above): Release ships
         # aps-environment=production, Debug=development.
         PRODUCT_NAME: FAHYBRIK
@@ -248,9 +315,8 @@ targets:
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG is set per-config (Debug only).
         # Disable auto-generated plist — we provide our own via info: block.
         GENERATE_INFOPLIST_FILE: NO
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
-        CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        # CODE_SIGN_STYLE + DEVELOPMENT_TEAM se HEREDAN de settings.base — ver
+        # allí el porqué de tenerlos en un solo sitio.
         PROVISIONING_PROFILE_SPECIFIER: ""
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
@@ -270,7 +336,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).uitests"
         TEST_TARGET_NAME: FAHYBRIK
         CODE_SIGNING_ALLOWED: NO
 
@@ -285,7 +351,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).tests"
         BUNDLE_LOADER: "$(TEST_HOST)"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/FAHYBRIK.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FAHYBRIK"
         # Skip code signing for tests on simulator. Signing the host app
@@ -312,144 +378,40 @@ targets:
       testTargets: []
     sources:
       - path: FAHYBRIKWatch
-      # ----- Shared execution domain (compiled into BOTH targets) -----
-      # The watch runs the SAME workout engine + wire models as the iPhone. These
-      # files are pure Foundation (plus AVFoundation for the audio cues); the two
-      # non-portable dependencies are shimmed, not dragged in: Theme/Haptics.swift
-      # (UIKit) is replaced on the wrist by FAHYBRIKWatch/WatchHaptics.swift, and
-      # the networking-backed WorkoutExecutionAPI/DoblesExecutionAPI are compiled
-      # out under `#if !os(watchOS)` (the watch relays results through the phone).
-      # LA GRAFÍA de todo número y unidad de cara al atleta (contrato §2/§3).
-      # Foundation puro, y compartido a propósito: si el reloj tuviera su propia
-      # copia, muñeca y teléfono volverían a escribir el mismo dato de dos maneras
-      # — que es exactamente de donde salieron «5:00»/«05:00» y «42,4»/«42.4».
-      - path: FAHYBRIK/Theme/Formato.swift
-      # EL LENGUAJE DEL ENTRENO EN VIVO (contrato §10), la mitad que es DECISIÓN:
-      # dónde cae el sujeto, cuánto mide el numeral, si vas mejor o peor que tu
-      # objetivo y si el trabajo se puede contar. Foundation puro y compartido por
-      # la misma razón que Formato: que la muñeca diga «+2s» donde el teléfono dice
-      # «+2 s vs objetivo» —o que juzgue que vas bien cuando el teléfono dice que
-      # vas mal— es el fallo de los formateadores del 28-jul con otra cara.
-      # El PINTADO (Theme/LenguajeVivoUI.swift) se queda en el teléfono: necesita
-      # Theme.Color/Theme.Typography, que el reloj no compila — se pinta con su
-      # propio WatchTheme. Mismo reparto que ZoneColors.swift.
-      - path: FAHYBRIK/Theme/LenguajeVivo.swift
-      - path: FAHYBRIK/Watch/WatchWireModels.swift
-      - path: FAHYBRIK/Watch/MirrorWireModels.swift
-      # El buzón en disco de la traza medida en la muñeca. Vive del lado compartido —
-      # y no dentro de FAHYBRIKWatch — por la misma razón que los guiones: aquí está
-      # la garantía de que una carrera terminada sin el teléfono cerca no se pierde, y
-      # esa garantía se comprueba con pruebas (FAHYBRIKTests es iOS) en vez de a ojo en
-      # una muñeca. El trato con el cable se queda en el reloj (WatchTraceOutbox).
-      - path: FAHYBRIK/Watch/WatchTraceSpool.swift
-      # ----- EL LIENZO Y LOS GUIONES DE LA MUÑECA -----
-      # Qué lee el atleta en el reloj lo deciden los GUIONES: funciones puras
-      # estado → páginas, sin una sola vista dentro. Vivían sólo en el target
-      # watchOS y por eso nadie los verificaba: FAHYBRIKTests es iOS, así que la
-      # cadena móvil → cable → muñeca se cortaba justo antes de la pantalla —
-      # que es donde salieron los fallos que se cazaron entrenando. Compilándolos
-      # también en iOS, un test recorre el viaje entero y comprueba las páginas.
+      # ----- EL DOMINIO COMPARTIDO, POR CARPETA Y NO POR LISTA -----
+      # Aquí vivían enumerados a mano los ~50 ficheros que el reloj comparte con
+      # el teléfono. La asimetría era el fallo: el teléfono los recibía por incluir
+      # su árbol entero (`- path: FAHYBRIK`) y sólo la muñeca los nombraba uno a
+      # uno, así que «esto es compartido» no se veía en el fichero — se veía en una
+      # lista de este YAML, lejos. Cada fichero nuevo del dominio dependía de que
+      # alguien recordara añadir su línea, y olvidarla no siempre rompía la build:
+      # a veces la muñeca se quedaba con SU PROPIA copia, que es de donde salieron
+      # los `position` de una carrera estructurada colapsando en una sola fila al
+      # llegar al servidor, las rondas de EMOM, la pendiente y el detalle del erg.
       #
-      # Sube con ellos lo mínimo que necesitan para armar una página: la paleta
-      # (una página lleva color), el modelo de página y la grafía de los números.
-      # Todo SwiftUI/Foundation puro. El PINTADO se queda en la muñeca
-      # (FAHYBRIKWatch/Lienzo/WatchLienzo.swift + WatchBisel.swift), y con él
-      # `GuionEscaparate` — que es el único guion que instancia vistas del reloj.
-      - path: FAHYBRIK/Watch/Lienzo/WatchPaleta.swift
-      - path: FAHYBRIK/Watch/Lienzo/WatchPaginaModelo.swift
-      - path: FAHYBRIK/Watch/Lienzo/WatchFormato.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionRodaje.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionSeries.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionFuerza.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionEmom.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionRuta.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionErgo.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionRelojDePared.swift
-      - path: FAHYBRIK/Watch/Guiones/GuionDelEspejo.swift
-      - path: FAHYBRIK/Plan/Prescription.swift
-      # Prescription.swift references RunStructure (the #61 structured-run grammar),
-      # so its definition must compile into the watch target too.
-      - path: FAHYBRIK/Plan/RunStructure.swift
-      # La traducción de una tabla de `sets` a piernas de correr: `runStructureLegs`
-      # la llama, así que tiene que compilar en el reloj igual que la gramática.
-      - path: FAHYBRIK/Plan/RunPiernasDerivadas.swift
-      # The pure pace/target/goal domain (#68) — the wrist structured-run HUD reads
-      # the SAME PaceTarget band, in/out judgment and RunLeg→goal/target bridge the
-      # treadmill uses; the device-bound resolvers stay app-only in Devices/Treadmill.
-      - path: FAHYBRIK/Plan/RunPaceModel.swift
-      # Per-leg covered-distance tracker (#68) — pure, drives the wrist's DISTANCE-leg
-      # auto-close from the HealthKit covered distance (no belt on the wrist).
-      - path: FAHYBRIK/Plan/RunLegProgress.swift
-      # Pure display formatting for the wrist tramo HUD (#68) — measure label, per-leg
-      # pace, objetivo in/out judgment, next-leg preview.
-      - path: FAHYBRIK/Plan/RunLegDisplay.swift
-      # La forma de la fase que se corre (el on/off del bisel): un arco por tramo
-      # con su peso. La calcula el reloj para su propio aro y el móvil para el que
-      # manda por el cable, así que la regla del reparto vive en un solo sitio.
-      - path: FAHYBRIK/Plan/FormaDelAro.swift
-      # The wrist's DISTANCE-leg auto-close driver (#68). Instantiated by the watch
-      # coordinator (workout lifetime); shared into both targets like WatchWireModels
-      # so its tick() is unit-tested from FAHYBRIKTests.
-      - path: FAHYBRIK/Watch/WatchRunLegDriver.swift
-      - path: FAHYBRIK/Plan/AssignmentDetail.swift
-      # El detalle nombra dos payloads más —el veredicto de carrera servido y el
-      # archivo de la traza—, así que sus tipos entran con él o el reloj no
-      # compila. Son Foundation puro y la muñeca no los mira: viajan porque el
-      # modelo de cable es UNO, no dos que se parecen.
-      - path: FAHYBRIK/Plan/RunCompliance.swift
-      - path: FAHYBRIK/Plan/ExecutionTrace.swift
-      # El vocabulario del veredicto (`RunComplianceVerdict` y los otros tres) y
-      # los tipos que decodifican con él viven en el modelo de la lectura, que es
-      # aritmética pura sin una vista dentro.
-      - path: FAHYBRIK/Workout/PostWorkout/LecturaDeCarrera.swift
-      - path: FAHYBRIK/Plan/PrescriptionRenderer.swift
-      - path: FAHYBRIK/Theme/ZoneColors.swift
-      # #33 — PM5Split / PM5LiveSample live here (pure Foundation, no CoreBluetooth).
-      # WorkoutModels' LapRecord and WorkoutSession's erg capture reference PM5Split,
-      # so the type must compile into the watch too (the BLE service stays app-only).
-      - path: FAHYBRIK/Devices/PM5/PM5DataParser.swift
-      - path: FAHYBRIK/Workout/WorkoutModels.swift
-      # LA ÚNICA traducción de los laps medidos al payload del cable. Compartida a
-      # propósito: el reloj tenía su propia copia y se quedó atrás en la
-      # re-secuenciación de `position` (los tramos de una carrera estructurada
-      # colapsaban en UNA fila al llegar al servidor), en las rondas de EMOM, en la
-      # pendiente y en el detalle del erg. Con una sola función eso no puede repetirse.
-      - path: FAHYBRIK/Workout/SegmentPayloadBuilder.swift
-      # #56 — the pure dobles-turn projection (rep reparto + turn derivation). Pure
-      # Foundation; shared into the watch because WorkoutModels' prescribedRepsForLog
-      # reads repSplit() to log a split station against the pact (SetTableLiveView reads
-      # it on the wrist). The SwiftUI hero (DoblesTurnHero) stays iOS-only.
-      - path: FAHYBRIK/Workout/DoblesTurn.swift
-      # HRR post-effort recovery capture (tests guiados) — pure Foundation.
-      # WorkoutSession references HRRecoveryCapture, so it must compile into the
-      # watch too (the recovery UI itself stays iOS-only).
-      - path: FAHYBRIK/Workout/HRRecovery.swift
-      # #8 — WorkoutSession carries the run's environment (cinta/calle), so the enum
-      # must compile into the watch; the SwiftUI picker is `#if !os(watchOS)`-guarded
-      # (it leans on the iOS-only Theme/Haptics layer).
-      - path: FAHYBRIK/Workout/RunEnvironment.swift
-      - path: FAHYBRIK/Workout/WorkoutSession.swift
-      # The TRAMO layer — the active work window (EMOM round / interval bout / run
-      # leg) that owns the live clock, the device window and the progress goal.
-      # WorkoutSession's tick and erg sampling call into it, so both files must
-      # compile into the watch alongside the engine. Pure Foundation.
-      - path: FAHYBRIK/Workout/LiveTramo.swift
-      - path: FAHYBRIK/Workout/ErgCounterPolicy.swift
-      - path: FAHYBRIK/Workout/WorkoutSession+Tramo.swift
-      # Shared count-down formatter (#68 micro-fix) — the wrist WatchFormat.countdown
-      # delegates here so it rounds like the iPhone (mirror countdown parity).
-      - path: FAHYBRIK/Workout/CountdownFormat.swift
-      - path: FAHYBRIK/Workout/WorkoutAudio.swift
-      - path: FAHYBRIK/Workout/Persistence/WorkoutStateStore.swift
-      # EL NEGATIVO DE LA SESIÓN: el buffer de las series medidas. `WorkoutSession` lo
-      # tiene como propiedad, así que tiene que compilar en el reloj con el motor.
-      # Foundation puro. La SUBIDA (WorkoutTraceUploader) se queda en el teléfono con
-      # el resto de lo que habla con la red — la muñeca releva por el cable.
-      - path: FAHYBRIK/Workout/Trace/WorkoutTraceRecorder.swift
-      - path: FAHYBRIK/Workout/WorkoutSession+Trace.swift
-      # Reconocer el movimiento (6-ago plan): algoritmos puros de señal + pipeline.
-      # CoreMotion solo vive en FAHYBRIKWatch/Sensor/SensorCapture.swift.
-      - path: FAHYBRIK/Sensor
+      # Ahora la pertenencia la decide DÓNDE VIVE el fichero: `ios/FAHYBRIKCore/`
+      # se incluye entera desde los dos targets, así que un fichero nuevo del
+      # dominio entra en ambos sin tocar este YAML, y no hay nada que olvidar.
+      #
+      # NO es un módulo Swift aparte, y es a propósito: `Workout/WorkoutModels.swift`
+      # lleva los envíos a la red bajo `#if !os(watchOS)` y esos alcanzan APIClient /
+      # RequestQueue, que viven en la app — un framework no puede depender de su host.
+      # Compilando en el mismo módulo tampoco hace falta `public` ni `import` en cada
+      # pantalla, y FAHYBRIKTests (iOS) sigue llegando al dominio para probarlo.
+      #
+      # EL GUARDIÁN ES LA BUILD NORMAL: la app embute la app del reloj, así que
+      # cualquier cosa que se meta en FAHYBRIKCore y no sea portable a watchOS
+      # revienta el `xcodebuild -scheme FAHYBRIK` de todos los días, no una build
+      # especial que nadie corre.
+      #
+      # Lo que se queda FUERA a propósito: el PINTADO (Theme/Theme.swift,
+      # Theme/LenguajeVivoUI.swift, Theme/Haptics.swift → en la muñeca
+      # FAHYBRIKWatch/WatchHaptics.swift y su WatchTheme), el trato con el cable
+      # (Watch/WatchConnectivityiOSService.swift), el BLE (Devices/PM5/PM5Service.swift),
+      # la captura de CoreMotion (FAHYBRIKWatch/Sensor/SensorCapture.swift), la SUBIDA
+      # (Workout/Trace/WorkoutTraceUploader.swift) y `GuionEscaparate` — el único guion
+      # que instancia vistas del reloj. Ver docs/DECISIONS.md (2026-08-17).
+      - path: FAHYBRIKCore
     dependencies:
       - sdk: HealthKit.framework
       - sdk: WatchConnectivity.framework
@@ -463,10 +425,13 @@ targets:
     info:
       path: FAHYBRIKWatch/Generated-Info.plist
       properties:
-        CFBundleDisplayName: "FAHYBRID"
+        CFBundleDisplayName: "$(BRAND_DISPLAY_NAME)"
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Mismo dominio de marca que la app del teléfono: `Marca` compila también
+        # en el reloj (vive en FAHYBRIKCore) y lo lee de su propio bundle.
+        BrandWebDomain: "$(BRAND_WEB_DOMAIN)"
         WKApplication: true
         # ALWAYS-ON, DECLARADO. Sin esta clave el sistema nunca entrega el estado
         # atenuado: todo el trabajo de `isLuminanceReduced` del lienzo sería
@@ -474,12 +439,16 @@ targets:
         # número uno contra las apps de entreno de terceros, y no se arregla con
         # código — se declara aquí.
         WKSupportsAlwaysOnDisplay: true
-        WKCompanionAppBundleIdentifier: com.fahybrid.app
+        # LA CLAVE QUE ATA EL RELOJ AL TELÉFONO. Si no coincide EXACTAMENTE con
+        # el bundle id de la app del teléfono, watchOS no reconoce la pareja: el
+        # teléfono reporta isWatchAppInstalled=false y tira cada push a la
+        # muñeca sin avisar. Por eso se expande del mismo ajuste, no se copia.
+        WKCompanionAppBundleIdentifier: "$(BRAND_BUNDLE_ID)"
         WKWatchOnly: false
         WKBackgroundModes:
           - workout-processing
-        NSHealthShareUsageDescription: "FAHYBRID lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión."
-        NSHealthUpdateUsageDescription: "FAHYBRID guarda en Apple Health los entrenos que registras desde el reloj."
+        NSHealthShareUsageDescription: "$(BRAND_DISPLAY_NAME) lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión."
+        NSHealthUpdateUsageDescription: "$(BRAND_DISPLAY_NAME) guarda en Apple Health los entrenos que registras desde el reloj."
     settings:
       configs:
         Debug:
@@ -487,7 +456,7 @@ targets:
           # archived watch build is a true production build.
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).watchkitapp"
         CODE_SIGN_ENTITLEMENTS: FAHYBRIKWatch/FAHYBRIKWatch.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_NAME: FAHYBRIKWatch
@@ -495,9 +464,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_PREVIEWS: YES
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG is set per-config (Debug only).
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
-        CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        # CODE_SIGN_STYLE + DEVELOPMENT_TEAM se HEREDAN de settings.base.
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
 
@@ -514,8 +481,14 @@ targets:
     sources:
       - path: FAHYBRIKWidgets
       # The Live Activity data contract, compiled into BOTH the app and this
-      # extension (like WatchWireModels) so the ContentState shape is single-
-      # sourced and the two sides can never desync.
+      # extension so the ContentState shape is single-sourced and the two sides
+      # can never desync.
+      #
+      # Sigue siendo UNA LÍNEA A MANO, y no es un olvido: este es el eje
+      # app↔widget, no el app↔reloj. FAHYBRIKCore existe para lo que compila en
+      # watchOS, y este fichero es ActivityKit — no pinta ahí. Si el eje del
+      # widget crece más allá de un fichero, merecerá su propia raíz compartida
+      # con el mismo criterio, no un hueco en la del reloj.
       - path: FAHYBRIK/Workout/Outdoor/RunActivityAttributes.swift
     dependencies:
       - sdk: WidgetKit.framework
@@ -525,21 +498,19 @@ targets:
     info:
       path: FAHYBRIKWidgets/Generated-Info.plist
       properties:
-        CFBundleDisplayName: "FAHYBRID"
+        CFBundleDisplayName: "$(BRAND_DISPLAY_NAME)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).widgets"
         PRODUCT_NAME: FAHYBRIKWidgets
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: NO
-        # ----- Code signing — vanwida Apple Developer (Team S6W4459DDG) -----
-        CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: S6W4459DDG
+        # CODE_SIGN_STYLE + DEVELOPMENT_TEAM se HEREDAN de settings.base.
         CODE_SIGNING_ALLOWED: YES
         CODE_SIGNING_REQUIRED: YES
 
@@ -550,6 +521,20 @@ targets:
 # ============================================================================
 schemes:
   FAHYBRIK:
+    # BUILD DE SIMULADOR — comando oficial:
+    #
+    #   xcodebuild -project ios/FAHYBRIK.xcodeproj -scheme FAHYBRIK \
+    #     -destination 'generic/platform=iOS Simulator' build
+    #
+    # SIEMPRE con -destination, NUNCA con `-sdk iphonesimulator`: -sdk fuerza el
+    # SDK del iPhone a TODOS los targets del grafo, incluido el reloj (watchOS).
+    # actool compila entonces el catálogo del reloj con --platform iphonesimulator
+    # — su AppIcon (solo watchos) queda sin contenido aplicable y el build muere
+    # con exit 65; los __preview.dylib del reloj y de los widgets fallan al
+    # enlazar por el mismo SDK equivocado. Con -destination, xcodebuild lleva
+    # cada dependencia a su plataforma (reloj → watchsimulator) y el esquema
+    # entero compila. Para correr en un simulador concreto, cambia el destination
+    # a 'platform=iOS Simulator,name=iPhone 17 Pro'.
     build:
       targets:
         FAHYBRIK: all

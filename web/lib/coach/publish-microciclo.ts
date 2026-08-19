@@ -24,6 +24,17 @@ import {
   PublishWeekError,
   type PublishBlockResult,
 } from '@/lib/coach/publish-week';
+import { weekStates } from '@/lib/mcp/shape-write';
+import { athleteSeesItFromWeeklyStatus } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+
+/** One materialized week of the microciclo, for the rail — same visibility gate
+ *  as the MCP and the athlete app (`athleteSeesItFromWeeklyStatus`). */
+export interface MicrocicloWeekState {
+  /** Monday ISO of this week (matches `weekly_plans.week_start`). */
+  week_start: string;
+  /** True unless this week has an explicit `weekly_plans.status='draft'` row. */
+  visible: boolean;
+}
 
 /** Publish state of the athlete's current-or-next microciclo, for the plan badge
  *  + the Publicar action. Derived from `weekly_plans` over the microciclo's weeks:
@@ -41,6 +52,9 @@ export interface MicrocicloPublishState {
   /** Materialized workout_assignments; 0 ⇒ empty ⇒ not publishable. */
   session_count: number;
   publish_state: 'draft' | 'partial' | 'published';
+  /** Per-week visibility, chronological — the rail's source of truth (which
+   *  week is Visible vs Borrador, not just the aggregate count). */
+  weeks: MicrocicloWeekState[];
 }
 
 interface AssignmentWeeks {
@@ -154,20 +168,21 @@ export async function loadMicrocicloPublishState(params: {
   const micro = await loadAssignmentWeeks(client, athleteId, assignmentId);
   if (!micro) return null;
 
-  // Per-week state: a `draft` weekly_plans row hides the week; no row = visible.
-  const draftRows =
-    micro.week_starts.length === 0
-      ? []
-      : await client<Array<{ week_start: string }>>`
-          select to_char(week_start, 'YYYY-MM-DD') as week_start
-          from weekly_plans
-          where athlete_id = ${athleteId}
-            and status = 'draft'
-            and week_start = any(${micro.week_starts}::date[])
-        `;
+  // Per-week visibility, reusing the same gate as the MCP and the athlete app
+  // (`weekStates` + `athleteSeesItFromWeeklyStatus`): a `draft` row hides the
+  // week, no row (or `published`/`archived`) leaves it visible.
+  const stateByWeek = await weekStates({
+    athlete_id: athleteId,
+    week_starts: micro.week_starts,
+    client,
+  });
+  const weeks: MicrocicloWeekState[] = micro.week_starts.map((week_start) => ({
+    week_start,
+    visible: athleteSeesItFromWeeklyStatus(stateByWeek.get(week_start)?.state ?? null),
+  }));
 
-  const weekCount = micro.week_starts.length;
-  const draftCount = draftRows.length;
+  const weekCount = weeks.length;
+  const draftCount = weeks.filter((w) => !w.visible).length;
   const publish_state: MicrocicloPublishState['publish_state'] =
     draftCount === 0 ? 'published' : draftCount >= weekCount ? 'draft' : 'partial';
 
@@ -178,6 +193,7 @@ export async function loadMicrocicloPublishState(params: {
     draft_week_count: draftCount,
     session_count: micro.session_count,
     publish_state,
+    weeks,
   };
 }
 

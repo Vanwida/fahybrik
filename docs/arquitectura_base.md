@@ -1,6 +1,6 @@
 # FAHYBRID — Arquitectura base (hecha para durar)
 
-> Objetivo: estructura estándar, simple y abierta. No reinventar la rueda, no atarse a ATR,
+> Objetivo: estructura estándar, simple y abierta. No reinventar la rueda, no atarse a una escuela,
 > y que Pablo/Gerard (cero técnicos) la entiendan sola. Diseño antes de código.
 
 ---
@@ -9,7 +9,7 @@
 
 1. **Plataforma de coaching.** El atleta paga para que le entrenemos. Los coaches entregan programas; el admin lleva el negocio.
 2. **La IA NUNCA crea de cero.** Solo **selecciona y adapta** desde una **biblioteca que construimos nosotros (humanos)**. (= Documento Maestro.)
-3. **Metodología configurable.** Hoy ATR; mañana lo que sea. ATR es **un preset**, no algo grabado en el código.
+3. **Metodología configurable.** El orden de los microciclos lo nombra el coach. No hay un marco grabado en el código.
 4. **Unidad de entrega = el MICROCICLO** (varias semanas). Se asigna entero; las semanas salen solas. El coach trabaja ~**mensual** (aprobar el siguiente microciclo); solo entra antes si hay un **cambio**.
 5. **Simplicidad por encima de todo.** UX/UI obvia. El coach, en su día a día, casi solo **aprueba/rechaza**.
 
@@ -50,16 +50,13 @@
 
 ---
 
-## 4. Metodología configurable (no ATR a fuego)
+## 4. Metodología configurable (dato del coach)
 
-Hoy ATR está incrustado (enum `atr_block_hint` ACC/TRANS/REAL, grupos atados a ATR). Lo abrimos:
+El producto no trae un catálogo de fases. El **orden de los microciclos es la periodización** y su nombre lo pone el coach.
 
-- Tabla **`methodologies`** (id, nombre, descripción). ATR = la primera fila.
-- Tabla **`phases`** por metodología (ATR → Acumulación / Intensificación / Tapering; otra metodología → sus propias fases).
-- Microciclos y bloques referencian **methodology_id + phase_id** (FK), no un enum fijo.
-- Al montar un microciclo, eliges la metodología → sus fases. Cambiar de marco = añadir una fila, no tocar código.
-
-No construimos un editor no-code de metodologías ahora — solo **quitamos el acoplamiento**, para que mañana sea un dato.
+- Un microciclo es una plantilla mensual + su posición en la secuencia.
+- Los grupos y el foco de la semana son texto del coach, no un enum fijo.
+- Cambiar de marco = cambiar el dato, no tocar código.
 
 ---
 
@@ -128,7 +125,7 @@ Sin jerga, sin montar nada a mano en el día a día. Montar contenido (bibliotec
 | Catálogo de ejercicios + bloques (97) | **Conservar** (es buena base) |
 | Auth casera (sesiones/JWT/magic-link/allowlist) | **TIRAR → Clerk** |
 | `users.role`/`user_roles`/`coach_allowlist` | **TIRAR** (lo gestiona Clerk) |
-| ATR hardcodeado (enum, grupos atados) | **Rehacer** → metodología configurable |
+| Periodización hardcodeada (enum, grupos atados) | **Rehacer** → metodología configurable |
 | Modelo `templates` legacy | **TIRAR** → jerarquía única |
 | `program_month/week_templates` + slots_json | **Rehacer/simplificar** → modelo microciclo limpio |
 | IA "compone semana desde bloques" | **Reorientar** → selector + adaptador |
@@ -140,7 +137,7 @@ Sin jerga, sin montar nada a mano en el día a día. Montar contenido (bibliotec
 ## 10. Plan por fases (orden de ataque)
 
 1. **Auth a Clerk** — la base. Migrar identidad/roles; re-vincular datos de dominio al user de Clerk; gates `/admin` y `/coach` por rol de Clerk; iOS por Sign in with Apple vía Clerk.
-2. **Metodología configurable** — tablas methodologies/phases; ATR como datos; des-hardcodear.
+2. **Metodología configurable** — el orden de los microciclos lo nombra el coach; des-hardcodear.
 3. **Modelo de contenido limpio** — jerarquía única; retirar templates legacy; microciclo como unidad asignable con tags de perfil.
 4. **IA selector + adaptador** — emparejar onboarding→microciclo; flujo de propuesta→aprobación coach; sugerencias de swap.
 5. **Inbox del coach** (simplicidad) — la pantalla de "aprobar/rechazar".
@@ -150,4 +147,4 @@ Cada fase: diseñada, validada contigo, y construida con sentido (no solo "que c
 
 ---
 
-**Resumen en una frase:** una plataforma de coaching con auth estándar (Clerk), metodología configurable (ATR es un preset), una biblioteca humana de microciclos que la IA solo **elige y adapta**, entregada al atleta semana a semana, y un panel donde el coach casi solo **aprueba** — simple por diseño.
+**Resumen en una frase:** una plataforma de coaching con auth estándar (Clerk), metodología configurable (el coach nombra el orden), una biblioteca humana de microciclos que la IA solo **elige y adapta**, entregada al atleta semana a semana, y un panel donde el coach casi solo **aprueba** — simple por diseño.

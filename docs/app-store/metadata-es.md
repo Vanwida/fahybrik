@@ -28,7 +28,7 @@ Entrenamiento HYROX élite
 ## Promotional text (max 170 caracteres — editable sin nueva revisión)
 
 ```
-Plan ATR semanal de tu coach, ejecución guiada del workout, briefing diario y métricas que importan a un atleta HYROX. Cero ruido, sólo lo que mueve la aguja.
+Plan semanal de tu coach, ejecución guiada del workout, briefing diario y métricas que importan a un atleta HYROX. Cero ruido, sólo lo que mueve la aguja.
 ```
 
 ## Description (~200 palabras, max 4000 caracteres)
@@ -36,9 +36,9 @@ Plan ATR semanal de tu coach, ejecución guiada del workout, briefing diario y m
 ```
 FAHYBRID es la app de entrenamiento para atletas HYROX serios que entrenan con un coach y quieren ejecutar cada sesión con la misma precisión con la que la planificó.
 
-No es un generador de planes. Tu coach diseña tu macrociclo ATR (Acumulación, Transformación, Realización) en el panel; FAHYBRID adapta diariamente la sesión según tu HRV, sueño, RPE y fatiga acumulada — sin inventar el bloque, sin diluir la metodología.
+No es un generador de planes. Tu coach diseña tu macrociclo en el panel; FAHYBRID adapta diariamente la sesión según tu HRV, sueño, RPE y fatiga acumulada — sin inventar el bloque, sin diluir la metodología.
 
-Cada mañana ves tu Today: la sesión del día, el porqué del bloque ATR en el que estás, el briefing del coach y la check-in de 30 segundos que ajusta intensidad si tu cuerpo lo pide. Durante el workout, la pantalla guía cada serie, RPE objetivo, descanso, tempo y sustituciones inteligentes si te falta material o tiempo.
+Cada mañana ves tu Today: la sesión del día, el porqué del bloque en el que estás, el briefing del coach y la check-in de 30 segundos que ajusta intensidad si tu cuerpo lo pide. Durante el workout, la pantalla guía cada serie, RPE objetivo, descanso, tempo y sustituciones inteligentes si te falta material o tiempo.
 
 Integramos lo que ya usas: Apple Health (HRV, sueño, peso, workouts), Garmin Connect (HR zonas, carga aguda/crónica), Concept2 PM5 vía Bluetooth (rower, ski, bike erg con splits y stroke rate). Los carriles de carrera HYROX — sled, wall ball, burpees broad jumps, runs — tienen tracking nativo.
 
@@ -50,7 +50,7 @@ Diseñada con un solo coach (Pablo Pérez Gómez, Fabrik Training Club Barcelona
 ## Keywords (max 100 caracteres separados por coma, sin espacios después de la coma)
 
 ```
-HYROX,hybrid,coach,atletas,fuerza,resistencia,ATR,RPE,carrera,Concept2,wall ball,sled,Pablo,fitness
+HYROX,hybrid,coach,atletas,fuerza,resistencia,RPE,carrera,Concept2,wall ball,sled,Pablo,fitness,plan
 ```
 
 (99 caracteres.)
@@ -58,19 +58,27 @@ HYROX,hybrid,coach,atletas,fuerza,resistencia,ATR,RPE,carrera,Concept2,wall ball
 ## Support URL
 
 ```
-https://fahybrik.com/soporte
+https://fahybrid.com/soporte
 ```
+
+> 🚨 **BLOQUEA REVISIÓN — la página no existe.** Comprobado el 2026-08-18:
+> `fahybrid.com/soporte` → 307 a `/es/soporte` → **404**, y `/es/support` y `/en/support`
+> también 404. Apple abre la Support URL durante la revisión y rechaza si no carga
+> (guía 1.5). Hasta el 2026-08-18 este campo apuntaba además a `fahybrik.com` —con K—,
+> un dominio que **no resuelve** (NXDOMAIN), así que el error venía de antes y no se
+> arreglaba solo con corregir la letra. Falta publicar la página; nadie ha decidido aún
+> si es una página propia o un `mailto:`.
 
 ## Marketing URL (opcional)
 
 ```
-https://fahybrik.com
+https://fahybrid.com
 ```
 
 ## Privacy Policy URL (obligatorio)
 
 ```
-https://fahybrik.com/privacy
+https://fahybrid.com/privacy
 ```
 
 ## What's New in This Version (release notes — ≤ 4000 caracteres)
@@ -79,7 +87,7 @@ https://fahybrik.com/privacy
 Primera versión privada en TestFlight para atletas de Fabrik Training Club Barcelona.
 
 Incluye:
-- Hoy: sesión del día con bloque ATR, briefing del coach y check-in matinal
+- Hoy: sesión del día con el bloque actual, briefing del coach y check-in matinal
 - Workout activo: ejecución guiada series-a-serie con RPE objetivo, tempo y descanso
 - Pre-workout brief: contexto del bloque, KPIs a mover, equipamiento necesario
 - Onboarding: lesiones, 1RMs (sentadilla, press banca, peso muerto, push press), zonas de FC
@@ -93,12 +101,12 @@ Reporta cualquier issue al coach por el chat in-app.
 ## App Review Information (no público — sólo para Apple)
 
 - Contact name: Alex Sole / Pablo Pérez Gómez
-- Contact email: pablo@fabrik.training (TBC con Pablo) o vanwida@aistudios.pro
-- Demo account: TBD — crear test account en `appstore-demo@fahybrik.com` con magic link pre-configurado para el reviewer
+- Contact email: coach@example.com
+- Demo account: TBD — crear test account en `appstore-demo@fahybrid.com` con magic link pre-configurado para el reviewer
 - Notes for reviewer:
   ```
   FAHYBRID requires Sign in with Apple to enter. We've prepared a demo account that bypasses Apple ID for the review:
-  - Email: appstore-demo@fahybrik.com
+  - Email: appstore-demo@fahybrid.com
   - The user will receive a magic link via Resend (whitelist this address)
   - Onboarding can be skipped for the reviewer with the launch arg --reviewer-demo
   - HealthKit prompts: deny is fine — app falls back to manual entry
@@ -109,5 +117,5 @@ Reporta cualquier issue al coach por el chat in-app.
 ## Copyright
 
 ```
-© 2026 Vanwida (vanwida@aistudios.pro). All rights reserved.
+© 2026 Vanwida (coach@example.com). All rights reserved.
 ```

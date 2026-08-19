@@ -254,7 +254,11 @@ export interface LibraryTemplate {
   target_level: number | null;
 }
 
-function buildSkeletonSystem(hasLibrary: boolean, boxBlock: string | null): string {
+function buildSkeletonSystem(
+  hasLibrary: boolean,
+  boxBlock: string | null,
+  methodMirror: string | null,
+): string {
   const lines = [
     'Eres un coach de HYROX y entrenamiento híbrido de élite. Planificas la ESTRUCTURA de una semana.',
     'No escribes los ejercicios todavía: solo decides qué hace cada día.',
@@ -280,6 +284,13 @@ function buildSkeletonSystem(hasLibrary: boolean, boxBlock: string | null): stri
       boxBlock,
     );
   }
+  if (methodMirror) {
+    lines.push(
+      '',
+      '- Este es CÓMO ENTRENA ESTE COACH. Su sistema manda. No lo contradigas ni lo sustituyas por una escuela.',
+      methodMirror,
+    );
+  }
   return lines.join('\n');
 }
 
@@ -291,6 +302,7 @@ export async function planWeekSkeleton(args: {
   box_block: string | null;
   coach_id: number | bigint;
   athlete_id?: number | bigint | null;
+  method_mirror?: string | null;
 }): Promise<WeekSkeleton> {
   const hasLibrary = args.library.length > 0;
   const userLines = [
@@ -311,7 +323,7 @@ export async function planWeekSkeleton(args: {
   }
 
   const raw = await callCoachIaLlmJson({
-    system: buildSkeletonSystem(hasLibrary, args.box_block),
+    system: buildSkeletonSystem(hasLibrary, args.box_block, args.method_mirror ?? null),
     user: userLines.join('\n'),
     temperature: 0.3,
     max_tokens: MAX_TOKENS_SKELETON,

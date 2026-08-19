@@ -18,7 +18,13 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { PageFrame, FillPanel } from '@/components/v2/PageFrame';
-import type { PendingIntakeAthlete } from '@/lib/coach/intake';
+import type { PendingAlta } from '@/lib/coach/pending-alta';
+import {
+  altaRowHint,
+  altaStartStance,
+  altasLeadAllowsAntesDeArrancar,
+  altasQueueLead,
+} from '@fahybrid/shared/domain/coach/alta-stance';
 import { cn } from '@/lib/utils';
 
 /** MÉTODO DEL COACH, no mecanismo: a partir de cuántos días una alta sin revisar
@@ -72,7 +78,7 @@ function eventDateLabel(iso: string | null): string | null {
     .replace(/\.$/, '');
 }
 
-export function AltasQueue({ pending }: { pending: PendingIntakeAthlete[] }) {
+export function AltasQueue({ pending }: { pending: PendingAlta[] }) {
   // ── Vacío: la Lista se degrada a Vacío y se CENTRA, con su salida (§5) ─────
   if (pending.length === 0) {
     return (
@@ -99,6 +105,12 @@ export function AltasQueue({ pending }: { pending: PendingIntakeAthlete[] }) {
   // El que más lleva esperando manda el titular: es el que decide si esto urge.
   const masEspera = pending.reduce((max, a) => Math.max(max, a.hours_since_onboarded), 0);
   const urgenciaCola = urgenciaDe(masEspera);
+  const lead = altasQueueLead({
+    allows_antes_de_arrancar: altasLeadAllowsAntesDeArrancar(
+      pending.map((a) => altaStartStance(a.life)),
+    ),
+    urgencia: urgenciaCola,
+  });
 
   return (
     <PageFrame
@@ -110,17 +122,17 @@ export function AltasQueue({ pending }: { pending: PendingIntakeAthlete[] }) {
             <span className="text-[color:var(--v2-muted)]"> · {pending.length}</span>
           </h1>
           <p className="text-body text-[color:var(--v2-muted)]">
-            {urgenciaCola === 'reciente' ? (
-              <>Completaron el alta y esperan tu revisión antes de arrancar.</>
-            ) : (
+            {lead.stem}
+            {lead.shows_oldest_wait ? (
               <>
-                Esperan tu revisión antes de arrancar. La más antigua lleva{' '}
+                {' '}
+                La más antigua lleva{' '}
                 <span className="v2-num font-semibold" style={{ color: TONO_URGENCIA[urgenciaCola] }}>
                   {esperaPartida(masEspera).cifra} {esperaPartida(masEspera).unidad.replace(' esperando', '')}
                 </span>
                 .
               </>
-            )}
+            ) : null}
           </p>
         </div>
       }
@@ -156,11 +168,12 @@ export function AltasQueue({ pending }: { pending: PendingIntakeAthlete[] }) {
   );
 }
 
-function AltaRow({ alta, index }: { alta: PendingIntakeAthlete; index: number }) {
+function AltaRow({ alta, index }: { alta: PendingAlta; index: number }) {
   const eventDate = eventDateLabel(alta.a_event_iso);
   const urgencia = urgenciaDe(alta.hours_since_onboarded);
   const espera = esperaPartida(alta.hours_since_onboarded);
   const tono = TONO_URGENCIA[urgencia];
+  const rastro = altaRowHint(alta.life);
 
   return (
     <Link
@@ -181,7 +194,17 @@ function AltaRow({ alta, index }: { alta: PendingIntakeAthlete; index: number })
           {alta.full_name}
         </span>
         <span className="flex min-w-0 items-center gap-1 text-label text-[color:var(--v2-muted)]">
-          {alta.a_event_name ? (
+          {rastro ? (
+            <>
+              <MIcon name="history" size={12} className="shrink-0" />
+              <span className="truncate">
+                {rastro}
+                {alta.a_event_name
+                  ? ` · ${alta.a_event_name}${eventDate ? ` · ${eventDate}` : ''}`
+                  : ''}
+              </span>
+            </>
+          ) : alta.a_event_name ? (
             <>
               <MIcon name="flag" size={12} className="shrink-0" />
               <span className="truncate">

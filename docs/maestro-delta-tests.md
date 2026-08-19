@@ -14,7 +14,7 @@ Tras el onboarding, el atleta realiza una batería de tests estandarizados que c
 - **Test de ergómetro** (2000m remo / ski) → splits /500m por banda (modelo Concept2).
 - **Test de fuerza** (RM por levantamiento) → cargas por %RM (1RM estimado, Epley).
 
-Los tests se repiten cada bloque ATR (control de progreso). Si el atleta aún no tiene tests, se usan sus datos auto-declarados del onboarding como referencia **provisional** hasta el primer test.
+Los tests se repiten cada microciclo (control de progreso). Si el atleta aún no tiene tests, se usan sus datos auto-declarados del onboarding como referencia **provisional** hasta el primer test.
 
 ## § 07 · El Papel de la IA — matizar
 

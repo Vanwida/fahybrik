@@ -27,8 +27,16 @@ struct PM5LiveStreamView: View {
             VStack(spacing: Theme.Spacing.l) {
                 header
                 Divider().background(Theme.Color.hairline)
-                content
-                Spacer(minLength: 0)
+                // Alcanzable en apaisado (el CTA de conectar del entreno en vivo y
+                // el gate de ergo abren esta hoja con el landscape ya permitido) y
+                // sin scroll la guía + la lista desbordaban los ~380 pt: la lista
+                // se comía los botones de abajo y hasta la X de cerrar. El estado
+                // variable se desplaza; el cierre y las acciones quedan clavados.
+                ScrollView(showsIndicators: false) {
+                    content
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxHeight: .infinity)
                 if store.isConnected {
                     ExpertPrimaryButton(title: useButtonTitle) {
                         onDone()
@@ -90,7 +98,7 @@ struct PM5LiveStreamView: View {
             stateMessage(
                 icon: "lock.shield",
                 title: "Bluetooth bloqueado",
-                detail: "Activa Bluetooth para FAHYBRID en Ajustes para conectar tu PM5."
+                detail: "Activa Bluetooth para \(Marca.nombre) en Ajustes para conectar tu PM5."
             ) {
                 openSettingsButton
             }

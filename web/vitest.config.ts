@@ -28,6 +28,18 @@ export default defineConfig({
       // Server Component. Node-based tests have no client boundary, so stub it.
       { find: 'server-only', replacement: resolve(__dirname, 'tests/_stubs/server-only.ts') },
       { find: '@', replacement: resolve(__dirname, '.') },
+      {
+        find: '@fahybrid/shared/domain/coach/method-interview-mirror',
+        replacement: resolve(__dirname, '../shared/domain/coach/method-interview-mirror.ts'),
+      },
+      {
+        find: '@fahybrid/shared/domain/coach/method-interview',
+        replacement: resolve(__dirname, '../shared/domain/coach/method-interview.ts'),
+      },
+      {
+        find: '@fahybrid/shared/schema/coach-method-interview',
+        replacement: resolve(__dirname, '../shared/schema/coach-method-interview.ts'),
+      },
     ],
   },
 });

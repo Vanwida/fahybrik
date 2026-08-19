@@ -23,6 +23,11 @@ import {
   fetchTransitionReadyAthleteIds,
 } from '@/lib/dashboard/v2/hoy-lanes';
 import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
+import { withAltaLife } from '@/lib/coach/load-alta-life';
+import { ALTA_LIFE_UNVERIFIED } from '@fahybrid/shared/domain/coach/alta-stance';
+import { clubWeekCensus } from '@fahybrid/shared/domain/coach/club-hoy';
+import { getCoachMethodInterview } from '@/lib/coach/method-interview';
+import { INTERVIEW_QUESTION_COUNT } from '@fahybrid/shared/domain/coach/method-interview';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +60,7 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     pending_intakes,
     transition_ready_ids,
     activity,
+    method_interview,
   ] = await Promise.all([
     fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
     listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
@@ -69,6 +75,12 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     loadActivityToday({ coach_id: session.coach_id, limit: ACTIVITY_GLANCE_LIMIT }).catch(
       (): ActivityToday => ({ sessions: [], total: 0, off_target_count: 0 }),
     ),
+    // Cobertura de «Cómo entrenas». Hoy no puede decir «el sistema sigue tu
+    // método» con la entrevista a medias; si el loader cae, 0 respondidas — el
+    // fallo NUNCA se degrada a afirmar el método.
+    getCoachMethodInterview(session.coach_id)
+      .then((i) => ({ answered: i.answered_count, total: i.question_count }))
+      .catch(() => ({ answered: 0, total: INTERVIEW_QUESTION_COUNT })),
   ]);
 
   const data = buildHoyLanes({
@@ -81,13 +93,19 @@ export default async function V2HoyPage({ params }: { params: Promise<{ locale: 
     transition_ready_ids,
   });
 
+  const altas = await withAltaLife(pending_intakes).catch(() =>
+    pending_intakes.map((p) => ({ ...p, life: ALTA_LIFE_UNVERIFIED })),
+  );
+
   return (
     <HoyBoard
       data={data}
       today={todayLabel()}
       coachKey={String(session.coach_id)}
-      pending_intakes={pending_intakes}
+      pending_intakes={altas}
       activity={activity}
+      week_census={clubWeekCensus(athletes.map((a) => a.week_chip.kind))}
+      method_coverage={method_interview}
     />
   );
 }

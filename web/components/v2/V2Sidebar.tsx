@@ -7,9 +7,12 @@
 // rail colapsado-que-expande-al-hover murió con el rediseño FLEXR: el coach ve
 // siempre dónde está y qué hay (día uno sin manual).
 
+import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { Link, usePathname } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
 import {
+  V2_NAV_CLUB,
   V2_NAV_GROUP_LABELS,
   V2_NAV_GROUP_ORDER,
   V2_NAV_GUIDE,
@@ -21,10 +24,8 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * Marca del TENANT (hoy FAHYBRID) — el slot de marca del coach. Sale del set
- * estandarizado en /public/brand; cuando llegue «personalizar», la imagen y el
- * nombre vendrán de datos del coach, no de código.
- * Exported: the mobile top bar (V2Shell) shows the same mark when the sidebar is hidden.
+ * Marca por defecto del binario (FHP tile). El cromo pinta ClubLockup con los
+ * datos del club del coach (vacío = este src): la marca es DATO, no código.
  */
 export function HexMark({ className }: { className?: string }) {
   return (
@@ -89,9 +90,11 @@ function NavLink({
 }
 
 export function V2Sidebar({
+  club,
   unread_messages = 0,
   leads_nuevo = 0,
 }: {
+  club: ClubSkin;
   unread_messages?: number;
   leads_nuevo?: number;
 }) {
@@ -113,15 +116,19 @@ export function V2Sidebar({
         'px-3 py-4',
       )}
     >
-      {/* Slot de marca del tenant */}
+      {/* Slot de marca del club — lockup con datos del coach; vacío = marca del binario. */}
       <Link
         href="/atletas"
-        aria-label="FAHYBRID"
-        title="FAHYBRID"
+        aria-label={clubBrandLabel(club.name)}
+        title={clubBrandLabel(club.name)}
         className="v2-focus flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-nav)] px-2 pb-4 pt-1"
       >
-        <HexMark className="h-8 w-8 shrink-0" />
-        <span className="v2-display truncate text-[1.05rem]">FAHYBRID</span>
+        <ClubLockup
+          name={club.name}
+          logo_url={club.logo_url}
+          markClassName="h-8 w-8 shrink-0"
+          wordmarkClassName="min-w-0 truncate text-[1.05rem]"
+        />
       </Link>
 
       {/* Primary nav — the three coach hats, headers always visible. */}
@@ -147,11 +154,16 @@ export function V2Sidebar({
         })}
       </nav>
 
-      {/* Guía + Ajustes + sello FLEXR — pinned bottom */}
+      {/* Guía + Club + Ajustes + sello FLEXR — pinned bottom */}
       <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] pt-3">
         <NavLink
           item={V2_NAV_GUIDE}
           active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
+          badgeCount={0}
+        />
+        <NavLink
+          item={V2_NAV_CLUB}
+          active={isV2NavActive(pathname, V2_NAV_CLUB.href)}
           badgeCount={0}
         />
         <NavLink

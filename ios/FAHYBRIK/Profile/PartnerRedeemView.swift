@@ -36,7 +36,7 @@ struct PartnerRedeemView: View {
                     Text("Bienvenido/a")
                         .font(Theme.Typography.headlineM)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu compañero/a te ha invitado a entrenar juntos en FAHYBRID. Continúa con Apple para crear tu cuenta.")
+                    Text("Tu compañero/a te ha invitado a entrenar juntos en \(Marca.nombre). Continúa con Apple para crear tu cuenta.")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
@@ -169,7 +169,7 @@ struct PartnerRedeemView: View {
         case "token_invalid":                return "No encontramos esta invitación."
         case "inviter_already_paired":       return "Tu compañero/a ya tiene una pareja de Dobles."
         case "accepted_user_already_paired": return "Ya tienes una pareja de Dobles."
-        case "user_already_exists":          return "Ya tienes una cuenta en FAHYBRID. Pídele a vuestro coach que os empareje como pareja de Dobles."
+        case "user_already_exists":          return "Ya tienes una cuenta en \(Marca.nombre). Pídele a vuestro coach que os empareje como pareja de Dobles."
         case "apple_token_invalid", "auth_required": return "No pudimos validar tu identidad de Apple."
         default:
             switch status {

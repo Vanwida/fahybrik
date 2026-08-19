@@ -19,9 +19,9 @@
 // un `flex` de dos líneas (ver AthleteTableRow). Por eso aquí ya no hay una
 // escalera de cinco anchos: hay UNA definición, la de la tabla.
 //
-//   celdas, en orden: Atleta · Nivel · Estado · Fase · Adherencia · Últ.reg · ›
+//   celdas, en orden: Atleta · Nivel · Estado · Semana · Fase · Adherencia · Últ.reg · ›
 export const GRID_COLS =
-  'lg:grid-cols-[minmax(11rem,20rem)_3rem_minmax(9rem,12rem)_minmax(8rem,12rem)_8rem_7rem_auto]';
+  'lg:grid-cols-[minmax(10rem,18rem)_3rem_minmax(7rem,10rem)_minmax(6.5rem,9rem)_minmax(7rem,11rem)_8rem_7rem_auto]';
 
 /** A partir de dónde la fila deja de ser dos líneas y pasa a ser una fila de
  *  tabla. Debe coincidir con el `lg:` de GRID_COLS. */

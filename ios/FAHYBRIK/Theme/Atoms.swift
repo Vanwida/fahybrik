@@ -17,7 +17,7 @@ struct Wordmark: View {
             .resizable()
             .scaledToFit()
             .frame(height: size)
-            .accessibilityLabel("FAHYBRID")
+            .accessibilityLabel(Marca.nombre)
     }
 }
 

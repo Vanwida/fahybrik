@@ -64,10 +64,20 @@ export default async function RootLayout({
       >
         <head>
           {/* Material Symbols Outlined — icon font used across the coach
-              dashboard. Loaded globally so dashboard pages render icons. */}
+              dashboard. Loaded globally so dashboard pages render icons.
+              display=block: without it Google omits font-display and the
+              browser paints the raw ligature names ("today", "groups") as
+              fallback text while the ~4 MB variable woff2 downloads — visible
+              on any cold-cache origin (e.g. every fresh preview deploy). */}
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossOrigin="anonymous"
+          />
           <link
             rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
           />
         </head>
         <body className="min-h-full flex flex-col">{children}</body>

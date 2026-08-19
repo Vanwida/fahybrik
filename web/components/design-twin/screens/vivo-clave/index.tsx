@@ -64,7 +64,7 @@ export const meta: TwinMeta = {
   actualizado: '2026-08-11',
   descripcion:
     'Durante una serie lo único que el atleta puede pedir hoy es un vídeo, y abrirlo pausa el cronómetro. Nadie para una serie para ver un vídeo: quiere la clave, una línea que se lee en un segundo. La nota que el coach escribió para hoy gana a los consejos del catálogo, se pinta una sola, y cuando no hay ninguna la línea sencillamente no existe.',
-  fuentes: ['ios/FAHYBRIK/Workout/ActiveWorkoutView.swift', 'ios/FAHYBRIK/Workout/WorkoutModels.swift'],
+  fuentes: ['ios/FAHYBRIK/Workout/ActiveWorkoutView.swift', 'ios/FAHYBRIKCore/Workout/WorkoutModels.swift'],
   enApp:
     'Lo que hay hoy: el tramo en vivo solo lleva `videoUrl`, y el botón del cromo pausa el cronómetro al abrirlo. Los consejos, la descripción y la nota del coach ya viajan al móvil en `WorkoutItem` y se leen en la ficha del ejercicio, pero desde el plan y antes de entrenar. Es futuro que crucen al tramo y que la pantalla resuelva cuál de ellos se lee sin parar.',
   dispositivo: 'iphone',

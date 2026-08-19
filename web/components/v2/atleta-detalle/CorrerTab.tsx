@@ -22,6 +22,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import type { RunningAnalyticsPayload } from '@/lib/coach/running-analytics';
 import { PanelCalibracion, PanelCarga, PanelComprometida, PanelHuella, PanelVolumen } from './correr/paneles';
+import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 
 const GENERADO = new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
@@ -31,7 +32,13 @@ const GENERADO = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid',
 });
 
-export function CorrerTab({ athleteId }: { athleteId: string }) {
+export function CorrerTab({
+  athleteId,
+  weekChipKind,
+}: {
+  athleteId: string;
+  weekChipKind: AthleteWeekChipKind;
+}) {
   const [analytics, setAnalytics] = useState<RunningAnalyticsPayload | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando');
 
@@ -104,7 +111,7 @@ export function CorrerTab({ athleteId }: { athleteId: string }) {
       <div className="mt-1 flex flex-col gap-5">
         <h3 className="v2-micro">Volumen y carga</h3>
         <PanelVolumen analytics={analytics} />
-        <PanelCarga analytics={analytics} />
+        <PanelCarga analytics={analytics} weekChipKind={weekChipKind} />
       </div>
     </div>
   );

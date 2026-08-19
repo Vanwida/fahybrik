@@ -5,7 +5,7 @@
 // su propia máquina, girar el móvil cambiaría el entreno.
 //
 // Los axiomas del dominio, tal y como se ejecutan aquí (espejo de
-// `ios/FAHYBRIK/Workout/WorkoutSession+Tramo.swift` y `LiveTramo.swift`):
+// `ios/FAHYBRIKCore/Workout/WorkoutSession+Tramo.swift` y `LiveTramo.swift`):
 //
 //  1. El crono del tramo arranca cuando la máquina se mueve, no al pulsar
 //     (`armado` → `trabajando`). PERO solo se arma SI HAY MONITOR: sin nada

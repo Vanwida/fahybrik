@@ -8,6 +8,12 @@ import 'server-only';
 //   · the athlete self-test   (/api/athlete/strength-test)              → athlete_test
 //   · the coach test/override (/api/coach/athletes/[id]/strength-test)  → coach_test
 //   · the onboarding seed     (onboarding/submit, version 1)            → onboarding
+//   · the battery bridge      (lib/coach/test-battery-bridge)           → + assignment_id
+//
+// `source` says WHO produced the number; `assignment_id` (0200) says whether a
+// PROTOCOL produced it. Only the bridge sets it — the two direct-entry routes and
+// onboarding leave it null on purpose, and the readers render that honestly
+// instead of claiming a measurement (shared/domain/strength/origen).
 //
 // Reads return the CURRENT (highest-version) max per lift, coach-scoped or
 // athlete-derived, plus the full history for progression. The 1RM MATH lives in
@@ -35,6 +41,7 @@ interface StrengthMaxRow {
   needs_review: boolean;
   version: number;
   notes: string | null;
+  assignment_id: string | null;
   // Returned as JS Date by the postgres driver (timestamptz, uncast) → .toISOString().
   recorded_at: Date;
   created_at: Date;
@@ -52,6 +59,9 @@ export interface InsertStrengthMaxParams {
   one_rm_method: OneRmMethod | null;
   needs_review: boolean;
   notes?: string | null;
+  /** La ocurrencia de batería que produjo este 1RM (0200). Null = alta, coach a
+   *  mano o el atleta apuntándoselo: no hubo protocolo que anclar. */
+  assignment_id?: number | null;
 }
 
 export interface InsertedStrengthMax {
@@ -78,11 +88,12 @@ export async function insertStrengthMaxVersion(
     const rows = await tx<InsertedStrengthMax[]>`
       insert into athlete_strength_maxes
         (athlete_id, exercise_slug, one_rm_kg, source, test_weight_kg, test_reps,
-         one_rm_method, needs_review, version, notes)
+         one_rm_method, needs_review, version, notes, assignment_id)
       values (
         ${params.athlete_id}, ${params.exercise_slug}, ${params.one_rm_kg}, ${params.source},
         ${params.test_weight_kg}, ${params.test_reps}, ${params.one_rm_method},
-        ${params.needs_review}, ${next_version}, ${params.notes ?? null}
+        ${params.needs_review}, ${next_version}, ${params.notes ?? null},
+        ${params.assignment_id ?? null}
       )
       returning id::text, version, recorded_at
     `;
@@ -129,7 +140,8 @@ export async function loadStrengthMaxesForAthlete(params: {
       sm.version,
       sm.notes,
       sm.recorded_at,
-      sm.created_at
+      sm.created_at,
+      sm.assignment_id::text
     from athlete_strength_maxes sm
     join athletes a on a.id = sm.athlete_id and a.coach_id is not null
     where a.id = ${athlete_id}
@@ -166,7 +178,8 @@ export async function loadStrengthMaxes(params: {
       sm.version,
       sm.notes,
       sm.recorded_at,
-      sm.created_at
+      sm.created_at,
+      sm.assignment_id::text
     from athlete_strength_maxes sm
     join athletes a on a.id = sm.athlete_id
     where a.id = ${athlete_id} and a.coach_id = ${coach_id}
@@ -267,7 +280,8 @@ export async function loadStrengthMaxHistory(params: {
       sm.version,
       sm.notes,
       sm.recorded_at,
-      sm.created_at
+      sm.created_at,
+      sm.assignment_id::text
     from athlete_strength_maxes sm
     join athletes a on a.id = sm.athlete_id and a.coach_id is not null
     where a.id = ${athlete_id}
@@ -322,6 +336,7 @@ function parseStrengthRows(rows: StrengthMaxRow[]): AthleteStrengthMax[] {
       notes: r.notes,
       recorded_at: r.recorded_at.toISOString(),
       created_at: r.created_at.toISOString(),
+      assignment_id: r.assignment_id,
     });
     if (parsed.success) out.push(parsed.data);
   }

@@ -20,9 +20,12 @@ import {
   tendenciaAdherencia,
 } from '@/lib/dashboard/v2/ficha-resumen';
 import { mondayOfWeek, isoDateString, startOfDayInBox, addDays } from '@fahybrid/shared/domain/dates';
+import { honestWeekHeading, pickCalendarWeek } from '@fahybrid/shared/domain/coach/honest-week';
 import { FichaCard, FichaLabel, FilaVacia, PillEstado } from './resumen/piezas';
 import { LesionCard } from './resumen/LesionCard';
 import { cn } from '@/lib/utils';
+import { WeekStateChip } from '@/components/v2/WeekStateChip';
+import { OrigenKilo } from './OrigenKilo';
 
 const DAY_SHORT = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'] as const;
 
@@ -39,9 +42,13 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
   const today = todayIsoLocal();
   const monday = isoDateString(mondayOfWeek(startOfDayInBox(new Date())));
   const sunday = isoDateString(addDays(mondayOfWeek(startOfDayInBox(new Date())), 6));
-
-  const week = detalle.plan?.weeks.find((w) => w.week_start === monday) ?? detalle.plan?.weeks[0] ?? null;
-  const dias = week ? diasDeLaSemana(week.days, today) : [];
+  const heading = honestWeekHeading({
+    chip: detalle.header.week_chip,
+    calendarMonday: monday,
+    calendarSunday: sunday,
+  });
+  const week = pickCalendarWeek(detalle.plan?.weeks ?? [], monday);
+  const dias = heading.paint_days && week ? diasDeLaSemana(week.days, today) : [];
   const hechas = dias.filter((d) => d.estado === 'hecha').length;
   const programadas = dias.filter((d) => d.estado !== 'descanso').length;
 
@@ -54,7 +61,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
 
   const weeks = detalle.ficha.adherence_weeks;
   const trend = tendenciaAdherencia(weeks);
-  const frase = interpretarAdherencia(weeks, week?.days ?? null, today);
+  const frase = interpretarAdherencia(weeks, heading.paint_days ? (week?.days ?? null) : null, today);
 
   const checkin = detalle.resumen?.checkin ?? null;
   const respondido = checkinRespondido(checkin?.recorded_for ?? null, detalle.chat?.messages ?? []);
@@ -85,9 +92,10 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
         <FichaCard className="p-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
             <div className="flex flex-wrap items-baseline gap-2">
-              <FichaLabel className="m-0">Esta semana</FichaLabel>
+              <FichaLabel className="m-0">{heading.title}</FichaLabel>
+              <WeekStateChip chip={detalle.header.week_chip} />
               <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">
-                {formatRangoSemana(week?.week_start ?? monday, week?.week_end ?? sunday)}
+                {formatRangoSemana(heading.week_start, heading.week_end)}
                 {fase ? ` · ${fase}` : ''}
               </span>
             </div>
@@ -106,7 +114,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
             </div>
           </div>
 
-          {dias.length === 7 ? (
+          {heading.paint_days && dias.length === 7 ? (
             <div className="grid grid-cols-1 gap-2 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7">
               {dias.map((d, i) => {
                 const href = d.assignment_id
@@ -150,7 +158,9 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
             </div>
           ) : (
             <div className="px-4 pb-4 pt-3">
-              <FilaVacia texto="Sin plan esta semana" cta="Asignar" href={`/atletas/${id}?tab=plan`} />
+              <p className="text-[13px] text-[color:var(--v2-muted)]">
+                {heading.empty_copy ?? 'Sin plan esta semana'}
+              </p>
             </div>
           )}
 
@@ -275,25 +285,22 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
         </div>
 
         <FichaCard>
-          <div className="flex items-baseline justify-between gap-2">
-            <FichaLabel>Referencias</FichaLabel>
-            {squat?.recorded_at ? (
-              <span className="text-[11.5px] text-[color:var(--v2-muted)]">
-                medidas {relativeWeeks(squat.recorded_at)}
-              </span>
-            ) : null}
-          </div>
+          {/* Sin fecha de tarjeta: la llevaba la sentadilla y se la comían el peso
+              muerto y la FC máx. Cada celda dice su propio origen y su cuándo. */}
+          <FichaLabel>Referencias</FichaLabel>
           <div className="mt-3 grid grid-cols-1 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <RefCell
               label="Sentadilla"
               value={squat ? String(Math.round(squat.one_rm_kg)) : null}
               unit="kg"
               delta={squatDelta}
+              origen={<OrigenKilo max={squat} athleteId={id} />}
             />
             <RefCell
               label="Peso muerto"
               value={muerto ? String(Math.round(muerto.one_rm_kg)) : null}
               unit="kg"
+              origen={<OrigenKilo max={muerto} athleteId={id} />}
             />
             <RefCell
               label="FC máx medida"
@@ -400,11 +407,14 @@ function RefCell({
   value,
   unit,
   delta,
+  origen,
 }: {
   label: string;
   value: string | null;
   unit: string;
   delta?: number | null;
+  /** De dónde sale el número. Solo lo llevan las celdas que leen un 1RM. */
+  origen?: React.ReactNode;
 }) {
   return (
     <div className="px-3.5 py-3">
@@ -425,17 +435,9 @@ function RefCell({
       ) : (
         <p className="mt-1 text-[13px] text-[color:var(--v2-faint)]">sin registro</p>
       )}
+      {value ? origen : null}
     </div>
   );
-}
-
-function relativeWeeks(iso: string): string {
-  const then = Date.parse(iso);
-  if (!Number.isFinite(then)) return '';
-  const days = Math.max(0, Math.round((Date.now() - then) / 86_400_000));
-  if (days < 7) return 'hace unos días';
-  const w = Math.round(days / 7);
-  return w === 1 ? 'hace 1 sem' : `hace ${w} sem`;
 }
 
 function BandaAjuste({

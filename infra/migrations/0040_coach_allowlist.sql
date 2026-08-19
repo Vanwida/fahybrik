@@ -15,8 +15,10 @@
 -- and the CHECK below is a second safety net so a raw SQL insert can't smuggle
 -- in a mixed-case duplicate.
 --
--- Backfill: the three emails currently in COACH_ALLOWLIST are inserted so the
--- existing coaches aren't lost when the DB becomes the source of truth.
+-- Backfill: three placeholder emails so a fresh migrate still inserts a valid
+-- allowlist set. Live club emails are data (COACH_ALLOWLIST / dashboard), not
+-- this file. Already-applied environments keep their existing rows
+-- (ON CONFLICT DO NOTHING).
 --
 -- Idempotent: IF NOT EXISTS + ON CONFLICT DO NOTHING throughout.
 
@@ -52,13 +54,13 @@ end $$;
 create unique index if not exists coach_allowlist_email_uidx
   on coach_allowlist (email);
 
--- Backfill the current COACH_ALLOWLIST set so existing coaches survive the
--- cutover to DB-as-source-of-truth. ON CONFLICT DO NOTHING → re-running is safe.
+-- Placeholder allowlist so the INSERT stays valid SQL. Do not put real
+-- operator emails here. ON CONFLICT DO NOTHING → re-running is safe.
 insert into coach_allowlist (email)
 values
-  ('pablo@fabrik.training'),
-  ('vanwida@aistudios.pro'),
-  ('alexsole+coach@gmail.com')
+  ('coach@example.com'),
+  ('coach2@example.com'),
+  ('coach3@example.com')
 on conflict (email) do nothing;
 
 commit;

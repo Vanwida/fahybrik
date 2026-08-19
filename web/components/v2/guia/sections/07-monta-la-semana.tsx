@@ -63,8 +63,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Al abrir un microciclo, su título es editable: haz clic y escribe. El propio panel te lo
         recuerda: <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni
-        jerga impuesta: si tu método se organiza en “Acumulación / Transformación / Realización”,
-        escribes eso; si usas otro lenguaje, escribes el tuyo.{' '}
+        jerga impuesta: escribes el nombre que usa tu método.{' '}
         <em className="em">La metodología es tuya; nosotros solo te damos dónde escribirla.</em>
       </p>
 

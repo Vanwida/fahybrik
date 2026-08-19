@@ -123,8 +123,8 @@ describe('ingestHealthkitBatch — empty table (first ever sync)', () => {
 
     // Workout → 3 rows: training_load + hr + calories_active. Los 2 samples
     // conocidos salen en UNA sentencia (la del `unnest`), no en una cada uno: son 4
-    // sentencias, no 5. No assignment match (lookup returns []), so no
-    // workout_executions insert.
+    // sentencias, no 5. Sin assignment del día, el ingest nace una sesión
+    // importada (assignment_id NULL, mig 0191) y cuenta como executions_linked.
     const biometricInserts = inserts.filter((c) =>
       /insert\s+into\s+biometric_streams/i.test(c.raw),
     );
@@ -144,7 +144,7 @@ describe('ingestHealthkitBatch — empty table (first ever sync)', () => {
     expect(result.workouts_inserted).toBe(1);
     expect(result.workouts_skipped_duplicate).toBe(0);
     expect(result.samples_skipped_unknown_metric).toBe(1);
-    expect(result.executions_linked).toBe(0);
+    expect(result.executions_linked).toBe(1);
   });
 });
 

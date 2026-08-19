@@ -114,14 +114,25 @@ struct RunPreStartFlow: View {
 
     private var locationStep: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            Text("¿Dónde corres hoy?")
-                .font(.system(size: 28, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            bigCard(value: .treadmill, icon: "figure.run",
-                    title: "En cinta", subtitle: "Conéctala y contrólala")
-            bigCard(value: .outdoor, icon: "location.fill",
-                    title: "En la calle", subtitle: "GPS, mapa y ritmo en vivo")
-            Spacer(minLength: 0)
+            // Girado no hay alto para título + dos tarjetas de 120 + botón (≈470 pt
+            // contra ~380 útiles) y este paso puede abrirse YA en apaisado — la
+            // pantalla del entreno permite landscape desde la fase activa. Sin
+            // scroll, el «Continuar» quedaba por debajo del borde y el atleta
+            // atrapado. Misma regla que el vivo: el contenido se desplaza y la
+            // acción queda clavada debajo, en las dos orientaciones.
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    Text("¿Dónde corres hoy?")
+                        .font(.system(size: 28, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                    bigCard(value: .treadmill, icon: "figure.run",
+                            title: "En cinta", subtitle: "Conéctala y contrólala")
+                    bigCard(value: .outdoor, icon: "location.fill",
+                            title: "En la calle", subtitle: "GPS, mapa y ritmo en vivo")
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxHeight: .infinity)
             ExpertPrimaryButton(title: "Continuar", height: 56, enabled: choice != nil) {
                 guard let choice else { return }
                 if choice == .outdoor {
@@ -307,33 +318,42 @@ struct TreadmillConnectGuide: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            Text("Conecta tu cinta")
-                .font(.system(size: 28, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
+            // En apaisado (la cinta puede caerse con el HUD girado, y esta guía es
+            // lo que aparece entonces) el título + guía + nota + dos botones no
+            // caben en ~380 pt: sin scroll, las DOS salidas («Buscar mi cinta» /
+            // «Correr sin conectar») quedaban recortadas bajo el borde. El
+            // contenido se desplaza; las acciones quedan clavadas debajo.
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    Text("Conecta tu cinta")
+                        .font(.system(size: 28, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
 
-            if link.isLive {
-                connectedCard
-            } else {
-                // The belt dropped → say it plainly, ABOVE the how-to. Nothing is
-                // recovering it; "Buscar mi cinta" below is the way back, through the
-                // list, with the athlete choosing.
-                if link == .lost { lostCard }
-                howToCard
-                if isBusy { busyLine }
-            }
+                    if link.isLive {
+                        connectedCard
+                    } else {
+                        // The belt dropped → say it plainly, ABOVE the how-to. Nothing is
+                        // recovering it; "Buscar mi cinta" below is the way back, through the
+                        // list, with the athlete choosing.
+                        if link == .lost { lostCard }
+                        howToCard
+                        if isBusy { busyLine }
+                    }
 
-            compatibilityNote
+                    compatibilityNote
 
-            if let onShareDiagnostics, !link.isLive {
-                Button(action: onShareDiagnostics) {
-                    Text("Compartir diagnóstico")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
+                    if let onShareDiagnostics, !link.isLive {
+                        Button(action: onShareDiagnostics) {
+                            Text("Compartir diagnóstico")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Theme.Color.accentText)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    }
                 }
-                .buttonStyle(PressScaleStyle())
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-
-            Spacer(minLength: 0)
+            .frame(maxHeight: .infinity)
 
             if link.isLive, let onStartConnected {
                 ExpertPrimaryButton(title: "▶ Empezar", height: 56, action: onStartConnected)

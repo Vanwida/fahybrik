@@ -1,5 +1,6 @@
 app_identifier("com.fahybrid.app")
-apple_id(ENV["FASTLANE_USER"] || "vanwida@aistudios.pro")
+# Apple ID comes from FASTLANE_USER. No default — each operator sets their own.
+apple_id(ENV["FASTLANE_USER"])
 
 # Replace once Alex is enrolled in the Apple Developer Program. The 10-char
 # team ID is visible in https://developer.apple.com → Membership.

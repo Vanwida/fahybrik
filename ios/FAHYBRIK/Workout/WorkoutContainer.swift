@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A prescribed / executed workout launch payload. Presenting the brief (or the
 /// read-only executed detail) via `.fullScreenCover(item:)` bound to this value
@@ -191,6 +192,17 @@ struct WorkoutContainer: View {
             }
             await loadPlan()
         }
+        // LA PANTALLA DESPIERTA tiene UN dueño: este contenedor, por fase. Antes
+        // eran booleanos repartidos entre vistas (ActiveWorkoutView ponía false al
+        // desaparecer, RecoveryCaptureView true al aparecer) y en el relevo
+        // .active → .recovery SwiftUI no garantiza el orden onAppear/onDisappear
+        // entre la vista entrante y la saliente: el false podía ganar y la pantalla
+        // se dormía a mitad de la ventana de recuperación de un test. Con la fase
+        // no hay costura que ordenar. La recovery se queda despierta a propósito:
+        // el atleta no toca nada durante la medición.
+        .onChange(of: phase) { _, new in
+            UIApplication.shared.isIdleTimerDisabled = (new == .active || new == .recovery)
+        }
         // The ONE teardown point for the shared BLE device layer (cinta + banda + remo).
         // Fires on EVERY exit of the whole flow — brief-back, clean discard, or a
         // saved finish — but NOT when a sub-cover (the treadmill HUD) opens over the
@@ -199,7 +211,10 @@ struct WorkoutContainer: View {
         // releases the erg + belt the INSTANT the work ends (before the summary, which
         // is the timing the athlete feels); this is the backstop for the paths that
         // never reach it — above all backing out of the brief with a monitor paired.
-        .onDisappear { DeviceHub.shared.stopAll() }
+        .onDisappear {
+            DeviceHub.shared.stopAll()
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 
     @ViewBuilder

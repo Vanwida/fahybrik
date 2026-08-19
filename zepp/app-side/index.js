@@ -1,7 +1,7 @@
 import { BaseSideService } from '@zeppos/zml/base-side'
 
 // El reloj NO puede hacer red directa en Zepp OS: TODA petición al backend de
-// FAHYBRIK pasa por este Side Service (vive en la app Zepp del móvil). El reloj
+// FAHYBRID pasa por este Side Service (vive en la app Zepp del móvil). El reloj
 // pide datos con this.request({method}); aquí respondemos con res(null, payload).
 //
 // Auth: el atleta inicia sesión desde la app de ajustes (email → código, reusa el

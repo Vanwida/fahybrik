@@ -7,7 +7,9 @@ import {
 describe('healthkitActivityToModality', () => {
   test('mapea los enteros estables de Apple a nuestros cubos', () => {
     expect(healthkitActivityToModality(37)).toBe('run');
-    expect(healthkitActivityToModality(52)).toBe('run');
+    // Walking (52) no es run: un paseo a 17 min/km envenena volumen y ritmos.
+    // Criterio del mapeo + reparación del histórico (mig 0192).
+    expect(healthkitActivityToModality(52)).toBe('other');
     expect(healthkitActivityToModality(35)).toBe('row');
     expect(healthkitActivityToModality(60)).toBe('ski');
     expect(healthkitActivityToModality(13)).toBe('bike');

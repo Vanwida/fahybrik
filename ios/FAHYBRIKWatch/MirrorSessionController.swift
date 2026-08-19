@@ -150,8 +150,19 @@ final class MirrorSessionController: NSObject {
 
             let start = Date()
             session.startActivity(with: start)
-            builder.beginCollection(withStart: start) { [weak self] _, _ in
-                Task { @MainActor in self?.beginMirroring() }
+            builder.beginCollection(withStart: start) { [weak self] success, _ in
+                Task { @MainActor in
+                    guard let self, self.builder === builder else { return }
+                    if success {
+                        self.beginMirroring()
+                    } else {
+                        // Sin colección no hay grabación: arrancar el espejo igual
+                        // (como se hacía, descartando el error con `_, _`) dejaba
+                        // watchdog + relay + un canal vivo sobre una sesión que
+                        // jamás iba a guardar nada. Se libera y a idle.
+                        self.resetToIdle()
+                    }
+                }
             }
         } catch {
             resetToIdle()
@@ -230,6 +241,11 @@ final class MirrorSessionController: NSObject {
     }
 
     private func applyFrame(_ f: MirrorStateFrame) {
+        // Los envíos del móvil son Tasks sin orden garantizado: un frame del tick
+        // de 1 Hz puede llegar DESPUÉS del `end`. Aplicarlo durante el cierre
+        // pisaba el estado publicado y llegaba a pausar/reanudar una sesión HK a
+        // medio desmontar. Grabando o nada.
+        guard state == .recording else { return }
         // Path B: cue embedded on the frame (redundancy for a dropped haptic packet).
         if let cue = f.hapticCue {
             playEngineCue(cue, seq: f.hapticSeq)
@@ -368,11 +384,18 @@ final class MirrorSessionController: NSObject {
 
     /// Phone-driven end: save (finish the HKWorkout) or discard (the athlete exited
     /// without recording — no workout lands).
+    ///
+    /// `isClosing` se levanta AQUÍ, en síncrono, no dentro de `closeRecording()`:
+    /// un `Task {}` nunca corre inline, así que dos cierres seguidos (el `end` del
+    /// móvil reintentado, o el toque local cruzándose con él) pasaban ambos el
+    /// guard antes de que el primero llegara a marcarlo — y un `finishWorkout` y
+    /// un `discardWorkout` acababan corriendo en paralelo sobre el mismo builder.
+    /// Es el mismo patrón que `start()` ya aplica con `state`.
     private func finish(save: Bool) {
-        // Accept `.ending` re-entry only if a previous close hung — otherwise ignore.
         guard state == .recording || state == .ending else { return }
         if state == .ending, isClosing { return }
         state = .ending
+        isClosing = true
         Task { await closeRecording(save: save) }
     }
 
@@ -383,6 +406,7 @@ final class MirrorSessionController: NSObject {
         guard state == .recording || state == .ending else { return }
         if state == .ending, isClosing { return }
         state = .ending
+        isClosing = true
         Task { await closeRecording(save: true) }
     }
 
@@ -390,6 +414,7 @@ final class MirrorSessionController: NSObject {
         guard state == .recording || state == .ending else { return }
         if state == .ending, isClosing { return }
         state = .ending
+        isClosing = true
         Task { await closeRecording(save: false) }
     }
 
@@ -400,14 +425,23 @@ final class MirrorSessionController: NSObject {
         // Stop sensor first so a hung archive never sits under an open HK session.
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
 
+        // EL CIERRE OPERA SOBRE LAS INSTANCIAS CAPTURADAS. Un save lento puede
+        // solaparse con el siguiente arranque (`start()` → `forceReleaseStuckSession`
+        // sustituye `self.session`): sin la captura, este Task huérfano mandaba el
+        // `ended` — con el UUID del entreno ANTERIOR — por el canal del entreno
+        // nuevo, y su `session?.end()` + `resetToIdle()` finales tumbaban la
+        // grabación recién empezada. Con ella, el huérfano muere con lo suyo.
+        let closingSession = session
+        let closingBuilder = builder
+
         var workoutUuid: String?
         if save {
             // Bound the HK save: finishWorkout has been observed to hang, which left
             // the wrist on "Guardando…" with the system HKWorkoutSession still live
             // — the only escape was powering off the watch.
-            workoutUuid = await endAndSaveWithTimeout()
+            workoutUuid = await endAndSaveWithTimeout(session: closingSession, builder: closingBuilder)
         } else {
-            builder?.discardWorkout()
+            closingBuilder?.discardWorkout()
         }
 
         // Fase 0 — transfer archive only when saving (best-effort; never blocks idle).
@@ -416,27 +450,38 @@ final class MirrorSessionController: NSObject {
         }
 
         // Relay the finished id BEFORE ending the session (channel dies with it).
-        if let session, let data = MirrorEnvelope.encoding(
+        if let closingSession, let data = MirrorEnvelope.encoding(
             type: MirrorWire.MessageType.ended, MirrorEnded(workoutUuid: workoutUuid)
         ) {
-            try? await session.sendToRemoteWorkoutSession(data: data)
+            try? await closingSession.sendToRemoteWorkoutSession(data: data)
         }
 
         // ALWAYS end the session — this is what releases HealthKit system-wide so
         // the next free/prescribed workout can start without a reboot.
-        session?.end()
+        closingSession?.end()
+
+        // A partir de aquí se toca el estado COMPARTIDO: solo si esta época sigue
+        // siendo la dueña (nadie la sustituyó durante los awaits de arriba).
+        guard session === closingSession else { return }
         session = nil
         builder = nil
 
         WatchHaptics.success()
         try? await Task.sleep(for: Self.savedBeat)
+        // El beat de confirmación también es un await: si en esos 900 ms entró un
+        // arranque nuevo (start() desatasca el `.ending` y crea otra sesión), el
+        // reset ya no es nuestro y se omite.
+        guard state == .ending, session == nil else { return }
         resetToIdle()
     }
 
     /// End collection + finishWorkout, but never wait longer than `saveTimeout`.
     /// On timeout we end the HK session so HealthKit unblocks even if the save
     /// await is stuck (cancellation alone does not abort a hung HealthKit call).
-    private func endAndSaveWithTimeout() async -> String? {
+    /// Session/builder llegan capturados por el cierre dueño — nunca `self.`, que
+    /// puede apuntar ya al entreno siguiente (ver closeRecording).
+    private func endAndSaveWithTimeout(session: HKWorkoutSession?,
+                                       builder: HKLiveWorkoutBuilder?) async -> String? {
         await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
             var resumed = false
             func resumeOnce(_ value: String?) {
@@ -445,7 +490,7 @@ final class MirrorSessionController: NSObject {
                 cont.resume(returning: value)
             }
             Task { @MainActor in
-                let id = await self.endAndSave()
+                let id = await Self.endAndSave(builder: builder)
                 resumeOnce(id)
             }
             Task { @MainActor in
@@ -453,7 +498,7 @@ final class MirrorSessionController: NSObject {
                 // Unstick: ending the session typically causes a hung finishWorkout
                 // to fail/return so the other task can complete; we still resume
                 // here so closeRecording always continues.
-                self.session?.end()
+                session?.end()
                 resumeOnce(nil)
             }
         }
@@ -462,7 +507,7 @@ final class MirrorSessionController: NSObject {
     /// End collection and save the HKWorkout, returning its UUID string (nil on a
     /// save failure). The workout is the source of truth the phone tags its
     /// execution with.
-    private func endAndSave() async -> String? {
+    private static func endAndSave(builder: HKLiveWorkoutBuilder?) async -> String? {
         guard let builder else { return nil }
         do {
             try await builder.endCollection(at: Date())
@@ -534,13 +579,19 @@ final class MirrorSessionController: NSObject {
 
 // MARK: - HKWorkoutSessionDelegate
 
+// TODOS los callbacks comprueban `=== self.session` (o `=== self.builder`): el
+// delegado sobrevive en la sesión VIEJA cuando un cierre lento se solapa con el
+// arranque siguiente (forceReleaseStuckSession la termina y su `.ended` llega
+// tarde, con `self.session` ya apuntando al entreno nuevo). Sin la identidad,
+// ese eco reseteaba — y mataba — la grabación recién empezada.
 extension MirrorSessionController: HKWorkoutSessionDelegate {
     nonisolated func workoutSession(
         _ workoutSession: HKWorkoutSession,
         didReceiveDataFromRemoteWorkoutSession data: [Data]
     ) {
         Task { @MainActor [weak self] in
-            for packet in data { self?.handleRemote(packet) }
+            guard let self, workoutSession === self.session else { return }
+            for packet in data { self.handleRemote(packet) }
         }
     }
 
@@ -551,7 +602,8 @@ extension MirrorSessionController: HKWorkoutSessionDelegate {
         date: Date
     ) {
         Task { @MainActor [weak self] in
-            guard let self, toState == .ended, !self.isClosing, self.state == .recording else { return }
+            guard let self, workoutSession === self.session,
+                  toState == .ended, !self.isClosing, self.state == .recording else { return }
             // An external end we didn't drive (rare) → return the wrist to idle
             // without a second teardown.
             self.resetToIdle()
@@ -563,7 +615,7 @@ extension MirrorSessionController: HKWorkoutSessionDelegate {
         didFailWithError error: Error
     ) {
         Task { @MainActor [weak self] in
-            guard let self, !self.isClosing else { return }
+            guard let self, workoutSession === self.session, !self.isClosing else { return }
             self.resetToIdle()
         }
     }
@@ -580,7 +632,10 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
     ) {
         guard collectedTypes.contains(HKQuantityType(.heartRate)) else { return }
         let stats = workoutBuilder.statistics(for: HKQuantityType(.heartRate))
-        Task { @MainActor [weak self] in self?.applyHR(stats) }
+        Task { @MainActor [weak self] in
+            guard let self, workoutBuilder === self.builder else { return }
+            self.applyHR(stats)
+        }
     }
 
     @MainActor

@@ -45,7 +45,7 @@ Two delivery modes coexist:
 | **`respiration`** / `allDayRespiration` | push | Recovery model input | Resting respiratory rate trend — sensitive early signal for systemic fatigue / illness. |
 | **`bodyComps`** | push | Body composition trend chart in athlete profile | Weight + body fat % from Garmin Index scales. Many of Pablo's athletes use Index. |
 | **`userMetrics`** | push | Athlete profile (VO2 max, fitness age, lactate threshold HR, max HR) | Provides Garmin-derived **VO2 max**, **lactate threshold HR**, **max HR**, **fitness age**. VO2 max is the central anchor for the race predictor and load model. |
-| **`hrv`** *(HRV summaries — overnight window)* | backfill + push | Readiness model, HRV-Status trend chart | Overnight HRV (RMSSD) vs 60-day baseline = HRV Status. Direct ATR transition input: a sustained "low" HRV Status delays the transition into `Transformación`. |
+| **`hrv`** *(HRV summaries — overnight window)* | backfill + push | Readiness model, HRV-Status trend chart | Overnight HRV (RMSSD) vs 60-day baseline = HRV Status. A sustained "low" HRV Status can delay the coach advancing the next microciclo. |
 | **`healthSnapshot`** | push | Athlete deep-dive — 2-min snapshot card | 2-minute multi-metric snapshot (HR, HRV, SpO₂, respiration, stress). Used as a quick "morning check-in" card if the athlete records one. |
 | **`skinTemp`** | push | Recovery model input | Overnight skin temperature deviation from baseline — illness / cycle / overtraining indicator. |
 | **`bloodPressures`** | ❌ not requested v1 | n/a | Sub-population only; no coaching feature relies on it. |
@@ -68,7 +68,7 @@ This means **we are not blocked** on Garmin shipping a particular derived field;
 
 | Type | Delivery | FAHYBRIK feature | Justification |
 |---|---|---|---|
-| **`activities`** | backfill + push | Workout list, history, ATR weekly load | Activity summary (duration, distance, average HR, calories, sport type). Roll-up driver. |
+| **`activities`** | backfill + push | Workout list, history, weekly load | Activity summary (duration, distance, average HR, calories, sport type). Roll-up driver. |
 | **`activityDetails`** | backfill + push | Workout deep-dive, **HYROX lap-to-segment mapping** | Full payload including **laps** and per-sample **HR / cadence / pace / power** streams. Critical for HYROX: athlete presses lap between stations → laps map to template segments → per-station fatigue + HR-decay analytics. |
 | **`activityFiles`** *(FIT)* | on-demand fetch (linked from `activityDetails`) | Source-of-truth raw data archive, downstream re-processing | Raw FIT file. Stored encrypted in EU blob storage. Lets us re-derive metrics later if we improve the analyser. |
 | **`manualActivities`** | push | Coach can see manually-logged sessions | Athlete-entered activities (e.g. a HYROX simulation logged by hand). Prevents gaps in load accounting. |
@@ -94,10 +94,10 @@ If a row below has no feature, the scope shouldn't be requested. Every requested
 | Garmin signal | Feature(s) it powers | Without it, we can… |
 |---|---|---|
 | `dailies` (steps, RHR, calories, intensity minutes) | Today screen, weekly load, RHR-trend recovery flag | …show a degraded "no daily summary" state. Acceptable fallback. |
-| `sleeps` | Readiness model, recovery card, ATR transition gate | …fall back to subjective readiness self-report. Loses fidelity. |
+| `sleeps` | Readiness model, recovery card | …fall back to subjective readiness self-report. Loses fidelity. |
 | `stressDetails` + Body Battery | Readiness model, energy ring, overreaching alert | …lose Pablo's #1 readiness proxy. Significant downgrade. |
-| `hrv` (overnight) | HRV Status chart, ATR transition gate | …rely on RHR trend only — coarser. |
-| `userMetrics` (VO2 max, LTHR, max HR) | Race predictor, HR-zone derivation, ATR `realización` taper | …require manual VO2 max + LTHR entry by the athlete. Friction. |
+| `hrv` (overnight) | HRV Status chart | …rely on RHR trend only — coarser. |
+| `userMetrics` (VO2 max, LTHR, max HR) | Race predictor, HR-zone derivation, taper | …require manual VO2 max + LTHR entry by the athlete. Friction. |
 | `activities` | Workout history, weekly load, dedup with HealthKit | Hard requirement for the coaching loop. Cannot ship without. |
 | `activityDetails` (laps + streams) | **HYROX segment analytics** — per-station fatigue, HR-decay | Hard requirement. The "elite-athlete value" of FAHYBRIK lives here. |
 | `activityFiles` (FIT) | Raw archive, future re-analysis, export-to-coach | Strongly preferred. Without FIT, we lose forensic re-processing. |

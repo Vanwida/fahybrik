@@ -30,7 +30,7 @@
  * over from older seeds) and rebuilds the blank slate — it never touches another
  * coach, and refuses to run against a protected/real coach email.
  *
- * RUN (against the DEMO DB — host must be ep-flat-wind):
+ * RUN (against the DEMO DB — host must match DEMO_NEON_HOST_PREFIX):
  *   cd web && NODE_OPTIONS="--conditions=react-server" \
  *     ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json \
  *     ../infra/scripts/seed_demo_coaches.ts
@@ -82,10 +82,11 @@ const appUrl = () => process.env.APP_URL ?? 'http://localhost:3000';
 // ── CONFIG ───────────────────────────────────────────────────────────────────
 
 /** Coaches that must NEVER be wiped/rewritten by this script (real/seeded). */
-const PROTECTED_COACH_EMAILS = new Set([
-  'alexsole@gmail.com',
-  'pablo@fabrik.training',
-]);
+const protectedFromEnv = (process.env.PROTECTED_COACH_EMAILS ?? 'coach@example.com,coach2@example.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+const PROTECTED_COACH_EMAILS = new Set(protectedFromEnv);
 
 interface CoachSpec {
   email: string;
@@ -269,9 +270,13 @@ async function main() {
   // SEED_DEMO_ALLOW_MAIN=1 overrides the host guard — explicit opt-in for the
   // single-universe era (demo slots live in prod until Alex retires them).
   const host = (process.env.DATABASE_URL ?? '').match(/@([^/?]+)/)?.[1] ?? '';
-  if (!host.includes('ep-flat-wind') && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
+  const demoHost = process.env.DEMO_NEON_HOST_PREFIX?.trim();
+  if (!demoHost) {
+    throw new Error('set DEMO_NEON_HOST_PREFIX (Neon demo-branch host prefix). Do not commit the value.');
+  }
+  if (!host.includes(demoHost) && process.env.SEED_DEMO_ALLOW_MAIN !== '1') {
     throw new Error(
-      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB (ep-flat-wind). ` +
+      `Refusing to run: DATABASE_URL host is "${host || '(unknown)'}", not the DEMO DB. ` +
         `Point DATABASE_URL at the demo branch, or set SEED_DEMO_ALLOW_MAIN=1 on purpose.`,
     );
   }

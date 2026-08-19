@@ -21,6 +21,145 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - La app iOS del atleta, el doble y la landing NO cambian: siguen negro + naranja Fabrik.
 
 **NO hacer:** no reintroducir un toggle de tema en el panel; no devolver el naranja al cromo (solo puede volver como acento configurable del coach); no borrar el bloque dark de `v2-theme.css` mientras la guía monte mockups del atleta.
+## 2026-08-18 · Parcial son tres nombres; el carril dice Visible / Borrador
+
+**El hueco:** `docs/coach-ux-grok.html`. «Parcial» era una palabra para tres cosas: el microciclo a medias de publicar (badge `parcial · N sem en borrador`), la sesión que el atleta guardó a medias (`assignment_status='partial'`), y el MCP `get_plan` («publicado a medias»). En el lienzo, al cambiar de semana, no se veía cuál ve el atleta. Marc (Preview): 17–23 ago en `draft`, 24–30 `published`.
+
+**Decidido:** tres frases de coach, una puerta. Badge = `N de M publicadas` (`publishBadgeLabel`). Carril del microciclo = cada semana `Visible` / `Borrador` (misma puerta que `athleteSeesItFromWeeklyStatus`: solo `draft` esconde). Ejecución cortada = `a medias` (el token DB no cambia). `get_plan` usa el mismo recuento, no «publicado a medias». El enum interno `publish_state: 'partial'` se queda — es mecanismo. Publicar sigue siendo el botón / MCP; cargar el estado no escribe.
+
+**NO hacer:** no auto-publicar. no llamar «parcial» al badge, al carril ni a la ejecución. no mezclar este carril con el chip de la semana calendario (Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan). no exigir fila `published` para pintar Visible.
+
+---
+
+## 2026-08-18 · Hoy del club no pinta salud si nadie ve la semana; el alta no dice «antes de arrancar» con rastro
+
+**El hueco:** recorrido 18-ago, Coach Demo 1 (`docs/coach-ux-recorrido.html`). `/es/hoy`: «3 decisiones» y cuatro checks verdes. Marc (bloque 13–26 jul) + Guillem (sin plan) = 0 semanas vivas. Los verdes decían que el club está sano. Altas: «Esperan tu revisión antes de arrancar» sobre Marc a 32 días, que ya entrenó, chateó y tiene el bloque vencido. El alta no es un portón de existencia del plan: puede quedar abierta encima de alguien que ya vive en el club.
+
+**Decidido:** semana viva = chip `Visible` (el atleta ve sesiones de esta semana calendario). Draft (`No lo ve`) no cuenta: él no la ve. Funciones puras `clubWeekCensus` / `hoyEmptyLane` / `hoyHeadlineKind` / `clubWeekPill`: sin semana viva el vacío de lane es neutro (no check verde, no «Fisiología en verde» ni «Nadie ha fallado»), el tablero vacío no dice que siguen su plan, el pill avisa «Nadie ve esta semana». El alta (`altaStartStance`): la frase «antes de arrancar» solo si NADIE de la cola entrenó, escribió, ni tiene semana Visible / No lo ve / Bloque terminado. Si falta la evidencia, no se afirma. La fila nombra el rastro (`Ya entrenó` / `Ya escribió` / `Bloque terminado`). El alta sigue abierta.
+
+**NO hacer:** no auto-publicar. no auto-asignar el mes siguiente. no mezclar cerrar el alta con asignar el siguiente mes. no pintar check de salud sobre un vacío de entrega.
+
+---
+
+## 2026-08-18 · Resumen y Plan titulan la semana calendario, no un bloque viejo
+
+**El hueco:** el chip del 18-ago dice la verdad (Marc: Bloque terminado; Guillem: Semana vacía / Sin plan) y Resumen/Plan seguían mintiendo al lado. Resumen titulaba «Esta semana» y pintaba `weeks[0]` si el lunes de caja no estaba en el plan anclado — Marc veía 13–19 jul en agosto. Un día sin sesión se pintaba «Descanso», así que una semana vacía eran 7 descansos y la frescura se leía sobre 0 km.
+
+**Decidido:** la semana que se titula es la del chip, siempre el lunes–domingo de caja. Función pura `honestWeekHeading` + `pickCalendarWeek` (nunca `weeks[0]`). Si no hay sesiones esta semana no se pintan los 7 días: se dice Bloque terminado / Semana vacía / Sin plan. En Plan, un payload de julio con chip `bloque_terminado` es `ended` (aterriza en la última semana), no «aún no ha arrancado». Un veredicto de frescura exige sesiones esta semana (`allowsFreshnessVerdict`). No se publica solo.
+
+**NO hacer:** no rellenar una semana vacía con Descanso. No titular un bloque cerrado «Esta semana». No leer TSB como «fresco» cuando el chip es Semana vacía / Bloque terminado / Sin plan.
+
+---
+
+## 2026-08-18 · Chip de estado del atleta: una frase en lista, ficha y semana
+
+**El hueco:** `programming_status` cuenta `workout_assignments` de la semana calendario sin filtrar `weekly_plans.status='draft'`. Un borrador lleno salía «Plan OK» / `week_ok`. El roster metía `no_month`, `empty_week` y el bloque vencido en el mismo «Sin plan». El panel enseñaba la semana sin decir si el atleta la ve. El MCP ya lo dice (`athlete_sees_it`).
+
+**Decidido:** una capa de presentación, no un tercer status de publicación. Función pura `athleteWeekChip` (existencia × visibilidad). Visibilidad = la misma puerta que el móvil y el MCP: solo `draft` esconde; sin fila se ve (10-ago). Cinco frases: Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan. El mismo chip en roster, cabecera de ficha, Resumen y SemanaCanvas. `week_ok` = Visible y sin alerta — un draft lleno no es entregado.
+
+**NO hacer:** no auto-publicar tras MCP ni al pintar el chip. No exigir fila `published` para que se vea (rompe `sin_marcar`). No mezclar este chip con el badge de microciclo (`partial` = semanas en borrador) ni con `assignment_status='partial'` (sesión cortada).
+
+---
+
+## 2026-08-17 · La marca de la app iOS se cambia en un ajuste, no en treinta literales
+
+**El hueco:** este código se vende como FLEXR, así que antes o después hay una segunda app iOS con otro nombre y otro dominio. Hasta hoy eso eran ~30 literales repartidos por sitios que no se buscan juntos: el nombre visible en tres `Info.plist` **y dentro de las diez descripciones de permisos**, el bundle id en cinco targets más `WKCompanionAppBundleIdentifier`, el esquema de URL en dos, el dominio en los dos entitlements y en cuatro ficheros Swift (dos pantallas legales que llevaban cada una su literal, la web de cuenta que se anunciaba como «fuente única» sin serlo, y el origen que valida el reproductor incrustado), y `DEVELOPMENT_TEAM` escrito cuatro veces. **Olvidar uno no rompe la build:** sale a la cara del atleta —una hoja de permisos nombrando otra marca— o, en el caso de `WKCompanionAppBundleIdentifier`, watchOS deja de reconocer la pareja teléfono↔reloj y el teléfono tira cada push a la muñeca sin avisar.
+
+**Decidido:** cinco ajustes en `settings.base` de `ios/project.yml` (`BRAND_DISPLAY_NAME`, `BRAND_BUNDLE_ID`, `BRAND_WEB_DOMAIN`, `BRAND_URL_SCHEME`, `DEVELOPMENT_TEAM`) y todo lo demás los **expande**: los tres `Info.plist` y los dos entitlements por el procesador de plist de Xcode; el Swift a través de `ios/FAHYBRIKCore/Marca.swift`, que lee `CFBundleDisplayName` y una clave nueva `BrandWebDomain` **del propio bundle**. Vive en Core, así que la muñeca dice el mismo nombre sin repetirlo. La consecuencia que importa: el nombre que el sistema pone en su hoja de permisos y el que la app pone en sus alertas ya no pueden discrepar, porque son la misma clave. `FAHYBRIK_API_BASE` se deriva de `app.$(BRAND_WEB_DOMAIN)` pero **sigue siendo ajuste por configuración**: mover de entorno sin cambiar de marca tenía que seguir siendo posible.
+
+**`TBD` en `DEVELOPMENT_TEAM` es deliberado y se queda:** es lo que permite compilar contra el simulador sin cuenta de Apple. Lo que cambia es que ahora está **una vez** y los tres targets firmables lo heredan; divergir era un fallo que solo aparecía al archivar, con la hora de build ya gastada.
+
+**Corrección al 18-ago — el team id SÍ viaja en el repo.** La entrada del 16-ago daba por hecho que no, y esa frase es la razón de que nadie volviera a buscarlo. Está en claro en `web/public/.well-known/apple-app-site-association` (`"appID": "<TEAM_ID>.com.fahybrid.app"`). Sobrevivió a la limpieza del 16-ago porque `.well-known` empieza por punto y `rg` no entra en directorios ocultos sin `--hidden` — la limpieza se hizo con greps que no lo veían. **No se ha quitado:** ese fichero es lo que hace funcionar los enlaces universales de `/invite/*` y `/partner/redeem*` en **producción**, y el valor tiene que estar ahí porque Apple lo exige en el fichero servido (es un identificador público por diseño, no un secreto borrable). Decisión pendiente de Alex: dejarlo asumiendo que es público, o emitirlo en despliegue desde variable de entorno para que el repo no lleve el identificador de ningún operador. Lo que no es defendible es el estado en que el documento afirmaba una cosa y el repo hacía otra. Detalle: `docs/ios-clonabilidad.md` §6.1.
+
+**Añadido el 18-ago, del mismo barrido:** el material de firma de Apple (`*.p12`, `*.cer`, `*.mobileprovision`, `AuthKey_*.p8`) **no estaba en `.gitignore`** mientras `docs/app-store/testflight-checklist.md` afirmaba que sí — una promesa de seguridad falsa en un repo que se clona para vender; ya están los patrones. Los subsistemas de `os.Logger` estaban escritos a mano como `com.fahybrik.*` (con K) mientras el bundle es `com.fahybrid.app`, así que **ningún filtro por bundle encontraba esas trazas**; ahora se derivan de `Bundle.main.bundleIdentifier`. Y las URLs de soporte, marketing y privacidad de la ficha de App Store apuntaban a `fahybrik.com`, un dominio que **no resuelve**: corregidas al dominio real, pero la página de soporte **no existe en ningún idioma** (404) y eso bloquea la revisión de Apple (guía 1.5) — marcado en `metadata-es.md` sin inventar una URL.
+
+**Lo que NO se toca, y es la mitad importante de la decisión:** las **32 claves de almacenamiento con prefijo `fahybrik.`** (`UserDefaults` + Keychain, teléfono y reloj), el sello de HealthKit `FAHYBRIDWrittenByApp` y la firma de `FahybrikWorkoutPlanID`. Llevan la marca dentro y así se quedan: renombrarlas no migra nada y el atleta que ya tiene la app se encuentra sin sesión, sin onboarding y con los entrenos ya programados en la muñeca huérfanos. El prefijo `fahybrik.` además es **mecanismo, no marca**: `AccountService.wipeLocalState()` borra al eliminar cuenta exactamente las claves con ese prefijo, así que una clave sin él sobreviviría al borrado. Y para un clon no hace falta cambiarlas: cada app tiene su sandbox de `UserDefaults`.
+
+**Hueco que queda abierto y necesita decisión:** `FahybrikWorkoutPlanID` marca los entrenos que ponemos en la app Entrenamiento del Apple Watch con cuatro bytes fijos (`0xFA 0x48 0x1B 0x1D`) para reconocer «los nuestros» dentro de una cola compartida con las demás apps. Dos marcas nacidas de este código con la **misma** firma podrían verse y retirarse los entrenos la una a la otra en un reloj con las dos instaladas. La firma tendría que ser distinta por marca, pero no puede derivarse sin más de `BRAND_*` porque cambiarla en FAHYBRID huerfana lo ya programado. Sin resolver a propósito.
+
+**NO hacer:** no escribir el nombre de la marca, el bundle id, el dominio ni el team id en un literal nuevo — se expande el ajuste. No renombrar ninguna clave `fahybrik.*`, ni `FAHYBRIDWrittenByApp`, ni la firma de WorkoutKit. No renombrar `FahybrikApiBase` / `FahybrikDemoEntry`: un clon no gana nada y hay que mover los lectores. No dar por verificada la expansión leyendo el fuente: se lee en el bundle **construido**, y los `applinks:` en el `.xcent` **`-Simulated`** (el otro sale vacío en simulador, sin perfil de aprovisionamiento). Inventario completo, incluido lo que está fuera del grafo de Xcode (Fastlane, docs de App Store, Garmin, Zepp): `docs/ios-clonabilidad.md`.
+---
+
+## 2026-08-17 · El motor de la sesión se reparte por responsabilidad; el estado se queda entero en un fichero
+
+**El hueco:** `WorkoutSession.swift` había llegado a 3.531 líneas con siete cosas distintas dentro del mismo cuerpo de clase: el estado, la máquina de la sesión (arrancar / pausar / avanzar / terminar), el reloj de 0,25 s, tres motores de formato independientes (EMOM, conditioning, carrera estructurada), la construcción del `LapRecord`, la entrada de los aparatos, el hierro por series, el contador de la muñeca y la recuperación tras un corte. Ninguna de las siete se leía sin recorrer las otras seis, y tocar una obligaba a releer el fichero entero para saber si había efectos cruzados. El propio código ya nombraba sus costuras («autocontenido y paralelo al motor EMOM, al que no toca», «el gemelo de erg de `recordRunLegLap`»): estaban dibujadas, sin trazar.
+
+**Decidido:** trece ficheros por responsabilidad — `WorkoutSession.swift` (el estado y los tipos) más `+Lifecycle`, `+Clock`, `+EMOM`, `+Conditioning`, `+RunStructure`, `+BoutRecords`, `+Laps`, `+StructuralBlocks`, `+Strength`, `+Signals`, `+RepCounter`, `+Persistence`, junto a los `+Tramo` y `+Trace` que ya existían. Los tres `record*Bout/Lap` van JUNTOS en `+BoutRecords` precisamente porque el código llevaba escrito que son la misma cosa (una ventana de trabajo cerrada = una fila): separarlos por motor era lo que permitía que fueran divergiendo. Reparto puro: cero cambios de lógica, cero cambios de firma, cero pantallas tocadas. Verificado línea a línea — las 3.294 líneas no vacías del original están las 3.294 en el reparto, cada una una sola vez.
+
+**El precio, explícito:** Swift limita `private` a UN fichero y **no deja declarar una propiedad almacenada en una extensión**. Así que el estado entero (67 propiedades) se queda en `WorkoutSession.swift` y pasa de `private` / `private(set)` a interno, y 27 de los 57 métodos privados se hacen internos porque cruzan el reparto. Los otros 30 siguen privados en su fichero, que es la mitad del punto: `resetSegmentAccumulators`, `mean`, `tickFixed`, `rollRotatingPhase`, `markRunLegStart`, `armBlock`… ya no son alcanzables desde fuera de su motor. No es una invitación a escribir el estado desde fuera del motor que lo posee — es el mismo criterio, y por la misma razón, que ya llevaban `lapErgLastDistance` y los acumuladores del tramo cuando nació `+Tramo`.
+
+**NO hacer:** no meter lógica nueva en `WorkoutSession.swift` — ahí van el estado, los tipos anidados y el `init`, y nada más; no ampliar la superficie interna sin necesidad (si un método nuevo no cruza el reparto, nace `private` en su fichero); no volver a mezclar dos motores en el mismo fichero, ni cablear uno contra otro (siguen siendo paralelos y ninguno toca a los demás); no separar los tres `record*Bout/Lap`; no confundir `+Laps` (el agregado que se GUARDA al cerrar un segmento) con `+BoutRecords` (una fila por ventana de trabajo) ni con `+Tramo` (la ventana que el atleta VE) — son tres cosas y el fichero lo dice.
+
+---
+
+## 2026-08-17 · Lo que comparten teléfono y muñeca lo dice la carpeta, no una lista
+
+**El hueco:** el dominio que corre igual en el iPhone y en el reloj (el motor de la sesión, los modelos de cable, la grafía de los números, los guiones de la muñeca, la señal del sensor) se compartía por una **lista escrita a mano** dentro del target watchOS de `ios/project.yml` — unos 50 `- path:`. La asimetría era el fallo: el teléfono los recibía gratis por incluir su árbol entero (`- path: FAHYBRIK`) y **sólo la muñeca los nombraba uno a uno**. Consecuencias medidas, no hipotéticas: «esto es compartido» no se veía en el fichero sino en un YAML lejano; cada fichero nuevo del dominio dependía de que alguien recordara su línea; y olvidarla no siempre rompía la build — a veces la muñeca se quedaba con **su propia copia**, que es de donde salieron los `position` de una carrera estructurada colapsando en UNA fila al llegar al servidor, las rondas de EMOM, la pendiente y el detalle del erg.
+
+**Decidido:** existe `ios/FAHYBRIKCore/` — la raíz del dominio compartido. Los dos targets la incluyen **entera** (`FAHYBRIK` → `[FAHYBRIK, FAHYBRIKCore]`, `FAHYBRIKWatch` → `[FAHYBRIKWatch, FAHYBRIKCore]`). La pertenencia pasa a ser **dónde vive el fichero**: uno nuevo del dominio entra en ambos sin tocar `project.yml`. Se movieron 52 ficheros conservando su subruta (`FAHYBRIK/Workout/WorkoutSession.swift` → `FAHYBRIKCore/Workout/WorkoutSession.swift`), así que quien conocía una ruta la sigue encontrando.
+
+**NO es un módulo Swift aparte, y se descartó con motivo — no por comodidad:** `Workout/WorkoutModels.swift` lleva `WorkoutExecutionAPI` / `DoblesExecutionAPI` bajo `#if !os(watchOS)`, y esos alcanzan `APIClient` / `RequestQueue`, que viven en la app. **Un framework no puede depender de su host**, así que un módulo real exige partir ese fichero — y partir el motor de ejecución no entra. Además el módulo obligaría a `public` en todas las declaraciones que cruzan y a un `import` en cada pantalla, y `FAHYBRIKTests` (iOS) dejaría de llegar al dominio como llega hoy. Mismo módulo = cero de eso.
+
+**Lo que lo mantiene honesto es la build de todos los días:** la app **embute** la app del reloj, así que cualquier cosa que entre en `FAHYBRIKCore` y no sea portable a watchOS (UIKit, un tipo de la app, ActivityKit) revienta el `xcodebuild -scheme FAHYBRIK` normal. No hay que acordarse de nada ni correr una build especial.
+
+**Fuera a propósito** (siguen en la app o en la muñeca): el PINTADO (`Theme/Theme.swift`, `Theme/LenguajeVivoUI.swift`, `Theme/Haptics.swift` → en la muñeca `FAHYBRIKWatch/WatchHaptics.swift` + su `WatchTheme`), el cable (`Watch/WatchConnectivityiOSService.swift`), el BLE (`Devices/PM5/PM5Service.swift`), la captura CoreMotion (`FAHYBRIKWatch/Sensor/SensorCapture.swift`), la SUBIDA (`Workout/Trace/WorkoutTraceUploader.swift`) y `GuionEscaparate`, el único guion que instancia vistas del reloj.
+
+**NO hacer:** no volver a añadir un `- path: FAHYBRIK/<algo>.swift` al target del reloj — si es compartido, se **mueve** a `FAHYBRIKCore/`; no meter en `FAHYBRIKCore` nada que no compile en watchOS; no confundirlo con el eje **app↔widget** (`Workout/Outdoor/RunActivityAttributes.swift` sigue siendo una línea a mano en `FAHYBRIKWidgets` porque es ActivityKit, no reloj); no dar por buena una ruta `ios/FAHYBRIK/...` de una entrada anterior a esta fecha si el fichero es de los 52 — se resuelve cambiando `FAHYBRIK/` por `FAHYBRIKCore/`. `docs/archivo/**`, `docs/plan-reconocer-movimiento.html` y la migración `0155` conservan las rutas viejas a propósito: son artefactos fechados y una migración aplicada es inmutable.
+
+---
+
+## 2026-08-17 · La piel del club es dato del coach, no marca del binario
+
+**El hueco:** FLEXR es una app y muchos coaches. El dashboard pintaba FAHYBRID y el naranja del token aunque el club tuviera nombre, logo y color propios. `coaches.full_name` es el nombre del workspace (sesión `club_name`); `avatar_url` es la cara de la persona. Ninguno es el lockup.
+
+**Decidido:**
+- Tres columnas en `coaches` (0199): `club_skin_name`, `club_logo_url`, `club_accent_hex`. NULL = marca de ESTE binario (`FAHYBRID`, `/brand/fh-icon-300.png`, `--v2-accent`).
+- Nombre y color los escribe `PATCH /api/coach/club`. El logo solo lo escriben `POST /api/coach/club/logo/confirmar` y `DELETE /api/coach/club/logo`. Aceptar `logo_url` en el PATCH daría dos escritores y una URL inventada.
+- El acento se clava en `.v2-root` (`--v2-accent*`). El dashboard ya lee esas variables; no se pinta club a club en cada botón.
+- Esta tanda solo pinta el dashboard del coach. El atleta (iOS / FLEXR) lee la misma fila cuando exista esa superficie.
+
+**NO hacer:** no reutilizar `coaches.full_name` ni `avatar_url` como wordmark/logo; no hardcodear un naranja de un club; no aceptar `#rgb` ni `rgb()`; no crear tabla nueva para tres nullables.
+
+---
+
+## 2026-08-17 · Cómo entrenas es la entrevista, no el recuadro
+
+**El hueco:** un recuadro vacío («escribe tu método») no sirve. Cinco urgencias tampoco: eso es el borde, no el oficio. La IA no puede escribir sesiones si solo sabe qué hace un martes malo.
+
+**Decidido:**
+- El instrumento son **siete capítulos** (spec `docs/metodologia-coach.html`). Las preguntas y las casillas son mecanismo (código). Las respuestas son método (dato por `coach_id`).
+- Al tocar, el producto **devuelve un párrafo determinista** (`generateMirror`). El coach lo tacha. Plan, chat y MCP leen `mirror_text` (o el generado si no lo ha tocado). Vacío = no imitan.
+- Persistencia: tabla `coach_method_interview` (0197). Columnas explícitas, sin JSON. No se reutiliza `coach_methodology` (0048, muerta) ni el recuadro de #23 (`coach_how_i_work`). #25 (estudio / papers) se queda aparte.
+- Pantalla `/es/como-entrenas`. API `GET/PUT /api/coach/method-interview`.
+
+**NO hacer:** no volver al ensayo vacío. No guardar las casillas en un blob. No mezclar papers en este espejo. No cablear una escuela en las cláusulas del párrafo.
+
+---
+
+## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
+
+**El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.
+
+**Decidido:**
+- Docs/scripts de Vercel prod se plantillan: IDs salen del env del operador, no del repo.
+- Prefijos Neon de demo/main son `DEMO_NEON_HOST_PREFIX` / `MAIN_NEON_HOST_PREFIX`.
+- Emails de allowlist (mig 0040), bypass de coach, default Resend, seeds y docs App Store usan `coach@example.com` (u override por env). La mig 0040 ya aplicada no se reescribe: el INSERT queda funcional con emails ficticios (`ON CONFLICT DO NOTHING`).
+- `DEVELOPMENT_TEAM` vuelve a `TBD`. Fastlane no trae Apple ID por defecto.
+
+**NO hacer:** no reescribir history (`git filter-repo`). No tocar `DEMO_ACCESS`, Clerk keys, ni marca/bundle salvo que el hit sea un email o un team id. No mergear este lote a `main`.
+
+---
+
+## 2026-08-15 · El selector de tipo de test no finge: null degrada, y la carrera por distancia existe
+
+**El hueco (QA visual del Preview):** editar el «5K control» de la batería (carrera, 5000 m en estructura por fases) pintaba «Tipo de test: Remo 2 km · Remo · /500m»; el HYROX half-sim, igual. `TEST_TYPES` no tenía carrera por distancia y `testTypeFromPrescription` era total: toda prescripción que no casaba caía en cascada al default `row_2k`. La guarda del 11-ago en `ArchetypeBlockForm` («un formulario que no puede representar el contenido degrada al editor de items, nunca ceguera») esperaba un null que nunca llegaba. El dato guardado no estaba corrupto — pero si el coach tocaba el selector falso y guardaba, la prescripción real se machacaba con un Remo 2K.
+
+**Decidido:**
+- **`run_5k` entra en el vocabulario cerrado** («Carrera 5 km», run × distance × 5000 m, /km) — el mismo slug que el benchmark que ancla la derivación de zonas de carrera (`BENCH_RUN_5K`, test-battery.ts). Un solo nombre para el mismo esfuerzo, nunca dos.
+- **`testTypeFromPrescription` pasa a ser PARCIAL:** devuelve null cuando la prescripción no es un spec de test de catálogo — sin prescripción (`prescription_json` NULL del half-sim genérico), modalidad que ningún test mide, `structure` por fases (contenido de sesión), scheme no steady, o no fija ni distancia ni tiempo. El null activa la degradación del 11-ago: el coach ve el contenido real, jamás un selector inventado.
+- El «más cercano» dentro de la misma modalidad+medida se conserva (un remo afinado a 2500 m sigue resolviendo a Remo 2 km).
+
+**NO hacer:** no devolver jamás un default cross-modalidad desde el matcher; no montar TestForm sobre contenido con `structure` (tocar el selector + Guardar machacaría las fases); no meter el half-sim en `TEST_TYPES` (deriva nada — no es un resolver de zonas; su forma es el arquetipo `hyrox_sim`).
 
 ---
 
@@ -720,7 +859,7 @@ ya estaban en `segment_executions` con su `leg_index`/`leg_role`/`leg_phase`; lo
 ## 2026-08-11 (noche) · Una repetición es una excursión de ida y vuelta, no un pico periódico — y contar exige CONTEXTO, no solo señal
 
 **Decidido:** el conteo de repeticiones en vivo y la velocidad por repetición se
-rehacen sobre `ios/FAHYBRIK/Sensor/RepTracker.swift`. Se **borran**
+rehacen sobre `ios/FAHYBRIKCore/Sensor/RepTracker.swift`. Se **borran**
 `RepCounter.swift` (conteo por autocorrelación + picos) y
 `BarVelocityEstimator.swift` (velocidad por semiciclos de una ventana móvil). El
 archivo de captura sube a **formato v2** para llevar la **gravedad** en cada
@@ -2262,11 +2401,11 @@ reescribir las tres piezas de HUD — y por la regla de prioridad UX del
 proyecto, necesita su propio pase de diseño antes de tocar código (cómo se ve
 "ronda 2 de 4, estación 3 de 3", el HUD de descanso entre rondas).
 
-**Dónde vive:** `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`),
-`ios/FAHYBRIK/Plan/Prescription.swift` (`restBetweenRoundsS`),
+**Dónde vive:** `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`),
+`ios/FAHYBRIKCore/Plan/Prescription.swift` (`restBetweenRoundsS`),
 `ios/FAHYBRIK/Devices/Treadmill/RunTargetResolver.swift` (el consumidor real
 del target huérfano), `ios/FAHYBRIKTests/Workout/ConditioningFoldTests.swift`.
-Lo pendiente vive en `ios/FAHYBRIK/Workout/LiveTramo.swift` y
+Lo pendiente vive en `ios/FAHYBRIKCore/Workout/LiveTramo.swift` y
 `WorkoutFormatHUDs.swift` — sin tocar.
 
 ---
@@ -2303,7 +2442,7 @@ En el motor en vivo y en el reloj, el cursor por estación que YA EXISTE (`LiveT
 
 **Fuera de este corte, a propósito:** la ruta de sesiones-biblioteca (`template_segments`, la de "Screen 5" / instancias por-atleta, distinta del editor de día que usa `slots_json`) no tiene ningún sitio a nivel de bloque donde guardar esto — no hay `config_json` ahí, el agrupador de bloque son solo columnas de texto repetidas por fila. Se audita y decide aparte antes de tocar su esquema — no se improvisa una columna nueva sin ver antes cuánto contenido circuito real vive ahí.
 
-**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIK/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIK/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
+**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIKCore/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
 
 ---
 
@@ -2434,7 +2573,7 @@ API, ingest, algoritmos.
 procesado en vivo (1–3) no espera archivo.
 
 **Documentos:** plan + `docs/reconocer-el-movimiento.html`; código bajo
-`ios/FAHYBRIK/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
+`ios/FAHYBRIKCore/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
 `web/lib/sync/ingest-sensor-capture.ts`.
 
 ---
@@ -2514,7 +2653,7 @@ Sin dato, cambia el sujeto — no se disfraza.
 **Lo que se verificó antes de decidirlo** (contra el código, no de memoria):
 
 - **`block_position` NO servía.** Es el índice del bloque dentro de la sesión (`editor-serialize.ts:324`, `instantiate-program.ts:621`), no un mecanismo de sub-agrupación. Entre bloque e item no hay nada.
-- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIK/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
+- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIKCore/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
 - **Y aunque se reutilizara, no valdría:** el fold coge únicamente el PRIMER set de cada item (`:1689`). Una superserie de fuerza necesita N series por ejercicio alternando, cada una con su descanso. Por eso `superset` es un camino propio en el motor y no un alias de `rounds`.
 
 **En consecuencia, no hacer:** no añadir un campo de grupo a `WeekDayPartItem` ni a `PrescriptionSet` — la letra del coach es notación de entrada, se consume al importar y muere ahí; no reutilizar `rounds`/`circuit` para una superserie de fuerza (arrancaría un reloj de acondicionamiento y perdería las series); y no dar por hecho que dos items en el mismo bloque rotan — hasta hoy nunca lo han hecho, así que todo bloque `sets` existente sigue siendo series rectas.
@@ -2721,19 +2860,19 @@ La lección general, que es la que hay que recordar: **una regla de dominio meti
 
 ---
 
-## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
+## 2026-07-29 · El catálogo de fases no es del producto — y se barre por semántica, no por prefijo
 
-**Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
+**Decidido (Alex, orden directa):** el producto no trae un catálogo de fases. Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor de notificación de transición sugerida, y los enums huérfanos `block_status` / `macrocycle_status` que el motor de macrociclo dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
 
-**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron `atr_blocks`, `atr_macrocycles` y el enum `atr_block_type`, y dejaron aquí escrito el porqué. Pero **la columna viva no se llamaba `atr_` sino `target_block`**, así que aquella limpieza —que buscó por la cadena «atr»— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (acumulación, transformación, realización, ACC/TRANS/REAL, «fase», «bloque», periodización), nunca por el nombre de la escuela.** Un catálogo de fases puede llamarse cualquier cosa.
+**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron las tablas y el enum del motor de periodización, y dejaron aquí escrito el porqué. Pero **la columna viva no llevaba ese prefijo sino `target_block`**, así que aquella limpieza —que buscó por el prefijo— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (fase, bloque, periodización), nunca por el nombre de un identificador.** Un catálogo de fases puede llamarse cualquier cosa.
 
-**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con valor ATR (ACC 64 · TRANS 4 · REAL 1) eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase ATR.
+**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con un valor de fase concreto eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase de catálogo.
 
 **Qué pasa con el prompt de composición semanal:** `compose-week.ts` metía `bloque=${target_block}` en la lista de plantillas que ve el modelo. Para el 100 % de las plantillas de coaches reales eso era literalmente `bloque=any` — ruido, no señal. Y el canal agnóstico que lo sustituye **ya existía y ya llegaba al modelo**: `focus`, texto libre del coach (2-400 caracteres), que viaja literal como «Foco de la semana (literal del coach): …». El coach dice con sus palabras qué toca esa semana; no se le ofrece el desplegable de la doctrina de otro.
 
 **En consecuencia, no hacer:** no reintroducir un catálogo de fases bajo ningún nombre (`target_block`, `phase`, `block_type` como enum cerrado…) — el ORDEN de los microciclos ES la periodización y su NOMBRE lo pone el coach; no volver a barrer una metodología buscando su sigla; y no meter en un prompt un campo cuyo valor real es `any` en casi todas las filas, porque enseña al modelo una estructura que el coach nunca pidió.
 
-**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. Se le quitó el ATR; la decisión de borrarlo entero o revivirlo agnóstico no está tomada.
+**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. El catálogo de fases ya no está; la decisión de borrar el motor entero o revivirlo agnóstico no está tomada.
 
 ---
 
@@ -2811,7 +2950,7 @@ La lección general, que es la que hay que recordar: **una regla de dominio meti
 2. **Hay CUATRO respuestas a «¿cuántas zonas hay?»** — 5 en `prescription/types.ts`, 6 en `methodology-system.ts`, 7 en `workouts.ts` y `templates.ts`, y 3..7 en `coach_methodology.hr_zone_count`. Ningún coach puede cambiar su modelo de zonas sin tocar cinco ficheros.
 3. **Las zonas de FC están clavadas mientras las de RITMO ya son dato por coach** (`methodology_zones`, 36 filas, cableada de punta a punta). Mismo concepto, dos tratamientos opuestos en el mismo repo — y `hr-zones.ts` se autodenomina «la única fuente» mientras `coach_methodology.hr_anchor` existe y se ignora.
 
-**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y **ATR vivo en el schema** (`['ACC','TRANS','REAL']`, enum `atr_block_type`) contradiciendo a las migraciones 0064/0068 que borraron las fases.
+**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y un catálogo de fases aún citado en copy y comentarios pese a las migraciones 0064/0068 que lo retiraron del schema.
 
 **Orden decidido, y el orden importa:** no se puede hacer editable algo que vive en cinco sitios.
 1. **Capa 0 — desduplicar**: un registro en código (`shared/domain/methodology/profile.ts`) con todos los ajustes y **su valor de hoy como default**. Es refactor puro, cero cambio de comportamiento.
@@ -2946,7 +3085,7 @@ Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (par
 
 ## 2026-07-28 · El TRAMO es la unidad del entreno en vivo — y la salida sigue la MEDIDA, no el movimiento
 
-**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIK/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
+**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIKCore/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
 
 **Cuándo una lista de movimientos ES una ruta de tramos:** cuando la biblioteca manda N segmentos hermanos sin `rounds` escritas y con más de un movimiento (`fixedStation`), como en la simulación de HYROX (plantillas 446 y 489). Entonces **la estación es el tramo**. Un EMOM, un AMRAP, un For Time con rondas, «100 burpees for time» y un 5×500 **no** son rutas y no auto-avanzan: verificado con banco standalone de 52 asserts sobre prescripciones de producción.
 
@@ -3338,6 +3477,57 @@ Lo del cursor es más sutil y salió probando contra una rama de Neon: **postgre
 
 ---
 
+## 2026-08-18 · Lo que le falta al atleta y lo que le falta a la receta son dos ejes
+
+**Decidido:** la tira de asignación de Hoy separa **dos ejes independientes** que
+antes viajaban fundidos en un solo texto y un solo botón:
+
+- **Eje A · programa del atleta** — `nunca_asignado` / `bloque_terminado` /
+  `bloque_en_curso`. Es un hecho **sobre él**, computable siempre a partir de su
+  último recibo de microciclo, y no depende de lo que el coach tenga montado. Es
+  el **titular** de la tarjeta.
+- **Eje B · receta del nivel** — lo que falta en su celda (nivel × días). Espeja
+  `ResolveFailureReason` del resolver. Solo explica **por qué no cabe la
+  propuesta de un clic**, y su arreglo sirve a **toda la celda**, no a este
+  atleta. Se etiqueta «Tu método» para que no se lea como un hecho del atleta.
+
+De ahí **dos puertas separadas**: reponer SU bloque (camino del atleta) y montar
+la receta (camino del método). Nunca una sola haciéndose pasar por la otra. Un
+atleta con bloque vigente deja de aparecer en la tira.
+
+**Por qué:** en el recorrido del 18-ago (`docs/coach-ux-recorrido.html`, hallazgo
+«Método vs atleta»), Marc — que había recorrido un microciclo de biblioteca
+terminado el 26 de julio — y Guillem — que nunca tuvo ninguno — salían con el
+**mismo texto** («No hay secuencia para N3·5d») y el **mismo botón**, a
+periodización. El estado de la receta del coach estaba hablando por el atleta, y
+el único arreglo ofrecido no era el suyo: un bloque de biblioteca se puede
+asignar **sin secuencia ninguna** (Marc es la prueba). El Plan del atleta mandaba
+de vuelta a Hoy y Hoy mandaba a periodización: el círculo se cerraba sin puerta.
+
+**Decidido también:** «el sistema sigue tu método solo» es una **afirmación** y
+exige la entrevista completa (`puedeAfirmarMetodo`: 34/34). Con 2 de 34, Hoy
+describe lo que hace sin atribuirlo a un método que no está escrito. **No
+bloquea nada** — solo deja de afirmarlo.
+
+**En consecuencia, no hacer:** no auto-asignar el siguiente bloque (reponer usa
+`assign-draft`, que deja las semanas en borrador privado con
+`delivery_mode='manual'` — el cron nunca las publica; publicar sigue siendo otro
+acto del coach). No decidir **qué** bloque toca ni **cada cuánto**: eso es método
+del coach, aquí solo se nombra el hueco y se abren las puertas. No bloquear la
+ficha hasta terminar las 34 preguntas. No devolver un tercer estado de
+publicación.
+
+**Dónde vive:** `shared/domain/coach/hoy-asignacion.ts` (los dos ejes, las
+puertas y el copy), `shared/domain/coach/club-hoy.ts` (`hoyIntroCopy`),
+`shared/domain/coach/method-interview.ts` (`puedeAfirmarMetodo`),
+`web/lib/dashboard/v2/hoy-lanes.ts` (recibo → eje A, filtro de hueco),
+`web/components/v2/hoy/AsignacionSugeridaCard.tsx` y
+`web/components/v2/hoy/ReponerBloqueModal.tsx`. Tests:
+`web/tests/coach/hoy-asignacion.test.ts` (barre la matriz 3 programas × 5
+recetas, no solo los dos atletas del recorrido).
+
+---
+
 ## Anteriores (reconstruidas del historial de migraciones)
 
 Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún sitio legible. Se documentan ahora para que nadie las rehaga.
@@ -3348,11 +3538,11 @@ Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún s
 
 **En consecuencia, no hacer:** no reintroducir una tabla de fases. Una fase es el nombre y la duración de una plantilla mensual más su posición en la secuencia.
 
-### Migración 0068 · ATR nunca es del sistema
+### Migración 0068 · El motor de macrociclo no es del sistema
 
-**Decidido:** se retira el motor de macrociclo ATR. La periodización por bloques es contenido del coach, no una estructura del producto.
+**Decidido:** se retira el motor de macrociclo. La periodización por bloques es contenido del coach, no una estructura del producto.
 
-**En consecuencia, no hacer:** no hardcodear ATR ni ninguna otra escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
+**En consecuencia, no hacer:** no hardcodear ninguna escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
 
 ### Migración 0053 · La modalidad es propiedad del ejercicio
 

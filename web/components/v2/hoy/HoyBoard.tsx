@@ -26,7 +26,18 @@ import {
 } from '@/components/v2/orientacion';
 import { Link } from '@/i18n/navigation';
 import type { V2HoyData, V2LaneCard } from '@/lib/dashboard/v2/hoy-lanes';
-import type { PendingIntakeAthlete } from '@/lib/coach/intake';
+import type { PendingAlta } from '@/lib/coach/pending-alta';
+import {
+  clubHasLiveWeek,
+  clubWeekPill,
+  hoyEmptyBoard,
+  hoyEmptyLaneById,
+  hoyHeadlineKind,
+  hoyIntroCopy,
+  type ClubWeekCensus,
+  type HoyIntroCopy,
+  type MethodCoverage,
+} from '@fahybrid/shared/domain/coach/club-hoy';
 import { cn } from '@/lib/utils';
 
 function matches(card: V2LaneCard, q: string): boolean {
@@ -39,26 +50,48 @@ function matches(card: V2LaneCard, q: string): boolean {
 // ("vigilas, no asignas"), not an order of steps.
 const SECTION_KEY = 'hoy';
 
-const HOY_INTRO_LINE: React.ReactNode = (
-  <>
-    <b>Hoy</b> reúne solo lo que necesita tu decisión. El sistema sigue tu método solo, tú aceptas las excepciones.
-  </>
-);
+// «El sistema sigue tu método solo» es una AFIRMACIÓN, y en el recorrido del
+// 18-ago se decía con la entrevista a 2 de 34. El copy lo decide el dominio
+// (hoyIntroCopy): sin método escrito, Hoy describe lo que hace sin atribuirlo a
+// un método que no existe. No bloquea nada — solo deja de afirmarlo.
+function hoyIntroLine(copy: HoyIntroCopy): React.ReactNode {
+  if (copy.afirma_metodo) {
+    return (
+      <>
+        <b>Hoy</b> reúne solo lo que necesita tu decisión. El sistema sigue tu método solo, tú aceptas las excepciones.
+      </>
+    );
+  }
+  if (copy.live) {
+    return (
+      <>
+        <b>Hoy</b> reúne solo lo que necesita tu decisión. Tú aceptas las excepciones.
+      </>
+    );
+  }
+  return (
+    <>
+      <b>Hoy</b> reúne lo que necesita tu decisión. Nadie ve sesiones de esta semana: el vacío no es que el club esté bien.
+    </>
+  );
+}
 
-const HOY_INTRO_STEPS: IntroMicroStep[] = [
-  {
-    title: 'El sistema propone',
-    body: <>Cada atleta cae en su secuencia y recibe el plan automáticamente.</>,
-  },
-  {
-    title: 'Solo sube lo que decide',
-    body: <>Aquí aparece lo que se sale del molde: una señal, un mensaje, un ajuste.</>,
-  },
-  {
-    title: 'Tú aceptas o ajustas',
-    body: <>Una bandeja vacía significa que todo va según tu método.</>,
-  },
-];
+function hoyIntroSteps(copy: HoyIntroCopy): IntroMicroStep[] {
+  return [
+    {
+      title: copy.propone_title,
+      body: <>{copy.propone_body}</>,
+    },
+    {
+      title: 'Solo sube lo que decide',
+      body: <>Aquí aparece lo que se sale del molde: una señal, un mensaje, un ajuste.</>,
+    },
+    {
+      title: 'Tú aceptas o ajustas',
+      body: <>{copy.vacia_body}</>,
+    },
+  ];
+}
 
 export function HoyBoard({
   data,
@@ -66,12 +99,17 @@ export function HoyBoard({
   coachKey,
   pending_intakes,
   activity,
+  week_census,
+  method_coverage,
 }: {
   data: V2HoyData;
   today: string;
   coachKey: string;
-  pending_intakes: PendingIntakeAthlete[];
+  pending_intakes: PendingAlta[];
   activity: ActivityToday;
+  week_census: ClubWeekCensus;
+  /** Cobertura de «Cómo entrenas». Decide si Hoy puede afirmar el método. */
+  method_coverage: MethodCoverage;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -114,6 +152,11 @@ export function HoyBoard({
     data.need_attention_count + pending_intakes.length + data.nivel_sugerido_cards.length +
     data.asignacion_sugerida_cards.length + data.siguiente_microciclo_cards.length +
     data.week_adjustment_cards.length;
+  const live = clubHasLiveWeek(week_census);
+  const headline = hoyHeadlineKind(pendientes, week_census);
+  const weekPill = clubWeekPill(week_census);
+  const emptyBoard = hoyEmptyBoard(week_census, method_coverage);
+  const introCopy = hoyIntroCopy({ live, method: method_coverage });
 
   // `llena` (§6.1): el tablero ocupa el hueco entero y reparte por dentro. Sin
   // esto, la bandeja de un coach al día terminaba donde se acababan sus tiras y
@@ -125,7 +168,7 @@ export function HoyBoard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1 className="v2-display text-3xl sm:text-4xl">
-            {pendientes > 0 ? (
+            {headline === 'decisiones' ? (
               <>
                 <span className="v2-num text-[color:var(--v2-danger)]">{pendientes}</span>
                 <span className="text-[color:var(--v2-fg)]">
@@ -133,6 +176,8 @@ export function HoyBoard({
                   {pendientes === 1 ? 'decisión' : 'decisiones'}
                 </span>
               </>
+            ) : headline === 'sin_semana_viva' ? (
+              <span className="text-[color:var(--v2-fg)]">Nadie ve esta semana</span>
             ) : (
               <span className="text-[color:var(--v2-fg)]">Todo en orden</span>
             )}
@@ -141,10 +186,15 @@ export function HoyBoard({
             ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-body text-[color:var(--v2-muted)]">Hoy · {today}</span>
+            <span className="text-body text-[color:var(--v2-muted)]">Hoy del club · {today}</span>
             <Pill tone="neutral" variant="soft">
               <span className="v2-num">{data.total_athletes}</span>&nbsp;atletas
             </Pill>
+            {week_census.total > 0 ? (
+              <Pill tone={weekPill.tone} variant="soft">
+                {weekPill.label}
+              </Pill>
+            ) : null}
             {data.awaiting_reply_count > 0 ? (
               <Pill tone="info" variant="soft">
                 <span className="v2-num">{data.awaiting_reply_count}</span>&nbsp;sin respuesta
@@ -182,8 +232,8 @@ export function HoyBoard({
         <div className="mt-5">
           <IntroStrip
             icon="visibility"
-            line={HOY_INTRO_LINE}
-            steps={HOY_INTRO_STEPS}
+            line={hoyIntroLine(introCopy)}
+            steps={hoyIntroSteps(introCopy)}
             expanded={orient.expanded}
             onToggle={orient.toggleExpanded}
             onDismiss={orient.dismiss}
@@ -215,23 +265,13 @@ export function HoyBoard({
       <ActividadHoyStrip activity={activity} />
 
       {boardEmpty && !q ? (
-        /* Empty board is a GOOD signal, not an error — teach the reframe. */
+        /* Vacío del tablero: calma solo si alguien ve la semana. */
         <div className="mt-4">
           <TeachingEmptyState
-            icon="check_circle"
-            title="Nada requiere tu atención"
-            whatToDo={
-              <>
-                Tus <span className="v2-num">{data.total_athletes}</span> atletas siguen su plan. El sistema sigue
-                tu método solo.
-              </>
-            }
-            why={
-              <>
-                <b>Esto es buena señal:</b> Hoy se llena solo cuando un atleta se sale del molde, una sesión fallada,
-                un mensaje, alguien listo para subir de nivel.
-              </>
-            }
+            icon={live ? 'check_circle' : 'visibility_off'}
+            title={emptyBoard.title}
+            whatToDo={emptyBoard.what_to_do}
+            why={emptyBoard.why}
             action={
               <Link
                 href="/atletas"
@@ -253,14 +293,24 @@ export function HoyBoard({
            es justo lo que prohíbe el §6.1. */
         <div className="mt-auto grid grid-cols-1 gap-1.5 pt-4 sm:grid-cols-2 xl:grid-cols-4">
           {filteredLanes.map(({ lane, cards }) => (
-            <HoyLane key={lane.id} lane={lane} cards={cards} />
+            <HoyLane
+              key={lane.id}
+              lane={lane}
+              cards={cards}
+              empty={hoyEmptyLaneById(lane.id, week_census)}
+            />
           ))}
         </div>
       ) : (
         /* ── Board · 4 equal lanes ──────────────────────────────────────── */
         <div className="mt-4 grid grid-cols-1 items-start gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           {filteredLanes.map(({ lane, cards }) => (
-            <HoyLane key={lane.id} lane={lane} cards={cards} />
+            <HoyLane
+              key={lane.id}
+              lane={lane}
+              cards={cards}
+              empty={hoyEmptyLaneById(lane.id, week_census)}
+            />
           ))}
         </div>
       )}

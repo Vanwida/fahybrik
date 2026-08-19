@@ -5,6 +5,10 @@ import { FichaCard, FichaLabel, PillEstado } from '../resumen/piezas';
 import type { PlanDay, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import { formatRangoSemana, sesionesDelDia } from '@/lib/dashboard/v2/ficha-resumen';
 import { cn } from '@/lib/utils';
+import { Pill } from '@/components/v2/Pill';
+import { WeekStateChip } from '@/components/v2/WeekStateChip';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { railWeekLabel } from '@fahybrid/shared/domain/coach/microciclo-rail';
 
 /** A day with 8 lifts is a day, not a feed. The grid shows a few and the rest
  *  lives in the day editor. */
@@ -20,6 +24,10 @@ export function SemanaCanvas({
   week,
   todayIso,
   label,
+  chip,
+  viewedRailVisible = null,
+  paintDays = true,
+  emptyCopy = null,
   canPrev,
   canNext,
   showHoy,
@@ -34,6 +42,11 @@ export function SemanaCanvas({
   week: PlanWeekRow;
   todayIso: string;
   label: string;
+  chip: AthleteWeekChip;
+  /** Visibilidad de la semana que se está mirando (carril). null = no está en el microciclo. */
+  viewedRailVisible?: boolean | null;
+  paintDays?: boolean;
+  emptyCopy?: string | null;
   canPrev: boolean;
   canNext: boolean;
   showHoy: boolean;
@@ -50,6 +63,21 @@ export function SemanaCanvas({
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
         <div className="flex flex-wrap items-baseline gap-2">
           <FichaLabel className="m-0">{label}</FichaLabel>
+          {viewedRailVisible == null ? (
+            <WeekStateChip chip={chip} />
+          ) : (
+            <Pill
+              tone={viewedRailVisible ? 'ok' : 'warn'}
+              variant="soft"
+              title={
+                viewedRailVisible
+                  ? 'El atleta ve esta semana'
+                  : 'Borrador · el atleta no la ve'
+              }
+            >
+              {railWeekLabel(viewedRailVisible)}
+            </Pill>
+          )}
           <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">
             {formatRangoSemana(week.week_start, week.week_end)}
           </span>
@@ -75,19 +103,25 @@ export function SemanaCanvas({
 
       {focus ? <div className="px-4 pt-3">{focus}</div> : null}
 
-      <div className="grid grid-cols-1 gap-2.5 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7">
-        {week.days.map((d, i) => (
-          <DiaCol
-            key={d.iso_date}
-            day={d}
-            short={DAY_SHORT[i] ?? d.label}
-            todayIso={todayIso}
-            athleteId={athleteId}
-            onOpen={onOpen}
-            dayHref={dayHref}
-          />
-        ))}
-      </div>
+      {paintDays ? (
+        <div className="grid grid-cols-1 gap-2.5 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7">
+          {week.days.map((d, i) => (
+            <DiaCol
+              key={d.iso_date}
+              day={d}
+              short={DAY_SHORT[i] ?? d.label}
+              todayIso={todayIso}
+              athleteId={athleteId}
+              onOpen={onOpen}
+              dayHref={dayHref}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 pb-4 pt-3">
+          <p className="text-[13px] text-[color:var(--v2-muted)]">{emptyCopy}</p>
+        </div>
+      )}
     </FichaCard>
   );
 }

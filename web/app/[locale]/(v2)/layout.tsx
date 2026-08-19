@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
+import { emptyClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { listThreadsForCoach } from '@/lib/chat/service';
 import { countNewLeads } from '@/lib/dashboard/coach/leads';
 import { countUpcomingCallsSoon } from '@/lib/citas/store';
+import { getClubSkin } from '@/lib/coach/club-skin';
 import { V2Shell } from '@/components/v2/V2Shell';
 import { PushSync } from '@/components/v2/push/PushNotifications';
 import { flexrFontVars } from './fonts';
@@ -58,6 +60,13 @@ export default async function V2Layout({
     leads_nuevo = 0;
   }
 
+  let club = emptyClubSkin();
+  try {
+    club = (await getClubSkin(session.coach_id)) ?? emptyClubSkin();
+  } catch {
+    club = emptyClubSkin();
+  }
+
   return (
     <>
       {/* Headless: registra el SW y refresca la suscripción push de este
@@ -68,6 +77,7 @@ export default async function V2Layout({
         coach_name={session.full_name}
         coach_email={session.email}
         coach_avatar_url={session.avatar_url}
+        club={club}
         unread_messages={unread_messages}
         leads_nuevo={leads_nuevo}
       >

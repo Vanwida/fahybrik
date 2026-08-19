@@ -54,7 +54,7 @@ Recommend pasting this verbatim, edited to taste:
 
 > **FAHYBRIK** is a premium coaching platform for **HYROX and hybrid-training athletes**, operated by Vanwida (Spain). We partner with **Pablo (Fabrik Training Club, Barcelona)**, a HYROX coach whose roster includes elite competitors training for national and international titles.
 >
-> The product has two surfaces: a Swift-native iOS application for athletes, and a Next.js dashboard for the coach. We ingest training, recovery, and physiological data from the athlete's existing wearable so the coach can periodise (we use ATR — Acumulación / Transformación / Realización — block periodisation) and adapt training in near-real-time.
+> The product has two surfaces: a Swift-native iOS application for athletes, and a Next.js dashboard for the coach. We ingest training, recovery, and physiological data from the athlete's existing wearable so the coach can periodise in their own terms and adapt training in near-real-time.
 >
 > Garmin is the primary device family for our target users: HYROX is a running-heavy hybrid sport and elite competitors overwhelmingly train on Forerunner / Fenix / Epix watches. The Garmin Health API is essential because the metrics our coach relies on — **Training Load, Training Status, Body Battery, HRV Status, Race Predictor, VO2 max, daily summaries, and FIT-level lap data from segmented HYROX simulations** — are not exposed (or are exposed in a degraded form) via Apple HealthKit. Apple HealthKit is a complementary but insufficient source for elite-athlete coaching.
 >
@@ -68,7 +68,7 @@ Recommend pasting this verbatim, edited to taste:
 
 - Pablo and the bulk of his elite roster train **exclusively on Garmin** (Forerunner 965 / Fenix 8 / Epix Pro). This is structurally true of the HYROX scene: long aerobic blocks + structured intervals → runners' watches.
 - HealthKit alone **does not surface** Garmin's proprietary metrics that Pablo's methodology depends on:
-  - **Training Load / Training Status** (7-day acute load and rolling balance — central to ATR transitions).
+  - **Training Load / Training Status** (7-day acute load and rolling balance — central to load management).
   - **Body Battery** (sleep/stress-driven readiness signal we use to flag overreaching before it becomes injury).
   - **HRV Status** (overnight HRV vs 60-day baseline — feeds the readiness model).
   - **Race Predictor** (calibrates the realización-block taper for HYROX qualifiers).

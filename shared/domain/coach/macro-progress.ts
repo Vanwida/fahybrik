@@ -26,8 +26,8 @@ export type MacroPhaseAssignment = {
 
 /**
  * Tramo real de un microciclo asignado (AGNÓSTICO) derivado de
- * `athlete_month_assignments`. `block_type` = NOMBRE del microciclo del coach (no
- * una fase ACC/TRANS/REAL). `week_count` = nº de semanas del microciclo
+ * `athlete_month_assignments`. `block_type` = NOMBRE del microciclo del coach.
+ * `week_count` = nº de semanas del microciclo
  * (array_length(microcycle_ids); span por fechas como fallback). `first_week` =
  * índice de semana acumulado (1-based) del primer microciclo del tramo, para
  * mapear la posición dentro del plan completo.

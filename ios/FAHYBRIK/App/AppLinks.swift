@@ -5,7 +5,7 @@ enum AppLinks {
     /// price-free APPLICATION form ("solicita tu plaza") — not a checkout — and it
     /// is opened in the EXTERNAL browser (openURL), so any later web payment
     /// happens clearly outside the app (App Store personal-service posture).
-    static let funnel = URL(string: "https://fahybrid.com/es/empieza")!
+    static var funnel: URL { URL(string: "https://\(Marca.dominioWeb)/es/empieza")! }
 }
 
 /// "¿Aún no entrenas con nosotros? Solicita tu plaza" → opens the funnel in Safari.

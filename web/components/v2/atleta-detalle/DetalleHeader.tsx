@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { DetalleHeader as HeaderData } from '@/lib/dashboard/v2/atleta-detalle-types';
 import type { Pendiente } from '@/lib/dashboard/v2/ficha-resumen';
 import { LifecycleControl } from '@/components/v2/atleta-detalle/lifecycle/LifecycleControl';
+import { WeekStateChip } from '@/components/v2/WeekStateChip';
 
 function HeaderAction({
   href,
@@ -62,6 +63,7 @@ export function DetalleHeader({
                 {header.full_name}
               </h1>
               <LevelBadge level={header.level} />
+              <WeekStateChip chip={header.week_chip} />
             </div>
             <p className="mt-0.5 truncate text-[13px] text-[color:var(--v2-muted)]">{meta}</p>
           </div>

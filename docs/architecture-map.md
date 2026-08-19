@@ -103,7 +103,8 @@ Sin build: `exports` del `package.json` apuntan **directo al `.ts`**, y `web` lo
 - Targets: `FAHYBRIK` (iOS 18+), `FAHYBRIKWatch`, `FAHYBRIKWidgets`, `FAHYBRIKTests`, `FAHYBRIKUITests`.
 - Versión: `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` están **una sola vez** en `project.yml` para los tres targets — divergir dejaba al reloj sin actualizar en silencio.
 - Esquema `FAHYBRIK` con `randomExecutionOrder: true` en `FAHYBRIKTests` (caza tests acoplados por orden). `FAHYBRIKUITests` se auto-salta sin `UITEST_BEARER`.
-- Firma: `DEVELOPMENT_TEAM` en `TBD` — compila para simulador con `CODE_SIGNING_ALLOWED=NO`; **la firma de Distribution es el bloqueante de App Store**.
+- Firma: `DEVELOPMENT_TEAM` en `TBD`, **una sola vez** en `settings.base` y heredado por los tres targets firmables — `TBD` es lo que permite compilar contra el simulador sin cuenta de Apple; **la firma de Distribution es el bloqueante de App Store**.
+- Marca: nombre visible, bundle id, dominio y esquema de URL salen de cuatro `BRAND_*` en `settings.base`; los tres `Info.plist`, los entitlements y `FAHYBRIKCore/Marca.swift` los expanden. Inventario y lo que NO se toca: `docs/ios-clonabilidad.md`.
 
 **Masa por carpeta:** `Workout/` 84 · `Devices/` 39 · `Plan/` 32 · `Onboarding/` 29 · `Analytics/` 26 · `Profile/` 24 · `Watch/` 18 · `Carreras/` 17 · `Dobles/` 16 · `Comunicados/` 15 · `Chat/` 11 · `Today/` 10 · `Theme/` 10 · `App/` 10.
 

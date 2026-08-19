@@ -66,8 +66,14 @@ struct GarminSetupView: View {
         }
     }
 
+    // EL NOMBRE, AQUÍ, ES EL DE LA APP DE CONNECT IQ, no el de esta app: son las
+    // instrucciones para encontrarla en la tienda de Garmin y en el menú del
+    // reloj. Hoy son el mismo (`Marca.nombre` ↔ `@Strings.AppName` de
+    // garmin-ciq/resources/strings/), y tienen que seguir siéndolo: si un clon
+    // renombra solo uno de los dos, estas instrucciones mandan al atleta a
+    // buscar algo que no existe. Ver docs/ios-clonabilidad.md.
     private var stepOne: some View {
-        SetupStep(number: 1, title: "Instala FAHYBRID en tu reloj") {
+        SetupStep(number: 1, title: "Instala \(Marca.nombre) en tu reloj") {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text("Se hace desde la app de Garmin en tu móvil, no desde el reloj.")
                     .font(Theme.Typography.small)
@@ -77,7 +83,7 @@ struct GarminSetupView: View {
                     "Abre Garmin Connect",
                     "Abajo a la derecha, Más",
                     "Tienda Connect IQ",
-                    "Busca FAHYBRID e instálala"
+                    "Busca \(Marca.nombre) e instálala"
                 ])
             }
         }
@@ -98,7 +104,7 @@ struct GarminSetupView: View {
                     "Dispositivos Garmin",
                     "Toca tu reloj",
                     "Actividades y aplicaciones",
-                    "FAHYBRID",
+                    Marca.nombre,
                     "Ajustes"
                 ])
                 Text("Ahí pega tu email y el código. Dale a Guardar.")
@@ -149,7 +155,7 @@ struct GarminSetupView: View {
                 Text("¿Cómo sé que ha funcionado?")
                     .font(Theme.Typography.bodyEmph)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Abre FAHYBRID en el reloj. Si ya no te pide el email, estás dentro: verás el entreno de hoy. Los ajustes tardan unos segundos en llegarle al reloj, así que si aún te lo pide, espera un poco y vuelve a entrar.")
+                Text("Abre \(Marca.nombre) en el reloj. Si ya no te pide el email, estás dentro: verás el entreno de hoy. Los ajustes tardan unos segundos en llegarle al reloj, así que si aún te lo pide, espera un poco y vuelve a entrar.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -163,7 +169,7 @@ struct GarminSetupView: View {
                 Text("Al empezar, el reloj te preguntará dos veces")
                     .font(Theme.Typography.bodyEmph)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Primero si quieres salir de FAHYBRID, y después con qué perfil correr. Elige Correr: a partir de ahí te guía Garmin. Es cosa suya, no un fallo.")
+                Text("Primero si quieres salir de \(Marca.nombre), y después con qué perfil correr. Elige Correr: a partir de ahí te guía Garmin. Es cosa suya, no un fallo.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)

@@ -235,7 +235,8 @@ export async function recordBatteryResults(params: {
     }
   }
 
-  // 2) Strength maxes (versioned projection) for each load entry.
+  // 2) Strength maxes (versioned projection) for each load entry, ancladas a ESTA
+  //    ocurrencia igual que sus marcas.
   for (const e of entries) {
     const spec = specBySlug.get(e.slug)!;
     if (spec.measure !== 'load') continue;
@@ -249,6 +250,10 @@ export async function recordBatteryResults(params: {
         test_reps: null,
         one_rm_method: null,
         needs_review: false,
+        // El ancla (0200). Sin ella la ficha no puede distinguir este kilo —que
+        // salió de esta batería— de uno que el coach escribió a mano, y acaba
+        // llamando «medidas» a las dos cosas.
+        assignment_id,
       },
       sql,
     );

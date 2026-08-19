@@ -45,7 +45,8 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
   { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
   { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
-  // Método — the framework first, then the reusable library, then the tests.
+  // Método — el oficio primero (cómo entrena), luego el marco, la biblioteca y los tests.
+  { href: '/como-entrenas', label: 'Cómo entrenas', icon: 'tune', group: 'metodo' },
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
@@ -62,6 +63,14 @@ export const V2_NAV_GUIDE: V2NavItem = {
   href: '/guia',
   label: 'Guía',
   icon: 'school',
+  group: 'entrenar',
+};
+
+/** Pinned with Guía + Ajustes — the club lockup (name, logo, accent). */
+export const V2_NAV_CLUB: V2NavItem = {
+  href: '/club',
+  label: 'Club',
+  icon: 'storefront',
   group: 'entrenar',
 };
 

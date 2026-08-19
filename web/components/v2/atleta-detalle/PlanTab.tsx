@@ -14,10 +14,22 @@ import { CadenaPersonalPanel } from './CadenaPersonalPanel';
 import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
 import { FichaCard, FichaLabel, FilaVacia } from './resumen/piezas';
 import { SemanaCanvas } from './plan/semana';
+import { MicrocicloRail } from './plan/carril';
 import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import {
+  executionStatusLabel,
+  publishBadgeLabel,
+} from '@fahybrid/shared/domain/coach/microciclo-rail';
+import {
+  honestWeekHeading,
+  initialPlanWeekIndex,
+  planRelationCopy,
+  planWeekRelation,
+} from '@fahybrid/shared/domain/coach/honest-week';
 import { dayCanvasHref } from '@/lib/dashboard/v2/planes-model';
-import { diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
 
 const SESSION_QUERY_PARAM = 'sesion';
@@ -40,6 +52,7 @@ export function PlanTab({
   athlete_id,
   initialSessionId,
   intakePending,
+  weekChip,
 }: {
   plan: AthletePlanPayload | null;
   planMode: 'shared' | 'personal';
@@ -47,6 +60,7 @@ export function PlanTab({
   athlete_id: string;
   initialSessionId?: string | null;
   intakePending?: boolean;
+  weekChip: AthleteWeekChip;
 }) {
   const [openSession, setOpenSession] = useState<string | null>(initialSessionId ?? null);
   const openSessionSynced = useCallback((id: string | null) => {
@@ -58,9 +72,17 @@ export function PlanTab({
     window.history.replaceState(window.history.state, '', url);
   }, []);
 
-  const initialWeekIdx = plan
-    ? Math.max(0, plan.weeks.findIndex((w) => w.days.some((d) => d.is_today)))
-    : 0;
+  const todayBox = startOfDayInBox(new Date());
+  const today = isoDateString(todayBox);
+  const heading = honestWeekHeading({
+    chip: weekChip,
+    calendarMonday: isoDateString(mondayOfWeek(todayBox)),
+    calendarSunday: isoDateString(addDays(mondayOfWeek(todayBox), 6)),
+  });
+  const relation = plan
+    ? planWeekRelation({ chipKind: weekChip.kind, weeks: plan.weeks, today })
+    : 'none';
+  const initialWeekIdx = plan ? initialPlanWeekIndex(plan.weeks, relation) : 0;
   const [weekIdx, setWeekIdx] = useState(initialWeekIdx);
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
   const [revertOpen, setRevertOpen] = useState(false);
@@ -111,23 +133,19 @@ export function PlanTab({
   const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? null;
   const clampedWeekIdx = Math.min(Math.max(weekIdx, 0), plan.weeks.length - 1);
   const activeWeek = plan.weeks[clampedWeekIdx] ?? todayWeek;
-  const isTodayWeek = todayWeek !== null && activeWeek === todayWeek;
-  const planNotStarted = todayWeek === null;
-  const planStartLabel = planNotStarted
-    ? (() => {
-        const firstDay = plan.weeks.flatMap((w) => w.days).find((d) => d.sessions.length > 0);
-        if (!firstDay) return null;
-        const [, m, day] = firstDay.iso_date.split('-');
-        return `${Number(day)} ${MONTHS_SHORT[Number(m) - 1] ?? ''}`;
-      })()
+  const isCalendarWeek = activeWeek?.week_start === heading.week_start;
+  const firstSessionDay = relation === 'not_started'
+    ? plan.weeks.flatMap((w) => w.days).find((d) => d.sessions.length > 0)
     : null;
-
-  const weekLabel = !activeWeek
-    ? 'Semana'
-    : isTodayWeek
-      ? 'Esta semana'
-      : formatWeekRange(activeWeek.week_start, activeWeek.week_end);
-
+  const planStartLabel = firstSessionDay
+    ? `${Number(firstSessionDay.iso_date.split('-')[2])} ${MONTHS_SHORT[Number(firstSessionDay.iso_date.split('-')[1]) - 1] ?? ''}`
+    : null;
+  const relationCopy = planRelationCopy(relation, planStartLabel);
+  const weekLabel = activeWeek
+    ? isCalendarWeek
+      ? heading.title
+      : formatWeekRange(activeWeek.week_start, activeWeek.week_end)
+    : 'Semana';
   const allDays = plan.weeks.flatMap((w) => w.days);
   const todayDay = allDays.find((d) => d.is_today) ?? null;
   const editorTargetDate =
@@ -151,14 +169,13 @@ export function PlanTab({
       : blockName;
 
   const publish = plan.microciclo;
-  const publishLabel =
-    !publish || publish.session_count === 0
-      ? 'sin publicar'
-      : publish.publish_state === 'published'
-        ? 'publicado'
-        : publish.publish_state === 'partial'
-          ? `parcial · ${publish.draft_week_count} sem en borrador`
-          : 'borrador';
+  const publishLabel = publish
+    ? publishBadgeLabel(publish)
+    : null;
+  const railWeeks = publish?.weeks ?? [];
+  const viewedRail = activeWeek
+    ? (railWeeks.find((w) => w.week_start === activeWeek.week_start) ?? null)
+    : null;
 
   return (
     <>
@@ -167,7 +184,7 @@ export function PlanTab({
           <FichaCard>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <FichaLabel>Plan</FichaLabel>
+                <FichaLabel>Plan del atleta</FichaLabel>
                 <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
                   {microName ?? blockName}
                 </p>
@@ -176,9 +193,9 @@ export function PlanTab({
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
-                {planNotStarted && planStartLabel ? (
+                {relationCopy ? (
                   <p className="mt-1 text-[12.5px] text-[color:var(--v2-muted)]">
-                    Aún no ha arrancado · empieza el {planStartLabel}
+                    {relationCopy}
                   </p>
                 ) : null}
               </div>
@@ -239,14 +256,34 @@ export function PlanTab({
             </div>
           </FichaCard>
 
+          {railWeeks.length > 0 ? (
+            <FichaCard>
+              <FichaLabel>Semanas</FichaLabel>
+              <div className="mt-3">
+                <MicrocicloRail
+                  weeks={railWeeks}
+                  activeWeekStart={activeWeek?.week_start ?? null}
+                  onSelect={(weekStart) => {
+                    const idx = plan.weeks.findIndex((w) => w.week_start === weekStart);
+                    if (idx >= 0) setWeekIdx(idx);
+                  }}
+                />
+              </div>
+            </FichaCard>
+          ) : null}
+
           {activeWeek ? (
             <SemanaCanvas
               week={activeWeek}
-              todayIso={isoDateString(startOfDayInBox(new Date()))}
+              todayIso={today}
               label={weekLabel}
+              chip={weekChip}
+              viewedRailVisible={viewedRail ? viewedRail.visible : null}
+              paintDays={!isCalendarWeek || heading.paint_days}
+              emptyCopy={heading.empty_copy}
               canPrev={clampedWeekIdx > 0}
               canNext={clampedWeekIdx < plan.weeks.length - 1}
-              showHoy={!isTodayWeek && todayWeek !== null}
+              showHoy={todayWeek !== null && activeWeek !== todayWeek}
               onPrev={() => setWeekIdx(clampedWeekIdx - 1)}
               onNext={() => setWeekIdx(clampedWeekIdx + 1)}
               onHoy={() => setWeekIdx(initialWeekIdx)}
@@ -298,13 +335,7 @@ export function PlanTab({
                         {s.title}
                       </span>
                       <span className="v2-num shrink-0 text-[12px] text-[color:var(--v2-muted)]">
-                        {s.status === 'completed'
-                          ? 'hecha'
-                          : s.status === 'partial'
-                            ? 'parcial'
-                            : s.status === 'missed'
-                              ? 'sin hacer'
-                              : s.status}
+                        {executionStatusLabel(s.status)}
                         {s.rpe != null ? ` · RPE ${s.rpe}` : ''}
                       </span>
                     </button>

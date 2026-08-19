@@ -30,7 +30,7 @@ export interface MicroWeek {
   index: number;
   name: string;
   focus: string | null;
-  /** Short etiqueta (atr hint / focus / "Semana k"). */
+  /** Short etiqueta (focus / "Semana k"). */
   label: string;
   session_count: number;
   /** Always 7 entries, Mon→Sun. */

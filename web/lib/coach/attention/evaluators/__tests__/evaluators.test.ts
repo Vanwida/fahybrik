@@ -221,11 +221,18 @@ describe('transition_ready', () => {
 });
 
 describe('programming_status', () => {
-  it("fires critical on 'month_2_pending'", () => {
-    const r = fired('programming_status', baseFacts({ programming_status: 'month_2_pending', programming_label: 'Mes 2', programming_detail: 'pendiente' }));
+  it("fires warning on 'month_2_pending' (propuesta, no bloque seco)", () => {
+    const r = fired('programming_status', baseFacts({ programming_status: 'month_2_pending', programming_label: 'Propuesta de mes pendiente', programming_detail: 'Hay un bloque mensual por validar' }));
+    expect(r.severity).toBe('warning');
+    expect(r.label).toBe('Propuesta de mes pendiente');
+    expect(r.detail).toBe('Hay un bloque mensual por validar');
+  });
+
+  it("fires critical on 'block_ended'", () => {
+    const r = fired('programming_status', baseFacts({ programming_status: 'block_ended', programming_label: 'Bloque terminado', programming_detail: 'Sin siguiente bloque' }));
     expect(r.severity).toBe('critical');
-    expect(r.label).toBe('Mes 2');
-    expect(r.detail).toBe('pendiente');
+    expect(r.label).toBe('Bloque terminado');
+    expect(r.detail).toBe('Sin siguiente bloque');
   });
 
   it("fires warning on 'no_month'", () => {

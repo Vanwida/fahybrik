@@ -12,7 +12,7 @@ export const AUTH_CONFIG = {
   appleIssuer: 'https://appleid.apple.com',
   appleJwksUrl: 'https://appleid.apple.com/auth/keys',
   resendApiKey: () => process.env.RESEND_API_KEY ?? '',
-  resendFromEmail: () => process.env.RESEND_FROM_EMAIL ?? 'Fahybrik <noreply@aistudios.pro>',
+  resendFromEmail: () => process.env.RESEND_FROM_EMAIL ?? 'Coach <noreply@example.com>',
   appUrl: () => process.env.APP_URL ?? 'http://localhost:3000',
   coachAllowlist: (): string[] =>
     (process.env.COACH_ALLOWLIST ?? '')
