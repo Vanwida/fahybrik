@@ -89,7 +89,7 @@ export function SegmentRow({
     return (
       <div
         className={cn(
-          'group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
+          'group flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
         )}
       >
         <span
@@ -121,7 +121,7 @@ export function SegmentRow({
   return (
     <div
       className={cn(
-        'rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] p-3',
+        'rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] p-3',
         'border-[color:var(--v2-accent)]/45',
       )}
     >

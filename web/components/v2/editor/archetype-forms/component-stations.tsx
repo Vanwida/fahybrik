@@ -114,7 +114,7 @@ export function FormatParamField({
                   : `Poner un rango de ${label.toLowerCase()}`
               }
               className={cn(
-                'v2-focus inline-flex h-[34px] shrink-0 items-center rounded-[var(--v2-r-pill)] border px-3 text-[13px] font-bold transition-colors',
+                'v2-focus inline-flex h-[34px] shrink-0 items-center rounded-[var(--v2-r-pill)] border px-3 text-body font-bold transition-colors',
                 isRange
                   ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
                   : 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
@@ -257,7 +257,7 @@ export function ComponentStationRow({
   };
 
   return (
-    <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2">
+    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2">
       <div className="flex items-center gap-2">
         <div className="flex shrink-0 flex-col" aria-label={`Ordenar la estación ${index + 1}`}>
           <button

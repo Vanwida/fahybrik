@@ -179,7 +179,7 @@ function RepeatBlock({
   // CLOSED — the whole repeat folds to one sentence: "6 × 1000 m @ 4:30 · rec 2'".
   if (!expanded) {
     return (
-      <div className="group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent-soft)] bg-[color:var(--v2-accent-soft)]/30 px-3 py-2.5">
+      <div className="group flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent-soft)] bg-[color:var(--v2-accent-soft)]/30 px-3 py-2.5">
         <MIcon name="repeat" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
         <button
           type="button"
@@ -201,7 +201,7 @@ function RepeatBlock({
   }
 
   return (
-    <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)]/30 p-2">
+    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)]/30 p-2">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 text-xs font-bold text-[color:var(--v2-accent)]">
           <MIcon name="repeat" size={14} />

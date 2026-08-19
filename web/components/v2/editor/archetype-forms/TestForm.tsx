@@ -2,8 +2,8 @@
 
 // TestForm — the TEST archetype's light form (UX pase 2026-06-25 §2). The coach
 // picks the test TYPE; the modality auto-sets from it, the objective is always
-// RPE 10 (máximo), and a naranja note declares "almacena ritmo / zonas" — the line
-// that makes the test a RESOLVER, not a log. The form edits ONE item's
+// RPE 10 (máximo), and an accent-toned note declares "almacena ritmo / zonas" — the
+// line that makes the test a RESOLVER, not a log. The form edits ONE item's
 // Prescription: picking a type reshapes the prescription (modality + measure +
 // amount) via the test-template factory, so the persisted block round-trips back
 // to its type with no extra metadata.
@@ -83,7 +83,7 @@ export function TestForm({
       {/* Protocol descriptor */}
       <p className="text-label text-[color:var(--v2-muted)]">{protocol}</p>
 
-      {/* "Almacena ritmo / zonas" — the resolver declaration (naranja) */}
+      {/* "Almacena ritmo / zonas" — the resolver declaration (acento) */}
       <div
         className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5"
         style={{ background: 'var(--v2-accent-soft)' }}
