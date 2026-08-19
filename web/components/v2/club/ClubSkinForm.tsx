@@ -247,7 +247,7 @@ export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
           <p className="text-xs text-[color:var(--v2-danger)]">El color tiene que ser #RRGGBB.</p>
         ) : (
           <p className="text-xs text-[color:var(--v2-muted)]">
-            Vacío = naranja de marca. Se aplica a botones, foco y el rail activo del dashboard.
+            Vacío = el neutro del panel. Se aplica a botones, foco y el rail activo del dashboard.
           </p>
         )}
       </div>
