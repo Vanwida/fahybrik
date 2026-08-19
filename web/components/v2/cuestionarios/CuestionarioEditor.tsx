@@ -221,7 +221,7 @@ export function CuestionarioEditor({
                     onClick={() =>
                       onChange({ ...draft, definition: addOption(draft.definition, si, qi) })
                     }
-                    className="v2-focus self-start text-xs font-semibold text-[color:var(--v2-accent)]"
+                    className="v2-focus self-start text-xs font-semibold text-[color:var(--v2-accent-text)]"
                   >
                     Añadir opción
                   </button>
@@ -233,7 +233,7 @@ export function CuestionarioEditor({
           <button
             type="button"
             onClick={() => onChange({ ...draft, definition: addQuestion(draft.definition, si) })}
-            className="v2-focus self-start text-xs font-semibold text-[color:var(--v2-accent)]"
+            className="v2-focus self-start text-xs font-semibold text-[color:var(--v2-accent-text)]"
           >
             Añadir pregunta
           </button>
@@ -243,7 +243,7 @@ export function CuestionarioEditor({
       <button
         type="button"
         onClick={() => onChange({ ...draft, definition: addStep(draft.definition) })}
-        className="v2-focus inline-flex items-center gap-1 self-start text-sm font-semibold text-[color:var(--v2-accent)]"
+        className="v2-focus inline-flex items-center gap-1 self-start text-sm font-semibold text-[color:var(--v2-accent-text)]"
       >
         <MIcon name="add" size={16} /> Añadir paso
       </button>
