@@ -55,6 +55,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
         modality: a.modality,
         location,
         coach_name: session.club_name,
+        coach_id: session.coach_id,
       });
     }
     return jsonOk({ appointment: a });

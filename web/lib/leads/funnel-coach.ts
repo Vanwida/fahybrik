@@ -87,3 +87,28 @@ export async function coachNameForLead(client: Sql, lead_id: bigint): Promise<st
     return COACH_FALLBACK_SUBJECT;
   }
 }
+
+/**
+ * El `coach_id` de un lead YA CAPTURADO — la misma atribución que
+ * `coachNameForLead`, pero el id en vez del nombre (para resolver la piel del
+ * correo: `resolveClubEmailSkin` necesita `coach_id`, no el nombre).
+ *
+ * `null` cuando el lead no tiene dueño, no existe, o la lectura falla. NUNCA
+ * lanza: se llama junto a un envío de correo, y un fallo aquí no debe tumbarlo
+ * — sin coach_id, el correo se pinta con la marca del binario (comportamiento
+ * de siempre).
+ */
+export async function coachIdForLead(client: Sql, lead_id: bigint): Promise<bigint | null> {
+  try {
+    const rows = await client<{ coach_id: string | null }[]>`
+      select l.coach_id::text as coach_id
+      from leads l
+      where l.id = ${lead_id as unknown as number}
+      limit 1
+    `;
+    const raw = rows[0]?.coach_id;
+    return raw == null ? null : BigInt(raw);
+  } catch {
+    return null;
+  }
+}

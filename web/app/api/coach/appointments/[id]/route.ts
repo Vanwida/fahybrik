@@ -77,6 +77,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     // botón: el lead reservó con el club, y así el correo dice lo mismo lo firme quien
     // lo firme desde el panel.
     coach_name: session.club_name,
+    coach_id: session.coach_id,
   });
 
   try {

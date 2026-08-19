@@ -147,6 +147,7 @@ async function altaComp(params: {
   const email = await sendAltaEmail({
     to: tx.email,
     name: input.full_name,
+    coach_id,
   });
 
   return {

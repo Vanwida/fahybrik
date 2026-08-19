@@ -3,6 +3,7 @@ import 'server-only';
 import { Resend } from 'resend';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { APP_STORE_URL } from '@/lib/invites/deeplinks';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 // Alta / access email (funnel #5) — sent to the athlete when their access is
 // ready: right away on a COMP alta, and after payment on the STRIPE path (the
@@ -17,6 +18,9 @@ import { APP_STORE_URL } from '@/lib/invites/deeplinks';
 export interface SendAltaEmailInput {
   to: string;
   name: string;
+  /** El club al que se acaba de dar de alta el atleta — pinta su piel (nombre + acento)
+   *  en vez de la marca de este binario. Ausente/nulo → marca de este binario, como hoy. */
+  coach_id?: bigint | number | null;
 }
 
 export interface SendAltaEmailResult {
@@ -41,6 +45,7 @@ export async function sendAltaEmail(input: SendAltaEmailInput): Promise<SendAlta
     return { sent: false, skipped_reason: 'resend_not_configured' };
   }
 
+  const skin = await resolveClubEmailSkin(input.coach_id ?? null);
   const firstName = input.name.trim().split(/\s+/)[0] || '';
   const greeting = firstName ? `Hola ${esc(firstName)},` : 'Hola,';
   const email = input.to;
@@ -48,7 +53,7 @@ export async function sendAltaEmail(input: SendAltaEmailInput): Promise<SendAlta
   const storeCta =
     APP_STORE_URL.trim().length > 0
       ? `<a href="${esc(APP_STORE_URL)}"
-           style="display:inline-block;margin:22px 0 6px;background:#F06A2A;color:#0a0a0a;font-weight:800;font-size:16px;text-decoration:none;padding:14px 26px;border-radius:999px;">
+           style="display:inline-block;margin:22px 0 6px;background:${skin.dark.fill};color:${skin.dark.on_fill};font-weight:800;font-size:16px;text-decoration:none;padding:14px 26px;border-radius:999px;">
           Descargar en App Store →
         </a>`
       : `<p style="margin:22px 0 6px;font-size:14px;color:#8a8a8a;">Te avisaremos en cuanto la app esté disponible para descargar.</p>`;
@@ -56,10 +61,10 @@ export async function sendAltaEmail(input: SendAltaEmailInput): Promise<SendAlta
   const html = `<!doctype html>
 <html lang="es"><body style="margin:0;background:#0a0a0a;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;padding:40px 24px;color:#f4f4f4;">
-    <div style="font-style:italic;font-weight:800;letter-spacing:0.14em;font-size:13px;color:#F06A2A;text-transform:uppercase;">FAHYBRID</div>
+    <div style="font-style:italic;font-weight:800;letter-spacing:0.14em;font-size:13px;color:${skin.dark.text};text-transform:uppercase;">${esc(skin.wordmark)}</div>
     <h1 style="font-style:italic;font-weight:900;font-size:26px;line-height:1.1;margin:14px 0 8px;">${greeting}</h1>
     <p style="font-size:16px;line-height:1.55;color:#d4d4d4;margin:0 0 8px;">
-      Ya tienes tu sitio en FAHYBRID. Descarga la app y entra con tu email:
+      Ya tienes tu sitio en ${esc(skin.wordmark)}. Descarga la app y entra con tu email:
     </p>
     <p style="font-size:16px;line-height:1.55;color:#f4f4f4;margin:0 0 4px;font-weight:700;">${esc(email)}</p>
     <p style="font-size:15px;line-height:1.55;color:#9a9a9a;margin:0;">
@@ -72,7 +77,7 @@ export async function sendAltaEmail(input: SendAltaEmailInput): Promise<SendAlta
 
   const text = `${greeting}
 
-Ya tienes tu sitio en FAHYBRID. Descarga la app y entra con tu email:
+Ya tienes tu sitio en ${skin.wordmark}. Descarga la app y entra con tu email:
 
 ${email}
 
@@ -85,7 +90,7 @@ Nos vemos dentro.`;
     const { error } = await resend.emails.send({
       from: AUTH_CONFIG.resendFromEmail(),
       to: input.to,
-      subject: 'Ya tienes tu sitio en FAHYBRID',
+      subject: `Ya tienes tu sitio en ${skin.wordmark}`,
       html,
       text,
     });

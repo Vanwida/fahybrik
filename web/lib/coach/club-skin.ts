@@ -5,7 +5,13 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { emptyClubSkin, type ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
+import {
+  emptyClubSkin,
+  normalizeAccentHex,
+  resolveClubBrand,
+  type ClubSkin,
+} from '@fahybrid/shared/domain/coach/club-skin';
+import { buildClubAccent } from '@fahybrid/shared/domain/coach/club-accent';
 import type { ClubSkinPatch } from '@fahybrid/shared/schema/coach-club-skin';
 
 interface ClubSkinRow {
@@ -55,4 +61,52 @@ export async function updateClubSkin(
   });
 
   return getClubSkin(id, client);
+}
+
+/** Un acento ya resuelto para UNA superficie de correo (fondo claro u oscuro). */
+export interface ClubEmailAccent {
+  /** Relleno de un botón/CTA. */
+  fill: string;
+  /** Texto ENCIMA de ese relleno. */
+  on_fill: string;
+  /** El acento usado como texto suelto (la etiqueta de marca). */
+  text: string;
+}
+
+export interface ClubEmailSkin {
+  /** Nombre a pintar como marca: el del club, o «FAHYBRID» si no ha puesto piel. */
+  wordmark: string;
+  /** Acento para un correo de fondo CLARO (blanco) — leads, citas, código de acceso. */
+  light: ClubEmailAccent;
+  /** Acento para un correo de fondo OSCURO (casi negro, estilo app) — alta, resumen de sesión. */
+  dark: ClubEmailAccent;
+}
+
+/** El binario, tal cual se pinta HOY en cada plantilla sin piel — ni un byte cambia. */
+const DEFAULT_EMAIL_ACCENT: ClubEmailAccent = { fill: '#F06A2A', on_fill: '#0a0a0a', text: '#F06A2A' };
+
+/**
+ * La piel de un correo para el coach `coach_id`: el nombre que hace de marca y el
+ * acento ya resuelto para las dos superficies que usan las plantillas de correo.
+ * Una sola pieza que reutilizan todos los envíos en vez de repetir la derivación.
+ *
+ * `coach_id` nulo, o un coach que no ha tocado su piel → EXACTAMENTE lo de hoy
+ * (wordmark "FAHYBRID", el naranja fijo): un correo sin piel no cambia ni un byte.
+ */
+export async function resolveClubEmailSkin(
+  coach_id: bigint | number | null | undefined,
+  client: Sql = defaultSql,
+): Promise<ClubEmailSkin> {
+  const skin = coach_id == null ? null : await getClubSkin(coach_id, client);
+  const brand = resolveClubBrand(skin ?? emptyClubSkin());
+  const family = buildClubAccent(normalizeAccentHex(skin?.accent_hex));
+  return {
+    wordmark: brand.wordmark,
+    light: family
+      ? { fill: family.light.fill, on_fill: family.light.on_fill, text: family.light.text }
+      : DEFAULT_EMAIL_ACCENT,
+    dark: family
+      ? { fill: family.dark.fill, on_fill: family.dark.on_fill, text: family.dark.text }
+      : DEFAULT_EMAIL_ACCENT,
+  };
 }

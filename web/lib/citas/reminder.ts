@@ -48,6 +48,8 @@ interface CandidateRow {
   // El coach que atiende la cita: el del lead (leads.coach_id) o el del atleta
   // (athletes.coach_id) según por dónde entró. Null = sin dueño o sin nombre puesto.
   coach_name: string | null;
+  // El id del mismo coach (para resolver la piel del correo). Null = sin dueño.
+  coach_id: string | null;
 }
 
 export interface SendDueCitaRemindersResult {
@@ -75,6 +77,7 @@ export interface SendDueCitaRemindersParams {
     modality: CitaModality;
     location?: { name: string | null; address: string | null } | null;
     coach_name?: string | null;
+    coach_id?: string | null;
   }) => Promise<CitaEmailResult>;
 }
 
@@ -92,7 +95,8 @@ export async function sendDueCitaReminders(
     select a.id::text as id, a.requested_start, a.meet_link, a.modality::text as modality,
            coalesce(l.email, u.email)      as lead_email,
            coalesce(l.nombre, ath.full_name) as lead_nombre,
-           coalesce(lc.full_name, ac.full_name) as coach_name
+           coalesce(lc.full_name, ac.full_name) as coach_name,
+           coalesce(lc.id, ac.id)::text as coach_id
     from appointments a
     left join leads l    on l.id = a.lead_id
     left join athletes ath on ath.id = a.athlete_id
@@ -139,6 +143,7 @@ export async function sendDueCitaReminders(
         modality: c.modality,
         location: c.modality === 'presencial' ? studioLocation : null,
         coach_name: c.coach_name,
+        coach_id: c.coach_id,
       });
     } catch {
       // A thrown error (e.g. Zod on a malformed row) is treated as a failed send.

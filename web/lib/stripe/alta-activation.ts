@@ -123,6 +123,7 @@ export async function activateAltaOnCheckout(args: {
   const send = await sendAltaEmail({
     to: athlete.email,
     name: athlete.full_name,
+    coach_id: BigInt(athlete.coach_id),
   });
   if (!send.sent) {
     // Only a genuine transient send failure releases the stamp for a Stripe
