@@ -37,6 +37,10 @@ enum MirrorWire {
         static let haptic = "haptic"
         /// Watch → phone: a live heart-rate sample from the wrist sensor.
         static let hr = "hr"
+        /// Watch → phone: metros que acaba de contar el HKWorkout (outdoor o
+        /// indoor). Es la distancia de Apple, no un integrador del teléfono.
+        /// ADDITIVE: un teléfono viejo ignora el tipo y sigue.
+        static let distance = "distance"
         /// Watch → phone: a control tap relayed to the phone's engine.
         static let command = "command"
         /// Watch → phone: recording closed; carries the HKWorkout UUID (nil on
@@ -310,6 +314,14 @@ struct MirrorHaptic: Codable, Equatable {
 /// engine (and stops its own sparse HealthKit HR reader while the wrist streams).
 struct MirrorHRSample: Codable {
     let bpm: Int
+}
+
+/// Watch → phone: un incremento de distancia del HKLiveWorkoutBuilder
+/// (`distanceWalkingRunning`). El teléfono lo mete en el motor como `.healthkit`.
+/// Sin este paquete el teléfono no tiene cifra: el podómetro es pasos × zancada
+/// y está prohibido.
+struct MirrorDistanceSample: Codable {
+    let deltaMeters: Double
 }
 
 /// Watch → phone: a wrist control tap (MirrorWire.CommandKind). The phone's

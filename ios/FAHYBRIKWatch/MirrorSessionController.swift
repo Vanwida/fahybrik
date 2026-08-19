@@ -79,6 +79,9 @@ final class MirrorSessionController: NSObject {
     /// re-enter the close path.
     private var isClosing = false
     private var lastHRRelayAt: Date = .distantPast
+    /// Cumulative Apple distance last relayed, so we emit only the increment.
+    private var lastReportedDistance: Double = 0
+    private var lastDistanceRelayAt: Date = .distantPast
     /// Later of "recording started" and "last frame" — the watchdog reference.
     private var lastSignalAt: Date = .distantPast
     private var watchdog: Timer?
@@ -375,6 +378,11 @@ final class MirrorSessionController: NSObject {
         send(type: MirrorWire.MessageType.hr, MirrorHRSample(bpm: bpm))
     }
 
+    private func relayDistance(_ deltaMeters: Double) {
+        guard deltaMeters > 0 else { return }
+        send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: deltaMeters))
+    }
+
     private func send<P: Encodable>(type: String, _ payload: P) {
         guard let session, let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         Task { try? await session.sendToRemoteWorkoutSession(data: data) }
@@ -630,11 +638,14 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
         _ workoutBuilder: HKLiveWorkoutBuilder,
         didCollectDataOf collectedTypes: Set<HKSampleType>
     ) {
-        guard collectedTypes.contains(HKQuantityType(.heartRate)) else { return }
-        let stats = workoutBuilder.statistics(for: HKQuantityType(.heartRate))
+        let hrType = HKQuantityType(.heartRate)
+        let distanceType = HKQuantityType(.distanceWalkingRunning)
+        let hrStats = collectedTypes.contains(hrType) ? workoutBuilder.statistics(for: hrType) : nil
+        let distanceStats = collectedTypes.contains(distanceType) ? workoutBuilder.statistics(for: distanceType) : nil
         Task { @MainActor [weak self] in
             guard let self, workoutBuilder === self.builder else { return }
-            self.applyHR(stats)
+            if let hrStats { self.applyHR(hrStats) }
+            if let distanceStats { self.applyDistance(distanceStats) }
         }
     }
 
@@ -645,5 +656,15 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
         guard bpm > 0 else { return }
         liveHR = bpm
         relayHR(bpm)
+    }
+
+    @MainActor
+    private func applyDistance(_ stats: HKStatistics?) {
+        guard let q = stats?.sumQuantity() else { return }
+        let total = q.doubleValue(for: .meter())
+        let delta = total - lastReportedDistance
+        guard delta > 0 else { return }
+        lastReportedDistance = total
+        relayDistance(delta)
     }
 }
