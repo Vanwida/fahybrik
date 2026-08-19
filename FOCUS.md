@@ -17,8 +17,13 @@ club» estrena vista previa doble (panel + app), dice qué ajustó y por qué,
 avisa de choque con verde/rojo/ámbar y declara su alcance. Ley: DECISIONS
 2026-08-19 «La personalización del club tiene DOS niveles» — estándar (piel
 viva, un binario, todos) vs por encargo (app propia con icono y nombre
-propios, build por cliente, precio muy superior). Commits 1aa4d8cf, 568e9f0a.
-En curso por agente: iOS/watchOS leen la piel; correos del atleta con la piel.
+propios, build por cliente, precio muy superior). iOS y el reloj leen la piel (`ClubThemeStore`, persistida; se limpia en
+signOut; el reloj por `WatchTodayPayload`) y los correos del atleta la pintan
+(`resolveClubEmailSkin`); los correos NUESTROS siguen con nuestra marca. De
+paso: el panel pintaba texto con `--v2-accent` en 179 sitios (1,9:1 con el
+naranja guardado) → todos a `--v2-accent-text`. EN PRODUCCIÓN (3a1c41cf).
+Pendiente: nombre y logo del club llegan al móvil pero no se pintan en
+ninguna pantalla de la app; un solo logo para dos fondos.
 
 **Rediseño FLEXR del panel (19-ago, COMPLETO y EN PRODUCCIÓN):** el panel
 entero adopta FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C):
