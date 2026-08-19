@@ -86,7 +86,7 @@ export function NivelSugeridoCard({
   }
 
   const btnBase =
-    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
+    'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors';
 
   return (
     <div className="w-60 shrink-0 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
@@ -106,7 +106,7 @@ export function NivelSugeridoCard({
         Nivel sugerido:{' '}
         <span className="font-semibold text-[color:var(--v2-fg)]">
           {card.suggested_level_name}
-          {card.suggested_level_label ? ` — ${card.suggested_level_label}` : ''}
+          {card.suggested_level_label ? ` · ${card.suggested_level_label}` : ''}
         </span>
       </p>
 

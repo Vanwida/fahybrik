@@ -37,7 +37,7 @@ const ACTION_META: Record<V2LaneAction, ActionMeta> = {
 };
 
 const ACTION_BTN_CLS =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors';
 
 function linkCls(primary?: boolean): string {
   return cn(

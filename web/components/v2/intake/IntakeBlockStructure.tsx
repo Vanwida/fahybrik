@@ -75,7 +75,7 @@ function ModeOption({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        'v2-focus flex flex-col gap-1 rounded-[var(--v2-r-s)] border px-3 py-2.5 text-left transition-colors',
+        'v2-focus flex flex-col gap-1 rounded-[var(--v2-r-m)] border px-3 py-2.5 text-left transition-colors',
         selected
           ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-surface-2)]'
           : 'border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',

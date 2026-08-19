@@ -71,7 +71,7 @@ export function DecisionStrip({
         <button
           type="button"
           onClick={() => setExpandida(true)}
-          className="v2-focus mt-1.5 rounded-[var(--v2-r-s)] px-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus mt-1.5 rounded-[var(--v2-r-pill)] px-1.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           + {restantes} más
         </button>

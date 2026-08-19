@@ -52,7 +52,7 @@ export function AltasPendientesStrip({ pending }: { pending: PendingIntakeAthlet
                 </span>
               </div>
             </div>
-            <span className="mt-2.5 inline-flex h-7 w-full items-center justify-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] text-label font-semibold text-[color:var(--v2-accent-fg)] transition-colors group-hover:bg-[color:var(--v2-accent-press)]">
+            <span className="mt-2.5 inline-flex h-7 w-full items-center justify-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] text-label font-semibold text-[color:var(--v2-accent-fg)] transition-colors group-hover:bg-[color:var(--v2-accent-press)]">
               Revisar alta
               <MIcon name="arrow_forward" size={14} />
             </span>

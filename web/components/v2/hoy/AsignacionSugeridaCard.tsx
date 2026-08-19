@@ -31,7 +31,7 @@ import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
 // ── Shared button styling (matches NivelSugeridoCard) ───────────────────────────
 
 const BTN_BASE =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors';
 
 // ── Actionable "why not" mapping ────────────────────────────────────────────────
 // Each blocked reason maps to ONE concrete fix the coach can act on. Days-related

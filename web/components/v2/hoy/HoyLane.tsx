@@ -48,11 +48,11 @@ export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) 
 
   return (
     <section
-      className="flex min-w-0 flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]"
+      className="flex min-w-0 flex-col rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]"
       aria-label={lane.title}
     >
       {/* Lane header */}
-      <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 rounded-t-[var(--v2-r-l)] border-b border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-2">
+      <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 rounded-t-[var(--v2-r-card)] border-b border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden
@@ -78,7 +78,7 @@ export function HoyLane({ lane, cards }: { lane: V2Lane; cards: V2LaneCard[] }) 
         {overflow > 0 ? (
           <button
             type="button"
-            className="v2-focus mt-0.5 rounded-[var(--v2-r-s)] py-2 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus mt-0.5 rounded-[var(--v2-r-pill)] py-2 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             + {overflow} más
           </button>
