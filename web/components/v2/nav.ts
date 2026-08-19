@@ -50,6 +50,7 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
+  { href: '/cuestionarios', label: 'Cuestionarios', icon: 'assignment', group: 'metodo' },
 ] as const;
 
 /** Items belonging to a given group, in declaration order. */
