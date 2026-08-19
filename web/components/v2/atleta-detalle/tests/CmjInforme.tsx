@@ -65,7 +65,7 @@ export function CmjInforme({
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[color:var(--v2-muted)]">
               Informe del test
             </p>
-            <h2 className="mt-1 font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold italic leading-none tracking-[-0.03em]">
+            <h2 className="mt-1 font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold leading-none tracking-[-0.03em]">
               {report.title}
             </h2>
             {fecha ? <p className="v2-num mt-1.5 text-[12px] text-[color:var(--v2-muted)]">{fecha}</p> : null}
@@ -97,12 +97,12 @@ export function CmjInforme({
             Sin carga
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
-            <p className="font-[family-name:var(--v2-font-display)] text-[52px] font-extrabold italic leading-none tracking-[-0.04em] text-[color:var(--v2-accent)]">
+            <p className="font-[family-name:var(--v2-font-display)] text-[52px] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--v2-accent)]">
               {Math.round(report.unloaded_cm)}
-              <span className="ml-1 text-[16px] font-medium not-italic text-[color:var(--v2-muted)]">cm</span>
+              <span className="ml-1 text-[16px] font-medium text-[color:var(--v2-muted)]">cm</span>
             </p>
             <div className="text-right">
-              <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none">
+              <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold leading-none">
                 {report.height_level}/5
               </p>
               <p className="mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-[color:var(--v2-muted)]">
@@ -119,9 +119,9 @@ export function CmjInforme({
               Con carga{report.load_kg != null ? ` · ${Math.round(report.load_kg)} kg` : ''}
             </p>
             <div className="mt-1 flex items-end justify-between gap-3">
-              <p className="font-[family-name:var(--v2-font-display)] text-[40px] font-extrabold italic leading-none tracking-[-0.03em]">
+              <p className="font-[family-name:var(--v2-font-display)] text-[40px] font-extrabold leading-none tracking-[-0.03em]">
                 {Math.round(report.loaded_cm)}
-                <span className="ml-1 text-[14px] font-medium not-italic text-[color:var(--v2-muted)]">cm</span>
+                <span className="ml-1 text-[14px] font-medium text-[color:var(--v2-muted)]">cm</span>
               </p>
               {report.loaded_height_level != null ? (
                 <p className="text-[13px] font-semibold text-[color:var(--v2-muted)]">
@@ -162,13 +162,13 @@ export function CmjInforme({
                     <p className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[color:var(--v2-muted)]">
                       LRI
                     </p>
-                    <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[36px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-accent)]">
+                    <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[36px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-accent)]">
                       {formatLri(report.lri)}
                     </p>
                   </div>
                   <div className="text-right">
                     {report.lri_level != null ? (
-                      <p className="font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold italic leading-none">
+                      <p className="font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold leading-none">
                         {report.lri_level}/5
                       </p>
                     ) : null}

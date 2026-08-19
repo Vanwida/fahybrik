@@ -38,15 +38,15 @@ export function FuerzaVista({
                   <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
                     {m.exercise_label}
                   </p>
-                  <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none tracking-[-0.03em]">
+                  <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold leading-none tracking-[-0.03em]">
                     {Math.round(m.one_rm_kg)}
-                    <span className="ml-1 text-[12px] font-medium not-italic text-[color:var(--v2-muted)]">
+                    <span className="ml-1 text-[12px] font-medium text-[color:var(--v2-muted)]">
                       kg
                     </span>
                     {delta != null && delta !== 0 ? (
                       <span
                         className={cn(
-                          'ml-1.5 text-[12px] font-semibold not-italic',
+                          'ml-1.5 text-[12px] font-semibold',
                           delta > 0 ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-danger)]',
                         )}
                       >

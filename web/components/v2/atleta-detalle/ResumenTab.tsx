@@ -326,12 +326,12 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
                 {[detalle.ficha.race_format, detalle.ficha.race_division].filter(Boolean).join(' · ')}
               </span>
             </div>
-            <p className="mt-2 font-[family-name:var(--v2-font-display)] text-[20px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
+            <p className="mt-2 font-[family-name:var(--v2-font-display)] text-[20px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
               {race.name}
             </p>
-            <p className="mt-3 font-[family-name:var(--v2-font-display)] text-[42px] font-extrabold italic leading-none text-[color:var(--v2-fg)]">
+            <p className="mt-3 font-[family-name:var(--v2-font-display)] text-[42px] font-extrabold leading-none text-[color:var(--v2-fg)]">
               {semanasHasta(race.days_until)}
-              <span className="ml-2 align-middle text-[12px] font-semibold not-italic tracking-[0.06em] text-[color:var(--v2-faint)]">
+              <span className="ml-2 align-middle text-[12px] font-semibold tracking-[0.06em] text-[color:var(--v2-faint)]">
                 SEMANAS
                 {raceDate ? ` · ${formatFechaCorta(raceDate).toUpperCase()}` : ''}
               </span>
@@ -372,10 +372,10 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
 function Cifra({ valor, label, extra }: { valor: string; label: string; extra?: string | null }) {
   return (
     <div>
-      <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
+      <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
         {valor}
         {extra ? (
-          <span className="ml-1 align-top text-[12px] font-semibold not-italic text-[color:var(--v2-muted)]">
+          <span className="ml-1 align-top text-[12px] font-semibold text-[color:var(--v2-muted)]">
             {extra}
           </span>
         ) : null}
@@ -404,11 +404,11 @@ function RefCell({
         {label}
       </p>
       {value ? (
-        <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none tracking-[-0.03em]">
+        <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold leading-none tracking-[-0.03em]">
           {value}
-          <span className="ml-1 text-[12px] font-medium not-italic text-[color:var(--v2-muted)]">{unit}</span>
+          <span className="ml-1 text-[12px] font-medium text-[color:var(--v2-muted)]">{unit}</span>
           {delta != null && delta !== 0 ? (
-            <span className={cn('ml-1.5 text-[12px] font-semibold not-italic', delta > 0 ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-danger)]')}>
+            <span className={cn('ml-1.5 text-[12px] font-semibold', delta > 0 ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-danger)]')}>
               {delta > 0 ? '+' : ''}
               {Math.round(delta)}
             </span>

@@ -204,9 +204,9 @@ function TestEmbebido({ item }: { item: CommunicationItemDTO }) {
   }
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold italic leading-none text-[color:var(--v2-accent)]">
+      <p className="font-[family-name:var(--v2-font-display)] text-[28px] font-extrabold leading-none text-[color:var(--v2-accent)]">
         {Math.round(report.unloaded_cm)}
-        <span className="ml-1 text-[12px] font-medium not-italic text-[color:var(--v2-muted)]">cm</span>
+        <span className="ml-1 text-[12px] font-medium text-[color:var(--v2-muted)]">cm</span>
       </p>
       <p className="text-[12px] text-[color:var(--v2-muted)]">
         {report.height_label}
