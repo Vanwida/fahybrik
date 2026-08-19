@@ -158,7 +158,7 @@ export function LevelDetailPanel({
           <button
             type="button"
             onClick={onBack}
-            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} /> Niveles
           </button>
@@ -209,7 +209,7 @@ export function LevelDetailPanel({
               setReloadError(null);
               void refetch();
             }}
-            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 text-label font-bold text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-danger)] px-2.5 text-label font-bold text-[color:var(--v2-danger)]"
           >
             Reintentar
           </button>
@@ -308,7 +308,7 @@ function DaysVariantCard({
               onClick={onDuplicate}
               aria-label={`Duplicar la secuencia de ${days} días a otra celda`}
               title="Duplica esta secuencia entera a otro nivel o nº de días"
-              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="content_copy" size={13} />
               Duplicar a…
@@ -317,7 +317,7 @@ function DaysVariantCard({
           <button
             type="button"
             onClick={onClick}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
           >
             {filled ? 'Editar' : 'Montar'}
             <MIcon name="arrow_forward" size={13} />

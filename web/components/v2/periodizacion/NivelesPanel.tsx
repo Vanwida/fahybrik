@@ -244,7 +244,7 @@ export function NivelesPanel({
               setError(null);
               setConflict(false);
             }}
-            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} /> Nuevo nivel
           </button>
@@ -281,7 +281,7 @@ export function NivelesPanel({
                       <button
                         type="button"
                         onClick={() => onEnter(lvl)}
-                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
+                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
                       >
                         Periodización <MIcon name="arrow_forward" size={13} />
                       </button>
@@ -480,7 +480,7 @@ function DeleteBlockedDialog({ level, onClose }: { level: V2LevelItem; onClose: 
         </p>
         <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           <b className="text-[color:var(--v2-fg)] v2-num">{level.athlete_count}</b>{' '}
-          {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo — así nadie se queda sin clasificación.
+          {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo, así nadie se queda sin clasificación.
         </p>
         <div className="mt-4 flex gap-2">
           <PanelButton variant="outline" onClick={onClose} href="/atletas">
@@ -554,7 +554,7 @@ export function PanelButton({
   children: React.ReactNode;
 }) {
   const base =
-    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
   const cls = cn(
     base,
     variant === 'primary' && 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',

@@ -139,7 +139,7 @@ function Controles({
         onClick={onRemove}
         aria-label={`Quitar «${nodo.titulo}» de la cadena (no lo borra de la biblioteca)`}
         title="Quitar de la cadena (no lo borra de la biblioteca)"
-        className="v2-focus inline-flex h-[22px] items-center gap-1 rounded-[var(--v2-r-xs)] border border-[color:var(--v2-border)] px-1.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+        className="v2-focus inline-flex h-[22px] items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
       >
         <MIcon name="close" size={13} /> Quitar
       </button>
@@ -196,7 +196,7 @@ function Anadir({
     <button
       type="button"
       onClick={onClick}
-      className="v2-focus flex w-full max-w-[460px] items-center gap-2.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+      className="v2-focus flex w-full max-w-[460px] items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-4 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
     >
       <MIcon name="add" size={20} />
       <span className="flex min-w-0 flex-col">

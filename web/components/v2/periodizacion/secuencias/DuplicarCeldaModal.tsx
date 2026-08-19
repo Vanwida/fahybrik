@@ -170,9 +170,9 @@ export function DuplicarCeldaModal({
                     onClick={() => setPickedDays(d)}
                     title={occupied ? 'Esta variante ya tiene plan' : undefined}
                     className={cn(
-                      'v2-focus inline-flex h-9 min-w-[52px] items-center justify-center gap-1 rounded-[var(--v2-r-s)] border px-2.5 text-body font-semibold transition-colors',
+                      'v2-focus inline-flex h-9 min-w-[52px] items-center justify-center gap-1 rounded-[var(--v2-r-pill)] border px-3 text-body font-semibold transition-colors',
                       selected
-                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                         : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
                       occupied && 'cursor-not-allowed opacity-40 hover:border-[color:var(--v2-border)]',
                     )}
@@ -202,7 +202,7 @@ export function DuplicarCeldaModal({
             <button
               type="button"
               onClick={onClose}
-              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               Cancelar
             </button>
@@ -211,7 +211,7 @@ export function DuplicarCeldaModal({
               onClick={submit}
               disabled={!canSubmit}
               className={cn(
-                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
+                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
                 'disabled:cursor-not-allowed disabled:opacity-50',
               )}
             >

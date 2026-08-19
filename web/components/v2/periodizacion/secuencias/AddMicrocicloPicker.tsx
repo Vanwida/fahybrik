@@ -81,7 +81,7 @@ export function AddMicrocicloPicker({
           </button>
         </div>
 
-        <div className="mb-3 flex h-[34px] items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5">
+        <div className="mb-3 flex h-[34px] items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5">
           <MIcon name="search" size={16} className="text-[color:var(--v2-faint)]" />
           <input
             type="text"
@@ -139,14 +139,14 @@ export function AddMicrocicloPicker({
           <button
             type="button"
             onClick={onCreateNew}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="add" size={15} /> Crear microciclo nuevo
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             Cerrar
           </button>
