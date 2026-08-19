@@ -1,6 +1,6 @@
 // v2 · CLUB — ficha de la piel del club (nombre, logo, acento).
-// Vacío = marca de este binario. El atleta de FLEXR verá esto cuando
-// entre al perfil del coach; esta PR solo pinta el dashboard.
+// Vacío = marca de este binario. La piel repinta este panel y viaja a la app
+// del atleta por `club` en GET /api/auth/me.
 
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
@@ -39,7 +39,8 @@ export default async function ClubPage({
         <p className="v2-micro">Club</p>
         <h1 className="v2-display text-3xl text-[color:var(--v2-fg)] sm:text-4xl">Tu club</h1>
         <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
-          Nombre, logo y color. Si dejas un campo vacío, se usa la marca de la app.
+          Nombre, logo y color. Es lo que ven tus atletas en su móvil, no solo tú
+          aquí. Si dejas un campo vacío, se usa la marca de la app.
         </p>
       </header>
 
