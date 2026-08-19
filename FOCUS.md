@@ -17,10 +17,11 @@ muertas: clases dark: siempre-activas (html legacy con .dark fijo) y los
 overlays fixed de la ficha atrapados por el wrapper animado (containing
 block por transform): el reveal pasa a fill backwards y el cajón de sesión
 + 10 modales se portalan al v2-root vía ModalPortal. iOS/doble/landing intactos.
-**Pendiente de decisión (hallazgo QA):** «Editar día» desde la ficha aterriza
-en la PLANTILLA del microciclo (vacía) aunque la semana del atleta tenga
-sesiones; es el modelo de dos recibos, pero el coach aterriza en una pantalla
-vacía. Decidir si debe aterrizar en la semana viva.
+**Resuelto (19-ago, decidido por Alex):** «Editar día» va SIEMPRE al día real
+del atleta (/atletas/[id]/dia/[fecha]) anclado a la semana en pantalla; la
+plantilla se edita solo desde «Editar plan». Verificado en prod con el atleta
+64 (plantilla 89 con sessions=[] y semana entregada llena: los dos recibos
+pueden divergir y el botón ya no enseña el vacío).
 
 **UX coach (solo lectura, 18-ago):** el hueco es que el estado no se
 entiende, no el publicar-tras-MCP. Mapa:
