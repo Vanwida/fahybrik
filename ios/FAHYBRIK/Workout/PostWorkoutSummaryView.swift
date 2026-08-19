@@ -42,6 +42,7 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
+    @State private var saveError: String? = nil
 
     // MARK: #58 — structured feedback to the coach (prescribed sessions only)
     @State private var difficulty: PerceivedDifficulty? = nil
@@ -253,13 +254,22 @@ struct PostWorkoutSummaryView: View {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
-            // Stays tappable WHILE saving: on a slow response the athlete is never
-            // trapped — tapping "GUARDANDO…" closes now. The sync keeps running
-            // offline-first (RequestQueue); only this celebration is skipped.
+            if let saveError {
+                Text(saveError)
+                    .font(Theme.Typography.small)
+                    .foregroundStyle(Theme.Color.danger)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .padding(.top, Theme.Spacing.s)
+                    .accessibilityLabel(saveError)
+            }
+            // No se sale hasta que el POST deja fila. Si falla, error + reintento.
+            // «GUARDANDO…» no cierra: eso era mentir que ya estaba guardado.
             ExpertPrimaryButton(
-                title: isSaving ? "GUARDANDO…" : "GUARDAR",
+                title: isSaving ? "GUARDANDO…" : (saveError == nil ? "GUARDAR" : "REINTENTAR"),
                 height: 46,
-                action: { isSaving ? closeNow() : handleSave() }
+                action: { if !isSaving { handleSave() } }
             )
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
@@ -284,18 +294,14 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Save the execution. Free / ad-hoc sessions fire-and-forget and close at once.
-    // A prescribed session briefly awaits the sync response (bounded by
-    // `prCelebrationLookupTimeout`) so a running PR can be celebrated before we
-    // close — but a slow/failing API never traps the athlete: on timeout we close
-    // and the sync still replays via RequestQueue.
+    // Save the execution. Close ONLY when the POST leaves a workout_executions
+    // row (notes travel in that same body). Fail → stay + retry. The summary
+    // never enqueues: enqueue + retry would duplicate a free session.
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
+        saveError = nil
         let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
-        // This workout happened — count it toward the review-prompt tenure gate,
-        // even when the network is offline (#59).
-        ReviewPromptStore.shared.recordWorkoutSaved()
 
         // EL ARCHIVO DE LA SESIÓN, antes de tocar la red.
         //
@@ -315,57 +321,53 @@ struct PostWorkoutSummaryView: View {
         // FREE MODE: route to the free-save contract. No coach-prescription feedback
         // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
-            let payload = buildFreePayload(free)
+            var payload = buildFreePayload(free)
             // Every free session is sent, declared or not: a cronómetro carries its
             // format, its duration and the effort, which is a real training session
             // and exactly what a timer app throws away. The contract accepts a
             // funcional with no items as long as it states the shape it ran, and
             // `buildFreePayload` always puts one of the two on the wire.
-            // Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el
-            // HKWorkout y nos pasa su uuid; sin reloj no lo escribía NADIE y la
-            // sesión no contaba para los anillos — ahora la escribe el teléfono.
-            //
-            // El entreno libre TAMBIÉN se espeja a la muñeca, así que este es
-            // justo el camino donde los dos pueden escribir a la vez. Por eso va
-            // `wristRecorded`: si la muñeca grabó, el teléfono no escribe, haya
-            // llegado su uuid o no. Que el relevo llegue tarde ya no duplica —
-            // antes sí, porque el reloj que aún no ha contestado es el mismo que
-            // el reloj cuyo HKWorkout todavía no se puede consultar.
-            let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
+            // El POST va PRIMERO. HealthKit / traza no pueden tapar un fallo: las
+            // tres EMOM del 19-ago cerraron como guardadas y no dejaron fila porque
+            // el Task esperaba Salud antes de enviar y el resumen ya se había ido.
+            payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
-            Task {
-                let parkId = await WorkoutTraceUploader.park(
-                    await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
-                )
-                var ref = wristRef
-                if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
-                    ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
-                }
-                var sent = payload
-                sent.source_workout_ref = ref
-                let submission = await FreeWorkoutAPI.submitReturning(sent, bearer: bearer)
-                await WorkoutTraceUploader.resolve(
-                    parkId: parkId,
-                    executionId: submission.executionId,
-                    queuedRequestId: submission.queuedRequestId,
-                    bearer: bearer
-                )
-            }
-            // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
-            // Only a FULL finish counts: an abandoned attempt saves the session (the
-            // coach still sees the work) but never writes a half number into the
-            // athlete's record — the mockup's promise, kept here.
-            if let tag = free.benchmark, payload.completeness == "full",
-               let value = benchmarkValue(tag: tag, segments: payload.segments) {
-                // Calle/cinta comes from the SESSION (the brief's pre-start stamped
-                // it), so the mark and what the athlete actually did can't diverge.
+            let mark: (slug: String, value: Double, runContext: String?)? = {
+                guard let tag = free.benchmark, payload.completeness == "full",
+                      let value = benchmarkValue(tag: tag, segments: payload.segments) else { return nil }
                 let runContext: String? = free.modalityWire == "run"
                     ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
                     : nil
-                Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
+                return (tag.slug, value, runContext)
+            }()
+            Task { @MainActor in
+                let submission = await FreeWorkoutAPI.submitReturning(
+                    payload, bearer: bearer, enqueueOnFailure: false
+                )
+                guard persistOrRetry(submission) else { return }
+                Task {
+                    if payload.source_workout_ref == nil,
+                       let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
+                        _ = await HealthKitWorkoutWriter.ensureSaved(
+                            draft, wristRecorded: wristRecorded
+                        )
+                    }
+                    let parkId = await WorkoutTraceUploader.park(
+                        await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
+                    )
+                    await WorkoutTraceUploader.resolve(
+                        parkId: parkId,
+                        executionId: submission.executionId,
+                        queuedRequestId: submission.queuedRequestId,
+                        bearer: bearer
+                    )
+                }
+                if let mark {
+                    Task { await MarkAttemptAPI.submit(slug: mark.slug, value: mark.value, runContext: mark.runContext, bearer: bearer) }
+                }
+                finishAfterSave(records: [])
             }
-            finishAfterSave(records: [])
             return
         }
 
@@ -384,57 +386,39 @@ struct PostWorkoutSummaryView: View {
         let submitted = payload
         let target = logTarget
         Task { @MainActor in
-            // The submit runs to completion on its own (enqueues on failure); we
-            // only bound how long we WAIT for its response before closing, so a slow
-            // API never traps the athlete here.
-            let responseTask = Task { () -> WorkoutExecutionResponse? in
-                // El resguardo de la traza se saca ANTES del envío, para que exista en
-                // disco pase lo que pase con la red.
-                let parkId = await WorkoutTraceUploader.park(
-                    await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
-                )
-                let submission: ExecutionSubmission
-                switch target {
-                case .solo:
-                    submission = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
-                case .doublesJoint:
-                    // sessionId == this athlete's own assignment id == payload.assignment_id.
-                    submission = await DoblesExecutionAPI.submitReturning(
-                        sessionId: submitted.assignment_id, submitted, bearer: bearer
-                    )
-                }
-                // El archivo sube POR SU CUENTA. Esperarlo aquí metería la subida de la
-                // traza —que pesa mucho más que el resumen— dentro de los 6 s que espera
-                // la celebración de un récord, y en red lenta se comería la celebración.
-                // Soltarlo tampoco lo pone en riesgo: el resguardo ya está en disco y el
-                // id se sella antes de enviar, así que si la app muere aquí el barrido
-                // del siguiente arranque lo termina.
-                Task {
-                    await WorkoutTraceUploader.resolve(
-                        parkId: parkId,
-                        executionId: submission.executionId,
-                        queuedRequestId: submission.queuedRequestId,
-                        bearer: bearer
-                    )
-                }
-                return submission.response
-            }
-            let response = await Self.firstValue(
-                of: responseTask, timeout: Self.prCelebrationLookupTimeout
+            let parkId = await WorkoutTraceUploader.park(
+                await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
             )
-            // The athlete may have tapped to leave while we waited — if so, don't
-            // reopen or celebrate over a view that's already gone.
-            guard !didFinish else { return }
-            let records = response?.personalRecords ?? []
+            let submission: ExecutionSubmission
+            switch target {
+            case .solo:
+                submission = await WorkoutExecutionAPI.submitReturning(
+                    submitted, bearer: bearer, enqueueOnFailure: false
+                )
+            case .doublesJoint:
+                // sessionId == this athlete's own assignment id == payload.assignment_id.
+                submission = await DoblesExecutionAPI.submitReturning(
+                    sessionId: submitted.assignment_id, submitted, bearer: bearer,
+                    enqueueOnFailure: false
+                )
+            }
+            // El archivo sube POR SU CUENTA. No bloquea el cierre: el resguardo ya
+            // está en disco y el id se sella con lo que contestó el POST.
+            Task {
+                await WorkoutTraceUploader.resolve(
+                    parkId: parkId,
+                    executionId: submission.executionId,
+                    queuedRequestId: submission.queuedRequestId,
+                    bearer: bearer
+                )
+            }
+            guard persistOrRetry(submission) else { return }
+            let records = submission.response?.personalRecords ?? []
             // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
             // When the partner has already logged too, the joint card is the closing
             // moment (it also surfaces PR chips); otherwise fall through to the solo
             // PR/close flow. A no-partner / network miss simply closes as normal.
             if target == .doublesJoint {
-                // Bound the joint-summary fetch to the SAME 6 s budget as the PR response
-                // so a slow/hanging endpoint never traps the athlete on the summary; a
-                // timeout resumes nil and we close normally (the joint card can still
-                // arrive later via the Dobles view).
                 let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
                 if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
                    let jd = JointShareData.from(dto: summary, title: session.plan.name,
@@ -449,10 +433,22 @@ struct PostWorkoutSummaryView: View {
             if records.isEmpty {
                 finishAfterSave(records: [])
             } else {
-                // Celebrate first; closing is deferred to the celebration dismiss.
                 withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
                 isSaving = false
             }
+        }
+    }
+
+    /// True when the POST left a row. False = stay and offer retry.
+    @discardableResult
+    private func persistOrRetry(_ submission: ExecutionSubmission) -> Bool {
+        switch WorkoutFinishPersist.decide(submission) {
+        case .dismissSaved:
+            return true
+        case .showRetry:
+            isSaving = false
+            saveError = WorkoutFinishPersist.retryMessage
+            return false
         }
     }
 
@@ -464,17 +460,13 @@ struct PostWorkoutSummaryView: View {
         finishAfterSave(records: records)
     }
 
-    // Leave during the save wait: don't wait for the response — the sync keeps
-    // running offline-first, we just skip the celebration this time.
-    private func closeNow() {
-        finishAfterSave(records: [])
-    }
-
     // Close the summary ONCE, requesting an App Store review only when the pure gate
     // allows it — a genuine beaten PR (not a first mark) is a standalone good moment.
     private func finishAfterSave(records: [PersonalRecord]) {
         guard !didFinish else { return }
         didFinish = true
+        // Only count a workout that actually persisted (#59).
+        ReviewPromptStore.shared.recordWorkoutSaved()
         maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
     }
@@ -606,7 +598,7 @@ struct PostWorkoutSummaryView: View {
             // end; 'partial' (→ partial) when terminated early.
             completeness: session.completeness.rawValue,
             segments: segments.isEmpty ? nil : segments,
-            notes: notes.isEmpty ? nil : notes,
+            notes: WorkoutFinishPersist.notesOnWire(notes),
             liveSource: manualEntry ? "manual" : nil
         )
     }
@@ -761,7 +753,7 @@ struct PostWorkoutSummaryView: View {
                     // An invitation, never a warning: the session is already saved
                     // when this card appears, so the copy offers what naming the
                     // movements ADDS instead of threatening what it avoids.
-                    Text("El entreno se guarda igual. Si dices qué hiciste, cuenta también en tus ejercicios.")
+                    Text("Si dices qué hiciste, cuenta también en tus ejercicios. El entreno se guarda al pulsar Guardar.")
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)

@@ -1528,7 +1528,7 @@ struct ActiveWorkoutView: View {
                         Text("Has acabado el entreno")
                             .font(Theme.Typography.headlineM)
                             .foregroundStyle(Theme.Color.foreground)
-                        Text("Todo lo que has hecho está guardado. Si te apetece seguir, sigue: lo que añadas se suma.")
+                        Text("El trabajo de esta sesión ya está cerrado. Terminar abre el resumen para guardar de verdad — notas incluidas.")
                             .font(Theme.Typography.small)
                             .foregroundStyle(Theme.Color.muted)
                         ExpertPrimaryButton(title: "Terminar y guardar") { session.finish() }

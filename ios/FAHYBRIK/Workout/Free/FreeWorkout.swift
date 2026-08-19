@@ -745,25 +745,28 @@ enum FreeWorkoutAPI {
     /// desincroniza sola.
     static func submitReturning(
         _ payload: FreeWorkoutPayload,
-        bearer: String?
+        bearer: String?,
+        enqueueOnFailure: Bool = true
     ) async -> ExecutionSubmission {
         do {
             let response: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: path, body: payload, bearer: bearer
             )
-            return ExecutionSubmission(response: response, queuedRequestId: nil)
+            return ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
         } catch APIError.decoding {
             // 2xx con un cuerpo inesperado: el entreno SÍ se guardó, así que jamás se
             // reintenta (crearía un segundo entreno libre — este endpoint no fusiona).
-            return .none
+            return ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: true)
         } catch {
             // AUDIT — a deterministic 4xx is never queued (it would replay forever).
+            // El resumen no encola: si falla, el atleta reintenta (encolar + reintentar
+            // duplicaría el libre). Watch/replay siguen encolando.
             let enc = JSONEncoder()
             enc.keyEncodingStrategy = .convertToSnakeCase
             enc.dateEncodingStrategy = .iso8601
-            if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
+            if enqueueOnFailure, RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
                 let queued = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return ExecutionSubmission(response: nil, queuedRequestId: queued)
+                return ExecutionSubmission(response: nil, queuedRequestId: queued, persisted: false)
             }
             return .none
         }
