@@ -35,8 +35,17 @@ export function ClubMark({
   );
 }
 
-export function ClubWordmark({ name }: { name: string }) {
+/**
+ * El wordmark en dos tintas es un rasgo de NUESTRA marca (FA + HYBRID), no una
+ * regla tipográfica que valga para cualquier nombre: partir «CrossFit Bar» y
+ * pintar «Bar» del color del club sale mal. El nombre de un club se pinta de
+ * una pieza; el split se reserva para la marca del binario.
+ */
+export function ClubWordmark({ name, split = false }: { name: string; split?: boolean }) {
   const { lead, accent } = splitWordmark(name);
+  if (!split) {
+    return <span className="v2-display tracking-[-0.02em] text-[color:var(--v2-fg)]">{name}</span>;
+  }
   return (
     <span className="v2-display tracking-[-0.02em]">
       {lead ? <span className="text-[color:var(--v2-fg)]">{lead}</span> : null}
@@ -61,7 +70,7 @@ export function ClubLockup({
     <>
       <ClubMark src={brand.logo_src} alt={brand.wordmark} className={markClassName} />
       <span className={wordmarkClassName}>
-        <ClubWordmark name={brand.wordmark} />
+        <ClubWordmark name={brand.wordmark} split={brand.using_default_name} />
       </span>
     </>
   );
