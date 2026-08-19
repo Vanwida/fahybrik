@@ -35,6 +35,10 @@ struct LiveTramo: Equatable {
         /// is not driven by a clock — it is the strike cursor `fixedRoundsDone`,
         /// which is the only honest thing the app knows about where he is.
         case fixedStation(Int)
+        /// The OPEN set of a setTable format (series / superserie). The series
+        /// index IS the tramo: remo after squat must re-zero the monitor, and
+        /// the watch must say the same series as the phone.
+        case strengthSet(Int)
     }
 
     let segmentIndex: Int
@@ -60,6 +64,7 @@ struct LiveTramo: Equatable {
         case .conditioningRound(let i): return "s\(segmentIndex)-r\(i)"
         case .runLeg(let i):           return "s\(segmentIndex)-l\(i)"
         case .fixedStation(let i):     return "s\(segmentIndex)-t\(i)"
+        case .strengthSet(let i):      return "s\(segmentIndex)-q\(i)"
         }
     }
 
@@ -199,9 +204,9 @@ extension WorkoutSegment {
             let declared = prescription?.modality
             return declared?.isErg == true ? declared! : .row
         case .strength:
-            return prescription?.modality ?? .strength
+            return prescription?.modality ?? agreedMachineModality ?? .strength
         case .sled, .reps:
-            return prescription?.modality ?? .functional
+            return prescription?.modality ?? agreedMachineModality ?? .functional
         }
     }
 
@@ -214,6 +219,19 @@ extension WorkoutSegment {
         if kind.isErg { return true }
         if prescription?.modality?.isErg == true { return true }
         return prescription?.sets?.contains { $0.modality?.isErg == true } ?? false
+    }
+
+    /// When every machine set of this segment agrees on ONE modality (all remo,
+    /// all cinta), that modality. Nil if none or mixed (remo+ski, remo+cinta).
+    /// A folded For Time / warmup / rondas whose `kind` collapsed to `.reps`
+    /// still has to expose the machine so the tramo is not `.functional`.
+    var agreedMachineModality: PrescriptionModality? {
+        let machines = (prescription?.sets ?? []).compactMap(\.modality)
+            .filter { $0.isErg || $0 == .run }
+        guard let first = machines.first, machines.allSatisfy({ $0 == first }) else {
+            return nil
+        }
+        return first
     }
 
     /// The same question for running: does any part of this segment happen on the

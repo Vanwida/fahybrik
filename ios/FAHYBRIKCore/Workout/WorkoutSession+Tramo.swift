@@ -83,7 +83,38 @@ extension WorkoutSession {
                                      index: rotRoundIndex,
                                      boxedSeconds: seg.formatWorkSeconds)
         }
+        // setTable (series / superserie) and a warmup/cooldown whose OPEN item is
+        // a machine: the set IS the tramo. Without this cursor a remo inside a
+        // superserie connected and recorded nothing — the segment stayed strength.
+        if let setIndex = liveSetIndex(in: seg) {
+            let boxed = seg.stationBoxSeconds(at: setIndex)
+                ?? seg.rotationSet(at: setIndex).flatMap { set -> Int? in
+                    if case let .duration(s, _)? = set.measure, s > 0 { return s }
+                    return nil
+                }
+            return seg.rotationTramo(segmentIndex: i,
+                                     cursor: .strengthSet(setIndex),
+                                     index: setIndex,
+                                     boxedSeconds: boxed)
+        }
         return seg.tramo(segmentIndex: i)
+    }
+
+    /// The set the athlete is standing on: pending strength set, else 0 when the
+    /// format is a list/table that still has to name a machine window (warmup 6
+    /// min on the belt, a single remo set).
+    private func liveSetIndex(in seg: WorkoutSegment) -> Int? {
+        if let pending = pendingSetIndex { return pending }
+        guard let sets = seg.prescription?.sets, !sets.isEmpty else { return nil }
+        let scheme = seg.formatScheme
+        let isTable = scheme == .sets || scheme == .superset || seg.usesMultiSetStrength
+        let isList = scheme == .warmup || scheme == .cooldown
+        guard isTable || isList else { return nil }
+        // A pure iron table with no machine set does not need this cursor — the
+        // segment tramo already says strength. Only open it when a machine
+        // belongs to the block, so a 4×10 squat does not change identity.
+        guard seg.involvesErg || seg.involvesRun else { return nil }
+        return 0
     }
 
     /// The station the athlete is standing on, clamped to the list. The strike
@@ -115,6 +146,7 @@ extension WorkoutSession {
         if currentSegment?.isEMOM == true { return emomIntervalIndex }
         if currentSegment?.fixedListIsStations == true { return currentStationIndex }
         if isConditioningActive { return rotRoundIndex }
+        if case .strengthSet(let i) = currentTramo.cursor { return i }
         return 0
     }
 
@@ -126,6 +158,10 @@ extension WorkoutSession {
         if let plan = currentSegment?.emomPlan { return plan.intervalCount }
         if currentSegment?.fixedListIsStations == true { return fixedListTotal }
         if isConditioningActive { return Swift.max(1, rotTotalRounds) }
+        if case .strengthSet = currentTramo.cursor {
+            let n = currentSegment?.prescription?.sets?.count ?? setRecords.count
+            return Swift.max(1, n)
+        }
         return 1
     }
 
