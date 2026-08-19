@@ -25,7 +25,11 @@ import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import { dayCanvasHref, duplicateWeekInMonth } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
 import { MODALITY_META } from '@/components/v2/constants';
-import type { MicroWeek, MicrocicloOwner } from '@/components/v2/planes/MicrocicloEditor';
+import type {
+  MicroWeek,
+  MicrocicloOwner,
+  MicrocicloDeliveredElsewhere,
+} from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
 import { ActivarPlanPersonalModal } from '@/components/v2/planes/ActivarPlanPersonalModal';
@@ -168,12 +172,43 @@ function WeekFocusRow({
   );
 }
 
+// Plantilla vacía pero el atleta ya tiene semanas entregadas — franja HONESTA, tono
+// `info` (nunca rojo: no es un error, es un estado). Solo el llamador decide cuándo
+// pintarla (plantilla sin sesiones + entregado > 0); este componente no repite ese
+// cálculo, solo el copy + la salida al plan del atleta.
+function DeliveredElsewhereNotice({ notice }: { notice: MicrocicloDeliveredElsewhere }) {
+  const plural = notice.count !== 1;
+  return (
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-info)] bg-[color:var(--v2-info-soft)] p-3.5">
+      <MIcon name="info" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-info)]" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+          Esta plantilla está vacía, pero el atleta ya tiene sus semanas
+        </span>
+        <span className="text-xs text-[color:var(--v2-muted)]">
+          {plural ? 'Las' : 'La'} {notice.count} {plural ? 'sesiones' : 'sesión'} de{' '}
+          {notice.athlete_name} se {plural ? 'escribieron' : 'escribió'} día a día, no desde esta
+          plantilla. Aquí no verás su trabajo.
+        </span>
+        <Link
+          href={`/atletas/${notice.athlete_id}?tab=plan`}
+          className="v2-focus mt-1 inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-info)] px-3 py-1 text-xs font-semibold text-[color:var(--v2-info)] transition-colors hover:bg-[color:var(--v2-info)] hover:text-[color:var(--v2-bg)]"
+        >
+          Ver el plan de {notice.athlete_name}
+          <MIcon name="arrow_forward" size={14} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function MicrocicloV2({
   microcycle_id,
   name,
   weeks,
   dayModel,
   owner = null,
+  deliveredElsewhere = null,
 }: {
   microcycle_id: string;
   /** Microciclo template name (for "Asignar a atleta" + the delete confirm). */
@@ -185,6 +220,9 @@ export function MicrocicloV2({
    *  "Asignar a atleta" (which implies picking ANY athlete — meaningless once a
    *  plan already belongs to one) for the athlete context + an in-place activate. */
   owner?: MicrocicloOwner | null;
+  /** Plantilla sin sesiones pero con trabajo ya entregado al atleta — null = nada
+   *  que avisar (el caso normal). */
+  deliveredElsewhere?: MicrocicloDeliveredElsewhere | null;
 }) {
   const router = useRouter();
   const [focusIndex, setFocusIndex] = useState(0);
@@ -336,6 +374,8 @@ export function MicrocicloV2({
 
   return (
     <div className="flex flex-col gap-3">
+      {deliveredElsewhere ? <DeliveredElsewhereNotice notice={deliveredElsewhere} /> : null}
+
       {/* Toolbar — week tabs + microciclo-level actions */}
       <div className="flex flex-wrap items-center gap-2">
         <WeekTabs weeks={weeks} activeIndex={effectiveFocusIndex} onSelect={selectWeek} />

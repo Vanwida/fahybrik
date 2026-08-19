@@ -534,3 +534,52 @@ export async function loadMonthTemplateWithWeeks(params: {
 
   return { month, weeks };
 }
+
+export type DeliveredWeekCounts = {
+  /** Total `workout_assignments` reales del atleta que caen bajo estas semanas. */
+  total_assignments: number;
+  /** De las semanas-plantilla dadas, cuántas tienen al menos una asignación real. */
+  weeks_with_content: number;
+};
+
+/**
+ * Cuenta lo ENTREGADO (workout_assignments reales, no plantilla) para un set de
+ * semanas de un microciclo PERSONAL. Un plan personal puede divergir: la
+ * plantilla (`program_week_templates.slots_json`) es lo que se ESCRIBIÓ para
+ * entregar, pero el atleta ejecuta `workout_assignments`, que pueden haber
+ * nacido sueltas en el editor de día sin volver nunca a tocar la plantilla.
+ * `microcycles.source_week_template_id` (0158) es el único hilo que conecta una
+ * semana ya entregada con la plantilla de la que salió — sin él no hay forma de
+ * saber que el atleta ya tiene trabajo aunque la plantilla esté vacía.
+ *
+ * UNA consulta batch. Scoped a coach_id + athlete_id explícitos (join contra
+ * `athletes.coach_id`) — nunca puede leer trabajo de otro atleta.
+ */
+export async function loadDeliveredCountsForWeeks(params: {
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  week_template_ids: Array<number | bigint>;
+  client?: Sql;
+}): Promise<DeliveredWeekCounts> {
+  if (params.week_template_ids.length === 0) {
+    return { total_assignments: 0, weeks_with_content: 0 };
+  }
+  const client = params.client ?? defaultSql;
+  const weekTemplateIds = params.week_template_ids.map((id) => Number(id));
+
+  const rows = await client<Array<{ source_week_template_id: string; n: number }>>`
+    select mc.source_week_template_id::text as source_week_template_id, count(*)::int as n
+    from microcycles mc
+    join workout_assignments wa on wa.microcycle_id = mc.id
+    join athletes a on a.id = mc.athlete_id
+    where a.coach_id = ${Number(params.coach_id)}
+      and mc.athlete_id = ${Number(params.athlete_id)}
+      and mc.source_week_template_id = any(${weekTemplateIds}::bigint[])
+    group by mc.source_week_template_id
+  `;
+
+  return {
+    total_assignments: rows.reduce((sum, r) => sum + r.n, 0),
+    weeks_with_content: rows.length,
+  };
+}
