@@ -206,7 +206,7 @@ export function StrengthPyramid({
       <button
         type="button"
         onClick={onAddSet}
-        className="v2-focus inline-flex h-[34px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-[13px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus inline-flex h-[34px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
         ＋ serie <span className="font-medium text-[color:var(--v2-faint)]">(copia la última)</span>
       </button>

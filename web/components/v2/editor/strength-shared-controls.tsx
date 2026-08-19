@@ -35,7 +35,7 @@ const REPS_RANGE_DEFAULT_SPAN = 2; // "12" → "12-14" al activar; el coach ajus
 
 /** Botón fantasma para activar algo opcional (mismo lenguaje que «＋ tempo», «＋ serie»). */
 const GHOST_ADD_CLASS =
-  'v2-focus inline-flex h-[34px] items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-[13px] font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]';
+  'v2-focus inline-flex h-[34px] items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]';
 
 /** El par valor/rango de un objetivo escalar (%RM, kg, RIR, RPE…). */
 export function scalarOf(t: Target | undefined): { lo: number | null; hi: number | null } {
