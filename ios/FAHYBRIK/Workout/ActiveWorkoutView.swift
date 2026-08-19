@@ -682,16 +682,25 @@ struct ActiveWorkoutView: View {
 
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
+    //
+    // El guion (qué debería estar encendido) vive en `RunPhoneSensorPlan`, puro y
+    // testeable — bug cazado por Alex, card 101: el podómetro y el GPS propio
+    // compartían una sola guarda ("¿posee la pantalla de calle la superficie?"),
+    // que apaga el GPS propio con razón (dos `CLLocationManager` duplicarían la
+    // velocidad) pero apagaba el podómetro SIN razón — los metros no dependen de
+    // qué vista está montada. Ver la nota larga en `RunPhoneSensorPlan.swift`.
     private func updateRunGPS() {
-        // Mientras la superficie de CALLE (#64) es la que manda, ella OWNS the
-        // location stream (su propio proveedor alimenta la sesión); correr también el
-        // nuestro contaría la distancia dos veces, así que nos apartamos mientras esté
-        // en pantalla. Antes la condición era `!showOutdoor` porque esa pantalla era
-        // un cover; ahora la pregunta es si `superficieViva` la ha resuelto — que es
-        // lo mismo, pero dicho donde de verdad se decide.
-        // On a TREADMILL run the GPS stays off entirely — indoor GPS noise reads as
-        // phantom pace ("números aleatorios"); the belt is the distance source.
-        if isRunSegment && superficieViva != .correrFuera && session.runEnvironment?.usesPhoneGPS == true {
+        let plan = RunPhoneSensorPlan.decide(
+            isRunSegment: isRunSegment,
+            environment: session.runEnvironment,
+            streetScreenOwnsSurface: superficieViva == .correrFuera
+        )
+        if plan.pedometer {
+            pedometro.start(from: session.startedAt)
+        } else {
+            pedometro.stop()
+        }
+        if plan.ownGPS {
             // EL PERMISO DE FONDO VA CON LA CARRERA, NO CON LA PANTALLA. Sólo lo pedía
             // la superficie de calle, así que un tramo de correr dentro de un EMOM (que
             // nunca la abre) corría sin él: al bloquear la pantalla o atender una
@@ -700,17 +709,11 @@ struct ActiveWorkoutView: View {
             // cerrar, que es lo que cuida la batería.
             runGPS.setBackgroundUpdates(true)
             runGPS.start()
-            if session.runEnvironment?.usesPhonePedometer == true {
-                pedometro.start(from: session.startedAt)
-            }
         } else {
             runGPS.stop()
             runGPS.setBackgroundUpdates(false)
-            pedometro.stop()
         }
-        // El barómetro va con la CALLE. En cinta no hay desnivel que medir y el
-        // permiso de movimiento no se pide para nada.
-        if isRunSegment && session.runEnvironment?.usesPhoneGPS == true {
+        if plan.altimeter {
             RunAltimeter.shared.start()
         } else {
             RunAltimeter.shared.stop()

@@ -23,6 +23,13 @@ final class OutdoorRunHUDModel {
     // Live values the view renders (observed).
     private(set) var coordinates: [CLLocationCoordinate2D] = []
     private(set) var gpsQuality: GPSSignalQuality = .searching
+    // NO UNIFICADO A PROPÓSITO (card 101, ago-2026): esto es una media móvil de 10 s
+    // sobre la velocidad instantánea del GPS (`RunPaceSmoother`, abajo). La muñeca
+    // (y `WorkoutSession.liveCoveredPaceSecPerKm`) enseñan otra cosa: un ritmo MEDIO
+    // del tramo — metros del tramo / segundos del tramo. Son dos ritmos legítimos
+    // calculados distinto; reloj y móvil pueden discrepar en el mismo segundo sin
+    // que ninguno esté mal. Si algún día se decide unificarlos, el otro sitio a
+    // tocar es `WorkoutSession+Accessors.swift`.
     private(set) var livePaceSecPerKm: Int?
     /// The CURRENT leg's covered distance (m), for the "1,4 / 2,0 km" readout.
     private(set) var legCoveredMeters: Double = 0
