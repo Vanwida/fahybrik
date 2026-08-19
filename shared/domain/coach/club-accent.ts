@@ -40,6 +40,14 @@ const FILL_MIN = 2;
 export const SOFT_ALPHA_LIGHT = 0.1;
 export const SOFT_ALPHA_DARK = 0.14;
 
+/**
+ * Un ajuste por debajo de esta distancia no se le cuenta al coach. El aviso
+ * existe para explicar una diferencia que VE; si el color se movió tan poco que
+ * no se distingue, contarlo solo suena a alarma por nada. Distancia euclídea en
+ * RGB: 12 sobre 255 es el orden de un par de pasos por canal.
+ */
+const CAMBIO_PERCEPTIBLE = 12;
+
 /** Los lienzos reales de cada superficie (v2-theme.css y Theme.swift). */
 export const CANVAS_LIGHT = '#f1efeb';
 export const CANVAS_DARK = '#0a0a0a';
@@ -192,7 +200,7 @@ function buildRole(
   // El relleno conserva el color del coach salvo que se confunda con el fondo.
   const fillRgb = ensureContrast(seed, canvas, FILL_MIN);
   const fill = rgbToHex(fillRgb);
-  if (fill !== rgbToHex(seed)) {
+  if (seVe(seed, fillRgb)) {
     adjustments.push({
       surface,
       role: 'fill',
@@ -209,7 +217,7 @@ function buildRole(
   // naranja de marca da 2,6:1 sobre el perla del panel).
   const textRgb = ensureContrast(seed, canvas, AA_TEXT);
   const text = rgbToHex(textRgb);
-  if (text !== rgbToHex(seed)) {
+  if (seVe(seed, textRgb)) {
     adjustments.push({
       surface,
       role: 'text',
@@ -223,6 +231,11 @@ function buildRole(
   }
 
   return { fill, on_fill: onFill(fillRgb), press: pressed(fillRgb), soft: soft(fillRgb, softAlpha), text };
+}
+
+/** ¿El ajuste se nota? Si no, se hace igual pero no se cuenta. */
+function seVe(seed: Rgb, moved: Rgb): boolean {
+  return Math.hypot(seed.r - moved.r, seed.g - moved.g, seed.b - moved.b) >= CAMBIO_PERCEPTIBLE;
 }
 
 /** Distancia de tono cruda: suficiente para avisar de un parecido, no para juzgar. */

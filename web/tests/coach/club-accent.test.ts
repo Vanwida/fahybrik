@@ -82,6 +82,16 @@ describe('acento del club · lo que se le dice al coach', () => {
     expect(naranja.collision).toBeNull();
   });
 
+  test('un ajuste imperceptible se hace pero no se le cuenta al coach', () => {
+    // #ff9147 se queda a 1,99:1 del perla: se mueve un par de pasos por canal.
+    // Contárselo sonaría a alarma por un cambio que no puede ver.
+    const fam = buildClubAccent('#ff9147')!;
+    expect(fam.light.fill).not.toBe('#ff9147');
+    expect(fam.adjustments.some((a) => a.surface === 'claro' && a.role === 'fill')).toBe(false);
+    // Como texto sí cambia de verdad, y eso sí se dice.
+    expect(fam.adjustments.some((a) => a.surface === 'claro' && a.role === 'text')).toBe(true);
+  });
+
   test('un color que ya cumple en todo no genera ningún aviso', () => {
     const fam = buildClubAccent('#2e86ff')!;
     const enPanel = fam.adjustments.filter((a) => a.surface === 'claro' && a.role === 'fill');
