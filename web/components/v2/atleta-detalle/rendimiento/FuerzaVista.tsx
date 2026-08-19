@@ -29,7 +29,7 @@ export function FuerzaVista({
           ) : null}
         </div>
         {maxes.length > 0 ? (
-          <div className="mt-3 grid grid-cols-2 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[10px] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="mt-3 grid grid-cols-2 divide-y divide-[color:var(--v2-border)] overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {maxes.map((m) => {
               const prev = m.history.length >= 2 ? m.history[m.history.length - 2]!.one_rm_kg : null;
               const delta = prev != null ? m.one_rm_kg - prev : null;

@@ -79,7 +79,7 @@ export function HistoricoTab({
                     className="v2-num shrink-0 text-sm font-bold"
                     style={{ color: `var(${colorVar})` }}
                   >
-                    {avg != null ? `${avg}%` : '—'}
+                    {avg != null ? `${avg}%` : EM_DASH}
                   </span>
                 </div>
               );
@@ -175,7 +175,7 @@ export function HistoricoTab({
                           {p.delta_label}
                         </span>
                       ) : (
-                        <span className="v2-num text-xs text-[color:var(--v2-faint)]">—</span>
+                        <span className="v2-num text-xs text-[color:var(--v2-faint)]">{EM_DASH}</span>
                       )}
                     </td>
                   </tr>

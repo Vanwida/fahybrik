@@ -1,7 +1,8 @@
 'use client';
 
-// ZoneCalculator — the SALIDA of the Test feature: a faithful, dark-v2 replica of
-// the "Calculadora de Zonas" Pablo approved (UX pase 2026-06-25 §3). It READS the
+// ZoneCalculator — the SALIDA of the Test feature: a faithful replica of the
+// "Calculadora de Zonas" Pablo approved (UX pase 2026-06-25 §3), restyled to the
+// FLEXR light system. It READS the
 // athlete's stored zone profile(s) (athlete_zone_profiles snapshot) and renders
 // the 6 zones per modality — it NEVER recomputes (one source of truth).
 //

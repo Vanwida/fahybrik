@@ -213,7 +213,7 @@ export function ColumnasPorPosicion({
                 {sinPct ? `${p.n} aún` : `${p.pct_dentro} %`}
               </span>
               <span
-                className="w-full max-w-[3.5rem] rounded-t-[5px]"
+                className="w-full max-w-[3.5rem] rounded-t-[var(--v2-r-2xs)]"
                 style={{
                   height: sinPct ? ALTO_SIN_PCT : `${Math.max(3, p.pct_dentro!)}%`,
                   background: sinPct
@@ -266,7 +266,7 @@ export function BarrasSemanales({
             {s.km.toFixed(1).replace('.', ',')}
           </span>
           <span
-            className="w-full max-w-[2.9rem] rounded-t-[5px]"
+            className="w-full max-w-[2.9rem] rounded-t-[var(--v2-r-2xs)]"
             style={{
               height: `${Math.max(2, (s.km / max) * 100)}%`,
               background: s.en_curso

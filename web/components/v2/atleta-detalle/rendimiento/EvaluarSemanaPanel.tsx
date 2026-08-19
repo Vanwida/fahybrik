@@ -299,7 +299,7 @@ function ProposalView({
       {/* Verdict + recommendation + evaluated week */}
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-bold"
+          className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold"
           style={{ background: `var(--v2-${verdict.tone}-soft)`, color: `var(${TONE_VAR[verdict.tone]})` }}
         >
           <MIcon name={p.verdict === 'ok' ? 'check_circle' : 'warning'} size={14} filled />
@@ -398,7 +398,7 @@ function ProposalView({
       ) : (
         <div className="flex items-center justify-between gap-2">
           <span className="text-label text-[color:var(--v2-muted)]">
-            Semana correcta — el plan sigue sin cambios.
+            Semana correcta, el plan sigue sin cambios.
           </span>
           <button
             type="button"

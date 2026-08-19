@@ -56,7 +56,7 @@ export function RendimientoHome({
             key={a.id}
             href={`/atletas/${id}?tab=rendimiento&vista=${a.id}`}
             className={cn(
-              'v2-focus rounded-full px-3 py-1 text-[12.5px] font-semibold',
+              'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-[12.5px] font-semibold',
               vista === a.id
                 ? 'bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
                 : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

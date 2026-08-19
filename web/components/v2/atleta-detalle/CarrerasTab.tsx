@@ -179,7 +179,7 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
           <EmptyState
             icon="flag"
             title="Aún no hay carreras pasadas"
-            description="Cuando el atleta importe su historial de HYROX —individuales y dobles— verás aquí sus resultados, percentil y splits."
+            description="Cuando el atleta importe su historial de HYROX (individuales y dobles) verás aquí sus resultados, percentil y splits."
           />
         ) : (
           <ul className="flex flex-col gap-3">

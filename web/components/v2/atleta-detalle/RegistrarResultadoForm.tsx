@@ -145,7 +145,7 @@ export function RegistrarResultadoForm({
         <p className="text-label leading-snug text-[color:var(--v2-muted)]">
           {testType.protocol} · objetivo{' '}
           <b className="v2-num text-[color:var(--v2-accent)]">RPE {TEST_TARGET_RPE}</b>. El cálculo
-          (ritmo → 6 zonas) lo aplica tu modelo de zonas — no a ojo.
+          (ritmo → 6 zonas) lo aplica tu modelo de zonas, no a ojo.
         </p>
       </div>
 

@@ -93,7 +93,7 @@ export function TrainingDaysCard({
             key={d.key}
             title={has_availability ? `${d.full_label} · ${d.trains ? 'entreno' : 'descanso'}` : d.full_label}
             className={cn(
-              'flex flex-col items-center gap-1.5 rounded-[var(--v2-r-s)] border py-2.5 text-center',
+              'flex flex-col items-center gap-1.5 rounded-[var(--v2-r-m)] border py-2.5 text-center',
               !has_availability
                 ? 'border-dashed border-[color:var(--v2-border)]'
                 : d.trains
