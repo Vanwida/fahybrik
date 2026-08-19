@@ -23,6 +23,8 @@ function sesion(over: Partial<PlanSession> = {}): PlanSession {
     iso_date: '2026-08-12',
     title: 'Fartlek 6×3′',
     status: 'scheduled',
+    dose_lines: [],
+    dose_more: 0,
     duration_min: 40,
     format: null,
     rpe: null,

@@ -49,6 +49,9 @@ export type SesionVista = {
   modality: PlanSession['modality'];
   format: string | null;
   duration_min: number | null;
+  /** Líneas «Ejercicio + dosis» (máx 2 desde el loader) + cuántas quedan fuera. */
+  dose_lines: string[];
+  dose_more: number;
 };
 
 export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
@@ -59,6 +62,8 @@ export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
     modality: s.modality,
     format: s.format,
     duration_min: s.duration_min,
+    dose_lines: s.dose_lines,
+    dose_more: s.dose_more,
   }));
 }
 

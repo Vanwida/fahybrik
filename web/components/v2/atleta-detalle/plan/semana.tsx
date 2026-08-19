@@ -206,7 +206,24 @@ function DiaCol({
                 <span className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-[color:var(--v2-fg)]">
                   {s.title}
                 </span>
-                {s.format || s.duration_min != null ? (
+                {/* La dosis (artboard «Semana»): hasta 2 líneas canónicas
+                    «Ejercicio + dosis»; el «+N» dice lo que queda fuera. Sin
+                    dosis que leer, degrada a formato · duración. */}
+                {s.dose_lines.length > 0 ? (
+                  <span className="flex w-full flex-col">
+                    {s.dose_lines.map((l, i) => (
+                      <span
+                        key={i}
+                        className="line-clamp-1 text-[11px] leading-snug text-[color:var(--v2-muted)]"
+                      >
+                        {l}
+                        {i === s.dose_lines.length - 1 && s.dose_more > 0 ? (
+                          <span className="text-[color:var(--v2-faint)]"> +{s.dose_more}</span>
+                        ) : null}
+                      </span>
+                    ))}
+                  </span>
+                ) : s.format || s.duration_min != null ? (
                   <span className="text-[11px] text-[color:var(--v2-muted)]">
                     {[s.format, s.duration_min != null ? `${s.duration_min} min` : null]
                       .filter(Boolean)

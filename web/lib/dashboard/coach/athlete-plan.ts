@@ -9,6 +9,7 @@ import {
   type MicrocicloPublishState,
 } from '@/lib/coach/publish-microciclo';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
+import { loadSessionContentSummaries } from '@/lib/coach/session-content';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
 import {
   sessionModalityFromExercises,
@@ -38,6 +39,12 @@ export interface PlanSession {
    *  cuando no hay ejercicios que leer. Aquí no se adivina nada — la heurística
    *  por título/formato vive en la vista y es el último recurso. */
   modality: SessionModality | null;
+  /** Las primeras líneas «Ejercicio + dosis» de la sesión (formateadores
+   *  canónicos de shared/domain/prescription, vía session-content). Vacío =
+   *  sin contenido que resumir; nunca se fabrica. */
+  dose_lines: string[];
+  /** Cuántas líneas prescritas quedaron fuera de dose_lines. */
+  dose_more: number;
 }
 
 export interface PlanDay {
@@ -321,10 +328,32 @@ export async function buildAthletePlan(params: {
       format: r.format,
       rpe: r.rpe,
       modality: sessionModalityFromExercises(r.modalities ?? []),
+      dose_lines: [],
+      dose_more: 0,
     };
     const list = sessionsByDate.get(r.iso_date) ?? [];
     list.push(session);
     sessionsByDate.set(r.iso_date, list);
+  }
+
+  // La dosis por sesión (artboard «Semana»): las primeras líneas legibles de
+  // cada asignación, en UNA consulta batch con los formateadores canónicos.
+  const allSessions = [...sessionsByDate.values()].flat();
+  if (allSessions.length > 0) {
+    const summaries = await loadSessionContentSummaries({
+      sql: client,
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      assignment_ids: allSessions.map((s) => s.assignment_id),
+      max_lines: 2,
+    });
+    for (const s of allSessions) {
+      const sum = summaries.get(s.assignment_id);
+      if (sum) {
+        s.dose_lines = sum.lines;
+        s.dose_more = sum.more;
+      }
+    }
   }
 
   const weekStarts: string[] = [];
