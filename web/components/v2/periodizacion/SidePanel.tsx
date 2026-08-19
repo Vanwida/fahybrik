@@ -58,7 +58,7 @@ export function SidePanel({
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="v2-focus rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={18} />
         </button>

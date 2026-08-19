@@ -78,12 +78,15 @@ export function RendimientoTab({
   }, [athleteId]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
+      <div className="flex items-center gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
         <MIcon name="progress_activity" size={16} className="animate-spin" />
         Cargando rendimiento…
       </div>
@@ -92,7 +95,7 @@ export function RendimientoTab({
 
   if (loadError) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
+      <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
         <span className="text-xs font-medium text-[color:var(--v2-danger)]">{loadError}</span>
         <button
           type="button"

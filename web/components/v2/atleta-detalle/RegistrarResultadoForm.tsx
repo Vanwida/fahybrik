@@ -76,7 +76,7 @@ export function RegistrarResultadoForm({
   };
 
   return (
-    <div className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+    <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
       <div className="mb-3 flex items-center gap-2.5 border-b border-[color:var(--v2-border)] pb-3">
         <span
           aria-hidden

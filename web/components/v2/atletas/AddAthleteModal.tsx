@@ -162,7 +162,7 @@ export function AddAthleteModal({ onClose }: { onClose: () => void }) {
             aria-label="Cerrar"
             onClick={close}
             disabled={isPending}
-            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>

@@ -5,7 +5,7 @@
 // and the athlete tab (1:1 seguimiento, no sales fields). Nothing discussed is lost:
 // every report persists and stays consultable, and feeds the post-call email (#11).
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Card } from '@/components/ui/card';
@@ -115,10 +115,15 @@ export function SessionReportsBlock({
   // Coupling (#14): when the parent bumps autoOpenTick (a cita marked "Completada"),
   // open the new-parte form in the same gesture — pre-linked to that cita. The coach can
   // still cancel = "completar sin parte". Ignores the initial mount (tick 0/undefined).
-  useEffect(() => {
+  // Adjusted DURING RENDER, not in an effect: no fetch is involved, so there's
+  // nothing an effect buys here — compare against the last tick seen and reset
+  // the form in the same pass (the documented "adjusting state on prop change"
+  // pattern, not a setState-in-effect).
+  const [seenAutoOpenTick, setSeenAutoOpenTick] = useState(autoOpenTick);
+  if (autoOpenTick !== seenAutoOpenTick) {
+    setSeenAutoOpenTick(autoOpenTick);
     if (autoOpenTick && autoOpenTick > 0) openNew();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenTick]);
+  }
 
   const body = () => {
     const b: Record<string, unknown> = {
@@ -319,7 +324,7 @@ export function SessionReportsBlock({
                     type="button"
                     aria-label="Editar"
                     onClick={() => openEdit(s)}
-                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]"
+                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]"
                   >
                     <MIcon name="edit" size={16} />
                   </button>
@@ -327,7 +332,7 @@ export function SessionReportsBlock({
                     type="button"
                     aria-label="Borrar"
                     onClick={() => remove(s.id)}
-                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-danger)]"
+                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-danger)]"
                   >
                     <MIcon name="delete" size={16} />
                   </button>
@@ -445,7 +450,7 @@ function SummaryModal({
       <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-1 flex items-start justify-between gap-3">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Resumen al lead</h2>
-          <button type="button" aria-label="Cerrar" onClick={onClose} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]">
+          <button type="button" aria-label="Cerrar" onClick={onClose} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]">
             <MIcon name="close" size={20} />
           </button>
         </div>

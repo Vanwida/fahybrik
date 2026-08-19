@@ -46,7 +46,7 @@ export function ThreadPanel({
             type="button"
             onClick={onBack}
             aria-label="Volver a conversaciones"
-            className="v2-focus -ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] md:hidden"
+            className="v2-focus -ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] md:hidden"
           >
             <MIcon name="arrow_back" size={20} />
           </button>
@@ -68,7 +68,7 @@ export function ThreadPanel({
             type="button"
             onClick={onOpenContext}
             aria-label="Ver contexto del atleta"
-            className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] xl:hidden"
+            className="v2-focus flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] xl:hidden"
           >
             <MIcon name="info" size={18} />
           </button>

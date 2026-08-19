@@ -264,7 +264,7 @@ export function EjercicioEditor({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="v2-focus -mr-1 -mt-1 shrink-0 rounded-[var(--v2-r-s)] p-1.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+              className="v2-focus -mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="close" size={18} />
             </button>

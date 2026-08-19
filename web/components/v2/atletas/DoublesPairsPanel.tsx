@@ -235,7 +235,7 @@ function LinkPairModal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="v2-focus rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus rounded-full p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={18} />
           </button>
@@ -328,7 +328,7 @@ export function DoublesPairsPanel({
   );
 
   return (
-    <section className="flex flex-col gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-3">
+    <section className="flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MIcon name="groups" size={18} className="text-[color:var(--v2-accent)]" />

@@ -245,7 +245,7 @@ export function DoblesSimulationEditor({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={18} />
           </button>

@@ -156,7 +156,7 @@ export function BiometriaTab({
 
       {/* ── 1 · VERDICT (Whoop Recovery / Oura Readiness hero) ─────────────── */}
       <section
-        className="flex flex-col gap-3 rounded-[var(--v2-r-l)] border p-4 shadow-[var(--v2-shadow-card)] sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-3 rounded-[var(--v2-r-card)] border p-4 shadow-[var(--v2-shadow-card)] sm:flex-row sm:items-center sm:justify-between"
         style={{ borderColor: band.border, background: band.bg }}
       >
         <div className="flex min-w-0 items-start gap-3">
@@ -332,7 +332,7 @@ function BaselineCard({
 }) {
   const delta = fmtDelta(signal.delta, unit, invertGood);
   return (
-    <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
+    <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
       <span className="v2-micro">{label}</span>
       {signal.value != null ? (
         <>
@@ -371,7 +371,7 @@ function SleepCard({
 }) {
   const low = nightHours != null && nightHours < 6.5;
   return (
-    <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
+    <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
       <span className="v2-micro">Sueño anoche</span>
       {nightHours != null ? (
         <>

@@ -19,10 +19,10 @@ import { cn } from '@/lib/utils';
 
 const ATHLETE_ROUTE = '/atletas';
 
-// El tercer panel flotante (mismo r-16 + borde + sombra que la lista y el hilo,
-// solo activo desde xl que es donde el grid le reserva su columna).
+// El tercer panel de contenido (mismo r-card + borde + sombra que la lista y
+// el hilo, solo activo desde xl que es donde el grid le reserva su columna).
 const PANEL_ROOT =
-  'hidden h-full min-h-0 flex-col bg-[color:var(--v2-surface)] xl:flex xl:overflow-hidden xl:rounded-[var(--v2-r-l)] xl:border xl:border-[color:var(--v2-border)] xl:shadow-[var(--v2-shadow-card)]';
+  'hidden h-full min-h-0 flex-col bg-[color:var(--v2-surface)] xl:flex xl:overflow-hidden xl:rounded-[var(--v2-r-card)] xl:border xl:border-[color:var(--v2-border)] xl:shadow-[var(--v2-shadow-card)]';
 
 export function ContextPanel({
   thread,

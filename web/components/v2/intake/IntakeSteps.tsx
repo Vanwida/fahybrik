@@ -428,7 +428,7 @@ export function AssignBar({
 }) {
   const blockers = checks.filter((c) => c.state !== 'ok').length;
   return (
-    <div className="sticky bottom-4 z-10 flex flex-col gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
+    <div className="sticky bottom-4 z-10 flex flex-col gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="v2-micro">Listo para asignar</span>
         {checks.map((c) => (

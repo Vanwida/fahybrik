@@ -43,7 +43,7 @@ export function ScreenNotice({
     <ScreenFrame className="flex min-h-[60vh] flex-col items-center justify-center">
       <span
         className={cn(
-          'mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[var(--v2-r-l)]',
+          'mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[var(--v2-r-card)]',
           tone === 'danger'
             ? 'bg-[color:var(--v2-danger-soft)] text-[color:var(--v2-danger)]'
             : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',

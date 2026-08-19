@@ -201,7 +201,7 @@ export function PlanesPersonalesPanel({
                 onClick={() => setDeleteTarget(p)}
                 title={`Borrar «${p.name}»`}
                 aria-label={`Borrar «${p.name}»`}
-                className="v2-focus mr-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-danger)]/10 hover:text-[color:var(--v2-danger)]"
+                className="v2-focus mr-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-danger)]/10 hover:text-[color:var(--v2-danger)]"
               >
                 <MIcon name="delete" size={15} />
               </button>

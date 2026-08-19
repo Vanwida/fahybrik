@@ -214,7 +214,7 @@ function Notice({ message, onDismiss }: { message: string; onDismiss: () => void
         type="button"
         onClick={onDismiss}
         aria-label="Descartar el aviso"
-        className="v2-focus shrink-0 rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus shrink-0 rounded-full text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
       >
         <MIcon name="close" size={15} />
       </button>

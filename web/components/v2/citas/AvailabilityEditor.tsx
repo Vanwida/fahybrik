@@ -532,7 +532,7 @@ export function AvailabilityEditor({
                             type="button"
                             onClick={() => removeRange(activeModality, weekday, idx)}
                             aria-label={`Quitar franja de ${label}`}
-                            className="v2-focus inline-flex h-9 w-9 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)]"
+                            className="v2-focus inline-flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)]"
                           >
                             <MIcon name="close" size={16} />
                           </button>
@@ -710,7 +710,7 @@ export function AvailabilityEditor({
                   onClick={() => removeException(e.id)}
                   disabled={exBusy}
                   aria-label={`Quitar bloqueo del ${formatCitaDate(e.fecha)}`}
-                  className="v2-focus inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="v2-focus inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <MIcon
                     name={exBusy && removingId === e.id ? 'progress_activity' : 'delete'}

@@ -199,8 +199,8 @@ function MensajesBody({
           'lg:h-[calc(100dvh-3.5rem)]',
           // Por debajo de md la lista y el hilo se alternan a pantalla completa
           // (como cualquier app de mensajería); a partir de ahí son tres paneles
-          // flotantes r-16 sobre el lienzo perla, con el marco y el hueco entre
-          // ellos que marca el artboard (16px).
+          // de contenido r-card sobre el lienzo perla, con el marco y el hueco
+          // entre ellos que marca el artboard.
           'md:grid-cols-[300px_minmax(0,1fr)] md:gap-4 md:p-4',
           'xl:grid-cols-[300px_minmax(0,1fr)_280px]',
         )}
@@ -208,7 +208,7 @@ function MensajesBody({
         <div
           className={cn(
             'flex min-h-0 flex-col bg-[color:var(--v2-surface)]',
-            'md:overflow-hidden md:rounded-[var(--v2-r-l)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
+            'md:overflow-hidden md:rounded-[var(--v2-r-card)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
             mobileOpen ? 'hidden md:flex' : 'flex',
           )}
         >
@@ -230,7 +230,7 @@ function MensajesBody({
         <div
           className={cn(
             'min-h-0 bg-[color:var(--v2-surface)]',
-            'md:overflow-hidden md:rounded-[var(--v2-r-l)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
+            'md:overflow-hidden md:rounded-[var(--v2-r-card)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
             mobileOpen ? 'block' : 'hidden md:block',
           )}
         >
@@ -291,7 +291,7 @@ function ContextPanelMobile({
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={18} />
         </button>

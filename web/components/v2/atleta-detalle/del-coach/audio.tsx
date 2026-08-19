@@ -212,7 +212,6 @@ function Reproductor({
       <span className="v2-num text-label tabular-nums text-[color:var(--v2-muted)]">
         {duracionCorta(audio.seconds)}
       </span>
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- es la voz del coach, no hay guion */}
       <audio src={audio.url} controls preload="none" className="h-8 min-w-0 flex-1" />
       <button
         type="button"

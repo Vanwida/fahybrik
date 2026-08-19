@@ -83,7 +83,7 @@ export function BlockEditorDrawer({
             type="button"
             onClick={close}
             aria-label="Cerrar"
-            className="v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>

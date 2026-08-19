@@ -77,7 +77,7 @@ export function ChatBubble({
               type="button"
               onClick={() => setConfirmingDelete(true)}
               aria-label="Borrar el mensaje"
-              className="v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="delete" size={15} />
             </button>

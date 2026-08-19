@@ -120,7 +120,7 @@ export function EjercicioRow({
           onClick={() => onDelete(ex)}
           aria-label={`Borrar ${ex.name}`}
           title="Borrar"
-          className="v2-focus mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] focus-visible:text-[color:var(--v2-danger)]"
+          className="v2-focus mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] focus-visible:text-[color:var(--v2-danger)]"
         >
           <MIcon name="delete" size={16} />
         </button>
