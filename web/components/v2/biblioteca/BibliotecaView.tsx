@@ -254,7 +254,7 @@ export function BibliotecaView({
               placeholder="buscar…"
               aria-label="Buscar en la biblioteca"
               className={cn(
-                'v2-focus h-9 w-40 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-52',
+                'v2-focus h-9 w-40 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-52',
                 'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
                 'focus:border-[color:var(--v2-border-strong)]',
               )}
@@ -392,7 +392,7 @@ function PrimaryAction({
   onCreatePlantilla: () => void;
 }) {
   const CLS =
-    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
   if (tab === 'ejercicios') return null;
   if (tab === 'microciclos') {

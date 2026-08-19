@@ -23,7 +23,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
-import { Pill } from '@/components/v2/Pill';
 import { TeachingEmptyState } from '@/components/v2/orientacion';
 import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { GRID_CLS } from '@/components/v2/biblioteca/biblioteca-nav';
@@ -56,7 +55,7 @@ import { desdeComunicado } from '@/lib/dashboard/v2/del-coach-borrador';
 const FIRMA_GENERICA = 'tu coach';
 
 const CTA_CLS =
-  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
 /** El paso en el que está publicar/editar. Uno cada vez: son modales. */
 type Flujo =
@@ -327,17 +326,21 @@ function TarjetaComunicado({
   onBorrar: () => void;
 }) {
   return (
-    <li className="flex flex-col gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 transition-colors hover:border-[color:var(--v2-border-strong)]">
+    <li className="flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 transition-colors hover:border-[color:var(--v2-border-strong)]">
       <div className="flex min-w-0 items-start justify-between gap-2">
-        <h4 className="line-clamp-2 min-w-0 text-body font-semibold text-[color:var(--v2-fg)]">
+        <h4 className="v2-display line-clamp-2 min-w-0 text-[15.5px] text-[color:var(--v2-fg)]">
           {c.title}
         </h4>
         {/* Un borrador se distingue de un molde con una marca, no con otra rejilla:
             los dos responden a «¿tengo esto ya escrito?». */}
         {c.is_template ? null : (
-          <Pill tone="warn" variant="outline" title="Escrito y sin publicar todavía">
+          <span
+            className="inline-flex shrink-0 items-center rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
+            style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
+            title="Escrito y sin publicar todavía"
+          >
             Sin publicar
-          </Pill>
+          </span>
         )}
       </div>
 
@@ -347,7 +350,7 @@ function TarjetaComunicado({
         <button
           type="button"
           onClick={onPublicar}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-2.5 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
         >
           <MIcon name="send" size={15} />
           Publicar a…
@@ -465,7 +468,7 @@ function Esqueleto() {
       {Array.from({ length: 6 }, (_, i) => (
         <li
           key={i}
-          className="h-[124px] animate-pulse rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]"
+          className="h-[124px] animate-pulse rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]"
           style={{ animationDelay: `${i * 60}ms` }}
         />
       ))}

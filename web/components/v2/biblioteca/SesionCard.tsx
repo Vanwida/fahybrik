@@ -23,23 +23,19 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
       href={`/biblioteca/sesion/${sesion.id}`}
       aria-label={`Editar sesión ${sesion.title}`}
       className={cn(
-        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
+        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',
       )}
-      style={{
-        ['--v2-stagger-i' as string]: index,
-        borderLeftWidth: '3px',
-        borderLeftColor: `var(${meta.colorVar})`,
-      }}
+      style={{ ['--v2-stagger-i' as string]: index }}
     >
       {/* Título + borrador */}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 text-sm font-semibold leading-snug text-[color:var(--v2-fg)]">
+        <h3 className="v2-display min-w-0 text-[15.5px] text-[color:var(--v2-fg)]">
           {sesion.title}
         </h3>
         {sesion.is_draft ? (
           <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
             style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
             title="Borrador — aún no la has dado por buena"
           >
@@ -49,13 +45,18 @@ export function SesionCard({ sesion, index }: { sesion: V2SesionItem; index: num
         ) : null}
       </div>
 
-      {/* Grupo (opcional: templates.methodology_group_id es nullable) + forma */}
+      {/* Grupo (opcional: templates.methodology_group_id es nullable) + forma.
+          El punto de color es la MODALIDAD (misma leyenda que el carril); el
+          chip del grupo del coach es neutro — el grupo es SU categoría. */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: `var(${meta.colorVar})` }}
+        />
+        <span className="sr-only">{meta.label}. </span>
         {sesion.group_label ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-            style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-          >
+          <span className="inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-faint)]">
             {sesion.group_label}
           </span>
         ) : null}

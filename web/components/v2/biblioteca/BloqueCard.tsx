@@ -1,8 +1,9 @@
 'use client';
 
-// BloqueCard — un BLOQUE: la pieza reutilizable del coach (`blocks`). El borde
-// izquierdo codifica la modalidad; el cuerpo lleva el título, su grupo
-// metodológico, la procedencia del Excel (source_ref) y la prosa verbatim.
+// BloqueCard — un BLOQUE: la pieza reutilizable del coach (`blocks`). El punto
+// de color codifica la modalidad (misma leyenda que el carril); el cuerpo lleva
+// el título, su grupo metodológico, la procedencia del Excel (source_ref) y la
+// prosa verbatim.
 //
 // Marcas honestas, y son DISTINTAS entre sí:
 //   · "sin tipar"  → no tiene ejercicios estructurados: el atleta NO puede
@@ -62,18 +63,14 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
       href={`/biblioteca/bloque/${bloque.id}`}
       aria-label={`Editar bloque ${bloque.title}`}
       className={cn(
-        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
+        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',
       )}
-      style={{
-        ['--v2-stagger-i' as string]: index,
-        borderLeftWidth: '3px',
-        borderLeftColor: `var(${meta.colorVar})`,
-      }}
+      style={{ ['--v2-stagger-i' as string]: index }}
     >
       {/* Título + estado (excluyentes: o sin tipar, o sin dosis, o nada) */}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 text-sm font-semibold leading-snug text-[color:var(--v2-fg)]">
+        <h3 className="v2-display min-w-0 text-[15.5px] text-[color:var(--v2-fg)]">
           {bloque.title}
         </h3>
         {bloque.readiness === 'sin_tipar' ? (
@@ -91,12 +88,17 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         ) : null}
       </div>
 
-      {/* Grupo + procedencia del Excel (desambigua títulos repetidos) */}
+      {/* Grupo + procedencia del Excel (desambigua títulos repetidos). El punto
+          de color es la MODALIDAD (misma leyenda que el carril); el chip del
+          grupo del coach es neutro — el grupo es SU categoría, no la nuestra. */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
-          className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-          style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-        >
+          aria-hidden
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: `var(${meta.colorVar})` }}
+        />
+        <span className="sr-only">{meta.label}. </span>
+        <span className="inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-faint)]">
           {bloque.group_label}
         </span>
         {bloque.source_ref ? (
@@ -143,7 +145,7 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
 function StateBadge({ icon, label, title }: { icon: string; label: string; title: string }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
+      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
       style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
       title={title}
     >

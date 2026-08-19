@@ -51,7 +51,7 @@ type EditorState =
   | null;
 
 const CTA_CLS =
-  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
 export function EjerciciosPanel({ query }: { query?: string }) {
   const [rows, setRows] = useState<CoachExerciseRow[] | null>(null);

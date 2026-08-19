@@ -32,7 +32,7 @@ export const NUEVO_BLOQUE_HREF = '/biblioteca/bloque/nuevo';
 /** Nueva SESIÓN (un entreno completo) — editor de sesión, desde cero. */
 export const NUEVA_SESION_HREF = '/biblioteca/sesion/nueva';
 
-export const GRID_CLS = 'grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3';
+export const GRID_CLS = 'grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3';
 
 export function resolveBibliotecaTab(raw: string | undefined): BibliotecaTab {
   return BIBLIOTECA_TABS.includes(raw as BibliotecaTab) ? (raw as BibliotecaTab) : 'bloques';

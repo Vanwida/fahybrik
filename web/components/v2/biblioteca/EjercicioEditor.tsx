@@ -401,7 +401,7 @@ export function EjercicioEditor({
               type="button"
               onClick={submit}
               disabled={!canSave}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
             >
               {saving ? <MIcon name="progress_activity" size={16} /> : null}
               {saving ? 'Guardando…' : creating ? 'Crear ejercicio' : 'Guardar'}

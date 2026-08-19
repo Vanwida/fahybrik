@@ -274,7 +274,7 @@ export function NuevoMicrocicloModal({
                 onClick={submit}
                 disabled={!canSubmit}
                 className={cn(
-                  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
+                  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
               >

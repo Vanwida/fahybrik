@@ -40,7 +40,7 @@ export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny
         action={
           <Link
             href={NUEVA_SESION_HREF}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={16} />
             Crear mi primera sesión
@@ -57,7 +57,7 @@ export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny
         <Link
           key="nueva"
           href={NUEVA_SESION_HREF}
-          className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="add" size={22} />
           <span className="text-xs font-semibold">nueva sesión</span>

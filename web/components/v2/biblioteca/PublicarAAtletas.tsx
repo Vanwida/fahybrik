@@ -26,7 +26,7 @@ interface AtletaDelRoster {
 }
 
 const CTA_CLS =
-  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-40';
+  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-40';
 
 const ATAJO_CLS = 'v2-focus font-semibold text-[color:var(--v2-accent)]';
 
@@ -149,7 +149,7 @@ export function PublicarAAtletas({
                 onChange={(e) => setFiltro(e.target.value)}
                 placeholder="buscar por nombre…"
                 aria-label="Buscar un atleta por su nombre"
-                className="v2-focus h-9 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] pl-8 pr-3 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]"
+                className="v2-focus h-9 w-full rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] pl-8 pr-3 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]"
               />
             </label>
 
