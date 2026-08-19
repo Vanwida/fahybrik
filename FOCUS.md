@@ -2,26 +2,37 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-15** (layout de vídeos de técnica en espera)
+Última actualización: **2026-08-18** (recorrido UX coach Preview; Production intacta)
 
 ## Ahora
 
-**Carrera hogar: SHIPEADO en Swift** (13-ago noche, orden directa de Alex:
-«haz el mock… dale» — supersede el «sin Swift hasta firmar» de antes). Hub
-navegable en la pastilla (Estado etiquetado, sin CTA de tests) + Historial /
-Tendencias / Capacidad / Por tipo / Forma / Pedido / Cansado + endpoints
-`/api/athlete/running/*` + `shared/domain/running/session-type.ts`. Build OK,
-suite iOS 1503/0. Ley: DECISIONS 13-ago (noche). Tandas: comparativa de
-sesión (T2) · por zona (T3) · veredicto por fila · volcados tira→hub.
-Plan personal sin periodización (atleta 64): cerrado. Tests = loop: informe
-CMJ montado + Dar feedback (Del coach, forma `test_result`, mig 0196).
-Falta archivo por familia y comparativa de homólogos.
+**Rediseño FLEXR del panel (19-ago, EN CURSO):** el panel del coach adopta
+el sistema FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C).
+Fase 1 hecha: tema claro perla único (muere dark+naranja del cromo),
+Bricolage+Figtree, sidebar flotante con slot de tenant y sello FLEXR.
+Siguen: casa=/atletas (toggle tarjetas/tabla + franja triage), restyle por
+pantalla, barrido y QA con Chrome. Ver DECISIONS.md 2026-08-19. iOS/doble/
+landing intactos.
+
+**UX coach (solo lectura, 18-ago):** el hueco es que el estado no se
+entiende, no el publicar-tras-MCP. Mapa:
+`docs/coach-ux-grok.html`. Recorrido Preview Coach Demo 1:
+`docs/coach-ux-recorrido.html`. Sin implementar. Main/prod/FLEXR intactos.
+
+**Corte prod 17-ago:** `fahybrid.com` sirve `origin/integration/trunk`
+`d2c269eb` (dpl_a3vpPryxuJqeiHXKj5KygrMgourJ). Clerk Production. Sin
+`DEMO_ACCESS`. Migs Production: `0197_coach_method_interview` +
+`0199_coach_club_skin`. `main` no se tocó (`origin/main` = `0e834b5c`).
+Preview trunk intacto (Clerk Dev + DEMO_ACCESS). No se promocionó.
+
+Carrera hogar shipeada en Swift (13-ago). Plan personal atleta 64 cerrado.
+Tests = loop (CMJ + feedback `test_result`, mig 0196).
 
 ## Espera Alex
 
-- Instalar la build de iOS y probar el hub de Carrera (la instala él).
+- iPhone: abrir la app (API `app.fahybrid.com`). Sign in with Apple.
+  No usar `/es/acceso-demo` (404 en prod).
 - Elegir capas del layout de vídeos de técnica: `docs/video-tecnica-layouts.html`
-  (6 opciones sobre un frame real de bear crawl; se pueden combinar).
 - Chat contextual: `/es/design/chat-contexto`.
 - ZIP GDPR Garmin para validar el importador FIT.
 

@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-19 · El panel del coach adopta el sistema FLEXR: claro perla único, cromo neutro, marca = dato del tenant
+
+**El contexto (Alex, 18-19 ago):** FLEXR es el paraguas multi-coach y FAHYBRID pasa a ser el primer tenant. El rediseño del panel (canvas aprobado, dirección C «Tarjetas»; contrato en `projects/FLEXR/DESIGN.md`) se aplica DIRECTAMENTE en este repo: no hay repo FLEXR todavía, y cuando llegue la feature «personalizar», el branding se cambiará desde el dashboard como dato del coach, no en código.
+
+**Decidido:**
+- El panel del coach pasa a **tema claro único** (perla `#F1EFEB` + tinta `#201F1B`, Bricolage Grotesque + Figtree). **Muere el tema oscuro del panel y muere el toggle** (`ThemeToggle`, `V2ThemeProvider`, `V2ThemeScript`, `theme-config` eliminados). El bloque `[data-theme="dark"]` de `v2-theme.css` sobrevive SOLO para los mockups embebidos de la app del atleta (guía), que sigue siendo oscura.
+- `--v2-accent` pasa de naranja a **tinta**: el naranja era marca del tenant, no del sistema. El cromo neutro es lo que permite que cada coach ponga su marca encima.
+- El slot de marca del sidebar muestra la marca del TENANT (hoy FAHYBRID); «FLEXR» firma abajo en pequeño. Con «personalizar», logo y nombre vendrán de datos del coach.
+- La app iOS del atleta, el doble y la landing NO cambian: siguen negro + naranja Fabrik.
+
+**NO hacer:** no reintroducir un toggle de tema en el panel; no devolver el naranja al cromo (solo puede volver como acento configurable del coach); no borrar el bloque dark de `v2-theme.css` mientras la guía monte mockups del atleta.
+
+---
+
 ## 2026-08-13 · El primer tramo personal desde la ficha arranca el lunes de esta semana
 
 **El hueco:** un atleta en `plan_mode=personal` sin filas en `athlete_month_assignments` (sesiones sueltas, nombre «—») no podía crear plan. «Personalizar» llamaba al fork y devolvía 409 (no hay microciclo). «Añadir microciclo» devolvía 409 `no_chain_yet` y mandaba a Personalizar. Las dos puertas se apuntaban.

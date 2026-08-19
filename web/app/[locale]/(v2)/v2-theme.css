@@ -1,59 +1,100 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   FAHYBRID v2 — SCOPED design tokens (dark + light).
+   Panel del coach — tokens FLEXR (claro perla, tema único).
 
-   THEME ISOLATION (hard constraint): every token lives under `.v2-root[data-theme]`,
-   NEVER on <html>. The legacy app is dark-only and toggles `.dark` on <html>; v2
-   must not bleed into it. A v2 page mounts a single `.v2-root` wrapper carrying
-   `data-theme="dark|light"`; all v2 surfaces read these vars and nothing else.
+   THEME ISOLATION (hard constraint): every token lives under `.v2-root`, NEVER
+   on <html>. The legacy app is dark-only and toggles `.dark` on <html>; v2 must
+   not bleed into it.
 
-   Both palettes share the SAME brand orange accent (#F06A2A) so the brand reads
-   identically in either mode. Dark = near-black surfaces matching the current app.
-   Light = warm off-white (NOT pure #fff) with ink text, AA-legible. Fonts reuse the
-   families already loaded at the app root (Archivo italic-black display, Geist UI,
-   Geist Mono data) — see app/layout.tsx; we only reference the --font-* vars.
+   FLEXR: el cromo del panel es NEUTRO (perla + tinta, cero acento de sistema);
+   la marca la pone el coach (tenant). El antiguo tema oscuro del panel murió con
+   el rediseño (docs/DECISIONS.md); el bloque [data-theme="dark"] de abajo
+   sobrevive SOLO para los mockups embebidos de la app del atleta (guía), que
+   sí es oscura. Fuentes: Bricolage Grotesque (display) + Figtree (cuerpo y
+   números tabulares), cargadas en app/[locale]/(v2)/fonts.ts.
+   Contrato de diseño: FLEXR/DESIGN.md + artboards del canvas aprobado.
    ════════════════════════════════════════════════════════════════════════════ */
 
 .v2-root {
-  /* ── Brand accent — IDENTICAL in both themes (the one constant) ──────────── */
-  --v2-accent: #f06a2a; /* "naranja" — color de marca HEREDADO (en retirada; no usar en superficies nuevas) */
-  --v2-accent-press: #d85a20;
-  /* Text/icon color that sits ON an accent fill. Black-on-orange is the brand
-     wordmark relationship and clears AA (~6.5:1) in both themes. */
-  --v2-accent-fg: #0a0a0a;
+  /* ── Acento del sistema = TINTA. El naranja era marca del tenant y salió del
+        cromo; "accent" conserva el nombre porque todo el panel lo lee como
+        "selección/acción primaria". ── */
+  --v2-accent: #201f1b;
+  --v2-accent-press: #3a3833;
+  --v2-accent-fg: #f1efeb;
+  --v2-accent-soft: rgba(32, 31, 27, 0.07);
 
-  /* ── Modality axis — categorical hues encoding TRAINING MODALITY (left
-        border / dot on session cards). MEANING, not decoration. Chosen so each
-        hue is distinct in BOTH themes and none collides with the brand orange's
-        "selection/brand" meaning.
+  /* ── Superficies y tinta (perla FLEXR) ── */
+  --v2-bg: #f1efeb; /* lienzo perla */
+  --v2-surface: #fefdfb; /* cards, sidebar, tablas (hueso, no blanco puro) */
+  --v2-surface-2: #ece9e2; /* relleno anidado (tracks, chips) */
+  --v2-elevated: #f7f5f0; /* hover / panel levantado */
+  --v2-border: #e4e1da; /* borde */
+  --v2-border-strong: #d6d2c8;
+  --v2-fg: #201f1b; /* tinta principal */
+  --v2-muted: #56534c; /* secundario */
+  --v2-faint: #6f6b62; /* terciario; mínimo permitido en texto pequeño */
 
-        carrera (running) is a WARM CORAL-RED (#e5484d), deliberately offset from
-        the pure brand orange so "this card is a run" never reads as "this card is
-        selected/branded". ergo = blue (shared system info hue), fuerza = amber
-        gold, circuito (metcon/conditioning) = green, calentamiento = neutral.
-        Color is never the only signal — every card also carries a text label. ── */
-  --v2-mod-carrera: #e5484d; /* running — warm coral-red, ≠ brand orange */
-  --v2-mod-ergo: #4d9eeb; /* rowing / ski erg — blue */
-  --v2-mod-fuerza: #e0a93b; /* strength — amber gold */
-  --v2-mod-circuito: #3fc773; /* conditioning / metcon — green */
-  --v2-mod-calentamiento: #9b9b9b; /* warm-up — neutral grey */
+  --v2-scrim: rgba(32, 31, 27, 0.35);
 
-  /* Type scale tokens shared across both themes (values, not colors). */
-  --v2-font-display: var(--font-archivo), "SF Pro Display", system-ui, sans-serif;
-  --v2-font-sans: var(--font-geist-sans), "SF Pro Text", system-ui, sans-serif;
-  --v2-font-mono: var(--font-geist-mono), "SF Mono", ui-monospace, monospace;
+  /* ── Semánticos (texto/dot); fondos = -soft al 10% ── */
+  --v2-ok: #2f7050;
+  --v2-ok-soft: rgba(47, 112, 80, 0.1);
+  --v2-warn: #b36a00;
+  --v2-warn-soft: rgba(179, 106, 0, 0.1);
+  --v2-danger: #b0402f;
+  --v2-danger-soft: rgba(176, 64, 47, 0.1);
+  --v2-info: #46688c;
+  --v2-info-soft: rgba(70, 104, 140, 0.1);
 
-  /* Radii + spacing — one source for both themes.
-     Los dos peldaños micro existen porque la escala se quedaba en 6px mientras
-     la UI tiene controles de 6-18px (barras finas, muestras de color, casillas):
-     ahí 6px redondea de más y por eso 15 sitios se escapaban a mano con 2, 3, 4
-     y 5px. Progresión coherente hacia abajo: 2 · 4 · 6 · 8 · 12 · 16. */
+  /* ── Eje de MODALIDAD (significado, no decoración): tonos FLEXR apagados,
+        distintos entre sí y del acento-tinta. El color nunca es la única señal:
+        toda tarjeta lleva también su etiqueta. ── */
+  --v2-mod-carrera: #c0453a;
+  --v2-mod-ergo: #46688c;
+  --v2-mod-fuerza: #a9791d;
+  --v2-mod-circuito: #2f7050;
+  --v2-mod-calentamiento: #7c736b;
+  --v2-mod-carrera-soft: rgba(192, 69, 58, 0.1);
+  --v2-mod-ergo-soft: rgba(70, 104, 140, 0.1);
+  --v2-mod-fuerza-soft: rgba(169, 121, 29, 0.1);
+  --v2-mod-circuito-soft: rgba(47, 112, 80, 0.1);
+  --v2-mod-calentamiento-soft: rgba(124, 115, 107, 0.1);
+
+  /* ── Eje de ZONAS (calculadora de zonas): misma semántica de intensidad,
+        entonada a la paleta. Z6 = tinta sobre claro. ── */
+  --v2-z1: #2f7050;
+  --v2-z1-soft: rgba(47, 112, 80, 0.1);
+  --v2-z2: #46688c;
+  --v2-z2-soft: rgba(70, 104, 140, 0.1);
+  --v2-z3: #a9791d;
+  --v2-z3-soft: rgba(169, 121, 29, 0.1);
+  --v2-z4: #b0402f;
+  --v2-z4-soft: rgba(176, 64, 47, 0.1);
+  --v2-z5: #8e3450;
+  --v2-z5-soft: rgba(142, 52, 80, 0.12);
+  --v2-z6: #201f1b;
+  --v2-z6-soft: rgba(32, 31, 27, 0.06);
+
+  /* ── Tipografía FLEXR: Bricolage Grotesque (display) + Figtree (cuerpo).
+        Los números tabulares van en Figtree (tnum), ya no en mono. ── */
+  --v2-font-display: var(--font-bricolage), "Helvetica Neue", system-ui, sans-serif;
+  --v2-font-sans: var(--font-figtree), "SF Pro Text", system-ui, sans-serif;
+  --v2-font-mono: var(--font-figtree), "SF Pro Text", system-ui, sans-serif;
+
+  /* Radii + spacing — escala FLEXR: panel 16 · card 14 · bloque 12 · nav 10,
+     y los peldaños micro heredados (2 · 4 · 6 · 8) que la UI fina necesita. */
   --v2-r-3xs: 2px; /* barra fina, muestra de color diminuta */
   --v2-r-2xs: 4px; /* casilla, botón micro */
   --v2-r-xs: 6px;
   --v2-r-s: 8px;
-  --v2-r-m: 12px;
-  --v2-r-l: 16px;
-  --v2-r-pill: 9999px;
+  --v2-r-nav: 10px; /* item de navegación */
+  --v2-r-m: 12px; /* bloque anidado, día */
+  --v2-r-card: 14px; /* card, contenedor de tabla */
+  --v2-r-l: 16px; /* panel grande, sidebar */
+  --v2-r-pill: 9999px; /* botón, chip, buscador, toggle */
+
+  --v2-shadow-card: 0 1px 2px rgba(32, 31, 27, 0.04);
+  --v2-shadow-pop: 0 16px 40px -12px rgba(32, 31, 27, 0.22);
 
   /* Alto de la barra de pestañas móvil (V2MobileNav: item 52px + pt 4 + pb 4 +
      borde 1) más la safe area del iPhone. Lo que mida a pantalla completa
@@ -68,27 +109,24 @@
   --v2-container: 1480px;
 }
 
-/* ── DARK (default) — near-black depth, matches the current app canvas ─────── */
+/* ── DARK — SOLO para mockups embebidos de la app del atleta (guía: PhoneMockup
+      / DashboardMockup montan `.v2-root[data-theme="dark"]` anidado). El cromo
+      del panel ya no lo usa. Valores = la app iOS real (near-black + naranja). ── */
 .v2-root[data-theme="dark"] {
-  /* Core surfaces / text */
-  --v2-bg: #0a0a0a; /* page canvas */
-  --v2-surface: #141414; /* cards, rows */
-  --v2-surface-2: #1a1a1a; /* nested fill (tracks, chips) */
-  --v2-elevated: #1f1f1f; /* lifted panel, hover */
-  --v2-border: rgba(255, 255, 255, 0.08); /* hairline */
-  --v2-border-strong: rgba(255, 255, 255, 0.16);
-  --v2-fg: #f5f5f5; /* primary text */
-  --v2-muted: #a1a1a1; /* secondary text */
-  --v2-faint: #6e6e6e; /* tertiary / disabled */
-
-  /* Accent tint (orange-washed surface for active / brand fills). */
+  --v2-accent: #f06a2a;
+  --v2-accent-press: #d85a20;
+  --v2-accent-fg: #0a0a0a;
   --v2-accent-soft: rgba(240, 106, 42, 0.14);
-
-  /* Modal / drawer scrim. On the near-black canvas a solid dim reads fine. */
+  --v2-bg: #0a0a0a;
+  --v2-surface: #141414;
+  --v2-surface-2: #1a1a1a;
+  --v2-elevated: #1f1f1f;
+  --v2-border: rgba(255, 255, 255, 0.08);
+  --v2-border-strong: rgba(255, 255, 255, 0.16);
+  --v2-fg: #f5f5f5;
+  --v2-muted: #a1a1a1;
+  --v2-faint: #6e6e6e;
   --v2-scrim: rgba(0, 0, 0, 0.6);
-
-  /* Semantic — derived from the app's #3FC773 / #F2A52E / #F23F3F / #4D9EEB.
-     Dark variants stay close to source (already legible on near-black). */
   --v2-ok: #3fc773;
   --v2-ok-soft: rgba(63, 199, 115, 0.14);
   --v2-warn: #f2a52e;
@@ -97,121 +135,42 @@
   --v2-danger-soft: rgba(242, 80, 79, 0.14);
   --v2-info: #4d9eeb;
   --v2-info-soft: rgba(77, 158, 235, 0.14);
-
-  /* Soft tints for the modality axis (card left-fill, chip bg). */
+  --v2-mod-carrera: #e5484d;
+  --v2-mod-ergo: #4d9eeb;
+  --v2-mod-fuerza: #e0a93b;
+  --v2-mod-circuito: #3fc773;
+  --v2-mod-calentamiento: #9b9b9b;
   --v2-mod-carrera-soft: rgba(229, 72, 77, 0.14);
   --v2-mod-ergo-soft: rgba(77, 158, 235, 0.14);
   --v2-mod-fuerza-soft: rgba(224, 169, 59, 0.14);
   --v2-mod-circuito-soft: rgba(63, 199, 115, 0.14);
   --v2-mod-calentamiento-soft: rgba(155, 155, 155, 0.14);
-
-  /* ── Training ZONE axis (the zone calculator — Pablo's verified viz). The
-        palette is the SEMANTICS of intensity, not decoration: Z1 cool green
-        (recovery) → Z6 near-white-on-black (máximal sprint). Chosen to be
-        distinct on near-black AND to never collide with the brand orange
-        ("selected"). Color is never the only signal — every zone card also
-        carries its number + label. Mirrors the signed UX pase's --z1..--z6,
-        adapted for AA contrast on the dark canvas. ── */
-  --v2-z1: #34c46a; /* recuperación activa — verde */
+  --v2-z1: #34c46a;
   --v2-z1-soft: rgba(52, 196, 106, 0.13);
-  --v2-z2: #4d9eeb; /* aeróbico extensivo — azul */
+  --v2-z2: #4d9eeb;
   --v2-z2-soft: rgba(77, 158, 235, 0.13);
-  --v2-z3: #e0a93b; /* aeróbico intensivo — ámbar */
+  --v2-z3: #e0a93b;
   --v2-z3-soft: rgba(224, 169, 59, 0.13);
-  --v2-z4: #f2504f; /* umbral anaeróbico — rojo */
+  --v2-z4: #f2504f;
   --v2-z4-soft: rgba(242, 80, 79, 0.13);
-  --v2-z5: #b13a52; /* VO2max / potencia — granate */
+  --v2-z5: #b13a52;
   --v2-z5-soft: rgba(177, 58, 82, 0.16);
-  --v2-z6: #e8e8e8; /* sprint / potencia máx — claro sobre negro */
+  --v2-z6: #e8e8e8;
   --v2-z6-soft: rgba(255, 255, 255, 0.06);
-
   --v2-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -12px rgba(0, 0, 0, 0.7);
   --v2-shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.8);
-}
-
-/* ── LIGHT — warm off-white, ink text, same orange. WCAG AA throughout. ────── */
-.v2-root[data-theme="light"] {
-  --v2-bg: #faf8f4; /* warm off-white canvas (NOT pure #fff) */
-  --v2-surface: #ffffff; /* cards lift off the warm canvas */
-  --v2-surface-2: #f3efe8; /* nested fill (tracks, chips) */
-  --v2-elevated: #ffffff; /* lifted panel — separated by shadow, not tint */
-  --v2-border: rgba(28, 25, 23, 0.1); /* warm ink hairline */
-  --v2-border-strong: rgba(28, 25, 23, 0.18);
-  --v2-fg: #1c1917; /* warm near-black ink (≈14:1 on canvas) */
-  --v2-muted: #6b6259; /* warm grey-brown (≈4.8:1 on canvas — AA body) */
-  --v2-faint: #9a9089; /* tertiary (AA for large/UI only) */
-
-  --v2-accent-soft: rgba(240, 106, 42, 0.12);
-
-  /* Modal / drawer scrim — MUCH lighter than dark: a solid 60% black over the
-     warm off-white canvas read as a harsh black slab (the modal made the editor
-     look "dark"). A soft warm-ink veil + the dialog's own shadow give focus
-     without dimming the surface to black. */
-  --v2-scrim: rgba(28, 25, 23, 0.35);
-
-  /* Semantic — DARKENED variants so colored text/icons clear 4.5:1 on the
-     light canvas (the dark-mode greens/ambers are too pale on off-white). */
-  --v2-ok: #1f9d57; /* readable green on light */
-  --v2-ok-soft: rgba(31, 157, 87, 0.12);
-  --v2-warn: #b9751a; /* readable amber on light */
-  --v2-warn-soft: rgba(185, 117, 26, 0.12);
-  --v2-danger: #d63a3a; /* readable red on light */
-  --v2-danger-soft: rgba(214, 58, 58, 0.1);
-  --v2-info: #2f7fce; /* readable blue on light */
-  --v2-info-soft: rgba(47, 127, 206, 0.1);
-
-  /* Modality hues — darkened to stay AA-legible as text/border on light. The
-     dot/border still reads as the same family as dark mode. */
-  --v2-mod-carrera: #cf3137;
-  --v2-mod-ergo: #2f7fce;
-  --v2-mod-fuerza: #a9791d;
-  --v2-mod-circuito: #1f9d57;
-  --v2-mod-calentamiento: #7c736b;
-  --v2-mod-carrera-soft: rgba(207, 49, 55, 0.1);
-  --v2-mod-ergo-soft: rgba(47, 127, 206, 0.1);
-  --v2-mod-fuerza-soft: rgba(169, 121, 29, 0.1);
-  --v2-mod-circuito-soft: rgba(31, 157, 87, 0.1);
-  --v2-mod-calentamiento-soft: rgba(124, 115, 107, 0.1);
-
-  /* Zone axis — darkened so the dot/border + any zone text clears AA on the warm
-     off-white canvas. Same intensity family as dark; Z6 (máximo) reads near-black
-     on light, mirroring its near-white reading on dark. */
-  --v2-z1: #1f9d57; /* recuperación — verde legible en claro */
-  --v2-z1-soft: rgba(31, 157, 87, 0.1);
-  --v2-z2: #2f7fce; /* aeróbico extensivo — azul */
-  --v2-z2-soft: rgba(47, 127, 206, 0.1);
-  --v2-z3: #a9791d; /* aeróbico intensivo — ámbar */
-  --v2-z3-soft: rgba(169, 121, 29, 0.1);
-  --v2-z4: #d63a3a; /* umbral — rojo */
-  --v2-z4-soft: rgba(214, 58, 58, 0.1);
-  --v2-z5: #98304a; /* VO2max — granate */
-  --v2-z5-soft: rgba(152, 48, 74, 0.12);
-  --v2-z6: #1c1917; /* sprint / máx — tinta sobre claro */
-  --v2-z6-soft: rgba(28, 25, 23, 0.06);
-
-  --v2-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04),
-    0 8px 24px -12px rgba(28, 25, 23, 0.18);
-  --v2-shadow-pop: 0 16px 40px -12px rgba(28, 25, 23, 0.24);
+  /* Los mockups oscuros conservan la voz de marca del tenant (Archivo itálica). */
+  --v2-font-display: var(--font-archivo), "SF Pro Display", system-ui, sans-serif;
+  --v2-font-sans: var(--font-geist-sans), "SF Pro Text", system-ui, sans-serif;
+  --v2-font-mono: var(--font-geist-mono), "SF Mono", ui-monospace, monospace;
 }
 
 /* ── PUENTE shadcn ⇄ v2 ──────────────────────────────────────────────────────
    Los primitivos de `components/ui/` hablan los nombres de shadcn
    (--primary, --border, --muted…). `app/globals.css` los define una sola vez
-   y SIN tema claro ("No light theme variant"), así que un primitivo puesto
-   dentro del dashboard se quedaba oscuro cuando el coach pulsa el toggle.
-
-   Aquí se reapuntan a los --v2-* del propio `.v2-root`. Como los tres bloques
-   de arriba teman --v2-* sobre ESTE MISMO elemento, una sola regla sirve para
-   claro y oscuro: var(--v2-bg) resuelve al valor ya tematizado.
-
-   `@theme inline` en globals.css es lo que lo hace posible: las utilidades
-   emiten var(--primary) en vez de un valor congelado, así que la cascada llega.
-
-   No crea ningún token --v2-* nuevo, y en oscuro los valores coinciden con los
-   de globals.css (#0a0a0a, #141414, #f5f5f5, #f06a2a) → cero cambio visual.
-   Es la ola 1 de docs/design-system-web.html, acotada a lo que usan Button
-   y Card. */
+   y SIN tema claro, así que aquí se reapuntan a los --v2-* del propio
+   `.v2-root` y la cascada llega tematizada a Button y Card. */
 .v2-root {
   --background: var(--v2-bg);
   --foreground: var(--v2-fg);
@@ -221,10 +180,6 @@
   --popover-foreground: var(--v2-fg);
   --primary: var(--v2-accent);
   --primary-foreground: var(--v2-accent-fg);
-  /* El naranja pulsado. globals.css ya expone --accent-press como token
-     (@theme → bg-accent-press), así que el hover no necesita opacidad:
-     con /90 el naranja se ACLARA sobre el lienzo claro y se oscurece sobre
-     el oscuro — el pulsado iría al revés según el tema. */
   --accent: var(--v2-accent);
   --accent-press: var(--v2-accent-press);
   --accent-on: var(--v2-accent-fg);
@@ -235,12 +190,8 @@
   --input: var(--v2-border);
   --ring: var(--v2-accent);
   --radius: var(--v2-r-s);
-  /* La forma de la tarjeta, en la escala del dashboard: el panel a 16, el
-     bloque anidado a 12 (un anidado nunca redondea mas que su contenedor).
-     Son EXACTAMENTE los valores que hoy escriben a mano las tarjetas del
-     dashboard (--v2-r-l / --v2-r-m / --v2-shadow-card), asi que migrar una a
-     <Card> no mueve un pixel. */
-  --card-radius: var(--v2-r-l);
+  /* La forma de la tarjeta en la escala FLEXR: card 14, anidado 12. */
+  --card-radius: var(--v2-r-card);
   --card-radius-inset: var(--v2-r-m);
   --card-elevation: var(--v2-shadow-card);
 }
@@ -259,9 +210,15 @@
   min-height: 100dvh;
 }
 
-/* Italic-black display heading — the brand wordmark voice. */
+/* Display heading — Bricolage bold, tracking cerrado (voz neutra FLEXR; la
+   itálica-black era la voz del tenant y vive solo en el bloque dark). */
 .v2-display {
   font-family: var(--v2-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.v2-root[data-theme="dark"] .v2-display {
   font-weight: 900;
   font-style: italic;
   letter-spacing: -0.01em;
@@ -272,13 +229,13 @@
 .v2-micro {
   font-family: var(--v2-font-sans);
   font-size: 0.6875rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--v2-muted);
+  letter-spacing: 0.07em;
+  color: var(--v2-faint);
 }
 
-/* Mono tabular number — counts + stats never jitter. */
+/* Número tabular — counts + stats never jitter (Figtree tnum en FLEXR). */
 .v2-num {
   font-family: var(--v2-font-mono);
   font-variant-numeric: tabular-nums;
@@ -331,7 +288,7 @@
   view-transition-name: vt-active-day;
 }
 
-/* Premium, Whoop-like easing/duration for every snapshot pair (~280ms). */
+/* Premium easing/duration for every snapshot pair (~280ms). */
 ::view-transition-group(vt-day-editor),
 ::view-transition-group(vt-active-day),
 ::view-transition-group(root) {
