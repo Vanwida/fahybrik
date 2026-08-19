@@ -125,8 +125,19 @@ struct ActiveWorkoutView: View {
             && !(session.currentBlockIsStructural && !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo))
             && !session.isAwaitingBlockStart
     }
+    // LA PREGUNTA ES «¿ESTÁ CORRIENDO AHORA?», no «¿de qué tipo es el segmento?».
+    // Un bloque de 8 movimientos alternos (Run 1.000 · SkiErg 500 · Run 1.000 ·
+    // Burpee · Run 1.000 · Row 500 · Run 1.000 · Wall Balls) se pliega en UN
+    // segmento (`mergedConditioningSegment`) cuyo `kind` es `.reps` — mixto, no
+    // `.running` — así que `session.currentSegment?.kind == .running` daba FALSE
+    // en las cuatro estaciones de correr del bloque, y con él el podómetro, el GPS
+    // y el barómetro (`RunPhoneSensorPlan`) se quedaban apagados los cuatro. Bug
+    // cazado por Alex — card 101, mismo mecanismo que el del podómetro huérfano,
+    // otra guarda. `session.tramoIsRun` es la pregunta correcta: ya la usan
+    // `superficieViva` (línea ~929) y `MachineTramoLaw`, y responde por la VENTANA
+    // activa (la estación en la que está el atleta), no por el segmento plegado.
     private var isRunSegment: Bool {
-        session.currentSegment?.kind == .running
+        session.tramoIsRun
     }
     // AQUÍ VIVÍA `isRunSeriesSegment`, la condición de los botones «Correr en
     // cinta» / «Correr fuera». Era la MISMA decisión escrita en dos sitios (la otra
@@ -627,7 +638,12 @@ struct ActiveWorkoutView: View {
     /// already connected → straight through, no extra screens.
     private func requestBlockStart() {
         let segs = upcomingBlockSegments
-        if segs.contains(where: { $0.kind == .running }), session.runEnvironment == nil {
+        // `$0.kind == .running` se quedaba corto por la MISMA razón que
+        // `isRunSegment`: un bloque mixto pliega a `.reps`. `involvesRun` (definida
+        // en `LiveTramo.swift`) ya mira dentro del prescription set de cada
+        // movimiento, así que un bloque de 8 estaciones con 4 de correr sigue
+        // preguntando «¿dónde corres?» aunque el segmento plegado no diga running.
+        if segs.contains(where: { $0.involvesRun }), session.runEnvironment == nil {
             showRunGate = true
         } else if needsErgConnect(segs) {
             showErgGate = true

@@ -278,6 +278,7 @@
 		5F1599089931410705F45C82 /* EscenariosComunicados.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BB2F6F58FC1C2031633BA6 /* EscenariosComunicados.swift */; };
 		5F6FA5B599E2689B51A66781 /* LecturasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2262F71E3F5FB92D7ABB1C5 /* LecturasTests.swift */; };
 		5FFAFA710DF724AE78741A41 /* DetalleDeCarrera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B48423DF7D77CDC1E3D6969 /* DetalleDeCarrera.swift */; };
+		600E103FCFDF040AC4021986 /* BloqueMixtoConCarreraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CFF8B2F4451DE1FB58F4988 /* BloqueMixtoConCarreraTests.swift */; };
 		6016DD2AAD64F4A796967F5F /* PerfilMarcasHistorialRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B686534E928B8738B0F6C60 /* PerfilMarcasHistorialRenderTests.swift */; };
 		609183D9C5DE6432CB7C1031 /* JumpPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B41D20F97D5A5035EC3772 /* JumpPreview.swift */; };
 		60E8404EB91C946F0A26761E /* RunPaceSmoother.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2029D942B4C76C0580E790 /* RunPaceSmoother.swift */; };
@@ -918,6 +919,7 @@
 		3B686534E928B8738B0F6C60 /* PerfilMarcasHistorialRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfilMarcasHistorialRenderTests.swift; sourceTree = "<group>"; };
 		3C22985F81A5391CB4E04312 /* EmomLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmomLiveView.swift; sourceTree = "<group>"; };
 		3C5E18745C0D8912F3EBDE57 /* CaminoDelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaminoDelPlan.swift; sourceTree = "<group>"; };
+		3CFF8B2F4451DE1FB58F4988 /* BloqueMixtoConCarreraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BloqueMixtoConCarreraTests.swift; sourceTree = "<group>"; };
 		3D15E54BCA01DD0C093B4A97 /* WorkoutSession+Tramo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Tramo.swift"; sourceTree = "<group>"; };
 		3D6A21827AF7C5A06299BAB5 /* PM5Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5Service.swift; sourceTree = "<group>"; };
 		3D806AFBB945921028E2D210 /* CorrerHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrerHubView.swift; sourceTree = "<group>"; };
@@ -2224,6 +2226,7 @@
 			isa = PBXGroup;
 			children = (
 				AF98AEC6595EEA02941F54A5 /* AutoPausaNoSobreviveTests.swift */,
+				3CFF8B2F4451DE1FB58F4988 /* BloqueMixtoConCarreraTests.swift */,
 				0E2C66CF7D6908E2FE6914BF /* CarreraDeLaSesionTests.swift */,
 				F45BC7DCE5C583CF3A8485B1 /* CarreraEstructuradaFartlekTests.swift */,
 				A2751F1D06858BAF7F4930D5 /* CoachSpeechTests.swift */,
@@ -3668,6 +3671,7 @@
 				ABA7C20218275BB791CCE3BA /* AutoPausaNoSobreviveTests.swift in Sources */,
 				38F9EDD5FBF767C5EFBFE803 /* AvailabilityServiceTests.swift in Sources */,
 				C1240E4E483AAD11A809ACAF /* BenchmarkDeltaTests.swift in Sources */,
+				600E103FCFDF040AC4021986 /* BloqueMixtoConCarreraTests.swift in Sources */,
 				E9E4D0CD51A32061D5FD04CF /* CarreraDeLaSesionTests.swift in Sources */,
 				31D9AE6558B17029AE63751E /* CarreraEstructuradaFartlekTests.swift in Sources */,
 				22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */,

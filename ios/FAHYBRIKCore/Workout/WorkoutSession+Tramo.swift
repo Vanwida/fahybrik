@@ -334,9 +334,23 @@ extension WorkoutSession {
     /// fuente manda ya la tenía el motor para el RITMO de la pierna
     /// (`liveCoveredPaceSecPerKm`); aquí se expone la misma, para que ritmo y
     /// metros no puedan contar cosas distintas de la misma carrera.
+    ///
+    /// FUERA de una carrera estructurada, «esta pierna» puede seguir siendo UNA
+    /// SOLA de varias que comparten segmento — un bloque de 8 movimientos alternos
+    /// (Run 1.000 · SkiErg 500 · Run 1.000 · Burpee · …) se pliega en UN segmento
+    /// (`mergedConditioningSegment`, `kind = .reps`), así que `liveRunDistanceMeters`
+    /// es el acumulado de las CUATRO carreras juntas, no de la que está en curso.
+    /// Se resta el ancla que `syncTramoIfNeeded` fija al entrar en la ventana —el
+    /// gemelo GPS de `tramoErgStartDistance` / `tramoBeltStartDistance`, mismo
+    /// patrón— para que la tercera estación de correr empiece en cero y no en
+    /// 2.000-y-pico. En una carrera de un solo tramo (todo el segmento es la
+    /// ventana) el ancla se fija en cero al entrar, así que no cambia nada.
     var tramoRunCoveredMeters: Double? {
         guard tramoIsRun else { return nil }
-        guard isRunStructureActive else { return liveRunDistanceMeters }
+        guard isRunStructureActive else {
+            guard let total = liveRunDistanceMeters else { return nil }
+            return Swift.max(0, total - (tramoGpsStartDistance ?? 0))
+        }
         let cubiertos = runLegCoveredMeters
         return cubiertos > 0 ? cubiertos : nil
     }
@@ -418,6 +432,7 @@ extension WorkoutSession {
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
         tramoBeltStartDistance = lapBeltDistanceMeters
+        tramoGpsStartDistance = lapGpsDistanceMeters
         stampTramoSampleCursors()
         // A device-measured window with no time box starts when the MACHINE starts.
         // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
@@ -439,6 +454,7 @@ extension WorkoutSession {
         tramoRestLatched = false
         tramoErgStartDistance = nil
         tramoErgStartCalories = nil
+        tramoGpsStartDistance = nil
         lastTramoElapsedSeconds = nil
         tramoHRPeak = nil
         lastTramoHRPeak = nil
@@ -539,6 +555,7 @@ extension WorkoutSession {
     func reanchorTramoDeviceWindowAtGo() {
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
+        tramoGpsStartDistance = lapGpsDistanceMeters
         tramoStartElapsed = lapElapsedSeconds
         stampTramoSampleCursors()
         tramoClockArmed = currentTramo.isErg

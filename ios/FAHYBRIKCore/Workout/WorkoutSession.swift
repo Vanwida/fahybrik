@@ -464,6 +464,14 @@ final class WorkoutSession {
     /// segment's belt distance on every run minute (minute 4 claiming minute 1 + 4's
     /// metres); with it each minute owns exactly what it covered.
     var tramoBeltStartDistance: Double = 0
+    /// GPS metres covered THIS SEGMENT at tramo entry — the outdoor twin of
+    /// `tramoBeltStartDistance`. Without it a mixed block whose stations alternate
+    /// Run / SkiErg / Burpees / Row / Wall Balls (a HYROX sim folds to ONE segment,
+    /// `mergedConditioningSegment`) reported the WHOLE segment's GPS distance on
+    /// every run station — the third 1.000 m of the block reading 2.000-y-pico
+    /// instead of starting at zero, because `lapGpsDistanceMeters` accumulates
+    /// across all four run stations of the same folded segment.
+    var tramoGpsStartDistance: Double? = nil
     /// How long the tramo that just closed lasted — the number the rest screen
     /// shows so "tiempo" stops counting the moment the work stops.
     var lastTramoElapsedSeconds: Double? = nil

@@ -202,9 +202,18 @@ final class OutdoorRunHUDModel {
     }
 
     /// The CURRENT leg's covered distance: baseline-adjusted per structured leg
-    /// (RunLegProgress discards a prior leg's overshoot), else the whole segment.
+    /// (RunLegProgress discards a prior leg's overshoot). UN-structured is NOT
+    /// always "the whole segment" any more: a mixed block (Run 1.000 · SkiErg 500 ·
+    /// Run 1.000 · …) folds to one segment, so `coveredMeters` (the raw GPS total)
+    /// would show the third run station arriving at 2.000-y-pico instead of 0.
+    /// `session.tramoRunCoveredMeters` is the tramo-anchored twin — same anchor
+    /// `tramoErgStartDistance`/`tramoBeltStartDistance` already use — so it starts
+    /// each running station at zero on its own. On a plain single-tramo run
+    /// segment the anchor is zero and the number is identical to `coveredMeters`.
     private func coveredLegMeters() -> Double {
-        isStructured ? legProgress.covered(segmentCoveredMeters: coveredMeters) : coveredMeters
+        isStructured
+            ? legProgress.covered(segmentCoveredMeters: coveredMeters)
+            : (session.tramoRunCoveredMeters ?? 0)
     }
 
     // MARK: Auto-pause
