@@ -178,7 +178,7 @@ export function SessionReportsBlock({
           <button
             type="button"
             onClick={openNew}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} />
             Registrar sesión
@@ -251,7 +251,7 @@ export function SessionReportsBlock({
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               className={FIELD + ' resize-y leading-relaxed'}
-              placeholder="Notas de la llamada — la fuente del email de resumen."
+              placeholder="Notas de la llamada, la fuente del email de resumen."
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -270,7 +270,7 @@ export function SessionReportsBlock({
             <button
               type="button"
               onClick={close}
-              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
             >
               Cancelar
             </button>
@@ -278,7 +278,7 @@ export function SessionReportsBlock({
               type="button"
               onClick={save}
               disabled={busy}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
             >
               {busy ? 'Guardando…' : 'Guardar parte'}
             </button>
@@ -348,7 +348,7 @@ export function SessionReportsBlock({
                   <button
                     type="button"
                     onClick={() => setSummaryReport(s)}
-                    className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
+                    className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
                   >
                     <MIcon name="mail" size={15} />
                     {s.summary_email_sent_at ? 'Reenviar resumen' : 'Enviar resumen al lead'}
@@ -462,10 +462,10 @@ function SummaryModal({
         </label>
         {error ? <p className="mb-2 text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]">
+          <button type="button" onClick={onClose} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]">
             Cancelar
           </button>
-          <button type="button" onClick={send} disabled={busy || !summary.trim()} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
+          <button type="button" onClick={send} disabled={busy || !summary.trim()} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
             <MIcon name="send" size={16} />
             {busy ? 'Enviando…' : alreadySent ? 'Reenviar' : 'Enviar resumen'}
           </button>

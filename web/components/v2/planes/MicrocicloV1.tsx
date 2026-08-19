@@ -41,7 +41,7 @@ function DayChip({
         href={href}
         scroll={false}
         aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
-        className="v2-focus flex min-h-[52px] items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus flex min-h-[52px] items-center justify-center rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
         {rest ? (
           <span className="text-eyebrow font-semibold">descanso</span>
@@ -57,7 +57,7 @@ function DayChip({
       href={href}
       scroll={false}
       aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label}`}
-      className="v2-focus flex min-h-[52px] flex-col gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
+      className="v2-focus flex min-h-[52px] flex-col gap-1 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
       style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
     >
       <span
@@ -132,7 +132,7 @@ export function MicrocicloV1({
       </div>
 
       {/* Grid */}
-      <div className="overflow-x-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]">
+      <div className="overflow-x-auto rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]">
         <div className="min-w-[820px]">
           {/* Day-header row */}
           <div className="grid grid-cols-[160px_repeat(7,minmax(0,1fr))] gap-2 border-b border-[color:var(--v2-border)] px-3 py-2">
@@ -174,7 +174,7 @@ export function MicrocicloV1({
                       type="button"
                       onClick={() => setDeletingWeek({ id: w.id, label: `Semana ${wi + 1}` })}
                       disabled={busyWeekId !== null}
-                      title="Borra esta semana — para arreglar duplicados de más"
+                      title="Borra esta semana, para arreglar duplicados de más"
                       aria-label={`Borrar semana ${wi + 1}`}
                       className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-60"
                     >

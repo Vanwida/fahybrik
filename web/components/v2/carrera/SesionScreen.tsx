@@ -35,7 +35,7 @@ const DIFICULTAD: Record<NonNullable<CoachSessionDetail['execution']>['perceived
  *  vacía con un título encima. */
 function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4">
+    <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4">
       <span className="v2-micro">{titulo}</span>
       {children}
     </div>

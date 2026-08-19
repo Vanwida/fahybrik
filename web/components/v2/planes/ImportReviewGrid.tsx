@@ -443,7 +443,7 @@ export function ImportReviewGrid({
                   <div
                     key={day.day_of_week}
                     className={cn(
-                      'relative flex min-h-[68px] flex-col rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] transition-colors',
+                      'relative flex min-h-[68px] flex-col rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] transition-colors',
                       TONE_CELL[tone],
                     )}
                   >
@@ -525,7 +525,7 @@ export function ImportReviewGrid({
                   onClick={() => void completeGaps()}
                   disabled={completingGaps || confirming}
                   title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el microciclo."
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
                 >
                   <MIcon
                     name={completingGaps ? 'progress_activity' : 'auto_fix'}
@@ -540,7 +540,7 @@ export function ImportReviewGrid({
                   type="button"
                   onClick={() => setCreatingMissing(true)}
                   disabled={completingGaps}
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/50 px-2.5 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/50 px-3 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
                 >
                   <MIcon name="library_add" size={14} />
                   {missingCount === 1
@@ -552,7 +552,7 @@ export function ImportReviewGrid({
             {canCompleteGaps ? (
               <p className="w-full text-nano text-[color:var(--v2-muted)]">
                 Rellena ejercicios y dosis de forma genérica. Entran marcados como
-                propuestos — los ajustas en el microciclo cuando quieras.
+                propuestos, los ajustas en el microciclo cuando quieras.
               </p>
             ) : null}
           </div>
@@ -564,7 +564,7 @@ export function ImportReviewGrid({
         ) : writable === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
-            No queda ningún día seleccionado — incluye al menos uno para poder confirmar.
+            No queda ningún día seleccionado. Incluye al menos uno para poder confirmar.
           </p>
         ) : null}
 
@@ -573,7 +573,7 @@ export function ImportReviewGrid({
             type="button"
             onClick={onBack}
             disabled={confirming || completingGaps}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
           >
             <MIcon name="arrow_back" size={16} />
             Atrás
@@ -590,7 +590,7 @@ export function ImportReviewGrid({
             type="button"
             onClick={onConfirm}
             disabled={!canConfirm || completingGaps}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
           >
             <MIcon name={confirming ? 'progress_activity' : 'download_done'} size={17} />
             {confirming

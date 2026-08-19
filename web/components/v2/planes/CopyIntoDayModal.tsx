@@ -265,7 +265,7 @@ export function CopyIntoDayModal({
                 type="button"
                 onClick={copy}
                 disabled={busy || sourceDow == null}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
                 <MIcon name={busy ? 'progress_activity' : 'content_copy'} size={16} />
                 {busy ? 'Copiando…' : 'Copiar aquí'}

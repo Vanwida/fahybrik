@@ -175,7 +175,7 @@ export function ImportDayReviewDrawer({
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {!hasSessions ? (
-            <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso — nada que revisar.</p>
+            <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso, nada que revisar.</p>
           ) : (
             <>
               {incompleteLines.length > 0 ? (
@@ -193,7 +193,7 @@ export function ImportDayReviewDrawer({
                           {line.exercise_name || 'Línea sin nombre'}
                         </span>
                         <span className="text-[color:var(--v2-muted)]">
-                          {' — '}
+                          {' · '}
                           {line.reasons.join(' · ')}
                         </span>
                       </li>
@@ -246,7 +246,7 @@ export function ImportDayReviewDrawer({
                     <button
                       type="button"
                       onClick={onAcceptProposals}
-                      className="v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/50 px-2.5 py-1.5 text-label font-semibold text-[color:var(--v2-warn)] transition-colors hover:bg-[color:var(--v2-warn)]/15"
+                      className="v2-focus shrink-0 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-warn)]/50 px-3 py-1.5 text-label font-semibold text-[color:var(--v2-warn)] transition-colors hover:bg-[color:var(--v2-warn)]/15"
                     >
                       Aceptar todos los propuestos
                     </button>
@@ -310,7 +310,7 @@ export function ImportDayReviewDrawer({
                                   <button
                                     type="button"
                                     onClick={() => addManualLine(sessionIndex, block.uid)}
-                                    className="v2-focus whitespace-nowrap rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                                    className="v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
                                   >
                                     Añadir a mano
                                   </button>
@@ -318,7 +318,7 @@ export function ImportDayReviewDrawer({
                                     <button
                                       type="button"
                                       onClick={onAddPhoto}
-                                      className="v2-focus whitespace-nowrap rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                                      className="v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
                                     >
                                       Subir foto del entreno
                                     </button>
@@ -341,7 +341,7 @@ export function ImportDayReviewDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="check" size={16} />
             Hecho

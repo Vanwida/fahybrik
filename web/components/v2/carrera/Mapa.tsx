@@ -128,7 +128,7 @@ export function Mapa({ route }: { route: AssignmentDetailRoute }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
+      <div className="overflow-hidden rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
         <svg
           role="img"
           aria-label="Recorrido de la sesión, coloreado por la zona de ritmo del atleta"

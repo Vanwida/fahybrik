@@ -44,7 +44,7 @@ function Frase({ children }: { children: string }) {
 
 export function Sujeto({ sujeto, prescrito }: { sujeto: SujetoLeido; prescrito: string | null }) {
   return (
-    <div className="flex flex-col gap-4 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 sm:flex-row sm:items-start sm:gap-6">
+    <div className="flex flex-col gap-4 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 sm:flex-row sm:items-start sm:gap-6">
       <div className="shrink-0">
         <Cabeza sujeto={sujeto} />
       </div>

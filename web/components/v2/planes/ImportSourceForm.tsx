@@ -237,14 +237,14 @@ export function ImportSourceForm({
   return (
     <div hidden={hidden} className="space-y-4 overflow-y-auto p-5">
       {/* Source toggle */}
-      <div className="inline-flex flex-wrap rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] p-0.5">
+      <div className="inline-flex flex-wrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] p-0.5">
         {(['file', 'paste', 'photo', 'generate'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => selectSource(m)}
             className={cn(
-              'v2-focus rounded-[calc(var(--v2-r-s)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors',
+              'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1.5 text-xs font-semibold transition-colors',
               sourceMode === m
                 ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
@@ -322,7 +322,7 @@ export function ImportSourceForm({
               <button
                 type="button"
                 onClick={switchToGenerateWithText}
-                className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
               >
                 <MIcon name="draw" size={14} /> Generar con IA
               </button>
@@ -349,7 +349,7 @@ export function ImportSourceForm({
             <span className="v2-micro">¿En qué semana del microciclo la meto?</span>
             <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
             <p className="v2-micro text-[color:var(--v2-faint)]">
-              La IA compone la semana entera con tu biblioteca. La revisas antes de guardar — nada
+              La IA compone la semana entera con tu biblioteca. La revisas antes de guardar, nada
               entra sin ejercicio del catálogo.
             </p>
           </div>
@@ -445,7 +445,7 @@ export function ImportSourceForm({
         <button
           type="button"
           onClick={onCancel}
-          className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus rounded-[var(--v2-r-pill)] px-3.5 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           Cancelar
         </button>
@@ -453,7 +453,7 @@ export function ImportSourceForm({
           type="button"
           onClick={submit}
           disabled={!canExtract}
-          className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+          className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
         >
           <MIcon
             name={

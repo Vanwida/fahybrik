@@ -136,7 +136,7 @@ export function PushBanner() {
               setBusy(false);
             }
           }}
-          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
+          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
         >
           {busy ? 'Activando…' : 'Activar avisos'}
         </button>
@@ -205,8 +205,8 @@ export function PushCard() {
               }}
               className={
                 state === 'enabled'
-                  ? 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-60'
-                  : 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60'
+                  ? 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-60'
+                  : 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60'
               }
             >
               {busy

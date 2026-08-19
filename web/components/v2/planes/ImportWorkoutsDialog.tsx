@@ -232,7 +232,7 @@ export function ImportWorkoutsDialog({
             <h2 className="v2-display text-xl">Importar entrenos</h2>
             <p className="v2-micro mt-0.5">
               {isReview
-                ? 'Revisa y elige qué entra — nada se guarda sin ejercicio del catálogo'
+                ? 'Revisa y elige qué entra, nada se guarda sin ejercicio del catálogo'
                 : 'De tu metodología a este microciclo, tipado'}
             </p>
           </div>

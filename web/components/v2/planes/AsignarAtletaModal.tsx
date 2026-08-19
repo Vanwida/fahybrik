@@ -164,14 +164,14 @@ export function AsignarAtletaModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 Cerrar
               </button>
               <button
                 type="button"
                 onClick={goToPlan}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
               >
                 <MIcon name="arrow_forward" size={16} />
                 Abrir plan y publicar
@@ -261,7 +261,7 @@ export function AsignarAtletaModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 Cancelar
               </button>
@@ -269,7 +269,7 @@ export function AsignarAtletaModal({
                 type="button"
                 onClick={handleAssign}
                 disabled={!canSubmit}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
                 {submitting ? (
                   <>

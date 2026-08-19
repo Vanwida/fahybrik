@@ -102,7 +102,7 @@ export function CarreraSesion({
       <Sujeto sujeto={sujeto} prescrito={lectura.prescrito} />
 
       {hayCurva && trace ? (
-        <div className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 pb-3 pt-4">
+        <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 pb-3 pt-4">
           <Curva
             ritmo={trace.display_curve.pace}
             pulso={trace.display_curve.hr}

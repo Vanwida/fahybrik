@@ -310,7 +310,7 @@ export function MicrocicloV2({
             type="button"
             onClick={addWeek}
             disabled={addingWeek}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
           >
             <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={16} />
             {addingWeek ? 'Añadiendo…' : 'Añadir semana'}
@@ -345,7 +345,7 @@ export function MicrocicloV2({
           onClick={addWeek}
           disabled={addingWeek}
           title="Añade una semana vacía al final del microciclo"
-          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
         >
           <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
           {addingWeek ? 'Añadiendo…' : 'Semana'}
@@ -356,7 +356,7 @@ export function MicrocicloV2({
             type="button"
             onClick={() => setDeleteOpen(true)}
             title="Borra este microciclo y todas sus semanas"
-            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
           >
             <MIcon name="delete" size={15} />
             Borrar
@@ -371,7 +371,7 @@ export function MicrocicloV2({
                 type="button"
                 onClick={() => setAssignOpen(true)}
                 title="Elige desde qué lunes este atleta ve el plan"
-                className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
               >
                 <MIcon name="play_arrow" size={15} /> Poner en marcha
               </button>
@@ -381,7 +381,7 @@ export function MicrocicloV2({
               type="button"
               onClick={() => setAssignOpen(true)}
               title="Asigna este microciclo a un atleta (en borrador)"
-              className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+              className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
             >
               <MIcon name="assignment_ind" size={15} /> Asignar a atleta
             </button>

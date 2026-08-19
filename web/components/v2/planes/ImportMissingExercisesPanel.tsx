@@ -491,7 +491,7 @@ export function ImportMissingExercisesPanel({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
+              className="v2-focus rounded-[var(--v2-r-pill)] px-3.5 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -499,7 +499,7 @@ export function ImportMissingExercisesPanel({
               type="button"
               onClick={submit}
               disabled={!canSubmit}
-              className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+              className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
             >
               <MIcon
                 name={saving ? 'progress_activity' : 'library_add'}
