@@ -18,7 +18,7 @@
 // week/day nav is a soft, in-place `?dia` navigation wrapped in a View Transition.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
@@ -30,7 +30,6 @@ import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
 import { ActivarPlanPersonalModal } from '@/components/v2/planes/ActivarPlanPersonalModal';
 import { DeleteMicrocicloModal } from '@/components/v2/planes/DeleteMicrocicloModal';
-import { Pill } from '@/components/v2/Pill';
 import { SemanaBoard, vtEnabled } from '@/components/v2/planes/SemanaBoard';
 import { buildWeekOutline, weekModalities } from '@/components/v2/planes/semana-model';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
@@ -363,10 +362,17 @@ export function MicrocicloV2({
           </button>
           {owner ? (
             <>
-              <Pill tone="accent" variant="soft" className="h-8">
-                <MIcon name="person" size={14} />
-                Plan personal de {owner.athlete_name}
-              </Pill>
+              {/* La vuelta al atleta: era una etiqueta muerta y el coach se
+                  quedaba sin salida (solo el atrás del navegador). Misma voz
+                  que el editor de día. */}
+              <Link
+                href={`/atletas/${owner.athlete_id}?tab=plan`}
+                title={`Volver a la ficha de ${owner.athlete_name}`}
+                className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="arrow_back" size={15} />
+                Plan de {owner.athlete_name}
+              </Link>
               <button
                 type="button"
                 onClick={() => setAssignOpen(true)}
