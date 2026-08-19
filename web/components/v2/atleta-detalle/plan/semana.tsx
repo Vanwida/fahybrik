@@ -38,6 +38,7 @@ export function SemanaCanvas({
   athleteId,
   focus,
   dayHref,
+  activeSessionId = null,
 }: {
   week: PlanWeekRow;
   todayIso: string;
@@ -57,6 +58,8 @@ export function SemanaCanvas({
   athleteId: string;
   focus: React.ReactNode;
   dayHref?: (iso: string) => string;
+  /** Sesión abierta en el panel de detalle (peek): se marca en la semana. */
+  activeSessionId?: string | null;
 }) {
   return (
     <FichaCard className="p-0">
@@ -114,6 +117,7 @@ export function SemanaCanvas({
               athleteId={athleteId}
               onOpen={onOpen}
               dayHref={dayHref}
+              activeSessionId={activeSessionId}
             />
           ))}
         </div>
@@ -133,6 +137,7 @@ function DiaCol({
   athleteId,
   onOpen,
   dayHref,
+  activeSessionId = null,
 }: {
   day: PlanDay;
   short: string;
@@ -140,8 +145,10 @@ function DiaCol({
   athleteId: string;
   onOpen: (assignmentId: string) => void;
   dayHref?: (iso: string) => string;
+  activeSessionId?: string | null;
 }) {
   const sesiones = sesionesDelDia(day, todayIso);
+  const tieneActiva = activeSessionId != null && sesiones.some((s) => s.assignment_id === activeSessionId);
   const vacio = sesiones.length === 0;
   const extra = Math.max(0, sesiones.length - SESIONES_VISIBLES);
   const visibles = extra > 0 ? sesiones.slice(0, SESIONES_VISIBLES) : sesiones;
@@ -150,7 +157,7 @@ function DiaCol({
       className={cn(
         'flex min-h-[128px] flex-col overflow-hidden rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)]',
         vacio ? 'border-dashed border-[color:var(--v2-border)] bg-transparent' : 'border-[color:var(--v2-border)]',
-        day.is_today && 'border-[1.5px] border-[color:var(--v2-fg)]',
+        (day.is_today || tieneActiva) && 'border-[1.5px] border-[color:var(--v2-fg)]',
       )}
     >
       <div className="flex items-center gap-1.5 border-b border-[color:var(--v2-border)] px-2.5 py-2">
@@ -175,7 +182,10 @@ function DiaCol({
                 key={s.assignment_id}
                 type="button"
                 onClick={() => onOpen(s.assignment_id)}
-                className="v2-focus flex flex-col items-start rounded-[var(--v2-r-xs)] text-left hover:bg-[color:var(--v2-surface-2)]"
+                className={cn(
+                  'v2-focus -mx-1 flex w-[calc(100%+8px)] flex-col items-start rounded-[var(--v2-r-xs)] px-1 py-0.5 text-left hover:bg-[color:var(--v2-surface-2)]',
+                  s.assignment_id === activeSessionId && 'bg-[color:var(--v2-accent-soft)]',
+                )}
               >
                 <span className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-[color:var(--v2-fg)]">
                   {s.title}

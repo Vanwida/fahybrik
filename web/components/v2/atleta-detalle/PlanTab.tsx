@@ -288,6 +288,7 @@ export function PlanTab({
               onNext={() => setWeekIdx(clampedWeekIdx + 1)}
               onHoy={() => setWeekIdx(initialWeekIdx)}
               onOpen={openSessionSynced}
+              activeSessionId={openSession}
               athleteId={athlete_id}
               dayHref={
                 plan.is_personal && plan.current_month_template_id && plan.current_assignment_start

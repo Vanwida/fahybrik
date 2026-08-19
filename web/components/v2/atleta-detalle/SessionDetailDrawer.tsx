@@ -18,9 +18,9 @@
 // clic sobre un dato ya cargado — así que puede ser ajeno o no existir. Un 400/404
 // dispara `onInvalid` (si el caller la da) en vez del aviso de error de siempre.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MIcon } from '@/components/ui/MIcon';
-import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import { Link } from '@/i18n/navigation';
 import { Pill } from '@/components/v2/Pill';
 import { ADHERENCE_BAND_COLOR_VAR, adherenceBand } from '@/components/v2/constants';
@@ -138,6 +138,20 @@ export function SessionDetailDrawer({
     };
   }, [athleteId, assignmentId, onInvalid]);
 
+  // Peek: ancla en sitio para localizar el .v2-root; el contenido va al portal.
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setPortalTarget(anchorRef.current?.closest<HTMLElement>('.v2-root') ?? document.body);
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   // Index actuals by the prescribed item they map to.
   const byItem = new Map<string, SegmentActual[]>();
   const unmatched: SegmentActual[] = [];
@@ -169,22 +183,20 @@ export function SessionDetailDrawer({
   const statusMeta = detail ? STATUS_META[detail.status] : null;
 
   return (
-    // Portalado al .v2-root (ModalPortal): un `fixed` renderizado en sitio caía
-    // dentro del wrapper animado de la ficha (containing block por transform) y
-    // el cajón salía atrapado y desplazado. El portal además trae Escape, trampa
-    // de foco y bloqueo de scroll.
-    <ModalPortal onEscape={onClose}>
-      <div
-        className="fixed inset-0 z-50 flex justify-end bg-[color:var(--v2-scrim)] backdrop-blur-sm"
-        onClick={onClose}
-      >
-      <div
-        role="dialog"
-        aria-modal
-        aria-label={`Detalle del entreno: ${title}`}
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full max-w-lg flex-col border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
-      >
+    // PEEK, no modal: el panel vive a la derecha SIN velo y la semana de detrás
+    // sigue viva: clicar otro día conmuta el detalle sin cerrar (la semana ES el
+    // navegador del panel). Se portala al `.v2-root` más cercano porque un
+    // `fixed` renderizado en sitio caía dentro del wrapper animado de la ficha
+    // (containing block por transform) y salía atrapado. Escape cierra; no hay
+    // scrim que clicar ni bloqueo de scroll: el fondo es interactivo a propósito.
+    <span ref={anchorRef} hidden>
+      {portalTarget
+        ? createPortal(
+            <aside
+              role="dialog"
+              aria-label={`Detalle del entreno: ${title}`}
+              className="fixed inset-y-0 right-0 z-40 flex w-[min(640px,94vw)] flex-col border-l border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
+            >
         {/* Header */}
         <header className="flex items-start justify-between gap-3 border-b border-[color:var(--v2-border)] px-5 py-4">
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -347,8 +359,10 @@ export function SessionDetailDrawer({
             </div>
           )}
         </div>
-        </div>
-      </div>
-    </ModalPortal>
+            </aside>,
+            portalTarget,
+          )
+        : null}
+    </span>
   );
 }
