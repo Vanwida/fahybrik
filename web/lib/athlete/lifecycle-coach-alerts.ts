@@ -20,22 +20,20 @@ import { sql } from '@/lib/db';
 import { longDateEs } from '@fahybrid/shared/domain/dates';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { notifyCoach } from '@/lib/notifications/dispatch';
+import { resolveClubNotifyEmail } from '@/lib/coach/club-notify';
 import { appBase, brandShell, ctaButton, escapeHtml } from '@/lib/leads/email-shell';
 import {
   PAUSE_REASON_LABELS,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 
-/** Where coach-facing alerts land. Same convention as the lead funnel. */
-function coachInbox(): string {
-  return process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
-}
-
 interface AthleteCard {
   athlete_id: bigint;
   full_name: string;
   /** Whole months since the athlete joined, for the "lleva contigo" line. */
   months_with_coach: number | null;
+  /** Club that owns this athlete. Null = no inbox to resolve. */
+  coach_id: bigint | null;
 }
 
 /**
@@ -46,11 +44,12 @@ interface AthleteCard {
  */
 async function loadAthleteCard(athlete_id: bigint): Promise<AthleteCard | null> {
   const rows = await sql<
-    { full_name: string | null; months: number | null }[]
+    { full_name: string | null; months: number | null; coach_id: string | null }[]
   >`
     select
       coalesce(u.full_name, u.email)                                              as full_name,
-      floor(extract(epoch from (now() - a.created_at)) / 2592000)::int            as months
+      floor(extract(epoch from (now() - a.created_at)) / 2592000)::int            as months,
+      a.coach_id::text                                                            as coach_id
     from athletes a
     join users u on u.id = a.user_id
     where a.id = ${athlete_id as unknown as number}
@@ -62,6 +61,7 @@ async function loadAthleteCard(athlete_id: bigint): Promise<AthleteCard | null> 
     athlete_id,
     full_name: row.full_name ?? 'Un atleta',
     months_with_coach: row.months,
+    coach_id: row.coach_id != null ? BigInt(row.coach_id) : null,
   };
 }
 
@@ -72,7 +72,14 @@ function tenureLine(card: AthleteCard): string {
   return `Lleva ${m} meses contigo.`;
 }
 
-async function sendCoachEmail(subject: string, html: string, text: string): Promise<void> {
+async function sendCoachEmail(
+  coach_id: bigint | null,
+  subject: string,
+  html: string,
+  text: string,
+): Promise<void> {
+  const to = await resolveClubNotifyEmail(coach_id);
+  if (!to) return;
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
     console.warn('[lifecycle-alerts] RESEND_API_KEY not configured — skipping', { subject });
@@ -81,7 +88,7 @@ async function sendCoachEmail(subject: string, html: string, text: string): Prom
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
-    to: coachInbox(),
+    to,
     subject,
     text,
     html,
@@ -136,7 +143,7 @@ export async function alertCoachPauseStarted(input: {
       ctaButton(fichaUrl(input.athlete_id), 'Abrir su ficha'),
   );
 
-  await sendCoachEmail(`${card.full_name} en pausa hasta el ${vuelve}`, html, text);
+  await sendCoachEmail(card.coach_id, `${card.full_name} en pausa hasta el ${vuelve}`, html, text);
 }
 
 /** The athlete scheduled their baja. Email + inbox row. */
@@ -186,7 +193,7 @@ export async function alertCoachBajaScheduled(input: {
       `<p style="margin:18px 0 0;font-size:12px;color:#999;">Su plaza se libera el ${escapeHtml(dia)} y pasa a la lista de espera.</p>`,
   );
 
-  await sendCoachEmail(`Baja · ${card.full_name} se va el ${dia}`, html, text);
+  await sendCoachEmail(card.coach_id, `Baja · ${card.full_name} se va el ${dia}`, html, text);
 }
 
 /** The athlete changed their mind before the baja landed. Inbox only — it is good news. */

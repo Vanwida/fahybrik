@@ -1,8 +1,9 @@
 'use client';
 
-// Ficha del club: nombre, logo y acento. Vacío = marca de este binario.
-// El logo se guarda al elegirlo (igual que la foto de perfil). Nombre y color
-// van juntos en PATCH /api/coach/club.
+// Ficha del club: nombre, logo, acento y correo de avisos. Vacío en piel =
+// marca de este binario. Vacío en el correo = no se manda. El logo se guarda
+// al elegirlo (igual que la foto de perfil). Nombre, color y correo van juntos
+// en PATCH /api/coach/club.
 
 import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,21 +38,26 @@ import { PROFILE_PHOTO_VARIANTS, profilePhotoUrl } from '@/lib/profile/photo-sou
 type FormState = {
   name: string;
   accent_hex: string;
+  notify_email: string;
 };
 
-function toForm(s: ClubSkin): FormState {
+type ClubFormInitial = ClubSkin & { notify_email?: string | null };
+
+function toForm(s: ClubFormInitial): FormState {
   return {
     name: s.name ?? '',
     accent_hex: s.accent_hex ?? '',
+    notify_email: s.notify_email ?? '',
   };
 }
 
-export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
+export function ClubSkinForm({ initial }: { initial: ClubFormInitial }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
   const colorId = useId();
   const hexId = useId();
+  const emailId = useId();
 
   const [saved, setSaved] = useState<FormState>(() => toForm(initial));
   const [form, setForm] = useState<FormState>(() => toForm(initial));
@@ -115,10 +121,11 @@ export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
         body: JSON.stringify({
           name: form.name,
           accent_hex: form.accent_hex,
+          notify_email: form.notify_email,
         }),
       });
       const data = (await res.json().catch(() => null)) as
-        | { club?: ClubSkin; error?: { message?: string } }
+        | { club?: ClubFormInitial; error?: { message?: string } }
         | null;
       if (!res.ok) {
         setError(data?.error?.message ?? 'No se pudieron guardar los cambios.');
@@ -252,6 +259,26 @@ export function ClubSkinForm({ initial }: { initial: ClubSkin }) {
       </div>
 
       <ClubSkinPreview accentHex={previewHex} wordmark={brand.wordmark} logoSrc={logoSrc} />
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={emailId} className="text-xs font-semibold text-[color:var(--v2-muted)]">
+          Correo que recibe avisos
+        </label>
+        <input
+          id={emailId}
+          type="email"
+          value={form.notify_email}
+          placeholder="tu@club.com"
+          autoComplete="email"
+          spellCheck={false}
+          autoCapitalize="off"
+          onChange={(e) => set('notify_email', e.target.value)}
+          className={FIELD}
+        />
+        <p className="text-xs text-[color:var(--v2-muted)]">
+          Leads, citas y bajas. Vacío = no se manda.
+        </p>
+      </div>
 
       {error ? <p className="text-sm text-[color:var(--v2-danger)]">{error}</p> : null}
       {ok && !dirty ? <p className="text-sm font-medium text-[color:var(--v2-ok)]">Guardado</p> : null}

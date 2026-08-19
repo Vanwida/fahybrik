@@ -1,6 +1,7 @@
-// v2 · CLUB — ficha de la piel del club (nombre, logo, acento).
-// Vacío = marca de este binario. La piel repinta este panel y viaja a la app
-// del atleta por `club` en GET /api/auth/me.
+// v2 · CLUB — ficha de la piel del club (nombre, logo, acento) y el correo
+// que recibe avisos. Vacío en piel = marca de este binario. Vacío en el correo
+// = no se manda. La piel repinta este panel y viaja a la app del atleta por
+// `club` en GET /api/auth/me.
 
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
@@ -40,7 +41,8 @@ export default async function ClubPage({
         <h1 className="v2-display text-3xl text-[color:var(--v2-fg)] sm:text-4xl">Tu club</h1>
         <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
           Nombre, logo y color. Es lo que ven tus atletas en su móvil, no solo tú
-          aquí. Si dejas un campo vacío, se usa la marca de la app.
+          aquí. Si dejas un campo vacío, se usa la marca de la app. El correo de
+          avisos es aparte: vacío = no se manda nada.
         </p>
       </header>
 
