@@ -38,7 +38,7 @@ export function V2Shell({
       <div className="flex min-h-[100dvh] min-w-0 flex-col lg:ml-[268px]">
         {/* Top utility bar — brand on the left only where the sidebar is hidden. */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-[color:var(--v2-border)] bg-[color:color-mix(in_srgb,var(--v2-bg)_85%,transparent)] px-4 backdrop-blur sm:px-6 lg:border-b-0 lg:bg-transparent lg:backdrop-blur-none">
-          <Link href="/hoy" aria-label="FAHYBRID" className="v2-focus flex items-center gap-2.5 lg:hidden">
+          <Link href="/atletas" aria-label="FAHYBRID" className="v2-focus flex items-center gap-2.5 lg:hidden">
             <HexMark className="h-8 w-8 shrink-0" />
             <span className="v2-display text-[1.2rem]">FAHYBRID</span>
           </Link>

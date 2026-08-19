@@ -40,8 +40,8 @@ export default function V2Error({
           <button type="button" onClick={reset} className={screenNoticeActionClass}>
             <MIcon name="refresh" size={18} /> Reintentar
           </button>
-          <Link href="/hoy" className={screenNoticeActionSecondaryClass}>
-            Ir a Hoy
+          <Link href="/atletas" className={screenNoticeActionSecondaryClass}>
+            Ir a Atletas
           </Link>
         </>
       }

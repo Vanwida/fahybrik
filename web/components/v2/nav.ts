@@ -35,9 +35,10 @@ export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['entrenar', 'negocio',
 
 /** Primary nav (top of the sidebar), in render order within each group. */
 export const V2_NAV_ITEMS: readonly V2NavItem[] = [
-  // Entrenar — the daily loop with his athletes.
-  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
+  // Entrenar — the daily loop with his athletes. Atletas va primero: es la CASA
+  // del panel (rediseño FLEXR); /hoy sigue viva como la cola completa de triage.
   { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'entrenar' },
+  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
   { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'entrenar', badge: 'mensajes' },
   // Negocio — capture leads, get paid, watch the funnel.
   { href: '/leads', label: 'Leads', icon: 'person_add', group: 'negocio', badge: 'leads' },

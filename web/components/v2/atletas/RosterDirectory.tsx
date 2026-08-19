@@ -7,13 +7,14 @@
 // roster fits in one round-trip); search is live. No invented data — every chip
 // count and filter reads a real derived field (lib/dashboard/v2/atletas-*).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { Pill } from '@/components/v2/Pill';
 import { FilterDropdown, type DropdownOption } from '@/components/v2/atletas/FilterDropdown';
 import { RosterTable } from '@/components/v2/atletas/RosterTable';
+import { RosterCards } from '@/components/v2/atletas/RosterCards';
+import { TriageStrip, type TriageStripData } from '@/components/v2/atletas/TriageStrip';
 import { AddAthleteModal } from '@/components/v2/atletas/AddAthleteModal';
 import { DoublesPairsPanel } from '@/components/v2/atletas/DoublesPairsPanel';
 import { PageFrame } from '@/components/v2/PageFrame';
@@ -35,6 +36,26 @@ type LevelFilter = 'todos' | string;
 type PhaseFilter = 'todas' | 'sin' | string;
 type TestFilter = 'todos' | 'pendiente';
 type SortKey = 'adherencia' | 'nombre' | 'nivel' | 'estado';
+/** Las dos vistas del roster (rediseño FLEXR): mismas filas, otra presentación. */
+type RosterView = 'tarjetas' | 'tabla';
+
+/** Clave localStorage de la vista elegida — se recuerda por navegador. */
+const ROSTER_VIEW_STORAGE_KEY = 'v2:roster-view';
+
+// La vista vive en localStorage y se lee con useSyncExternalStore (mismo patrón
+// que tenía el tema): SSR pinta el default y el cliente re-lee tras hidratar,
+// sin setState-en-efecto y en sincronía entre pestañas.
+function subscribeRosterView(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener('storage', onChange);
+  return () => window.removeEventListener('storage', onChange);
+}
+function getRosterViewClient(): RosterView {
+  return window.localStorage.getItem(ROSTER_VIEW_STORAGE_KEY) === 'tabla' ? 'tabla' : 'tarjetas';
+}
+function getRosterViewServer(): RosterView {
+  return 'tarjetas';
+}
 
 const STATUS_OPTIONS: ReadonlyArray<DropdownOption<StatusFilter>> = [
   { value: 'todos', label: 'Todos' },
@@ -92,12 +113,13 @@ interface DirectoryRow extends RosterRow {
 
 export function RosterDirectory({
   athletes,
-  coach_name,
   doubles_pairs = [],
+  triage,
 }: {
   athletes: AthleteRow[];
-  coach_name: string;
   doubles_pairs?: DoublesPair[];
+  /** Resumen del triage del día (mismas fuentes que /hoy) para la franja. */
+  triage?: TriageStripData;
 }) {
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -106,6 +128,19 @@ export function RosterDirectory({
   const [phase, setPhase] = useState<PhaseFilter>('todas');
   const [test, setTest] = useState<TestFilter>('todos');
   const [sort, setSort] = useState<SortKey>('adherencia');
+  // Vista tarjetas/tabla — persistida por navegador (default FLEXR: tarjetas).
+  const view = useSyncExternalStore(subscribeRosterView, getRosterViewClient, getRosterViewServer);
+  const pickView = (next: RosterView) => {
+    try {
+      window.localStorage.setItem(ROSTER_VIEW_STORAGE_KEY, next);
+      // El evento nativo solo dispara en OTRAS pestañas; este avisa a la actual.
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: ROSTER_VIEW_STORAGE_KEY, newValue: next }),
+      );
+    } catch {
+      /* almacenamiento bloqueado: la vista se queda como está */
+    }
+  };
 
   // Build view-model rows once per athletes change.
   const rows: DirectoryRow[] = useMemo(
@@ -126,24 +161,16 @@ export function RosterDirectory({
     ];
   }, [rows]);
 
-  // Real count chips — all derived. activos / nuevos / atención are the always-on
-  // headline; pausa / baja / piden pausa surface only when present (exceptional states).
+  // Conteos reales por estado — alimentan los CHIPS-FILTRO (rediseño FLEXR: el
+  // contador y el filtro son la misma pieza; un chip con 0 no aparece).
   const counts = useMemo(() => {
-    let activos = 0;
-    let nuevos = 0;
-    let atencion = 0;
-    let pausa = 0;
-    let baja = 0;
+    const byStatus: Partial<Record<RosterStatus, number>> = {};
     let pidenPausa = 0;
     for (const r of rows) {
-      if (r.status === 'nuevo') nuevos += 1;
-      else if (r.status === 'atencion') atencion += 1;
-      else if (r.status === 'pausa') pausa += 1;
-      else if (r.status === 'baja') baja += 1;
-      if (r.status === 'activa') activos += 1;
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
       if (r.pause_request_label) pidenPausa += 1;
     }
-    return { activos, nuevos, atencion, pausa, baja, pidenPausa };
+    return { byStatus, pidenPausa, nuevos: byStatus.nuevo ?? 0 };
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -198,37 +225,11 @@ export function RosterDirectory({
             <span className="text-[color:var(--v2-fg)]">Atletas</span>
             <span className="text-[color:var(--v2-muted)]"> · {rows.length}</span>
           </h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill tone="ok" variant="soft">
-              <span className="v2-num">{counts.activos}</span>&nbsp;activos
-            </Pill>
-            <Pill tone="info" variant="soft">
-              <span className="v2-num">{counts.nuevos}</span>&nbsp;nuevos
-            </Pill>
-            <Pill tone="danger" variant="soft">
-              <span className="v2-num">{counts.atencion}</span>&nbsp;requieren atención
-            </Pill>
-            {counts.pidenPausa > 0 ? (
-              <Pill tone="warn" variant="soft">
-                <span className="v2-num">{counts.pidenPausa}</span>&nbsp;piden pausa
-              </Pill>
-            ) : null}
-            {counts.pausa > 0 ? (
-              <Pill tone="warn" variant="soft">
-                <span className="v2-num">{counts.pausa}</span>&nbsp;en pausa
-              </Pill>
-            ) : null}
-            {counts.baja > 0 ? (
-              <Pill tone="neutral" variant="soft">
-                <span className="v2-num">{counts.baja}</span>&nbsp;de baja
-              </Pill>
-            ) : null}
-          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           <label className="relative flex items-center">
-            <span className="pointer-events-none absolute left-2.5 text-[color:var(--v2-faint)]">
+            <span className="pointer-events-none absolute left-3 text-[color:var(--v2-faint)]">
               <MIcon name="search" size={18} />
             </span>
             <input
@@ -238,33 +239,107 @@ export function RosterDirectory({
               placeholder="buscar atleta…"
               aria-label="Buscar atleta"
               className={cn(
-                'v2-focus h-9 w-44 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-56',
+                'v2-focus h-9 w-44 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-9 pr-3 text-sm sm:w-56',
                 'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
                 'focus:border-[color:var(--v2-border-strong)]',
               )}
             />
           </label>
+          {/* Toggle tarjetas/tabla — misma lista, otra presentación. */}
+          <div
+            role="group"
+            aria-label="Vista del roster"
+            className="flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-0.5"
+          >
+            <button
+              type="button"
+              onClick={() => pickView('tarjetas')}
+              aria-pressed={view === 'tarjetas'}
+              aria-label="Ver como tarjetas"
+              title="Tarjetas"
+              className={cn(
+                'v2-focus flex h-7 w-8 items-center justify-center rounded-[var(--v2-r-pill)] transition-colors',
+                view === 'tarjetas'
+                  ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                  : 'text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]',
+              )}
+            >
+              <MIcon name="grid_view" size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => pickView('tabla')}
+              aria-pressed={view === 'tabla'}
+              aria-label="Ver como tabla"
+              title="Tabla"
+              className={cn(
+                'v2-focus flex h-7 w-8 items-center justify-center rounded-[var(--v2-r-pill)] transition-colors',
+                view === 'tabla'
+                  ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                  : 'text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]',
+              )}
+            >
+              <MIcon name="table_rows" size={16} />
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="person_add" size={17} />
             Agregar atleta
           </button>
-          <AthleteAvatar name={coach_name} size="md" />
         </div>
       </div>
 
-      {/* ── Filter row ───────────────────────────────────────────────────── */}
+      {/* ── Franja de triage — el día, resumido; «Resolver» aterriza en /hoy ── */}
+      {triage ? <TriageStrip data={triage} /> : null}
+
+      {/* ── Filter row — el ESTADO son chips con conteo (contador y filtro son
+             la misma pieza); nivel/fase/test siguen como desplegables. ────── */}
       <div className="flex flex-wrap items-center gap-2">
-        <FilterDropdown
-          label="Estado"
-          options={STATUS_OPTIONS}
-          value={status}
-          defaultValue="todos"
-          onChange={setStatus}
-        />
+        <button
+          type="button"
+          onClick={() => setStatus('todos')}
+          aria-pressed={status === 'todos'}
+          className={cn(
+            'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors',
+            status === 'todos'
+              ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+              : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+          )}
+        >
+          Todos · <span className="v2-num">{rows.length}</span>
+        </button>
+        {STATUS_OPTIONS.filter(
+          (o) => o.value !== 'todos' && (counts.byStatus[o.value as RosterStatus] ?? 0) > 0,
+        ).map((o) => {
+          const n = counts.byStatus[o.value as RosterStatus] ?? 0;
+          const active = status === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setStatus(active ? 'todos' : o.value)}
+              aria-pressed={active}
+              className={cn(
+                'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors',
+                active
+                  ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                  : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+              )}
+            >
+              {o.label} · <span className="v2-num">{n}</span>
+            </button>
+          );
+        })}
+        {counts.pidenPausa > 0 ? (
+          <Pill tone="warn" variant="soft">
+            <span className="v2-num">{counts.pidenPausa}</span>&nbsp;piden pausa
+          </Pill>
+        ) : null}
+        <span aria-hidden className="hidden h-5 w-px bg-[color:var(--v2-border)] sm:block" />
         <FilterDropdown
           label="Nivel"
           options={LEVEL_OPTIONS}
@@ -319,12 +394,21 @@ export function RosterDirectory({
              filas, que es lo que pasaba al repartir el alto entre los tres
              bloques. De xl arriba manda la rejilla y esto no aplica. */}
         <div className="flex min-h-[60svh] flex-col xl:min-h-0 xl:flex-1">
-          <RosterTable
-            rows={filtered}
-            total={rows.length}
-            hasAnyAthletes={rows.length > 0}
-            onAdd={() => setAddOpen(true)}
-          />
+          {view === 'tarjetas' ? (
+            <RosterCards
+              rows={filtered}
+              total={rows.length}
+              hasAnyAthletes={rows.length > 0}
+              onAdd={() => setAddOpen(true)}
+            />
+          ) : (
+            <RosterTable
+              rows={filtered}
+              total={rows.length}
+              hasAnyAthletes={rows.length > 0}
+              onAdd={() => setAddOpen(true)}
+            />
+          )}
         </div>
 
         {/* ── Lo secundario, plegado al lado en vez de encima de la tabla ──── */}

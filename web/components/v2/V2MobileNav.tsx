@@ -25,8 +25,9 @@ import {
 } from '@/components/v2/nav';
 import { cn } from '@/lib/utils';
 
-/** The four operational tabs that live directly in the bar (thumb reach). */
-const PRIMARY_TAB_HREFS = ['/hoy', '/atletas', '/mensajes', '/leads'] as const;
+/** The four operational tabs that live directly in the bar (thumb reach).
+ *  Atletas primero: es la casa del panel (rediseño FLEXR). */
+const PRIMARY_TAB_HREFS = ['/atletas', '/hoy', '/mensajes', '/leads'] as const;
 
 const primaryTabs: V2NavItem[] = PRIMARY_TAB_HREFS.map(
   (href) => V2_NAV_ITEMS.find((item) => item.href === href),

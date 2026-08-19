@@ -115,7 +115,7 @@ export function V2Sidebar({
     >
       {/* Slot de marca del tenant */}
       <Link
-        href="/hoy"
+        href="/atletas"
         aria-label="FAHYBRID"
         title="FAHYBRID"
         className="v2-focus flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-nav)] px-2 pb-4 pt-1"

@@ -28,8 +28,9 @@ import { cn } from '@/lib/utils';
 import { GRID_COLS } from '@/components/v2/atletas/grid';
 
 /** Las marcas que cuelgan del estado (lesión, pausa pedida, check-in en riesgo).
- *  Se pintan igual en las dos formas de la fila, así que viven en un sitio. */
-function MarcasDeEstado({ row }: { row: RosterRow }) {
+ *  Se pintan igual en las dos formas de la fila Y en la tarjeta del roster
+ *  (RosterCards), así que viven en un sitio. */
+export function MarcasDeEstado({ row }: { row: RosterRow }) {
   return (
     <>
       {row.injury
@@ -67,7 +68,7 @@ function MarcasDeEstado({ row }: { row: RosterRow }) {
 }
 
 /** Último registro — «hace 2 d», o la ausencia dicha en claro. */
-function UltimoRegistro({ row }: { row: RosterRow }) {
+export function UltimoRegistro({ row }: { row: RosterRow }) {
   return row.last_activity_at ? (
     <span className="v2-num text-xs text-[color:var(--v2-muted)]">
       {formatRelative(row.last_activity_at)}

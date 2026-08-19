@@ -16,8 +16,8 @@ export default function V2NotFound() {
       title="Esto no existe"
       description="La página que buscas no está, o se ha movido. Puede que el enlace sea antiguo o que lo que había aquí se haya borrado."
       action={
-        <Link href="/hoy" className={screenNoticeActionClass}>
-          Volver a Hoy
+        <Link href="/atletas" className={screenNoticeActionClass}>
+          Volver a Atletas
         </Link>
       }
     />
