@@ -65,3 +65,6 @@ __pycache__/
 
 # playwright-mcp session artifacts
 .playwright-mcp/
+
+# Local media (raw video, not source)
+/media/
