@@ -2,9 +2,23 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-19** (rediseño FLEXR EN PRODUCCIÓN; bloque vs propuesta)
+Última actualización: **2026-08-19** (piel de club a los dispositivos; rediseño FLEXR EN PRODUCCIÓN)
 
 ## Ahora
+
+**Piel del club a los dispositivos (19-ago, en trunk):** el coach elige UN
+color y el servidor deriva la familia entera para las DOS superficies (panel
+perla / app casi negra) con AA garantizado en los papeles con significado:
+`shared/domain/coach/club-accent.ts` + 15 tests sobre 10 colores reales. El
+relleno conserva el color elegido salvo que se confunda con el fondo (exigir
+3:1 movía hasta el naranja actual). `GET /api/auth/me` devuelve `club` con
+hexes YA resueltos para fondo oscuro: iOS NO recalcula color. El panel «Tu
+club» estrena vista previa doble (panel + app), dice qué ajustó y por qué,
+avisa de choque con verde/rojo/ámbar y declara su alcance. Ley: DECISIONS
+2026-08-19 «La personalización del club tiene DOS niveles» — estándar (piel
+viva, un binario, todos) vs por encargo (app propia con icono y nombre
+propios, build por cliente, precio muy superior). Commits 1aa4d8cf, 568e9f0a.
+En curso por agente: iOS/watchOS leen la piel; correos del atleta con la piel.
 
 **Rediseño FLEXR del panel (19-ago, COMPLETO y EN PRODUCCIÓN):** el panel
 entero adopta FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C):
