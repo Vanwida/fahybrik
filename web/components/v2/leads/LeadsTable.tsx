@@ -6,6 +6,7 @@
 // leads at all" (nobody finished onboarding yet) from "nothing matches the filter". The
 // list scrolls within a bounded panel for long funnels; a footer shows the live count.
 
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { LeadTableRow } from '@/components/v2/leads/LeadTableRow';
 import type { LeadListItem } from '@/lib/dashboard/coach/leads';
@@ -22,7 +23,7 @@ export function LeadsTable({
   hasAnyLeads: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
+    <Card className="overflow-hidden">
       {leads.length === 0 ? (
         <div className="p-4">
           <EmptyState
@@ -53,6 +54,6 @@ export function LeadsTable({
           </span>
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }

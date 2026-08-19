@@ -131,12 +131,12 @@ export function LeadDetalle({
 
         {/* Meta cluster — micro-label-over-value fields (phrase-length labels, so NOT
             the 3xl-display StatTile). */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-5 py-4 shadow-[var(--v2-shadow-card)] sm:grid-cols-4 lg:gap-x-8">
+        <Card className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-4 sm:grid-cols-4 lg:gap-x-8">
           <MetaField label="Objetivo" value={lead.objetivo_label} />
           <MetaField label="Nivel" value={lead.nivel_label} />
           <MetaField label="Días/sem" value={lead.dias_label} numeric />
           <MetaField label="Categoría" value={lead.categoria_objetivo_label} />
-        </div>
+        </Card>
       </div>
 
       {/* ── Partial (abandoned onboarding) banner ─────────────────────────── */}
@@ -150,7 +150,7 @@ export function LeadDetalle({
             <span className="font-semibold">Onboarding sin terminar</span>
             <span className="text-[color:var(--v2-muted)]">
               {' '}
-              — datos parciales, sin teléfono.
+              · datos parciales, sin teléfono.
             </span>
           </span>
         </div>

@@ -278,8 +278,8 @@ export function MetricasPanel({ snapshot, outcomes, weekly, by_objetivo }: Funne
               <span className="font-semibold text-[color:var(--v2-fg)]">
                 <span className="v2-num">{formatCount(stages.iniciado)}</span> leads
               </span>{' '}
-              que iniciaron el onboarding {cohortRangePhrase}. Sigue a cada persona por sus etapas
-              — mide dónde se cae el ingreso.
+              que iniciaron el onboarding {cohortRangePhrase}. Sigue a cada persona por sus etapas:
+              mide dónde se cae el ingreso.
             </p>
           </div>
           <RangeSelector range={range} />

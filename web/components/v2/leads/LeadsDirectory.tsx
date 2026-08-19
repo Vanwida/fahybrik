@@ -110,7 +110,7 @@ export function LeadsDirectory({
             <span className="text-[color:var(--v2-muted)]"> · {total}</span>
           </h1>
           <p className="text-xs text-[color:var(--v2-muted)]">
-            Prospectos del onboarding web — aún no son atletas.
+            Prospectos del onboarding web, aún no son atletas.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {/* Capacity chip leads the cluster — the plaza budget frames the whole funnel. */}
@@ -120,7 +120,7 @@ export function LeadsDirectory({
                 variant="soft"
                 title={
                   capacity.max === null
-                    ? 'Sin cupo máximo — los leads nunca entran en lista de espera.'
+                    ? 'Sin cupo máximo: los leads nunca entran en lista de espera.'
                     : 'Atletas activos frente al cupo máximo. Al llegar al cupo, los leads nuevos entran en lista de espera.'
                 }
               >
@@ -159,7 +159,7 @@ export function LeadsDirectory({
               placeholder="buscar por nombre o email…"
               aria-label="Buscar lead por nombre o email"
               className={cn(
-                'v2-focus h-9 w-52 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-64',
+                'v2-focus h-9 w-52 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-64',
                 'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
                 'focus:border-[color:var(--v2-border-strong)]',
               )}

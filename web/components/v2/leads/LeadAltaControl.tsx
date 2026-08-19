@@ -84,7 +84,7 @@ export function LeadAltaControl({
           type="button"
           disabled={terminal}
           onClick={() => setOpen(true)}
-          className="inline-flex h-10 w-fit items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-10 w-fit items-center gap-2 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <MIcon name="person_add" size={18} />
           {alta.sent_at ? 'Reenviar / editar alta' : 'Dar de alta como atleta'}
@@ -92,7 +92,7 @@ export function LeadAltaControl({
         {alta.sent_at ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
             <MIcon name="mark_email_read" size={16} className="text-[color:var(--v2-ok)]" />
-            Alta enviada · {formatDate(alta.sent_at)} — pendiente de que el atleta la reclame.
+            Alta enviada · {formatDate(alta.sent_at)} · pendiente de que el atleta la reclame.
           </span>
         ) : null}
       </div>
@@ -256,7 +256,7 @@ function AltaModal({
               </div>
             </label>
             <div className="mt-1 flex justify-end">
-              <button type="button" onClick={close} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]">
+              <button type="button" onClick={close} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]">
                 Hecho
               </button>
             </div>
@@ -264,7 +264,7 @@ function AltaModal({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             <p className="text-xs text-[color:var(--v2-muted)]">
-              Pre-rellenado desde su onboarding. Ajusta lo que quieras y confirma — le llega el email para descargar la app.
+              Pre-rellenado desde su onboarding. Ajusta lo que quieras y confirma: le llega el email para descargar la app.
             </p>
             <label className="flex flex-col gap-1.5">
               <span className="v2-micro">Nombre completo</span>
@@ -313,7 +313,7 @@ function AltaModal({
                     type="button"
                     onClick={() => setModality(o.value)}
                     className={
-                      'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border px-3 text-xs font-semibold transition-colors ' +
+                      'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3.5 text-xs font-semibold transition-colors ' +
                       (modality === o.value
                         ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
                         : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]')
@@ -372,7 +372,7 @@ function AltaModal({
                       className="mt-0.5 h-4 w-4 accent-[color:var(--v2-accent)]"
                     />
                     <span>
-                      Fundador — suscripción real por Stripe a{' '}
+                      Fundador: suscripción real por Stripe a{' '}
                       <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
                       tarjeta).
                     </span>
@@ -422,7 +422,7 @@ function AltaModal({
               <button type="button" onClick={close} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]">
                 Cancelar
               </button>
-              <button type="submit" disabled={submitting} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
+              <button type="submit" disabled={submitting} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
                 {submitting ? 'Dando de alta…' : 'Dar de alta y enviar'}
               </button>
             </div>

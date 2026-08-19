@@ -488,7 +488,7 @@ export function AvailabilityEditor({
           >
             <MIcon name="info" size={18} className="mt-0.5 text-[color:var(--v2-warn)]" />
             <p className="text-sm text-[color:var(--v2-fg)]">
-              Aún no has definido tu disponibilidad — los leads verán{' '}
+              Aún no has definido tu disponibilidad, los leads verán{' '}
               <span className="font-semibold">“Pablo te escribirá para cuadrar la llamada”</span>.
             </p>
           </div>
@@ -516,7 +516,7 @@ export function AvailabilityEditor({
                           <input
                             type="time"
                             value={r.start}
-                            aria-label={`${label} — inicio`}
+                            aria-label={`${label} · inicio`}
                             onChange={(e) => updateRange(activeModality, weekday, idx, 'start', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />
@@ -524,7 +524,7 @@ export function AvailabilityEditor({
                           <input
                             type="time"
                             value={r.end}
-                            aria-label={`${label} — fin`}
+                            aria-label={`${label} · fin`}
                             onChange={(e) => updateRange(activeModality, weekday, idx, 'end', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />

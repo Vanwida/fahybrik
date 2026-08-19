@@ -214,7 +214,7 @@ export function LeadCitaBlock({
                 ) : null}
               </div>
               <p className="text-xs text-[color:var(--v2-muted)]">
-                Pega el enlace de Meet o Zoom — se lo reenviamos al lead por email.
+                Pega el enlace de Meet o Zoom: se lo reenviamos al lead por email.
               </p>
             </div>
           )}
