@@ -9,7 +9,7 @@ import { ResumenTab } from './ResumenTab';
 import { PlanTab } from './PlanTab';
 import { RendimientoHome } from './RendimientoHome';
 import { AtletaTab } from './AtletaTab';
-import { MensajesTab } from './MensajesTab';
+import { ChatPeek } from './ChatPeek';
 import { DelCoachTab } from './del-coach/DelCoachTab';
 import { cuantosReclaman } from '@/lib/dashboard/v2/del-coach';
 import { buildPendientes } from '@/lib/dashboard/v2/ficha-resumen';
@@ -80,8 +80,19 @@ export function AthleteDetalle({
         lifecycle={header.lifecycle}
       />
 
+      {/* El chat es un PEEK sobre la ficha (nunca una pestaña sin salida):
+          `?tab=mensajes` pinta Resumen detrás y el panel de chat encima. */}
+      {tab === 'mensajes' ? (
+        <ChatPeek
+          athlete_id={header.athlete_id}
+          athlete_name={header.full_name}
+          chat={detalle.chat}
+          phase_label={header.phase_label}
+        />
+      ) : null}
+
       <div className="v2-stagger">
-        {tab === 'resumen' ? (
+        {tab === 'resumen' || tab === 'mensajes' ? (
           <ResumenTab detalle={detalle} />
         ) : tab === 'plan' ? (
           <PlanTab
@@ -109,14 +120,7 @@ export function AthleteDetalle({
           />
         ) : tab === 'atleta' ? (
           <AtletaTab detalle={detalle} seccion={atletaSeccion} />
-        ) : (
-          <MensajesTab
-            athlete_id={header.athlete_id}
-            athlete_name={header.full_name}
-            chat={detalle.chat}
-            phase_label={header.phase_label}
-          />
-        )}
+        ) : null}
       </div>
     </div>
   );

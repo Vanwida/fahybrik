@@ -22,9 +22,12 @@ type Field = 'level' | 'days';
 export function ClasificacionCard({
   athleteId,
   data,
+  planPersonal = false,
 }: {
   athleteId: string;
   data: ClasificacionData;
+  /** Plan personal: la matriz nivel×días NO le asigna nada mientras tanto. */
+  planPersonal?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -87,9 +90,16 @@ export function ClasificacionCard({
 
   return (
     <Panel
-      title="Clasificación · para asignación"
+      title={planPersonal ? 'Clasificación' : 'Clasificación · para asignación'}
       action={
-        bothSet ? (
+        planPersonal ? (
+          // Con plan personal la secuencia por nivel está en pausa: decir «lista
+          // para asignar» aquí mentiría. El nivel/días siguen siendo dato real
+          // (analíticas, y el punto de retorno si vuelve a periodización).
+          <Pill tone="neutral" variant="soft">
+            Plan personal · la secuencia no asigna
+          </Pill>
+        ) : bothSet ? (
           <Pill tone="ok" variant="soft">
             <MIcon name="check_circle" size={13} className="mr-1" />
             Lista para asignar

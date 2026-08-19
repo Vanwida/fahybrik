@@ -57,7 +57,11 @@ export function AtletaTab({
               <span className="text-[color:var(--v2-accent)]">Revisar →</span>
             </Link>
           ) : null}
-          <ClasificacionCard athleteId={header.athlete_id} data={detalle.classification} />
+          <ClasificacionCard
+            athleteId={header.athlete_id}
+            data={detalle.classification}
+            planPersonal={detalle.plan_mode === 'personal'}
+          />
           <TrainingDaysCard
             data={detalle.training_days}
             coachDaysPerWeek={detalle.classification.training_days_per_week}
