@@ -405,7 +405,7 @@ export function ImportPhotoPicker({
                 aria-label={
                   photos.length === 0 ? 'Elegir las capturas' : 'Añadir más capturas'
                 }
-                className="v2-focus flex aspect-[3/2] w-full items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)] disabled:opacity-50"
+                className="v2-focus flex aspect-[3/2] w-full items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)] disabled:opacity-50"
               >
                 <MIcon name="add" size={22} />
               </button>

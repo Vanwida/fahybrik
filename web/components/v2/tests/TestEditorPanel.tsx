@@ -256,7 +256,7 @@ export function TestEditorPanel({
               <button
                 type="button"
                 onClick={addEsfuerzo}
-                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]"
               >
                 <MIcon name="add" size={14} /> Añadir ejercicio
               </button>
@@ -284,7 +284,7 @@ export function TestEditorPanel({
             <p className="mb-3 text-label leading-snug text-[color:var(--v2-faint)]">
               <b className="text-[color:var(--v2-muted)]">Atajos</b>: picas uno y
               queda montado. ¿Otra cosa (10 min de remo, 40 cal, lo que sea)? Dale
-              a <b className="text-[color:var(--v2-accent)]">Añadir ejercicio</b>{' '}
+              a <b className="text-[color:var(--v2-accent-text)]">Añadir ejercicio</b>{' '}
               y lo montas tú: ejercicio, medida (distancia · tiempo · calorías ·
               reps) y el número.
             </p>
@@ -384,7 +384,7 @@ export function TestEditorPanel({
                 <span className="shrink-0 text-[color:var(--v2-muted)]">
                   {m.texto}
                   {m.calibra ? (
-                    <span className="ml-1.5 font-bold text-[color:var(--v2-accent)]">
+                    <span className="ml-1.5 font-bold text-[color:var(--v2-accent-text)]">
                       · calibra {m.calibra}
                     </span>
                   ) : null}
@@ -407,7 +407,7 @@ export function TestEditorPanel({
           <button
             type="button"
             onClick={addSchedule}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]"
           >
             <MIcon name="add" size={14} /> Añadir semana
           </button>
@@ -497,7 +497,7 @@ export function TestEditorPanel({
                     className={cn(
                       'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors',
                       (s.rest_days_after ?? 0) > 0
-                        ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                        ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                         : 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]',
                     )}
                   >

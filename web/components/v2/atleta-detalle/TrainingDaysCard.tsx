@@ -42,7 +42,7 @@ export function TrainingDaysStrip({ data }: { data: TrainingDaysData }) {
               !has_availability
                 ? 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]'
                 : d.trains
-                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                   : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
             )}
           >

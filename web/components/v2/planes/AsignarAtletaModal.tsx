@@ -232,7 +232,7 @@ export function AsignarAtletaModal({
                               </span>
                             ) : null}
                             {active ? (
-                              <MIcon name="check" size={16} className="text-[color:var(--v2-accent)]" />
+                              <MIcon name="check" size={16} className="text-[color:var(--v2-accent-text)]" />
                             ) : null}
                           </span>
                         </button>

@@ -310,7 +310,7 @@ function SearchBody({
         onClick={onCreate}
         className="v2-focus flex items-center gap-2 border-t border-[color:var(--v2-border)] px-4 py-3 text-left text-sm text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)]"
       >
-        <MIcon name="add" size={16} className="text-[color:var(--v2-accent)]" />
+        <MIcon name="add" size={16} className="text-[color:var(--v2-accent-text)]" />
         <span>
           Crear{' '}
           {query.trim() ? (

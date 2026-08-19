@@ -45,7 +45,7 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
 function Cita({ children }: { children: string }) {
   return (
     <div className="flex items-start gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-      <MIcon name="format_quote" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]" />
+      <MIcon name="format_quote" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]" />
       <p className="text-xs leading-relaxed text-[color:var(--v2-fg)]">{children}</p>
     </div>
   );

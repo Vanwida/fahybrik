@@ -24,7 +24,7 @@ export function AudioDelDetalle({
 
   return (
     <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-      <MIcon name="graphic_eq" size={17} className="shrink-0 text-[color:var(--v2-accent)]" />
+      <MIcon name="graphic_eq" size={17} className="shrink-0 text-[color:var(--v2-accent-text)]" />
       <span className="text-label font-semibold text-[color:var(--v2-fg)]">Tu nota de voz</span>
       {seconds != null ? (
         <span className="v2-num text-label tabular-nums text-[color:var(--v2-muted)]">

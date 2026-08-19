@@ -238,7 +238,7 @@ export function DoblesSimulationEditor({
           <div className="min-w-0">
             <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Reparto de la simulación</h2>
             <p className="mt-0.5 truncate text-body text-[color:var(--v2-muted)]">
-              {aName} <span className="text-[color:var(--v2-accent)]">·</span> {bName}
+              {aName} <span className="text-[color:var(--v2-accent-text)]">·</span> {bName}
             </p>
           </div>
           <button
@@ -260,7 +260,7 @@ export function DoblesSimulationEditor({
         {/* Effect explainer — what the coach edits here is what each athlete sees,
             reframed as a recommendation the pair can adjust. */}
         <div className="mb-4 flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
-          <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]" />
+          <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]" />
           <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
             Tu recomendación de reparto para la simulación HYROX. La pareja puede ajustarla
             desde la app; cada atleta ve lo que esté puesto en su sesión (móvil y reloj):

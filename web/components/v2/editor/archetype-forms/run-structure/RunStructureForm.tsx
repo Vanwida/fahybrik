@@ -170,7 +170,7 @@ export function RunStructureForm({
               type="button"
               title={a.hint}
               onClick={() => requestArchetype(a.id, a.name)}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
             >
               <MIcon name={a.icon} size={14} />
               {a.name}
@@ -208,7 +208,7 @@ export function RunStructureForm({
                 key={tab.role}
                 type="button"
                 onClick={() => addPhase(tab.role)}
-                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent)]"
+                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent-text)]"
               >
                 <MIcon name="add" size={13} />
                 {tab.label}
@@ -324,7 +324,7 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-1">
-        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         <input
           value={text}
           onChange={(e) => {

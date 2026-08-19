@@ -361,7 +361,7 @@ export function QuickDoseLine({
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-3 focus-within:border-[color:var(--v2-accent)]">
-        <span aria-hidden className="v2-num font-bold text-[color:var(--v2-accent)]">
+        <span aria-hidden className="v2-num font-bold text-[color:var(--v2-accent-text)]">
           ›
         </span>
         <input

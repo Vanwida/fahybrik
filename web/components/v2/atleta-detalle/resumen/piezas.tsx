@@ -55,7 +55,7 @@ export function FilaVacia({
       className="v2-focus flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-[13px]"
     >
       <span className="text-[color:var(--v2-muted)]">{texto}</span>
-      <span className="shrink-0 font-semibold text-[color:var(--v2-accent)]">{cta} →</span>
+      <span className="shrink-0 font-semibold text-[color:var(--v2-accent-text)]">{cta} →</span>
     </Link>
   );
 }

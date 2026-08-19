@@ -199,7 +199,7 @@ export function IntakeReview({
       <header className="flex flex-wrap items-center gap-3">
         <AthleteAvatar name={athlete.full_name} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="v2-micro text-[color:var(--v2-accent)]">Intake pendiente de revisión</span>
+          <span className="v2-micro text-[color:var(--v2-accent-text)]">Intake pendiente de revisión</span>
           <h1 className="v2-display text-2xl text-[color:var(--v2-fg)] sm:text-3xl">
             {athlete.full_name}
           </h1>

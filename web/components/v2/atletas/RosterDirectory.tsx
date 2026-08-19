@@ -418,12 +418,12 @@ export function RosterDirectory({
               href="/altas"
               className="v2-focus group flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/30 bg-[color:var(--v2-accent-soft)] px-3.5 py-2.5 transition-colors hover:border-[color:var(--v2-accent)]"
             >
-              <MIcon name="how_to_reg" size={18} className="shrink-0 text-[color:var(--v2-accent)]" />
+              <MIcon name="how_to_reg" size={18} className="shrink-0 text-[color:var(--v2-accent-text)]" />
               <span className="min-w-0 text-body font-semibold text-[color:var(--v2-fg)]">
                 <span className="v2-num">{counts.nuevos}</span>{' '}
                 {counts.nuevos === 1 ? 'alta sin revisar' : 'altas sin revisar'}
               </span>
-              <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)]">
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent-text)]">
                 Revisar
                 <MIcon
                   name="arrow_forward"

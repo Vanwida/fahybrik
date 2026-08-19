@@ -181,7 +181,7 @@ export function PerfilTab({
 
       {/* Accent join → */}
       <div className="hidden items-center justify-center self-center lg:flex" aria-hidden>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]">
           <MIcon name="arrow_forward" size={20} />
         </span>
       </div>

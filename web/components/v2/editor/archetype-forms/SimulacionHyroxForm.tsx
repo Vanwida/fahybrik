@@ -245,7 +245,7 @@ function LegRow({
         className={cn(
           'v2-focus mt-0.5 shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors',
           skipped
-            ? 'text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]'
+            ? 'text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]'
             : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]',
         )}
       >

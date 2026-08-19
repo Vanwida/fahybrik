@@ -310,7 +310,7 @@ function PyramidRow({
             onClick={onApplyDown}
             aria-label={`Aplicar la serie ${n} hacia abajo`}
             title="Aplicar hacia abajo"
-            className="v2-focus rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-[color:var(--v2-accent-soft)] hover:text-[color:var(--v2-accent)]"
+            className="v2-focus rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-[color:var(--v2-accent-soft)] hover:text-[color:var(--v2-accent-text)]"
           >
             <MIcon name="keyboard_double_arrow_down" size={15} />
           </button>

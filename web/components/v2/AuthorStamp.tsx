@@ -32,7 +32,7 @@ function Avatar({ name, kind }: { name: string; kind: 'coach' | 'athlete' }) {
         'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full',
         'text-nano font-bold ring-1 ring-inset',
         kind === 'coach'
-          ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)] ring-[color:var(--v2-accent)]'
+          ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)] ring-[color:var(--v2-accent)]'
           : 'bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)] ring-[color:var(--v2-info)]',
       )}
     >

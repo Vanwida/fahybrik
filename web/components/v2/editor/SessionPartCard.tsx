@@ -119,7 +119,7 @@ export function SessionPartCard({
           es el sujeto) pero SIEMPRE visible — el coach edita desde el móvil. */}
       <header className="space-y-2 border-b border-[color:var(--v2-border)] px-4 py-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-1 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 py-1 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
             {SLOT_LABEL[session.slot]}
             {session.time_hint ? ` · ${session.time_hint}` : ''}
           </span>
@@ -155,7 +155,7 @@ export function SessionPartCard({
               type="button"
               onClick={onSuggestWorkout}
               title="Coach IA redacta los bloques de esta sesión a partir de un foco"
-              className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+              className="v2-focus inline-flex h-[30px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
             >
               <MIcon name="draw" size={15} />
               <span className="hidden sm:inline">Redactar</span>

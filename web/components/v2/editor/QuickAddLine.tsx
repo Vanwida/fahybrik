@@ -62,7 +62,7 @@ export function QuickAddLine({ onAdd }: { onAdd: (lines: ParsedLine[]) => void }
   return (
     <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] transition-colors focus-within:border-[color:var(--v2-accent)] focus-within:shadow-[0_0_0_3px_var(--v2-accent-soft)]">
       <div className="flex items-center gap-3 px-4">
-        <span aria-hidden className="v2-num text-reading font-bold text-[color:var(--v2-accent)]">
+        <span aria-hidden className="v2-num text-reading font-bold text-[color:var(--v2-accent-text)]">
           ›
         </span>
         <input

@@ -49,7 +49,7 @@ export function ClubWordmark({ name, split = false }: { name: string; split?: bo
   return (
     <span className="v2-display tracking-[-0.02em]">
       {lead ? <span className="text-[color:var(--v2-fg)]">{lead}</span> : null}
-      <span className="text-[color:var(--v2-accent)]">{accent}</span>
+      <span className="text-[color:var(--v2-accent-text)]">{accent}</span>
     </span>
   );
 }

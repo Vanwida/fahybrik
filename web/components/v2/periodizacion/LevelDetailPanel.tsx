@@ -248,7 +248,7 @@ export function LevelDetailPanel({
 
       {/* purpose strip */}
       <div className="mt-4 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-        <span className="shrink-0 text-[color:var(--v2-accent)]">
+        <span className="shrink-0 text-[color:var(--v2-accent-text)]">
           <MIcon name="my_location" size={18} />
         </span>
         <span className="flex-1">
@@ -312,7 +312,7 @@ function DaysVariantCard({
           <button
             type="button"
             onClick={onClick}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
           >
             {filled ? 'Editar' : 'Montar'}
             <MIcon name="arrow_forward" size={13} />

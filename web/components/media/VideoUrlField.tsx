@@ -254,7 +254,7 @@ function UploadedStrip({ onReplace }: { onReplace: () => void }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2">
       <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--v2-fg)]">
-        <MIcon name="movie" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="movie" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         Vídeo listo
       </span>
       <button type="button" onClick={onReplace} className={BTN_CLS}>
@@ -287,7 +287,7 @@ function UploadProgress({ fase }: { fase: ExerciseVideoUploadPhase }) {
         <MIcon
           name="progress_activity"
           size={15}
-          className="shrink-0 animate-spin text-[color:var(--v2-accent)]"
+          className="shrink-0 animate-spin text-[color:var(--v2-accent-text)]"
         />
         {FASE_LABEL[fase.phase]}… {pct}%
       </p>

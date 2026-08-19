@@ -43,7 +43,7 @@ export function ImportNotices({ notices }: { notices: WeekNotice[] }) {
               {n.href && n.cta ? (
                 <Link
                   href={n.href}
-                  className="v2-focus inline-flex items-center gap-1 text-label font-bold text-[color:var(--v2-accent)] hover:underline"
+                  className="v2-focus inline-flex items-center gap-1 text-label font-bold text-[color:var(--v2-accent-text)] hover:underline"
                 >
                   {n.cta}
                   <MIcon name="arrow_forward" size={13} />

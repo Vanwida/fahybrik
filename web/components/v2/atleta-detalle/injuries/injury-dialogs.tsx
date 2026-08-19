@@ -80,7 +80,7 @@ function ChipGroup<T extends string>({
             className={cn(
               'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
               active
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                 : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
             )}
           >

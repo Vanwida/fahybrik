@@ -80,7 +80,7 @@ export function RegistrarResultadoForm({
       <div className="mb-3 flex items-center gap-2.5 border-b border-[color:var(--v2-border)] pb-3">
         <span
           aria-hidden
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
         >
           <MIcon name="speed" size={18} />
         </span>
@@ -141,10 +141,10 @@ export function RegistrarResultadoForm({
       </div>
 
       <div className="mt-3 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-        <MIcon name="info" size={14} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="info" size={14} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         <p className="text-label leading-snug text-[color:var(--v2-muted)]">
           {testType.protocol} · objetivo{' '}
-          <b className="v2-num text-[color:var(--v2-accent)]">RPE {TEST_TARGET_RPE}</b>. El cálculo
+          <b className="v2-num text-[color:var(--v2-accent-text)]">RPE {TEST_TARGET_RPE}</b>. El cálculo
           (ritmo → 6 zonas) lo aplica tu modelo de zonas, no a ojo.
         </p>
       </div>

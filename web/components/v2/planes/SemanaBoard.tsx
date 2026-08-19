@@ -123,7 +123,7 @@ function SessionCard({
       className="v2-focus block min-w-0 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)] transition-[transform,border-color] hover:border-[color:var(--v2-border-strong)] motion-safe:hover:-translate-y-0.5"
     >
       <div className="flex min-w-0 items-center gap-1.5 px-2 pt-1.5">
-        <span className="shrink-0 text-eyebrow font-extrabold uppercase tracking-[0.08em] text-[color:var(--v2-accent)]">
+        <span className="shrink-0 text-eyebrow font-extrabold uppercase tracking-[0.08em] text-[color:var(--v2-accent-text)]">
           {slot}
         </span>
         {session.focus ? (

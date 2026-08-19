@@ -269,7 +269,7 @@ export function SessionDetailDrawer({
                       Curva, tramo a tramo y lo que le pediste encima
                     </span>
                   </span>
-                  <MIcon name="arrow_forward" size={18} className="shrink-0 text-[color:var(--v2-accent)]" />
+                  <MIcon name="arrow_forward" size={18} className="shrink-0 text-[color:var(--v2-accent-text)]" />
                 </Link>
               ) : null}
 

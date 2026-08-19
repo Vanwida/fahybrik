@@ -278,7 +278,7 @@ export function ImportMissingExercisesPanel({
           {groups.map(([title, rows]) => (
             <section key={title} className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+                <h3 className="text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
                   {title}
                 </h3>
                 <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">

@@ -269,7 +269,7 @@ export function ImportSourceForm({
             onClick={() => fileInputRef.current?.click()}
             className="v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-3 text-left text-sm text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)]"
           >
-            <MIcon name="upload_file" size={18} className="text-[color:var(--v2-accent)]" />
+            <MIcon name="upload_file" size={18} className="text-[color:var(--v2-accent-text)]" />
             <span className="min-w-0 flex-1 truncate">
               {fileName ?? 'Elige tu Plantilla_HYROX (.xlsx)'}
             </span>

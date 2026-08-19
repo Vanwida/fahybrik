@@ -31,7 +31,7 @@ export function QuestionBlock({
   return (
     <article className="flex flex-col gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4">
       <header className="flex flex-col gap-1">
-        <p className="v2-micro text-[color:var(--v2-accent)]">{question.title}</p>
+        <p className="v2-micro text-[color:var(--v2-accent-text)]">{question.title}</p>
         {question.prompt ? (
           <h3 className="text-sm font-semibold text-[color:var(--v2-fg)]">{question.prompt}</h3>
         ) : null}

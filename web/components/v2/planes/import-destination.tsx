@@ -67,7 +67,7 @@ export function ImportPhotoDestination({
 }) {
   return (
     <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/35 bg-[color:var(--v2-accent-soft)] p-3.5">
-      <p className="v2-micro text-[color:var(--v2-accent)]">Dónde empieza</p>
+      <p className="v2-micro text-[color:var(--v2-accent-text)]">Dónde empieza</p>
       <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
         <WeekSelect
           microWeeks={microWeeks}

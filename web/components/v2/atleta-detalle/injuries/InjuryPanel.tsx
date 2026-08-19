@@ -240,7 +240,7 @@ function OpenInjuryCard({
         </p>
         <Link
           href={`/atletas/${athleteId}?tab=sesiones`}
-          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)]"
+          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent-text)]"
         >
           <MIcon name="north_east" size={13} /> Ver 1:1
         </Link>

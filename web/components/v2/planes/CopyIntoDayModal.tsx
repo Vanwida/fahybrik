@@ -220,7 +220,7 @@ export function CopyIntoDayModal({
                       name={selected ? 'radio_button_checked' : 'radio_button_unchecked'}
                       size={18}
                       className={
-                        selected ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]'
+                        selected ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-faint)]'
                       }
                     />
                     <span className="text-sm font-semibold text-[color:var(--v2-fg)]">

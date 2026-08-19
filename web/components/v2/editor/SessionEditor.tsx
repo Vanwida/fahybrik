@@ -213,7 +213,7 @@ export function SessionEditor({
             type="button"
             onClick={() => setAiOpen(true)}
             title="Coach IA redacta bloques a partir de un foco"
-            className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-3 text-sm font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+            className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-3 text-sm font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
           >
             <MIcon name="draw" size={16} />
             <span className="hidden sm:inline">Redactar con IA</span>

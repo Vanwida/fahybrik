@@ -97,7 +97,7 @@ function PairRow({ pair }: { pair: DoublesPair }) {
           <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
             {pair.athlete_a.full_name}
           </span>
-          <MIcon name="link" size={15} className="text-[color:var(--v2-accent)]" />
+          <MIcon name="link" size={15} className="text-[color:var(--v2-accent-text)]" />
           <AthleteAvatar name={pair.athlete_b.full_name} size="sm" />
           <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">
             {pair.athlete_b.full_name}
@@ -331,7 +331,7 @@ export function DoublesPairsPanel({
     <section className="flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MIcon name="groups" size={18} className="text-[color:var(--v2-accent)]" />
+          <MIcon name="groups" size={18} className="text-[color:var(--v2-accent-text)]" />
           <h2 className="text-sm font-semibold text-[color:var(--v2-fg)]">
             Dobles
             <span className="text-[color:var(--v2-muted)]"> · {pairs.length}</span>

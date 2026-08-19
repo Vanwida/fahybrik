@@ -207,7 +207,7 @@ function DiaCol({
             {extra > 0 ? (
               <Link
                 href={dayHref ? dayHref(day.iso_date) : `/atletas/${athleteId}/dia/${day.iso_date}`}
-                className="v2-focus text-[11.5px] font-semibold text-[color:var(--v2-accent)]"
+                className="v2-focus text-[11.5px] font-semibold text-[color:var(--v2-accent-text)]"
               >
                 +{extra} más
               </Link>

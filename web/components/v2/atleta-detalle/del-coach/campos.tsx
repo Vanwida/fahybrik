@@ -221,7 +221,7 @@ export function AlternadorCasilla({
       className={cn(
         'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
         checkable
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
           : 'border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
       )}
     >
@@ -264,7 +264,7 @@ export function ChipsUnicos<T extends string>({
               'v2-focus inline-flex items-center rounded-[var(--v2-r-pill)] border transition-colors',
               compacto ? 'px-2.5 py-1 text-label' : 'px-3 py-1.5 text-body',
               activo
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] font-semibold text-[color:var(--v2-accent)]'
+                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] font-semibold text-[color:var(--v2-accent-text)]'
                 : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
             )}
           >

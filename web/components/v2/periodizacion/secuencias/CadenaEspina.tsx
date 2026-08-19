@@ -196,7 +196,7 @@ function Anadir({
     <button
       type="button"
       onClick={onClick}
-      className="v2-focus flex w-full max-w-[460px] items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-4 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+      className="v2-focus flex w-full max-w-[460px] items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-4 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
     >
       <MIcon name="add" size={20} />
       <span className="flex min-w-0 flex-col">

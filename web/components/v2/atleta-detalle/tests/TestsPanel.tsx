@@ -168,7 +168,7 @@ export function TestsPanel({
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="font-semibold text-[color:var(--v2-accent)]"
+                  className="font-semibold text-[color:var(--v2-accent-text)]"
                 >
                   Programar →
                 </button>

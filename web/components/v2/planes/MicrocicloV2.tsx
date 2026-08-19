@@ -80,7 +80,7 @@ function WeekTabs({
               <span
                 className={cn(
                   'text-eyebrow font-semibold',
-                  active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]',
+                  active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-faint)]',
                 )}
               >
                 {w.session_count} ses
@@ -140,7 +140,7 @@ function WeekFocusRow({
 
   return (
     <div className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 py-2.5">
-      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
         <MIcon name="flag" size={14} />
         Foco {weekLabel}
       </span>

@@ -39,7 +39,7 @@ export function RitmosZonasTab({
                 <button
                   type="button"
                   onClick={() => setRecording(true)}
-                  className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+                  className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
                 >
                   <MIcon name="add" size={14} />
                   Nuevo resultado

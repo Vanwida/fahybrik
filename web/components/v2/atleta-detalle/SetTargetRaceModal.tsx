@@ -335,7 +335,7 @@ export function SetTargetRaceModal({
                         <MIcon
                           name="check_circle"
                           size={18}
-                          className="shrink-0 text-[color:var(--v2-accent)]"
+                          className="shrink-0 text-[color:var(--v2-accent-text)]"
                         />
                       ) : null}
                     </button>

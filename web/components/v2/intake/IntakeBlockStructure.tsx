@@ -85,11 +85,11 @@ function ModeOption({
         <MIcon
           name={icon}
           size={16}
-          className={selected ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]'}
+          className={selected ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]'}
         />
         <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{title}</span>
         {selected ? (
-          <MIcon name="check_circle" size={14} className="ml-auto text-[color:var(--v2-accent)]" />
+          <MIcon name="check_circle" size={14} className="ml-auto text-[color:var(--v2-accent-text)]" />
         ) : null}
       </span>
       <span className="text-label text-[color:var(--v2-muted)]">{detail}</span>

@@ -543,7 +543,7 @@ export function AvailabilityEditor({
                   <button
                     type="button"
                     onClick={() => addRange(activeModality, weekday)}
-                    className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-accent)] transition-colors hover:opacity-80"
+                    className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:opacity-80"
                   >
                     <MIcon name="add" size={15} />
                     Añadir franja

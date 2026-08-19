@@ -107,7 +107,7 @@ export function ResumenTab({ detalle }: { detalle: V2AthleteDetalle }) {
               ) : null}
               <Link
                 href={`/atletas/${id}?tab=plan`}
-                className="text-[12.5px] font-semibold text-[color:var(--v2-accent)] hover:underline"
+                className="text-[12.5px] font-semibold text-[color:var(--v2-accent-text)] hover:underline"
               >
                 Abrir semana →
               </Link>

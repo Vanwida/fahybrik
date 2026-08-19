@@ -54,11 +54,11 @@ export function DecisionStrip({
   return (
     <section aria-label={label} className="mt-4">
       <div className="mb-2 flex items-center gap-2">
-        <MIcon name={icon} size={16} className="text-[color:var(--v2-accent)]" />
+        <MIcon name={icon} size={16} className="text-[color:var(--v2-accent-text)]" />
         <span className="v2-micro">{label}</span>
         <span
           className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
         >
           {count}
         </span>

@@ -128,7 +128,7 @@ export function AddMicrocicloPicker({
                       </span>
                     </div>
                   </div>
-                  <MIcon name="add" size={18} className="shrink-0 text-[color:var(--v2-accent)]" />
+                  <MIcon name="add" size={18} className="shrink-0 text-[color:var(--v2-accent-text)]" />
                 </button>
               );
             })

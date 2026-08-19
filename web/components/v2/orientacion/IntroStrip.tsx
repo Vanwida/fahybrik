@@ -73,7 +73,7 @@ export function IntroStrip({
   return (
     <div className="relative mb-4 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] border-l-[3px] border-l-[color:var(--v2-accent)] bg-[color:var(--v2-surface)] py-3 pl-4 pr-3.5">
       <div className="flex items-center gap-3">
-        <span className="shrink-0 text-[color:var(--v2-accent)]" aria-hidden>
+        <span className="shrink-0 text-[color:var(--v2-accent-text)]" aria-hidden>
           <MIcon name={icon} size={18} />
         </span>
         <div className="flex-1 text-body leading-relaxed text-[color:var(--v2-muted)] [&_b]:font-bold [&_b]:text-[color:var(--v2-fg)]">
@@ -84,7 +84,7 @@ export function IntroStrip({
             type="button"
             onClick={onToggle}
             aria-expanded={open}
-            className="v2-focus inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[var(--v2-r-xs)] text-label font-bold text-[color:var(--v2-accent)]"
+            className="v2-focus inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[var(--v2-r-xs)] text-label font-bold text-[color:var(--v2-accent-text)]"
           >
             <MIcon name={open ? 'expand_less' : 'expand_more'} size={15} />
             Cómo funciona
@@ -106,7 +106,7 @@ export function IntroStrip({
             <div key={i} className="flex min-w-[150px] flex-1 items-start gap-2.5">
               <span
                 className="v2-num inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full text-eyebrow font-bold"
-                style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+                style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
               >
                 {i + 1}
               </span>
@@ -146,7 +146,7 @@ export function InfoDot({
       aria-label={label}
       title={label}
       className={cn(
-        'v2-focus inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[color:var(--v2-border-strong)] align-middle text-label font-bold leading-none text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]',
+        'v2-focus inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[color:var(--v2-border-strong)] align-middle text-label font-bold leading-none text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]',
         className,
       )}
     >

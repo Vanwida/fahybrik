@@ -28,7 +28,7 @@ interface AtletaDelRoster {
 const CTA_CLS =
   'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-40';
 
-const ATAJO_CLS = 'v2-focus font-semibold text-[color:var(--v2-accent)]';
+const ATAJO_CLS = 'v2-focus font-semibold text-[color:var(--v2-accent-text)]';
 
 export function PublicarAAtletas({
   titulo,

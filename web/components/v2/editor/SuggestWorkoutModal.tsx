@@ -385,7 +385,7 @@ function ModeOption({
 function ThinkingBody({ mode, focus }: { mode: SuggestMode; focus: string }) {
   return (
     <div className="flex flex-col items-center gap-3 py-9 text-center">
-      <MIcon name="progress_activity" size={34} className="animate-spin text-[color:var(--v2-accent)]" />
+      <MIcon name="progress_activity" size={34} className="animate-spin text-[color:var(--v2-accent-text)]" />
       <span className="text-body font-bold text-[color:var(--v2-fg)]">
         {mode === 'slow' ? 'Coach IA compone los bloques' : 'Buscando en tu biblioteca'}
       </span>

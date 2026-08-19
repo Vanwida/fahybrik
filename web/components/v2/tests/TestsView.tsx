@@ -323,7 +323,7 @@ export function TestsView({
                   >
                     <span
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
-                      style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+                      style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
                       aria-hidden
                     >
                       <MIcon name={MODALITY_ICON[t.primary_modality ?? ''] ?? 'timer'} size={16} />
@@ -414,7 +414,7 @@ export function TestsView({
           role="status"
           className="fixed bottom-5 left-1/2 z-40 flex max-w-[90vw] -translate-x-1/2 items-center gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] px-4 py-2.5 text-body text-[color:var(--v2-fg)] shadow-lg"
         >
-          <MIcon name="event_available" size={16} className="text-[color:var(--v2-accent)]" />
+          <MIcon name="event_available" size={16} className="text-[color:var(--v2-accent-text)]" />
           <span>{toast}</span>
           <button
             type="button"
@@ -465,7 +465,7 @@ function ReachChip({ reach }: { reach?: { athletes: number; done: number; pendin
 function PurposeStrip({ onRestore, restoring }: { onRestore: () => void; restoring: boolean }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-      <span className="shrink-0 text-[color:var(--v2-accent)]">
+      <span className="shrink-0 text-[color:var(--v2-accent-text)]">
         <MIcon name="my_location" size={18} />
       </span>
       <span className="flex-1">
@@ -497,7 +497,7 @@ function EmptyTests({
     <div className="mt-1 flex flex-col items-center rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
       <span
         className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
-        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
       >
         <MIcon name="timer" size={26} />
       </span>

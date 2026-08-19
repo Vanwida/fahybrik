@@ -335,7 +335,7 @@ function BlockRow({
           <MIcon
             name="progress_activity"
             size={15}
-            className="shrink-0 animate-spin text-[color:var(--v2-accent)]"
+            className="shrink-0 animate-spin text-[color:var(--v2-accent-text)]"
           />
         ) : null}
       </div>

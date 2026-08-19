@@ -76,7 +76,7 @@ export default async function V2AjustesPage({
             <Link href="/club" className="v2-focus group flex items-center gap-4 p-4 sm:p-5">
               <span
                 aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
               >
                 <MIcon name="storefront" size={20} />
               </span>
@@ -107,7 +107,7 @@ export default async function V2AjustesPage({
               >
                 <span
                   aria-hidden
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
                 >
                   <MIcon name="tune" size={20} />
                 </span>
@@ -134,7 +134,7 @@ export default async function V2AjustesPage({
               >
                 <span
                   aria-hidden
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
                 >
                   <MIcon name="psychology" size={20} />
                 </span>

@@ -113,8 +113,8 @@ export function DetalleHeader({
               <Link
                 href={p.href}
                 className={cn(
-                  'v2-focus font-semibold underline decoration-[color:var(--v2-accent)] underline-offset-2 hover:text-[color:var(--v2-accent)]',
-                  p.bloquea ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-accent)]',
+                  'v2-focus font-semibold underline decoration-[color:var(--v2-accent)] underline-offset-2 hover:text-[color:var(--v2-accent-text)]',
+                  p.bloquea ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-accent-text)]',
                 )}
               >
                 {p.label}

@@ -67,7 +67,7 @@ export function LeadAltaControl({
         <span className="text-[color:var(--v2-fg)]">Convertido en atleta.</span>
         <Link
           href={`/atletas/${alta.converted_athlete_id}`}
-          className="v2-focus font-semibold text-[color:var(--v2-accent)] underline-offset-2 hover:underline"
+          className="v2-focus font-semibold text-[color:var(--v2-accent-text)] underline-offset-2 hover:underline"
         >
           Ver ficha →
         </Link>
@@ -315,7 +315,7 @@ function AltaModal({
                     className={
                       'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3.5 text-xs font-semibold transition-colors ' +
                       (modality === o.value
-                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                         : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]')
                     }
                   >
@@ -373,7 +373,7 @@ function AltaModal({
                     />
                     <span>
                       Fundador: suscripción real por Stripe a{' '}
-                      <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
+                      <b className="text-[color:var(--v2-accent-text)]">0 €/mes</b> (cupón FUNDADOR, sin
                       tarjeta).
                     </span>
                   </label>

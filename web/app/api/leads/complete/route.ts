@@ -13,7 +13,7 @@ import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/ra
 import { upsertLeadComplete } from '@/lib/leads/store';
 import { sendLeadConfirmation, sendLeadNotification } from '@/lib/leads/email';
 import { getCapacityState, type CapacityState } from '@/lib/coach/capacity';
-import { coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
+import { coachIdForLead, coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
 import { countWaitlist, joinWaitlist } from '@/lib/leads/waitlist';
 import { sendWaitlistJoinedEmail } from '@/lib/leads/waitlist-email';
 
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
   // la fila y no del entorno: si mañana un lead entra por otro enlace, el correo lo nombra
   // a él sin tocar esto.
   const coachName = await coachNameForLead(sql, BigInt(res.id));
+  const coachId = await coachIdForLead(sql, BigInt(res.id));
   if (capacity?.full) {
     const jw = await joinWaitlist(res.id); // idempotent; returns the lead's contact for the email
     // Waitlist-joined email instead of the booking confirmation; internal notify stays.
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
   // (/es/cita/[token]) so a lead who didn't pick a slot on the final screen can still book.
   await Promise.allSettled([
     sendLeadNotification(input),
-    sendLeadConfirmation(input, res.token, coachName),
+    sendLeadConfirmation(input, res.token, coachName, coachId),
   ]);
 
   // Return the token so the onboarding final screen can offer the slot picker inline.

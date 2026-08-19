@@ -77,7 +77,7 @@ export function TargetRaceCard({ athleteId }: { athleteId: string }) {
           <p className="text-xs font-medium text-[color:var(--v2-danger)]">{loadError}</p>
         ) : target ? (
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]">
               <MIcon name="sports_score" size={22} />
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">

@@ -182,7 +182,7 @@ function ResultBar({
     .at(-1);
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
-      <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-accent)]">
+      <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-accent-text)]">
         Resultado del test
       </span>
       <span aria-hidden className="h-4 w-px self-stretch bg-[color:var(--v2-border)]" />
@@ -252,7 +252,7 @@ export function ZoneCalculator({
         </div>
         <div className="text-right text-eyebrow font-bold uppercase leading-tight tracking-[0.12em] text-[color:var(--v2-faint)]">
           Calculadora de zonas
-          <b className="block text-body tracking-[0.04em] text-[color:var(--v2-accent)]">
+          <b className="block text-body tracking-[0.04em] text-[color:var(--v2-accent-text)]">
             {titleFamily(profiles)}
           </b>
         </div>
@@ -288,13 +288,13 @@ export function ZoneCalculator({
           background: 'linear-gradient(90deg, var(--v2-accent-soft), transparent)',
         }}
       >
-        <span aria-hidden className="text-[color:var(--v2-accent)]">
+        <span aria-hidden className="text-[color:var(--v2-accent-text)]">
           ⤓
         </span>
         <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
           Estas zonas <b className="text-[color:var(--v2-fg)]">alimentan el plan</b>: cada bloque
-          escrito en relativo (<span className="v2-num text-[color:var(--v2-accent)]">Z2</span> /{' '}
-          <span className="v2-num text-[color:var(--v2-accent)]">Z4</span> / “ritmo umbral”) se
+          escrito en relativo (<span className="v2-num text-[color:var(--v2-accent-text)]">Z2</span> /{' '}
+          <span className="v2-num text-[color:var(--v2-accent-text)]">Z4</span> / “ritmo umbral”) se
           resuelve al rango concreto de {athleteName.split(' ')[0]}.
         </p>
       </div>

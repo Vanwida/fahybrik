@@ -73,7 +73,7 @@ export function TestForm({
 
         <Field label="Esfuerzo">
           <div className="flex min-h-[34px] items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5">
-            <span className="v2-num text-sm font-bold text-[color:var(--v2-accent)]">
+            <span className="v2-num text-sm font-bold text-[color:var(--v2-accent-text)]">
               RPE {TEST_TARGET_RPE}
             </span>
           </div>
@@ -88,9 +88,9 @@ export function TestForm({
         className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] px-3 py-2.5"
         style={{ background: 'var(--v2-accent-soft)' }}
       >
-        <MIcon name="download" size={16} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="download" size={16} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         <div className="min-w-0">
-          <p className="text-xs font-bold text-[color:var(--v2-accent)]">
+          <p className="text-xs font-bold text-[color:var(--v2-accent-text)]">
             Almacena ritmo / zonas
           </p>
           <p className="text-label leading-snug text-[color:var(--v2-muted)]">

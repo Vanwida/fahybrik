@@ -64,7 +64,7 @@ function ContactRow({ label, children }: { label: string; children: React.ReactN
 }
 
 const LINK_CLS =
-  'v2-focus break-words text-sm font-medium text-[color:var(--v2-fg)] underline-offset-2 transition-colors hover:text-[color:var(--v2-accent)] hover:underline';
+  'v2-focus break-words text-sm font-medium text-[color:var(--v2-fg)] underline-offset-2 transition-colors hover:text-[color:var(--v2-accent-text)] hover:underline';
 const VALUE_CLS = 'text-sm text-[color:var(--v2-fg)]';
 
 export function LeadDetalle({

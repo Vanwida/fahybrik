@@ -222,7 +222,7 @@ function Footer({
         <MIcon
           name={message.read_at ? 'done_all' : 'done'}
           size={13}
-          className={message.read_at ? 'text-[color:var(--v2-accent)]' : undefined}
+          className={message.read_at ? 'text-[color:var(--v2-accent-text)]' : undefined}
           aria-label={message.read_at ? 'Leído' : 'Enviado'}
         />
       ) : null}

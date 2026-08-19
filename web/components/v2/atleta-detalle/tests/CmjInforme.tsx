@@ -103,7 +103,7 @@ export function CmjInforme({
             Sin carga
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
-            <p className="font-[family-name:var(--v2-font-display)] text-[52px] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--v2-accent)]">
+            <p className="font-[family-name:var(--v2-font-display)] text-[52px] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--v2-accent-text)]">
               {Math.round(report.unloaded_cm)}
               <span className="ml-1 text-[16px] font-medium text-[color:var(--v2-muted)]">cm</span>
             </p>
@@ -168,7 +168,7 @@ export function CmjInforme({
                     <p className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[color:var(--v2-muted)]">
                       LRI
                     </p>
-                    <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[36px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-accent)]">
+                    <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[36px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-accent-text)]">
                       {formatLri(report.lri)}
                     </p>
                   </div>

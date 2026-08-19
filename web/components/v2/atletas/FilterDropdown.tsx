@@ -67,7 +67,7 @@ export function FilterDropdown<T extends string>({
         className={cn(
           'v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] px-3 text-label font-semibold whitespace-nowrap transition-colors',
           active
-            ? 'border border-[color:var(--v2-accent)] text-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
+            ? 'border border-[color:var(--v2-accent)] text-[color:var(--v2-accent-text)] bg-[color:var(--v2-accent-soft)]'
             : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
         )}
       >
@@ -107,7 +107,7 @@ export function FilterDropdown<T extends string>({
                 >
                   <span>{opt.label}</span>
                   {selected ? (
-                    <MIcon name="check" size={15} className="text-[color:var(--v2-accent)]" />
+                    <MIcon name="check" size={15} className="text-[color:var(--v2-accent-text)]" />
                   ) : null}
                 </button>
               </li>

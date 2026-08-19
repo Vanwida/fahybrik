@@ -102,7 +102,7 @@ export function AthleteSeesBar({
 
   return (
     <div className="sticky bottom-0 z-10 mt-auto flex items-center gap-3 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] py-3">
-      <span aria-hidden className="shrink-0 text-[color:var(--v2-accent)]">
+      <span aria-hidden className="shrink-0 text-[color:var(--v2-accent-text)]">
         <MIcon name="visibility" size={16} />
       </span>
       <div className="min-w-0 flex-1">

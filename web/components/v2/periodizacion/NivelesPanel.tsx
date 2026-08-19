@@ -279,7 +279,7 @@ export function NivelesPanel({
                       <button
                         type="button"
                         onClick={() => onEnter(lvl)}
-                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
+                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
                       >
                         Periodización <MIcon name="arrow_forward" size={13} />
                       </button>
@@ -304,7 +304,7 @@ export function NivelesPanel({
                   >
                     <span className="flex items-center gap-2.5">
                       <LevelBadge level={lvl.name} />
-                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
+                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent-text)]">
                         {lvl.label}
                       </span>
                     </span>
@@ -406,7 +406,7 @@ export function NivelesPanel({
 function PurposeStrip({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-2 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-      <span className="shrink-0 text-[color:var(--v2-accent)]">
+      <span className="shrink-0 text-[color:var(--v2-accent-text)]">
         <MIcon name="my_location" size={18} />
       </span>
       <span className="flex-1">{children}</span>
@@ -443,7 +443,7 @@ function EmptyLevels({
     <div className="flex flex-col items-center rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
       <span
         className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
-        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
       >
         <MIcon name="signal_cellular_alt" size={26} />
       </span>

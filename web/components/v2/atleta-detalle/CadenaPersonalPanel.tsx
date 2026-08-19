@@ -166,7 +166,7 @@ export function CadenaPersonalPanel({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="v2-focus flex w-full items-center gap-2.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+        className="v2-focus flex w-full items-center gap-2.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
       >
         <MIcon name="add" size={20} />
         <span className="text-label font-bold">Añadir microciclo</span>

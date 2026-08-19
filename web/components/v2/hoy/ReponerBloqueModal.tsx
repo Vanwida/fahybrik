@@ -285,7 +285,7 @@ export function ReponerBloqueModal({
                               <MIcon
                                 name="check"
                                 size={16}
-                                className="text-[color:var(--v2-accent)]"
+                                className="text-[color:var(--v2-accent-text)]"
                               />
                             ) : null}
                           </span>

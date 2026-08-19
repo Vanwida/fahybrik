@@ -249,7 +249,7 @@ function EvaluateCta({
   return (
     <div className="flex flex-col items-start gap-3">
       <div className="flex items-start gap-2.5">
-        <MIcon name="tune" size={20} className="mt-0.5 text-[color:var(--v2-accent)]" />
+        <MIcon name="tune" size={20} className="mt-0.5 text-[color:var(--v2-accent-text)]" />
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
             Sin ajuste pendiente

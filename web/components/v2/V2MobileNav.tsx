@@ -113,7 +113,7 @@ export function V2MobileNav({
     cn(
       'v2-focus relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--v2-r-s)] px-1 pb-1 pt-1.5',
       'text-eyebrow font-bold tracking-[0.02em] transition-colors',
-      active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]',
+      active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]',
     );
 
   return (
@@ -170,7 +170,7 @@ export function V2MobileNav({
                       name={item.icon}
                       size={19}
                       filled={active}
-                      className={active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]'}
+                      className={active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]'}
                     />
                     {item.label}
                   </Link>

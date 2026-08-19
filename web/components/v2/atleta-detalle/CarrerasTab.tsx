@@ -237,7 +237,7 @@ function UpcomingCard({
         style={{ background: 'var(--v2-accent)' }}
       />
       <div className="flex items-center gap-2">
-        <span className="v2-micro text-[color:var(--v2-accent)]">Próxima carrera</span>
+        <span className="v2-micro text-[color:var(--v2-accent-text)]">Próxima carrera</span>
         <Pill tone={badge.tone} variant="soft">
           {badge.label}
         </Pill>
@@ -253,7 +253,7 @@ function UpcomingCard({
       </div>
 
       <div className="flex items-baseline gap-1.5">
-        <span className="v2-num text-3xl font-bold leading-none text-[color:var(--v2-accent)]">
+        <span className="v2-num text-3xl font-bold leading-none text-[color:var(--v2-accent-text)]">
           {days}
         </span>
         <span className="text-xs text-[color:var(--v2-muted)]">
@@ -269,7 +269,7 @@ function UpcomingCard({
         ) : null}
         {goal ? (
           <span className="mt-0.5 inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)]">
-            <MIcon name="target" size={13} className="text-[color:var(--v2-accent)]" />
+            <MIcon name="target" size={13} className="text-[color:var(--v2-accent-text)]" />
             <span className="v2-num">Objetivo {goal}</span>
           </span>
         ) : null}
@@ -361,7 +361,7 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             {result ?? 'Sin resultado'}
           </span>
           {topPct != null ? (
-            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent)]">
+            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent-text)]">
               Top {topPct}%
             </span>
           ) : null}
@@ -447,7 +447,7 @@ function SummaryTile({ label, value, accent }: { label: string; value: string; a
       <span
         className={
           accent
-            ? 'v2-num text-sm font-bold text-[color:var(--v2-accent)]'
+            ? 'v2-num text-sm font-bold text-[color:var(--v2-accent-text)]'
             : 'v2-num text-sm font-bold text-[color:var(--v2-fg)]'
         }
       >

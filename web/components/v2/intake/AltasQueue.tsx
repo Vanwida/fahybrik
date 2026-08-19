@@ -237,7 +237,7 @@ function AltaRow({ alta, index }: { alta: PendingAlta; index: number }) {
         </span>
       </div>
 
-      <span className="inline-flex shrink-0 items-center gap-1 text-body font-semibold text-[color:var(--v2-accent)]">
+      <span className="inline-flex shrink-0 items-center gap-1 text-body font-semibold text-[color:var(--v2-accent-text)]">
         <span className="hidden sm:inline">Revisar alta</span>
         <MIcon
           name="arrow_forward"

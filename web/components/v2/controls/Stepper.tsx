@@ -39,7 +39,7 @@ export function Stepper({
   const btn = cn(
     'grid select-none place-items-center font-semibold text-[color:var(--v2-muted)] transition-colors',
     'hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
-    'active:bg-[color:var(--v2-accent-soft)] active:text-[color:var(--v2-accent)]',
+    'active:bg-[color:var(--v2-accent-soft)] active:text-[color:var(--v2-accent-text)]',
     size === 'md' ? 'w-11 text-[19px]' : 'w-9 text-[16px]',
   );
 

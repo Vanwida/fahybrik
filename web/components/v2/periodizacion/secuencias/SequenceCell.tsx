@@ -84,7 +84,7 @@ export function SequenceCell({
       className={cn(
         'v2-focus flex h-full min-h-[84px] w-full items-center justify-center rounded-[var(--v2-r-s)]',
         'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]',
-        'transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]',
+        'transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]',
       )}
     >
       <MIcon name="add" size={18} aria-hidden />

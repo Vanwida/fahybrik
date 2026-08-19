@@ -155,7 +155,7 @@ export function ImportDayReviewDrawer({
                 className={`v2-focus mt-2 inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors ${
                   day.included
                     ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
-                    : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]'
+                    : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent-text)] hover:border-[color:var(--v2-accent)]'
                 }`}
               >
                 <MIcon name={day.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
@@ -257,7 +257,7 @@ export function ImportDayReviewDrawer({
               {sessions.map((session, sessionIndex) => (
                 <section key={session.uid} className="space-y-3">
                   {sessions.length > 1 ? (
-                    <h3 className="flex items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+                    <h3 className="flex items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
                       <MIcon name={sessionIndex === 0 ? 'wb_sunny' : 'bedtime'} size={13} />
                       {SESSION_LABEL[sessionIndex] ?? `Sesión ${sessionIndex + 1}`}
                     </h3>

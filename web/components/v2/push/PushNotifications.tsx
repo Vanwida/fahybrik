@@ -100,7 +100,7 @@ export function PushBanner() {
         <MIcon
           name="notifications_active"
           size={18}
-          className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]"
+          className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]"
         />
         <p className="min-w-0 flex-1 text-body leading-snug text-[color:var(--v2-fg)]">
           {state === 'available' ? (
@@ -165,7 +165,7 @@ export function PushCard() {
             size={20}
             className={
               state === 'enabled'
-                ? 'mt-0.5 shrink-0 text-[color:var(--v2-accent)]'
+                ? 'mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]'
                 : 'mt-0.5 shrink-0 text-[color:var(--v2-muted)]'
             }
           />

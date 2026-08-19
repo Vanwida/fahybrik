@@ -367,7 +367,7 @@ export function ImportReviewGrid({
                     'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors',
                     week.included
                       ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
-                      : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]',
+                      : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent-text)] hover:border-[color:var(--v2-accent)]',
                   )}
                 >
                   <MIcon name={week.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
@@ -376,7 +376,7 @@ export function ImportReviewGrid({
 
                 {/* Fork B — explicit mapping (an excluded week needs no destination). */}
                 <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-                  <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent)]" />
+                  <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent-text)]" />
                   <span>Meter en</span>
                   <select
                     value={week.target_week_id ?? ''}
@@ -540,7 +540,7 @@ export function ImportReviewGrid({
                   type="button"
                   onClick={() => setCreatingMissing(true)}
                   disabled={completingGaps}
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/50 px-3 py-1 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/50 px-3 py-1 text-label font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
                 >
                   <MIcon name="library_add" size={14} />
                   {missingCount === 1

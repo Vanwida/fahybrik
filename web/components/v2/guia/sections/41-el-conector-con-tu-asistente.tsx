@@ -136,7 +136,7 @@ function GrupoFrases({
 }) {
   return (
     <div style={{ ...cardBase, padding: '16px 18px' }}>
-      <div style={{ ...microLabel, color: 'var(--v2-accent)', marginBottom: '11px' }}>{titulo}</div>
+      <div style={{ ...microLabel, color: 'var(--v2-accent-text)', marginBottom: '11px' }}>{titulo}</div>
       {frases.map((f, i) => (
         <div
           key={f.dices}
@@ -201,7 +201,7 @@ function PidePermiso() {
         padding: '13px 15px',
       }}
     >
-      <div style={{ ...microLabel, color: 'var(--v2-accent)', marginBottom: '9px' }}>
+      <div style={{ ...microLabel, color: 'var(--v2-accent-text)', marginBottom: '9px' }}>
         Antes de tocar nada
       </div>
       {[

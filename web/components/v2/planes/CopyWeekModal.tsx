@@ -196,7 +196,7 @@ export function CopyWeekModal({
                     <MIcon
                       name={checked ? 'check_box' : 'check_box_outline_blank'}
                       size={18}
-                      className={checked ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]'}
+                      className={checked ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-faint)]'}
                     />
                     <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
                       S{w.index + 1}

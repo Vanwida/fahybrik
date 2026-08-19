@@ -28,13 +28,13 @@ export function ActividadHoyStrip({ activity }: { activity: ActivityToday }) {
   return (
     <section aria-label="Actividad de hoy" className="mt-4">
       <div className="mb-2 flex items-center gap-2">
-        <MIcon name="bolt" size={16} className="text-[color:var(--v2-accent)]" />
+        <MIcon name="bolt" size={16} className="text-[color:var(--v2-accent-text)]" />
         <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">
           Actividad de hoy
         </span>
         <span
           className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
         >
           {activity.total}
         </span>

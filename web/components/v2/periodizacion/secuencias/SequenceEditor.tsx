@@ -294,7 +294,7 @@ export function SequenceEditor({
 
       {/* purpose strip */}
       <div className="mt-3.5 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-        <span className="shrink-0 text-[color:var(--v2-accent)]">
+        <span className="shrink-0 text-[color:var(--v2-accent-text)]">
           <MIcon name="my_location" size={18} />
         </span>
         <span className="flex-1">
