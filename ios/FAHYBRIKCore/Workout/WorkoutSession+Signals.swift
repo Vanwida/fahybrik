@@ -43,10 +43,12 @@ extension WorkoutSession {
         peakDriveForceLbs: Double? = nil,
         avgDriveForceLbs: Double? = nil
     ) {
-        // Gated on the TRAMO, not on the segment: a ski round inside an EMOM is erg
-        // work and its numbers are real, even though the segment that wraps it reads
-        // as strength/reps. That guard was why an EMOM on the erg recorded nothing.
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsErg else { return }
+        // Gated on the TRAMO law, not on a hard-coded format: a ski round inside
+        // an EMOM, a remo inside a superserie, or a PM5 under a free-order AMRAP
+        // all record. Connect without a live window still does not count.
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              MachineTramoLaw.recordsPM5(tramo: currentTramo, segment: currentSegment)
+        else { return }
         // The cursor may have moved since the last tick; anchor this sample in the
         // window it actually belongs to before it is counted.
         syncTramoIfNeeded()
@@ -230,7 +232,9 @@ extension WorkoutSession {
         // data is real, even though the folded segment that wraps it reads as
         // reps/functional. That guard is why a remo→ski→cinta EMOM recorded nothing
         // from the treadmill (4-ago).
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart,
+              MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment)
+        else { return }
         lapInclineSum += inclinePct
         lapInclineCount += 1
     }
@@ -246,7 +250,8 @@ extension WorkoutSession {
         // measures the run minute of a mixed EMOM just as truly as it measures a
         // dedicated run block.
         guard !isPaused, !isFinished, !isAwaitingBlockStart,
-              tramoIsRun, deltaMeters > 0 else { return }
+              MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment),
+              deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
         // The cursor may have moved since the last sample: anchor this one in the
         // window it actually belongs to BEFORE counting it, exactly as `sampleErg`

@@ -38,7 +38,7 @@ extension WorkoutSession {
                 maxHRBpm: nil,
                 zoneSecondsByZone: [:],
                 repsCompleted: nil,
-                distanceCoveredMeters: nil,
+                distanceCoveredMeters: structuralDistanceMeters(),
                 avgPaceSecPer500m: nil,
                 avgPaceSecPerKm: nil,
                 avgPowerWatts: nil,
@@ -55,6 +55,16 @@ extension WorkoutSession {
                 sets: nil
             )
         )
+    }
+
+    /// Metros que la máquina midió en un calentamiento / vuelta a la calma.
+    /// Antes el lap estructural nacía siempre con `distanceCoveredMeters: nil`,
+    /// así que 6 min de cinta se guardaban como 0 m.
+    private func structuralDistanceMeters() -> Double? {
+        if lapBeltDistanceMeters > 0 { return lapBeltDistanceMeters }
+        if let m = lapErgDistanceMeters, m > 0 { return m }
+        if let m = lapGpsDistanceMeters, m > 0 { return m }
+        return nil
     }
 
     /// "Calentamiento hecho" / "Vuelta a la calma hecha" — close the WHOLE

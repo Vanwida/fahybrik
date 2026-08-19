@@ -318,7 +318,11 @@ struct TreadmillHUDView: View {
 
     private var landscapeLegLine: String {
         var line = "Tramo \(model.legNumber) de \(model.legTotal)"
-        if let objetivo = model.runTarget.objetivoLabel { line += " · objetivo \(objetivo)" }
+        if let remaining = model.session.tramoWorkRemaining, remaining > 0 {
+            line += " · quedan \(Formato.clock(remaining, anchoFijo: true))"
+        } else if let objetivo = model.runTarget.objetivoLabel {
+            line += " · objetivo \(objetivo)"
+        }
         return line
     }
 

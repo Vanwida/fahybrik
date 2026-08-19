@@ -122,7 +122,7 @@ struct ActiveWorkoutView: View {
         vSizeClass == .compact
             && (isErgSegment || (session.isTramoResting && segmentInvolvesErg))
             && !session.currentSegmentIsPartnerRelay
-            && !session.currentBlockIsStructural
+            && !(session.currentBlockIsStructural && !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo))
             && !session.isAwaitingBlockStart
     }
     private var isRunSegment: Bool {
@@ -915,26 +915,15 @@ struct ActiveWorkoutView: View {
     private var superficieViva: SuperficieViva? {
         // Lo que `liveSurface` resuelve ANTES de llegar al HUD de modalidad.
         if session.currentSegmentIsPartnerRelay { return nil }
-        if session.currentBlockIsStructural { return nil }
+        // Un calentamiento de cinta / remo NO es checklist: la máquina mide.
+        if session.currentBlockIsStructural,
+           !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo) { return nil }
         if isErgLandscapeFocus { return nil }
-        // CORRER, y va antes del descanso a propósito: el trote de recuperación de
-        // una serie es parte de la MISMA vista (calle y cinta pintan su propia
-        // recuperación, con su ritmo y su cuenta atrás). Mandarlo a `RestSurface`
-        // haría bailar dos pantallas dentro del mismo tramo, que es justo lo que esta
-        // regla viene a quitar. Un EMOM cuyo tramo es correr NO entra: ahí manda el
-        // minuto, y el cover se abría precisamente encima de él y lo tapaba.
-        if session.currentSegment?.kind == .running,
-           session.currentSegment?.isEMOM != true {
-            // UN TRAMO DE CORRER SE RESUELVE AQUÍ DENTRO, SIEMPRE. O es una de las dos
-            // pantallas de correr, o no hay superficie — nunca cae a la de otro
-            // formato. La condición de la puerta vivía arriba, en el `if`, así que
-            // mientras el bloque estaba parado un tramo de carrera SEGUÍA bajando por
-            // la cadena y acababa en el reloj de acondicionamiento (o, sin esquema, en
-            // el suelo de hierro): dos formatos pintando una carrera.
-            //
-            // La puerta del bloque tiene la pantalla y todavía no ha empezado nada:
-            // estas dos superficies encienden GPS, cinta y Live Activity al aparecer,
-            // y eso no se hace hasta que el atleta le da a EMPEZAR.
+        // CORRER: manda el TRAMO, no el kind del segmento plegado. Un EMOM de
+        // cinta, un calentamiento de 6 min o una estación de HYROX son correr
+        // aunque el bloque se haya plegado como reps. El cover que tapaba el
+        // minuto ya no existe — TreadmillHUD ES la superficie.
+        if session.tramoIsRun {
             guard !session.isAwaitingBlockStart else { return nil }
             switch session.runEnvironment {
             case .treadmill, .indoor: return .correrCinta
@@ -945,9 +934,8 @@ struct ActiveWorkoutView: View {
             case .none:               return nil
             }
         }
-        // …y lo que `modalityHUD` resuelve antes que el formato.
-        if session.isTramoResting { return nil }   // el descanso tiene su pantalla
-        if session.tramoIsErg { return nil }       // manda la máquina que mide
+        if session.isTramoResting { return nil }
+        if session.tramoIsErg { return nil }
         if session.currentSegment?.isEMOM == true { return .emom }
         // Los formatos de acondicionamiento conservan su cronómetro dedicado.
         if session.currentSegment?.isConditioningTimer == true { return nil }
@@ -1070,9 +1058,9 @@ struct ActiveWorkoutView: View {
             // "Relevo ▸" advances to their next station.
             relaySurface
             Spacer(minLength: 0)
-        } else if session.currentBlockIsStructural {
-            // Warmup / cooldown: ONE readable checklist, gated behind a single
-            // "hecho" button — never per-exercise navigation/logging.
+        } else if session.currentBlockIsStructural,
+                  !MachineTramoLaw.machineOwnsHUD(tramo: session.currentTramo) {
+            // Warmup / cooldown SIN máquina: checklist. Con máquina manda el HUD.
             structuralWorkSurface
             Spacer(minLength: 0)
         } else {
