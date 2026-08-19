@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ModalPortal } from './ModalPortal';
 import { MIcon } from '@/components/ui/MIcon';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { cn } from '@/lib/utils';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-editor';
@@ -57,13 +58,11 @@ function blockColorVar(format: string | null): string {
 
 // El tono dice DE QUIÉN es el bloque, y usa el mismo idioma de autoría que
 // AuthorStamp (el sello canónico): contenido del coach = acento, IA = info,
-// respaldo del sistema = aviso. `--v2-violet` no existía como token, así que la
-// chapa de "IA compuesta" se pintaba sin color y sin fondo — justo la que dice
-// que el bloque NO es del coach.
-const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; icon: string }> = {
-  library: { label: 'De tu biblioteca', tone: '--v2-accent', icon: 'inventory_2' },
-  llm: { label: 'IA compuesta', tone: '--v2-info', icon: 'neurology' },
-  library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', icon: 'undo' },
+// respaldo del sistema = aviso.
+const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; soft: string; icon: string }> = {
+  library: { label: 'De tu biblioteca', tone: '--v2-accent', soft: '--v2-accent-soft', icon: 'inventory_2' },
+  llm: { label: 'IA compuesta', tone: '--v2-info', soft: '--v2-info-soft', icon: 'neurology' },
+  library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', soft: '--v2-warn-soft', icon: 'undo' },
 };
 
 type Phase = 'form' | 'thinking' | 'proposal';
@@ -173,7 +172,7 @@ export function SuggestWorkoutModal({
         className="absolute inset-0 -z-10 h-full w-full cursor-default"
         tabIndex={-1}
       />
-      <div className="w-full max-w-[480px] overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
+      <div className="w-full max-w-[480px] overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]">
         {/* header */}
         <div className="flex items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
           <div className="flex min-w-0 flex-col">
@@ -272,7 +271,7 @@ function SourceBadge({ source }: { source: AiSuggestion['source'] }) {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-eyebrow font-bold"
-      style={{ color: `var(${m.tone})`, background: `color-mix(in srgb, var(${m.tone}) 15%, transparent)` }}
+      style={{ color: `var(${m.tone})`, background: `var(${m.soft})` }}
     >
       <MIcon name={m.icon} size={12} /> {m.label}
     </span>
@@ -332,24 +331,13 @@ function FormBody({
         <span className="v2-micro">
           Nivel <span className="font-medium normal-case text-[color:var(--v2-faint)]">· auto del atleta</span>
         </span>
-        <div className="flex flex-wrap gap-1.5">
-          {LEVELS.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => setLevel(l.id)}
-              aria-pressed={level === l.id}
-              className={cn(
-                'v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors',
-                level === l.id
-                  ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]'
-                  : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-              )}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
+        <ChipGroup
+          options={LEVELS.map((l) => ({ value: l.id, label: l.label }))}
+          value={level}
+          onChange={setLevel}
+          ariaLabel="Nivel"
+          mono={false}
+        />
       </div>
 
       {error ? (

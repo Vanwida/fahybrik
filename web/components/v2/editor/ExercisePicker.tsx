@@ -392,7 +392,7 @@ function ExerciseRow({
         className={`v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors hover:text-[color:var(--v2-fg)] ${
           hasVideo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-faint)]'
         }`}
-        title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar — indicaciones y vídeo'}
+        title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar indicaciones y vídeo'}
       >
         <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
       </button>
