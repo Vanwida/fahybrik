@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { FichaCard, FichaLabel, PillEstado } from '../resumen/piezas';
 import type { PlanDay, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import { formatRangoSemana, sesionesDelDia } from '@/lib/dashboard/v2/ficha-resumen';
+import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
 import { Pill } from '@/components/v2/Pill';
 import { WeekStateChip } from '@/components/v2/WeekStateChip';
@@ -187,9 +188,31 @@ function DiaCol({
                   s.assignment_id === activeSessionId && 'bg-[color:var(--v2-accent-soft)]',
                 )}
               >
+                {/* Modalidad como micro-etiqueta (artboard «Semana»): el color del
+                    eje + el nombre; 'mixta' habla en neutro. */}
+                {s.modality ? (
+                  <span
+                    className="text-[9.5px] font-bold uppercase tracking-[0.07em]"
+                    style={{
+                      color:
+                        s.modality === 'mixta'
+                          ? 'var(--v2-faint)'
+                          : `var(${MODALITY_META[s.modality].colorVar})`,
+                    }}
+                  >
+                    {s.modality === 'mixta' ? 'Mixta' : MODALITY_META[s.modality].label}
+                  </span>
+                ) : null}
                 <span className="line-clamp-2 text-[12.5px] font-semibold leading-snug text-[color:var(--v2-fg)]">
                   {s.title}
                 </span>
+                {s.format || s.duration_min != null ? (
+                  <span className="text-[11px] text-[color:var(--v2-muted)]">
+                    {[s.format, s.duration_min != null ? `${s.duration_min} min` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                ) : null}
                 {s.estado !== 'descanso' ? <PillEstado estado={s.estado} /> : null}
               </button>
             ))}

@@ -45,6 +45,10 @@ export type SesionVista = {
   assignment_id: string;
   title: string;
   estado: DiaEstado;
+  /** Modalidad real de la sesión (intrínseca a sus ejercicios); null = sin leer. */
+  modality: PlanSession['modality'];
+  format: string | null;
+  duration_min: number | null;
 };
 
 export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
@@ -52,6 +56,9 @@ export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
     assignment_id: s.assignment_id,
     title: s.title,
     estado: estadoSesion(s, day.is_today, day.iso_date, todayIso),
+    modality: s.modality,
+    format: s.format,
+    duration_min: s.duration_min,
   }));
 }
 
