@@ -28,8 +28,7 @@ import {
   planRelationCopy,
   planWeekRelation,
 } from '@fahybrid/shared/domain/coach/honest-week';
-import { dayCanvasHref } from '@/lib/dashboard/v2/planes-model';
-import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
 
 const SESSION_QUERY_PARAM = 'sesion';
@@ -148,13 +147,16 @@ export function PlanTab({
     : 'Semana';
   const allDays = plan.weeks.flatMap((w) => w.days);
   const todayDay = allDays.find((d) => d.is_today) ?? null;
-  const editorTargetDate =
-    todayDay && todayDay.sessions.length > 0
-      ? todayDay.iso_date
-      : (todayWeek?.days.find((d) => d.sessions.length > 0)?.iso_date ??
-        allDays.find((d) => d.sessions.length > 0)?.iso_date ??
-        todayDay?.iso_date ??
-        null);
+  // «Editar día» respeta la SEMANA EN PANTALLA (Alex, QA 19-ago): hoy si cae
+  // dentro de la semana activa; si no, el primer día con sesiones de ESA semana;
+  // si no, su lunes. Nunca salta a otra semana por su cuenta.
+  const activeWeekToday = activeWeek?.days.find((d) => d.is_today) ?? null;
+  const editorTargetDate = activeWeek
+    ? (activeWeekToday?.iso_date ??
+      activeWeek.days.find((d) => d.sessions.length > 0)?.iso_date ??
+      activeWeek.days[0]?.iso_date ??
+      null)
+    : (todayDay?.iso_date ?? allDays.find((d) => d.sessions.length > 0)?.iso_date ?? null);
 
   const recent: PlanSession[] = plan.weeks
     .flatMap((w) => w.days.flatMap((d) => d.sessions))
@@ -208,20 +210,12 @@ export function PlanTab({
                 ) : null}
                 {editorTargetDate ? (
                   <Link
-                    href={
-                      plan.is_personal && plan.current_month_template_id && plan.current_assignment_start
-                        ? dayCanvasHref(
-                            plan.current_month_template_id,
-                            Math.max(
-                              0,
-                              diffDays(
-                                parseIsoDate(editorTargetDate),
-                                mondayOfWeek(parseIsoDate(plan.current_assignment_start)),
-                              ),
-                            ),
-                          )
-                        : `/atletas/${athlete_id}/dia/${editorTargetDate}`
-                    }
+                    // SIEMPRE al día del ATLETA (su copia real), también en plan
+                    // personal: la rama que mandaba a la plantilla del microciclo
+                    // asumía que el día vive allí, y la semana entregada puede
+                    // divergir de la plantilla (atleta 64: plantilla vacía,
+                    // semana llena). La plantilla se edita desde «Editar plan».
+                    href={`/atletas/${athlete_id}/dia/${editorTargetDate}`}
                     className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
                     Editar día
@@ -290,21 +284,10 @@ export function PlanTab({
               onOpen={openSessionSynced}
               activeSessionId={openSession}
               athleteId={athlete_id}
-              dayHref={
-                plan.is_personal && plan.current_month_template_id && plan.current_assignment_start
-                  ? (iso) =>
-                      dayCanvasHref(
-                        plan.current_month_template_id!,
-                        Math.max(
-                          0,
-                          diffDays(
-                            parseIsoDate(iso),
-                            mondayOfWeek(parseIsoDate(plan.current_assignment_start!)),
-                          ),
-                        ),
-                      )
-                  : undefined
-              }
+              // El «+N más» de un día abre el día del ATLETA (default de
+              // SemanaCanvas): la ruta a la plantilla asumía días que pueden
+              // no existir allí (recibos divergentes).
+              dayHref={undefined}
               focus={
                 <AthleteWeekFocusRow
                   key={activeWeek.week_start}
