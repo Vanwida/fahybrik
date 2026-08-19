@@ -33,20 +33,30 @@ function DayChip({
   href: string;
 }) {
   const mod = day.dominant;
-  const rest = day.session_count === 0;
+  // Un día sin sesiones en una PLANTILLA está VACÍO (sin rellenar), no es un
+  // descanso: el descanso es una decisión del coach y aquí no hay dato que lo
+  // diga. Misma palabra que el carril del editor en foco, que ya decía «vacío».
+  const vacio = day.session_count === 0;
 
-  if (rest || !mod) {
+  if (vacio || !mod) {
     return (
       <Link
         href={href}
         scroll={false}
         aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
-        className="v2-focus flex min-h-[52px] items-center justify-center rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+        className="v2-focus group/dia flex min-h-[84px] items-center justify-center gap-1.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
       >
-        {rest ? (
-          <span className="text-eyebrow font-semibold">descanso</span>
+        {vacio ? (
+          <>
+            <MIcon
+              name="add"
+              size={15}
+              className="opacity-0 transition-opacity group-hover/dia:opacity-100"
+            />
+            <span className="text-label font-semibold">vacío</span>
+          </>
         ) : (
-          <MIcon name="add" size={16} />
+          <MIcon name="add" size={18} />
         )}
       </Link>
     );
@@ -57,16 +67,16 @@ function DayChip({
       href={href}
       scroll={false}
       aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label}`}
-      className="v2-focus flex min-h-[52px] flex-col gap-1 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-1.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
+      className="v2-focus flex min-h-[84px] flex-col gap-1 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5 transition-colors hover:border-[color:var(--v2-border-strong)]"
       style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
     >
       <span
-        className="truncate text-eyebrow font-bold"
+        className="truncate text-label font-bold"
         style={{ color: `var(${MODALITY_META[mod].colorVar})` }}
       >
         {MODALITY_META[mod].label}
       </span>
-      <span className="v2-num mt-auto text-nano text-[color:var(--v2-faint)]">
+      <span className="v2-num mt-auto text-eyebrow text-[color:var(--v2-faint)]">
         {day.session_count > 1 ? `${day.session_count} ses · ` : ''}
         {day.block_count} bl
       </span>
@@ -135,7 +145,7 @@ export function MicrocicloV1({
       <div className="overflow-x-auto rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]">
         <div className="min-w-[820px]">
           {/* Day-header row */}
-          <div className="grid grid-cols-[160px_repeat(7,minmax(0,1fr))] gap-2 border-b border-[color:var(--v2-border)] px-3 py-2">
+          <div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] gap-2.5 border-b border-[color:var(--v2-border)] px-3 py-2.5">
             <span className="v2-micro flex items-end">semana ↓ / día →</span>
             {DAY_HEADERS.map((d) => (
               <span key={d} className="v2-micro text-center">
@@ -148,12 +158,12 @@ export function MicrocicloV1({
           {weeks.map((w, wi) => (
             <div
               key={w.id}
-              className="grid grid-cols-[160px_repeat(7,minmax(0,1fr))] items-stretch gap-2 border-b border-[color:var(--v2-border)] px-3 py-2 last:border-b-0"
+              className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] items-stretch gap-2.5 border-b border-[color:var(--v2-border)] px-3 py-2.5 last:border-b-0"
             >
               {/* Left meta cell */}
-              <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2">
+              <div className="flex flex-col gap-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-bold text-[color:var(--v2-fg)]">
+                  <span className="text-body font-bold text-[color:var(--v2-fg)]">
                     Semana {wi + 1}
                   </span>
                   <div className="flex items-center gap-2">
@@ -182,10 +192,10 @@ export function MicrocicloV1({
                     </button>
                   </div>
                 </div>
-                <span className="truncate text-eyebrow text-[color:var(--v2-muted)]" title={w.label}>
+                <span className="truncate text-label text-[color:var(--v2-muted)]" title={w.label}>
                   {w.label}
                 </span>
-                <span className="v2-num mt-auto text-eyebrow font-semibold text-[color:var(--v2-faint)]">
+                <span className="v2-num mt-auto text-label font-semibold text-[color:var(--v2-faint)]">
                   {w.session_count} {w.session_count === 1 ? 'sesión' : 'sesiones'}
                 </span>
               </div>
