@@ -69,6 +69,16 @@ export const COMPARE_METRICS_EMBED: CompareMetrics = {
   gap: 12,
 };
 
+// Geometría del propio dibujo, no del tema: esto se pinta con dos paletas
+// (--v2-* del panel, --twin-* del doble) que no comparten variables CSS, así
+// que un radio no puede leer un token de una sola — se calcula aquí en JS.
+/** La barra siempre en pastilla completa: la mitad de su alto. */
+const BAR_PILL_RADIO_FRACCION = 0.5;
+/** El cuadradito de color junto a cada delta. */
+const SWATCH_LADO = 8;
+/** Esquina redondeada del cuadradito — geometría propia, no una pastilla. */
+const SWATCH_RADIO = 2;
+
 function rayado(tokens: ZoneChartTokens): string {
   // El tiempo que no se pudo repartir va rayado y no en gris liso: un bloque liso
   // se lee como «una zona más» y esto es la ausencia de una.
@@ -159,7 +169,7 @@ function Lado({
         style={{
           display: 'flex',
           height: metrics.barH,
-          borderRadius: metrics.barH / 2,
+          borderRadius: metrics.barH * BAR_PILL_RADIO_FRACCION,
           overflow: 'hidden',
           // Sin dato, el carril va PUNTEADO y vacío. Relleno liso a todo lo
           // ancho se lee de reojo como una barra llena de algo, que es
@@ -234,9 +244,9 @@ function Deltas({
             <span
               aria-hidden
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: 2,
+                width: SWATCH_LADO,
+                height: SWATCH_LADO,
+                borderRadius: SWATCH_RADIO,
                 flex: '0 0 auto',
                 background: fondoDe(d.key, tokens),
               }}

@@ -31,7 +31,6 @@ export function AudioDelDetalle({
           {duracionCorta(seconds)}
         </span>
       ) : null}
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- es la voz del coach, no hay guion */}
       <audio src={url} controls preload="none" className="h-8 min-w-0 flex-1" />
     </div>
   );

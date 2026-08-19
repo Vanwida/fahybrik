@@ -353,7 +353,7 @@ export function Compositor({
                 type="button"
                 aria-label="Cerrar"
                 onClick={cerrar}
-                className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 <MIcon name="close" size={20} />
               </button>

@@ -77,7 +77,7 @@ export function MicrocicloCard({
             disabled={duplicating}
             aria-label={`Duplicar ${microciclo.name}`}
             title="Crea una copia independiente de este microciclo"
-            className="pointer-events-auto v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+            className="pointer-events-auto v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
           >
             <MIcon
               name={duplicating ? 'progress_activity' : 'content_copy'}

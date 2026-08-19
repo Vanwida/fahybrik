@@ -440,7 +440,7 @@ function EmptyLevels({
   restoring: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
+    <div className="flex flex-col items-center rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
       <span
         className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
         style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}

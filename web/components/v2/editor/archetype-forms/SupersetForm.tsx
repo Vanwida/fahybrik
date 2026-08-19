@@ -255,7 +255,7 @@ function ExerciseCard({
               type="button"
               onClick={onRemove}
               aria-label={`Quitar el ejercicio ${letter}`}
-              className="v2-focus rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-danger)]"
+              className="v2-focus rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-danger)]"
             >
               <MIcon name="close" size={14} />
             </button>

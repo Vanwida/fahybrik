@@ -85,7 +85,7 @@ export function DelCoachTab({
             type="button"
             onClick={() => setAviso(null)}
             aria-label="Descartar el aviso"
-            className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={14} />
           </button>

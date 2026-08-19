@@ -70,6 +70,9 @@ export function CorrerTab({
   }, [athleteId]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
   }, [cargar]);
 

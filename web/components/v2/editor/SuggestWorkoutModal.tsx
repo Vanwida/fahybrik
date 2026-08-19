@@ -185,7 +185,7 @@ export function SuggestWorkoutModal({
             aria-label="Cerrar"
             onClick={() => phase !== 'thinking' && onClose()}
             disabled={phase === 'thinking'}
-            className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-40"
+            className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-40"
           >
             <MIcon name="close" size={20} />
           </button>

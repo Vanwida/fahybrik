@@ -332,7 +332,7 @@ export function TestEditorPanel({
                     type="button"
                     onClick={() => removeBlock(i)}
                     aria-label="Quitar bloque"
-                    className="v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+                    className="v2-focus flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
                   >
                     <MIcon name="close" size={14} />
                   </button>
@@ -508,7 +508,7 @@ export function TestEditorPanel({
                   type="button"
                   onClick={() => removeSchedule(i)}
                   aria-label="Quitar ocurrencia"
-                  className="v2-focus ml-auto flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+                  className="v2-focus ml-auto flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
                 >
                   <MIcon name="close" size={14} />
                 </button>

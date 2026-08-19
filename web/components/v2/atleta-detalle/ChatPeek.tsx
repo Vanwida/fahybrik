@@ -87,7 +87,7 @@ export function ChatPeek({
                     type="button"
                     onClick={close}
                     aria-label="Cerrar chat"
-                    className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+                    className="v2-focus flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
                   >
                     <MIcon name="close" size={18} />
                   </button>

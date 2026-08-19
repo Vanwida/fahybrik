@@ -402,7 +402,7 @@ export function MicrocicloV2({
 
       {/* Body — DÍA zoom (embedded editor) or SEMANA zoom (weekstrip + board). */}
       {dayModel ? (
-        <section className="vt-day-editor rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 sm:p-4">
+        <section className="vt-day-editor rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 sm:p-4">
           {/* key por identidad SEMANA+DÍA (mismo `dayKey` de arriba): sin ella
               React reutiliza la instancia al cambiar de día — DayEditor guarda
               sus sesiones en useState(initial) sin resincronizar, así que el
@@ -423,7 +423,7 @@ export function MicrocicloV2({
           />
         </section>
       ) : focus ? (
-        <section className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+        <section className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
           <SemanaBoard
             microcycleId={microcycle_id}
             week={focus}

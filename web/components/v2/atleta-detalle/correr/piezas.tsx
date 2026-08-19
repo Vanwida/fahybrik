@@ -26,7 +26,7 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 sm:p-5">
+    <section className="flex flex-col gap-4 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 sm:p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
         <h3 className="v2-micro">{titulo}</h3>
         {chip ? (

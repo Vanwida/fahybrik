@@ -55,7 +55,7 @@ export function IconBtn({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors',
+        'v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors',
         disabled ? 'opacity-30' : 'hover:bg-[color:var(--v2-elevated)] hover:text-[color:var(--v2-fg)]',
       )}
     >

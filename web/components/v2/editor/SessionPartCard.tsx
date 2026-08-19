@@ -113,7 +113,7 @@ export function SessionPartCard({
   };
 
   return (
-    <section className="overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
+    <section className="overflow-hidden rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]">
       {/* Cabecera de la sesión: el TÍTULO del entreno y, debajo, lo que el coach
           le dice al atleta sobre él. La nota va subordinada al título (el título
           es el sujeto) pero SIEMPRE visible — el coach edita desde el móvil. */}
@@ -307,7 +307,7 @@ function SortableBlockCard({
           {...attributes}
           {...listeners}
           aria-label={`Reordenar bloque${block.title ? ` ${block.title}` : ''}`}
-          className="v2-focus shrink-0 cursor-grab touch-none rounded-[var(--v2-r-s)] p-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-muted)] active:cursor-grabbing"
+          className="v2-focus shrink-0 cursor-grab touch-none rounded-full p-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-muted)] active:cursor-grabbing"
         >
           <MIcon name="drag_indicator" size={18} />
         </button>
@@ -344,7 +344,7 @@ function SortableBlockCard({
           type="button"
           onClick={onRemove}
           aria-label={`Quitar bloque${block.title ? ` ${block.title}` : ''}`}
-          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] opacity-0 transition-all focus-visible:opacity-100 group-hover:opacity-100 hover:text-[color:var(--v2-danger)]"
+          className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] opacity-0 transition-all focus-visible:opacity-100 group-hover:opacity-100 hover:text-[color:var(--v2-danger)]"
         >
           <MIcon name="close" size={16} />
         </button>
@@ -392,7 +392,7 @@ function InlineBlockPicker({
           type="button"
           onClick={onClose}
           aria-label="Cerrar el selector de tipo"
-          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={16} />
         </button>

@@ -141,6 +141,9 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
   }, [loadPending]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadPending();
   }, [reloadPending]);
 
@@ -211,7 +214,7 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
   return (
     <section className="flex flex-col gap-2.5">
       <SectionHeading>Evaluar semana</SectionHeading>
-      <div className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+      <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
         {loading ? (
           <LoadingRow />
         ) : loadError ? (

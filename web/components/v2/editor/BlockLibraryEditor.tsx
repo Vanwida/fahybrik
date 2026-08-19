@@ -285,7 +285,7 @@ export function BlockLibraryEditor({
           />
         </aside>
 
-        <main className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)]">
+        <main className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)]">
           {selected ? (
             <BlockEditor
               block={selected}

@@ -5,6 +5,7 @@
 // and under the 500-line budget. All read v2 tokens only.
 
 import { Link } from '@/i18n/navigation';
+import { Card } from '@/components/ui/card';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { modalityColor } from './modality';
@@ -45,14 +46,9 @@ export function Panel({
   return (
     <section className={cn('flex flex-col gap-2.5', className)}>
       <SectionHeading action={action}>{title}</SectionHeading>
-      <div
-        className={cn(
-          'rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]',
-          bodyClassName,
-        )}
-      >
+      <Card variant="panel" className={cn('p-3.5', bodyClassName)}>
         {children}
-      </div>
+      </Card>
     </section>
   );
 }

@@ -235,7 +235,7 @@ export function ZoneCalculator({
     .at(-1);
 
   return (
-    <div className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)] sm:p-5">
+    <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)] sm:p-5">
       {/* Header — athlete + date + branded title */}
       <div className="flex items-end justify-between gap-4">
         <div className="flex items-center gap-3">
