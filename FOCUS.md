@@ -69,10 +69,16 @@ Rediseño propuesto en el doble (`watch-legible`, 5 escenarios): suelo de 16 pt,
 el crono deja de caer a 44 pt por tener 5 glifos, corona, bloqueo por agua,
 «ahora/después», terminar al alcance. **Pendiente del visto bueno de Alex.**
 
-**Mañana 21-ago Alex prueba en real (asignación 482, card 107):** 4×1000 m a
-race pace + ski/burpees/remo/wall balls. Los arreglos de arriba son justo lo
-que esa sesión necesita. OJO: el título («Recuperación activa») NO coincide con
-el contenido, y pasa en 4 de los 7 días de esa semana — decisión de Alex.
+**Mañana 21-ago Alex prueba en real (asignación 482, plantilla 687, card 107):**
+resuelto contra la base, ejercicio a ejercicio — NO son 4 rondas de 8 bloques,
+son 8 bloques (las «4 rondas» son 4 parejas correr+estación ya expandidas, lo
+dicen las notas del coach): calentamiento 6' Z2 · 1.000 m + SkiErg 500 m · 1.000 m
++ Burpee Broad Jump 40 m · 1.000 m + Rowing 500 m · 1.000 m + Wall Balls 25×9 kg,
+con 2:00 de descanso tras cada estación. NO hay trineo (eso fue el 20). Los
+arreglos de arriba son justo lo que esa sesión necesita, y la dosis de cada
+estación SÍ viaja hasta el tramo (verificado: `prescription_json` se sirve
+verbatim), así que la cuenta atrás de metros y el cierre automático tienen de
+dónde leer. La sesión se llama «Compromised» en el plan: es contenido del coach.
 
 **Claro y oscuro del panel (106, `feat/coach-theme-toggle`):** el botón
 de siempre vuelve a la barra. Acento = piel del club, no naranja de
