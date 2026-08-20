@@ -22,7 +22,7 @@
 // propio `font:` de sujeto o su propio degradado de zona está rompiendo el §10,
 // no «adaptándolo a su caso».
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { TwinAppearance } from './types';
 import { hrZone } from './sim';
 import { UMBRAL, reloj } from './datos-reales';
@@ -39,6 +39,52 @@ export function zonaDe(pulso: number | null | undefined): Zona | null {
 /** El color de una zona. Sin zona, la tinta normal — nunca el naranja de marca. */
 export function colorZona(z: Zona | null): string {
   return z == null ? 'var(--twin-fg)' : `var(--twin-z${z})`;
+}
+
+// ---------------------------------------------------------------------------
+// BandaAnclada — el sujeto cae SIEMPRE en el mismo punto óptico (§10.3), fuera
+// de `MarcoVivo`
+// ---------------------------------------------------------------------------
+
+/**
+ * Ancla el CENTRO del sujeto a la misma altura que las diez vistas en vivo,
+ * para las pantallas de «al terminar» que ya no usan `MarcoVivo` (porque
+ * scrollean con contenido de verdad debajo) pero quieren el mismo punto óptico.
+ *
+ * Reservar los 340 pt enteros de `BANDA.sujeto` clava el centro en su sitio,
+ * sí, pero deja aire entre el número y lo de debajo cuando el sujeto es corto.
+ * Aquí abajo hay contenido de sobra, así que lo correcto es anclar el CENTRO y
+ * dejar que lo de debajo empiece justo donde acaba el bloque.
+ *
+ * Se mide en vivo porque el sujeto no mide lo mismo en cada lectura: «5 de 6»
+ * con dos líneas de apoyo y «44:15» con una no ocupan igual, y un número
+ * escrito a mano se quedaría obsoleto a la primera línea de copy que cambie.
+ * Nació en `lectura-carrera` (12-ago) y sube al kit el 20-ago, la primera vez
+ * que una segunda familia («lectura-sesion») lo necesita igual.
+ */
+export function BandaAnclada({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [alto, setAlto] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAlto(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Media banda por encima, menos lo que el propio bloque sube: el centro cae
+  // en los mismos 345 pt del lienzo que en las diez vistas en vivo.
+  const encima = Math.max(0, BANDA.sujeto / 2 - alto / 2);
+
+  return (
+    <div style={{ paddingTop: encima, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div ref={ref} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center', width: '100%' }}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

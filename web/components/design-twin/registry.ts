@@ -100,6 +100,12 @@ import * as velocidadSerie from './screens/velocidad-serie';
 // otra mitad, la INTENCIÓN del coach, y con ella la curva lleva la banda
 // dibujada y el troceado es por serie o por kilómetro, nunca los dos.
 import * as lecturaCarrera from './screens/lectura-carrera';
+// La otra sesión (card 118, 20-ago). `lectura-carrera` contesta «¿la carrera
+// midió lo pedido?»; esta contesta la pregunta que viene antes — qué hiciste,
+// cuando la sesión mezcla fuerza, ergómetro, correr y funcional en cualquier
+// orden, o es puramente una de esas cosas. El sujeto lo elige el FORMATO
+// (for time · AMRAP · EMOM · fuerza · libre), nunca el formato de otra.
+import * as lecturaSesion from './screens/lectura-sesion';
 // La otra pregunta del atleta (12-ago). `lectura-carrera` contesta qué pasó EN
 // una carrera; esta contesta si todo esto sirve para algo. Sustituye la rejilla
 // de tarjetas por un veredicto defendible y la evidencia ordenada por causa —
@@ -171,6 +177,7 @@ export const SCREENS: TwinScreenModule[] = [
   // formato de la pantalla. Móvil y muñeca leen el MISMO dato.
   resumenCarrera,
   lecturaCarrera,
+  lecturaSesion,
   watchResumen,
   // El plan a tres distancias (29-jul): tres preguntas sobre el MISMO objeto —
   // hacia dónde voy (ciclo), qué me toca y qué llevo (semana), qué hay hoy y
@@ -231,7 +238,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
       'vivo-clave',
     ],
   },
-  { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera'] },
+  { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera', 'lectura-sesion'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-legible', 'watch-resumen'] },
   {
     grupo: 'La muñeca, formato a formato',

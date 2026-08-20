@@ -27,8 +27,8 @@
 // anclada y no compite (§10.5). El sobrante no existe: aquí sobra contenido, no
 // espacio.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Ambiente, Apoyo, BANDA, FilaApoyos, FranjaAccion, zonaDe } from '../../kit-vivo';
+import { useEffect, useState } from 'react';
+import { Ambiente, Apoyo, BANDA, BandaAnclada, FilaApoyos, FranjaAccion, zonaDe } from '../../kit-vivo';
 import { distancia, reloj } from '../../kit-composicion/formato';
 import { S } from '../../kit-composicion/tokens';
 import { distribucionZonas } from '../../zonas';
@@ -249,44 +249,6 @@ function Portada({ carrera, lectura, voz }: { carrera: Carrera; lectura: Lectura
       <BandaAnclada>
         <Sujeto carrera={carrera} lectura={lectura} voz={voz} />
       </BandaAnclada>
-    </div>
-  );
-}
-
-/**
- * EL SUJETO CAE DONDE SIEMPRE — y la banda es un ANCLA, no una caja (§10.3).
- *
- * Reservar los 340 pt enteros de `BANDA.sujeto` clava el centro óptico en su
- * sitio, sí, pero deja ~110 pt de nada entre el número y la curva: la misma
- * «cola» que el §6.1 prohíbe, colocada en medio en vez de al final. Aquí abajo
- * hay contenido de sobra, así que lo correcto es anclar el CENTRO y dejar que lo
- * de debajo empiece justo donde acaba el bloque.
- *
- * Se mide en vivo porque el sujeto no mide lo mismo en las seis lecturas: «5 de
- * 6» con dos líneas de apoyo y «44:15» con una no ocupan igual, y un número
- * escrito a mano se quedaría obsoleto a la primera línea de copy que cambie.
- */
-function BandaAnclada({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [alto, setAlto] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setAlto(el.clientHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Media banda por encima, menos lo que el propio bloque sube: el centro cae
-  // en los mismos 345 pt del lienzo que en las diez vistas en vivo.
-  const encima = Math.max(0, BANDA.sujeto / 2 - alto / 2);
-
-  return (
-    <div style={{ paddingTop: encima, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div ref={ref} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center', width: '100%' }}>
-        {children}
-      </div>
     </div>
   );
 }

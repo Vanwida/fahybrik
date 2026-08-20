@@ -30,6 +30,11 @@ export function ppm(v: number): string {
   return `${Math.round(v)} ppm`;
 }
 
+/** Volumen movido, en toneladas: `4740` (kg) → `4,74`. La unidad la pone quien llama. */
+export function toneladas(kilos: number): string {
+  return esDecimal(kilos / 1000, 2);
+}
+
 /** Ritmo de correr: segundos por km → `4:15/km`, sin espacio (§2). */
 export function ritmoKm(segundosPorKm: number): string {
   return `${reloj(segundosPorKm)}/km`;
