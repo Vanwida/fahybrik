@@ -23,6 +23,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { computeExecutionZoneSeconds } from '@/lib/zones/segment-zone-seconds';
 import { computeMeasuredHeader } from '@/lib/execution/measured-header';
+import { computeSessionTotals } from '@/lib/execution/session-totals';
 import { workoutTraceInputSchema } from '@fahybrid/shared/schema/workouts';
 
 /**
@@ -102,6 +103,10 @@ export async function ingestWorkoutTraces(args: {
   const hasHr = args.payload.traces.some((t) => t.signal === 'hr');
   if (hasHr) {
     await computeExecutionZoneSeconds({ execution_id: args.payload.execution_id, client });
+    // La traza de pulso es la MEJOR evidencia para la FC media/máxima de la
+    // cabecera (regla 1 de card 126) — si llega después de que el guardado ya
+    // recalculó desde los tramos, esto la sustituye por la buena.
+    await computeSessionTotals({ execution_id: args.payload.execution_id, client }).catch(() => {});
   }
 
   // Las tres columnas huérfanas de la 0154 (deriva aeróbica, desnivel,

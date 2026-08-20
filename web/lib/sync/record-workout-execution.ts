@@ -26,6 +26,7 @@ import { biometricSource, executionRecordingMethod } from '@fahybrid/shared/sche
 import { polylinePointCount } from '@/lib/sync/polyline';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
+import { computeSessionTotals } from '@/lib/execution/session-totals';
 import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
 import type { RunningPR } from '@fahybrid/shared/domain/running/best-efforts';
 
@@ -231,6 +232,17 @@ export async function recordWorkoutExecution(args: {
       segments: input.segments,
       sessionFormat,
     });
+  }
+
+  // Totales de cabecera (FC media/máxima, distancia total, calorías) — card 126.
+  // Recalculados SIEMPRE, no solo cuando este payload trae tramos: una llamada
+  // sin `segments` (p.ej. una corrección de RPE) puede llegar después de que la
+  // traza de pulso ya esté guardada, y este recálculo tiene que verla. Corre
+  // DESPUÉS de `ingestExecutionSegments` a propósito — ver el comentario de
+  // cabecera de `session-totals.ts` sobre por qué no viven en el INSERT/ON
+  // CONFLICT de arriba. Nunca lanza hacia la respuesta del sync.
+  if (Number.isFinite(executionId)) {
+    await computeSessionTotals({ execution_id: executionId, client: sql }).catch(() => {});
   }
 
   // Earned, not assumed: 'completed' ONLY when the protocol ran to the end;
