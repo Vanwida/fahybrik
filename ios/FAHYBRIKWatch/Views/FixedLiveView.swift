@@ -18,17 +18,29 @@ import SwiftUI
 //     HYROX sim POR ESTACIONES                  ESTACIÓN — ver abajo  + posición X/Y
 //     (fixedListIsStations = true)
 //
-// Dentro de "por estaciones" el sujeto cambia con cómo cierra ESA estación — la
-// regla ya vive en `LiveTramo.closesOnClock` / `.crossesMachineGoal`, aquí solo
-// se traduce a qué numeral corresponde:
+// Dentro de "por estaciones" el sujeto cambia con cómo cierra ESA estación —
+// tres casos, no dos (19-ago, se añade el segundo: antes "sin caja" metía
+// carrera/ergómetro/reps en el mismo saco y un Run de 1.000 m dentro de una
+// ruta mixta sólo enseñaba su crono, ni metros ni ritmo — la queja de fondo):
 //   · caja de reloj ("2 min de bici")     → cuenta ATRÁS lo que queda de la caja
 //     (`tramoWorkRemaining`). Es lo único que le dice si aprieta o afloja — antes
 //     el reloj no lo sabía y siempre enseñaba el total del bloque (card 67).
-//   · metros / calorías / reps (cierra    → cuenta ARRIBA su propio parcial
-//     por máquina o a toque, sin caja)       (`tramoElapsedSeconds`) — «llevas X
-//                                             en esta estación», igual que el
-//                                             doble (`StationSubject` en
-//                                             ActiveWorkoutView). Sin caja no hay
+//   · objetivo medible — metros (carrera  → cuenta ATRÁS lo que FALTA del
+//     o ergómetro) / calorías (ergómetro)    objetivo (`GuionEstaciones.Cierre
+//                                             .metros/.calorias`), igual que
+//                                             una serie de calle suelta
+//                                             (`GuionSeries`): «lo que faltan
+//                                             son los metros» es la misma
+//                                             pregunta corriendo O remando. La
+//                                             carrera añade el RITMO de
+//                                             segundo nivel; el ergómetro no
+//                                             tiene ritmo/km y se queda con el
+//                                             total del bloque.
+//   · reps, o ningún objetivo declarado   → cuenta ARRIBA su propio parcial
+//     (nada mide el cierre)                  (`tramoElapsedSeconds`) — «llevas
+//                                             X en esta estación», igual que
+//                                             el doble (`StationSubject` en
+//                                             ActiveWorkoutView). Nada mide,
 //                                             nada que contar hacia atrás sin
 //                                             mentir (§7, ningún cero falso).
 //
@@ -135,16 +147,49 @@ struct FixedLiveView: View {
         )
     }
 
-    /// Lista por ESTACIONES (ruta): el sujeto es el reloj de LA ESTACIÓN — la
-    /// tabla al inicio del fichero dice por qué cuenta atrás o arriba, y
-    /// `GuionEstaciones` (`FAHYBRIKCore/Watch/Guiones/`) es la implementación
-    /// pura y probada; esto sólo la alimenta con la sesión viva.
+    /// Lista por ESTACIONES (ruta): el sujeto es el reloj — o el objetivo — de
+    /// LA ESTACIÓN. La tabla al inicio del fichero dice por qué cuenta atrás,
+    /// hacia el objetivo o arriba; `GuionEstaciones`
+    /// (`FAHYBRIKCore/Watch/Guiones/`) es la implementación pura y probada,
+    /// esto sólo la alimenta con la sesión viva.
     private var paginaEstacion: WatchPagina {
         let tramo = session.currentTramo
+        let cierre: GuionEstaciones.Cierre
+        if let boxed = tramo.boxedSeconds, boxed > 0 {
+            cierre = .caja(segundos: boxed)
+        } else if let metros = tramo.targetDistanceMeters {
+            // Metros YA cubiertos de ESTA estación: carrera (GPS/cinta) o
+            // ergómetro, según cuál mida esta estación — nunca los dos.
+            // `tramoErgDistanceMeters` ya está anclado por estación (todo
+            // tramo re-ancla su ventana de ergómetro en `syncTramoIfNeeded`).
+            // `tramoRunCoveredMeters` DEPENDE de un arreglo en curso en el
+            // motor (19-ago, otro agente): hoy, para una estación de carrera
+            // dentro de una ruta MIXTA (no una carrera estructurada), cae a la
+            // lectura de TODO el bloque en vez de la de esta estación sola —
+            // el cuarto Run de la ruta de mañana leería ~4.000 m en vez de
+            // 0→1.000. Se consume tal cual: cuando el motor la corrija, esta
+            // vista queda arreglada sin tocarla.
+            let cubiertos = tramo.isRun ? session.tramoRunCoveredMeters : session.tramoErgDistanceMeters
+            cierre = .metros(objetivo: metros, cubiertos: cubiertos)
+        } else if let calorias = tramo.targetCalories {
+            cierre = .calorias(objetivo: calorias, cubiertas: session.tramoErgCalories)
+        } else {
+            cierre = .atleta
+        }
+        // El ritmo es la MISMA fórmula pura que ya usa una carrera de calle
+        // (`RunLegDisplay.legPaceSecPerKm`: filtra el ruido bajo 10 m y el
+        // techo de 20:00/km) — nunca una reimplementación. `tramoRunCoveredMeters`
+        // hereda la misma dependencia de arriba.
+        let ritmo = tramo.isRun
+            ? RunLegDisplay.legPaceSecPerKm(coveredMeters: session.tramoRunCoveredMeters ?? 0,
+                                            elapsedS: session.tramoElapsedSeconds)
+            : nil
         let estado = GuionEstaciones.Estado(
             etiqueta: tramo.label,
             dosis: tramo.workLine,
-            cajaSegundos: tramo.boxedSeconds,
+            cierre: cierre,
+            esCarrera: tramo.isRun,
+            ritmoSecPorKm: ritmo,
             cajaRestanteSegundos: session.tramoWorkRemaining,
             enEstacionSegundos: session.tramoElapsedSeconds,
             bloqueSegundos: session.condElapsed,
