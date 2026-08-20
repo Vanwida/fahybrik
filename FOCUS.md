@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-20** (guardar entrenos estaba roto 7 días: arreglado)
+Última actualización: **2026-08-20** (guardar entrenos, los metros de la muñeca y la lectura del entreno)
 
 ## Ahora
 
@@ -28,11 +28,28 @@ terminar, no al pulsar guardar · **118** correr DENTRO de una sesión ya no la
 convierte en carrera (manda si se lleva más de la mitad del tiempo) y sin metros
 medidos no hay lectura de carrera.
 
-ABIERTO: **118 segunda mitad** — la lectura de 4 capas que habla el idioma de la
-sesión, en el doble como `lectura-sesion` (propuesta) antes de tocar Swift.
-**122** — el crono arranca con el toque y no con la primera zancada, la cinta no
-detecta que se ha parado, no existe la transición. Lleva decisión de Alex dentro.
-Y el duplicado del 19 sigue en la base: borrarlo es dato del atleta.
+LA LECTURA DEL ENTRENO, DE MOCK A APP EN UNA NOCHE (118 → 124 → 126). Alex validó
+la propuesta del doble («vamos a integrarlo») y está construida:
+· **124** el contrato de UI gana suelo tipográfico (15 pt en iPhone, 16 en reloj) y
+  contraste AA MEDIDO. Lo medido cambia el diagnóstico: el gris de apoyo pasa AA
+  de sobra (6,5:1 / 5,6:1) — cuando un apoyo no se lee es el TAMAÑO, no el color.
+· **126 pieza 1, EN PRODUCCIÓN** (6c05b34c, 34a95904, mig 0204): la sesión sabe sus
+  totales. Se calculan al guardar en UN sitio (`session-totals.ts`) y viajan en el
+  detalle. Escalera: traza de pulso → tramos ponderados por duración → nada.
+  Distancia SOLO si una modalidad la midió: correr+remo no son metros de nada.
+  Rellenado lo viejo: la sesión del 20-ago ya lee FC 115/149; 41 de 55 con pulso.
+· **126 pieza 2, PENDIENTE DE INSTALAR** (d5aaedf6): las 7 capas en Swift,
+  sustituyendo a la lectura genérica. Los totales se LEEN, no se recalculan.
+  Tres degradaciones DECLARADAS por límites del cable: fuerza sin serie a serie
+  (volumen = reps × carga máx), sin número de ronda (lista plana) y sin descanso
+  medido. Cada una es card futura, no excusa. 1.621 tests.
+
+ABIERTO: **122** (el crono arranca con el toque y no con la primera zancada; la
+cinta no detecta que se ha parado; no existe la transición — con decisión de Alex
+dentro) · **125** barrido de letra pequeña y contraste en toda la app · **127** una
+prueba ROJA preexistente (`totals_source` coalescea al revés de su comentario) y
+una INESTABLE (`ComunicadosRenderTests` cae bajo carga, pasa sola). Y el duplicado
+del 19 sigue en la base: borrarlo es dato del atleta.
 
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
