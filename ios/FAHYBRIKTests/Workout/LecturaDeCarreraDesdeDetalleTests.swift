@@ -415,6 +415,93 @@ final class LecturaDeCarreraDesdeDetalleTests: XCTestCase {
         XCTAssertNil(LecturaDeCarreraDesdeDetalle.carrera(de: detalle))
     }
 
+    // MARK: - Correr DENTRO de una sesión no la convierte en una carrera (card 118)
+
+    /// EL ENTRENO DEL 20-AGO: fuerza y trineos, 47 minutos, con seis de
+    /// calentamiento corriendo. Se leía como carrera y ocupaba la pantalla entera
+    /// con «RITMO MEDIO 0:00 /km · corriste a una sola intensidad», sin decir una
+    /// palabra del peso muerto, el remo ni los trineos.
+    func testUnCalentamientoCorriendoNoConvierteUnaSesionDeHierroEnCarrera() throws {
+        let json = """
+        {
+          "assignment": {"id": "481", "athlete_id": "64", "scheduled_for": "2026-08-20",
+                         "status": "completed", "store_results": []},
+          "workout": {"name": "Fuerza B + Trineos", "blocks": []},
+          "execution": {
+            "execution_id": "2438", "completeness": "completed", "contributing_sources": [],
+            "segments": [
+              {"position": 0, "item_uid": "s-1", "modality": "run",
+               "duration_seconds": 360, "distance_meters": 1200},
+              {"position": 1, "item_uid": "s-2", "modality": "strength",
+               "duration_seconds": 669, "reps_completed": 15, "weight_used_kg": 100},
+              {"position": 2, "item_uid": "s-3", "modality": "strength",
+               "duration_seconds": 426, "reps_completed": 24, "weight_used_kg": 60},
+              {"position": 3, "item_uid": "s-4", "modality": "row",
+               "duration_seconds": 636, "distance_meters": 2000},
+              {"position": 4, "item_uid": "s-5", "modality": "other",
+               "duration_seconds": 260, "reps_completed": 8}
+            ]
+          }
+        }
+        """
+        let detalle = try decodifica(json)
+        XCTAssertNil(LecturaDeCarreraDesdeDetalle.carrera(de: detalle),
+                     "seis minutos de correr en 47 no hacen una carrera")
+    }
+
+    /// La regla, en frío: correr manda cuando se lleva más de la mitad del tiempo.
+    func testCorrerMandaSoloCuandoSeLlevaMasDeLaMitadDelTiempo() {
+        typealias T = LecturaDeCarreraDesdeDetalle.TramoParaClasificar
+        // El caso de Alex: 6 minutos de 47.
+        XCTAssertFalse(LecturaDeCarreraDesdeDetalle.correrManda(en: [
+            T(modalidad: "run", segundos: 360),
+            T(modalidad: "strength", segundos: 669),
+            T(modalidad: "row", segundos: 636),
+            T(modalidad: "other", segundos: 260),
+        ]))
+        // Un rodaje con dos minutos de movilidad al final sigue siendo un rodaje.
+        XCTAssertTrue(LecturaDeCarreraDesdeDetalle.correrManda(en: [
+            T(modalidad: "run", segundos: 2_400),
+            T(modalidad: "other", segundos: 120),
+        ]))
+        // Justo la mitad NO basta: empatar no es mandar.
+        XCTAssertFalse(LecturaDeCarreraDesdeDetalle.correrManda(en: [
+            T(modalidad: "run", segundos: 600),
+            T(modalidad: "strength", segundos: 600),
+        ]))
+        // Sin ningún tiempo medido (un registro a mano) se cuenta por tramos.
+        XCTAssertTrue(LecturaDeCarreraDesdeDetalle.correrManda(en: [
+            T(modalidad: "run", segundos: nil),
+            T(modalidad: "run", segundos: nil),
+            T(modalidad: "strength", segundos: nil),
+        ]))
+        // Y sin tramos no hay sesión que leer.
+        XCTAssertFalse(LecturaDeCarreraDesdeDetalle.correrManda(en: []))
+    }
+
+    /// SIN METROS NO HAY CARRERA QUE LEER. Toda la lectura habla de ritmo, y el
+    /// ritmo son metros entre segundos: con la distancia sin medir salía un 0:00 a
+    /// pantalla completa, que afirma algo falso. Manda la lectura genérica.
+    func testUnaCarreraSinDistanciaMedidaNoSeLeeComoCarrera() throws {
+        let json = """
+        {
+          "assignment": {"id": "9", "athlete_id": "64", "scheduled_for": "2026-08-20",
+                         "status": "completed", "store_results": []},
+          "workout": {"name": "Rodaje en cinta", "blocks": []},
+          "execution": {
+            "execution_id": "9", "completeness": "completed", "contributing_sources": [],
+            "segments": [
+              {"position": 0, "item_uid": "s-1", "modality": "run",
+               "duration_seconds": 1800, "avg_hr": 139}
+            ]
+          }
+        }
+        """
+        let detalle = try decodifica(json)
+        XCTAssertNil(LecturaDeCarreraDesdeDetalle.carrera(de: detalle),
+                     "sin metros medidos no hay ritmo que contar: 0:00 sería mentira")
+    }
+
     /// UNA BANDA DE PULSO SE NOMBRA CON LAS ZONAS DEL ATLETA — y sin ellas no se
     /// dibuja: el color es dato, y una franja de un color que no significa nada es
     /// peor que ninguna franja.

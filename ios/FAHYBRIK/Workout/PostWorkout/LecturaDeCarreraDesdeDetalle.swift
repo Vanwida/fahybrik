@@ -39,6 +39,42 @@ enum LecturaDeCarreraDesdeDetalle {
     /// `zonas` es el perfil de pulso del atleta y solo hace falta para NOMBRAR la
     /// zona de una banda de pulso: sin él una banda de pulso no se dibuja, antes
     /// que pintarla de un color que no significa nada.
+    /// Un tramo, reducido a lo único que decide si la sesión FUE una carrera.
+    struct TramoParaClasificar: Equatable {
+        let modalidad: String?
+        let segundos: Int?
+    }
+
+    /// ¿CORRER ES LO QUE ESTA SESIÓN FUE?
+    ///
+    /// No basta con que haya un tramo de correr dentro. El entreno del 20-ago era
+    /// fuerza y trineos con SEIS minutos de calentamiento corriendo, y se leyó como
+    /// una carrera: «RITMO MEDIO 0:00 /km · corriste a una sola intensidad» ocupando
+    /// la pantalla entera sobre 47 minutos de peso muerto, remo y trineos, de los
+    /// que no se decía nada. La pregunta correcta no es «¿hay correr?» sino «¿es
+    /// esto una carrera?».
+    ///
+    /// La regla: correr manda cuando se lleva MÁS DE LA MITAD del tiempo medido.
+    /// El tiempo es la vara honesta —es lo que el atleta pasó haciendo cada cosa— y
+    /// no depende de que un aparato midiera metros. Si ningún tramo trae duración
+    /// (un registro a mano), se cuenta por número de tramos, que es lo único que
+    /// queda. Sin tramos no hay sesión que leer.
+    ///
+    /// Deliberadamente NO se mira la plantilla: lo que se lee es lo que se hizo, y
+    /// un atleta que se salta media sesión no debe recibir la lectura de la sesión
+    /// que no hizo.
+    static func correrManda(en tramos: [TramoParaClasificar]) -> Bool {
+        guard !tramos.isEmpty else { return false }
+        let esCorrer: (TramoParaClasificar) -> Bool = { $0.modalidad == modalidadCarrera }
+        let conTiempo = tramos.filter { ($0.segundos ?? 0) > 0 }
+        if !conTiempo.isEmpty {
+            let total = conTiempo.reduce(0) { $0 + ($1.segundos ?? 0) }
+            let corriendo = conTiempo.filter(esCorrer).reduce(0) { $0 + ($1.segundos ?? 0) }
+            return total > 0 && corriendo * 2 > total
+        }
+        return tramos.filter(esCorrer).count * 2 > tramos.count
+    }
+
     static func carrera(
         de detalle: AssignmentDetail,
         zonas: HRZoneProfile? = nil,
@@ -46,10 +82,21 @@ enum LecturaDeCarreraDesdeDetalle {
         ahora: Date = Date()
     ) -> Carrera? {
         guard let ejecucion = detalle.execution else { return nil }
+        // La lectura de carrera es para una CARRERA. Un calentamiento de seis
+        // minutos dentro de una sesión de hierro no la convierte en una.
+        guard correrManda(en: ejecucion.segments.map {
+            TramoParaClasificar(modalidad: $0.modality, segundos: $0.durationSeconds)
+        }) else { return nil }
         let segmentos = ejecucion.segments
             .filter { $0.modality == modalidadCarrera }
             .sorted { $0.position < $1.position }
         guard !segmentos.isEmpty else { return nil }
+        // SIN METROS NO HAY CARRERA QUE LEER. Toda esta lectura habla de ritmo, y el
+        // ritmo son metros entre segundos: sin distancia medida, la media salía 0 y
+        // se pintaba «RITMO MEDIO 0:00 /km» a pantalla completa. Un cero afirma algo
+        // falso; un hueco dice la verdad. Con sólo tiempo y pulso, la lectura
+        // genérica ya cuenta lo que hubo, y sin inventarse nada.
+        guard segmentos.contains(where: { ($0.distanceMeters ?? 0) > 0 }) else { return nil }
 
         let cumplimiento = detalle.runCompliance
         let ancla = ejecucion.startedAt.flatMap(ISO8601DateFormatters.parse)
