@@ -21,7 +21,8 @@ enum RunPhoneSensorPlan {
     /// Qué debe estar encendido este instante. Cada campo es independiente.
     struct Decision: Equatable {
         /// `CMPedometer` — los metros oficiales de calle. Vive TODO el tramo,
-        /// gane la pantalla que gane la superficie.
+        /// gane la pantalla que gane la superficie. Se aparta ante la muñeca:
+        /// una sola fuente de metros, siempre.
         let pedometer: Bool
         /// El `RunLocationProvider` PROPIO de esta vista (velocidad + altímetro +
         /// permiso de fondo). Se aparta cuando la superficie de calle ya tiene el
@@ -40,14 +41,21 @@ enum RunPhoneSensorPlan {
     ///   - streetScreenOwnsSurface: la pantalla de calle (`superficieViva ==
     ///     .correrFuera`) es la que está pintando ahora mismo — sólo ella arranca
     ///     su propio proveedor de localización.
+    ///   - wristIsRecording: hay una sesión espejo viva en la muñeca
+    ///     (`PhoneMirrorService.wristJoined`). El reloj mide con el MISMO motor de
+    ///     Apple que el podómetro, pero sobre el cuerpo en vez de sobre el bolsillo,
+    ///     así que sus metros mandan y el podómetro se aparta — si los dos entregan,
+    ///     la sesión cuenta cada metro dos veces. Mismo reparto que ya tiene el
+    ///     pulso: cuando la muñeca emite, el lector del teléfono calla.
     static func decide(
         isRunSegment: Bool,
         environment: RunEnvironment?,
-        streetScreenOwnsSurface: Bool
+        streetScreenOwnsSurface: Bool,
+        wristIsRecording: Bool
     ) -> Decision {
         guard isRunSegment else { return .allOff }
         return Decision(
-            pedometer: environment?.usesPhonePedometer == true,
+            pedometer: !wristIsRecording && environment?.usesPhonePedometer == true,
             ownGPS: !streetScreenOwnsSurface && environment?.usesPhoneGPS == true,
             altimeter: environment?.usesPhoneGPS == true
         )

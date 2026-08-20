@@ -110,6 +110,32 @@ final class RunDistanceAuthorityTests: XCTestCase {
         XCTAssertNotEqual(MirrorWire.MessageType.distance, MirrorWire.MessageType.hr)
     }
 
+    // CARD 119 — Y EL TELÉFONO TIENE QUE LEERLO.
+    //
+    // La prueba de arriba sólo comprobaba que el paquete VIAJA bien, y eso daba una
+    // confianza falsa: en el teléfono, `handleIncoming` atendía `hr`, `command`,
+    // `ended` y `sensor`, y los metros caían al `default`. El reloj los mandaba y
+    // nadie los recogía, así que una carrera en cinta tonta (con el podómetro del
+    // teléfono apagado a propósito, porque el móvil no va en el cuerpo) se guardaba
+    // sin un solo metro — y la lectura del entreno enseñaba 0:00 de ritmo.
+    @MainActor
+    func testThePhoneFeedsTheMirrorDistanceIntoTheEngine() {
+        let s = armedRun()
+        s.runEnvironment = .indoor   // cinta tonta: los metros sólo pueden venir de la muñeca
+        let mirror = PhoneMirrorService.shared
+        defer { mirror.teardown() }
+        mirror.begin(session: s, activityKind: "run")
+
+        let data = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: 320)
+        )
+        XCTAssertNotNil(data)
+        mirror.handleIncoming([data!])
+
+        XCTAssertEqual(s.liveRunDistanceMeters ?? 0, 320, accuracy: 0.001,
+                       "los metros de la muñeca tienen que llegar al motor")
+    }
+
     // MARK: - El picker: tres sitios, tres fuentes
 
     func testStreetIsAppleOutdoorAndStartsNow() {

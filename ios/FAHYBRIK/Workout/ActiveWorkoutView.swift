@@ -358,6 +358,11 @@ struct ActiveWorkoutView: View {
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
             // so the phone keeps recording HR alone.
             if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
+            // Y LOS METROS, por el mismo reparto: mientras la muñeca emite, el
+            // podómetro del teléfono se aparta; si la muñeca se cae a mitad, vuelve.
+            // Sin esto el relevo solo se aplicaría al empezar el tramo, y una muñeca
+            // que entra tarde dejaría a las dos fuentes sumando. Card 119.
+            updateRunGPS()
         }
         // Multi-PM5: any role store can tick. Resolve the active role for THIS
         // tramo and only feed that monitor's numbers into the session window.
@@ -709,7 +714,8 @@ struct ActiveWorkoutView: View {
         let plan = RunPhoneSensorPlan.decide(
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
-            streetScreenOwnsSurface: superficieViva == .correrFuera
+            streetScreenOwnsSurface: superficieViva == .correrFuera,
+            wristIsRecording: PhoneMirrorService.shared.wristJoined
         )
         if plan.pedometer {
             pedometro.start(from: session.startedAt)
