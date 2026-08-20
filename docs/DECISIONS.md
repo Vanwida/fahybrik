@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-20 · El índice de «una ejecución por asignación» es LLANO; un índice parcial rompe el guardado entero
+
+**Qué pasó:** la 0191 (13-ago, «un entreno de Apple Salud es una sesión aunque nadie lo prescribiera») hizo `workout_executions.assignment_id` nulable y, de paso, cambió `workout_executions_assignment_unique` por un índice **parcial** (`where assignment_id is not null`). Postgres no infiere un índice parcial desde un `on conflict (assignment_id)` que no repita su predicado: falla al PLANIFICAR con 42P10, con cualquier payload. Los cuatro escritores de la tabla — cierre de entreno de la app (que es también dobles y entreno libre), Apple Salud, Garmin y Polar — quedaron rotos ese mismo minuto. Desde el 13-ago 07:11 hasta el 20-ago no se guardó ni un entreno. El atleta solo veía «No se ha guardado. Reintenta.», y el reintento fallaba igual.
+
+**Decidido (migración 0203):** el índice vuelve a ser **llano**. El predicado no aportaba nada: en Postgres los NULL son distintos entre sí, así que un índice único normal sobre una columna nulable ya admite todas las ejecuciones sin asignación que haga falta. La invariante es la misma de siempre: **una ejecución por asignación; sin asignación, las que sean**. Se arregla en el índice y no repitiendo el predicado en cuatro sitios, porque así el quinto escritor que alguien añada tampoco puede caer en la trampa.
+
+**NO hacer:** no volver a hacer parcial ese índice «para permitir importados» — ese era justo el malentendido de la 0191, y el índice llano ya los permite. Si algún día hiciera falta un índice único parcial en cualquier tabla, el `on conflict` que lo use tiene que repetir su predicado palabra por palabra (así lo hacen ya `users.clerk_user_id`, `races.source_idp`, `athlete_sequence_progress`, `week_adjustment_proposals` y `events`).
+
+**Lo que faltaba y por eso vivió siete días:** no existía ninguna prueba del guardado de ejecuciones. Se añade una contra base real (`web/tests/sync/workout-execution.db.test.ts`).
+
+---
+
 ## 2026-08-20 · El panel vuelve a ser claro u oscuro; el acento es la piel del club
 
 **El hueco:** el rediseño FLEXR (19-ago) dejó el panel en claro perla único y mató el botón. Alex solo veía claro. El bloque `[data-theme="dark"]` seguía en CSS, pero solo lo usaban los mockups de la guía (app del atleta), con naranja de sistema y Archivo itálica.

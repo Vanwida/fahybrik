@@ -2,9 +2,25 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-20** (reloj auditado + 4 arreglos; prueba real mañana)
+Última actualización: **2026-08-20** (guardar entrenos estaba roto 7 días: arreglado)
 
 ## Ahora
+
+**NADA SE GUARDABA DESDE EL 13-AGO — ARREGLADO (card 116, mig 0203):** ni un
+solo `workout_executions` con asignación entre el 13-ago 07:11 y el 20-ago. La
+0191 dejó `workout_executions_assignment_unique` como índice PARCIAL (`where
+assignment_id is not null`) y Postgres no lo infiere desde un `on conflict
+(assignment_id)` sin repetir el predicado: 42P10 al PLANIFICAR, con cualquier
+payload. Rotos los CUATRO escritores a la vez — cierre de entreno de la app
+(también dobles y libre), Apple Salud, Garmin y Polar. Por eso caían igual
+fuerza, carreras y EMOM. La 46 no rompió nada: quitó la mentira («guardado» sin
+fila) y por eso se vio. **Arreglado en la BASE, no en la app**: la 0203 devuelve
+el índice a llano (los NULL ya son distintos entre sí, el predicado no aportaba
+nada), así que no hace falta desplegar ni compilar y el quinto escritor que
+alguien añada tampoco cae. Reproducido contra prod con la sentencia literal en
+transacción revertida, antes y después. Ley: DECISIONS 20-ago. Falta: prueba de
+regresión (`web/tests/sync/workout-execution.db.test.ts`, en curso) — no existía
+NINGUNA prueba del guardado de ejecuciones, por eso vivió 7 días.
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
 (ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
