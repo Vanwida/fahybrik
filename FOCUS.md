@@ -44,6 +44,11 @@ la propuesta del doble («vamos a integrarlo») y está construida:
   (volumen = reps × carga máx), sin número de ronda (lista plana) y sin descanso
   medido. Cada una es card futura, no excusa. 1.621 tests.
 
+EN DEBATE (20-ago, sin construir): **ciclos elásticos** — la secuencia se ancla
+a la carrera del atleta y cada tramo declara mín/defecto/máx (dato del coach);
+el ajustador reparte las semanas hacia atrás desde la fecha. Propuesta visual en
+`docs/ciclos-elasticos.html`. Sin decisión de Alex todavía.
+
 ABIERTO: **122** (el crono arranca con el toque y no con la primera zancada; la
 cinta no detecta que se ha parado; no existe la transición — con decisión de Alex
 dentro) · **125** barrido de letra pequeña y contraste en toda la app · **127** una

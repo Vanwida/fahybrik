@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID · Ciclos elásticos</title>
+<style>
+:root{
+  --bg:#070707; --panel:#111111; --panel2:#161616; --line:#242424;
+  --txt:#f3f3f3; --mut:#8d8d8d; --dim:#5c5c5c;
+  --naranja:#f06a2a;
+  --t1:#f06a2a; --t2:#d9a13c; --t3:#7fa650; --t4:#4f8fb8;
+  --rojo:#c4504f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+     font:400 16px/1.55 system-ui,-apple-system,sans-serif;padding:0 0 80px}
+.wrap{max-width:56rem;margin:0 auto;padding:48px 22px 0}
+h1{font:800 italic 34px/1.05 system-ui;margin:0 0 6px;letter-spacing:-.5px}
+h1 span{color:var(--naranja)}
+.sub{color:var(--mut);margin:0 0 44px;max-width:44rem}
+h2{font:800 italic 21px/1.15 system-ui;margin:56px 0 10px}
+h2 .n{color:var(--naranja);margin-right:8px}
+p{color:#c9c9c9;margin:0 0 12px;max-width:46rem}
+p b{color:var(--txt)}
+.mut{color:var(--mut)}
+code{background:#1c1c1c;border:1px solid var(--line);border-radius:5px;
+     padding:1px 6px;font:500 13.5px ui-monospace,Menlo,monospace;color:#e8c9a8}
+
+/* ficha de la secuencia */
+.ficha{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+       padding:18px 20px;margin:20px 0 8px;overflow-x:auto}
+.ficha table{border-collapse:collapse;width:100%;min-width:520px;font-size:14.5px}
+.ficha th{text-align:left;color:var(--dim);font-weight:600;font-size:12px;
+          text-transform:uppercase;letter-spacing:.6px;padding:4px 14px 8px 0}
+.ficha td{padding:7px 14px 7px 0;border-top:1px solid var(--line);color:#d6d6d6}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.fijo{color:var(--naranja);font-weight:700;font-size:12.5px}
+.el{color:var(--mut);font-size:12.5px}
+
+/* escenarios con barras */
+.esc{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+     padding:18px 20px 20px;margin:16px 0}
+.esc h3{margin:0 0 2px;font:700 16.5px system-ui}
+.esc h3 em{color:var(--naranja);font-style:italic}
+.esc .como{color:var(--mut);font-size:14px;margin:0 0 14px;max-width:44rem}
+.regla{display:grid;grid-template-columns:repeat(16,1fr);gap:0 2px;margin:0 0 4px}
+.regla span{color:#3f3f3f;font-size:10px;text-align:center}
+.linea{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;height:44px}
+.seg{border-radius:7px;display:flex;align-items:center;justify-content:center;
+     flex-direction:column;min-width:0;overflow:hidden;position:relative}
+.seg small{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+           color:rgba(0,0,0,.72);line-height:1.1;padding:0 4px;text-align:center;
+           white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:100%}
+.seg .w{font-size:10px;color:rgba(0,0,0,.55);font-weight:600}
+.s1{background:var(--t1)}.s2{background:var(--t2)}.s3{background:var(--t3)}.s4{background:var(--t4)}
+.vacio{border:1px dashed #2c2c2c;border-radius:7px}
+.meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)}
+.bandera{display:inline-flex;align-items:center;gap:6px;color:var(--naranja);font-weight:700;font-size:13px}
+.bandera::before{content:"";width:9px;height:9px;background:var(--naranja);
+                 clip-path:polygon(0 0,100% 25%,0 50%,0 100%,0 0);transform:scale(1.6);margin-right:2px}
+.delta{font-size:12.5px;margin-top:10px;color:var(--mut)}
+.delta b{color:#d6d6d6;font-weight:600}
+.mas{color:#7fa650;font-weight:700}.menos{color:var(--rojo);font-weight:700}
+.pin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.pin i{width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.35);
+       display:flex;align-items:center;justify-content:center;font-style:normal;font-size:11px}
+
+/* tabla mecanismo vs dato */
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+.dos .col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.dos h4{margin:0 0 10px;font:800 italic 15px system-ui}
+.dos .col:first-child h4{color:var(--naranja)}
+.dos .col:last-child h4{color:var(--t3)}
+.dos ul{margin:0;padding-left:18px;color:#c9c9c9;font-size:14px}
+.dos li{margin:0 0 8px}
+.dos li:last-child{margin:0}
+
+.gris{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--naranja);
+      border-radius:10px;padding:14px 18px;margin:12px 0;max-width:46rem}
+.gris b{color:var(--txt)}
+.gris p{margin:0;font-size:14.5px}
+
+.pie{color:var(--dim);font-size:12.5px;margin-top:64px}
+@media(max-width:640px){
+  .dos{grid-template-columns:1fr}
+  .seg small{display:none}
+  h1{font-size:27px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Ciclos <span>elásticos</span></h1>
+<p class="sub">Cómo la programación que el coach ya tiene se ajusta sola al objetivo de cada
+atleta: 8, 12 o 16 semanas, varias carreras o ninguna. Sin plantillas de temporada y sin
+tocar la entrega microciclo a microciclo.</p>
+
+<h2><span class="n">01</span>La idea en una frase</h2>
+<p>Hoy la secuencia se ancla <b>hacia delante</b>: empieza hoy y camina tramo a tramo hasta
+que se acaba. Un objetivo la ancla <b>hacia atrás</b>: el día de la carrera es fijo, y lo que
+varía es cuánta secuencia cabe entre hoy y ese día.</p>
+<p>No hace falta una plantilla por cada duración («el plan de 8», «el de 12», «el de 16»).
+Hace falta que <b>la cadena que ya existe sea elástica</b>: cada tramo declara cuánto puede
+encoger y cuánto puede estirar, y un ajustador reparte las semanas disponibles.</p>
+
+<h2><span class="n">02</span>El dato nuevo: elasticidad por tramo</h2>
+<p>La secuencia de ejemplo es la que un coach ya tendría en su biblioteca. Los nombres son
+suyos (aquí uso unos genéricos); lo único que añade es <b>mín / defecto / máx</b> por tramo:</p>
+
+<div class="ficha">
+<table>
+<tr><th>Tramo (nombre del coach)</th><th>Mín</th><th>Defecto</th><th>Máx</th><th>Carácter</th></tr>
+<tr><td><span class="dot" style="background:var(--t1)"></span>Base</td><td>2</td><td>5</td><td>8</td><td class="el">elástico · absorbe el sobrante</td></tr>
+<tr><td><span class="dot" style="background:var(--t2)"></span>Específico</td><td>3</td><td>4</td><td>5</td><td class="el">elástico</td></tr>
+<tr><td><span class="dot" style="background:var(--t3)"></span>Pico</td><td>2</td><td>2</td><td>3</td><td class="el">casi fijo</td></tr>
+<tr><td><span class="dot" style="background:var(--t4)"></span>Taper</td><td>1</td><td>1</td><td>1</td><td class="fijo">FIJO · nunca se toca</td></tr>
+</table>
+</div>
+<p class="mut" style="font-size:13.5px">Suma de defectos = 12 semanas. Suma de mínimos = 8.
+Suma de máximos = 17. Ese es el rango real de la secuencia: sirve tal cual para cualquier
+objetivo entre 8 y 17 semanas.</p>
+
+<h2><span class="n">03</span>El mismo plan, tres atletas, tres horizontes</h2>
+<p>Tres atletas se apuntan hoy a la misma secuencia, cada uno con su carrera a distinta
+distancia. El ajustador reparte las semanas <b>desde la carrera hacia atrás</b>: el taper no se
+toca, y el sobrante (o el recorte) lo absorbe el tramo más lejano a la carrera. Eso es el
+estándar de la periodización inversa (TrainingPeaks, Runna), y es un <b>defecto editable</b>,
+no una regla nuestra.</p>
+
+<div class="esc">
+<h3>Atleta A · carrera en <em>12 semanas</em></h3>
+<p class="como">Caben los defectos exactos. Nada que ajustar: el plan sale tal y como el coach lo diseñó.</p>
+<div class="regla"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div>
+<div class="linea">
+  <div class="seg s1" style="grid-column:span 5"><small>Base</small><span class="w">5 sem</span></div>
+  <div class="seg s2" style="grid-column:span 4"><small>Específico</small><span class="w">4 sem</span></div>
+  <div class="seg s3" style="grid-column:span 2"><small>Pico</small><span class="w">2</span></div>
+  <div class="seg s4" style="grid-column:span 1"><span class="w">1</span></div>
+  <div class="vacio" style="grid-column:span 4"></div>
+</div>
+<div class="meta"><span class="bandera">Carrera · fin de semana 12</span></div>
+<div class="delta"><b>Base 5 · Específico 4 · Pico 2 · Taper 1</b> = 12 · todo en defecto</div>
+</div>
+
+<div class="esc">
+<h3>Atleta B · carrera en <em>8 semanas</em></h3>
+<p class="como">Faltan 4 semanas respecto al defecto. Encogen los elásticos hasta su mínimo,
+empezando por el más lejano a la carrera. El taper ni se mira.</p>
+<div class="regla"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div>
+<div class="linea">
+  <div class="seg s1" style="grid-column:span 2"><small>Base</small><span class="w">2</span></div>
+  <div class="seg s2" style="grid-column:span 3"><small>Específico</small><span class="w">3</span></div>
+  <div class="seg s3" style="grid-column:span 2"><small>Pico</small><span class="w">2</span></div>
+  <div class="seg s4" style="grid-column:span 1"><span class="w">1</span></div>
+  <div class="vacio" style="grid-column:span 8"></div>
+</div>
+<div class="meta"><span class="bandera">Carrera · fin de semana 8</span></div>
+<div class="delta"><b>Base <span class="menos">5→2</span> · Específico <span class="menos">4→3</span> · Pico 2 · Taper 1</b> = 8 · justo en el mínimo de la secuencia</div>
+</div>
+
+<div class="esc">
+<h3>Atleta C · carrera en <em>16 semanas</em></h3>
+<p class="como">Sobran 4 semanas. Las absorbe la Base (su máximo es 8) y una el Específico.
+La parte final del camino queda idéntica para los tres atletas: lo que cambia es cuánta base construyen antes.</p>
+<div class="regla"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div>
+<div class="linea">
+  <div class="seg s1" style="grid-column:span 8"><small>Base</small><span class="w">8 sem</span></div>
+  <div class="seg s2" style="grid-column:span 5"><small>Específico</small><span class="w">5 sem</span></div>
+  <div class="seg s3" style="grid-column:span 2"><small>Pico</small><span class="w">2</span></div>
+  <div class="seg s4" style="grid-column:span 1"><span class="w">1</span></div>
+</div>
+<div class="meta"><span class="bandera">Carrera · fin de semana 16</span></div>
+<div class="delta"><b>Base <span class="mas">5→8</span> · Específico <span class="mas">4→5</span> · Pico 2 · Taper 1</b> = 16 · elásticos al máximo</div>
+</div>
+
+<h2><span class="n">04</span>Los casos que no son el caso bonito</h2>
+
+<div class="esc">
+<h3>Sin objetivo · <em>el comportamiento de hoy, intacto</em></h3>
+<p class="como">Un atleta sin carrera es el caso degenerado: no hay ancla, así que la secuencia
+camina hacia delante con sus defectos y su <code>end_policy</code> (repetir con progresión,
+subir de nivel, parar). Exactamente lo que ya está construido. Nada que migrar.</p>
+</div>
+
+<div class="esc">
+<h3>Objetivo lejano (p. ej. 9 meses) · <em>repetir hasta entrar en rango</em></h3>
+<p class="como">No se estira una base hasta el infinito. Mientras la carrera esté más lejos que
+el alcance de la secuencia (por defecto, su suma de máximos), el atleta rueda en modo de hoy:
+<code>repeat</code> con la progresión por vuelta. En cada avance de tramo se comprueba la
+distancia a la carrera; el día que entra en rango, el ancla toma el control y el resto del
+camino se ajusta hacia atrás. La ventana de activación es dato del coach, con ese defecto.</p>
+<div class="regla"><span colspan="16"></span></div>
+<div class="linea" style="height:34px">
+  <div class="seg s1" style="grid-column:span 3;opacity:.35"><span class="w">repeat</span></div>
+  <div class="seg s2" style="grid-column:span 2;opacity:.35"></div>
+  <div class="seg s1" style="grid-column:span 3;opacity:.35"><span class="w">repeat</span></div>
+  <div class="seg s1" style="grid-column:span 3"><small>Base</small></div>
+  <div class="seg s2" style="grid-column:span 3"><small>Específ.</small></div>
+  <div class="seg s3" style="grid-column:span 1"></div>
+  <div class="seg s4" style="grid-column:span 1"></div>
+</div>
+<div class="meta"><span class="mut">↑ atenuado = rodaje en repeat</span><span class="bandera" style="margin-left:auto">Carrera</span></div>
+</div>
+
+<div class="esc">
+<h3>Carrera B intermedia · <em>se absorbe, no reestructura</em></h3>
+<p class="como">Prioridades A/B/C como en todo el sector: solo la <b>A</b> ancla. Una carrera B
+que cae en la semana 7 no recorta ni mueve tramos; el sistema la señala («la B cae en la
+semana 2 de Específico») y esa semana la adapta el coach o la IA al componerla. Eso es
+contenido de la semana, no estructura del ciclo.</p>
+<div class="linea" style="height:34px">
+  <div class="seg s1" style="grid-column:span 5"><small>Base</small></div>
+  <div class="seg s2" style="grid-column:span 2"><small>Específ.</small></div>
+  <div class="seg s2" style="grid-column:span 1"><div class="pin"><i>B</i></div></div>
+  <div class="seg s2" style="grid-column:span 1"></div>
+  <div class="seg s3" style="grid-column:span 2"><small>Pico</small></div>
+  <div class="seg s4" style="grid-column:span 1"></div>
+  <div class="vacio" style="grid-column:span 4"></div>
+</div>
+<div class="meta"><span class="mut">↑ la B vive dentro de su semana</span><span class="bandera" style="margin-left:auto">Carrera A · semana 12</span></div>
+</div>
+
+<div class="esc">
+<h3>Dos picos A · <em>dos ventanas encadenadas</em></h3>
+<p class="como">HYROX en mayo y otro en septiembre: cada A abre su propia ventana y entre
+medias hay un puente (descanso + re-base) que hoy elige el coach. La segunda ventana se
+ajusta igual que la primera, contando hacia atrás desde su carrera.</p>
+</div>
+
+<div class="esc">
+<h3>No cabe ni el mínimo · <em>el mecanismo no decide</em></h3>
+<p class="como">Carrera a 3 semanas y la secuencia necesita 8 como mínimo: el ajustador no se
+inventa un plan comprimido. Dice «no cabe» con el porqué y el coach elige (otra secuencia,
+un tramo suelto, o asumir que no llega). La misma regla que el fallback de
+<code>level_up</code>: nunca un dead-end silencioso.</p>
+</div>
+
+<div class="esc">
+<h3>La realidad se mueve · <em>se reevalúa en cada avance</em></h3>
+<p class="como">Nada se pre-materializa: la entrega sigue siendo microciclo a microciclo, y en
+cada avance el ajustador solo contesta «qué tramo viene y cuántas semanas le tocan» contra
+las semanas que queden de verdad hasta la carrera. Una lesión de 2 semanas o una carrera que
+cambia de fecha → el siguiente avance ya sale corregido. Lo que el atleta ya hizo no se pisa.</p>
+</div>
+
+<h2><span class="n">05</span>Qué es nuestro y qué es del coach</h2>
+<div class="dos">
+  <div class="col">
+    <h4>MECANISMO · va en código</h4>
+    <ul>
+      <li>El ajustador: repartir N semanas entre tramos respetando mín/máx y el orden de recorte.</li>
+      <li>La semántica A/B/C: solo la A ancla; las B/C se señalan dentro de su semana.</li>
+      <li>La reevaluación en cada avance y la guarda de no pisar lo hecho.</li>
+      <li>El «no cabe» explícito con su porqué.</li>
+    </ul>
+  </div>
+  <div class="col">
+    <h4>MÉTODO · dato editable del coach</h4>
+    <ul>
+      <li>Mín / defecto / máx de cada tramo, y cuáles son fijos.</li>
+      <li>Quién absorbe el sobrante (defecto: el tramo más lejano a la carrera).</li>
+      <li>La ventana de activación del ancla (defecto: el alcance de la propia secuencia).</li>
+      <li>El puente entre dos picos A, y qué hacer con la semana de una carrera B.</li>
+    </ul>
+  </div>
+</div>
+<p class="mut" style="font-size:14px">Un coach que no toca nada se comporta como hoy: sin
+carrera no hay ancla, y con los defectos la secuencia sale tal cual la diseñó.</p>
+
+<h2><span class="n">06</span>Los dos grises del debate</h2>
+<div class="gris"><p><b>a) ¿Cuánta finura pedirle al coach?</b> Mín/defecto/máx por tramo puede
+ser demasiado para el editor. Alternativa de arranque: solo el defecto que ya existe
+(<code>week_count</code>) + un check «fijo», y el resto flexa con la regla estándar. La
+elasticidad fina llega cuando un coach la pida.</p></div>
+<div class="gris"><p><b>b) ¿El puente entre dos picos lo propone el sistema?</b> Hoy diría que
+no: se le enseña el hueco al coach y lo rellena él. Proponer un puente es rozar método.</p></div>
+
+<p class="pie">FAHYBRID · debate de diseño · 20 ago 2026 · docs/ciclos-elasticos.html</p>
+</div>
+</body>
+</html>
