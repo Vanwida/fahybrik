@@ -197,6 +197,15 @@ export interface AssignmentDetailExecution {
   elevation_loss_m: number | null;
   hr_recovery_60_bpm: number | null;
   decoupling_pct: number | null;
+  // Los totales de cabecera (card 126, `session-totals.ts`) — FC media/máxima
+  // de la sesión (traza de pulso si existe, si no tramos ponderados por
+  // duración) y distancia/calorías totales. Null es un valor honesto: sin
+  // pulso registrado, o dos o más modalidades midiendo distancia a la vez
+  // (sumarlas no significaría nada), o ningún tramo con calorías.
+  avg_hr: number | null;
+  max_hr: number | null;
+  total_distance_m: number | null;
+  total_calories: number | null;
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
@@ -400,6 +409,13 @@ interface ExecutionRow {
   elevation_loss_m?: string | number | null;
   hr_recovery_60_bpm?: number | null;
   decoupling_pct?: string | number | null;
+  // Los totales de cabecera (card 126) — avg_hr/max_hr son `int`, llegan ya
+  // numéricos; total_distance_m/total_calories son numeric(x,2) y llegan como
+  // string desde pg, igual que elevation_gain_m arriba.
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  total_distance_m?: string | number | null;
+  total_calories?: string | number | null;
 }
 
 interface TemplateRow {
@@ -522,7 +538,11 @@ export async function loadAssignmentDetail(
       we.elevation_gain_m        as elevation_gain_m,
       we.elevation_loss_m        as elevation_loss_m,
       we.hr_recovery_60_bpm      as hr_recovery_60_bpm,
-      we.decoupling_pct          as decoupling_pct
+      we.decoupling_pct          as decoupling_pct,
+      we.avg_hr                  as avg_hr,
+      we.max_hr                  as max_hr,
+      we.total_distance_m        as total_distance_m,
+      we.total_calories          as total_calories
     from workout_executions we
     left join workout_routes wr on wr.execution_id = we.id
     where we.assignment_id = ${assignment_id as unknown as number}
@@ -748,6 +768,10 @@ function buildExecutionBlock(
     elevation_loss_m: num(execution?.elevation_loss_m),
     hr_recovery_60_bpm: execution?.hr_recovery_60_bpm ?? null,
     decoupling_pct: num(execution?.decoupling_pct),
+    avg_hr: execution?.avg_hr ?? null,
+    max_hr: execution?.max_hr ?? null,
+    total_distance_m: num(execution?.total_distance_m),
+    total_calories: num(execution?.total_calories),
     segments,
     trace,
   };
