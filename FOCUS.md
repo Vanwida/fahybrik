@@ -51,11 +51,24 @@ de fin se sella al terminar, no al pulsar guardar (hoy: 47 min archivados como
 consigue subir. Desplegado (0a556051 + 61b18b0c). Los 5 libres del 19 archivados
 en el 20 siguen mal: moverlos es dato del atleta, pendiente de que Alex diga.
 
-**Abiertas de la prueba de hoy:** 118 (la lectura enseña 0:00 de ritmo en una
-sesión de fuerza y no cuenta la fuerza — pide diseño, no parche), 120 (un entreno
-libre reenviado se guarda dos veces: sin asignación no hay red de unicidad), 122
-(el crono arranca con el toque y no con la primera zancada; la cinta no detecta
-que se ha parado; no existe la transición — con una decisión de Alex dentro).
+**La lectura del entreno (118, 1034bf35 + df0680d6):** se elegía preguntando
+«¿hay algún tramo de correr?», así que 6 min de calentamiento en 47 de hierro la
+convertían en carrera y pintaba «RITMO MEDIO 0:00 /km». Ahora correr manda solo
+con MÁS DE LA MITAD del tiempo medido, y sin metros medidos no hay lectura de
+carrera (el 0:00 salía de dividir entre cero). Se lee lo HECHO, no lo pedido.
+Ley: DECISIONS 20-ago. Falta la otra mitad: la lectura de 4 capas que habla el
+idioma de la sesión — se está construyendo en el doble (`lectura-sesion`,
+propuesta) antes de tocar Swift.
+
+**Libre duplicado (120, b37c7c11, EN PRODUCCIÓN):** la llave es `started_at` —
+nadie empieza dos entrenos en el mismo instante y el motor lo sella al arrancar,
+así que viaja igual en todo reenvío. Verificado en rojo y verde sobre rama Neon.
+Sin cambios iOS, sin migración. El duplicado del 19 sigue ahí: borrarlo es dato
+del atleta, pendiente de Alex.
+
+**Abierta:** 122 (el crono arranca con el toque y no con la primera zancada; la
+cinta no detecta que se ha parado; no existe la transición — con una decisión de
+Alex dentro).
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
 (ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
