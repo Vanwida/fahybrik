@@ -41,6 +41,18 @@ final class PhoneMirrorService {
     @ObservationIgnored private lazy var delegateShim = MirrorSessionDelegate(owner: self)
     @ObservationIgnored private var frameTimer: Timer?
     @ObservationIgnored private var endTimeout: Timer?
+    // Card 72/102 — the end handshake used to be ONE fire-and-forget packet: lost in
+    // flight (routine on a run — phone in a pocket, arm swinging) it left the wrist
+    // recording forever, wedging every session after it. These re-arm the SAME intent
+    // until the wrist's `ended` reply cancels it (see `teardown`) or the retry budget
+    // runs out — `endTimeout` below is then a true last resort, not the only attempt.
+    @ObservationIgnored private var endRetryTimer: Timer?
+    @ObservationIgnored private var endRetryCount = 0
+    /// Test seam: when set, intercepts every `send()` instead of the real mirrored
+    /// HKWorkoutSession channel — an opaque system type FAHYBRIKTests can't fake — so
+    /// the retry cadence can be verified against a REAL Timer without a live wrist
+    /// pairing. Nil in production.
+    @ObservationIgnored var sendOverride: ((_ type: String) -> Void)?
     // The last frame's STRUCTURAL signature (phase / titles / progress / zone /
     // presence of a countdown or rest) — the free-running clocks are excluded so a
     // 1 Hz elapsed tick alone never forces a resend (the wrist ticks them locally).
@@ -66,6 +78,12 @@ final class PhoneMirrorService {
     // How long we hold the mirrored session waiting for the wrist's `ended` reply
     // before clearing it — the recording save happens on the wrist, asynchronously.
     private static let endGraceSeconds: TimeInterval = 10
+    // Retry spacing for the end handshake, and the number of RETRIES on top of the
+    // first immediate send (5 sends total: t=0,2,4,6,8) — comfortably inside
+    // `endGraceSeconds` so the hard teardown at t=10 is reached only after every
+    // retry has had a real chance, never as the sole attempt.
+    private static let endRetryInterval: TimeInterval = 2
+    private static let endRetryMaxAttempts = 4
     // startWatchApp can fail SILENTLY on the first try (watch waking / app cold) —
     // the athlete then trains without wrist HR and never knows why. Retry a couple
     // of times, a few seconds apart, before giving up quietly.
@@ -213,19 +231,38 @@ final class PhoneMirrorService {
         deliverEnd(save: save)
     }
 
-    private func deliverEnd(save: Bool) {
+    // Internal (not private) so the retry cadence is unit-tested from FAHYBRIKTests
+    // via `sendOverride` — see its doc comment. Same rationale as `buildFrame`.
+    func deliverEnd(save: Bool) {
         // A wrist WAS recording and we just told it to keep the recording: from here
         // on, this session's HKWorkout is the wrist's to write. Latched before the
         // reply so the phone never races it (see `wristRecordedWorkout`).
         if save { wristRecordedWorkout = true }
-        send(MirrorWire.MessageType.end, MirrorEnd(save: save))
         stopFrameLoop()
+        endRetryCount = 0
+        sendEndAttempt(save: save)
         endTimeout?.invalidate()
         let t = Timer(timeInterval: Self.endGraceSeconds, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.teardown() }
         }
         RunLoop.main.add(t, forMode: .common)
         endTimeout = t
+    }
+
+    /// One attempt of the end handshake, re-armed until `endRetryMaxAttempts` or the
+    /// wrist's `ended` reply cancels it via `teardown()` (which invalidates
+    /// `endRetryTimer`). `send()` no-ops once `mirrored` is nil, so a retry firing
+    /// after teardown already ran is always harmless — no extra guard needed here.
+    private func sendEndAttempt(save: Bool) {
+        send(MirrorWire.MessageType.end, MirrorEnd(save: save))
+        endRetryTimer?.invalidate()
+        guard endRetryCount < Self.endRetryMaxAttempts else { return }
+        endRetryCount += 1
+        let t = Timer(timeInterval: Self.endRetryInterval, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.sendEndAttempt(save: save) }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        endRetryTimer = t
     }
 
     /// Returns and clears the finished HKWorkout's UUID reported by the wrist (nil
@@ -282,10 +319,13 @@ final class PhoneMirrorService {
 
     /// Clear all mirrored state (wrist gone / session ended / grace timeout). Keeps
     /// `endedWorkoutUuid` — the summary consumes it after the session finishes.
-    private func teardown() {
+    // Internal (not private) so a test can drive it directly — see `deliverEnd`.
+    func teardown() {
         stopFrameLoop()
         endTimeout?.invalidate()
         endTimeout = nil
+        endRetryTimer?.invalidate()
+        endRetryTimer = nil
         mirrored = nil
         wristJoined = false
     }
@@ -805,6 +845,7 @@ final class PhoneMirrorService {
     // MARK: - Sending
 
     private func send<P: Encodable>(_ type: String, _ payload: P) {
+        if let sendOverride { sendOverride(type); return }
         guard let mirrored, let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         Task { try? await mirrored.sendToRemoteWorkoutSession(data: data) }
     }

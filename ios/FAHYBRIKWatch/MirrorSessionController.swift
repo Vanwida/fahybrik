@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
 // MIRROR MODE — the wrist side of the 90% session. The iPhone drives the workout
 // (the only engine); the watch RECORDS it (HKWorkoutSession + HKLiveWorkoutBuilder
@@ -52,11 +53,27 @@ final class MirrorSessionController: NSObject {
         return liveHR.flatMap { zones.zone(forBpm: $0) }
     }
 
+    // MARK: - Diagnostics
+
+    /// Card 72/102 — a `guard … else { return }` that silently blocks a start, or a
+    /// self-heal that fires, used to leave NO trace: a wrist stuck in `.recording`
+    /// for weeks was invisible because nothing here ever logged. Console-inspectable
+    /// via the bundle subsystem, never `print` (stripped from release builds).
+    private static let log = Logger(subsystem: Marca.subsistemaLog("mirror"), category: "watch-lifecycle")
+
     // MARK: - Tuning
 
     /// Recording keeps going when the phone goes quiet; past this gap the wrist
-    /// surfaces a local exit.
+    /// surfaces a local exit (the controls page offers a manual save/discard).
     private static let connectionLostAfter: TimeInterval = 15
+    /// Card 72/102 self-heal: if the phone never comes back AND the athlete never
+    /// taps the local save button either, the recording can't wait forever — the
+    /// NEXT workout needs a clean `.idle` to start from. Comfortably past
+    /// `connectionLostAfter` (which already gave the manual-save UI a chance) and
+    /// short enough that a genuinely abandoned wrist doesn't sit recording all day.
+    /// Saves rather than discards: a partial recording is worth infinitely more
+    /// than a lost one (see WatchWorkoutCoordinator.finishLocally).
+    private static let recordingStuckTimeout: TimeInterval = 45
     /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
     /// faster than the engine needs).
     private static let hrRelayMinInterval: TimeInterval = 1
@@ -99,12 +116,21 @@ final class MirrorSessionController: NSObject {
     /// Phone launched us with a workout config. Stand up the recording UNLESS a
     /// standalone (phone-less) session is already running — that one wins.
     func start(config: HKWorkoutConfiguration) {
-        // Recover from a stuck previous mirror close (`.ending` with a live
-        // HKWorkoutSession). Silent decline left the wrist unusable until reboot.
-        if state == .ending || isClosing {
+        // Card 72 — recover from ANY dirty leftover state, not an enumerated list.
+        // The original self-heal only covered `.ending` (a stuck close); the far
+        // more common wedge is `.recording` — the phone's end handshake never made
+        // it (see PhoneMirrorService.deliverEnd's retries, which mitigate but can't
+        // eliminate this) and nothing ever moved the wrist off `.recording`. Every
+        // future state added to `State` is covered for free because this checks
+        // "not idle", never a case list.
+        if state != .idle || isClosing {
+            Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), isClosing=\(self.isClosing, privacy: .public)) — self-healing before the new recording")
             forceReleaseStuckSession()
         }
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else {
+            Self.log.warning("start(config:) declined — state=\(String(describing: self.state), privacy: .public) standaloneCoordinatorPhase=\(String(describing: WatchWorkoutCoordinator.shared.phase), privacy: .public)")
+            return
+        }
         state = .recording
         frame = nil
         frameReceivedAt = nil
@@ -576,7 +602,15 @@ final class MirrorSessionController: NSObject {
 
     private func checkConnection() {
         guard state == .recording else { return }
-        isConnectionLost = Date().timeIntervalSince(lastSignalAt) > Self.connectionLostAfter
+        let idle = Date().timeIntervalSince(lastSignalAt)
+        isConnectionLost = idle > Self.connectionLostAfter
+        // Card 72/102 self-heal: don't trap a live HKWorkout forever waiting for a
+        // phone that already gave up (or an athlete who never looked at the wrist).
+        // `finishLocally()` SAVES — never discards — so the recorded work survives.
+        if idle > Self.recordingStuckTimeout {
+            Self.log.warning("recording stuck \(idle, privacy: .public)s with no phone signal — self-closing with a save")
+            finishLocally()
+        }
     }
 
     private func stopWatchdog() {

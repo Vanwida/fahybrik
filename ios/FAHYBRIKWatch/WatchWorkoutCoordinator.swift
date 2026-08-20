@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
 // Glue between the wrist UI, the shared WorkoutSession engine, and the HealthKit
 // live-metric stream. It builds the runnable plan from the pushed assignment
@@ -47,6 +48,11 @@ final class WatchWorkoutCoordinator {
 
     /// Guards the finalize path so a natural finish + a Terminar can't double-send.
     private var didFinalize = false
+
+    /// Card 72 — same criterion as MirrorSessionController.start: a `guard … else
+    /// { return }` that silently blocks a start left the mirror bug undiagnosable for
+    /// weeks. Console-inspectable, never `print` (stripped from release builds).
+    private static let log = Logger(subsystem: Marca.subsistemaLog("standalone"), category: "watch-lifecycle")
     /// The assignment the running session logs against (captured at start — the
     /// engine itself is assignment-agnostic).
     private var assignmentId: String?
@@ -130,12 +136,32 @@ final class WatchWorkoutCoordinator {
         payload.athleteHrZones
     }
 
+    /// Card 72 — same self-heal criterion as MirrorSessionController.start(config:):
+    /// a blocked start must repair itself instead of failing forever. `phase` can't
+    /// wedge across a process relaunch on its own (it resets to `.idle` with the
+    /// app); the one gap possible WITHIN a running process is an engine that
+    /// reached `isFinished` but never got `finalize()` run — e.g. the RootView
+    /// `.onChange` that normally drives it didn't fire because its view wasn't
+    /// mounted at that instant. This closes exactly that gap without ever touching
+    /// a genuinely live `.active` session: `finalize()` itself no-ops unless the
+    /// engine already reports `isFinished`.
+    private func repairStuckPhaseIfNeeded() {
+        if phase == .active, session?.isFinished == true, !didFinalize {
+            Self.log.warning("found a finished engine still in .active phase — self-healing via finalize()")
+            finalize()
+        }
+    }
+
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
+        repairStuckPhaseIfNeeded()
         // Symmetric guard with MirrorSessionController.start (which yields to a live
         // standalone session): a mirror recording driven by the phone must equally
         // block a second, standalone engine here — the only path to a duplicate run.
         guard phase == .idle, MirrorSessionController.shared.state == .idle,
-              payload.dayKind == WatchDayKind.session else { return }
+              payload.dayKind == WatchDayKind.session else {
+            Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+            return
+        }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
             hrZones: Self.hrZones(from: payload)
@@ -149,9 +175,13 @@ final class WatchWorkoutCoordinator {
     /// block on start (as the phone does), so the athlete reconfirms with the clock at
     /// the recovered elapsed.
     func resume(from snapshot: PersistedWorkoutState, payload: WatchTodayPayload) {
+        repairStuckPhaseIfNeeded()
         // Same symmetric guard as start: never resume a standalone engine while the
         // phone is driving a mirror recording (the reverse of MirrorSessionController).
-        guard phase == .idle, MirrorSessionController.shared.state == .idle else { return }
+        guard phase == .idle, MirrorSessionController.shared.state == .idle else {
+            Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+            return
+        }
         let engine = WorkoutSession(
             plan: snapshot.plan,
             hrZones: Self.hrZones(from: payload),
