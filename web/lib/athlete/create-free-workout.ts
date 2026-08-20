@@ -173,6 +173,32 @@ export async function createFreeWorkout(
   const db = input.sql ?? defaultSql;
   const scheduledFor = freeWorkoutDay(metrics.started_at, new Date());
 
+  // UN ENTRENO REENVIADO ES EL MISMO ENTRENO (card 120).
+  //
+  // Una sesión del plan no puede duplicarse: la base sólo admite una ejecución por
+  // asignación, así que un reenvío actualiza. Un entreno LIBRE no tenía esa red —
+  // cada envío se creaba su propia sesión— y el 20-ago, al vaciarse la cola de
+  // reintentos del iPhone, uno entró DOS VECES: dos entrenos de 11:28 idénticos,
+  // con los mismos ocho tramos y los mismos metros, para un trabajo que ocurrió
+  // una sola vez.
+  //
+  // La llave es la hora de inicio: un atleta no puede empezar dos entrenos en el
+  // mismo instante, y el motor la sella al arrancar, así que viaja idéntica en
+  // todos los reenvíos del mismo trabajo. Sin ella (un cliente viejo) no hay nada
+  // con qué reconocerlo y se crea, que es el comportamiento de antes.
+  if (metrics.started_at) {
+    const yaEntro = await db<Array<{ assignment_id: string; execution_id: string }>>`
+      select wa.id::text as assignment_id, we.id::text as execution_id
+      from workout_executions we
+      join workout_assignments wa on wa.id = we.assignment_id
+      where we.athlete_id = ${athleteId}
+        and wa.origin = ${SELF_ORIGIN}::workout_origin
+        and we.started_at = ${metrics.started_at}::timestamptz
+      limit 1
+    `;
+    if (yaEntro[0]) return yaEntro[0];
+  }
+
   // Resolve the ordered segment list (exercise ids validated; modality coherence
   // applied for item-built workouts) BEFORE opening the transaction.
   const segments = await resolveSegments(db, input);
