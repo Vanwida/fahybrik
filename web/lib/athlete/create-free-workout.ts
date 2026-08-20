@@ -132,12 +132,46 @@ export type CreateFreeWorkoutInput = {
   sql?: Sql;
 } & (MeasuredInput | ItemsInput | ClockInput);
 
+/**
+ * Margen de reloj adelantado que se tolera antes de desconfiar de la hora que
+ * manda el móvil. Cinco minutos cubre una deriva normal; más que eso ya no es
+ * deriva, es una hora que no nos podemos creer.
+ */
+const FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * EL DÍA DE UN ENTRENO LIBRE ES EL DÍA EN QUE SE ENTRENÓ, no el día en que
+ * consigue subir.
+ *
+ * El 20-ago, al arreglarse el guardado, el iPhone vació de golpe su cola de
+ * envíos: cinco entrenos del 19 entraron a la vez y se archivaron todos en el 20,
+ * porque el día se calculaba con `new Date()` — el instante de la petición. En el
+ * plan del atleta aparecía trabajo de ayer contado hoy, ensuciando los dos días:
+ * el 19 se quedaba vacío y el 20 con cinco sesiones que no ocurrieron.
+ *
+ * El envío ya trae la hora real de inicio; sólo faltaba usarla. Se resuelve al día
+ * de calendario del box, igual que el resto de «hoy» del producto, para que un
+ * entreno de las 00:30 caiga donde el atleta lo vivió.
+ *
+ * Sin hora de inicio (un cliente viejo) o con una hora que no nos podemos creer
+ * —un reloj adelantado archivando en el futuro— se cae al día de hoy, que es el
+ * comportamiento de siempre.
+ */
+export function freeWorkoutDay(startedAtIso: string | undefined, now: Date): string {
+  const today = isoDateString(startOfDayInBox(now));
+  if (!startedAtIso) return today;
+  const at = new Date(startedAtIso);
+  if (Number.isNaN(at.getTime())) return today;
+  if (at.getTime() > now.getTime() + FUTURE_CLOCK_SKEW_MS) return today;
+  return isoDateString(startOfDayInBox(at));
+}
+
 export async function createFreeWorkout(
   input: CreateFreeWorkoutInput,
 ): Promise<{ assignment_id: string; execution_id: string }> {
   const { athleteId, coachId, title, scheme, metrics } = input;
   const db = input.sql ?? defaultSql;
-  const scheduledFor = isoDateString(startOfDayInBox(new Date()));
+  const scheduledFor = freeWorkoutDay(metrics.started_at, new Date());
 
   // Resolve the ordered segment list (exercise ids validated; modality coherence
   // applied for item-built workouts) BEFORE opening the transaction.
