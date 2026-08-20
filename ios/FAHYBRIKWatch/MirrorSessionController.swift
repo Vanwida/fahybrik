@@ -66,14 +66,21 @@ final class MirrorSessionController: NSObject {
     /// Recording keeps going when the phone goes quiet; past this gap the wrist
     /// surfaces a local exit (the controls page offers a manual save/discard).
     private static let connectionLostAfter: TimeInterval = 15
-    /// Card 72/102 self-heal: if the phone never comes back AND the athlete never
-    /// taps the local save button either, the recording can't wait forever — the
-    /// NEXT workout needs a clean `.idle` to start from. Comfortably past
-    /// `connectionLostAfter` (which already gave the manual-save UI a chance) and
-    /// short enough that a genuinely abandoned wrist doesn't sit recording all day.
-    /// Saves rather than discards: a partial recording is worth infinitely more
-    /// than a lost one (see WatchWorkoutCoordinator.finishLocally).
-    private static let recordingStuckTimeout: TimeInterval = 45
+    /// Card 72/102 self-heal — the BELT, not the fix (the fix is `start(config:)`
+    /// repairing any dirty state; this only covers a wrist nobody ever touches
+    /// again). It must NEVER be confusable with an ordinary radio gap mid-run: phone
+    /// in a pocket, arm swinging, or in a bag between HYROX stations routinely drops
+    /// Bluetooth for tens of seconds, and the active `HKWorkoutSession` grants BOTH
+    /// sides background execution specifically so their 1 Hz timers keep firing
+    /// through that — a real multi-minute silence while both devices stay on and
+    /// paired essentially never happens outside "the phone actually tore down its
+    /// side". 5 minutes sits an order of magnitude past `connectionLostAfter` (which
+    /// already gave the manual-save UI a chance at 15s) and is far beyond any
+    /// observed reconnection window, so it can only fire on a genuinely abandoned
+    /// wrist — never mid-interval, never mid-transition. Saves rather than discards:
+    /// a partial recording is worth infinitely more than a lost one (see
+    /// WatchWorkoutCoordinator.finishLocally).
+    private static let recordingStuckTimeout: TimeInterval = 300
     /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
     /// faster than the engine needs).
     private static let hrRelayMinInterval: TimeInterval = 1
