@@ -498,10 +498,33 @@ final class TreadmillHUDModel {
         guard let seg = currentSegment else {
             return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
         }
-        if isStructured {
-            return TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
-        }
-        return TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
+        let resolved = isStructured
+            ? TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
+            : TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
+        return withStationGoal(resolved)
+    }
+
+    /// EL OBJETIVO DE LA ESTACIÓN, CUANDO EL SEGMENTO NO LO SABE.
+    ///
+    /// «1.000 m corriendo · 500 m ski · 1.000 m corriendo · …» se pliega en UN
+    /// segmento sin distancia, porque mezcla modalidades. La pantalla de la cinta
+    /// sacaba su objetivo de ahí, así que durante el kilómetro no enseñaba ni la
+    /// dosis ni los metros que faltaban: sólo un cronómetro. El objetivo SÍ existía,
+    /// un piso más abajo — en el tramo, que es el que sabe que esta estación son
+    /// 1.000 m, y es el mismo número contra el que el motor cierra la estación.
+    ///
+    /// Sólo se RELLENA un objetivo ausente; nunca se pisa uno que el segmento ya
+    /// traía. Y no se toca `ownsAutoAdvance`: el cierre de una estación lo hace el
+    /// motor (`advanceRunStationIfGoalMet`), y dos dueños la cerrarían dos veces.
+    private func withStationGoal(_ leg: TreadmillLeg) -> TreadmillLeg {
+        guard leg.goal == .open,
+              session.currentTramo.isFixedStation,
+              let target = session.currentTramo.targetDistanceMeters, target > 0
+        else { return leg }
+        return TreadmillLeg(phase: leg.phase,
+                            goal: .distance(meters: target),
+                            target: leg.target,
+                            ownsAutoAdvance: false)
     }
 
     var isRecovery: Bool { currentLeg.isRecovery }
@@ -764,6 +787,13 @@ final class TreadmillHUDModel {
 
     private func legKey() -> String {
         let seg = session.currentSegmentIndex
+        // UNA ESTACIÓN ES SU PROPIA PIERNA. Las cuatro carreras de «1.000 m · ski ·
+        // 1.000 m · trineo · …» comparten UN solo segmento (el bloque mezcla
+        // modalidades y se pliega), así que sin esto las cuatro serían la misma
+        // pierna: los metros no se reiniciarían y el segundo kilómetro empezaría
+        // marcando 1.000. El motor ya reancla su cero por tramo; esta clave es lo que
+        // hace que la pantalla lo acompañe.
+        if session.currentTramo.isFixedStation { return "\(seg)#tramo#\(session.tramoKey)" }
         if isStructured { return "\(seg)#struct#\(session.runLegIndex)" }
         guard isSeries else { return "\(seg)#single" }
         return "\(seg)#\(session.rotRoundIndex)#\(isWorkPhase ? "w" : "r")"

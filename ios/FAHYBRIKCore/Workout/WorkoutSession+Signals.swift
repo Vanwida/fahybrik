@@ -206,9 +206,14 @@ extension WorkoutSession {
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }
+        // Los metros de ESTA pierna antes de sumar, para poder ver CRUZAR el objetivo.
+        let runMetersBefore = tramoRunCoveredMeters
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
+        // Una estación de correr con dosis se cierra sola al llegar, igual que el
+        // remo y el ski. Aquí es la calle (o la cinta tonta, vía muñeca).
+        advanceRunStationIfGoalMet(beforeMeters: runMetersBefore)
     }
 
     /// La cinta FTMS está viva en esta ventana. A partir de aquí ella firma los
@@ -258,10 +263,16 @@ extension WorkoutSession {
         // does — otherwise minute 4's metres land in minute 3's bout.
         syncTramoIfNeeded()
         claimTreadmillDistanceSource()
+        // Los metros de ESTA pierna antes de sumar — la prueba del cierre automático
+        // es haber visto CRUZAR el objetivo, no estar por encima de él.
+        let runMetersBefore = tramoRunCoveredMeters
         lapBeltDistanceMeters += deltaMeters
         // En cinta la distancia la da la MÁQUINA, y eso queda sellado en la fuente de
         // la traza: quien la lea sabe que estos metros no son de un GPS.
         trace.accumulate(.distance, source: .treadmill, delta: deltaMeters, atSecond: traceSecond())
+        // Y la estación se cierra sola al llegar a sus metros, como ya hacen el remo
+        // y el ski: la cinta era el único aparato que obligaba a pulsar.
+        advanceRunStationIfGoalMet(beforeMeters: runMetersBefore)
     }
 
     /// Live AVERAGE pace (sec/km) covered on the belt this segment — the covered belt

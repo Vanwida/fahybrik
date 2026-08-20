@@ -82,10 +82,14 @@ final class BloqueMixtoConCarreraTests: XCTestCase {
     func testElTercerTramoDeCorrerEmpiezaEnCeroNoArrastraLosAnteriores() {
         let s = bloqueDeManana()
 
+        // Se queda 1 m CORTO en cada carrera a propósito: así este test sigue
+        // midiendo sólo el anclaje. Llegar a los 1.000 cierra la estación sola
+        // (ver el test del cierre automático más abajo), y entonces el avance
+        // manual de aquí saltaría una estación de más.
         // Estación 0 — primera carrera del bloque.
         XCTAssertTrue(s.tramoIsRun)
-        s.sampleRunDistance(deltaMeters: 1_000, source: .healthkit)
-        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 1_000, accuracy: 0.5)
+        s.sampleRunDistance(deltaMeters: 999, source: .healthkit)
+        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 999, accuracy: 0.5)
 
         s.markRoundDone()   // → estación 1: SkiErg (no es correr)
         XCTAssertFalse(s.tramoIsRun)
@@ -94,9 +98,9 @@ final class BloqueMixtoConCarreraTests: XCTestCase {
         s.markRoundDone()   // → estación 2: segunda carrera
         XCTAssertTrue(s.tramoIsRun)
         XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 0, accuracy: 0.5,
-                       "empieza en cero, no en los 1.000 que ya llevaba la primera")
-        s.sampleRunDistance(deltaMeters: 1_000, source: .healthkit)
-        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 1_000, accuracy: 0.5)
+                       "empieza en cero, no en los 999 que ya llevaba la primera")
+        s.sampleRunDistance(deltaMeters: 999, source: .healthkit)
+        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 999, accuracy: 0.5)
 
         s.markRoundDone()   // → estación 3: Burpees
         s.markRoundDone()   // → estación 4: TERCERA carrera — el caso del informe
@@ -104,7 +108,64 @@ final class BloqueMixtoConCarreraTests: XCTestCase {
         XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 0, accuracy: 0.5,
                        "el bug: sin `tramoGpsStartDistance` esto leía 2.000-y-pico, el "
                        + "acumulado GPS de las dos carreras anteriores del mismo segmento")
+        s.sampleRunDistance(deltaMeters: 999, source: .healthkit)
+        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 999, accuracy: 0.5)
+    }
+
+    // MARK: - 3. La estación de correr se cierra sola al llegar a sus metros
+
+    // El desajuste que esto arregla: el ski y el remo se cerraban solos al llegar a
+    // su dosis y la cinta obligaba a pulsar los cuatro kilómetros a mano. La misma
+    // pregunta —¿ha llegado esta estación a su dosis?— con dos respuestas según el
+    // aparato.
+    func testLaEstacionDeCorrerSeCierraSolaAlLlegarASusMetros() {
+        let s = bloqueDeManana()
+        XCTAssertTrue(s.tramoIsRun, "estación 0: Run 1.000")
+
+        // Un metro corto: NO se cierra. La dosis es llegar, no acercarse.
+        s.sampleRunDistance(deltaMeters: 999, source: .healthkit)
+        XCTAssertTrue(s.tramoIsRun, "a 999 m la estación sigue abierta")
+
+        // Y al cruzar los 1.000 se cierra sola: la siguiente estación es el SkiErg.
+        s.sampleRunDistance(deltaMeters: 1, source: .healthkit)
+        XCTAssertFalse(s.tramoIsRun, "al llegar a los 1.000 m la estación se cierra sola")
+        XCTAssertEqual(s.currentTramo.modality, .ski, "la que entra es el SkiErg de 500 m")
+    }
+
+    // Cerrar es haber CRUZADO el objetivo, no estar por encima: una muestra más
+    // dentro de la estación siguiente no puede volver a dispararlo.
+    func testElCierreAutomaticoNoSeDisparaDosVeces() {
+        let s = bloqueDeManana()
         s.sampleRunDistance(deltaMeters: 1_000, source: .healthkit)
-        XCTAssertEqual(s.tramoRunCoveredMeters ?? -1, 1_000, accuracy: 0.5)
+        XCTAssertEqual(s.currentTramo.modality, .ski)
+        // Metros de correr llegando fuera de una ventana de correr: se ignoran, y
+        // desde luego no avanzan otra estación.
+        s.sampleRunDistance(deltaMeters: 500, source: .healthkit)
+        XCTAssertEqual(s.currentTramo.modality, .ski, "sigue en el ski; no ha saltado nada")
+    }
+
+    // La cinta cierra igual que la muñeca: es la MISMA ley, no dos. Aquí los metros
+    // entran por la cinta FTMS en vez de por Apple.
+    func testLaCintaTambienCierraLaEstacionAlLlegar() {
+        let s = bloqueDeManana()
+        s.runEnvironment = .treadmill
+        XCTAssertTrue(s.tramoIsRun)
+        s.sampleTreadmillDistance(deltaMeters: 999)
+        XCTAssertTrue(s.tramoIsRun, "a 999 m sigue abierta")
+        s.sampleTreadmillDistance(deltaMeters: 2)
+        XCTAssertFalse(s.tramoIsRun, "la cinta cierra la estación igual que el remo")
+    }
+
+    // Y el segundo kilómetro se cierra por SUS propios metros, no por los del
+    // primero: sin el reanclaje por estación, la segunda carrera nacería ya cruzada.
+    func testElSegundoKilometroSeCierraPorSusPropiosMetros() {
+        let s = bloqueDeManana()
+        s.sampleRunDistance(deltaMeters: 1_000, source: .healthkit)   // cierra la 1ª
+        s.markRoundDone()                                             // ski → burpees… no: → estación 2
+        XCTAssertTrue(s.tramoIsRun, "estación 2: segunda carrera")
+        s.sampleRunDistance(deltaMeters: 999, source: .healthkit)
+        XCTAssertTrue(s.tramoIsRun, "999 propios: sigue abierta, no hereda los 1.000 de la primera")
+        s.sampleRunDistance(deltaMeters: 1, source: .healthkit)
+        XCTAssertFalse(s.tramoIsRun, "y se cierra al completar SUS 1.000")
     }
 }

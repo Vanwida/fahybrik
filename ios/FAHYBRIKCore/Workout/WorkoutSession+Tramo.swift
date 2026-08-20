@@ -347,12 +347,20 @@ extension WorkoutSession {
     /// ventana) el ancla se fija en cero al entrar, así que no cambia nada.
     var tramoRunCoveredMeters: Double? {
         guard tramoIsRun else { return nil }
-        guard isRunStructureActive else {
-            guard let total = liveRunDistanceMeters else { return nil }
-            return Swift.max(0, total - (tramoGpsStartDistance ?? 0))
+        if isRunStructureActive {
+            let cubiertos = runLegCoveredMeters
+            return cubiertos > 0 ? cubiertos : nil
         }
-        let cubiertos = runLegCoveredMeters
-        return cubiertos > 0 ? cubiertos : nil
+        // LA CINTA, CUANDO HAY CINTA. Esto es lo que la cabecera prometía desde el
+        // principio y el cuerpo no hacía: se leía sólo el acumulador de Apple, y
+        // `liveRunDistanceMeters` devuelve nil en cuanto la cinta reclama la ventana.
+        // Resultado: con una cinta FTMS conectada, «los metros de esta pierna» eran
+        // nil — ni cuenta atrás en la estación, ni forma de saber que había llegado
+        // a sus 1.000 m. El gemelo por tramo de la cinta ya existía y ya reancla su
+        // cero en cada estación; sólo faltaba mirarlo.
+        if lapBeltOwnsDistance { return tramoBeltDistanceMeters }
+        guard let total = liveRunDistanceMeters else { return nil }
+        return Swift.max(0, total - (tramoGpsStartDistance ?? 0))
     }
 
     /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether
@@ -532,7 +540,49 @@ extension WorkoutSession {
                                        metersNow: tramoErgDistanceMeters,
                                        caloriesBefore: beforeCalories,
                                        caloriesNow: tramoErgCalories) else { return }
-        // Route the advance by which cursor owns the window.
+        routeAutomaticStationAdvance(tramo: tramo)
+    }
+
+    /// LA ESTACIÓN DE CORRER SE CIERRA SOLA AL LLEGAR A SUS METROS — lo que el remo
+    /// y el ski llevan haciendo desde el principio.
+    ///
+    /// El desajuste que arregla: en «1.000 m corriendo · 500 m ski · 1.000 m
+    /// corriendo · …» el ski se cerraba solo a sus 500 m y la cinta obligaba a
+    /// pulsar los cuatro kilómetros a mano. La misma pregunta —¿ha llegado esta
+    /// estación a su dosis?— tenía dos respuestas según el aparato. El objetivo del
+    /// tramo (`targetDistanceMeters`) SIEMPRE estuvo ahí: lo que faltaba era mirarlo
+    /// también cuando los metros los cuenta una cinta o la muñeca en vez de un
+    /// monitor Concept2.
+    ///
+    /// Vale para las dos superficies: la cinta y la calle. `tramoRunCoveredMeters`
+    /// ya resuelve de dónde salen los metros de ESTA pierna (cinta si la hay, Apple
+    /// si no), así que aquí no hay que volver a elegir fuente.
+    ///
+    /// `beforeMeters` son los metros de la ventana ANTES de que entrara esta
+    /// muestra: la prueba es haber visto CRUZAR el objetivo, no estar por encima —
+    /// así una reanudación o una muestra repetida no vuelve a disparar.
+    ///
+    /// El cierre a mano no desaparece: la cinta puede caerse, el reloj puede no
+    /// estar, y sin metros no hay cierre automático. Esto quita un toque, nunca la
+    /// libertad de darlo.
+    func advanceRunStationIfGoalMet(beforeMeters: Double?) {
+        guard stationCanAutoClose else { return }
+        let tramo = currentTramo
+        // SÓLO una ESTACIÓN de una lista fija. Es la ventana que nadie más puede
+        // cerrar: el bloque mixto se pliega en un segmento sin distancia, así que la
+        // pantalla de la cinta lo ve «abierto» y no lo toca. Una carrera continua o
+        // una serie estructurada SÍ tienen dueño en la pantalla (`ownsAutoAdvance`),
+        // y meterse ahí las cerraría dos veces. Un dueño por ventana.
+        guard tramo.isFixedStation else { return }
+        guard tramo.isRun, let target = tramo.targetDistanceMeters, target > 0 else { return }
+        guard let now = tramoRunCoveredMeters, now >= target, (beforeMeters ?? 0) < target else { return }
+        routeAutomaticStationAdvance(tramo: tramo)
+    }
+
+    /// Adónde va un cierre AUTOMÁTICO de ventana, según qué cursor la posee. Una sola
+    /// copia para el ergómetro y para la carrera: si mañana aparece un tercer aparato
+    /// que sabe cuándo ha terminado, entra por aquí y no reinventa el reparto.
+    private func routeAutomaticStationAdvance(tramo: LiveTramo) {
         if tramo.isFixedStation {
             markRoundDone(auto: true)
         } else if currentSegment?.formatScheme == .intervals {
@@ -543,7 +593,7 @@ extension WorkoutSession {
             Haptics.cueGo()
             closeConditioningAndAdvanceFromMachine()
         } else {
-            // Plain erg segment (not a format timer) — classic lap.
+            // Plain segment (not a format timer) — classic lap.
             Haptics.cueGo()
             lapFromMachine()
         }
