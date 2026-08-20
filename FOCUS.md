@@ -6,69 +6,34 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**NADA SE GUARDABA DESDE EL 13-AGO — ARREGLADO (card 116, mig 0203):** ni un
-solo `workout_executions` con asignación entre el 13-ago 07:11 y el 20-ago. La
-0191 dejó `workout_executions_assignment_unique` como índice PARCIAL (`where
-assignment_id is not null`) y Postgres no lo infiere desde un `on conflict
-(assignment_id)` sin repetir el predicado: 42P10 al PLANIFICAR, con cualquier
-payload. Rotos los CUATRO escritores a la vez — cierre de entreno de la app
-(también dobles y libre), Apple Salud, Garmin y Polar. Por eso caían igual
-fuerza, carreras y EMOM. La 46 no rompió nada: quitó la mentira («guardado» sin
-fila) y por eso se vio. **Arreglado en la BASE, no en la app**: la 0203 devuelve
-el índice a llano (los NULL ya son distintos entre sí, el predicado no aportaba
-nada), así que no hace falta desplegar ni compilar y el quinto escritor que
-alguien añada tampoco cae. Reproducido contra prod con la sentencia literal en
-transacción revertida, antes y después. Ley: DECISIONS 20-ago. Prueba de regresión hecha
-(`web/tests/sync/workout-execution.db.test.ts`, 73bcd9bd): 5 casos, verificada en
-ROJO con el índice parcial (4 de 5 caen con el 42P10) y en verde con el llano. No
-existía NINGUNA prueba del guardado, por eso vivió 7 días. Al arreglarlo, el
-iPhone vació su cola: entraron 8 entrenos (18, 19 y seis del 20).
+**LA PRUEBA DE ALEX DEL 20-AGO — 8 cards, 7 cerradas.** Detalle en ClickUp 116
+a 123 y en DECISIONS 20-ago; aquí solo el estado.
 
-**Metros de la muñeca (119, 2fc5ecfa):** el reloj mandaba su distancia por el
-canal del espejo desde siempre y el teléfono no leía ese tipo de mensaje — caía
-al `default`. En cinta sin conexión eso es cero metros y cero ritmo (el podómetro
-del móvil está apagado a propósito: no va en el cuerpo). Ahora se recoge, sellada
-`.healthkit`, y `RunPhoneSensorPlan` gana `wristIsRecording` para que el podómetro
-se aparte mientras la muñeca emite — si no, en calle contarían los dos. La prueba
-vieja sólo comprobaba que el paquete VIAJA: confianza falsa. La nueva verifica que
-llega al motor, en rojo y en verde. 1583 tests. NO instalado en el iPhone.
+EN PRODUCCIÓN, sin instalar nada: **116** el guardado llevaba roto desde el
+13-ago 07:11 (la mig 0191 dejó parcial el índice de la asignación y Postgres no
+lo infiere desde `on conflict`: 42P10 en los CUATRO escritores; arreglado con la
+0203, índice llano) · **117** una lectura de sensor fuera de banda ya no tumba el
+POST entero, se encaja o se guarda hueco · **120** un libre reenviado es el mismo
+entreno (llave: `started_at`) · **121** un entreno se archiva en el día en que se
+HIZO. Los 5 libres del 19 mal archivados, movidos.
 
-**Estación de correr (123, 2837616e):** se cierra sola al llegar a sus metros
-—como ya hacían remo y ski— y la pantalla de la cinta enseña la dosis y lo que
-falta, leyendo el objetivo del TRAMO cuando el bloque mixto no lo trae. Sólo en
-estación de lista fija: la carrera continua y la serie ya tienen dueño y un
-segundo las cerraría dos veces. Cada estación pasa a ser su propia pierna (si no,
-las 4 carreras compartían contador). De paso: `tramoRunCoveredMeters` prometía
-«cinta si la hay» y leía sólo Apple, que da nil cuando la cinta manda — con FTMS
-conectada NO había cuenta atrás de estación, ni en móvil ni en reloj. 1587 tests.
+EN EL REPO, PENDIENTE DE QUE ALEX INSTALE: **119** el teléfono no leía los metros
+que la muñeca lleva mandando siempre (en cinta tonta = cero metros y 0:00 de
+ritmo); ahora los recoge y el podómetro se aparta mientras la muñeca emite ·
+**123** la estación de correr se cierra sola al llegar a sus metros, como ya
+hacían remo y ski, y la pantalla enseña la dosis y lo que falta (de paso:
+`tramoRunCoveredMeters` prometía «cinta si la hay» y leía solo Apple, así que con
+FTMS conectada no había cuenta atrás) · **121** la hora de fin se sella al
+terminar, no al pulsar guardar · **118** correr DENTRO de una sesión ya no la
+convierte en carrera (manda si se lleva más de la mitad del tiempo) y sin metros
+medidos no hay lectura de carrera.
 
-**Sensores y fechas honestas (117 y 121, EN PRODUCCIÓN):** 117 — la entrada ya no
-RECHAZA una lectura de aparato fuera de banda (un pico de 300 ppm o una pendiente
-negativa de FTMS devolvían 400 y se llevaban el entreno entero); se encaja en
-banda o se guarda hueco. Estricto sigue lo que NO mide un aparato. 121 — la hora
-de fin se sella al terminar, no al pulsar guardar (hoy: 47 min archivados como
-4 h 45), y un entreno libre se archiva en el día en que se HIZO, no en el que
-consigue subir. Desplegado (0a556051 + 61b18b0c). Los 5 libres del 19 archivados
-en el 20 siguen mal: moverlos es dato del atleta, pendiente de que Alex diga.
+ABIERTO: **118 segunda mitad** — la lectura de 4 capas que habla el idioma de la
+sesión, en el doble como `lectura-sesion` (propuesta) antes de tocar Swift.
+**122** — el crono arranca con el toque y no con la primera zancada, la cinta no
+detecta que se ha parado, no existe la transición. Lleva decisión de Alex dentro.
+Y el duplicado del 19 sigue en la base: borrarlo es dato del atleta.
 
-**La lectura del entreno (118, 1034bf35 + df0680d6):** se elegía preguntando
-«¿hay algún tramo de correr?», así que 6 min de calentamiento en 47 de hierro la
-convertían en carrera y pintaba «RITMO MEDIO 0:00 /km». Ahora correr manda solo
-con MÁS DE LA MITAD del tiempo medido, y sin metros medidos no hay lectura de
-carrera (el 0:00 salía de dividir entre cero). Se lee lo HECHO, no lo pedido.
-Ley: DECISIONS 20-ago. Falta la otra mitad: la lectura de 4 capas que habla el
-idioma de la sesión — se está construyendo en el doble (`lectura-sesion`,
-propuesta) antes de tocar Swift.
-
-**Libre duplicado (120, b37c7c11, EN PRODUCCIÓN):** la llave es `started_at` —
-nadie empieza dos entrenos en el mismo instante y el motor lo sella al arrancar,
-así que viaja igual en todo reenvío. Verificado en rojo y verde sobre rama Neon.
-Sin cambios iOS, sin migración. El duplicado del 19 sigue ahí: borrarlo es dato
-del atleta, pendiente de Alex.
-
-**Abierta:** 122 (el crono arranca con el toque y no con la primera zancada; la
-cinta no detecta que se ha parado; no existe la transición — con una decisión de
-Alex dentro).
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
 (ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
