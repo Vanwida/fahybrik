@@ -62,6 +62,25 @@ final class WorkoutFinishPersistTests: XCTestCase {
         XCTAssertEqual(WorkoutFinishPersist.retryMessage, "No se ha guardado. Reintenta.")
     }
 
+    // MARK: - La hora de fin es la del entreno, no la de la red
+
+    // Card 121: el 20-ago el guardado estuvo roto y Alex se quedó horas en el
+    // resumen reintentando. El entreno acabó a las 12:36 y se archivó como si
+    // hubiera terminado a las 16:35: casi cinco horas de ventana para 47 minutos de
+    // trabajo. Un entreno no dura hasta que la red deja pasar.
+    func testEndedAtUsesTheEngineStampNotTheSaveInstant() {
+        let acabo = Date(timeIntervalSince1970: 1_787_000_000)
+        let guardado = acabo.addingTimeInterval(4 * 3600)   // cuatro horas después
+        XCTAssertEqual(WorkoutFinishPersist.endedAt(finishedAt: acabo, now: guardado), acabo)
+    }
+
+    // Un registro a mano no tuvo reloj corriendo: ahí el instante de guardarlo ES
+    // el único que existe, y sigue siendo el correcto.
+    func testEndedAtFallsBackToNowWhenNoClockEverRan() {
+        let ahora = Date(timeIntervalSince1970: 1_787_000_000)
+        XCTAssertEqual(WorkoutFinishPersist.endedAt(finishedAt: nil, now: ahora), ahora)
+    }
+
     // MARK: - Notes en el mismo POST (workout_executions.notes)
 
     func testBlankNotesAreOmitted() {

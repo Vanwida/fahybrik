@@ -574,7 +574,14 @@ struct PostWorkoutSummaryView: View {
     private func executionCore() -> ExecutionCore {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
-        let endedAt = Date()
+        // LA HORA DE FIN ES CUANDO SE ACABÓ DE ENTRENAR, no cuando se pulsa guardar.
+        // El 20-ago el guardado estuvo roto y Alex se quedó horas en el resumen
+        // esperando: el entreno acabó a las 12:36 y quedó archivado como si hubiera
+        // terminado a las 16:35 — casi cinco horas de ventana para 47 minutos de
+        // trabajo. El motor ya sella el final (`finishedAt`); esto sólo lo usa.
+        // Sin sello (un registro a mano, donde ningún reloj corrió) se cae a ahora,
+        // que es lo que había y es lo correcto para ese caso.
+        let endedAt = WorkoutFinishPersist.endedAt(finishedAt: session.finishedAt, now: Date())
         // Manual log: total time is entered by hand (or, for a time-scored format,
         // taken from the "Tiempo final" field). Live: measured by the timer.
         let totalDuration: Int? = manualEntry
