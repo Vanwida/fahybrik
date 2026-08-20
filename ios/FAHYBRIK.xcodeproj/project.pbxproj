@@ -262,6 +262,7 @@
 		57D3394402AD06E63D823021 /* FreeInicioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A299C853C165208E4093B866 /* FreeInicioView.swift */; };
 		58083273FDEA8CF20C17C44A /* GuionEmom.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73A38561623C867F1D46A7A /* GuionEmom.swift */; };
 		5917E7F31B99BA37A52795E3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46EA36D8F153A96F0826B91 /* APIClient.swift */; };
+		5950A8BC669008CC8500E4BA /* EspejoRutaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09788A21D9FBF8080BFF309D /* EspejoRutaTests.swift */; };
 		596FFFD6C5B7EB986CA923DE /* GuionEstaciones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF842652C39DCE540CD67BF /* GuionEstaciones.swift */; };
 		5A0C180CE405482368863BA6 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */; };
 		5A83C042D8BDB96D7B3E318F /* PlanHoyModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5B5FA9B3CD115B189B4652A /* PlanHoyModel.swift */; };
@@ -797,6 +798,7 @@
 		06CE2185C1AC5CE6702AFCF5 /* ComunicadosAcciones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadosAcciones.swift; sourceTree = "<group>"; };
 		087517CB7BA486835A805A48 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShell.swift; sourceTree = "<group>"; };
 		0907CA0CB44E98188CD1364A /* BenchmarkSparkline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkSparkline.swift; sourceTree = "<group>"; };
+		09788A21D9FBF8080BFF309D /* EspejoRutaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EspejoRutaTests.swift; sourceTree = "<group>"; };
 		09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
 		0A8A8EC873824DDB5E986596 /* RaceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceDetailView.swift; sourceTree = "<group>"; };
 		0AA77EA9C472F2A1E2276FBB /* GuionSeriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionSeriesTests.swift; sourceTree = "<group>"; };
@@ -2241,6 +2243,7 @@
 				94664E1080747489D35B0DC4 /* EspejoDeCaboARaboTests.swift */,
 				46BCAB06AB654D67510BD40E /* EspejoEmomTests.swift */,
 				1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */,
+				09788A21D9FBF8080BFF309D /* EspejoRutaTests.swift */,
 				B50A802EBADFA979DEA7842C /* FormaDeCarreraTests.swift */,
 				04E9AFD96682BAE49E1FA69E /* FreeRunPlanTests.swift */,
 				6E2F276A687B40AFFD1FE476 /* FreeWorkoutEncodeTests.swift */,
@@ -3709,6 +3712,7 @@
 				136A35D5901612AF90D541C5 /* EspejoDeCaboARaboTests.swift in Sources */,
 				F2603AB183E2B052254F9B4F /* EspejoEmomTests.swift in Sources */,
 				3E55F85773197FF1BD26983A /* EspejoRelojDeParedTests.swift in Sources */,
+				5950A8BC669008CC8500E4BA /* EspejoRutaTests.swift in Sources */,
 				E9FDDE92B0B19129662FF878 /* FTMSControlSequencerTests.swift in Sources */,
 				E601CA8F67205463A0FC9E2B /* FTMSControlTests.swift in Sources */,
 				55F658B967472472F5C9F3D5 /* FTMSTreadmillParserTests.swift in Sources */,

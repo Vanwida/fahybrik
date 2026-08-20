@@ -226,6 +226,13 @@ struct MirrorTramo: Codable, Equatable {
     /// calorías). Nil si el tramo no va por medida de máquina.
     let objetivoMedida: Double?
     let hechoMedida: Double?
+    /// `objetivoMedida`/`hechoMedida` de arriba están en CALORÍAS, no en
+    /// METROS. Antes de este campo la muñeca no tenía forma de saberlo —
+    /// `machineGoal` no dice la unidad — y una estación de "12 cal" de
+    /// ergómetro pintaría "faltan 6 m" en vez de "faltan 6 cal". `var` con
+    /// default, ADDITIVO como el resto: un móvil viejo lo omite → `false`
+    /// (metros), que es la lectura de siempre.
+    var objetivoEsCalorias: Bool = false
     /// La ventana de tiempo, cuando la cierra un reloj. `total` es lo que el aro
     /// necesita y hoy la muñeca se inventa (asume 60 s en un EMOM).
     let ventanaQueda: Double?

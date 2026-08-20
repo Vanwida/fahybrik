@@ -618,21 +618,32 @@ final class PhoneMirrorService {
         //    el que divergía de él, y ahora usa la misma pareja.
         let objetivoMedida: Double?
         let hecho: Double?
+        let objetivoEsCalorias: Bool
         if tramo.isErg, let cal = tramo.targetCalories, cal > 0 {
             // La unidad la manda el OBJETIVO: si la pieza se mide en calorías, lo
             // hecho son calorías. Nunca los metros que el monitor reporta igual.
             objetivoMedida = Double(cal)
             hecho = session.tramoErgCalories.map { Double($0) }
+            objetivoEsCalorias = true
         } else if tramo.isErg {
             objetivoMedida = tramo.targetDistanceMeters
             hecho = session.tramoErgDistanceMeters
-        } else {
-            objetivoMedida = tramo.targetDistanceMeters
-                ?? tramo.targetCalories.map { Double($0) }
+            objetivoEsCalorias = false
+        } else if let metros = tramo.targetDistanceMeters {
+            objetivoMedida = metros
             // Correr: la cinta si la hay, el GPS si no. Es la MISMA regla que usa
             // el motor para el ritmo de la pierna, así que ritmo y metros no
             // pueden contar cosas distintas.
             hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = false
+        } else if let cal = tramo.targetCalories {
+            objetivoMedida = Double(cal)
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = true
+        } else {
+            objetivoMedida = nil
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = false
         }
 
         return MirrorTramo(
@@ -646,6 +657,7 @@ final class PhoneMirrorService {
             cierre: cierreDelTramo(tramo, descansando: descansando),
             objetivoMedida: objetivoMedida,
             hechoMedida: hecho,
+            objetivoEsCalorias: objetivoEsCalorias,
             // En descanso el reloj que corre es el del descanso; en trabajo, el de
             // la ventana — y `tramoWorkRemaining` ya viene nil cuando no la cierra
             // un reloj, así que la muñeca no inventa cuenta atrás.

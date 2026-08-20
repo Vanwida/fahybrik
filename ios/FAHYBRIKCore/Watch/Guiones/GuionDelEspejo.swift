@@ -49,8 +49,15 @@ enum GuionDelEspejo {
             return GuionEmom.paginas(emom(t, bpm: bpm, elapsed: enTramo),
                                      GuionEmom.Gestos(marcarHecha: avanzar))
         case .ruta:
-            return GuionRuta.paginas(ruta(t, f, elapsed: enTramo),
-                                     GuionRuta.Gestos(estacionHecha: avanzar))
+            // `GuionEstaciones.pagina` no lleva el pulso dentro (igual que en
+            // `FixedLiveView`, que lo compone fuera del guion): se añade aquí,
+            // al mismo nivel que el resto de casos.
+            var pagina = [GuionEstaciones.pagina(estacion(t, f, elapsed: enTramo),
+                                                  onEstacionHecha: avanzar)]
+            if let pulso = WatchPaginasComunes.pulso(bpm: bpm, zone: zona(t.zonaViva), modo: .mando) {
+                pagina.append(pulso)
+            }
+            return pagina
         case .ergo:
             return GuionErgo.paginas(ergo(t, bpm: bpm, elapsed: enTramo),
                                      GuionErgo.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
@@ -226,28 +233,52 @@ enum GuionDelEspejo {
         )
     }
 
-    /// La ruta de estaciones. El cable trae la estación en curso, no la ruta
-    /// entera, así que se arma una del tamaño que dice el motor con la actual en
-    /// su sitio: el guion sólo lee la actual y el total, que es lo que pinta.
-    private static func ruta(_ t: MirrorTramo, _ f: MirrorStateFrame, elapsed: Double) -> GuionRuta.Estado {
+    /// La estación en curso de una ruta (For Time / Chipper / HYROX sim /
+    /// Rounds / Ladder). Lee la MISMA decisión que ya resuelve `GuionEstaciones`
+    /// para el reloj en solitario (`FixedLiveView.paginaEstacion`) — antes esta
+    /// vía tenía su propio modelo (`GuionRuta`), que sólo distinguía "tramo de
+    /// carrera" de "estación ciega" y por eso el ski, el remo, los burpees y los
+    /// wall balls caían siempre en el crono del BLOQUE ENTERO contando arriba,
+    /// nunca en lo que llevan o les falta de esa estación. Reconciliado
+    /// 20-ago — card 67, la reconciliación que `GuionEstaciones.swift` dejaba
+    /// pendiente.
+    private static func estacion(_ t: MirrorTramo, _ f: MirrorStateFrame, elapsed: Double) -> GuionEstaciones.Estado {
+        let esCarrera = t.modalidad == PrescriptionModality.run.rawValue
+        let cierre: GuionEstaciones.Cierre
+        switch t.cierre {
+        case "machineGoal":
+            if let objetivo = t.objetivoMedida, objetivo > 0 {
+                cierre = t.objetivoEsCalorias
+                    ? .calorias(objetivo: Int(objetivo), cubiertas: t.hechoMedida.map(Int.init))
+                    : .metros(objetivo: objetivo, cubiertos: t.hechoMedida)
+            } else {
+                // Un hito sin objetivo no es un hito de verdad (mismo criterio
+                // que `cierre(_:)` para `GuionSeries` más abajo): cierra el
+                // atleta.
+                cierre = .atleta
+            }
+        case "sessionClock", "formatClock":
+            if let total = t.ventanaTotal, total > 0 {
+                cierre = .caja(segundos: Int(total))
+            } else {
+                cierre = .atleta
+            }
+        default:
+            cierre = .atleta
+        }
         let total = max(1, t.rondaTotal ?? 1)
-        let i = min(max(0, (t.rondaN ?? 1) - 1), total - 1)
-        let hueca = GuionRuta.Estacion(nombre: "Estación", dosis: "", peso: 1, distanciaM: nil)
-        var ruta = Array(repeating: hueca, count: total)
-        ruta[i] = GuionRuta.Estacion(
-            nombre: t.etiqueta ?? f.lineTitle ?? "Estación",
-            dosis: t.dosis ?? f.detailLine ?? "",
-            peso: 1,
-            // El reloj sólo mide en los tramos de carrera. En una estación ciega
-            // no hay distancia que prometer y la vista se queda en una página.
-            distanciaM: t.modalidad == PrescriptionModality.run.rawValue ? t.objetivoMedida : nil
-        )
-        return GuionRuta.Estado(
-            ruta: ruta,
-            estacion: i,
+        return GuionEstaciones.Estado(
+            etiqueta: t.etiqueta ?? f.lineTitle ?? "Estación",
+            dosis: t.dosis ?? f.detailLine,
+            cierre: cierre,
+            esCarrera: esCarrera,
+            ritmoSecPorKm: t.ritmoSecPorKm,
+            cajaRestanteSegundos: t.ventanaQueda,
+            enEstacionSegundos: elapsed,
             // El crono TOTAL es la puntuación de una ruta, no el de la estación.
-            cronoS: f.sessionElapsed,
-            enEstacionS: elapsed
+            bloqueSegundos: f.sessionElapsed,
+            posicion: min(max(1, t.rondaN ?? 1), total),
+            total: total
         )
     }
 

@@ -33,13 +33,16 @@ import SwiftUI
 // de la ruta, así que tiene que seguir anunciado.
 //
 // POR QUÉ NO ES `GuionRuta`: ya existe un guion con ese nombre
-// (`FAHYBRIKCore/Watch/Guiones/GuionRuta.swift`), pero sirve al RELEVO POR
-// CABLE (`GuionDelEspejo` → `MirrorHUDView`, cuando el móvil manda el estado
-// por Watch Connectivity) y es un modelo más viejo y más pobre: sólo distingue
-// "tramo de carrera" de "estación ciega". El motor nativo SÍ conoce las cuatro
-// formas de cerrar un tramo (`LiveTramo.swift`). Reconciliar las dos
-// superficies cruza `PhoneMirrorService` y queda fuera de este cambio —
-// auditoría 18-ago, card 67.
+// (`FAHYBRIKCore/Watch/Guiones/GuionRuta.swift`) — un modelo más viejo y más
+// pobre que sólo distingue "tramo de carrera" de "estación ciega", sin las
+// cuatro formas de cerrar un tramo que sí conoce el motor nativo
+// (`LiveTramo.swift`). 20-ago — RECONCILIADO (card 67): `GuionDelEspejo` ya no
+// pasa por `GuionRuta` para el relevo por cable; su caso `.ruta` construye un
+// `GuionEstaciones.Estado` desde `MirrorTramo` y llama a esta misma
+// implementación, así que el reloj en solitario y el espejo pintan la MISMA
+// estación con la MISMA decisión. `GuionRuta.swift` sigue vivo sólo para el
+// escaparate de diseño en DEBUG (`GuionEscaparate.swift`), que no corre
+// entrenos reales.
 enum GuionEstaciones {
 
     /// Cómo se cierra ESTA estación — decide el sujeto, igual que en
