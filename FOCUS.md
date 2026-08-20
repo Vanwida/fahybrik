@@ -2,9 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-20** (guardar entrenos, los metros de la muñeca y la lectura del entreno)
+Última actualización: **2026-08-20** (MCP crea/edita microciclo de biblioteca)
 
 ## Ahora
+
+**111 · MCP receta de biblioteca (feat/mcp-microcycle-crud):** `create_microcycle` /
+`update_microcycle` escriben SIEMPRE en receta (`program_*_templates`), nunca en
+lo entregado. Completitud blocking; update resincroniza solo `scheduled`. V1
+sin plan personal ni publicar.
 
 **LA PRUEBA DE ALEX DEL 20-AGO — 8 cards, 7 cerradas.** Detalle en ClickUp 116
 a 123 y en DECISIONS 20-ago; aquí solo el estado.

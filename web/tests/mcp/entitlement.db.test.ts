@@ -1,8 +1,8 @@
 // EL PORTÓN COMERCIAL del conector: el club que no lo tiene contratado no saca
-// ni un dato por ninguna de las 16 tools (migración 0167, `withCoach`).
+// ni un dato por ninguna de las tools (migración 0167, `withCoach`).
 //
 // LO QUE MÁS IMPORTA de esta suite: que el portón cubre TODAS las tools y no las
-// que a alguien se le ocurrió listar. Las 16 se recorren tal y como el servidor
+// que a alguien se le ocurrió listar. Se recorren tal y como el servidor
 // las anuncia (`listTools`), y los argumentos de cada una se construyen desde su
 // `required`: una tool nueva sin portón, o con un argumento obligatorio que aquí
 // no se sabe rellenar, hace fallar la suite en vez de colarse sin probar.
@@ -46,11 +46,26 @@ function argValue(name: string, athleteId: number): unknown {
     case 'query':
       return 'sentadilla';
     case 'title':
+    case 'name':
       return 'Rodaje largo';
     case 'body':
       return 'Un texto cualquiera.';
     case 'blocks':
       return [{ title: 'Rodaje', items: [{ exercise_id: 1, prescription: RUN_90_Z2 }] }];
+    case 'weeks':
+      return [
+        {
+          days: [
+            {
+              weekday: 1,
+              blocks: [{ title: 'Rodaje', items: [{ exercise_id: 1, prescription: RUN_90_Z2 }] }],
+            },
+          ],
+        },
+      ];
+    case 'level_id':
+    case 'microcycle_id':
+      return 1;
     case 'communication':
       return {
         kind: 'focus',
@@ -124,11 +139,11 @@ describeWithDb('MCP · el portón del add-on (DB real)', () => {
     }
   });
 
-  test('sin fila de entitlement, las 16 tools se niegan con la frase y sin un dato', async () => {
+  test('sin fila de entitlement, las tools se niegan con la frase y sin un dato', async () => {
     const { client, close } = await connectAs(sinElClerkId);
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(16);
+      expect(tools).toHaveLength(19);
 
       for (const tool of tools) {
         const required = tool.inputSchema.required ?? [];
@@ -155,7 +170,7 @@ describeWithDb('MCP · el portón del add-on (DB real)', () => {
   });
 
   test('las escrituras negadas no dejan rastro: el atleta sigue sin sesiones ni notas', async () => {
-    // El portón corta ANTES del cuerpo, así que ninguna de las siete escrituras
+    // El portón corta ANTES del cuerpo, así que ninguna de las escrituras
     // puede haber tocado nada. Se comprueba en la tabla, no en la respuesta.
     const sesiones = await sql<Array<{ n: string }>>`
       select count(*)::text as n from workout_assignments where athlete_id = ${sinEl.athleteId}

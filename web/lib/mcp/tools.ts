@@ -38,6 +38,7 @@ import { registerPlanTools } from './tools-plan';
 import { registerPublishTools } from './tools-publish';
 import { registerRacesTools } from './tools-races';
 import { registerWriteTools } from './tools-write';
+import { registerMicrocycleTools } from './tools-microcycle';
 import {
   athleteResumen,
   athletesResumen,
@@ -153,6 +154,9 @@ export function registerCoachTools(server: McpServer): void {
   // Y las del día que SÍ escriben. Van al final a propósito: el orden en que se
   // registran es el orden en que las lee el asistente, y primero se mira.
   registerWriteTools(server);
+  // Receta de biblioteca, entera. Distinta superficie que el día entregado:
+  // escribe program_*_templates, nunca workout_assignments.
+  registerMicrocycleTools(server);
   // Lo último, porque es lo último del ciclo: tocar el plan es privado hasta que se
   // publica, y publicar y avisar es lo que ya no se deshace con otra frase.
   registerPublishTools(server);

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type { ProgramMonthUpdate, MonthRow } from '@fahybrid/shared/domain/coach/program-months';
 import {
@@ -130,10 +130,26 @@ function emptyWeekSlotsJson(): any {
  *
  * Local (no shared): usa `normalizeWeekSlots` de este surface.
  */
+/**
+ * Corre `fn` en una transacción del pool, o DIRECTO si `client` ya es un `tx`
+ * (postgres.js no tiene `begin` anidado: el callback de `sql.begin` expone
+ * `savepoint`). Así el botón del panel sigue igual (pool → begin propio) y un
+ * compositor (MCP, importador) puede meter el cascarón en SU transacción.
+ */
+async function withOwnOrAmbientTx<T>(
+  client: Sql | TransactionClient,
+  fn: (tx: Sql | TransactionClient) => Promise<T>,
+): Promise<T> {
+  if (typeof (client as Sql).begin === 'function') {
+    return (client as Sql).begin((tx) => fn(tx)) as Promise<T>;
+  }
+  return fn(client);
+}
+
 export async function createMonthTemplateWithEmptyWeeks(params: {
   coach_id: number | bigint;
   payload: unknown;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; weeks: Array<{ id: string; week_index: number }> }> {
   const parsed = programMonthScratchSchema.safeParse(params.payload);
   if (!parsed.success) {
@@ -144,10 +160,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
   const coach_id = Number(params.coach_id);
   const slotsJson = emptyWeekSlotsJson();
 
-  let monthId = '';
-  const weeks: Array<{ id: string; week_index: number }> = [];
-
-  await client.begin(async (tx) => {
+  return withOwnOrAmbientTx(client, async (tx) => {
     // Level must be one of THIS coach's athlete_levels (level_id is the value).
     const levels = await tx<Array<{ id: string }>>`
       select id::text from athlete_levels
@@ -166,7 +179,8 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
       )
       returning id::text
     `;
-    monthId = monthRows[0]!.id;
+    const monthId = monthRows[0]!.id;
+    const weeks: Array<{ id: string; week_index: number }> = [];
 
     for (let i = 0; i < body.week_count; i++) {
       const weekName = `${body.name} · Semana ${i + 1}`;
@@ -187,9 +201,9 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
         values (${Number(monthId)}, ${Number(weekId)}, ${i})
       `;
     }
-  });
 
-  return { id: monthId, weeks };
+    return { id: monthId, weeks };
+  });
 }
 
 /**
@@ -463,7 +477,7 @@ export type MonthTemplateWithWeeksOwned = Omit<MonthTemplateWithWeeks, 'month'> 
 export async function loadMonthTemplateWithWeeks(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<MonthTemplateWithWeeksOwned | null> {
   const client = params.client ?? defaultSql;
 
