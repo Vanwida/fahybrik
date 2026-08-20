@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-20 · El MCP del microciclo escribe la receta, nunca lo entregado
+
+**Qué se decidió (card 93, aplicada en 111):** la receta (`program_month_templates` / `program_week_templates`) sigue existiendo aparte, siempre. Las tools `create_microcycle` y `update_microcycle` escriben SIEMPRE ahí. Lo entregado (`workout_assignments`) es un segundo acto: materializar, y al reeditar, `resyncWeekTemplateAssignments` (solo `scheduled`).
+
+**Por qué:** un JSON que escribiera días directo en el atleta (como `create_session`) agrandaría el hueco receta/entregado. El destino final es que el atleta lo ejecute, así que las tres puertas del día MCP (Zod → catálogo → completitud blocking) mandan, más estrictas que el editor de receta de hoy.
+
+**NO hacer:** no escribir en `workout_assignments` desde estas tools; no publicar al crear; no construir alcance personal (`athlete_id` set) en esta vuelta; no llamar `confirmImport` tal cual (sus puertas no llevan completitud blocking).
+
+**Dónde vive:** `web/lib/mcp/tools-microcycle.ts` + `microcycle-write.ts`.
+
+---
+
 ## 2026-08-20 · La lectura de un entreno la elige su FORMATO, y correr manda por tiempo
 
 **Qué pasó:** al acabar una sesión de fuerza y trineos de 47 minutos, la app enseñó a pantalla completa «RITMO MEDIO · 0:00 /km · corriste a una sola intensidad», y ni una palabra del peso muerto, el remo ni los trineos. La lectura de carrera se elegía preguntando «¿hay algún tramo de correr?», y seis minutos de calentamiento bastaban.
