@@ -18,9 +18,28 @@ fila) y por eso se vio. **Arreglado en la BASE, no en la app**: la 0203 devuelve
 el índice a llano (los NULL ya son distintos entre sí, el predicado no aportaba
 nada), así que no hace falta desplegar ni compilar y el quinto escritor que
 alguien añada tampoco cae. Reproducido contra prod con la sentencia literal en
-transacción revertida, antes y después. Ley: DECISIONS 20-ago. Falta: prueba de
-regresión (`web/tests/sync/workout-execution.db.test.ts`, en curso) — no existía
-NINGUNA prueba del guardado de ejecuciones, por eso vivió 7 días.
+transacción revertida, antes y después. Ley: DECISIONS 20-ago. Prueba de regresión hecha
+(`web/tests/sync/workout-execution.db.test.ts`, 73bcd9bd): 5 casos, verificada en
+ROJO con el índice parcial (4 de 5 caen con el 42P10) y en verde con el llano. No
+existía NINGUNA prueba del guardado, por eso vivió 7 días. Al arreglarlo, el
+iPhone vació su cola: entraron 8 entrenos (18, 19 y seis del 20).
+
+**Metros de la muñeca (119, 2fc5ecfa):** el reloj mandaba su distancia por el
+canal del espejo desde siempre y el teléfono no leía ese tipo de mensaje — caía
+al `default`. En cinta sin conexión eso es cero metros y cero ritmo (el podómetro
+del móvil está apagado a propósito: no va en el cuerpo). Ahora se recoge, sellada
+`.healthkit`, y `RunPhoneSensorPlan` gana `wristIsRecording` para que el podómetro
+se aparte mientras la muñeca emite — si no, en calle contarían los dos. La prueba
+vieja sólo comprobaba que el paquete VIAJA: confianza falsa. La nueva verifica que
+llega al motor, en rojo y en verde. 1583 tests. NO instalado en el iPhone.
+
+**Abiertas de la prueba de hoy:** 117 (una lectura rara de un sensor tumba el
+POST entero: el esquema rechaza en vez de encajar en banda), 118 (la lectura
+enseña 0:00 de ritmo en una sesión de fuerza y no cuenta la fuerza), 120 (un
+entreno libre reenviado se guarda dos veces: sin asignación no hay red), 121 (un
+entreno subido tarde se archiva en el día de la subida, y `ended_at` se sella al
+guardar, no al terminar), 122 (el crono arranca con el toque, no con la máquina;
+la cinta no se cierra sola al llegar a sus metros mientras el remo sí).
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
 (ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
