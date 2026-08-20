@@ -2,9 +2,31 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-20** (claro/oscuro del panel)
+Última actualización: **2026-08-20** (reloj auditado + 4 arreglos; prueba real mañana)
 
 ## Ahora
+
+**El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
+(ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
+de mercado). Cuatro arreglos: (1) cards 72+102 eran UNA raíz — `deliverEnd`
+mandaba el cierre una vez sin ACK ni reintento y el auto-reparo de `start()`
+solo cubría `.ending`; ahora reintenta hasta ACK, repara CUALQUIER estado
+`!= .idle` y hay vigía de 5 min que autoguarda (45 s cortaba entrenos reales).
+(2) card 101 en DOS pasos: la guarda del podómetro era código inalcanzable, y
+el primer arreglo NO cubría bloques mixtos (se pliegan a `kind = .reps`) —
+ahora pregunta `tramoIsRun`. (3) `tramoGpsStartDistance`, gemelo del de ergo y
+cinta: cada carrera del bloque empieza en cero. (4) la muñeca enseña metros y
+ritmo en una estación de correr. Verificado: los 2 targets compilan, 1573 tests
+en verde. **La card 67 estaba medio desfasada** (el EMOM ya estaba bien) y **la
+70 es una reversión de decisión, no un bug** — anotado en sus cards.
+Rediseño propuesto en el doble (`watch-legible`, 5 escenarios): suelo de 16 pt,
+el crono deja de caer a 44 pt por tener 5 glifos, corona, bloqueo por agua,
+«ahora/después», terminar al alcance. **Pendiente del visto bueno de Alex.**
+
+**Mañana 21-ago Alex prueba en real (asignación 482, card 107):** 4×1000 m a
+race pace + ski/burpees/remo/wall balls. Los arreglos de arriba son justo lo
+que esa sesión necesita. OJO: el título («Recuperación activa») NO coincide con
+el contenido, y pasa en 4 de los 7 días de esa semana — decisión de Alex.
 
 **Claro y oscuro del panel (106, `feat/coach-theme-toggle`):** el botón
 de siempre vuelve a la barra. Acento = piel del club, no naranja de
