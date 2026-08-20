@@ -35,6 +35,36 @@ export { SEGMENT_MODALITIES, type SegmentModality };
 export const RUN_CADENCE_MIN_SPM = 100; // below this is walking, not a run cadence
 export const RUN_CADENCE_MAX_SPM = 250; // generous sprint ceiling
 export const INCLINE_MAX_PCT = 30; // treadmill tops ~15; headroom for steep trail
+export const HR_MIN_BPM = 30; // below this is not a working pulse
+export const HR_MAX_BPM = 260; // above this is an artifact, not a heart
+
+/**
+ * Gate a raw heart rate (bpm) to the stored band, rounding to the integer column.
+ * Out-of-band or non-finite → null (honest "unknown", never a clamped fabrication).
+ *
+ * WHY THIS EXISTS AND THE SCHEMA NO LONGER ENFORCES THE BAND. A strap artifact —
+ * a 300 bpm spike as the contact breaks — used to fail `segmentInputSchema`, and a
+ * Zod failure rejects the WHOLE request: one bad number in one segment and the
+ * athlete's entire 47-minute session came back 400 and was never stored. The band
+ * belongs here, where an impossible reading costs its own field and nothing else,
+ * exactly like cadence and incline above.
+ */
+export function sanitizeHrBpm(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  const r = Math.round(v);
+  return r >= HR_MIN_BPM && r <= HR_MAX_BPM ? r : null;
+}
+
+/**
+ * Gate a 0…1 confidence to its band. Out-of-band or non-finite → null. Same
+ * reason as `sanitizeHrBpm`: a confidence is computed by the on-device sensor
+ * pipeline, and an off-by-a-rounding value must cost its own field, never the
+ * whole session.
+ */
+export function sanitizeConfidence(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  return v >= 0 && v <= 1 ? v : null;
+}
 
 /**
  * Gate a raw running cadence (steps/min) to the stored band, rounding to the
@@ -121,12 +151,12 @@ export const setInputSchema = z.object({
   rest_s: z.number().int().min(0).optional(),
   // Sensor fases 2–3 (mig 0175/0176). Optional: older clients omit.
   reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
-  reps_confidence: z.number().min(0).max(1).nullish(),
+  reps_confidence: z.number().nullish(),
   mean_velocity_first_m_s: z.number().nonnegative().nullish(),
   mean_velocity_last_m_s: z.number().nonnegative().nullish(),
   velocity_loss_pct: z.number().nonnegative().nullish(),
   rom_m: z.number().nonnegative().nullish(),
-  velocity_confidence: z.number().min(0).max(1).nullish(),
+  velocity_confidence: z.number().nullish(),
 });
 
 export type SetInput = z.infer<typeof setInputSchema>;
@@ -148,10 +178,20 @@ export const segmentInputSchema = z.object({
   // an erg stroke → its own column, never stroke_rate_spm); incline_pct = average
   // treadmill/uphill grade %. Both range-gated server-side (see sanitize*), so an
   // out-of-band device value lands as null instead of tripping the DB CHECK.
-  run_cadence_spm: z.number().nonnegative().optional(),
-  incline_pct: z.number().nonnegative().optional(),
-  avg_hr: z.number().int().min(30).max(260).optional(),
-  max_hr: z.number().int().min(30).max(260).optional(),
+  // Tampoco se valida la banda de estos dos, por lo mismo. `incline_pct` además
+  // llega CON SIGNO: el estándar FTMS manda la pendiente como entero con signo, así
+  // que una cinta en bajada mandaba un negativo y el envío entero se caía. La
+  // bajada se guarda como hueco (la columna sólo admite de 0 a 30), que es una
+  // pérdida honesta y acotada — no un entreno perdido. Ver card 117.
+  run_cadence_spm: z.number().optional(),
+  incline_pct: z.number().optional(),
+  // NO SE VALIDA LA BANDA AQUÍ, A PROPÓSITO. Rechazar en el esquema tira la
+  // petición ENTERA: un pico de 300 ppm al despegarse la cinta del pecho borraba
+  // los 47 minutos del atleta. La banda la aplica `sanitizeHrBpm` al insertar, así
+  // que una lectura imposible se queda sin ese campo y no se lleva el entreno por
+  // delante. Igual que la cadencia y la pendiente.
+  avg_hr: z.number().optional(),
+  max_hr: z.number().optional(),
   // Provenance of avg_hr/max_hr specifically (mig 0153) — which device measured
   // the pulse, resolved client-side by the live engine's HR-ownership latch.
   // Distinct from `source` below (the TRAMO's movement provenance). Nullish so a
@@ -171,9 +211,9 @@ export const segmentInputSchema = z.object({
   // Sensor fases 1–2 (mig 0174/0175).
   sensor_work_s: z.number().nonnegative().nullish(),
   sensor_rest_s: z.number().nonnegative().nullish(),
-  sensor_timing_confidence: z.number().min(0).max(1).nullish(),
+  sensor_timing_confidence: z.number().nullish(),
   reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
-  reps_confidence: z.number().min(0).max(1).nullish(),
+  reps_confidence: z.number().nullish(),
   is_structural: z.boolean().optional(),
   // EMOM completion (mig 0134). How many of the EMOM's intervals the athlete
   // completed the prescribed work in, and how many were prescribed — the honest
@@ -439,8 +479,8 @@ export async function ingestExecutionSegments(args: {
         ${seg.stroke_rate_spm ?? null},
         ${sanitizeRunCadenceSpm(seg.run_cadence_spm)},
         ${sanitizeInclinePct(seg.incline_pct)},
-        ${seg.avg_hr ?? null},
-        ${seg.max_hr ?? null},
+        ${sanitizeHrBpm(seg.avg_hr)},
+        ${sanitizeHrBpm(seg.max_hr)},
         ${seg.hr_source ?? null},
         ${seg.calories ?? null},
         ${repsActual},
@@ -458,9 +498,9 @@ export async function ingestExecutionSegments(args: {
         ${leg.phase},
         ${seg.sensor_work_s ?? null},
         ${seg.sensor_rest_s ?? null},
-        ${seg.sensor_timing_confidence ?? null},
+        ${sanitizeConfidence(seg.sensor_timing_confidence)},
         ${seg.reps_source ?? null},
-        ${seg.reps_confidence ?? null},
+        ${sanitizeConfidence(seg.reps_confidence)},
         ${rawLap},
         ${seg.source ?? null},
         ${contextFormat},
@@ -571,12 +611,12 @@ export async function ingestExecutionSegments(args: {
               ${s.tempo ?? null},
               ${s.rest_s ?? null},
               ${s.reps_source ?? null},
-              ${s.reps_confidence ?? null},
+              ${sanitizeConfidence(s.reps_confidence)},
               ${s.mean_velocity_first_m_s ?? null},
               ${s.mean_velocity_last_m_s ?? null},
               ${s.velocity_loss_pct ?? null},
               ${s.rom_m ?? null},
-              ${s.velocity_confidence ?? null}
+              ${sanitizeConfidence(s.velocity_confidence)}
             )
           `;
         }
