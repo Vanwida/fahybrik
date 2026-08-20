@@ -10,6 +10,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-20 · La lectura de un entreno la elige su FORMATO, y correr manda por tiempo
+
+**Qué pasó:** al acabar una sesión de fuerza y trineos de 47 minutos, la app enseñó a pantalla completa «RITMO MEDIO · 0:00 /km · corriste a una sola intensidad», y ni una palabra del peso muerto, el remo ni los trineos. La lectura de carrera se elegía preguntando «¿hay algún tramo de correr?», y seis minutos de calentamiento bastaban.
+
+**Decidido:**
+
+1. **Qué historia se cuenta la decide el formato de la sesión**, no la presencia de una modalidad. Correr manda cuando se lleva **más de la mitad del tiempo medido** (el tiempo es la vara honesta: es lo que el atleta pasó haciendo cada cosa, y no depende de que un aparato midiera metros). Empatar no es mandar. Sin ninguna duración, se cuenta por número de tramos.
+2. **Sin metros medidos no hay lectura de carrera.** Toda ella habla de ritmo, y el ritmo son metros entre segundos: el 0:00 salía de dividir entre cero. Un cero afirma algo falso; un hueco dice la verdad.
+3. **Se lee lo que se HIZO, no lo que se pidió.** La plantilla no entra en la decisión: quien se salta media sesión no debe recibir la lectura de la sesión que no hizo.
+4. **La lectura de una sesión son cuatro capas**, en este orden: cabecera (qué, cuándo, entera o a medias) · un **sujeto elegido por el formato** (tiempo total en For Time, rondas en AMRAP, rondas completadas en EMOM, volumen movido en fuerza, duración en un cronómetro) · el **desglose bloque a bloque en el orden en que pasó, cada uno en su propio idioma** (correr en metros y ritmo, ergo en ritmo por 500, fuerza en series × reps × carga, funcional en repeticiones) · y al final, separado, **lo que dijo el atleta** (esfuerzo, si fue como esperaba, molestia), que es lo único que no es una medida. Las zonas de pulso, si se midieron, entre el desglose y lo que dijo.
+
+**NO hacer:** no pintar un número que no se midió, en ninguna de las capas — ni cero, ni guion, ni «0:00». No contar una sesión mixta con el vocabulario de una sola de sus modalidades. No elegir la lectura por la plantilla.
+
+**Dónde vive:** la regla de enrutado en `LecturaDeCarreraDesdeDetalle`; la lectura de las cuatro capas, propuesta en el doble (`/es/design`, pantalla `lectura-sesion`) antes de tocar Swift.
+
+---
+
 ## 2026-08-20 · El índice de «una ejecución por asignación» es LLANO; un índice parcial rompe el guardado entero
 
 **Qué pasó:** la 0191 (13-ago, «un entreno de Apple Salud es una sesión aunque nadie lo prescribiera») hizo `workout_executions.assignment_id` nulable y, de paso, cambió `workout_executions_assignment_unique` por un índice **parcial** (`where assignment_id is not null`). Postgres no infiere un índice parcial desde un `on conflict (assignment_id)` que no repita su predicado: falla al PLANIFICAR con 42P10, con cualquier payload. Los cuatro escritores de la tabla — cierre de entreno de la app (que es también dobles y entreno libre), Apple Salud, Garmin y Polar — quedaron rotos ese mismo minuto. Desde el 13-ago 07:11 hasta el 20-ago no se guardó ni un entreno. El atleta solo veía «No se ha guardado. Reintenta.», y el reintento fallaba igual.
