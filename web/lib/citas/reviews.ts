@@ -71,6 +71,7 @@ interface AthleteReviewRow {
   full_name: string;
   review_cadence: ReviewCadence;
   created_at: Date;
+  coach_id: string | null;
 }
 
 /** Carga el atleta + su usuario. Ownership-gated cuando se pasa coach_id. */
@@ -80,7 +81,7 @@ async function loadAthlete(
 ): Promise<AthleteReviewRow | null> {
   const rows = await sql<AthleteReviewRow[]>`
     select a.id::text as athlete_id, u.id::text as user_id, u.email, a.full_name,
-           a.review_cadence, a.created_at
+           a.review_cadence, a.created_at, a.coach_id::text as coach_id
     from athletes a
     join users u on u.id = a.user_id
     where a.id = ${Number(athlete_id)}
@@ -280,6 +281,7 @@ export async function bookAthleteReview(args: {
     durationMinutes: appointment.duration_minutes,
     athleteEmail: athlete.email,
     athleteName: athlete.full_name,
+    coach_id: athlete.coach_id != null ? BigInt(athlete.coach_id) : null,
   });
   if (meeting.meet_link) {
     await sql`

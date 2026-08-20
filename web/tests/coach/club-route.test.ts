@@ -25,7 +25,7 @@ const { POST: postSubida } = await import('@/app/api/coach/club/logo/subida/rout
 const { POST: postConfirmar } = await import('@/app/api/coach/club/logo/confirmar/route');
 const { DELETE: deleteLogo } = await import('@/app/api/coach/club/logo/route');
 
-const empty = { name: null, logo_url: null, accent_hex: null };
+const empty = { name: null, logo_url: null, accent_hex: null, notify_email: null };
 
 function session(coach_id: bigint) {
   return { coach_id } as Awaited<ReturnType<typeof getCoachSession>>;
@@ -122,6 +122,7 @@ describe('PATCH /api/coach/club', () => {
       name: 'North Box',
       logo_url: null,
       accent_hex: '#112233',
+      notify_email: null,
     });
     const res = await PATCH(
       jsonReq('http://localhost/api/coach/club', 'PATCH', {
@@ -134,6 +135,49 @@ describe('PATCH /api/coach/club', () => {
       name: 'North Box',
       accent_hex: '#112233',
     });
+  });
+
+  test('guarda el correo de avisos del coach de la sesión', async () => {
+    vi.mocked(getCoachSession).mockResolvedValue(session(BigInt(7)));
+    vi.mocked(updateClubSkin).mockResolvedValue({
+      name: null,
+      logo_url: null,
+      accent_hex: null,
+      notify_email: 'avisos@northbox.test',
+    });
+    const res = await PATCH(
+      jsonReq('http://localhost/api/coach/club', 'PATCH', {
+        notify_email: '  Avisos@NorthBox.test  ',
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(updateClubSkin).toHaveBeenCalledWith(BigInt(7), {
+      notify_email: 'avisos@northbox.test',
+    });
+  });
+
+  test('vaciar el correo de avisos es null, no un fallback', async () => {
+    vi.mocked(getCoachSession).mockResolvedValue(session(BigInt(7)));
+    vi.mocked(updateClubSkin).mockResolvedValue({
+      name: null,
+      logo_url: null,
+      accent_hex: null,
+      notify_email: null,
+    });
+    const res = await PATCH(
+      jsonReq('http://localhost/api/coach/club', 'PATCH', { notify_email: '' }),
+    );
+    expect(res.status).toBe(200);
+    expect(updateClubSkin).toHaveBeenCalledWith(BigInt(7), { notify_email: null });
+  });
+
+  test('correo de avisos que no vale: 422 y no escribe', async () => {
+    vi.mocked(getCoachSession).mockResolvedValue(session(BigInt(7)));
+    const res = await PATCH(
+      jsonReq('http://localhost/api/coach/club', 'PATCH', { notify_email: 'hola' }),
+    );
+    expect(res.status).toBe(422);
+    expect(updateClubSkin).not.toHaveBeenCalled();
   });
 });
 

@@ -1,23 +1,23 @@
 'use client';
 
 // V2Shell — the client chrome around every dashboard page: the scoped FLEXR
-// theme root (`.v2-root`, tema claro único — el toggle murió con el rediseño),
-// the floating sidebar (desktop), the mobile bottom nav (< lg) and a slim top
-// utility bar holding the CLUB brand (mobile only; the sidebar carries it on
-// desktop) and the account menu. Pages render inside <main>. The font variables
+// theme root (V2ThemeProvider → `.v2-root[data-theme]`), the floating sidebar
+// (desktop), the mobile bottom nav (< lg) and a slim top utility bar holding
+// the CLUB brand (mobile only; the sidebar carries it on desktop), the theme
+// toggle and the account menu. Pages render inside <main>. The font variables
 // (Bricolage + Figtree) arrive from the server layout via `font_vars`, and the
-// club skin (nombre, logo, acento) llega como DATO del coach: clubAccentCssVars
-// repinta --v2-accent* sobre el cromo neutro FLEXR (vacío = tinta).
+// club skin (nombre, logo, acento) llega como DATO del coach: el provider
+// clava --v2-accent* de la familia clara u oscura sobre el cromo neutro
+// FLEXR (vacío = tinta, nunca naranja de sistema).
 
-import type { CSSProperties } from 'react';
 import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
-import { clubAccentCssVars } from '@fahybrid/shared/domain/coach/club-skin';
 import { Link } from '@/i18n/navigation';
 import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
+import { V2ThemeProvider } from '@/components/v2/theme/V2ThemeProvider';
+import { ThemeToggle } from '@/components/v2/theme/ThemeToggle';
 import { V2Sidebar } from '@/components/v2/V2Sidebar';
 import { V2MobileNav } from '@/components/v2/V2MobileNav';
 import { AccountMenu } from '@/components/v2/AccountMenu';
-import { cn } from '@/lib/utils';
 
 export function V2Shell({
   coach_name,
@@ -39,10 +39,9 @@ export function V2Shell({
   font_vars?: string;
   children: React.ReactNode;
 }) {
-  const accentStyle = clubAccentCssVars(club.accent_hex) as CSSProperties;
   const brand = clubBrandLabel(club.name);
   return (
-    <div className={cn('v2-root', font_vars)} style={accentStyle}>
+    <V2ThemeProvider className={font_vars} accentHex={club.accent_hex}>
       <V2Sidebar club={club} unread_messages={unread_messages} leads_nuevo={leads_nuevo} />
       {/* El sidebar flotante ocupa 16 + 236 px; el contenido arranca tras 16 px más. */}
       <div className="flex min-h-[100dvh] min-w-0 flex-col lg:ml-[268px]">
@@ -57,6 +56,7 @@ export function V2Shell({
             />
           </Link>
           <div className="ml-auto flex items-center gap-3">
+            <ThemeToggle />
             <AccountMenu
               coach_name={coach_name}
               coach_email={coach_email}
@@ -79,6 +79,6 @@ export function V2Shell({
           leads_nuevo={leads_nuevo}
         />
       </div>
-    </div>
+    </V2ThemeProvider>
   );
 }

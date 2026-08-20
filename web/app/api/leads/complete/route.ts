@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     const jw = await joinWaitlist(res.id); // idempotent; returns the lead's contact for the email
     // Waitlist-joined email instead of the booking confirmation; internal notify stays.
     await Promise.allSettled([
-      sendLeadNotification(input),
+      sendLeadNotification(input, coachId),
       jw
         ? sendWaitlistJoinedEmail({
             email: jw.email,
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
   // senders return a result rather than throwing. The confirmation carries the booking link
   // (/es/cita/[token]) so a lead who didn't pick a slot on the final screen can still book.
   await Promise.allSettled([
-    sendLeadNotification(input),
+    sendLeadNotification(input, coachId),
     sendLeadConfirmation(input, res.token, coachName, coachId),
   ]);
 

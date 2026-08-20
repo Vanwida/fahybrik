@@ -1,12 +1,11 @@
 // Lead funnel emails (Resend). Two sends on full submit:
-//   • sendLeadNotification  — internal alert to the coach team (LEADS_NOTIFY_EMAIL,
-//     default hello@fahybrid.com) with the full answers formatted for the call.
+//   • sendLeadNotification  — aviso interno al correo del club (coaches.club_notify_email).
+//     Vacío = no se envía. Nunca hello@ ni LEADS_NOTIFY_EMAIL.
 //   • sendLeadConfirmation  — short receipt to the lead, naming THAT lead's coach.
 //
 // SENDER: reuses AUTH_CONFIG.resendFromEmail() — the ALREADY-VERIFIED Resend domain
 // (aistudios.pro). fahybrid.com is NOT a verified Resend sender yet, so we do not send
-// FROM it (would bounce). Internal notification still goes TO hello@fahybrid.com
-// (recipients need no verification). Switch the from-address by setting RESEND_FROM_EMAIL
+// FROM it (would bounce). Switch the from-address by setting RESEND_FROM_EMAIL
 // once fahybrid.com is verified in Resend — no code change needed.
 //
 // Both sends are GUARDED: if RESEND_API_KEY is unset they log + return {sent:false}
@@ -22,7 +21,7 @@ import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 export interface LeadEmailResult {
   sent: boolean;
-  skipped_reason?: 'resend_not_configured' | 'resend_send_failed';
+  skipped_reason?: 'resend_not_configured' | 'resend_send_failed' | 'no_inbox';
 }
 
 // Local HTML escaper (kept small + local; mirrors lib/partner/email.ts).
@@ -35,8 +34,16 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Internal notification to the coach team with the full lead summary. */
-export async function sendLeadNotification(input: LeadSubmitInput): Promise<LeadEmailResult> {
+/** Internal notification to the coach of THIS lead. Vacío = no se envía. */
+export async function sendLeadNotification(
+  input: LeadSubmitInput,
+  coachId?: bigint | number | null,
+): Promise<LeadEmailResult> {
+  const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
+  const to = await resolveClubNotifyEmail(coachId ?? null);
+  if (!to) {
+    return { sent: false, skipped_reason: 'no_inbox' };
+  }
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
     console.warn('[leads/email] RESEND_API_KEY not configured — skipping lead notification', {
@@ -44,7 +51,6 @@ export async function sendLeadNotification(input: LeadSubmitInput): Promise<Lead
     });
     return { sent: false, skipped_reason: 'resend_not_configured' };
   }
-  const to = process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
   const nombre = leadFirstName(input.nombre) || 'Sin nombre';
   const grouped = groupLeadSummary(summarizeLead(input as Record<string, unknown>));
 

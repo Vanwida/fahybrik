@@ -10,6 +10,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-20 · El panel vuelve a ser claro u oscuro; el acento es la piel del club
+
+**El hueco:** el rediseño FLEXR (19-ago) dejó el panel en claro perla único y mató el botón. Alex solo veía claro. El bloque `[data-theme="dark"]` seguía en CSS, pero solo lo usaban los mockups de la guía (app del atleta), con naranja de sistema y Archivo itálica.
+
+**Decidido:** el panel del coach vuelve a poder ser claro u oscuro. El botón es el de siempre (`ThemeToggle` en la barra, junto a la cuenta). Lo elegido se guarda en `fahybrid:v2-theme`; si no hay nada, sigue el sistema; si el sistema tampoco dice, el claro FLEXR. El acento lo pone la piel del club (`clubAccentCssVars` con la familia de esa superficie). Vacío = tinta FLEXR, nunca naranja de sistema. El cromo sigue siendo FLEXR (Bricolage + Figtree, perla / casi negro ya existente). Landing, app iOS y reloj no cambian: siguen oscuros.
+
+**NO hacer:** no inventar una paleta. no tocar iOS, watch ni landing. no meter el toggle en un menú extra. no devolver el naranja al cromo del panel (solo como piel del club). no pintar Archivo itálica en el panel oscuro (eso es la voz de la app, y se queda en `.guia-phone` / `.guia-win`).
+
+---
+
+## 2026-08-19 · El correo de avisos es del club; hello@ no es el buzón de nadie
+
+**El hueco:** leads, citas y bajas del club salían a `LEADS_NOTIFY_EMAIL` o, si faltaba, a `hello@fahybrid.com`. Un club nuevo recibía avisos en nuestro buzón o, peor, no sabía dónde iban.
+
+**Decidido:** el destino es dato del club (`coaches.club_notify_email`, se edita en `/es/club` como «Correo que recibe avisos»). Vacío = no se envía. El `.ics` de una cita usa ese correo como ORGANIZER; si el club no lo ha puesto, el From de Resend. En el evento de Google, sin correo del club, solo entra el atleta/lead.
+
+**NO hacer:** no volver a leer `LEADS_NOTIFY_EMAIL` ni caer a `hello@fahybrid.com` en un envío al coach. hello@ sigue siendo el contacto público del producto (landing, legal, feedback de la app), no el inbox de un club. El correo de avisos no es la piel (0199) ni el destino del cuestionario de alta (0201).
+
+---
+
 ## 2026-08-19 · La personalización del club tiene DOS niveles: piel viva para todos, app propia solo por encargo
 
 **El contexto (Alex, 19 ago):** el panel «Tu club» se quedaba corto — dejaba cambiar nombre, logo y color, pero solo repintaba el dashboard. La app del atleta seguía naranja fija, así que un club con su color veía su marca en el panel del entrenador y la nuestra en el móvil de sus atletas, que es donde de verdad se mira.

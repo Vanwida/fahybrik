@@ -2,9 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-19** (piel de club a los dispositivos; rediseño FLEXR EN PRODUCCIÓN)
+Última actualización: **2026-08-20** (claro/oscuro del panel)
 
 ## Ahora
+
+**Claro y oscuro del panel (106, `feat/coach-theme-toggle`):** el botón
+de siempre vuelve a la barra. Acento = piel del club, no naranja de
+sistema. Landing / iOS / reloj no se tocan. Ley: DECISIONS 20-ago.
+
+**Correo de avisos del club (78, `feat/coach-inbox-email`):** leads, citas
+y bajas van a `coaches.club_notify_email`. Vacío = no se manda. hello@ y
+`LEADS_NOTIFY_EMAIL` ya no son el buzón de nadie. Campo en `/es/club`.
+Ley: DECISIONS 19-ago «El correo de avisos es del club». No iOS. No main.
 
 **Piel del club a los dispositivos (19-ago, en trunk):** el coach elige UN
 color y el servidor deriva la familia entera para las DOS superficies (panel
@@ -29,8 +38,8 @@ ninguna pantalla de la app; un solo logo para dos fondos.
 
 **Rediseño FLEXR del panel (19-ago, COMPLETO y EN PRODUCCIÓN):** el panel
 entero adopta FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C):
-tema claro perla único (muere dark+naranja+itálica del cromo; DECISIONS.md
-2026-08-19), Bricolage+Figtree, sidebar flotante con slot de tenant, casa =
+cromo FLEXR (claro perla; el oscuro y el botón vuelven 20-ago),
+Bricolage+Figtree, sidebar flotante con slot de tenant, casa =
 /atletas (toggle tarjetas/tabla, chips-filtro, franja de triage; /hoy = cola),
 todas las pantallas restyleadas, cero em dash en copy (417 sust.), QA con
 Chrome sobre prod hecho. El «bg raro movido» tenía DOS raíces, ambas
