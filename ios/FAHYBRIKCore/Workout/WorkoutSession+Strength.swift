@@ -71,7 +71,19 @@ extension WorkoutSession {
                 status: "done",                        // assumed until touched/skipped
                 confirmed: false,
                 tempo: s.tempo,
-                restS: s.restS
+                // EL DESCANSO DEL BLOQUE VALE PARA SUS SERIES (card 110).
+                //
+                // El coach escribe «descanso 2:00» UNA vez para el ejercicio, no
+                // repetido en cada serie: así lo guarda el plan y así se lee. Aquí
+                // solo se miraba el descanso de la serie, que en un plan normal
+                // viene vacío — y sin segundos no arranca la cuenta atrás, así que
+                // no había ni descanso visible ni aviso al acabarlo. El 20-ago Alex
+                // hizo peso muerto con 120 s prescritos y no vio ninguno.
+                //
+                // El de la serie sigue mandando cuando existe: una serie puede pedir
+                // su propio descanso (la última de una bajada, por ejemplo) y eso es
+                // más específico que el del bloque.
+                restS: s.restS ?? seg.prescription?.restS
             )
         }
     }

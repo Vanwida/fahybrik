@@ -1834,7 +1834,13 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                restS: baseSet?.restS,
+                // Su DESCANSO — el de la serie, y si no el del EJERCICIO, igual que
+                // hacen la intensidad y la modalidad justo arriba. Era el único
+                // campo que no bajaba a mirar el nivel del ejercicio, y el coach
+                // escribe «descanso 2:00» UNA vez por movimiento, no repetido dentro
+                // de cada serie: sin este respaldo, las pausas que el plan prescribe
+                // entre estaciones desaparecían. Card 110.
+                restS: baseSet?.restS ?? item.prescription?.restS,
                 tempo: baseSet?.tempo,
                 // The MOVEMENT label shown for this minute — the coach's set note, else
                 // the exercise name. Never nil, so each minute names its own movement.
@@ -1990,7 +1996,13 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                restS: baseSet?.restS,
+                // Su DESCANSO — el de la serie, y si no el del EJERCICIO, igual que
+                // hacen la intensidad y la modalidad justo arriba. Era el único
+                // campo que no bajaba a mirar el nivel del ejercicio, y el coach
+                // escribe «descanso 2:00» UNA vez por movimiento, no repetido dentro
+                // de cada serie: sin este respaldo, las pausas que el plan prescribe
+                // entre estaciones desaparecían. Card 110.
+                restS: baseSet?.restS ?? item.prescription?.restS,
                 tempo: baseSet?.tempo,
                 note: (coachLabel?.isEmpty == false) ? coachLabel : item.exerciseName
             )

@@ -304,6 +304,7 @@
 		664FC516FCAAD0415EB41617 /* ComunicadoDetalleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C44CCD25F985F90FAD9BF5 /* ComunicadoDetalleView.swift */; };
 		665618BF004DF57F2A39EF39 /* AvailabilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1596D438158E78B847D69D4 /* AvailabilityStep.swift */; };
 		66784178976A060D8608ACDE /* SensorConclusions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B304514B23779942BC0D1EFA /* SensorConclusions.swift */; };
+		66EAB0160F4AAF940A9550CE /* DescansoDelBloqueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BD141FF6BAFD9D5F2718A5 /* DescansoDelBloqueTests.swift */; };
 		6740ACDEAC1B3B3B84556722 /* MyStrengthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4285DC48D6D1BD3D7042E16 /* MyStrengthView.swift */; };
 		677A5D19A5642F5B27CE77BD /* DeviceHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58859ABC592990B8A4EB837F /* DeviceHub.swift */; };
 		67C7D8E74BAF5F6F5443D0A8 /* RaceCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBA3019D6F13D1753993AB3 /* RaceCalendarService.swift */; };
@@ -804,6 +805,7 @@
 		064D4C5C7581D84DC8D132DD /* PlanAcciones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanAcciones.swift; sourceTree = "<group>"; };
 		06CE2185C1AC5CE6702AFCF5 /* ComunicadosAcciones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadosAcciones.swift; sourceTree = "<group>"; };
 		087517CB7BA486835A805A48 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShell.swift; sourceTree = "<group>"; };
+		08BD141FF6BAFD9D5F2718A5 /* DescansoDelBloqueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescansoDelBloqueTests.swift; sourceTree = "<group>"; };
 		0907CA0CB44E98188CD1364A /* BenchmarkSparkline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkSparkline.swift; sourceTree = "<group>"; };
 		09788A21D9FBF8080BFF309D /* EspejoRutaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EspejoRutaTests.swift; sourceTree = "<group>"; };
 		09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
@@ -2253,6 +2255,7 @@
 				A2751F1D06858BAF7F4930D5 /* CoachSpeechTests.swift */,
 				488AC6863303C38D31E04DD5 /* ConditioningFoldTests.swift */,
 				AF65FA6E589D438BA7910B9C /* CountdownFormatTests.swift */,
+				08BD141FF6BAFD9D5F2718A5 /* DescansoDelBloqueTests.swift */,
 				1FB8FFC459CF71CFE7D7AB84 /* DescansoEntreEstacionesTests.swift */,
 				C8860DEF4E97BC37728C70B7 /* DoblesTurnTests.swift */,
 				6F6340EA1FB69D4CA6920238 /* EjeDelRitmoTests.swift */,
@@ -3717,6 +3720,7 @@
 				74E8BBD67305FD89985632AB /* CountdownFormatTests.swift in Sources */,
 				DBB50530A73BF0494FF01F47 /* DecodingToleranceTests.swift in Sources */,
 				094EC46434DAE21BF1AD4EB9 /* DeleteAccountConfirmTests.swift in Sources */,
+				66EAB0160F4AAF940A9550CE /* DescansoDelBloqueTests.swift in Sources */,
 				165ED911B149B6B38CB51333 /* DescansoEntreEstacionesTests.swift in Sources */,
 				1B14B1D787328B1F381CD271 /* DeviceChannelTests.swift in Sources */,
 				886DFA6E08DA0F4FF1084736 /* DeviceHubBatteryTests.swift in Sources */,

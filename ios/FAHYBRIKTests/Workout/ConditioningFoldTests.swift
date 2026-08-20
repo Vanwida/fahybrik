@@ -50,6 +50,27 @@ final class ConditioningFoldTests: XCTestCase {
     private let pace345 = Target.pace(unit: .perKm, valueS: 225, minS: nil, maxS: nil) // 3:45/km
     private let paceOther = Target.pace(unit: .perKm, valueS: 300, minS: nil, maxS: nil) // 5:00/km
 
+    // MARK: - El descanso del EJERCICIO sobrevive al plegado (card 110)
+
+    /// El coach escribe «descanso 2:00» UNA vez en el movimiento, no repetido
+    /// dentro de cada serie — así lo guarda el plan y así lo escribió para el
+    /// simulacro del 21-ago. Al plegar, el descanso era el ÚNICO campo que no
+    /// bajaba a mirar el nivel del ejercicio (la intensidad y la modalidad sí lo
+    /// hacían), así que esas pausas desaparecían: ni cuenta atrás entre estaciones,
+    /// ni aviso al acabarla.
+    func testElDescansoDelEjercicioSobreviveAlPlegado() {
+        let correr = item("run", name: "Run", category: "running", prescription: rx())
+        let ski = item("ski", name: "SkiErg", category: "erg", prescription: rx(restS: 120))
+        let b = block(items: [correr, ski], config: [
+            "rounds": .number(4), "pacing": .string("por_tarea")
+        ])
+        let rotacion = b.conditioningFold?.sets
+        XCTAssertEqual(rotacion?.count, 2)
+        XCTAssertNil(rotacion?[0].restS, "correr no prescribe descanso: no se inventa uno")
+        XCTAssertEqual(rotacion?[1].restS, 120,
+                       "el ski prescribe 2:00 en el ejercicio y el plegado se los comía")
+    }
+
     // MARK: - `pacing` gates `workS`
 
     func testPorTareaForcesWorkSNilEvenOverLegacyItemLeftover() {
