@@ -114,6 +114,31 @@ struct ExecutionSummary: Codable, Equatable {
     /// la respuesta honesta de una sesión anterior al archivo, no un fallo.
     let trace: ExecutionTrace?
 
+    /// LOS TOTALES DE LA SESIÓN ENTERA — calculados por el servidor AL GUARDAR
+    /// (card 124, `web/lib/athlete/assignment-detail.ts`), un solo sitio para
+    /// toda la app. NUNCA se derivan aquí ni en quien los lee: dos motores para
+    /// la misma media es cómo el coach y el atleta acaban leyendo dos números
+    /// distintos de la misma sesión.
+    ///
+    /// NIL ES UN VALOR REAL, con DOS razones distintas según el campo — nunca
+    /// "todavía no implementado":
+    ///   · `avgHr`/`maxHr` (ppm): nil = no se registró pulso en la sesión.
+    ///   · `totalCalories` (kcal): nil = ningún tramo reportó calorías.
+    ///   · `totalDistanceM` (metros): nil tanto si no se midió distancia como
+    ///     si se midió en DOS O MÁS modalidades a la vez — el servidor no filtra
+    ///     por máquina, así que un total aquí mezclaría correr con remo (la
+    ///     regla que la card 124 prohíbe). Por eso la Distancia de esta pantalla
+    ///     NUNCA lee este campo: sigue saliendo de `distanciaTotalDeSesion`
+    ///     sobre los bloques (`LecturaDeSesionModelo.swift`), que sí sabe negarse
+    ///     cuando hay más de una cubeta. Quien necesite «solo lo que corrió»
+    ///     mira los segmentos uno a uno.
+    /// En los tres casos: ausencia honesta, quien la lea simplemente no pinta
+    /// el recuadro (§7 CONTRATO-UI), nunca un cero de relleno.
+    let avgHr: Double?
+    let maxHr: Double?
+    let totalDistanceM: Double?
+    let totalCalories: Double?
+
     var isPartial: Bool { completeness == "partial" }
 
     enum CodingKeys: String, CodingKey {
@@ -123,6 +148,7 @@ struct ExecutionSummary: Codable, Equatable {
         case perceivedDifficulty, painArea, painNote
         case startedAt, elevationGainM, elevationLossM
         case hrRecovery60Bpm, decouplingPct, trace
+        case avgHr, maxHr, totalDistanceM, totalCalories
     }
 
     // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
@@ -163,6 +189,12 @@ struct ExecutionSummary: Codable, Equatable {
         hrRecovery60Bpm = try c.decodeIfPresent(Double.self, forKey: .hrRecovery60Bpm)
         decouplingPct = try c.decodeIfPresent(Double.self, forKey: .decouplingPct)
         trace = try c.decodeIfPresent(ExecutionTrace.self, forKey: .trace)
+        // Los totales de sesión (card 124) — key-optional: la mayoría de
+        // ejecuciones guardadas hoy todavía no los tienen calculados.
+        avgHr = try c.decodeIfPresent(Double.self, forKey: .avgHr)
+        maxHr = try c.decodeIfPresent(Double.self, forKey: .maxHr)
+        totalDistanceM = try c.decodeIfPresent(Double.self, forKey: .totalDistanceM)
+        totalCalories = try c.decodeIfPresent(Double.self, forKey: .totalCalories)
     }
 }
 

@@ -64,6 +64,17 @@ struct ExecutedWorkoutView: View {
     /// reevalúa el cuerpo muchas más veces de las que cambia el detalle.
     @State private var lecturaDeCarrera: Carrera?
 
+    /// LA SESIÓN QUE HAY EN ESTE DETALLE, cuando NO es una carrera (card 124).
+    ///
+    /// Sustituye a `generico` en cuanto hay un detalle cargado: la cabecera con
+    /// su icono de tipo, los totales, la gráfica de pulso, el mapa y el
+    /// desglose bloque a bloque son justo lo que `generico` iba construyendo a
+    /// mano, sección a sección — esto es la versión con contrato firmado
+    /// (`docs/CONTRATO-UI.md`, card 124). Nil mientras no hay ejecución que leer
+    /// (cargando, o falló): en esos dos casos `generico` sigue mostrando su
+    /// estado de siempre.
+    @State private var lecturaDeSesion: SesionEjecutada?
+
     var body: some View {
         Group {
             if let carrera = lecturaDeCarrera {
@@ -71,6 +82,8 @@ struct ExecutedWorkoutView: View {
                 // salida anclada, así que ocupa la pantalla entera: dos barras
                 // superiores y dos formas de cerrar competirían entre ellas.
                 LecturaDeCarreraView(carrera: carrera, zonas: hrZones, onCerrar: onClose)
+            } else if let sesion = lecturaDeSesion {
+                LecturaDeSesionView(sesion: sesion, zonas: hrZones, onCerrar: onClose)
             } else {
                 generico
             }
@@ -81,6 +94,9 @@ struct ExecutedWorkoutView: View {
                 LecturaDeCarreraDesdeDetalle.carrera(
                     de: $0, zonas: hrZones, tituloAlternativo: fallbackTitle
                 )
+            }
+            lecturaDeSesion = lecturaDeCarrera != nil ? nil : nuevo.flatMap {
+                LecturaDeSesionDesdeDetalle.sesion(de: $0, tituloAlternativo: fallbackTitle)
             }
         }
         .task { await load() }

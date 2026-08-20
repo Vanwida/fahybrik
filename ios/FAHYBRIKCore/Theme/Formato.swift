@@ -162,17 +162,31 @@ enum Formato {
     /// - `decimales`: 2 para distancia MEDIDA (lo que has cubierto: «2,34 km»),
     ///   donde la precisión es el dato. La prescripción no la necesita y con dos
     ///   decimales un «5 km» se leería «5,00 km», que sugiere una exactitud falsa.
+    /// - `umbralMetros`: a partir de qué distancia se pasa a kilómetros. Nadie
+    ///   piensa un kilómetro y medio en decimales — «1.500 m» se lee, «1,5 km»
+    ///   hace pensar—, así que la lectura de una DOSIS (una fila de bloque, no un
+    ///   total agregado) sube este umbral a 2.000 en vez de escribir un segundo
+    ///   formateador (§2 del CONTRATO-UI: variantes por parámetro).
     /// - nil cuando no hay distancia: lo que no se sabe no se pinta (contrato §7).
     static func distancia(_ meters: Double,
                           decimales: Int = 1,
-                          siempreDecimales: Bool = false) -> String? {
+                          siempreDecimales: Bool = false,
+                          umbralMetros: Double = 1000) -> String? {
         guard meters > 0 else { return nil }
-        if meters >= 1000 {
+        if meters >= umbralMetros {
             return esDecimal(meters / 1000,
                              decimals: decimales,
                              siempreDecimales: siempreDecimales) + " km"
         }
-        return "\(Int(meters.rounded())) m"
+        return "\(conMillar(meters)) m"
+    }
+
+    /// Millar con punto español: «1500» → «1.500». Solo entra en juego cuando
+    /// `umbralMetros` sube de 1.000 (por debajo, ningún metro llega a necesitarlo).
+    private static func conMillar(_ meters: Double) -> String {
+        let v = max(0, Int(meters.rounded()))
+        guard v >= 1000 else { return "\(v)" }
+        return "\(v / 1000).\(String(format: "%03d", v % 1000))"
     }
 
     /// La distancia MEDIDA, con su precisión de dos decimales — «2,34 km», y «2,00 km»
