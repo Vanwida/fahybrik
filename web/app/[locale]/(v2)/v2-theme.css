@@ -18,13 +18,17 @@
   /* ── Acento del sistema = TINTA. El naranja era marca del tenant y salió del
         cromo; "accent" conserva el nombre porque todo el panel lo lee como
         "selección/acción primaria". ── */
-  --v2-accent: #201f1b;
-  --v2-accent-press: #3a3833;
-  --v2-accent-fg: #f1efeb;
-  --v2-accent-soft: rgba(32, 31, 27, 0.07);
+  /* El acento sale de la piel del club si la hay (`--v2-club-l-*`, que el
+     servidor deriva para ESTE lienzo y clava en línea) y del neutro FLEXR si
+     no. La elección vive aquí y no en el estilo en línea porque solo el CSS
+     sabe en qué tema está el panel. */
+  --v2-accent: var(--v2-club-l-fill, #201f1b);
+  --v2-accent-press: var(--v2-club-l-press, #3a3833);
+  --v2-accent-fg: var(--v2-club-l-on, #f1efeb);
+  --v2-accent-soft: var(--v2-club-l-soft, rgba(32, 31, 27, 0.07));
   /* El acento cuando hace de TEXTO sobre el lienzo: distinto del relleno,
      porque un color puede valer de botón y no llegar a 4,5:1 como letra. */
-  --v2-accent-text: #201f1b;
+  --v2-accent-text: var(--v2-club-l-text, #201f1b);
 
   /* ── Superficies y tinta (perla FLEXR) ── */
   --v2-bg: #f1efeb; /* lienzo perla */
@@ -116,11 +120,12 @@
       (cromo FLEXR neutro). El naranja NO vuelve aquí: o lo clava la piel del
       club en inline, o los mockups de la guía lo pisan más abajo. ── */
 .v2-root[data-theme="dark"] {
-  --v2-accent: #f5f5f5;
-  --v2-accent-press: #d0d0d0;
-  --v2-accent-fg: #0a0a0a;
-  --v2-accent-soft: rgba(245, 245, 245, 0.14);
-  --v2-accent-text: #f5f5f5;
+  /* Misma piel, familia OSCURA: el color se derivó contra el casi negro. */
+  --v2-accent: var(--v2-club-d-fill, #f5f5f5);
+  --v2-accent-press: var(--v2-club-d-press, #d0d0d0);
+  --v2-accent-fg: var(--v2-club-d-on, #0a0a0a);
+  --v2-accent-soft: var(--v2-club-d-soft, rgba(245, 245, 245, 0.14));
+  --v2-accent-text: var(--v2-club-d-text, #f5f5f5);
   --v2-bg: #0a0a0a;
   --v2-surface: #141414;
   --v2-surface-2: #1a1a1a;

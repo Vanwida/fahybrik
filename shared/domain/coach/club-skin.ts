@@ -97,35 +97,35 @@ export function splitWordmark(wordmark: string): { lead: string; accent: string 
 export type ClubAccentCssVars = Record<`--v2-${string}`, string>;
 
 /**
- * Variables que se clavan en `.v2-root`. Vacío = objeto vacío: el CSS de
- * `v2-theme.css` sigue siendo el cromo neutro. El dashboard ya lee
- * `var(--v2-accent)` (botones, foco, rail activo); no hace falta tocar cada
- * componente.
+ * Las DOS familias del club, servidas como ENTRADAS (`--v2-club-l-*` para el
+ * lienzo claro, `--v2-club-d-*` para el oscuro). No se clavan los tokens de
+ * acento directamente y el motivo es de CSS, no de gusto: estas variables van
+ * en el `style` de `.v2-root`, y el bloque de tema oscuro es una regla sobre
+ * ESE MISMO elemento — un estilo en línea gana a cualquier regla, así que
+ * pintar aquí `--v2-accent` metería el color derivado para PERLA también en el
+ * panel oscuro. Y ahí no se lee: es justo lo que la derivación existe para
+ * evitar.
  *
- * La familia la deriva `club-accent`: aquí solo se traduce a nombres de token.
- * `surface` elige la familia del lienzo (claro = perla, oscuro = casi negro).
+ * Quien elige es `v2-theme.css`, que sí sabe en qué tema está: cada bloque lee
+ * su familia con un valor por defecto para el club que no ha puesto color.
  */
-export function clubAccentCssVars(
-  raw: string | null | undefined,
-  surface: 'light' | 'dark' = 'light',
-): ClubAccentCssVars {
+export function clubAccentCssVars(raw: string | null | undefined): ClubAccentCssVars {
   const family = buildClubAccent(normalizeAccentHex(raw));
   if (!family) return {};
-  const { fill, press, on_fill, soft, text } = family[surface];
   return {
-    '--v2-accent': fill,
-    '--v2-accent-press': press,
-    '--v2-accent-fg': on_fill,
-    '--v2-accent-soft': soft,
-    '--v2-accent-text': text,
+    '--v2-club-l-fill': family.light.fill,
+    '--v2-club-l-press': family.light.press,
+    '--v2-club-l-on': family.light.on_fill,
+    '--v2-club-l-soft': family.light.soft,
+    '--v2-club-l-text': family.light.text,
+    '--v2-club-d-fill': family.dark.fill,
+    '--v2-club-d-press': family.dark.press,
+    '--v2-club-d-on': family.dark.on_fill,
+    '--v2-club-d-soft': family.dark.soft,
+    '--v2-club-d-text': family.dark.text,
   };
 }
 
-/**
- * El acento tal y como lo consumen los dispositivos: hexes ya resueltos para el
- * lienzo oscuro de la app y el reloj, más el alfa del tinte. Se manda resuelto a
- * propósito — si iOS repitiera la matemática, panel y app podrían divergir.
- */
 export interface DeviceAccent {
   fill: string;
   on_fill: string;

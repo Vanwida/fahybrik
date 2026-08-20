@@ -81,7 +81,11 @@ export function V2ThemeProvider({
     [persist, theme],
   );
 
-  const accentStyle = clubAccentCssVars(accentHex, theme) as CSSProperties;
+  // La piel del club sirve las DOS familias (clara y oscura) y es `v2-theme.css`
+  // quien elige según `data-theme`. Así el acento correcto está pintado ya en el
+  // primer fotograma, sin depender de que React sepa el tema: en servidor el tema
+  // aún no se conoce, y elegirlo aquí dejaba un parpadeo al hidratar.
+  const accentStyle = clubAccentCssVars(accentHex) as CSSProperties;
 
   return (
     <V2ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

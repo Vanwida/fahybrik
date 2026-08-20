@@ -104,39 +104,29 @@ describe('clubAccentCssVars', () => {
     expect(clubAccentCssVars('no')).toEqual({});
   });
 
-  test('un hex válido clava las variables de acento del panel', () => {
+  test('sirve las DOS familias, una por lienzo', () => {
     const vars = clubAccentCssVars('#F06A2A');
-    expect(vars['--v2-accent']).toBe('#f06a2a');
-    expect(vars['--v2-accent-press']).toBe('#cc5a24');
-    expect(vars['--v2-accent-fg']).toBe('#0a0a0a');
-    expect(vars['--v2-accent-soft']).toBe('rgba(240, 106, 42, 0.1)');
-    // Como texto el naranja no llega a 4,5:1 sobre el perla: se oscurece.
-    expect(vars['--v2-accent-text']).not.toBe('#f06a2a');
+    // Panel claro: el naranja vale de relleno pero no de letra sobre el perla.
+    expect(vars['--v2-club-l-fill']).toBe('#f06a2a');
+    expect(vars['--v2-club-l-on']).toBe('#0a0a0a');
+    expect(vars['--v2-club-l-text']).not.toBe('#f06a2a');
+    // Panel oscuro: sobre casi negro el mismo naranja sí se lee de letra.
+    expect(vars['--v2-club-d-fill']).toBe('#f06a2a');
+    expect(vars['--v2-club-d-text']).toBe('#f06a2a');
   });
 
-  test('en oscuro usa la familia oscura, no el naranja de sistema a ciegas', () => {
-    const light = clubAccentCssVars('#F06A2A');
-    const dark = clubAccentCssVars('#F06A2A', 'dark');
-    expect(dark['--v2-accent']).toBe('#f06a2a');
-    expect(dark['--v2-accent-soft']).toBe('rgba(240, 106, 42, 0.14)');
-    // Sobre el casi negro el naranja SÍ llega a texto; sobre el perla no.
-    expect(dark['--v2-accent-text']).toBe('#f06a2a');
-    expect(light['--v2-accent-text']).not.toBe(dark['--v2-accent-text']);
+  test('NO clava los tokens de acento — los elige el CSS, que sabe el tema', () => {
+    // Es lo que evita que el color derivado para PERLA acabe pintado sobre el
+    // casi negro: un estilo en línea ganaría al bloque de tema oscuro.
+    const vars = clubAccentCssVars('#F06A2A');
+    expect(vars['--v2-accent']).toBeUndefined();
+    expect(vars['--v2-accent-text']).toBeUndefined();
   });
 
-  test('un azul marino se aclara de relleno en oscuro y no en claro', () => {
-    const light = clubAccentCssVars('#0a2540');
-    const dark = clubAccentCssVars('#0a2540', 'dark');
-    expect(dark['--v2-accent']).not.toBe(light['--v2-accent']);
-    expect(dark['--v2-accent']).not.toBe('#0a2540');
-  });
-
-  test('sobre un acento oscuro el texto es el claro del tema', () => {
-    expect(clubAccentCssVars('#111111')['--v2-accent-fg']).toBe('#f5f5f5');
-  });
-
-  test('el acento de marca del binario es el token, no un hex suelto', () => {
-    expect(BRAND_ACCENT_HEX).toBe('#f06a2a');
+  test('las dos familias difieren cuando el color lo exige', () => {
+    // Un azul marino desaparece sobre el casi negro y se aclara solo ahí.
+    const vars = clubAccentCssVars('#0a2540');
+    expect(vars['--v2-club-d-fill']).not.toBe(vars['--v2-club-l-fill']);
   });
 });
 
