@@ -33,13 +33,29 @@ se aparte mientras la muñeca emite — si no, en calle contarían los dos. La p
 vieja sólo comprobaba que el paquete VIAJA: confianza falsa. La nueva verifica que
 llega al motor, en rojo y en verde. 1583 tests. NO instalado en el iPhone.
 
-**Abiertas de la prueba de hoy:** 117 (una lectura rara de un sensor tumba el
-POST entero: el esquema rechaza en vez de encajar en banda), 118 (la lectura
-enseña 0:00 de ritmo en una sesión de fuerza y no cuenta la fuerza), 120 (un
-entreno libre reenviado se guarda dos veces: sin asignación no hay red), 121 (un
-entreno subido tarde se archiva en el día de la subida, y `ended_at` se sella al
-guardar, no al terminar), 122 (el crono arranca con el toque, no con la máquina;
-la cinta no se cierra sola al llegar a sus metros mientras el remo sí).
+**Estación de correr (123, 2837616e):** se cierra sola al llegar a sus metros
+—como ya hacían remo y ski— y la pantalla de la cinta enseña la dosis y lo que
+falta, leyendo el objetivo del TRAMO cuando el bloque mixto no lo trae. Sólo en
+estación de lista fija: la carrera continua y la serie ya tienen dueño y un
+segundo las cerraría dos veces. Cada estación pasa a ser su propia pierna (si no,
+las 4 carreras compartían contador). De paso: `tramoRunCoveredMeters` prometía
+«cinta si la hay» y leía sólo Apple, que da nil cuando la cinta manda — con FTMS
+conectada NO había cuenta atrás de estación, ni en móvil ni en reloj. 1587 tests.
+
+**Sensores y fechas honestas (117 y 121, EN PRODUCCIÓN):** 117 — la entrada ya no
+RECHAZA una lectura de aparato fuera de banda (un pico de 300 ppm o una pendiente
+negativa de FTMS devolvían 400 y se llevaban el entreno entero); se encaja en
+banda o se guarda hueco. Estricto sigue lo que NO mide un aparato. 121 — la hora
+de fin se sella al terminar, no al pulsar guardar (hoy: 47 min archivados como
+4 h 45), y un entreno libre se archiva en el día en que se HIZO, no en el que
+consigue subir. Desplegado (0a556051 + 61b18b0c). Los 5 libres del 19 archivados
+en el 20 siguen mal: moverlos es dato del atleta, pendiente de que Alex diga.
+
+**Abiertas de la prueba de hoy:** 118 (la lectura enseña 0:00 de ritmo en una
+sesión de fuerza y no cuenta la fuerza — pide diseño, no parche), 120 (un entreno
+libre reenviado se guarda dos veces: sin asignación no hay red de unicidad), 122
+(el crono arranca con el toque y no con la primera zancada; la cinta no detecta
+que se ha parado; no existe la transición — con una decisión de Alex dentro).
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
 (ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
