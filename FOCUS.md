@@ -2,9 +2,50 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-20** (MCP crea/edita microciclo de biblioteca)
+Última actualización: **2026-08-21** (auditoría: el ciclo de un coach, card 128)
 
 ## Ahora
+
+**128 · EL CICLO DE UN COACH, AUDITADO (sin código, solo diagnóstico).** Alex trajo
+un macrociclo HYROX real de 12 semanas (84 días, 310 bloques, 1.238 líneas, 392
+formas de línea, 209 movimientos). Informe: `docs/ciclo-de-un-coach.html`.
+
+Diagnóstico raíz: **el modelo sabe decir un número; el ciclo dice «relativo a algo
+que el atleta ya tiene»**. 130+ líneas piden ritmo HYROX / peso de competición /
+carga media / ritmo del test, y `Target` solo admite absolutos + `percent_rm`. Es
+un criterio EXPLÍCITO del coach («sin kilos concretos en las plantillas»), y es lo
+que hace reutilizable una plantilla: requisito central de FLEXR, no de este JSON.
+Media máquina ya existe y está DESCONECTADA: `methodology/zones.ts` resuelve
+`race_pace`/umbral contra las marcas, y `hyrox/stations.ts` modela la carga de
+competición por división/género devolviendo null a propósito. Nada de eso puede
+aparecer en una prescripción.
+
+Otros tres huecos: **por lado** (86 líneas → hoy texto en `note`, la analítica
+cuenta la mitad) · **ámbito del descanso** (5 ámbitos, 2 alturas; `restBetweenRoundsS`
+y `rest_between_stations_seconds` viven en DB+iOS pero NO en el tipo compartido:
+viajan fuera del contrato) · **prioridad y sustitución del día** (47 esenciales,
+31 de 84 con alternativa declarada: no hay campo).
+
+Cabe SIN tablas nuevas: 4 tramos encadenados (5+4+2+1) = las 4 fases. Los 19
+criterios son metodología, no calendario.
+
+Catálogo: 126 ejercicios; de 209 movimientos, 112 existen, 35 solo necesitan alias,
+**34 faltan** (164 apariciones, mitad pliometría). Fontanería que pesa más:
+`exercise_aliases` (197 filas bilingües, índice trgm) **el importador NUNCA la lee**;
+no hay fuzzy real; y «Puente de glúteo unilateral» resuelve con confianza al
+BILATERAL existiendo el unilateral (falso positivo silencioso). 0 de 126 con vídeo.
+
+Motor en vivo: `Measure.unknown` **desaparece de la pantalla sin decir nada**
+(`Prescription.swift:333`) y un scheme desconocido degrada a `sets` sin avisar.
+
+Importador de ciclo: no existe (solo `import_plan_html.ts`, atado a un coach y un
+fichero). El camino bueno ya está un piso abajo en `web/lib/import/` +
+`shared/domain/import/` («fiel o review», IA solo para lo denso): subirlo un piso.
+
+Medida objetiva acordada: las 1.238 líneas como **corpus**, % tipado y fiel.
+Orden propuesto: (1) objetivos relativos (2) por lado + descanso (3) prioridad y
+sustitución (4) catálogo + alias (5) gramática (6) importador (7) motor.
+**NO se ha tocado código, ni la base, ni ejercicios. Pendiente de OK de Alex.**
 
 **111 · MCP receta de biblioteca (feat/mcp-microcycle-crud):** `create_microcycle` /
 `update_microcycle` escriben SIEMPRE en receta (`program_*_templates`), nunca en
