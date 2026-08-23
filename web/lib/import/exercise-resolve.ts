@@ -328,6 +328,44 @@ export async function resolveExercise(
     if (syn[0]) return { exercise_id: Number(syn[0].exercise_id), via: 'synonym' };
   }
 
+  // (1b) EL VOCABULARIO COMPARTIDO — `exercise_aliases` (migraciones 0172/0178).
+  //
+  // 197 términos bilingües (ES/EN) que hasta ahora SOLO alimentaban el buscador
+  // de la biblioteca del coach y eran invisibles aquí: el importador tiraba de
+  // GLOBAL_ALIASES, un mapa escrito a mano en TS, mientras la tabla con el
+  // vocabulario bueno estaba al lado sin que nadie la leyera. Dos conocimientos
+  // que tenían que ser uno.
+  //
+  // VA ANTES DEL MAPA A MANO, y no es un capricho de orden: este layer exige
+  // que el término ENTERO coincida, mientras `aliasToSlug` recorre ventanas de
+  // hasta 4 palabras dentro del término. Una coincidencia entera es siempre más
+  // específica que una parcial. El caso que lo motiva: «puente de gluteo
+  // unilateral» no está en el mapa a mano, pero su ventana «puente de gluteo»
+  // sí — y resolvía CON CONFIANZA al puente BILATERAL, existiendo el unilateral
+  // en catálogo. Un ejercicio equivocado dado por bueno es peor que no
+  // encontrarlo. Con la tabla delante, el término entero manda.
+  //
+  // Se prueba la forma ligera (solo tildes/espacios) y la agresiva (sin prefijo
+  // de ruido ni sufijo de carga), igual que el layer siguiente, porque los
+  // términos de la tabla están guardados ya normalizados y sin acentos.
+  // La agresiva puede quedar vacía (un término que era todo ruido); en ese caso
+  // se repite la ligera, que nunca lo está si el término tenía letras.
+  const aliasLight = light;
+  const aliasStrict = normalized || light;
+  if (aliasLight) {
+    const byAlias = await client<Array<{ id: string }>>`
+      select e.id::text as id
+      from exercise_aliases a
+      join exercises e on e.id = a.exercise_id
+      ${joinCoachOverride(client, coachId)}
+      where (a.term_normalized = ${aliasLight} or a.term_normalized = ${aliasStrict})
+        and ${visibleToCoach(client, coachId)}
+      order by (e.coach_id is null) asc, length(a.term_normalized) desc, e.id asc
+      limit 1
+    `;
+    if (byAlias[0]) return { exercise_id: Number(byAlias[0].id), via: 'alias' };
+  }
+
   // (2) Global alias map → catalog slug. Try the light form first (keeps alias
   // keys that embed an equipment token, e.g. "db snatch"), then the aggressive
   // key (handles "front squat 70kg" → "front squat").

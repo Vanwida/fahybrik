@@ -156,6 +156,88 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     expect(cnt!.n).toBe(1);
   });
 
+  // EL VOCABULARIO COMPARTIDO (card 129). `exercise_aliases` llevaba 197
+  // términos bilingües que SOLO alimentaban el buscador de la biblioteca: el
+  // importador no leía esa tabla y tiraba de un mapa escrito a mano. Dos
+  // vocabularios que tenían que ser uno.
+  test('un término que sólo vive en exercise_aliases ya resuelve al importar', async () => {
+    const fx = await seedCoach();
+    const id = await makeExercise({ fx, name: 'Fixture Only Movement' });
+    const term = `fixture solo alias ${id}`; // nada que ver con el nombre: sólo lo salva el alias
+    expect(await resolveExercise(fx.coachId, term, sql)).toMatchObject({ exercise_id: null });
+
+    await sql`
+      insert into exercise_aliases (exercise_id, term, term_normalized, lang, source)
+      values (${id}, ${term}, ${term}, 'es', 'test')
+      on conflict (exercise_id, term_normalized) do nothing
+    `;
+    cleanups.push(async () => {
+      await sql`delete from exercise_aliases where exercise_id = ${id}`;
+    });
+
+    expect(await resolveExercise(fx.coachId, term, sql)).toMatchObject({ exercise_id: id, via: 'alias' });
+  });
+
+  // EL FALSO POSITIVO QUE MOTIVÓ EL ORDEN DE LAS CAPAS. «Puente de glúteo
+  // unilateral» no está en el mapa a mano, pero su VENTANA de palabras «puente
+  // de gluteo» sí — y resolvía con confianza al puente BILATERAL existiendo el
+  // unilateral en catálogo. Un ejercicio equivocado dado por bueno es peor que
+  // un «no lo encuentro». Por eso la tabla, que exige el término ENTERO, va
+  // delante del mapa a mano, que busca trozos.
+  test('el término entero de la tabla gana a una ventana de palabras del mapa a mano', async () => {
+    const fx = await seedCoach();
+    // Términos inventados y únicos por ejecución: el mecanismo se prueba
+    // aislado del catálogo real, que ya trae sus propios alias y ganaría por
+    // antigüedad de id.
+    const corto = await makeExercise({ fx, name: `Zzmecanismo base ${Date.now()}` });
+    const largo = await makeExercise({ fx, name: `Zzmecanismo base variante ${Date.now()}` });
+    const termCorto = `zzmec ${corto}`;
+    const termLargo = `zzmec ${corto} variante`;
+
+    await sql`
+      insert into exercise_aliases (exercise_id, term, term_normalized, lang, source)
+      values (${corto}, ${termCorto}, ${termCorto}, 'es', 'test'),
+             (${largo}, ${termLargo}, ${termLargo}, 'es', 'test')
+      on conflict (exercise_id, term_normalized) do nothing
+    `;
+    cleanups.push(async () => {
+      await sql`delete from exercise_aliases where exercise_id in (${corto}, ${largo})`;
+    });
+
+    // El término largo NO se queda en el corto por contener sus palabras: gana
+    // la coincidencia entera. Es la regla que arregla el falso positivo del
+    // puente de glúteo, y la razón de que esta capa vaya delante del mapa a mano.
+    expect(await resolveExercise(fx.coachId, termLargo, sql)).toMatchObject({
+      exercise_id: largo,
+      via: 'alias',
+    });
+    expect(await resolveExercise(fx.coachId, termCorto, sql)).toMatchObject({
+      exercise_id: corto,
+      via: 'alias',
+    });
+  });
+
+  // EL CASO REAL QUE MOTIVÓ TODO (card 129). «Puente de glúteo unilateral»
+  // resolvía CON CONFIANZA al puente BILATERAL, existiendo el unilateral: el
+  // mapa a mano no tiene ese término, pero su ventana «puente de gluteo» sí, y
+  // ganaba. Un ejercicio equivocado dado por bueno es peor que no encontrarlo.
+  // Los alias explícitos de la migración 0205 más el orden de las capas lo
+  // anclan. Se prueba contra el CATÁLOGO REAL, que es donde tiene que valer.
+  test('«puente de glúteo unilateral» ya no acaba en el bilateral', async () => {
+    const fx = await seedCoach();
+    const [uni] = await sql<Array<{ id: string }>>`
+      select id::text as id from exercises where slug = 'single-leg-glute-bridge'
+    `;
+    const [bi] = await sql<Array<{ id: string }>>`
+      select id::text as id from exercises where slug = 'glute-bridge'
+    `;
+    for (const term of ['Puente de glúteo unilateral', 'puente de gluteo a una pierna']) {
+      const res = await resolveExercise(fx.coachId, term, sql);
+      expect(res.exercise_id, `"${term}" es el UNILATERAL`).toBe(Number(uni!.id));
+      expect(res.exercise_id, `"${term}" jamás el bilateral`).not.toBe(Number(bi!.id));
+    }
+  });
+
   test('catalog-name fallbacks: exact name, then substring (via name_exact / name_substring)', async () => {
     const fx = await seedCoach();
     // A rare, unique name so the fallbacks are deterministic and self-contained
@@ -262,10 +344,46 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     // outdoor riding, not necessarily the "BikeErg" machine. All three exist
     // as SOMETHING close in the catalog — aliasing them anyway is exactly the
     // false-synonym risk the sweep was told to avoid ("ante la duda, fuera").
+    //
+    // ESTA PRUEBA DECÍA `toBeNull()`, y eso era el HALLAZGO expresado con el
+    // termómetro equivocado (card 129). Los cinco términos SON ejercicios del
+    // catálogo con ese mismo nombre; que no resolvieran a nada no era la
+    // garantía buscada, era que el importador todavía no leía
+    // `exercise_aliases`. Ahora resuelven — a SÍ MISMOS. La garantía de verdad,
+    // la que hay que sostener para siempre, es que ninguno acabe en el
+    // parecido, y eso es lo que se afirma aquí.
     const fx = await seedCoach();
-    for (const term of ['Puente de glúteo', 'Push Jerk', 'Bici Libre', 'Cat Cow', 'Cossack Squat']) {
+    //
+    // Y hay un segundo motivo, muy distinto, por el que un término de esta
+    // lista puede seguir sin resolver: que el ejercicio sea PROPIO de otro
+    // entrenador. «Push Jerk» y «Bici Libre» lo son (del coach 60), así que
+    // para cualquier otro son invisibles — eso es el aislamiento de propiedad
+    // haciendo su trabajo, no un alias que falte. Se distingue por el dato, no
+    // a mano, para que el día que esas filas pasen a ser globales esta prueba
+    // cambie sola de rama en vez de mentir.
+    const noConfundir: Array<[termino: string, suyo: string, elParecido: string]> = [
+      ['Puente de glúteo', 'glute-bridge', 'hip-thrust'],
+      ['Bici Libre', 'bici-libre', 'bike-erg'],
+      ['Cat Cow', 'cat-cow', 'cobra-pose'],
+      ['Cossack Squat', 'cossack-squat', 'goblet-squat'],
+      ['Push Jerk', 'push-jerk', 'clean-and-jerk'],
+    ];
+    for (const [term, suyo, parecido] of noConfundir) {
+      const [propio] = await sql<Array<{ id: string; ajeno: boolean }>>`
+        select id::text as id, (coach_id is not null) as ajeno from exercises where slug = ${suyo}
+      `;
+      const [confundible] = await sql<Array<{ id: string }>>`
+        select id::text as id from exercises where slug = ${parecido}
+      `;
       const res = await resolveExercise(fx.coachId, term, sql);
-      expect(res.exercise_id, `"${term}" must NOT have been aliased to a look-alike`).toBeNull();
+      if (propio!.ajeno) {
+        expect(res.exercise_id, `"${term}" es PROPIO de otro coach: invisible, nunca resuelve`).toBeNull();
+        continue;
+      }
+      expect(res.exercise_id, `"${term}" debe resolver a SU ejercicio`).toBe(Number(propio!.id));
+      expect(res.exercise_id, `"${term}" JAMÁS puede acabar en "${parecido}"`).not.toBe(
+        Number(confundible!.id),
+      );
     }
   });
 
@@ -311,12 +429,16 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     console.log(
       `[translation sweep] ${resolved}/${corpus.length} of the real unresolved corpus now resolve via alias.`,
     );
-    // "Dominada (lastrada)", "Remo", "Forward Leg Swing" — 3 of these 25 unique
-    // names. "Press Banca" and "Step Ups Cajón" also now resolve (see the
-    // dedicated test above) but were never IN this specific 25-name corpus —
-    // they surfaced from re-reading the source cards directly, not from this
-    // test's own unresolved list.
-    expect(resolved).toBe(3);
+    // 3 → 21 de 25 (card 129). El salto NO es que se hayan añadido 18 alias a
+    // mano: es que el importador **ya lee `exercise_aliases`**, los 197
+    // términos bilingües que hasta ahora sólo alimentaban el buscador de la
+    // biblioteca del coach. Dos vocabularios que eran uno y no se hablaban.
+    //
+    // Este número es la medida de cobertura del catálogo y se espera que SUBA.
+    // Si baja, algo se ha desconectado; si sube, actualízalo aquí diciendo por
+    // qué. Los 4 que siguen sin resolver son nombres truncados o etiquetas de
+    // bloque, no movimientos.
+    expect(resolved).toBe(21);
   });
 
   test('an unknown term resolves to null with the normalized key (caller escalates)', async () => {
