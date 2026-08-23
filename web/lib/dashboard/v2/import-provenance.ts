@@ -12,6 +12,7 @@
 // se puede probar sin montar media revisión.
 
 import {
+  isScalarTarget,
   measureFloor,
   measureIsRange,
   setMeasure,
@@ -230,11 +231,10 @@ export function proposedFieldLabel(field: ProposedFieldKind, value: unknown): st
   if (!target) return 'intensidad';
   const label = OBJETIVO_LABEL[target.kind] ?? 'intensidad';
   // Peso corporal no lleva cifra; ritmo y tiempo tope la llevan en segundos y se
-  // escriben en reloj, no en número suelto. El importador no propone ninguno de los
-  // tres (solo RIR), así que aquí basta con no mentir sobre ellos.
-  if (target.kind === 'bodyweight' || target.kind === 'pace' || target.kind === 'time_cap') {
-    return label;
-  }
+  // escriben en reloj, no en número suelto; y un objetivo relativo lleva una
+  // referencia, no una cifra propia. El importador no propone ninguno de los
+  // cuatro (solo RIR), así que aquí basta con no mentir sobre ellos.
+  if (!isScalarTarget(target)) return label;
   const amount = target.value ?? target.min ?? target.max;
   return amount === undefined ? label : `${label} ${amount}`;
 }

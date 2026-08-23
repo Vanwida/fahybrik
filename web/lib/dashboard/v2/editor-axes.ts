@@ -22,7 +22,7 @@ import type {
   Target,
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import {
   blockMeasureOf,
   defaultMeasureForModality,
@@ -174,6 +174,10 @@ export const OBJETIVO_LABEL: Record<TargetKind, string> = {
   hr_bpm: 'FC',
   calories: 'Cal',
   watts: 'Vatios',
+  // No es un pestaña propia (card 130): un objetivo relativo lo escribe la
+  // plantilla, no este selector de tres ejes — llega solo por dato ya guardado
+  // (import/AI), y esta etiqueta es lo que se lee ahí, nunca una opción del tab.
+  relative: 'Relativo',
 };
 
 /** Objective kinds per coach tab — order = default-first (sketch ① ② ③ axes). */
@@ -290,8 +294,10 @@ export function applyObjetivo(p: Prescription, kind: TargetKind): Prescription {
 
 function currentScalar(p: Prescription): number | undefined {
   const t = p.scheme === 'sets' ? firstSetTarget(p) : prescriptionBlockTarget(p);
-  if (!t || t.kind === 'bodyweight') return undefined;
+  if (!t) return undefined;
   if (t.kind === 'pace' || t.kind === 'time_cap') return t.value_s ?? t.min_s ?? t.max_s;
+  // bodyweight y relative no llevan cifra que arrastrar al cambiar de eje.
+  if (!isScalarTarget(t)) return undefined;
   return t.value ?? t.min ?? t.max;
 }
 

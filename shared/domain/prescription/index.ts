@@ -4,6 +4,7 @@
 
 export * from './format';
 export * from './types';
+export * from './reference';
 export * from './completeness';
 export * from './duration';
 export * from './grammar-prompt';

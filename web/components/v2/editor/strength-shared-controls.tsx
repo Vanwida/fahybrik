@@ -13,7 +13,7 @@ import type {
   Target,
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, setMeasure } from '@fahybrid/shared/domain/prescription';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { Stepper } from '@/components/v2/controls/Stepper';
 import { TickBand, type TickSelection } from '@/components/v2/controls/TickBand';
@@ -39,7 +39,7 @@ const GHOST_ADD_CLASS =
 
 /** El par valor/rango de un objetivo escalar (%RM, kg, RIR, RPE…). */
 export function scalarOf(t: Target | undefined): { lo: number | null; hi: number | null } {
-  if (!t || t.kind === 'bodyweight' || t.kind === 'pace' || t.kind === 'time_cap') {
+  if (!t || !isScalarTarget(t)) {
     return { lo: null, hi: null };
   }
   return { lo: t.min ?? t.value ?? null, hi: t.max ?? null };

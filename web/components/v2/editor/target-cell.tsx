@@ -8,6 +8,7 @@
 // usan sus dos cuerpos, el de fuerza y el de acondicionamiento.
 
 import type { Prescription, Target } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, relativePhrase } from '@fahybrid/shared/domain/prescription';
 import { ClockCell, NumberCell } from './fields';
 
 // ── TargetCell — kind is fixed by the OBJETIVO axis; this edits the value ─────
@@ -39,6 +40,19 @@ export function TargetCell({
     );
   }
 
+  if (kind === 'relative') {
+    // Un objetivo relativo (card 130) no se edita con cifra suelta: es una
+    // referencia a una marca del atleta («a peso de competición», «al 50 % del
+    // peso corporal») que se resuelve al leer el día, no aquí. Esta celda solo
+    // LEE la frase — igual que bodyweight, sin controles numéricos.
+    const phrase = target?.kind === 'relative' ? relativePhrase(target) : '';
+    return (
+      <span className="flex items-center px-1 text-xs text-[color:var(--v2-muted)]">
+        {phrase || 'Objetivo relativo'}
+      </span>
+    );
+  }
+
   if (kind === 'pace') {
     const t = target?.kind === 'pace' ? target : undefined;
     const unit = t?.unit ?? (modality === 'run' ? 'per_km' : 'per_500m');
@@ -66,10 +80,7 @@ export function TargetCell({
   // back to the point on the lower bound.
   const suffix = SCALAR_SUFFIX[kind];
   const bounds = scalarBounds(kind);
-  const scalar =
-    target && target.kind !== 'bodyweight' && target.kind !== 'pace' && target.kind !== 'time_cap'
-      ? target
-      : undefined;
+  const scalar = target && isScalarTarget(target) ? target : undefined;
   const lo = scalar ? scalar.min ?? scalar.value ?? null : null;
   const hi = scalar ? scalar.max ?? null : null;
   const build = (nextLo: number | null, nextHi: number | null): Target | undefined => {

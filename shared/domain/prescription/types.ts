@@ -34,6 +34,7 @@
 
 import { z } from 'zod';
 import { normalizeFormat, WORKOUT_FORMAT_KEYS, type WorkoutFormat } from './format';
+import { referenceIsPace, targetReferenceSchema, type TargetReference } from './reference';
 import { runStructureSchema, type RunStructure } from './run-structure';
 
 // ── Bounds (named, not magic) ───────────────────────────────────────────────
@@ -128,9 +129,64 @@ export type Target =
   //
   // `max_s` is the ceiling to beat, `value_s` a flat target, `min_s`/`max_s` a
   // band (the roxzone progression tightens a band, not a single number).
-  | { kind: 'time_cap'; value_s?: number; min_s?: number; max_s?: number }; // seconds
+  | { kind: 'time_cap'; value_s?: number; min_s?: number; max_s?: number } // seconds
+  // RELATIVO A UNA REFERENCIA DEL ATLETA (card 130). Todos los kinds de arriba
+  // dicen un número; un entrenador casi nunca escribe un número: escribe «a
+  // ritmo HYROX», «a peso de competición», «5 kg por encima del peso de
+  // competición», «al 50 % del peso corporal». Sin esto una plantilla con kilos
+  // concretos no sirve para el atleta siguiente, que es exactamente lo que hace
+  // que un ciclo haya que reescribirlo entero por persona.
+  //
+  // `percent_rm` YA ERA esto para un caso (el % del máximo) y se queda como
+  // está: no se añade una segunda forma de decir lo mismo. Las referencias que
+  // faltaban viven en `./reference.ts` con el porqué de cada una.
+  //
+  // SE RESUELVE AL LEER, NUNCA AL GUARDAR. La plantilla guarda la FRASE para
+  // siempre y cada atleta recibe su número al abrir el día
+  // (`./resolve-relative.ts`); convertirla a kilos al guardar la congelaría
+  // para un atleta y volveríamos al principio.
+  //
+  // Bandas con la misma convención que el resto del modelo: el campo base es el
+  // SUELO y `_max` el techo. Un porcentaje o un delta sobre una referencia de
+  // RITMO no está permitido y no es un olvido: «al 90 % del ritmo» es ambiguo
+  // (¿90 % de la velocidad, más lento; o del tiempo, más rápido?) y correr un
+  // poco más lento que el umbral ya tiene su sitio, que son las zonas.
+  | {
+      kind: 'relative';
+      ref: TargetReference;
+      percent?: number; // suelo de la banda, o el punto si no hay `percent_max`
+      percent_max?: number;
+      delta_kg?: number; // suelo de la banda («5-10 kg por encima» → 5)
+      delta_kg_max?: number;
+    };
 
 export type TargetKind = Target['kind'];
+
+// LOS OBJETIVOS QUE LLEVAN value/min/max, en un solo sitio.
+//
+// Antes del objetivo relativo, casi todos los kinds tenían esos tres campos y
+// medio código los leía sin preguntar por el kind. `pace` y `time_cap` ya eran
+// la excepción (llevan `_s`), y cada lector se la sabía de memoria — una
+// excepción memorizada en ocho ficheros es una que alguien olvidará al añadir
+// el noveno kind. Este guard es esa pregunta hecha una vez.
+const SCALAR_TARGET_KINDS = [
+  'percent_rm',
+  'kg',
+  'rpe',
+  'rir',
+  'hr_zone',
+  'hr_bpm',
+  'calories',
+  'watts',
+] as const;
+
+export type ScalarTargetKind = (typeof SCALAR_TARGET_KINDS)[number];
+export type ScalarTarget = Extract<Target, { kind: ScalarTargetKind }>;
+
+/** true cuando el objetivo se lee con value/min/max. */
+export function isScalarTarget(t: Target): t is ScalarTarget {
+  return (SCALAR_TARGET_KINDS as readonly string[]).includes(t.kind);
+}
 
 // A secondary PACE constraint on a line whose PRIMARY target is something else
 // (#28, Fork E: "corre en Z2 pero no más lento de 6'/km" = target hr_zone 2 + a
@@ -214,6 +270,21 @@ const timeCapTargetObject = z
   })
   .strict();
 
+// El objetivo RELATIVO (card 130). El porcentaje llega al 200 % igual que
+// `percent_rm` (un trineo sobrecargado al 150 % del peso de competición es una
+// prescripción real); el delta en kilos admite negativo porque «5 kg por debajo
+// del peso de competición» es tan válido como por encima.
+const relativeTargetObject = z
+  .object({
+    kind: z.literal('relative'),
+    ref: targetReferenceSchema,
+    percent: z.number().min(0).max(PERCENT_MAX).optional(),
+    percent_max: z.number().min(0).max(PERCENT_MAX).optional(),
+    delta_kg: z.number().min(-1000).max(1000).optional(),
+    delta_kg_max: z.number().min(-1000).max(1000).optional(),
+  })
+  .strict();
+
 const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('percent_rm'),
   kgTargetObject,
@@ -226,11 +297,58 @@ const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('calories'),
   scalarTargetObject('watts'),
   timeCapTargetObject,
+  relativeTargetObject,
 ]);
 
 export const targetSchema: z.ZodType<Target> = targetUnion.superRefine((raw, ctx) => {
   const t = raw as Target;
   if (t.kind === 'bodyweight') return;
+  if (t.kind === 'relative') {
+    const hasPercent = t.percent !== undefined || t.percent_max !== undefined;
+    const hasDelta = t.delta_kg !== undefined || t.delta_kg_max !== undefined;
+    // Una referencia de RITMO es el ritmo, sin más: ver el comentario del tipo.
+    if (referenceIsPace(t.ref) && (hasPercent || hasDelta)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a pace reference takes no percent and no delta_kg',
+      });
+    }
+    // «Peso corporal» a secas ya existe como `{kind:'bodyweight'}` y significa
+    // otra cosa (tu peso como resistencia). Aquí el porcentaje es lo que hace
+    // la frase — sin él serían dos maneras de decir lo mismo.
+    if (t.ref.of === 'bodyweight' && !hasPercent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a bodyweight reference must carry a percent (use {kind:"bodyweight"} for plain bodyweight)',
+      });
+    }
+    // Un techo por debajo de su suelo es una errata, no una banda. Y un techo
+    // suelto sin suelo no dice nada: la convención del modelo es que el campo
+    // base ES el suelo.
+    if (t.percent_max !== undefined && t.percent === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'percent_max needs percent (the floor)' });
+    }
+    if (t.delta_kg_max !== undefined && t.delta_kg === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'delta_kg_max needs delta_kg (the floor)' });
+    }
+    if (t.percent !== undefined && t.percent_max !== undefined && t.percent_max < t.percent) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'percent_max must be at or above percent' });
+    }
+    if (t.delta_kg !== undefined && t.delta_kg_max !== undefined && t.delta_kg_max < t.delta_kg) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'delta_kg_max must be at or above delta_kg' });
+    }
+    // Porcentaje Y delta a la vez no lo escribe nadie («al 50 % del peso de
+    // competición y además +5 kg»), y el orden en que se aplicarían cambiaría
+    // el resultado. Una prescripción que depende de en qué orden la leas no es
+    // una prescripción.
+    if (hasPercent && hasDelta) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a relative target carries a percent OR a delta_kg, never both',
+      });
+    }
+    return;
+  }
   if (t.kind === 'pace' || t.kind === 'time_cap') {
     if (t.value_s === undefined && t.min_s === undefined && t.max_s === undefined) {
       ctx.addIssue({

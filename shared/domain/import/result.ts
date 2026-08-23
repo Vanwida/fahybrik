@@ -143,6 +143,12 @@ function addTargetNumbers(t: Target | undefined, nums: Set<number>): void {
     if (t.max_s !== undefined) nums.add(t.max_s);
     return;
   }
+  // Un objetivo relativo («a peso de competición», «+5 kg») no aporta números
+  // de esta clase: su porcentaje/delta son respecto a una marca del atleta que
+  // se resuelve al leer, nunca al importar — mezclarlos aquí falsearía el
+  // guardia de residuo (un "@150 kg" suelto en el texto pasaría por consumido
+  // porque un delta_kg cualquiera coincide con él por casualidad).
+  if (t.kind === 'relative') return;
   if (t.value !== undefined) nums.add(t.value);
   if (t.min !== undefined) nums.add(t.min);
   if (t.max !== undefined) nums.add(t.max);

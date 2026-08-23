@@ -21,7 +21,7 @@ import type {
   Target,
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import { emptyTargetOfKind } from '@/lib/programming/prescription-model';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import {
@@ -159,10 +159,7 @@ export function StrengthFields({
     // había (el coach no pierde lo escrito) y retira los alias antiguos.
     const nextSets = sets.map((s) => {
       const prev = setTarget(s);
-      const carry =
-        prev && prev.kind !== 'bodyweight' && prev.kind !== 'pace' && prev.kind !== 'time_cap'
-          ? prev.value ?? prev.min ?? prev.max
-          : undefined;
+      const carry = prev && isScalarTarget(prev) ? prev.value ?? prev.min ?? prev.max : undefined;
       const target: Target = emptyTargetOfKind(kind, value.modality, carry);
       const { load: _load, rpe: _rpe, rir: _rir, ...rest } = s;
       void _load;

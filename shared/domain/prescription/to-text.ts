@@ -19,7 +19,8 @@
 // readability over exactness. Coach-facing copy stays terse and athletic.
 
 import type { Measure, Modality, Prescription, PrescriptionSet, Target } from './types';
-import { prescriptionTarget, setMeasure, setTarget } from './types';
+import { isScalarTarget, prescriptionTarget, setMeasure, setTarget } from './types';
+import { relativePhrase } from './reference';
 import {
   isRepeat,
   mainPhase,
@@ -125,6 +126,11 @@ export function formatTarget(t: Target): string {
         ? `${paceClock(lo)}${unit}`
         : `${paceClock(lo)}-${paceClock(hi)}${unit}`;
     }
+    case 'relative':
+      // Sin número propio — la frase ES el objetivo («a peso de competición»,
+      // «al 50 % del peso corporal») hasta que se resuelve contra la marca del
+      // atleta (./resolve-relative.ts), que no es asunto de este formateador.
+      return relativePhrase(t);
   }
 }
 
@@ -163,11 +169,7 @@ function targetSequence(targets: (Target | undefined)[]): string {
   const kind = present[0]!.kind;
   if (present.every((t) => t.kind === kind)) {
     const seq = present
-      .map((t) =>
-        t.kind === 'bodyweight' || t.kind === 'pace' || t.kind === 'time_cap'
-          ? ''
-          : rangeNum(t.min, t.max, t.value),
-      )
+      .map((t) => (isScalarTarget(t) ? rangeNum(t.min, t.max, t.value) : ''))
       .filter(Boolean)
       .join('/');
     switch (kind) {
