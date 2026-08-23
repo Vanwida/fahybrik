@@ -39,7 +39,17 @@ import {
   toTemplateHit,
 } from './shape-library';
 
-const LIBRARY_KINDS = ['exercise', 'block', 'template'] as const;
+// El cuarto peldaño, `level`, entró tarde y por un motivo concreto (card 137):
+// crear un microciclo pedía un nivel y NINGUNA herramienta de lectura sabía
+// decir cuáles había, así que el asistente sólo podía adivinar. Ahora el nivel
+// es opcional, pero el que SÍ organiza por niveles necesita poder verlos.
+//
+// OJO CON EL NOMBRE: «nivel» es como lo llamamos NOSOTROS. Es un eje con el que
+// el entrenador agrupa a sus atletas y sus bloques, y cada uno lo usa a su
+// manera — hay uno cuyos «niveles» son «N2, N3, N4, Hyrox», o sea que el cuarto
+// no es un nivel, es un objetivo. El identificador se queda estable; cómo se
+// LLAME ese eje en pantalla es del entrenador (ver DECISIONS 2026-08-23).
+const LIBRARY_KINDS = ['exercise', 'block', 'template', 'level'] as const;
 type LibraryKind = (typeof LIBRARY_KINDS)[number];
 
 /** Cuántos resultados por peldaño. Suficiente para elegir, corto para leer. */
@@ -65,7 +75,7 @@ export function registerLibraryTools(server: McpServer): void {
           .enum(LIBRARY_KINDS)
           .optional()
           .describe(
-            'Limita la búsqueda: exercise (movimientos del catálogo), block (piezas de su metodología) o template (sesiones enteras). Sin esto, los tres.',
+            'Limita la búsqueda: exercise (movimientos del catálogo), block (piezas de su metodología), template (sesiones enteras) o level (los grupos con los que clasifica a sus atletas, si los usa). Sin esto, los cuatro.',
           ),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -75,12 +85,23 @@ export function registerLibraryTools(server: McpServer): void {
         const wants = (kind: LibraryKind) => args.kind == null || args.kind === kind;
         const needle = args.query.trim().toLowerCase();
 
-        const [exercises, blocks, templates] = await Promise.all([
+        const [exercises, blocks, templates, levels] = await Promise.all([
           wants('exercise')
             ? loadCoachCatalog(sql, coach_id, { search: args.query, limit: HITS_PER_KIND })
             : null,
           wants('block') ? listBlocksWithStructure(coach_id, null, sql) : null,
           wants('template') ? listTemplatesForCoach(coach_id, sql) : null,
+          // Los niveles se devuelven ENTEROS y sin filtrar por la búsqueda: son
+          // cinco como mucho, y quien pregunta normalmente no busca uno — quiere
+          // saber cuáles hay para poder elegir. Filtrarlos por el texto sería
+          // devolver cero justo cuando más falta hacen.
+          wants('level')
+            ? sql<Array<{ id: string; name: string }>>`
+                select id::text, name from athlete_levels
+                where coach_id = ${coach_id}
+                order by sort_order asc, id asc
+              `
+            : null,
         ]);
 
         // El título Y la prosa: un bloque se busca por lo que dice, no solo por
@@ -100,6 +121,7 @@ export function registerLibraryTools(server: McpServer): void {
           exercises: exercises ? exercises.length : null,
           blocks: blocks ? blockHits.length : null,
           templates: templates ? templateHits.length : null,
+          levels: levels ? levels.length : null,
         };
 
         return ok(
@@ -111,6 +133,9 @@ export function registerLibraryTools(server: McpServer): void {
             exercises: exercises ? exercises.map(toExerciseHit) : null,
             blocks: blocks ? blockHits.map((b) => toBlockHit(b, blockReadiness(b))) : null,
             templates: templates ? templateHits.map(toTemplateHit) : null,
+            levels: levels
+              ? levels.map((l) => ({ id: Number(l.id), name: l.name }))
+              : null,
             // Si la lista viene cortada por el tope, para que el asistente sepa que
             // hay más y merece la pena afinar la búsqueda.
             truncated: {

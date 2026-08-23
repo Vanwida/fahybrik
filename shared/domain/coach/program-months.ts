@@ -55,7 +55,26 @@ export const MICROCICLO_ABSOLUTE_MAX_WEEKS = 26;
  */
 export const programMonthScratchSchema = z.object({
   name: z.string().min(1).max(200),
-  level_id: z.coerce.number().int().positive(),
+  // EL NIVEL ES UNA ETIQUETA OPCIONAL, NO LA IDENTIDAD DEL MICROCICLO (card 137).
+  //
+  // Esto era obligatorio y no debía serlo. La columna `level_id` es NULLABLE
+  // desde siempre, y 3 de los 11 microciclos que existen no tienen nivel: la
+  // base ya decía que era opcional y el código lo exigía igual. Ese desacuerdo
+  // fue lo que tumbó la primera importación de un ciclo real por el asistente —
+  // no la programación, que pasó entera: el papeleo.
+  //
+  // Y de fondo hay algo peor: los niveles son una forma de organizarse que
+  // usan ALGUNOS entrenadores. Cinco de los seis que hay tienen los mismos
+  // `N1..N5` que les pusimos nosotros al darlos de alta; sólo uno los ha
+  // tocado. Obligar a colgar cada bloque de un nivel es imponerle nuestra
+  // manera a quien no la usa, que es justo lo que este producto no hace.
+  //
+  // Quien SÍ organiza por niveles lo sigue haciendo igual, y la matriz
+  // nivel × días los sigue exigiendo: para estar en la matriz hace falta un
+  // nivel (`program_sequences.level_id` es NOT NULL, y está bien que lo sea).
+  // Un bloque sin nivel simplemente vive en la biblioteca y en las cadenas
+  // personales, que es donde vive la mayoría.
+  level_id: z.coerce.number().int().positive().nullish(),
   week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_ABSOLUTE_MAX_WEEKS),
 });
 export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;

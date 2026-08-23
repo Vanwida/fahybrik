@@ -10,6 +10,29 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-23 · El «nivel» no es un nivel: es un eje del entrenador, y es opcional
+
+**Qué pasó (card 137):** al meter por el asistente un macrociclo real de 12 semanas, **el contenido pasó la validación entera** — 114 bloques, ~320 líneas tipadas con medida, objetivo y descanso, incluidas las series y los fartlek con su estructura anidada. Lo que tumbó la importación fue **el `level_id`**: un campo obligatorio que **ninguna herramienta de lectura sabía entregar** (`get_plan` devuelve `level: ""` incluso para un microciclo que sí tiene nivel; ni la lista de atletas ni la ficha completa lo exponen). El asistente sólo podía adivinar, y adivinó mal.
+
+**Lo que se encontró al mirarlo:**
+
+- `program_month_templates.level_id` es **NULLABLE desde siempre**, y **3 de los 11** microciclos que existen no tienen nivel. **La base decía opcional y el código exigía obligatorio.** Ese desacuerdo era el bug.
+- Los niveles son la forma de organizarse de ALGUNOS entrenadores. **Cinco de los seis** que hay tienen los mismos `N1..N5` que les pusimos nosotros al darlos de alta; sólo uno los ha tocado.
+- Y el que los tocó los dejó en **«N2, N3, N4, Hyrox»** — el cuarto no es un nivel, es un objetivo. **El dato ya demuestra que el eje no es «nivel».**
+
+**Decidido:**
+
+- **El nivel es OPCIONAL** en toda la ruta de escritura (zod, servicio, herramienta del asistente y formulario). Si se da, se comprueba que es suyo; si no, el bloque nace sin nivel.
+- **El error enseña:** cuando el nivel no es suyo, la respuesta lista los que SÍ tiene y recuerda que puede ir sin nivel. Antes decía «no pertenece a este coach» y no había forma de acertar al segundo intento.
+- **Los niveles se buscan** como los ejercicios, los bloques y las plantillas (`search_library`, kind `level`), y se devuelven ENTEROS sin filtrar por el texto: son cinco como mucho y quien pregunta quiere saber cuáles hay, no encontrar uno.
+- **La matriz sigue exigiendo nivel** (`program_sequences.level_id` es NOT NULL) y está bien: la matriz ESTÁ organizada por ese eje. Un bloque sin nivel vive en la biblioteca y en las cadenas personales.
+
+**Lo que queda abierto, y es la raíz:** el eje se llama «nivel» **porque lo llamamos nosotros**. El entrenador puede renombrar los VALORES pero no el EJE, y en pantalla pone «Nivel» aunque él agrupe por objetivo, por grupo de la mañana o por lo que sea. El mecanismo (un eje con el que clasifica atletas y bloques) es nuestro; **cómo se llame es suyo**. Card aparte: el eje necesita una etiqueta editable con «Nivel» por defecto, y las pantallas leerla.
+
+**NO hacer:** no volver a exigir el nivel «porque el formulario siempre lo pidió». No renombrar la tabla `athlete_levels` a la ligera: el identificador técnico puede quedarse estable mientras la ETIQUETA sea del entrenador — lo que no puede quedarse es la palabra «Nivel» cableada en la interfaz.
+
+---
+
 ## 2026-08-23 · Un objetivo puede ser relativo a una marca del atleta, y se resuelve AL LEER
 
 **Qué pasó (card 128 → 130):** al cruzar el modelo contra un macrociclo HYROX real de 12 semanas (84 días, 1.238 líneas) salió que más de 130 de esas líneas no dicen un número: dicen «a ritmo HYROX», «a peso de competición», «5-10 kg por encima del peso de competición», «al 50 % del peso corporal». `Target` sólo sabía decir cifras absolutas más un caso relativo (`percent_rm`). Consecuencia: **una plantilla con kilos concretos no sirve para el atleta siguiente**, así que un ciclo hay que reescribirlo entero por persona — lo contrario de lo que necesita un producto multi-coach. Y es un criterio EXPLÍCITO de ese entrenador: «sin kilos concretos en las plantillas».

@@ -117,11 +117,20 @@ export function registerMicrocycleTools(server: McpServer): void {
           .min(1)
           .max(200)
           .describe('Cómo se llama el microciclo en la biblioteca: «Base 4 semanas», «Específico 2».'),
+        // OPCIONAL (card 137). Era obligatorio y bloqueó la primera importación
+        // real de un ciclo por aquí: el contenido pasó entero y lo tumbó este
+        // campo, que además ninguna herramienta de lectura sabe entregar. Los
+        // niveles son la forma de organizarse de ALGUNOS entrenadores; quien no
+        // los use crea sus bloques sin nivel, como ya hacen 3 de los 11 que hay.
+        // Para descubrirlos: `search_library` con kind 'level'.
         level_id: z
           .number()
           .int()
           .positive()
-          .describe('El nivel (athlete_levels.id) al que pertenece este microciclo.'),
+          .nullish()
+          .describe(
+            'OPCIONAL. El nivel al que cuelga este microciclo, si el entrenador organiza por niveles. Búscalos con search_library (kind: "level"). Si no usa niveles, no lo mandes.',
+          ),
         weeks: weeksArg,
       },
       annotations: {

@@ -176,15 +176,29 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
   const slotsJson = emptyWeekSlotsJson();
 
   return withOwnOrAmbientTx(client, async (tx) => {
-    // Level must be one of THIS coach's athlete_levels (level_id is the value).
-    const levels = await tx<Array<{ id: string }>>`
-      select id::text from athlete_levels
-      where coach_id = ${coach_id}
-      order by sort_order asc, id asc
-    `;
-    const rank = levels.findIndex((l) => l.id === String(body.level_id));
-    if (rank < 0) {
-      throw new ProgramMonthError('invalid_level', 'El nivel no pertenece a este coach', 400);
+    // El nivel es OPCIONAL (card 137): sólo se comprueba si lo han dado. Ver el
+    // porqué largo en `programMonthScratchSchema` — resumen: la columna siempre
+    // fue nullable, hay microciclos sin nivel desde antes de esto, y los niveles
+    // son la forma de organizarse de ALGUNOS entrenadores, no de todos.
+    if (body.level_id != null) {
+      const levels = await tx<Array<{ id: string; name: string }>>`
+        select id::text, name from athlete_levels
+        where coach_id = ${coach_id}
+        order by sort_order asc, id asc
+      `;
+      if (!levels.some((l) => l.id === String(body.level_id))) {
+        // El error ENSEÑA: dice cuáles son. Antes decía sólo «no pertenece a
+        // este coach», y como no hay ninguna herramienta que liste los niveles,
+        // quien se equivocaba no tenía forma de acertar al segundo intento.
+        const suyos = levels.map((l) => l.name).join(', ');
+        throw new ProgramMonthError(
+          'invalid_level',
+          levels.length > 0
+            ? `Ese nivel no es tuyo. Los tuyos son: ${suyos}. También puedes crear el bloque sin nivel.`
+            : 'No tienes niveles definidos, así que el bloque va sin nivel: quita el campo.',
+          400,
+        );
+      }
     }
 
     // El zod de `programMonthScratchSchema` sólo aplica el techo ABSOLUTO del
@@ -202,7 +216,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
     const monthRows = await tx<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name, level_id)
       values (
-        ${coach_id}, ${body.name}, ${body.level_id}
+        ${coach_id}, ${body.name}, ${body.level_id ?? null}
       )
       returning id::text
     `;
@@ -216,7 +230,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
           coach_id, name, level_id, focus, slots_json
         )
         values (
-          ${coach_id}, ${weekName}, ${body.level_id}, null, ${tx.json(slotsJson)}
+          ${coach_id}, ${weekName}, ${body.level_id ?? null}, null, ${tx.json(slotsJson)}
         )
         returning id::text
       `;

@@ -112,7 +112,10 @@ export function NuevoMicrocicloModal({
   }, [onClose]);
 
   const canSubmit =
-    name.trim().length > 0 && levelId !== '' && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting;
+    // El nivel NO entra aquí (card 137): es opcional. Era obligatorio y ni la
+    // base lo exigía; obligarlo es imponer al entrenador una forma de
+    // organizarse que puede que no use.
+    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -125,7 +128,7 @@ export function NuevoMicrocicloModal({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          level_id: Number(levelId),
+          level_id: levelId === '' ? null : Number(levelId),
           week_count: weeks,
         }),
       });
@@ -245,6 +248,7 @@ export function NuevoMicrocicloModal({
                     onChange={(e) => setLevelId(e.target.value)}
                     className={selectClass}
                   >
+                    <option value="">Sin nivel</option>
                     {levels.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name} · {l.label}
