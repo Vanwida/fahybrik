@@ -2,9 +2,52 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-21** (auditoría: el ciclo de un coach, card 128)
+Última actualización: **2026-08-23** (objetivos relativos: tipo + resolutor, card 130)
 
 ## Ahora
+
+**130 · OBJETIVOS RELATIVOS A LAS MARCAS DEL ATLETA — pieza 1 de 4 hecha.**
+Es la raíz de la card 128: sin esto, una plantilla con kilos absolutos no sirve
+para el atleta siguiente y hay que reescribir el ciclo por persona.
+Ley: DECISIONS 23-ago «Un objetivo puede ser relativo a una marca del atleta».
+
+Nuevo `Target.relative` con 4 referencias — `race_pace`, `threshold_pace`,
+`competition_load` (por estación) y `bodyweight` — con porcentaje o delta en kg
+(con banda) sobre las de CARGA. `shared/domain/prescription/reference.ts` (las
+referencias + su frase en castellano) y `resolve-relative.ts` (la traducción a
+número contra `AthleteBenchmarks` + `hyroxStationLoad` INYECTABLE, porque los
+kilos son método del coach). 33 pruebas contra líneas LITERALES del macrociclo;
+verificado en rojo (22 de 33 caen sin el kind en la unión).
+
+Reglas que quedan cerradas: nada de `value/min/max` en el relativo (para eso está
+`isScalarTarget()`); nada de carga cualitativa («media»/«ligera») — eso es
+diccionario del coach, no tipo; nada de porcentaje sobre un ritmo (ambiguo); no
+se duplica `percent_rm` ni `{kind:'bodyweight'}`.
+
+**RIESGO ABIERTO, declarado:** el tipo existe pero **nadie lo resuelve al servir
+el día**. El iOS instalado degrada un kind desconocido a `.unknown` y pinta el
+objetivo EN BLANCO. No hay UI ni gramática que lo produzca (la exposición es una
+llamada MCP deliberada), pero **la pieza 3 no es opcional**: resolver al leer y
+mandar número + frase, con el número en el campo `target` de siempre.
+
+Piezas 2-4 pendientes: tabla de cargas de competición del coach · resolver al
+servir el día · gramática + diccionario.
+
+**133 · Los límites de importar un ciclo (decidido, sin construir).** Contrato de
+ENTREGA, nunca de contenido: unidad = tramo de 4-6 semanas, techo por
+importación, propuesta revisable siempre, **umbral de cobertura para poder
+confirmar**, y lo no tipado entra como nota declarada y jamás como prescripción a
+medias. Criterio de vocabulario: una forma entra si sale en más de un coach o
+muchas veces en uno; si sale una vez en 1.238 líneas es dialecto.
+Ley: DECISIONS 23-ago. El umbral concreto se fija con cobertura real, no antes.
+
+**129 · El catálogo, con los básicos que faltaban (EN PRODUCCIÓN, mig 0205).**
+119 → 148 ejercicios. Faltaban curl de bíceps, encogimientos, remo invertido,
+mountain climbers y buenos días, entre otros. Regla de Alex: **una fila es un
+MOVIMIENTO, no una manera de hacerlo** — por eso las 51 líneas sin resolver del
+macrociclo son 29 filas y no 51, y el salto al cajón a una pierna NO entra.
+90 alias ES/EN, y anclado el falso positivo del puente de glúteo unilateral (que
+resolvía al bilateral). Sigue: 0 de 148 con vídeo.
 
 **128 · EL CICLO DE UN COACH, AUDITADO (sin código, solo diagnóstico).** Alex trajo
 un macrociclo HYROX real de 12 semanas (84 días, 310 bloques, 1.238 líneas, 392

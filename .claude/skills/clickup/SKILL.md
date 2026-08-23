@@ -21,6 +21,21 @@ y volver a pegar el enlace.
 
 El enlace se pega SIEMPRE, en las dos. Formato: `NN · título → https://app.clickup.com/t/<id>`.
 
+## Lista y ESTADO son dos ejes, y los dos importan
+
+La **lista** dice en qué cajón vive la card (`hecho`/`ahora`/`espera`/`luego`).
+El **estado** dice si ahora mismo se está trabajando en ella: `to do`,
+`in progress`, `complete`. Alex mira el tablero para saber **qué hay en marcha**,
+y una card en el cajón «ahora» pero con estado «to do» le esconde exactamente
+eso. Durante meses el script solo movía el cajón y no tocó nunca el estado, así
+que todo se veía igual.
+
+- **Al crear** una card porque empiezas: nace en `in progress` (es el defecto).
+  Si es algo decidido y aparcado, pasa `"to do"` explícito como quinto argumento.
+- **Al cerrar**: `estado <nº> complete` **y** moverla al cajón `hecho`.
+- **Si la dejas a medias** y te vas a otra cosa: `estado <nº> "to do"`, o Alex
+  creerá que sigue en marcha.
+
 ## Cómo se escribe una card
 
 - **Número delante, siempre:** `N · título`. La secuencia es **global**, compartida
@@ -44,9 +59,10 @@ S=.claude/skills/clickup/scripts/clickup.py
 
 python3 $S listar                       # todas las cards con número, lista y enlace
 python3 $S siguiente                    # el próximo número libre (secuencia global)
-python3 $S crear <lista> "<título>" <fichero.md>   # crea numerando solo; imprime el enlace
+python3 $S crear <lista> "<título>" <fichero.md> ["to do"]   # numera sola; nace «in progress»
 python3 $S actualizar <nº|id> <fichero.md>         # reemplaza el cuerpo; imprime el enlace
 python3 $S añadir <nº|id> <fichero.md>             # AÑADE al final del cuerpo; imprime el enlace
+python3 $S estado <nº|id> <to do|in progress|complete>   # el estado, que NO es la lista
 ```
 
 El cuerpo va en un fichero para no pelearse con el escapado en la shell;

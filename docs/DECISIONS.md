@@ -10,6 +10,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-23 · Un objetivo puede ser relativo a una marca del atleta, y se resuelve AL LEER
+
+**Qué pasó (card 128 → 130):** al cruzar el modelo contra un macrociclo HYROX real de 12 semanas (84 días, 1.238 líneas) salió que más de 130 de esas líneas no dicen un número: dicen «a ritmo HYROX», «a peso de competición», «5-10 kg por encima del peso de competición», «al 50 % del peso corporal». `Target` sólo sabía decir cifras absolutas más un caso relativo (`percent_rm`). Consecuencia: **una plantilla con kilos concretos no sirve para el atleta siguiente**, así que un ciclo hay que reescribirlo entero por persona — lo contrario de lo que necesita un producto multi-coach. Y es un criterio EXPLÍCITO de ese entrenador: «sin kilos concretos en las plantillas».
+
+Media máquina ya existía y estaba desconectada: `methodology/zones.ts` resolvía «race pace» y el umbral por modalidad contra las marcas del atleta, y `hyrox/stations.ts` modelaba la carga de competición por división y género — pero una prescripción no podía DECIR ninguna de las dos cosas.
+
+**Decidido:**
+
+- Nuevo kind `Target.relative` con una `ref` de cuatro referencias, todas cosas que el atleta posee de verdad: `race_pace`, `threshold_pace`, `competition_load` (por estación) y `bodyweight`. Sobre una referencia de CARGA se puede poner un porcentaje o un delta en kilos, con banda.
+- **Se resuelve AL LEER, jamás al guardar.** La plantilla guarda la frase para siempre; cada atleta recibe su número al abrir el día (`resolve-relative.ts`). Congelarla al guardar la volvería a atar a un atleta y no habríamos arreglado nada.
+- **El servidor manda el número ya resuelto en el campo `target` de siempre** más la frase aparte. El iOS instalado degrada un kind desconocido a `.unknown` y pinta el objetivo EN BLANCO: sin esto, un atleta con la app vieja vería el entreno sin objetivo y sin enterarse.
+- **Los kilos de competición son método del coach**, inyectables (`stationLoad`); el catálogo de estaciones es el defecto y hoy contesta `null` a todo, a propósito, porque sus cargas se retiraron por falta de fuente fiable.
+- `null` es respuesta de primera clase: sin test no hay ritmo, y se dice.
+
+**NO hacer:**
+
+- **No añadir `value`/`min`/`max` al kind relativo.** No los tiene y es a propósito. Para leer esos campos de un `Target` está `isScalarTarget()`.
+- **No crear una carga cualitativa** («media», «ligera», «pesada»). No es un objetivo, es una palabra de UN entrenador; tiparla deja el dato ambiguo para siempre. Va a su diccionario: se le pregunta una vez y se traduce a esta referencia con su porcentaje.
+- **No permitir porcentaje ni delta sobre una referencia de RITMO**: «al 90 % del ritmo» es ambiguo (¿de la velocidad o del tiempo?) y correr algo más lento que el umbral ya tiene su sitio, que son las zonas.
+- **No duplicar `percent_rm`** con una referencia `one_rm`, ni `{kind:'bodyweight'}` con una referencia sin porcentaje: ya dicen lo que dicen.
+- No anunciar referencias que el resolutor no sabe traducir. Por eso quedaron FUERA la marca de un test cualquiera del catálogo del coach (habría que saber qué métrica produce cada test) y el «% del esfuerzo máximo» (sale una vez en 1.238 líneas).
+
+**Estado y riesgo abierto:** el tipo y el resolutor existen y están probados; **nadie los resuelve todavía al servir el día**. Hasta que eso exista, un objetivo relativo escrito a mano por MCP llegaría crudo al móvil y se pintaría en blanco. No hay UI ni gramática que lo produzca, así que la exposición es sólo una llamada deliberada — pero resolver al leer es la pieza inmediatamente siguiente, no una mejora opcional.
+
+**Dónde vive:** `shared/domain/prescription/reference.ts` (las referencias y su frase), `resolve-relative.ts` (la traducción a número), el kind en `types.ts`, pruebas en `web/tests/domain/relative-target.test.ts` contra líneas literales del macrociclo.
+
+---
+
+## 2026-08-23 · Importar un ciclo tiene contrato de ENTREGA, nunca de contenido
+
+**Qué se decidió (card 133):** al traer el ciclo de un entrenador se pone límite a la FORMA en que nos lo entrega, nunca a lo que puede prescribir. Recortarle el contenido es recortarle su producto y se va con otro.
+
+Cinco parámetros: (1) la unidad de importación es el TRAMO de 4-6 semanas, no el ciclo entero — doce semanas de golpe no las revisa nadie y se confirman a ciegas, y además el orden de los tramos ya ES la periodización; (2) techo duro por importación, por revisabilidad; (3) nada se guarda sin que el coach vea la propuesta; (4) **si menos de un umbral de líneas entra tipada y fiel, no se ofrece «confirmar todo»**, sólo «revisa estas N»; (5) lo que no se tipa entra como nota declarada del bloque, jamás como prescripción a medias.
+
+**El criterio que decide qué entra al vocabulario tipado:** una forma entra si aparece en **más de un entrenador** o **muchas veces en uno**. Si sale una sola vez en 1.238 líneas, es dialecto: va al diccionario del coach o sale a revisión. El macrociclo de 12 semanas es la **regla de medir, no el objetivo** — perseguir su 100 % sería sobreajustar a un entrenador.
+
+**La otra cara:** damos una plantilla de cómo entregar un plan, y **no es una restricción sino un atajo con incentivo** (en nuestro formato entra al 100 % sin preguntas; en el suyo entra igual, con preguntas). Su contenido no se inventa: lo dicta el número de cobertura, porque lo que más cae a revisión es lo que la guía tiene que enseñar a escribir.
+
+**NO hacer:** no fijar el umbral del punto 4 antes de tener número de cobertura real contra el corpus — sería inventárselo. No cerrar ninguna de las dos puertas de entrada.
+
+---
+
 ## 2026-08-20 · El MCP del microciclo escribe la receta, nunca lo entregado
 
 **Qué se decidió (card 93, aplicada en 111):** la receta (`program_month_templates` / `program_week_templates`) sigue existiendo aparte, siempre. Las tools `create_microcycle` y `update_microcycle` escriben SIEMPRE ahí. Lo entregado (`workout_assignments`) es un segundo acto: materializar, y al reeditar, `resyncWeekTemplateAssignments` (solo `scheduled`).

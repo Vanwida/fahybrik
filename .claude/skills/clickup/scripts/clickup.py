@@ -89,6 +89,19 @@ def buscar(ref: str):
     sys.exit(f"No encuentro la card «{ref}». Prueba: clickup.py listar")
 
 
+# Los tres estados de las listas del tablero. La LISTA dice en qué cajon vive
+# una card; el ESTADO dice si ahora mismo se esta trabajando en ella. Son ejes
+# distintos y el script solo movia el primero, asi que todo se quedaba en «to
+# do» y Alex no podia ver qué habia en marcha — que es justo para lo que mira
+# ClickUp.
+ESTADOS = ("to do", "in progress", "complete")
+
+
+def estado_valido(e: str) -> None:
+    if e not in ESTADOS:
+        sys.exit(f"Estado no valido: «{e}». Usa uno de: {', '.join(ESTADOS)}")
+
+
 def marcar():
     MARCA.parent.mkdir(parents=True, exist_ok=True)
     MARCA.write_text("")
@@ -117,13 +130,30 @@ def main() -> None:
 
     elif cmd == "crear":
         alias, titulo, ruta = sys.argv[2], sys.argv[3], sys.argv[4]
+        # Estado opcional al crear; por defecto «in progress», porque una card
+        # se crea JUSTO al empezar a trabajar en ella (esa es la regla de la
+        # skill). Si es algo decidido y aparcado, se pasa "to do" explicito.
+        est = sys.argv[5] if len(sys.argv) > 5 else "in progress"
+        estado_valido(est)
         lid = LISTAS.get(alias, alias)
         nums = [c["num"] for c in todas() if c["num"] is not None]
         n = (max(nums) + 1) if nums else 1
         nombre = f"{n} · {titulo}"
-        t = api("POST", f"/list/{lid}/task", {"name": nombre, "description": cuerpo_de(ruta) + GLOSARIO})
+        t = api(
+            "POST",
+            f"/list/{lid}/task",
+            {"name": nombre, "description": cuerpo_de(ruta) + GLOSARIO, "status": est},
+        )
         marcar()
-        print(f"CREADA · {nombre}\n{t['url']}")
+        print(f"CREADA [{est}] · {nombre}\n{t['url']}")
+
+    elif cmd == "estado":
+        c = buscar(sys.argv[2])
+        est = sys.argv[3]
+        estado_valido(est)
+        api("PUT", f"/task/{c['id']}", {"status": est})
+        marcar()
+        print(f"ESTADO [{est}] · {c['nombre']}\n{c['url']}")
 
     elif cmd in ("actualizar", "anadir", "añadir"):
         c = buscar(sys.argv[2])
