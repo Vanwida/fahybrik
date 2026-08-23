@@ -1,0 +1,2196 @@
+{
+  "fases": [
+    {
+      "semanas": "Semanas 1-5",
+      "fase": "Acumulación",
+      "contenido": "Tests, construcción de base, entrada progresiva a estaciones"
+    },
+    {
+      "semanas": "Semanas 6-9",
+      "fase": "Transformación",
+      "contenido": "Trabajo específico, incremental HYROX, compromised run"
+    },
+    {
+      "semanas": "Semanas 10-11",
+      "fase": "Realización",
+      "contenido": "Ritmo de competición, circuito de estaciones, entrada a tapering"
+    },
+    {
+      "semanas": "Semana 12",
+      "fase": "Competición",
+      "contenido": "Volumen mínimo, intensidad en estímulos cortos"
+    }
+  ],
+  "criterios": [
+    {
+      "criterio": "Estructura del ciclo",
+      "definicion": "Acumulacion 5 semanas · Transformacion 4 · Realizacion 2 · Competicion 1. Las fases se adaptan al atleta, no son rigidas."
+    },
+    {
+      "criterio": "Dias de entrenamiento",
+      "definicion": "La programacion esta disenada para 6 dias. Compromiso minimo innegociable: 4 dias. Peticiones de dias concretos se ajustan caso por caso."
+    },
+    {
+      "criterio": "Distribucion semanal",
+      "definicion": "Descanso a mitad de semana. Nunca dos sesiones de alta demanda seguidas: series, compromised run y WOD siempre separadas por fuerza o descanso."
+    },
+    {
+      "criterio": "Descargas",
+      "definicion": "Se mantiene el volumen, baja la demanda neural. Se reduce en WOD, fuerza de tren inferior y Z2. Nunca en las sesiones de calidad de carrera."
+    },
+    {
+      "criterio": "Running",
+      "definicion": "Solo trabajo de calidad: series, fartlek, MLSS, compromised run. El volumen aerobico va sin impacto en bici y ergometros."
+    },
+    {
+      "criterio": "Prescripcion de intensidad",
+      "definicion": "RPE y ritmos objetivo derivados de los tests. Sin kilos concretos en las plantillas: porcentajes, RIR o referencia a peso de competicion."
+    },
+    {
+      "criterio": "Tests de entrada",
+      "definicion": "Test 3'+9' en pista y test 2-1-2 en row y ski. El test de 30' se usa como re-test intermedio."
+    },
+    {
+      "criterio": "Re-tests",
+      "definicion": "Se repiten al renovar o al encadenar objetivos, integrados en el arranque del nuevo ciclo."
+    },
+    {
+      "criterio": "Fuerza · ejecucion",
+      "definicion": "Maxima velocidad y explosividad en la fase concentrica, siempre. Si la carga obliga a mover lento, es demasiada."
+    },
+    {
+      "criterio": "Fuerza · estructura",
+      "definicion": "Un ancla bilateral pesada en acumulacion, resto unilateral. En realizacion desaparece la barra pesada bilateral por su coste neural."
+    },
+    {
+      "criterio": "Tren superior",
+      "definicion": "Trabajo con transferencia real: traccion, empuje bajo fatiga y estabilidad escapular. Sin trabajo aislado de gimnasio. El core va al inicio de la sesion."
+    },
+    {
+      "criterio": "Clases del box",
+      "definicion": "La clase HYROX sustituye el WOD. La clase S&C sustituye las sesiones de fuerza. Siempre con RPE prescrito segun la fase."
+    },
+    {
+      "criterio": "Simulacros",
+      "definicion": "No se programan. Solo si el atleta lo pide, con antelacion suficiente, y en modalidad Dobles."
+    },
+    {
+      "criterio": "Cargas de referencia",
+      "definicion": "Sandbag 30kg hombres / 20kg mujeres. El resto de cargas se referencian al peso de competicion."
+    },
+    {
+      "criterio": "Poda por disponibilidad",
+      "definicion": "El objetivo siempre es completar las seis sesiones. Cuando no sea posible, cae primero el dia de tren superior y despues el de Zona 2 sin impacto. El volumen aerobico sin impacto se protege por delante del trabajo de tren superior."
+    },
+    {
+      "criterio": "Ajuste por nivel bajo",
+      "definicion": "Solo se reduce el volumen de series de running y de series de WOD, para no acumular mas tiempo en Zona 4 del que el atleta puede asimilar. No se tocan ejercicios ni estructura."
+    },
+    {
+      "criterio": "Debilidades marcadas",
+      "definicion": "No requieren especificidad adicional. El plan trabaja todas las cualidades. La tecnica se corrige en el seguimiento semanal."
+    },
+    {
+      "criterio": "Duracion de sesion",
+      "definicion": "Subjetiva al nivel del atleta. No se fija tope."
+    },
+    {
+      "criterio": "Carreras encadenadas",
+      "definicion": "Se adapta segun objetivos. Las carreras poco demandantes se sustituyen por entrenamientos."
+    }
+  ],
+  "semanas": [
+    {
+      "numero": 1,
+      "fase": "Acumulacion",
+      "subtitulo": "Semana de anclaje",
+      "objetivo": "Obtener los datos de referencia que prescriben las 11 semanas siguientes. Establecer patrones de movimiento y primer contacto tecnico con estaciones.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Test running 3' + 9'",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Movilidad general de cadera",
+              "contenido": "10':\nCat cow 2x10\n90-90 2x6 por lado\nCossack squat 2x5 por lado\nForward leg swing 10\" por lado\nHip flexor stretch 10 por lado"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Test",
+              "contenido": "15' easy run RPE 5\n3' RPE 10 (marcar lap)\n10' caminando\n5' trote RPE 5\n5' caminando\n9' RPE 10 (marcar lap)\n15' cool down easy run"
+            }
+          ],
+          "notas": "En el de 3' se sale fuerte desde el principio. En el de 9' se empieza conservador y se aprieta en los ultimos 3'. Los dos ritmos deben quedar registrados."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Fuerza tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Bloque A · Traccion",
+              "contenido": "4 series:\n6 Dominadas estrictas (lastradas si se puede)\n10 Remo invertido con barra\n90\" rest"
+            },
+            {
+              "nombre": "Bloque B · Empuje",
+              "contenido": "4 series:\n8 Press banca con barra RIR 3-4\n8 Push press 2DB\n90\" rest"
+            },
+            {
+              "nombre": "Bloque C · Resistencia de hombro",
+              "contenido": "EMOM 12' · 40\" on / 20\" off\nMin 1: Ski erg suave\nMin 2: Shoulder taps\nMin 3: 10 Hollow rocks\nMin 4: KTB farmer hold"
+            },
+            {
+              "nombre": "Bloque D · Agarre y carga",
+              "contenido": "4 series:\n40m KB marching farmer's walk\n30\" Dead hang en barra\n12 Dips\n90\" rest"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n10 Paloff press por lado\n30\" Side plank por lado\n8 Dead bug por lado"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Test ergometros 2-1-2",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento",
+              "contenido": "3' suave ski + 3' suave row\n3 series sin parar de 20\" fuerte / 40\" suave en ski\n3 series sin parar de 20\" fuerte / 40\" suave en row"
+            },
+            {
+              "nombre": "Activacion",
+              "contenido": "2 series:\n10 Bodyweight walking lunge\n10 Shoulder tap\n10 Remo con goma\n20\" Plancha lateral por lado"
+            },
+            {
+              "nombre": "Aproximacion row",
+              "contenido": "2 x 250m con 2' de descanso, al ritmo que se cree sostenible en el test\nRest 4'"
+            },
+            {
+              "nombre": "TEST ROW",
+              "contenido": "2' RPE 10 -> 1' rest -> 2' RPE 10"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5-8'"
+            },
+            {
+              "nombre": "Aproximacion ski",
+              "contenido": "2 x 250m con 2' de descanso\nRest 4'"
+            },
+            {
+              "nombre": "TEST SKI",
+              "contenido": "2' RPE 10 -> 1' rest -> 2' RPE 10"
+            },
+            {
+              "nombre": "Finisher",
+              "contenido": "2 series alternando:\n500m Row a 26-28 SPM\n500m Ski a 42-44 SPM"
+            }
+          ],
+          "notas": "El ritmo de HYROX sera aquel cuya percepcion de esfuerzo sea 7-8. De aqui sale la referencia."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Fuerza tren inferior + sled tecnico",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C · el bloque de sled se mantiene aparte",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "4 series:\n8 Back squat al 65-70% (RIR 3)\n6 Box jump\n2' rest"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "4 series:\n8 Peso muerto RIR 3\n6 por lado Bulgarian split squat con 2DB\n2' rest"
+            },
+            {
+              "nombre": "Bloque C · Sled tecnico",
+              "contenido": "6 x 15m Sled push a carga media\nDescanso completo entre series (90\")\nFoco: posicion del cuerpo, cadencia de pasos corta y rapida, respetar lineas"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "4 x 25m Sandbag walking lunge\n60\" de descanso entre series"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Capacidad HYROX",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 6-7",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "4 rondas:\n400m Run a RPE 6-7\n20 Wall balls\n200m Ski erg\n8 Devil press\n15m Sandbag walking lunge\n2' rest entre rondas\nTC 40'"
+            }
+          ],
+          "notas": "Esta semana no se busca tiempo, se busca que el atleta aprenda a moverse entre estaciones sin desmadrarse. Si acaba muy facil, se anota para subir carga."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Aerobico extensivo",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "Run 50-70' en Zona 2\nRitmo derivado del test del lunes\nTerreno llano o cinta al 1%"
+            }
+          ],
+          "notas": "Para atletas de nivel: opcion de anadir 20-30' de bici Z1 al terminar."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "30-60' de bici en Zona 1 (max 142 ppm) o 30' de remo suave"
+            }
+          ],
+          "notas": "Nunca sustituye una sesion programada. Solo si el atleta llega sin fatiga acumulada."
+        }
+      ]
+    },
+    {
+      "numero": 2,
+      "fase": "Acumulacion",
+      "subtitulo": "Entrada de calidad",
+      "objetivo": "Primera semana con ritmos prescritos. Se introducen dos sesiones de running de calidad y el primer bloque incremental de ergometro + estacion.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza tren inferior + sled tecnico",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C · bloque C aparte",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "4 series:\n8 Back squat al 70% (RIR 3)\n6 Box jump\n2' rest"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "4 series:\n8 Peso muerto RIR 3\n6 por lado Bulgarian split squat 2DB\n2' rest"
+            },
+            {
+              "nombre": "Bloque C · Sled tecnico",
+              "contenido": "4 x 20m Sled push a carga media\n4 x 12,5m Sled pull buscando el menor numero de ciclos de tiron posible\n90\" de descanso entre series"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "2 x 50m Sandbag walking lunge\n90\" de descanso entre series"
+            }
+          ],
+          "notas": "Foco del pull: coger la cuerda lo mas cerca de la linea delantera sin pisarla e ir atras al maximo hasta la linea. Grabarlo en video para revision."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Running calidad · Microintervalos 30/30",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n3 bloques de 8 series de:\n30\" a ritmo Microintervalos\n30\" andando rapido\n\n3' parado entre bloques\n\n10' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion. Total aproximado 55'."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Fuerza tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Fast and metabolic",
+              "contenido": "3 bloques de 4 rondas · 2' entre rondas, 5' entre bloques\n\nBloque A\n30\" AB fuerte + 10\" sprint\n8 Push press 2DB\n6 por lado Remo unilateral en plancha con DB\n\nBloque B\n30\" Ski + 10\" sprint\n6-8 Dominadas estrictas\n10 Push ups sobre DB\n\nBloque C\n30\" Row + 10\" sprint\n5+5 Devil press unilateral\n10 Hands release push up"
+            },
+            {
+              "nombre": "Bloque de agarre y carga",
+              "contenido": "3 series:\n40m KB marching farmer's walk\n30\" Dead hang en barra\n90\" rest"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n6 Ab wheel de rodillas\n4 por lado KB push up to renegade row\n5 Bird dog push up\n6 Stability ball pike"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Running calidad · Fartlek 2'/2'",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n2 bloques de 4 series de:\n2' en Zona 4\n2' en Zona 2\n\n5' en Zona 1 entre bloques\n\n8' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion. Total aproximado 55'."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Incremental HYROX",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 7",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n90\" Row en Zona 2\n10 Burpee broad jump a maxima velocidad\n60\" Row en Zona 3\n15 Burpee broad jump\n30\" Row en Zona 4\n2' de descanso activo en AB\n2' de descanso parado"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n90\" Ski en Zona 2\n20 Sandbag walking lunge\n60\" Ski en Zona 3\n15 Sandbag walking lunge\n30\" Ski en Zona 4\n2' de descanso activo en AB\n2' de descanso parado"
+            }
+          ],
+          "notas": "El objetivo es sostener la estacion con las pulsaciones subiendo. No se busca velocidad maxima en el ergometro, se busca respetar la zona."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 10' AB o Concept 2 -> 2' row\n10' AB o Concept 2\n\nAlternativa: 60-75' de bici en Zona 2"
+            }
+          ],
+          "notas": "Los descansos son solo el tiempo que se tarda en cambiar de maquina."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 3,
+      "fase": "Acumulacion",
+      "subtitulo": "Consolidacion",
+      "objetivo": "Subir carga en fuerza y volumen de estacion manteniendo la estructura. El atleta ya tiene dos semanas de adaptacion y los ritmos calibrados.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza tren inferior + sled",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C · bloque de sled aparte",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Bloque A · Ancla bilateral",
+              "contenido": "4 series:\n5 Back squat al 78-80%\n6 Box jump unilateral aterrizando a una pierna\n2' rest"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "4 series:\n6 por lado Bulgarian split squat 2DB\n5 por lado Sentadilla skater con disco\n2' rest"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "4 series:\n5 por lado Subida a cajon con 2KB\n6 por lado Peso muerto unilateral con DB\n2' rest"
+            },
+            {
+              "nombre": "Bloque D · Sled",
+              "contenido": "3 x 20m Sled push carga media\n3 x 12,5m Sled push a peso de competicion\n3 x 12,5m Sled pull, minimos ciclos de tiron\n90\" entre series"
+            },
+            {
+              "nombre": "Finisher · Wall balls",
+              "contenido": "3 x 25 reps a peso de competicion\n60\" entre series"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Running calidad · Microintervalos 40/20",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n3 bloques de 8 series de:\n40\" a ritmo Microintervalos\n20\" andando rapido\n\n3' parado entre bloques\n\n10' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion. La progresion respecto a la semana anterior es tiempo de trabajo: de 30\" a 40\", con descanso mas corto."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "4 series:\n4 Push jerk con barra, pesado\n4 Dominadas lastradas\n10 Encogimientos con KB, parada de 3\" cerca de las orejas\n1'30\" rest"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "4 series:\n6 Dominadas supinas lastradas si se puede\n10 Remo invertido con pies elevados\n10 Hands release push ups\n1'30\" rest"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "4 series:\n6 por lado Remo en plancha alterno con DB\n6 por lado Press arrodillado unilateral 1DB\n1'30\" rest"
+            },
+            {
+              "nombre": "Bloque D · Core",
+              "contenido": "4 series:\n8 Rueda abdominal de rodillas\n30\" L-sit en anillas o paralelas\n10 Rodillas al pecho estrictas colgado\n1'30\" rest"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Running calidad · Fartlek 3'/3'",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n2 bloques de 3 series de:\n3' en Zona 4\n3' en Zona 2\n\n3' en Zona 1 entre bloques\n\n8' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Estacion pesada + ergometro sostenido",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 7-8",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n25m Sled push a peso de competicion\n500m Row en Zona 3\n20 Wall balls\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n25m Sled pull a peso de competicion\n500m Ski en Zona 3\n50m Farmer carry\n3' de descanso entre rondas"
+            }
+          ],
+          "notas": "El descanso es amplio a proposito. Si no puede mantener el ritmo prescrito en el row o el ski, la carga del sled esta demasiado alta."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 12' AB o Concept 2 -> 2' row\n12' AB o Concept 2\n\nAlternativa: 70-80' de bici en Zona 2"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 4,
+      "fase": "Acumulacion",
+      "subtitulo": "Pico de carga",
+      "objetivo": "Semana de mayor carga de la fase. Cierra el bloque de acumulacion. El feedback del atleta al final de esta semana determina el ajuste de la semana 5.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza tren inferior + sled",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C · bloque de sled aparte",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Bloque A · Ancla bilateral",
+              "contenido": "4 series:\n4 Back squat al 80-82%\n5 Box jump unilateral aterrizando a una pierna\n2'30\" rest"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "4 series:\n6 por lado Subida a cajon con 2KB\n5 por lado Sentadilla skater con disco\n2' rest"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "4 series:\n6 por lado Peso muerto unilateral con 2KB\n10 Skaters, saltos explosivos reactivos laterales\n2' rest"
+            },
+            {
+              "nombre": "Bloque D · Sled",
+              "contenido": "2 x 20m Sled push carga media\n4 x 12,5m Sled push a peso de competicion\n4 x 12,5m Sled pull a peso de competicion\n90\" entre series"
+            },
+            {
+              "nombre": "Finisher",
+              "contenido": "3 x 30m Sandbag lunge por encima del peso de competicion\n90\" entre series"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Running calidad · Microintervalos 60/60",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n2 series de:\n1'30\" en Zona 5\n3' andando rapido\n\nY directo a:\n\n3 bloques de 6 series de:\n1' a ritmo Microintervalos\n1' andando rapido\n\n5' parado entre bloques\n\n5' cool down"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion. Ultimo microintervalo del ciclo. Total aproximado 60'."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Bloque A · Fuerza",
+              "contenido": "5 series:\n5 Press militar estricto con barra al 75-80%\n6 Dominadas lastradas\n2' rest"
+            },
+            {
+              "nombre": "Bloque B · Ergo + empuje",
+              "contenido": "4 rondas:\n45\" Ski erg fuerte + 15\" sprint\n10 Push ups sobre DB\n8 Dips\n90\" rest"
+            },
+            {
+              "nombre": "Bloque C · Ergo + traccion",
+              "contenido": "4 rondas:\n45\" Row fuerte + 15\" sprint\n8 Toes to bar\n25m Farmer carry\n90\" rest"
+            },
+            {
+              "nombre": "Bloque D · Wall climb y hombro",
+              "contenido": "3 series:\n4 Wall climb\n12 Wall balls a peso de competicion\n30\" Dead hang en barra\n90\" rest"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n4 por lado Turkish get up\n20 Body saw\n10 por lado Paloff press"
+            }
+          ],
+          "notas": "Fuerza pesada al principio con el atleta fresco. A partir del bloque B todo el trabajo de empuje y traccion va precedido de ergometro."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Running calidad · Fartlek 3'/3'",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n2 bloques de 3 series de:\n3' en Zona 4\n3' en Zona 2\n\n3' en Zona 1 entre bloques\n\n8' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "EMOM de estaciones · transiciones",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "EMOM 20' · 45\" de trabajo / 15\" de transicion corriendo\n\nMin 1 - Run\nMin 2 - Sled push a peso de competicion\nMin 3 - Air bike\nMin 4 - Farmer carry\nMin 5 - Row\nMin 6 - Wall balls\nMin 7 - Ski erg\nMin 8 - Sandbag walking lunge\nMin 9 - Run\nMin 10 - Rest\n\nDos vueltas completas al circuito"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "Los 15\" de transicion son parte del entrenamiento, no descanso. Se hacen corriendo. El objetivo es sostener el mismo nivel de trabajo en la segunda vuelta."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 75-85' de bici en Zona 2"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 5,
+      "fase": "Acumulacion",
+      "subtitulo": "Cierre de fase",
+      "objetivo": "Cambio de formato en fuerza y entrada de series y compromised run. Cierra la acumulacion a carga completa.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza mixta",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Estructura",
+              "contenido": "4 series de 5 repeticiones por bloque\n2' de descanso entre series y entre bloques"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "Front squat al 70%\nDrop jump bajo desde banco\n20m Sled push a peso de competicion"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "Peso muerto unilateral con 2KB\n10 Skaters explosivos laterales\n25m Farmer carry"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "Subida a cajon con 2KB\nSalto horizontal a dos piernas\n25m Sandbag walking lunge"
+            }
+          ],
+          "notas": "Fuerza -> expresion de esa fuerza en salto -> aplicacion en la estacion, todo en la misma serie. Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa. La parte principal no debe pasar de 45-50 minutos."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Series 10 x 400m",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n10 series de:\n400m en Zona 5\n1'30\" en Zona 1\n\n5' cool down en Zona 2"
+            }
+          ],
+          "notas": "Empezar conservador y terminar mas rapido de lo que se empezo. Las sesiones por metros en cinta requieren calcular antes el tiempo por serie segun la velocidad prevista. Nunca correr por metros en cinta."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Bloque A · Complex con barra",
+              "contenido": "4 series:\n2 Strict shoulder press + 2 Push press + 2 Front squat + 2 Thrusters\n2' rest"
+            },
+            {
+              "nombre": "Bloque B · Escalera descendente",
+              "contenido": "1 serie:\nDominadas y push ups sobre DB en escalera 10-8-6-4-2\nEntre cada peldano: 100m Ski erg\nSin descanso, AFAP"
+            },
+            {
+              "nombre": "Bloque C · Carga y desplazamiento",
+              "contenido": "4 series:\n40m KB marching farmer's walk\n6 por lado Remo unilateral en plancha con DB pesada\n8 Burpee to plate\n90\" rest"
+            },
+            {
+              "nombre": "Bloque D · Finisher hombro",
+              "contenido": "100 reps de Sit up wall ball shoot\nFraccionado libre, AFAP"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n6 Ab wheel de rodillas\n4 por lado KB push up to renegade row\n6 Stability ball pike with knee tuck"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Compromised run · entrada",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Movilidad",
+              "contenido": "2 series de: 10 Cat cow · 10 90-90 · 5 por lado Cossack squat · 10\" por lado Forward leg swing\n2 series de: 10 Arm climb · 20 Mountain climber · 10 Hand release push up · 30\" Side bridge"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "1. Wall acceleration - load 2x8\n2. Wall acceleration con 1 cambio 2x8\n3. Bilateral pogo jumps 2x10m\n4. Skip uni 2x15m\n5. Skip estabilizando 2x10m\n6. Skip 2x15m\n7. Zancadas pliometricas horizontales 2x15m"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n10+10 Step up al cajon\n500m Run a ritmo HYROX\n20 Burpees con salto\n500m Run a ritmo HYROX\n2'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n100m Farmer carry\n500m Run a ritmo HYROX\n100m Farmer carry\n500m Run a ritmo HYROX\n2'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "El ritmo de carrera manda. Si el run cae despues de la estacion, la estacion se esta haciendo demasiado rapido. Total 9 km a ritmo HYROX."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "WOD especifico",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "3 rondas AFAP:\n1000m Row\n25m Sled push a peso de competicion\n50 Wall balls\n25m Sled pull a peso de competicion\n1000m Ski erg\n5' de descanso entre rondas\nTC 45'"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "El descanso de 5' entre rondas es amplio a proposito: se busca calidad en cada ronda."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 75-85' de bici en Zona 2"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 6,
+      "fase": "Transformacion",
+      "subtitulo": "Descarga e inicio de fase",
+      "objetivo": "Asimilar la acumulacion mientras se abre la fase especifica. Baja carga total, sube especificidad. La descarga se aplica en WOD, fuerza de tren inferior y Z2.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza especifica de estacion",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Activacion de agarre",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda\n10 encogimientos con DB con parada"
+            },
+            {
+              "nombre": "Aproximacion al sled",
+              "contenido": "3 x 12,5m al 60% del peso de competicion\n2 x 12,5m al 80%\n20\" de descanso entre series"
+            },
+            {
+              "nombre": "Bloque A · Sled push sobrecargado",
+              "contenido": "5 series:\n15m con 20-30kg por encima del peso de competicion\n2' de descanso\nFoco: pasos cortos y rapidos, tronco inclinado, sin parar en las lineas"
+            },
+            {
+              "nombre": "Bloque B · Sled pull sobrecargado",
+              "contenido": "5 series:\n12,5m con 15-20kg por encima del peso de competicion\nMinimo numero de ciclos de tiron posible\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque C · Carga y desplazamiento",
+              "contenido": "4 series:\n50m Farmer carry por encima del peso de competicion\n25m Sandbag walking lunge sobrecargado\n90\" de descanso"
+            },
+            {
+              "nombre": "Complementario de barra",
+              "contenido": "3 series:\n6 Back squat al 70%\n6 por lado Peso muerto unilateral con 2KB\n2' de descanso"
+            },
+            {
+              "nombre": "Compensatorio",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nHip thrust unilateral"
+            }
+          ],
+          "notas": "Se entrena directamente la estacion con mas peso del que habra en carrera, para que el peso real se sienta ligero. Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Series 600m + 800m",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Progresion previa",
+              "contenido": "2 series:\n1' en Zona 4\n1' en Zona 5\n1' de descanso\n\nY directo a:"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "4 series:\n600m en Zona 5\n2' trotando en Zona 1"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 series:\n800m en Zona 4-5\n3' andando"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "5' en Zona 2"
+            }
+          ],
+          "notas": "Toda la sesion es seguida. Se pasa de las series de 600 a las de 800 sin corte. Total 4,8 km de calidad."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Bloque A · Fuerza pesada",
+              "contenido": "5 series:\n4 por lado Push jerk unilateral con DB\n4 Dominadas neutras lastradas\n2' rest"
+            },
+            {
+              "nombre": "Bloque B · Empuje horizontal",
+              "contenido": "4 series:\n6 Press banca agarre cerrado al 75%\n8 Push up pliometricos hand release\n10 Aperturas en polea\n90\" rest"
+            },
+            {
+              "nombre": "Bloque C · Traccion y agarre",
+              "contenido": "4 series:\n8 Remo bajo con barra, sin tocar el suelo entre reps\n10 Encogimientos con KB, parada de 3\"\n30\" Dead hang\n90\" rest"
+            },
+            {
+              "nombre": "Bloque D · Core",
+              "contenido": "3 series:\n8 Cable cross woodchop por lado\n5 Landmine twist por lado\n5 Medicine ball rainbow slam\n40\" Plancha con manos en fitball"
+            },
+            {
+              "nombre": "Cierre · EMOM 20' suave",
+              "contenido": "40\" on / 20\" off\nMin 1 - Ski erg en Zona 2\nMin 2 - Shoulder taps\nMin 3 - Air bike en Zona 2\nMin 4 - Hollow hold\n\n5 vueltas completas"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Compromised run",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Movilidad",
+              "contenido": "2 series de: 10 Cat cow · 10 90-90 · 5 por lado Cossack squat · 10\" por lado Forward leg swing"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n400m Run a ritmo HYROX\n20 Burpees\n800m Run a ritmo HYROX\n15 Burpee broad jump\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n30 Zancadas con salto en el sitio\n400m Run a ritmo HYROX\n30 Sandbag walking lunge\n800m Run a ritmo HYROX\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "El ritmo de los 800m es el de competicion. Los 400m algo mas rapidos. Total 7,2 km a ritmo HYROX."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "WOD",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "3 rondas:\n1000m Row\n20 Burpee broad jump\n1000m Ski erg\n100m Farmer carry\n30 Wall balls\n3' de descanso entre rondas\nTC 45'"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "Sin trineo: el lunes ya lleva volumen alto de sled sobrecargado."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto · reducido",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 12' AB o Concept 2 -> 2' ski\n2' row -> 10' AB o Concept 2 -> 2' row\n10' AB o Concept 2\n\nAlternativa: 55-65' de bici en Zona 2"
+            }
+          ],
+          "notas": "Volumen reducido por descarga."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 7,
+      "fase": "Transformacion",
+      "subtitulo": "Carga completa",
+      "objetivo": "Primera semana a carga completa de la fase especifica. Sube el volumen de trabajo a ritmo de competicion.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza especifica sin trineo",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Compensatorio",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nHip thrust unilateral\nPeso muerto unilateral con DB"
+            },
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Activacion de agarre",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda\n10 encogimientos con DB con parada"
+            },
+            {
+              "nombre": "Bloque A · Potencia",
+              "contenido": "5 series:\n3 Power clean al 70-75%\n5 High box jump\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque B · Unilateral pesado",
+              "contenido": "4 series:\n6 por lado Bulgarian split squat 2DB pesadas\n5 por lado Subida a cajon con 2KB\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque C · Farmer carry sobrecargado",
+              "contenido": "4 series:\n50m por encima del peso de competicion\n2' de descanso"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "10-15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Fartlek 4'/4'",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "10' en Zona 2\n\n2 bloques de 4 series de:\n4' en Zona 4\n4' en Zona 2\n\n5' en Zona 1 entre bloques\n\n8' cool down en Zona 2"
+            }
+          ],
+          "notas": "Todo seguido sin bajarse de la cinta, 1% de inclinacion. 32 minutos en Zona 4, el bloque de fartlek mas largo del ciclo. En los bloques de Zona 2 no se camina ni se para."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "4 series:\n4 por lado Turkish get up\n4 x 40\" on / 20\" off Side plank\n90\" rest"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "5 series cada 2'30\":\nStrict shoulder press con barra\n10 / 8 / 8 / 6 / 4 reps al 65 / 70 / 75 / 80 / 85%"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "6 series:\n12 - 10 - 10 - 8 - 8 - 6 Dips\nEmparejado con dominadas al mismo esquema de reps\n90\" rest"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "4 series:\n10 - 10 - 8 - 8 Aperturas en polea\n10 - 10 - 8 - 8 Curl alterno con DB de pie\n90\" rest"
+            },
+            {
+              "nombre": "Bloque D · METCON 10'",
+              "contenido": "45\" on / 15\" off\nAlternando: Max Push ups con chaleco / Max Pull ups"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Compromised run",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Movilidad",
+              "contenido": "2 series de: 10 Cat cow · 10 90-90 · 5 por lado Cossack squat · 10\" por lado Forward leg swing"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n10+10 Step up al cajon\n500m Run a ritmo HYROX\n20 Burpees con salto\n500m Run a ritmo HYROX\n2'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "7' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n100m Farmer carry\n500m Run a ritmo HYROX\n100m Farmer carry\n500m Run a ritmo HYROX\n2'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "Total 9 km a ritmo HYROX en 18 tramos de 500m."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "WOD de bloques descendentes",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8-9",
+          "bloques": [
+            {
+              "nombre": "Compensatorio de gluteo",
+              "contenido": "3 series de 8:\nPuente de gluteo unilateral\nPeso muerto unilateral con DB\nHip thrust unilateral"
+            },
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "4 rondas de 4' max Sled pull a peso de competicion · 2' de descanso entre rondas\n\n3' de descanso\n\n3 rondas de 3' max Sandbag walking lunge · 90\" de descanso entre rondas\n\n3' de descanso\n\n2 rondas de 2' max Burpee broad jump · 60\" de descanso entre rondas\n\n3' de descanso\n\n1 ronda de 50 Wall balls AFAP\n\nTC 60'"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "Anotar metros y repeticiones de cada ronda. Es el dato que muestra en que estacion cae mas el rendimiento y decide que se prioriza en las semanas siguientes."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 75-85' de bici en Zona 2"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional elite",
+              "contenido": "45-90' de bici en Zona 1, maximo 142 ppm"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 8,
+      "fase": "Transformacion",
+      "subtitulo": "Maxima carga especifica",
+      "objetivo": "Consolidacion del trabajo a ritmo de competicion. Nueva distribucion semanal con descanso a mitad de semana.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza mixta con estacion",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Estructura",
+              "contenido": "4 series de 5 repeticiones (los unilaterales, reps por lado)\n2' de descanso entre series y entre bloques"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "Back squat al 75-80%\nDrop jump bajo desde banco\n25m Sled push a peso de competicion"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "Peso muerto unilateral con DB, un pie adelantado\n10 Skaters, saltos explosivos reactivos laterales\n25m Sled pull a peso de competicion"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "Bulgarian split squat 2DB\nSalto a cajon bajo aterrizando a una pierna\n20m por lado Farmer carry unilateral"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa. La parte principal no debe pasar de 45-50 minutos."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Series 400m + 1000m",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Sesion",
+              "contenido": "5 series de:\n400m en Zona 5\n1'15\" andando a 3,5 km/h\n1000m en Zona 4\n2'30\" andando a 3,5 km/h\n\nCool down 5' en Zona 2"
+            }
+          ],
+          "notas": "Empezar conservador. Las sesiones por metros en cinta requieren calcular antes el tiempo por serie segun la velocidad prevista. Nunca correr por metros en cinta. Total 7 km de calidad."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Incremental HYROX sin trineo",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8-9",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "4 rondas:\n60\" Row en Zona 4\n25m Burpee broad jump\n90\" Air bike en Zona 3\n25m Burpee broad jump\n120\" Ski erg en Zona 2\n2' de descanso activo en Air bike\n2' de descanso parado"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "4 rondas:\n60\" Ski erg en Zona 4\n10 Wall balls por encima del peso de competicion\n90\" Air bike en Zona 3\n10 Wall balls por encima del peso de competicion\n120\" Row en Zona 2\n2' de descanso activo en Air bike\n2' de descanso parado"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "El ergometro va bajando de zona: se entra fuerte en Zona 4 y se termina sosteniendo Zona 2 con la estacion ya hecha dos veces. Ensena a recuperar sobre el ergometro."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Tren superior + core",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n6 Ab wheel de rodillas\n4 por lado KB push up to renegade row\n5 Bird dog push up\n5 Medicine ball rainbow slam\n6 Stability ball pike with knee tuck"
+            },
+            {
+              "nombre": "Estructura",
+              "contenido": "4 series de 8 repeticiones (los unilaterales, reps por lado)\n2' de descanso entre series y entre bloques"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "Press banca con barra 70-80%\nRemo invertido en anillas explosivo"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "Dominada neutra\nPress militar arrodillado con mancuernas"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "Fondos en paralelas\nEncogimientos con KB, parada de 3\" cerca de las orejas"
+            },
+            {
+              "nombre": "Finisher · EMOM 10' suave",
+              "contenido": "40\" on / 20\" off\nMin 1 - Ski erg en Zona 2\nMin 2 - Hollow hold\n\n5 vueltas completas"
+            },
+            {
+              "nombre": "Vuelta a la calma",
+              "contenido": "5-10' en Zona 1 · bici o Concept 2"
+            }
+          ],
+          "notas": "Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Compromised run · transiciones sled/run",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "60\" foam roller en isquiotibiales, gluteo, gemelos, aductores\n10 Hip flexor stretch dinamico por pierna\n10 Lateral lunge alterno\n10 Buenos dias con pica\n15 Hip thrust bodyweight\n20 Mountain climbers\n10 Push ups\n10 KB goblet squat"
+            },
+            {
+              "nombre": "Activacion de agarre para el pull",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda\n10 encogimientos con DB con parada"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Series de aproximacion al trineo",
+              "contenido": "2 x 15m con carga ligera, alrededor del 40% del peso corporal\nFoco en la tecnica de pasos y ojo con las lineas"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n25m Sled push a peso de competicion\n500m Run a ritmo HYROX\n25m Sled push a peso de competicion\n500m Run a ritmo HYROX\n2'30\"-3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "7' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n500m Run a ritmo HYROX\n25m Sled pull a peso de competicion\n500m Run a ritmo HYROX\n25m Sled pull a peso de competicion\n500m Run a ritmo HYROX\n2'30\"-3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "Si el ritmo del run cae despues del sled, el sled se esta haciendo demasiado rapido. El ritmo de carrera manda. Total 9 km con 6 entradas al trineo."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 75-85' de bici en Zona 2"
+            }
+          ],
+          "notas": "Opcional para elite: hasta 90' en Zona 1, maximo 142 ppm."
+        }
+      ]
+    },
+    {
+      "numero": 9,
+      "fase": "Transformacion",
+      "subtitulo": "Cierre de fase",
+      "objetivo": "Ultima semana de carga alta del ciclo. Consolida el trabajo especifico antes de entrar en realizacion. Dos dias de descanso: miercoles completo y domingo, con el viernes como Z2 voluntario.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza completa · inferior + superior",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Bloque A · Tren inferior",
+              "contenido": "4 series:\n4 Front squat 70-75%\n20m Broad jump a dos piernas\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque B · Triserie unilateral",
+              "contenido": "4 series:\n6 por lado Bulgarian split squat con carga ligera\n5 por lado Salto a cajon aterrizando y estabilizando a una pierna\n5 por lado Skaters, saltos explosivos reactivos laterales\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque C · Tren superior",
+              "contenido": "4 series:\n6 Press banca con barra\n8 Gorilla row\n2' de descanso"
+            },
+            {
+              "nombre": "Bloque D · EMOM 16'",
+              "contenido": "Min impar: 8-10 Dominadas\nMin par: 15-20 Push ups"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "El orden del bloque B va de mas carga a mas velocidad. El EMOM concentra el volumen de traccion y empuje en 16 minutos con densidad alta. Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Compromised run · transiciones aerobicas",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n2' Row en Zona 4\n10 Burpee to plate\n2' Run a ritmo HYROX\n15 Burpees con salto\n2' Run a ritmo HYROX\n20m Burpee broad jump\n2' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "2 rondas:\n2' Ski erg en Zona 4\n100m Farmer carry\n2' Run a ritmo HYROX\n100m Farmer carry\n2' Run a ritmo HYROX\n100m Farmer carry\n2' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 3",
+              "contenido": "2 rondas:\n2' Concept 2 en Zona 4\n10 Wall balls por encima del peso de competicion\n2' Run a ritmo HYROX\n10 Wall balls por encima del peso de competicion\n2' Run a ritmo HYROX\n30 Wall balls a peso de competicion\n2' de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "14 tramos de 2 minutos a ritmo HYROX. Cada ronda arranca con ergometro en Zona 4."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Incremental HYROX con trineo",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8-9",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "4 rondas:\n30\" Row en Zona 4\n12,5m Sled push a peso de competicion\n60\" Air bike en Zona 3\n12,5m Sled push a peso de competicion\n90\" Ski erg a ritmo HYROX\n2' de descanso activo en Air bike\n2' de descanso parado"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "4 rondas:\n30\" Row en Zona 4\n12,5m Sled pull a peso de competicion\n60\" Air bike en Zona 3\n12,5m Sled pull a peso de competicion\n90\" Ski erg a ritmo HYROX\n2' de descanso activo en Air bike\n2' de descanso parado"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' bici en Zona 2"
+            }
+          ],
+          "notas": "El ski de 90\" es el que dice si la ronda se ha hecho bien. Si no se puede sostener el ritmo HYROX ahi, el trineo se esta haciendo demasiado fuerte."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Zona 2 sin impacto · voluntario",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 60-80' de bici en Zona 2"
+            }
+          ],
+          "notas": "Sesion voluntaria. Si el atleta llega con fatiga del jueves, descansa."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "MLSS descendente",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Warm up",
+              "contenido": "10' en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 series:\n4' en Zona 4 baja\n1'30\" andando"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' andando entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "4 series:\n3' en Zona 4 alta\n1'15\" andando"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' andando entre bloques"
+            },
+            {
+              "nombre": "Bloque 3",
+              "contenido": "5 series:\n2' en Zona 5\n1' andando"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "5' en Zona 2"
+            }
+          ],
+          "notas": "Series mas cortas permiten ritmo mas rapido. El volumen por bloque se mantiene similar mientras la intensidad sube progresivamente. Total 34 minutos de calidad."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 10,
+      "fase": "Realizacion",
+      "subtitulo": "Ritmo de competicion",
+      "objetivo": "Todo el trabajo pasa a ritmo de competicion. Baja el volumen total, sube la especificidad. La fuerza pasa a mantenimiento.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza · mantenimiento con estacion",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Estructura",
+              "contenido": "3 series de 4 repeticiones (los unilaterales, reps por lado)\n2' de descanso entre series y entre bloques"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "Back squat 75-80%\n5 High box jump\n20m Sled push a peso de competicion"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "Push press con barra\n5 Lanzamiento de balon medicinal overhead\n25m Farmer carry a peso de competicion"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "Peso muerto unilateral con 2KB\n5 Skaters por lado\n20m Sandbag walking lunge a peso de competicion"
+            },
+            {
+              "nombre": "Condicionamiento · EMOM 12'",
+              "contenido": "45\" on / 15\" off\nMin 1 - Row suave\nMin 2 - 12 Wall balls a peso de competicion\nMin 3 - Ski erg suave\nMin 4 - 8 Burpee to plate\n\n3 vueltas completas"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "La intensidad se mantiene, baja el volumen. Todas las estaciones a peso exacto de carrera. En el EMOM el ergometro es recuperacion activa, no estimulo. Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Compromised run",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n400m Run a ritmo HYROX\n500m Row a ritmo HYROX\n800m Run a ritmo HYROX\n500m Ski erg a ritmo HYROX\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n400m Run a ritmo HYROX\n100m Farmer carry a peso de competicion\n800m Run a ritmo HYROX\n15m Burpee broad jump\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "Total 7,2 km a ritmo HYROX mas 3 km de ergometros a ritmo de carrera."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "WOD · circuito de estaciones a ritmo objetivo",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Activacion de agarre",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda\n10 encogimientos con DB con parada"
+            },
+            {
+              "nombre": "Aproximacion al trineo",
+              "contenido": "2 x 15m con carga ligera, alrededor del 40% del peso corporal"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "2 vueltas · 1'30\" de trabajo / 1' de descanso en cada estacion\n\n1. Run - ritmo HYROX\n2. Ski erg - ritmo HYROX de ski\n3. Sled push - peso de competicion\n4. Sled pull - peso de competicion\n5. Burpee broad jump - cadencia de carrera\n6. Row - ritmo HYROX de row\n7. Farmer carry - peso de competicion\n8. Sandbag walking lunge - peso de competicion\n9. Wall balls - peso de competicion\n10. Run - ritmo HYROX\n\n5' de descanso entre vueltas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "10' en Zona 2"
+            }
+          ],
+          "notas": "Anotar metros o repeticiones de cada estacion en cada vuelta. Si en la segunda vuelta una estacion cae mucho, ese es el ritmo que no aguanta en carrera. Este registro define la estrategia de la semana 12."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Tren superior · mantenimiento + condicionamiento aerobico",
+          "prioridad": "Complementaria",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "2 series de 8 reps de:\nBand scapular retraction\nBanded front raise\nScapular push up\nSerratus wall slide\nBand face pull"
+            },
+            {
+              "nombre": "Core",
+              "contenido": "3 series:\n6 Ab wheel de rodillas\n5 Bird dog push up\n5 Medicine ball rainbow slam\n40\" Plancha con manos en fitball"
+            },
+            {
+              "nombre": "Mantenimiento",
+              "contenido": "3 series de 6 repeticiones con 2' de descanso entre series y entre bloques\n\nBloque A\nPress banca con barra 75%\nGorilla row\n\nBloque B\nDominada neutra\nPush press con barra"
+            },
+            {
+              "nombre": "Condicionamiento aerobico · EMOM 20-25'",
+              "contenido": "40\" on / 20\" off\nMin 1 - Row en Zona 2\nMin 2 - Box jump con bajada step down\nMin 3 - Ski erg en Zona 2\nMin 4 - Alternate hang DB snatch\nMin 5 - Air bike en Zona 2\n\n4-5 vueltas segun sensaciones del atleta"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "5-10' en Zona 1"
+            }
+          ],
+          "notas": "Objetivo del EMOM: mantener ritmo constante, fluido y aerobico. Controlar las transiciones. No busca intensidad sino volumen. Maxima velocidad y explosividad en la fase concentrica. La carga se ajusta al nivel del atleta manteniendo esa premisa."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Series 2000m + 1000m a umbral",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Warm up",
+              "contenido": "10' en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 series:\n2000m en Zona 4\n3' andando"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 series:\n1000m en Zona 4 alta\n2' andando"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "5' en Zona 2"
+            }
+          ],
+          "notas": "Toda la sesion es seguida, se pasa de las series de 2000 a las de 1000 sin corte. Los 1000m van mas rapido. Total 9 km, la sesion de mayor volumen de calidad del ciclo."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Zona 2 sin impacto",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "2' ski -> 15' AB o Concept 2 -> 2' ski\n2' row -> 15' AB o Concept 2 -> 2' row\n15' AB o Concept 2\n\nAlternativa: 70-80' de bici en Zona 2"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 11,
+      "fase": "Realizacion",
+      "subtitulo": "Entrada a tapering",
+      "objetivo": "Ultima semana de carga. De lunes a jueves se mantiene especificidad con volumen reducido. Desde el viernes arranca el tapering. Sin barra pesada bilateral por su coste neural.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza · mantenimiento ligero",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Warm up",
+              "contenido": "3 series de 10 reps de:\nCat cow\nDead bug\nBird dog\nMovilidad cadera 90-90 to lunge\n30\" Side plank\n20 Climb plank elbow to hand"
+            },
+            {
+              "nombre": "Estructura",
+              "contenido": "3 series con 2' de descanso entre series y entre bloques"
+            },
+            {
+              "nombre": "Bloque A",
+              "contenido": "6 por lado Bulgarian split squat con carga moderada\n6 por lado Subida a cajon con 2KB"
+            },
+            {
+              "nombre": "Bloque B",
+              "contenido": "5 High box jump\n5 Broad jump a dos piernas"
+            },
+            {
+              "nombre": "Bloque C",
+              "contenido": "8 Push press con DB\n6 por lado Remo unilateral en plancha"
+            },
+            {
+              "nombre": "Bloque D",
+              "contenido": "6 por lado Peso muerto unilateral con 2KB\n5 por lado Skaters"
+            },
+            {
+              "nombre": "Condicionamiento · EMOM 10'",
+              "contenido": "45\" on / 15\" off\nMin 1 - Row suave\nMin 2 - 10 Wall balls a peso de competicion\n\n5 vueltas completas"
+            },
+            {
+              "nombre": "Cierre",
+              "contenido": "15' en Zona 2 · bici o Concept 2"
+            }
+          ],
+          "notas": "Todo unilateral o con mancuerna y kettlebell. Nada de barra pesada bilateral, que es lo que mas carga el sistema nervioso. Velocidad en la concentrica, cargas que permitan moverse rapido."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Compromised run · volumen reducido",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "2 rondas:\n800m Run a ritmo HYROX\n25m Sled push a peso de competicion\n800m Run a ritmo HYROX\n25m Sled pull a peso de competicion\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "2 rondas:\n800m Run a ritmo HYROX\n100m Farmer carry a peso de competicion\n800m Run a ritmo HYROX\n20 Wall balls a peso de competicion\n3' de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 2"
+            }
+          ],
+          "notas": "Total 6,4 km a ritmo de competicion. Ultimo trabajo de volumen a ritmo objetivo antes de la carrera."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "WOD especifico · ultima sesion de carga",
+          "prioridad": "Esencial",
+          "sustituible": "Clase HYROX · RPE 8",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "3 series de 2' en Zona 2 en cada maquina (ski - row - bike)\nMovilidad general y foam roller en zonas mas cargadas, 6-8 pasadas por zona\n6-8' run en Zona 2"
+            },
+            {
+              "nombre": "Activacion de agarre",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda\n10 encogimientos con DB con parada"
+            },
+            {
+              "nombre": "Bloque principal",
+              "contenido": "3 rondas:\n500m Ski erg a ritmo HYROX\n4' Run a ritmo HYROX\n50m Sled pull a peso de competicion\n\n5' de descanso entre rondas, soltando en bici\n\nObjetivo: cada ronda por debajo de 10-11 minutos"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "10' en Zona 2"
+            }
+          ],
+          "notas": "Anotar el tiempo de cada ronda. Si las tres son consistentes, el atleta llega bien. Si la tercera se dispara, hay fatiga acumulada y el tapering tiene que ser mas agresivo."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Zona 2 sin impacto · inicio del tapering",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Sesion",
+              "contenido": "40-50' de bici en Zona 2\n\nAlternativa: 2' ski -> 12' AB -> 2' row -> 12' AB -> 10' Concept 2"
+            }
+          ],
+          "notas": "Volumen reducido. A partir de aqui solo se busca mantener el motor en marcha."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "Activacion · estimulos cortos a ritmo de carrera",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Warm up",
+              "contenido": "10' en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "6 series:\n1' a ritmo HYROX\n1' andando"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "5'"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "4 series:\n30\" Ski erg a ritmo HYROX\n30\" Row a ritmo HYROX\n15 Wall balls a peso de competicion\n2' de descanso"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 1"
+            }
+          ],
+          "notas": "Nada por encima de 1 minuto continuo. El objetivo es recordarle al cuerpo el ritmo de carrera sin generar fatiga."
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso o Z1 muy suave",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional",
+              "contenido": "30-40' de bici en Zona 1"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    },
+    {
+      "numero": 12,
+      "fase": "Competicion",
+      "subtitulo": "Semana de carrera",
+      "objetivo": "Llegar fresco y activado. Volumen minimo, intensidad mantenida en estimulos muy cortos. Planteada para competicion el sabado: se desplaza segun el dia real de carrera.",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Activacion ligera + movilidad",
+          "prioridad": "Importante",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Movilidad general",
+              "contenido": "5' aerobico suave en maquina\n\n2 series de:\n15-20\" foam roller en cuadriceps, gluteo, isquios, gemelos\n10 reps de cada ejercicio de movilidad general con banda"
+            },
+            {
+              "nombre": "Bloque de activacion",
+              "contenido": "2 series:\n10 Cat cow\n10 90-90\n5 por lado Cossack squat\n10\" por lado Forward leg swing\n15 Hip thrust bodyweight\n10 Push ups\n10 Goblet squat con carga ligera"
+            },
+            {
+              "nombre": "Aerobico suave",
+              "contenido": "30' de bici en Zona 1-2"
+            }
+          ],
+          "notas": "Sesion de limpieza. Sin carga, sin intensidad."
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Transiciones cortas a ritmo de carrera",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Warm up",
+              "contenido": "10' en Zona 2"
+            },
+            {
+              "nombre": "Bloque 1",
+              "contenido": "3 rondas:\n45\" Run a ritmo HYROX\n10 Wall balls con carga reducida\n45\" Run a ritmo HYROX\n1'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "3' entre bloques"
+            },
+            {
+              "nombre": "Bloque 2",
+              "contenido": "3 rondas:\n45\" Run a ritmo HYROX\n30m Farmer carry con carga reducida\n45\" Run a ritmo HYROX\n1'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Descanso",
+              "contenido": "3' entre bloques"
+            },
+            {
+              "nombre": "Bloque 3",
+              "contenido": "3 rondas:\n45\" Run a ritmo HYROX\n10m Burpee broad jump\n45\" Run a ritmo HYROX\n1'30\" de descanso entre rondas"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "8' en Zona 1"
+            }
+          ],
+          "notas": "Nueve minutos de carrera a ritmo objetivo en tramos de 45\". Cargas por debajo de competicion: el objetivo es mantener el gesto de la transicion sin generar fatiga."
+        },
+        {
+          "dia": "Miercoles",
+          "sesion": "Descanso o Z1 muy suave",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Opcional",
+              "contenido": "20-30' de bici en Zona 1"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Jueves",
+          "sesion": "Activacion de estaciones · tecnica",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Calentamiento aerobico",
+              "contenido": "2' ski + 2' row + 2' bike en Zona 2\nMovilidad general y foam roller"
+            },
+            {
+              "nombre": "Activacion de agarre",
+              "contenido": "20 aperturas y cierres de mano\n15 por lado flexion de muneca con banda"
+            },
+            {
+              "nombre": "Bloque de estaciones",
+              "contenido": "1 vuelta · 2' de descanso entre cada estacion\n\n250m Ski erg a ritmo HYROX\n12,5m Sled push a peso de competicion\n12,5m Sled pull a peso de competicion\n10m Burpee broad jump\n250m Row a ritmo HYROX\n25m Farmer carry a peso de competicion\n15m Sandbag walking lunge\n10 Wall balls"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "10' en Zona 1"
+            }
+          ],
+          "notas": "Una sola pasada por estacion, a peso y ritmo real, con descanso completo. No busca fatiga: busca que el cuerpo recuerde las sensaciones. Para Dobles: hacerla con el companero y repasar transiciones y relevos."
+        },
+        {
+          "dia": "Viernes",
+          "sesion": "Activacion pre-competicion",
+          "prioridad": "Esencial",
+          "sustituible": "No",
+          "bloques": [
+            {
+              "nombre": "Aerobico suave",
+              "contenido": "15-20' de bici en Zona 1"
+            },
+            {
+              "nombre": "Calentamiento carrera",
+              "contenido": "2 series de 8 reps de:\nFlexion de cadera resistida con goma\nLunge to explosive high knee\nWall acceleration - triple\n15m Zig Zag hops\n10m Lanzamientos dinamicos (rusos)\n15m Skip\n15m Zancadas explosivas (saltando hacia adelante)"
+            },
+            {
+              "nombre": "Sprints progresivos",
+              "contenido": "4-5 series:\n60-80m progresivos: arrancar al 50%, subir al 75% a mitad y terminar al 90%\nVuelta caminando como descanso"
+            },
+            {
+              "nombre": "Cool down",
+              "contenido": "5' caminando o bici muy suave"
+            }
+          ],
+          "notas": "Los progresivos activan el sistema neuromuscular sin generar fatiga. Nunca se llega al 100%. Preparar material y revisar logistica de la carrera."
+        },
+        {
+          "dia": "Sabado",
+          "sesion": "COMPETICION",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Competicion",
+              "contenido": "Dia de carrera"
+            }
+          ],
+          "notas": ""
+        },
+        {
+          "dia": "Domingo",
+          "sesion": "Descanso",
+          "prioridad": "-",
+          "sustituible": "-",
+          "bloques": [
+            {
+              "nombre": "Descanso",
+              "contenido": "Dia libre"
+            }
+          ],
+          "notas": ""
+        }
+      ]
+    }
+  ]
+}
