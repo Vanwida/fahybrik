@@ -506,12 +506,14 @@ export function MicrocicloV2({
           athleteId={owner.athlete_id}
           athleteName={owner.athlete_name}
           monthTemplateId={microcycle_id}
+          totalWeeks={weeks.length}
           onClose={() => setAssignOpen(false)}
         />
       ) : assignOpen ? (
         <AsignarAtletaModal
           monthTemplateId={microcycle_id}
           monthName={name}
+          totalWeeks={weeks.length}
           onClose={() => setAssignOpen(false)}
         />
       ) : null}
