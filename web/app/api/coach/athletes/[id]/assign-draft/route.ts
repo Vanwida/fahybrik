@@ -68,6 +68,7 @@ export async function POST(
       athlete_id: athleteId,
       month_template_id: parsed.data.month_template_id,
       start_date: parsed.data.start_date,
+      start_week_number: parsed.data.start_week_number,
     });
 
     // 2) Marca CADA semana creada como BORRADOR explícito. El nº de semanas es

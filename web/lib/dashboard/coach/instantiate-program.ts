@@ -98,6 +98,11 @@ export async function instantiateMonthFromTemplate(params: {
   athlete_id: number | bigint;
   month_template_id: number | bigint;
   start_date: string;
+  /** Semana del plan (1-based) por la que arranca este atleta. Por defecto 1
+   *  (desde el principio). Un atleta que se incorpora a mitad de mesociclo
+   *  puede entrar directamente en, p. ej., la semana 3 — solo se materializan
+   *  las semanas desde esa en adelante, alineado con el resto del grupo. */
+  start_week_number?: number;
   /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
   progression?: ProgressionSpec;
   client?: Sql;
@@ -136,7 +141,22 @@ export async function instantiateMonthFromTemplate(params: {
 
   const startMonday = mondayOfWeek(parseIsoDate(params.start_date));
   const startIso = isoDateString(startMonday);
-  const weekCount = month.weeks.length;
+  const totalWeeks = month.weeks.length;
+
+  // #114: semana de entrada — por defecto la 1 (desde el principio). Validada
+  // contra el nº real de semanas de la plantilla: no se puede entrar más allá
+  // del final del plan.
+  const entryWeekNumber = params.start_week_number ?? 1;
+  if (entryWeekNumber > totalWeeks) {
+    throw new InstantiateProgramError(
+      'invalid_start_week',
+      `Este plan tiene ${totalWeeks} semana${totalWeeks === 1 ? '' : 's'}; no se puede entrar en la semana ${entryWeekNumber}.`,
+      400,
+    );
+  }
+  const entryWeekIndex = entryWeekNumber - 1; // 0-based, índice en month.weeks
+  const remainingWeeks = month.weeks.slice(entryWeekIndex);
+  const weekCount = remainingWeeks.length;
   const endIso = isoDateString(addDays(startMonday, weekCount * 7 - 1));
 
   let assignmentCount = 0;
@@ -145,9 +165,9 @@ export async function instantiateMonthFromTemplate(params: {
 
   try {
     await client.begin(async (tx) => {
-      for (let wi = 0; wi < month.weeks.length; wi++) {
-        const weekMeta = month.weeks[wi]!;
-        const weekStart = addDays(startMonday, wi * 7);
+      for (let i = 0; i < remainingWeeks.length; i++) {
+        const weekMeta = remainingWeeks[i]!;
+        const weekStart = addDays(startMonday, i * 7);
 
         const weekRes = await instantiateWeekIntoMicrocycle({
           client: tx as unknown as Sql,
@@ -155,7 +175,10 @@ export async function instantiateMonthFromTemplate(params: {
           athlete_id: params.athlete_id,
           week_template_id: Number(weekMeta.week_template_id),
           week_start: weekStart,
-          week_number: wi + 1,
+          // week_number conserva la posición REAL dentro de la plantilla (p. ej.
+          // entrar en la semana 3 de 6 sigue etiquetándose "3", no "1") — así el
+          // atleta queda alineado con el resto del grupo que sí empezó en la 1.
+          week_number: entryWeekIndex + i + 1,
           progression: params.progression,
         });
         microcycleIds.push(weekRes.microcycle_id);

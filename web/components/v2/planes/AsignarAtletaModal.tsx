@@ -26,10 +26,14 @@ interface RosterAthlete {
 export function AsignarAtletaModal({
   monthTemplateId,
   monthName,
+  totalWeeks,
   onClose,
 }: {
   monthTemplateId: string;
   monthName?: string;
+  /** Nº de semanas de la plantilla — habilita el selector de semana de entrada
+   *  cuando hay más de una. */
+  totalWeeks?: number;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -41,6 +45,7 @@ export function AsignarAtletaModal({
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>(upcomingMondayIso());
+  const [startWeek, setStartWeek] = useState<number>(1);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +93,11 @@ export function AsignarAtletaModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ month_template_id: monthTemplateId, start_date: startDate }),
+        body: JSON.stringify({
+          month_template_id: monthTemplateId,
+          start_date: startDate,
+          ...(startWeek > 1 ? { start_week_number: startWeek } : {}),
+        }),
       });
       const body = (await res.json().catch(() => null)) as
         | { assign_draft?: { assignment_count?: number }; error?: { message?: string } }
@@ -252,6 +261,28 @@ export function AsignarAtletaModal({
                 className={cn(inputCls, 'v2-num')}
               />
             </label>
+
+            {totalWeeks && totalWeeks > 1 ? (
+              <label className="flex flex-col gap-1.5">
+                <span className="v2-micro">Semana de entrada</span>
+                <select
+                  value={startWeek}
+                  onChange={(e) => setStartWeek(Number(e.target.value))}
+                  className={cn(inputCls, 'v2-num')}
+                >
+                  {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      Semana {w} de {totalWeeks}
+                    </option>
+                  ))}
+                </select>
+                {startWeek > 1 ? (
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Entra directamente en la semana {startWeek}; no ve las anteriores.
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
 
             {error ? (
               <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
