@@ -30,6 +30,7 @@ function makeItem(overrides: Partial<AssignmentDetailItem>): AssignmentDetailIte
     prescription_json: null,
     resolved_intensity: null,
     resolved_load: null,
+    resolved_references: [],
     notes: null,
     ...overrides,
   };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
 import { flattenSegments } from '@fahybrid/shared/domain/prescription';
+import type { AthleteAnchors } from '@fahybrid/shared/domain/prescription/resolve-relative';
 
 const SQ_1RM = EXERCISE_TO_1RM_BENCHMARK['back-squat']!; // 'back_squat_1rm'
 
@@ -826,6 +827,100 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     const rl = result.workout!.blocks[0]!.items[0]!.resolved_load!;
     expect(rl.kg_label).toBe('96 kg');
     expect(rl.needs_review).toBe(true);
+  });
+
+  // ── Card 130/134 — objetivos RELATIVOS resueltos al leer el día ───────────
+  // La plantilla guarda «al 50% del peso corporal» para siempre; aquí se
+  // comprueba que el camino del día lo convierte en el número de ESTE atleta
+  // (o en la verdad, cuando falta la marca) — nunca en el `kind: 'relative'`
+  // crudo. El resolutor en sí (resolveRelativeTarget/resolvePrescriptionReferences)
+  // ya está probado a fondo en tests/domain/relative-target.test.ts; esto sólo
+  // fija que assignment-detail lo ENCHUFA en el sitio y orden correctos.
+  const relativeSeg = (target: unknown) => ({
+    id: '75',
+    position: 0,
+    block_position: 0,
+    block_format: null,
+    block_title: null,
+    params_json: {},
+    prescription_json: { scheme: 'sets', modality: 'strength', target },
+    notes: null,
+    exercise_id: '970',
+    exercise_name: 'Sled Push',
+    exercise_slug: 'sled-push',
+    exercise_category: 'strength',
+    exercise_video_url: null,
+    exercise_cues: null,
+    exercise_description: null,
+  });
+
+  const anchorsConPeso: AthleteAnchors = {
+    racePace: {},
+    thresholdPace: {},
+    bodyweightKg: 80,
+  };
+
+  it('resuelve un objetivo relativo al número de ESTE atleta y manda la frase aparte', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      anchors: anchorsConPeso,
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toEqual({ kind: 'kg', value: 40 });
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: { kind: 'kg', value: 40 }, source: 'bodyweight', estimated: false },
+    ]);
+  });
+
+  it('sin la marca que le falta, la línea sale SIN objetivo pero con la frase — nunca un relativo crudo', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      // Anclas SIN peso: la marca que le falta a ESTE atleta.
+      anchors: { racePace: {}, thresholdPace: {}, bodyweightKg: null },
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toBeUndefined();
+    expect(item.prescription_json?.target?.kind).not.toBe('relative');
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: null, source: null, estimated: false },
+    ]);
+  });
+
+  it('al cable NUNCA viaja un kind: "relative", con o sin anclas', () => {
+    const sinAnclas = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      // Sin pasar `anchors` en absoluto — el llamador que se olvida no debe
+      // colar un relativo crudo: resuelve contra anclas vacías, que es la
+      // verdad honesta («no sabemos nada de este atleta»).
+    });
+    const item = sinAnclas.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target?.kind).not.toBe('relative');
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: null, source: null, estimated: false },
+    ]);
+  });
+
+  it('sin ningún objetivo relativo, la prescripción no cambia (idempotente, coste cero)', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', value: 75 })],
+      anchors: anchorsConPeso,
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 100, needs_review: false }]]),
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.sets?.[0]?.target).toEqual({ kind: 'percent_rm', value: 75 });
+    expect(item.resolved_references).toEqual([]);
   });
 
   // ===========================================================================

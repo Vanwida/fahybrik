@@ -88,6 +88,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
               prescription_json: null,
               resolved_intensity: null,
               resolved_load: null,
+              resolved_references: [],
               notes: null,
             },
           ],

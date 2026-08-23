@@ -17,11 +17,20 @@ import {
 import {
   resolvePaceBandFromZones,
   formatResolvedPaceBand,
+  athleteBenchmarksFromSlugRows,
   type ResolvedZone,
 } from '@fahybrid/shared/domain/methodology';
 import {
+  resolvePrescriptionReferences,
+  anchorsFromZoneProfiles,
+  racePaceAnchor,
+  type AthleteAnchors,
+  type ResolvedReference,
+} from '@fahybrid/shared/domain/prescription/resolve-relative';
+import {
   loadAthleteZoneProfilesForAthlete,
 } from '@/lib/dashboard/v2/zone-profile';
+import { getTargetRace } from '@/lib/races/next-race';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
@@ -301,6 +310,15 @@ export interface AssignmentDetailItem {
   // lift, or the athlete has no 1RM for it (then the % stands alone — never a
   // fabricated kg).
   resolved_load: ResolvedLoad | null;
+  // Card 130/134 — el porqué de cada objetivo RELATIVO de esta línea («a peso de
+  // competición», «al 50% del peso corporal»), ya resuelto a ESTE atleta: una
+  // entrada por objetivo relativo que llevara el bloque o alguna de sus series,
+  // en el orden en que aparecen. `target` sale null cuando le falta la marca —
+  // la frase sigue viajando para que la pantalla pueda decir qué falta, pero el
+  // cable NUNCA lleva un `kind: 'relative'` (ver resolve-relative.ts: se
+  // sustituye por el número absoluto o se omite, jamás se manda crudo). Vacío
+  // cuando la línea no tenía ningún relativo, que es siempre hoy.
+  resolved_references: ResolvedReference[];
   notes: string | null;
 }
 
@@ -661,6 +679,49 @@ export async function loadAssignmentDetail(
     }
   }
 
+  // Card 130/134 — objetivos RELATIVOS («a peso de competición», «al 50% del
+  // peso corporal»): se resuelven al leer, nunca al guardar (resolve-relative.ts).
+  // Construir las anclas del atleta cuesta consultas EXTRA (marcas crudas +
+  // carrera objetivo) que este cargador NO debe pagar en el camino normal — hoy
+  // NINGUNA plantilla lleva un relativo. Por eso se mira PRIMERO, sobre la
+  // prescripción ya parseada (la MISMA función que usa buildItem, para no
+  // duplicar la regla de qué cuenta como relativo): sólo si alguna línea del día
+  // lo lleva se completan las anclas; si no, `anchors` se queda undefined y el
+  // coste es CERO.
+  const needsAnchors = segments.some((s) => prescriptionHasRelativeTarget(parsePrescriptionJson(s.prescription_json)));
+  let anchors: AthleteAnchors | undefined;
+  if (needsAnchors) {
+    const [benchRows, athleteRows, targetRace] = await Promise.all([
+      sql<{ exercise_slug: string; value: number | null }[]>`
+        select exercise_slug, value::float8 as value
+        from athlete_benchmarks
+        where athlete_id = ${athlete_id as unknown as number}
+      `,
+      sql<{ weight_kg: string | null }[]>`
+        select weight_kg::text as weight_kg
+        from athletes
+        where id = ${athlete_id as unknown as number}
+        limit 1
+      `,
+      // La división/género de competición NO son atributos del atleta: salen de
+      // su carrera OBJETIVO (ver AthleteAnchors.competitionLoad). Sin carrera
+      // objetivo, ambos quedan null y el peso de competición contesta null a
+      // todo — la respuesta honesta, nunca un peso inventado.
+      getTargetRace(athlete_id, sql),
+    ]);
+    const benchmarks = athleteBenchmarksFromSlugRows(benchRows);
+    const bodyweightKg = athleteRows[0]?.weight_kg != null ? Number(athleteRows[0].weight_kg) : null;
+    anchors = anchorsFromZoneProfiles(zoneProfiles, {
+      // El umbral sale del snapshot de zonas (zoneProfiles, ya cargado arriba)
+      // — NUNCA recalculado de las marcas — pero el ritmo de carrera no vive en
+      // ese snapshot, así que se resuelve aparte de las mismas marcas crudas.
+      racePace: racePaceAnchor(benchmarks),
+      bodyweightKg,
+      division: targetRace?.division ?? null,
+      gender: targetRace?.gender_category ?? null,
+    });
+  }
+
   // Dobles HYROX reparto — derived at read from the coach's dobles_simulations.
   // Only attempted for the athlete-facing read (self_user_id present) and gated
   // internally on format='hyrox_sim' + a linked partner + an authored simulation;
@@ -691,6 +752,7 @@ export async function loadAssignmentDetail(
     gradientRetiresPacePct: params.gradient_retires_pace_pct ?? null,
     zoneProfiles,
     oneRms,
+    anchors,
     executionSegments,
     executionTrace,
     stationSplit,
@@ -800,6 +862,13 @@ export function buildAssignmentDetail(input: {
   // The athlete's current 1RM per benchmark slug. Default empty keeps the pure
   // builder testable without 1RMs — %RM items then carry the % but no kg.
   oneRms?: OneRmLookup;
+  // Card 130/134 — las anclas para traducir un objetivo RELATIVO al número de
+  // ESTE atleta (resolve-relative.ts), pre-resueltas por loadAssignmentDetail
+  // SÓLO cuando el día lleva algún relativo (ver el porqué del gasto ahí).
+  // Default undefined mantiene el builder puro testable sin anclas — una línea
+  // con un relativo entonces sale sin objetivo, con su frase en
+  // `resolved_references`, nunca con un `kind: 'relative'` crudo.
+  anchors?: AthleteAnchors;
   // Per-exercise actuals for the executed view. Default [] keeps the pure builder
   // testable without a DB — a finished session then shows the aggregate alone.
   executionSegments?: SegmentActual[];
@@ -867,7 +936,7 @@ export function buildAssignmentDetail(input: {
   // survives the rest-day early return.
   if (!template) return base;
 
-  const blocks = buildBlocks(template, segments, zoneLookup, oneRms, input.circuitBlocks ?? []);
+  const blocks = buildBlocks(template, segments, zoneLookup, oneRms, input.circuitBlocks ?? [], input.anchors);
 
   // A template that resolves to ZERO renderable blocks (no segments) is NOT a
   // previewable / runnable / listable workout — it is the rest/empty state. We
@@ -932,6 +1001,7 @@ function buildBlocks(
   zoneLookup: ZoneLookup,
   oneRms: OneRmLookup,
   circuitBlocks: AssignmentDetailCircuitBlock[],
+  anchors: AthleteAnchors | undefined,
 ): AssignmentDetailBlock[] {
   if (segments.length === 0) return [];
 
@@ -1003,7 +1073,7 @@ function buildBlocks(
       // segmento) — `m.pos` es siempre el `block_position` autorado original, el
       // mismo que escribió el editor. Ausente en el mapa → `{}`, igual que hoy.
       config_json: circuitToConfigJson(circuitByPosition.get(m.pos)),
-      items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms)),
+      items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms, anchors)),
     };
   });
 }
@@ -1046,7 +1116,20 @@ function displayCategoryForModality(modality: string | null | undefined): string
   }
 }
 
-function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup): AssignmentDetailItem {
+// Card 130/134 — las anclas «vacías»: sin ritmo ni umbral ni peso ni carga de
+// competición conocidos. Es lo que usa `buildItem` cuando el llamador no pasó
+// `anchors` (el camino de hoy, siempre) — un objetivo relativo contra esto
+// nunca encuentra marca, así que se comporta EXACTAMENTE como «este atleta
+// todavía no lo sabe», nunca como un crudo `kind: 'relative'` escapando al
+// cable por descuido.
+const EMPTY_ANCHORS: AthleteAnchors = { racePace: {}, thresholdPace: {} };
+
+function buildItem(
+  seg: SegmentRow,
+  zoneLookup: ZoneLookup,
+  oneRms: OneRmLookup,
+  anchors: AthleteAnchors | undefined,
+): AssignmentDetailItem {
   // ROOT-CAUSE FIX: the rich targets (reps/load/zone/pace/distance/calories)
   // live in `prescription_json` (the unified measure/target model), not in the
   // thin `params_json` (which can be as bare as `{sets:4}`). When a valid
@@ -1054,7 +1137,24 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
   // the shared `prescriptionToParams` helper (single source of truth — no
   // re-derivation here) and feed that through normalization. Legacy segments
   // with no prescription fall back to the stored scalar params.
-  const prescription = parsePrescriptionJson(seg.prescription_json);
+  const parsedPrescription = parsePrescriptionJson(seg.prescription_json);
+
+  // Card 130/134 — un objetivo RELATIVO («a peso de competición», «al 50% del
+  // peso corporal») se SUSTITUYE por el número de ESTE atleta AQUÍ, antes de
+  // derivar nada más: los params escalares y la estructura de carrera de abajo
+  // tienen que salir de la prescripción YA resuelta, o el atleta vería un ritmo
+  // en el badge de zona y otro distinto (o ninguno) en el resto de la línea.
+  //
+  // Se llama SIEMPRE, con o sin `anchors` — nunca gateado en si el llamador se
+  // acordó de pasarlas. `resolvePrescriptionReferences` es idempotente y barata
+  // cuando no hay nada que traducir (devuelve la MISMA referencia y `[]`, el
+  // camino de HOY, siempre), y sin anclas reales (`EMPTY_ANCHORS`) un relativo
+  // simplemente no encuentra marca — la respuesta honesta, nunca el `kind:
+  // 'relative'` crudo escapando al cable porque alguien olvidó cargarlas.
+  const { prescription, references: resolvedReferences } = parsedPrescription
+    ? resolvePrescriptionReferences(parsedPrescription, anchors ?? EMPTY_ANCHORS)
+    : { prescription: null, references: [] as ResolvedReference[] };
+
   const source: Record<string, unknown> = prescription
     ? (prescriptionToParams(prescription) as Record<string, unknown>)
     : (seg.params_json ?? {});
@@ -1088,6 +1188,7 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
     prescription_json: emittedPrescription,
     resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),
     resolved_load: resolveLoadForItem(prescription, seg.exercise_slug, oneRms),
+    resolved_references: resolvedReferences,
     notes: seg.notes,
   };
 }
@@ -1264,6 +1365,18 @@ function parsePrescriptionJson(raw: unknown): Prescription | null {
   if (raw == null) return null;
   const parsed = safeParsePrescription(raw);
   return parsed.success ? (parsed.data as Prescription) : null;
+}
+
+// Card 130/134 — ¿lleva esta línea algún objetivo RELATIVO (bloque o alguna de
+// sus series)? Es la misma pregunta que `resolvePrescriptionReferences` se hace
+// por dentro para decidir si hay algo que traducir; se repite aquí, suelta,
+// porque `loadAssignmentDetail` la necesita ANTES de construir nada (para saber
+// si vale la pena pagar las consultas de las anclas) y esa función sólo
+// responde cuando ya le has dado las anclas.
+function prescriptionHasRelativeTarget(p: Prescription | null): boolean {
+  if (!p) return false;
+  if (p.target?.kind === 'relative') return true;
+  return p.sets?.some((s) => s.target?.kind === 'relative') ?? false;
 }
 
 // Map a scalar param bag → spec-normalized shape. The source is either the

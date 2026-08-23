@@ -29,6 +29,7 @@ function item(uid: string, prescription: Prescription | null, nombre = 'Carrera'
     prescription_json: prescription,
     resolved_intensity: null,
     resolved_load: null,
+    resolved_references: [],
     notes: null,
   };
 }

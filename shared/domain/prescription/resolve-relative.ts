@@ -25,6 +25,7 @@ import { hyroxStationLoad } from '../hyrox/stations';
 import type { AthleteBenchmarks } from '../methodology/zones';
 import { deriveModalityThresholds, resolveTarget } from '../methodology/zones';
 import type { RaceDivision, RaceGender } from '../../schema/races';
+import type { AthleteZoneProfile } from '../../schema/methodology-system';
 import {
   referencePhrase,
   relativePhrase,
@@ -84,6 +85,47 @@ export interface AthleteAnchors {
 }
 
 /**
+ * La resolución de `competitionLoad` es la MISMA para cualquier adaptador: sin
+ * división o sin género no hay peso de competición que valga (el mismo trineo
+ * pesa distinto en Open y en Pro) — preferimos no contestar antes que adivinar.
+ * Se extrae aquí porque `anchorsFromBenchmarks` y `anchorsFromZoneProfiles`
+ * (abajo) la necesitan idéntica.
+ */
+function competitionLoadResolver(extra: {
+  division?: RaceDivision | null;
+  gender?: RaceGender | null;
+  stationLoad?: (
+    slug: HyroxStationSlug,
+    division: RaceDivision,
+    gender: RaceGender,
+  ) => HyroxStationLoad | null;
+}): NonNullable<AthleteAnchors['competitionLoad']> {
+  const { division, gender, stationLoad } = extra;
+  const lookup = stationLoad ?? hyroxStationLoad;
+  return division && gender ? (slug) => lookup(slug, division, gender) : () => null;
+}
+
+/**
+ * El ritmo de CARRERA (el objetivo de los 8 km repartido) a partir de las
+ * marcas crudas. Sólo correr lo tiene hoy: para remo y ski el atleta no guarda
+ * un objetivo por estación — se puede DECIR y aún no se puede traducir, y eso
+ * se contesta con la verdad (`null`).
+ *
+ * Exportada aparte de `anchorsFromBenchmarks` porque el camino del día
+ * (`assignment-detail.ts`) la necesita SUELTA: su umbral sale del snapshot de
+ * zonas (`anchorsFromZoneProfiles`, no de las marcas), pero el ritmo de
+ * carrera no vive en ese snapshot y hay que resolverlo aparte igualmente.
+ */
+export function racePaceAnchor(benchmarks: AthleteBenchmarks): PaceAnchor | null {
+  const race = resolveTarget('race pace', benchmarks);
+  if (!race || race.target.kind !== 'pace') return null;
+  const t = race.target;
+  const seconds = t.value_s ?? t.min_s ?? t.max_s;
+  if (seconds === undefined) return null;
+  return { seconds, unit: t.unit, source: race.source, estimated: race.estimated };
+}
+
+/**
  * Anclas a partir de las marcas crudas. Lo usan quien NO tiene el snapshot de
  * zonas delante: la exportación a relojes de fabricante y las pruebas.
  */
@@ -101,17 +143,8 @@ export function anchorsFromBenchmarks(
   } = {},
 ): AthleteAnchors {
   const racePace: AthleteAnchors['racePace'] = {};
-  // Sólo correr tiene hoy ancla de ritmo de CARRERA (el objetivo de los 8 km
-  // repartido). Para remo y ski el atleta no guarda un objetivo por estación:
-  // se puede DECIR y aún no se puede traducir, y eso se contesta con la verdad.
-  const race = resolveTarget('race pace', benchmarks);
-  if (race && race.target.kind === 'pace') {
-    const t = race.target;
-    const seconds = t.value_s ?? t.min_s ?? t.max_s;
-    if (seconds !== undefined) {
-      racePace.run = { seconds, unit: t.unit, source: race.source, estimated: race.estimated };
-    }
-  }
+  const race = racePaceAnchor(benchmarks);
+  if (race) racePace.run = race;
 
   const thresholdPace: AthleteAnchors['thresholdPace'] = {};
   for (const th of deriveModalityThresholds(benchmarks)) {
@@ -123,15 +156,64 @@ export function anchorsFromBenchmarks(
     };
   }
 
-  const { division, gender, stationLoad } = extra;
-  const lookup = stationLoad ?? hyroxStationLoad;
   return {
     racePace,
     thresholdPace,
     bodyweightKg: extra.bodyweightKg ?? null,
-    // Sin división o sin género no hay peso de competición que valga: el mismo
-    // trineo pesa distinto en Open y en Pro. Preferimos no contestar.
-    competitionLoad: division && gender ? (slug) => lookup(slug, division, gender) : () => null,
+    competitionLoad: competitionLoadResolver(extra),
+  };
+}
+
+/**
+ * Anclas a partir del snapshot YA RESUELTO de `athlete_zone_profiles` — lo usa
+ * el camino del día del atleta (`web/lib/athlete/assignment-detail.ts`), que ya
+ * carga ese snapshot para pintar las bandas de zona y NO debe recalcular el
+ * umbral desde las marcas crudas por su cuenta (ver el porqué en `AthleteAnchors`
+ * arriba: dos fuentes de umbral que pueden no coincidir).
+ *
+ * El ritmo de CARRERA no vive en el snapshot de zonas (ese sólo guarda umbral),
+ * así que viaja aparte — ya resuelto por el llamador (`resolveTarget('race
+ * pace', benchmarks)`) — y sólo aplica a correr, igual que en
+ * `anchorsFromBenchmarks`.
+ */
+export function anchorsFromZoneProfiles(
+  profiles: AthleteZoneProfile[],
+  extra: {
+    racePace?: PaceAnchor | null;
+    bodyweightKg?: number | null;
+    division?: RaceDivision | null;
+    gender?: RaceGender | null;
+    stationLoad?: (
+      slug: HyroxStationSlug,
+      division: RaceDivision,
+      gender: RaceGender,
+    ) => HyroxStationLoad | null;
+  } = {},
+): AthleteAnchors {
+  const thresholdPace: AthleteAnchors['thresholdPace'] = {};
+  for (const p of profiles) {
+    thresholdPace[p.modality] = {
+      seconds: p.threshold_s,
+      unit: p.pace_unit,
+      // Auditoría: el slug del test del coach cuando lo hay, si no la
+      // procedencia general del perfil ('coach_test' | 'onboarding_auto' |
+      // 'athlete_test').
+      source: p.source_test_slug ?? p.source,
+      // `needs_review` es el mismo «sin confirmar» que ya usa
+      // `resolved_intensity` para este perfil — un umbral auto-derivado
+      // pendiente de que el coach lo valide se trata como estimado.
+      estimated: p.needs_review,
+    };
+  }
+
+  const racePace: AthleteAnchors['racePace'] = {};
+  if (extra.racePace) racePace.run = extra.racePace;
+
+  return {
+    racePace,
+    thresholdPace,
+    bodyweightKg: extra.bodyweightKg ?? null,
+    competitionLoad: competitionLoadResolver(extra),
   };
 }
 
