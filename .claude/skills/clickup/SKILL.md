@@ -21,6 +21,24 @@ y volver a pegar el enlace.
 
 El enlace se pega SIEMPRE, en las dos. Formato: `NN · título → https://app.clickup.com/t/<id>`.
 
+## QUIÉN tocó la card — obligatorio, sin excepción
+
+El token de la API es el de Alex, así que **ClickUp firma como suyo todo lo que
+escriben Claude, Hermes y Grok**. Con tres agentes trabajando a la vez, una card
+sin firma no dice nada sobre quién la movió, y Alex se queda sin saber quién hace
+qué.
+
+El script **estampa la firma solo** en cada escritura (crear, actualizar, añadir,
+y como comentario al cambiar de estado). No hay que acordarse — pero sí hay que
+identificarse:
+
+```bash
+export CLICKUP_AUTOR="Hermes"      # o "Grok", o el nombre del agente
+```
+
+Dentro de Claude Code se deduce solo. Cualquier otro agente que no ponga esa
+variable firmará como **«agente sin identificar»**, que es lo que se merece.
+
 ## Lista y ESTADO son dos ejes, y los dos importan
 
 La **lista** dice en qué cajón vive la card (`hecho`/`ahora`/`espera`/`luego`).

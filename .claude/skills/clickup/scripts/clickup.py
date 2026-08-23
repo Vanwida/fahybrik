@@ -4,14 +4,20 @@
 Toda escritura deja marca en ~/.claude/clickup-last-write, que es lo que mira el
 hook `clickup-guard.sh` para no dejar cerrar el turno con commits sin registrar.
 
+Toda escritura va FIRMADA por el agente que la hizo (ver `firma()`): el token de
+la API es el de Alex, asi que sin firma ClickUp atribuye a Alex todo lo que
+tocan Claude, Hermes o Grok y no hay manera de saber quien hizo que.
+
 Uso:
   clickup.py listar
   clickup.py siguiente
-  clickup.py crear <lista> "<titulo>" <cuerpo.md>
+  clickup.py crear <lista> "<titulo>" <cuerpo.md> [estado]
   clickup.py actualizar <numero|id> <cuerpo.md>
   clickup.py anadir <numero|id> <cuerpo.md>
+  clickup.py estado <numero|id> <to do|in progress|complete>
   clickup.py saltar "<razon>"
 """
+import datetime
 import json
 import os
 import pathlib
@@ -102,6 +108,24 @@ def estado_valido(e: str) -> None:
         sys.exit(f"Estado no valido: «{e}». Usa uno de: {', '.join(ESTADOS)}")
 
 
+# QUIÉN TOCÓ LA CARD. El token de la API es el de Alex, asi que ClickUp firma
+# como suyo TODO lo que escriben Claude, Hermes y Grok — y con tres agentes
+# trabajando a la vez, una card sin firma no dice nada sobre quien la movio. La
+# firma se estampa sola en cada escritura: si dependiera de acordarse, faltaria.
+#
+# El agente se identifica con CLICKUP_AUTOR. Si no la pone, se deduce del
+# entorno cuando se puede (`CLAUDECODE` solo existe dentro de Claude Code, asi
+# que Hermes o Grok NO se van a firmar como Claude por accidente). Y si no hay
+# manera, se dice «agente sin identificar»: es la verdad, y escuece lo bastante
+# como para que quien la vea ponga la variable.
+def firma() -> str:
+    quien = (os.environ.get("CLICKUP_AUTOR") or "").strip()
+    if not quien:
+        quien = "Claude" if os.environ.get("CLAUDECODE") else "agente sin identificar"
+    cuando = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    return f"> **{quien}** · {cuando}"
+
+
 def marcar():
     MARCA.parent.mkdir(parents=True, exist_ok=True)
     MARCA.write_text("")
@@ -142,7 +166,11 @@ def main() -> None:
         t = api(
             "POST",
             f"/list/{lid}/task",
-            {"name": nombre, "description": cuerpo_de(ruta) + GLOSARIO, "status": est},
+            {
+                "name": nombre,
+                "description": f"{firma()}\n\n" + cuerpo_de(ruta) + GLOSARIO,
+                "status": est,
+            },
         )
         marcar()
         print(f"CREADA [{est}] · {nombre}\n{t['url']}")
@@ -152,6 +180,10 @@ def main() -> None:
         est = sys.argv[3]
         estado_valido(est)
         api("PUT", f"/task/{c['id']}", {"status": est})
+        # Un cambio de estado no toca el cuerpo, asi que la firma va como
+        # comentario: si no, mover una card a «hecho» seria el unico gesto sin
+        # autor, y es justo el que Alex mira.
+        api("POST", f"/task/{c['id']}/comment", {"comment_text": f"{firma()} — estado: {est}", "notify_all": False})
         marcar()
         print(f"ESTADO [{est}] · {c['nombre']}\n{c['url']}")
 
@@ -159,9 +191,12 @@ def main() -> None:
         c = buscar(sys.argv[2])
         nuevo = cuerpo_de(sys.argv[3])
         if cmd == "actualizar":
-            desc = nuevo + GLOSARIO
+            desc = f"{firma()}\n\n" + nuevo + GLOSARIO
         else:
-            desc = api("GET", f"/task/{c['id']}").get("description", "") + "\n\n" + nuevo
+            # Al AÑADIR, la firma va con el trozo nuevo: asi la card conserva el
+            # rastro de quien escribio cada tramo, no solo del ultimo.
+            previo = api("GET", f"/task/{c['id']}").get("description", "")
+            desc = previo + f"\n\n---\n\n{firma()}\n\n" + nuevo
         api("PUT", f"/task/{c['id']}", {"description": desc})
         marcar()
         print(f"{'ACTUALIZADA' if cmd == 'actualizar' else 'AMPLIADA'} · {c['nombre']}\n{c['url']}")
