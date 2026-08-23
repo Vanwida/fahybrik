@@ -18,15 +18,20 @@ export function ActivarPlanPersonalModal({
   athleteId,
   athleteName,
   monthTemplateId,
+  totalWeeks,
   onClose,
 }: {
   athleteId: string;
   athleteName: string;
   monthTemplateId: string;
+  /** Nº de semanas de la plantilla — habilita el selector de semana de entrada
+   *  cuando hay más de una. */
+  totalWeeks?: number;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(upcomingMondayIso());
+  const [startWeek, setStartWeek] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -40,7 +45,11 @@ export function ActivarPlanPersonalModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ month_template_id: Number(monthTemplateId), start_date: startDate }),
+        body: JSON.stringify({
+          month_template_id: Number(monthTemplateId),
+          start_date: startDate,
+          ...(startWeek > 1 ? { start_week_number: startWeek } : {}),
+        }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as
@@ -123,6 +132,30 @@ export function ActivarPlanPersonalModal({
                 )}
               />
             </label>
+            {totalWeeks && totalWeeks > 1 ? (
+              <label className="flex flex-col gap-1.5">
+                <span className="v2-micro">Semana de entrada</span>
+                <select
+                  value={startWeek}
+                  onChange={(e) => setStartWeek(Number(e.target.value))}
+                  className={cn(
+                    'v2-focus v2-num h-10 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 text-sm text-[color:var(--v2-fg)]',
+                    'focus:border-[color:var(--v2-border-strong)]',
+                  )}
+                >
+                  {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      Semana {w} de {totalWeeks}
+                    </option>
+                  ))}
+                </select>
+                {startWeek > 1 ? (
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    {athleteName} entra directamente en la semana {startWeek}.
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
             {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
             <div className="flex items-center justify-end gap-2">
               <button
