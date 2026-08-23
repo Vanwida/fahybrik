@@ -9,7 +9,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
-  MICROCICLO_MAX_WEEKS,
+  MICROCICLO_ABSOLUTE_MAX_WEEKS,
   MICROCICLO_MIN_WEEKS,
 } from '@fahybrid/shared/domain/coach/program-months';
 import { sql } from '@/lib/db';
@@ -72,12 +72,16 @@ const weekArg = z
     }
   });
 
+// El `.max()` de aquí es el techo ABSOLUTO del sistema (26), no el del coach —
+// un zod estático no puede saber quién es (card 135). El tope REAL de este
+// coach (`coaches.max_microcycle_weeks`) lo comprueba `createMonthTemplateWithEmptyWeeks`,
+// que es por donde escribe `create_microcycle` más abajo — misma puerta, sin duplicar el check.
 const weeksArg = z
   .array(weekArg)
   .min(MICROCICLO_MIN_WEEKS)
-  .max(MICROCICLO_MAX_WEEKS)
+  .max(MICROCICLO_ABSOLUTE_MAX_WEEKS)
   .describe(
-    `Las semanas del microciclo, en orden (de ${MICROCICLO_MIN_WEEKS} a ${MICROCICLO_MAX_WEEKS}). Al actualizar tienen que ser las mismas que ya tiene.`,
+    `Las semanas del microciclo, en orden (de ${MICROCICLO_MIN_WEEKS} a ${MICROCICLO_ABSOLUTE_MAX_WEEKS}). Al actualizar tienen que ser las mismas que ya tiene.`,
   );
 
 function recipeReadback(prepared: PreparedContent) {

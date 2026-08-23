@@ -16,22 +16,30 @@ import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
-import { ProgramMonthError } from '@fahybrid/shared/domain/coach/program-months';
+import {
+  ProgramMonthError,
+  MICROCICLO_MIN_WEEKS,
+  MICROCICLO_ABSOLUTE_MAX_WEEKS,
+} from '@fahybrid/shared/domain/coach/program-months';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export { ProgramMonthError };
 
 // Exportadas: `personal-plan-chain-mutations.ts` reusa los mismos límites para
-// "añadir microciclo a la cadena" y para el tope de "alargar" — una sola fuente
-// de los bordes 1..20, nunca dos números que puedan divergir.
-export const MICROCICLO_MIN_WEEKS = 1;
-export const MICROCICLO_MAX_WEEKS = 20;
+// "añadir microciclo a la cadena" y para el tope de "alargar" — una sola fuente,
+// la de `shared/domain/coach/program-months.ts` (card 135: ANTES había un
+// `MICROCICLO_MAX_WEEKS = 20` propio aquí, distinto del `= 8` de la biblioteca —
+// el mismo nombre con dos valores). El `.max()` del zod de abajo es el techo
+// ABSOLUTO del sistema; el tope REAL de este coach (`coaches.max_microcycle_weeks`)
+// se comprueba en `createPersonalMonthTemplateFromScratch`, que sí sabe quién es.
+export { MICROCICLO_MIN_WEEKS, MICROCICLO_ABSOLUTE_MAX_WEEKS };
 
 /** Body validation for POST /api/coach/athletes/[id]/microciclo — no `level_id`:
  *  a plan built for one person has no level to pair against (0164). */
 export const programMonthPersonalScratchSchema = z.object({
   name: z.string().min(1).max(200),
-  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
+  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_ABSOLUTE_MAX_WEEKS),
 });
 export type ProgramMonthPersonalScratch = z.infer<typeof programMonthPersonalScratchSchema>;
 
@@ -231,6 +239,19 @@ export async function createPersonalMonthTemplateFromScratch(params: {
     if (!owned[0]) {
       throw new ProgramMonthError('not_found', 'Atleta no encontrado', 404);
     }
+
+    // El zod de arriba sólo aplica el techo ABSOLUTO del sistema — aquí SÍ
+    // sabemos quién es el coach, así que se comprueba su tope real
+    // (`coaches.max_microcycle_weeks`, card 135).
+    const maxWeeks = await loadCoachMaxMicrocicloWeeks({ coach_id, client: tx });
+    if (body.week_count > maxWeeks) {
+      throw new ProgramMonthError(
+        'week_count_too_long',
+        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        400,
+      );
+    }
+
     const created = await insertEmptyPersonalMonthTemplate({
       tx: tx as unknown as TransactionClient,
       coach_id,

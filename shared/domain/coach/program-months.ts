@@ -23,20 +23,40 @@ export const programMonthCreateSchema = z.object({
 });
 export type ProgramMonthCreate = z.infer<typeof programMonthCreateSchema>;
 
-/** Sane bounds for a microciclo created from scratch (coach picks 1..8 weeks). */
 export const MICROCICLO_MIN_WEEKS = 1;
-export const MICROCICLO_MAX_WEEKS = 8;
+
+/**
+ * Cuánto dura un microciclo es METODOLOGÍA DEL ENTRENADOR, no del sistema —
+ * otro coach competente trabaja perfectamente en bloques de 10 (card 135,
+ * migración 0206: `coaches.max_microcycle_weeks`). Por eso hay DOS números,
+ * nunca uno:
+ *
+ *   · `MICROCICLO_DEFAULT_MAX_WEEKS` — el DEFECTO de la columna. Un coach que
+ *     no toca nada se comporta exactamente igual que antes de esta migración.
+ *   · `MICROCICLO_ABSOLUTE_MAX_WEEKS` — la barrera de cordura DEL SISTEMA (medio
+ *     año no es un bloque). Es la única que puede vivir en un zod estático como
+ *     éste: un esquema no sabe quién es el entrenador, así que no puede
+ *     conocer SU tope real. El tope real de cada coach se comprueba donde SÍ
+ *     se sabe quién es (`loadCoachMaxMicrocicloWeeks`, `web/lib/coach/microcycle-limits.ts`),
+ *     justo antes de crear o alargar un tramo.
+ */
+export const MICROCICLO_DEFAULT_MAX_WEEKS = 8;
+export const MICROCICLO_ABSOLUTE_MAX_WEEKS = 26;
 
 /**
  * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
  * "create from scratch" flow. A microciclo's identity = name + level
  * (athlete_levels, level_id) + nº weeks. There is no phase entity — the ORDER of
  * microciclos in a sequence IS the periodization.
+ *
+ * El `.max()` aquí es el techo ABSOLUTO del sistema, no el del coach — ver el
+ * comentario de `MICROCICLO_ABSOLUTE_MAX_WEEKS`. El tope real se comprueba en
+ * el servicio que conoce al coach (`createMonthTemplateWithEmptyWeeks`).
  */
 export const programMonthScratchSchema = z.object({
   name: z.string().min(1).max(200),
   level_id: z.coerce.number().int().positive(),
-  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
+  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_ABSOLUTE_MAX_WEEKS),
 });
 export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;
 
@@ -606,10 +626,22 @@ export async function removeWeekFromMonth(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   week_id: number | bigint;
-  client: Sql;
+  client: Sql | TransactionSql;
 }): Promise<void> {
   const { coach_id, month_id, week_id, client } = params;
-  await client.begin(async (tx) => {
+  // TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+  //
+  // Esto abría SIEMPRE su propia transacción, pero `updatePersonalTramoMeta` la
+  // llama desde DENTRO de una para acortar un tramo personal — y postgres.js no
+  // anida `begin`: un `tx` expone `savepoint`, no `begin`. O sea que **cambiar
+  // el número de semanas de un tramo personal reventaba siempre**, con un
+  // `client.begin is not a function`. Nadie lo había visto porque ninguna prueba
+  // pasaba por ahí.
+  //
+  // Con el pool abre su transacción, como siempre; con un `tx` se mete dentro
+  // del que ya hay. Es el mismo patrón que `withOwnOrAmbientTx` en el surface
+  // del panel — mismo problema, misma respuesta.
+  const run = async (tx: Sql | TransactionSql) => {
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
       where id = ${month_id as number} and coach_id = ${coach_id as number}
@@ -662,7 +694,14 @@ export async function removeWeekFromMonth(params: {
         where id = ${week_id as number} and coach_id = ${coach_id as number}
       `;
     }
-  });
+  };
+
+  // postgres.js: el pool tiene `begin`; un `tx` no. Esa es toda la diferencia.
+  if (typeof (client as Sql).begin === 'function') {
+    await (client as Sql).begin((tx) => run(tx));
+  } else {
+    await run(client);
+  }
 }
 
 export class ProgramMonthError extends Error {

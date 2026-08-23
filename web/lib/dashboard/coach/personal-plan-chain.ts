@@ -18,9 +18,9 @@ import { sql as defaultSql } from '@/lib/db';
 import { resolvePlanPath } from '@/lib/plan/camino';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
 import { tramoSafety, PersonalChainError } from './personal-plan-chain-reflow';
-import { MICROCICLO_MIN_WEEKS, MICROCICLO_MAX_WEEKS } from './personal-plans';
+import { MICROCICLO_MIN_WEEKS, MICROCICLO_ABSOLUTE_MAX_WEEKS } from './personal-plans';
 
-export { PersonalChainError, MICROCICLO_MIN_WEEKS, MICROCICLO_MAX_WEEKS };
+export { PersonalChainError, MICROCICLO_MIN_WEEKS, MICROCICLO_ABSOLUTE_MAX_WEEKS };
 
 /** Un nodo de la cadena tal y como lo necesita el coach: todo lo de la espina
  *  (`PlanPathSegmentDTO`) + de quién es y qué se le puede hacer. */

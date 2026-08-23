@@ -32,11 +32,12 @@ import {
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { appendEmptyWeekToMonth, removeWeekFromMonth } from './program-months';
 import { resizeAssignmentInPlace } from './personal-plan-chain-resize';
+import { insertEmptyPersonalMonthTemplate } from './personal-plans';
 import {
-  insertEmptyPersonalMonthTemplate,
   MICROCICLO_MIN_WEEKS,
-  MICROCICLO_MAX_WEEKS,
-} from './personal-plans';
+  MICROCICLO_ABSOLUTE_MAX_WEEKS,
+} from '@fahybrid/shared/domain/coach/program-months';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 import {
   loadPersonalTramoChain,
   tramoSafety,
@@ -55,7 +56,7 @@ export { PersonalChainError };
 
 export const addPersonalTramoSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
+  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_ABSOLUTE_MAX_WEEKS),
 });
 export type AddPersonalTramoInput = z.infer<typeof addPersonalTramoSchema>;
 
@@ -120,6 +121,18 @@ export async function addPersonalTramoToChain(params: {
     `;
     if (!owned[0]) {
       throw new PersonalChainError('not_found', 'Atleta no encontrado', 404);
+    }
+
+    // El zod de arriba sólo aplica el techo ABSOLUTO del sistema — aquí SÍ
+    // sabemos quién es el coach, así que se comprueba su tope real
+    // (`coaches.max_microcycle_weeks`, card 135).
+    const maxWeeks = await loadCoachMaxMicrocicloWeeks({ coach_id, client: tx });
+    if (body.week_count > maxWeeks) {
+      throw new PersonalChainError(
+        'week_count_too_long',
+        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        400,
+      );
     }
 
     const lastRows = await tx<Array<{ end_date: string | null }>>`
@@ -223,7 +236,12 @@ export async function addPersonalTramoToChain(params: {
 export const updatePersonalTramoSchema = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),
-    week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS).optional(),
+    week_count: z.coerce
+      .number()
+      .int()
+      .min(MICROCICLO_MIN_WEEKS)
+      .max(MICROCICLO_ABSOLUTE_MAX_WEEKS)
+      .optional(),
   })
   .refine((v) => v.name !== undefined || v.week_count !== undefined, {
     message: 'Debes enviar un nombre o un nº de semanas nuevo',
@@ -315,6 +333,21 @@ export async function updatePersonalTramoMeta(params: {
     const currentWeekCount = weekRows.length;
     const targetWeekCount = patch.week_count ?? currentWeekCount;
     const delta = targetWeekCount - currentWeekCount;
+
+    // Sólo al ALARGAR hay algo nuevo que comprobar contra el tope real del
+    // coach (`coaches.max_microcycle_weeks`, card 135) — acortar nunca puede
+    // acercarse más al techo, y un tramo ya existente que quedó por encima de
+    // un tope bajado después no se bloquea por un simple cambio de nombre.
+    if (delta > 0) {
+      const maxWeeks = await loadCoachMaxMicrocicloWeeks({ coach_id, client: tx });
+      if (targetWeekCount > maxWeeks) {
+        throw new PersonalChainError(
+          'week_count_too_long',
+          `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+          400,
+        );
+      }
+    }
 
     const chain = await loadPersonalTramoChain({ coach_id, athlete_id, client: tx });
     const mine = chain.find((t) => t.month_template_id === month_template_id) ?? null;

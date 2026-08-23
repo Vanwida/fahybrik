@@ -27,6 +27,7 @@ import {
   parseWeekSlotsFromDb,
 } from './program-week-slots';
 import { upsertWeekTemplate } from './program-weeks';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 
 // Re-exports — shared CRUD core + schemas/types. Slot-serializing functions
 // (createMonthTemplateWithEmptyWeeks / loadMonthTemplateWithWeeks) stay local
@@ -100,11 +101,25 @@ export async function deleteMonthTemplate(params: {
   return _deleteMonthTemplate({ ...params, client: params.client ?? defaultSql });
 }
 
+/**
+ * TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+ *
+ * Esta función abría SIEMPRE su propia transacción con `client.begin(...)`,
+ * pero `updatePersonalTramoMeta` la llama desde DENTRO de una transacción para
+ * alargar o acortar un tramo personal — y postgres.js no anida `begin`: un `tx`
+ * expone `savepoint`, no `begin`. O sea que **cambiar el número de semanas de un
+ * tramo personal reventaba siempre**, con un `client.begin is not a function`.
+ * Nadie lo había visto porque no había prueba que pasara por ahí.
+ *
+ * Se arregla con `withOwnOrAmbientTx`, que este mismo fichero ya usaba para
+ * exactamente este caso: si le llega el pool abre su transacción, y si le llega
+ * un `tx` se mete dentro del que ya hay.
+ */
 export async function removeWeekFromMonth(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   week_id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<void> {
   return _removeWeekFromMonth({ ...params, client: params.client ?? defaultSql });
 }
@@ -172,6 +187,18 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
       throw new ProgramMonthError('invalid_level', 'El nivel no pertenece a este coach', 400);
     }
 
+    // El zod de `programMonthScratchSchema` sólo aplica el techo ABSOLUTO del
+    // sistema (26) — aquí SÍ sabemos quién es el coach, así que se comprueba
+    // su tope real (`coaches.max_microcycle_weeks`, card 135).
+    const maxWeeks = await loadCoachMaxMicrocicloWeeks({ coach_id, client: tx });
+    if (body.week_count > maxWeeks) {
+      throw new ProgramMonthError(
+        'week_count_too_long',
+        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        400,
+      );
+    }
+
     const monthRows = await tx<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name, level_id)
       values (
@@ -216,10 +243,24 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
  * Es la ruta "duplicar" SIN clonar contenido — comparte el patrón de inserción
  * en la junction (posición siguiente), sólo que con una semana en blanco.
  */
+/**
+ * TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+ *
+ * Esta función abría SIEMPRE su propia transacción con `client.begin(...)`,
+ * pero `updatePersonalTramoMeta` la llama desde DENTRO de una transacción para
+ * alargar o acortar un tramo personal — y postgres.js no anida `begin`: un `tx`
+ * expone `savepoint`, no `begin`. O sea que **cambiar el número de semanas de un
+ * tramo personal reventaba siempre**, con un `client.begin is not a function`.
+ * Nadie lo había visto porque no había prueba que pasara por ahí.
+ *
+ * Se arregla con `withOwnOrAmbientTx`, que este mismo fichero ya usaba para
+ * exactamente este caso: si le llega el pool abre su transacción, y si le llega
+ * un `tx` se mete dentro del que ya hay.
+ */
 export async function appendEmptyWeekToMonth(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; week_index: number }> {
   const client = params.client ?? defaultSql;
   const coach_id = Number(params.coach_id);
@@ -229,7 +270,7 @@ export async function appendEmptyWeekToMonth(params: {
   let newWeekId = '';
   let newPosition = 0;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const monthRows = await tx<
       Array<{ name: string; level_id: string | null }>
     >`
