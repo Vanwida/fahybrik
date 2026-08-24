@@ -291,8 +291,8 @@ export function IntakeReview({
         error={error}
         readyHint={
           planMode === 'personal'
-            ? 'No se crea ningún microciclo todavía. Los escribes tú desde su plan.'
-            : 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
+            ? 'No se crea ningún ciclo todavía. Los escribes tú desde su plan.'
+            : 'Se creará el primer ciclo en borrador para que lo revises antes de publicar.'
         }
         onAssign={assign}
       />

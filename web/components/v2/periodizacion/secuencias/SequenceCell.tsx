@@ -51,7 +51,7 @@ export function SequenceCell({
       <button
         type="button"
         onClick={onClick}
-        title={`${mc} ${mc === 1 ? 'microciclo' : 'microciclos'} · ${preview.total_weeks} sem`}
+        title={`${mc} ${mc === 1 ? 'ciclo' : 'ciclos'} · ${preview.total_weeks} sem`}
         className={cn(
           'v2-focus group relative flex h-full min-h-[84px] w-full flex-col items-start justify-start gap-2.5 rounded-[var(--v2-r-s)]',
           'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5',
@@ -99,7 +99,7 @@ export function SequenceCell({
  */
 function Camino({ segments }: { segments: SequenceSparkSegment[] }) {
   if (segments.length === 0) {
-    return <span className="text-eyebrow text-[color:var(--v2-faint)]">sin microciclos</span>;
+    return <span className="text-eyebrow text-[color:var(--v2-faint)]">sin ciclos</span>;
   }
   const nodos = nodosDeCadena(
     segments.map((seg, i) => ({
@@ -123,7 +123,7 @@ function Camino({ segments }: { segments: SequenceSparkSegment[] }) {
       <Espina tokens={TOKENS_V2} tramos={tramos} />
       {restantes > 0 ? (
         <span className="text-eyebrow text-[color:var(--v2-faint)]">
-          y {restantes} {restantes === 1 ? 'microciclo más' : 'microciclos más'}
+          y {restantes} {restantes === 1 ? 'ciclo más' : 'ciclos más'}
         </span>
       ) : null}
     </div>

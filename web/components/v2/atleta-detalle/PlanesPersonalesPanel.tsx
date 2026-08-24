@@ -169,8 +169,8 @@ export function PlanesPersonalesPanel({
         )
       ) : drafts.length === 0 && !creating ? (
         <p className="py-2 text-center text-xs text-[color:var(--v2-muted)]">
-          Sin borradores sin fecha. «Nuevo» empieza un microciclo en blanco para rellenar antes de
-          ponerle fecha. Para encadenarlo ya con fecha, usa «Añadir microciclo» arriba.
+          Sin borradores sin fecha. «Nuevo» empieza un ciclo en blanco para rellenar antes de
+          ponerle fecha. Para encadenarlo ya con fecha, usa «Añadir ciclo» arriba.
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">

@@ -246,9 +246,9 @@ function motivoReceta(receta: EstadoRecetaNivel): string | null {
     case 'lista':
       return null;
     case 'sin_receta':
-      return `Tu periodización de ${receta.celda} no tiene secuencia, así que no hay siguiente que proponerte.`;
+      return `Tu planificación de ${receta.celda} no tiene secuencia, así que no hay siguiente que proponerte.`;
     case 'receta_vacia':
-      return `La secuencia de ${receta.celda} no tiene microciclos dentro.`;
+      return `La secuencia de ${receta.celda} no tiene ciclos dentro.`;
     case 'faltan_dias':
       return 'No consta cuántos días entrena a la semana.';
     case 'dias_fuera_de_banda':

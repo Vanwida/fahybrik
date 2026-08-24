@@ -169,7 +169,7 @@ export default async function V2AjustesPage({
                 </span>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                    Periodización y fases
+                    Planificación y fases
                   </span>
                   <span className="text-xs text-[color:var(--v2-muted)]">
                     Define las fases y principios que alimentan a Coach IA.

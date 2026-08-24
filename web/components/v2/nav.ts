@@ -47,7 +47,7 @@ export const V2_NAV_ITEMS: readonly V2NavItem[] = [
   { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
   // Método — el oficio primero (cómo entrena), luego el marco, la biblioteca y los tests.
   { href: '/como-entrenas', label: 'Cómo entrenas', icon: 'tune', group: 'metodo' },
-  { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
+  { href: '/periodizacion', label: 'Planificación', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
   { href: '/cuestionarios', label: 'Cuestionarios', icon: 'assignment', group: 'metodo' },

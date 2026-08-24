@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · En pantalla se dice planificación y ciclo; por dentro sigue microciclo
+
+**Qué se decidió (card 162):** el copy que ve el coach o el atleta usa **planificación** y **ciclo**. Las rutas (`/periodizacion`, `/microciclos`), tipos, columnas, tools MCP y nombres de fichero no se renombran.
+
+**Por qué:** «periodización» y «microciclo» suenan a manual. El producto ya habla de plan y de ciclos. El modelo interno es estable; cambiarlo sería un rename de dominio, no de voz.
+
+**NO hacer:** no inventar «mesociclo». No «arreglar» el copy volviendo a periodización/microciclo. No arrastrar el rename a API, DB o URLs «para que coincida».
+
+---
+
 ## 2026-08-23 · El «nivel» no es un nivel: es un eje del entrenador, y es opcional
 
 **Qué pasó (card 137):** al meter por el asistente un macrociclo real de 12 semanas, **el contenido pasó la validación entera** — 114 bloques, ~320 líneas tipadas con medida, objetivo y descanso, incluidas las series y los fartlek con su estructura anidada. Lo que tumbó la importación fue **el `level_id`**: un campo obligatorio que **ninguna herramienta de lectura sabía entregar** (`get_plan` devuelve `level: ""` incluso para un microciclo que sí tiene nivel; ni la lista de atletas ni la ficha completa lo exponen). El asistente sólo podía adivinar, y adivinó mal.

@@ -22,7 +22,7 @@ export const transitionReadyEvaluator: SignalEvaluator = {
       value: null,
       baseline: null,
       trend: null,
-      label: 'Listo para el siguiente microciclo',
+      label: 'Listo para el siguiente ciclo',
       detail: facts.transition_detail || 'Revisar deep-dive',
       dedupe_key: dedupeKey('transition_ready', facts.athlete_id),
     };
@@ -68,10 +68,10 @@ export const microcycleEndingEvaluator: SignalEvaluator = {
       value: days,
       baseline: thresholds.microcycle_ending_days,
       trend: null,
-      label: `Microciclo acaba en ${days}d`,
+      label: `Ciclo acaba en ${days}d`,
       detail: facts.current_block_type
         ? `Ahora: ${facts.current_block_type} · asigna el siguiente`
-        : 'Asigna el siguiente microciclo',
+        : 'Asigna el siguiente ciclo',
       dedupe_key: dedupeKey('microcycle_ending', facts.athlete_id),
     };
   },

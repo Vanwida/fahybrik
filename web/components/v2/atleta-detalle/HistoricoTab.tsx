@@ -54,7 +54,7 @@ export function HistoricoTab({
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
       {/* LEFT */}
       <div className="flex flex-col gap-5">
-        <Panel title="Microciclos completados" bodyClassName="flex flex-col gap-2">
+        <Panel title="Ciclos completados" bodyClassName="flex flex-col gap-2">
           {completedMicros.length > 0 ? (
             completedMicros.map((p) => {
               // Compliance for this microcycle = avg of its weeks (best-effort).
@@ -87,8 +87,8 @@ export function HistoricoTab({
           ) : (
             <EmptyState
               icon="history"
-              title="Sin microciclos completados"
-              description="El historial aparece a medida que el atleta avanza sus microciclos."
+              title="Sin ciclos completados"
+              description="El historial aparece a medida que el atleta avanza sus ciclos."
               className="border-none py-6"
             />
           )}

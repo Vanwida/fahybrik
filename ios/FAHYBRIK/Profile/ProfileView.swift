@@ -1406,7 +1406,7 @@ struct ProfileView: View {
                 profileRow(
                     icon: "rectangle.3.group",
                     title: "Cómo se construye tu plan",
-                    subtitle: "Microciclos diseñados por tu coach, semana a semana.",
+                    subtitle: "Ciclos diseñados por tu coach, semana a semana.",
                     action: { sheet = .methodology }
                 )
                 Hairline()
@@ -1775,11 +1775,11 @@ private struct MethodologySheet: View {
                     Text("Cómo se construye tu plan")
                         .font(Theme.Typography.headlineS)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu coach diseña tu entrenamiento en microciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada microciclo los decide tu coach según tu nivel y tu carrera.")
+                    Text("Tu coach diseña tu entrenamiento en ciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada ciclo los decide tu coach según tu nivel y tu carrera.")
                         .scaledFont(13, relativeTo: .footnote)
                         .foregroundStyle(Theme.Color.foreground)
                     principleCard(
-                        title: "Microciclos",
+                        title: "Ciclos",
                         text: "Bloques de varias semanas con un foco concreto. Avanzas de uno al siguiente conforme te acercas a tu carrera."
                     )
                     principleCard(
@@ -1790,7 +1790,7 @@ private struct MethodologySheet: View {
                         title: "Se adapta a ti",
                         text: "Tu coach revisa cómo respondes —carga, recuperación, resultados— y ajusta lo que viene."
                     )
-                    Text("El nombre de tu microciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
+                    Text("El nombre de tu ciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
                         .scaledFont(12, relativeTo: .caption)
                         .foregroundStyle(Theme.Color.muted)
                 }

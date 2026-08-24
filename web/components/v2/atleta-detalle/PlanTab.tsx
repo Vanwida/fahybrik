@@ -104,7 +104,7 @@ export function PlanTab({
             />
           ) : (
             <p className="text-[13px] text-[color:var(--v2-muted)]">
-              Plan personal: todavía no hay un microciclo en marcha. Añádelo abajo.
+              Plan personal: todavía no hay un ciclo en marcha. Añádelo abajo.
             </p>
           )
         ) : (
@@ -243,7 +243,7 @@ export function PlanTab({
                     onClick={() => setRevertOpen(true)}
                     className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
-                    Volver a periodización
+                    Volver a la planificación
                   </button>
                 ) : null}
               </div>
@@ -339,7 +339,7 @@ export function PlanTab({
         <div className="flex flex-col gap-4">
           {!plan.is_personal && plan.macro.weeks.length > 0 ? (
             <FichaCard>
-              <FichaLabel>Cumplimiento del microciclo</FichaLabel>
+              <FichaLabel>Cumplimiento del ciclo</FichaLabel>
               <div className="mt-3 flex flex-wrap gap-2">
                 {plan.macro.weeks.slice(0, 6).map((w, i) => {
                   const actual = w.status === 'current';

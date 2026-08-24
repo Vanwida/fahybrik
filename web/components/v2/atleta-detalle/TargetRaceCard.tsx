@@ -105,7 +105,7 @@ export function TargetRaceCard({ athleteId }: { athleteId: string }) {
                 Sin carrera objetivo
               </span>
               <span className="text-xs text-[color:var(--v2-muted)]">
-                Fija la carrera que ancla la periodización del plan.
+                Fija la carrera que ancla la planificación del plan.
               </span>
             </div>
           </div>

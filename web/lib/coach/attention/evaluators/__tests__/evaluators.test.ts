@@ -205,7 +205,7 @@ describe('transition_ready', () => {
   it("fires when recommendation === 'advance'", () => {
     const r = fired('transition_ready', baseFacts({ transition_recommendation: 'advance', transition_detail: 'TSB recuperado' }));
     expect(r.severity).toBe('warning');
-    expect(r.label).toBe('Listo para el siguiente microciclo');
+    expect(r.label).toBe('Listo para el siguiente ciclo');
     expect(r.detail).toBe('TSB recuperado');
     expect(r.value).toBeNull();
   });
@@ -256,13 +256,13 @@ describe('microcycle_ending', () => {
     const r = fired('microcycle_ending', baseFacts({ current_microcycle_end_iso: isoInDays(3), current_block_type: 'Base aeróbica' }));
     expect(r.severity).toBe('warning');
     expect(r.value).toBe(3);
-    expect(r.label).toBe('Microciclo acaba en 3d');
+    expect(r.label).toBe('Ciclo acaba en 3d');
     expect(r.detail).toBe('Ahora: Base aeróbica · asigna el siguiente');
   });
 
   it('uses default detail when no block type', () => {
     const r = fired('microcycle_ending', baseFacts({ current_microcycle_end_iso: isoInDays(1) }));
-    expect(r.detail).toBe('Asigna el siguiente microciclo');
+    expect(r.detail).toBe('Asigna el siguiente ciclo');
   });
 
   it('does NOT fire when ending in 20 days', () => {

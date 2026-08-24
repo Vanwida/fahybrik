@@ -358,7 +358,7 @@ function SemanaVacia({
     secundaria: terminado
       ? {
           texto: `Ver ${terminado.nombre}`,
-          onTap: () => onLog(`Ver ${terminado.nombre} → abriría el microciclo que acabó`),
+          onTap: () => onLog(`Ver ${terminado.nombre} → abriría el ciclo que acabó`),
         }
       : undefined,
     nota: terminado ? 'La siguiente la publica tu coach.' : 'Tu primera semana la publica tu coach.',

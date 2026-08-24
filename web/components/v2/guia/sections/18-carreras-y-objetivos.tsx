@@ -21,7 +21,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Todo plan necesita un <b>para qué</b>. La <b>carrera objetivo</b> es esa fecha: la que
-          ancla la periodización, marca la cuenta atrás y ordena el resto del trabajo. Aquí la fijas,
+          ancla la planificación, marca la cuenta atrás y ordena el resto del trabajo. Aquí la fijas,
           añades carreras intermedias, y consultas el historial de lo que tu atleta ya ha corrido,
           con sus tiempos, su percentil y sus parciales.
         </>
@@ -44,7 +44,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         porque={
           <>
-            Porque sin fecha no hay periodización: el plan se construye <b>hacia</b> algo. La cuenta
+            Porque sin fecha no hay planificación: el plan se construye <b>hacia</b> algo. La cuenta
             atrás le da sentido a cada semana: para ti al programar y para tu atleta al entrenar.
           </>
         }
@@ -53,7 +53,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · La carrera que ancla el plan</h3>
       <p>
         Al fijar la carrera objetivo le das un destino al plan: la cuenta atrás aparece en su ficha y
-        en su móvil, y la periodización se ordena hacia esa fecha. Puedes <b>cambiarla</b> cuando el
+        en su móvil, y la planificación se ordena hacia esa fecha. Puedes <b>cambiarla</b> cuando el
         calendario cambie, y sumar carreras <b>intermedias</b> que sirvan de ensayo en el camino.
       </p>
 

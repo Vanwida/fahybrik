@@ -66,7 +66,7 @@ describe('cadena · un microciclo que ya no está se dice, no se dibuja vacío',
 
   it('se nombra el hecho y se dice qué hacer con él', () => {
     expect(nodos[1]!.falta).toBe(true);
-    expect(nodos[1]!.titulo).toBe('Microciclo eliminado');
+    expect(nodos[1]!.titulo).toBe('Ciclo eliminado');
     expect(nodos[1]!.detalle).toBe('Ya no está en tu biblioteca · quítalo de la cadena');
   });
 
@@ -106,7 +106,7 @@ describe('cadena · el rótulo en voz alta', () => {
   it('un microciclo que falta no finge una duración', () => {
     const nodos = nodosDeCadena([eslabon({ clave: 'a', nombre: null, semanas: 0 })]);
     expect(nodos[0]!.etiqueta).toBe(
-      '1. Microciclo eliminado, Ya no está en tu biblioteca · quítalo de la cadena',
+      '1. Ciclo eliminado, Ya no está en tu biblioteca · quítalo de la cadena',
     );
   });
 });

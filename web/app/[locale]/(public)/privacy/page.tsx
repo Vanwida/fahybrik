@@ -211,7 +211,7 @@ export default function PrivacyPage() {
       <UL>
         <li>
           <Term>Prescripción y adaptación del entrenamiento.</Term> Pablo y el motor de
-          periodización usan tus datos para planificar y adaptar tus bloques de
+          planificación usan tus datos para planificar y adaptar tus bloques de
           entrenamiento.
         </li>
         <li>

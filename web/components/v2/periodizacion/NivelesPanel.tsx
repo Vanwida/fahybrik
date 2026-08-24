@@ -281,7 +281,7 @@ export function NivelesPanel({
                         onClick={() => onEnter(lvl)}
                         className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
                       >
-                        Periodización <MIcon name="arrow_forward" size={13} />
+                        Planificación <MIcon name="arrow_forward" size={13} />
                       </button>
                       <ListRowAction
                         icon="edit"
@@ -300,7 +300,7 @@ export function NivelesPanel({
                     type="button"
                     onClick={() => onEnter(lvl)}
                     className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
-                    title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+                    title={`Abrir la planificación de ${lvl.name} · ${lvl.label}`}
                   >
                     <span className="flex items-center gap-2.5">
                       <LevelBadge level={lvl.name} />
@@ -321,7 +321,7 @@ export function NivelesPanel({
             {levels.length > 0 ? (
               <PurposeStrip>
                 Con estos niveles el sistema <b className="text-[color:var(--v2-fg)]">clasifica a cada atleta al alta</b>. Entra en un nivel para{' '}
-                <b className="text-[color:var(--v2-fg)]">ordenar su periodización</b> (su secuencia de microciclos por días/semana). Reordénalos para fijar la progresión de menor a mayor.
+                <b className="text-[color:var(--v2-fg)]">ordenar su planificación</b> (su secuencia de ciclos por días/semana). Reordénalos para fijar la progresión de menor a mayor.
               </PurposeStrip>
             ) : null}
           </div>
@@ -449,7 +449,7 @@ function EmptyLevels({
       </span>
       <p className="text-base font-bold text-[color:var(--v2-fg)]">No tienes niveles definidos</p>
       <p className="mx-auto mt-1.5 max-w-[380px] text-body leading-relaxed text-[color:var(--v2-muted)]">
-        Los niveles clasifican a tus atletas. Cada uno guarda su propia periodización. Sin al menos uno, el sistema no puede colocar a nadie.
+        Los niveles clasifican a tus atletas. Cada uno guarda su propia planificación. Sin al menos uno, el sistema no puede colocar a nadie.
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2.5">
         <PanelButton variant="primary" onClick={onCreate}>
@@ -509,7 +509,7 @@ function ConfirmDeleteDialog({
           ¿Eliminar «{level.name} · {level.label}»?
         </p>
         <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
-          Ningún atleta tiene este nivel asignado. Se eliminará de tu catálogo junto con su periodización.
+          Ningún atleta tiene este nivel asignado. Se eliminará de tu catálogo junto con su planificación.
         </p>
         <div className="mt-4 flex gap-2">
           <PanelButton variant="danger" onClick={onConfirm}>

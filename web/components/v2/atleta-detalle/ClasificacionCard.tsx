@@ -140,7 +140,7 @@ export function ClasificacionCard({
         ) : null}
         {data.levels.length === 0 ? (
           <p className="text-xs text-[color:var(--v2-faint)]">
-            No hay niveles definidos todavía. Créalos en Periodización.
+            No hay niveles definidos todavía. Créalos en Planificación.
           </p>
         ) : (
           <div className="flex flex-wrap gap-1.5">

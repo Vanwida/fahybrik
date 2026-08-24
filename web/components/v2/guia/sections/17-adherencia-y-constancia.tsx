@@ -79,7 +79,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="cue" title="La constancia queda en el histórico">
         <p>
-          Cuando un microciclo termina del todo, pasa a <span className="k">Microciclos completados</span>{' '}
+          Cuando un ciclo termina del todo, pasa a <span className="k">Ciclos completados</span>{' '}
           en su histórico con su cumplimiento medio. Así ves de un vistazo si tu atleta es de los que
           rematan los bloques o de los que se diluyen al final.
         </p>

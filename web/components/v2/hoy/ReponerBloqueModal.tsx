@@ -77,12 +77,12 @@ export function ReponerBloqueModal({
           | null;
         if (!alive) return;
         if (!res.ok || !body?.months) {
-          setLoadError(body?.error?.message ?? 'No se pudo cargar tu biblioteca de microciclos.');
+          setLoadError(body?.error?.message ?? 'No se pudo cargar tu biblioteca de ciclos.');
           return;
         }
         setMonths(body.months);
       } catch {
-        if (alive) setLoadError('No se pudo cargar tu biblioteca de microciclos.');
+        if (alive) setLoadError('No se pudo cargar tu biblioteca de ciclos.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -195,7 +195,7 @@ export function ReponerBloqueModal({
                 «<span className="font-semibold text-[color:var(--v2-fg)]">{assigned.name}</span>»
                 queda en <span className="font-semibold text-[color:var(--v2-fg)]">borrador</span>{' '}
                 para {athleteName}. Todavía no lo ve. Ábrelo en su plan y pulsa «Publicar
-                microciclo» para entregarlo.
+                ciclo» para entregarlo.
               </p>
             </div>
             <div className="flex items-center justify-end gap-2">
@@ -219,7 +219,7 @@ export function ReponerBloqueModal({
         ) : (
           <div className="flex min-h-0 flex-col gap-3.5">
             <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Microciclo de tu biblioteca</span>
+              <span className="v2-micro">Ciclo de tu biblioteca</span>
               <input
                 type="text"
                 value={query}
@@ -233,7 +233,7 @@ export function ReponerBloqueModal({
             <div className="min-h-0 flex-1 overflow-y-auto rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]">
               {loading ? (
                 <p className="px-3 py-6 text-center text-xs text-[color:var(--v2-muted)]">
-                  Cargando microciclos…
+                  Cargando ciclos…
                 </p>
               ) : loadError ? (
                 <p className="px-3 py-6 text-center text-xs text-[color:var(--v2-danger)]">
@@ -242,7 +242,7 @@ export function ReponerBloqueModal({
               ) : filtered.length === 0 ? (
                 <p className="px-3 py-6 text-center text-xs text-[color:var(--v2-muted)]">
                   {months.length === 0
-                    ? 'Tu biblioteca no tiene microciclos todavía.'
+                    ? 'Tu biblioteca no tiene ciclos todavía.'
                     : 'Sin resultados.'}
                 </p>
               ) : (

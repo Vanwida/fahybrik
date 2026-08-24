@@ -102,7 +102,7 @@ export function EndPolicyPanel({
 
       {disabled ? (
         <p className="text-xs text-[color:var(--v2-faint)]">
-          Añade al menos un microciclo para configurar qué pasa al acabar.
+          Añade al menos un ciclo para configurar qué pasa al acabar.
         </p>
       ) : (
         <>
@@ -197,7 +197,7 @@ export function EndPolicyPanel({
             {endPolicy === 'repeat' ? (
               <>
                 El incremento se aplica solo cuando el atleta <b className="text-[color:var(--v2-muted)]">vuelve a empezar</b> la
-                secuencia (no entre microciclos). Carga, volumen y ritmo son ejes separados: nunca se mezclan.
+                secuencia (no entre ciclos). Carga, volumen y ritmo son ejes separados: nunca se mezclan.
               </>
             ) : endPolicy === 'level_up' ? (
               <>

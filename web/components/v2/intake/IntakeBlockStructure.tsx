@@ -19,7 +19,7 @@ const MODE_OPTIONS: Array<{ mode: IntakePlanMode; icon: string; title: string; d
   {
     mode: 'shared',
     icon: 'stacks',
-    title: 'Seguir la periodización',
+    title: 'Seguir la planificación',
     detail: 'Arranca con lo que ya tienes montado.',
   },
   {

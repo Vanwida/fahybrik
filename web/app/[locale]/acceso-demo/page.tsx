@@ -36,7 +36,7 @@ export default async function AccesoDemoPage({
         </h1>
         <p className="mt-2 text-sm text-neutral-500">
           Elige un coach para recorrer el dashboard. Verás su roster, su atleta y
-          sus microciclos.
+          sus ciclos.
         </p>
       </div>
       <DemoAccessClient coaches={coaches} locale={locale} />

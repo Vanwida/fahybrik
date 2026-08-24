@@ -75,7 +75,7 @@ export function nodosDeCadena(eslabones: EslabonCadena[]): NodoCadena[] {
     const semanas = tieneSemanas ? weeksLabel(primeraSemana, e.semanas) : SIN_SEMANAS;
     if (tieneSemanas) primeraSemana += e.semanas;
 
-    const titulo = e.nombre ?? 'Microciclo eliminado';
+    const titulo = e.nombre ?? 'Ciclo eliminado';
     const detalle = notas(falta, tieneSemanas, e.usos ?? 1).join(' · ') || null;
     return {
       clave: e.clave,

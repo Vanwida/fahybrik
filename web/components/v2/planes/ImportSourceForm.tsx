@@ -346,7 +346,7 @@ export function ImportSourceForm({
             />
           </label>
           <div className="space-y-1.5">
-            <span className="v2-micro">¿En qué semana del microciclo la meto?</span>
+            <span className="v2-micro">¿En qué semana del ciclo la meto?</span>
             <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
             <p className="v2-micro text-[color:var(--v2-faint)]">
               La IA compone la semana entera con tu biblioteca. La revisas antes de guardar, nada
@@ -368,7 +368,7 @@ export function ImportSourceForm({
           brings whole weeks and the coach maps them one by one in the review. */}
       {sourceMode === 'paste' ? (
         <div className="space-y-1.5">
-          <span className="v2-micro">¿En qué día del microciclo lo meto?</span>
+          <span className="v2-micro">¿En qué día del ciclo lo meto?</span>
           <div className="grid grid-cols-2 gap-2">
             <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
             <select
@@ -390,7 +390,7 @@ export function ImportSourceForm({
         </div>
       ) : sourceMode === 'file' ? (
         <label className="block space-y-1.5">
-          <span className="v2-micro">¿Qué rango meto en este microciclo?</span>
+          <span className="v2-micro">¿Qué rango meto en este ciclo?</span>
           <input
             type="text"
             value={rangeText}

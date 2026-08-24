@@ -46,7 +46,7 @@ export default async function V2MicrocicloPage({
 
   const monthId = Number(id);
   if (!Number.isFinite(monthId)) {
-    return <NotFound description="El identificador del microciclo no es válido." />;
+    return <NotFound description="El identificador del ciclo no es válido." />;
   }
 
   const coach_id = session.coach_id;
@@ -54,7 +54,7 @@ export default async function V2MicrocicloPage({
   const full = await loadMonthTemplateWithWeeks({ coach_id, month_id: monthId }).catch(() => null);
 
   if (!full) {
-    return <NotFound description="Este microciclo no existe o no pertenece a tu biblioteca." />;
+    return <NotFound description="Este ciclo no existe o no pertenece a tu biblioteca." />;
   }
 
   const sorted = full.weeks.slice().sort((a, b) => a.week_index - b.week_index);
@@ -141,7 +141,7 @@ function NotFound({ description }: { description: string }) {
   return (
     <ScreenNotice
       icon="search_off"
-      title="Microciclo no encontrado"
+      title="Ciclo no encontrado"
       description={description}
       action={
         <Link href="/biblioteca" className={screenNoticeActionClass}>

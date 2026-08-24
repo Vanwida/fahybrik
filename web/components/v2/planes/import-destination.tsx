@@ -19,7 +19,7 @@ export function WeekSelect({
   microWeeks,
   value,
   onChange,
-  ariaLabel = 'Semana del microciclo',
+  ariaLabel = 'Semana del ciclo',
 }: {
   microWeeks: MicroWeekRef[];
   value: string;
@@ -73,7 +73,7 @@ export function ImportPhotoDestination({
           microWeeks={microWeeks}
           value={weekId}
           onChange={onWeekId}
-          ariaLabel="Semana del microciclo por la que empieza"
+          ariaLabel="Semana del ciclo por la que empieza"
         />
         {/* El día va en trazo discontinuo porque es SECUNDARIO: vacío significa la
             semana entera, que es lo que pasa casi siempre. */}
@@ -98,7 +98,7 @@ export function ImportPhotoDestination({
       {microWeeks.length === 0 ? (
         <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-warn)]">
           <MIcon name="info" size={14} className="mt-px shrink-0" />
-          Este microciclo todavía no tiene semanas. Crea una y vuelve, que si no no hay dónde meter
+          Este ciclo todavía no tiene semanas. Crea una y vuelve, que si no no hay dónde meter
           las fotos.
         </p>
       ) : null}

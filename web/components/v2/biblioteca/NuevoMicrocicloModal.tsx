@@ -95,7 +95,7 @@ export function NuevoMicrocicloModal({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? 'No se pudo crear el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo crear el ciclo.');
         setSubmitting(false);
         return;
       }
@@ -105,7 +105,7 @@ export function NuevoMicrocicloModal({
           await onCreated(created);
         } catch {
           setError(
-            'Microciclo creado, pero no se pudo asociarlo a la secuencia. Añádelo desde la biblioteca.',
+            'Ciclo creado, pero no se pudo asociarlo a la secuencia. Añádelo desde la biblioteca.',
           );
           setSubmitting(false);
         }
@@ -113,7 +113,7 @@ export function NuevoMicrocicloModal({
       }
       router.push(`/microciclos/${created.id}`);
     } catch {
-      setError('Error de red al crear el microciclo.');
+      setError('Error de red al crear el ciclo.');
       setSubmitting(false);
     }
   };
@@ -128,13 +128,13 @@ export function NuevoMicrocicloModal({
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
-        aria-label="Crear microciclo nuevo"
+        aria-label="Crear ciclo nuevo"
         onClick={(e) => e.stopPropagation()}
         className="v2-focus flex w-full max-w-[480px] flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] p-[18px] shadow-[var(--v2-shadow-pop)]"
       >
         <div className="mb-4 flex items-start justify-between">
           <div className="min-w-0">
-            <span className="text-sm font-bold text-[color:var(--v2-fg)]">Crear microciclo nuevo</span>
+            <span className="text-sm font-bold text-[color:var(--v2-fg)]">Crear ciclo nuevo</span>
             {lockedLevel ? (
               <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
                 para <b className="text-[color:var(--v2-fg)]">{lockedLevel.name}</b>

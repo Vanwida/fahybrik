@@ -44,7 +44,7 @@ describe('plan-published — el coach que firma el aviso', () => {
 
     expect(assigned.title).toBe('Tu plan esta listo');
     expect(weekly.title).toBe('Tu plan de la semana esta listo');
-    expect(next.title).toBe('Nuevo microciclo listo');
+    expect(next.title).toBe('Nuevo ciclo listo');
     for (const p of [assigned, weekly, next]) {
       expect(p.body.startsWith('Ana Ruiz ')).toBe(true);
       expect(`${p.title} ${p.body}`).not.toMatch(/pablo/i);

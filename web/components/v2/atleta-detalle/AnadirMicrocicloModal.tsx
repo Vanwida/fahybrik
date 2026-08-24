@@ -42,13 +42,13 @@ export function AnadirMicrocicloModal({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? 'No se pudo añadir el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo añadir el ciclo.');
         setSubmitting(false);
         return;
       }
       onAdded();
     } catch {
-      setError('Error de red al añadir el microciclo.');
+      setError('Error de red al añadir el ciclo.');
       setSubmitting(false);
     }
   }
@@ -59,7 +59,7 @@ export function AnadirMicrocicloModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Añadir microciclo a la cadena"
+      aria-label="Añadir ciclo a la cadena"
     >
       <button
         type="button"
@@ -69,7 +69,7 @@ export function AnadirMicrocicloModal({
       />
       <div className="relative flex w-full max-w-sm flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Añadir microciclo</h2>
+          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Añadir ciclo</h2>
           <button
             type="button"
             aria-label="Cerrar"
@@ -81,7 +81,7 @@ export function AnadirMicrocicloModal({
         </div>
         <div className="flex flex-col gap-3.5">
           <p className="text-xs text-[color:var(--v2-muted)]">
-            Se engancha justo detrás del último microciclo que este atleta ya tiene asignado, sin
+            Se engancha justo detrás del último ciclo que este atleta ya tiene asignado, sin
             hueco ni solape.
           </p>
           <label className="flex flex-col gap-1">

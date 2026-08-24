@@ -70,7 +70,7 @@ export function ContextPanel({
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-[color:var(--v2-muted)]">
-                  Fase actual del microciclo del atleta.
+                  Fase actual del ciclo del atleta.
                 </p>
                 {/* TODO(endpoint): surface the literal session scheduled for today
                     (name · modalidad · min · estado). The per-day session loader

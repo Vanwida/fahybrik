@@ -74,7 +74,7 @@ export default function TermsPage() {
           coaching técnico que recibes a través de la plataforma.
         </li>
         <li>
-          Un motor interno de periodización que ayuda a Pablo a planificar y adaptar tus
+          Un motor interno de planificación que ayuda a Pablo a planificar y adaptar tus
           planes en función de tus datos de entrenamiento y recuperación.
         </li>
       </UL>

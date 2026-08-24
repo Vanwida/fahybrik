@@ -56,7 +56,7 @@ const PHOTO_ERROR_COPY: Record<string, string> = {
     'No se pudo descargar alguna captura a tiempo. Vuelve a intentarlo; si se repite, usa una imagen más ligera.',
   empty_reading: 'No se ha reconocido ningún entreno en las capturas.',
   week_overflow:
-    'Las capturas necesitan más semanas de las que quedan en este microciclo a partir de la semana elegida.',
+    'Las capturas necesitan más semanas de las que quedan en este ciclo a partir de la semana elegida.',
 };
 
 /** Client abort under the route's 300s ceiling so the coach never sits on a
@@ -233,7 +233,7 @@ export function ImportWorkoutsDialog({
             <p className="v2-micro mt-0.5">
               {isReview
                 ? 'Revisa y elige qué entra, nada se guarda sin ejercicio del catálogo'
-                : 'De tu metodología a este microciclo, tipado'}
+                : 'De tu metodología a este ciclo, tipado'}
             </p>
           </div>
           <button

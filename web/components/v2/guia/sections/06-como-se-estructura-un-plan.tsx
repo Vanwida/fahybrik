@@ -92,7 +92,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>2 · Dónde montas cada nivel</h3>
       <p>
-        La semana es tu mesa de trabajo. La <b>fase</b> se nombra al abrir el microciclo; el{' '}
+        La semana es tu mesa de trabajo. La <b>fase</b> se nombra al abrir el ciclo; el{' '}
         <b>foco</b> y los días, en la propia semana; los <b>bloques</b> y <b>ejercicios</b>, dentro
         de cada sesión. No saltas entre pantallas: ves la semana entera y editas el día sin perder
         el contexto. Las dos secciones siguientes entran al detalle:{' '}
