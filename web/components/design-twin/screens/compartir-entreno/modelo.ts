@@ -66,6 +66,8 @@ export const GASTO = {
   mas: 58,
   /** La firma del club, con su raya y su hueco. */
   club: 82,
+  /** La tira de los 7 días de la tarjeta semanal, con su hueco. */
+  tira: 88,
 } as const;
 
 /**
@@ -240,4 +242,67 @@ function repartir(candidatos: BloqueCartel[], presupuestoInicial: number): {
   // Los que se dejaron fuera por ser calentamiento o vuelta a la calma NO se
   // cuentan como recortados: no es que no quepan, es que no van.
   return { visibles, ocultos };
+}
+
+// ---------------------------------------------------------------------------
+// LA SEMANA — la otra cosa que se comparte
+// ---------------------------------------------------------------------------
+
+/**
+ * Un día de la tira. Tres estados y los tres son VERDAD: entrenado, descanso
+ * prescrito y saltado. El saltado existe a propósito — una tira que pinta igual
+ * lo saltado que el descanso convierte la semana en propaganda, y el atleta
+ * decide si comparte su semana, no la tarjeta por él.
+ */
+export interface DiaSemana {
+  letra: string;
+  estado: 'hecho' | 'descanso' | 'saltado';
+}
+
+/** Una sesión hecha, en una línea: día, qué fue y su número gordo. */
+export interface SesionSemana {
+  dia: string;
+  titulo: string;
+  dato?: string;
+}
+
+export interface Semana {
+  /** El chip: `SEMANA 34`. */
+  etiqueta: string;
+  /** El nombre que el COACH le puso a la semana (su foco). Es dato del coach,
+   *  no nuestro: si no puso ninguno, el título es `Mi semana`. */
+  titulo: string;
+  dias: DiaSemana[];
+  /** Los totales que van en la cabecera de la lista: `4/5 · 4:15 · 17,4 km`. */
+  totales: string;
+  sesiones: SesionSemana[];
+}
+
+/**
+ * El recorte de la semana. Sin fila de números grandes a propósito: la tira YA
+ * es el titular visual (cuatro cuadros llenos SE VEN como cuatro sesiones), y
+ * los totales caben en la cabecera de la lista. Con fila de héroe además de
+ * tira, lista y club, la tarjeta no baja de 780 px — medido, no opinado.
+ */
+export function recortarSemana(
+  semana: Semana,
+  opciones: { conClub?: boolean } = {}
+): { visibles: SesionSemana[]; ocultos: number } {
+  const presupuestoBase =
+    TARJETA.altoMaximo - TARJETA.padding * 2 - GASTO.titular - GASTO.tira
+    - GASTO.cabeceraBloque - (opciones.conClub ? GASTO.club : 0);
+
+  const corta = (presupuesto: number) => {
+    const caben = Math.max(0, Math.floor(presupuesto / GASTO.linea));
+    return {
+      visibles: semana.sesiones.slice(0, caben),
+      ocultos: Math.max(0, semana.sesiones.length - caben),
+    };
+  };
+
+  const primera = corta(presupuestoBase);
+  if (primera.ocultos === 0) return primera;
+  // Igual que en el entreno: si algo se cae, la línea de «+N más» va a existir
+  // y su sitio se descuenta antes de repartir (ver `recortar`).
+  return corta(presupuestoBase - GASTO.mas);
 }

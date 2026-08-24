@@ -28,9 +28,10 @@
 //    lo mismo y la columna baila.
 
 import type { CSSProperties } from 'react';
+import type { ReactNode } from 'react';
 import {
-  GASTO, STORY, TARJETA, columnasDeSerie, recortar,
-  type BloqueCartel, type Club, type Entreno, type Repeticion,
+  GASTO, STORY, TARJETA, columnasDeSerie, recortar, recortarSemana,
+  type BloqueCartel, type Club, type DiaSemana, type Entreno, type Repeticion, type Semana,
 } from './modelo';
 
 export type Marca = 'club' | 'sin';
@@ -48,17 +49,7 @@ const HAIRLINE = 'rgba(255,255,255,0.12)';
  * atleta la pondría. Esto entero solo existe en el doble, para poder juzgar si
  * la tarjeta estorba: lo que sale de la app es `Tarjeta`.
  */
-export function Lienzo({
-  entreno,
-  marca,
-  club,
-  escala,
-}: {
-  entreno: Entreno;
-  marca: Marca;
-  club: Club;
-  escala: number;
-}) {
+export function Lienzo({ escala, children }: { escala: number; children: ReactNode }) {
   return (
     <div
       style={{
@@ -86,9 +77,7 @@ export function Lienzo({
             arriba y en el centro, y ahí abajo es donde el ojo ya busca el pie.
             En Instagram el atleta la arrastra donde quiera — es una pegatina,
             no un fondo. */}
-        <div style={{ position: 'absolute', left: 84, bottom: 400 }}>
-          <Tarjeta entreno={entreno} marca={marca} club={club} />
-        </div>
+        <div style={{ position: 'absolute', left: 84, bottom: 400 }}>{children}</div>
       </div>
     </div>
   );
@@ -130,7 +119,7 @@ export function Tarjeta({ entreno, marca, club }: { entreno: Entreno; marca: Mar
         gap: 24,
       }}
     >
-      <Titular entreno={entreno} acento={acento} />
+      <Titular chip={entreno.dia} titulo={entreno.titulo} acento={acento} />
       {entreno.resultado && <Resultado filas={entreno.resultado} />}
       <Lista bloques={visibles} ocultos={ocultos} acento={acento} />
       {conClub && <PieDeClub club={club} />}
@@ -138,7 +127,7 @@ export function Tarjeta({ entreno, marca, club }: { entreno: Entreno; marca: Mar
   );
 }
 
-function Titular({ entreno, acento }: { entreno: Entreno; acento: string }) {
+function Titular({ chip, titulo, acento }: { chip: string; titulo: string; acento: string }) {
   const chipOscuro = '#0b0b0c';
   return (
     <div>
@@ -161,7 +150,7 @@ function Titular({ entreno, acento }: { entreno: Entreno; acento: string }) {
           transform: 'skewX(-6deg)',
         }}
       >
-        {entreno.dia}
+        {chip}
       </span>
       {/* La display itálica pesada EN MAYÚSCULAS es la voz del wordmark, y en
           una tarjeta pequeña el título es la tarjeta. */}
@@ -176,7 +165,7 @@ function Titular({ entreno, acento }: { entreno: Entreno; acento: string }) {
           marginTop: 16,
         }}
       >
-        {entreno.titulo}
+        {titulo}
       </div>
     </div>
   );
@@ -414,6 +403,135 @@ function Parciales({ reps, acento }: { reps: Repeticion[]; acento: string }) {
               )}
             </div>
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// LA TARJETA SEMANAL
+// ---------------------------------------------------------------------------
+
+/**
+ * La semana entera, en la misma voz que el entreno. SIN fila de números
+ * grandes a propósito: la tira de días YA es el titular visual — cuatro
+ * cuadros llenos se ven como cuatro sesiones sin leer nada — y los totales
+ * viajan en la cabecera de la lista. Con héroe además de tira, lista y club,
+ * la tarjeta no baja de 780 px y deja de ser una firma de esquina (medido).
+ */
+export function TarjetaSemana({ semana, marca, club }: { semana: Semana; marca: Marca; club: Club }) {
+  const conClub = marca === 'club';
+  const { visibles, ocultos } = recortarSemana(semana, { conClub });
+  const acento = conClub ? club.acento : TINTA;
+
+  return (
+    <div
+      style={{
+        width: TARJETA.ancho,
+        maxHeight: TARJETA.altoMaximo,
+        boxSizing: 'border-box',
+        padding: TARJETA.padding,
+        borderRadius: 32,
+        fontFamily: FUENTE,
+        color: TINTA,
+        background: 'linear-gradient(178deg, rgba(19,19,21,0.94) 0%, rgba(9,9,10,0.93) 100%)',
+        border: '1px solid rgba(255,255,255,0.09)',
+        boxShadow: '0 30px 70px rgba(0,0,0,0.5), 0 4px 14px rgba(0,0,0,0.35)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+      }}
+    >
+      <Titular chip={semana.etiqueta} titulo={semana.titulo} acento={acento} />
+      <TiraDias dias={semana.dias} acento={acento} />
+
+      <div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 14,
+            paddingBottom: 9,
+            borderBottom: `1px solid ${HAIRLINE}`,
+            marginBottom: 12,
+          }}
+        >
+          <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: 3, textTransform: 'uppercase', color: TINTA_TENUE }}>
+            Sesiones
+          </span>
+          <span style={{ fontSize: 20, color: TINTA_DEBIL, fontFamily: MONO, fontVariantNumeric: 'tabular-nums' }}>
+            {semana.totales}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {visibles.map((sesion, i) => (
+            <div key={i} style={fila}>
+              <span style={{ fontSize: 20, fontFamily: MONO, color: TINTA_DEBIL, minWidth: 26 }}>{sesion.dia}</span>
+              <span style={{ fontSize: 31, fontWeight: 650, marginRight: 'auto' }}>{sesion.titulo}</span>
+              {sesion.dato && (
+                <span
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 700,
+                    fontFamily: MONO,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: TINTA_TENUE,
+                  }}
+                >
+                  {sesion.dato}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {ocultos > 0 && (
+          <div style={{ fontSize: 23, fontFamily: MONO, color: TINTA_DEBIL, letterSpacing: 1.5, marginTop: 12 }}>
+            + {ocultos} más
+          </div>
+        )}
+      </div>
+
+      {conClub && <PieDeClub club={club} />}
+    </div>
+  );
+}
+
+/**
+ * LOS SIETE DÍAS, con la letra dentro del cuadro. Tres estados y los tres son
+ * verdad: lleno = entrenado (el acento va aquí — es el dato de la tarjeta),
+ * aro = descanso prescrito, apagado = saltado. El saltado NO se disfraza de
+ * descanso: la tira cuenta la semana que fue, y el atleta decide si la
+ * comparte — no la tarjeta por él.
+ */
+function TiraDias({ dias, acento }: { dias: DiaSemana[]; acento: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 14 }}>
+      {dias.map((d, i) => {
+        const hecho = d.estado === 'hecho';
+        const saltado = d.estado === 'saltado';
+        return (
+          <span
+            key={i}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: MONO,
+              fontSize: 23,
+              fontWeight: 800,
+              boxSizing: 'border-box',
+              background: hecho ? acento : saltado ? 'rgba(255,255,255,0.06)' : 'transparent',
+              border: d.estado === 'descanso' ? `1.5px solid ${HAIRLINE}` : 'none',
+              color: hecho ? '#0b0b0c' : saltado ? TINTA_DEBIL : TINTA_TENUE,
+            }}
+          >
+            {d.letra}
+          </span>
         );
       })}
     </div>

@@ -62,8 +62,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { CLUB, ESCENAS } from './datos';
-import { Lienzo, type Marca } from './cartel';
-import { STORY, recortar, type Entreno } from './modelo';
+import { Lienzo, Tarjeta, TarjetaSemana, type Marca } from './cartel';
+import { SEMANA } from './datos';
+import { STORY, recortar, recortarSemana, type Entreno } from './modelo';
 
 export const meta: TwinMeta = {
   id: 'compartir-entreno',
@@ -105,16 +106,25 @@ export const escenarios: TwinEscenario[] = [
     descripcion:
       'Una tanda de series es lo que más se enseña, y lo que se enseña son LOS PARCIALES: cómo aguantó el ritmo, dónde se cayó y cómo cerró. Por eso un bloque de serie no es una línea de lista («8 × 400 m»), es una forma propia con sus ocho números en dos columnas y la mejor marcada sola desde el dato. Promediar una tanda hace que una clavada y una que se hundió a la cuarta se lean igual.',
   },
+  {
+    id: 'semana',
+    titulo: '⑤ La semana entera',
+    descripcion:
+      'El resumen semanal, en la misma voz. La tira de los 7 días ES el titular: lleno = entrenado, aro = descanso prescrito, apagado = saltado — el viernes saltado se ve apagado a propósito, la tira cuenta la semana que fue y el atleta decide si la comparte. Sin fila de números grandes: los totales viajan en la cabecera de la lista, porque con héroe además de tira, lista y club la tarjeta no baja de 780 px y deja de ser una firma de esquina. El título es el nombre que el coach le puso a la semana (su foco), no uno nuestro.',
+  },
 ];
 
 export function Screen({ escenario, onLog }: TwinScreenProps) {
   const [marca, setMarca] = useState<Marca>('club');
+  const esSemana = escenario === 'semana';
   const entreno = ESCENAS[escenario] ?? ESCENAS['dia-normal']!;
-  const { ocultos } = recortar(entreno.bloques, { conClub: marca === 'club', conResultado: !!entreno.resultado });
+  const { ocultos } = esSemana
+    ? recortarSemana(SEMANA, { conClub: marca === 'club' })
+    : recortar(entreno.bloques, { conClub: marca === 'club', conResultado: !!entreno.resultado });
 
   useEffect(() => {
-    onLog(`${entreno.titulo} · ${entreno.bloques.length} bloques`);
-    onLog(ocultos > 0 ? `No caben ${ocultos} ejercicios → se declaran` : 'Cabe entero');
+    onLog(esSemana ? `${SEMANA.etiqueta} · ${SEMANA.totales}` : `${entreno.titulo} · ${entreno.bloques.length} bloques`);
+    onLog(ocultos > 0 ? `No caben ${ocultos} → se declaran` : 'Cabe entero');
   }, [escenario, marca]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -134,7 +144,13 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, minHeight: 0 }}>
           <Conmutador marca={marca} onChange={(m) => { setMarca(m); onLog(m === 'club' ? 'Con la marca del club' : 'Sin marca'); }} />
-          <Previsualizacion entreno={entreno} marca={marca} />
+          <Previsualizacion marca={marca}>
+            {esSemana ? (
+              <TarjetaSemana semana={SEMANA} marca={marca} club={CLUB} />
+            ) : (
+              <Tarjeta entreno={entreno} marca={marca} club={CLUB} />
+            )}
+          </Previsualizacion>
         </div>
 
         <Acciones onLog={onLog} />
@@ -210,7 +226,7 @@ function Conmutador({ marca, onChange }: { marca: Marca; onChange: (m: Marca) =>
  * que hay que mirar en esta pantalla, así que se lleva todo el alto que sobre
  * en vez de dejar medio móvil en negro.
  */
-function Previsualizacion({ entreno, marca }: { entreno: Entreno; marca: Marca }) {
+function Previsualizacion({ marca, children }: { marca: Marca; children: React.ReactNode }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(0);
 
@@ -237,7 +253,7 @@ function Previsualizacion({ entreno, marca }: { entreno: Entreno; marca: Marca }
       ref={hueco}
       style={{ flex: 1, minHeight: 0, alignSelf: 'stretch', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
     >
-      {escala > 0 && <Lienzo entreno={entreno} marca={marca} club={CLUB} escala={escala} />}
+      {escala > 0 && <Lienzo escala={escala}>{children}</Lienzo>}
     </div>
   );
 }

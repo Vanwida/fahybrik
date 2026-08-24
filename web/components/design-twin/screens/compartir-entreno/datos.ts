@@ -2,7 +2,7 @@
 // real: un día de fuerza corriente, un simulacro HYROX que NO cabe (es el caso
 // que prueba el recorte) y el mismo día de fuerza ya hecho, con sus números.
 
-import type { Club, Entreno } from './modelo';
+import type { Club, Entreno, Semana } from './modelo';
 
 export const CLUB: Club = {
   nombre: 'Fabrik Training Club',
@@ -157,6 +157,34 @@ const SERIES_400: Entreno = {
         { valor: '1:22', ritmo: '3:25', mejor: true },
       ],
     },
+  ],
+};
+
+
+/**
+ * ⑤ La semana entera. La tira es el titular; los totales van en la cabecera de
+ * la lista. El viernes SALTADO existe a propósito: es el estado que prueba que
+ * la tira cuenta la semana que fue, no la que quedaría bonita. El título es el
+ * nombre que el COACH le puso a la semana — dato del coach, nunca nuestro.
+ */
+export const SEMANA: Semana = {
+  etiqueta: 'Semana 34',
+  titulo: 'Carga · 3',
+  dias: [
+    { letra: 'L', estado: 'hecho' },
+    { letra: 'M', estado: 'hecho' },
+    { letra: 'X', estado: 'descanso' },
+    { letra: 'J', estado: 'hecho' },
+    { letra: 'V', estado: 'saltado' },
+    { letra: 'S', estado: 'hecho' },
+    { letra: 'D', estado: 'descanso' },
+  ],
+  totales: '4/5 · 4:15 · 17,4 km',
+  sesiones: [
+    { dia: 'L', titulo: 'Fuerza B + Ski', dato: '1:04' },
+    { dia: 'M', titulo: '8 × 400', dato: '52′' },
+    { dia: 'J', titulo: 'Fuerza C', dato: '58′' },
+    { dia: 'S', titulo: 'Simulacro HYROX', dato: '1:21' },
   ],
 };
 
