@@ -59,6 +59,9 @@ struct PreWorkoutBriefView: View {
     // ya usa — un solo lugar para toda la info del ejercicio, no dos.
     @State private var techniqueItem: WorkoutItem? = nil
 
+    /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
+    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
+
     // #8 — a session with running work starts through the full-screen pre-start
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
     // The ERG connect sequence deliberately does NOT live here any more: the free
@@ -221,6 +224,9 @@ struct PreWorkoutBriefView: View {
         .sheet(item: $techniqueItem) { item in
             ExerciseDetailView(item: item)
         }
+        .sheet(item: $tarjetaParaCompartir) { tarjeta in
+            CompartirSheet(tarjeta: tarjeta)
+        }
     }
 
     // MARK: - Nav bar (stays visible — the athlete can always leave)
@@ -245,6 +251,22 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
+
+            // Compartir lo que toca (card 132). Solo cuando el plan tiene
+            // contenido de verdad: una tarjeta de un título pelado no enseña
+            // nada y quedaría como un fallo.
+            if !plan.segments.isEmpty {
+                Button {
+                    Haptics.light()
+                    tarjetaParaCompartir = .entreno(TarjetaCompartibleBuilder.antes(plan: plan))
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(width: 34, height: 34)
+                }
+                .accessibilityLabel("Compartir sesión")
+            }
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.l)

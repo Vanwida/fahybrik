@@ -194,6 +194,14 @@ targets:
           - CFBundleURLName: "$(BRAND_BUNDLE_ID).deeplink"
             CFBundleURLSchemes:
               - "$(BRAND_URL_SCHEME)"
+        # Compartir a Instagram Stories (card 132): el esquema para poder
+        # preguntar canOpenURL, y el App ID de Meta que su contrato exige en
+        # `source_application`. El App ID es una cuenta de Meta que crea Alex;
+        # VACÍO = el botón directo a Instagram no se ofrece y queda la hoja del
+        # sistema. Al rellenarlo, el botón aparece solo (CompartirService).
+        LSApplicationQueriesSchemes:
+          - instagram-stories
+        MetaAppID: ""
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         # APNS — background delivery for silent/content-available pushes

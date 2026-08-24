@@ -2,9 +2,26 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (card 157: un entreno, un final)
+Última actualización: **2026-08-24** (card 132: compartir el entreno, construido en Swift)
 
 ## Ahora
+
+**132 · COMPARTIR EL ENTRENO — construido en iOS, pendiente de probar en el móvil.**
+Mockup aprobado en el doble (`/es/design/compartir-entreno`, 5 escenarios) y
+portado a Swift: `ios/FAHYBRIK/Compartir/` (modelo+recorte a dos pasadas,
+builders desde sesión/plan/semana, vista 1:1 con el doble, servicio y hoja).
+Tres entradas: resumen post-entreno (sustituye al ShareLink viejo), la previa
+del brief, y la cabecera del Plan (semana). Se exporta PNG-pegatina transparente
+(tarjeta sola, 1400 px) — el vídeo lo pone el atleta en Instagram. Marca del
+club = ELECCIÓN DEL ATLETA (conmutador, con club por defecto, persistido).
+Contrato de Instagram verificado contra la doc de Meta: pegatina por
+portapapeles + `instagram-stories://share?source_application=<APP_ID>`;
+**el App ID de Meta lo tiene que crear Alex** (Info.plist `MetaAppID`, hoy
+vacío → solo hoja del sistema; al rellenarlo aparece el botón directo).
+1.656 pruebas en verde (8 nuevas del recorte/builders). SIN instalar en su
+iPhone. OJO: `xcodegen generate` regeneró `project.pbxproj`, que estaba
+modificado sin commitear por otra sesión.
+Card: https://app.clickup.com/t/86ak4x2cz
 
 **157 · UN ENTRENO, UN FINAL — el reloj y el móvil dejan de ir por su cuenta.**
 Acabar en el móvil obligaba a acabar OTRA VEZ en el reloj (y al revés). Raíz: en

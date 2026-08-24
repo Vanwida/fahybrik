@@ -60,7 +60,9 @@ struct PostWorkoutSummaryView: View {
     @State private var didFinish: Bool = false
     /// Rendered share image of THIS summary (no PR badge — records are unknown
     /// until save). Re-rendered on appear and when the RPE changes.
-    @State private var summaryShareURL: URL? = nil
+    /// La hoja de compartir (card 132): la tarjeta se construye AL ABRIR — los
+    /// datos de la sesión ya están cerrados y el RPE no viaja en la tarjeta.
+    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
     // MARK: #28 — joint side-by-side (dobles)
     /// Set after a .doublesJoint close when the partner has ALSO logged their side →
@@ -147,8 +149,10 @@ struct PostWorkoutSummaryView: View {
                 DoblesJointSummaryView(data: jointData, onDone: dismissJoint)
             }
         }
-        .onAppear { seedCapturedScore(); renderSummaryCard() }
-        .onChange(of: rpe) { _, _ in renderSummaryCard() }
+        .onAppear { seedCapturedScore() }
+        .sheet(item: $tarjetaParaCompartir) { tarjeta in
+            CompartirSheet(tarjeta: tarjeta)
+        }
         .fullScreenCover(isPresented: $showDeclareSheet) {
             FreeDeclareMovementsSheet(
                 bearer: KeychainTokenStore.shared.read(),
@@ -534,15 +538,6 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Render the summary's share card (no PR badge — records are unknown pre-save).
-    @MainActor
-    private func renderSummaryCard() {
-        let data = WorkoutShareData.from(
-            session: session, totalSeconds: executionCore().totalDuration, rpe: rpe, records: []
-        )
-        summaryShareURL = WorkoutShareRenderer.pngURL(for: data)
-    }
-
     // Share data for the celebration card (with the PR badge).
     private var celebrationShareData: WorkoutShareData {
         WorkoutShareData.from(
@@ -789,15 +784,19 @@ struct PostWorkoutSummaryView: View {
                 HeroNumber(text: Formato.clock(session.elapsedSeconds), size: 36)
             }
             Spacer()
-            if let summaryShareURL {
-                ShareLink(item: summaryShareURL) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
-                .accessibilityLabel("Compartir entreno")
+            Button {
+                Haptics.light()
+                tarjetaParaCompartir = .entreno(
+                    TarjetaCompartibleBuilder.despues(
+                        session: session, totalSeconds: executionCore().totalDuration
+                    )
+                )
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
             }
+            .accessibilityLabel("Compartir entreno")
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)

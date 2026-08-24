@@ -67,6 +67,9 @@ struct PlanView: View {
     /// concreta los enseña.
     @State private var medidoAyer: Int? = nil
 
+    /// Compartir la semana (card 132): la tira de días + las sesiones hechas.
+    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
+
     // ── Navegación (los mismos destinos de siempre) ───────────────────────────
     @State var workoutLaunch: WorkoutLaunch? = nil
     @State private var executedLaunch: WorkoutLaunch? = nil
@@ -252,6 +255,9 @@ struct PlanView: View {
             if verProximaSemana { await cargarSiguiente(force: true) } else { await cargar(force: true) }
         }
         .anchoredAction { accionAnclada }
+        .sheet(item: $tarjetaParaCompartir) { tarjeta in
+            CompartirSheet(tarjeta: tarjeta)
+        }
     }
 
     // MARK: - Un solo mecanismo: seleccionar un día cambia qué muestra la card
@@ -435,6 +441,13 @@ struct PlanView: View {
                 }
                 .buttonStyle(PressScaleStyle())
                 .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
+            }
+            // Compartir la semana (card 132). Solo con una semana real delante:
+            // sin días servidos no hay nada honesto que enseñar.
+            if let visible = semanaVisible, visible.tieneAlgunaSesion {
+                botonDeCromo(symbol: "square.and.arrow.up", etiqueta: "Compartir la semana") {
+                    tarjetaParaCompartir = .semana(TarjetaCompartibleBuilder.semana(visible))
+                }
             }
             botonDeCromo(symbol: "square.stack.3d.up", etiqueta: "Ver el ciclo entero") {
                 showCiclo = true
