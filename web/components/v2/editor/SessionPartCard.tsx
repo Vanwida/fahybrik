@@ -37,8 +37,8 @@ import { cn } from '@/lib/utils';
 import { NoteField } from './fields';
 import { BlockItemTable } from './BlockItemTable';
 import { ArchetypeGrid } from './ArchetypePicker';
-import { OptionalBadge } from './compositor-chrome';
-import { blockMinutes, blockModalitySlug, blockTypeLabel } from './block-helpers';
+import { BlockTypePicker, OptionalBadge } from './compositor-chrome';
+import { blockMinutes, blockModalitySlug } from './block-helpers';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = {
   am: 'AM',
@@ -57,6 +57,7 @@ export function SessionPartCard({
   onInsertFromLibrary,
   onAddBlock,
   onRenameBlock,
+  onChangeBlockType,
   onReorderBlocks,
   onEditItem,
   onAddItem,
@@ -81,6 +82,8 @@ export function SessionPartCard({
   onAddBlock: (archetype: ArchetypeId) => void;
   /** Renombra un bloque en línea (la etiqueta del coach — la lee el atleta). */
   onRenameBlock: (blockUid: string, title: string) => void;
+  /** Cambia el tipo de un bloque ya creado (fuerza, calentamiento, circuito…). */
+  onChangeBlockType: (blockUid: string, next: EditorBlock) => void;
   /** Persiste el nuevo orden tras un arrastre (o reorden por teclado). */
   onReorderBlocks: (orderedUids: string[]) => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
@@ -198,6 +201,7 @@ export function SessionPartCard({
                 key={block.uid}
                 block={block}
                 onRename={(title) => onRenameBlock(block.uid, title)}
+                onChangeType={(next) => onChangeBlockType(block.uid, next)}
                 onEditItem={(itemUid) => onEditItem(block.uid, itemUid)}
                 onAddItem={() => onAddItem(block.uid)}
                 onRemove={() => onRemoveBlock(block.uid)}
@@ -256,6 +260,7 @@ export function SessionPartCard({
 function SortableBlockCard({
   block,
   onRename,
+  onChangeType,
   onEditItem,
   onAddItem,
   onRemove,
@@ -264,6 +269,7 @@ function SortableBlockCard({
 }: {
   block: EditorBlock;
   onRename: (title: string) => void;
+  onChangeType: (next: EditorBlock) => void;
   onEditItem: (itemUid: string) => void;
   onAddItem: () => void;
   onRemove: () => void;
@@ -281,7 +287,6 @@ function SortableBlockCard({
   } = useSortable({ id: block.uid });
   const slug = blockModalitySlug(block);
   const meta = MODALITY_META[slug];
-  const typeLabel = blockTypeLabel(block);
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
@@ -331,14 +336,7 @@ function SortableBlockCard({
           placeholder="Nombre del bloque"
           className="v2-display v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-transparent bg-transparent px-1.5 py-0.5 text-base uppercase text-[color:var(--v2-fg)] transition-colors placeholder:normal-case placeholder:text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border)] focus:border-[color:var(--v2-accent)] focus:bg-[color:var(--v2-surface)]"
         />
-        {typeLabel ? (
-          <span
-            className="shrink-0 rounded-[var(--v2-r-2xs)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
-            style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-          >
-            {typeLabel}
-          </span>
-        ) : null}
+        <BlockTypePicker block={block} onChange={onChangeType} />
         {/* Herramientas del bloque — al hover (y siempre con el teclado). */}
         <button
           type="button"

@@ -317,7 +317,15 @@ const SUPERSET_ROTATION_REST_S = 90;
 // de BLOQUE, editable desde ComponentsForm. 3 rondas / por tarea (sin reloj) es
 // el patrón HYROX real más frecuente del audit — nunca se inventa un `work_seconds`
 // sin que el coach elija «por reloj» primero.
-const DEFAULT_CIRCUIT_CONFIG: CircuitConfig = { rounds: 3, pacing: { kind: 'por_tarea' } };
+export const DEFAULT_CIRCUIT_CONFIG: CircuitConfig = {
+  rounds: 3,
+  pacing: { kind: 'por_tarea' },
+};
+
+/** Scheme the items of a block of this type should carry (same axis as format). */
+export function schemeOfArchetype(id: ArchetypeId): Prescription['scheme'] {
+  return ARCHETYPE_SCHEME[id];
+}
 
 /**
  * Build a valid starting Prescription for a fresh block of the chosen archetype.

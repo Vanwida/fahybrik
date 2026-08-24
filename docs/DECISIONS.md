@@ -30,6 +30,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · El tipo de un bloque se puede cambiar después de crearlo
+
+**Qué pasó (card 158):** el tipo (calentamiento, fuerza, circuito, carrera…) se elegía solo al añadir el bloque. El chip del tipo no se tocaba. Un calentamiento mal etiquetado como fuerza no tenía corrección.
+
+**Decidido:** el chip es un selector con la misma lista que «Añadir bloque». Cambia el format y el scheme de las líneas; no borra el nombre, los ejercicios ni la dosis. Pasar a/desde superserie sigue el camino ya existente (el descanso de la vuelta).
+
+**NO hacer:** no vaciar el bloque al cambiar de tipo. No inferir el tipo por el título.
+
+---
+
 ## 2026-08-24 · En pantalla se dice planificación y ciclo; por dentro sigue microciclo
 
 **Qué se decidió (card 162):** el copy que ve el coach o el atleta usa **planificación** y **ciclo**. Las rutas (`/periodizacion`, `/microciclos`), tipos, columnas, tools MCP y nombres de fichero no se renombran.
