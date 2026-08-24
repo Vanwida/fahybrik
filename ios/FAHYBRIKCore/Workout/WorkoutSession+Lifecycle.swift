@@ -441,9 +441,46 @@ extension WorkoutSession {
     func enterOrArm(from origin: Int) {
         if blockKey(at: origin) != blockKey(at: currentSegmentIndex) {
             armBlock()
+        } else if cambiaDeEjercicioConMaterial(desde: origin) {
+            armNextExercise()
         } else {
             onEnterSegment()
         }
+    }
+
+    /// EL PASO ANTES DEL SIGUIENTE EJERCICIO (card 112). Alex, sesión del 20-ago:
+    /// «Al acabar las series de Deadlift pasó solo a Romanian Deadlift. El atleta
+    /// no tenía los discos listos y el reloj ya había empezado».
+    ///
+    /// La puerta se pone SÓLO cuando cambiar de ejercicio significa cambiar de
+    /// material, o sea en el hierro y el trineo. En un metcon o un circuito
+    /// encadenar ES el ejercicio: meter una puerta entre los burpees y las wall
+    /// balls rompería el entreno en vez de arreglarlo.
+    ///
+    /// Y sólo hacia ADELANTE: volver atrás ya tiene su propio comportamiento
+    /// (card 115) y aparcar también al retroceder haría falta tocar dos veces
+    /// para deshacer un paso.
+    private func cambiaDeEjercicioConMaterial(desde origin: Int) -> Bool {
+        guard currentSegmentIndex > origin, let seg = currentSegment else { return false }
+        return seg.kind == .strength || seg.kind == .sled
+    }
+
+    /// Aparca en la puerta del ejercicio que viene. Hermana de `armBlock()`, pero
+    /// SIN tocar el Rx/Scaled: eso es del bloque, y aquí el bloque no ha cambiado.
+    private func armNextExercise() {
+        primeManualLoadIfNeeded()
+        primeRepsIfNeeded()
+        primeSetsIfNeeded()
+        isPaused = false
+        isAwaitingBlockStart = true
+        awaitingGate = .nextExercise
+    }
+
+    /// El «Empezar» de la puerta del ejercicio. Mismo gesto que `beginBlock()` —
+    /// existe con su propio nombre porque la pantalla que lo llama es otra y el
+    /// código tiene que poder leerse sin ir a mirar qué puerta era.
+    func beginNextExercise() {
+        beginBlock()
     }
 
     private func blockKey(at index: Int) -> String? {
@@ -457,6 +494,7 @@ extension WorkoutSession {
     /// `beginBlock`. Does NOT touch a reopened lap — a back-step into an earlier
     /// block keeps its restored progress, ready to resume on Empezar.
     private func armBlock() {
+        awaitingGate = .block
         clearEMOMState()
         clearConditioning()
         clearRunStructure()
@@ -479,6 +517,7 @@ extension WorkoutSession {
     func beginBlock() {
         guard isAwaitingBlockStart, !isFinished else { return }
         isAwaitingBlockStart = false
+        awaitingGate = nil
         isPaused = false
         lastTick = Date()
         Haptics.medium()

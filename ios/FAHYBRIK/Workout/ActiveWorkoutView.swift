@@ -443,7 +443,29 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var blockPreviewOverlay: some View {
-        if let region = session.currentBlockRegion {
+        if session.isAwaitingNextExercise, let seg = session.currentSegment {
+            // Card 112 — Alex, 20-ago: «Al acabar las series de Deadlift pasó
+            // solo a Romanian Deadlift. El atleta no tenía los discos listos y
+            // el reloj ya había empezado». MISMO patrón que la puerta de
+            // bloque (`BlockPreviewGate`), con el ejercicio como sujeto en vez
+            // del bloque entero — seguimos DENTRO del mismo bloque, así que no
+            // repite fase ni "bloque N de M" con otro contenido, solo dice con
+            // toda claridad que es un ejercicio NUEVO, no una continuación
+            // automática. `session.currentSegmentIndex` ya apunta a él (mismo
+            // mecanismo que el bloque nuevo), así que no hace falta más dato.
+            BlockPreviewGate(
+                title: seg.title,
+                phaseTag: "SIGUIENTE EJERCICIO",
+                blockNumber: session.blockNumber,
+                blockCount: session.blockCount,
+                formatLabel: nil,
+                segments: [seg],
+                canGoBack: session.canStepBack,
+                onEmpezar: { session.beginNextExercise() },
+                onBack: { requestBack() },
+                onExit: { requestExit() }
+            )
+        } else if let region = session.currentBlockRegion {
             let segs = session.plan.segments(in: region)
             // A freeform / title-only session has no block context — show the
             // session name and no phase tag. When a coach block's title already IS
@@ -458,6 +480,7 @@ struct ActiveWorkoutView: View {
                 blockNumber: session.blockNumber,
                 blockCount: session.blockCount,
                 formatLabel: blockFormatLabel(segs),
+                pacing: blockPacing(segs),
                 segments: segs,
                 canGoBack: session.canStepBack,
                 onEmpezar: { requestBlockStart() },
@@ -487,6 +510,13 @@ struct ActiveWorkoutView: View {
             return "EMOM · \(emom.intervalCount) rondas · \(shape)"
         }
         return segments.compactMap(\.prescription).compactMap(PrescriptionRenderer.wodHeader).first
+    }
+
+    // Card 114 — Alex, 20-ago: «no estaba claro si eran 3 seguidas de cada
+    // ejercicio o 1 y 1 y 1». La decisión (pura, testeable) vive en
+    // `BlockPacing.resolve` — ver su comentario largo para el porqué.
+    private func blockPacing(_ segments: [WorkoutSegment]) -> BlockPacing? {
+        BlockPacing.resolve(segments)
     }
 
     private var segmentHasVideo: Bool {

@@ -268,6 +268,12 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         for _ in 1...7 { s.primaryAdvance() }               // cerrar banca entera
         s.primaryAdvance()                                  // pasar al curl
         XCTAssertEqual(s.currentSegment?.title, "Curl")
+        // LA PUERTA DEL SIGUIENTE EJERCICIO (card 112): cambiar de ejercicio en un
+        // bloque de hierro ya no arranca solo — el 20-ago la app saltó del peso
+        // muerto al rumano con el reloj corriendo y el atleta sin los discos
+        // puestos. Aquí se aparca y espera un Empezar, igual que en la app.
+        XCTAssertTrue(s.isAwaitingNextExercise, "el curl espera a que le den a Empezar")
+        s.beginNextExercise()
         s.primaryAdvance()
         XCTAssertEqual(s.restRemainingSeconds, 90, "Y el curl los suyos: 1:30.")
     }

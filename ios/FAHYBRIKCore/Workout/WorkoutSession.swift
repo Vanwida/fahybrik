@@ -77,6 +77,24 @@ final class WorkoutSession {
     /// 40 min» cuando pasaron 55 tiene que ser explicable, no invisible.
     var discardedSuspendedSeconds: Double = 0
 
+    /// QUÉ PUERTA ES LA QUE ESTÁ ESPERANDO (card 112).
+    ///
+    /// `isAwaitingBlockStart` significa «aparcado en una puerta, con el reloj
+    /// congelado», y así lo entienden ya una docena de sitios: los guardas del
+    /// tick, los de los sensores, los HUD. No se duplica esa bandera — se le
+    /// añade DE QUÉ puerta se trata, y sólo la pantalla necesita mirarlo.
+    ///
+    /// Meter una segunda bandera paralela habría obligado a repetir cada uno de
+    /// esos guardas, y el que se olvidara sería un sensor contando trabajo que
+    /// el atleta todavía no ha empezado.
+    enum GateKind { case block, nextExercise }
+    var awaitingGate: GateKind? = nil
+
+    /// Aparcado antes de un EJERCICIO nuevo dentro del mismo bloque de hierro.
+    /// El 20-ago, al cerrar las series de peso muerto la app saltó sola al peso
+    /// muerto rumano y arrancó el reloj: el atleta no tenía los discos puestos.
+    var isAwaitingNextExercise: Bool { isAwaitingBlockStart && awaitingGate == .nextExercise }
+
     var isFinished: Bool = false
     /// Set by `finish(completeness:)` — whether the session ran to the natural end
     /// (`.full` → 'completed') or was terminated early via "Terminar y guardar" /

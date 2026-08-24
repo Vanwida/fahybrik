@@ -326,6 +326,20 @@ struct WorkoutContainer: View {
                             let snapshot = session.leaveToResumeLater()
                             Task {
                                 await WorkoutStateStore.shared.save(snapshot)
+                                // EL RELOJ NO PUEDE QUEDARSE HUÉRFANO. El espejo no
+                                // depende de esta pantalla —es un singleton— así que
+                                // al cerrar aquí seguiría creyendo que hay entreno.
+                                // Y la muñeca tiene vigía propio: si pasa de cinco
+                                // minutos sin señal del teléfono, cierra y GUARDA por
+                                // su cuenta. O sea que un descanso de diez minutos
+                                // entre bloques dejaba dos versiones distintas del
+                                // mismo entreno, una en cada aparato.
+                                //
+                                // Se cierra a propósito y guardando lo que lleve: el
+                                // pulso del rato fuera se pierde, que es lo correcto
+                                // porque no estaba entrenando. Al volver se levanta
+                                // otro espejo (ver «Seguir donde lo dejé»).
+                                PhoneMirrorService.shared.end(save: true)
                                 onClose()
                             }
                         },
@@ -618,6 +632,14 @@ struct WorkoutContainer: View {
                         // segment re-primed itself with the PRESCRIPTION on entry.
                         recovered.restore(from: saved)
                         session = recovered
+                        // Y se vuelve a levantar el espejo: al salir se cerró a
+                        // propósito para que la muñeca no se quedara sola creyendo
+                        // que seguía el entreno. Retomar es empezar a espejar otra
+                        // vez, igual que un arranque normal.
+                        PhoneMirrorService.shared.begin(
+                            session: recovered,
+                            activityKind: mirrorActivityKind(for: saved.plan)
+                        )
                         crashRecoveryPrompt = nil
                         phase = .active
                     }
