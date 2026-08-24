@@ -9,6 +9,23 @@
 // detrás es simulación del doble: en la app, el atleta abre Instagram, elige su
 // vídeo y la tarjeta le llega como pegatina — la mueve y la escala él, que es
 // justo lo que hoy hace a mano con una captura de pantalla, pero legible.
+//
+// ---------------------------------------------------------------------------
+// LAS REGLAS DE OFICIO DE ESTA TARJETA (la primera versión era una tabla)
+// ---------------------------------------------------------------------------
+//
+// 1. EL ACENTO SOLO DONDE SIGNIFICA ALGO: el chip del día, la mejor repetición
+//    y el punto del club. Un acento en cada raya y cada número es un acento en
+//    ninguna parte — la primera versión subrayaba todos los bloques en naranja
+//    y el ojo no sabía a qué ir.
+// 2. LA VOZ ES LA DISPLAY ITÁLICA PESADA en mayúsculas — la misma del wordmark.
+//    Todo lo demás es cuerpo neutro o mono para números. Tres voces, no cinco.
+// 3. LOS DATOS SE VEN, NO SOLO SE LEEN: cada parcial lleva detrás una barra
+//    proporcional a su tiempo. La historia de la tanda (aguantó, se cayó,
+//    cerró fuerte) aparece sin leer un solo número.
+// 4. Los números tabulares (fontVariantNumeric) para que las columnas de
+//    tiempos queden a plomo — con dígitos proporcionales, 1:11 y 1:28 no miden
+//    lo mismo y la columna baila.
 
 import type { CSSProperties } from 'react';
 import {
@@ -22,7 +39,9 @@ const FUENTE = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 
 const MONO = "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace";
 
 const TINTA = '#ffffff';
-const TINTA_TENUE = 'rgba(255,255,255,0.60)';
+const TINTA_TENUE = 'rgba(255,255,255,0.56)';
+const TINTA_DEBIL = 'rgba(255,255,255,0.34)';
+const HAIRLINE = 'rgba(255,255,255,0.12)';
 
 /**
  * El lienzo de la story con el vídeo simulado y la tarjeta posada donde el
@@ -84,6 +103,8 @@ export function Tarjeta({ entreno, marca, club }: { entreno: Entreno; marca: Mar
     conClub,
     conResultado: !!entreno.resultado,
   });
+  // Sin club, el acento del significado es el blanco a plena tinta: la mejor
+  // repetición y el chip del día siguen destacando por peso, no por color.
   const acento = conClub ? club.acento : TINTA;
 
   return (
@@ -93,23 +114,24 @@ export function Tarjeta({ entreno, marca, club }: { entreno: Entreno; marca: Mar
         maxHeight: TARJETA.altoMaximo,
         boxSizing: 'border-box',
         padding: TARJETA.padding,
-        borderRadius: 28,
+        borderRadius: 32,
         fontFamily: FUENTE,
         color: TINTA,
         // SU PROPIO FONDO — por eso el vídeo de alrededor se queda intacto.
         // Casi opaco a propósito: un cristal muy transparente se lee bien sobre
         // un vídeo oscuro y desaparece sobre uno claro, y el atleta no puede
-        // saber cuál le va a tocar antes de publicar.
-        background: 'rgba(10,10,11,0.88)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+        // saber cuál le va a tocar antes de publicar. El degradado vertical es
+        // sutil de verdad: da volumen sin que se note como «efecto».
+        background: 'linear-gradient(178deg, rgba(19,19,21,0.94) 0%, rgba(9,9,10,0.93) 100%)',
+        border: '1px solid rgba(255,255,255,0.09)',
+        boxShadow: '0 30px 70px rgba(0,0,0,0.5), 0 4px 14px rgba(0,0,0,0.35)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 26,
+        gap: 24,
       }}
     >
       <Titular entreno={entreno} acento={acento} />
-      {entreno.resultado && <Resultado filas={entreno.resultado} acento={acento} />}
+      {entreno.resultado && <Resultado filas={entreno.resultado} />}
       <Lista bloques={visibles} ocultos={ocultos} acento={acento} />
       {conClub && <PieDeClub club={club} />}
     </div>
@@ -117,30 +139,41 @@ export function Tarjeta({ entreno, marca, club }: { entreno: Entreno; marca: Mar
 }
 
 function Titular({ entreno, acento }: { entreno: Entreno; acento: string }) {
+  const chipOscuro = '#0b0b0c';
   return (
     <div>
-      <div
+      {/* El día como CHIP lleno, no como una palabrita suelta: es el primer
+          golpe de marca de la tarjeta y el ancla del acento. Inclinado como la
+          display — el chip pertenece a la misma voz que el título. */}
+      <span
         style={{
+          display: 'inline-block',
+          padding: '7px 18px 9px',
+          borderRadius: 10,
+          background: acento,
+          color: chipOscuro,
           fontFamily: MONO,
-          fontSize: 26,
-          fontWeight: 700,
-          letterSpacing: 4,
+          fontSize: 22,
+          fontWeight: 800,
+          fontStyle: 'italic',
+          letterSpacing: 3,
           textTransform: 'uppercase',
-          color: acento,
+          transform: 'skewX(-6deg)',
         }}
       >
         {entreno.dia}
-      </div>
-      {/* La cursiva pesada es la voz de la marca y lo que se lee de un vistazo:
-          en una tarjeta pequeña, el título ES la tarjeta. */}
+      </span>
+      {/* La display itálica pesada EN MAYÚSCULAS es la voz del wordmark, y en
+          una tarjeta pequeña el título es la tarjeta. */}
       <div
         style={{
-          fontSize: 62,
-          lineHeight: 0.98,
+          fontSize: 60,
+          lineHeight: 0.96,
           fontWeight: 900,
           fontStyle: 'italic',
-          letterSpacing: -1.5,
-          marginTop: 8,
+          letterSpacing: -1,
+          textTransform: 'uppercase',
+          marginTop: 16,
         }}
       >
         {entreno.titulo}
@@ -149,16 +182,37 @@ function Titular({ entreno, acento }: { entreno: Entreno; acento: string }) {
   );
 }
 
-/** Solo en la tarjeta de DESPUÉS: lo que pasó, antes del detalle. */
-function Resultado({ filas, acento }: { filas: { etiqueta: string; valor: string }[]; acento: string }) {
+/**
+ * Solo en la tarjeta de DESPUÉS: lo que pasó, antes del detalle. Números
+ * grandes en blanco — el acento no se gasta aquí, se reserva para la mejor
+ * repetición de abajo, que es el dato con historia.
+ */
+function Resultado({ filas }: { filas: { etiqueta: string; valor: string }[] }) {
   return (
-    <div style={{ display: 'flex', gap: 40 }}>
+    <div style={{ display: 'flex', gap: 44, alignItems: 'baseline' }}>
       {filas.map((f) => (
         <div key={f.etiqueta}>
-          <div style={{ fontSize: 20, letterSpacing: 2, textTransform: 'uppercase', color: TINTA_TENUE, fontFamily: MONO }}>
+          <div
+            style={{
+              fontSize: 17,
+              letterSpacing: 2.5,
+              textTransform: 'uppercase',
+              color: TINTA_TENUE,
+              fontFamily: MONO,
+            }}
+          >
             {f.etiqueta}
           </div>
-          <div style={{ fontSize: 42, fontWeight: 800, fontStyle: 'italic', marginTop: 2, color: acento }}>
+          <div
+            style={{
+              fontSize: 48,
+              fontWeight: 900,
+              fontStyle: 'italic',
+              letterSpacing: -0.5,
+              marginTop: 3,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {f.valor}
           </div>
         </div>
@@ -169,36 +223,56 @@ function Resultado({ filas, acento }: { filas: { etiqueta: string; valor: string
 
 function Lista({ bloques, ocultos, acento }: { bloques: BloqueCartel[]; ocultos: number; acento: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {bloques.map((b, i) => (
         <div key={i}>
+          {/* Cabecera de bloque en voz baja: separa, no compite. El acento ya
+              no subraya cada bloque — eso era ruido. */}
           <div
             style={{
               display: 'flex',
               alignItems: 'baseline',
-              gap: 12,
-              paddingBottom: 8,
-              borderBottom: `2px solid ${acento}`,
+              gap: 14,
+              paddingBottom: 9,
+              borderBottom: `1px solid ${HAIRLINE}`,
               marginBottom: 12,
             }}
           >
-            <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase' }}>
+            <span
+              style={{
+                fontSize: 21,
+                fontWeight: 800,
+                letterSpacing: 3,
+                textTransform: 'uppercase',
+                color: TINTA_TENUE,
+              }}
+            >
               {b.titulo}
             </span>
-            {b.pauta && <span style={{ fontSize: 21, color: TINTA_TENUE, fontFamily: MONO }}>{b.pauta}</span>}
+            {b.pauta && <span style={{ fontSize: 20, color: TINTA_DEBIL, fontFamily: MONO }}>{b.pauta}</span>}
           </div>
           {/* La forma del bloque decide el cuerpo: movimientos distintos se
               leen en lista, la misma cosa repetida se lee en parciales. */}
           {b.clase === 'serie' ? (
             <Parciales reps={b.repeticiones} acento={acento} />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {b.ejercicios.map((e, j) => (
                 <div key={j} style={fila}>
-                  <span style={{ fontSize: 32, fontWeight: 600 }}>{e.nombre}</span>
+                  <span style={{ fontSize: 31, fontWeight: 650 }}>{e.nombre}</span>
                   {/* Lo hecho manda sobre lo prescrito: en la tarjeta de después
-                      interesa el número que salió, no el que tocaba. */}
-                  <span style={{ fontSize: 30, fontWeight: 700, fontFamily: MONO, color: e.hecho ? acento : TINTA_TENUE }}>
+                      interesa el número que salió, no el que tocaba. Y lo hecho
+                      va a plena tinta — es el dato; la dosis prevista es
+                      contexto y va tenue. */}
+                  <span
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      fontFamily: MONO,
+                      fontVariantNumeric: 'tabular-nums',
+                      color: e.hecho ? TINTA : TINTA_TENUE,
+                    }}
+                  >
                     {e.hecho ?? e.dosis}
                   </span>
                 </div>
@@ -210,7 +284,7 @@ function Lista({ bloques, ocultos, acento }: { bloques: BloqueCartel[]; ocultos:
 
       {/* NUNCA se recorta en silencio: quien lo ve tiene que saber que hubo más. */}
       {ocultos > 0 && (
-        <div style={{ fontSize: 24, fontFamily: MONO, color: TINTA_TENUE, letterSpacing: 1.5 }}>
+        <div style={{ fontSize: 23, fontFamily: MONO, color: TINTA_DEBIL, letterSpacing: 1.5 }}>
           + {ocultos} más
         </div>
       )}
@@ -218,13 +292,23 @@ function Lista({ bloques, ocultos, acento }: { bloques: BloqueCartel[]; ocultos:
   );
 }
 
+/** `1:26` → 86 s. Devuelve null si el texto no es un tiempo — sin barra. */
+function segundos(valor: string): number | null {
+  const m = /^(\d+):(\d{2})(?:\.\d+)?$/.exec(valor.trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
 
 /**
  * LOS PARCIALES — el dato por el que se comparte una tanda de series.
  *
- * Cada repetición con su número y su marca, en el orden en que pasaron: ahí se
- * ve si aguantó el ritmo, dónde se cayó y cómo cerró. Un «8 × 400 m» promediado
- * dice lo mismo de una tanda clavada que de una que se hundió a la cuarta.
+ * Cada repetición lleva DETRÁS una barra proporcional a su tiempo: la historia
+ * de la tanda (aguantó el ritmo, se cayó a la cuarta, cerró fuerte) se VE antes
+ * de leer un solo número. Es lo que un promedio no puede contar, y es la razón
+ * de que el bloque de serie exista como forma propia.
+ *
+ * La barra corta es la rápida — la barra ES el tiempo. La mejor va en acento,
+ * y se marca sola a partir del dato: no la elige nadie.
  *
  * En dos columnas cuando pasan de cinco: ocho parciales en una sola columna
  * convierten la tarjeta de esquina en un cartel, que es lo que no queremos.
@@ -238,40 +322,100 @@ function Parciales({ reps, acento }: { reps: Repeticion[]; acento: string }) {
   // único que las hace comparables y entonces sí sale.
   const mismaCosa = reps.every((r) => !r.etiqueta);
 
+  // Las barras se normalizan al rango REAL de la tanda: entre 1:22 y 1:28 hay
+  // un 7% de diferencia, invisible a escala absoluta. El suelo del 30% evita
+  // que la mejor desaparezca — la barra informa, no engaña: el orden y las
+  // proporciones relativas se conservan.
+  const tiempos = reps.map((r) => segundos(r.valor));
+  const conBarra = tiempos.every((t): t is number => t != null) && reps.length > 1;
+  const min = conBarra ? Math.min(...(tiempos as number[])) : 0;
+  const max = conBarra ? Math.max(...(tiempos as number[])) : 1;
+  const ancho = (t: number) => (max === min ? 72 : 30 + 70 * ((t - min) / (max - min)));
+
   return (
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        columnGap: 40,
-        rowGap: 8,
+        columnGap: 30,
+        rowGap: 10,
       }}
     >
-      {reps.map((r, i) => (
-        <div key={i} style={{ ...fila, gap: 14 }}>
-          <span style={{ fontSize: 24, fontFamily: MONO, color: TINTA_TENUE, minWidth: 26 }}>
-            {i + 1}
-          </span>
-          {r.etiqueta && <span style={{ fontSize: 26, color: TINTA_TENUE }}>{r.etiqueta}</span>}
-          <span
-            style={{
-              fontSize: 38,
-              fontWeight: 800,
-              fontFamily: MONO,
-              marginLeft: 'auto',
-              // La mejor se marca sola, a partir del dato. Nadie la elige.
-              color: r.mejor ? acento : TINTA,
-            }}
-          >
-            {r.valor}
-          </span>
-          {!mismaCosa && r.ritmo && (
-            <span style={{ fontSize: 24, fontFamily: MONO, color: TINTA_TENUE, minWidth: 66, textAlign: 'right' }}>
-              {r.ritmo}
-            </span>
-          )}
-        </div>
-      ))}
+      {reps.map((r, i) => {
+        const t = tiempos[i];
+        return (
+          <div key={i} style={{ position: 'relative', height: 44 }}>
+            {/* La barra, debajo del texto. Redondeada solo lo justo: es un
+                dato, no una píldora decorativa. */}
+            {conBarra && t != null && (
+              <span
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 4,
+                  bottom: 4,
+                  width: `${ancho(t)}%`,
+                  borderRadius: 7,
+                  background: r.mejor ? acento : 'rgba(255,255,255,0.10)',
+                  opacity: r.mejor ? 0.28 : 1,
+                }}
+              />
+            )}
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 12,
+                height: '100%',
+                padding: '0 12px',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 20,
+                  fontFamily: MONO,
+                  color: TINTA_DEBIL,
+                  minWidth: 24,
+                  alignSelf: 'center',
+                }}
+              >
+                {i + 1}
+              </span>
+              {r.etiqueta && (
+                <span style={{ fontSize: 24, color: TINTA_TENUE, alignSelf: 'center' }}>{r.etiqueta}</span>
+              )}
+              <span
+                style={{
+                  fontSize: 33,
+                  fontWeight: 800,
+                  fontFamily: MONO,
+                  fontVariantNumeric: 'tabular-nums',
+                  marginLeft: 'auto',
+                  alignSelf: 'center',
+                  color: r.mejor ? acento : TINTA,
+                }}
+              >
+                {r.valor}
+              </span>
+              {!mismaCosa && r.ritmo && (
+                <span
+                  style={{
+                    fontSize: 22,
+                    fontFamily: MONO,
+                    color: TINTA_TENUE,
+                    minWidth: 62,
+                    textAlign: 'right',
+                    alignSelf: 'center',
+                  }}
+                >
+                  {r.ritmo}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -284,13 +428,13 @@ function PieDeClub({ club }: { club: Club }) {
         alignItems: 'center',
         gap: 12,
         paddingTop: 18,
-        borderTop: '1px solid rgba(255,255,255,0.14)',
+        borderTop: `1px solid ${HAIRLINE}`,
         height: GASTO.club,
         boxSizing: 'border-box',
       }}
     >
-      <span style={{ width: 11, height: 11, borderRadius: 6, background: club.acento, flex: '0 0 auto' }} />
-      <span style={{ fontSize: 23, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+      <span style={{ width: 10, height: 10, borderRadius: 5, background: club.acento, flex: '0 0 auto' }} />
+      <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: TINTA_TENUE }}>
         {club.nombre}
       </span>
     </div>
@@ -312,6 +456,9 @@ const fila: CSSProperties = {
  * A PROPÓSITO ES UN VÍDEO CLARO: un box con luz de mediodía es el caso duro, el
  * que mata cualquier cosa escrita en blanco. Si la tarjeta se lee aquí, se lee
  * sobre lo que sea. Probarla contra un vídeo oscuro no probaría nada.
+ *
+ * Pared y suelo, no un degradado abstracto: el ojo tiene que leer «esto es un
+ * gimnasio grabado» para poder juzgar si la tarjeta estorba a un vídeo real.
  */
 function VideoSimulado() {
   return (
@@ -319,7 +466,12 @@ function VideoSimulado() {
       style={{
         position: 'absolute',
         inset: 0,
-        background: 'radial-gradient(115% 75% at 58% 30%, #f7f3ec 0%, #d8cfc0 34%, #9b9284 66%, #5c554d 100%)',
+        background: [
+          // La luz de la ventana, alta y a la derecha.
+          'radial-gradient(90% 55% at 66% 20%, rgba(255,252,244,0.9) 0%, rgba(255,252,244,0) 60%)',
+          // Pared arriba, línea de horizonte, suelo abajo.
+          'linear-gradient(180deg, #e9e2d6 0%, #d9cfc0 54%, #b3a897 61.5%, #7a7266 62%, #55504a 78%, #3c3833 100%)',
+        ].join(', '),
       }}
     />
   );

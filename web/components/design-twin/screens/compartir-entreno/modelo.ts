@@ -54,8 +54,8 @@ export const TARJETA = {
  * exactamente el fallo que viene a evitar; uno que sobra solo deja aire.
  */
 export const GASTO = {
-  /** Día + título, con el hueco que lo separa de lo que viene debajo. */
-  titular: 145,
+  /** Día (chip) + título, con el hueco que lo separa de lo que viene debajo. */
+  titular: 152,
   /** La fila de números de la tarjeta de después, con su hueco. */
   resultado: 100,
   /** Cabecera de bloque + su raya + el hueco antes del siguiente bloque. */
@@ -171,6 +171,14 @@ export interface Club {
  *
  * Una tarjeta que recorta callando miente sobre el entreno: quien la ve cree que
  * eso es todo lo que hiciste. Por eso esto nunca devuelve solo la lista corta.
+ *
+ * DOS PASADAS, y no es un adorno: la línea de «+N más» solo existe si algo se
+ * quedó fuera, y no se sabe si algo se queda fuera hasta haber repartido el
+ * sitio. La primera pasada reparte sin reservarle sitio; si nada se cayó, esa
+ * es la respuesta. Si algo se cayó, se reparte otra vez con la línea ya
+ * descontada del presupuesto. (La versión de una pasada tenía un agujero real:
+ * cuando lo único que se caía era el ÚLTIMO bloque, la línea se pintaba sin
+ * sitio reservado y la tarjeta se pasaba de su tope — 702 px de 700, medido.)
  */
 export function recortar(
   bloques: BloqueCartel[],
@@ -180,19 +188,30 @@ export function recortar(
     (b) => !FUERA_POR_DEFECTO.includes(b.formato as (typeof FUERA_POR_DEFECTO)[number])
   );
 
-  let presupuesto =
+  const presupuestoBase =
     TARJETA.altoMaximo - TARJETA.padding * 2 - GASTO.titular
     - (opciones.conClub ? GASTO.club : 0)
     - (opciones.conResultado ? GASTO.resultado : 0);
 
+  const primera = repartir(candidatos, presupuestoBase);
+  if (primera.ocultos === 0) return primera;
+  // Algo se cayó → la línea de «+N más» va a existir seguro: repartir de nuevo
+  // con su sitio ya descontado. Quitar presupuesto nunca des-oculta nada, así
+  // que la segunda pasada sigue teniendo ocultos > 0 y el resultado es estable.
+  return repartir(candidatos, presupuestoBase - GASTO.mas);
+}
+
+/** Una pasada de reparto contra un presupuesto de alto ya cerrado. */
+function repartir(candidatos: BloqueCartel[], presupuestoInicial: number): {
+  visibles: BloqueCartel[];
+  ocultos: number;
+} {
+  let presupuesto = presupuestoInicial;
   const visibles: BloqueCartel[] = [];
   let ocultos = 0;
 
   for (const b of candidatos) {
-    // En cuanto algo se ha quedado fuera hay que reservar sitio para decirlo:
-    // la línea de «+N más» no puede ser lo que se salga de la tarjeta.
-    const reserva = ocultos > 0 ? GASTO.mas : 0;
-    const paraLineas = presupuesto - GASTO.cabeceraBloque - reserva;
+    const paraLineas = presupuesto - GASTO.cabeceraBloque;
     // Un bloque partido a la mitad se lee peor que un bloque ausente, así que
     // se le pide sitio para dos líneas... salvo que solo TENGA una (un bloque
     // de un ejercicio no se puede partir), en cuyo caso basta con la suya.
