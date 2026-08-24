@@ -86,6 +86,11 @@ function forma(texto: string): string {
 // Sólo sube. Cada vez que suba, cámbialo aquí Y di por qué en el comentario.
 //
 // Historial:
+//   2026-08-24 · 59 % (740 de 1.238) — la cabecera manda sobre las líneas de
+//     debajo (card 141). Tres formas planas: «N series:», «N series de N reps
+//     de:» / «N series de N:», «N rondas:». El hijo hereda lo escrito y nada
+//     más; si la cabecera no trae reps, la línea entra sin reps. Lo anidado
+//     («N bloques de M series») sigue en revisión.
 //   2026-08-23 · 25 % (315 de 1.238) — primera medición, sin tocar la gramática.
 //     Entra sobre todo la línea de una sola dosis («8 Back squat al 65-70%»).
 //     Lo que cae, por orden: la CABECERA con hijos («4 series:» + las líneas
@@ -93,7 +98,7 @@ function forma(texto: string): string {
 //     DOMINANTE de un plan escrito a mano; «a ritmo HYROX» (30); y un montón de
 //     «Nm <movimiento>» cuyo movimiento la gramática no reconoce como tal y por
 //     eso ni siquiera le engancha la distancia.
-const SUELO_TIPADO_PCT = 25;
+const SUELO_TIPADO_PCT = 59;
 
 describe('el macrociclo real contra la gramática del importador', () => {
   const lineas = lineasDelCorpus();

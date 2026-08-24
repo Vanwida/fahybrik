@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · Una cabecera manda sobre las líneas de debajo. No se inventa la dosis que no escribió.
+
+**Qué fallaba (card 141):** en un plan escrito a mano la dosis vive a menudo en la cabecera («4 series:», «2 series de 8 reps de:», «4 rondas:») y los hijos van desnudos porque la heredan. El importador buscaba la dosis en cada línea, no la encontraba y mandaba todo a revisión. Es la forma que más cae en el ciclo real de 12 semanas.
+
+**Decidido:**
+
+- Una línea que ES solo la dosis (las tres formas de arriba, y «N series de N:» que es la misma que la de reps) no es un ejercicio. Se lee, se guarda lo que prescribe, y se reparte a los hijos hasta la siguiente cabecera, un título de bloque, un calentamiento o vuelta de sección, o el final de la celda.
+- El hijo conserva su propia medida si la trae (reps, metros, tiempo, objetivo). La cabecera solo rellena el hueco. «4 series:» más «6 Dominadas» son 4 series de 6. «4 series:» más un nombre desnudo son 4 series sin reps.
+- No se inventa lo que la cabecera no escribió. Rellenar reps donde solo hay series es mentir.
+- Si el hijo ya trae su propio recuento («4 x 40'' on / 20'' off»), o la cabecera es anidada («3 bloques de 8 series de:»), la línea va a revisión con el texto intacto. Lo anidado es otra card.
+- Un descanso que es solo descanso se adhiere al grupo. Una línea de trabajo que menciona «rest» no se traga como descanso.
+
+**NO hacer:** no adivinar dónde acaba el grupo más allá de otra cabecera, un título o el final de la celda. No descomponer cabeceras anidadas en esta pieza. No fabricar kilos de competición ni un ritmo HYROX.
+
+**Dónde vive:** `shared/domain/import/command.ts`, llamado desde `parseNotationCell`. El banco (`corpus-macrociclo.test.ts`) sube de 25 % a 59 %.
+
+---
+
 ## 2026-08-24 · La aproximación se registra y se ve; no cuenta como trabajo
 
 **Qué pasó (card 155):** la 151 marcó la serie de aproximación en la prescripción. El atleta la ve etiquetada. Al guardar, la marca no sobrevivía. El volumen, la serie más pesada y la carga de fuerza seguían sumando esos kilos.

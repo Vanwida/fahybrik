@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (155 · aproximación fuera del volumen)
+Última actualización: **2026-08-24** (141 · la cabecera manda sobre las líneas de debajo)
 
 ## Ahora
+
+**141 · LA CABECERA MANDA SOBRE LAS LÍNEAS DE DEBAJO.** Lo que más fallaba
+al importar: el coach escribe la dosis en «4 series:», «2 series de 8 reps
+de:» o «4 rondas:» y los hijos van desnudos. La gramática lee la cabecera,
+reparte solo lo escrito y no inventa reps. Lo anidado («N bloques de M
+series») sigue en revisión. Banco: 25 % → 59 % (740 de 1.238).
+Ley: DECISIONS 24-ago.
 
 **155 · LA APROXIMACIÓN SALE DEL VOLUMEN.** La marca de la 151 ya viajaba
 hasta el teléfono y se veía. Al guardar se caía: `set_executions` no tenía
