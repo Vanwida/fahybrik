@@ -433,7 +433,10 @@ struct FuerzaVivoView<Cromo: View>: View {
         // la decisión es suya. Solo donde una carga tiene sentido: un ejercicio de core
         // sin kilos no tiene ningún hueco que declarar.
         if admiteCarga, cargaDeLaSerie(rec, indice: i) == nil {
-            Text("el plan no dice con cuánto")
+            // El copy le habla al ATLETA, no a quien construyó esto: «el plan no
+            // dice» describe el sistema por dentro. Lo que él necesita saber es
+            // que el peso lo elige él.
+            Text("tú eliges el peso")
                 .scaledFont(12, weight: .medium, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.faint)
         }
@@ -709,7 +712,7 @@ struct FuerzaVivoView<Cromo: View>: View {
             if velocidad == .sinSensor, let d = descansoPrescrito {
                 ApoyoVivo(etiqueta: Vocab.descanso,
                           valor: Formato.clock(d, subMinuto: .segundos),
-                          pie: "lo que pide el plan")
+                          pie: "prescrito")
             }
         }
     }
