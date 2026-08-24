@@ -22,10 +22,11 @@
 //   ./label.ts    — tokens, modality, titles, noise
 //   ./bout.ts     — one continuous cardio/housekeeping effort
 //   ./strength.ts — sets-scheme lines + the movement combos
+//   ./command.ts  — a header that owns the lines below it
 //   ./result.ts   — ParsedLine + validate-or-downgrade constructors
 // THIS file owns line dispatch: titles, continuations, chains, ladders, WODs.
 
-import { type Modality, type Prescription, type PrescriptionSet } from '../prescription/types';
+import { type Prescription, type PrescriptionSet } from '../prescription/types';
 import {
   foldText,
   isPureRest,
@@ -40,7 +41,6 @@ import {
 import {
   bareMovementToken,
   cardioModalities,
-  isBlockTitle,
   isModalityChoice,
   isNoiseLine,
   leadingColonLabel,
@@ -50,6 +50,7 @@ import {
   TARGET_ONLY_RE,
 } from './label';
 import { parseBout } from './bout';
+import { walkCommandingCell } from './command';
 import { parseBareTimedOrCalorieSets } from './measure';
 import { tryMetconStructure } from './structure';
 import { parseTimeCapTarget, PERCENT_MAX_HR_RE } from './target';
@@ -103,47 +104,23 @@ export function parseNotationCell(
 ): ParsedLine[] {
   const cell = normalizeNotation(text);
   const lines = joinContinuations(cell.split('\n'));
-  const out: ParsedLine[] = [];
-  let titleModality: Modality | undefined;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (isBlockTitle(line)) {
-      titleModality = modalityFrom(line);
-      continue;
-    }
-    // Tried BEFORE isNoiseLine, not nested inside it: a group-labeled name
-    // ("A1) Cat Cow") carries a digit in its OWN index, so isNoiseLine's
-    // "no digit → noise" rule never fires for it and the noise branch would
-    // never be reached at all — looksLikeBareMovementName does its own
-    // (stricter) digit/URL/prose exclusion after stripping the label, so it
-    // is safe to try unconditionally here rather than gated behind a
-    // digit-based classification that the label's own index defeats.
-    if (opts.bareNamesAreExercises) {
-      const bare = tryBareExerciseLine(line);
-      if (bare) {
-        if (titleModality && !bare.prescription.modality) {
-          bare.prescription.modality = titleModality;
-        }
-        out.push(bare);
-        continue;
-      }
-    }
-    if (isNoiseLine(line)) continue;
-    for (const parsed of parseLine(line)) {
-      if (
-        parsed.confidence === 'detected' &&
-        titleModality &&
-        !parsed.prescription.modality &&
-        !isModalityChoice(parsed.exercise_token) &&
-        cardioModalities(parsed.exercise_token || (parsed.prescription.note ?? '')).length < 2
-      ) {
-        parsed.prescription.modality = titleModality;
-      }
-      out.push(parsed);
-    }
+  return walkCommandingCell(lines, (line) => parseStandaloneWork(line, opts));
+}
+
+function parseStandaloneWork(line: string, opts: ParseNotationCellOptions): ParsedLine[] {
+  // Tried BEFORE isNoiseLine, not nested inside it: a group-labeled name
+  // ("A1) Cat Cow") carries a digit in its OWN index, so isNoiseLine's
+  // "no digit → noise" rule never fires for it and the noise branch would
+  // never be reached at all — looksLikeBareMovementName does its own
+  // (stricter) digit/URL/prose exclusion after stripping the label, so it
+  // is safe to try unconditionally here rather than gated behind a
+  // digit-based classification that the label's own index defeats.
+  if (opts.bareNamesAreExercises) {
+    const bare = tryBareExerciseLine(line);
+    if (bare) return [bare];
   }
-  return out;
+  if (isNoiseLine(line)) return [];
+  return parseLine(line);
 }
 
 /** A dose-less noise line, read as a bare movement name (photo-import only —
