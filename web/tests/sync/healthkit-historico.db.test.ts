@@ -436,4 +436,107 @@ describeWithDb('histórico de Apple Salud — ingesta de lotes viejos (base real
     },
     DB_TEST_TIMEOUT_MS,
   );
+
+  // ── El caso del 24-ago: dos sesiones el mismo día ────────────────────────
+  //
+  // Alex tenía fuerza y ski programados el mismo día. Hizo el ski. El volcado de
+  // Salud aterrizó sobre la sesión de FUERZA, la marcó completa y la dejó con un
+  // resumen vacío — ni calorías, ni pulso, ni bloques. El trabajo real estaba en
+  // la otra. Atribuir mal es peor que no atribuir.
+
+  const loteDe = (athleteId: number, ref: string, ini: Date, fin: Date) =>
+    healthkitSyncRequestSchema.safeParse({
+      batch: {
+        athlete_id: String(athleteId),
+        sent_at: fin.toISOString(),
+        workouts: [
+          {
+            source_workout_id: ref,
+            workout_activity_type: 37,
+            started_at: ini.toISOString(),
+            ended_at: fin.toISOString(),
+            duration_seconds: Math.round((fin.getTime() - ini.getTime()) / 1000),
+            total_energy_burned_kcal: 120,
+            total_distance_meters: 1000,
+            avg_heart_rate_bpm: 147,
+            max_heart_rate_bpm: 166,
+            lap_markers: [],
+            source: 'healthkit',
+          },
+        ],
+        samples: [],
+      },
+    });
+
+  test(
+    'con DOS sesiones el mismo día, el volcado no se cuelga de ninguna',
+    async () => {
+      const fx = await athlete();
+      const dia = '2024-05-08';
+      const t1 = await makeTemplate({ fx, name: 'Fuerza A + SkiErg' });
+      const t2 = await makeTemplate({ fx, name: 'Ski-Erg 8x250m' });
+      const a1 = await makeAssignment({ fx, templateId: t1, scheduledForIso: dia });
+      const a2 = await makeAssignment({ fx, templateId: t2, scheduledForIso: dia });
+
+      const parsed = loteDe(fx.athleteId, 'HK-DOS-1',
+        new Date(`${dia}T10:32:00.000Z`), new Date(`${dia}T10:40:00.000Z`));
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      await ingestHealthkitBatch({ sql, athlete_id: BigInt(fx.athleteId), batch: parsed.data.batch });
+
+      const pegadas = await sql<Array<{ n: string }>>`
+        select count(*)::text as n from workout_executions
+        where athlete_id = ${fx.athleteId} and assignment_id in (${a1}, ${a2})
+      `;
+      expect(Number(pegadas[0]!.n), 'no puede elegir una de las dos al azar').toBe(0);
+
+      const estados = await sql<Array<{ status: string }>>`
+        select status::text from workout_assignments where id in (${a1}, ${a2})
+      `;
+      expect(estados.every((e) => e.status === 'scheduled'),
+        'ninguna sesión puede quedar marcada como hecha').toBe(true);
+    },
+    60_000,
+  );
+
+  test(
+    'un volcado no pisa la sesión que el atleta grabó en la app',
+    async () => {
+      const fx = await athlete();
+      const dia = '2024-05-09';
+      const t = await makeTemplate({ fx, name: 'Fuerza A' });
+      const a = await makeAssignment({ fx, templateId: t, scheduledForIso: dia });
+
+      // Lo que el atleta grabó en vivo: con su pulso y sus calorías.
+      await sql`
+        insert into workout_executions (
+          assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
+          source, recorded_via, avg_hr, total_calories
+        ) values (
+          ${a}, ${fx.athleteId},
+          ${`${dia}T09:00:00.000Z`}, ${`${dia}T10:00:00.000Z`}, 3600,
+          'concept2', 'live'::execution_recording_method, 147, 64
+        )
+      `;
+
+      // El reloj sincroniza el mismo entreno horas después, en otra franja para
+      // que la guarda de solape no lo pare antes de llegar a lo que se prueba.
+      const parsed = loteDe(fx.athleteId, 'HK-VIVO-1',
+        new Date(`${dia}T18:00:00.000Z`), new Date(`${dia}T18:30:00.000Z`));
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      await ingestHealthkitBatch({ sql, athlete_id: BigInt(fx.athleteId), batch: parsed.data.batch });
+
+      const fila = await sql<Array<{ source: string; via: string | null; hr: number | null }>>`
+        select source::text, recorded_via::text as via, avg_hr as hr
+        from workout_executions where assignment_id = ${a}
+      `;
+      expect(fila).toHaveLength(1);
+      expect(fila[0]!.via, 'la sesión sigue siendo la que se grabó en vivo').toBe('live');
+      expect(fila[0]!.source).toBe('concept2');
+      expect(fila[0]!.hr, 'y conserva su pulso').toBe(147);
+    },
+    60_000,
+  );
+
 });

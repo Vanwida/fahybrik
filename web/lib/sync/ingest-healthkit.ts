@@ -226,22 +226,32 @@ async function linkExecution(args: {
   // manual/phone log — or an earlier sync — already recorded.
   if (await existsOverlappingExecution(sql, athlete_id, startedAt, endedAt)) return false;
 
-  // Find the most recent assignment scheduled for the workout's local day
-  // (we accept the workout's date directly; timezone normalization happens
-  // upstream). Tiebreak on id desc so the pick is deterministic on days with
-  // ≥2 assignments (stable + testable), not order-of-insertion dependent.
+  // A QUÉ SESIÓN PERTENECE ESTO, Y CUÁNDO NO SE SABE (cards 144/145).
+  //
+  // Esto elegía «la última asignación del día, desempatando por id» — o sea, en
+  // un día con dos sesiones, una de las dos AL AZAR con cara de determinismo.
+  // El 24-ago costó caro: el atleta tenía fuerza y ski el mismo día, hizo el
+  // ski, y el volcado de Salud aterrizó sobre la sesión de FUERZA. Resultado:
+  // la de fuerza marcada como completa con nada dentro, y el trabajo real
+  // colgado de la otra.
+  //
+  // Atribuir mal es PEOR que no atribuir: el atleta abre su entreno y no está,
+  // y el entrenador ve hecha una sesión que nadie tocó. Así que con más de una
+  // sesión ese día NO se adivina — el entreno se archiva por su cuenta y queda
+  // a la vista para que alguien lo case.
   const day = startedAt.slice(0, 10);
-  const rows = await sql<{ id: string; existing_source: string | null }[]>`
+  const rows = await sql<{ id: string; existing_source: string | null; existing_via: string | null }[]>`
     select wa.id::text as id,
-           we.source::text as existing_source
+           we.source::text as existing_source,
+           we.recorded_via::text as existing_via
     from workout_assignments wa
     left join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = ${athlete_id as unknown as number}
       and wa.scheduled_for = ${day}::date
     order by wa.scheduled_for desc, wa.id desc
-    limit 1
   `;
-  const assign = rows[0];
+  const asignacionesDelDia = new Set(rows.map((r) => r.id)).size;
+  const assign = asignacionesDelDia === 1 ? rows[0] : undefined;
   if (!assign) {
     const standalone = await materializeHealthkitWorkout({ sql, athlete_id, workout });
     return standalone.outcome === 'inserted' || standalone.outcome === 'exists';
@@ -250,6 +260,15 @@ async function linkExecution(args: {
   // Skip if a Garmin-sourced execution already exists — Garmin wins (better
   // lap precision per spec).
   if (assign.existing_source === 'garmin') return true;
+
+  // Y NUNCA POR ENCIMA DE LO QUE EL ATLETA GRABÓ EN LA APP. Un volcado de Salud
+  // trae duración y poco más; la sesión que se grabó en vivo trae sus bloques,
+  // su pulso y sus calorías. Pisarla la deja en un resumen vacío que además
+  // dice «sesión completa», que es exactamente lo que vio el atleta el 24-ago.
+  //
+  // La guarda de arriba (`existing_source`) sólo miraba QUÉ midió; ésta mira
+  // CÓMO se grabó, que es la pregunta que faltaba.
+  if (assign.existing_via === 'live') return true;
 
   await sql`
     insert into workout_executions (
