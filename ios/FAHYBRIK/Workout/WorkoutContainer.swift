@@ -188,7 +188,23 @@ struct WorkoutContainer: View {
                // finished/discarded snapshot (those are cleared on close). An older
                // snapshot with no assignment is discarded, never guessed.
                WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
-                crashRecoveryPrompt = saved
+                // SE RETOMA SOLO, NO SE PREGUNTA. Antes esto abría un aviso y, si el
+                // atleta tocaba «Empezar» en la pantalla previa en vez del aviso,
+                // arrancaba una sesión NUEVA cuyo autoguardado pisaba la instantánea
+                // de la anterior: el trabajo no es que no se enseñara, es que se
+                // perdía. Que no se pierda un entreno no puede depender de acertar
+                // un botón.
+                //
+                // Descartar sigue existiendo, dentro del entreno, donde siempre.
+                let recuperada = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
+                recuperada.restore(from: saved)
+                session = recuperada
+                PhoneMirrorService.shared.begin(
+                    session: recuperada,
+                    activityKind: mirrorActivityKind(for: saved.plan)
+                )
+                phase = .active
+                return
             }
             await loadPlan()
         }
@@ -326,20 +342,20 @@ struct WorkoutContainer: View {
                             let snapshot = session.leaveToResumeLater()
                             Task {
                                 await WorkoutStateStore.shared.save(snapshot)
-                                // EL RELOJ NO PUEDE QUEDARSE HUÉRFANO. El espejo no
-                                // depende de esta pantalla —es un singleton— así que
-                                // al cerrar aquí seguiría creyendo que hay entreno.
-                                // Y la muñeca tiene vigía propio: si pasa de cinco
-                                // minutos sin señal del teléfono, cierra y GUARDA por
-                                // su cuenta. O sea que un descanso de diez minutos
-                                // entre bloques dejaba dos versiones distintas del
-                                // mismo entreno, una en cada aparato.
+                                // EL ESPEJO NO SE CIERRA AL SALIR, Y ESTO COSTÓ UN
+                                // ENTRENO. Cerrarlo con `end(save: true)` hace que la
+                                // muñeca envíe su entreno terminado, y el teléfono lo
+                                // trata como sesión ACABADA: marca la asignación
+                                // completada. Resultado: el atleta salía a descansar
+                                // entre bloques y al volver se encontraba el
+                                // calentamiento otra vez, porque para la app ya había
+                                // terminado.
                                 //
-                                // Se cierra a propósito y guardando lo que lleve: el
-                                // pulso del rato fuera se pierde, que es lo correcto
-                                // porque no estaba entrenando. Al volver se levanta
-                                // otro espejo (ver «Seguir donde lo dejé»).
-                                PhoneMirrorService.shared.end(save: true)
+                                // Salir es un descanso, no un final. El espejo se
+                                // queda vivo. Que la muñeca se autocierre a los cinco
+                                // minutos sin señal es un problema distinto y menor,
+                                // y tiene su propia card: perder el pulso de un rato
+                                // no se parece a perder el entreno entero.
                                 onClose()
                             }
                         },
@@ -632,10 +648,10 @@ struct WorkoutContainer: View {
                         // segment re-primed itself with the PRESCRIPTION on entry.
                         recovered.restore(from: saved)
                         session = recovered
-                        // Y se vuelve a levantar el espejo: al salir se cerró a
-                        // propósito para que la muñeca no se quedara sola creyendo
-                        // que seguía el entreno. Retomar es empezar a espejar otra
-                        // vez, igual que un arranque normal.
+                        // El espejo se levanta igualmente: si seguía vivo, `begin`
+                        // lo reengancha a la sesión recuperada, que es la que ahora
+                        // manda; y si la muñeca se había autocerrado por su cuenta,
+                        // esto vuelve a ponerla en marcha.
                         PhoneMirrorService.shared.begin(
                             session: recovered,
                             activityKind: mirrorActivityKind(for: saved.plan)

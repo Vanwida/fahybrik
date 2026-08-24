@@ -89,6 +89,13 @@ extension WorkoutSession {
     @discardableResult
     func leaveToResumeLater() -> PersistedWorkoutState {
         if !isPaused, !isFinished { isPaused = true }
+        // El almacén tiene un cerrojo: cuando una sesión termina o se descarta se
+        // cierra, y a partir de ahí TODO guardado se descarta en silencio. Salir a
+        // medias es lo contrario de terminar, así que se reabre antes de guardar —
+        // si un cerrojo viejo siguiera echado, la instantánea se perdería sin que
+        // nadie se enterara, que es exactamente el fallo más caro que puede tener
+        // esta ruta.
+        Task { await WorkoutStateStore.shared.open() }
         return persistedSnapshot()
     }
 }
