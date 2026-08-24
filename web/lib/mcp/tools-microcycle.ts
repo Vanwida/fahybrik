@@ -17,6 +17,7 @@ import { coachActor, recordAudit } from '@/lib/audit/record-edit';
 import {
   ProgramMonthError,
   createMonthTemplateWithEmptyWeeks,
+  deleteMonthTemplate,
   loadMonthTemplateWithWeeks,
 } from '@/lib/dashboard/coach/program-months';
 import { ProgramWeekError } from '@/lib/dashboard/coach/program-weeks';
@@ -355,6 +356,83 @@ export function registerMicrocycleTools(server: McpServer): void {
             resync: { microcycles_checked, assignments_resynced },
           },
           `Biblioteca · «${name}» actualizado (${days} ${days === 1 ? 'día' : 'días'} de entreno). ${resyncBit}`,
+        );
+      }),
+  );
+
+  // BORRAR UN MICROCICLO DE BIBLIOTECA (card 139).
+  //
+  // POR QUÉ HACE FALTA: crear por aquí es TODO O NADA —una línea mal tumba el
+  // lote— pero lo que sí entraba se quedaba para siempre, porque no había forma
+  // de deshacerlo desde el asistente. Cada intento a medias dejaba basura
+  // permanente en la biblioteca del entrenador, y eso encarece justo lo que hay
+  // que poder hacer barato: probar.
+  //
+  // El borrado en sí YA EXISTÍA (es el mismo del botón del panel, con sus
+  // guardas); lo que faltaba era poder pedirlo. Se reusa tal cual, sin relajar
+  // ninguna: se niega si el microciclo forma parte de una secuencia, y sólo
+  // toca los del propio entrenador.
+  //
+  // Sólo BIBLIOTECA. Un plan personal cuelga de una cadena con fechas y un
+  // atleta detrás: sacarle un tramo de en medio es otra operación, con otras
+  // consecuencias, y tiene su propio camino en el panel.
+  server.registerTool(
+    'delete_microcycle',
+    {
+      title: 'Borrar un microciclo de biblioteca',
+      description:
+        'Borra un microciclo de la BIBLIOTECA del entrenador, con sus semanas. Sólo los suyos y sólo los de biblioteca: un plan personal de un atleta no se toca desde aquí. Se niega si el microciclo forma parte de una secuencia (nivel × días). Es IRREVERSIBLE: confirma con el entrenador antes de usarla.',
+      inputSchema: {
+        microcycle_id: z
+          .number()
+          .int()
+          .positive()
+          .describe('El microciclo de biblioteca que se borra. Búscalo con search_library.'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id, _name, session) => {
+        // Se lee ANTES de borrar para poder decir QUÉ se ha borrado. Después ya
+        // no hay a quién preguntárselo, y «borrado el 41» no le dice nada a
+        // nadie.
+        let nombre: string;
+        let semanas: number;
+        try {
+          const loaded = await loadMonthTemplateWithWeeks({ coach_id, id: args.microcycle_id });
+          if (!loaded) return fail('No encuentro ese microciclo en tu biblioteca.');
+          nombre = loaded.month.name;
+          semanas = loaded.weeks.length;
+        } catch (err) {
+          const why = writeErrorMessage(err);
+          return fail(why ? `No he podido leerlo: ${why}` : 'No he podido leer ese microciclo.');
+        }
+
+        try {
+          await sql.begin(async (tx) => {
+            await deleteMonthTemplate({ coach_id, month_id: args.microcycle_id, client: tx });
+            await recordAudit(tx, {
+              entity_type: 'program_month_templates',
+              entity_id: BigInt(args.microcycle_id),
+              action: 'delete',
+              actor: coachActor(session),
+              channel: 'mcp',
+              diff: { name: nombre, week_count: semanas },
+            });
+          });
+        } catch (err) {
+          const why = writeErrorMessage(err);
+          return fail(why ? `No lo he borrado: ${why}` : 'No he podido borrar ese microciclo.');
+        }
+
+        return ok(
+          { microcycle_id: String(args.microcycle_id), name: nombre, week_count: semanas },
+          `Biblioteca · «${nombre}» borrado (${semanas} ${semanas === 1 ? 'semana' : 'semanas'}).`,
         );
       }),
   );
