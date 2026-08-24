@@ -47,6 +47,10 @@ import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
 import * as planSemana from './screens/plan-semana';
 import * as planDia from './screens/plan-dia';
+// Compartir el entreno (24-ago): la story de Instagram. Vive en «Plan y hoy»
+// porque se sale desde el día, y es propuesta pura — la app no tiene hoy
+// ninguna forma de compartir un entreno.
+import * as compartirEntreno from './screens/compartir-entreno';
 // La muñeca, formato a formato (30-jul): nueve vistas cuyo diseño NO lo decide
 // el formato sino qué mide el reloj de verdad en esa modalidad y si el atleta
 // puede mirar y tocar en ese momento. Ver `kit-watch/modelo.ts`.
@@ -186,6 +190,7 @@ export const SCREENS: TwinScreenModule[] = [
   planCiclo,
   planSemana,
   planDia,
+  compartirEntreno,
   watchRodaje,
   watchSeries,
   watchCinta,
