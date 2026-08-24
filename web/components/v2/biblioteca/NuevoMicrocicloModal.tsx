@@ -17,6 +17,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { cn } from '@/lib/utils';
 import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/program-months';
+import { readMaxMicrocycleWeeksFromLevelsResponse } from '@/lib/coach/read-max-microcycle-weeks';
 
 const MIN_WEEKS = 1;
 const DEFAULT_WEEKS = 4;
@@ -40,8 +41,6 @@ export function NuevoMicrocicloModal({
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [loadingLimits, setLoadingLimits] = useState(true);
-
   const [name, setName] = useState('');
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
   const [maxWeeks, setMaxWeeks] = useState(MICROCICLO_DEFAULT_MAX_WEEKS);
@@ -51,20 +50,13 @@ export function NuevoMicrocicloModal({
   useEffect(() => {
     let alive = true;
     fetch('/api/coach/levels', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((lv: { max_microcycle_weeks?: number }) => {
+      .then(async (r) => {
+        const next = await readMaxMicrocycleWeeksFromLevelsResponse(r);
         if (!alive) return;
-        if (typeof lv.max_microcycle_weeks === 'number') {
-          setMaxWeeks(lv.max_microcycle_weeks);
-          setWeeks((w) => Math.min(w, lv.max_microcycle_weeks!));
-        }
+        setMaxWeeks(next);
+        setWeeks((w) => Math.min(w, next));
       })
-      .catch(() => {
-        if (alive) setError('No se pudieron cargar tus límites de semanas.');
-      })
-      .finally(() => {
-        if (alive) setLoadingLimits(false);
-      });
+      .catch(() => undefined);
     return () => {
       alive = false;
     };
@@ -80,7 +72,7 @@ export function NuevoMicrocicloModal({
   }, [onClose]);
 
   const canSubmit =
-    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting && !loadingLimits;
+    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -165,13 +157,7 @@ export function NuevoMicrocicloModal({
           </button>
         </div>
 
-        {loadingLimits ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-body text-[color:var(--v2-muted)]">
-            <MIcon name="progress_activity" size={18} className="animate-spin" />
-            Cargando…
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-3.5">
             <div>
               <label htmlFor="micro-name" className={labelClass}>
                 Nombre
@@ -272,7 +258,6 @@ export function NuevoMicrocicloModal({
               </button>
             </div>
           </div>
-        )}
       </div>
     </div>
   );
