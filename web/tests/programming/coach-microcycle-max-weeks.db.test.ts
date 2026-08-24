@@ -46,6 +46,27 @@ describeWithDb('tope de semanas de un microciclo, por coach (DB real)', () => {
     expect(await loadCoachMaxMicrocicloWeeks({ coach_id: fx.coachId, client: sql })).toBe(8);
   });
 
+  test('biblioteca: crea sin level_id aunque el coach no tenga niveles', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+
+    const created = await createMonthTemplateWithEmptyWeeks({
+      coach_id: fx.coachId,
+      payload: { name: 'Bloque libre', week_count: 4 },
+      client: sql,
+    });
+    fx.monthTemplates.push({
+      monthId: Number(created.id),
+      weekIds: created.weeks.map((w) => Number(w.id)),
+    });
+    expect(created.weeks).toHaveLength(4);
+
+    const monthRow = await sql<Array<{ level_id: string | null }>>`
+      select level_id::text from program_month_templates where id = ${Number(created.id)}
+    `;
+    expect(monthRow[0]!.level_id).toBeNull();
+  });
+
   test('biblioteca: rechaza por encima del tope del coach, acepta justo en el tope', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
