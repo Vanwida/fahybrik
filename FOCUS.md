@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (164 · 156 + 158 + 157)
+Última actualización: **2026-08-24** (155 · aproximación fuera del volumen)
 
 ## Ahora
+
+**155 · LA APROXIMACIÓN SALE DEL VOLUMEN.** La marca de la 151 ya viajaba
+hasta el teléfono y se veía. Al guardar se caía: `set_executions` no tenía
+columna y el volumen, la serie más pesada y la carga de fuerza sumaban esos
+kilos. Ahora `is_approach` vive en la serie ejecutada (mig 0207), el escritor
+de siempre la persiste, y solo las series de trabajo cuentan. El resumen las
+sigue enseñando con la etiqueta. No se tocó el ON CONFLICT del guardado.
 
 **157 · UN ENTRENO, UN FINAL — el reloj y el móvil dejan de ir por su cuenta.**
 Acabar en el móvil obligaba a acabar OTRA VEZ en el reloj (y al revés). Raíz: en

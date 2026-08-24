@@ -29,6 +29,16 @@ import {
   type SegmentLegPhase,
   type SegmentLegRole,
 } from '@/lib/execution/segment-work';
+import type { RepsStatus } from '@fahybrid/shared/schema';
+
+/** Una serie ejecutada, con la marca de aproximación (card 155). */
+export interface SetActual {
+  set_index: number;
+  reps_actual: number | null;
+  load_actual_kg: number | null;
+  status: RepsStatus;
+  is_approach: boolean;
+}
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -121,11 +131,14 @@ export interface SegmentActual {
    *  puntuar. Se expone porque es el OTRO eje de «esto no es un intento», y
    *  tenerlo solo en la BD fue lo que dejó a 19 de 20 lectores sin filtrarlo. */
   is_structural: boolean;
+  /** Series de este tramo, aproximación incluida. Vacío si no se guardó detalle. */
+  sets: SetActual[];
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
 // typed `string | number | null` and coerced once in `buildSegmentActuals`.
 export interface SegmentActualRow {
+  id?: string | null;
   template_segment_id: string | null;
   position: number;
   modality: string | null;
@@ -218,6 +231,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     leg_role: toLegRole(r.leg_role),
     leg_phase: toLegPhase(r.leg_phase),
     is_structural: r.is_structural ?? false,
+    sets: [],
     run_splits: null,
     ...ergFields(r.raw_lap_data_json),
   }));
@@ -253,6 +267,7 @@ function ergFields(raw: unknown): Pick<
 export async function loadSegmentActuals(sql: Sql, executionId: number): Promise<SegmentActual[]> {
   const rows = await sql<SegmentActualRow[]>`
     select
+      id::text                  as id,
       template_segment_id::text as template_segment_id,
       position                  as position,
       modality                  as modality,
@@ -283,5 +298,47 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
     where execution_id = ${executionId}
     order by position asc, id asc
   `;
-  return buildSegmentActuals(rows);
+  const actuals = buildSegmentActuals(rows);
+  if (actuals.length === 0) return actuals;
+
+  const setRows = await sql<
+    Array<{
+      segment_id: string;
+      set_index: number;
+      reps_actual: number | null;
+      load_actual_kg: string | number | null;
+      status: string;
+      is_approach: boolean;
+    }>
+  >`
+    select
+      se.id::text as segment_id,
+      st.set_index,
+      st.reps_actual,
+      st.load_actual_kg::text as load_actual_kg,
+      st.status,
+      st.is_approach
+    from set_executions st
+    join segment_executions se on se.id = st.segment_execution_id
+    where se.execution_id = ${executionId}
+    order by se.position asc, st.set_index asc
+  `;
+  if (setRows.length === 0) return actuals;
+
+  const bySeg = new Map<string, SetActual[]>();
+  for (const r of setRows) {
+    const list = bySeg.get(r.segment_id) ?? [];
+    list.push({
+      set_index: r.set_index,
+      reps_actual: r.reps_actual,
+      load_actual_kg: num(r.load_actual_kg),
+      status: r.status === 'scaled' || r.status === 'skipped' ? r.status : 'done',
+      is_approach: r.is_approach === true,
+    });
+    bySeg.set(r.segment_id, list);
+  }
+  return actuals.map((a, i) => {
+    const id = rows[i]?.id;
+    return id ? { ...a, sets: bySeg.get(id) ?? [] } : a;
+  });
 }

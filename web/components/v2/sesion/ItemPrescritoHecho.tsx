@@ -24,7 +24,7 @@ import {
   type RunComplianceVerdict,
 } from '@fahybrid/shared/domain/adherence';
 import type { AssignmentDetailItem, AssignmentDetailParamsJson } from '@/lib/athlete/assignment-detail';
-import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import type { SegmentActual, SetActual } from '@/lib/dashboard/coach/session-actuals';
 import type { ErgSplitItem } from '@/lib/execution/erg-splits';
 
 // ── pace m:ss (s → "4:15"); seconds always zero-padded. ─────────────────────
@@ -89,6 +89,15 @@ export function actualTokens(a: SegmentActual): string[] {
   if (a.avg_hr != null) t.push(`${a.avg_hr} ppm`);
   if (a.calories != null) t.push(`${round(a.calories)} cal`);
   return t;
+}
+
+export function approachSetLabel(s: SetActual): string {
+  const carga = s.load_actual_kg != null ? `${round(s.load_actual_kg, 1)} kg` : null;
+  const reps = s.reps_actual != null ? String(s.reps_actual) : null;
+  if (reps && carga) return `Aproximación · ${reps} × ${carga}`;
+  if (reps) return `Aproximación · ${reps} reps`;
+  if (carga) return `Aproximación · ${carga}`;
+  return 'Aproximación';
 }
 
 // Verdict tier → Pill tone. 'dentro' green, both out-of-band amber (a coaching
@@ -237,6 +246,17 @@ export function ItemPrescritoHecho({
                 )}
                 {verdict ? <VerdictPill verdict={verdict} /> : null}
               </span>
+              {(a.sets ?? []).some((s) => s.is_approach) ? (
+                <div className="col-span-2 flex flex-col gap-1">
+                  {(a.sets ?? [])
+                    .filter((s) => s.is_approach)
+                    .map((s) => (
+                      <span key={s.set_index} className="v2-num text-xs text-[color:var(--v2-muted)]">
+                        {approachSetLabel(s)}
+                      </span>
+                    ))}
+                </div>
+              ) : null}
               {a.erg_splits && a.erg_splits.length > 0 ? (
                 <div className="col-span-2">
                   <SplitsTable splits={a.erg_splits} dragFactor={a.drag_factor} calPerHour={a.avg_calories_per_hour} />

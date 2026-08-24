@@ -17,6 +17,7 @@ import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
+import { isWorkingSet } from '@fahybrid/shared/domain/strength';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -135,6 +136,23 @@ export function deriveRepsStatus(
   return 'done';
 }
 
+/** `is_approach` del set i (1-based) en el snapshot de la prescripción, si viene. */
+export function approachFromPrescription(snapshot: unknown, setIndex: number): boolean | undefined {
+  if (snapshot == null || typeof snapshot !== 'object') return undefined;
+  const sets = (snapshot as { sets?: unknown }).sets;
+  if (!Array.isArray(sets)) return undefined;
+  const raw = sets[setIndex - 1];
+  if (raw == null || typeof raw !== 'object') return undefined;
+  const v = (raw as { is_approach?: unknown }).is_approach;
+  return typeof v === 'boolean' ? v : undefined;
+}
+
+/** Cable manda; si omite, se lee la prescripción. Ausente en las dos = trabajo. */
+export function resolveIsApproach(wire: boolean | undefined, snapshot: unknown, setIndex: number): boolean {
+  if (typeof wire === 'boolean') return wire;
+  return approachFromPrescription(snapshot, setIndex) === true;
+}
+
 // One working set of a strength segment. All optional except `set_index`; a NULL
 // `reps_actual` means the set was skipped (never a fabricated 0).
 export const setInputSchema = z.object({
@@ -149,6 +167,8 @@ export const setInputSchema = z.object({
   confirmed: z.boolean().optional(),
   tempo: z.string().max(20).optional(),
   rest_s: z.number().int().min(0).optional(),
+  // Card 155 / mig 0207. Optional: un cliente viejo no lo manda.
+  is_approach: z.boolean().optional(),
   // Sensor fases 2–3 (mig 0175/0176). Optional: older clients omit.
   reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
   reps_confidence: z.number().nullish(),
@@ -584,16 +604,30 @@ export async function ingestExecutionSegments(args: {
       const segmentExecutionId = Number(rows[0]?.id);
       if (Number.isFinite(segmentExecutionId)) {
         await sql`delete from set_executions where segment_execution_id = ${segmentExecutionId}`;
+        const writtenSets: Array<{
+          status: string;
+          is_approach: boolean;
+          reps_actual: number | null;
+          load_actual_kg: number | null;
+        }> = [];
         for (const s of seg.sets) {
           const setActual = s.reps_actual ?? null;
           const setPrescribed = s.reps_prescribed ?? null;
           const setStatus = s.status ?? deriveRepsStatus(setActual, setPrescribed);
+          const isApproach = resolveIsApproach(s.is_approach, ctx?.prescription_json, s.set_index);
+          writtenSets.push({
+            status: setStatus,
+            is_approach: isApproach,
+            reps_actual: setActual,
+            load_actual_kg: s.load_actual_kg ?? null,
+          });
           await sql`
             insert into set_executions (
               segment_execution_id, set_index,
               reps_prescribed, reps_actual,
               load_prescribed_kg, load_actual_kg,
               rpe, rir, status, confirmed, tempo, rest_s,
+              is_approach,
               reps_source, reps_confidence,
               mean_velocity_first_m_s, mean_velocity_last_m_s,
               velocity_loss_pct, rom_m, velocity_confidence
@@ -610,6 +644,7 @@ export async function ingestExecutionSegments(args: {
               ${s.confirmed ?? false},
               ${s.tempo ?? null},
               ${s.rest_s ?? null},
+              ${isApproach},
               ${s.reps_source ?? null},
               ${sanitizeConfidence(s.reps_confidence)},
               ${s.mean_velocity_first_m_s ?? null},
@@ -620,6 +655,26 @@ export async function ingestExecutionSegments(args: {
             )
           `;
         }
+        // El agregado del tramo lo leen dobles, el deep-dive y la lectura de
+        // sesión (reps × carga). Si cuenta las aproximaciones, el volumen miente
+        // aunque set_executions ya lleve la marca. Se reescribe aquí, en el
+        // mismo escritor, no en un segundo camino.
+        const working = writtenSets.filter((s) => isWorkingSet(s));
+        const repsCompleted = working.reduce<number | null>((acc, s) => {
+          if (s.reps_actual == null) return acc;
+          return (acc ?? 0) + s.reps_actual;
+        }, null);
+        const workingLoads = working
+          .map((s) => s.load_actual_kg)
+          .filter((v): v is number => v != null);
+        const weightUsedKg = workingLoads.length > 0 ? Math.max(...workingLoads) : null;
+        await sql`
+          update segment_executions
+          set reps_completed = ${repsCompleted},
+              weight_used_kg = ${weightUsedKg},
+              updated_at = now()
+          where id = ${segmentExecutionId}
+        `;
       }
     }
   }

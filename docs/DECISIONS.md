@@ -10,6 +10,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · La aproximación se registra y se ve; no cuenta como trabajo
+
+**Qué pasó (card 155):** la 151 marcó la serie de aproximación en la prescripción. El atleta la ve etiquetada. Al guardar, la marca no sobrevivía. El volumen, la serie más pesada y la carga de fuerza seguían sumando esos kilos.
+
+**Decidido:**
+
+- La marca vive en la serie EJECUTADA: `set_executions.is_approach` (boolean, default false). Ausente = trabajo, que es lo que era todo hasta ahora.
+- Dos ejes, no uno. `status` dice si la hizo (done / scaled / skipped). `is_approach` dice qué clase de serie es. No se inventa un status `approach`.
+- El escritor es el de siempre (`ingestExecutionSegments`). Delete-then-insert por tramo. Sin ON CONFLICT nuevo.
+- Si el teléfono omite el campo, se lee del snapshot de la prescripción. El cable manda si viene.
+- Tras persistir las series, el agregado del tramo (`reps_completed`, `weight_used_kg`) se reescribe solo con las de trabajo, para que dobles, deep-dive y la lectura de sesión no recuenten por el atajo del tramo.
+- El resumen sigue listando las aproximaciones con su etiqueta (cuántas, con qué).
+
+**NO hacer:** no inferir la aproximación por el porcentaje de la carga. No esconder esas series. No abrir un segundo camino de guardado. No tocar el índice de `workout_executions` (card 116 / 42P10).
+
+---
+
 ## 2026-08-24 · El nombre del entreno y el del bloque son dos campos. `warmup` es un tipo de verdad.
 
 **Qué pasó (card 156):** al abrir el martes de un microciclo importado por el asistente, el primer bloque se leía como fuerza: se llamaba «Fuerza tren superior + core · Warm up», el lomo era naranja de fuerza y no había chip de Calentamiento. El entrenador buscó cómo cambiar el tipo. El tipo YA era `warmup`.

@@ -54,6 +54,8 @@ export interface GrupoFuerza {
   /** Nulo = peso corporal. No se pliega en el tonelaje sin el peso del atleta
    *  medido (§7): inventarlo sería inventar un dato que nadie pesó. */
   kg: number | null;
+  /** Serie de aproximación: se enseña, no suma al volumen ni a la más pesada. */
+  aproximacion?: boolean;
 }
 
 interface BloqueBase {
@@ -342,7 +344,7 @@ function volumenDeFuerza(bloques: Bloque[]): VolumenFuerza {
   for (const b of bloques) {
     if (b.modalidad !== 'fuerza' || !b.grupos) continue;
     for (const g of b.grupos) {
-      if (g.kg == null) continue;
+      if (g.aproximacion || g.kg == null) continue;
       volumenKg += g.sets * g.reps * g.kg;
       if (!masPesada || g.kg > masPesada.kg) masPesada = { etiqueta: b.etiqueta, kg: g.kg, reps: g.reps };
     }

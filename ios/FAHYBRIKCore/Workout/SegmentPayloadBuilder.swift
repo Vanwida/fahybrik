@@ -109,6 +109,7 @@ enum SegmentPayloadBuilder {
                     tempo: s.tempo,
                     rest_s: s.restS
                 )
+                dto.is_approach = s.isApproach
                 dto.reps_source = s.repsSource
                 dto.reps_confidence = s.repsConfidence
                 dto.mean_velocity_first_m_s = s.meanVelocityFirstMs

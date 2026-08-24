@@ -283,6 +283,9 @@ export const setExecutionSchema = z.object({
   confirmed: z.boolean(),
   tempo: z.string().nullable(),
   rest_s: z.number().int().nonnegative().nullable(),
+  // Serie de aproximación (card 155 / mig 0207). Optional so a select previo a
+  // 0207 o un constructor parcial sigue parseando. Ausente = trabajo.
+  is_approach: z.boolean().optional().default(false),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });

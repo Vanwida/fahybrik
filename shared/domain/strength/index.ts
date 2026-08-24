@@ -17,3 +17,4 @@ export * from './resolve';
 export * from './origen';
 export * from './velocity-loss';
 export * from './velocity-bands';
+export * from './working-set';
