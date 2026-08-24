@@ -1,7 +1,7 @@
 // GUÍA · 04 Tus tipos de trabajo — área "Tu biblioteca". BUILT.
-// Real flow: ArchetypePicker ("¿Qué tipo de trabajo es?") → 9 arquetipos (carrera
-// continua, series, fuerza, simulación HYROX, circuito, WOD/metcon, EMOM, test,
-// activación). Cada tipo FIJA modalidad × cómo se mide × contra qué objetivo y
+// Real flow: ArchetypePicker ("¿Qué tipo de trabajo es?") → arquetipos (calentamiento,
+// carrera continua, series, fuerza, simulación HYROX, circuito, WOD/metcon, EMOM, test,
+// activación, vuelta). Cada tipo FIJA modalidad × cómo se mide × contra qué objetivo y
 // abre un formulario ya hecho (no toggles vacíos). 4 colores de modalidad.
 // Doc kit en '../doc'; hues canónicos var(--v2-mod-*).
 
@@ -87,6 +87,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <li>
           <b style={{ color: MOD.circuito }}>Circuito</b>: WOD, metcon, core y la simulación HYROX.
         </li>
+        <li>
+          <b style={{ color: MOD.calent }}>Calentamiento</b>: lista de movimientos al entrar o al
+          cerrar, sin reloj.
+        </li>
       </ul>
 
       {/* Dashboard mockup: the archetype picker grid */}
@@ -98,6 +102,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           Elige el formato. El formulario llega ya hecho para ese tipo.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '9px' }}>
+          <TypeTile color={MOD.calent} icon="◎" name="Calentamiento" />
           <TypeTile color={MOD.carrera} icon="🏃" name="Carrera continua / Z2" />
           <TypeTile color={MOD.carrera} icon="↻" name="Series / Intervalos" />
           <TypeTile color={MOD.fuerza} icon="⌗" name="Fuerza" />
@@ -107,6 +112,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <TypeTile color={MOD.fuerza} icon="⚡" name="Fuerza-potencia / EMOM" />
           <TypeTile color={MOD.ergo} icon="⏲" name="Test" />
           <TypeTile color={MOD.calent} icon="❋" name="Activación / Tapering" />
+          <TypeTile color={MOD.calent} icon="○" name="Vuelta a la calma" />
         </div>
       </DashboardMockup>
 

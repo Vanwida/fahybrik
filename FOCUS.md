@@ -2,9 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (162 · copy planificación / ciclo)
+Última actualización: **2026-08-24** (156 · calentamiento no se pinta como fuerza)
 
 ## Ahora
+
+**156 · UN CALENTAMIENTO SE VEÍA COMO FUERZA.**
+El martes de la semana 1 ya era `format: warmup`. El editor no lo pintaba (sin chip, color del primer ejercicio = fuerza) y `create_microcycle` no tenía título de sesión: el asistente pegó el nombre del entreno en el primer bloque y la plataforma lo copió como título. Cada día lleva `title` (como `create_session`); el editor reconoce calentamiento/vuelta. Los títulos ya guardados no se reescriben.
+Ley: DECISIONS 24-ago. Card: https://app.clickup.com/t/86ak5675p
 
 **162 · COPY VISIBLE: PLANIFICACIÓN / CICLO.** El coach y el atleta leen
 planificación y ciclo. Internos, URLs (`/periodizacion`, `/microciclos`),

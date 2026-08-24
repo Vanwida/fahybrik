@@ -426,9 +426,11 @@ function blockFormatToModalitySlug(format: string | null): string {
     case 'metcon':
     case 'functional_circuit':
       return 'circuito';
-    // Core, movilidad y activación pre-carrera.
+    // Core, movilidad, calentamiento y vuelta a la calma.
     case 'core_mobility':
     case 'tapering':
+    case 'warmup':
+    case 'cooldown':
       return 'calentamiento';
     default:
       return modalityColorSlug('functional');

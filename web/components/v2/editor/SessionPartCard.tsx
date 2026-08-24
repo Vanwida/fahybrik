@@ -370,7 +370,7 @@ function SortableBlockCard({
   );
 }
 
-// El panel inline «Añadir bloque» — las 9 tarjetas de TIPO (ArchetypeGrid
+// El panel inline «Añadir bloque» — las tarjetas de TIPO (ArchetypeGrid
 // reutilizada), sin modal. Elegir un tipo crea un bloque listo; el coach lo nombra.
 function InlineBlockPicker({
   onPick,

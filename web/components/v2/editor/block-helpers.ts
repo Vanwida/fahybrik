@@ -4,7 +4,7 @@
 // (SCREEN 8) agree on the same derivation. No free text invented: the summary is
 // built from the structured prescriptions via the shared prescriptionToText.
 
-import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
+import { normalizeFormat, prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import type { V2Modality } from '@/components/v2/constants';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
@@ -12,6 +12,11 @@ import { archetypeForFormat, getArchetype } from '@/lib/dashboard/v2/archetypes'
 
 /** The dominant modality color slug of a block (first item's modality wins). */
 export function blockModalitySlug(block: EditorBlock): V2Modality {
+  // El FORMAT manda sobre el primer ejercicio: un calentamiento de bandas
+  // sigue siendo calentamiento, aunque el catálogo marque esos movimientos
+  // como fuerza. Si no, el lomo miente (card 156).
+  const format = block.format ? normalizeFormat(block.format) : undefined;
+  if (format === 'warmup' || format === 'cooldown') return 'calentamiento';
   const first = block.items[0];
   if (first) return modalityColorSlug(first.prescription.modality);
   // No items yet — derive from the block format string when it hints a modality.

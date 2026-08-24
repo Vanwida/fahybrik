@@ -71,7 +71,11 @@ export function BlockEditor({
   // pattern (explicit archetype_id or a known format). Only legacy/unknown blocks
   // with items fall back to the per-item axes editor.
   const pattern = patternForBlock(block.archetype_id, block.format);
-  const hasArchetypeForm = block.items.length > 0 && pattern !== null;
+  // `list` (calentamiento / vuelta) es una lista de movimientos: el compositor
+  // por-ítem ya la edita. El formulario a medida de un solo ejercicio escondería
+  // el resto, que es justo el fallo de pintar un warm-up como fuerza.
+  const hasArchetypeForm =
+    block.items.length > 0 && pattern !== null && pattern !== 'list';
 
   const undosed = undosedLines(block);
 

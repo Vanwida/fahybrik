@@ -6,15 +6,15 @@
 // `Prescription` with sensible defaults, so the coach gets a ready tailored form
 // instead of empty toggles.
 //
-// AGNOSTIC: the 9 archetypes are the sport's session vocabulary (HYROX / hybrid),
+// AGNOSTIC: the archetypes are the sport's session vocabulary (HYROX / hybrid),
 // identical for every coach. They carry NO methodology — the phase/group is the
 // coach's OPTIONAL tag, applied separately.
 //
 // DRY: this file invents NO schema. Every seed resolves to fields already on
 // `Prescription`, produced by REUSING the editor-axes setters + the shared
 // prescription-model defaults (one source of truth for "what shape does a
-// run/erg/strength line default to"). The 9 archetypes collapse to 4 underlying
-// FORM PATTERNS (STEADY · INTERVALS · SETS-TABLE · COMPONENTS) — true DRY.
+// run/erg/strength line default to"). The archetypes collapse to a handful of
+// FORM PATTERNS (STEADY · INTERVALS · SETS-TABLE · LIST · COMPONENTS) — true DRY.
 
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
@@ -42,6 +42,7 @@ import { createTestBlock, TEST_BLOCK_FORMAT } from '@/lib/dashboard/v2/test-temp
 //               SETS_TABLE (docs/DECISIONS.md 2026-08-05), so the table is reused
 //               verbatim and this pattern adds exactly two things: the second
 //               exercise and the descanso de la vuelta.
+// LIST        — checklist of movements, no clock  (calentamiento / vuelta a la calma)
 // COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito)
 // HYROX_SIM   — the dedicated ORDERED race template: 16 fixed legs (8 runs + 8
 //               stations in official order) + Open/Pro standard loads  (Simulación HYROX)
@@ -52,6 +53,7 @@ export type FormPattern =
   | 'intervals'
   | 'sets_table'
   | 'superset'
+  | 'list'
   | 'components'
   | 'hyrox_sim'
   | 'test';
@@ -66,7 +68,9 @@ export type ArchetypeId =
   | 'circuit_core'
   | 'hyrox_sim'
   | 'test'
-  | 'activation';
+  | 'activation'
+  | 'warmup'
+  | 'cooldown';
 
 export interface Archetype {
   id: ArchetypeId;
@@ -80,7 +84,7 @@ export interface Archetype {
   icon: string;
   /** v2 modality color the archetype's icon tile carries (derived hue). */
   modalitySlug: V2Modality;
-  /** Which of the 4 base forms renders for this archetype. */
+  /** Which form pattern renders for this archetype. */
   pattern: FormPattern;
   /** Honest frequency badge from Pablo's real plan ("104×", "clave", "raro"…). */
   frequency: string;
@@ -104,6 +108,30 @@ export interface Archetype {
 
 // Ordered by real-plan frequency (most used first), per the UX pase evidence bar.
 export const ARCHETYPES: Archetype[] = [
+  {
+    id: 'warmup',
+    name: 'Calentamiento',
+    shortName: 'Calentamiento',
+    purpose: 'Lista de movimientos para entrar en calor. Sin reloj, sin marca.',
+    icon: 'exercise',
+    modalitySlug: 'calentamiento',
+    pattern: 'list',
+    frequency: 'cada día',
+    format: 'warmup',
+    defaultTitle: 'Calentamiento',
+  },
+  {
+    id: 'cooldown',
+    name: 'Vuelta a la calma',
+    shortName: 'Vuelta',
+    purpose: 'Movilidad, estiramientos o trote suave al cerrar. Lista, sin reloj.',
+    icon: 'spa',
+    modalitySlug: 'calentamiento',
+    pattern: 'list',
+    frequency: 'ciclo',
+    format: 'cooldown',
+    defaultTitle: 'Vuelta a la calma',
+  },
   {
     id: 'steady_run',
     name: 'Carrera continua / Z2',
@@ -256,6 +284,8 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
   // the real seed, so this axis is only the picker-tile hue fallback.
   test: 'ergo',
   activation: 'carrera',
+  warmup: 'circuito',
+  cooldown: 'circuito',
 };
 
 /** The scheme each archetype's seed lands on (drives which fields are meaningful). */
@@ -270,6 +300,8 @@ const ARCHETYPE_SCHEME: Record<ArchetypeId, Prescription['scheme']> = {
   hyrox_sim: 'for_time',
   test: 'steady',
   activation: 'steady',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
 };
 
 // Activación defaults to a low, easy effort (RPE 3) — the one place the archetype
@@ -293,6 +325,18 @@ const DEFAULT_CIRCUIT_CONFIG: CircuitConfig = { rounds: 3, pacing: { kind: 'por_
  * archetype's scheme — no duplicated seeding rules.
  */
 export function seedArchetype(id: ArchetypeId): Prescription {
+  // Calentamiento / vuelta: lista de movimientos, sin reloj. La dosis de cada
+  // línea (reps o tiempo) la pone el coach; la semilla deja una medida para que
+  // el bloque no nazca vacío. No pasa por applyModalidad: esa vía siembra fuerza
+  // o un rodaje, y este tipo no es ninguno de los dos.
+  if (id === 'warmup' || id === 'cooldown') {
+    return {
+      scheme: id,
+      modality: 'mobility',
+      sets: [{ measure: { kind: 'reps', value: 8 } }],
+    };
+  }
+
   const axis = ARCHETYPE_AXIS[id];
   const scheme = ARCHETYPE_SCHEME[id];
 
@@ -395,6 +439,8 @@ const FORMAT_TO_ARCHETYPE: Record<string, ArchetypeId> = {
   circuit: 'circuit_core',
   hyrox_sim: 'hyrox_sim',
   test: 'test',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
 };
 
 /** Best-effort archetype for a reloaded block from its format (null = unknown). */
