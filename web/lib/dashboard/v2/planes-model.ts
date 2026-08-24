@@ -17,7 +17,11 @@ import type {
   WeekDayPart,
   WeekSlots,
 } from '@fahybrid/shared/schema/program-templates';
-import { legacyItemToPrescription, prescriptionToText } from '@fahybrid/shared/domain/prescription';
+import {
+  legacyItemToPrescription,
+  normalizeFormat,
+  prescriptionToText,
+} from '@fahybrid/shared/domain/prescription';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 
 // Per-day card limit — keep the 7-column week scannable: at most a couple of
@@ -143,6 +147,8 @@ function itemDose(item: WeekDayPart['items'][number]): string {
 // mismo dato que colorea la vista día, para que las dos superficies no puedan
 // discrepar. Sin grupo y sin modalidad en ningún item → null (el gris no miente).
 function blockModality(block: WeekDayPart): V2Modality | null {
+  const format = block.format ? normalizeFormat(block.format) : undefined;
+  if (format === 'warmup' || format === 'cooldown') return 'calentamiento';
   const byGroup = modalityForGroup(block.methodology_group_id);
   if (byGroup) return byGroup;
   for (const it of block.items ?? []) {

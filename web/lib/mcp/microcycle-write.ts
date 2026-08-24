@@ -37,12 +37,12 @@ export const WEEKDAY_NAMES = [
 
 export type WeekInput = {
   focus?: string | undefined;
-  days: Array<{ weekday: number; blocks: ContentBlock[] }>;
+  days: Array<{ weekday: number; title: string; blocks: ContentBlock[] }>;
 };
 
 export type PreparedWeek = {
   focus: string | undefined;
-  days: Array<{ weekday: number; blocks: NormalizedContentBlock[] }>;
+  days: Array<{ weekday: number; title: string; blocks: NormalizedContentBlock[] }>;
 };
 
 export type PreparedContent = {
@@ -69,22 +69,30 @@ function blockFormatOf(block: NormalizedContentBlock): TemplateFormat {
   return (scheme ? normalizeFormat(scheme) : undefined) ?? 'sets';
 }
 
-function blocksToEditorSession(
-  blocks: NormalizedContentBlock[],
-  exercises: Map<number, ContentExercise>,
-): EditorSessionInput {
+/**
+ * Un día de receta → la sesión que serializa el editor.
+ * El título del ENTRENO (`focus`) es el del día, nunca el del primer bloque.
+ * Copiar el del bloque fue el apaño que dejó «Fuerza tren superior · Warm up»
+ * como nombre de un calentamiento.
+ */
+export function editorSessionFromContent(params: {
+  title: string;
+  blocks: NormalizedContentBlock[];
+  exercises: Map<number, ContentExercise>;
+}): EditorSessionInput {
+  const title = params.title.trim();
   return {
     uid: crypto.randomUUID(),
     slot: 'am',
-    focus: blocks[0]?.title,
-    blocks: blocks.map((block) => ({
+    ...(title ? { focus: title } : {}),
+    blocks: params.blocks.map((block) => ({
       uid: crypto.randomUUID(),
       title: block.title,
       format: blockFormatOf(block),
       items: block.items.map((item) => ({
         uid: crypto.randomUUID(),
         exercise_id: item.exercise_id,
-        exercise_name: exercises.get(item.exercise_id)?.name ?? '',
+        exercise_name: params.exercises.get(item.exercise_id)?.name ?? '',
         prescription: item.prescription,
         ...(item.notes ? { notes: item.notes } : {}),
       })),
@@ -109,6 +117,7 @@ export async function prepareWeeksContent(params: {
       focus: week.focus,
       days: week.days.map((day) => ({
         weekday: day.weekday,
+        title: day.title,
         blocks: normalizeContentBlocks(day.blocks),
       })),
     }));
@@ -179,7 +188,13 @@ export async function persistPreparedWeeks(params: {
         };
       const nextDay = serializeDay({
         day_of_week: day.weekday,
-        sessions: [blocksToEditorSession(day.blocks, prepared.exercises)],
+        sessions: [
+          editorSessionFromContent({
+            title: day.title,
+            blocks: day.blocks,
+            exercises: prepared.exercises,
+          }),
+        ],
         original,
       });
       days = mergeDayIntoDays(days, nextDay);

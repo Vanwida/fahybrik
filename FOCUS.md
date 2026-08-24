@@ -2,9 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-23** (objetivos relativos: tipo + resolutor, card 130)
+Última actualización: **2026-08-24** (card 156: título del entreno ≠ título del bloque)
 
 ## Ahora
+
+**156 · UN CALENTAMIENTO SE VEÍA COMO FUERZA.**
+El martes de la semana 1 ya era `format: warmup`. El editor no lo pintaba (sin chip, color del primer ejercicio = fuerza) y `create_microcycle` no tenía título de sesión: el asistente pegó el nombre del entreno en el primer bloque y la plataforma lo copió como título. Cada día lleva `title` (como `create_session`); el editor reconoce calentamiento/vuelta. Los títulos ya guardados no se reescriben.
+Ley: DECISIONS 24-ago. Card: https://app.clickup.com/t/86ak5675p
 
 **130 · OBJETIVOS RELATIVOS A LAS MARCAS DEL ATLETA — pieza 1 de 4 hecha.**
 Es la raíz de la card 128: sin esto, una plantilla con kilos absolutos no sirve

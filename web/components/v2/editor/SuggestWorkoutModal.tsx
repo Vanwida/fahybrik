@@ -51,6 +51,9 @@ function blockColorVar(format: string | null): string {
     case 'steady':
     case 'test':
       return '--v2-mod-ergo';
+    case 'warmup':
+    case 'cooldown':
+      return '--v2-mod-calentamiento';
     default:
       return '--v2-mod-circuito';
   }
