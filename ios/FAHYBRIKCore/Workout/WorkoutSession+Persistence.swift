@@ -73,4 +73,22 @@ extension WorkoutSession {
             setsPrimedSegmentIndex = currentSegmentIndex
         }
     }
+
+    /// Card 142 — "Salir y seguir luego". El atleta se va A PROPÓSITO a media
+    /// sesión (entre bloque y bloque, un descanso de verdad) con intención clara
+    /// de volver a ESTA misma sesión — no es un abandono ni un fin de entreno.
+    /// Congela el reloj (idempotente: si el propio sheet de salida ya pausó para
+    /// pedir la decisión, no hace nada) y devuelve la instantánea que hay que
+    /// guardar. El llamador tiene que:
+    ///   1) guardarla YA (nunca esperar al tick de autoguardado de 5 s — si el
+    ///      atleta cierra la app antes de ese tick se perdía lo declarado), y
+    ///   2) NO llamar jamás a `WorkoutStateStore.clear()/close()` en esta ruta:
+    ///      la instantánea es justo lo que permite retomarla luego, por el mismo
+    ///      camino que ya usa la recuperación tras un cierre inesperado
+    ///      (`WorkoutRecoveryGate` + `restore(from:)`).
+    @discardableResult
+    func leaveToResumeLater() -> PersistedWorkoutState {
+        if !isPaused, !isFinished { isPaused = true }
+        return persistedSnapshot()
+    }
 }

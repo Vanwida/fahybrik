@@ -60,6 +60,23 @@ final class WorkoutSession {
     /// puede borrar los metros que siga cubriendo. Lo que se mide se guarda; lo que se
     /// cuenta como tiempo es otra pregunta.
     var isManuallyPaused: Bool { isPaused && !autoPaused }
+    /// EL ÚLTIMO AVANCE, para que un toque de más no cueste una serie (card 113).
+    /// El 20-ago un doble toque sin querer cerró DOS series de golpe. El sello vive
+    /// en el motor y no en la pantalla a propósito: el botón «Siguiente» del reloj
+    /// entra por el mismo sitio, y una regla de dominio metida en una vista es
+    /// justo el agujero que ya nos mordió el 4-ago.
+    @ObservationIgnored var lastPrimaryAdvanceAt: Date? = nil
+
+    /// LO ÚLTIMO QUE ALGUIEN MIDIÓ (card 143). Metros de calle, de cinta o de
+    /// ergómetro: trabajo de verdad, no pulso. Sirve para decidir si un hueco en
+    /// el que la app estuvo dormida fue entreno o fue el atleta mirando el móvil.
+    @ObservationIgnored var lastMeasuredWorkAt: Date? = nil
+
+    /// Segundos que el reloj NO se apuntó porque la app estuvo suspendida sin que
+    /// nadie midiera nada. Se guarda en vez de tirarse: que un entreno diga «duró
+    /// 40 min» cuando pasaron 55 tiene que ser explicable, no invisible.
+    var discardedSuspendedSeconds: Double = 0
+
     var isFinished: Bool = false
     /// Set by `finish(completeness:)` — whether the session ran to the natural end
     /// (`.full` → 'completed') or was terminated early via "Terminar y guardar" /

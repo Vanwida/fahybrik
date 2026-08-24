@@ -14,6 +14,13 @@ struct ActiveWorkoutView: View {
     /// routes to the post-workout summary that LOGS the result. Exiting via this
     /// closure returns the athlete to a still-pending session.
     let onExit: () -> Void
+    /// Card 142 — "Salir y seguir luego". Distinct from BOTH `onFinish` (closes
+    /// the session and logs it) and `onExit` (discards it): this one freezes the
+    /// clock, force-saves the live snapshot and closes the screen with the
+    /// session left EXACTLY where it was — no execution logged, nothing
+    /// discarded. Default no-op so the unit tests that build this view directly
+    /// (they never open the exit sheet) don't need to wire it.
+    var onLeaveAndResume: () -> Void = {}
     /// #23 — partner first name for the dobles RELAY screen ("{name} hace SkiErg").
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
@@ -1296,7 +1303,8 @@ struct ActiveWorkoutView: View {
         if session.currentBlockIsStructural {
             session.completeStructuralBlock()
         } else {
-            session.primaryAdvance()
+            // Hay un dedo detrás: pide el antirrebote (card 113).
+            session.primaryAdvance(fromAthleteTap: true)
         }
     }
 
@@ -1585,8 +1593,12 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    // Step 1 — the three honest options. "Seguir entrenando" is the accent default
+    // Step 1 — the four honest options. "Seguir entrenando" is the accent default
     // (most prominent: ending a workout should never be the easy mis-tap).
+    // "Salir y seguir luego" (card 142) es LA razón de ser de este sheet: entre
+    // fuerza y cardio el atleta descansa de verdad y hasta ahora el móvil se
+    // quedaba secuestrado en esta pantalla sin más salida que terminar o tirar
+    // el entreno. Ahora hay una tercera vía, ni finalizar ni descartar.
     private var exitChooseContent: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             Text("¿Salir del entreno?")
@@ -1596,9 +1608,44 @@ struct ActiveWorkoutView: View {
                 .font(Theme.Typography.small)
                 .foregroundStyle(Theme.Color.muted)
             ExpertPrimaryButton(title: "Seguir entrenando") { dismissExitAndResume() }
+            salirYSeguirLuegoButton
             terminarYGuardarButton
             descartarButton
         }
+    }
+
+    // "Salir y seguir luego" — NO termina el entreno (no pasa por el resumen, no
+    // se registra nada) y NO lo descarta (la instantánea sigue viva). Estilo
+    // deliberadamente entre el acento de "Seguir entrenando" y el verde de
+    // "Terminar y guardar": es una tercera familia de acción, no una variante de
+    // ninguna de las otras dos. `session.leaveToResumeLater()` deja el reloj en
+    // pausa; el guardado inmediato y el cierre de pantalla los hace el
+    // contenedor (`onLeaveAndResume`), que es quien conoce `onClose` y el store.
+    private var salirYSeguirLuegoButton: some View {
+        Button {
+            exitStep = nil
+            onLeaveAndResume()
+        } label: {
+            VStack(spacing: 2) {
+                Text("Salir y seguir luego")
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .tracking(0.5)
+                Text("Se guarda tal cual — lo retomas cuando quieras")
+                    .font(.system(size: 15, weight: .semibold))
+                    .multilineTextAlignment(.center)
+            }
+            .foregroundStyle(Theme.Color.foreground)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Theme.Color.surfaceElevated)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Salir y seguir luego. El entreno se guarda a medias para retomarlo después")
     }
 
     // "Terminar y guardar" — the honest partial save. finish(.partial) closes the
@@ -1682,7 +1729,7 @@ struct ActiveWorkoutView: View {
     private var exitBlocksTotal: Int { session.blockCount }
     private var exitBlockUnit: String { exitBlocksTotal == 1 ? "bloque" : "bloques" }
     private var exitChooseMessage: String {
-        "Llevas \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) hechos. Puedes guardar lo que has hecho o descartarlo."
+        "Llevas \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) hechos."
     }
     private var terminarSubcaption: String {
         "Guarda \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) · el resto queda sin completar"

@@ -409,7 +409,8 @@ final class PhoneMirrorService {
             // record the partner's station as the athlete's work and corrupt volume.
             else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
-            else { session.primaryAdvance() }
+            // Un dedo en la muñeca rebota igual que uno en el móvil (card 113).
+            else { session.primaryAdvance(fromAthleteTap: true) }
         case MirrorWire.CommandKind.sync:
             // La muñeca pide re-base (arranque en frío / reconexión). Forzar el
             // envío saltándose la clave estructural — el heartbeat de 5 s no corre

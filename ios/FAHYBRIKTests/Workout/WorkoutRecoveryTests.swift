@@ -82,4 +82,60 @@ final class WorkoutRecoveryTests: XCTestCase {
 
         await store.clear()
     }
+
+    // MARK: - Card 142: "Salir y seguir luego" (leaveToResumeLater)
+    //
+    // El atleta se va A PROPÓSITO a media sesión con intención clara de volver —
+    // muy distinto de terminar (finish) o abandonar (discardAndClose). Estas
+    // pruebas fijan las dos garantías que pidió Alex: el reloj se congela de
+    // verdad, y la instantánea SOBREVIVE (nunca se toca clear()/close() en esta
+    // ruta, al revés que discardAndClose).
+
+    private func runningSession() -> WorkoutSession {
+        let s = WorkoutSession(plan: plan())
+        s.start(); s.beginBlock(); s.stop()   // corriendo, no en pausa, no en la puerta de bloque
+        return s
+    }
+
+    func testLeaveToResumeLaterPausesTheClock() {
+        let s = runningSession()
+        XCTAssertFalse(s.isPaused)
+        s.leaveToResumeLater()
+        XCTAssertTrue(s.isPaused, "salir a medias tiene que congelar el reloj: lo de fuera no cuenta")
+    }
+
+    func testLeaveToResumeLaterIsIdempotentWhenAlreadyPaused() {
+        // El sheet de salida ya puede haber pausado el reloj (pauseForVideo) antes
+        // de que el atleta elija "Salir y seguir luego" — esto NUNCA puede
+        // alternarlo de vuelta a corriendo.
+        let s = runningSession()
+        s.togglePause()
+        XCTAssertTrue(s.isPaused)
+        s.leaveToResumeLater()
+        XCTAssertTrue(s.isPaused)
+    }
+
+    func testLeaveToResumeLaterSnapshotSurvivesAndIsOfferedBack() async throws {
+        // Lo mismo que hace `WorkoutContainer.onLeaveAndResume`: guardar la
+        // instantánea y NUNCA llamar a clear()/close(). El store tiene que
+        // seguir teniéndola, y el gate tiene que seguir dispuesto a ofrecerla —
+        // exactamente lo que lee `WorkoutResumeBanner` en Plan.
+        let store = WorkoutStateStore(filename: "test-leave-\(UUID().uuidString).json")
+        await store.open()
+        let s = runningSession()
+        s.assignmentId = "77"
+
+        let snap = s.leaveToResumeLater()
+        await store.save(snap)
+
+        // `XCTUnwrap` recibe una autoclosure y ahí dentro no cabe un `await`:
+        // se saca la espera fuera y se desenvuelve después.
+        let cargado = await store.load()
+        let loaded = try XCTUnwrap(cargado)
+        XCTAssertEqual(loaded.assignmentId, "77")
+        XCTAssertTrue(loaded.isPaused)
+        XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: loaded, currentAssignmentId: "77"))
+
+        await store.clear()
+    }
 }

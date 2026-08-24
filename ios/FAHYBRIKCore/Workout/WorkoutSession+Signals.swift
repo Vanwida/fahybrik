@@ -59,6 +59,10 @@ extension WorkoutSession {
         let ergMetersBefore = tramoErgDistanceMeters
         let ergCaloriesBefore = tramoErgCalories
         lapHadPM5 = true
+        // TRABAJO MEDIDO, con su hora (card 143): un monitor mandando paladas es
+        // alguien remando. Sólo trabajo — el pulso no cuenta, que late igual
+        // descansando.
+        lastMeasuredWorkAt = Date()
         if let p = paceSecPer500m, p > 0 { lapErgPaceSamples.append(p) }
         if let w = powerWatts, w > 0 { lapErgPowerSamples.append(Double(w)) }
         if let s = strokeRate, s > 0 { lapErgSpmSamples.append(Double(s)) }
@@ -206,6 +210,10 @@ extension WorkoutSession {
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }
+        // TRABAJO MEDIDO, con su hora (card 143): es lo que distingue al que corre
+        // con el móvil en el bolsillo del que lo dejó en el banco. Sólo metros —el
+        // pulso no vale, que late igual descansando.
+        lastMeasuredWorkAt = Date()
         // Los metros de ESTA pierna antes de sumar, para poder ver CRUZAR el objetivo.
         let runMetersBefore = tramoRunCoveredMeters
         lapHadGPS = true
@@ -221,6 +229,7 @@ extension WorkoutSession {
     func claimTreadmillDistanceSource() {
         guard !isFinished, tramoIsRun else { return }
         guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
+
         lapBeltOwnsDistance = true
         lapGpsDistanceMeters = nil
         lapHadGPS = false
@@ -258,6 +267,11 @@ extension WorkoutSession {
               MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment),
               deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
+        // TRABAJO MEDIDO, con su hora (card 143): es lo que distingue al que corre
+        // con el móvil en el bolsillo del que lo dejó en el banco. Sólo metros —el
+        // pulso no vale, que late igual descansando.
+        lastMeasuredWorkAt = Date()
+
         // The cursor may have moved since the last sample: anchor this one in the
         // window it actually belongs to BEFORE counting it, exactly as `sampleErg`
         // does — otherwise minute 4's metres land in minute 3's bout.

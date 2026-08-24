@@ -5,6 +5,13 @@ import Foundation
 // activo, el descanso entre series y el autoguardado. Que sean uno y no cinco es
 // lo que impide que dos cronómetros de la misma sesión digan cosas distintas.
 extension WorkoutSession {
+    /// El latido nominal del reloj de la sesión.
+    static let latidoNormal: TimeInterval = 0.25
+    /// Por encima de esto, entre dos latidos no ha habido lentitud: ha habido una
+    /// suspensión. Cinco segundos es veinte veces el latido — ningún dispositivo
+    /// vivo se retrasa tanto, y queda muy por debajo de cualquier ausencia real.
+    static let huecoQueDelataSuspension: TimeInterval = 5
+
     func tick() {
         // The block-preview gate freezes ALL clocks (elapsed, lap, EMOM count-in/
         // countdown) until the athlete taps Empezar; resetting lastTick means the
@@ -14,7 +21,38 @@ extension WorkoutSession {
             return
         }
         let now = Date()
-        let dt = now.timeIntervalSince(lastTick)
+        let bruto = now.timeIntervalSince(lastTick)
+        // MIRAR EL MÓVIL A MITAD DE ENTRENO NO ALARGA EL ENTRENO (card 143).
+        //
+        // Este reloj suma el hueco entre un latido y el siguiente, no lee la hora
+        // de fin menos la de inicio. Mientras la app está delante eso es exacto.
+        // Cuando el sistema la manda al fondo SUSPENDE los latidos sin cancelarlos,
+        // así que al volver el primer latido traía de golpe todo el rato ausente y
+        // se sumaba entero: 40 minutos de entreno con una llamada de 15 se
+        // guardaban como 55. Y no es cosmético — la duración alimenta la carga de
+        // la semana, que es con lo que el entrenador decide si alguien se está
+        // pasando.
+        //
+        // POR QUÉ NO BASTA CON DESCONTAR SIEMPRE EL SEGUNDO PLANO: el que corre por
+        // la calle con el móvil en el bolsillo y la pantalla apagada SÍ está
+        // entrenando, y ese tiempo tiene que contar. La diferencia no es si la app
+        // estaba delante: es si alguien seguía MIDIENDO trabajo.
+        //
+        // Por eso el hueco cuenta cuando durante él entraron metros —de calle, de
+        // cinta o de ergómetro— y no cuenta cuando no entró nada. El pulso no vale
+        // como prueba: el reloj sigue latiendo mientras descansas.
+        //
+        // Y cuando no cuenta, no se tira: se guarda en `discardedSuspendedSeconds`,
+        // porque un entreno que dice 40 minutos cuando pasaron 55 tiene que poder
+        // explicarse.
+        var dt = bruto
+        if bruto > Self.huecoQueDelataSuspension {
+            let midieronDurante = lastMeasuredWorkAt.map { $0 > lastTick } ?? false
+            if !midieronDurante {
+                discardedSuspendedSeconds += bruto - Self.latidoNormal
+                dt = Self.latidoNormal
+            }
+        }
         lastTick = now
         elapsedSeconds += dt
         lapElapsedSeconds += dt

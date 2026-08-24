@@ -312,6 +312,23 @@ struct WorkoutContainer: View {
                             session.discardAndClose()
                             onClose()
                         },
+                        // Card 142 — "Salir y seguir luego": ni termina ni descarta. Se
+                        // fuerza el guardado YA (no el tick de 5 s) y SOLO entonces se
+                        // cierra la pantalla — el orden importa, si `onClose` cerrase
+                        // antes de que el `await` termine, un cierre de app justo detrás
+                        // podría llevarse por delante el guardado que veníamos a
+                        // garantizar. NUNCA se toca `clear()/close()` aquí: la
+                        // instantánea es lo que hace posible volver (ver
+                        // `WorkoutResumeBanner` en Plan y el aviso de recuperación
+                        // de abajo, que es el mismo camino que ya usa un cierre
+                        // inesperado de la app).
+                        onLeaveAndResume: {
+                            let snapshot = session.leaveToResumeLater()
+                            Task {
+                                await WorkoutStateStore.shared.save(snapshot)
+                                onClose()
+                            }
+                        },
                         hrZones: hrZones,
                         bearer: bearer,
                         // #Marcas — the engine's pre-block erg gate drops its manual
@@ -566,15 +583,24 @@ struct WorkoutContainer: View {
         }
     }
 
+    // Card 142 — este aviso lo ve tanto quien vuelve tras salir A PROPÓSITO
+    // ("Salir y seguir luego") como quien vuelve tras un cierre inesperado de la
+    // app: es EL MISMO camino (`WorkoutRecoveryGate` + `restore(from:)`), así que
+    // el copy tiene que sonar bien para el caso normal, no solo para el
+    // accidente. Antes decía "Workout sin guardar" / "¿Recuperar?", que suena a
+    // que algo salió mal — y a partir de ahora salir así es la vía normal entre
+    // bloques. El titular describe el estado, no un fallo; el botón principal es
+    // seguir donde lo dejó; el secundario, descartar, sigue borrando la
+    // instantánea igual que antes.
     @ViewBuilder
     private func recoveryModal(_ saved: PersistedWorkoutState) -> some View {
         ZStack {
             Theme.Color.scrim.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.m) {
-                Text("Workout sin guardar")
+                Text("Tienes un entreno a medias")
                     .font(Theme.Typography.headlineS)
                     .foregroundStyle(Theme.Color.foreground)
-                Text("Tienes un entreno en curso del \(formatted(saved.savedAt)). ¿Recuperar?")
+                Text("Lo dejaste el \(formatted(saved.savedAt)). Puedes seguir justo donde lo dejaste.")
                     .font(Theme.Typography.small)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
@@ -583,7 +609,7 @@ struct WorkoutContainer: View {
                         Task { await WorkoutStateStore.shared.clear() }
                         crashRecoveryPrompt = nil
                     }
-                    PrimaryButton(title: "Recuperar") {
+                    PrimaryButton(title: "Seguir donde lo dejé") {
                         let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
                         // ONE restore path, owned by the session (AUDIT-1: the gate
                         // already ensured the assignment matches). Field-by-field

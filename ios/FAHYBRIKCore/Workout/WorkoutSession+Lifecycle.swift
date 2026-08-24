@@ -159,8 +159,33 @@ extension WorkoutSession {
     /// preview intermedia) y el descanso que sonaba ya era el del curl. Los dos
     /// fallos del gym del 4-ago son el mismo agujero: una regla de dominio metida en
     /// una pantalla.
-    func primaryAdvance() {
+    /// UN TOQUE DE MÁS NO CUESTA UNA SERIE (card 113). El 20-ago un doble toque
+    /// sin querer cerró dos series seguidas: el trabajo no se pierde, pero el
+    /// atleta acaba mirando una pantalla que no es la suya sin saber si ha roto
+    /// algo. Dos avances separados por menos de `avanceMinimoEntreToques` no son
+    /// dos intenciones: son un dedo.
+    ///
+    /// `fromAthleteTap` existe porque esto NO es una regla del dominio sino
+    /// higiene de la entrada: el antirrebote protege DEDOS, no avances. El motor
+    /// se conduce a sí mismo mucho más rápido que ninguna mano —el reloj rotativo
+    /// de un Death By, el encadenado de tramos de una serie, el cierre automático
+    /// de una estación al llegar a sus metros— y frenar eso rompía veinte pruebas
+    /// que reproducen entrenos reales.
+    ///
+    /// Vive aquí y no en la pantalla para que valga IGUAL para el botón grande del
+    /// móvil y para el «Siguiente» de la muñeca, que entran los dos por esta
+    /// puerta. Sólo tienen que marcarlo los dos sitios donde hay un dedo detrás; el
+    /// defecto no frena nada, que es el comportamiento de siempre.
+    func primaryAdvance(fromAthleteTap: Bool = false) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
+        if fromAthleteTap {
+            let ahora = Date()
+            if let ultimo = lastPrimaryAdvanceAt,
+               ahora.timeIntervalSince(ultimo) < Self.avanceMinimoEntreToques {
+                return
+            }
+            lastPrimaryAdvanceAt = ahora
+        }
         if seg.hasRunStructure {
             runStructurePrimary()
         } else if seg.isEMOM {
@@ -232,6 +257,11 @@ extension WorkoutSession {
     /// Back one step. EMOM mid-block → previous interval (no data loss). Otherwise
     /// → previous segment, REOPENED with its recorded lap restored so it can be
     /// resumed + re-closed. No-op at the very start.
+    /// Lo que separa dos toques distintos de un dedo torpe. Medido contra el caso
+    /// real: un doble toque accidental cae muy por debajo; cerrar dos series a
+    /// propósito tan seguido no lo hace nadie con una barra en las manos.
+    static let avanceMinimoEntreToques: TimeInterval = 0.8
+
     func stepBack() {
         guard !isPaused, !isFinished else { return }
         if let seg = currentSegment, seg.isEMOM, emomCountInRemaining <= 0, emomIntervalIndex > 0 {
@@ -245,6 +275,27 @@ extension WorkoutSession {
             return
         }
         guard currentSegmentIndex > 0 else { return }
+
+        // VOLVER NO TE SACA DEL BLOQUE (card 115). El 20-ago Alex quiso volver
+        // atrás dentro de las estaciones porque lo había hecho mal, y apareció
+        // otra vez en el bloque de fuerza. Técnicamente era «un paso atrás» —el
+        // segmento anterior era el último del bloque de antes— pero para el
+        // atleta fue caerse a otro sitio sin haberlo pedido, y ese es justo el
+        // miedo que hace que use la app con pinzas.
+        //
+        // Estando en el PRIMER movimiento de un bloque, volver significa «no
+        // estoy listo con ESTE bloque», no «llévame al anterior»: se aparca en la
+        // puerta del bloque, que congela el reloj y espera un Empezar. No se
+        // borra nada — lo hecho sigue hecho.
+        //
+        // Salir de un bloque hacia atrás deja de poder pasar por accidente. Si
+        // algún día hace falta a propósito, será otro gesto y se verá que lo es.
+        if blockKey(at: currentSegmentIndex - 1) != blockKey(at: currentSegmentIndex) {
+            Haptics.light()
+            armBlock()
+            return
+        }
+
         Haptics.light()
         let origin = currentSegmentIndex
         clearEMOMState()

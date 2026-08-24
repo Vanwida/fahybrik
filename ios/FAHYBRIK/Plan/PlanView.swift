@@ -70,6 +70,11 @@ struct PlanView: View {
     // ── Navegación (los mismos destinos de siempre) ───────────────────────────
     @State var workoutLaunch: WorkoutLaunch? = nil
     @State private var executedLaunch: WorkoutLaunch? = nil
+    /// Card 142 — sube cada vez que el cover del entreno se cierra (por
+    /// cualquier vía) para que `WorkoutResumeBanner` vuelva a comprobar si hay
+    /// una instantánea que ofrecer, justo en el momento en que puede haber
+    /// aparecido una tras un "Salir y seguir luego".
+    @State private var resumeBannerRefresh = 0
     @State var techniqueTarget: AthleteWeekDaySession? = nil
     @State var showChat = false
     /// Sobre qué se abre el chat cuando se abre desde el menú de una sesión o de
@@ -127,9 +132,16 @@ struct PlanView: View {
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
                 hrZones: store.identity.value?.hrZones,
-                onClose: { workoutLaunch = nil },
+                onClose: {
+                    workoutLaunch = nil
+                    // "Salir y seguir luego" cierra por AQUÍ (igual que un
+                    // descarte o un back de brief): la tira de retomar tiene que
+                    // volver a mirar el store justo ahora.
+                    resumeBannerRefresh += 1
+                },
                 onCompleted: { _ in
                     workoutLaunch = nil
+                    resumeBannerRefresh += 1
                     Task { await store.planMutated(); await cargar(force: true) }
                 }
             )
@@ -212,6 +224,13 @@ struct PlanView: View {
         FillingScreen {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 cabeceraDeNavegacion
+                // Card 142 — "Salir y seguir luego" deja un entreno a medias
+                // adrede; esta es la forma de VOLVER que no depende de que el
+                // atleta se acuerde. Autocargada: no pinta nada la mayoría del
+                // tiempo (no hay ninguna instantánea que ofrecer).
+                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { launch in
+                    workoutLaunch = launch
+                }
                 CabeceraDelBloque(
                     nombre: semanaVisible?.nombreBloque,
                     posicion: posicionVisible,
