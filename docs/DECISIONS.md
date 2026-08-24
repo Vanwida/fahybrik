@@ -30,6 +30,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · El tipo de un bloque se puede cambiar después de crearlo
+
+**Qué pasó (card 158):** el tipo (calentamiento, fuerza, circuito, carrera…) se elegía solo al añadir el bloque. El chip del tipo no se tocaba. Un calentamiento mal etiquetado como fuerza no tenía corrección.
+
+**Decidido:** el chip es un selector con la misma lista que «Añadir bloque». Cambia el format y el scheme de las líneas; no borra el nombre, los ejercicios ni la dosis. Pasar a/desde superserie sigue el camino ya existente (el descanso de la vuelta).
+
+**NO hacer:** no vaciar el bloque al cambiar de tipo. No inferir el tipo por el título.
+
+---
+
 ## 2026-08-23 · El «nivel» no es un nivel: es un eje del entrenador, y es opcional
 
 **Qué pasó (card 137):** al meter por el asistente un macrociclo real de 12 semanas, **el contenido pasó la validación entera** — 114 bloques, ~320 líneas tipadas con medida, objetivo y descanso, incluidas las series y los fartlek con su estructura anidada. Lo que tumbó la importación fue **el `level_id`**: un campo obligatorio que **ninguna herramienta de lectura sabía entregar** (`get_plan` devuelve `level: ""` incluso para un microciclo que sí tiene nivel; ni la lista de atletas ni la ficha completa lo exponen). El asistente sólo podía adivinar, y adivinó mal.

@@ -2,9 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (card 156: título del entreno ≠ título del bloque)
+Última actualización: **2026-08-24** (card 158: cambiar el tipo de un bloque)
 
 ## Ahora
+
+**158 · EL ENTRENADOR PUEDE CAMBIAR EL TIPO DE UN BLOQUE.**
+El chip junto al nombre ya no es un adorno: es el mismo selector que al añadir (calentamiento, fuerza, circuito, carrera…). Los ejercicios y la dosis se quedan. Grok.
+Card: https://app.clickup.com/t/86ak56had
 
 **156 · UN CALENTAMIENTO SE VEÍA COMO FUERZA.**
 El martes de la semana 1 ya era `format: warmup`. El editor no lo pintaba (sin chip, color del primer ejercicio = fuerza) y `create_microcycle` no tenía título de sesión: el asistente pegó el nombre del entreno en el primer bloque y la plataforma lo copió como título. Cada día lleva `title` (como `create_session`); el editor reconoce calentamiento/vuelta. Los títulos ya guardados no se reescriben.
