@@ -582,11 +582,15 @@ export async function updateMonthTemplate(params: {
 export async function deleteMonthTemplate(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client: Sql;
+  client: Sql | TransactionSql;
 }): Promise<void> {
   const { coach_id, month_id, client } = params;
   try {
-    await client.begin(async (tx) => {
+    // Transacción propia o ajena, igual que `removeWeekFromMonth`: el botón del
+    // panel llega con el pool y abre la suya; el asistente llega ya dentro de una
+    // (borrado + registro de auditoría tienen que caer juntos o no caer), y
+    // postgres.js no anida `begin`.
+    const run = async (tx: Sql | TransactionSql) => {
       const owned = await tx<Array<{ id: string }>>`
         select id::text from program_month_templates
         where id = ${month_id as number} and coach_id = ${coach_id as number}
@@ -605,7 +609,13 @@ export async function deleteMonthTemplate(params: {
         await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
       }
       await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
-    });
+    };
+
+    if (typeof (client as Sql).begin === 'function') {
+      await (client as Sql).begin((tx) => run(tx));
+    } else {
+      await run(client);
+    }
   } catch (err) {
     if (err instanceof ProgramMonthError) throw err;
     if (isForeignKeyViolation(err, 'program_sequence_items_month_template_id_fkey')) {

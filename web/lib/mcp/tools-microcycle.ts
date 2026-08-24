@@ -404,7 +404,7 @@ export function registerMicrocycleTools(server: McpServer): void {
         let nombre: string;
         let semanas: number;
         try {
-          const loaded = await loadMonthTemplateWithWeeks({ coach_id, id: args.microcycle_id });
+          const loaded = await loadMonthTemplateWithWeeks({ coach_id, month_id: args.microcycle_id });
           if (!loaded) return fail('No encuentro ese microciclo en tu biblioteca.');
           nombre = loaded.month.name;
           semanas = loaded.weeks.length;
