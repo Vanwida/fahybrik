@@ -93,12 +93,60 @@ export interface LineaEjercicio {
   hecho?: string;
 }
 
-export interface BloqueCartel {
+/**
+ * UNA REPETICIÓN de una serie, con lo que salió. `8 × 400` no son ocho líneas
+ * de «400 m»: son ocho NÚMEROS distintos, y esos números son justamente lo que
+ * la gente enseña. El primero y el último cuentan una historia; la media sola,
+ * ninguna.
+ */
+export interface Repeticion {
+  /** Lo que se repitió, si no se sabe por la pauta: `400 m`, `1 km`. */
+  etiqueta?: string;
+  /** El tiempo de esa repetición: `1:26`. */
+  valor: string;
+  /** El ritmo, cuando aporta: `3:35/km`. */
+  ritmo?: string;
+  /** La mejor de la tanda. Se marca sola, no la elige el atleta. */
+  mejor?: boolean;
+}
+
+interface BloqueBase {
   titulo: string;
   formato: FormatoBloque;
   /** La cabecera del formato cuando dice algo: `4 rondas`, `EMOM 12′`. */
   pauta?: string;
-  ejercicios: LineaEjercicio[];
+}
+
+/**
+ * DOS FORMAS DE BLOQUE, porque hay dos cosas distintas que enseñar.
+ *
+ * `lista` — movimientos distintos con su dosis. Es la fuerza, el circuito, la
+ * estación: lo que interesa es QUÉ se hizo.
+ *
+ * `serie` — la misma cosa repetida, con su marca cada vez. Es la tanda de
+ * carrera y las series de ergo: lo que interesa es CÓMO fue cayendo. Meterla
+ * como una lista («8 × 400 m») tira justo el dato por el que se comparte.
+ */
+export type BloqueCartel =
+  | (BloqueBase & { clase: 'lista'; ejercicios: LineaEjercicio[] })
+  | (BloqueBase & { clase: 'serie'; repeticiones: Repeticion[] });
+
+/** Cuántas repeticiones caben en una fila. Ocho parciales en una columna no
+ *  entran en una tarjeta de esquina; en dos columnas, sí. */
+export function columnasDeSerie(n: number): number {
+  return n > 5 ? 2 : 1;
+}
+
+/** Cuántas piezas «de línea» gasta un bloque, sea de la forma que sea. */
+function lineasDe(b: BloqueCartel): number {
+  return b.clase === 'serie'
+    ? Math.ceil(b.repeticiones.length / columnasDeSerie(b.repeticiones.length))
+    : b.ejercicios.length;
+}
+
+/** Cuántas cosas contiene — lo que se cuenta al declarar lo que no cabe. */
+function cuantasCosas(b: BloqueCartel): number {
+  return b.clase === 'serie' ? b.repeticiones.length : b.ejercicios.length;
 }
 
 export interface Entreno {
@@ -148,13 +196,23 @@ export function recortar(
     // Un bloque partido a la mitad se lee peor que un bloque ausente, así que
     // se le pide sitio para dos líneas... salvo que solo TENGA una (un bloque
     // de un ejercicio no se puede partir), en cuyo caso basta con la suya.
-    const minimo = Math.min(2, b.ejercicios.length);
+    const minimo = Math.min(2, lineasDe(b));
     if (paraLineas < GASTO.linea * minimo) {
-      ocultos += b.ejercicios.length;
+      ocultos += cuantasCosas(b);
       continue;
     }
-    const caben = Math.floor(paraLineas / GASTO.linea);
-    const dentro = b.ejercicios.slice(0, caben);
+    const filasQueCaben = Math.floor(paraLineas / GASTO.linea);
+
+    if (b.clase === 'serie') {
+      const cols = columnasDeSerie(b.repeticiones.length);
+      const dentro = b.repeticiones.slice(0, filasQueCaben * cols);
+      ocultos += b.repeticiones.length - dentro.length;
+      visibles.push({ ...b, repeticiones: dentro });
+      presupuesto -= GASTO.cabeceraBloque + Math.ceil(dentro.length / cols) * GASTO.linea;
+      continue;
+    }
+
+    const dentro = b.ejercicios.slice(0, filasQueCaben);
     ocultos += b.ejercicios.length - dentro.length;
     visibles.push({ ...b, ejercicios: dentro });
     presupuesto -= GASTO.cabeceraBloque + dentro.length * GASTO.linea;

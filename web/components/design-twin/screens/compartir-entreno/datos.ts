@@ -17,6 +17,7 @@ const FUERZA_ERGO: Entreno = {
   titulo: 'Fuerza B + Ski',
   bloques: [
     {
+      clase: 'lista',
       titulo: 'Calentamiento',
       formato: 'warmup',
       ejercicios: [
@@ -25,6 +26,7 @@ const FUERZA_ERGO: Entreno = {
       ],
     },
     {
+      clase: 'lista',
       titulo: 'Fuerza',
       formato: 'strength',
       ejercicios: [
@@ -34,6 +36,7 @@ const FUERZA_ERGO: Entreno = {
       ],
     },
     {
+      clase: 'lista',
       titulo: 'SkiErg',
       formato: 'rounds',
       pauta: '4 rondas',
@@ -48,11 +51,13 @@ const SIMULACRO: Entreno = {
   titulo: 'Simulacro HYROX',
   bloques: [
     {
+      clase: 'lista',
       titulo: 'Calentamiento',
       formato: 'warmup',
       ejercicios: [{ nombre: 'Trote + movilidad', dosis: '10 min' }],
     },
     {
+      clase: 'lista',
       titulo: 'Estaciones',
       formato: 'hyrox_sim',
       pauta: '8 rondas · 1 km entre estación',
@@ -68,6 +73,7 @@ const SIMULACRO: Entreno = {
       ],
     },
     {
+      clase: 'lista',
       titulo: 'Core',
       formato: 'rounds',
       pauta: '3 rondas',
@@ -81,6 +87,7 @@ const SIMULACRO: Entreno = {
       ],
     },
     {
+      clase: 'lista',
       titulo: 'Vuelta a la calma',
       formato: 'cooldown',
       ejercicios: [{ nombre: 'Bici suave', dosis: '8 min' }],
@@ -99,6 +106,7 @@ const HECHO: Entreno = {
   ],
   bloques: [
     {
+      clase: 'lista',
       titulo: 'Fuerza',
       formato: 'strength',
       ejercicios: [
@@ -108,6 +116,7 @@ const HECHO: Entreno = {
       ],
     },
     {
+      clase: 'lista',
       titulo: 'SkiErg',
       formato: 'rounds',
       pauta: '4 rondas',
@@ -116,8 +125,44 @@ const HECHO: Entreno = {
   ],
 };
 
+
+/**
+ * ④ La tanda de 400. EL CASO QUE MÁS SE COMPARTE: lo que la gente enseña de una
+ * sesión de series no es «8 × 400 m», son los ocho parciales — cómo aguantó el
+ * ritmo, dónde se cayó y cuál fue la mejor. Por eso el bloque de serie existe
+ * como forma propia y no como una línea de lista.
+ */
+const SERIES_400: Entreno = {
+  dia: 'Jueves',
+  titulo: '8 × 400',
+  resultado: [
+    { etiqueta: 'Media', valor: '1:26' },
+    { etiqueta: 'Ritmo', valor: '3:35' },
+    { etiqueta: 'Total', valor: '9,4 km' },
+  ],
+  bloques: [
+    {
+      clase: 'serie',
+      titulo: 'Series',
+      formato: 'intervals',
+      pauta: '400 m · 90 s rec',
+      repeticiones: [
+        { valor: '1:28', ritmo: '3:40' },
+        { valor: '1:27', ritmo: '3:37' },
+        { valor: '1:27', ritmo: '3:37' },
+        { valor: '1:26', ritmo: '3:35' },
+        { valor: '1:26', ritmo: '3:35' },
+        { valor: '1:25', ritmo: '3:32' },
+        { valor: '1:25', ritmo: '3:32' },
+        { valor: '1:22', ritmo: '3:25', mejor: true },
+      ],
+    },
+  ],
+};
+
 export const ESCENAS: Record<string, Entreno> = {
   'dia-normal': FUERZA_ERGO,
   'no-cabe': SIMULACRO,
   'ya-hecho': HECHO,
+  'series-400': SERIES_400,
 };

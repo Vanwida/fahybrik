@@ -99,6 +99,12 @@ export const escenarios: TwinEscenario[] = [
     descripcion:
       'El mismo martes, ya hecho. Cambia el sujeto: arriba el titular de lo que pasó (tiempo, volumen, pulso medio) y en cada línea el número REAL en vez del prescrito — las búlgaras salieron a 8 repeticiones, no a 10, y eso es lo que se enseña. Es el momento con más chicha, y es una decisión aparte: la card pedía el de antes.',
   },
+  {
+    id: 'series-400',
+    titulo: '④ Series de 400 · el que más se comparte',
+    descripcion:
+      'Una tanda de series es lo que más se enseña, y lo que se enseña son LOS PARCIALES: cómo aguantó el ritmo, dónde se cayó y cómo cerró. Por eso un bloque de serie no es una línea de lista («8 × 400 m»), es una forma propia con sus ocho números en dos columnas y la mejor marcada sola desde el dato. Promediar una tanda hace que una clavada y una que se hundió a la cuarta se lean igual.',
+  },
 ];
 
 export function Screen({ escenario, onLog }: TwinScreenProps) {

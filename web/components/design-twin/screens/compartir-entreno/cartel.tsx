@@ -11,7 +11,10 @@
 // justo lo que hoy hace a mano con una captura de pantalla, pero legible.
 
 import type { CSSProperties } from 'react';
-import { GASTO, STORY, TARJETA, recortar, type BloqueCartel, type Club, type Entreno } from './modelo';
+import {
+  GASTO, STORY, TARJETA, columnasDeSerie, recortar,
+  type BloqueCartel, type Club, type Entreno, type Repeticion,
+} from './modelo';
 
 export type Marca = 'club' | 'sin';
 
@@ -184,18 +187,24 @@ function Lista({ bloques, ocultos, acento }: { bloques: BloqueCartel[]; ocultos:
             </span>
             {b.pauta && <span style={{ fontSize: 21, color: TINTA_TENUE, fontFamily: MONO }}>{b.pauta}</span>}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {b.ejercicios.map((e, j) => (
-              <div key={j} style={fila}>
-                <span style={{ fontSize: 32, fontWeight: 600 }}>{e.nombre}</span>
-                {/* Lo hecho manda sobre lo prescrito: en la tarjeta de después
-                    interesa el número que salió, no el que tocaba. */}
-                <span style={{ fontSize: 30, fontWeight: 700, fontFamily: MONO, color: e.hecho ? acento : TINTA_TENUE }}>
-                  {e.hecho ?? e.dosis}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* La forma del bloque decide el cuerpo: movimientos distintos se
+              leen en lista, la misma cosa repetida se lee en parciales. */}
+          {b.clase === 'serie' ? (
+            <Parciales reps={b.repeticiones} acento={acento} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {b.ejercicios.map((e, j) => (
+                <div key={j} style={fila}>
+                  <span style={{ fontSize: 32, fontWeight: 600 }}>{e.nombre}</span>
+                  {/* Lo hecho manda sobre lo prescrito: en la tarjeta de después
+                      interesa el número que salió, no el que tocaba. */}
+                  <span style={{ fontSize: 30, fontWeight: 700, fontFamily: MONO, color: e.hecho ? acento : TINTA_TENUE }}>
+                    {e.hecho ?? e.dosis}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 
@@ -205,6 +214,64 @@ function Lista({ bloques, ocultos, acento }: { bloques: BloqueCartel[]; ocultos:
           + {ocultos} más
         </div>
       )}
+    </div>
+  );
+}
+
+
+/**
+ * LOS PARCIALES — el dato por el que se comparte una tanda de series.
+ *
+ * Cada repetición con su número y su marca, en el orden en que pasaron: ahí se
+ * ve si aguantó el ritmo, dónde se cayó y cómo cerró. Un «8 × 400 m» promediado
+ * dice lo mismo de una tanda clavada que de una que se hundió a la cuarta.
+ *
+ * En dos columnas cuando pasan de cinco: ocho parciales en una sola columna
+ * convierten la tarjeta de esquina en un cartel, que es lo que no queremos.
+ */
+function Parciales({ reps, acento }: { reps: Repeticion[]; acento: string }) {
+  const cols = columnasDeSerie(reps.length);
+  // SI TODAS LAS REPETICIONES SON LO MISMO, el ritmo de cada una sobra: la
+  // cabecera ya dice «400 m» y el ritmo medio está arriba, así que repetirlo
+  // ocho veces solo roba sitio al número que la gente enseña. Cuando las
+  // repeticiones no son iguales (una pirámide, por ejemplo), el ritmo es lo
+  // único que las hace comparables y entonces sí sale.
+  const mismaCosa = reps.every((r) => !r.etiqueta);
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        columnGap: 40,
+        rowGap: 8,
+      }}
+    >
+      {reps.map((r, i) => (
+        <div key={i} style={{ ...fila, gap: 14 }}>
+          <span style={{ fontSize: 24, fontFamily: MONO, color: TINTA_TENUE, minWidth: 26 }}>
+            {i + 1}
+          </span>
+          {r.etiqueta && <span style={{ fontSize: 26, color: TINTA_TENUE }}>{r.etiqueta}</span>}
+          <span
+            style={{
+              fontSize: 38,
+              fontWeight: 800,
+              fontFamily: MONO,
+              marginLeft: 'auto',
+              // La mejor se marca sola, a partir del dato. Nadie la elige.
+              color: r.mejor ? acento : TINTA,
+            }}
+          >
+            {r.valor}
+          </span>
+          {!mismaCosa && r.ritmo && (
+            <span style={{ fontSize: 24, fontFamily: MONO, color: TINTA_TENUE, minWidth: 66, textAlign: 'right' }}>
+              {r.ritmo}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
