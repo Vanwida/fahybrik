@@ -64,6 +64,9 @@ struct ExerciseDetailView: View {
             parts.append(rl.kgLabel)
             if rl.needsReview { parts.append("sin confirmar") }
         }
+        if let phrase = item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase {
+            parts.append(phrase)
+        }
         if let header = PrescriptionRenderer.wodHeader(p) { parts.insert(header, at: 0) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
@@ -142,6 +145,11 @@ struct ExerciseDetailView: View {
                     // has a 1RM — never a fabricated kg.
                     if let rl = item.resolvedLoad {
                         resolvedLoadChip(rl)
+                    }
+                    if let phrase = item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase {
+                        Text(phrase)
+                            .scaledFont(12, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
                     }
                 }
             }

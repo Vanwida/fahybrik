@@ -75,6 +75,11 @@ export interface ItemReal {
   dosis: string | null;
   /** El OBJETIVO — ritmo, zona, RPE, %RM o kg. Ausente = no lo hay. */
   objetivo?: string;
+  /**
+   * Frase de un objetivo relativo ya resuelto en el servidor
+   * («a peso de competición»). El número sigue en `objetivo`.
+   */
+  fraseRelativa?: string;
   /** Descanso entre series, en segundos. Ausente = la prescripción no lo lleva. */
   descansoS?: number;
   /** Series, cuando la prescripción las declara (`sets[]`). */
@@ -227,7 +232,7 @@ export const HYROX: SesionReal = {
         RUN_1K,
         { nombre: 'SkiErg', dosis: '1.000 m', modalidad: 'ski' },
         RUN_1K,
-        { nombre: 'Sled Push', dosis: '50 m', objetivo: '152 kg', modalidad: 'functional' },
+        { nombre: 'Sled Push', dosis: '50 m', objetivo: '152 kg', fraseRelativa: 'a peso de competición', modalidad: 'functional' },
         RUN_1K,
         { nombre: 'Sled Pull', dosis: '50 m', objetivo: '103 kg', modalidad: 'functional' },
         RUN_1K,

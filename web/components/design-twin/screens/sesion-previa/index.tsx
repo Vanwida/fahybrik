@@ -49,7 +49,7 @@ export const meta: TwinMeta = {
   titulo: 'La ficha de la sesión, con el vídeo',
   zona: 'Plan y hoy',
   estado: 'construida',
-  actualizado: '2026-08-10',
+  actualizado: '2026-08-24',
   descripcion:
     'Lo que ves antes de empezar: qué toca, por qué te lo manda el coach y cómo se hace cada movimiento. Un vídeo por ejercicio y «Empezar» siempre abajo.',
   fuentes: [

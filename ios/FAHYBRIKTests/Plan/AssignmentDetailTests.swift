@@ -924,6 +924,31 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.formatWorkSeconds, 60)
     }
 
+    func test_decode_resolvedReferences_phraseWithoutRecalculating() throws {
+        let json = """
+        {
+          "assignment": { "id": "asg_rel", "athlete_id": "ath_rel", "scheduled_for": "2026-08-24", "status": "scheduled" },
+          "workout": { "name": "Sled", "blocks": [ { "uid": "b", "title": "Sled", "format": "straight_sets", "block_position": 1, "items": [
+            { "uid": "i", "exercise_id": "e", "exercise_name": "Sled Push", "exercise_slug": "hyrox-sled-push", "exercise_category": "functional",
+              "exercise_video_url": null, "cues": null, "params_json": { "load_kg": 152 },
+              "prescription_json": { "scheme": "sets", "modality": "functional", "target": { "kind": "kg", "value": 152 } },
+              "resolved_references": [
+                { "phrase": "a peso de competición", "target": { "kind": "kg", "value": 152 }, "source": "competition_load:hyrox-sled-push", "estimated": false }
+              ],
+              "notes": null }
+          ] } ] } }
+        """
+        let item = try XCTUnwrap(try decode(json).workout?.blocks.first?.items.first)
+        XCTAssertEqual(item.paramsJson.loadKg, 152)
+        XCTAssertEqual(item.resolvedReferences?.count, 1)
+        XCTAssertEqual(item.resolvedReferences?.first?.phrase, "a peso de competición")
+        if case .kg(let value, _, _, _) = item.prescription?.target {
+            XCTAssertEqual(value, 152)
+        } else {
+            XCTFail("El número tiene que viajar en el target de siempre, no en un kind relative.")
+        }
+    }
+
     // MARK: - Free workout WITH content (regression: "No pudimos cargar")
     //
     // VERBATIM bodies captured from the live demo endpoint

@@ -733,11 +733,29 @@ struct PreWorkoutBriefView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                 }
+                if let phrase = resolvedReferencePhrase(item) {
+                    Hairline()
+                    resolvedReferenceLine(phrase)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                }
             }
         }
     }
 
     @ViewBuilder
+    private func resolvedReferencePhrase(_ item: WorkoutItem) -> String? {
+        item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase
+    }
+
+    @ViewBuilder
+    private func resolvedReferenceLine(_ phrase: String) -> some View {
+        Text(phrase)
+            .scaledFont(12, relativeTo: .footnote)
+            .foregroundStyle(Theme.Color.muted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func resolvedLoadLine(_ rl: ResolvedLoad) -> some View {
         HStack(spacing: 8) {
             Text("SEGÚN TU 1RM")
@@ -828,7 +846,7 @@ struct PreWorkoutBriefView: View {
         let needsReview = item.resolvedIntensity?.needsReview == true
         // Append the backend-resolved %RM→kg when present (a %RM on a non-strength
         // card, e.g. a barbell complex); strength items render it in the table.
-        let detail = [line.detail, item.resolvedLoad?.kgLabel, needsReview ? "sin confirmar" : nil]
+        let detail = [line.detail, item.resolvedLoad?.kgLabel, resolvedReferencePhrase(item), needsReview ? "sin confirmar" : nil]
             .compactMap { $0 }
             .joined(separator: " · ")
         CardSurface(padding: 14, leftAccent: true) {

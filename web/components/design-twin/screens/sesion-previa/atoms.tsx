@@ -98,6 +98,7 @@ export function LineaDosis({ item, grande = false }: { item: ItemReal; grande?: 
     if (carrera.detalle) extras.push(carrera.detalle);
   } else {
     if (item.objetivo) extras.push(item.objetivo);
+    if (item.fraseRelativa) extras.push(item.fraseRelativa);
     // «45s» por debajo del minuto, reloj a partir de ahí: la variante en segundos
     // de `Formato.clock`, que es con la que la app escribe los descansos.
     if (item.descansoS) extras.push(`descanso ${reloj(item.descansoS, 'segundos')}`);

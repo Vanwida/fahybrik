@@ -8,7 +8,7 @@ import {
   isoDateTime,
   partnerVisibility,
 } from './_primitives';
-import { prescriptionSchema } from '../domain/prescription';
+import { prescriptionSchema, targetSchema } from '../domain/prescription';
 import { STORE_RESULT_MEASURES, STORE_RESULT_UNITS, STORE_RESULT_DERIVES } from './test-battery';
 
 // Dobles HYROX station assignment (reparto).
@@ -447,6 +447,17 @@ export const resolvedLoadSchema = z.object({
 });
 export type ResolvedLoad = z.infer<typeof resolvedLoadSchema>;
 
+// Card 130 — el porqué de un objetivo relativo («a peso de competición»),
+// ya resuelto a ESTE atleta. El número viaja en `prescription_json.target`
+// (el campo de siempre). Esta lista es la frase. Vacía si no había relativo.
+export const resolvedReferenceSchema = z.object({
+  phrase: z.string().min(1),
+  target: targetSchema.nullable(),
+  source: z.string().nullable(),
+  estimated: z.boolean(),
+});
+export type ResolvedReference = z.infer<typeof resolvedReferenceSchema>;
+
 export const assignmentDetailItemSchema = z.object({
   uid: z.string().min(1),
   exercise_id: idSchema,
@@ -476,6 +487,10 @@ export const assignmentDetailItemSchema = z.object({
   resolved_intensity: resolvedIntensitySchema.nullable(),
   // The line's %RM target resolved to the athlete's absolute kg, or null.
   resolved_load: resolvedLoadSchema.nullable(),
+  // Card 130 — frases de los objetivos relativos de esta línea. Ausente en
+  // payloads anteriores. El iOS viejo ignora la clave. El builder del día
+  // siempre emite el array (vacío si no había relativo).
+  resolved_references: z.array(resolvedReferenceSchema).optional(),
   notes: z.string().nullable(),
 });
 export type AssignmentDetailItem = z.infer<typeof assignmentDetailItemSchema>;
