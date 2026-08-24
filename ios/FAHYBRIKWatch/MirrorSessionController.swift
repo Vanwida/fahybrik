@@ -437,7 +437,7 @@ final class MirrorSessionController: NSObject {
         if state == .ending, isClosing { return }
         state = .ending
         isClosing = true
-        Task { await closeRecording(save: save) }
+        Task { await closeRecording(save: save, reason: MirrorWire.EndReason.phone) }
     }
 
     /// Lost-phone exit from the controls page: keep the workout (it lands in Apple
@@ -448,7 +448,7 @@ final class MirrorSessionController: NSObject {
         if state == .ending, isClosing { return }
         state = .ending
         isClosing = true
-        Task { await closeRecording(save: true) }
+        Task { await closeRecording(save: true, reason: MirrorWire.EndReason.athlete) }
     }
 
     func discardLocally() {
@@ -456,10 +456,10 @@ final class MirrorSessionController: NSObject {
         if state == .ending, isClosing { return }
         state = .ending
         isClosing = true
-        Task { await closeRecording(save: false) }
+        Task { await closeRecording(save: false, reason: MirrorWire.EndReason.discarded) }
     }
 
-    private func closeRecording(save: Bool) async {
+    private func closeRecording(save: Bool, reason: String) async {
         isClosing = true
         stopWatchdog()
         stopSensorRelay()
@@ -492,7 +492,8 @@ final class MirrorSessionController: NSObject {
 
         // Relay the finished id BEFORE ending the session (channel dies with it).
         if let closingSession, let data = MirrorEnvelope.encoding(
-            type: MirrorWire.MessageType.ended, MirrorEnded(workoutUuid: workoutUuid)
+            type: MirrorWire.MessageType.ended,
+            MirrorEnded(workoutUuid: workoutUuid, reason: reason)
         ) {
             try? await closingSession.sendToRemoteWorkoutSession(data: data)
         }
@@ -613,10 +614,15 @@ final class MirrorSessionController: NSObject {
         isConnectionLost = idle > Self.connectionLostAfter
         // Card 72/102 self-heal: don't trap a live HKWorkout forever waiting for a
         // phone that already gave up (or an athlete who never looked at the wrist).
-        // `finishLocally()` SAVES — never discards — so the recorded work survives.
+        // SIEMPRE guarda — nunca descarta — así lo grabado sobrevive.
         if idle > Self.recordingStuckTimeout {
             Self.log.warning("recording stuck \(idle, privacy: .public)s with no phone signal — self-closing with a save")
-            finishLocally()
+            // NO es `finishLocally()`: aquí no ha terminado nadie. Se guarda lo
+            // grabado y se avisa como `watchdog`, que el teléfono NO propaga a su
+            // entreno — salir a descansar entre bloques no puede darlo por acabado.
+            state = .ending
+            isClosing = true
+            Task { await closeRecording(save: true, reason: MirrorWire.EndReason.watchdog) }
         }
     }
 

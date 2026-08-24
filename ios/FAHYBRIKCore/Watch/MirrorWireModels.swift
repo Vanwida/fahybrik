@@ -51,6 +51,27 @@ enum MirrorWire {
         static let sensor = "sensor"
     }
 
+    /// QUIÉN cerró la grabación de la muñeca (`MirrorEnded.reason`).
+    ///
+    /// Existe porque «la muñeca dejó de grabar» y «el atleta terminó el entreno»
+    /// no son lo mismo, y tratarlos igual cuesta el entreno entero: la muñeca se
+    /// autocierra sola a los cinco minutos sin señal, y eso pasa cada vez que el
+    /// atleta deja el móvil para descansar entre bloques. Solo `athlete` termina
+    /// el entreno en los dos aparatos; el resto cierra la grabación y calla.
+    enum EndReason {
+        /// El teléfono lo pidió. El final ya está en marcha allí — no vuelve.
+        static let phone = "phone"
+        /// Una persona pulsó Terminar en la muñeca. ESTE sí termina el entreno
+        /// del teléfono: acabar en un sitio es acabar.
+        static let athlete = "athlete"
+        /// Se cerró solo por quedarse sin señal del teléfono. Guarda lo grabado y
+        /// no toca el entreno: perder el pulso un rato no es haber terminado.
+        static let watchdog = "watchdog"
+        /// Una persona descartó la grabación de la muñeca. Tirar lo de la muñeca
+        /// nunca tira lo del teléfono — desde la muñeca no se borra su trabajo.
+        static let discarded = "discarded"
+    }
+
     /// `MirrorHaptic.cue` values — keep the string small and stable.
     enum HapticCue {
         static let tick = "tick"
@@ -343,6 +364,15 @@ struct MirrorCommand: Codable {
 /// same workout never double-counts.
 struct MirrorEnded: Codable {
     let workoutUuid: String?
+    /// `MirrorWire.EndReason`. Opcional: una muñeca con binario viejo no lo manda,
+    /// y entonces se trata como el caso prudente (cerrar la conexión sin terminar
+    /// el entreno del teléfono) — nunca al revés.
+    let reason: String?
+
+    init(workoutUuid: String?, reason: String? = nil) {
+        self.workoutUuid = workoutUuid
+        self.reason = reason
+    }
 }
 
 /// Phone → watch: qué serie está abierta ahora mismo. `key` identifica LA SERIE

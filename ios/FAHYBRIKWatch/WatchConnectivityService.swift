@@ -173,8 +173,27 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
 
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         Task { @MainActor in
+            if Self.applyLiveEnd(message) { return }
             WatchPlanModel.shared.update(from: message)
         }
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any]) {
+        // La vía encolada del mismo aviso: si al pulsar Terminar en el móvil el
+        // reloj estaba fuera de alcance, llega por aquí en cuanto vuelve.
+        Task { @MainActor in
+            if Self.applyLiveEnd(userInfo) { return }
+            WatchPlanModel.shared.update(from: userInfo)
+        }
+    }
+
+    /// «El entreno ya terminó en el teléfono». Devuelve true si el aviso era este,
+    /// para que no siga su camino como si fuera un plan del día.
+    @MainActor
+    private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
+        guard body[WatchWireKeys.liveEnd] != nil else { return false }
+        WatchWorkoutCoordinator.shared.finishFromPhone()
+        return true
     }
 
     func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {

@@ -155,6 +155,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
               days: [
                 {
                   weekday: 1,
+                  title: 'Rodaje',
                   blocks: [
                     {
                       title: 'Rodaje',
@@ -169,6 +170,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
               days: [
                 {
                   weekday: 2,
+                  title: 'Fuerza',
                   blocks: [
                     {
                       title: 'Principal',
@@ -210,6 +212,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
               days: [
                 {
                   weekday: 1,
+                  title: 'Sled',
                   blocks: [
                     {
                       title: 'Sled',
@@ -255,6 +258,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
               days: [
                 {
                   weekday: 1,
+                  title: 'Fuerza',
                   blocks: [
                     {
                       title: 'Fuerza',
@@ -269,6 +273,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
                 },
                 {
                   weekday: 2,
+                  title: 'Rodaje',
                   blocks: [
                     {
                       title: 'Rodaje',
@@ -349,6 +354,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
               days: [
                 {
                   weekday: 1,
+                  title: 'Fuerza',
                   blocks: [
                     {
                       title: 'Fuerza',
@@ -364,6 +370,7 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
                 },
                 {
                   weekday: 2,
+                  title: 'Rodaje',
                   blocks: [
                     {
                       title: 'Rodaje',
@@ -413,6 +420,72 @@ describeWithDb('MCP · microciclo entero en receta (DB real)', () => {
         where template_id = ${Number(tuesdayAfter[0]!.template_id)}
       `;
       expect(tueNotes.some((r) => r.notes === 'Nota nueva para el scheduled')).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
+  test('el título del entreno no se copia del primer bloque', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const created = payload(
+        await call(client, 'create_microcycle', {
+          name: 'Upper + warmup',
+          level_id: levelId,
+          weeks: [
+            {
+              days: [
+                {
+                  weekday: 2,
+                  title: 'Fuerza tren superior + core',
+                  blocks: [
+                    {
+                      title: 'Warm up',
+                      format: 'warmup',
+                      items: [
+                        {
+                          exercise_id: squatExerciseId,
+                          prescription: {
+                            scheme: 'warmup',
+                            modality: 'strength',
+                            sets: [{ measure: { kind: 'reps', value: 8 } }],
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const microcycleId = Number(created.microcycle_id);
+      clubA.monthTemplates.push({
+        monthId: microcycleId,
+        weekIds: ((created.weeks as Array<{ week_template_id: string }>) ?? []).map((w) =>
+          Number(w.week_template_id),
+        ),
+      });
+
+      const day = (created.weeks as Array<{ days: Array<Json> }>)[0]?.days[0] as Json;
+      expect(day.title).toBe('Fuerza tren superior + core');
+      const block = (day.blocks as Json[])[0]!;
+      expect(block.title).toBe('Warm up');
+      expect(block.format).toBe('warmup');
+
+      const weekId = Number(
+        (created.weeks as Array<{ week_template_id: string }>)[0]!.week_template_id,
+      );
+      const rows = await sql<Array<{ slots_json: { days: Array<Json> } }>>`
+        select slots_json from program_week_templates where id = ${weekId}
+      `;
+      const tuesday = rows[0]!.slots_json.days.find((d) => d.day_of_week === 2) as Json;
+      const session = (tuesday.sessions as Json[])[0]!;
+      expect(session.focus).toBe('Fuerza tren superior + core');
+      expect((session.blocks as Json[])[0]!.title).toBe('Warm up');
+      expect((session.blocks as Json[])[0]!.format).toBe('warmup');
     } finally {
       await close();
     }

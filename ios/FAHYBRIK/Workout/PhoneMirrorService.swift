@@ -34,6 +34,17 @@ final class PhoneMirrorService {
     /// write a second copy.
     private(set) var wristRecordedWorkout: Bool = false
 
+    /// EL ATLETA TERMINÓ DESDE LA MUÑECA. Acabar en un sitio es acabar: la
+    /// pantalla del entreno lo lee y pasa al resumen sola, sin pedir un segundo
+    /// final en el móvil.
+    ///
+    /// Solo lo enciende un final PEDIDO POR UNA PERSONA (`EndReason.athlete`).
+    /// La muñeca también cierra su grabación cuando se queda sin señal cinco
+    /// minutos, y eso pasa cada vez que el atleta suelta el móvil para descansar
+    /// entre bloques: darlo por terminado ahí le costaría el entreno entero. Una
+    /// muñeca con binario viejo no manda motivo y cae del lado prudente.
+    private(set) var wristFinishedByAthlete: Bool = false
+
     // Weak so a finished/abandoned WorkoutContainer can deallocate its engine even
     // if a mirrored session lingers until its `ended` reply / grace timeout.
     @ObservationIgnored private weak var session: WorkoutSession?
@@ -160,6 +171,7 @@ final class PhoneMirrorService {
         self.session = session
         endedWorkoutUuid = nil
         wristRecordedWorkout = false   // one flag per session; the previous one is over
+        wristFinishedByAthlete = false // idem: el final de la sesión anterior no cuenta aquí
         pendingEndSave = nil           // a new session cancels any orphaned end intent
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()   // safety: never begin without the receive handler live
@@ -223,6 +235,12 @@ final class PhoneMirrorService {
     /// wrist instead of leaving it recording until reboot.
     func end(save: Bool) {
         watchLaunchGeneration += 1   // cancel any in-flight launch retries
+        // EL AVISO SALE SIEMPRE, HAYA ESPEJO O NO. El canal del espejo solo existe
+        // mientras el reloj refleja al teléfono; si el reloj llevaba el entreno por
+        // su cuenta, este `end` no llegaba a ninguna parte y el atleta se
+        // encontraba el entreno todavía abierto en la muñeca, con su propio final
+        // y su propio guardado que hacer otra vez.
+        WatchConnectivityiOSService.shared.endLiveWorkout()
         guard mirrored != nil else {
             pendingEndSave = save
             return
@@ -382,7 +400,17 @@ final class PhoneMirrorService {
             case MirrorWire.MessageType.command:
                 if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind) }
             case MirrorWire.MessageType.ended:
-                endedWorkoutUuid = env.body(as: MirrorEnded.self)?.workoutUuid
+                let ended = env.body(as: MirrorEnded.self)
+                endedWorkoutUuid = ended?.workoutUuid
+                // ACABAR EN UN SITIO ES ACABAR. Antes esto solo desmontaba la
+                // conexión y el entreno del móvil seguía vivo: había que volver a
+                // terminarlo a mano, con su resumen y su guardado, dos veces el
+                // mismo trabajo. Ahora un final humano en la muñeca termina aquí
+                // también — y SOLO un final humano (ver `wristFinishedByAthlete`).
+                if ended?.reason == MirrorWire.EndReason.athlete {
+                    wristRecordedWorkout = true   // su HKWorkout es el de esta sesión
+                    wristFinishedByAthlete = true
+                }
                 teardown()
             case MirrorWire.MessageType.sensor:
                 if let c = env.body(as: MirrorSensorConclusions.self) {

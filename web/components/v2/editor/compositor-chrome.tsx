@@ -8,14 +8,22 @@
 // pregunta; el eje solo aparece cuando no hay ejercicio que la determine.
 
 import { useState } from 'react';
-import type {
-  Modality,
-  Prescription,
-  PrescriptionSet,
-} from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import { parseNotationCell } from '@fahybrid/shared/domain/import/notation';
-import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
-import { archetypeForFormat, getArchetype } from '@/lib/dashboard/v2/archetypes';
+import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import {
+  ARCHETYPES,
+  archetypeForFormat,
+  getArchetype,
+  type ArchetypeId,
+} from '@/lib/dashboard/v2/archetypes';
+import {
+  applyBlockFormat,
+  applyBlockType,
+  selectedArchetypeId,
+} from '@/lib/dashboard/v2/apply-block-type';
+import { MODALITY_META } from '@/components/v2/constants';
+import { blockModalitySlug } from './block-helpers';
 import {
   domainToAxisModalidad,
   isStrengthModality,
@@ -139,74 +147,46 @@ export function canPickBlockFormat(block: EditorBlock): boolean {
   return scheme === 'sets' || scheme === 'superset';
 }
 
-/** Quita el descanso propio de una serie — al rotar lo hereda el bloque. */
-function withoutSetRest(set: PrescriptionSet): PrescriptionSet {
-  if (set.rest_s === undefined) return set;
-  const { rest_s: _rest_s, ...rest } = set;
-  void _rest_s;
-  return rest;
-}
-
-/** El descanso de vuelta que hereda una superserie recién convertida: el que
- *  el coach YA tenía (por serie si es uniforme, si no el del bloque) — nunca
- *  inventado (CONTRATO-UI §7: nada que parezca un dato que nadie eligió). */
-function inheritedRotationRest(first: EditorItem | undefined): number | undefined {
-  const p = first?.prescription;
-  if (!p) return undefined;
-  const setRest = (p.sets ?? []).find((s) => s.rest_s !== undefined)?.rest_s;
-  return setRest ?? p.rest_s;
-}
+export { applyBlockFormat };
 
 /**
- * Normaliza el bloque ENTERO entre series rectas y superserie. Al pasar a
- * superserie el descanso por serie se retira y sube al bloque (el de la
- * vuelta, A1→A2→descanso) — el mismo criterio que ya aplican
- * `seedArchetype('superset')` y `SupersetForm`; al volver a series rectas el
- * descanso de vuelta queda disponible como el de la primera serie
- * (`prescriptionToText` y el compositor de fuerza ya caen a `rest_s` de
- * bloque cuando ninguna serie lleva el suyo propio).
- *
- * `format`/`archetype_id` se fijan junto al `scheme` para que
- * `patternForBlock` (que prioriza `archetype_id`) pinte el formulario
- * correcto al instante, sin esperar a un recargado — PERO el arquetipo
- * `strength` (patrón `sets_table`, `ArchetypeBlockForm`) solo edita el
- * PRIMER item: es de un solo ejercicio por diseño. Con 2+ ejercicios en
- * series rectas no hay arquetipo de bloque que los edite a todos, así que el
- * bloque vuelve al editor por-item (legacy, el mismo que ya usan los bloques
- * importados sin tipar): `format:'sets'` (el mismo canónico que
- * `strength_block` — `LEGACY_FORMAT_ALIASES` los normaliza igual — sin el
- * alias que dispara el arquetipo de un solo hueco) y SIN `archetype_id`, para
- * que `patternForBlock` no fuerce un patrón que dejaría el segundo ejercicio
- * invisible en el compositor. Con exactamente un ejercicio (el picker no
- * llega a mostrarse con menos de dos, pero la función vale para cualquier
- * bloque) sí vuelve al arquetipo `strength` de siempre.
+ * El tipo de trabajo del bloque: la misma lista que al añadirlo. Es un
+ * CONTROL (card 158), no una etiqueta: el coach puede corregir un calentamiento
+ * que nació como fuerza sin borrar los ejercicios.
  */
-export function applyBlockFormat(block: EditorBlock, toSuperset: boolean): EditorBlock {
-  const scheme: Prescription['scheme'] = toSuperset ? 'superset' : 'sets';
-  const rotationRest = toSuperset ? inheritedRotationRest(block.items[0]) : undefined;
-  const items = block.items.map((it) => {
-    const prescription: Prescription = { ...it.prescription, scheme };
-    if (toSuperset) {
-      prescription.sets = (prescription.sets ?? []).map(withoutSetRest);
-      if (rotationRest !== undefined) prescription.rest_s = rotationRest;
-      else delete prescription.rest_s;
-    }
-    return { ...it, prescription };
-  });
-
-  // Se retira el archetype_id de origen en los dos sentidos: un bloque creado
-  // como 'superset' que vuelve a series rectas no puede arrastrarlo, ni al
-  // revés — cada rama de abajo lo fija (o lo omite) explícitamente.
-  const { archetype_id: _origin, ...withoutArchetype } = block;
-  void _origin;
-
-  if (toSuperset) {
-    return { ...withoutArchetype, format: 'superset', archetype_id: 'superset', items };
-  }
-  if (block.items.length > 1) {
-    return { ...withoutArchetype, format: 'sets', items };
-  }
-  return { ...withoutArchetype, format: 'strength_block', archetype_id: 'strength', items };
+export function BlockTypePicker({
+  block,
+  onChange,
+}: {
+  block: EditorBlock;
+  onChange: (next: EditorBlock) => void;
+}) {
+  const current = selectedArchetypeId(block);
+  const slug = blockModalitySlug(block);
+  const meta = MODALITY_META[slug];
+  return (
+    <label className="inline-flex shrink-0 items-center">
+      <span className="sr-only">Tipo de bloque</span>
+      <select
+        value={current}
+        aria-label="Tipo de bloque"
+        onChange={(e) => {
+          const id = e.target.value;
+          if (!id) return;
+          onChange(applyBlockType(block, id as ArchetypeId));
+        }}
+        className="v2-focus max-w-[11rem] cursor-pointer appearance-none rounded-[var(--v2-r-2xs)] border-0 px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide outline-none"
+        style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
+      >
+        {current === '' ? <option value="">Tipo</option> : null}
+        {ARCHETYPES.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.shortName}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 const BLOCK_FORMAT_OPTIONS = [
@@ -288,17 +268,16 @@ export function CompositorHeader({
           onChange={(e) => onChange({ ...block, title: e.target.value })}
           className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-2xl text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
         />
-        {shown || showOptionalToggle ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
-            {showOptionalToggle ? (
-              <OptionalBadge
-                optional={block.optional ?? false}
-                onToggle={() => onChange({ ...block, optional: !block.optional })}
-              />
-            ) : null}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <BlockTypePicker block={block} onChange={onChange} />
+          {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
+          {showOptionalToggle ? (
+            <OptionalBadge
+              optional={block.optional ?? false}
+              onToggle={() => onChange({ ...block, optional: !block.optional })}
+            />
+          ) : null}
+        </div>
         {canPickBlockFormat(block) ? (
           <BlockFormatPicker block={block} onChange={onChange} />
         ) : null}

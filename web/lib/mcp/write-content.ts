@@ -99,7 +99,9 @@ const blockSchema = z
       .string()
       .min(1)
       .max(120)
-      .describe('Cómo se llama el bloque para el atleta: «Calentamiento», «Series», «Metcon».'),
+      .describe(
+        'Cómo se llama ESTE bloque: «Calentamiento», «Bloque A · Tracción», «Series». Nunca el nombre del entreno entero.',
+      ),
     format: templateFormat
       .optional()
       .describe(
@@ -163,6 +165,7 @@ export function normalizeContentBlocks(blocks: ContentBlock[]): NormalizedConten
 export function contentGrammar(): string {
   return [
     'CADA línea lleva su dosis TIPADA en `prescription` — jamás texto libre.',
+    'El título de cada bloque es de ESE bloque («Calentamiento», «Bloque A»), nunca el nombre del entreno. El nombre del entreno va en `title` del día (create_microcycle) o de la sesión (create_session).',
     'El formato `test` de un bloque es SOLO para un test del catálogo del coach (un único ejercicio que define el test). Una batería de esfuerzos medidos («tests de peso de carrera») es un bloque normal (rounds/sets) con su título — nunca formato test.',
     ...prescriptionGrammarLines(),
   ].join('\n');

@@ -43,8 +43,15 @@ const weekdayArg = z
 
 const dayArg = z.object({
   weekday: weekdayArg,
+  title: z
+    .string()
+    .min(1)
+    .max(120)
+    .describe(
+      'El nombre del ENTRENO que lee el atleta: «Fuerza tren superior + core», «Test running 3′+9′». NO es el nombre del primer bloque. Un calentamiento se llama «Calentamiento» en su bloque; este campo es el de la sesión entera.',
+    ),
   blocks: contentBlocksArg.describe(
-    'Los bloques de ESE día, en el orden en que se hacen. Misma forma que create_session.',
+    'Los bloques de ESE día, en el orden en que se hacen. Misma forma que create_session. El título de cada bloque es de ESE bloque («Calentamiento», «Bloque A · Tracción»), nunca el del entreno.',
   ),
 });
 
@@ -91,6 +98,7 @@ function recipeReadback(prepared: PreparedContent) {
     focus: week.focus ?? null,
     days: week.days.map((day) => ({
       weekday: day.weekday,
+      title: day.title,
       blocks: contentReadback(day.blocks, prepared.exercises),
     })),
   }));
@@ -110,7 +118,7 @@ export function registerMicrocycleTools(server: McpServer): void {
     {
       title: 'Crear un microciclo de biblioteca',
       description:
-        'Crea un microciclo NUEVO en la BIBLIOTECA (la receta, no el calendario de un atleta): nombre, nivel y las semanas con sus días. Cada día lleva los mismos bloques tipados que create_session. No publica ni asigna a nadie. Si alguna línea no se podría ejecutar, no crea nada.\n\n' +
+        'Crea un microciclo NUEVO en la BIBLIOTECA (la receta, no el calendario de un atleta): nombre, nivel y las semanas con sus días. Cada día lleva TÍTULO del entreno + los mismos bloques tipados que create_session (el título del día NO es el del primer bloque). No publica ni asigna a nadie. Si alguna línea no se podría ejecutar, no crea nada.\n\n' +
         contentGrammar(),
       inputSchema: {
         name: z
@@ -230,7 +238,7 @@ export function registerMicrocycleTools(server: McpServer): void {
     {
       title: 'Editar un microciclo de biblioteca',
       description:
-        'Reescribe los días de un microciclo de BIBLIOTECA que ya existe. Mismos bloques tipados que create_session. Si el microciclo ya está asignado a atletas, las sesiones que siguen por hacer se actualizan; las ya entrenadas no se tocan. No publica. Un plan personal (de un atleta concreto) no se edita con esta tool.\n\n' +
+        'Reescribe los días de un microciclo de BIBLIOTECA que ya existe. Cada día lleva TÍTULO del entreno + los mismos bloques tipados que create_session. Si el microciclo ya está asignado a atletas, las sesiones que siguen por hacer se actualizan; las ya entrenadas no se tocan. No publica. Un plan personal (de un atleta concreto) no se edita con esta tool.\n\n' +
         contentGrammar(),
       inputSchema: {
         microcycle_id: z

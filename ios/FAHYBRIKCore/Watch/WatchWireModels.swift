@@ -168,6 +168,14 @@ enum WatchWireKeys {
     /// con `execution_local_id`). Con esto el teléfono sabe a quién dárselo sin
     /// abrirlo ni adivinar por la extensión.
     static let traceLocalId = "trace_local_id_v1"
+    /// Teléfono → reloj: «este entreno ya ha terminado aquí». El reloj cierra su
+    /// grabación y vuelve a reposo sin pedir un segundo final.
+    ///
+    /// Va por este cable y no por el del espejo porque el espejo solo existe
+    /// cuando el reloj está reflejando al teléfono: si el reloj llevaba el entreno
+    /// por su cuenta, el aviso del espejo no llega a ninguna parte y el atleta se
+    /// queda con el entreno abierto en la muñeca.
+    static let liveEnd = "live_end_v1"
 }
 
 // MARK: - Coders (the single encode/decode contract, shared by both ends)

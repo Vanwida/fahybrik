@@ -356,6 +356,7 @@ export function DayEditor({
                   onRenameBlock={(blockUid, title) =>
                     day.renameBlock(session.uid, blockUid, title)
                   }
+                  onChangeBlockType={(_blockUid, next) => day.updateBlock(session.uid, next)}
                   onReorderBlocks={(orderedUids) => day.reorderBlocks(session.uid, orderedUids)}
                   onEditItem={(blockUid) => setEditing({ sessionUid: session.uid, blockUid })}
                   onAddItem={(blockUid) => setPickingFor({ sessionUid: session.uid, blockUid })}

@@ -10,6 +10,36 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · El nombre del entreno y el del bloque son dos campos. `warmup` es un tipo de verdad.
+
+**Qué pasó (card 156):** al abrir el martes de un microciclo importado por el asistente, el primer bloque se leía como fuerza: se llamaba «Fuerza tren superior + core · Warm up», el lomo era naranja de fuerza y no había chip de Calentamiento. El entrenador buscó cómo cambiar el tipo. El tipo YA era `warmup`.
+
+**Dos agujeros, no uno:**
+
+1. **`create_microcycle` no tenía título de sesión.** `create_session` sí (`title`). Un día del microciclo era `{ weekday, blocks }`. El asistente, para no perder el nombre del entreno, lo pegó al título del primer bloque. Y `blocksToEditorSession` copiaba `blocks[0].title` a `session.focus`, así que barra lateral y bloque decían lo mismo. El botón «Título» del editor no estaba vacío: estaba relleno con el apaño.
+
+2. **El editor no reconocía `warmup` / `cooldown`.** El catálogo canónico y iOS sí (`presentation: list`, familia estructural). `FORMAT_TO_ARCHETYPE` no los tenía, así que no había chip, y el color salía de la modalidad del primer ejercicio (unas bandas = fuerza). Tampoco se podían añadir desde «Añadir bloque».
+
+**Decidido:**
+
+- Cada día de `create_microcycle` / `update_microcycle` lleva `title` (el nombre del ENTRENO, máx. 120, el mismo tope que `WeekSession.focus`). El título de cada bloque es de ESE bloque. Nunca se copia el uno al otro.
+- Calentamiento y vuelta a la calma son arquetipos del selector (`format: warmup` / `cooldown`, patrón `list`). El compositor no usa la tabla de un solo ejercicio: escondería el resto de la lista.
+- El color del bloque lo manda el format estructural, no el primer ejercicio.
+
+**NO hacer:** no reescribir títulos ya persistidos (el ciclo importado se corrige a mano o se vuelve a importar). No inferir el tipo por el texto del título («Warmpu» no se convierte en warmup: el format es la lista cerrada). No hacer del título del bloque un enum: «Bloque A · Tracción» es nombre libre.
+
+---
+
+## 2026-08-24 · El tipo de un bloque se puede cambiar después de crearlo
+
+**Qué pasó (card 158):** el tipo (calentamiento, fuerza, circuito, carrera…) se elegía solo al añadir el bloque. El chip del tipo no se tocaba. Un calentamiento mal etiquetado como fuerza no tenía corrección.
+
+**Decidido:** el chip es un selector con la misma lista que «Añadir bloque». Cambia el format y el scheme de las líneas; no borra el nombre, los ejercicios ni la dosis. Pasar a/desde superserie sigue el camino ya existente (el descanso de la vuelta).
+
+**NO hacer:** no vaciar el bloque al cambiar de tipo. No inferir el tipo por el título.
+
+---
+
 ## 2026-08-24 · En pantalla se dice planificación y ciclo; por dentro sigue microciclo
 
 **Qué se decidió (card 162):** el copy que ve el coach o el atleta usa **planificación** y **ciclo**. Las rutas (`/periodizacion`, `/microciclos`), tipos, columnas, tools MCP y nombres de fichero no se renombran.
