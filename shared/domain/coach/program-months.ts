@@ -43,6 +43,16 @@ export const MICROCICLO_MIN_WEEKS = 1;
 export const MICROCICLO_DEFAULT_MAX_WEEKS = 8;
 export const MICROCICLO_ABSOLUTE_MAX_WEEKS = 26;
 
+/** Wire/DB values become a usable tope. Anything else is the column default. */
+export function coerceCoachMaxMicrocycleWeeks(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return MICROCICLO_DEFAULT_MAX_WEEKS;
+  }
+  const weeks = Math.round(value);
+  if (weeks < MICROCICLO_MIN_WEEKS) return MICROCICLO_DEFAULT_MAX_WEEKS;
+  return Math.min(weeks, MICROCICLO_ABSOLUTE_MAX_WEEKS);
+}
+
 /**
  * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
  * "create from scratch" flow. A microciclo's identity = name + level

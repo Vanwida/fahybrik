@@ -14,20 +14,34 @@
 
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/program-months';
+import {
+  coerceCoachMaxMicrocycleWeeks,
+  MICROCICLO_DEFAULT_MAX_WEEKS,
+} from '@fahybrid/shared/domain/coach/program-months';
+
+function isMissingMaxMicrocycleWeeksColumn(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = 'code' in err && typeof err.code === 'string' ? err.code : '';
+  if (code === '42703') return true;
+  const message = err instanceof Error ? err.message : '';
+  return message.includes('max_microcycle_weeks') && message.includes('does not exist');
+}
 
 /** El tope de semanas de un microciclo de ESTE coach. Nunca null: la columna
- *  es NOT NULL con defecto 8 (migración 0206). */
+ *  es NOT NULL con defecto 8 (migración 0206). Si la columna aún no existe,
+ *  el defecto — no un throw — para no tumbar lecturas ni el GET de niveles. */
 export async function loadCoachMaxMicrocicloWeeks(params: {
   coach_id: number | bigint;
   client?: Sql | TransactionClient;
 }): Promise<number> {
   const client = params.client ?? defaultSql;
-  const rows = await client<Array<{ max_microcycle_weeks: number }>>`
-    select max_microcycle_weeks from coaches where id = ${Number(params.coach_id)} limit 1
-  `;
-  // Sin fila de coach (id inválido) el defecto de la columna no aplica —
-  // el llamador ya validó ownership del coach antes de llegar aquí; esto es
-  // sólo una guarda defensiva, nunca el camino esperado.
-  return rows[0]?.max_microcycle_weeks ?? MICROCICLO_DEFAULT_MAX_WEEKS;
+  try {
+    const rows = await client<Array<{ max_microcycle_weeks: number }>>`
+      select max_microcycle_weeks from coaches where id = ${Number(params.coach_id)} limit 1
+    `;
+    return coerceCoachMaxMicrocycleWeeks(rows[0]?.max_microcycle_weeks);
+  } catch (err) {
+    if (isMissingMaxMicrocycleWeeksColumn(err)) return MICROCICLO_DEFAULT_MAX_WEEKS;
+    throw err;
+  }
 }

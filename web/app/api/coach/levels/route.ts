@@ -3,6 +3,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
+import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/program-months';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ export async function GET() {
       where coach_id = ${coach_id}
       order by sort_order asc, id asc
     `,
-    loadCoachMaxMicrocicloWeeks({ coach_id }),
+    loadCoachMaxMicrocicloWeeks({ coach_id }).catch(() => MICROCICLO_DEFAULT_MAX_WEEKS),
   ]);
 
   return jsonOk({ levels: rows, max_microcycle_weeks: maxMicrocicloWeeks });
