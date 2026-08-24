@@ -111,6 +111,7 @@
 		21AAA64304D69A2FFB40C8CD /* AssignmentDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4E8BEE42722165C9313280 /* AssignmentDetailTests.swift */; };
 		21C8D12907C4B19CA15EA8FC /* RunLegDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D3F0C44CC72027AD5AEED0 /* RunLegDisplay.swift */; };
 		22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158FB79985DE754FE1E747C6 /* ChatAttachmentTests.swift */; };
+		224F4A88F787625AABAD068F /* WorkoutSession+Series.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */; };
 		226DB9AE95AD945D4EFA2D5A /* MirrorWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03218581AAA9E16520C58C0 /* MirrorWireModels.swift */; };
 		22E1A040160E3DD43F919FF9 /* PlanHoyAtoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A9FA3AF0BBE29C6F3C285F /* PlanHoyAtoms.swift */; };
 		22FBEC8B247392F70B84F47A /* ChatAttachmentBubbles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384C3CDF4A4ACADEBB556B33 /* ChatAttachmentBubbles.swift */; };
@@ -613,6 +614,7 @@
 		DAB8F84BC8A2A2AEEDF4D07D /* PersonalBasicsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */; };
 		DAD88E3E71B8E4FF1BF62FF9 /* PlanHoyModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */; };
 		DAF124F9FE9A33059DEEC915 /* PersonalRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF462CA3ADB586D4E54551E8 /* PersonalRecord.swift */; };
+		DB26985E0CE045D2FCD53B74 /* WorkoutSession+Series.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */; };
 		DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */; };
 		DBB50530A73BF0494FF01F47 /* DecodingToleranceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D625F02CA8E856A178E76B2 /* DecodingToleranceTests.swift */; };
 		DC0AE5484CE306545FD41D7F /* TreadmillHUDModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD17EBA04CF3E3C9136E86BA /* TreadmillHUDModel.swift */; };
@@ -825,6 +827,7 @@
 		0DD05E4662FE0BD965C20823 /* AudioCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCoach.swift; sourceTree = "<group>"; };
 		0E2952FDF193CAB2B6D46B22 /* HyroxStationsStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HyroxStationsStep.swift; sourceTree = "<group>"; };
 		0E2C66CF7D6908E2FE6914BF /* CarreraDeLaSesionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarreraDeLaSesionTests.swift; sourceTree = "<group>"; };
+		100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Series.swift"; sourceTree = "<group>"; };
 		1062720A372E93DA9533753F /* WorkoutSession+Clock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Clock.swift"; sourceTree = "<group>"; };
 		108C2087955FB8892D315754 /* EscenariosCiclo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscenariosCiclo.swift; sourceTree = "<group>"; };
 		10DE0983BB5934AEF0640102 /* FormaDelAro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormaDelAro.swift; sourceTree = "<group>"; };
@@ -1893,6 +1896,7 @@
 				22480430AA48430C676E005B /* WorkoutSession+Persistence.swift */,
 				AE518707C83B0A21472C4D66 /* WorkoutSession+RepCounter.swift */,
 				261B30D0E7664D872734F36D /* WorkoutSession+RunStructure.swift */,
+				100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */,
 				CDCBBE40B5D3183B32420C0E /* WorkoutSession+Signals.swift */,
 				5CFAD9A8DC5AF251B40F8388 /* WorkoutSession+Strength.swift */,
 				94E403187E4FBB4109E77C9C /* WorkoutSession+StructuralBlocks.swift */,
@@ -3568,6 +3572,7 @@
 				C9A5C5FF26FA65024E955F5A /* WorkoutSession+Persistence.swift in Sources */,
 				B85986A7B19AEC8205F680A0 /* WorkoutSession+RepCounter.swift in Sources */,
 				88DF7AFCEB87438F3F8B734B /* WorkoutSession+RunStructure.swift in Sources */,
+				DB26985E0CE045D2FCD53B74 /* WorkoutSession+Series.swift in Sources */,
 				BA120A7609C899780B0D4386 /* WorkoutSession+Signals.swift in Sources */,
 				0502954397D1E171E383742E /* WorkoutSession+Strength.swift in Sources */,
 				4333657E9C5D7B0C6AD4000B /* WorkoutSession+StructuralBlocks.swift in Sources */,
@@ -3686,6 +3691,7 @@
 				81F0F93007F35C7614166D86 /* WorkoutSession+Persistence.swift in Sources */,
 				1205315823219AE502E95B0E /* WorkoutSession+RepCounter.swift in Sources */,
 				9E0B78D6CC7207E31A4E8A35 /* WorkoutSession+RunStructure.swift in Sources */,
+				224F4A88F787625AABAD068F /* WorkoutSession+Series.swift in Sources */,
 				0456B17C31141FB75D686646 /* WorkoutSession+Signals.swift in Sources */,
 				D9D38ECC812CEF81F7D77DCB /* WorkoutSession+Strength.swift in Sources */,
 				7CB42C7B44032E650F8926C3 /* WorkoutSession+StructuralBlocks.swift in Sources */,

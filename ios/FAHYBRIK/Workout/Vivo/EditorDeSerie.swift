@@ -70,6 +70,39 @@ struct EditorDeSerie: View {
                         RuedaDeCarga(valor: rec.loadActualKg ?? rec.loadPrescribedKg ?? 20,
                                      alCambiar: { session.setSetLoadCascade(indice, $0) })
                     }
+                    // CUÁNTAS SERIES SON. Reps y carga ya se ajustaban aquí; el
+                    // recuento no, y un plan de 4 series que acaban siendo 3 es de
+                    // las cosas más normales que pasan en un gimnasio.
+                    HStack(spacing: Theme.Spacing.m) {
+                        Text("Series")
+                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundStyle(Theme.Color.muted)
+                        Spacer()
+                        Button {
+                            session.quitarSerie(indice)
+                            dismiss()
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(session.puedeQuitarSerie(indice)
+                                                 ? Theme.Color.foreground : Theme.Color.faint)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!session.puedeQuitarSerie(indice))
+                        Text("\(session.setRecords.count)")
+                            .scaledFont(17, weight: .heavy, relativeTo: .body)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .monospacedDigit()
+                        Button {
+                            session.anadirSerie()
+                        } label: {
+                            Image(systemName: "plus.circle")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(Theme.Color.foreground)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     Button(action: {
                         session.setSetSkipped(indice, rec.status != "skipped"); Haptics.light()
                     }) {
