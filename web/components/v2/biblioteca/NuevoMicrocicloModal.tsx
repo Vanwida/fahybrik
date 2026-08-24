@@ -1,22 +1,15 @@
 'use client';
 
-// NuevoMicrocicloModal — "crear microciclo desde cero". AGNOSTIC: el nivel se
-// elige del catálogo del coach (athlete_levels), cargado en vivo — nunca texto
-// libre, nunca enums hardcodeados. El coach define nombre + nivel + nº de semanas,
-// topado por SU `max_microcycle_weeks` (card 135 — metodología suya, no un
-// número fijo del sistema; llega del mismo `/api/coach/levels`). La identidad
-// del microciclo es nombre + nivel + nº semanas (el orden en una secuencia ES
-// la periodización; no hay entidad fase). Al guardar se crea el
-// program_month_template con N semanas vacías y se entra al editor.
+// NuevoMicrocicloModal — "crear microciclo desde cero". AGNOSTIC: nombre + nº de
+// semanas. El nivel NO es obligatorio al crear — es una etiqueta opcional que el
+// coach puede asignar después o que viene fijado al crear desde una celda de
+// Periodización. El tope de semanas es SU `max_microcycle_weeks` (card 135).
 //
 // Dos modos de uso:
-//   · desde la Biblioteca (sin props extra) → el coach elige el nivel y, al crear,
-//     navega al editor del microciclo.
+//   · desde la Biblioteca (sin props extra) → nombre + semanas; navega al editor.
 //   · desde una celda de Periodización (lockedLevel + daysContext + onCreated) → el
-//     nivel viene FIJADO por la celda (cero re-entrada), se muestra el contexto de
-//     días, y el padre decide qué hacer al crear (asociarlo a la secuencia + navegar).
-//     Los días NO son propiedad del microciclo: son la coordenada de la celda
-//     (program_sequences); aquí sólo se muestran como contexto.
+//     nivel viene FIJADO por la celda, se muestra el contexto de días, y el padre
+//     decide qué hacer al crear (asociarlo a la secuencia + navegar).
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
@@ -28,14 +21,6 @@ import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/prog
 const MIN_WEEKS = 1;
 const DEFAULT_WEEKS = 4;
 
-interface LevelOption {
-  id: string;
-  name: string;
-  label: string;
-}
-
-const selectClass =
-  'h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]';
 const labelClass = 'mb-1 block text-label font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]';
 
 export function NuevoMicrocicloModal({
@@ -55,52 +40,35 @@ export function NuevoMicrocicloModal({
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [levels, setLevels] = useState<LevelOption[]>([]);
-  // Con nivel fijado no hay catálogo que esperar (el select ya no aparece) —
-  // pero el tope de semanas SÍ se sigue pidiendo, así que loadingData ya no
-  // controla eso: ver el segundo estado, `maxWeeks`, abajo.
-  const [loadingData, setLoadingData] = useState(!lockedLevel);
+  const [loadingLimits, setLoadingLimits] = useState(true);
 
   const [name, setName] = useState('');
-  const [levelId, setLevelId] = useState(lockedLevel?.id ?? '');
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
-  // Tope de semanas de ESTE coach (card 135, `coaches.max_microcycle_weeks`).
-  // Mientras no ha llegado del endpoint se usa el DEFECTO del sistema — nunca
-  // un número suelto — para que el input tenga un máximo razonable desde el
-  // primer render.
   const [maxWeeks, setMaxWeeks] = useState(MICROCICLO_DEFAULT_MAX_WEEKS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // `/api/coach/levels` sirve el catálogo de niveles Y el tope de semanas del
-  // coach en la MISMA llamada (el endpoint que este modal ya pedía) — se pide
-  // SIEMPRE, incluso con nivel fijado, porque el tope aplica igual desde una
-  // celda de Periodización.
   useEffect(() => {
     let alive = true;
     fetch('/api/coach/levels', { credentials: 'include' })
       .then((r) => r.json())
-      .then((lv: { levels?: LevelOption[]; max_microcycle_weeks?: number }) => {
+      .then((lv: { max_microcycle_weeks?: number }) => {
         if (!alive) return;
         if (typeof lv.max_microcycle_weeks === 'number') {
           setMaxWeeks(lv.max_microcycle_weeks);
           setWeeks((w) => Math.min(w, lv.max_microcycle_weeks!));
         }
-        if (lockedLevel) return;
-        const lvls = lv.levels ?? [];
-        setLevels(lvls);
-        if (lvls[0]) setLevelId(lvls[0].id);
       })
       .catch(() => {
-        if (alive) setError('No se pudieron cargar tus niveles.');
+        if (alive) setError('No se pudieron cargar tus límites de semanas.');
       })
       .finally(() => {
-        if (alive) setLoadingData(false);
+        if (alive) setLoadingLimits(false);
       });
     return () => {
       alive = false;
     };
-  }, [lockedLevel]);
+  }, []);
 
   useEffect(() => {
     dialogRef.current?.focus();
@@ -112,25 +80,26 @@ export function NuevoMicrocicloModal({
   }, [onClose]);
 
   const canSubmit =
-    // El nivel NO entra aquí (card 137): es opcional. Era obligatorio y ni la
-    // base lo exigía; obligarlo es imponer al entrenador una forma de
-    // organizarse que puede que no use.
-    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting;
+    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting && !loadingLimits;
 
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
+      const payload: { name: string; week_count: number; level_id?: number } = {
+        name: name.trim(),
+        week_count: weeks,
+      };
+      if (lockedLevel) {
+        payload.level_id = Number(lockedLevel.id);
+      }
+
       const res = await fetch('/api/coach/program-months/create', {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          level_id: levelId === '' ? null : Number(levelId),
-          week_count: weeks,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
@@ -139,9 +108,6 @@ export function NuevoMicrocicloModal({
         return;
       }
       const created = (await res.json()) as { id: string };
-      // When the caller owns what happens next (associate to the cell + navigate),
-      // delegate. The microciclo already exists, so an association failure is its
-      // own honest message — not a "create failed".
       if (onCreated) {
         try {
           await onCreated(created);
@@ -153,7 +119,6 @@ export function NuevoMicrocicloModal({
         }
         return;
       }
-      // Default (from the Biblioteca): redirect into the editor with the N empty weeks ready.
       router.push(`/microciclos/${created.id}`);
     } catch {
       setError('Error de red al crear el microciclo.');
@@ -200,14 +165,10 @@ export function NuevoMicrocicloModal({
           </button>
         </div>
 
-        {loadingData ? (
+        {loadingLimits ? (
           <div className="flex items-center justify-center gap-2 py-10 text-body text-[color:var(--v2-muted)]">
             <MIcon name="progress_activity" size={18} className="animate-spin" />
-            Cargando tus niveles…
-          </div>
-        ) : !lockedLevel && levels.length === 0 ? (
-          <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-body text-[color:var(--v2-muted)]">
-            Define al menos un nivel en Periodización › Niveles antes de crear un microciclo.
+            Cargando…
           </div>
         ) : (
           <div className="flex flex-col gap-3.5">
@@ -226,12 +187,10 @@ export function NuevoMicrocicloModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="micro-level" className={labelClass}>
-                  Nivel
-                </label>
-                {lockedLevel ? (
+            {lockedLevel ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={labelClass}>Nivel</span>
                   <div
                     className="flex h-[38px] items-center gap-2 overflow-hidden rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5"
                     title={`${lockedLevel.name} · ${lockedLevel.label}`}
@@ -241,22 +200,26 @@ export function NuevoMicrocicloModal({
                       {lockedLevel.label}
                     </span>
                   </div>
-                ) : (
-                  <select
-                    id="micro-level"
-                    value={levelId}
-                    onChange={(e) => setLevelId(e.target.value)}
-                    className={selectClass}
-                  >
-                    <option value="">Sin nivel</option>
-                    {levels.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name} · {l.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                </div>
+                <div>
+                  <label htmlFor="micro-weeks" className={labelClass}>
+                    Semanas
+                  </label>
+                  <input
+                    id="micro-weeks"
+                    type="number"
+                    min={MIN_WEEKS}
+                    max={maxWeeks}
+                    value={weeks}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) setWeeks(Math.min(maxWeeks, Math.max(MIN_WEEKS, Math.round(n))));
+                    }}
+                    className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
+                  />
+                </div>
               </div>
+            ) : (
               <div>
                 <label htmlFor="micro-weeks" className={labelClass}>
                   Semanas
@@ -274,7 +237,7 @@ export function NuevoMicrocicloModal({
                   className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
                 />
               </div>
-            </div>
+            )}
 
             {error ? (
               <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
