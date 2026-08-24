@@ -27,7 +27,8 @@ extension WorkoutSession {
             status: "done",
             confirmed: false,
             tempo: ultima.tempo,
-            restS: ultima.restS
+            restS: ultima.restS,
+            isApproach: false
         ))
         Haptics.light()
     }
@@ -52,7 +53,8 @@ extension WorkoutSession {
                 status: r.status,
                 confirmed: r.confirmed,
                 tempo: r.tempo,
-                restS: r.restS
+                restS: r.restS,
+                isApproach: r.isApproach
             )
         }
         Haptics.light()

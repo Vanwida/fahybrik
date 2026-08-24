@@ -35,6 +35,7 @@ interface SetSpec {
   load_actual_kg: number | null;
   rpe?: number | null;
   status: 'done' | 'scaled' | 'skipped';
+  is_approach?: boolean;
 }
 
 /** Seed one execution → one strength segment (exercise_id, modality=strength) → its sets. */
@@ -64,10 +65,11 @@ async function seedStrengthSegment(params: {
     await sql`
       insert into set_executions (
         segment_execution_id, set_index, reps_prescribed, reps_actual,
-        load_prescribed_kg, load_actual_kg, rpe, status, confirmed
+        load_prescribed_kg, load_actual_kg, rpe, status, confirmed, is_approach
       ) values (
         ${segId}, ${s.set_index}, ${s.reps_prescribed}, ${s.reps_actual},
-        ${s.load_prescribed_kg}, ${s.load_actual_kg}, ${s.rpe ?? null}, ${s.status}, true
+        ${s.load_prescribed_kg}, ${s.load_actual_kg}, ${s.rpe ?? null}, ${s.status}, true,
+        ${s.is_approach ?? false}
       )
     `;
   }
@@ -256,5 +258,65 @@ describeWithDb('HYROX scored sim / metcon (real DB)', () => {
     expect(bestSim?.value).toBe('1:00:00');
     const metcon = drill!.sessions.find((s) => s.title_es === 'Metcon');
     expect(metcon?.value).toBe('5:00'); // 300 s for-time
+  });
+});
+
+describeWithDb('strength work excludes approach sets (card 155)', () => {
+  const sql = getTestSql();
+  let fx: Fixture;
+  let squatId: number;
+
+  beforeAll(async () => {
+    fx = await makeCoachAndAthlete(sql);
+    squatId = await makeExercise({ fx, name: 'Sentadilla' });
+    const tpl = await makeTemplate({ fx, name: 'Fuerza', format: 'circuit' });
+    const mixed = await makeAssignment({
+      fx, templateId: tpl, scheduledForIso: daysAgoIso(4).slice(0, 10), status: 'completed',
+    });
+    await seedStrengthSegment({
+      sql, fx, assignmentId: mixed, daysAgo: 4, exerciseId: squatId,
+      sets: [
+        { set_index: 1, reps_prescribed: 5, reps_actual: 5, load_prescribed_kg: 50, load_actual_kg: 50, status: 'done', is_approach: true },
+        { set_index: 2, reps_prescribed: 5, reps_actual: 5, load_prescribed_kg: 50, load_actual_kg: 50, status: 'done', is_approach: true },
+        { set_index: 3, reps_prescribed: 5, reps_actual: 5, load_prescribed_kg: 100, load_actual_kg: 100, rpe: 8, status: 'done' },
+        { set_index: 4, reps_prescribed: 5, reps_actual: 5, load_prescribed_kg: 100, load_actual_kg: 100, rpe: 8, status: 'done' },
+        { set_index: 5, reps_prescribed: 5, reps_actual: 5, load_prescribed_kg: 100, load_actual_kg: 100, rpe: 8, status: 'done' },
+      ],
+    });
+    const onlyApproach = await makeAssignment({
+      fx, templateId: tpl, scheduledForIso: daysAgoIso(2).slice(0, 10), status: 'completed',
+    });
+    await seedStrengthSegment({
+      sql, fx, assignmentId: onlyApproach, daysAgo: 2, exerciseId: squatId,
+      sets: [
+        { set_index: 1, reps_prescribed: 3, reps_actual: 3, load_prescribed_kg: 80, load_actual_kg: 80, status: 'done', is_approach: true },
+        { set_index: 2, reps_prescribed: 3, reps_actual: 3, load_prescribed_kg: 80, load_actual_kg: 80, status: 'done', is_approach: true },
+      ],
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await fx.cleanup();
+    await closeTestSql();
+  });
+
+  test('volumen, serie más pesada y carga ignoran la aproximación', async () => {
+    const section = await buildStrengthSection({ athlete_id: fx.athleteId, period }, sql);
+    const vol = cardById(section.cards, 'strength_volume');
+    expect(vol.availability).toBe('real');
+    expect(vol.rows.find((r) => r.id === 'sessions')?.value).toBe('1');
+    expect(vol.rows.find((r) => r.id === 'sessions')?.sub).toBe('3 series');
+    expect(vol.primary?.value).toBe('1,5');
+    expect(vol.primary?.unit).toBe('t');
+
+    const drill = await buildDrillDown({ athlete_id: fx.athleteId, kind: 'strength.volume', params: {}, period }, sql);
+    expect(drill?.sessions.length).toBe(1);
+    expect(drill!.sessions.map((s) => s.value)).toContain('1,5 t');
+    expect(drill!.sessions.map((s) => s.value)).not.toContain('2,0 t');
+    expect(drill!.sessions.map((s) => s.value)).not.toContain('2,5 t');
+
+    const worked = cardById(section.cards, 'lifts_worked');
+    const squat = worked.rows.find((r) => r.label === 'Sentadilla');
+    expect(squat?.value).toBe('100 kg × 5');
   });
 });

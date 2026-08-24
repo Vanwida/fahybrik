@@ -94,6 +94,7 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     leg_role: null,
     leg_phase: null,
     is_structural: false,
+    sets: [],
     ...over,
   };
 }

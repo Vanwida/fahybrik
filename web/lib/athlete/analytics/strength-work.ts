@@ -13,8 +13,9 @@
 //   • effort_rpe       — RPE/RIR trend (opt-in fields → honest gate when scarce)
 //
 // Honest contract (same as the rest of the tab): SKIPS never count (a skipped set
-// has reps_actual = NULL and is excluded); an unloaded lift contributes reps but
-// no tonnage; zero logged sets → a gate with an invitation, never fabricated zeros.
+// has reps_actual = NULL and is excluded); APPROACH sets never count (card 155);
+// an unloaded lift contributes reps but no tonnage; zero logged sets → a gate
+// with an invitation, never fabricated zeros.
 
 import 'server-only';
 
@@ -146,6 +147,7 @@ async function loadStrengthSets(
     ${joinCoachOverride(client, coachId)}
     where we.athlete_id = ${athleteId}
       and st.status <> 'skipped'
+      and coalesce(st.is_approach, false) = false
       and coalesce(se.is_structural, false) = false
       and coalesce(se.modality, case when e.category = 'strength' then 'strength' else 'other' end) = 'strength'
       and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz
@@ -257,7 +259,7 @@ function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard
       { id: 'per_week', label: 'Media/sem', value: `${perWeek.value} ${perWeek.unit}`, sub: null, accent: false, drill: null },
     ],
     drill: drill('strength.volume', {}, sessions.size, `de ${sessions.size} sesiones · fecha · tonelaje`),
-    meaning_es: 'Tonelaje = suma de carga × reps de cada serie hecha (nunca cuenta los saltos). Peso corporal suma reps, no kg.',
+    meaning_es: 'Tonelaje = suma de carga × reps de cada serie de trabajo (nunca cuenta los saltos ni las aproximaciones). Peso corporal suma reps, no kg.',
   });
 }
 

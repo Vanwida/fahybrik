@@ -442,6 +442,80 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     `;
     expect(n).toBe(2); // replaced cleanly, the 3rd set is gone
   });
+
+  test('is_approach viaja al set guardado y el agregado del tramo solo cuenta trabajo', async () => {
+    const { executionId } = await seedExecution();
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [
+        {
+          position: 0,
+          modality: 'strength',
+          reps_completed: 20,
+          weight_used_kg: 100,
+          sets: [
+            { set_index: 1, reps_prescribed: 5, reps_actual: 5, load_actual_kg: 50, is_approach: true },
+            { set_index: 2, reps_prescribed: 5, reps_actual: 5, load_actual_kg: 50, is_approach: true },
+            { set_index: 3, reps_prescribed: 5, reps_actual: 5, load_actual_kg: 100, confirmed: true },
+            { set_index: 4, reps_prescribed: 5, reps_actual: 5, load_actual_kg: 100, confirmed: true },
+          ],
+        },
+      ],
+    });
+
+    const sets = await sql<
+      Array<{ set_index: number; load_actual_kg: string; is_approach: boolean }>
+    >`
+      select se.set_index, se.load_actual_kg::text as load_actual_kg, se.is_approach
+      from set_executions se
+      join segment_executions seg on seg.id = se.segment_execution_id
+      where seg.execution_id = ${executionId} and seg.position = 0
+      order by se.set_index
+    `;
+    expect(sets).toHaveLength(4);
+    expect(sets[0]!.is_approach).toBe(true);
+    expect(sets[1]!.is_approach).toBe(true);
+    expect(sets[2]!.is_approach).toBe(false);
+    expect(sets[3]!.is_approach).toBe(false);
+    expect(Number(sets[0]!.load_actual_kg)).toBe(50);
+
+    const [seg] = await sql<Array<{ reps_completed: number | null; weight_used_kg: string | null }>>`
+      select reps_completed, weight_used_kg::text as weight_used_kg
+      from segment_executions
+      where execution_id = ${executionId} and position = 0
+    `;
+    expect(seg!.reps_completed).toBe(10);
+    expect(Number(seg!.weight_used_kg)).toBe(100);
+
+    const actuals = await loadSegmentActuals(sql, executionId);
+    expect(actuals[0]!.sets.map((s) => s.is_approach)).toEqual([true, true, false, false]);
+    expect(actuals[0]!.sets.filter((s) => s.is_approach)).toHaveLength(2);
+  });
+
+  test('sin is_approach en el cable la serie guardada es trabajo', async () => {
+    const { executionId } = await seedExecution();
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [
+        {
+          position: 0,
+          modality: 'strength',
+          sets: [{ set_index: 1, reps_actual: 5, load_actual_kg: 80 }],
+        },
+      ],
+    });
+    const [row] = await sql<Array<{ is_approach: boolean }>>`
+      select se.is_approach
+      from set_executions se
+      join segment_executions seg on seg.id = se.segment_execution_id
+      where seg.execution_id = ${executionId}
+    `;
+    expect(row!.is_approach).toBe(false);
+  });
 });
 
 // These are pure (no DB) — run regardless of TEST_DATABASE_URL.
@@ -455,6 +529,23 @@ describe('normalizeModality + segmentInputSchema (pure)', () => {
     expect(normalizeModality('weights')).toBe('strength');
     expect(normalizeModality('yoga')).toBe('other');
     expect(normalizeModality(null)).toBe('other');
+  });
+
+  test('setInputSchema acepta is_approach y lo omite como trabajo', () => {
+    const withFlag = segmentInputSchema.safeParse({
+      position: 0,
+      modality: 'strength',
+      sets: [{ set_index: 1, is_approach: true }],
+    });
+    expect(withFlag.success).toBe(true);
+    if (withFlag.success) expect(withFlag.data.sets?.[0]?.is_approach).toBe(true);
+    const omitted = segmentInputSchema.safeParse({
+      position: 0,
+      modality: 'strength',
+      sets: [{ set_index: 1 }],
+    });
+    expect(omitted.success).toBe(true);
+    if (omitted.success) expect(omitted.data.sets?.[0]?.is_approach).toBeUndefined();
   });
 
   test('segmentInputSchema requires position >= 0 and a non-empty modality', () => {

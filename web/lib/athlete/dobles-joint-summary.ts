@@ -45,9 +45,10 @@ export type JointSummaryResult =
   | { ok: true; dto: JointSummaryDTO }
   | { ok: false; reason: 'no_partner' | 'not_joint' };
 
-// One execution's stats, tonnage folded in as a correlated sum over the session's
-// strength segments (real loads: weight_used_kg × reps_completed, mig 0001 — the
-// same formula the coach deep-dive uses). NULL when no strength load was logged.
+// One execution's stats. Tonnage: per-set working load when set_executions
+// exist (skips and approach excluded, card 155); else the segment aggregate
+// (weight_used_kg × reps_completed) for logs that never wrote sets. NULL when
+// no strength load was logged.
 interface ExecStatsRow {
   id: string;
   total_time_s: number | null;
@@ -98,10 +99,29 @@ export async function buildJointSummary(
       we.partner_athlete_id::text as partner_athlete_id,
       to_char((coalesce(we.started_at, we.created_at) at time zone 'Europe/Madrid'), 'YYYY-MM-DD') as local_day,
       (
-        select sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0))
-        from segment_executions se
-        where se.execution_id = we.id and se.weight_used_kg is not null
-      )::float8 as tonnage_kg
+        select case
+          when exists (
+            select 1
+            from set_executions st
+            join segment_executions se on se.id = st.segment_execution_id
+            where se.execution_id = we.id
+          ) then (
+            select sum(st.load_actual_kg * st.reps_actual)::float8
+            from set_executions st
+            join segment_executions se on se.id = st.segment_execution_id
+            where se.execution_id = we.id
+              and st.status <> 'skipped'
+              and coalesce(st.is_approach, false) = false
+              and st.load_actual_kg is not null
+              and st.reps_actual is not null
+          )
+          else (
+            select sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0))::float8
+            from segment_executions se
+            where se.execution_id = we.id and se.weight_used_kg is not null
+          )
+        end
+      ) as tonnage_kg
     from workout_executions we
     where we.assignment_id = ${args.assignmentId} and we.athlete_id = ${selfAthleteId}
     limit 1
@@ -119,10 +139,29 @@ export async function buildJointSummary(
       we.total_duration_seconds as total_time_s,
       we.perceived_exertion as rpe,
       (
-        select sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0))
-        from segment_executions se
-        where se.execution_id = we.id and se.weight_used_kg is not null
-      )::float8 as tonnage_kg
+        select case
+          when exists (
+            select 1
+            from set_executions st
+            join segment_executions se on se.id = st.segment_execution_id
+            where se.execution_id = we.id
+          ) then (
+            select sum(st.load_actual_kg * st.reps_actual)::float8
+            from set_executions st
+            join segment_executions se on se.id = st.segment_execution_id
+            where se.execution_id = we.id
+              and st.status <> 'skipped'
+              and coalesce(st.is_approach, false) = false
+              and st.load_actual_kg is not null
+              and st.reps_actual is not null
+          )
+          else (
+            select sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0))::float8
+            from segment_executions se
+            where se.execution_id = we.id and se.weight_used_kg is not null
+          )
+        end
+      ) as tonnage_kg
     from workout_executions we
     where we.athlete_id = ${partnerAthleteId}
       and we.partner_athlete_id = ${selfAthleteId}

@@ -467,6 +467,9 @@ function MedidaDeBloque({ bloque }: { bloque: Bloque }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
         {bloque.grupos.map((g, i) => (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
+            {g.aproximacion ? (
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--twin-accent)' }}>Aproximación</span>
+            ) : null}
             <span style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
               {`${g.sets}${SIGNO_POR}${g.reps}`}
             </span>

@@ -642,6 +642,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       leg_role: null,
       leg_phase: null,
       is_structural: false,
+      sets: [],
     };
     const result = buildAssignmentDetail({
       assignment: { ...baseAssignment, status: 'completed' as const },

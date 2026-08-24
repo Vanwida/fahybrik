@@ -171,6 +171,30 @@ describe('lectura-sesion · resultadoDeSesion', () => {
     expect(resultadoDeSesion(libre)).toBeNull();
   });
 
+  it('fuerza: las aproximaciones se ven y no suman al volumen ni a la más pesada', () => {
+    const s = sesionBase(
+      [
+        {
+          modalidad: 'fuerza',
+          etiqueta: 'Sentadilla',
+          duracionS: 900,
+          fcMediaPpm: null,
+          grupos: [
+            { sets: 2, reps: 5, kg: 50, aproximacion: true },
+            { sets: 3, reps: 5, kg: 100 },
+          ],
+        },
+      ],
+      { formato: { clase: 'fuerza' } },
+    );
+    const r = resultadoDeSesion(s);
+    expect(r?.clase).toBe('fuerza');
+    if (r?.clase === 'fuerza') {
+      expect(r.volumenKg).toBe(1500);
+      expect(r.serieMasPesada).toEqual({ etiqueta: 'Sentadilla', kg: 100, reps: 5 });
+    }
+  });
+
   it('fuerza: el volumen solo suma lo que llevó una carga medida, y guarda la serie más pesada', () => {
     const s = sesionBase(
       [

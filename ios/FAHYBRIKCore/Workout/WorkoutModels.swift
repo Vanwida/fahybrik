@@ -1096,6 +1096,9 @@ struct SetExecutionDTO: Codable {
     let confirmed: Bool?
     let tempo: String?
     let rest_s: Int?
+    /// Serie de aproximación (card 155). Se registra; no es volumen de trabajo.
+    /// `var` con defecto para que el init de siempre siga compilando.
+    var is_approach: Bool? = nil
     // Fase 2–3 sensor fields (optional; older clients omit).
     var reps_source: String? = nil
     var reps_confidence: Double? = nil

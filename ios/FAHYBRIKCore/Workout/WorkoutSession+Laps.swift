@@ -227,7 +227,8 @@ extension WorkoutSession {
                 status: repsStatusOut ?? "done",
                 confirmed: repsConfirmedOut || loadConfirmed,
                 tempo: planned?.tempo,
-                restS: planned?.restS ?? seg.prescription?.restS
+                restS: planned?.restS ?? seg.prescription?.restS,
+                isApproach: planned?.isApproach ?? false
             )
             if let c = sensorConclusions {
                 single.meanVelocityFirstMs = c.meanVelocityFirstMs
