@@ -55,6 +55,14 @@ struct EditorDeSerie: View {
                             .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                             .foregroundStyle(Theme.Color.accentText)
                     }
+                    // APROXIMACIÓN: el atleta tiene que saber que esta serie es para
+                    // llegar al peso, no trabajo. Si no se dice, se la toma como una
+                    // serie más y se deja ahí un esfuerzo que no tocaba (card 151).
+                    if rec.isApproach {
+                        Text("APROXIMACIÓN · subir hasta el peso de trabajo")
+                            .scaledFont(12, weight: .heavy, relativeTo: .caption)
+                            .foregroundStyle(Theme.Color.accentText)
+                    }
                     HStack(spacing: Theme.Spacing.s) {
                         PasoEntero(etiqueta: Vocab.reps,
                                    valor: rec.repsActual ?? rec.repsPrescribed ?? 0,

@@ -950,6 +950,9 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var confirmed: Bool
     var tempo: String?
     var restS: Int?
+    /// Serie de aproximación (card 151): se registra igual, pero no es volumen de
+    /// trabajo. Ausente = serie de trabajo.
+    var isApproach: Bool = false
     // Sensor (fases 2–3) — defaults so snapshots keep decoding.
     var repsSource: String? = nil
     var repsConfidence: Double? = nil

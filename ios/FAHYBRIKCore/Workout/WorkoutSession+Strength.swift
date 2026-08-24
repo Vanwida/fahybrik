@@ -83,7 +83,11 @@ extension WorkoutSession {
                 // El de la serie sigue mandando cuando existe: una serie puede pedir
                 // su propio descanso (la última de una bajada, por ejemplo) y eso es
                 // más específico que el del bloque.
-                restS: s.restS ?? seg.prescription?.restS
+                restS: s.restS ?? seg.prescription?.restS,
+                // La aproximación viaja desde la prescripción hasta el registro: si
+                // no llega aquí, la analítica no puede separarla del trabajo real,
+                // que es todo el motivo de que exista (card 151).
+                isApproach: s.isApproach ?? false
             )
         }
     }

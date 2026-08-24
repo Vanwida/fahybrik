@@ -565,6 +565,23 @@ export const prescriptionSchemeInputSchema = z.preprocess(
 export interface PrescriptionSet {
   measure?: Measure; // canonical: the work done
   target?: Target; // canonical: the intensity objective
+  /**
+   * SERIE DE APROXIMACIÓN — subir hasta el peso de trabajo (card 151).
+   *
+   * Aproximarse lo hace todo el mundo y no existía en el modelo, así que ese
+   * trabajo se colaba dentro del de verdad y lo ensuciaba: el volumen contaba
+   * kilos que no eran de trabajo y la primera serie de cada bloque salía siempre
+   * más lenta que las demás sin que nadie supiera por qué.
+   *
+   * Es del SET y no del ejercicio porque en un mismo ejercicio conviven las dos
+   * cosas: dos aproximaciones y luego cuatro de trabajo. Ausente = serie de
+   * trabajo, que es lo que era todo hasta ahora — ningún dato viejo cambia de
+   * significado.
+   *
+   * Lo que hace: se ejecuta y se registra igual, pero la analítica la separa del
+   * trabajo real en vez de sumarla.
+   */
+  is_approach?: boolean;
   modality?: Modality; // per-set modality (a block item is one modality; rarely overridden per set)
   rest_s?: number;
   tempo?: string; // e.g. "3-1-1-0"
@@ -609,6 +626,7 @@ const prescriptionSetObjectSchema = z
   .object({
     measure: measureSchema.optional(),
     target: targetSchema.optional(),
+    is_approach: z.boolean().optional(),
     modality: modalitySchema.optional(),
     rest_s: z.number().nonnegative().optional(),
     tempo: z.string().max(20).optional(),

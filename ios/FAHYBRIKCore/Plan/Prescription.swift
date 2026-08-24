@@ -562,6 +562,26 @@ struct PrescriptionSet: Codable, Equatable {
     let restS: Int?
     let tempo: String?
     let note: String?
+    /// Serie de APROXIMACIÓN: subir hasta el peso de trabajo (card 151). Se hace y
+    /// se registra igual, pero no cuenta como trabajo en la analítica. Ausente =
+    /// serie de trabajo, que es lo que era todo hasta ahora.
+    let isApproach: Bool?
+
+    // SIN `CodingKeys` A MANO. El decodificador de la app ya convierte snake_case
+    // solo, así que declararlas aquí rompía `rest_s` en seis pruebas: la clave
+    // llegaba ya convertida y el mapeo explícito buscaba la cruda. `is_approach`
+    // entra por el mismo camino automático que todo lo demás.
+
+    init(measure: Measure?, target: Target?, modality: PrescriptionModality?,
+         restS: Int?, tempo: String?, note: String?, isApproach: Bool? = nil) {
+        self.measure = measure
+        self.target = target
+        self.modality = modality
+        self.restS = restS
+        self.tempo = tempo
+        self.note = note
+        self.isApproach = isApproach
+    }
 }
 
 // MARK: - PrescriptionSet → prescribed scalars (per-set strength logging)
