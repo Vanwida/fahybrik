@@ -391,6 +391,33 @@ final class WatchWorkoutCoordinator {
         }
     }
 
+    /// EL TELÉFONO YA TERMINÓ ESTE ENTRENO. La muñeca cierra lo suyo y se aparta.
+    ///
+    /// Guarda su grabación en Salud —el pulso y las calorías de este entreno no se
+    /// tiran— y vuelve a reposo SIN pedir un segundo resumen y SIN mandar nada al
+    /// servidor: la ejecución la manda el teléfono, que es quien lleva el entreno.
+    /// Si la mandaran los dos, el mismo entreno llegaría dos veces.
+    ///
+    /// Antes de esto no existía ningún camino para enterarse: acabar en el móvil
+    /// dejaba el reloj grabando y con su propio final pendiente, así que el atleta
+    /// tenía que terminar y guardar otra vez en la muñeca.
+    ///
+    /// No toca nada si el atleta ya terminó en la muñeca y está en su resumen: ese
+    /// final es suyo y se cierra con «Listo».
+    func finishFromPhone() {
+        guard phase == .active else { return }
+        // Ata el `finalize()` que RootView dispara al ver el motor cerrado: aquí no
+        // hay resumen ni envío que hacer.
+        didFinalize = true
+        phase = .idle
+        WatchHaptics.success()
+        Task { await WorkoutStateStore.shared.clear() }
+        Task { [weak self] in
+            _ = await self?.live.end()   // cierra y guarda el HKWorkout
+            self?.reset()
+        }
+    }
+
     /// Build the wire envelope for the current share decision. `shareWithPartner` is
     /// carried only for a dobles result; nil for solo/individual (the phone then
     /// falls back to its own solo/joint resolution).

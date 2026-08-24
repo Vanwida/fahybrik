@@ -194,6 +194,29 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         }
     }
 
+    /// ACABAR EN UN SITIO ES ACABAR: decirle al reloj que este entreno ya terminó
+    /// en el teléfono, para que cierre su grabación y no pida un segundo final.
+    ///
+    /// Se manda por mensaje directo (el reloj está despierto, está entrenando) y,
+    /// si no hay alcance en ese instante, se encola: el aviso no puede depender de
+    /// que el bluetooth esté fino justo al pulsar Terminar.
+    @MainActor
+    func endLiveWorkout() {
+        guard WCSession.isSupported() else { return }
+        activate()
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired, session.isWatchAppInstalled else { return }
+        let body: [String: Any] = [WatchWireKeys.liveEnd: true]
+        if session.isReachable {
+            session.sendMessage(body, replyHandler: nil) { _ in
+                Task { @MainActor in session.transferUserInfo(body) }
+            }
+        } else {
+            session.transferUserInfo(body)
+        }
+    }
+
     @MainActor
     func clearToday() {
         // Igual que pushToday: si esta es la PRIMERA llamada a WCSession del

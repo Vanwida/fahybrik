@@ -124,7 +124,10 @@ struct WorkoutContainer: View {
     /// their plan state so the finished session no longer shows "Empezar".
     var onCompleted: (String?) -> Void = { _ in }
 
-    var body: some View {
+    /// El contenido, aparte del cuerpo: la cadena de modificadores de abajo ya
+    /// tiene el tamaño que el compilador de SwiftUI aguanta de una pieza.
+    @ViewBuilder
+    private var raiz: some View {
         ZStack(alignment: .top) {
             switch loadState {
             case .loading:
@@ -160,6 +163,40 @@ struct WorkoutContainer: View {
                 recoveryModal(recovery)
             }
         }
+    }
+
+    var body: some View {
+        conCubiertas
+        .task {
+            await arranque()
+        }
+        // LA PANTALLA DESPIERTA tiene UN dueño: este contenedor, por fase (antes eran
+        // booleanos repartidos entre vistas y el relevo .active → .recovery podía
+        // dormir la pantalla a mitad de la medición de un test).
+        .onChange(of: phase) { _, nueva in mantenerPantallaDespierta(nueva) }
+        // ACABAR EN UN SITIO ES ACABAR. El atleta pulsó Terminar en la muñeca: el
+        // entreno del móvil se cierra aquí y va al resumen. No se le pide un
+        // segundo final con su propio guardado — eso era hacer dos veces el mismo
+        // trabajo sin saber cuál de los dos contaba.
+        .onChange(of: PhoneMirrorService.shared.wristFinishedByAthlete) { _, terminado in
+            cerrarPorqueTerminoLaMuneca(terminado)
+        }
+        // EL ÚNICO punto de desmontaje de los aparatos (cinta + banda + remo). Salta
+        // en toda salida del flujo, pero no cuando se abre una cubierta encima.
+        .onDisappear { alSalirDelFlujo() }
+    }
+
+    private func alSalirDelFlujo() {
+        DeviceHub.shared.stopAll()
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    private func mantenerPantallaDespierta(_ nueva: Phase) {
+        UIApplication.shared.isIdleTimerDisabled = (nueva == .active || nueva == .recovery)
+    }
+
+    private var conCubiertas: some View {
+        raiz
         .fullScreenCover(isPresented: $showCapture) {
             // Capture-log is only meaningful for a REAL assignment (the result is
             // attributed to it). Ad-hoc/free sessions never reach this button.
@@ -179,58 +216,38 @@ struct WorkoutContainer: View {
                 }
             )
         }
-        .task {
-            // A free workout is a one-off in-memory build with no assignment — never
-            // offer to recover an unrelated prescribed snapshot over it.
-            if freeContext == nil,
-               let saved = await WorkoutStateStore.shared.load(),
-               // AUDIT-1/2 — offer ONLY for the same assignment, fresh (<6h) and not a
-               // finished/discarded snapshot (those are cleared on close). An older
-               // snapshot with no assignment is discarded, never guessed.
-               WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
-                // SE RETOMA SOLO, NO SE PREGUNTA. Antes esto abría un aviso y, si el
-                // atleta tocaba «Empezar» en la pantalla previa en vez del aviso,
-                // arrancaba una sesión NUEVA cuyo autoguardado pisaba la instantánea
-                // de la anterior: el trabajo no es que no se enseñara, es que se
-                // perdía. Que no se pierda un entreno no puede depender de acertar
-                // un botón.
-                //
-                // Descartar sigue existiendo, dentro del entreno, donde siempre.
-                let recuperada = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
-                recuperada.restore(from: saved)
-                session = recuperada
-                PhoneMirrorService.shared.begin(
-                    session: recuperada,
-                    activityKind: mirrorActivityKind(for: saved.plan)
-                )
-                phase = .active
-                return
-            }
-            await loadPlan()
+    }
+
+    /// Al abrir: retomar la instantánea de un entreno a medias si la hay, y si no,
+    /// cargar el plan. Fuera del cuerpo porque la cadena de modificadores ya está
+    /// en el límite que el compilador de SwiftUI resuelve de una pieza.
+    private func arranque() async {
+        // Un entreno libre se monta en memoria y no tiene asignación — nunca se le
+        // ofrece encima la instantánea de un entreno prescrito que no es el suyo.
+        if freeContext == nil,
+           let saved = await WorkoutStateStore.shared.load(),
+           // Solo para la MISMA asignación, reciente (<6 h) y sin terminar ni
+           // descartar (esas se limpian al cerrar). Una instantánea vieja sin
+           // asignación se descarta, nunca se adivina.
+           WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
+            // SE RETOMA SOLO, NO SE PREGUNTA. Antes esto abría un aviso y, si el
+            // atleta tocaba «Empezar» en la pantalla previa en vez del aviso,
+            // arrancaba una sesión NUEVA cuyo autoguardado pisaba la instantánea de
+            // la anterior: el trabajo no es que no se enseñara, es que se perdía.
+            // Que no se pierda un entreno no puede depender de acertar un botón.
+            //
+            // Descartar sigue existiendo, dentro del entreno, donde siempre.
+            let recuperada = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
+            recuperada.restore(from: saved)
+            session = recuperada
+            PhoneMirrorService.shared.begin(
+                session: recuperada,
+                activityKind: mirrorActivityKind(for: saved.plan)
+            )
+            phase = .active
+            return
         }
-        // LA PANTALLA DESPIERTA tiene UN dueño: este contenedor, por fase. Antes
-        // eran booleanos repartidos entre vistas (ActiveWorkoutView ponía false al
-        // desaparecer, RecoveryCaptureView true al aparecer) y en el relevo
-        // .active → .recovery SwiftUI no garantiza el orden onAppear/onDisappear
-        // entre la vista entrante y la saliente: el false podía ganar y la pantalla
-        // se dormía a mitad de la ventana de recuperación de un test. Con la fase
-        // no hay costura que ordenar. La recovery se queda despierta a propósito:
-        // el atleta no toca nada durante la medición.
-        .onChange(of: phase) { _, new in
-            UIApplication.shared.isIdleTimerDisabled = (new == .active || new == .recovery)
-        }
-        // The ONE teardown point for the shared BLE device layer (cinta + banda + remo).
-        // Fires on EVERY exit of the whole flow — brief-back, clean discard, or a
-        // saved finish — but NOT when a sub-cover (the treadmill HUD) opens over the
-        // active view, so the belt connected in the brief stays live all session and
-        // is released only when the athlete truly leaves. The active view still
-        // releases the erg + belt the INSTANT the work ends (before the summary, which
-        // is the timing the athlete feels); this is the backstop for the paths that
-        // never reach it — above all backing out of the brief with a monitor paired.
-        .onDisappear {
-            DeviceHub.shared.stopAll()
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
+        await loadPlan()
     }
 
     @ViewBuilder
@@ -521,6 +538,14 @@ struct WorkoutContainer: View {
     // devuelve nil cuando no hubo carrera o cuando nada midió la distancia. Sin
     // metros no hay ritmo, y una lectura de carrera sin ritmo no tiene sujeto que
     // enseñar — ahí manda el resumen genérico, que sí sabe hablar de tiempo y pulso.
+    /// Ver el `.onChange` de `wristFinishedByAthlete` en el cuerpo: cerrar el motor
+    /// es todo lo que hace falta, el resto del final ya cuelga de `isFinished`.
+    private func cerrarPorqueTerminoLaMuneca(_ terminado: Bool) {
+        guard terminado, phase == .active else { return }
+        guard let session, !session.isFinished else { return }
+        session.finish(completeness: .partial)
+    }
+
     private func trasElEsfuerzo(_ session: WorkoutSession) -> Phase {
         CarreraDeLaSesion.carrera(laps: session.laps, segmentos: session.plan.segments) != nil
             ? .lecturaCarrera

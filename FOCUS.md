@@ -2,9 +2,29 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (card 158: cambiar el tipo de un bloque)
+Última actualización: **2026-08-24** (card 157: un entreno, un final)
 
 ## Ahora
+
+**157 · UN ENTRENO, UN FINAL — el reloj y el móvil dejan de ir por su cuenta.**
+Acabar en el móvil obligaba a acabar OTRA VEZ en el reloj (y al revés). Raíz: en
+el reloj vive una app de entreno completa (`WatchWorkoutCoordinator`) con su
+cronómetro, su grabación de Salud, su resumen y su envío al servidor — dos dueños
+del mismo entreno, ninguno mandando. De ahí los duplicados y los «completado»
+falsos.
+
+Ahora: `MirrorEnded` lleva `reason` (`MirrorWire.EndReason`). Solo `athlete`
+propaga — un final humano en la muñeca cierra el motor del móvil
+(`wristFinishedByAthlete` → `WorkoutContainer`). El autocierre por perder señal
+manda `watchdog` y NO termina nada: era eso lo que costaba el entreno al salir a
+descansar entre bloques. Y el móvil manda `WatchWireKeys.liveEnd` por
+WatchConnectivity SIEMPRE, con espejo o sin él, para alcanzar al reloj cuando iba
+por libre → `finishFromPhone()`: guarda su HKWorkout en Salud, vuelve a reposo,
+NO manda ejecución (la manda el móvil, que es el dueño).
+
+Compilan iOS y watchOS; 1.648 pruebas en verde. **Esto NO se prueba con pruebas:
+son dos aparatos, se comprueba entrenando.** Sin instalar en su iPhone.
+Card: https://app.clickup.com/t/86ak56898
 
 **158 · EL ENTRENADOR PUEDE CAMBIAR EL TIPO DE UN BLOQUE.**
 El chip junto al nombre ya no es un adorno: es el mismo selector que al añadir (calentamiento, fuerza, circuito, carrera…). Los ejercicios y la dosis se quedan. Grok.
