@@ -57,8 +57,28 @@ que todo se veía igual.
 ## Cómo se escribe una card
 
 - **Número delante, siempre:** `N · título`. La secuencia es **global**, compartida
-  con el otro agente (Hermes): el número sale del máximo de TODAS las listas, no
-  de la lista donde va. Al renombrar una card, se conserva su número.
+  con todos los agentes (no estás solo). El número sale del máximo de TODAS las
+  listas, no de la lista donde va. Al renombrar una card, se conserva su número.
+
+## No estás solo — el número se comprueba, no se recuerda
+
+Somos muchos agentes sobre el mismo tablero. `siguiente` es una foto: entre
+que la lees y que escribes, otro ya ha cogido ese número. El 24-ago Grok
+actualizó la 161 por número y pisó la card de otro agente que acababa de
+nacer con el mismo 161.
+
+**Antes de crear:** `listar`. Si el máximo ya no es el que viste hace un
+momento, hay un número nuevo — no es tuyo, no lo uses, no lo pises.
+`crear` numera sola en ese instante; no le pases un número que memorizaste.
+
+**En cuanto `crear` imprime el enlace:** te quedas con el **id** (`/t/<id>`).
+A partir de ahí, `actualizar` / `añadir` / `estado` van **por id**, no por
+número. El número puede estar duplicado; el id no.
+
+**Antes de tocar por número:** `listar` otra vez. Si ese número sale dos
+veces, paras. No eliges «la primera». El script, si le pasas un número
+repetido, se niega.
+
 - **Título en cristiano:** qué cambia para el entrenador o para el negocio, no el
   nombre técnico del cambio.
 - **Cuerpo en este orden:** QUÉ PASABA (el problema en humano) → QUÉ SE HIZO →
@@ -102,4 +122,9 @@ Listas (`<lista>` acepta el alias):
 - No escribir «hecho» en una card por trabajo que sigue sin desplegar: si falta
   desplegar, la card lo dice.
 - No dejar una tarea sin card porque «es pequeña»: si ha tocado código, tiene card.
-- No inventar un número: se pide con `siguiente`.
+- No inventar un número. No reutilizar un `siguiente` leído hace rato:
+  `listar` otra vez; `crear` numera en el momento.
+- No `actualizar` / `estado` por número si `listar` muestra ese número más
+  de una vez: se usa el id de **tu** card (el del enlace al crear).
+- No tocar una card que no has creado tú en esta sesión, salvo que Alex
+  te pase el enlace.

@@ -12,9 +12,9 @@ Uso:
   clickup.py listar
   clickup.py siguiente
   clickup.py crear <lista> "<titulo>" <cuerpo.md> [estado]
-  clickup.py actualizar <numero|id> <cuerpo.md>
-  clickup.py anadir <numero|id> <cuerpo.md>
-  clickup.py estado <numero|id> <to do|in progress|complete>
+  clickup.py actualizar <id|numero> <cuerpo.md>   # id si el número está repetido
+  clickup.py anadir <id|numero> <cuerpo.md>
+  clickup.py estado <id|numero> <to do|in progress|complete>
   clickup.py saltar "<razon>"
 """
 import datetime
@@ -88,10 +88,28 @@ def todas():
 
 
 def buscar(ref: str):
+    """Resuelve una card. El número no es único: varios agentes numeran a la
+    vez y dos cards pueden nacer con el mismo N. Si el ref es un número y hay
+    más de una, nos negamos — hay que pasar el id de la URL al crear."""
     ref = ref.strip()
-    for c in todas():
-        if c["id"] == ref or (c["num"] is not None and str(c["num"]) == ref):
-            return c
+    m = re.search(r"/t/([A-Za-z0-9]+)", ref)
+    if m:
+        ref = m.group(1)
+    cards = todas()
+    by_id = [c for c in cards if c["id"] == ref]
+    if by_id:
+        return by_id[0]
+    if re.fullmatch(r"\d+", ref):
+        hits = [c for c in cards if c["num"] is not None and str(c["num"]) == ref]
+        if not hits:
+            sys.exit(f"No encuentro la card «{ref}». Prueba: clickup.py listar")
+        if len(hits) > 1:
+            lineas = "\n".join(f"  {c['nombre']}\n      {c['url']}" for c in hits)
+            sys.exit(
+                f"El número {ref} está en {len(hits)} cards. No toco ninguna. "
+                f"Usa el id de la tuya (el de la URL al crear):\n{lineas}"
+            )
+        return hits[0]
     sys.exit(f"No encuentro la card «{ref}». Prueba: clickup.py listar")
 
 
@@ -160,6 +178,8 @@ def main() -> None:
         est = sys.argv[5] if len(sys.argv) > 5 else "in progress"
         estado_valido(est)
         lid = LISTAS.get(alias, alias)
+        # Número en el momento de escribir, no uno memorizado: otro agente
+        # puede haber creado una card entre `siguiente` y este POST.
         nums = [c["num"] for c in todas() if c["num"] is not None]
         n = (max(nums) + 1) if nums else 1
         nombre = f"{n} · {titulo}"
@@ -172,8 +192,17 @@ def main() -> None:
                 "status": est,
             },
         )
+        tid = t["id"]
+        # Carrera: dos POSTs con el mismo máximo → dos cards N. Esta es la
+        # nuestra; si ya hay gemela, renumeramos la nuestra al siguiente hueco.
+        gemelas = [c for c in todas() if c["num"] == n and c["id"] != tid]
+        if gemelas:
+            nums = [c["num"] for c in todas() if c["num"] is not None]
+            n = (max(nums) + 1) if nums else n + 1
+            nombre = f"{n} · {titulo}"
+            api("PUT", f"/task/{tid}", {"name": nombre})
         marcar()
-        print(f"CREADA [{est}] · {nombre}\n{t['url']}")
+        print(f"CREADA [{est}] · {nombre}\n{t['url']}\nid {tid}")
 
     elif cmd == "estado":
         c = buscar(sys.argv[2])
