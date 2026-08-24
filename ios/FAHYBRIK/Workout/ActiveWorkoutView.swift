@@ -8,6 +8,7 @@ import UIKit
 // by parent (WorkoutContainer) per "lock-in mode".
 struct ActiveWorkoutView: View {
     @State var session: WorkoutSession
+    @State private var mostrarBloques = false
     let onFinish: () -> Void
     /// Leave the workout WITHOUT recording anything (clean discard): no execution
     /// saved, the session is never marked done. Distinct from `onFinish`, which
@@ -336,6 +337,9 @@ struct ActiveWorkoutView: View {
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
             releaseDevicesOnFinish()
+        }
+        .sheet(isPresented: $mostrarBloques) {
+            BloquesDelEntreno(session: session) { mostrarBloques = false }
         }
         .task { await pollPartnerLive() }
         .onChange(of: session.isFinished) { _, finished in
@@ -821,6 +825,15 @@ struct ActiveWorkoutView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Salir del entreno")
+            Button(action: { mostrarBloques = true }) {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ver el entreno entero")
             Button(action: {
                 session.togglePause()
                 if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
