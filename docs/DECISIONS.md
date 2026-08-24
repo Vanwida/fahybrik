@@ -10,6 +10,29 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-24 · Un entreno tiene UN dueño y UN final. Y quién lo termina, importa.
+
+**Qué pasó (card 157):** al acabar un entreno en el móvil había que acabarlo otra vez en el Apple Watch — otro Terminar, otro resumen, otro guardado — y al revés igual. Sin saber cuál de los dos contaba.
+
+**La raíz no era la pantalla.** En el reloj vivía una app de entreno COMPLETA (`WatchWorkoutCoordinator`): su propio cronómetro, su propia grabación de HealthKit, su propio resumen y **su propio envío de la ejecución al servidor**. Dos programas se creían dueños del mismo entreno y ninguno mandaba sobre el otro. De ahí salían los entrenos duplicados, los «completado» sobre trabajo que nadie grabó y los datos que se pisan entre reloj y móvil. Los arranques SÍ estaban protegidos entre sí (los dos `start()` se declinan mutuamente); lo que no existía era propagación del FINAL, en ninguno de los dos sentidos.
+
+**Lo que se decide:**
+
+1. **El entreno tiene un dueño, y por defecto es la sesión del móvil.** Es quien manda la ejecución al servidor. El reloj graba y enriquece; nunca crea una ejecución paralela, nunca la reclama.
+2. **Acabar en un sitio es acabar.** El final se propaga en los dos sentidos. Nunca se le pide al atleta un segundo final.
+3. **QUIÉN termina forma parte del mensaje.** `MirrorEnded` lleva `reason` (`MirrorWire.EndReason`: `phone` / `athlete` / `watchdog` / `discarded`). **Solo `athlete` propaga.**
+
+**El punto 3 es el que evita repetir un desastre ya vivido.** El reloj se autocierra cuando lleva cinco minutos sin señal del móvil, y eso pasa CADA VEZ que el atleta suelta el teléfono para descansar entre bloques. Tratar ese cierre como «ha terminado» le cuesta el entreno entero — es exactamente el fallo que en la card 154 dejaba al atleta encontrándose el calentamiento otra vez al volver. «La muñeca dejó de grabar» y «el atleta terminó» NO son el mismo suceso, y el cable tiene que poder distinguirlos.
+
+**Qué NO hacer en consecuencia:**
+
+- No añadir un segundo motor de entreno en ningún aparato nuevo (reloj, tablet, web). Un aparato que no es el dueño **graba y enriquece**, no crea ni da por terminado.
+- No propagar un final que no haya pedido una persona. Ningún vigilante, tiempo de espera ni pérdida de señal puede terminar un entreno.
+- No dejar que un aparato que no es el dueño mande la ejecución: llegaría dos veces.
+- No borrar desde la muñeca lo que hay en el teléfono. Un descarte en el reloj tira su grabación y nada más.
+- No dar un motivo desconocido por bueno: un binario viejo no manda `reason`, y eso cae siempre del lado prudente (cerrar la conexión, no el entreno).
+
+
 ## 2026-08-24 · El nombre del entreno y el del bloque son dos campos. `warmup` es un tipo de verdad.
 
 **Qué pasó (card 156):** al abrir el martes de un microciclo importado por el asistente, el primer bloque se leía como fuerza: se llamaba «Fuerza tren superior + core · Warm up», el lomo era naranja de fuerza y no había chip de Calentamiento. El entrenador buscó cómo cambiar el tipo. El tipo YA era `warmup`.
