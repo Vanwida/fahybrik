@@ -493,7 +493,7 @@ extension WorkoutSession {
     /// a stale pause (the gate is its own hold). The clock stays frozen until
     /// `beginBlock`. Does NOT touch a reopened lap — a back-step into an earlier
     /// block keeps its restored progress, ready to resume on Empezar.
-    private func armBlock() {
+    func armBlock() {
         awaitingGate = .block
         clearEMOMState()
         clearConditioning()

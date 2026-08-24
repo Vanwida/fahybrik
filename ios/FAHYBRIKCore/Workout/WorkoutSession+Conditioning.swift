@@ -378,13 +378,34 @@ extension WorkoutSession {
         }
     }
 
-    /// Arranca el descanso que la estación recién cerrada declaraba, si declaraba
+    /// Arranca el descanso que la ronda recién cerrada declaraba, si declaraba
     /// alguno. Silencioso (0) para todo lo que no lo prescribe — una simulación
     /// HYROX va seguida a propósito, así que aquí no aparece ninguna pausa que el
     /// coach no haya pedido.
+    ///
+    /// DOS PUERTAS QUE ESTABAN DE MÁS (card 146). El 24-ago un bloque de 10 rondas
+    /// de SkiErg con 45 s de descanso escritos se encadenó SIN NINGUNO, y el
+    /// atleta lo cortó a la cuarta.
+    ///
+    /// La primera puerta exigía que el bloque fuera una RUTA de estaciones
+    /// distintas. Diez rondas del mismo ejercicio no lo son, así que no descansaba
+    /// nunca — pero el descanso entre rondas iguales es tan real como el de entre
+    /// estaciones. Quien decide si hay pausa es el coach al escribirla, no la
+    /// forma del bloque.
+    ///
+    /// La segunda sólo miraba el descanso de la SERIE. El coach lo escribe UNA vez
+    /// para el ejercicio, no repetido en cada ronda — es el mismo agujero que ya
+    /// se tapó en las tablas de hierro, y se tapó sólo allí. Aquí se aplica la
+    /// misma precedencia: manda el de la ronda si lo tiene, y si no el del
+    /// ejercicio.
+    ///
+    /// Lo que NO cambia: sin descanso escrito no aparece ninguno. Un simulacro
+    /// sigue yendo seguido.
     private func beginFixedRest(seg: WorkoutSegment?, closedStation: Int) {
-        guard let seg, seg.fixedListIsStations,
-              let rest = seg.rotationSet(at: closedStation)?.restS, rest > 0 else {
+        let rest = seg.flatMap { s in
+            s.rotationSet(at: closedStation)?.restS ?? s.prescription?.restS
+        } ?? 0
+        guard rest > 0 else {
             fixedRestRemaining = 0
             fixedRestTotal = 0
             return
