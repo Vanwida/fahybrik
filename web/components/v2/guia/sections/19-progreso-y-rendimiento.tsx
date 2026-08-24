@@ -32,7 +32,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             La <b>progresión de tests</b>: cada test repetido en una fila (<b>Antes → Ahora → Δ</b>)
             con el salto en verde si mejora y en rojo si retrocede. Más la biometría de fondo (VFC,
-            sueño, FC en reposo) y los microciclos ya completados.
+            sueño, FC en reposo) y los ciclos ya completados.
           </>
         }
         como={

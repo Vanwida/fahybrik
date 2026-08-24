@@ -260,7 +260,7 @@ function Seccion({
           onChange={(v) => onCambiar({ label: v })}
         />
         <LineaDeEmbed>
-          Se dibuja solo con su plan: sus microciclos en orden, dónde está hoy y las semanas que
+          Se dibuja solo con su plan: sus ciclos en orden, dónde está hoy y las semanas que
           llevan simulacro o tests. Si le cambias el plan, el dibujo cambia con él.
         </LineaDeEmbed>
         {anclaSirve ? null : (

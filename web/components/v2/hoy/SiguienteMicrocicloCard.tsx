@@ -35,7 +35,7 @@ function actionCopy(card: V2SiguienteMicrocicloCard): { button: string; next: Re
           <>
             siguiente:{' '}
             <span className="font-semibold text-[color:var(--v2-fg)]">
-              «{card.next_microciclo_name ?? 'siguiente microciclo'}»
+              «{card.next_microciclo_name ?? 'siguiente ciclo'}»
             </span>
           </>
         ),
@@ -180,7 +180,7 @@ export function SiguienteMicrocicloStrip({
   }
 
   return (
-    <DecisionStrip icon="skip_next" label="Siguiente microciclo" count={visible.length}>
+    <DecisionStrip icon="skip_next" label="Siguiente ciclo" count={visible.length}>
       {visible.map((card) => (
         <Card key={card.id} card={card} onAdvanced={handleAdvanced} />
       ))}

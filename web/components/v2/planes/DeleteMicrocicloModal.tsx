@@ -61,7 +61,7 @@ export function DeleteMicrocicloModal({
       <div
         role="dialog"
         aria-modal
-        aria-label="Borrar microciclo"
+        aria-label="Borrar ciclo"
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]"
       >
@@ -70,7 +70,7 @@ export function DeleteMicrocicloModal({
             <MIcon name="delete" size={20} />
           </span>
           <div className="min-w-0">
-            <h2 className="v2-display text-xl">Borrar microciclo</h2>
+            <h2 className="v2-display text-xl">Borrar ciclo</h2>
             <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
               Vas a borrar «{name}» y todas sus semanas. Esta acción no se puede deshacer.
             </p>
@@ -95,7 +95,7 @@ export function DeleteMicrocicloModal({
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-danger)] px-4 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <MIcon name={busy ? 'progress_activity' : 'delete'} size={16} />
-            {busy ? 'Borrando…' : 'Borrar microciclo'}
+            {busy ? 'Borrando…' : 'Borrar ciclo'}
           </button>
         </div>
       </div>

@@ -40,14 +40,14 @@ export function VolverPeriodizacionModal({
         const body = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
           | null;
-        setError(body?.error?.message ?? 'No se pudo volver a la periodización.');
+        setError(body?.error?.message ?? 'No se pudo volver a la planificación.');
         setSubmitting(false);
         return;
       }
       router.refresh();
       onClose();
     } catch {
-      setError('No se pudo volver a la periodización. Inténtalo de nuevo.');
+      setError('No se pudo volver a la planificación. Inténtalo de nuevo.');
       setSubmitting(false);
     }
   }
@@ -58,7 +58,7 @@ export function VolverPeriodizacionModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Volver a la periodización"
+      aria-label="Volver a la planificación"
     >
       <button
         type="button"
@@ -68,7 +68,7 @@ export function VolverPeriodizacionModal({
       />
       <div className="relative flex w-full max-w-md flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Volver a la periodización</h2>
+          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Volver a la planificación</h2>
           <button
             type="button"
             aria-label="Cerrar"
@@ -82,7 +82,7 @@ export function VolverPeriodizacionModal({
         <div className="flex flex-col gap-3">
           <p className="text-sm text-[color:var(--v2-fg)]">
             <span className="font-semibold">{athleteName}</span> deja «{personalPlanName}» y vuelve
-            a recibir sus microciclos automáticos por nivel, justo donde se quedó antes de
+            a recibir sus ciclos automáticos por nivel, justo donde se quedó antes de
             personalizar.
           </p>
           <ul className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 text-xs text-[color:var(--v2-muted)]">
@@ -93,7 +93,7 @@ export function VolverPeriodizacionModal({
             <li className="flex items-start gap-2">
               <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
               Las sesiones pendientes de «{personalPlanName}» se sustituyen por las de la
-              periodización, empezando esta semana.
+              planificación, empezando esta semana.
             </li>
           </ul>
           {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
@@ -119,7 +119,7 @@ export function VolverPeriodizacionModal({
               ) : (
                 <>
                   <MIcon name="history" size={16} />
-                  Volver a la periodización
+                  Volver a la planificación
                 </>
               )}
             </button>

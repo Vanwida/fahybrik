@@ -76,7 +76,7 @@ export function DeleteWeekModal({
           <div className="min-w-0">
             <h2 className="v2-display text-xl">Borrar semana</h2>
             <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
-              Vas a borrar «{label}» de este microciclo. Las semanas siguientes se
+              Vas a borrar «{label}» de este ciclo. Las semanas siguientes se
               renumeran. Esta acción no se puede deshacer.
             </p>
           </div>

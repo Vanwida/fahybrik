@@ -103,12 +103,12 @@ export function AsignarAtletaModal({
         | { assign_draft?: { assignment_count?: number }; error?: { message?: string } }
         | null;
       if (!res.ok || !body?.assign_draft) {
-        setError(body?.error?.message ?? 'No se pudo asignar el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo asignar el ciclo.');
         return;
       }
       setAssignedTo(athletes.find((a) => a.athlete_id === selectedId) ?? null);
     } catch {
-      setError('No se pudo asignar el microciclo. Inténtalo de nuevo.');
+      setError('No se pudo asignar el ciclo. Inténtalo de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +131,7 @@ export function AsignarAtletaModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Asignar microciclo a un atleta"
+      aria-label="Asignar ciclo a un atleta"
     >
       <button
         type="button"
@@ -143,7 +143,7 @@ export function AsignarAtletaModal({
       <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">
-            {assignedTo ? 'Microciclo asignado' : 'Asignar a un atleta'}
+            {assignedTo ? 'Ciclo asignado' : 'Asignar a un atleta'}
           </h2>
           <button
             type="button"
@@ -155,7 +155,7 @@ export function AsignarAtletaModal({
           </button>
         </div>
         <p className="mb-4 text-xs text-[color:var(--v2-muted)]">
-          {monthName ? <>Microciclo «{monthName}»</> : 'Microciclo de tu biblioteca'}
+          {monthName ? <>Ciclo «{monthName}»</> : 'Ciclo de tu biblioteca'}
         </p>
 
         {assignedTo ? (
@@ -166,7 +166,7 @@ export function AsignarAtletaModal({
                 Asignado a{' '}
                 <span className="font-semibold text-[color:var(--v2-fg)]">{assignedTo.full_name}</span>{' '}
                 en <span className="font-semibold text-[color:var(--v2-fg)]">borrador</span>. Aún no lo
-                ve. Ábrelo en su plan y pulsa «Publicar microciclo» para entregarlo.
+                ve. Ábrelo en su plan y pulsa «Publicar ciclo» para entregarlo.
               </p>
             </div>
             <div className="flex items-center justify-end gap-2">

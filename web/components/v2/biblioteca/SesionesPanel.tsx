@@ -32,7 +32,7 @@ export function SesionesPanel({ items, hasAny }: { items: V2SesionItem[]; hasAny
         whatToDo={<>Una sesión es un entreno entero, lo que hace tu atleta un día.</>}
         why={
           <>
-            <b>Por qué importa:</b> es el peldaño entre el bloque y el microciclo. Ármala con tus
+            <b>Por qué importa:</b> es el peldaño entre el bloque y el ciclo. Ármala con tus
             bloques y reutilízala en cualquier día.
           </>
         }

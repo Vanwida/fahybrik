@@ -2,17 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (161 · límites de semanas sin hard-stop)
+Última actualización: **2026-08-24** (162 · copy planificación / ciclo)
 
 ## Ahora
 
-**161 · CREAR MICROCICLO NO SE BLOQUEA SI FALLA EL TOPE DE SEMANAS.**
-El modal pintaba «No se pudieron cargar tus límites de semanas.» porque
-`GET /api/coach/levels` viaja en `Promise.all` con `max_microcycle_weeks`
-(mig 0206) y el fetch hacía `r.json()` sin mirar `r.ok`. En prod, Clerk
-sin cookie responde 404 HTML; si falta la columna, el GET 500. Los dos
-tiran el parse y el catch bloqueaba Crear. Ahora: defecto 8, el GET
-sigue sirviendo niveles, y el formulario no espera al tope.
+**162 · COPY VISIBLE: PLANIFICACIÓN / CICLO.** El coach y el atleta leen
+planificación y ciclo. Internos, URLs (`/periodizacion`, `/microciclos`),
+tipos y API siguen con periodización / microciclo. Solo copy, no rename
+de dominio.
 
 **130 · OBJETIVOS RELATIVOS A LAS MARCAS DEL ATLETA — pieza 1 de 4 hecha.**
 Es la raíz de la card 128: sin esto, una plantilla con kilos absolutos no sirve

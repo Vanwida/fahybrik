@@ -19,15 +19,15 @@ export interface PipelineStepMeta {
   /** Coach-facing name (product nomenclature). */
   name: string;
   /** Which section this step lives in (the "dónde" hint under the node). */
-  where: 'Periodización' | 'Biblioteca';
+  where: 'Planificación' | 'Biblioteca';
 }
 
 export const PIPELINE_STEP_META: readonly PipelineStepMeta[] = [
-  { key: 'niveles_fases', ord: 1, name: 'Niveles', where: 'Periodización' },
+  { key: 'niveles_fases', ord: 1, name: 'Niveles', where: 'Planificación' },
   // A sesión = the reusable training (the live blocks library).
   { key: 'sesiones', ord: 2, name: 'Sesiones', where: 'Biblioteca' },
-  { key: 'microciclos', ord: 3, name: 'Microciclos', where: 'Biblioteca' },
-  { key: 'secuencias', ord: 4, name: 'Secuencias', where: 'Periodización' },
+  { key: 'microciclos', ord: 3, name: 'Ciclos', where: 'Biblioteca' },
+  { key: 'secuencias', ord: 4, name: 'Secuencias', where: 'Planificación' },
 ] as const;
 
 export const PIPELINE_TOTAL = PIPELINE_STEPS.length; // 4

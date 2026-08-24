@@ -215,12 +215,12 @@ export function LevelDetailPanel({
         className="mb-3"
         more={
           <>
-            Cada variante = la periodización para los atletas de <b>{level.name}</b> que entrenan
+            Cada variante = la planificación para los atletas de <b>{level.name}</b> que entrenan
             ese nº de días. Vacía = un <b>hueco</b> por cubrir.
           </>
         }
       >
-        La periodización de <b>{level.label}</b> según los <b>días/semana</b> del atleta.
+        La planificación de <b>{level.label}</b> según los <b>días/semana</b> del atleta.
       </ContextHint>
 
       {/* the level's variants by días/semana */}

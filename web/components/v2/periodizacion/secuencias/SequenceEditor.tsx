@@ -211,7 +211,7 @@ export function SequenceEditor({
               {days} días
             </span>
             {isShared ? (
-              <Badge tone="neutral">microciclos compartidos</Badge>
+              <Badge tone="neutral">ciclos compartidos</Badge>
             ) : null}
           </div>
           <h2 className="v2-display text-2xl text-[color:var(--v2-fg)]">{level.label}</h2>
@@ -266,7 +266,7 @@ export function SequenceEditor({
         <div className="mt-3.5 flex flex-wrap items-center gap-3 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-3.5 py-2.5 text-xs text-[color:var(--v2-muted)]">
           <span>
             <b className="v2-num text-[color:var(--v2-fg)]">{items.length}</b>{' '}
-            {items.length === 1 ? 'microciclo' : 'microciclos'} ·{' '}
+            {items.length === 1 ? 'ciclo' : 'ciclos'} ·{' '}
             <b className="v2-num text-[color:var(--v2-fg)]">{totalWeeks}</b> semanas en total
           </span>
           {endPolicy === 'repeat' && progressionPct != null ? (
@@ -299,7 +299,7 @@ export function SequenceEditor({
         </span>
         <span className="flex-1">
           Todo atleta clasificado a <b className="text-[color:var(--v2-fg)]">{level.name} · {days} días</b> recorrerá esta
-          secuencia automáticamente: empieza en el microciclo 1 y avanza una semana cada vez. La montas{' '}
+          secuencia automáticamente: empieza en el ciclo 1 y avanza una semana cada vez. La montas{' '}
           <b className="text-[color:var(--v2-fg)]">una vez</b>.
         </span>
       </div>

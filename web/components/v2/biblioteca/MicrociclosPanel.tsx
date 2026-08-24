@@ -24,7 +24,7 @@ export function MicrociclosPanel({
       return (
         <EmptyState
           icon="search_off"
-          title="Ningún microciclo coincide"
+          title="Ningún ciclo coincide"
           description="Prueba con otro término de búsqueda."
         />
       );
@@ -32,11 +32,11 @@ export function MicrociclosPanel({
     return (
       <TeachingEmptyState
         icon="calendar_view_week"
-        title="Aún no tienes microciclos"
-        whatToDo={<>Un microciclo es una estructura de varias semanas, la unidad que vivirá tu atleta.</>}
+        title="Aún no tienes ciclos"
+        whatToDo={<>Un ciclo es una estructura de varias semanas, la unidad que vivirá tu atleta.</>}
         why={
           <>
-            <b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.
+            <b>Por qué importa:</b> son las piezas que luego encadenas en Planificación → Secuencias.
           </>
         }
         highlightStep="microciclos"
@@ -47,14 +47,14 @@ export function MicrociclosPanel({
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} />
-            Crear mi primer microciclo
+            Crear mi primer ciclo
           </button>
         }
       />
     );
   }
   return (
-    <PagedGrid total={items.length} noun="microciclos">
+    <PagedGrid total={items.length} noun="ciclos">
       {items.map((m, i) => (
         <MicrocicloCard key={m.id} microciclo={m} index={i} />
       ))}

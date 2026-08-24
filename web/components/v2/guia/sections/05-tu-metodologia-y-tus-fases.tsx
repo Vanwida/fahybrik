@@ -31,8 +31,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Aquí no hay un método impuesto. La metodología es <b>tuya</b>: tú defines tus{' '}
-          <b>niveles</b> de atleta y ordenas tus <b>microciclos</b> a lo largo del plan. Y el nombre
-          que le pones a cada microciclo es la <b>fase</b> que tu atleta lee en su móvil.
+          <b>niveles</b> de atleta y ordenas tus <b>ciclos</b> a lo largo del plan. Y el nombre
+          que le pones a cada ciclo es la <b>fase</b> que tu atleta lee en su móvil.
         </>
       }
     >
@@ -48,20 +48,20 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             Dos piezas tuyas: tus <b>niveles</b> (cómo agrupas a tus atletas) y tus{' '}
-            <b>secuencias</b> (en qué orden encadenas los microciclos). El <b>orden</b> de los
-            microciclos es tu periodización.
+            <b>secuencias</b> (en qué orden encadenas los ciclos). El <b>orden</b> de los
+            ciclos es tu planificación.
           </>
         }
         como={
           <>
-            En <em className="em">Periodización</em> defines un nivel (código, etiqueta y el criterio
-            que lo distingue) y, por nivel y días/semana, colocas los microciclos en orden. El nombre
+            En <em className="em">Planificación</em> defines un nivel (código, etiqueta y el criterio
+            que lo distingue) y, por nivel y días/semana, colocas los ciclos en orden. El nombre
             de cada uno será su fase.
           </>
         }
         porque={
           <>
-            Porque cada entrenador periodiza distinto. En vez de encerrarte en un modelo, te damos el
+            Porque cada entrenador planifica distinto. En vez de encerrarte en un modelo, te damos el
             sitio donde escribir el tuyo, y que llegue intacto al atleta.
           </>
         }
@@ -75,10 +75,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         sistema. Cada atleta lleva un nivel, y el nivel decide qué secuencia recibe.
       </p>
 
-      <h3>2 · Tus secuencias: el orden ES la periodización</h3>
+      <h3>2 · Tus secuencias: el orden ES la planificación</h3>
       <p>
-        Para cada nivel y cada cadencia (3, 4, 5 o 6 días/semana) ordenas tus microciclos uno tras
-        otro. Ese <b>orden</b> es la periodización, no hay una entidad “fase” aparte. Cada microciclo
+        Para cada nivel y cada cadencia (3, 4, 5 o 6 días/semana) ordenas tus ciclos uno tras
+        otro. Ese <b>orden</b> es la planificación, no hay una entidad “fase” aparte. Cada ciclo
         dura las semanas que tú le des, y la suma es la duración del plan.
       </p>
 
@@ -88,7 +88,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           Secuencia · <small>N2 · Intermedio · 4 días/semana</small>
         </div>
         <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>
-          El orden de los microciclos es la periodización. Cada nombre es la fase que ve el atleta.
+          El orden de los ciclos es la planificación. Cada nombre es la fase que ve el atleta.
         </div>
 
         <SeqItem n={1} color={MOD.fuerza} name="Acumulación" weeks={5} />
@@ -102,13 +102,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <span style={{ flex: 3, height: '6px', borderRadius: '99px', background: MOD.ergo }} />
         </div>
         <div style={{ fontSize: '9px', color: 'var(--faint)', marginTop: '6px', fontFamily: 'var(--v2-font-mono)' }}>
-          12 semanas en total · 3 microciclos
+          12 semanas en total · 3 ciclos
         </div>
       </DashboardMockup>
 
       <DocNote variant="log" title="Agnóstico de verdad">
         <p>
-          El panel no impone ningún modelo: tus niveles, tus microciclos y tus nombres son datos
+          El panel no impone ningún modelo: tus niveles, tus ciclos y tus nombres son datos
           tuyos. Cambia las palabras y cambian en todo, empezando por la pantalla de tu atleta.
         </p>
       </DocNote>
@@ -117,15 +117,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Tu fase, en su teléfono"
         subtitle={
           <>
-            El nombre que le diste al microciclo encabeza la semana del atleta como su <b>fase</b>.
-            Lo que escribes en Periodización es exactamente lo que él lee.
+            El nombre que le diste al ciclo encabeza la semana del atleta como su <b>fase</b>.
+            Lo que escribes en Planificación es exactamente lo que él lee.
           </>
         }
       >
         <PhoneMockup
           caption={
             <>
-              <b>Su semana.</b> La fase es lo primero que ve: el nombre de tu microciclo, tal cual lo
+              <b>Su semana.</b> La fase es lo primero que ve: el nombre de tu ciclo, tal cual lo
               escribiste.
             </>
           }

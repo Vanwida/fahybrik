@@ -51,14 +51,14 @@ export function BorrarMicrocicloCadenaModal({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? 'No se pudo borrar el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo borrar el ciclo.');
         setSubmitting(false);
         return;
       }
       router.refresh();
       onDeleted();
     } catch {
-      setError('No se pudo borrar el microciclo. Inténtalo de nuevo.');
+      setError('No se pudo borrar el ciclo. Inténtalo de nuevo.');
       setSubmitting(false);
     }
   }
@@ -72,7 +72,7 @@ export function BorrarMicrocicloCadenaModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Borrar microciclo de la cadena"
+      aria-label="Borrar ciclo de la cadena"
     >
       <button
         type="button"
@@ -82,7 +82,7 @@ export function BorrarMicrocicloCadenaModal({
       />
       <div className="relative flex w-full max-w-md flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Borrar microciclo</h2>
+          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Borrar ciclo</h2>
           <button
             type="button"
             aria-label="Cerrar"
@@ -122,7 +122,7 @@ export function BorrarMicrocicloCadenaModal({
               <li className="flex items-start gap-2">
                 <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
                 <span>
-                  Es el microciclo que{' '}
+                  Es el ciclo que{' '}
                   <span className="font-semibold text-[color:var(--v2-fg)]">{athleteName}</span> ve
                   hoy.
                 </span>
@@ -131,14 +131,14 @@ export function BorrarMicrocicloCadenaModal({
             {willReflow ? (
               <li className="flex items-start gap-2">
                 <MIcon name="sync_alt" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-fg)]" />
-                <span>Los microciclos siguientes de la cadena se recolocarán para cerrar el hueco.</span>
+                <span>Los ciclos siguientes de la cadena se recolocarán para cerrar el hueco.</span>
               </li>
             ) : null}
             {leavesGap ? (
               <li className="flex items-start gap-2">
                 <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
                 <span>
-                  Como ya tiene sesiones hechas, los microciclos siguientes NO se recolocan: quedará
+                  Como ya tiene sesiones hechas, los ciclos siguientes NO se recolocan: quedará
                   un hueco en el calendario.
                 </span>
               </li>
@@ -167,7 +167,7 @@ export function BorrarMicrocicloCadenaModal({
               ) : (
                 <>
                   <MIcon name="delete" size={16} />
-                  Borrar microciclo
+                  Borrar ciclo
                 </>
               )}
             </button>

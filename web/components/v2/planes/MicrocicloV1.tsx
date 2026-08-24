@@ -119,8 +119,8 @@ export function MicrocicloV1({
     return (
       <EmptyState
         icon="grid_view"
-        title="Microciclo sin semanas"
-        description="Este microciclo aún no tiene semanas definidas."
+        title="Ciclo sin semanas"
+        description="Este ciclo aún no tiene semanas definidas."
       />
     );
   }

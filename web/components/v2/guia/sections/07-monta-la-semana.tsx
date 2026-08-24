@@ -40,7 +40,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             Una semana = 7 días. Cada día tiene una o dos sesiones (mañana / tarde). La semana vive
-            dentro de un <b>microciclo</b>, al que tú le das un nombre, y ese nombre es la{' '}
+            dentro de un <b>ciclo</b>, al que tú le das un nombre, y ese nombre es la{' '}
             <b>fase</b> que ve tu atleta.
           </>
         }
@@ -59,9 +59,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
       />
 
-      <h3>1 · El nombre del microciclo es la fase que ve tu atleta</h3>
+      <h3>1 · El nombre del ciclo es la fase que ve tu atleta</h3>
       <p>
-        Al abrir un microciclo, su título es editable: haz clic y escribe. El propio panel te lo
+        Al abrir un ciclo, su título es editable: haz clic y escribe. El propio panel te lo
         recuerda: <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni
         jerga impuesta: escribes el nombre que usa tu método.{' '}
         <em className="em">La metodología es tuya; nosotros solo te damos dónde escribirla.</em>
@@ -86,7 +86,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DashboardMockup url="tu-panel / microciclos / acumulación">
         <div className="wk-head">
           <div className="wk-title">
-            Microciclo · «Acumulación»&nbsp; <small>✎ lo ve el atleta como su fase</small>
+            Ciclo · «Acumulación»&nbsp; <small>✎ lo ve el atleta como su fase</small>
           </div>
           <div className="wk-tools">
             <span className="btn">Añadir semana</span>
@@ -268,7 +268,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Lo que montaste, en su teléfono"
         subtitle={
           <>
-            El nombre del microciclo se convierte en su <b>fase</b>. El foco de la semana aparece
+            El nombre del ciclo se convierte en su <b>fase</b>. El foco de la semana aparece
             bajo el saludo. Y las sesiones que rellenaste por día se vuelven su plan, una sesión cada
             mañana.
           </>

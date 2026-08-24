@@ -121,7 +121,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Rellena un microciclo desde tu Excel <b>sin perder el control</b>: tú marcas el rango, la
+          Rellena un ciclo desde tu Excel <b>sin perder el control</b>: tú marcas el rango, la
           IA lo <b>tipa</b>, tú revisas lo dudoso. No subes el Excel y «aparece» el plan: el resto
           del archivo <b>ni se toca</b>. Es tu atajo para pasar tu hoja de cálculo a plan, con tu
           mano siempre encima.
@@ -130,11 +130,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
     >
       <DocFlow
         steps={[
-          { label: 'Creas el microciclo con sus semanas vacías' },
+          { label: 'Creas el ciclo con sus semanas vacías' },
           { label: '＋ Importar del Excel: subes el .xlsx y señalas rango + variante' },
           { label: 'La IA lee SOLO ese rango y lo tipa → revisión verde/ámbar/rojo' },
           { label: 'Eliges qué entra: dejas fuera el día o la semana que no quieras' },
-          { label: 'Confirmas los días elegidos y entran en el microciclo' },
+          { label: 'Confirmas los días elegidos y entran en el ciclo' },
         ]}
       />
 
@@ -142,20 +142,20 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             Una <b>mano de extracción tipada</b>. Subes tu Excel, señalas un <b>rango</b> y la IA
-            convierte esas filas en <b>sesiones tipadas</b> de tu microciclo. El resto del Excel se
+            convierte esas filas en <b>sesiones tipadas</b> de tu ciclo. El resto del Excel se
             ignora: no reconstruye nada por su cuenta.
           </>
         }
         como={
           <>
-            Creas el microciclo vacío, pulsas <b>Importar del Excel</b>, dices el rango en tu idioma
+            Creas el ciclo vacío, pulsas <b>Importar del Excel</b>, dices el rango en tu idioma
             (<em className="em">«de la semana 1 a la 4»</em>) y la <b>variante</b>. La IA lo tipa; tú
             revisas lo <b>verde/ámbar/rojo</b>, <b>eliges qué días entran</b> y confirmas.
           </>
         }
         porque={
           <>
-            Porque <b>tú posees la periodización</b>. Te ahorra el tecleo manual sin cederte el
+            Porque <b>tú posees la planificación</b>. Te ahorra el tecleo manual sin cederte el
             mando: nada entra sin pasar por tu revisión y por el <b>gate tipado</b>. Rápido, pero sin
             dejar de ser tu plan.
           </>
@@ -164,7 +164,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · Tú marcas el rango</h3>
       <p>
-        La periodización la montas tú: creas el microciclo con sus <b>semanas vacías</b> bajo un
+        La planificación la montas tú: creas el ciclo con sus <b>semanas vacías</b> bajo un
         nivel, y ya dentro de <code>microciclos/[id]</code> pulsas <code>＋ Importar del Excel</code>.
         Subes el <code>.xlsx</code> y <b>señalas el rango en lenguaje natural</b>{' '}
         (<em className="em">«de la semana 1 a la 4»</em>) más la <b>variante</b> del bloque (
@@ -172,7 +172,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <b>solo ese rango</b>; todo lo demás de la hoja queda fuera.
       </p>
 
-      <DocNote variant="cue" title="Tú posees la periodización">
+      <DocNote variant="cue" title="Tú posees la planificación">
         <p>
           La IA <b>solo extrae</b> el rango que tú señalas: no interpreta el resto del Excel ni
           «adivina» el plan. Tú decides qué semanas entran y con qué variante; ella hace el trabajo
@@ -401,7 +401,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Cuando resuelves un ejercicio fuera de catálogo, esa decisión se <b>guarda en tu mapa de
         sinónimos</b> (por entrenador): el próximo import que traiga la misma abreviatura lo{' '}
         <b>resuelve solo</b>. El importador se afina con tu forma de escribir: cuanto más lo usas,
-        menos rojos verás. Y es <b>idempotente</b>: re-importar el mismo rango al mismo microciclo{' '}
+        menos rojos verás. Y es <b>idempotente</b>: re-importar el mismo rango al mismo ciclo{' '}
         <b>reemplaza</b> esos días (te lo pregunta antes), nunca los duplica.
       </p>
 
@@ -415,7 +415,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="cue" title="Reemplaza, no duplica">
         <p>
-          Si vuelves a importar el mismo rango sobre el mismo microciclo, el importador{' '}
+          Si vuelves a importar el mismo rango sobre el mismo ciclo, el importador{' '}
           <b>sustituye</b> esos días en lugar de añadir copias, con una confirmación previa, para que
           no pierdas nada sin querer.
         </p>
@@ -423,7 +423,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p style={{ marginTop: '18px' }}>
         Esta herramienta es solo tuya: <b>no tiene cara en el móvil del atleta</b>. Es el puente entre
-        tu Excel y tu microciclo: te quita el tecleo, pero el plan sigue siendo tuyo, línea a línea.
+        tu Excel y tu ciclo: te quita el tecleo, pero el plan sigue siendo tuyo, línea a línea.
       </p>
     </DocSection>
   );

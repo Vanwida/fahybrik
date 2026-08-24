@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('nav y proxy de Cómo entrenas', () => {
-  it('el sidebar tiene Cómo entrenas en Método, antes de Periodización', () => {
+  it('el sidebar tiene Cómo entrenas en Método, antes de Planificación', () => {
     const metodo = V2_NAV_ITEMS.filter((i) => i.group === 'metodo');
     expect(metodo[0]?.href).toBe('/como-entrenas');
     expect(metodo[0]?.label).toBe('Cómo entrenas');

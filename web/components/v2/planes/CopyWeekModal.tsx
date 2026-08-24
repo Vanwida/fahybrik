@@ -172,7 +172,7 @@ export function CopyWeekModal({
         <div className="flex max-h-[52vh] flex-col gap-1.5 overflow-y-auto p-4">
           {candidates.length === 0 ? (
             <p className="px-1 py-6 text-center text-body text-[color:var(--v2-muted)]">
-              No hay otras semanas en este microciclo.
+              No hay otras semanas en este ciclo.
             </p>
           ) : (
             candidates.map((w) => {

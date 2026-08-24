@@ -575,7 +575,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             para escribirle.
           </li>
           <li>
-            <b>No borra ni asigna bloques enteros.</b> Borrar sesiones, montar microciclos, leads,
+            <b>No borra ni asigna bloques enteros.</b> Borrar sesiones, montar ciclos, leads,
             citas y pagos siguen siendo del panel. Esto es para lo del día, de pie.
           </li>
         </ul>

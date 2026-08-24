@@ -78,7 +78,7 @@ export function EditarMicrocicloModal({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? 'No se pudo guardar el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo guardar el ciclo.');
         setSubmitting(false);
         return;
       }
@@ -96,7 +96,7 @@ export function EditarMicrocicloModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Editar microciclo"
+      aria-label="Editar ciclo"
     >
       <button
         type="button"
@@ -106,7 +106,7 @@ export function EditarMicrocicloModal({
       />
       <div className="relative flex w-full max-w-sm flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Editar microciclo</h2>
+          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Editar ciclo</h2>
           <button
             type="button"
             aria-label="Cerrar"
@@ -163,7 +163,7 @@ export function EditarMicrocicloModal({
           ) : null}
           {weeksChanged && hasFollowingTramos ? (
             <p className="text-xs text-[color:var(--v2-muted)]">
-              Los microciclos siguientes de la cadena se recolocarán para no dejar hueco ni solape.
+              Los ciclos siguientes de la cadena se recolocarán para no dejar hueco ni solape.
             </p>
           ) : null}
           {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}

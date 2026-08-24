@@ -277,7 +277,7 @@ function Reparto({ seccion }: { seccion: FilaBorrador }) {
 function Camino({ camino }: { camino: PlanPathDTO | null }) {
   if (!camino || camino.segments.length === 0) {
     return (
-      <Vacia texto="Aquí se dibujan sus semanas: los microciclos en orden, dónde está hoy y lo que rompe la rutina. Cada atleta ve el suyo." />
+      <Vacia texto="Aquí se dibujan sus semanas: los ciclos en orden, dónde está hoy y lo que rompe la rutina. Cada atleta ve el suyo." />
     );
   }
   return <Espina tokens={TOKENS_TWIN} tramos={tramosDesdePlan(camino, TONOS_TWIN)} />;

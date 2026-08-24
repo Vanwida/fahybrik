@@ -63,13 +63,13 @@ export function AddMicrocicloPicker({
         ref={ref}
         tabIndex={-1}
         role="dialog"
-        aria-label="Añadir microciclo a la secuencia"
+        aria-label="Añadir ciclo a la secuencia"
         onClick={(e) => e.stopPropagation()}
         className="v2-focus flex max-h-[80vh] w-full max-w-[560px] flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] p-[18px] shadow-[var(--v2-shadow-pop)]"
       >
         <div className="mb-3.5 flex items-center justify-between">
           <span className="text-sm font-bold text-[color:var(--v2-fg)]">
-            Añadir microciclo a la secuencia
+            Añadir ciclo a la secuencia
           </span>
           <button
             type="button"
@@ -87,7 +87,7 @@ export function AddMicrocicloPicker({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar en tu biblioteca de microciclos…"
+            placeholder="Buscar en tu biblioteca de ciclos…"
             autoFocus
             className="h-full flex-1 bg-transparent text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
           />
@@ -97,8 +97,8 @@ export function AddMicrocicloPicker({
           {filtered.length === 0 ? (
             <div className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-4 py-8 text-center text-body text-[color:var(--v2-muted)]">
               {microciclos.length === 0
-                ? 'Aún no tienes microciclos en la Biblioteca.'
-                : 'Ningún microciclo coincide con la búsqueda.'}
+                ? 'Aún no tienes ciclos en la Biblioteca.'
+                : 'Ningún ciclo coincide con la búsqueda.'}
             </div>
           ) : (
             filtered.map((m) => {
@@ -141,7 +141,7 @@ export function AddMicrocicloPicker({
             onClick={onCreateNew}
             className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
-            <MIcon name="add" size={15} /> Crear microciclo nuevo
+            <MIcon name="add" size={15} /> Crear ciclo nuevo
           </button>
           <button
             type="button"

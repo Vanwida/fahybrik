@@ -200,10 +200,10 @@ function Anadir({
     >
       <MIcon name="add" size={20} />
       <span className="flex min-w-0 flex-col">
-        <span className="text-label font-bold">Añadir microciclo</span>
+        <span className="text-label font-bold">Añadir ciclo</span>
         {vacia ? (
           <span className="text-eyebrow font-normal leading-snug">
-            Encadena microciclos para montar la periodización de {levelName} · {days} días
+            Encadena ciclos para montar la planificación de {levelName} · {days} días
           </span>
         ) : null}
       </span>

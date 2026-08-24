@@ -143,7 +143,7 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
           <EmptyState
             icon="sports_score"
             title="Sin carreras objetivo"
-            description="Fija la carrera que ancla la periodización del plan y verás aquí la cuenta atrás."
+            description="Fija la carrera que ancla la planificación del plan y verás aquí la cuenta atrás."
             action={fijarButton}
           />
         ) : (

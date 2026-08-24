@@ -96,13 +96,13 @@ export function CadenaPersonalPanel({
       );
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setMoveError(body?.error?.message ?? 'No se pudo mover el microciclo.');
+        setMoveError(body?.error?.message ?? 'No se pudo mover el ciclo.');
         return;
       }
       load();
       router.refresh();
     } catch {
-      setMoveError('No se pudo mover el microciclo. Inténtalo de nuevo.');
+      setMoveError('No se pudo mover el ciclo. Inténtalo de nuevo.');
     } finally {
       setMovingId(null);
     }
@@ -110,7 +110,7 @@ export function CadenaPersonalPanel({
 
   if (chain === null) {
     return (
-      <Panel title="Cadena de microciclos" bodyClassName="flex flex-col gap-2.5">
+      <Panel title="Cadena de ciclos" bodyClassName="flex flex-col gap-2.5">
         {loadError ? (
           <p className="py-2 text-center text-xs text-[color:var(--v2-danger)]">
             No se pudo cargar la cadena.
@@ -154,12 +154,12 @@ export function CadenaPersonalPanel({
   }));
 
   return (
-    <Panel title="Cadena de microciclos" bodyClassName="flex flex-col gap-2.5">
+    <Panel title="Cadena de ciclos" bodyClassName="flex flex-col gap-2.5">
       {tramos.length > 0 ? (
         <Espina tokens={TOKENS_V2} tramos={tramos} />
       ) : (
         <p className="text-xs text-[color:var(--v2-muted)]">
-          Todavía no hay microciclos. El primero aparece cuando lo planificas.
+          Todavía no hay ciclos. El primero aparece cuando lo planificas.
         </p>
       )}
       {moveError ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{moveError}</p> : null}
@@ -169,7 +169,7 @@ export function CadenaPersonalPanel({
         className="v2-focus flex w-full items-center gap-2.5 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-left text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
       >
         <MIcon name="add" size={20} />
-        <span className="text-label font-bold">Añadir microciclo</span>
+        <span className="text-label font-bold">Añadir ciclo</span>
       </button>
 
       {adding ? (

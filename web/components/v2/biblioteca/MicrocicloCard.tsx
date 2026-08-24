@@ -60,7 +60,7 @@ export function MicrocicloCard({
       {/* Stretched link — the whole card opens the editor. */}
       <Link
         href={`/microciclos/${microciclo.id}`}
-        aria-label={`Editar microciclo ${microciclo.name}`}
+        aria-label={`Editar ciclo ${microciclo.name}`}
         className="v2-focus absolute inset-0 z-0 rounded-[var(--v2-r-card)]"
       />
 
@@ -76,7 +76,7 @@ export function MicrocicloCard({
             onClick={duplicate}
             disabled={duplicating}
             aria-label={`Duplicar ${microciclo.name}`}
-            title="Crea una copia independiente de este microciclo"
+            title="Crea una copia independiente de este ciclo"
             className="pointer-events-auto v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
           >
             <MIcon
@@ -106,7 +106,7 @@ export function MicrocicloCard({
 
       {duplicateError ? (
         <p className="relative z-10 mt-2 text-label font-semibold text-[color:var(--v2-danger)]">
-          No se pudo duplicar el microciclo. Inténtalo de nuevo.
+          No se pudo duplicar el ciclo. Inténtalo de nuevo.
         </p>
       ) : null}
     </div>

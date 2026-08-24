@@ -57,8 +57,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         como={
           <>
             Cuando el gate <code>Listo para asignar</code> está en verde, pulsas <code>Asignar plan</code>{' '}
-            y se crea el primer microciclo en borrador. Lo repasas, y cuando esté, pulsas{' '}
-            <code>Publicar microciclo</code>.
+            y se crea el primer ciclo en borrador. Lo repasas, y cuando esté, pulsas{' '}
+            <code>Publicar ciclo</code>.
           </>
         }
         porque={
@@ -81,7 +81,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · Asignar crea el borrador</h3>
       <p>
         Al pulsar <code>Asignar plan</code>, el panel te lo dice tal cual:{' '}
-        <em className="em">«Se creará el primer microciclo en borrador para que lo revises antes de
+        <em className="em">«Se creará el primer ciclo en borrador para que lo revises antes de
         publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada, pero en borrador,
         invisible para él. Aquí ajustas lo que quieras sin que nadie lo vea.
       </p>
@@ -91,7 +91,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         En la ficha del atleta, una etiqueta honesta te dice en qué estado está:{' '}
         <span className="k">N de M publicadas</span> y el carril
         <span className="k">Visible</span> / <span className="k">Borrador</span> por semana. Mientras haya borrador,
-        verás el botón <code>Publicar microciclo</code>. Lo pulsas y todas las semanas en borrador
+        verás el botón <code>Publicar ciclo</code>. Lo pulsas y todas las semanas en borrador
         pasan a publicadas: tu atleta abre su app y ahí está su semana.
       </p>
 
@@ -99,11 +99,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DashboardMockup url="tu-panel / atletas / marta · plan">
         <div className="wk-head">
           <div className="wk-title">
-            Microciclo «Acumulación»&nbsp;{' '}
+            Ciclo «Acumulación»&nbsp;{' '}
             <small style={{ color: 'var(--warn)' }}>● borrador · aún no lo ve el atleta</small>
           </div>
           <div className="wk-tools">
-            <span className="btn pri">Publicar microciclo</span>
+            <span className="btn pri">Publicar ciclo</span>
           </div>
         </div>
         <div className="wk-sum">
@@ -119,14 +119,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </span>
         </div>
         <div className="savegate">
-          Revísalo con calma. Nada llega a su móvil hasta que pulses «Publicar microciclo».
+          Revísalo con calma. Nada llega a su móvil hasta que pulses «Publicar ciclo».
         </div>
       </DashboardMockup>
 
       <DocNote variant="bad" title="Borrador = invisible. A propósito.">
         <ul>
           <li>
-            Mientras el microciclo esté en borrador, tu atleta <span className="k">no ve nada</span>{' '}
+            Mientras el ciclo esté en borrador, tu atleta <span className="k">no ve nada</span>{' '}
             de esa semana. Puedes montar, deshacer y rehacer sin que se entere.
           </li>
           <li>
@@ -190,7 +190,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Publicado.</b> Pulsaste «Publicar microciclo» y su semana entera aterriza, día a día,
+              <b>Publicado.</b> Pulsaste «Publicar ciclo» y su semana entera aterriza, día a día,
               lista para entrenar.
             </>
           }

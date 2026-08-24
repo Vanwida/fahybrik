@@ -120,7 +120,7 @@ export function PersonalizarPlanModal({
             </li>
             <li className="flex items-start gap-2">
               <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-              {athleteName} deja de recibir microciclos automáticos por nivel: a partir de
+              {athleteName} deja de recibir ciclos automáticos por nivel: a partir de
               ahora sigue este plan a medida.
             </li>
           </ul>

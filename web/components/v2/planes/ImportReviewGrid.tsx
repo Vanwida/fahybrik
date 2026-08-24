@@ -524,7 +524,7 @@ export function ImportReviewGrid({
                   type="button"
                   onClick={() => void completeGaps()}
                   disabled={completingGaps || confirming}
-                  title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el microciclo."
+                  title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el ciclo."
                   className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
                 >
                   <MIcon
@@ -552,14 +552,14 @@ export function ImportReviewGrid({
             {canCompleteGaps ? (
               <p className="w-full text-nano text-[color:var(--v2-muted)]">
                 Rellena ejercicios y dosis de forma genérica. Entran marcados como
-                propuestos, los ajustas en el microciclo cuando quieras.
+                propuestos, los ajustas en el ciclo cuando quieras.
               </p>
             ) : null}
           </div>
         ) : unmapped > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
-            Asigna cada semana importada a una semana del microciclo.
+            Asigna cada semana importada a una semana del ciclo.
           </p>
         ) : writable === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">

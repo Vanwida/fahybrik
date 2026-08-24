@@ -127,14 +127,14 @@ function MicrocicloNameEditor({
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex min-w-0 items-center gap-2">
         <h1 className="v2-display flex min-w-0 items-baseline text-3xl sm:text-4xl">
-          <span className="shrink-0 text-[color:var(--v2-muted)]">Microciclo&nbsp;·&nbsp;</span>
+          <span className="shrink-0 text-[color:var(--v2-muted)]">Ciclo&nbsp;·&nbsp;</span>
           {editing ? (
             <input
               autoFocus
               type="text"
               value={draft}
               maxLength={200}
-              aria-label="Nombre del microciclo"
+              aria-label="Nombre del ciclo"
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => {
                 setDraft(e.target.value);
@@ -159,7 +159,7 @@ function MicrocicloNameEditor({
             <button
               type="button"
               onClick={startEdit}
-              title="Renombrar microciclo · lo ve el atleta"
+              title="Renombrar ciclo · lo ve el atleta"
               className="v2-focus group inline-flex min-w-0 items-baseline gap-2 rounded-[var(--v2-r-s)] text-left"
             >
               <span className="truncate text-[color:var(--v2-fg)]">«{name}»</span>
@@ -254,7 +254,7 @@ export function MicrocicloEditor({
               options={viewOptions(weeks.length)}
               value={view}
               onChange={setView}
-              ariaLabel="Vista del microciclo"
+              ariaLabel="Vista del ciclo"
             />
           </div>
         )}

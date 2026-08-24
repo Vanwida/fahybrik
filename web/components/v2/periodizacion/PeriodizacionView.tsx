@@ -44,10 +44,10 @@ const INTRO_STEPS: IntroMicroStep[] = [
     body: <>El marco de tu método: los niveles clasifican al atleta. Reordénalos de menor a mayor.</>,
   },
   {
-    title: 'Entra y ordena su periodización',
+    title: 'Entra y ordena su planificación',
     body: (
       <>
-        Dentro de cada nivel, encadena tus microciclos por <b>días/semana</b>. Ese orden es la
+        Dentro de cada nivel, encadena tus ciclos por <b>días/semana</b>. Ese orden es la
         progresión.
       </>
     ),
@@ -105,14 +105,14 @@ export function PeriodizacionView({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex min-w-0 flex-col gap-1.5">
               <h1 className="v2-display text-3xl sm:text-4xl">
-                <span className="text-[color:var(--v2-fg)]">Periodización</span>{' '}
+                <span className="text-[color:var(--v2-fg)]">Planificación</span>{' '}
                 <span className="text-[color:var(--v2-muted)]">· niveles</span>
                 {orient.hydrated && !orient.visible ? (
                   <InfoDot onClick={orient.recall} className="ml-2" />
                 ) : null}
               </h1>
               <p className="text-sm text-[color:var(--v2-muted)]">
-                El marco de tu método. Entra en un nivel para ordenar su periodización.
+                El marco de tu método. Entra en un nivel para ordenar su planificación.
               </p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export function PeriodizacionView({
               progress={progress}
               line={
                 <>
-                  Define <b>tus niveles</b> y ordena la periodización de cada uno
+                  Define <b>tus niveles</b> y ordena la planificación de cada uno
                 </>
               }
             />
@@ -134,8 +134,8 @@ export function PeriodizacionView({
                 icon="account_tree"
                 line={
                   <>
-                    Cada <b>nivel</b> guarda su periodización: entra y ordena su secuencia de
-                    microciclos.
+                    Cada <b>nivel</b> guarda su planificación: entra y ordena su secuencia de
+                    ciclos.
                   </>
                 }
                 steps={INTRO_STEPS}

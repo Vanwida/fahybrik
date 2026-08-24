@@ -85,7 +85,7 @@ const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
   ),
   microciclos: (
     <>
-      Un <b>microciclo</b> es una estructura de varias semanas: la unidad que vivirá tu atleta.
+      Un <b>ciclo</b> es una estructura de varias semanas: la unidad que vivirá tu atleta.
     </>
   ),
   comunicados: (
@@ -101,7 +101,7 @@ const INTRO_STEPS: IntroMicroStep[] = [
   { title: 'Ejercicio', body: <>Un movimiento. La pieza más pequeña.</> },
   { title: 'Bloque', body: <>Una pieza reutilizable. El ladrillo de cada día.</> },
   { title: 'Sesión', body: <>Un entreno entero. Lo que hace tu atleta un día.</> },
-  { title: 'Microciclo', body: <>Varias semanas de días. Lo que ordenas en Secuencias.</> },
+  { title: 'Ciclo', body: <>Varias semanas de días. Lo que ordenas en Secuencias.</> },
 ];
 
 const TAB_OPTIONS = (
@@ -111,7 +111,7 @@ const TAB_OPTIONS = (
   { value: 'ejercicios', label: 'Ejercicios' },
   { value: 'bloques', label: `Bloques · ${counts.bloques}` },
   { value: 'sesiones', label: `Sesiones · ${counts.sesiones}` },
-  { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
+  { value: 'microciclos', label: `Ciclos · ${counts.microciclos}` },
   // Comunicados tampoco trae contador: su panel carga sus propios datos.
   { value: 'comunicados', label: 'Comunicados' },
 ];
@@ -222,7 +222,7 @@ export function BibliotecaView({
     ejercicios: '',
     bloques: 'bloques',
     sesiones: 'sesiones',
-    microciclos: 'microciclos',
+    microciclos: 'ciclos',
     comunicados: '',
   };
   const filteredCount = FILTERED_COUNT[tab];
@@ -277,8 +277,8 @@ export function BibliotecaView({
           progress={progress}
           line={
             <>
-              Tu <b>contenido</b> reutilizable: Bloques → Sesiones → Microciclos. Lo que ordenas en
-              Periodización.
+              Tu <b>contenido</b> reutilizable: Bloques → Sesiones → Ciclos. Lo que ordenas en
+              Planificación.
             </>
           }
         />
@@ -317,7 +317,7 @@ export function BibliotecaView({
       ) : (
         <ContextHint className="mt-3">
           De lo más pequeño a lo más grande: <b>Ejercicio</b> (un movimiento) → <b>Bloque</b> (una
-          pieza) → <b>Sesión</b> (un entreno) → <b>Microciclo</b> (varias semanas).
+          pieza) → <b>Sesión</b> (un entreno) → <b>Ciclo</b> (varias semanas).
         </ContextHint>
       )}
 
@@ -399,7 +399,7 @@ function PrimaryAction({
     return (
       <button type="button" onClick={onCreateMicro} className={CLS}>
         <MIcon name="add" size={18} />
-        Nuevo microciclo
+        Nuevo ciclo
       </button>
     );
   }

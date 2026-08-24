@@ -28,7 +28,7 @@ export function MicrocicloRail({
   return (
     <div
       role="tablist"
-      aria-label="Semanas del microciclo"
+      aria-label="Semanas del ciclo"
       className="flex flex-wrap gap-2"
     >
       {weeks.map((w) => {

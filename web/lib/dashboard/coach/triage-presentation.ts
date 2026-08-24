@@ -117,7 +117,7 @@ const SIGNAL_PRESENTATION: Partial<Record<SignalKind, SignalPresentation>> = {
   microcycle_ending: {
     tier: 'warning',
     icon: 'calendar_clock',
-    label: 'Microciclo acaba',
+    label: 'Ciclo acaba',
     deepLink: toPlanReview,
     lens: 'microcycle',
   },

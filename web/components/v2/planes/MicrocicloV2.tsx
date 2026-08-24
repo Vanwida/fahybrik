@@ -54,7 +54,7 @@ function WeekTabs({
   return (
     <div
       role="tablist"
-      aria-label="Semanas del microciclo"
+      aria-label="Semanas del ciclo"
       className="inline-flex items-center gap-0.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-1"
     >
       {weeks.map((w, i) => {
@@ -340,8 +340,8 @@ export function MicrocicloV2({
     return (
       <EmptyState
         icon="calendar_view_week"
-        title="Microciclo sin semanas"
-        description="Este microciclo aún no tiene semanas definidas."
+        title="Ciclo sin semanas"
+        description="Este ciclo aún no tiene semanas definidas."
         action={
           <button
             type="button"
@@ -383,7 +383,7 @@ export function MicrocicloV2({
           type="button"
           onClick={addWeek}
           disabled={addingWeek}
-          title="Añade una semana vacía al final del microciclo"
+          title="Añade una semana vacía al final del ciclo"
           className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
         >
           <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
@@ -394,7 +394,7 @@ export function MicrocicloV2({
           <button
             type="button"
             onClick={() => setDeleteOpen(true)}
-            title="Borra este microciclo y todas sus semanas"
+            title="Borra este ciclo y todas sus semanas"
             className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
           >
             <MIcon name="delete" size={15} />
@@ -426,7 +426,7 @@ export function MicrocicloV2({
             <button
               type="button"
               onClick={() => setAssignOpen(true)}
-              title="Asigna este microciclo a un atleta (en borrador)"
+              title="Asigna este ciclo a un atleta (en borrador)"
               className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
             >
               <MIcon name="assignment_ind" size={15} /> Asignar a atleta
@@ -522,7 +522,7 @@ export function MicrocicloV2({
       {deleteOpen ? (
         <DeleteMicrocicloModal
           microcycleId={microcycle_id}
-          name={name ?? 'este microciclo'}
+          name={name ?? 'este ciclo'}
           onClose={() => setDeleteOpen(false)}
         />
       ) : null}

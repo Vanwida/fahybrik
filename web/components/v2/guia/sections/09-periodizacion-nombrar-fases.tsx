@@ -28,8 +28,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Periodizar es <b>nombrar tus fases y ponerlas en orden</b>. Cada fase es un microciclo que
-          tú nombras; encadenarlas a lo largo del plan es la periodización. No hay fases prefijadas
+          Planificar es <b>nombrar tus fases y ponerlas en orden</b>. Cada fase es un ciclo que
+          tú nombras; encadenarlas a lo largo del plan es la planificación. No hay fases prefijadas
           ni jerga impuesta: el lenguaje y la progresión son tuyos.
         </>
       }
@@ -37,15 +37,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            La periodización vive dentro de cada <b>nivel</b>: una secuencia ordenada de microciclos
+            La planificación vive dentro de cada <b>nivel</b>: una secuencia ordenada de ciclos
             por <b>días/semana</b>. Ese orden, no una etiqueta fija, <em className="em">es</em> la
             progresión.
           </>
         }
         como={
           <>
-            En <code>Periodización</code> defines tus niveles, entras en uno y encadenas sus
-            microciclos. Le pones nombre a cada fase y la colocas donde toca en la secuencia.
+            En <code>Planificación</code> defines tus niveles, entras en uno y encadenas sus
+            ciclos. Le pones nombre a cada fase y la colocas donde toca en la secuencia.
           </>
         }
         porque={
@@ -56,9 +56,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
       />
 
-      <h3>1 · El nivel es el marco; el orden, la periodización</h3>
+      <h3>1 · El nivel es el marco; el orden, la planificación</h3>
       <p>
-        Un <b>nivel</b> clasifica al atleta y guarda su periodización. Dentro, encadenas microciclos
+        Un <b>nivel</b> clasifica al atleta y guarda su planificación. Dentro, encadenas ciclos
         por días/semana: el primero, el segundo, el tercero… y ese orden es la progresión que vivirá
         tu atleta. No existe una entidad «fase» suelta ni una matriz aparte:{' '}
         <em className="em">la secuencia es la fase puesta en el tiempo</em>.
@@ -68,7 +68,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DashboardMockup url="tu-panel / periodización">
         <div className="wk-head" style={{ marginBottom: '12px' }}>
           <div className="wk-title">
-            Periodización&nbsp; <small>· niveles</small>
+            Planificación&nbsp; <small>· niveles</small>
           </div>
         </div>
 
@@ -106,7 +106,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             marginBottom: '8px',
           }}
         >
-          Avanzado · 5 días/semana · secuencia de microciclos
+          Avanzado · 5 días/semana · secuencia de ciclos
         </div>
 
         {/* the ordered sequence: ORDER = periodization */}
@@ -132,7 +132,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>2 · Tú nombras, tú ordenas</h3>
       <p>
-        El nombre de cada microciclo es la <b>fase</b> que ve tu atleta. Lo escribes tú, en tu
+        El nombre de cada ciclo es la <b>fase</b> que ve tu atleta. Lo escribes tú, en tu
         idioma de entrenador, y lo colocas en la posición que tu método pide. Reordenar la secuencia
         reordena la progresión, sin tocar nada del lado del atleta.
       </p>
@@ -140,7 +140,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Duplicar una variante como punto de partida">
         <p>
           ¿Ya tienes montado <b>Nivel 3 · 5 días</b> y quieres el de <b>6 días</b>? En esa celda,{' '}
-          <span className="k">Duplicar a…</span> copia la secuencia entera (todos sus microciclos) al
+          <span className="k">Duplicar a…</span> copia la secuencia entera (todos sus ciclos) al
           nivel y los días que elijas. La copia es <b>independiente</b>: ajústala (añade el día extra,
           cambia lo que haga falta) sin tocar el original. Solo se duplica sobre una celda{' '}
           <b>vacía</b>.
@@ -151,7 +151,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           La app no trae «las fases» de serie ni asume tres. Lee las que tú creas y las muestra en
           el orden que tú das. Si tu método cambia de lenguaje o de número de fases, no hay nada que
-          reconfigurar: tu periodización es dato tuyo, no una regla del sistema.
+          reconfigurar: tu planificación es dato tuyo, no una regla del sistema.
         </p>
       </DocNote>
 

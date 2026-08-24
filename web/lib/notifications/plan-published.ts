@@ -53,7 +53,7 @@ const TEMPLATES: Record<PlanPublishedVariant, { title: string; body: (coach: str
     body: (coach) => `${coach} ha publicado tu plan para la proxima semana.`,
   },
   next_block: {
-    title: 'Nuevo microciclo listo',
+    title: 'Nuevo ciclo listo',
     body: (coach) => `${coach} ha publicado el siguiente bloque de tu plan.`,
   },
 };

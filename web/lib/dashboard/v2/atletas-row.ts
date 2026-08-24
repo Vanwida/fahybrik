@@ -48,7 +48,7 @@ export interface RosterRow {
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
 function phaseLabel(a: AthleteRow): string {
-  if (a.block_type == null) return 'Sin microciclo';
+  if (a.block_type == null) return 'Sin ciclo';
   const base = a.block_type;
   return a.block_week != null ? `${base} · sem ${a.block_week}` : base;
 }

@@ -138,7 +138,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 9,
     area: 'plan',
     slug: 'periodizacion-nombrar-fases',
-    title: 'Periodización: nombrar fases',
+    title: 'Planificación: nombrar fases',
     blurb: 'Nombrar y secuenciar tus fases a lo largo del plan.',
     built: true,
   },
@@ -330,7 +330,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'herramientas',
     slug: 'importador-de-entrenos',
     title: 'Importar entrenos del Excel',
-    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
+    blurb: 'Rellena un ciclo desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
     built: true,
   },
   {

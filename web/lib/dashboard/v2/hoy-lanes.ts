@@ -692,7 +692,7 @@ export async function fetchSiguienteMicrocicloCards(
       athlete_name: e.athlete_name,
       level_name: e.level_name ?? 'Sin nivel',
       action,
-      finished_microciclo_name: currentItem.month_name ?? `Microciclo ${e.current_position}`,
+      finished_microciclo_name: currentItem.month_name ?? `Ciclo ${e.current_position}`,
       finished_position: e.current_position,
       next_microciclo_name: nextName,
       next_level_name: nextLevelName,
@@ -906,7 +906,7 @@ export function buildHoyLanes(params: {
       listo.push({
         ...base,
         id: `listo:${a.athlete_id}`,
-        reason: 'Microciclo terminado y rindiendo — listo para progresar.',
+        reason: 'Ciclo terminado y rindiendo — listo para progresar.',
         adherence_pct: a.compliance_pct,
         actions: ['ver'],
       });
