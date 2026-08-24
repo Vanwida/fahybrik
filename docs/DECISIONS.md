@@ -130,9 +130,16 @@ Media máquina ya existía y estaba desconectada: `methodology/zones.ts` resolv�
 - **No duplicar `percent_rm`** con una referencia `one_rm`, ni `{kind:'bodyweight'}` con una referencia sin porcentaje: ya dicen lo que dicen.
 - No anunciar referencias que el resolutor no sabe traducir. Por eso quedaron FUERA la marca de un test cualquiera del catálogo del coach (habría que saber qué métrica produce cada test) y el «% del esfuerzo máximo» (sale una vez en 1.238 líneas).
 
-**Estado y riesgo abierto:** el tipo y el resolutor existen y están probados; **nadie los resuelve todavía al servir el día**. Hasta que eso exista, un objetivo relativo escrito a mano por MCP llegaría crudo al móvil y se pintaría en blanco. No hay UI ni gramática que lo produzca, así que la exposición es sólo una llamada deliberada — pero resolver al leer es la pieza inmediatamente siguiente, no una mejora opcional.
+**Estado (2026-08-24, piezas 2 y 3):**
 
-**Dónde vive:** `shared/domain/prescription/reference.ts` (las referencias y su frase), `resolve-relative.ts` (la traducción a número), el kind en `types.ts`, pruebas en `web/tests/domain/relative-target.test.ts` contra líneas literales del macrociclo.
+- **Tabla del coach:** `coach_station_loads` (mig 0208). Una fila por `(coach, estación, división, género)`. Sin seed. Sin default de kilos. Vacío = «no lo sé». El eje (sled / single / per_implement / damper) y los 2 implementos del farmers viven en el catálogo (`load_axis`), nunca en la fila. API `GET/PUT /api/coach/station-loads`. Editor en Ajustes. No se reutiliza `methodology_station_strategy` (sin división, motor muerto).
+- **Anclas de ritmo:** `coach_methodology.run_pace_anchor` existe y nadie lo lee. **No se escribe en este PR**: crear esa fila activaría 37 columnas con defaults horneados (anti-patrón de esta misma página). El resolutor relativo sigue usando el snapshot de zonas + `racePaceAnchor`.
+- **Se resuelve AL LEER el día:** `loadAssignmentDetail` inyecta la tabla del coach en `stationLoad`. El número viaja en `prescription_json.target` (el campo de siempre) y la frase en `resolved_references`. iOS no recalcula: pinta la frase si llega.
+- **Sello al ejecutar:** `ingestExecutionSegments` (con `athleteId`) snapshotéa la prescripción YA resuelta. Al servir un día ejecutado, si el snapshot ya no tiene relativos, ese número manda. Un retest no reescribe el histórico. La plantilla guarda la frase para siempre. No se tocó el camino `is_approach` (card 155).
+
+**NO hacer (sigue en pie):** no inventar kilos de competición. No carga cualitativa. No segundo camino `%1RM`. No resolver al guardar la plantilla.
+
+**Dónde vive:** `shared/domain/coach/station-loads.ts`, `shared/domain/hyrox/stations.ts` (`load_axis`), `web/lib/coach/station-loads.ts`, `web/lib/athlete/relative-anchors.ts`, `web/lib/athlete/seal-prescription.ts`, `resolve-relative.ts`, pruebas en `web/tests/domain/coach-station-loads.test.ts` y `web/tests/athlete/assignment-detail.test.ts`.
 
 ---
 

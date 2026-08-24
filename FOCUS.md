@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (141 · la cabecera manda sobre las líneas de debajo)
+Última actualización: **2026-08-24** (130 · tabla de kilos + resolver al leer)
 
 ## Ahora
 
@@ -53,32 +53,18 @@ planificación y ciclo. Internos, URLs (`/periodizacion`, `/microciclos`),
 tipos y API siguen con periodización / microciclo. Solo copy, no rename
 de dominio.
 
-**130 · OBJETIVOS RELATIVOS A LAS MARCAS DEL ATLETA — pieza 1 de 4 hecha.**
-Es la raíz de la card 128: sin esto, una plantilla con kilos absolutos no sirve
-para el atleta siguiente y hay que reescribir el ciclo por persona.
-Ley: DECISIONS 23-ago «Un objetivo puede ser relativo a una marca del atleta».
-
-Nuevo `Target.relative` con 4 referencias — `race_pace`, `threshold_pace`,
-`competition_load` (por estación) y `bodyweight` — con porcentaje o delta en kg
-(con banda) sobre las de CARGA. `shared/domain/prescription/reference.ts` (las
-referencias + su frase en castellano) y `resolve-relative.ts` (la traducción a
-número contra `AthleteBenchmarks` + `hyroxStationLoad` INYECTABLE, porque los
-kilos son método del coach). 33 pruebas contra líneas LITERALES del macrociclo;
-verificado en rojo (22 de 33 caen sin el kind en la unión).
-
-Reglas que quedan cerradas: nada de `value/min/max` en el relativo (para eso está
-`isScalarTarget()`); nada de carga cualitativa («media»/«ligera») — eso es
-diccionario del coach, no tipo; nada de porcentaje sobre un ritmo (ambiguo); no
-se duplica `percent_rm` ni `{kind:'bodyweight'}`.
-
-**RIESGO ABIERTO, declarado:** el tipo existe pero **nadie lo resuelve al servir
-el día**. El iOS instalado degrada un kind desconocido a `.unknown` y pinta el
-objetivo EN BLANCO. No hay UI ni gramática que lo produzca (la exposición es una
-llamada MCP deliberada), pero **la pieza 3 no es opcional**: resolver al leer y
-mandar número + frase, con el número en el campo `target` de siempre.
-
-Piezas 2-4 pendientes: tabla de cargas de competición del coach · resolver al
-servir el día · gramática + diccionario.
+**130 · OBJETIVOS RELATIVOS — piezas 2 y 3 (esta PR).**
+Pieza 1 (tipo + resolutor) ya estaba. Ahora el coach tiene tabla editable de
+kilos de competición (`coach_station_loads`, mig 0208): estación × división ×
+género. Vacío = no lo sé. Sin seed. Sin kilos inventados. Ajustes +
+`GET/PUT /api/coach/station-loads`.
+Al servir el día se inyecta esa tabla, el número va en `target` de siempre y
+la frase en `resolved_references`. Al ejecutar se sella el número en el
+snapshot: un retest no reescribe el histórico. iOS no recalcula.
+Anclas de ritmo (`coach_methodology.run_pace_anchor`) fuera: crear esa fila
+activa 37 defaults horneados.
+Queda pieza 4: gramática + diccionario.
+Ley: DECISIONS 23-ago, addendum 24-ago.
 
 **133 · Los límites de importar un ciclo (decidido, sin construir).** Contrato de
 ENTREGA, nunca de contenido: unidad = tramo de 4-6 semanas, techo por

@@ -910,6 +910,64 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     ]);
   });
 
+  it('a peso de competición usa la tabla inyectada y manda la frase aparte', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [
+        relativeSeg({ kind: 'relative', ref: { of: 'competition_load', station: 'hyrox-sled-push' } }),
+      ],
+      anchors: {
+        racePace: {},
+        thresholdPace: {},
+        competitionLoad: (slug) =>
+          slug === 'hyrox-sled-push' ? { kind: 'sled', kg: 152 } : null,
+      },
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toEqual({ kind: 'kg', value: 152 });
+    expect(item.resolved_references).toEqual([
+      {
+        phrase: 'a peso de competición',
+        target: { kind: 'kg', value: 152 },
+        source: 'competition_load:hyrox-sled-push',
+        estimated: false,
+      },
+    ]);
+  });
+
+  it('el snapshot sellado manda sobre un retest: el número no se reescribe', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [
+        {
+          ...relativeSeg({
+            kind: 'relative',
+            ref: { of: 'competition_load', station: 'hyrox-sled-push' },
+          }),
+          sealed_prescription_json: {
+            scheme: 'sets',
+            modality: 'strength',
+            target: { kind: 'kg', value: 152 },
+          },
+        },
+      ],
+      anchors: {
+        racePace: {},
+        thresholdPace: {},
+        competitionLoad: (slug) =>
+          slug === 'hyrox-sled-push' ? { kind: 'sled', kg: 200 } : null,
+      },
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toEqual({ kind: 'kg', value: 152 });
+    expect(item.resolved_references[0]?.phrase).toBe('a peso de competición');
+    expect(item.resolved_references[0]?.target).toEqual({ kind: 'kg', value: 152 });
+  });
+
   it('sin ningún objetivo relativo, la prescripción no cambia (idempotente, coste cero)', () => {
     const result = buildAssignmentDetail({
       assignment: baseAssignment,

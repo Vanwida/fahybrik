@@ -95,6 +95,17 @@ export type HyroxStationLoad =
   | { kind: 'sled'; kg: number }
   | { kind: 'damper'; setting: number };
 
+/** La FORMA de la carga de una estación. Mecanismo: no cambia con el coach.
+ *  El NÚMERO (kg o damper) es método y vive en la tabla del coach. */
+export type HyroxLoadAxis = HyroxStationLoad['kind'];
+
+/**
+ * Farmers carry: dos implementos. Es la forma física del movimiento (un
+ * farmer en cada mano), no un número que un entrenador elija. El kg de CADA
+ * implemento sí es suyo.
+ */
+export const HYROX_FARMER_IMPLEMENTS = 2 as const;
+
 // One (division, gender) load fact. `gender: 'any'` marks a load the source
 // states ONCE per division with no gender split — today only the erg damper
 // (a resistance-curve setting, not a body-relative load). It answers for
@@ -132,6 +143,12 @@ export interface HyroxStation {
    *  which is a different thing than a cell with no source (see
    *  `hyroxStationLoad`). */
   loads?: readonly HyroxLoadEntry[];
+  /**
+   * Qué CLASE de número admite esta estación. Presente cuando hay eje de
+   * carga (aunque `loads` esté vacío: sabemos la forma, no el número).
+   * Ausente en peso corporal (burpee): no hay celda que rellenar.
+   */
+  load_axis?: HyroxLoadAxis;
 }
 
 // ── Data ──────────────────────────────────────────────────────────────────
@@ -144,6 +161,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 1000 },
     aliases: ['ski', 'skierg', 'ski erg', 'skierg 1000m', 'skierg 1km'],
     loads: [],
+    load_axis: 'damper',
   },
   {
     order: 2,
@@ -153,6 +171,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 50 }, // 4 × 12.5 m lengths
     aliases: ['sled push', 'hyrox sled push', 'sled push 50m'],
     loads: [],
+    load_axis: 'sled',
   },
   {
     order: 3,
@@ -162,6 +181,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 50 }, // 4 × 12.5 m lengths
     aliases: ['sled pull', 'hyrox sled pull', 'sled pull 50m'],
     loads: [],
+    load_axis: 'sled',
   },
   {
     order: 4,
@@ -187,6 +207,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 1000 },
     aliases: ['row', 'rowing', 'remo', 'row 1km', 'row 1000m', 'rowing 1km'],
     loads: [],
+    load_axis: 'damper',
   },
   {
     order: 6,
@@ -196,6 +217,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 200 },
     aliases: ['farmers carry', 'farmer carry', 'farmers', 'farmer', 'farmers carry 200m'],
     loads: [],
+    load_axis: 'per_implement',
   },
   {
     order: 7,
@@ -205,6 +227,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'distance', meters: 100 },
     aliases: ['sandbag lunges', 'sandbag lunge', 'lunges', 'sb lunge', 'sandbag lunges 100m'],
     loads: [],
+    load_axis: 'single',
   },
   {
     order: 8,
@@ -214,6 +237,7 @@ export const HYROX_STATIONS: readonly HyroxStation[] = [
     measure: { kind: 'reps', value: 100 },
     aliases: ['wall balls', 'wall ball', 'wallballs', 'wb', 'wall balls 100'],
     loads: [],
+    load_axis: 'single',
   },
 ];
 
@@ -274,6 +298,11 @@ export function resolveHyroxStation(input: string): HyroxStation | null {
  * division or gender: an absent cell means "we don't know", not "assume
  * men's" — a made-up weight is an athlete training against the wrong number.
  */
+/** El eje de carga de una estación, o `null` si no tiene (burpee). */
+export function hyroxStationLoadAxis(slug: HyroxStationSlug): HyroxLoadAxis | null {
+  return resolveHyroxStationBySlug(slug)?.load_axis ?? null;
+}
+
 export function hyroxStationLoad(
   slug: HyroxStationSlug,
   division: RaceDivision,

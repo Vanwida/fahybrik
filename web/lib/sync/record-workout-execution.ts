@@ -231,6 +231,7 @@ export async function recordWorkoutExecution(args: {
       executionStartedAt: startedAt,
       segments: input.segments,
       sessionFormat,
+      athleteId,
     });
   }
 

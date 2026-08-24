@@ -18,6 +18,13 @@ import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domai
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
 import { isWorkingSet } from '@fahybrid/shared/domain/strength';
+import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
+import {
+  prescriptionHasRelativeTarget,
+  type AthleteAnchors,
+} from '@fahybrid/shared/domain/prescription/resolve-relative';
+import { loadAthleteRelativeAnchors } from '@/lib/athlete/relative-anchors';
+import { sealPrescriptionJson } from '@/lib/athlete/seal-prescription';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -361,6 +368,12 @@ export async function ingestExecutionSegments(args: {
    * caller has no session format.
    */
   sessionFormat?: string | null;
+  /**
+   * Card 130 — si viene, un relativo se SELLA al snapshot (número ya
+   * resuelto). Sin él, el snapshot copia la plantilla (tests y caminos
+   * viejos). No toca `is_approach` ni el resto del guardado.
+   */
+  athleteId?: number;
 }): Promise<number> {
   const { sql, executionId, executionStartedAt, segments, sessionFormat } = args;
   if (segments.length === 0) return 0;
@@ -399,6 +412,23 @@ export async function ingestExecutionSegments(args: {
         scheme: r.scheme,
         exercise_id: Number(r.exercise_id),
         prescription_json: r.prescription_json,
+      });
+    }
+  }
+
+  // Card 130 — sello: si el atleta está y alguna plantilla es relativa,
+  // resolvemos UNA vez y el snapshot guarda el número, no la frase. Sin
+  // athleteId el snapshot sigue siendo la plantilla (tests y caminos viejos).
+  let anchors: AthleteAnchors | null = null;
+  if (args.athleteId != null) {
+    const anyRelative = [...contextById.values()].some((c) => {
+      const parsed = safeParsePrescription(c.prescription_json);
+      return parsed.success && prescriptionHasRelativeTarget(parsed.data);
+    });
+    if (anyRelative) {
+      anchors = await loadAthleteRelativeAnchors({
+        sql,
+        athlete_id: args.athleteId,
       });
     }
   }
@@ -460,7 +490,11 @@ export async function ingestExecutionSegments(args: {
     const exerciseId = ctx ? ctx.exercise_id : null;
     const prescriptionSnapshot =
       ctx && ctx.prescription_json != null
-        ? sql.json(ctx.prescription_json as Parameters<typeof sql.json>[0])
+        ? sql.json(
+            sealPrescriptionJson(ctx.prescription_json, anchors) as Parameters<
+              typeof sql.json
+            >[0],
+          )
         : null;
     const priorWorkS = priorWorkSeconds(segments, seg);
     // Atribución de tramo: TODO o NADA (lo exige también el CHECK de 0146). Una

@@ -15,6 +15,7 @@ import { screenNoticeActionClass } from '@/components/v2/ScreenState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
 import { SignalThresholdsForm } from '@/components/v2/ajustes/SignalThresholdsForm';
+import { StationLoadsForm } from '@/components/v2/ajustes/StationLoadsForm';
 import { PushCard } from '@/components/v2/push/PushNotifications';
 
 export const dynamic = 'force-dynamic';
@@ -185,6 +186,9 @@ export default async function V2AjustesPage({
             </Card>
           </div>
         </section>
+
+        {/* ── Cargas de competición (kilos por estación, método del coach) ─ */}
+        <StationLoadsForm />
 
         {/* ── Avisos de lo que publica (días de espera de las señales) ────── */}
         <SignalThresholdsForm />

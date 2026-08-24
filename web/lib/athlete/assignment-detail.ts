@@ -17,20 +17,18 @@ import {
 import {
   resolvePaceBandFromZones,
   formatResolvedPaceBand,
-  athleteBenchmarksFromSlugRows,
   type ResolvedZone,
 } from '@fahybrid/shared/domain/methodology';
 import {
   resolvePrescriptionReferences,
-  anchorsFromZoneProfiles,
-  racePaceAnchor,
+  prescriptionHasRelativeTarget,
   type AthleteAnchors,
   type ResolvedReference,
 } from '@fahybrid/shared/domain/prescription/resolve-relative';
+import { loadAthleteRelativeAnchors } from '@/lib/athlete/relative-anchors';
 import {
   loadAthleteZoneProfilesForAthlete,
 } from '@/lib/dashboard/v2/zone-profile';
-import { getTargetRace } from '@/lib/races/next-race';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
@@ -454,6 +452,12 @@ interface SegmentRow {
   block_title: string | null;
   params_json: Record<string, unknown> | null;
   prescription_json: unknown;
+  /**
+   * Snapshot sellado al ejecutar (`segment_executions.prescription_snapshot`).
+   * Si ya no lleva relativos, es el número de ESE día y manda sobre la
+   * plantilla: un retest no reescribe el histórico.
+   */
+  sealed_prescription_json?: unknown | null;
   notes: string | null;
   exercise_id: string;
   exercise_name: string;
@@ -679,46 +683,42 @@ export async function loadAssignmentDetail(
     }
   }
 
-  // Card 130/134 — objetivos RELATIVOS («a peso de competición», «al 50% del
-  // peso corporal»): se resuelven al leer, nunca al guardar (resolve-relative.ts).
-  // Construir las anclas del atleta cuesta consultas EXTRA (marcas crudas +
-  // carrera objetivo) que este cargador NO debe pagar en el camino normal — hoy
-  // NINGUNA plantilla lleva un relativo. Por eso se mira PRIMERO, sobre la
-  // prescripción ya parseada (la MISMA función que usa buildItem, para no
-  // duplicar la regla de qué cuenta como relativo): sólo si alguna línea del día
-  // lo lleva se completan las anclas; si no, `anchors` se queda undefined y el
-  // coste es CERO.
-  const needsAnchors = segments.some((s) => prescriptionHasRelativeTarget(parsePrescriptionJson(s.prescription_json)));
+  // Card 130 — objetivos RELATIVOS: se resuelven AL LEER. Si el día ya se
+  // ejecutó, el snapshot sellado manda para el número (un retest no reescribe
+  // el histórico). Las anclas (marcas + tabla del coach) solo se pagan cuando
+  // alguna línea de la plantilla sigue siendo relativa.
+  if (execution?.execution_id != null && segments.length > 0) {
+    const snaps = await sql<
+      Array<{ template_segment_id: string; prescription_snapshot: unknown }>
+    >`
+      select template_segment_id::text, prescription_snapshot
+      from segment_executions
+      where execution_id = ${Number(execution.execution_id)}
+        and template_segment_id is not null
+        and prescription_snapshot is not null
+    `;
+    const bySeg = new Map<string, unknown>();
+    for (const row of snaps) {
+      if (row.template_segment_id && !bySeg.has(row.template_segment_id)) {
+        bySeg.set(row.template_segment_id, row.prescription_snapshot);
+      }
+    }
+    segments = segments.map((seg) => ({
+      ...seg,
+      sealed_prescription_json: bySeg.get(seg.id) ?? null,
+    }));
+  }
+
+  const needsAnchors = segments.some((s) =>
+    prescriptionHasRelativeTarget(parsePrescriptionJson(s.prescription_json)),
+  );
   let anchors: AthleteAnchors | undefined;
   if (needsAnchors) {
-    const [benchRows, athleteRows, targetRace] = await Promise.all([
-      sql<{ exercise_slug: string; value: number | null }[]>`
-        select exercise_slug, value::float8 as value
-        from athlete_benchmarks
-        where athlete_id = ${athlete_id as unknown as number}
-      `,
-      sql<{ weight_kg: string | null }[]>`
-        select weight_kg::text as weight_kg
-        from athletes
-        where id = ${athlete_id as unknown as number}
-        limit 1
-      `,
-      // La división/género de competición NO son atributos del atleta: salen de
-      // su carrera OBJETIVO (ver AthleteAnchors.competitionLoad). Sin carrera
-      // objetivo, ambos quedan null y el peso de competición contesta null a
-      // todo — la respuesta honesta, nunca un peso inventado.
-      getTargetRace(athlete_id, sql),
-    ]);
-    const benchmarks = athleteBenchmarksFromSlugRows(benchRows);
-    const bodyweightKg = athleteRows[0]?.weight_kg != null ? Number(athleteRows[0].weight_kg) : null;
-    anchors = anchorsFromZoneProfiles(zoneProfiles, {
-      // El umbral sale del snapshot de zonas (zoneProfiles, ya cargado arriba)
-      // — NUNCA recalculado de las marcas — pero el ritmo de carrera no vive en
-      // ese snapshot, así que se resuelve aparte de las mismas marcas crudas.
-      racePace: racePaceAnchor(benchmarks),
-      bodyweightKg,
-      division: targetRace?.division ?? null,
-      gender: targetRace?.gender_category ?? null,
+    anchors = await loadAthleteRelativeAnchors({
+      sql,
+      athlete_id: Number(athlete_id),
+      coach_id: coachId,
+      zoneProfiles,
     });
   }
 
@@ -1137,23 +1137,31 @@ function buildItem(
   // the shared `prescriptionToParams` helper (single source of truth — no
   // re-derivation here) and feed that through normalization. Legacy segments
   // with no prescription fall back to the stored scalar params.
-  const parsedPrescription = parsePrescriptionJson(seg.prescription_json);
+  const templatePrescription = parsePrescriptionJson(seg.prescription_json);
+  const sealedPrescription = parsePrescriptionJson(seg.sealed_prescription_json);
+  const useSealed =
+    sealedPrescription != null && !prescriptionHasRelativeTarget(sealedPrescription);
 
-  // Card 130/134 — un objetivo RELATIVO («a peso de competición», «al 50% del
-  // peso corporal») se SUSTITUYE por el número de ESTE atleta AQUÍ, antes de
-  // derivar nada más: los params escalares y la estructura de carrera de abajo
-  // tienen que salir de la prescripción YA resuelta, o el atleta vería un ritmo
-  // en el badge de zona y otro distinto (o ninguno) en el resto de la línea.
-  //
-  // Se llama SIEMPRE, con o sin `anchors` — nunca gateado en si el llamador se
-  // acordó de pasarlas. `resolvePrescriptionReferences` es idempotente y barata
-  // cuando no hay nada que traducir (devuelve la MISMA referencia y `[]`, el
-  // camino de HOY, siempre), y sin anclas reales (`EMPTY_ANCHORS`) un relativo
-  // simplemente no encuentra marca — la respuesta honesta, nunca el `kind:
-  // 'relative'` crudo escapando al cable porque alguien olvidó cargarlas.
-  const { prescription, references: resolvedReferences } = parsedPrescription
-    ? resolvePrescriptionReferences(parsedPrescription, anchors ?? EMPTY_ANCHORS)
-    : { prescription: null, references: [] as ResolvedReference[] };
+  // Card 130 — un objetivo RELATIVO se SUSTITUYE por el número AQUÍ, al leer.
+  // Si hay snapshot sellado (ya absoluto), ese número manda: un retest no
+  // reescribe el histórico. La frase sale de la plantilla, que guarda el
+  // relativo para siempre.
+  let prescription: Prescription | null;
+  let resolvedReferences: ResolvedReference[];
+  if (useSealed && sealedPrescription) {
+    prescription = sealedPrescription;
+    resolvedReferences = phrasesFromSealedTemplate(templatePrescription, sealedPrescription);
+  } else if (templatePrescription) {
+    const resolved = resolvePrescriptionReferences(
+      templatePrescription,
+      anchors ?? EMPTY_ANCHORS,
+    );
+    prescription = resolved.prescription;
+    resolvedReferences = resolved.references;
+  } else {
+    prescription = null;
+    resolvedReferences = [];
+  }
 
   const source: Record<string, unknown> = prescription
     ? (prescriptionToParams(prescription) as Record<string, unknown>)
@@ -1367,16 +1375,24 @@ function parsePrescriptionJson(raw: unknown): Prescription | null {
   return parsed.success ? (parsed.data as Prescription) : null;
 }
 
-// Card 130/134 — ¿lleva esta línea algún objetivo RELATIVO (bloque o alguna de
-// sus series)? Es la misma pregunta que `resolvePrescriptionReferences` se hace
-// por dentro para decidir si hay algo que traducir; se repite aquí, suelta,
-// porque `loadAssignmentDetail` la necesita ANTES de construir nada (para saber
-// si vale la pena pagar las consultas de las anclas) y esa función sólo
-// responde cuando ya le has dado las anclas.
-function prescriptionHasRelativeTarget(p: Prescription | null): boolean {
-  if (!p) return false;
-  if (p.target?.kind === 'relative') return true;
-  return p.sets?.some((s) => s.target?.kind === 'relative') ?? false;
+/** Frases de la plantilla + números del snapshot sellado. */
+function phrasesFromSealedTemplate(
+  template: Prescription | null,
+  sealed: Prescription,
+): ResolvedReference[] {
+  if (!template || !prescriptionHasRelativeTarget(template)) return [];
+  const { references } = resolvePrescriptionReferences(template, EMPTY_ANCHORS);
+  const sealedTargets: Target[] = [];
+  if (sealed.target) sealedTargets.push(sealed.target);
+  for (const s of sealed.sets ?? []) {
+    if (s.target) sealedTargets.push(s.target);
+  }
+  let i = 0;
+  return references.map((r) => {
+    const t = sealedTargets[i];
+    if (t) i += 1;
+    return { ...r, target: t ?? r.target };
+  });
 }
 
 // Map a scalar param bag → spec-normalized shape. The source is either the

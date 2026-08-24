@@ -489,6 +489,11 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     // athlete has a 1RM for it; nil otherwise — then renderers show the % alone
     // with NO fabricated kg. Wire `resolved_load` → `resolvedLoad`.
     let resolvedLoad: ResolvedLoad?
+    // Card 130 — frases de un objetivo relativo («a peso de competición»).
+    // El número ya viene resuelto en `prescription` / `paramsJson` (el campo
+    // de siempre). iOS NO recalcula: solo pinta la frase. Ausente en payloads
+    // viejos → nil, y la línea se ve igual que hoy.
+    let resolvedReferences: [ResolvedReference]? = nil
     let notes: String?
 
     // Explicit keys are required because the wire field `prescription_json`
@@ -508,8 +513,19 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
         case prescription = "prescriptionJson"
         case resolvedIntensity
         case resolvedLoad
+        case resolvedReferences
         case notes
     }
+}
+
+// El porqué de un objetivo relativo, ya resuelto en el servidor. `phrase` es
+// lo que se pinta («a peso de competición»). `target` es el número sellado,
+// redundante con `prescription.target` — se lee, no se recalcula.
+struct ResolvedReference: Codable, Equatable {
+    let phrase: String
+    let target: Target?
+    let source: String?
+    let estimated: Bool
 }
 
 // The athlete's zone target resolved to an absolute pace band (mirrors the

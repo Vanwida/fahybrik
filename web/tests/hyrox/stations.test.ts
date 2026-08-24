@@ -13,6 +13,8 @@ import {
   HYROX_STATIONS,
   HYROX_STATION_COUNT,
   hyroxStationLoad,
+  hyroxStationLoadAxis,
+  HYROX_FARMER_IMPLEMENTS,
   resolveHyroxStation,
   resolveHyroxStationBySlug,
   resolveHyroxStationByToken,
@@ -126,7 +128,12 @@ describe('hyroxStationLoad · HOY no hay ninguna carga con fuente', () => {
       }
       expect(Array.isArray(st.loads), st.slug).toBe(true);
       expect(st.loads!.length, st.slug).toBe(0);
+      expect(st.load_axis, st.slug).toBeTruthy();
+      expect(hyroxStationLoadAxis(st.slug), st.slug).toBe(st.load_axis);
     }
+    expect(hyroxStationLoadAxis('hyrox-burpee-broad-jump')).toBeNull();
+    expect(hyroxStationLoadAxis('hyrox-farmer-carry')).toBe('per_implement');
+    expect(HYROX_FARMER_IMPLEMENTS).toBe(2);
   });
 });
 

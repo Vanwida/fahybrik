@@ -375,13 +375,18 @@ function swap(
  * referencia de objeto y `references` vacío, para que el camino del día no
  * pague nada cuando no hay nada que resolver — que hoy es siempre.
  */
+/** ¿Lleva esta línea algún objetivo relativo (bloque o alguna serie)? */
+export function prescriptionHasRelativeTarget(p: Prescription | null | undefined): boolean {
+  if (!p) return false;
+  if (p.target?.kind === 'relative') return true;
+  return p.sets?.some((s) => s.target?.kind === 'relative') ?? false;
+}
+
 export function resolvePrescriptionReferences(
   p: Prescription,
   anchors: AthleteAnchors,
 ): ResolvedPrescription {
-  const blockIsRelative = p.target?.kind === 'relative';
-  const anySetIsRelative = p.sets?.some((s) => s.target?.kind === 'relative') ?? false;
-  if (!blockIsRelative && !anySetIsRelative) return { prescription: p, references: [] };
+  if (!prescriptionHasRelativeTarget(p)) return { prescription: p, references: [] };
 
   const references: ResolvedReference[] = [];
   const target = swap(p.target, anchors, references);
