@@ -1,6 +1,3 @@
-// En horizontal manda el tramo de ahora. El mismo dato que en vertical, más
-// grande. No se inventa un crono de sesión.
-
 export type LandscapeLiveOwner = 'current-work' | 'decision-gate';
 
 export function landscapeLiveOwner(input: {

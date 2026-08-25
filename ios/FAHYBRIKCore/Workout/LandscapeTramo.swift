@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-/// En horizontal manda el tramo de ahora. Espejo de `shared/domain/landscape-tramo.ts`.
 enum LandscapeTramo {
     enum Owner: String, Equatable {
         case currentWork

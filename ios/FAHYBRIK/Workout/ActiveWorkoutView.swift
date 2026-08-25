@@ -251,8 +251,6 @@ struct ActiveWorkoutView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 6)
             } else {
-            // Horizontal sin máquina: el mismo HUD que en vertical. El tramo
-            // de ahora crece (`LandscapeTramo`). No hay un crono de sesión.
             VStack(spacing: 8) {
                 topStrip
                 phaseRail
