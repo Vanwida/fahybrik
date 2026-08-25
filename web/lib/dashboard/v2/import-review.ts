@@ -26,6 +26,7 @@ import {
   type ProposedField,
 } from '@/lib/dashboard/v2/import-provenance';
 import type { EditorSession, EditorBlock } from '@/lib/dashboard/v2/editor-types';
+import type { DayPriority } from '@fahybrid/shared/domain/day-intent';
 import type { ProposalFlag, ProposalDay, ProposalWeek, ImportProposal } from '@/lib/import/build-proposal';
 
 /** A container week the coach can map an imported week onto (Fork B target). */
@@ -60,6 +61,9 @@ export interface ReviewDay {
    * (`WeekDay.notes`) al confirmar. Ausente = la fuente no traía ninguna.
    */
   notes?: string;
+  /** Prioridad / sustituto declarados del día. Ausente = la fuente no los trajo. */
+  priority?: DayPriority;
+  substitute?: string;
   /** Coach's selection — false = leave this day out of the import (not written,
    *  not counted, its unresolved lines stop blocking confirm). Rest days ignore it. */
   included: boolean;
@@ -97,6 +101,8 @@ function fromProposalDay(d: ProposalDay): ReviewDay {
     proposed: readProposedFields(sessions, d.filled),
     truncations: readTruncations(d.truncations),
     ...(typeof d.notes === 'string' && d.notes.trim() ? { notes: d.notes.trim() } : {}),
+    ...(d.priority ? { priority: d.priority } : {}),
+    ...(d.substitute ? { substitute: d.substitute } : {}),
     included: true,
   };
 }
@@ -392,6 +398,8 @@ export interface ConfirmBody {
     /** La nota que traía la fuente, si traía alguna. El servidor decide cómo se
      *  junta con la que el día ya tuviera: nunca machaca la del coach. */
     notes?: string;
+    priority?: DayPriority;
+    substitute?: string;
   }>;
   synonyms: Array<{ term: string; exercise_id: number }>;
 }
@@ -419,6 +427,8 @@ export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): Con
         day_of_week: d.day_of_week,
         sessions: d.sessions.map(sessionToWire),
         ...(d.notes ? { notes: d.notes } : {}),
+        ...(d.priority ? { priority: d.priority } : {}),
+        ...(d.substitute ? { substitute: d.substitute } : {}),
       });
 
       const flagByUid = new Map(d.flags.map((f) => [f.uid, f]));

@@ -34,9 +34,10 @@ import {
   looksLikeBareMovementName,
   stripOptionalBlockPrefix,
 } from '@fahybrid/shared/domain/import/label';
+import { dayIntentFromSource, type DayPriority } from '@fahybrid/shared/domain/day-intent';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { resolveExercise } from './exercise-resolve';
-import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
+import { workoutCards, cardToSessionText, type ImportedCard, type ImportedDay, type ImportedWeek } from './imported-week';
 import { fillMissingWithDefaults } from './fill-defaults';
 import { resolveImportDefaults } from '@/lib/coach/import-defaults';
 import { loadCoachPhraseDictionary } from '@/lib/coach/phrase-dictionary';
@@ -115,6 +116,13 @@ export interface ProposalDay {
    * filled. Absent when nothing was proposed.
    */
   filled?: Array<{ item_uid: string; field: 'reps' | 'rest' | 'intensity'; path: string }>;
+  /**
+   * Prioridad / sustituto del DÍA (card 128 · hueco 3). Solo si la fuente
+   * los declaró: campo estructurado o una línea `Prioridad:` / `Alternativa:`.
+   * No se adivina por el título de la sesión.
+   */
+  priority?: DayPriority;
+  substitute?: string;
 }
 
 export interface ProposalWeek {
@@ -243,6 +251,25 @@ async function resolveLines(
  * (or none of them `note`) must add NOTHING to the day's shape, or the
  * no-cards path stops being byte-identical to before.
  */
+function importedDayText(d: {
+  session_text?: string | null;
+  stimulus?: string | null;
+  cards?: readonly ImportedCard[];
+}): string {
+  const parts: string[] = [];
+  if (d.session_text) parts.push(d.session_text);
+  if (d.stimulus) parts.push(d.stimulus);
+  for (const card of d.cards ?? []) {
+    if (card.title) parts.push(card.title);
+    parts.push(...card.lines);
+  }
+  return parts.join('\n');
+}
+
+function dayIntentFields(d: unknown, text: string): { priority?: DayPriority; substitute?: string } {
+  return dayIntentFromSource(d, text);
+}
+
 function dayNotesField(cards: readonly ImportedCard[] | undefined): { notes?: string } {
   const noteCards = (cards ?? []).filter((c) => c.kind === 'note');
   if (noteCards.length === 0) return {};
@@ -438,7 +465,7 @@ async function buildCardBlock(
 async function buildDayFromCards(
   coach_id: number,
   sql: Sql,
-  d: { day_of_week: number; dow: string; stimulus: string | null; cards: readonly ImportedCard[] },
+  d: ImportedDay,
   cards: readonly ImportedCard[],
   llmAssist: LlmAssist | undefined,
   defaults: ImportDefaultsValues,
@@ -486,6 +513,7 @@ async function buildDayFromCards(
       ? { filled: fillResult.filled.map(({ item_uid, field, path }) => ({ item_uid, field, path })) }
       : {}),
     ...dayNotesField(d.cards),
+    ...dayIntentFields(d, importedDayText(d)),
   };
   return { day, flags };
 }
@@ -545,7 +573,7 @@ export async function buildImportProposal(params: {
         const built = await buildDayFromCards(
           coach_id,
           sql,
-          { day_of_week: d.day_of_week, dow: d.dow, stimulus: d.stimulus, cards: d.cards },
+          d,
           cards,
           llmAssist,
           await getImportDefaults(),
@@ -566,6 +594,7 @@ export async function buildImportProposal(params: {
           flags: [],
           state: 'rest',
           ...dayNotesField(d.cards),
+          ...dayIntentFields(d, importedDayText(d)),
         });
         continue;
       }
@@ -608,6 +637,7 @@ export async function buildImportProposal(params: {
         flags,
         state: dayNeedsReview ? 'review' : 'detected',
         ...dayNotesField(d.cards),
+        ...dayIntentFields(d, importedDayText(d)),
       });
     }
     outWeeks.push({ week: w.week, sheet: w.sheet, fell_back: w.fell_back, days });

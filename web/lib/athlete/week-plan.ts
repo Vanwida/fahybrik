@@ -20,6 +20,7 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { dayIntentByDow, type DayPriority } from '@fahybrid/shared/domain/day-intent';
 import {
   recoverySuggestionSchema,
   type RecoverySuggestion,
@@ -91,6 +92,12 @@ export interface AthleteWeekDay {
    * inventa). NO es un entreno: no cuenta adherencia, sin intensidad/carga.
    */
   recovery_suggestions: RecoverySuggestion[];
+  /**
+   * Prioridad / sustituto del día, leídos de la plantilla por weekday.
+   * Solo en días de entreno. Ausente si el coach no los declaró.
+   */
+  priority?: DayPriority;
+  substitute?: string;
 }
 
 export interface AthleteWeekPlan {
@@ -301,6 +308,7 @@ export async function buildAthleteWeekPlan(
       // sugerencias para ese weekday.
       recovery_suggestions:
         daySessions.length === 0 ? (weekMeta.recoveryByDow.get(dow) ?? []) : [],
+      ...(daySessions.length > 0 ? weekMeta.intentByDow.get(dow) ?? {} : {}),
     };
   });
 
@@ -420,6 +428,8 @@ type WeekTemplateMeta = {
    * these to its rest day of the SAME weekday (honest weekday match — no invention).
    */
   recoveryByDow: Map<number, RecoverySuggestion[]>;
+  /** Prioridad / sustituto por weekday canónico de la plantilla. */
+  intentByDow: ReturnType<typeof dayIntentByDow>;
 };
 
 /**
@@ -434,7 +444,7 @@ type WeekTemplateMeta = {
  * the athlete then sees no focus/recovery, never invented ones.
  */
 async function resolveWeekTemplateMeta(microcycleId: string | null): Promise<WeekTemplateMeta> {
-  const empty: WeekTemplateMeta = { focus: null, recoveryByDow: new Map() };
+  const empty: WeekTemplateMeta = { focus: null, recoveryByDow: new Map(), intentByDow: new Map() };
   if (!microcycleId) return empty;
   const rows = await sql<Array<{ focus: string | null; slots_json: unknown }>>`
     select w.focus, w.slots_json
@@ -457,6 +467,7 @@ async function resolveWeekTemplateMeta(microcycleId: string | null): Promise<Wee
   return {
     focus: focus ? focus : null,
     recoveryByDow: extractRecoveryByDow(row.slots_json),
+    intentByDow: dayIntentByDow(row.slots_json),
   };
 }
 

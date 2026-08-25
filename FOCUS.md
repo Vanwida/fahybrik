@@ -2,18 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 2 · por lado y descanso)
+Última actualización: **2026-08-25** (128 · hueco 3 · prioridad y sustitución)
 
 ## Ahora
 
-**128 · HUECO 2 (card ABIERTA).** Por lado, ámbito del descanso y descanso
-activo entran en el tipo compartido. `laterality: 'per_side'` en la línea
-(no un ejercicio nuevo). La analítica multiplica ×2. Se suben
-`rest_between_rounds_s` y `rest_between_stations_s` (aliases de iOS/DB).
-Descanso activo = `active_rest` (medida + modalidad/objetivo solo si el
-coach los escribió). Entre bloques / vueltas no tienen campo: se dejan
-fuera. Corpus: 62 % (768 de 1.238). Sin tablas nuevas. Sin ON CONFLICT.
-No se cierra la 128. Card: https://app.clickup.com/t/86ak49xrn
+**128 · HUECO 3 (card ABIERTA).** Prioridad y sustitución del día. El coach
+las escribió en el DÍA, no en la línea (FOCUS decía 47 líneas; son 47
+días). `priority`: `essential` | `important` | `complementary`.
+`substitute`: la frase declarada (tope 200). 47 / 12 / 9 / 16 (`-` =
+ausente). 31 de 84 con alternativa de clase. 10 líneas `Alternativa:`
+también emiten el campo. Sin segundo calendario. Sin tablas nuevas.
+La 128 no se cierra. Card: https://app.clickup.com/t/86ak49xrn
 
 **140 · ESCRITURAS QUE REVIENTAN DENTRO DE UNA TRANSACCIÓN.** postgres.js no
 anida `begin`. Los writers que abrían siempre la suya (`computeMeasuredHeader`
@@ -110,9 +109,11 @@ Media máquina ya existe y está DESCONECTADA: `methodology/zones.ts` resuelve
 competición por división/género devolviendo null a propósito. Nada de eso puede
 aparecer en una prescripción.
 
-Hueco 2 (por lado + descanso) **tipado** en el contrato compartido. Siguen:
-**prioridad y sustitución del día** (47 esenciales, 31 de 84 con alternativa
-declarada: no hay campo). La card 128 sigue abierta.
+Hueco 2 (por lado + descanso) **tipado** en trunk. Hueco 3 (prioridad y
+sustitución) **tipado** en el DÍA: `priority` + `substitute` en
+`slots_json`. FOCUS decía 47 líneas; el ciclo las pone en 47 días.
+Siguen: catálogo + alias, gramática, importador de ciclo, motor.
+La card 128 sigue abierta.
 
 Cabe SIN tablas nuevas: 4 tramos encadenados (5+4+2+1) = las 4 fases. Los 19
 criterios son metodología, no calendario.
@@ -133,7 +134,7 @@ fichero). El camino bueno ya está un piso abajo en `web/lib/import/` +
 Medida objetiva acordada: las 1.238 líneas como **corpus**, % tipado y fiel.
 Orden propuesto: (1) objetivos relativos (2) por lado + descanso (3) prioridad y
 sustitución (4) catálogo + alias (5) gramática (6) importador (7) motor.
-**NO se ha tocado código, ni la base, ni ejercicios. Pendiente de OK de Alex.**
+Huecos 1-3 ya tienen código. La 128 sigue abierta.
 
 **111 · MCP receta de biblioteca (feat/mcp-microcycle-crud):** `create_microcycle` /
 `update_microcycle` escriben SIEMPRE en receta (`program_*_templates`), nunca en

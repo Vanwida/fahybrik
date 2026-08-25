@@ -30,6 +30,7 @@
 // an explicit 400 — surfacing the bad line instead of fabricating a fake success.
 
 import { prescriptionToParams, withFlatFromStructure } from '@fahybrid/shared/domain/prescription';
+import { DAY_SUBSTITUTE_MAX, type DayPriority } from '@fahybrid/shared/domain/day-intent';
 import type {
   EditorBlockInput,
   EditorItemInput,
@@ -225,9 +226,17 @@ export function serializeDay(params: {
    * (undefined) conserva las del día original. Se descartan si el día es de entreno.
    */
   recovery_suggestions?: RecoverySuggestion[];
+  /**
+   * Prioridad / sustituto del día. undefined = conserva el original;
+   * null / '' = limpia; valor = fija. Solo se persisten en un día de
+   * entreno (el corpus pone `-` en los descansos).
+   */
+  priority?: DayPriority | null;
+  substitute?: string | null;
   original: WeekDay;
 }): WeekDay {
-  const { day_of_week, sessions, kind, recovery_suggestions, original } = params;
+  const { day_of_week, sessions, kind, recovery_suggestions, priority, substitute, original } =
+    params;
 
   const nextSessions = sessions.map((s, i) => serializeSession(s, original.sessions[i]));
 
@@ -247,13 +256,36 @@ export function serializeDay(params: {
     const recovery = recovery_suggestions ?? original.recovery_suggestions;
     if (recovery && recovery.length > 0) next.recovery_suggestions = recovery;
     else delete next.recovery_suggestions;
+    delete next.priority;
+    delete next.substitute;
   } else {
     // Día de entreno: BORRAMOS cualquier kind/recuperación obsoletos (p. ej. un día
     // que pasa de descanso a entreno) — la recuperación es un concepto solo-descanso.
     delete next.kind;
     delete next.recovery_suggestions;
+    applyDayIntent(next, original, { priority, substitute });
   }
   return next;
+}
+
+function applyDayIntent(
+  next: WeekDay,
+  original: WeekDay,
+  overrides: { priority?: DayPriority | null; substitute?: string | null },
+): void {
+  if (overrides.priority !== undefined) {
+    if (overrides.priority == null) delete next.priority;
+    else next.priority = overrides.priority;
+  } else if (!original.priority) {
+    delete next.priority;
+  }
+  if (overrides.substitute !== undefined) {
+    const trimmed = overrides.substitute?.trim() ?? '';
+    if (!trimmed) delete next.substitute;
+    else next.substitute = trimmed.slice(0, DAY_SUBSTITUTE_MAX);
+  } else if (!original.substitute) {
+    delete next.substitute;
+  }
 }
 
 // ── Day clone (copiar día → día) ─────────────────────────────────────────────

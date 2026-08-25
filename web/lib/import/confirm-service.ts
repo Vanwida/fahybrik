@@ -24,6 +24,7 @@ import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { idSchema } from '@fahybrid/shared/schema/_primitives';
+import { DAY_SUBSTITUTE_MAX, dayPrioritySchema } from '@fahybrid/shared/domain/day-intent';
 import {
   editorSessionInputSchema,
   type EditorSessionInput,
@@ -95,6 +96,10 @@ export const importConfirmRequestSchema = z
            * no revienta la validación del slot a mitad de escritura.
            */
           notes: z.string().max(WEEK_DAY_NOTES_MAX).optional(),
+          /** Prioridad de poda del día. Ausente = no se toca el original. */
+          priority: dayPrioritySchema.optional(),
+          /** Sustituto declarado del día. Ausente = no se toca el original. */
+          substitute: z.string().max(DAY_SUBSTITUTE_MAX).optional(),
         }),
       )
       .min(1)
@@ -264,6 +269,8 @@ export async function confirmImport(params: {
         day_of_week: entry.day_of_week,
         sessions: entry.sessions as EditorSessionInput[],
         original,
+        ...(entry.priority !== undefined ? { priority: entry.priority } : {}),
+        ...(entry.substitute !== undefined ? { substitute: entry.substitute } : {}),
       });
       // `serializeDay` conserva la nota original (parte de `...original`); esto solo
       // añade la que traía la fuente, sin machacar la del coach. Ver `mergeDayNote`.

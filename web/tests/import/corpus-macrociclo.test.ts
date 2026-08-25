@@ -86,6 +86,9 @@ function forma(texto: string): string {
 // Sólo sube. Cada vez que suba, cámbialo aquí Y di por qué en el comentario.
 //
 // Historial:
+//   2026-08-25 · 62 % (768 de 1.238) — prioridad y sustitución del día (card
+//     128, hueco 3). Campos en el DÍA, no en la línea. La gramática de
+//     trabajo no cambia: el trinquete no se mueve.
 //   2026-08-25 · 62 % (768 de 1.238) — por lado + ámbito del descanso (card 128,
 //     hueco 2). Las formas «2' de descanso …» que parseRest no admite se
 //     anotan y se emiten (no se tragan): el trinquete no baja. «5' entre
