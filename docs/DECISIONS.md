@@ -10,6 +10,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Catálogo y alias del ciclo (card 128 · hueco 4)
+
+**Qué fallaba:** el importador no hablaba con `exercise_aliases`.
+«Puente de glúteo unilateral» caía al bilateral por subcadena.
+El ciclo pedía 35 nombres que ya existían con otra etiqueta, y 34
+movimientos que no estaban (la 0205 dio de alta 29).
+
+**Decidido:**
+
+- Una sola tabla de alias. El importador la lee en el peldaño 1b,
+  antes del mapa a mano, porque exige el término entero.
+- Un calificador de lado en el término no puede resolver a un
+  nombre que no lo lleva (capa 4). Preferir no encontrar que
+  entregar el ejercicio equivocado.
+- Una fila es un movimiento. Hollow rocks entra (no es el hold).
+  El salto al cajón a una pierna no entra: es alias de box jump.
+  Hip thrust unilateral es el hip thrust (el lado es prescripción).
+- Los 35 que solo necesitaban alias se escriben con el nombre del
+  coach. Sin segundo almacén. Sin vídeo. Sin ON CONFLICT nuevo.
+- La card 128 no se cierra.
+
+**NO hacer:** no inventar otra tabla de sinónimos. no dar de alta
+una manera de hacer un movimiento que ya existe. no cerrar la 128.
+no tocar 132 / Watch / feat/publish. no inventar kilos.
+
+**Dónde vive:** `web/lib/import/exercise-resolve.ts` (1b + guarda
+de laterality). Contenido: `infra/migrations/0210_cycle_catalog_aliases.sql`.
+Pruebas: `web/tests/import/cycle-catalog-resolve.test.ts`.
+
+---
+
 ## 2026-08-25 · Prioridad y sustitución del día (card 128 · hueco 3)
 
 **Qué fallaba:** el ciclo de 12 semanas marca 47 días esenciales, 12
