@@ -30,7 +30,6 @@ import {
   SplitsTable,
   actualTokens,
 } from '@/components/v2/sesion/ItemPrescritoHecho';
-import { StationOrderMark } from '@/components/v2/sesion/StationOrderMark';
 import type { RunComplianceSummary, RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
@@ -315,11 +314,8 @@ export function SessionDetailDrawer({
                     {block.title.trim() !== title.trim() ? (
                       <h3 className="flex items-center gap-1.5">
                         <span className="v2-micro">{block.title}</span>
-                        <StationOrderMark format={block.format} />
                       </h3>
-                    ) : (
-                      <StationOrderMark format={block.format} />
-                    )}
+                    ) : null}
                     {block.coach_note?.trim() ? (
                       <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
                         {block.coach_note}

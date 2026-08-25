@@ -494,7 +494,7 @@ export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Vered
   if (!peldano || faltaTiempo) {
     return {
       clase: 'aun-no',
-      frase: 'Aún no',
+      frase: '',
       peldano,
       plazo: faltaTiempo ? { llevas: h.semanas, hacen: m.min_weeks_to_judge } : null,
     };
@@ -504,20 +504,20 @@ export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Vered
   const subida = subidaDeVolumen(h.semanas_km);
 
   if (gana >= m.meaningful_gain_s_per_km) {
-    return { clase: 'mejor', frase: 'Vas mejor', peldano, plazo: null };
+    return { clase: 'mejor', frase: '', peldano, plazo: null };
   }
 
   // EL INCÓMODO. Volumen subiendo y motor respondiendo peor es la firma clásica
   // de estar metiendo más de lo que se asimila. La DETECCIÓN es mecanismo; los
   // dos umbrales que la disparan son método.
   if (gana <= -m.meaningful_gain_s_per_km && subida >= m.volume_surge_ratio) {
-    return { clase: 'cargando', frase: 'Cargando de más', peldano, plazo: null };
+    return { clase: 'cargando', frase: '', peldano, plazo: null };
   }
   if (gana <= -m.meaningful_gain_s_per_km) {
-    return { clase: 'peor', frase: 'Vas más lento', peldano, plazo: null };
+    return { clase: 'peor', frase: '', peldano, plazo: null };
   }
 
-  return { clase: 'igual', frase: 'Te mantienes', peldano, plazo: null };
+  return { clase: 'igual', frase: '', peldano, plazo: null };
 }
 
 // ---------------------------------------------------------------------------

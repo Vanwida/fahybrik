@@ -126,9 +126,9 @@ final class CoachSpeechTests: XCTestCase {
     // MARK: - pace correction / split / countdown / finish
 
     func testPaceCorrectionText() {
-        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooFast, deltaSec: 15), "Vas 15 segundos rápido.")
-        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooFast, deltaSec: nil), "Vas rápido, afloja un poco.")
-        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooSlow, deltaSec: 12), "Aprieta un poco.")
+        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooFast, deltaSec: 15), "")
+        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooFast, deltaSec: nil), "")
+        XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooSlow, deltaSec: 12), "")
     }
 
     func testSplitAndCountdownAndFinish() {

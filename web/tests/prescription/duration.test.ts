@@ -286,7 +286,7 @@ describe('the session — an open PRINCIPAL block means no number at all', () =>
     expect(d.reason).toBe('scored_by_time');
     // El marco SÍ suma 13 min — y ese es exactamente el número que no se pinta.
     expect(d.timed_minutes).toBeGreaterThan(0);
-    expect(durationUnknownEs(d.reason)).toBe('Dura lo que tardes');
+    expect(durationUnknownEs(d.reason)).toBe('');
   });
 
   test('the leg-strength session states none either (was 26 min, measured 16 and 63)', () => {
@@ -373,9 +373,9 @@ describe('the session — an open PRINCIPAL block means no number at all', () =>
     expect(d).toMatchObject({ known: false, reason: 'undosed' });
   });
 
-  test('every reason has athlete-facing words — no surface is left with a hole', () => {
+  test('every unknown reason stays empty', () => {
     for (const reason of ['scored_by_time', 'until_failure', 'work_not_timed', 'undosed'] as const) {
-      expect(durationUnknownEs(reason).length).toBeGreaterThan(3);
+      expect(durationUnknownEs(reason)).toBe('');
     }
   });
 });

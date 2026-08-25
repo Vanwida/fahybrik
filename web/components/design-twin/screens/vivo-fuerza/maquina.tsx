@@ -288,12 +288,8 @@ export function MaquinaCircuito({
       pie={
         <>
           <Hueco
-            titulo={enLunge ? 'el plan no trae repeticiones' : 'el plan solo trae el nombre'}
-            texto={
-              enLunge
-                ? 'El coach dejó las cuatro series y los 30 kg, pero no cuántas repeticiones. Haz las tuyas y apúntalas al acabar.'
-                : 'Ni distancia, ni peso del trineo. Se apunta que lo has hecho, y nada más.'
-            }
+            titulo=""
+            texto=""
             accion={
               <SecondaryCTA
                 title="Preguntar al coach"

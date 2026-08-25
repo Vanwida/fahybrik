@@ -485,7 +485,7 @@ function etiquetaDia(dia: Dia, estado: EstadoDia, esHoy: boolean): string {
         : t.medidoMin !== null
           ? `, ${t.medidoMin} min`
           : t.previstoMin !== null
-            ? `, unos ${t.previstoMin} min`
+            ? `, ${t.previstoMin} min`
             : '';
     return `${t.titulo}${marca}${tiempo}`;
   });

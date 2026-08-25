@@ -110,7 +110,7 @@ enum EscenariosDeCorrer {
                     TipoMedia(tipo: "for_time", ritmoSKm: 236, metros: 21_000, sesiones: 4),
                 ]
             ),
-            verdict: Veredicto(clase: .mejor, frase: "Vas mejor",
+            verdict: Veredicto(clase: .mejor, frase: "",
                                peldano: .alPulso(ganaSKm: 11, semanas: 8), plazo: nil),
             coverage: Cobertura(forma: nil, esfuerzos: nil, volumen: nil,
                                 reparto: nil, pedido: nil, cansado: nil),
@@ -175,7 +175,7 @@ enum EscenariosDeCorrer {
                 cadencia: base.history.cadencia,
                 porTipo: base.history.porTipo
             ),
-            verdict: Veredicto(clase: .mejor, frase: "Vas mejor",
+            verdict: Veredicto(clase: .mejor, frase: "",
                                peldano: .esfuerzos(ganaS: 42, metros: 5000), plazo: nil),
             coverage: Cobertura(
                 forma: .ancla,
@@ -238,7 +238,7 @@ enum EscenariosDeCorrer {
                 cadencia: [],
                 porTipo: []
             ),
-            verdict: Veredicto(clase: .aunNo, frase: "Aún no", peldano: nil,
+            verdict: Veredicto(clase: .aunNo, frase: "", peldano: nil,
                                plazo: Veredicto.Plazo(llevas: 3, hacen: 6)),
             // Las tres contables esperan LO MISMO —tiempo—, así que cuentan como una
             // sola razón y la pantalla no le ofrece una salida que no existe.

@@ -11,6 +11,63 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · La app no habla (cards 114 + 171)
+
+**Qué se elimina:** las palabras que la app decía cuando el
+coach no escribió el dato, y las que juzgaban al atleta. No
+se sustituyen. El hueco queda vacío.
+
+Quitado (114):
+
+- `stationOrderLabel` / `COPY_CIRCUITO` / `COPY_SEGUIDO` y el
+  `no lo sé` de estaciones. El chip `StationOrderMark`. El
+  sufijo `Estaciones · …`. El lead de `blockAthleteLine`.
+- Badges iOS CIRCUITO / SEGUIDO / ALTERNANDO, sus tres
+  captions, y `BlockPacing.resolve` para pintarlas.
+- `1º` / `2º` / `3º` y `Min 1` / `Min 2` (y Min impar/par)
+  delante del nombre en la previa. El nombre se queda.
+
+Quitado (171 resto):
+
+- `no lo sé` de medida y scheme (`honestMeasureCopy` /
+  `honestSchemeCopy`, `Vocab.noLoSe`, `PrescriptionRenderer`,
+  `dosisConSeries`).
+- `DURATION_UNKNOWN_ES` y su espejo iOS: Dura lo que tardes,
+  Hasta donde aguantes, Según tu ritmo y tus descansos, Sin
+  detallar. En plan-bloque el número escrito se queda, sin
+  «unos».
+- `thresholdUnknownNote`.
+- Huecos que narraban: `maquina.tsx`, `descanso.tsx`,
+  `sesion-previa/atoms` (`AvisoSinDosis`), plan-dia «sin
+  detalle en el plan», BlockPreviewGate «Sin detalle — …»,
+  PreWorkoutBrief ALTERNA / SE ALTERNAN / SEGÚN TU 1RM.
+- Juicio: `progress.ts`, `lectura-carrera/voz.ts`,
+  Aguantaste / De menos a más / Se te fue, CoachSpeech
+  Afloja/Aprieta (no el km N ni el tiempo total), HUDs de
+  calle y cinta, twin run-live / vivo-correr / watch-zona,
+  `GuionRodaje.veredicto`, `hechos.ts`, BloqueDeCarga «Vas a
+  más o te pasas».
+
+**Decidido:** si el coach no lo escribió, vacío. Quitar, no
+sustituir. El format/scheme y las medidas siguen en dato.
+Quien pinta no pone palabra.
+
+**Qué se queda:** chrome (Hoy, Atrás, km/h, Empezar).
+TandaStrip 1/2/3. Circuito como arquetipo del editor.
+Preguntar al coach de menú. Al fallo. Labels del panel
+coach (En banda, Aguanta). Errores de carga. GPS/pulso. 132.
+
+**NO hacer:** no inventar copy de recambio. no cerrar la 128.
+no tocar 132. no xcodebuild. no Neon/prod. no main. no Meta.
+
+**Dónde vive el silencio:** `render-honest.ts` sin
+`stationOrderLabel` ni `COPY_NO_LO_SE`. `DURATION_UNKNOWN_ES`
+vacío. `thresholdUnknownNote` vacío. iOS `BlockPreviewGate`
+sin pacing. `PreWorkoutBriefView` sin cabeceras de rotación.
+Tests: `station-order.test.ts`, `station-order-silence.test.ts`.
+
+---
+
 ## 2026-08-25 · El recap se llena con la ejecución (card 144)
 
 **Qué faltaba:** al acabar el entreno, «ver lo que hiciste»
@@ -226,35 +283,15 @@ Feeder: `TreadmillSessionFeeder`. HUD: `legElapsedEffective`,
 
 ## 2026-08-25 · Estaciones: se ve si es seguido o circuito (card 114)
 
-**Qué faltaba:** el format ya estaba guardado (`circuit` /
-`rounds` = rondas de estaciones; el resto del catálogo = estaciones
-en fila). El atleta y el readout del coach no lo leían. iOS
-`BlockPacing` lo adivinaba por el número de movimientos y a veces
-se callaba. Una sola estación de circuito se leía como seguido.
+**REVERTIDO el mismo día** por «La app no habla (cards 114 + 171)».
+Esa copy se quitó: circuito / seguido / no lo sé, el chip, los
+badges y el lead. Si el coach no lo escribió, vacío. No
+reconstruir `stationOrderLabel` ni `BlockPacing`.
 
-**Decidido:**
-
-- No hay un segundo eje. La palabra sale de `normalizeFormat` sobre
-  el format/scheme de siempre. `circuit` y `rounds` → «circuito».
-  Cualquier otro miembro del catálogo → «seguido». Lo que no está
-  en el catálogo → «no lo sé».
-- El recuento de estaciones no manda. Una estación es circuito solo
-  si el format guardado lo dice.
-- El serve no inventa campo. `assignment-detail` sigue mandando
-  `format`. Quien pinta llama a `stationOrderLabel`.
-- iOS no recalcula. No se toca Swift ni Xcode.
-
-**NO hacer:** no cerrar la 128. no tocar 132, Watch,
-`DEVELOPMENT_TEAM`, feat/publish. no marcar ClickUp. no ON
-CONFLICT nuevo. no convertir un format desconocido en tabla de
-series. no adivinar circuito por tener dos movimientos.
-
-**Dónde vive:** `stationOrderLabel` /
-`showsStationOrder` en `render-honest.ts`. Editor:
-`ComponentsForm`, `CompositorHeader`, `SessionPartCard`,
-`blockAthleteLine`. Readout: `SessionDetailDrawer`,
-`SesionScreen`. Tests: `render-honest.test.ts`,
-`station-order.test.ts`.
+**Qué faltaba (el intento):** el format ya estaba guardado
+(`circuit` / `rounds` = rondas de estaciones). El atleta no lo
+leía. iOS `BlockPacing` lo adivinaba por el número de
+movimientos. Eso se pintó un rato y se vació el mismo día.
 
 ---
 
@@ -314,8 +351,8 @@ guardada.
   (`coach_test` | `athlete_test`, no en revisión) o la marca
   `run_threshold_*`. Si no, `null`.
 - Confirmar un `onboarding_auto` no lo convierte en test.
-- El vacío dice «no lo sé» y señala el test de umbral de carrera.
-  Sin raya larga. Sin kilos de competición. Sin número de IA.
+- El vacío queda vacío (171). Sin raya larga. Sin kilos de
+  competición. Sin número de IA. Sin frase de recambio.
 - iOS no recalcula. Si hay número, viaja en `threshold_pace` /
   `target` pace, el campo de siempre. Si no, `null`.
 

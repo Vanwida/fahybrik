@@ -384,10 +384,10 @@ export function sessionDuration(items: SessionDurationItem[]): SessionDuration {
 // "prescripción", no "dosis sin medida", no format names.
 
 export const DURATION_UNKNOWN_ES: Record<DurationUnknownReason, string> = {
-  scored_by_time: 'Dura lo que tardes',
-  until_failure: 'Hasta donde aguantes',
-  work_not_timed: 'Según tu ritmo y tus descansos',
-  undosed: 'Sin detallar',
+  scored_by_time: '',
+  until_failure: '',
+  work_not_timed: '',
+  undosed: '',
 };
 
 /** The athlete-facing phrase for a session with no written duration. */

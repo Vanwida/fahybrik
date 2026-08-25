@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (132 · recap lleno + pegatina)
+Última actualización: **2026-08-25** (114+171 · la app no habla, sobre 132)
 
 ## Ahora
 
@@ -37,11 +37,14 @@ velocidad (> 0,5 km/h). Si para, el crono se queda. EMOM / AMRAP
 siguen en pared. En el live se leen juntos km/h de máquina y ritmo
 /km. Card 167 (ClickUp aún no existe).
 
-**114 · ESTACIONES: SEGUIDO O CIRCUITO (PR).** Un bloque de
-estaciones enseña «circuito» si el format guardado es `circuit` /
-`rounds`, «seguido» si es otro miembro del catálogo, «no lo sé» si
-no lo reconocemos. El recuento de estaciones no manda. iOS no
-recalcula. La 128 no se cierra.
+**114 + 171 · LA APP NO HABLA (PR).** Si el coach no lo escribió,
+vacío. Se quitaron circuito/seguido/no lo sé de estaciones, el
+chip, badges, `1º`/`Min N`, no lo sé de medida/scheme, Dura lo
+que tardes y familia, umbral sin test, huecos que narran, y el
+juicio (Vas mejor, Afloja/Aprieta, Aguantaste…). Cero copy
+nueva. Se queda chrome, TandaStrip, Circuito del editor,
+Preguntar al coach, al fallo, En banda/Aguanta. 132 no se toca.
+https://github.com/Vanwida/fahybrik/pull/83
 https://app.clickup.com/t/86ak3gvhv
 
 **108 · TÉCNICA Y DESCRIPCIÓN EN CADA BLOQUE (PR).** Cada bloque
@@ -55,8 +58,8 @@ https://app.clickup.com/t/86ak3gp0a
 **104 · UN NÚMERO DE VERDAD (PR).** El umbral que se enseña o viaja
 al móvil solo sale de un test (`coach_test` / `athlete_test`) o de
 la marca `run_threshold_s_per_km` de ESE atleta. Un 5 km + 10 s o
-un perfil del alta no cuentan: «no lo sé. Falta el test de umbral
-de carrera.» Puerta: `measuredThresholdSeconds`. iOS no recalcula.
+un perfil del alta no cuentan: el hueco queda vacío (171).
+Puerta: `measuredThresholdSeconds`. iOS no recalcula.
 La 128 no se cierra.
 https://app.clickup.com/t/86ak3m89b
 
@@ -69,8 +72,8 @@ Writer: `copyAthleteInstanceDayToRecipe`. Card ABIERTA.
 https://app.clickup.com/t/86ak2yck1
 
 **128 · HUECO 7 (PR, card ABIERTA).** Motor en vivo. `Measure.unknown`
-ya no desaparece: dice «no lo sé». Un scheme que no está en el
-catálogo ya no se guarda como `sets` (tabla de hierro).
+y un scheme fuera de catálogo quedan vacíos (171). Un scheme
+desconocido ya no se guarda como `sets` (tabla de hierro).
 `straight_sets` sigue siendo fuerza (alias). La 128 no se cierra.
 Card: https://app.clickup.com/t/86ak49xrn
 

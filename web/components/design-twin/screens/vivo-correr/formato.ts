@@ -32,8 +32,8 @@ export function colorJuicio(j: Juicio): string {
 
 export function palabraJuicio(j: Juicio): string | null {
   if (j === 'dentro') return 'En objetivo';
-  if (j === 'rapido') return 'Te pasas';
-  if (j === 'lento') return 'Aprieta';
+  if (j === 'rapido') return null;
+  if (j === 'lento') return null;
   return null;
 }
 

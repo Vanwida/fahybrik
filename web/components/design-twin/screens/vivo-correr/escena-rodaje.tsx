@@ -27,10 +27,8 @@ const ZONA_OBJETIVO: Zona = GUION.sesion[0].objetivoZona ?? 2;
 
 /** Lo que hay que oír cuando te sales, sin drama y con qué hacer. */
 function fraseZona(zona: Zona | null): string {
-  if (zona === null) return 'Sin pulso no hay zona que enseñar';
-  if (zona === ZONA_OBJETIVO) return 'Estás donde toca';
-  if (zona < ZONA_OBJETIVO) return `Vas por debajo. Aprieta un poco para volver a Z${ZONA_OBJETIVO}`;
-  return `Te has ido a Z${zona}. Afloja un poco y vuelve a Z${ZONA_OBJETIVO}`;
+  void zona;
+  return '';
 }
 
 export function EscenaRodaje({

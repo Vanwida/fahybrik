@@ -121,5 +121,5 @@ export function paginaZona({
  */
 export function juicio(actual: Zona, objetivo: Zona | null): string | null {
   if (objetivo == null || actual === objetivo) return null;
-  return actual > objetivo ? 'vas por encima' : 'vas por debajo';
+  return null;
 }

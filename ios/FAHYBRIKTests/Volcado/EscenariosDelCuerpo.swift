@@ -158,8 +158,8 @@ enum EscenariosDelCuerpo {
     static var hechos: [Hecho] {
         [
             Hecho(id: "cruce.subida_sin_descanso",
-                  fraseEs: "Has subido un 30 % en dos semanas y duermes 6,4 h, por debajo de tus 8.",
-                  pideEs: "Aprieta menos esta semana.",
+                  fraseEs: "",
+                  pideEs: "",
                   de: ["carga.fondo", "recuperacion.sueno"],
                   tono: .aviso),
             Hecho(id: "cobertura.ciega",

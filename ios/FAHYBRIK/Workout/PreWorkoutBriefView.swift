@@ -492,11 +492,6 @@ struct PreWorkoutBriefView: View {
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            // An ALTERNATING EMOM is ONE EMOM whose minutes rotate through its
-            // movements — render it as a single interleaved unit (min impar / min
-            // par …), NOT a stack of "15 wallballs" + "run" cards. Reads the SAME
-            // `block.alternatingEmom` fold the live timer runs, so the brief and the
-            // timer can never present the EMOM differently.
             if let merged = block.alternatingEmom {
                 alternatingEmomCard(block, merged)
             } else if let (folded, _) = block.supersetFold {
@@ -516,12 +511,6 @@ struct PreWorkoutBriefView: View {
     }
 
     // MARK: Alternating EMOM — one interleaved unit (the minute-by-minute rotation)
-    //
-    // Renders the shared `block.alternatingEmom` rotation as ONE card: an "alterna
-    // cada minuto · N min" header over one row per movement (Min impar / Min par,
-    // or Min 1/2/3 for ≥3), each with its work + intensity from the SAME
-    // `PrescriptionSet.emomInterval` the live HUD uses. The athlete reads "this
-    // alternates every minute", not "do 15 wallballs then run".
     @ViewBuilder
     private func alternatingEmomCard(_ block: WorkoutBlock, _ merged: Prescription) -> some View {
         let sets = merged.sets ?? []
@@ -531,7 +520,7 @@ struct PreWorkoutBriefView: View {
                     Image(systemName: "repeat")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Theme.Color.accentText)
-                    Text("ALTERNA CADA MINUTO")
+                    Text("")
                         .font(.system(size: 11, weight: .heavy, design: .default).italic())
                         .tracking(0.6)
                         .foregroundStyle(Theme.Color.accentText)
@@ -553,7 +542,7 @@ struct PreWorkoutBriefView: View {
                     )
                     let item = idx < block.items.count ? block.items[idx] : nil
                     rotationRow(
-                        label: minuteLabel(idx, of: sets.count),
+                        label: "",
                         movement: interval.movement,
                         work: interval.work,
                         detail: interval.detail,
@@ -583,7 +572,7 @@ struct PreWorkoutBriefView: View {
                     Image(systemName: "repeat")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Theme.Color.accentText)
-                    Text("SE ALTERNAN")
+                    Text("")
                         .font(.system(size: 11, weight: .heavy, design: .default).italic())
                         .tracking(0.6)
                         .foregroundStyle(Theme.Color.accentText)
@@ -605,7 +594,7 @@ struct PreWorkoutBriefView: View {
                     // se consume al importar y muere ahí.
                     let dose = supersetDose(item)
                     rotationRow(
-                        label: "\(idx + 1)º",
+                        label: "",
                         movement: item.exerciseName,
                         work: dose.work,
                         detail: dose.load,
@@ -624,9 +613,6 @@ struct PreWorkoutBriefView: View {
         return PrescriptionRenderer.rotationDose(p)
     }
 
-    // UNA fila de rotación, la misma para el EMOM que alterna minutos y para la
-    // superserie que alterna ejercicios: turno a la izquierda, movimiento en medio,
-    // dosis a la derecha. Son la misma lectura, así que se pintan igual.
     private func rotationRow(label: String, movement: String, work: String?,
                              detail: String?, item: WorkoutItem?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -659,13 +645,6 @@ struct PreWorkoutBriefView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-    }
-
-    // The minute a rotation slot owns: for a 2-movement EMOM the slots fall on the
-    // odd / even minutes; for ≥3 movements they cycle Min 1 / 2 / 3 …
-    private func minuteLabel(_ index: Int, of count: Int) -> String {
-        if count == 2 { return index == 0 ? "Min impar" : "Min par" }
-        return "Min \(index + 1)"
     }
 
     // Render ONE item. Lo que decide la TABLA POR SERIES es que la prescripción sea
@@ -758,7 +737,7 @@ struct PreWorkoutBriefView: View {
 
     private func resolvedLoadLine(_ rl: ResolvedLoad) -> some View {
         HStack(spacing: 8) {
-            Text("SEGÚN TU 1RM")
+            Text("")
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(Theme.Color.muted)
@@ -996,11 +975,11 @@ struct PreWorkoutBriefView: View {
         // Sin prescripción estructurada solo se sabe el formato del bloque: se dice
         // el nombre y nada más, que es lo único cierto.
         guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else {
-            return Vocab.noLoSe
+            return nil
         }
         switch scheme {
         case .sets, .warmup, .cooldown: return nil
-        case .unknown: return Vocab.noLoSe
+        case .unknown: return nil
         case .superset:
             // La superserie NO lleva chapa, y por dos razones distintas. Si la
             // rotación se pliega, quien la anuncia es la tarjeta, con sus rondas y

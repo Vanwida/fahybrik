@@ -138,25 +138,9 @@ export function LineaDosis({ item, grande = false }: { item: ItemReal; grande?: 
  * al coach en el box (§6.2 bis). Cuatro etiquetas «sin dosis», una por fila,
  * serían la misma verdad convertida en ruido.
  */
-export function AvisoSinDosis({ cuantos, coach }: { cuantos: number; coach?: string }) {
+export function AvisoSinDosis({ cuantos }: { cuantos: number; coach?: string }) {
   if (cuantos === 0) return null;
-  const quien = coach ?? 'tu coach';
-  return (
-    <p
-      style={{
-        margin: 0,
-        padding: '10px 12px',
-        borderRadius: 10,
-        background: 'color-mix(in srgb, var(--twin-warning) 13%, transparent)',
-        font: '500 12px/1.4 var(--twin-font-sans)',
-        color: 'var(--twin-fg)',
-      }}
-    >
-      {cuantos === 1
-        ? `Un movimiento viene sin cuánto. Pregúntale a ${quien} en el box.`
-        : `${cuantos} movimientos vienen sin cuánto. Pregúntale a ${quien} en el box.`}
-    </p>
-  );
+  return null;
 }
 
 // ---------------------------------------------------------------------------

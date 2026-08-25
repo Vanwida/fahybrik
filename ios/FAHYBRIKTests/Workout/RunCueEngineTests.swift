@@ -50,7 +50,7 @@ final class RunCueEngineTests: XCTestCase {
         XCTAssertNil(engine.onPaceSample(status: .inTarget, deltaSec: nil, now: 20))   // back in band → lock cleared
         XCTAssertNil(engine.onPaceSample(status: .tooFast, deltaSec: 12, now: 21))     // new episode, dwell not met
         let again = engine.onPaceSample(status: .tooFast, deltaSec: 12, now: 45)       // dwell + interval met, lock cleared
-        XCTAssertEqual(again?.text, "Vas 12 segundos rápido.")
+        XCTAssertEqual(again?.text, "")
     }
 
     func testDirectionFlipIsAChangeButStillWaitsMinInterval() {
@@ -61,7 +61,7 @@ final class RunCueEngineTests: XCTestCase {
         XCTAssertNil(engine.onPaceSample(status: .tooSlow, deltaSec: 12, now: 12))   // new episode, dwell not met
         XCTAssertNil(engine.onPaceSample(status: .tooSlow, deltaSec: 12, now: 22))   // dwell met, but < 30s since last
         let slow = engine.onPaceSample(status: .tooSlow, deltaSec: 12, now: 45)      // dwell + interval met
-        XCTAssertEqual(slow?.text, "Aprieta un poco.")
+        XCTAssertEqual(slow?.text, "")
     }
 
     // MARK: - Km splits

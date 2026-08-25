@@ -75,7 +75,7 @@ final class LecturasTests: XCTestCase {
         let hecho = try XCTUnwrap(a.hechos.first)
         XCTAssertEqual(hecho.id, "cruce.subida_sin_descanso")
         XCTAssertEqual(hecho.tono, .aviso)
-        XCTAssertEqual(hecho.pideEs, "Aprieta menos esta semana.")
+        XCTAssertEqual(hecho.pideEs, "")
         XCTAssertEqual(hecho.de, ["carga.fondo", "recuperacion.sueno"])
     }
 
@@ -443,8 +443,8 @@ final class LecturasTests: XCTestCase {
       "hechos": [
         {
           "id": "cruce.subida_sin_descanso",
-          "frase_es": "Has subido un 30 % en dos semanas y duermes 6,4 h, por debajo de tus 8.",
-          "pide_es": "Aprieta menos esta semana.",
+          "frase_es": "",
+          "pide_es": "",
           "de": ["carga.fondo", "recuperacion.sueno"],
           "tono": "aviso"
         }

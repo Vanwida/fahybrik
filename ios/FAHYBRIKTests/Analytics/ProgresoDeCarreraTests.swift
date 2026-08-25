@@ -128,7 +128,7 @@ final class ProgresoDeCarreraTests: XCTestCase {
 
     /// Sin peldaño no hay nada que degradar: el veredicto ya dice «aún no».
     func testSinPeldanoNoHayNadaQueDegradar() {
-        let v = Veredicto(clase: .aunNo, frase: "Aún no", peldano: nil,
+        let v = Veredicto(clase: .aunNo, frase: "", peldano: nil,
                           plazo: .init(llevas: 3, hacen: 6))
         XCTAssertFalse(ProgresoDeCarrera.degradaPorFaltaDeGrafico(
             v, cobertura: todoDisponible, history: historia()))
@@ -142,7 +142,7 @@ final class ProgresoDeCarreraTests: XCTestCase {
     }
 
     private func veredicto(_ p: Peldano) -> Veredicto {
-        Veredicto(clase: .mejor, frase: "Vas mejor", peldano: p, plazo: nil)
+        Veredicto(clase: .mejor, frase: "", peldano: p, plazo: nil)
     }
 
     private func historia(

@@ -29,7 +29,7 @@ import type {
   Prescription,
   PrescriptionScheme,
 } from '@fahybrid/shared/domain/prescription';
-import { formatMeta, formatsByFamily, stationOrderLabel } from '@fahybrid/shared/domain/prescription';
+import { formatMeta, formatsByFamily } from '@fahybrid/shared/domain/prescription';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
@@ -276,7 +276,7 @@ export function ComponentsForm({
       {/* Estaciones, en el orden en que se hacen */}
       <div className="space-y-1.5">
         <span className="v2-micro">
-          Estaciones · {stationOrderLabel(block.format)}
+          Estaciones
           {isCircuit || format === 'amrap' || format === 'rounds' ? ' · cada ronda' : ''}
         </span>
         <div className="space-y-2">

@@ -18,8 +18,8 @@ extension TargetStatus {
     var cue: String? {
         switch self {
         case .inTarget: return "En objetivo"
-        case .tooFast:  return "Afloja"
-        case .tooSlow:  return "Aprieta"
+        case .tooFast:  return nil
+        case .tooSlow:  return nil
         case .unknown:  return nil
         }
     }

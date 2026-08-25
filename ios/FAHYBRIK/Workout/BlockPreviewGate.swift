@@ -13,95 +13,6 @@ import SwiftUI
 // Rendered full-screen over the live HUD by ActiveWorkoutView. Reuses the shared
 // Theme atoms + PrescriptionRenderer-backed `WorkoutSegment.previewWorkLine`, so
 // the work reads exactly like the pre-workout brief and the live HUD.
-// Card 114 — Alex, sesión del 20-ago: «Al entrar en estaciones no estaba claro
-// si eran 3 seguidas de cada ejercicio o 1 y 1 y 1. El atleta lo hizo mal».
-// CIRCUITO = una ruta de estaciones distintas, una vuelta (`fixedListIsStations`
-// en `LiveTramo.swift`). SEGUIDO = el mismo movimiento se repite ronda tras
-// ronda — no hay orden de estación que confundir porque solo hay UN movimiento.
-// Un formato de rondas con VARIOS movimientos (el caso real de Alex: ¿se
-// rota o se hacen seguidas las de cada uno?) no entra en ninguno de los dos:
-// ahí la app no puede prometer cuál lectura es la correcta, así que no se
-// pinta nada — decir "circuito" cuando no lo es es justo lo que le hizo
-// hacer el entreno mal.
-enum BlockPacing: Equatable {
-    case circuito
-    case seguido
-    /// Una superserie NO es ninguna de las dos: va y viene entre dos ejercicios.
-    /// Etiquetarla «seguido» engañaría igual que no decir nada — peor, porque
-    /// suena a certeza.
-    case alternando
-
-    var label: String {
-        switch self {
-        case .circuito:   return "CIRCUITO"
-        case .seguido:    return "SEGUIDO"
-        case .alternando: return "ALTERNANDO"
-        }
-    }
-
-    var caption: String {
-        switch self {
-        case .circuito:   return "uno de cada por vuelta, en orden"
-        // Vale para las dos formas de «seguido»: la tabla de hierro y el bloque
-        // de rondas con un solo movimiento (donde no hay «siguiente» que confundir).
-        case .seguido:    return "todas las series de un ejercicio antes del siguiente"
-        case .alternando: return "una serie de cada, y vuelta a empezar"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .circuito:   return "arrow.triangle.2.circlepath"
-        case .seguido:    return "repeat"
-        case .alternando: return "arrow.left.arrow.right"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        // Acento: la lectura que más le cuesta a un atleta nuevo — el orden
-        // de estación es justo lo que se le olvida.
-        case .circuito:   return Theme.Color.accentText
-        case .alternando: return Theme.Color.accentText
-        case .seguido:    return Theme.Color.muted
-        }
-    }
-
-    /// La decisión, pura y testeable — separada de la vista para poder probarla
-    /// sin renderizar nada. Recorre los segmentos del bloque y se queda con el
-    /// primero que dé una lectura cierta.
-    ///
-    /// EL CASO QUE MOTIVA TODO ESTO (card 114). Alex, 20-ago: «al entrar en
-    /// estaciones no estaba claro si eran 3 seguidas de cada ejercicio o 1 y 1 y
-    /// 1. El atleta lo hizo mal». Ese caso —rondas declaradas con VARIOS
-    /// movimientos— es precisamente el que hay que contestar, y la respuesta no
-    /// es ambigua: en este modelo, rondas con varios movimientos significa uno de
-    /// cada por vuelta. Si el entrenador quisiera todas las series de un
-    /// ejercicio antes de pasar al siguiente, eso no sería «rondas»: sería
-    /// `sets`, que es otro esquema y se lee abajo.
-    ///
-    /// Callarse ahí sería dejar sin arreglar justo la queja. Sólo se calla cuando
-    /// de verdad no se puede saber, que con estas reglas casi no pasa.
-    static func resolve(_ segments: [WorkoutSegment]) -> BlockPacing? {
-        for seg in segments {
-            // Una superserie va y viene entre sus ejercicios: ni seguido ni
-            // circuito. Se mira ANTES que la tabla de hierro porque también
-            // cuenta como fuerza por series.
-            if seg.formatScheme == .superset { return .alternando }
-            // Una tabla de hierro es, por definición, todas las series de un
-            // ejercicio antes de pasar al siguiente.
-            if seg.usesMultiSetStrength { return .seguido }
-            guard seg.formatScheme?.presentation == .fixed else { continue }
-            // Una ruta de estaciones distintas: una vuelta, en ese orden.
-            if seg.fixedListIsStations { return .circuito }
-            guard seg.formatRounds != nil else { continue }
-            // Rondas con un solo movimiento: no hay orden que confundir.
-            // Rondas con varios: uno de cada por vuelta. EL caso de Alex.
-            return seg.declaredComponents.count <= 1 ? .seguido : .circuito
-        }
-        return nil
-    }
-}
 
 struct BlockPreviewGate: View {
     /// Block name — coach title (e.g. "Metcon") or the phase name.
@@ -116,10 +27,6 @@ struct BlockPreviewGate: View {
     /// "For Time · cap 15:00". Nil for plain strength / warmup blocks (the title
     /// already conveys those).
     let formatLabel: String?
-    /// Card 114 — circuito vs seguido, cuando se puede saber con certeza. Nil
-    /// cuando el bloque no es un formato de estaciones/rondas (hierro, warmup) O
-    /// cuando es ambiguo (varios movimientos con rondas declaradas) — ver arriba.
-    var pacing: BlockPacing? = nil
     /// The block's segments, in session order — the "what's coming" body.
     let segments: [WorkoutSegment]
     /// Whether stepping back to the previous block's preview is possible.
@@ -173,29 +80,14 @@ struct BlockPreviewGate: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 topRow
                 header
-                if formatLabel != nil || pacing != nil {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: Theme.Spacing.s) {
-                            if let formatLabel {
-                                Text(formatLabel)
-                                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                                    .foregroundStyle(Theme.Color.accentText)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Theme.Color.accentText.opacity(0.12))
-                                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                            }
-                            if let pacing { pacingBadge(pacing) }
-                        }
-                        // La palabra ya dice el qué; la frase dice el cómo, para
-                        // que no haga falta deducirlo — es justo la deducción que
-                        // le salió mal a Alex.
-                        if let pacing {
-                            Text(pacing.caption)
-                                .scaledFont(15, weight: .medium, relativeTo: .subheadline)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
+                if let formatLabel {
+                    Text(formatLabel)
+                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(Theme.Color.accentText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Theme.Color.accentText.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                 }
                 ScrollView { workList }
                     .layoutPriority(1)
@@ -206,26 +98,6 @@ struct BlockPreviewGate: View {
             .padding(.bottom, Theme.Spacing.l)
         }
         .transition(.opacity)
-    }
-
-    // Card 114 — el badge de circuito/seguido. Mismo idioma de pill que
-    // `formatLabel` pero con su propio color, para que se distingan de un
-    // vistazo aunque vayan pegados en la misma fila.
-    private func pacingBadge(_ pacing: BlockPacing) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: pacing.icon)
-                .font(.system(size: 11, weight: .heavy))
-            Text(pacing.label)
-                .font(.system(size: 13, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-        }
-        .foregroundStyle(pacing.color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(pacing.color.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(pacing.label): \(pacing.caption)")
     }
 
     // MARK: Top row — back to previous block + position
@@ -332,7 +204,7 @@ struct BlockPreviewGate: View {
     }
 
     private var emptyRow: some View {
-        Text("Sin detalle — empieza cuando estés listo.")
+        Text("")
             .scaledFont(13, relativeTo: .footnote)
             .foregroundStyle(Theme.Color.muted)
             .padding(14)

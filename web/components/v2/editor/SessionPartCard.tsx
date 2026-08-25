@@ -39,7 +39,6 @@ import { BlockProseFields } from './block-prose-fields';
 import { BlockItemTable } from './BlockItemTable';
 import { ArchetypeGrid } from './ArchetypePicker';
 import { BlockTypePicker, OptionalBadge } from './compositor-chrome';
-import { StationOrderMark } from '@/components/v2/sesion/StationOrderMark';
 import { blockMinutes, blockModalitySlug } from './block-helpers';
 
 const SLOT_LABEL: Record<EditorSession['slot'], string> = {
@@ -345,7 +344,6 @@ function SortableBlockCard({
           className="v2-display v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-transparent bg-transparent px-1.5 py-0.5 text-base uppercase text-[color:var(--v2-fg)] transition-colors placeholder:normal-case placeholder:text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border)] focus:border-[color:var(--v2-accent)] focus:bg-[color:var(--v2-surface)]"
         />
         <BlockTypePicker block={block} onChange={onChangeType} />
-        <StationOrderMark format={block.format} />
         {/* Herramientas del bloque — al hover (y siempre con el teclado). */}
         <button
           type="button"

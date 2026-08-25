@@ -18,7 +18,7 @@
 // datos (no hay nombre en español que enseñar) y taparlo en un mockup lo
 // escondería justo de quien tiene que decidir arreglarlo.
 
-import { COPY_NO_LO_SE, honestMeasureCopy } from '@fahybrid/shared/domain/prescription';
+import { honestMeasureCopy } from '@fahybrid/shared/domain/prescription';
 
 export type Modalidad = 'run' | 'row' | 'ski' | 'bike' | 'strength' | 'functional' | 'mobility';
 
@@ -77,7 +77,7 @@ export interface ItemReal {
   dosis: string | null;
   /**
    * Kind crudo de la medida del cable. Si no es uno del catálogo, la dosis
-   * dice «no lo sé» en vez de desaparecer (128 · hueco 7).
+   * queda vacía (171).
    */
   medida?: { kind: string };
   /** El OBJETIVO — ritmo, zona, RPE, %RM o kg. Ausente = no lo hay. */
@@ -234,7 +234,7 @@ export const HYROX: SesionReal = {
     },
     {
       titulo: 'Simulación HYROX',
-      formato: 'seguido · For Time · 16 estaciones',
+      formato: 'For Time · 16 estaciones',
       items: [
         RUN_1K,
         { nombre: 'SkiErg', dosis: '1.000 m', modalidad: 'ski' },
@@ -647,7 +647,8 @@ export function dosisDeCarrera(item: Pick<ItemReal, 'descansoS' | 'estructura'>)
 export function dosisConSeries(item: DosisDeItem): string | null {
   const carrera = dosisDeCarrera(item);
   if (carrera) return carrera.titular;
-  if (honestMeasureCopy(item.medida) === COPY_NO_LO_SE) return COPY_NO_LO_SE;
+  const honest = honestMeasureCopy(item.medida);
+  if (honest) return honest;
   if (item.dosis == null) return null;
   if (!item.series || item.series <= 1) return item.dosis;
   // «5 reps» ×4 se lee «4×5»: la unidad se cae porque el × ya la implica.

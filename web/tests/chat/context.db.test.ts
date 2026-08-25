@@ -342,9 +342,9 @@ describeWithDb('resolveMessageContext (DB real)', () => {
       // La terna congelada es la MISMA de `resolveMessageContext`; la
       // previsualización (0186 ampliación, ver context-preview.db.test.ts) se
       // añade encima — el único segmento del fixture ('Fuerza A', sin
-      // block_title ni prescription_json) es "1 bloque · Sin detallar", y el
+      // block_title ni prescription_json) es "1 bloque", y el
       // assignment nace 'scheduled' → pendiente.
-      const expected = { ...ctx, preview: '1 bloque · Sin detallar', exists: true, state: 'pending' };
+      const expected = { ...ctx, preview: '1 bloque', exists: true, state: 'pending' };
       expect(saved.context).toEqual(expected);
 
       const { messages } = await listMessages({ sql, thread_id, cursor: null, limit: 5 });

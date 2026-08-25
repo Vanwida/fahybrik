@@ -23,8 +23,8 @@ final class MotorEnVivoHonestidadTests: XCTestCase {
             from: Data(#"{"kind":"future_dose"}"#.utf8)
         )
         XCTAssertEqual(m, .unknown)
-        XCTAssertEqual(PrescriptionRenderer.measureWork(m), "no lo sé")
-        XCTAssertNotEqual(PrescriptionRenderer.measureWork(m), nil)
+        XCTAssertEqual(PrescriptionRenderer.measureWork(m), nil)
+        XCTAssertNil(PrescriptionRenderer.measureWork(m))
     }
 
     func testMedidaDesconocidaEnSeriesNoInventaReps() throws {
@@ -37,8 +37,8 @@ final class MotorEnVivoHonestidadTests: XCTestCase {
             """#.utf8)
         )
         XCTAssertEqual(p.scheme, .sets)
-        XCTAssertEqual(PrescriptionRenderer.measureWork(p.sets?.first?.measure), "no lo sé")
-        XCTAssertEqual(PrescriptionRenderer.setRows(p)?.first?.work, "no lo sé")
+        XCTAssertNil(PrescriptionRenderer.measureWork(p.sets?.first?.measure))
+        XCTAssertNil(PrescriptionRenderer.setRows(p)?.first?.work)
         XCTAssertNotEqual(PrescriptionRenderer.setRows(p)?.first?.work, "0")
     }
 
@@ -55,8 +55,8 @@ final class MotorEnVivoHonestidadTests: XCTestCase {
         XCTAssertNotEqual(p.scheme, .sets)
         XCTAssertNotEqual(p.scheme.presentation, .setTable)
         XCTAssertNil(PrescriptionRenderer.setRows(p))
-        XCTAssertEqual(PrescriptionRenderer.wodHeader(p), "no lo sé")
-        XCTAssertEqual(p.scheme.nombreEs, "no lo sé")
+        XCTAssertNil(PrescriptionRenderer.wodHeader(p))
+        XCTAssertEqual(p.scheme.nombreEs, "")
     }
 
     func testStraightSetsSigueSiendoFuerza() throws {

@@ -107,7 +107,7 @@ export function Descanso({ e, onLog }: { e: EstadoErg; onLog: (linea: string) =>
           </div>
           {prescrito == null && (
             <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)', textAlign: 'center' }}>
-              El coach no escribió descanso para esta serie, así que el reloj cuenta hacia arriba y sales tú.
+              {' '}
             </span>
           )}
           {e.ultimo && <LecturasDeLaSerie resumen={e.ultimo} e={e} />}

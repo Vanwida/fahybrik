@@ -141,12 +141,7 @@ enum CoachSpeech {
     /// athlete acts faster on "aprieta" than on a number.
     static func paceCorrection(status: TargetStatus, deltaSec: Int?) -> String {
         switch status {
-        case .tooFast:
-            if let d = deltaSec, d > 0 { return "Vas \(clock(d)) rápido." }
-            return "Vas rápido, afloja un poco."
-        case .tooSlow:
-            return "Aprieta un poco."
-        case .inTarget, .unknown:
+        case .tooFast, .tooSlow, .inTarget, .unknown:
             return ""
         }
     }

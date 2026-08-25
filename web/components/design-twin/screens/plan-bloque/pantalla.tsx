@@ -41,7 +41,7 @@ import { durationUnknownEs } from '@fahybrid/shared/domain/prescription';
  * guion (CONTRATO-UI §5: todo estado vacío lleva salida o dice por qué no la hay).
  */
 function textoDuracion(d: DuracionPrevista): string {
-  return 'minutos' in d ? `unos ${d.minutos} min` : durationUnknownEs(d.razon);
+  return 'minutos' in d ? `${d.minutos} min` : durationUnknownEs(d.razon);
 }
 
 /** «3 sesiones hechas» / «1 sesión hecha» — el plural, una sola vez. */

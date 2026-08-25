@@ -59,8 +59,7 @@ export function bloquesMudos(sesion: SesionReal | null): number {
  * El pie del sujeto: el formato que escribió el coach o, cuando el trabajo es un
  * solo ejercicio, su dosis. Nunca un tiempo inventado — una Simulación HYROX es
  * `for_time` y su duración ES el resultado, así que lo que se enseña es «For
- * Time · 16 estaciones», con «seguido» delante porque el format guardado no
- * es circuito.
+ * Time · 16 estaciones».
  */
 export function pieDeTrabajo(trabajo: Trabajo): string | undefined {
   const bloques = trabajo.ref?.bloques.filter(esTrabajo) ?? [];
@@ -153,9 +152,7 @@ export function TrabajoDelDia({
       ))}
 
       {trabajo.ref === null ? (
-        <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>
-          sin detalle en el plan
-        </span>
+        <span style={{ font: '500 12px/1.35 var(--twin-font-sans)', color: 'var(--twin-faint)' }} />
       ) : null}
     </Fila>
   );
