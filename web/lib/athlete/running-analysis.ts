@@ -33,6 +33,8 @@ import { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-wo
 import { trainingPacesForVdot } from '@fahybrid/shared/domain/running/vdot';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+import { BENCH_RUN_THRESHOLD } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { measuredThresholdSeconds } from '@fahybrid/shared/domain/methodology';
 
 /** The running marks the VDOT can be read off — the catalogue decides, not a
  *  hand-written list, so a new mark is admissible the day it is added. */
@@ -228,14 +230,35 @@ export async function buildRunningAnalysis(
   // the plan actually trains. VDOT + the 5 km trend stay below as a DISTINCT
   // test-progress concept, so the two numbers can never contradict. Honest null
   // when the athlete has no run zone profile yet.
-  const runProfileRows = await client<Array<{ threshold_s: string }>>`
-    select threshold_s::text as threshold_s
-    from athlete_zone_profiles
-    where athlete_id = ${athleteId} and modality = 'run'
-    order by version desc
-    limit 1
-  `;
-  const trainedThresholdS = runProfileRows[0] ? num(runProfileRows[0].threshold_s) : null;
+  const [runProfileRows, thresholdMarkRows] = await Promise.all([
+    client<Array<{ threshold_s: string; source: string | null; needs_review: boolean | null }>>`
+      select threshold_s::text as threshold_s, source, needs_review
+      from athlete_zone_profiles
+      where athlete_id = ${athleteId} and modality = 'run'
+      order by version desc
+      limit 1
+    `,
+    client<Array<{ value: string }>>`
+      select value::text as value
+      from athlete_benchmarks
+      where athlete_id = ${athleteId} and exercise_slug = ${BENCH_RUN_THRESHOLD}
+      order by recorded_at desc
+      limit 1
+    `,
+  ]);
+  const profileRow = runProfileRows[0];
+  const markS = thresholdMarkRows[0] != null ? num(thresholdMarkRows[0].value) : null;
+  const trainedThresholdS = measuredThresholdSeconds({
+    profile:
+      profileRow != null
+        ? {
+            threshold_s: num(profileRow.threshold_s),
+            source: profileRow.source,
+            needs_review: profileRow.needs_review,
+          }
+        : null,
+    thresholdMarkS: markS != null && markS > 0 ? markS : null,
+  });
   const threshold_pace: string | null =
     trainedThresholdS != null && trainedThresholdS > 0 ? paceStr(trainedThresholdS) : null;
 

@@ -202,26 +202,14 @@ const COMPLETO: CapacidadAtleta = {
 };
 
 // ---------------------------------------------------------------------------
-// ② SIN-ANCLA — el umbral que hay es el que puso el alta, sin confirmar
-// (`origen: 'onboarding_auto'`, `sin_revisar: true`): las zonas SÍ se dibujan
-// —el resolutor no distingue una estimación de un test, solo cambia de dónde
-// sale el número que entra— pero se declaran estimadas. Cero marcas
-// registradas todavía: ni velocidad crítica (`pocos_esfuerzos`, disparado de
-// verdad por una lista vacía) ni predictor (no hay VDOT del que partir).
+// ② SIN-ANCLA — no hay test de umbral. Un 5 km del alta no inventa el número.
+// Cero marcas: ni velocidad crítica (`pocos_esfuerzos`) ni predictor.
 // ---------------------------------------------------------------------------
 
-const UMBRAL_S_KM_ESTIMADO = 260; // 4:20/km — lo que declaró al darse de alta
-
 const SIN_ANCLA: CapacidadAtleta = {
-  umbral: {
-    ritmo_s_km: UMBRAL_S_KM_ESTIMADO,
-    vdot: null,
-    vdot_desde: null,
-    origen: 'onboarding_auto',
-    sin_revisar: true,
-  },
+  umbral: null,
   procedenciaHaceDias: null,
-  zonas: zonasDesdeUmbral(UMBRAL_S_KM_ESTIMADO),
+  zonas: [],
   cs: ajusteCS([], null),
   registros: [],
   curvaHoy: [],

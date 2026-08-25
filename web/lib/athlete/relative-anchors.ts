@@ -13,6 +13,7 @@ import { getTargetRace } from '@/lib/races/next-race';
 import { loadCoachStationLoadLookup } from '@/lib/coach/station-loads';
 import { athleteBenchmarksFromSlugRows } from '@fahybrid/shared/domain/methodology';
 import {
+  anchorsFromBenchmarks,
   anchorsFromZoneProfiles,
   racePaceAnchor,
   type AthleteAnchors,
@@ -52,11 +53,20 @@ export async function loadAthleteRelativeAnchors(args: {
   const bodyweightKg =
     athleteRows[0]?.weight_kg != null ? Number(athleteRows[0].weight_kg) : null;
 
-  return anchorsFromZoneProfiles(zoneProfiles, {
-    racePace: racePaceAnchor(athleteBenchmarksFromSlugRows(benchRows)),
+  const benchmarks = athleteBenchmarksFromSlugRows(benchRows);
+  const fromProfiles = anchorsFromZoneProfiles(zoneProfiles, {
+    racePace: racePaceAnchor(benchmarks),
     bodyweightKg,
     division: targetRace?.division ?? null,
     gender: targetRace?.gender_category ?? null,
     stationLoad: lookup,
   });
+  // Si el snapshot es del alta (estimado) pero ya hay una marca de umbral
+  // guardada, esa marca es el número. No se inventa un segundo calculador:
+  // `anchorsFromBenchmarks` ya filtra lo estimado.
+  const fromMarks = anchorsFromBenchmarks(benchmarks);
+  return {
+    ...fromProfiles,
+    thresholdPace: { ...fromMarks.thresholdPace, ...fromProfiles.thresholdPace },
+  };
 }

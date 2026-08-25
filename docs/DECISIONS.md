@@ -11,6 +11,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · El umbral que se sirve es un test, no un 5 km + 10 s (card 104)
+
+**Qué faltaba:** `deriveModalityThresholds` ya sabía preferir
+`run_threshold_s_per_km` y marcar un 5 km + 10 s como `estimated`.
+Quien leía el perfil (`threshold_s` del alta, `onboarding_auto`)
+enseñaba ese estimado como si fuera el umbral del atleta. Sin
+perfil, a veces silencio aunque la marca de umbral ya estuviera
+guardada.
+
+**Decidido:**
+
+- No hay un segundo calculador. El math sigue en
+  `resolveRunThresholdPerKm` / `deriveModalityThresholds` (el alta
+  sigue derivando bandas para pintar).
+- Quien SIRVE el número (analíticas, capacidad, Inicio iOS,
+  card 130) pasa por `measuredThresholdSeconds`: perfil de un test
+  (`coach_test` | `athlete_test`, no en revisión) o la marca
+  `run_threshold_*`. Si no, `null`.
+- Confirmar un `onboarding_auto` no lo convierte en test.
+- El vacío dice «no lo sé» y señala el test de umbral de carrera.
+  Sin raya larga. Sin kilos de competición. Sin número de IA.
+- iOS no recalcula. Si hay número, viaja en `threshold_pace` /
+  `target` pace, el campo de siempre. Si no, `null`.
+
+**NO hacer:** no cerrar la 128. no tocar 132, Watch, Xcode,
+`DEVELOPMENT_TEAM`, feat/publish. no sembrar kilos. no ON CONFLICT
+nuevo. no inventar un `calculateRealThreshold()`.
+
+**Dónde vive:** `measuredThresholdSeconds`,
+`isMeasuredZoneProfile`, `thresholdUnknownNote` en
+`zone-onboarding.ts`. Lectores: `loadPaceThreshold`,
+`buildRunningSection`, `running-analysis`,
+`anchorsFromBenchmarks` / `anchorsFromZoneProfiles`. Tests:
+`zone-model.test.ts` (umbral servido), `relative-target.test.ts`,
+`capacidad.db.test.ts`.
+
+---
+
 ## 2026-08-25 · Copiar la instancia del atleta a la receta (card 90)
 
 **Qué faltaba:** el coach edita la copia del atleta (`templates` con

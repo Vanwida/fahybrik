@@ -2,6 +2,7 @@ import type { Sql } from 'postgres';
 import { addDays, isoDateString, startOfDayUtc } from '../dates';
 import { GRADIENT_RETIRES_PACE_PCT } from '../running/gradient';
 import { resolveThresholdHr } from '../methodology/hr-zones';
+import { isMeasuredZoneProfile } from '../methodology/zone-onboarding';
 import { computeTss, type TssThresholdHr } from './tss';
 import { priceSession, type SegmentEvidence, type ThresholdPace } from './intensity';
 
@@ -54,8 +55,6 @@ const PACE_UNIT_BY_MODALITY: Record<string, 'per_km' | 'per_500m'> = {
  * pricing intensity against it would report an estimate as a measurement, which
  * is the exact failure the HR ladder already refuses.
  */
-const MEASURED_ZONE_SOURCES: ReadonlySet<string> = new Set(['coach_test', 'athlete_test']);
-
 type ExecutionRow = {
   d: Date;
   duration_seconds: number;
@@ -84,7 +83,7 @@ async function loadThresholdPaces(
     if (r.threshold_s == null || !Number.isFinite(r.threshold_s) || r.threshold_s <= 0) continue;
     out.set(r.modality, {
       seconds: r.threshold_s,
-      measured: MEASURED_ZONE_SOURCES.has(r.source ?? '') && r.needs_review !== true,
+      measured: isMeasuredZoneProfile(r.source, r.needs_review),
     });
   }
   return out;
