@@ -78,10 +78,10 @@ final class VolumenPrevistoTests: XCTestCase {
 
     func testLaFraseDeCadaMotivoEsLaMismaQueLaDelServidor() {
         // Espejo de DURATION_UNKNOWN_ES en shared/domain/prescription/duration.ts.
-        XCTAssertEqual(DuracionDesconocida.scoredByTime.frase, "Dura lo que tardes")
-        XCTAssertEqual(DuracionDesconocida.untilFailure.frase, "Hasta donde aguantes")
-        XCTAssertEqual(DuracionDesconocida.workNotTimed.frase, "Según tu ritmo y tus descansos")
-        XCTAssertEqual(DuracionDesconocida.undosed.frase, "Sin detallar")
+        XCTAssertEqual(DuracionDesconocida.scoredByTime.frase, "")
+        XCTAssertEqual(DuracionDesconocida.untilFailure.frase, "")
+        XCTAssertEqual(DuracionDesconocida.workNotTimed.frase, "")
+        XCTAssertEqual(DuracionDesconocida.undosed.frase, "")
     }
 
     func testElMotivoLlegaDelCableYUnoDesconocidoNoRompeLaSemana() throws {

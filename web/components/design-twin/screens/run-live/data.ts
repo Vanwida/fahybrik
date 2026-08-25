@@ -243,8 +243,8 @@ export function palabraEstadoCalle(estado: EstadoObjetivo): string | null {
 /** TargetStatus.cue — la señal de una palabra del HUD de cinta. */
 export function palabraEstadoCinta(estado: EstadoObjetivo): string | null {
   if (estado === 'dentro') return 'En objetivo';
-  if (estado === 'rapido') return 'Afloja';
-  if (estado === 'lento') return 'Aprieta';
+  if (estado === 'rapido') return null;
+  if (estado === 'lento') return null;
   return null;
 }
 

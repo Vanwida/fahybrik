@@ -47,7 +47,7 @@ struct SujetoDeLaCarrera: View {
         EtiquetaSujeto(texto: "Series dentro", tono: fuera == 0 ? Theme.Color.ok : Theme.Color.muted)
         Numeral(texto: "\(dentro) de \(evaluables)", tono: tono)
         VStack(spacing: Theme.Spacing.xs) {
-            Text(Self.fraseSesgo(sesgo, fuera: fuera) ?? "Todas dentro de lo que te pidieron")
+            Text(Self.fraseSesgo(sesgo, fuera: fuera) ?? "")
                 .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
@@ -62,14 +62,9 @@ struct SujetoDeLaCarrera: View {
 
     /// Cómo se cuenta lo que se salió, en una línea de gimnasio.
     static func fraseSesgo(_ sesgo: Sesgo?, fuera: Int) -> String? {
-        guard let sesgo, fuera > 0 else { return nil }
-        let cuantas = fuera == 1 ? "La que se salió" : "Las \(fuera) que se salieron"
-        if sesgo == .mixto { return "\(cuantas) se fueron por los dos lados" }
-        let verbo = fuera == 1 ? "fue" : "fueron"
-        let como = sesgo == .lento
-            ? (fuera == 1 ? "más lenta" : "más lentas")
-            : (fuera == 1 ? "más rápida" : "más rápidas")
-        return "\(cuantas) \(verbo) \(como)"
+        _ = sesgo
+        _ = fuera
+        return nil
     }
 
     /// LO QUE TE PEDÍAN, DICHO ENTERO O NO DICHO.

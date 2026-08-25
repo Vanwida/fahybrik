@@ -123,9 +123,9 @@ function LineaMedia({ alto, mediaSkm }: { alto: number; mediaSkm: number }) {
 // ---------------------------------------------------------------------------
 
 const VEREDICTO: Record<NonNullable<Lectura['aguante']>['veredicto'], { frase: string; tono: string }> = {
-  aguantaste: { frase: 'Aguantaste', tono: 'var(--twin-ok)' },
-  'de-menos-a-mas': { frase: 'De menos a más', tono: 'var(--twin-ok)' },
-  'se-te-fue': { frase: 'Se te fue al final', tono: 'var(--twin-warning)' },
+  aguantaste: { frase: '', tono: 'var(--twin-ok)' },
+  'de-menos-a-mas': { frase: '', tono: 'var(--twin-ok)' },
+  'se-te-fue': { frase: '', tono: 'var(--twin-warning)' },
 };
 
 /**

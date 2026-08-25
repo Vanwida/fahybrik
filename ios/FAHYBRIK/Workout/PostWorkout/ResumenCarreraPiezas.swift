@@ -176,9 +176,9 @@ struct AguanteDeLaCarrera: View {
 
     private var frase: String {
         switch aguante.veredicto {
-        case .aguantaste:   return "Aguantaste"
-        case .deMenosAMas:  return "De menos a más"
-        case .seTeFue:      return "Se te fue al final"
+        case .aguantaste:   return ""
+        case .deMenosAMas:  return ""
+        case .seTeFue:      return ""
         }
     }
 

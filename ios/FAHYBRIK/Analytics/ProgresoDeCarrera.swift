@@ -194,7 +194,7 @@ enum ProgresoDeCarrera {
         let v = p.verdict
         guard degradaPorFaltaDeGrafico(v, cobertura: p.coverage, history: p.history)
         else { return v }
-        return Veredicto(clase: .aunNo, frase: "Aún no", peldano: nil, plazo: v.plazo)
+        return Veredicto(clase: .aunNo, frase: "", peldano: nil, plazo: v.plazo)
     }
 
     /// Lo que dice la marca. Nombra la evidencia sin explicarla: es un pie de

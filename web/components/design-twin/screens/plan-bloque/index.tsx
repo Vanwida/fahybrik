@@ -53,13 +53,13 @@ export const escenarios: TwinEscenario[] = [
     id: 'semana-carga',
     titulo: 'Semana 3 de 6 · viernes de simulación',
     descripcion:
-      'Semana media del bloque: dos sesiones selladas, una saltada y hoy la simulación HYROX entera. Es `for_time`, así que donde iría la duración pone «Dura lo que tardes» — no un número a ojo.',
+      'Semana media del bloque: dos sesiones selladas, una saltada y hoy la simulación HYROX entera. Es `for_time`: el plan no escribe minutos.',
   },
   {
     id: 'descarga',
     titulo: 'Semana 6 de 6 · última',
     descripcion:
-      'La última del bloque. Hoy toca fuerza corta, 4×5 a 100 kg: las repeticiones no traen tempo, así que la duración depende de tus descansos y se dice así.',
+      'La última del bloque. Hoy toca fuerza corta, 4×5 a 100 kg: las repeticiones no traen tempo, así que no hay minutos escritos.',
   },
   {
     id: 'descanso',

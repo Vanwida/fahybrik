@@ -63,10 +63,10 @@ enum DuracionDesconocida: String, Codable {
     /// Habla a alguien del box: ni «prescripción», ni «dosis», ni nombres de format.
     var frase: String {
         switch self {
-        case .scoredByTime: return "Dura lo que tardes"
-        case .untilFailure: return "Hasta donde aguantes"
-        case .workNotTimed: return "Según tu ritmo y tus descansos"
-        case .undosed:      return "Sin detallar"
+        case .scoredByTime: return ""
+        case .untilFailure: return ""
+        case .workNotTimed: return ""
+        case .undosed:      return ""
         }
     }
 }

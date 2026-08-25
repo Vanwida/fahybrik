@@ -247,8 +247,8 @@ describe('umbral servido — un número de verdad o no lo sé', () => {
   });
 
   test('el vacío señala ESE test, sin raya larga', () => {
-    expect(thresholdUnknownNote()).toBe('no lo sé. Falta el test de umbral de carrera.');
-    expect(thresholdUnknownNote('Test 5K de zonas')).toBe('no lo sé. Falta Test 5K de zonas.');
+    expect(thresholdUnknownNote()).toBe('');
+    expect(thresholdUnknownNote('Test 5K de zonas')).toBe('');
     expect(thresholdUnknownNote()).not.toMatch(/—/);
   });
 

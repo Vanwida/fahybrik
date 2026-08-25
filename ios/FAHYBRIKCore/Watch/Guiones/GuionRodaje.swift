@@ -163,10 +163,10 @@ enum GuionRodaje {
     /// El veredicto en español de box: dice qué hacer, no en qué zona estás (eso
     /// ya lo dice el tinte del lienzo).
     static func veredicto(viva: HRZone, objetivo: HRZone) -> (String, Color) {
-        if viva == objetivo { return ("en zona", WatchTheme.zoneGreen) }
+        if viva == objetivo { return ("", WatchTheme.zoneGreen) }
         return viva.rawValue > objetivo.rawValue
-            ? ("te pasas · afloja", WatchTheme.zoneAmber)
-            : ("vas corto · aprieta", WatchTheme.zoneAmber)
+            ? ("", WatchTheme.zoneAmber)
+            : ("", WatchTheme.zoneAmber)
     }
 
     // MARK: - Contexto

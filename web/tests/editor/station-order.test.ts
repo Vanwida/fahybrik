@@ -21,22 +21,24 @@ function block(format: string | null, items: EditorItem[]): EditorBlock {
 }
 
 describe('blockAthleteLine · estaciones', () => {
-  test('un circuito con una estación sigue diciendo circuito', () => {
+  test('un circuito conserva el ejercicio sin prefijo', () => {
     const line = blockAthleteLine(block('circuit', [item('Wall Balls', 'rounds')]));
-    expect(line.startsWith('circuito')).toBe(true);
+    expect(line).not.toMatch(/^(?:circuito|seguido|no lo sé)(?:\s|·|$)/);
     expect(line).toContain('Wall Balls');
   });
 
-  test('un bloque de estaciones secuencial dice seguido', () => {
+  test('un For Time conserva los ejercicios sin prefijo', () => {
     const line = blockAthleteLine(
       block('for_time', [item('SkiErg', 'for_time'), item('Rowing', 'for_time')]),
     );
-    expect(line.startsWith('seguido')).toBe(true);
+    expect(line).not.toMatch(/^(?:circuito|seguido|no lo sé)(?:\s|·|$)/);
+    expect(line).toContain('SkiErg');
   });
 
-  test('un format desconocido dice no lo sé y no se pinta como tabla de series', () => {
+  test('un format desconocido conserva el ejercicio y no inventa una tabla', () => {
     const line = blockAthleteLine(block('future_wod', [item('Burpees', 'sets')]));
-    expect(line.startsWith('no lo sé')).toBe(true);
+    expect(line).not.toMatch(/^(?:circuito|seguido|no lo sé)(?:\s|·|$)/);
+    expect(line).toContain('Burpees');
     expect(line.includes('—')).toBe(false);
   });
 });

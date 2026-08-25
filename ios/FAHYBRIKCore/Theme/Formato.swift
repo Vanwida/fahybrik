@@ -511,10 +511,9 @@ enum Vocab {
     /// y es el atleta quien la produce. En el box se dice así, no «al máximo» ni
     /// «AMRAP» (ver `Measure.repsToFailure`).
     static let alFallo = "al fallo"
-    /// Una medida o un formato que el cable trae y la app no sabe leer. No es
-    /// silencio: silencio es cuando el coach no escribió nada. Aquí hay un dato
-    /// y no lo entendemos, así que se dice (128 · hueco 7).
-    static let noLoSe = "no lo sé"
+    /// Una medida o un formato que el cable trae y la app no sabe leer.
+    /// El hueco queda vacío (171).
+    static let noLoSe = ""
     /// Una serie de fuerza. `series` para el plural, que aquí no es regular en uso
     /// («Serie 2 de 4» / «4 series»).
     static let serie = "Serie"

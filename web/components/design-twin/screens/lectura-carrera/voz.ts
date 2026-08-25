@@ -9,10 +9,10 @@ import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 import type { Sesgo } from './modelo';
 
 export const VOZ_ATLETA: Record<RunComplianceVerdict, string> = {
-  dentro: 'Dentro',
-  fuera_rapido: 'Más rápida',
-  fuera_lento: 'Más lenta',
-  sin_dato: 'Sin medir',
+  dentro: '',
+  fuera_rapido: '',
+  fuera_lento: '',
+  sin_dato: '',
 };
 
 export const TONO_VEREDICTO: Record<RunComplianceVerdict, string> = {
@@ -25,7 +25,5 @@ export const TONO_VEREDICTO: Record<RunComplianceVerdict, string> = {
 /** Cómo se cuenta lo que se salió, en una línea de gimnasio. */
 export function fraseSesgo(sesgo: Sesgo | null, fuera: number): string | null {
   if (sesgo == null || fuera === 0) return null;
-  const cuantas = fuera === 1 ? 'La que se salió' : `Las ${fuera} que se salieron`;
-  if (sesgo === 'mixto') return `${cuantas} se fueron por los dos lados`;
-  return `${cuantas} ${fuera === 1 ? 'fue' : 'fueron'} ${sesgo === 'lento' ? 'más lenta' : 'más rápida'}${fuera === 1 ? '' : 's'}`;
+  return null;
 }

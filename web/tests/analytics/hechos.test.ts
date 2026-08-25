@@ -63,7 +63,7 @@ const JERGA_DE_MOTOR = ['TSS', 'CTL', 'ATL', 'TSB', 'HRV', 'RPE', '%RM'] as cons
  *      regla que hace el sistema auditable: un hecho no puede citar una
  *      lectura que no existe o que está apagada);
  *   2. los invariantes generales del contrato `Hecho` se sostienen: id único
- *      dentro del array, `frase_es` no vacía y sin jerga de motor, `de` no
+ *      dentro del array, `frase_es` vacía, `de` no
  *      vacío.
  */
 function hechosAuditados(lecturas: readonly Lectura[], metodo: CoachAnalyticsMethod = METODO): Hecho[] {
@@ -73,7 +73,7 @@ function hechosAuditados(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
   expect(new Set(ids).size, 'los ids de los hechos devueltos deben ser únicos').toBe(ids.length);
 
   for (const h of hechos) {
-    expect(h.frase_es.length, `frase_es de ${h.id} no puede estar vacía`).toBeGreaterThan(0);
+    expect(h.frase_es, `frase_es de ${h.id} se queda vacía`).toBe('');
     for (const termino of JERGA_DE_MOTOR) {
       expect(h.frase_es, `frase_es de ${h.id} no puede llevar jerga de motor ("${termino}")`).not.toContain(termino);
     }
@@ -444,7 +444,7 @@ describe('orden: los aviso van antes que las nota', () => {
 // ---------------------------------------------------------------------------
 
 describe('invariantes generales del contrato Hecho', () => {
-  test('sobre un caso con dos hechos a la vez (cruce + cobertura a ciegas): ids únicos, frases sin jerga y no vacías, de no vacío', () => {
+  test('sobre un caso con dos hechos a la vez (cruce + cobertura a ciegas): ids únicos, frases vacías, de no vacío', () => {
     const hechos = hechosAuditados([fondoConSubidaDisparada(), lecturaSueno(6, 8), lecturaCobertura(40)]);
 
     expect(hechos.length).toBeGreaterThanOrEqual(2);
@@ -454,7 +454,7 @@ describe('invariantes generales del contrato Hecho', () => {
       expect(idsVistos.has(h.id)).toBe(false);
       idsVistos.add(h.id);
 
-      expect(h.frase_es.trim().length).toBeGreaterThan(0);
+      expect(h.frase_es).toBe('');
       for (const termino of JERGA_DE_MOTOR) {
         expect(h.frase_es).not.toContain(termino);
       }

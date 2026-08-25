@@ -41,7 +41,7 @@ struct BloqueDeCarga: View {
 
     /// La etiqueta ES la pregunta que contesta el bloque. Con hecho la contesta la
     /// frase; sin él, la contestan los números.
-    static let etiqueta = "Vas a más o te pasas"
+    static let etiqueta = ""
 
     private var pintables: [LecturaAnalitica] { lecturas.pintables() }
 

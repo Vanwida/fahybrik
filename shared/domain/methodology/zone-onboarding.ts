@@ -183,8 +183,7 @@ export function measuredThresholdSeconds(args: {
   return null;
 }
 
-/** Vacío honesto: no se sabe, y se señala ESE test. Sin raya larga. */
-export function thresholdUnknownNote(testLabel?: string | null): string {
-  const label = testLabel?.trim();
-  return label ? `no lo sé. Falta ${label}.` : 'no lo sé. Falta el test de umbral de carrera.';
+/** Vacío: el coach no escribió el test. */
+export function thresholdUnknownNote(_testLabel?: string | null): string {
+  return '';
 }

@@ -455,7 +455,7 @@ enum PrescriptionRenderer {
             // los cuentan enteros.
             return nil
         case .unknown:
-            return Vocab.noLoSe
+            return nil
         }
     }
 
@@ -463,7 +463,7 @@ enum PrescriptionRenderer {
 
     /// La dosis de una medida en texto, con su BANDA cuando el coach prescribió una
     /// («12-15», «0:40-1:00», «800-1000 m»). Nil cuando no hay medida o es cero.
-    /// Una medida que no sabemos leer dice `Vocab.noLoSe`; no se calla (128 · hueco 7).
+    /// Una medida que no sabemos leer queda vacía (171).
     ///
     /// UN solo formateador (§2): antes esto estaba escrito dos veces —aquí y en
     /// `WorkoutSegment.emomWorkString`— con la única diferencia de que el EMOM
@@ -507,7 +507,7 @@ enum PrescriptionRenderer {
             // `deletreandoReps` no cambia nada aquí.
             return Vocab.alFallo
         case .unknown:
-            return Vocab.noLoSe
+            return nil
         }
     }
 
@@ -522,7 +522,7 @@ enum PrescriptionRenderer {
         // El literal «al fallo» YA dice que son repeticiones; repetir la unidad
         // detrás sobra. Se comporta como el reloj y las calorías: sin sufijo.
         case .repsToFailure:       return ""
-        case .unknown:             return Vocab.noLoSe
+        case .unknown:             return ""
         }
     }
 

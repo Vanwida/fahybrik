@@ -23,7 +23,6 @@ import {
   selectedArchetypeId,
 } from '@/lib/dashboard/v2/apply-block-type';
 import { MODALITY_META } from '@/components/v2/constants';
-import { StationOrderMark } from '@/components/v2/sesion/StationOrderMark';
 import { blockModalitySlug } from './block-helpers';
 import {
   domainToAxisModalidad,
@@ -271,7 +270,6 @@ export function CompositorHeader({
         />
         <div className="flex flex-wrap items-center gap-2">
           <BlockTypePicker block={block} onChange={onChange} />
-          <StationOrderMark format={block.format} />
           {shown ? <ModalityTag modality={shown} fixedByExercise={fixed != null} /> : null}
           {showOptionalToggle ? (
             <OptionalBadge

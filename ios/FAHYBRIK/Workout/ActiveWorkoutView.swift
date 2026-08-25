@@ -484,7 +484,6 @@ struct ActiveWorkoutView: View {
                 blockNumber: session.blockNumber,
                 blockCount: session.blockCount,
                 formatLabel: blockFormatLabel(segs),
-                pacing: blockPacing(segs),
                 segments: segs,
                 canGoBack: session.canStepBack,
                 onEmpezar: { requestBlockStart() },
@@ -514,13 +513,6 @@ struct ActiveWorkoutView: View {
             return "EMOM · \(emom.intervalCount) rondas · \(shape)"
         }
         return segments.compactMap(\.prescription).compactMap(PrescriptionRenderer.wodHeader).first
-    }
-
-    // Card 114 — Alex, 20-ago: «no estaba claro si eran 3 seguidas de cada
-    // ejercicio o 1 y 1 y 1». La decisión (pura, testeable) vive en
-    // `BlockPacing.resolve` — ver su comentario largo para el porqué.
-    private func blockPacing(_ segments: [WorkoutSegment]) -> BlockPacing? {
-        BlockPacing.resolve(segments)
     }
 
     private var segmentHasVideo: Bool {

@@ -25,8 +25,6 @@ import {
   prescriptionToText,
   setMeasure,
   setTarget,
-  showsStationOrder,
-  stationOrderLabel,
 } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
@@ -36,21 +34,14 @@ import { MIcon } from '@/components/ui/MIcon';
 // trae 16 tramos).
 const MAX_STATIONS_INLINE = 6;
 
-/** La frase del bloque entero, compuesta SOLO con los formateadores canónicos. */
-function stationOrderLead(block: EditorBlock): string | null {
-  if (!showsStationOrder(block.format)) return null;
-  return stationOrderLabel(block.format);
-}
-
 export function blockAthleteLine(block: EditorBlock): string {
   const items = block.items;
   if (items.length === 0) return '';
-  const order = stationOrderLead(block);
 
   if (items.length === 1) {
     const it = items[0]!;
     const line = prescriptionToText(it.prescription);
-    return [order, it.exercise_name, line].filter(Boolean).join(' · ');
+    return [it.exercise_name, line].filter(Boolean).join(' · ');
   }
 
   const head = items[0]!.prescription;
@@ -74,10 +65,10 @@ export function blockAthleteLine(block: EditorBlock): string {
   void _s;
   const lead = prescriptionToText(headNoSets as Prescription);
   if (items.length > MAX_STATIONS_INLINE) {
-    return [order, lead, `${items.length} estaciones en orden`].filter(Boolean).join(' · ');
+    return [lead, `${items.length} estaciones en orden`].filter(Boolean).join(' · ');
   }
   const stations = items.map((it) => stationText(it)).filter(Boolean);
-  return [order, lead, stations.join(' + ')].filter(Boolean).join(' · ');
+  return [lead, stations.join(' + ')].filter(Boolean).join(' · ');
 }
 
 function stationText(item: EditorItem): string {

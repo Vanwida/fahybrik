@@ -232,10 +232,8 @@ struct OutdoorRunHUDView: View {
 
     /// Lo que hay que oír cuando te sales, sin drama y con qué hacer.
     private func fraseDeZona(_ objetivo: HRZone) -> String {
-        guard let actual = model.liveZone else { return "Sin pulso no hay zona que enseñar" }
-        if actual == objetivo { return "Estás donde toca" }
-        if actual.rawValue < objetivo.rawValue { return "Vas por debajo. Aprieta un poco para volver a \(objetivo.label)" }
-        return "Te has ido a \(actual.label). Afloja un poco y vuelve a \(objetivo.label)"
+        _ = objetivo
+        return ""
     }
 
     /// Objetivo RITMO: el sujeto es el ritmo, con la diferencia YA interpretada.

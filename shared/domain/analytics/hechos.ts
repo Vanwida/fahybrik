@@ -4,8 +4,7 @@
 // -----------------------
 //   «Tu carga es 72»            → índice. No dice de qué sale, no se puede
 //                                 comprobar y no pide nada. Hay que creérselo.
-//   «Has subido un 30 % en dos
-//    semanas»                   → hecho. Se rastrea hasta las semanas de las que
+//   un porcentaje de subida     → hecho. Se rastrea hasta las semanas de las que
 //                                 sale, y permite una acción.
 //
 // La pantalla decidió no leer la carga como puntuación. Un hecho que se calcula
@@ -59,10 +58,6 @@ function medida(lecturas: readonly Lectura[], id: string): Lectura | null {
   return l != null && l.estado === 'medida' && l.dato != null ? l : null;
 }
 
-function redondear(v: number): number {
-  return Math.round(v);
-}
-
 /**
  * Cuánto ha subido el fondo en `dias`, en porcentaje y en unidades.
  *
@@ -114,16 +109,6 @@ export function hechosDe(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
   const hechos: Hecho[] = [];
   const subida = subidaDelFondo(lecturas, metodo.subida_dias);
   const semanasDeSubida = metodo.subida_dias / 7;
-  const enCuanto =
-    semanasDeSubida === 2 ? 'en dos semanas' : `en ${metodo.subida_dias} días`;
-
-  // EL DISPARO ES ABSOLUTO, LA FRASE ES RELATIVA — y las dos cosas a propósito.
-  //
-  // Un +30 % sobre un fondo de 3 no es noticia: es que empezó el martes. El
-  // umbral del coach está en unidades de carga por semana, así que dispara sobre
-  // la subida ABSOLUTA sostenida dos semanas (2 × su umbral semanal), que es lo
-  // que no salta con una base pequeña. Lo que se ESCRIBE es el porcentaje,
-  // porque es lo que un atleta entiende sin traducción.
   const disparo = metodo.ramp_alert_tss_per_week * semanasDeSubida;
   const subeDeMas =
     subida != null && subida.absoluta >= disparo && subida.pct >= metodo.subida_minima_pct;
@@ -135,21 +120,10 @@ export function hechosDe(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
     // EL CRUCE. Es el único que pide algo, porque es el único que sabe que la
     // subida está cayendo sobre alguien que no la está asimilando.
     if (sueno != null || hrv != null) {
-      // La frase dice TODO lo que cita. Si `de[]` nombrara la variabilidad y la
-      // prosa sólo hablara del sueño, el atleta no podría rastrear la mitad de
-      // la afirmación — que es justo lo que `de[]` existe para permitir.
-      const senales: string[] = [];
-      if (sueno != null) {
-        senales.push(
-          `duermes ${sueno.horas.toFixed(1).replace('.', ',')} h, por debajo de tus ${redondear(sueno.objetivo)}`,
-        );
-      }
-      if (hrv != null) senales.push('tu variabilidad está por debajo de lo tuyo');
-      const senal = senales.join(' y ');
       hechos.push({
         id: 'cruce.subida_sin_descanso',
-        frase_es: `Has subido un ${redondear(subida.pct)} % ${enCuanto} y ${senal}.`,
-        pide_es: 'Aprieta menos esta semana.',
+        frase_es: '',
+        pide_es: '',
         de: [
           'carga.fondo',
           ...(sueno != null ? ['recuperacion.sueno'] : []),
@@ -160,8 +134,8 @@ export function hechosDe(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
     } else {
       hechos.push({
         id: 'carga.sube_rapido',
-        frase_es: `Has subido un ${redondear(subida.pct)} % ${enCuanto}.`,
-        pide_es: 'Sostén esta semana antes de volver a subir.',
+        frase_es: '',
+        pide_es: '',
         de: ['carga.fondo'],
         tono: 'aviso',
       });
@@ -171,7 +145,7 @@ export function hechosDe(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
     // Se dice el hecho y no se le manda nada — quien decide es el coach.
     hechos.push({
       id: 'carga.baja',
-      frase_es: `Has bajado un ${Math.abs(redondear(subida.pct))} % ${enCuanto}.`,
+      frase_es: '',
       pide_es: null,
       de: ['carga.fondo'],
       tono: 'nota',
@@ -185,8 +159,8 @@ export function hechosDe(lecturas: readonly Lectura[], metodo: CoachAnalyticsMet
   if (sinPrecio != null && sinPrecio.pct != null && sinPrecio.pct >= metodo.cobertura_ciega_alerta_pct) {
     hechos.push({
       id: 'carga.mitad_a_ciegas',
-      frase_es: `Un ${redondear(sinPrecio.pct)} % de lo que entrenas no entra en estos números: nadie midió ni puntuó ese rato.`,
-      pide_es: 'Puntúa el esfuerzo al terminar, o haz un test de umbral.',
+      frase_es: '',
+      pide_es: '',
       de: ['carga.cobertura'],
       tono: 'aviso',
     });

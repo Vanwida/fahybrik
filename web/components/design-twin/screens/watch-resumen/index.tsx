@@ -186,7 +186,7 @@ function paginasDe(escena: Escena, l: Lectura): Pagina[] {
 }
 
 const VEREDICTO: Record<NonNullable<Lectura['aguante']>['veredicto'], string> = {
-  aguantaste: 'Aguantaste',
-  'de-menos-a-mas': 'De menos a más',
-  'se-te-fue': 'Se te fue al final',
+  aguantaste: '',
+  'de-menos-a-mas': '',
+  'se-te-fue': '',
 };
