@@ -2,17 +2,21 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 3 · prioridad y sustitución)
+Última actualización: **2026-08-25** (128 · hueco 4 · catálogo + alias)
 
 ## Ahora
 
-**128 · HUECO 3 (card ABIERTA).** Prioridad y sustitución del día. El coach
-las escribió en el DÍA, no en la línea (FOCUS decía 47 líneas; son 47
-días). `priority`: `essential` | `important` | `complementary`.
-`substitute`: la frase declarada (tope 200). 47 / 12 / 9 / 16 (`-` =
-ausente). 31 de 84 con alternativa de clase. 10 líneas `Alternativa:`
-también emiten el campo. Sin segundo calendario. Sin tablas nuevas.
-La 128 no se cierra. Card: https://app.clickup.com/t/86ak49xrn
+**128 · HUECO 4 (card ABIERTA).** Catálogo + alias. El importador ya lee
+`exercise_aliases` (peldaño 1b, delante del mapa a mano). Los 35 que
+solo necesitaban alias entran en esa tabla, con el nombre del ciclo.
+De las 34 altas, 29 ya están en la 0205; esta pieza añade hollow
+rocks (no es el hollow hold). El puente unilateral no puede resolver
+al bilateral. El salto al cajón a una pierna no es fila: es alias de
+box jump. 0 vídeos. La 128 no se cierra.
+Card: https://app.clickup.com/t/86ak49xrn
+
+**128 · HUECO 3 (en trunk).** Prioridad y sustitución del día, no de la
+línea. `priority` + `substitute` en `slots_json`.
 
 **140 · ESCRITURAS QUE REVIENTAN DENTRO DE UNA TRANSACCIÓN.** postgres.js no
 anida `begin`. Los writers que abrían siempre la suya (`computeMeasuredHeader`
@@ -118,11 +122,11 @@ La card 128 sigue abierta.
 Cabe SIN tablas nuevas: 4 tramos encadenados (5+4+2+1) = las 4 fases. Los 19
 criterios son metodología, no calendario.
 
-Catálogo: 126 ejercicios; de 209 movimientos, 112 existen, 35 solo necesitan alias,
-**34 faltan** (164 apariciones, mitad pliometría). Fontanería que pesa más:
-`exercise_aliases` (197 filas bilingües, índice trgm) **el importador NUNCA la lee**;
-no hay fuzzy real; y «Puente de glúteo unilateral» resuelve con confianza al
-BILATERAL existiendo el unilateral (falso positivo silencioso). 0 de 126 con vídeo.
+Catálogo: 148 + hollow rocks. De 209 movimientos del ciclo, 112 existían, 35
+solo necesitaban alias (ahora en `exercise_aliases`), 34 faltaban (29 en la
+0205 + hollow rocks; el resto eran maneras de un movimiento ya dado de alta).
+El importador lee la tabla (peldaño 1b). El puente unilateral queda anclado.
+0 vídeos.
 
 Motor en vivo: `Measure.unknown` **desaparece de la pantalla sin decir nada**
 (`Prescription.swift:333`) y un scheme desconocido degrada a `sets` sin avisar.

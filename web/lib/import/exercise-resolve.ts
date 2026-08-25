@@ -10,13 +10,18 @@
  * THE CASCADE (first hit wins):
  *   (1) coach synonym   — `coach_exercise_synonyms` (migration 0109), the coach's
  *                         OWN learned mapping. Beats everything below.
+ *   (1b) exercise_aliases — the shared bilingual vocabulary (0172/0178/0205/0210).
+ *                         Exact `term_normalized`. Whole term beats a word window,
+ *                         so «puente de glúteo unilateral» cannot fall through to
+ *                         the bilateral via «puente de gluteo».
  *   (2) global alias    — the static term→slug map (GLOBAL_ALIASES, mirrored from
  *                         infra/scripts/parse_blocks_lib.ts) → catalog by slug.
  *                         Unscoped by coach — see the note on layer (2) below.
  *   (3) catalog name exact       — `unaccent(lower(coalesce(override.name, exercises.name)))`
  *                         == unaccent(normalized term), scoped to what THIS coach may see.
  *   (4) catalog name substring   — same merged-name + scope, term ⊂ name or
- *                         name ⊂ term (shortest name wins).
+ *                         name ⊂ term (shortest name wins). A laterality marker
+ *                         in the term cannot land on a name that lacks it.
  *   (5) miss            — { exercise_id: null, normalized }; caller escalates.
  *
  * ACCENTS (migration 0151): `normalized` is already accent-free (TS-side NFD
@@ -275,6 +280,18 @@ export function normalizeTerm(raw: string): string {
  * qualified form ahead of the bare 1-word fallback, exactly as the
  * longest-window-wins contract already promises for space-separated input.
  */
+const LATERALITY_RE =
+  /\b(unilateral|unilaterales|a una pierna|single leg|single-leg)\b/;
+
+/** A laterality marker in the coach's term. Layer 4 must not ignore it. */
+export function termMarksLaterality(normalized: string): boolean {
+  return LATERALITY_RE.test(normalized);
+}
+
+function nameMarksLaterality(name: string): boolean {
+  return LATERALITY_RE.test(lightNormalize(name));
+}
+
 function aliasToSlug(candidate: string): string | null {
   if (!candidate) return null;
   const exact = GLOBAL_ALIASES[candidate];
@@ -424,8 +441,12 @@ export async function resolveExercise(
     // same unaccent fix. The term is contained in the (merged) name OR the
     // name is contained in the term. Deterministic: own-before-base first,
     // then shortest name (most specific), then id.
-    const sub = await client<Array<{ id: string }>>`
-      select e.id::text as id
+    const sub = await client<
+      Array<{ id: string; name: string; is_unilateral: boolean }>
+    >`
+      select e.id::text as id,
+             coalesce(ceo.name, e.name) as name,
+             e.is_unilateral
       from exercises e
       ${joinCoachOverride(client, coachId)}
       where (
@@ -434,9 +455,13 @@ export async function resolveExercise(
         )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, length(coalesce(ceo.name, e.name)) asc, e.id asc
-      limit 1
+      limit 20
     `;
-    if (sub[0]) return { exercise_id: Number(sub[0].id), via: 'name_substring' };
+    const termLateral = termMarksLaterality(normalized);
+    const hit = termLateral
+      ? sub.find((row) => nameMarksLaterality(row.name) || row.is_unilateral)
+      : sub[0];
+    if (hit) return { exercise_id: Number(hit.id), via: 'name_substring' };
   }
 
   // (5) Miss — the caller sends this to the LLM / a manual pick, then feeds the
