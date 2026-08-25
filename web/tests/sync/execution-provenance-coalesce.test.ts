@@ -1,15 +1,3 @@
-// Card 127. Quién firma totals_source cuando el mismo entreno llega dos veces.
-//
-// La prueba de producto vive en execution-provenance.db.test.ts
-// (`a second sync ADDS the new apparatus and keeps the original source`).
-// CI no inyecta TEST_DATABASE_URL y se la salta. Este fichero es el mismo
-// contrato en un sitio que sí corre: el ON CONFLICT del escritor vivo.
-//
-// Por qué importa el orden. El segundo payload del caso (solo cinta, 900 s)
-// deriva totals_source = treadmill. Si COALESCE mira excluded primero, esa
-// firma pisa la del remo que ya estaba. El comentario pide lo contrario:
-// el primer no-nulo se queda.
-
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';

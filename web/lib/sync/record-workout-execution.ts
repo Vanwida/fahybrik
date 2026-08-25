@@ -195,8 +195,11 @@ export async function recordWorkoutExecution(args: {
       perceived_difficulty = coalesce(excluded.perceived_difficulty, workout_executions.perceived_difficulty),
       pain_area = coalesce(excluded.pain_area, workout_executions.pain_area),
       pain_note = coalesce(excluded.pain_note, workout_executions.pain_note),
-      recorded_via = coalesce(excluded.recorded_via, workout_executions.recorded_via),
-      totals_source = coalesce(excluded.totals_source, workout_executions.totals_source),
+      -- El primer no-nulo firma. Un segundo sync (el mismo entreno, o un
+      -- fragmento tardío de otro aparato) no reelige totals_source ni
+      -- degrada recorded_via. Misma dirección que HealthKit/Garmin/Polar.
+      recorded_via = coalesce(workout_executions.recorded_via, excluded.recorded_via),
+      totals_source = coalesce(workout_executions.totals_source, excluded.totals_source),
       -- UNION, never replace: a second sync can bring a tramo from ANOTHER
       -- apparatus (the erg arrives after the watch), and the ones already
       -- recorded did contribute. Aggregated in enum order so the stored array
