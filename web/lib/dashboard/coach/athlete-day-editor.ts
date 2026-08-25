@@ -17,6 +17,10 @@ import { loadSessionEditorModel } from '@/lib/dashboard/v2/editor-data';
 import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import type { SessionEditorModel } from '@/lib/dashboard/v2/editor-types';
+import {
+  previewCopyInstanceToRecipe,
+  type RecipePromotePreview,
+} from './copy-instance-to-recipe';
 
 const WEEKDAYS_ES = [
   'Lunes',
@@ -50,6 +54,8 @@ export interface AthleteDaySession {
   title: string;
   status: string;
   model: SessionEditorModel;
+  /** Null when this session has no recipe lineage (authored day, no source). */
+  copy_to_recipe: RecipePromotePreview | null;
 }
 
 export interface AthleteDayEditorData {
@@ -117,12 +123,25 @@ export async function loadAthleteDayEditor(params: {
     });
     if (!model) continue;
     const coachTitle = decodeCoachAssignmentNotes(r.notes).display_title;
+    let copy_to_recipe: RecipePromotePreview | null = null;
+    try {
+      copy_to_recipe = await previewCopyInstanceToRecipe({
+        coach_id: coach,
+        athlete_id: ath,
+        iso_date: params.iso_date,
+        template_id: Number(r.template_id),
+        client,
+      });
+    } catch {
+      copy_to_recipe = null;
+    }
     sessions.push({
       assignment_id: r.assignment_id,
       template_id: r.template_id,
       title: coachTitle ?? r.title ?? 'Entreno',
       status: r.status,
       model,
+      copy_to_recipe,
     });
   }
 

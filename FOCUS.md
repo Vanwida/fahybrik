@@ -2,9 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 7 · motor en vivo)
+Última actualización: **2026-08-25** (90 · copiar instancia a receta)
 
 ## Ahora
+
+**90 · COPIAR LO DEL ATLETA A LA RECETA (PR).** En el día del atleta
+(`/atletas/[id]/dia/[fecha]`) hay «Copiar a la receta». Copia el día
+guardado de ESA instancia a la receta que la produjo (sesión de
+biblioteca o el hueco de `program_week_templates`). No resincroniza a
+otros atletas. Si otros siguen apuntando a esa receta, pide confirmación.
+Writer: `copyAthleteInstanceDayToRecipe`. Card ABIERTA.
+https://app.clickup.com/t/86ak2yck1
 
 **128 · HUECO 7 (PR, card ABIERTA).** Motor en vivo. `Measure.unknown`
 ya no desaparece: dice «no lo sé». Un scheme que no está en el
