@@ -11,6 +11,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { Link } from '@/i18n/navigation';
 import { ItemPrescritoHecho } from '@/components/v2/sesion/ItemPrescritoHecho';
+import { StationOrderMark } from '@/components/v2/sesion/StationOrderMark';
 import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
@@ -150,8 +151,13 @@ export function SesionScreen({
                 return (
                   <div key={block.uid} className="flex flex-col gap-1.5">
                     {block.title.trim() && block.title.trim() !== detail.workout?.name.trim() ? (
-                      <h4 className="v2-micro">{block.title}</h4>
-                    ) : null}
+                      <h4 className="flex items-center gap-1.5">
+                        <span className="v2-micro">{block.title}</span>
+                        <StationOrderMark format={block.format} />
+                      </h4>
+                    ) : (
+                      <StationOrderMark format={block.format} />
+                    )}
                     {note ? (
                       <p className="text-xs leading-relaxed text-[color:var(--v2-muted)]">{note}</p>
                     ) : null}

@@ -234,7 +234,7 @@ export const HYROX: SesionReal = {
     },
     {
       titulo: 'Simulación HYROX',
-      formato: 'For Time · 16 estaciones',
+      formato: 'seguido · For Time · 16 estaciones',
       items: [
         RUN_1K,
         { nombre: 'SkiErg', dosis: '1.000 m', modalidad: 'ski' },

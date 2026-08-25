@@ -11,6 +11,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Estaciones: se ve si es seguido o circuito (card 114)
+
+**Qué faltaba:** el format ya estaba guardado (`circuit` /
+`rounds` = rondas de estaciones; el resto del catálogo = estaciones
+en fila). El atleta y el readout del coach no lo leían. iOS
+`BlockPacing` lo adivinaba por el número de movimientos y a veces
+se callaba. Una sola estación de circuito se leía como seguido.
+
+**Decidido:**
+
+- No hay un segundo eje. La palabra sale de `normalizeFormat` sobre
+  el format/scheme de siempre. `circuit` y `rounds` → «circuito».
+  Cualquier otro miembro del catálogo → «seguido». Lo que no está
+  en el catálogo → «no lo sé».
+- El recuento de estaciones no manda. Una estación es circuito solo
+  si el format guardado lo dice.
+- El serve no inventa campo. `assignment-detail` sigue mandando
+  `format`. Quien pinta llama a `stationOrderLabel`.
+- iOS no recalcula. No se toca Swift ni Xcode.
+
+**NO hacer:** no cerrar la 128. no tocar 132, Watch,
+`DEVELOPMENT_TEAM`, feat/publish. no marcar ClickUp. no ON
+CONFLICT nuevo. no convertir un format desconocido en tabla de
+series. no adivinar circuito por tener dos movimientos.
+
+**Dónde vive:** `stationOrderLabel` /
+`showsStationOrder` en `render-honest.ts`. Editor:
+`ComponentsForm`, `CompositorHeader`, `SessionPartCard`,
+`blockAthleteLine`. Readout: `SessionDetailDrawer`,
+`SesionScreen`. Tests: `render-honest.test.ts`,
+`station-order.test.ts`.
+
+---
+
 ## 2026-08-25 · Técnica y descripción en cada bloque (card 108)
 
 **Qué faltaba:** cada bloque ya tenía descripción
