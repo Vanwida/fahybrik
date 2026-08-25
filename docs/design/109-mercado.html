@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>109 — el día, leído por agrupación</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap"
+    />
+    <style>
+      /* ══════════════════════════════════════════════════════════════════════
+         Detalle del día en el panel del coach. Gramática genérica: vale para
+         cualquier coach y cualquier día. Lo que se ve sale de lo que hay
+         escrito en el plan — nada de método, ni piel de club, ni paleta de
+         modalidad, ni etiquetas de estado.
+
+         Tres piezas y nada más:
+           bloque   → rótulo + (nota del bloque, si la hay) + sus movimientos
+           mov      → nombre, con su dosis en la MISMA línea, y su nota debajo
+           .junto   → barra a la izquierda que abraza los movimientos que van
+                      juntos. Es el ÚNICO recurso de agrupación del panel: sin
+                      barra, cada movimiento va por su cuenta.
+
+         Cromo alrededor: tokens del panel (v2-theme.css) + Bricolage/Figtree.
+         El contenido del panel es tinta sobre hueso, sin color.
+         ══════════════════════════════════════════════════════════════════════ */
+      :root {
+        --v2-bg: #f1efeb;
+        --v2-surface: #fefdfb;
+        --v2-surface-2: #ece9e2;
+        --v2-border: #e4e1da;
+        --v2-border-strong: #d6d2c8;
+        --v2-fg: #201f1b;
+        --v2-muted: #56534c;
+        --v2-faint: #6f6b62;
+        --v2-r-m: 12px;
+        --v2-r-card: 14px;
+        --v2-font-display: "Bricolage Grotesque", "Helvetica Neue", system-ui, sans-serif;
+        --v2-font-sans: "Figtree", "SF Pro Text", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: var(--v2-bg);
+        color: var(--v2-fg);
+        font-family: var(--v2-font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      .display {
+        font-family: var(--v2-font-display);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+      }
+
+      /* ───────────────── cromo del dashboard (contexto, no propuesta) ─────── */
+      .topbar {
+        height: 54px;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        padding: 0 26px;
+        background: var(--v2-surface);
+        border-bottom: 1px solid var(--v2-border);
+      }
+      .logo {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--v2-fg);
+      }
+      .nav {
+        display: flex;
+        gap: 24px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--v2-muted);
+      }
+      .nav .on {
+        color: var(--v2-fg);
+        font-weight: 600;
+      }
+
+      .page {
+        padding: 28px 32px;
+      }
+      .who {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        border: 1px solid var(--v2-border-strong);
+        background: var(--v2-surface);
+        display: grid;
+        place-items: center;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--v2-muted);
+      }
+      .who h1 {
+        margin: 0;
+        font-size: 25px;
+      }
+      .tabs {
+        display: flex;
+        gap: 24px;
+        margin-top: 24px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--v2-muted);
+      }
+      .tabs span {
+        padding-bottom: 8px;
+      }
+      .tabs .on {
+        color: var(--v2-fg);
+        font-weight: 600;
+        box-shadow: inset 0 -2px 0 var(--v2-fg);
+      }
+      .tabsrule {
+        height: 1px;
+        background: var(--v2-border);
+      }
+
+      .week {
+        margin-top: 28px;
+        background: var(--v2-surface);
+        border: 1px solid var(--v2-border);
+        border-radius: var(--v2-r-card);
+        padding: 18px 18px 20px;
+        max-width: 880px;
+      }
+      .week h2 {
+        margin: 0 0 16px;
+        font-family: var(--v2-font-display);
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .week h2 em {
+        font-style: normal;
+        font-weight: 500;
+        color: var(--v2-faint);
+        margin-left: 6px;
+      }
+      .days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px;
+      }
+      .day {
+        border: 1px solid var(--v2-border);
+        border-radius: var(--v2-r-m);
+        min-height: 96px;
+        padding: 10px 10px 12px;
+      }
+      .day .dl {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--v2-faint);
+        margin-bottom: 12px;
+      }
+      .skel {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--v2-surface-2);
+        margin-bottom: 7px;
+      }
+      .rest {
+        font-size: 12px;
+        color: var(--v2-faint);
+      }
+      .day.sel {
+        border-color: var(--v2-fg);
+        box-shadow: 0 0 0 1px var(--v2-fg);
+      }
+      .day.sel .dl {
+        color: var(--v2-fg);
+      }
+      .day .kind {
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--v2-faint);
+        margin-bottom: 5px;
+      }
+      .day .name {
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+
+      /* ───────────────── el día ───────────────────────────────────────────── */
+      .panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 486px;
+        background: var(--v2-surface);
+        border-left: 1px solid var(--v2-border);
+        box-shadow: -26px 0 52px -32px rgba(32, 31, 27, 0.3);
+      }
+      .phead {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 28px 30px 22px;
+        border-bottom: 1px solid var(--v2-border);
+      }
+      .phead h3 {
+        margin: 0;
+        font-family: var(--v2-font-display);
+        font-weight: 700;
+        font-size: 21px;
+        letter-spacing: -0.02em;
+      }
+      .close {
+        font-size: 18px;
+        line-height: 1;
+        color: var(--v2-faint);
+        margin-top: 3px;
+      }
+
+      /* Rótulo del bloque: pequeño, en caja alta, sin fondo ni pastilla. */
+      .bloque {
+        padding: 26px 30px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--v2-faint);
+      }
+
+      /* Un movimiento del plan. El nombre manda; lo que el coach escribió al
+         lado del nombre viaja EN la misma línea, no en una columna aparte. */
+      .mov {
+        padding: 13px 30px 14px;
+        border-bottom: 1px solid var(--v2-border);
+      }
+      .mov:last-child {
+        border-bottom: none;
+      }
+      .linea {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0 10px;
+      }
+      .nombre {
+        font-size: 15.5px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+      }
+      .dosis {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--v2-muted);
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum" 1;
+      }
+      /* Nota del coach: cuelga bajo su dueño, un peldaño más callada y en
+         cursiva — es su letra, no un dato del plan. Así «Pendlay» no puede
+         leerse como un movimiento más. */
+      .nota {
+        margin-top: 3px;
+        font-size: 13px;
+        font-weight: 400;
+        font-style: italic;
+        color: var(--v2-faint);
+      }
+      .bloque + .nota {
+        padding: 0 30px 10px;
+        margin-top: -2px;
+      }
+
+      /* ÚNICO recurso de agrupación: barra a la izquierda + sangría. Lo que cae
+         dentro se lee como una sola cosa; entre sus movimientos el filete se
+         mete hacia dentro en vez de cortar el panel a sangre. */
+      .junto {
+        position: relative;
+      }
+      .junto::before {
+        content: "";
+        position: absolute;
+        left: 30px;
+        top: 9px;
+        bottom: 10px;
+        width: 2px;
+        border-radius: 1px;
+        background: var(--v2-fg);
+      }
+      .junto .mov {
+        padding: 10px 30px 11px 48px;
+      }
+      .junto .mov:not(:last-child) {
+        border-bottom: none;
+      }
+      .junto .mov:not(:last-child)::after {
+        content: "";
+        display: block;
+        margin: 11px 0 -11px 0;
+        height: 1px;
+        background: var(--v2-border);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="logo"></div>
+      <nav class="nav">
+        <span>Hoy</span><span class="on">Atletas</span><span>Mensajes</span><span>Pagos</span
+        ><span>Métricas</span>
+      </nav>
+    </div>
+
+    <div class="page">
+      <div class="who">
+        <div class="avatar">A</div>
+        <h1 class="display">Alex</h1>
+      </div>
+      <div class="tabs">
+        <span>Resumen</span><span class="on">Plan</span><span>Rendimiento</span><span>Del coach</span
+        ><span>Atleta</span>
+      </div>
+      <div class="tabsrule"></div>
+
+      <section class="week">
+        <h2>24 – 30 ago <em>2026</em></h2>
+        <div class="days">
+          <div class="day">
+            <div class="dl">Lun 24</div>
+            <div class="skel" style="width: 78%"></div>
+            <div class="skel" style="width: 52%"></div>
+          </div>
+          <div class="day">
+            <div class="dl">Mar 25</div>
+            <div class="skel" style="width: 68%"></div>
+            <div class="skel" style="width: 46%"></div>
+          </div>
+          <div class="day">
+            <div class="dl">Mié 26</div>
+            <div class="rest">Descanso</div>
+          </div>
+          <div class="day sel">
+            <div class="dl">Jue 27</div>
+            <div class="kind">Fuerza</div>
+            <div class="name">Fuerza B + Trineos</div>
+          </div>
+          <div class="day">
+            <div class="dl">Vie 28</div>
+            <div class="skel" style="width: 82%"></div>
+            <div class="skel" style="width: 48%"></div>
+          </div>
+          <div class="day">
+            <div class="dl">Sáb 29</div>
+            <div class="skel" style="width: 64%"></div>
+            <div class="skel" style="width: 56%"></div>
+          </div>
+          <div class="day">
+            <div class="dl">Dom 30</div>
+            <div class="rest">Descanso</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="panel">
+      <div class="phead">
+        <h3>Fuerza B + Trineos</h3>
+        <div class="close">×</div>
+      </div>
+
+      <div class="bloque">RUN</div>
+      <div class="mov">
+        <div class="linea"><span class="nombre">Run</span></div>
+      </div>
+
+      <div class="bloque">FUERZA · CADERA</div>
+      <div class="nota">Pendlay</div>
+      <div class="mov">
+        <div class="linea">
+          <span class="nombre">Deadlift</span>
+          <span class="dosis">4×4 @ RPE 7.5 · descanso 2'</span>
+        </div>
+        <div class="nota">@78% 1RM</div>
+      </div>
+      <div class="mov">
+        <div class="linea"><span class="nombre">Romanian Deadlift</span></div>
+        <div class="nota">RDL</div>
+      </div>
+
+      <div class="bloque">TRINEOS Y CARRIES</div>
+      <div class="junto">
+        <div class="mov">
+          <div class="linea"><span class="nombre">Trineo</span></div>
+        </div>
+        <div class="mov">
+          <div class="linea"><span class="nombre">Carry</span></div>
+        </div>
+      </div>
+    </aside>
+  </body>
+</html>
