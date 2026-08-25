@@ -10,6 +10,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Importador de ciclo (card 128 · hueco 6)
+
+**Qué faltaba:** la gramática ya medía el corpus (71 %), pero el coach
+no podía traer un ciclo por el producto. Solo existía
+`import_plan_html.ts`, atado a un coach y un fichero.
+
+**Decidido (card 133, construido):**
+
+- Contrato de ENTREGA, nunca de contenido. Unidad = tramo de 4-6
+  semanas. Techo 6 por importación. La propuesta se revisa siempre.
+- Confirmar se niega si la cobertura tipada queda bajo el trinquete
+  del corpus: `CYCLE_IMPORT_COVERAGE_RATCHET_PCT = 71` (884 / 1.238,
+  hueco 5). No se inventa otro umbral.
+- Lo no tipado entra como `coach_note` / nota del día. Nunca como
+  prescripción a medias.
+- Un vocabulario nuevo sigue la ley de 133: más de un coach, o
+  muchas veces en uno. Un hápax en 1.238 líneas es dialecto.
+- Reutiliza `build-proposal` / `confirm-service` / `generate-proposal`.
+  No hay un segundo importador. `import_plan_html.ts` no se toca.
+- El ciclo real de 12 semanas es corpus de medida, no contenido de
+  biblioteca. Confirm de tests usa filas desechables.
+
+**NO hacer:** no cerrar la 128. no persistir el ciclo de Alex como
+biblioteca. no tocar 132 / Watch / feat/publish. no inventar kilos
+ni un umbral distinto de 71. no ampliar `import_plan_html.ts`.
+
+**Dónde vive:** `shared/domain/import/cycle-delivery.ts`.
+Lector: `web/lib/import/cycle-source.ts`. Propuesta / confirm:
+`cycle-proposal.ts` / `cycle-confirm.ts`. UI: Biblioteca ›
+Importar ciclo. Banco: `web/tests/import/cycle-import.test.ts`.
+
+---
+
 ## 2026-08-25 · Gramática contra el corpus de 12 semanas (card 128 · hueco 5)
 
 **Qué fallaba:** el trinquete del importador se había quedado en 62 %

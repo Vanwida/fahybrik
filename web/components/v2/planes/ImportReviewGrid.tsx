@@ -107,6 +107,8 @@ export function ImportReviewGrid({
   error,
   onBack,
   onAddPhoto,
+  confirmBlockedReason,
+  hideWeekMapping,
 }: {
   reviewWeeks: ReviewWeek[];
   microWeeks: MicroWeekRef[];
@@ -120,6 +122,10 @@ export function ImportReviewGrid({
   /** Vuelve al paso de las fotos, para la captura de una tarjeta que salió cortada.
    *  Solo existe cuando la propuesta vino de una foto. */
   onAddPhoto?: () => void;
+  /** Cobertura bajo el trinquete (ciclo): se puede revisar, no confirmar. */
+  confirmBlockedReason?: string | null;
+  /** El ciclo nuevo no pide destino: las semanas se crean al confirmar. */
+  hideWeekMapping?: boolean;
 }) {
   const [editing, setEditing] = useState<{ weekIdx: number; dayIdx: number } | null>(null);
   const [creatingMissing, setCreatingMissing] = useState(false);
@@ -325,7 +331,12 @@ export function ImportReviewGrid({
   const writable = totalWritableDays(reviewWeeks);
   const excluded = totalExcludedDays(reviewWeeks);
   const canConfirm =
-    !confirming && unresolved === 0 && incomplete === 0 && unmapped === 0 && writable > 0;
+    !confirming &&
+    unresolved === 0 &&
+    incomplete === 0 &&
+    unmapped === 0 &&
+    writable > 0 &&
+    !confirmBlockedReason;
 
   const editingWeek = editing ? reviewWeeks[editing.weekIdx] : null;
   const editingDay = editingWeek ? editingWeek.days[editing!.dayIdx] : null;
@@ -375,6 +386,7 @@ export function ImportReviewGrid({
                 </button>
 
                 {/* Fork B — explicit mapping (an excluded week needs no destination). */}
+                {hideWeekMapping ? null : (
                 <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
                   <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent-text)]" />
                   <span>Meter en</span>
@@ -394,6 +406,7 @@ export function ImportReviewGrid({
                     ))}
                   </select>
                 </label>
+                )}
               </div>
             </div>
 
@@ -565,6 +578,11 @@ export function ImportReviewGrid({
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
             No queda ningún día seleccionado. Incluye al menos uno para poder confirmar.
+          </p>
+        ) : confirmBlockedReason ? (
+          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
+            <MIcon name="info" size={14} />
+            {confirmBlockedReason}
           </p>
         ) : null}
 

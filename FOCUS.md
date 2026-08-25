@@ -2,18 +2,29 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 5 · gramática vs corpus)
+Última actualización: **2026-08-25** (128 · hueco 6 · importador de ciclo)
 
 ## Ahora
 
-**128 · HUECO 5 (card ABIERTA).** Gramática contra las 1.238 líneas.
+**128 · HUECO 6 (PR, card ABIERTA).** Importador de ciclo. Sube el
+suelo (`web/lib/import/` + `shared/domain/import/`) un piso: el
+coach sube un documento → propuesta tipada → revisa → confirma.
+Unidad = tramo de 4-6 semanas (techo 6). Confirmar se niega bajo
+el trinquete del corpus (**71 %**). Lo no tipado entra como nota
+declarada. El ciclo real de 12 semanas NO se escribe en la base.
+Ruta: Biblioteca › Ciclos › Importar ciclo.
+`POST /api/coach/import/proposal` `mode: 'cycle'` ·
+`POST /api/coach/import/confirm` `mode: 'cycle'`.
+La 128 no se cierra.
+Card: https://app.clickup.com/t/86ak49xrn
+
+**128 · HUECO 5 (en trunk).** Gramática contra las 1.238 líneas.
 Trinquete 62 % (768) → **71 % (884)**. Entran «N bloques de M series
 de:» (corte = el de la 141), 90-90 como nombre, dosis suelta 1×N,
 rango de reloj, tope de pulso, coma decimal en metros y listas
 «N series de: a · b». En revisión, a propósito: «N bloques de M
 rondas» + A/B/C, EMOM «Min N», carga media, «5' entre bloques» y
-dos ámbitos de descanso. La 128 no se cierra.
-Card: https://app.clickup.com/t/86ak49xrn
+dos ámbitos de descanso.
 
 **128 · HUECO 4 (en trunk).** Catálogo + alias. El importador lee
 `exercise_aliases`. Hollow rocks entra. El puente unilateral no
@@ -135,9 +146,10 @@ El importador lee la tabla (peldaño 1b). El puente unilateral queda anclado.
 Motor en vivo: `Measure.unknown` **desaparece de la pantalla sin decir nada**
 (`Prescription.swift:333`) y un scheme desconocido degrada a `sets` sin avisar.
 
-Importador de ciclo: no existe (solo `import_plan_html.ts`, atado a un coach y un
-fichero). El camino bueno ya está un piso abajo en `web/lib/import/` +
-`shared/domain/import/` («fiel o review», IA solo para lo denso): subirlo un piso.
+Importador de ciclo: **el piso de arriba ya está** (hueco 6). Sigue
+`import_plan_html.ts` como camino viejo de un coach y un fichero, sin
+ampliar. El producto usa el suelo de `web/lib/import/` +
+`shared/domain/import/` («fiel o review», IA solo para lo denso).
 
 Medida objetiva acordada: las 1.238 líneas como **corpus**, % tipado y fiel.
 Orden propuesto: (1) objetivos relativos (2) por lado + descanso (3) prioridad y

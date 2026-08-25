@@ -46,6 +46,10 @@
       "types": "./domain/import/notation.ts",
       "default": "./domain/import/notation.ts"
     },
+    "./domain/import/*": {
+      "types": "./domain/import/*.ts",
+      "default": "./domain/import/*.ts"
+    },
     "./domain/methodology": {
       "types": "./domain/methodology/index.ts",
       "default": "./domain/methodology/index.ts"
