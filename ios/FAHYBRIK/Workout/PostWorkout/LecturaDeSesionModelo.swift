@@ -161,6 +161,8 @@ struct SesionEjecutada: Equatable {
     var rpe: Int?
     var dificultadLabel: String?
     var molestiaLabel: String?
+    /// El recap del servidor, si vino. La tanda y la pegatina se recortan de aquí.
+    var recap: RecapDTO? = nil
 }
 
 // MARK: - El tipo de entreno — el icono de la cabecera (card 124)
@@ -338,6 +340,75 @@ struct SerieMasPesada: Equatable {
     var etiqueta: String
     var kg: Double
     var reps: Int
+}
+
+func recapDesdeBloques(_ bloques: [Bloque]) -> RecapDTO {
+    RecapDTO(blocks: bloques.enumerated().map { i, b in bloqueARecap(b, position: i) })
+}
+
+func piezasDeDesglose(_ bloques: [Bloque]) -> [RecapLayout.Piece] {
+    RecapLayout.project(recapDesdeBloques(bloques))
+}
+
+func piezasDeDesglose(sesion: SesionEjecutada) -> [RecapLayout.Piece] {
+    if let recap = sesion.recap, !recap.blocks.isEmpty {
+        return RecapLayout.project(recap)
+    }
+    return piezasDeDesglose(sesion.bloques)
+}
+
+private func bloqueARecap(_ b: Bloque, position: Int) -> RecapBlockDTO {
+    let duration = b.duracionS.map { Int($0.rounded()) }
+    let round = (b.ronda ?? 0) > 0 ? b.ronda : nil
+    switch b.modalidad {
+    case .correr:
+        return RecapBlockDTO(
+            position: position,
+            label: b.etiqueta,
+            kind: "run",
+            modality: "run",
+            durationS: duration,
+            distanceM: b.distanciaM,
+            paceSPerKm: b.ritmoDeCorrerSkm,
+            round: round
+        )
+    case .ergometro(let maquina):
+        return RecapBlockDTO(
+            position: position,
+            label: b.etiqueta,
+            kind: "ergo",
+            modality: maquina.rawValue,
+            durationS: duration,
+            distanceM: b.distanciaM,
+            paceSPer500m: b.ritmoDeErgometroS500m,
+            round: round
+        )
+    case .fuerza:
+        return RecapBlockDTO(
+            position: position,
+            label: b.etiqueta,
+            kind: "strength",
+            modality: "strength",
+            durationS: duration,
+            reps: b.repsTotal,
+            loadKg: b.kg,
+            sets: b.series.map {
+                RecapSetDTO(setIndex: $0.setIndex, reps: $0.reps, loadKg: $0.kg, isApproach: $0.isApproach)
+            },
+            round: round
+        )
+    case .funcional:
+        return RecapBlockDTO(
+            position: position,
+            label: b.etiqueta,
+            kind: "station",
+            modality: "other",
+            durationS: duration,
+            distanceM: b.metros,
+            reps: b.reps,
+            round: round
+        )
+    }
 }
 
 /**

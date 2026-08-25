@@ -63,7 +63,8 @@ enum LecturaDeSesionDesdeDetalle {
             rpe: ejecucion.perceivedExertion,
             dificultadLabel: ejecucion.perceivedDifficulty
                 .flatMap(PerceivedDifficulty.init(rawValue:))?.label,
-            molestiaLabel: molestiaDe(ejecucion)
+            molestiaLabel: molestiaDe(ejecucion),
+            recap: ejecucion.recap
         )
     }
 

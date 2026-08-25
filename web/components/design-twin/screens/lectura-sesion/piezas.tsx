@@ -24,6 +24,7 @@ import { conMillar, distancia, esDecimal, kg, reloj, ritmo500, ritmoKm, tonelada
 import { R, S } from '../../kit-composicion/tokens';
 import { DIFICULTAD_LABEL } from '../post-entreno/piezas';
 import type { SegmentoZona } from '../post-entreno/piezas';
+import type { RecapSeries } from '@fahybrid/shared/domain/recap-sticker';
 import {
   distanciaTotalDeSesion,
   resultadoDeSesion,
@@ -530,6 +531,143 @@ export function BarraZonasSesion({ segmentos }: { segmentos: SegmentoZona[] }) {
 // ---------------------------------------------------------------------------
 // CAPA 7 · LO QUE DIJO EL ATLETA — la única capa que no es una medida
 // ---------------------------------------------------------------------------
+
+export function TarjetaSerie({ series }: { series: RecapSeries }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        padding: '12px 12px 10px',
+        borderRadius: R.m,
+        background: 'var(--twin-surface-elevated)',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <span
+          style={{
+            fontSize: 17,
+            fontWeight: 700,
+            fontStyle: 'italic',
+            color: 'var(--twin-fg)',
+          }}
+        >
+          {series.label}
+        </span>
+        {series.pauta && (
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--twin-muted)' }}>{series.pauta}</span>
+        )}
+      </div>
+      <Parciales series={series} />
+    </div>
+  );
+}
+
+export function Parciales({ series }: { series: RecapSeries }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: series.columns === 2 ? '1fr 1fr' : '1fr',
+        gap: '6px 14px',
+      }}
+    >
+      {series.splits.map((s) => {
+        const tiempo = s.duration_s != null ? reloj(s.duration_s) : null;
+        const ritmo = s.pace_s_per_km != null ? ritmoKm(s.pace_s_per_km) : null;
+        return (
+          <div
+            key={s.index}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              gap: 8,
+              padding: '4px 0',
+            }}
+          >
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--twin-muted)' }}>{s.index}</span>
+            <span
+              style={{
+                fontSize: 17,
+                fontWeight: 700,
+                fontFamily: 'var(--twin-font-mono)',
+                color: 'var(--twin-fg)',
+              }}
+            >
+              {tiempo ?? '—'}
+            </span>
+            {ritmo && (
+              <span
+                style={{
+                  fontSize: 15,
+                  fontWeight: 600,
+                  fontFamily: 'var(--twin-font-mono)',
+                  color: s.is_best ? 'var(--twin-ok)' : 'var(--twin-muted)',
+                }}
+              >
+                {ritmo}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function AccionesRecap({
+  completa,
+  onLog,
+}: {
+  completa: boolean;
+  onLog: (l: string) => void;
+}) {
+  return (
+    <div data-acciones="abajo" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <FilaAccion
+        titulo={completa ? 'Completado' : 'Hecha a medias'}
+        nota="El entreno ya está guardado."
+        onClick={() => onLog(completa ? 'Completado' : 'Hecha a medias')}
+      />
+      <FilaAccion
+        titulo="Técnica"
+        nota="Vídeo, consejos y la nota de tu coach."
+        onClick={() => onLog('Técnica')}
+      />
+      <FilaAccion
+        titulo="Captura"
+        nota="Garmin, Strava, Concept2… la leemos por ti."
+        onClick={() => onLog('Captura')}
+      />
+    </div>
+  );
+}
+
+function FilaAccion({ titulo, nota, onClick }: { titulo: string; nota: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        appearance: 'none',
+        border: '1px solid var(--twin-hairline)',
+        background: 'var(--twin-surface)',
+        borderRadius: R.m,
+        padding: '12px 14px',
+        textAlign: 'left',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
+      <span style={{ fontSize: 16, fontWeight: 800, fontStyle: 'italic', color: 'var(--twin-fg)' }}>{titulo}</span>
+      <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--twin-muted)' }}>{nota}</span>
+    </button>
+  );
+}
 
 export function LoQueDijoElAtleta({ dicho }: { dicho: DichoAtleta | undefined }) {
   if (!dicho) return null;
