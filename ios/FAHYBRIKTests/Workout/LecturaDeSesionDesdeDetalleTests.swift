@@ -255,4 +255,97 @@ final class LecturaDeSesionDesdeDetalleTests: XCTestCase {
         let sesion = try XCTUnwrap(LecturaDeSesionDesdeDetalle.sesion(de: detalle))
         XCTAssertNil(sesion.resultado)
     }
+
+    // MARK: - Card 144: el recap se llena con la ejecución, no con la receta
+
+    /// 3:39 corridos y 5:45 pedidos: el desglose enseña 3:39 y 3:39/km.
+    func testElRecapEnseñaLoCorridoNoLoPedido() throws {
+        let json = """
+        {
+          "assignment": {"id": "1", "athlete_id": "64", "scheduled_for": "2026-08-25",
+                         "status": "completed", "store_results": []},
+          "workout": {"name": "Cinta", "blocks": []},
+          "execution": {
+            "execution_id": "1", "completeness": "completed", "contributing_sources": [],
+            "segments": [
+              {"position": 0, "item_uid": "segment-1", "modality": "run",
+               "duration_seconds": 345, "distance_meters": 1000, "avg_pace_s_per_km": 219}
+            ],
+            "recap": {
+              "blocks": [
+                {"position": 0, "label": "Correr", "kind": "run", "modality": "run",
+                 "duration_s": 219, "distance_m": 1000, "pace_s_per_km": 219,
+                 "pace_s_per_500m": null, "reps": null, "load_kg": null,
+                 "sets": [], "round": null}
+              ]
+            }
+          }
+        }
+        """
+        let detalle = try decodifica(json)
+        let sesion = try XCTUnwrap(LecturaDeSesionDesdeDetalle.sesion(de: detalle))
+        XCTAssertEqual(sesion.bloques.count, 1)
+        let bloque = try XCTUnwrap(sesion.bloques.first)
+        XCTAssertEqual(bloque.etiqueta, "Correr")
+        XCTAssertEqual(bloque.duracionS, 219)
+        XCTAssertEqual(bloque.distanciaM, 1000)
+        XCTAssertEqual(bloque.ritmoDeCorrerSkm, 219)
+        XCTAssertNotEqual(bloque.duracionS, 345)
+        XCTAssertNotEqual(bloque.ritmoDeCorrerSkm, 345)
+    }
+
+    func testElRecapTraeSeriesYRonda() throws {
+        let json = """
+        {
+          "assignment": {"id": "1", "athlete_id": "64", "scheduled_for": "2026-08-25",
+                         "status": "completed", "store_results": []},
+          "workout": {"name": "Fuerza", "blocks": []},
+          "execution": {
+            "execution_id": "1", "completeness": "completed", "contributing_sources": [],
+            "segments": [],
+            "recap": {
+              "blocks": [
+                {"position": 0, "label": "Peso muerto", "kind": "strength",
+                 "modality": "strength", "reps": 15, "load_kg": 100,
+                 "sets": [
+                   {"set_index": 1, "reps": 5, "load_kg": 80, "is_approach": true},
+                   {"set_index": 2, "reps": 5, "load_kg": 100, "is_approach": false},
+                   {"set_index": 3, "reps": 5, "load_kg": 100, "is_approach": false}
+                 ],
+                 "round": 1}
+              ]
+            }
+          }
+        }
+        """
+        let detalle = try decodifica(json)
+        let sesion = try XCTUnwrap(LecturaDeSesionDesdeDetalle.sesion(de: detalle))
+        let bloque = try XCTUnwrap(sesion.bloques.first)
+        XCTAssertEqual(bloque.etiqueta, "Peso muerto")
+        XCTAssertEqual(bloque.ronda, 1)
+        XCTAssertEqual(bloque.series.count, 3)
+        XCTAssertEqual(bloque.series.first?.isApproach, true)
+        XCTAssertEqual(bloque.series.last?.kg, 100)
+        guard case .fuerza(let volumen, _) = sesion.resultado else {
+            return XCTFail("con series de trabajo el resultado es el volumen")
+        }
+        XCTAssertEqual(volumen, 5 * 100 + 5 * 100)
+    }
+
+    func testSinRecapElRitmoMedidoSaleDelSegmento() {
+        let segmento = SegmentActualDTO(
+            position: 0, itemUid: nil, modality: "run", durationSeconds: 345,
+            repsCompleted: nil, weightUsedKg: nil, distanceMeters: 1000,
+            avgPaceSPer500m: nil, avgPaceSPerKm: 219, avgPowerW: nil, strokeRateSpm: nil,
+            avgHr: nil, maxHr: nil, calories: nil, inclinePct: nil, runCadenceSpm: nil,
+            avgGradientPct: nil, startedAt: nil, legIndex: nil, legRole: nil,
+            legPhase: nil, source: nil, emomRoundsCompleted: nil,
+            emomRoundsPrescribed: nil, zoneSeconds: nil, dragFactor: nil,
+            avgCaloriesPerHour: nil, peakDriveForceLbs: nil, avgDriveForceLbs: nil,
+            ergSplits: nil
+        )
+        let bloque = LecturaDeSesionDesdeDetalle.bloqueDe(segmento, itemsPorUid: [:])
+        XCTAssertEqual(bloque?.ritmoDeCorrerSkm, 219)
+        XCTAssertNotEqual(bloque?.ritmoDeCorrerSkm, 345)
+    }
 }

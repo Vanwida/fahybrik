@@ -145,6 +145,32 @@ final class LecturaDeSesionModeloTests: XCTestCase {
         XCTAssertNil(masPesada)
     }
 
+    /// CON SERIES, el volumen suma las de trabajo y deja fuera la aproximación.
+    func testVolumenDeFuerzaSumaSeriesYSaltaAproximacion() {
+        let bloques = [
+            Bloque(
+                modalidad: .fuerza, etiqueta: "Peso muerto",
+                series: [
+                    SerieEjecutada(setIndex: 1, reps: 5, kg: 80, isApproach: true),
+                    SerieEjecutada(setIndex: 2, reps: 5, kg: 100, isApproach: false),
+                    SerieEjecutada(setIndex: 3, reps: 5, kg: 100, isApproach: false),
+                ]
+            ),
+        ]
+        let (volumen, masPesada) = volumenDeFuerza(bloques)
+        XCTAssertEqual(volumen, 1000)
+        XCTAssertEqual(masPesada?.kg, 100)
+        XCTAssertEqual(masPesada?.reps, 5)
+    }
+
+    /// El ritmo medido manda sobre duración/distancia (3:39, no 5:45).
+    func testRitmoMedidoMandaSobreElDerivado() {
+        var bloque = Bloque(modalidad: .correr, etiqueta: "Correr", duracionS: 345, distanciaM: 1000)
+        bloque.ritmoMedidoSkm = 219
+        XCTAssertEqual(bloque.ritmoDeCorrerSkm, 219)
+        XCTAssertEqual(ritmoMedioDeCorrer([bloque]), 219)
+    }
+
     // MARK: - agruparPorRonda
 
     /// SIN RONDA EN NINGÚN BLOQUE (el cable de hoy, ver el decodificador) el

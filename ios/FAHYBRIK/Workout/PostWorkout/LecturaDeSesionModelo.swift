@@ -6,11 +6,10 @@ import Foundation
 // sesión mezcla fuerza, ergómetro, correr y trabajo funcional en cualquier orden, o
 // es puramente una de esas cosas.
 //
-// PORT del doble (card 118, rehecho en la card 124):
-// `web/components/design-twin/screens/lectura-sesion/modelo.ts`. Mismas siete
-// capas, mismas reglas — ver `LecturaDeSesionDesdeDetalle` para dónde el CABLE de
-// hoy no da lo mismo que el doble simulaba (el hierro no trae series por separado,
-// solo un total de reps y una carga máxima por ejercicio).
+// PORT del doble (card 118, rehecho en la card 124; recap de ejecución en 144):
+// `web/components/design-twin/screens/lectura-sesion/modelo.ts`. El desglose
+// lee el recap del servidor cuando viene; si no, los segmentos. Nunca la
+// prescripción.
 //
 // LA REGLA QUE NO SE SALTA (card 124): la distancia de los totales NUNCA mezcla
 // modalidades — ni siquiera dos máquinas de ergómetro distintas, que miden
@@ -50,29 +49,42 @@ struct Bloque: Equatable {
     // Correr / ergómetro:
     var distanciaM: Double? = nil
 
-    // Fuerza — DEGRADADO respecto al doble (ver LecturaDeSesionDesdeDetalle): el
-    // cable de hoy da un total de repeticiones y una carga máxima por ejercicio,
-    // NUNCA la serie a serie (`5×5 a 100 kg`). `repsTotal`/`kg` son ese total y esa
-    // carga; no se inventa un número de series.
+    // Fuerza: si el recap trae series, viven aquí. Si no, el par
+    // `repsTotal`/`kg` es el agregado (reps × carga máx).
     var repsTotal: Int? = nil
     var kg: Double? = nil
+    var series: [SerieEjecutada] = []
 
     // Funcional: reps O metros — nunca los dos, y ninguno si no se contó.
     var reps: Int? = nil
     var metros: Double? = nil
 
-    /// Ritmo por km, DERIVADO — nunca se guarda un `pace` (misma regla que la
-    /// lectura de carrera).
+    /// Ritmo medido del tramo (`avg_pace_*`). Manda sobre el derivado.
+    var ritmoMedidoSkm: Double? = nil
+    var ritmoMedidoS500m: Double? = nil
+
+    /// Ritmo por km: el medido, o duración/distancia de ESTE esfuerzo.
     var ritmoDeCorrerSkm: Double? {
-        guard modalidad == .correr, let d = distanciaM, d > 0, let dur = duracionS else { return nil }
+        guard modalidad == .correr else { return nil }
+        if let medido = ritmoMedidoSkm, medido > 0 { return medido }
+        guard let d = distanciaM, d > 0, let dur = duracionS else { return nil }
         return dur / (d / 1000)
     }
 
-    /// Ritmo por 500 m de un ergómetro — mismo principio, otra unidad de pista.
+    /// Ritmo por 500 m: el medido, o duración/distancia de ESTE esfuerzo.
     var ritmoDeErgometroS500m: Double? {
-        guard case .ergometro = modalidad, let d = distanciaM, d > 0, let dur = duracionS else { return nil }
+        guard case .ergometro = modalidad else { return nil }
+        if let medido = ritmoMedidoS500m, medido > 0 { return medido }
+        guard let d = distanciaM, d > 0, let dur = duracionS else { return nil }
         return dur / (d / 500)
     }
+}
+
+struct SerieEjecutada: Equatable {
+    var setIndex: Int
+    var reps: Int?
+    var kg: Double?
+    var isApproach: Bool
 }
 
 /// Un tramo del desglose: sus bloques y, si TODOS traen ronda, cuál.
@@ -289,11 +301,16 @@ func ritmoMedioDeCorrer(_ bloques: [Bloque]) -> Double? {
     var metros = 0.0
     var segundos = 0.0
     for b in bloques {
-        guard b.modalidad == .correr, let d = b.distanciaM, let dur = b.duracionS else { continue }
-        metros += d
-        segundos += dur
+        guard b.modalidad == .correr, let d = b.distanciaM, d > 0 else { continue }
+        if let ritmo = b.ritmoDeCorrerSkm {
+            metros += d
+            segundos += ritmo * (d / 1000)
+        } else if let dur = b.duracionS {
+            metros += d
+            segundos += dur
+        }
     }
-    guard metros > 0 else { return nil }
+    guard metros > 0, segundos > 0 else { return nil }
     return segundos / (metros / 1000)
 }
 
@@ -336,7 +353,19 @@ func volumenDeFuerza(_ bloques: [Bloque]) -> (volumenKg: Double, serieMasPesada:
     var volumenKg = 0.0
     var masPesada: SerieMasPesada?
     for b in bloques {
-        guard b.modalidad == .fuerza, let kg = b.kg, let reps = b.repsTotal else { continue }
+        guard b.modalidad == .fuerza else { continue }
+        let trabajo = b.series.filter { !$0.isApproach }
+        if !trabajo.isEmpty {
+            for s in trabajo {
+                guard let kg = s.kg, let reps = s.reps else { continue }
+                volumenKg += Double(reps) * kg
+                if masPesada == nil || kg > masPesada!.kg {
+                    masPesada = SerieMasPesada(etiqueta: b.etiqueta, kg: kg, reps: reps)
+                }
+            }
+            continue
+        }
+        guard let kg = b.kg, let reps = b.repsTotal else { continue }
         volumenKg += Double(reps) * kg
         if masPesada == nil || kg > masPesada!.kg {
             masPesada = SerieMasPesada(etiqueta: b.etiqueta, kg: kg, reps: reps)

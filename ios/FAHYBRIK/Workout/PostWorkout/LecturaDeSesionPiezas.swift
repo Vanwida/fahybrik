@@ -239,10 +239,8 @@ private func puntoDeModalidad(_ modalidad: ModalidadDeBloque) -> Color {
 }
 
 /// UNA RONDA DEL DESGLOSE — cabecera solo si el grupo la trae (el agrupado sale
-/// del dato, nunca de una rama de la pantalla). El cable de hoy no manda número
-/// de ronda (ver `LecturaDeSesionDesdeDetalle`), así que `grupo.ronda` es
-/// siempre nil por ahora y esto se pinta como lista plana — queda listo para el
-/// día en que el dato exista.
+/// del dato, nunca de una rama de la pantalla). `round_index` 1+ agrupa;
+/// 0/nil se lee plano.
 struct GrupoDeRonda: View {
     let grupo: GrupoDesglose
     let rondas: Int
@@ -348,7 +346,15 @@ struct FilaDeBloque: View {
                 }
             }
         case .fuerza:
-            if let reps = bloque.repsTotal {
+            if !bloque.series.isEmpty {
+                VStack(alignment: .trailing, spacing: 1) {
+                    ForEach(Array(bloque.series.enumerated()), id: \.offset) { _, serie in
+                        Text(textoDeSerie(serie))
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Theme.Color.foreground)
+                    }
+                }
+            } else if let reps = bloque.repsTotal {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(reps) \(Vocab.reps)")
                         .font(.system(size: 17, weight: .bold, design: .monospaced))
@@ -372,6 +378,15 @@ struct FilaDeBloque: View {
             }
         }
     }
+}
+
+private func textoDeSerie(_ serie: SerieEjecutada) -> String {
+    let reps = serie.reps.map { "\($0)" } ?? "—"
+    if let kg = serie.kg {
+        let base = "\(reps) × \(Formato.kg(kg))"
+        return serie.isApproach ? "\(base) aprox." : base
+    }
+    return serie.isApproach ? "\(reps) aprox." : "\(reps) \(Vocab.reps)"
 }
 
 // MARK: - CAPA 6 · LAS ZONAS — reutiliza `ZoneCoverage`/`ZoneBandStyle` (el
