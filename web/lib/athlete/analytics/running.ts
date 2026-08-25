@@ -19,6 +19,8 @@ import { sql as defaultSql } from '@/lib/db';
 import { SEG_IS_WORK_EFFORT, isWorkEffort } from '@/lib/execution/segment-work';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
+import { BENCH_RUN_THRESHOLD } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { measuredThresholdSeconds, thresholdUnknownNote } from '@fahybrid/shared/domain/methodology';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
   type AnalyticsCard,
@@ -112,15 +114,41 @@ export async function buildRunningSection(
   const cards: AnalyticsCard[] = [];
 
   // ── Zone profile (run) — threshold + the resolved bands ────────────────────
-  const zoneRows = await client<Array<{ threshold_s: string; zones_json: ZoneBand[] }>>`
-    select threshold_s::text as threshold_s, zones_json
-    from athlete_zone_profiles
-    where athlete_id = ${athleteId} and modality = 'run'
-    order by version desc
-    limit 1
-  `;
-  const threshold_s = zoneRows[0] ? num(zoneRows[0].threshold_s) : null;
-  const bands: ZoneBand[] = Array.isArray(zoneRows[0]?.zones_json) ? zoneRows[0]!.zones_json : [];
+  // El número es el del TEST, no el estimado del alta (5 km + 10 s). Misma
+  // puerta que `loadPaceThreshold` / card 130: `measuredThresholdSeconds`.
+  const [zoneRows, thresholdMarkRows] = await Promise.all([
+    client<
+      Array<{ threshold_s: string; zones_json: ZoneBand[]; source: string | null; needs_review: boolean | null }>
+    >`
+      select threshold_s::text as threshold_s, zones_json, source, needs_review
+      from athlete_zone_profiles
+      where athlete_id = ${athleteId} and modality = 'run'
+      order by version desc
+      limit 1
+    `,
+    client<Array<{ value: string }>>`
+      select value::text as value
+      from athlete_benchmarks
+      where athlete_id = ${athleteId} and exercise_slug = ${BENCH_RUN_THRESHOLD}
+      order by recorded_at desc
+      limit 1
+    `,
+  ]);
+  const zoneRow = zoneRows[0];
+  const markS = thresholdMarkRows[0] != null ? num(thresholdMarkRows[0].value) : null;
+  const threshold_s = measuredThresholdSeconds({
+    profile:
+      zoneRow != null
+        ? {
+            threshold_s: num(zoneRow.threshold_s),
+            source: zoneRow.source,
+            needs_review: zoneRow.needs_review,
+          }
+        : null,
+    thresholdMarkS: markS != null && markS > 0 ? markS : null,
+  });
+  const bands: ZoneBand[] =
+    threshold_s != null && Array.isArray(zoneRow?.zones_json) ? zoneRow!.zones_json : [];
 
   // ── run_5k benchmarks (asc) — VDOT input + 5k trend + best 5k ──────────────
   const benchRows = await client<Array<{ value: string; recorded_on: string; id: string }>>`
@@ -233,7 +261,7 @@ export async function buildRunningSection(
       id: 'threshold',
       title_es: 'Ritmo umbral · tu motor',
       availability: threshold_s ? 'real' : 'needs_logging',
-      availability_note: threshold_s ? null : 'Haz un test de carrera para fijar tu umbral.',
+      availability_note: threshold_s ? null : thresholdUnknownNote(),
       primary: {
         value: threshold_s ? paceStr(threshold_s) : null,
         unit: '/km · Z4',

@@ -70,7 +70,12 @@ import {
   type SameHrObservation,
   type SameHrPaceSeries,
 } from '@fahybrid/shared/domain/running/same-hr-pace';
-import { HR_ANCHOR_CONFIDENCE } from '@fahybrid/shared/domain/methodology';
+import {
+  HR_ANCHOR_CONFIDENCE,
+  isMeasuredZoneProfile,
+  measuredThresholdSeconds,
+} from '@fahybrid/shared/domain/methodology';
+import { BENCH_RUN_THRESHOLD } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { selectRunMark, type MarkRow } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
@@ -793,12 +798,12 @@ export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<
  *
  * Es OTRA ancla, no la de pulso: vive en `athlete_zone_profiles` (modalidad
  * run), en segundos por kilómetro, y un atleta puede tener ésta y no la de
- * pulso o al revés. Se sirve con `origen` y `sin_revisar` para que la pantalla
- * pueda decir que unas zonas derivadas en el alta son reales pero sin confirmar.
+ * pulso o al revés. `origen` solo viaja si el ritmo nació de un test. Un
+ * perfil del alta no se enseña como umbral.
  *
- * El VDOT sale de `selectRunMark` — el MISMO selector del que prescribe el
- * plan, no del último 5 km que haya en la tabla. Si esta pantalla sacara su
- * propio VDOT, el atleta vería un nivel aquí y su plan usaría otro.
+ * El ritmo (`ritmo_s_km`) solo viaja si nació de un TEST o de la marca
+ * `run_threshold_*`. Un perfil del alta (5 km + 10 s) no cuenta: null, y
+ * quien pinta dice «no lo sé». El VDOT sigue saliendo de `selectRunMark`.
  *
  * EXPORTADA para `/api/athlete/running/capacidad` (obra carrera-hub-ios,
  * 13-ago-2026): es el mismo perfil, no una segunda lectura. `hace_dias` es
@@ -811,7 +816,7 @@ export async function loadPaceThreshold(
   client: Sql,
   athlete_id: number,
 ): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[]; hace_dias: number | null }> {
-  const [perfil, marcas] = await Promise.all([
+  const [perfil, marcas, thresholdMark] = await Promise.all([
     client<
       Array<{
         threshold_s: string | null;
@@ -829,28 +834,60 @@ export async function loadPaceThreshold(
       limit 1
     `,
     loadRunMarkRows(client, athlete_id),
+    client<Array<{ value: string; source: string | null }>>`
+      select value::text as value, source
+      from athlete_benchmarks
+      where athlete_id = ${athlete_id} and exercise_slug = ${BENCH_RUN_THRESHOLD}
+      order by recorded_at desc
+      limit 1
+    `,
   ]);
 
   const runMark = selectRunMark(marcas);
 
   const fila = perfil[0];
   const zonas: ZonaRitmo[] = Array.isArray(fila?.zones_json) ? (fila!.zones_json as ZonaRitmo[]) : [];
-  const ritmo_s_km = fila?.threshold_s != null ? Number(fila.threshold_s) : null;
+  const markS = thresholdMark[0] != null ? Number(thresholdMark[0].value) : null;
+  const profileForCalc =
+    fila?.threshold_s != null
+      ? {
+          threshold_s: Number(fila.threshold_s),
+          source: fila.source,
+          needs_review: fila.needs_review,
+        }
+      : null;
+  const ritmo_s_km = measuredThresholdSeconds({
+    profile: profileForCalc,
+    thresholdMarkS: markS != null && Number.isFinite(markS) ? markS : null,
+  });
+  const usedProfile =
+    ritmo_s_km != null &&
+    profileForCalc != null &&
+    isMeasuredZoneProfile(profileForCalc.source, profileForCalc.needs_review);
+  const markSource = thresholdMark[0]?.source ?? null;
+  const origen = usedProfile
+    ? fila?.source ?? null
+    : markSource === 'coach_test' || markSource === 'athlete_test'
+      ? markSource
+      : null;
 
-  // Ni perfil ni marca: no hay umbral que enseñar. Null, no un objeto de nulos
+  // Sin número de verdad no hay umbral que enseñar. Null, no un objeto de nulos
   // — la pantalla tiene que poder distinguir «no tiene» de «tiene y está vacío».
-  if (fila == null && runMark == null) return { umbral: null, zonas: [], hace_dias: null };
+  if (ritmo_s_km == null && runMark == null) return { umbral: null, zonas: [], hace_dias: null };
 
   return {
-    umbral: {
-      ritmo_s_km: ritmo_s_km != null && Number.isFinite(ritmo_s_km) ? ritmo_s_km : null,
-      vdot: runMark ? runMark.vdot : null,
-      vdot_desde: runMark ? runMark.spec.label : null,
-      origen: fila?.source ?? null,
-      sin_revisar: fila?.needs_review === true,
-    },
-    zonas,
-    hace_dias: fila?.hace_dias ?? null,
+    umbral:
+      ritmo_s_km != null || runMark != null
+        ? {
+            ritmo_s_km,
+            vdot: runMark ? runMark.vdot : null,
+            vdot_desde: runMark ? runMark.spec.label : null,
+            origen,
+            sin_revisar: false,
+          }
+        : null,
+    zonas: usedProfile ? zonas : [],
+    hace_dias: usedProfile ? (fila?.hace_dias ?? null) : null,
   };
 }
 

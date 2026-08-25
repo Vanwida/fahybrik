@@ -143,3 +143,48 @@ export function deriveZoneProfilesFromBenchmarks(
   }
   return out;
 }
+
+// ── El número que se PUEDE servir (card 104) ─────────────────────────────────
+//
+// `deriveModalityThresholds` sigue pudiendo ESTIMAR un umbral desde un 5 km
+// (el alta necesita bandas para pintar). Eso no es el número del atleta.
+// Quien enseña o manda un ritmo de umbral (analíticas, capacidad, card 130)
+// pasa por aquí: perfil de un TEST, o la marca `run_threshold_*` ya guardada.
+// Un perfil `onboarding_auto` y un 5 km + 10 s/km no cuentan.
+
+/** Un perfil nació de un test (coach o atleta) y nadie lo ha dejado en revisión. */
+export function isMeasuredZoneProfile(
+  source: string | null | undefined,
+  needsReview?: boolean | null,
+): boolean {
+  return (source === 'coach_test' || source === 'athlete_test') && needsReview !== true;
+}
+
+/**
+ * El umbral que el resto del producto ya usa: el snapshot medido del plan, y
+ * si ese no existe, la marca de umbral ya guardada para ESE atleta. No inventa.
+ * No es un segundo calculador: elige entre las dos fuentes que ya existen.
+ */
+export function measuredThresholdSeconds(args: {
+  profile: { threshold_s: number; source: string | null; needs_review?: boolean | null } | null;
+  thresholdMarkS: number | null;
+}): number | null {
+  const profile = args.profile;
+  if (
+    profile &&
+    isMeasuredZoneProfile(profile.source, profile.needs_review) &&
+    Number.isFinite(profile.threshold_s) &&
+    profile.threshold_s > 0
+  ) {
+    return profile.threshold_s;
+  }
+  const mark = args.thresholdMarkS;
+  if (mark != null && Number.isFinite(mark) && mark > 0) return mark;
+  return null;
+}
+
+/** Vacío honesto: no se sabe, y se señala ESE test. Sin raya larga. */
+export function thresholdUnknownNote(testLabel?: string | null): string {
+  const label = testLabel?.trim();
+  return label ? `no lo sé. Falta ${label}.` : 'no lo sé. Falta el test de umbral de carrera.';
+}

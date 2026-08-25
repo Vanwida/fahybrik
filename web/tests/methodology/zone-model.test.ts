@@ -20,6 +20,9 @@ import {
   resolveTarget,
   athleteBenchmarksFromSlugRows,
   deriveModalityThresholds,
+  isMeasuredZoneProfile,
+  measuredThresholdSeconds,
+  thresholdUnknownNote,
   type ResolvedZone,
 } from '@fahybrid/shared/domain/methodology';
 
@@ -207,5 +210,52 @@ describe('pace ladder — a measured threshold outranks a time trial', () => {
     expect(athleteBenchmarksFromSlugRows([{ exercise_slug: 'lthr_bpm', value: 168 }]).lthr_bpm).toBe(
       168,
     );
+  });
+});
+
+// Card 104 — el número que se sirve no es el estimado del 5 km.
+describe('umbral servido — un número de verdad o no lo sé', () => {
+  test('un test del coach manda: 248 s/km es 248, no el 5 km + 10 s', () => {
+    expect(
+      measuredThresholdSeconds({
+        profile: { threshold_s: 248, source: 'coach_test', needs_review: false },
+        thresholdMarkS: 248,
+      }),
+    ).toBe(248);
+  });
+
+  test('sin test, un perfil del alta no inventa umbral', () => {
+    expect(
+      measuredThresholdSeconds({
+        profile: { threshold_s: 241, source: 'onboarding_auto', needs_review: true },
+        thresholdMarkS: null,
+      }),
+    ).toBeNull();
+  });
+
+  test('marca de umbral guardada y perfil del alta: gana la marca', () => {
+    expect(
+      measuredThresholdSeconds({
+        profile: { threshold_s: 241, source: 'onboarding_auto', needs_review: true },
+        thresholdMarkS: 248,
+      }),
+    ).toBe(248);
+  });
+
+  test('sin perfil y sin marca: vacío honesto', () => {
+    expect(measuredThresholdSeconds({ profile: null, thresholdMarkS: null })).toBeNull();
+  });
+
+  test('el vacío señala ESE test, sin raya larga', () => {
+    expect(thresholdUnknownNote()).toBe('no lo sé. Falta el test de umbral de carrera.');
+    expect(thresholdUnknownNote('Test 5K de zonas')).toBe('no lo sé. Falta Test 5K de zonas.');
+    expect(thresholdUnknownNote()).not.toMatch(/—/);
+  });
+
+  test('onboarding_auto no es un test medido, ni aunque lo confirmen', () => {
+    expect(isMeasuredZoneProfile('onboarding_auto', false)).toBe(false);
+    expect(isMeasuredZoneProfile('coach_test', false)).toBe(true);
+    expect(isMeasuredZoneProfile('coach_test', true)).toBe(false);
+    expect(isMeasuredZoneProfile('athlete_test', false)).toBe(true);
   });
 });

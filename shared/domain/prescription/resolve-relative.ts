@@ -24,6 +24,7 @@ import type { HyroxStationLoad, HyroxStationSlug } from '../hyrox/stations';
 import { hyroxStationLoad } from '../hyrox/stations';
 import type { AthleteBenchmarks } from '../methodology/zones';
 import { deriveModalityThresholds, resolveTarget } from '../methodology/zones';
+import { isMeasuredZoneProfile } from '../methodology/zone-onboarding';
 import type { RaceDivision, RaceGender } from '../../schema/races';
 import type { AthleteZoneProfile } from '../../schema/methodology-system';
 import {
@@ -148,11 +149,13 @@ export function anchorsFromBenchmarks(
 
   const thresholdPace: AthleteAnchors['thresholdPace'] = {};
   for (const th of deriveModalityThresholds(benchmarks)) {
+    // Un 5 km + offset no es un umbral. Solo viaja la marca medida.
+    if (th.estimated) continue;
     thresholdPace[th.modality] = {
       seconds: Math.round(th.threshold_s),
       unit: th.pace_unit === 'per_km' ? 'per_km' : 'per_500m',
       source: th.source,
-      estimated: th.estimated,
+      estimated: false,
     };
   }
 
@@ -192,17 +195,13 @@ export function anchorsFromZoneProfiles(
 ): AthleteAnchors {
   const thresholdPace: AthleteAnchors['thresholdPace'] = {};
   for (const p of profiles) {
+    // El alta deriva bandas de un 5 km. Eso no se manda como ritmo de umbral.
+    if (!isMeasuredZoneProfile(p.source, p.needs_review)) continue;
     thresholdPace[p.modality] = {
       seconds: p.threshold_s,
       unit: p.pace_unit,
-      // Auditoría: el slug del test del coach cuando lo hay, si no la
-      // procedencia general del perfil ('coach_test' | 'onboarding_auto' |
-      // 'athlete_test').
       source: p.source_test_slug ?? p.source,
-      // `needs_review` es el mismo «sin confirmar» que ya usa
-      // `resolved_intensity` para este perfil — un umbral auto-derivado
-      // pendiente de que el coach lo valide se trata como estimado.
-      estimated: p.needs_review,
+      estimated: false,
     };
   }
 

@@ -34,6 +34,7 @@ import { haceCuanto, ritmoKm } from '../../kit-composicion/formato';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { Apagado, CurvaEsfuerzos, Marca, Plazo } from '../analiticas-correr/graficos';
 import { Bloque, Boton, Cifra } from '../analiticas-correr/piezas';
+import { thresholdUnknownNote } from '@fahybrid/shared/domain/methodology';
 import { CTA_TEST_ZONAS, ESCENAS, type CapacidadAtleta } from './datos';
 import { FilaPredictor, ListaZonas, Nota, TarjetaRecord } from './piezas';
 
@@ -65,7 +66,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'sin-ancla',
     titulo: '② Sin ancla · el único naranja',
     descripcion:
-      'El umbral es el que puso el alta, sin confirmar — «Estimado — sin test», con sus zonas igual de estimadas. Sin una sola marca registrada: ni velocidad crítica (le faltan los tres esfuerzos, y se ve el plazo) ni predictor («con un test de umbral te lo digo»). El botón «Hacer el test de zonas» es el único color de marca en toda la pantalla.',
+      'Sin test de umbral no hay número: «no lo sé» y el botón lleva a ESE test. Sin marcas: ni velocidad crítica (le faltan los tres esfuerzos, y se ve el plazo) ni predictor. El botón «Hacer el test de zonas» es el único color de marca.',
   },
   {
     id: 'recien-batido',
@@ -116,12 +117,12 @@ function BloqueUmbral({ c, onTapZona }: { c: CapacidadAtleta; onTapZona: (numero
   if (c.umbral?.ritmo_s_km == null) {
     return (
       <Bloque etiqueta="Umbral">
-        <Apagado alto={96} />
+        <Nota>{thresholdUnknownNote()}</Nota>
       </Bloque>
     );
   }
   const procedencia = c.umbral.sin_revisar
-    ? 'Estimado — sin test'
+    ? 'Estimado. Sin test'
     : `Del test · ${c.procedenciaHaceDias != null ? haceCuanto(c.procedenciaHaceDias) : 'fecha no registrada'}`;
 
   return (

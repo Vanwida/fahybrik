@@ -123,4 +123,37 @@ describeWithDb('buildRunningCapacidad (real DB)', () => {
     expect(result.predictor![0]!.distancia_m).toBe(5000);
     expect(result.predictor![0]!.segundos).toBeGreaterThan(0);
   });
+
+  test('un perfil del alta no inventa umbral: vacío honesto', async () => {
+    const fx = await athlete();
+    await sql`
+      insert into athlete_zone_profiles (
+        athlete_id, modality, threshold_s, pace_unit, zones_json, version, source, needs_review
+      ) values (
+        ${fx.athleteId}, 'run', 274, 'per_km', ${sql.json(ZONES_6)}, 1, 'onboarding_auto', true
+      )
+    `;
+    await sql`
+      insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, source)
+      values (${fx.athleteId}, 'run_5k', 1320, 'seconds', 'onboarding')
+    `;
+    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId, client: sql });
+    expect(result.umbral).toBeNull();
+    expect(result.zonas).toEqual([]);
+  });
+
+  test('marca de umbral guardada, sin perfil: el número de esa marca', async () => {
+    const fx = await athlete();
+    await sql`
+      insert into athlete_benchmarks (athlete_id, exercise_slug, value, unit, source)
+      values (${fx.athleteId}, 'run_threshold_s_per_km', 248, 'seconds', 'athlete_test')
+    `;
+    const result = await buildRunningCapacidad({ athlete_id: fx.athleteId, client: sql });
+    expect(result.umbral).toEqual({
+      ritmo_s_km: 248,
+      origen_label: 'Test propio',
+      hace_dias: null,
+      sin_revisar: false,
+    });
+  });
 });

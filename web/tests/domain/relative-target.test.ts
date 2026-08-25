@@ -15,12 +15,14 @@ import { describe, expect, test } from 'vitest';
 import { prescriptionSchema, targetSchema, type Target } from '@fahybrid/shared/domain/prescription/types';
 import {
   anchorsFromBenchmarks,
+  anchorsFromZoneProfiles,
   relativePhrase,
   resolvePrescriptionReferences,
   resolveRelativeTarget,
   type AthleteAnchors,
   type RelativeTarget,
 } from '@fahybrid/shared/domain/prescription/resolve-relative';
+import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { HyroxStationLoad, HyroxStationSlug } from '@fahybrid/shared/domain/hyrox/stations';
 import type { AthleteBenchmarks } from '@fahybrid/shared/domain/methodology/zones';
 
@@ -212,9 +214,26 @@ describe('resolver contra las marcas del atleta', () => {
     );
     expect(r?.target).toEqual({ kind: 'pace', unit: 'per_500m', value_s: 115 });
   });
+
+  test('el umbral de carrera sale de su marca medida, no de un 5 km + 10 s', () => {
+    const r = resolveRelativeTarget(
+      rel({ kind: 'relative', ref: { of: 'threshold_pace', modality: 'run' } }),
+      ctx({ benchmarks: { time_threshold_pace_s_per_km: 248 } }),
+    );
+    expect(r?.target).toEqual({ kind: 'pace', unit: 'per_km', value_s: 248 });
+    expect(r?.estimated).toBe(false);
+  });
 });
 
 describe('cuando falta la marca, la respuesta es la verdad y no un cero', () => {
+  test('un 5 km solo no inventa umbral de carrera', () => {
+    const r = resolveRelativeTarget(
+      rel({ kind: 'relative', ref: { of: 'threshold_pace', modality: 'run' } }),
+      ctx({ benchmarks: { time_5k_seconds: 22 * 60 } }),
+    );
+    expect(r).toBeNull();
+  });
+
   test('sin ningún test, «a ritmo HYROX» no da número', () => {
     const r = resolveRelativeTarget(
       rel({ kind: 'relative', ref: { of: 'race_pace', modality: 'run' } }),
@@ -265,6 +284,53 @@ describe('cuando falta la marca, la respuesta es la verdad y no un cero', () => 
   test('el ritmo de carrera de remo y ski todavía no tiene ancla: se puede decir, aún no traducir', () => {
     expect(
       resolveRelativeTarget(rel({ kind: 'relative', ref: { of: 'race_pace', modality: 'row' } }), ctx()),
+    ).toBeNull();
+  });
+});
+
+const ZONAS_6: AthleteZoneProfile['zones_json'] = [
+  { code: 'Z1', label: 'Suave', color: '#8ecae6', role: 'recovery', sort_order: 1, fast_s: 270, slow_s: null },
+  { code: 'Z2', label: 'Aerobico', color: '#219ebc', role: 'aerobic_base', sort_order: 2, fast_s: 260, slow_s: 269 },
+  { code: 'Z3', label: 'Tempo', color: '#023047', role: 'aerobic_threshold', sort_order: 3, fast_s: 250, slow_s: 259 },
+  { code: 'Z4', label: 'Umbral', color: '#ffb703', role: 'threshold', sort_order: 4, fast_s: 240, slow_s: 249 },
+  { code: 'Z5', label: 'VO2', color: '#fb8500', role: 'vo2max', sort_order: 5, fast_s: 235, slow_s: 239 },
+  { code: 'Z6', label: 'Sprint', color: '#d62828', role: 'sprint', sort_order: 6, fast_s: 230, slow_s: 234 },
+];
+
+function perfilRun(over: Partial<AthleteZoneProfile> & Pick<AthleteZoneProfile, 'threshold_s' | 'source'>): AthleteZoneProfile {
+  return {
+    id: 1,
+    athlete_id: 1,
+    modality: 'run',
+    pace_unit: 'per_km',
+    source_test_slug: over.source === 'coach_test' ? 'run_30min' : null,
+    source_benchmark_id: null,
+    needs_review: over.source === 'onboarding_auto',
+    zones_json: ZONAS_6,
+    version: 1,
+    recorded_at: '2026-08-01T00:00:00.000Z',
+    created_at: '2026-08-01T00:00:00.000Z',
+    ...over,
+  };
+}
+
+describe('el snapshot de zonas solo sirve umbral si nació de un test', () => {
+  test('un perfil del coach con 240 s/km viaja en el campo de siempre', () => {
+    const anchors = anchorsFromZoneProfiles([perfilRun({ threshold_s: 240, source: 'coach_test' })]);
+    const r = resolveRelativeTarget(
+      rel({ kind: 'relative', ref: { of: 'threshold_pace', modality: 'run' } }),
+      anchors,
+    );
+    expect(r?.target).toEqual({ kind: 'pace', unit: 'per_km', value_s: 240 });
+    expect(r?.estimated).toBe(false);
+  });
+
+  test('un perfil del alta no inventa umbral aunque tenga threshold_s', () => {
+    const anchors = anchorsFromZoneProfiles([
+      perfilRun({ threshold_s: 274, source: 'onboarding_auto', needs_review: true }),
+    ]);
+    expect(
+      resolveRelativeTarget(rel({ kind: 'relative', ref: { of: 'threshold_pace', modality: 'run' } }), anchors),
     ).toBeNull();
   });
 });
