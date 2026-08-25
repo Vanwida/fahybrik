@@ -15,9 +15,9 @@ El peek ya no deriva la curva; solo pregunta si hay archivo.
 se ve el entreno: VO2max serie a serie, sled, lunges. Completado /
 técnica / captura van abajo. La pegatina recorta esos parciales
 (esquina, sin marca, sin día, sin Meta). Números = `projectRecap`
-(144) → `projectSeriesSticker`. Compile Watch/Core: `roundIndex` y
-`sets` de `SegmentActualDTO` ya no son `let` con default +
-asignación en `init(from:)`.
+(144) → `projectSeriesSticker`. Compile: `roundIndex`/`sets` de `SegmentActualDTO` ya no son
+`let` con default + `init`. `?.first(where:)` sobre
+`resolvedReferences` se leía como la propiedad `first`.
 https://app.clickup.com/t/86ak4x2cz
 
 **144 · EL RECAP SE LLENA CON LO EJECUTADO (en trunk).** El
