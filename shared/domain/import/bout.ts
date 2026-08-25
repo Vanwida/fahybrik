@@ -33,7 +33,13 @@ import {
   parseTimeCapTarget,
   parseWattsTarget,
 } from './target';
-import { parseCaloriesInterval, parseDistanceIntervalRange, parseIntervalWordClock } from './measure';
+import {
+  parseCaloriesInterval,
+  parseDistanceIntervalRange,
+  parseDurationRange,
+  parseIntervalWordClock,
+  parseLeadingClockWork,
+} from './measure';
 import {
   cardioModalities,
   type DoseFirstLabel,
@@ -80,7 +86,9 @@ export function parseBout(seg: string): Parsed | null {
     paren || interval || distIntervalRange || distInterval || wordInterval
       ? null
       : parseCaloriesInterval(seg);
-  const dur = parseDuration(seg);
+  const durRange = parseDurationRange(seg);
+  const dur = durRange ? undefined : parseDuration(seg);
+  const clockWork = durRange || dur !== undefined ? null : parseLeadingClockWork(seg);
   const dist = parseDistanceMeters(seg) ?? parseMilesMeters(seg);
   const cap = parsePaceCap(seg);
   const rest = parseRest(seg);
@@ -140,7 +148,8 @@ export function parseBout(seg: string): Parsed | null {
     watts !== null ||
     caloriesGoal !== null ||
     timeCap !== null ||
-    (relative.status !== 'none' && (dist !== undefined || dur !== undefined));
+    clockWork !== null ||
+    (relative.status !== 'none' && (dist !== undefined || dur !== undefined || durRange !== undefined));
   if (!strongSignal) {
     if (dur === undefined || rpe === null) return null;
     if (
@@ -227,10 +236,22 @@ export function parseBout(seg: string): Parsed | null {
 
   // STEADY / WARM-UP / COOL-DOWN: one continuous bout (duration and/or distance).
   const p: Prescription = { scheme: structural ?? 'steady' };
-  if (dur !== undefined) p.total_s = dur;
+  if (durRange) {
+    p.sets = [
+      { measure: { kind: 'duration', seconds: durRange.seconds, max: durRange.max } },
+    ];
+  } else if (dur !== undefined) {
+    p.total_s = dur;
+  } else if (clockWork) {
+    p.total_s = clockWork.seconds;
+  }
   if (dist !== undefined) p.sets = [{ measure: { kind: 'distance', meters: dist } }];
   const target = zone ?? paceTarget ?? rpe?.target ?? hrBpm ?? watts ?? caloriesGoal ?? timeCap;
   if (target) p.target = target;
+  if (zone?.kind === 'hr_zone' && hrBpm) {
+    p.target = hrBpm;
+    if (zone.value !== undefined) p.hr_zone = zone.value;
+  }
   if (rpe && target !== rpe.target) noteBits.push(rpe.text); // secondary RPE, verbatim
   if (cap) p.pace_cap = cap;
   if (modality) p.modality = modality;
@@ -238,6 +259,9 @@ export function parseBout(seg: string): Parsed | null {
   // ("10' caminando" — the walk IS the work); anything else is a real rest.
   if (rest !== undefined && rest !== p.total_s) p.rest_s = rest;
   if (noteBits.length) p.note = noteBits.join(' · ');
+  if (/(?:por\s+lado|\/\s*lado|per\s+side|cada\s+lado)/i.test(seg)) {
+    p.laterality = 'per_side';
+  }
 
   // Must carry SOME concrete dose, else it is just a header we mis-read.
   if (p.total_s === undefined && !p.sets && !p.target && !p.pace_cap) return null;

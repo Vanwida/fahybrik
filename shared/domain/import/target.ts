@@ -145,6 +145,8 @@ export function parseMilesMeters(raw: string): number | undefined {
 // dose.ts's own parseDuration doc comment warns about.
 
 export function parseHrBpmTarget(raw: string): Target | null {
+  const cap = raw.match(/\b(?:maximo|máximo|max|tope)\s*(\d{2,3})\s*(?:ppm|bpm)\b/i);
+  if (cap) return { kind: 'hr_bpm', max: parseInt(cap[1]!, 10) };
   const range = raw.match(/(?<!\d)(\d{2,3})\s*[-–—]\s*(\d{2,3})\s*(?:ppm|bpm)\b/i);
   if (range) {
     const lo = parseInt(range[1]!, 10);

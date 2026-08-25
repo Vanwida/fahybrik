@@ -10,6 +10,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Gramática contra el corpus de 12 semanas (card 128 · hueco 5)
+
+**Qué fallaba:** el trinquete del importador se había quedado en 62 %
+(768 / 1.238). Las formas que más caían eran honestas: el coach las
+escribió y el modelo ya tenía sitio, pero la gramática no las leía.
+
+**Decidido:**
+
+- Una línea de trabajo es la medida escrita (reps | metros | reloj) ×
+  el objetivo escrito o ninguno. Un número suelto junto a un movimiento
+  es esa medida en 1 serie. No se inventa el recuento de series.
+- «N bloques de M series de:» entra. M = series, N = rondas. El corte
+  es el de la card 141. «N bloques de M rondas» + Bloque A/B/C no.
+- 90-90 en el nombre no es un esquema 10/8/6. «10 90-90» son 10 reps
+  del movimiento, no 2 series de 90.
+- Un rango de reloj (`45-90'`) guarda suelo y techo. Un tope de pulso
+  (`máximo 142 ppm`) aterriza en `hr_bpm.max`. La coma de `12,5m` es
+  decimal, no una segunda estación.
+- Si la estructura no está clara, la línea va a revisión con el texto
+  intacto. No se inventan kilos, ni un segundo ámbito de descanso, ni
+  el fin de un grupo A/B/C.
+
+**NO hacer:** no cerrar la 128. no tocar 132 / Watch / feat/publish.
+no inventar dosis. no bajar el trinquete.
+
+**Dónde vive:** `shared/domain/import/{command,command-work,bout,measure,strength,notation,rest-scope,target}.ts`.
+Banco: `web/tests/import/corpus-macrociclo.test.ts` (71 %, 884 de 1.238).
+Formas literales: `web/tests/import/grammar-corpus-shapes.test.ts`.
+
+---
+
 ## 2026-08-25 · Catálogo y alias del ciclo (card 128 · hueco 4)
 
 **Qué fallaba:** el importador no hablaba con `exercise_aliases`.
@@ -166,7 +197,8 @@ Dentro de UN payload, el tramo más largo sigue eligiendo `totals_source`. Esa r
 - Una línea que ES solo la dosis (las tres formas de arriba, y «N series de N:» que es la misma que la de reps) no es un ejercicio. Se lee, se guarda lo que prescribe, y se reparte a los hijos hasta la siguiente cabecera, un título de bloque, un calentamiento o vuelta de sección, o el final de la celda.
 - El hijo conserva su propia medida si la trae (reps, metros, tiempo, objetivo). La cabecera solo rellena el hueco. «4 series:» más «6 Dominadas» son 4 series de 6. «4 series:» más un nombre desnudo son 4 series sin reps.
 - No se inventa lo que la cabecera no escribió. Rellenar reps donde solo hay series es mentir.
-- Si el hijo ya trae su propio recuento («4 x 40'' on / 20'' off»), o la cabecera es anidada («3 bloques de 8 series de:»), la línea va a revisión con el texto intacto. Lo anidado es otra card.
+- Si el hijo ya trae su propio recuento («4 x 40'' on / 20'' off»), la línea va a revisión con el texto intacto.
+- Addendum 2026-08-25 (card 128 · hueco 5): «N bloques de M series de:» entra. Los hijos heredan M series; N va a `rounds`. El corte de grupo es el de esta pieza. «N bloques de M rondas» + Bloque A/B/C sigue en revisión: el fin de grupo es opaco.
 - Un descanso que es solo descanso se adhiere al grupo. Una línea de trabajo que menciona «rest» no se traga como descanso.
 
 **NO hacer:** no adivinar dónde acaba el grupo más allá de otra cabecera, un título o el final de la celda. No descomponer cabeceras anidadas en esta pieza. No fabricar kilos de competición ni un ritmo HYROX.

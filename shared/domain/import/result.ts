@@ -85,7 +85,7 @@ export interface Parsed {
 // nothing tells the coach to look. A rounds/rep RANGE has no home in the model
 // yet, so the honest answer is `review` with the text intact.
 const DOSE_WORD_ONLY_RE =
-  /^(?:rounds?|rondas?|vueltas?|series?|sets?|reps?|repeticiones?|veces|ejercicios?|exercises?|min(?:utos?)?|minutes?|seg(?:undos?)?|sec(?:onds?)?)$/;
+  /^(?:rounds?|rondas?|vueltas?|series?|sets?|reps?|repeticiones?|veces|ejercicios?|exercises?|more|min(?:utos?)?|minutes?|seg(?:undos?)?|sec(?:onds?)?)$/;
 
 // ── Residue guard (arreglo #4) ─────────────────────────────────────────────
 // FAITHFUL OR REVIEW only holds when a PARTIAL match is caught too: a line

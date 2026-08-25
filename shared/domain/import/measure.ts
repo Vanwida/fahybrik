@@ -14,7 +14,7 @@
 
 import { type Measure, type Prescription, type PrescriptionSet } from '../prescription/types';
 import { parseClockSeconds, parseImplementLoad, parseKg } from './dose';
-import { doseFirstLabel, extractLabel } from './label';
+import { doseFirstLabel, extractLabel, modalityFrom } from './label';
 import { type Parsed } from './result';
 
 // ── Interval work-window, any clock vocabulary ───────────────────────────────
@@ -181,4 +181,60 @@ export function parseBareTimedOrCalorieSets(seg: string): Parsed | null {
   }));
   const p: Prescription = { scheme: 'sets', sets };
   return { token: extractLabel(seg) || doseFirstLabel(seg).token, prescription: p };
+}
+
+/** `45-90'` → suelo y techo en segundos. El coach escribió el rango; no se aplana. */
+export function parseDurationRange(
+  raw: string,
+): { seconds: number; max: number } | undefined {
+  const m = raw.match(
+    /(?<!\d)(\d+)\s*[-–]\s*(\d+)\s*('(?!')|min(?:utos?)?\b|h\b|hr\b|hrs?\b)/i,
+  );
+  if (!m) return undefined;
+  const lo = Number(m[1]);
+  const hi = Number(m[2]);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo <= 0 || hi < lo) {
+    return undefined;
+  }
+  const unit = m[3]!.toLowerCase();
+  const factor = unit.startsWith('h') ? 3600 : 60;
+  return { seconds: lo * factor, max: hi * factor };
+}
+
+/** `25m Sandbag Lunges` / `1km Easy Run` — un set, la distancia abre la línea. */
+export function parseLeadingDistanceSet(seg: string): Parsed | null {
+  if (/\d+\s*x/i.test(seg)) return null;
+  const m = seg.match(/^(\d+(?:[.,]\d+)?)\s*(m|km)\s+(.+)$/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]!.replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const name = m[3]!.trim();
+  if (!name || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(name)) return null;
+  const meters = m[2]!.toLowerCase() === 'km' ? Math.round(n * 1000) : n;
+  const p: Prescription = {
+    scheme: 'sets',
+    sets: [{ measure: { kind: 'distance', meters } }],
+  };
+  const modality = modalityFrom(name);
+  if (modality) p.modality = modality;
+  return { token: extractLabel(name) || name, prescription: p };
+}
+
+/** `30'' andando` — el reloj en segundos es el trabajo, no un descanso. */
+export function parseLeadingClockWork(
+  raw: string,
+): { seconds: number; name: string } | null {
+  const m = raw.match(/^(\d+)\s*''\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ].+)$/);
+  if (!m) return null;
+  const name = m[2]!.trim();
+  if (
+    /\b(descanso|rest|recovery|parado|entre\s+(series|rondas|bloques|estaciones))\b/i.test(
+      name,
+    )
+  ) {
+    return null;
+  }
+  const seconds = parseInt(m[1]!, 10);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return { seconds, name };
 }

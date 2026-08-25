@@ -86,6 +86,11 @@ function forma(texto: string): string {
 // Sólo sube. Cada vez que suba, cámbialo aquí Y di por qué en el comentario.
 //
 // Historial:
+//   2026-08-25 · 71 % (884 de 1.238) — gramática contra el corpus (card 128,
+//     hueco 5). Entran «N bloques de M series de:», 90-90 como nombre, dosis
+//     suelta (1×N), rango de reloj, tope de pulso, coma decimal en metros y
+//     listas «N series de: a · b». «N bloques de M rondas» + A/B/C, EMOM
+//     «Min N», carga media y «5' entre bloques» siguen en revisión.
 //   2026-08-25 · 62 % (768 de 1.238) — prioridad y sustitución del día (card
 //     128, hueco 3). Campos en el DÍA, no en la línea. La gramática de
 //     trabajo no cambia: el trinquete no se mueve.
@@ -109,7 +114,7 @@ function forma(texto: string): string {
 //     DOMINANTE de un plan escrito a mano; «a ritmo HYROX» (30); y un montón de
 //     «Nm <movimiento>» cuyo movimiento la gramática no reconoce como tal y por
 //     eso ni siquiera le engancha la distancia.
-const SUELO_TIPADO_PCT = 62;
+const SUELO_TIPADO_PCT = 71;
 
 describe('el macrociclo real contra la gramática del importador', () => {
   const lineas = lineasDelCorpus();
