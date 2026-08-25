@@ -3,36 +3,6 @@ import XCTest
 
 final class LandscapeTramoTests: XCTestCase {
 
-    func testLiveWorkOwnsLandscape() {
-        XCTAssertEqual(
-            LandscapeTramo.owner(
-                awaitingBlockStart: false,
-                awaitingFinish: false,
-                finished: false),
-            .currentWork)
-    }
-
-    func testBlockGateAndFinishStayGates() {
-        XCTAssertEqual(
-            LandscapeTramo.owner(
-                awaitingBlockStart: true,
-                awaitingFinish: false,
-                finished: false),
-            .decisionGate)
-        XCTAssertEqual(
-            LandscapeTramo.owner(
-                awaitingBlockStart: false,
-                awaitingFinish: true,
-                finished: false),
-            .decisionGate)
-        XCTAssertEqual(
-            LandscapeTramo.owner(
-                awaitingBlockStart: false,
-                awaitingFinish: false,
-                finished: true),
-            .decisionGate)
-    }
-
     func testLandscapeScaleIsTheLargeReplica() {
         XCTAssertEqual(LandscapeTramo.subjectPt, 112)
         XCTAssertEqual(LandscapeTramo.identityPt, 22)

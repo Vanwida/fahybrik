@@ -22,10 +22,8 @@ se quedaban a 12 pt.
 **Decidido:**
 
 - Horizontal enseña el mismo trabajo que vertical, más
-  grande. No es otro reloj. No hay pantalla nueva.
-- `landscapeLiveOwner` solo conoce el trabajo de ahora o
-  una puerta (inicio de bloque / final). El crono de
-  sesión no es un dueño.
+  grande. No es otro reloj. No hay pantalla nueva. El
+  crono de sesión no es un dueño.
 - La escala vive en un sitio: sujeto 112, identidad 22,
   título 28. iOS y el gemelo leen la misma tabla.
 - Cinta y calle recuperan el título del tramo en

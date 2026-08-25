@@ -1,18 +1,5 @@
 // Cómo se LEE el tramo en horizontal: el mismo dato que en vertical, más grande.
 
-export type LandscapeLiveOwner = 'current-work' | 'decision-gate';
-
-export function landscapeLiveOwner(input: {
-  awaitingBlockStart: boolean;
-  awaitingFinish: boolean;
-  finished: boolean;
-}): LandscapeLiveOwner {
-  if (input.awaitingBlockStart || input.awaitingFinish || input.finished) {
-    return 'decision-gate';
-  }
-  return 'current-work';
-}
-
 export const LANDSCAPE_TRAMO_PT = {
   subject: 112,
   identity: 22,
