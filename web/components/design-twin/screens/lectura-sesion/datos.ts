@@ -253,6 +253,53 @@ const FUERZA_PURA: Sesion = {
 };
 
 // ---------------------------------------------------------------------------
+// ⑤ Recap lleno — VO2max serie a serie + sled + lunges (card 132)
+// ---------------------------------------------------------------------------
+//
+// Los 8 parciales son los MISMOS que la pegatina recorta
+// (`recap-sticker.test.ts`). Completado / técnica / captura van abajo.
+
+const VO2MAX_LAPS: Array<{ duracionS: number; fc: number }> = [
+  { duracionS: 88, fc: 164 },
+  { duracionS: 87, fc: 166 },
+  { duracionS: 87, fc: 168 },
+  { duracionS: 86, fc: 170 },
+  { duracionS: 86, fc: 171 },
+  { duracionS: 85, fc: 173 },
+  { duracionS: 85, fc: 174 },
+  { duracionS: 82, fc: 176 },
+];
+
+const BLOQUES_RECAP_LLENO: Bloque[] = [
+  ...VO2MAX_LAPS.map((lap) => ({
+    modalidad: 'correr' as const,
+    etiqueta: 'VO2max',
+    duracionS: lap.duracionS,
+    distanciaM: 400,
+    fcMediaPpm: lap.fc,
+  })),
+  { modalidad: 'funcional', etiqueta: 'Sled push', duracionS: 42, reps: null, metros: 50, fcMediaPpm: 158 },
+  { modalidad: 'funcional', etiqueta: 'Lunges', duracionS: 95, reps: null, metros: 100, fcMediaPpm: 152 },
+];
+
+const RECAP_LLENO: Sesion = {
+  titulo: 'VO2max + estaciones',
+  cuando: 'Hoy',
+  horaInicio: '07:40',
+  completitud: { completa: true },
+  formato: { clase: 'libre' },
+  duracionTotalS: BLOQUES_RECAP_LLENO.reduce((acc, b) => acc + (b.duracionS ?? 0), 0) + 8 * 90,
+  bloques: BLOQUES_RECAP_LLENO,
+  fcMediaPpm: 168,
+  fcMaxPpm: 181,
+  kcal: 420,
+  ruta: [],
+  dicho: { rpe: 8, dificultad: 'as_expected' },
+  procedencia:
+    'Card 132. Ocho parciales de 400 m con tiempos y ritmos reales, sled y lunges. La pegatina recorta esos ocho números. Completado / técnica / captura van abajo.',
+};
+
+// ---------------------------------------------------------------------------
 // La traza de pulso — RECONSTRUIDA, calculada una vez por escena
 // ---------------------------------------------------------------------------
 
@@ -260,7 +307,7 @@ export const TRAZA_PULSO: Record<string, ReturnType<typeof trazaPulsoIlustrativa
   'fuerza-trineos': trazaPulsoIlustrativa(FUERZA_TRINEOS.bloques, FUERZA_TRINEOS.duracionTotalS, 620),
   'simulacro-hyrox': trazaPulsoIlustrativa(SIMULACRO_HYROX.bloques, SIMULACRO_HYROX.duracionTotalS, 220),
   'simulacro-calle': trazaPulsoIlustrativa(SIMULACRO_CALLE.bloques, SIMULACRO_CALLE.duracionTotalS, 220),
-  // Fuerza pura no tiene pulso: sin entrada aquí, y la pantalla no dibuja nada.
+  'recap-lleno': trazaPulsoIlustrativa(RECAP_LLENO.bloques, RECAP_LLENO.duracionTotalS, 280),
 };
 
 export const ESCENAS: Record<string, Sesion> = {
@@ -268,4 +315,5 @@ export const ESCENAS: Record<string, Sesion> = {
   'simulacro-hyrox': SIMULACRO_HYROX,
   'fuerza-pura': FUERZA_PURA,
   'simulacro-calle': SIMULACRO_CALLE,
+  'recap-lleno': RECAP_LLENO,
 };

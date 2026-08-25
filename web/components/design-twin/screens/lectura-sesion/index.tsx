@@ -27,21 +27,35 @@ import { Ambiente, FranjaAccion, zonaDe } from '../../kit-vivo';
 import { Mapa } from '../lectura-carrera/piezas';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { ESCENAS, TRAZA_PULSO } from './datos';
-import { agruparPorRonda, zonasDeSesion, type Sesion } from './modelo';
-import { Cabecera, CabeceraDesglose, GrupoRonda, LoQueDijoElAtleta, RejillaTotales, TarjetaSeccion, BarraZonasSesion } from './piezas';
+import { agruparPorRonda, piezasDeDesglose, zonasDeSesion, type Sesion } from './modelo';
+import {
+  AccionesRecap,
+  Cabecera,
+  CabeceraDesglose,
+  GrupoRonda,
+  LoQueDijoElAtleta,
+  RejillaTotales,
+  TarjetaSeccion,
+  TarjetaSerie,
+  BarraZonasSesion,
+  FilaBloque,
+} from './piezas';
 import { GraficaPulso } from './grafica';
 
 export const meta: TwinMeta = {
   id: 'lectura-sesion',
   titulo: 'Al terminar — la foto de la sesión entera',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-08-20',
+  estado: 'construida',
+  actualizado: '2026-08-25',
   descripcion:
-    'Card 124: viendo la app real, faltaban los totales de la sesión, la gráfica del pulso y el mapa — de tanto contar bloque a bloque se perdió la foto entera. Ahora hay icono de tipo de entreno, totales en rejilla, gráfica de pulso, mapa con GPS y el desglose de siempre, todo sobre el suelo tipográfico de 15 pt.',
-  fuentes: [],
+    'Card 132: el recap lleno enseña el entreno (VO2max serie a serie, sled, lunges). Completado / técnica / captura van abajo. La 144 ya llena los números con la ejecución.',
+  fuentes: [
+    'ios/FAHYBRIK/Workout/PostWorkout/LecturaDeSesionView.swift',
+    'shared/domain/recap-sticker.ts',
+  ],
   enApp:
-    'El enrutado que decide cuándo una sesión NO es una carrera ya está en Swift; esta lectura para el resto de sesiones (fuerza, mixtas, simulacros) todavía no existe.',
+    'LecturaDeSesionView. El recap lleno agrupa la tanda. Completado / técnica / captura van al final del scroll.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
@@ -71,6 +85,12 @@ export const escenarios: TwinEscenario[] = [
     descripcion:
       'Idéntico al ②, pero al aire libre: aparece el mapa con la ruta coloreada por zona de pulso. La ruta es un trazo inventado y plausible (no hay un GPS de ejemplo real en la base todavía) — declarado en la procedencia, no fingido como medido.',
   },
+  {
+    id: 'recap-lleno',
+    titulo: '⑤ Recap lleno · VO2max + sled + lunges',
+    descripcion:
+      'Card 132. Al acabar se ve el entreno: ocho parciales de VO2max con tiempos y ritmos reales, sled y lunges. Completado / técnica / captura van abajo. La pegatina recorta esos parciales.',
+  },
 ];
 
 export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
@@ -81,6 +101,8 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
   // trae ronda, esto produce un único grupo sin cabecera — lista plana, igual
   // que antes de que el simulacro necesitara rondas.
   const grupos = agruparPorRonda(sesion.bloques);
+  const piezas = piezasDeDesglose(sesion.bloques);
+  const haySerie = piezas.some((p) => p.form === 'series');
   const totalRondas = Math.max(0, ...sesion.bloques.map((b) => b.ronda ?? 0));
   const zonas = zonasDeSesion(sesion);
 
@@ -132,9 +154,15 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
           <TarjetaSeccion titulo="Bloque a bloque" nota={`${sesion.bloques.length} en orden`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <CabeceraDesglose />
-              {grupos.map((g, i) => (
-                <GrupoRonda key={i} grupo={g} rondas={totalRondas} />
-              ))}
+              {haySerie
+                ? piezas.map((p, i) =>
+                    p.form === 'series' ? (
+                      <TarjetaSerie key={`s-${i}`} series={p.series} />
+                    ) : (
+                      <FilaBloque key={`b-${p.block.position}`} bloque={sesion.bloques[p.block.position]!} />
+                    ),
+                  )
+                : grupos.map((g, i) => <GrupoRonda key={i} grupo={g} rondas={totalRondas} />)}
             </div>
           </TarjetaSeccion>
 
@@ -146,6 +174,8 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
           )}
 
           <LoQueDijoElAtleta dicho={sesion.dicho} />
+
+          <AccionesRecap completa={sesion.completitud.completa} onLog={onLog} />
         </div>
 
         <FranjaAccion titulo="Cerrar" onClick={() => onLog('Cerrado')} />

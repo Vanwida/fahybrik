@@ -106,6 +106,9 @@ import * as lecturaCarrera from './screens/lectura-carrera';
 // orden, o es puramente una de esas cosas. El sujeto lo elige el FORMATO
 // (for time · AMRAP · EMOM · fuerza · libre), nunca el formato de otra.
 import * as lecturaSesion from './screens/lectura-sesion';
+// Card 132: recorte de los parciales del recap, en una esquina. No es
+// compartir-entreno (marca, día, Instagram): eso no se pica.
+import * as pegatinaSeries from './screens/pegatina-series';
 // La otra pregunta del atleta (12-ago). `lectura-carrera` contesta qué pasó EN
 // una carrera; esta contesta si todo esto sirve para algo. Sustituye la rejilla
 // de tarjetas por un veredicto defendible y la evidencia ordenada por causa —
@@ -178,6 +181,7 @@ export const SCREENS: TwinScreenModule[] = [
   resumenCarrera,
   lecturaCarrera,
   lecturaSesion,
+  pegatinaSeries,
   watchResumen,
   // El plan a tres distancias (29-jul): tres preguntas sobre el MISMO objeto —
   // hacia dónde voy (ciclo), qué me toca y qué llevo (semana), qué hay hoy y
@@ -238,7 +242,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
       'vivo-clave',
     ],
   },
-  { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera', 'lectura-sesion'] },
+  { grupo: 'Al terminar', ids: ['resumen-carrera', 'lectura-carrera', 'lectura-sesion', 'pegatina-series'] },
   { grupo: 'La muñeca', ids: ['watch-vivo', 'watch-legible', 'watch-resumen'] },
   {
     grupo: 'La muñeca, formato a formato',

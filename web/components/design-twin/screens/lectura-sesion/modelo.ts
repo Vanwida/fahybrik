@@ -32,6 +32,8 @@
 // miden movimientos tan distintos entre sí como correr y remar. Si la sesión
 // midió distancia en más de una, el total no la enseña: vive en el desglose.
 
+import type { Recap, RecapBlock } from '@fahybrid/shared/domain/recap';
+import { projectRecapLayout, type RecapLayoutPiece } from '@fahybrid/shared/domain/recap-sticker';
 import type { TipoEntreno } from '../../kit';
 import { hrZone } from '../../sim';
 import { UMBRAL } from '../../datos-reales';
@@ -385,4 +387,79 @@ export function zonasDeSesion(s: Sesion): SegmentoZona[] {
     zonasS[clave] = (zonasS[clave] ?? 0) + b.duracionS;
   }
   return distribucionZonas({ duracionS: s.duracionTotalS, zonasS });
+}
+
+export function recapDesdeBloques(bloques: Bloque[]): Recap {
+  return { blocks: bloques.map((b, i) => bloqueARecap(b, i)) };
+}
+
+export function piezasDeDesglose(bloques: Bloque[]): RecapLayoutPiece[] {
+  return projectRecapLayout(recapDesdeBloques(bloques));
+}
+
+function bloqueARecap(b: Bloque, position: number): RecapBlock {
+  const duration = b.duracionS != null ? Math.round(b.duracionS) : null;
+  const round = b.ronda != null && b.ronda > 0 ? b.ronda : null;
+  if (b.modalidad === 'correr') {
+    return {
+      position,
+      label: b.etiqueta,
+      kind: 'run',
+      modality: 'run',
+      duration_s: duration,
+      distance_m: b.distanciaM,
+      pace_s_per_km: ritmoDeCorrer(b),
+      pace_s_per_500m: null,
+      reps: null,
+      load_kg: null,
+      sets: [],
+      round,
+    };
+  }
+  if (b.modalidad === 'ergometro') {
+    return {
+      position,
+      label: b.etiqueta,
+      kind: 'ergo',
+      modality: b.maquina === 'remo' ? 'row' : b.maquina === 'ski' ? 'ski' : 'bike',
+      duration_s: duration,
+      distance_m: b.distanciaM,
+      pace_s_per_km: null,
+      pace_s_per_500m: ritmoDeErgometro(b),
+      reps: null,
+      load_kg: null,
+      sets: [],
+      round,
+    };
+  }
+  if (b.modalidad === 'fuerza') {
+    return {
+      position,
+      label: b.etiqueta,
+      kind: 'strength',
+      modality: 'strength',
+      duration_s: duration,
+      distance_m: null,
+      pace_s_per_km: null,
+      pace_s_per_500m: null,
+      reps: null,
+      load_kg: null,
+      sets: [],
+      round,
+    };
+  }
+  return {
+    position,
+    label: b.etiqueta,
+    kind: 'station',
+    modality: 'other',
+    duration_s: duration,
+    distance_m: b.metros,
+    pace_s_per_km: null,
+    pace_s_per_500m: null,
+    reps: b.reps,
+    load_kg: null,
+    sets: [],
+    round,
+  };
 }
