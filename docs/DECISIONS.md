@@ -11,6 +11,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · En vivo se leen 1 / 2 / 3 (card 169)
+
+**Qué faltaba:** durante el live de series el sujeto decía
+«Serie 2 de 4». El riel ya pintaba hechas y actual (S1, S2),
+pero la lectura de un vistazo era solo la que toca.
+
+**Decidido:**
+
+- La tanda se lee como números: `1 / 2 / 3`. Con cuatro o
+  menos, todas. Desde la quinta, ventana de tres (cerrada de
+  antes, actual, siguiente). Misma aritmética que el riel.
+- El riel rotula `1`, no `S1`. La dosis de cada peldaño no
+  cambia.
+- En superserie la etiqueta sigue siendo la ronda. El sujeto
+  grande sigue siendo la dosis de esta serie.
+- iOS y el gemelo leen la misma tabla.
+
+**NO hacer:** no tocar el reloj. no tocar 132, 114, 167/168,
+170/144. no xcodebuild. no ClickUp (rate-limit). no inventar
+dosis. no Flexr. no merge a main.
+
+**Dónde vive:** `shared/domain/tanda-strip.ts` + `TandaStrip.swift`.
+Gemelo: `etiquetaTanda` en `vivo-fuerza`. Tests:
+`tanda-strip.test.ts`, `TandaStripTests`, `vivo-fuerza-modelo`.
+
+---
+
 ## 2026-08-25 · Deshacer el último avance en vivo (card 168)
 
 **Qué faltaba:** un toque de más cerraba una serie o una estación y no

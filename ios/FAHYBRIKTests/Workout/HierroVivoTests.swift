@@ -223,6 +223,22 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertEqual(VentanaDeSeries.visibles(total: 0, activa: 0, caben: 4), [])
     }
 
+    /// La etiqueta y el riel recortan la misma tanda. Si alguien cambia
+    /// `VentanaDeSeries` y no `TandaStrip`, el atleta leería 1/2/3 en un sitio
+    /// y vería otros peldaños en el otro.
+    func testLaEtiquetaYElRielRecortanLaMismaTanda() {
+        XCTAssertEqual(TandaStrip.todasHasta, 4)
+        XCTAssertEqual(TandaStrip.ventana, VentanaDeSeries.ventana)
+        XCTAssertEqual(
+            TandaStrip.indices(total: 4, actual: 1),
+            VentanaDeSeries.visibles(total: 4, activa: 1, caben: 4))
+        XCTAssertEqual(
+            TandaStrip.indices(total: 12, actual: 6),
+            VentanaDeSeries.visibles(total: 12, activa: 6, caben: 4))
+        XCTAssertEqual(TandaStrip.strip(total: 4, actual: 1, hechas: [0]).seLee, "1 / 2 / 3 / 4")
+        XCTAssertEqual(TandaStrip.strip(total: 12, actual: 6, hechas: [0, 1, 2, 3, 4, 5]).seLee, "6 / 7 / 8")
+    }
+
     // MARK: - La cascada de apoyos — se reserva contra el hueco, no contra un frame
 
     func testLaCascadaReservaEnOrdenYLaPrimeraNoPagaHueco() {

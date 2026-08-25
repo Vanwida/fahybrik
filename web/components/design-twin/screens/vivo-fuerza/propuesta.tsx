@@ -30,7 +30,7 @@
 //     voz de instrumento en el dato fácil.
 //
 // Así que **el sujeto es la DOSIS DE ESTA SERIE, siempre**, y la cuenta vive
-// donde no cuesta nada: en la etiqueta de encima («SERIE 2 DE 4») y en el riel.
+// donde no cuesta nada: en la etiqueta de encima («1 / 2 / 3») y en el riel.
 // No es una excepción al criterio de rondas: es su MISMA rama —«con pocas rondas
 // manda el trabajo y la cuenta baja al cromo»— y el hierro está siempre en ella.
 //
@@ -73,6 +73,7 @@ import {
   cargaTexto,
   cascada,
   cifraDeSerie,
+  etiquetaTanda,
   intensidadDe,
   msTexto,
   pastillaIntensidad,
@@ -368,7 +369,7 @@ export function Propuesta({
 
     return (
       <>
-        <EtiquetaSujeto>{`Serie ${activa + 1} de ${total}`}</EtiquetaSujeto>
+        <EtiquetaSujeto>{etiquetaTanda(total, activa, hechas)}</EtiquetaSujeto>
         {cifra ? (
           <>
             <Numeral unidad={cifra.unidad ?? undefined}>{cifra.cifra}</Numeral>

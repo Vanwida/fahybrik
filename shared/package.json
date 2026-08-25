@@ -74,6 +74,10 @@
       "types": "./domain/live-undo.ts",
       "default": "./domain/live-undo.ts"
     },
+    "./domain/tanda-strip": {
+      "types": "./domain/tanda-strip.ts",
+      "default": "./domain/tanda-strip.ts"
+    },
     "./domain/running/vdot": {
       "types": "./domain/running/vdot.ts",
       "default": "./domain/running/vdot.ts"

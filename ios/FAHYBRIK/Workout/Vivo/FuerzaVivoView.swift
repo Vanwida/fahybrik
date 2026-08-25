@@ -317,7 +317,7 @@ struct FuerzaVivoView<Cromo: View>: View {
     /// pantalla que no está escrito en otro sitio: la cuenta de series la dice la
     /// etiqueta del sujeto y el ejercicio está bajo el numeral.
     ///
-    /// Y dice «ejercicio», que no es relleno: al lado de un «SERIE 3 DE 5» un «1 de
+    /// Y dice «ejercicio», que no es relleno: al lado de un «1 / 2 / 3» un «1 de
     /// 4» a secas se lee como otra cuenta de series.
     private var posicionEnLaSesion: String? {
         let i = session.currentSegmentIndex
@@ -405,7 +405,7 @@ struct FuerzaVivoView<Cromo: View>: View {
         // la serie: «Ronda 2 de 4» y, debajo, el ejercicio que toca.
         let t = turno(i)
         EtiquetaSujeto(texto: t.map { "\(Vocab.ronda) \($0.round) de \($0.rounds)" }
-            ?? "\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
+            ?? TandaStrip.seLee(from: session.setRecords, actual: i))
         if let dosis = dosisDeLaSerie(rec, indice: i) {
             if let cifra = dosis.sujeto {
                 Numeral(texto: cifra.cifra, unidad: cifra.unidad)
@@ -892,7 +892,7 @@ struct RielDeSeries: View {
                         .font(.system(size: 8, weight: .heavy))
                         .foregroundStyle(rec.status == "scaled" ? Theme.Color.warning : Theme.Color.ok)
                 }
-                Text(turno(rec)?.movement ?? "S\(rec.setIndex)")
+                Text(turno(rec)?.movement ?? "\(rec.setIndex)")
                     .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
                     .foregroundStyle(esLaDeAhora ? Theme.Color.accentText : Theme.Color.muted)
                     .lineLimit(1).minimumScaleFactor(0.5)

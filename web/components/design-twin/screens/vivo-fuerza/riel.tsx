@@ -112,7 +112,7 @@ function Peldano({
             color: actual ? 'var(--twin-accent-text)' : 'var(--twin-muted)',
           }}
         >
-          {`S${numero}`}
+          {String(numero)}
         </span>
       </span>
       {/* Una serie pendiente SÍ dice su dosis, y aquí está la mitad del valor del

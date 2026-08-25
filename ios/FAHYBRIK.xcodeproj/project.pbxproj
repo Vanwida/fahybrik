@@ -190,6 +190,9 @@
 		B168UNDOBE170001A0000002 /* LiveUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000001 /* LiveUndo.swift */; };
 		B168UNDOBE170001A0000003 /* LiveUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000001 /* LiveUndo.swift */; };
 		B168UNDOBE170001A0000005 /* LiveUndoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000004 /* LiveUndoTests.swift */; };
+		B169TANDABE170001A0000002 /* TandaStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B169TANDABE170001A0000001 /* TandaStrip.swift */; };
+		B169TANDABE170001A0000003 /* TandaStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B169TANDABE170001A0000001 /* TandaStrip.swift */; };
+		B169TANDABE170001A0000005 /* TandaStripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B169TANDABE170001A0000004 /* TandaStripTests.swift */; };
 		3C18DA57D1AEA42350245B61 /* RunPaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84F7C8771BEBB8127C071B4 /* RunPaceModel.swift */; };
 		3C28AC291503E97DF8DEED5C /* LecturaDeSesionDesdeDetalleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F48E773FB18D4EAB1C4FAD58 /* LecturaDeSesionDesdeDetalleTests.swift */; };
 		3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AC9F29DD28A8726EFE2134 /* MockDeviceProfileTests.swift */; };
@@ -842,6 +845,8 @@
 		B168UNDOBE170001A0000001 /* LiveUndo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveUndo.swift; sourceTree = "<group>"; };
 		B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltWorkClockTests.swift; sourceTree = "<group>"; };
 		B168UNDOBE170001A0000004 /* LiveUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveUndoTests.swift; sourceTree = "<group>"; };
+		B169TANDABE170001A0000001 /* TandaStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandaStrip.swift; sourceTree = "<group>"; };
+		B169TANDABE170001A0000004 /* TandaStripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandaStripTests.swift; sourceTree = "<group>"; };
 		108C2087955FB8892D315754 /* EscenariosCiclo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscenariosCiclo.swift; sourceTree = "<group>"; };
 		10DE0983BB5934AEF0640102 /* FormaDelAro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormaDelAro.swift; sourceTree = "<group>"; };
 		110D0DB2E64AEB960DDDAC21 /* HealthKitHistoryWindowReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitHistoryWindowReader.swift; sourceTree = "<group>"; };
@@ -1906,6 +1911,7 @@
 				7F27428D86F504409F13B526 /* WorkoutSession+Calorias.swift */,
 				B167C10CBE170001A0000001 /* BeltWorkClock.swift */,
 				B168UNDOBE170001A0000001 /* LiveUndo.swift */,
+				B169TANDABE170001A0000001 /* TandaStrip.swift */,
 				1062720A372E93DA9533753F /* WorkoutSession+Clock.swift */,
 				5E8558D67B2C147950223DC5 /* WorkoutSession+Conditioning.swift */,
 				6497E17C1F059886359CD87C /* WorkoutSession+EMOM.swift */,
@@ -2335,6 +2341,7 @@
 				CCCA81594A588265CB467522 /* RunCueEngineTests.swift */,
 				B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */,
 				B168UNDOBE170001A0000004 /* LiveUndoTests.swift */,
+				B169TANDABE170001A0000004 /* TandaStripTests.swift */,
 				B2C38980D3A4757F2E56AF4C /* RunDistanceAuthorityTests.swift */,
 				6410641ED6D1C78BA6BCACDC /* RunMetresNotLostTests.swift */,
 				71FD8786B3D4A9B15C0CC294 /* RunPaceSmootherTests.swift */,
@@ -3588,6 +3595,7 @@
 				0E93E1977E836E176A24592C /* WorkoutSession+Calorias.swift in Sources */,
 				B167C10CBE170001A0000002 /* BeltWorkClock.swift in Sources */,
 				B168UNDOBE170001A0000002 /* LiveUndo.swift in Sources */,
+				B169TANDABE170001A0000002 /* TandaStrip.swift in Sources */,
 				3BFF054AE7383F6DCBB324A6 /* WorkoutSession+Clock.swift in Sources */,
 				AAA6E2BDC54FFA8A356C03C1 /* WorkoutSession+Conditioning.swift in Sources */,
 				B90E8D564E1D396873398DDE /* WorkoutSession+EMOM.swift in Sources */,
@@ -3710,6 +3718,7 @@
 				755EA20E4AC4FE689FA022E1 /* WorkoutSession+Calorias.swift in Sources */,
 				B167C10CBE170001A0000003 /* BeltWorkClock.swift in Sources */,
 				B168UNDOBE170001A0000003 /* LiveUndo.swift in Sources */,
+				B169TANDABE170001A0000003 /* TandaStrip.swift in Sources */,
 				530DA95CB8573DF38692D2D1 /* WorkoutSession+Clock.swift in Sources */,
 				E44BC44FB70B9A0C4E871C24 /* WorkoutSession+Conditioning.swift in Sources */,
 				E796A008ABD508FA7ABB0903 /* WorkoutSession+EMOM.swift in Sources */,
@@ -3870,6 +3879,7 @@
 				A14109C14009C00549F2B98C /* RunCueEngineTests.swift in Sources */,
 				B167C10CBE170001A0000005 /* BeltWorkClockTests.swift in Sources */,
 				B168UNDOBE170001A0000005 /* LiveUndoTests.swift in Sources */,
+				B169TANDABE170001A0000005 /* TandaStripTests.swift in Sources */,
 				E2155C176C37CDCEA6EE0C65 /* RunDistanceAuthorityTests.swift in Sources */,
 				E6057F6923DA56213DA98515 /* RunLegDisplayTests.swift in Sources */,
 				9C04B407927F20600A478F71 /* RunLegProgressTests.swift in Sources */,

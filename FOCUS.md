@@ -2,15 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (168 · deshacer el último avance)
+Última actualización: **2026-08-25** (169 · series 1/2/3 en el live)
 
 ## Ahora
 
-**168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (PR).** Un toque en el
-chevron (o «Volver atrás» al acabar el plan) deshace la última
-serie o estación y te deja en el vivo. No es un historial. No es
-la 115. iOS y el gemelo leen `LiveUndo`. Card 168 (ClickUp aún
-puede no existir).
+**169 · EN VIVO SE LEEN 1 / 2 / 3 (PR).** La etiqueta de la tanda
+ya no dice solo «Serie 2 de 4». Se leen las hechas y la actual
+(`1 / 2 / 3 / 4`, o la ventana de tres si hay cinco o más). El
+riel pone el número, no `S1`. iOS y el gemelo leen `TandaStrip`.
+Card 169 (ClickUp aún puede no existir).
+https://github.com/Vanwida/fahybrik/pull/79
+
+**168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (en trunk).** Un toque
+en el chevron deshace la última serie o estación y te deja en
+el vivo. iOS y el gemelo leen `LiveUndo`.
 
 **167 · CINTA: EL CRONO ARRANCA CON LA VELOCIDAD (en trunk).** El
 tiempo de trabajo de una tira FTMS no suma si la máquina no manda

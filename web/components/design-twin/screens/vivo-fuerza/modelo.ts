@@ -32,6 +32,7 @@ import {
   velocityLossPct,
   type VelocityBand,
 } from '@fahybrid/shared/domain/strength';
+import { tandaIndices, tandaSeLee, tandaStrip } from '@fahybrid/shared/domain/tanda-strip';
 import { ANCHO_UTIL_PT, APOYOS_PT } from '../../kit-vivo';
 // La grafía de un número y la de un peso ya existen en esta carpeta y no se
 // reescriben aquí: `numeroTexto` (entero tal cual, decimal con coma) y `kg`
@@ -365,9 +366,20 @@ export const VENTANA = 3;
  * o la primera y la última serie tendrían dos peldaños en vez de tres.
  */
 export function peldanosVisibles(total: number, activa: number): number[] {
-  if (total < UMBRAL_VENTANA) return Array.from({ length: total }, (_, i) => i);
-  const inicio = Math.min(Math.max(0, activa - 1), Math.max(0, total - VENTANA));
-  return Array.from({ length: Math.min(VENTANA, total) }, (_, k) => inicio + k);
+  return tandaIndices(total, activa);
+}
+
+/** Cómo se lee la tanda en la etiqueta del sujeto: 1 / 2 / 3. */
+export function etiquetaTanda(
+  total: number,
+  activa: number,
+  hechas: Record<number, SerieHecha>,
+): string {
+  const saltadas = Object.entries(hechas)
+    .filter(([, h]) => h.estado === 'saltada')
+    .map(([k]) => Number(k));
+  const cerradas = Object.keys(hechas).map(Number);
+  return tandaSeLee(tandaStrip({ total, actual: activa, hechas: cerradas, saltadas }));
 }
 
 // ---------------------------------------------------------------------------
