@@ -130,4 +130,12 @@ extension WorkoutSession {
     func resetBeltWorkElapsed() {
         beltWorkElapsedS = 0
     }
+
+    /// Duración que se GUARDA al cerrar un tramo de correr en cinta: el reloj
+    /// de trabajo si hubo feed FTMS, la pared si no. No deshace 167: conecta
+    /// el mismo reloj al lap.
+    var lapEffortSeconds: Double {
+        if tramoIsRun, beltWorkElapsedS > 0 { return beltWorkElapsedS }
+        return lapElapsedSeconds
+    }
 }

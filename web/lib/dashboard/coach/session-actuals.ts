@@ -30,6 +30,7 @@ import {
   type SegmentLegRole,
 } from '@/lib/execution/segment-work';
 import type { RepsStatus } from '@fahybrid/shared/schema';
+import { workSecondsFromRaw } from '@fahybrid/shared/domain/recap';
 
 /** Una serie ejecutada, con la marca de aproximación (card 155). */
 export interface SetActual {
@@ -53,7 +54,7 @@ export interface SegmentActual {
    *  dibujada encima, ni número de repetición. El SQL siempre lo trajo; se
    *  consumía para derivar la duración y se tiraba antes de salir. */
   started_at: string | null;
-  /** Derived from ended_at − started_at; null when either timestamp is missing. */
+  /** Tiempo de esfuerzo: `raw.work_s` (reloj de trabajo) si existe; si no, pared. */
   duration_seconds: number | null;
   reps_completed: number | null;
   weight_used_kg: number | null;
@@ -133,6 +134,8 @@ export interface SegmentActual {
   is_structural: boolean;
   /** Series de este tramo, aproximación incluida. Vacío si no se guardó detalle. */
   sets: SetActual[];
+  /** 0 = no se repite. 1+ = esa ronda (mig 0155). Null si la fila no lo trae. */
+  round_index: number | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
@@ -165,6 +168,7 @@ export interface SegmentActualRow {
   leg_phase: string | null;               // 'warmup' | 'main' | 'cooldown'
   is_structural: boolean | null;
   raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
+  round_index?: number | null;
 }
 
 const MODALITY_SET = new Set<string>(SEGMENT_MODALITIES);
@@ -209,7 +213,9 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
     modality: toModality(r.modality),
     started_at: r.started_at,
-    duration_seconds: durationSeconds(r.started_at, r.ended_at),
+    duration_seconds:
+      workSecondsFromRaw(r.raw_lap_data_json) ?? durationSeconds(r.started_at, r.ended_at),
+    round_index: r.round_index ?? null,
     reps_completed: r.reps_completed ?? null,
     weight_used_kg: num(r.weight_used_kg),
     distance_meters: num(r.distance_meters),
@@ -293,7 +299,8 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       leg_role                  as leg_role,
       leg_phase                 as leg_phase,
       is_structural             as is_structural,
-      raw_lap_data_json         as raw_lap_data_json
+      raw_lap_data_json         as raw_lap_data_json,
+      round_index               as round_index
     from segment_executions
     where execution_id = ${executionId}
     order by position asc, id asc

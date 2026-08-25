@@ -2,56 +2,22 @@ import Foundation
 
 // EL DECODIFICADOR: `AssignmentDetail` → `SesionEjecutada`.
 //
-// Hermano de `LecturaDeCarreraDesdeDetalle` — mismo principio, otra pregunta.
-// Aquella decide «¿esto fue una carrera?»; esta se llama cuando la respuesta es
-// NO (o cuando no hay carrera que leer) y arma la foto de la sesión entera: sus
-// totales, su pulso, su desglose bloque a bloque.
+// Hermano de `LecturaDeCarreraDesdeDetalle`. Arma la foto de la sesión
+// entera: totales, pulso, desglose bloque a bloque.
 //
-// LO QUE ESTE FICHERO NO HACE, otra vez la mitad del diseño: no inventa una
-// duración, no reparte un total entre bloques que no la tienen, y CUALQUIER dato
-// que el cable de hoy no da simplemente no se rellena (§7 CONTRATO-UI).
+// Card 144: el desglose sale del `recap` que el servidor proyecta desde
+// la ejecución guardada. Nunca de la prescripción. Si el recap no tiene
+// bloques, se cae a los segmentos (payload viejo / cache anterior).
 //
-// TRES DEGRADACIONES REALES respecto al doble (`web/components/design-twin/
-// screens/lectura-sesion/`), documentadas aquí porque son la razón de que esta
-// lectura no sea pixel-a-pixel la del doble:
+// SIN recap y SIN segmentos con sustancia: la sesión sigue existiendo
+// (cabecera, tiempo, pulso) — un desglose vacío no es un fallo.
 //
-//  1. FUERZA SIN SERIES. `segment_executions` guarda UN total de repeticiones y
-//     UNA carga máxima por ejercicio (`reps_completed`, `weight_used_kg` — ver
-//     `WorkoutSession+Laps.swift`: en un 5×5 la app suma las cinco series en
-//     `reps_completed=25` y se queda con la carga MÁS ALTA declarada), nunca la
-//     serie a serie (`sets[]` sí se sube al guardar, pero el endpoint de lectura
-//     `session-actuals.ts` todavía no la sirve de vuelta). Por eso `Bloque` no
-//     tiene `grupos: [GrupoFuerza]` — tiene `repsTotal`/`kg`, un solo par, y el
-//     volumen se calcula como `repsTotal × kg`: exacto en una carga uniforme,
-//     una sobrestima en una pirámide. Es lo único que no fabrica el número de
-//     series que nadie mandó.
-//  2. SIN RONDA. El doble agrupa el desglose por ronda cuando el dato la trae
-//     (un simulacro con 4 rondas de correr+estación). Ese número no existe hoy en
-//     `segment_executions` — ni en el tramo, ni en el bloque prescrito — así que
-//     `Bloque.ronda` se queda siempre `nil` y el desglose se lee como lista
-//     plana, incluso en un simulacro real de 4 rondas. `agruparPorRonda` ya está
-//     escrito para el día en que ese campo llegue; hoy no tiene nada que agrupar.
-//  3. SIN DESCANSO MEDIDO. El doble enseña el descanso PRESCRITO tras cada
-//     bloque. Resolverlo con garantías exige seguir la prescripción estructurada
-//     del ítem (`Prescription.sets[].restS` / `WorkoutItemParams.restSeconds`) y
-//     no hay tiempo de tejer esa segunda alineación en esta tanda sin arriesgar
-//     un descanso mal atribuido — así que `Bloque.descansoS` se queda siempre
-//     `nil` por ahora: ausencia declarada, no un cero inventado.
-//
-// FC MEDIA / MÁXIMA / CALORÍAS DE LA SESIÓN vienen de `execution.avg_hr` /
-// `execution.max_hr` / `execution.total_calories` — el servidor los calcula UNA
-// vez (ver AssignmentDetail.swift). Aquí NUNCA se derivan de los segmentos: dos
-// motores para la misma media es cómo el coach y el atleta acaban leyendo dos
-// números distintos de la misma sesión.
+// FC MEDIA / MÁXIMA / CALORÍAS DE LA SESIÓN vienen de `execution.avg_hr`
+// / `max_hr` / `total_calories`. Aquí NUNCA se derivan de los segmentos.
 
 enum LecturaDeSesionDesdeDetalle {
 
     /// LA SESIÓN QUE HAY EN ESTE DETALLE, o nil si no hay ejecución que leer.
-    ///
-    /// A diferencia de `LecturaDeCarreraDesdeDetalle.carrera`, esto NO exige que
-    /// haya segmentos: una sesión sin desglose (solo agregado) sigue teniendo
-    /// cabecera, tiempo y — si los hay — pulso y lo que dijo el atleta. Un
-    /// desglose vacío no es un fallo, es una sesión sin per-ejercicio logueado.
     static func sesion(
         de detalle: AssignmentDetail,
         tituloAlternativo: String? = nil,
@@ -61,7 +27,14 @@ enum LecturaDeSesionDesdeDetalle {
 
         let itemsPorUid = itemsDelPlan(detalle)
         let segmentos = ejecucion.segments.sorted { $0.position < $1.position }
-        let bloques = segmentos.compactMap { bloqueDe($0, itemsPorUid: itemsPorUid) }
+        let bloques: [Bloque]
+        if let recap = ejecucion.recap, !recap.blocks.isEmpty {
+            bloques = recap.blocks
+                .sorted { $0.position < $1.position }
+                .compactMap { bloqueDe(recap: $0) }
+        } else {
+            bloques = segmentos.compactMap { bloqueDe($0, itemsPorUid: itemsPorUid) }
+        }
 
         let formatosDeBloques = (detalle.workout?.blocks ?? []).map(\.format)
         let duracionSegmentos = segmentos.compactMap(\.durationSeconds).reduce(0, +)
@@ -104,10 +77,43 @@ enum LecturaDeSesionDesdeDetalle {
         return salida
     }
 
-    /// UN SEGMENTO MEDIDO → UN BLOQUE DEL DESGLOSE. `nil` solo cuando el wire trae
-    /// una modalidad que hoy no se sabe dibujar (ninguna, hasta que aparezca una
-    /// nueva) — nunca por falta de números: un bloque sin duración ni distancia
-    /// sigue siendo una fila con su nombre y, si acaso, su pulso.
+    /// UN BLOQUE DEL RECAP — números de ejecución, ya proyectados.
+    static func bloqueDe(recap b: RecapBlockDTO) -> Bloque? {
+        let modalidad = modalidadDe(b.modality ?? wireModality(for: b.kind))
+        var bloque = Bloque(
+            modalidad: modalidad,
+            etiqueta: b.label.isEmpty ? etiquetaGenerica(b.modality ?? "") : b.label,
+            duracionS: b.durationS.map(Double.init),
+            ronda: recapRound(b.round),
+            descansoS: nil
+        )
+        switch modalidad {
+        case .correr, .ergometro:
+            bloque.distanciaM = b.distanceM
+            bloque.ritmoMedidoSkm = b.paceSPerKm
+            bloque.ritmoMedidoS500m = b.paceSPer500m
+        case .fuerza:
+            bloque.repsTotal = b.reps
+            bloque.kg = b.loadKg
+            bloque.series = b.sets.map {
+                SerieEjecutada(
+                    setIndex: $0.setIndex,
+                    reps: $0.reps,
+                    kg: $0.loadKg,
+                    isApproach: $0.isApproach
+                )
+            }
+        case .funcional:
+            if let d = b.distanceM, d > 0 {
+                bloque.metros = d
+            } else if let reps = b.reps {
+                bloque.reps = reps
+            }
+        }
+        return bloque
+    }
+
+    /// Fallback: un segmento medido → un bloque. Lee ritmo y series si vienen.
     static func bloqueDe(_ s: SegmentActualDTO, itemsPorUid: [String: WorkoutItem]) -> Bloque? {
         let item = s.itemUid.flatMap { itemsPorUid[$0] }
         let modalidad = modalidadDe(s.modality)
@@ -117,17 +123,26 @@ enum LecturaDeSesionDesdeDetalle {
             etiqueta: item?.exerciseName ?? etiquetaGenerica(s.modality),
             duracionS: s.durationSeconds.map(Double.init),
             fcMediaPpm: s.avgHr.map(Double.init),
-            ronda: nil,          // ver cabecera del fichero: el cable no lo da hoy
-            descansoS: nil       // ídem
+            ronda: recapRound(s.roundIndex),
+            descansoS: nil
         )
 
         switch modalidad {
         case .correr, .ergometro:
             b.distanciaM = s.distanceMeters
+            b.ritmoMedidoSkm = s.avgPaceSPerKm
+            b.ritmoMedidoS500m = s.avgPaceSPer500m
         case .fuerza:
-            // El total de reps y la carga MÁS ALTA declarada — ver cabecera.
             b.repsTotal = s.repsCompleted
             b.kg = (s.weightUsedKg ?? 0) > 0 ? s.weightUsedKg : nil
+            b.series = s.sets.map {
+                SerieEjecutada(
+                    setIndex: $0.setIndex,
+                    reps: $0.repsActual,
+                    kg: $0.loadActualKg,
+                    isApproach: $0.isApproach
+                )
+            }
         case .funcional:
             if let d = s.distanceMeters, d > 0 {
                 b.metros = d
@@ -138,10 +153,6 @@ enum LecturaDeSesionDesdeDetalle {
         return b
     }
 
-    /// La modalidad del wire (`run | row | ski | bike | strength | other`, ver
-    /// `normalizeModality` en `ingest-execution-segments.ts`) a la de este
-    /// modelo. `other` recoge todo lo funcional/sled: la fuerza ya tiene su
-    /// propio valor (`strength`), así que no hay ambigüedad que resolver aquí.
     static func modalidadDe(_ wire: String) -> ModalidadDeBloque {
         switch wire {
         case "run": return .correr
@@ -152,25 +163,28 @@ enum LecturaDeSesionDesdeDetalle {
         }
     }
 
-    /// Etiqueta cuando el segmento no casa con ningún ítem del plan (un lap
-    /// libre, o un `item_uid` que ya no está en el detalle). La máquina concreta
-    /// para un ergómetro («Remo»), la voz genérica del resto en el resto de casos.
+    private static func wireModality(for kind: String) -> String {
+        switch kind {
+        case "run": return "run"
+        case "ergo": return "row"
+        case "strength": return "strength"
+        default: return "other"
+        }
+    }
+
+    private static func recapRound(_ raw: Int?) -> Int? {
+        guard let raw, raw > 0 else { return nil }
+        return raw
+    }
+
     private static func etiquetaGenerica(_ modalidad: String) -> String {
         if let maquina = ErgMachineRole(rawValue: modalidad) { return maquina.titleES }
         let label = Theme.Modality.label(modalidad)
         return label.prefix(1).uppercased() + label.dropFirst()
     }
 
-    // MARK: - El resultado propio del formato (§ card 124, punto 2)
+    // MARK: - El resultado propio del formato
 
-    /**
-     EL RECUADRO EXTRA, cuando el tiempo no cuenta ya toda la historia.
-
-     Precedencia: fuerza (si hubo algo con carga) → EMOM (rondas estructuradas,
-     reales) → el `score_label` que ya redactó el servidor (AMRAP y cualquier
-     otro formato puntuado) → nada, que es lo que corresponde a un for-time o una
-     sesión libre (el tiempo ya es la respuesta).
-     */
     static func resultadoDe(_ ejecucion: ExecutionSummary, bloques: [Bloque]) -> ResultadoDeSesion? {
         let (volumenKg, serieMasPesada) = volumenDeFuerza(bloques)
         if volumenKg > 0 {
@@ -185,10 +199,6 @@ enum LecturaDeSesionDesdeDetalle {
         return nil
     }
 
-    /// Mismo criterio que `ExecutedWorkoutView.emomRounds`: el primer segmento
-    /// que trajo el marcador de EMOM manda — un solo sitio calcula esto en toda
-    /// la sesión, aunque varias estaciones lo compartan. Las dos cifras o
-    /// ninguna: «7 de ?» no es una lectura.
     static func emomRoundsDe(_ ejecucion: ExecutionSummary) -> (completadas: Int, prescritas: Int)? {
         guard let seg = ejecucion.segments.first(where: { $0.emomRoundsCompleted != nil }),
               let completadas = seg.emomRoundsCompleted,
@@ -199,18 +209,11 @@ enum LecturaDeSesionDesdeDetalle {
 
     // MARK: - Lo medido
 
-    /// El pulso de la sesión ENTERA, tal y como lo archivó el motor — nunca
-    /// reconstruido. Sin traza disponible no hay curva que dibujar.
     static func pulsoDe(_ trace: ExecutionTrace?) -> [Muestra] {
         guard let trace, trace.available else { return [] }
         return trace.displayCurve.hr?.muestras ?? []
     }
 
-    /// El reparto de pulso — MISMO cálculo que `ExecutedWorkoutView.zoneCoverage`:
-    /// solo los segmentos con duración medida entran en la ventana, y sus
-    /// segundos por zona (`raw_lap_data_json.zone_seconds`, ya decodificados en
-    /// `SegmentActualDTO.zoneSeconds`) se suman antes de leer el reparto. Un solo
-    /// sitio calcula esto en toda la app.
     static func zonasDe(_ segmentos: [SegmentActualDTO]) -> ZoneCoverage? {
         var totales: [String: Int] = [:]
         var ventana = 0.0

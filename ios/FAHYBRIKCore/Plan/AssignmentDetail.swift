@@ -139,6 +139,10 @@ struct ExecutionSummary: Codable, Equatable {
     let totalDistanceM: Double?
     let totalCalories: Double?
 
+    /// Lo HECHO, proyectado en el servidor (card 144). Nil en cache vieja:
+    /// entonces la lectura cae a los segmentos. Vacío = no hay sustancia.
+    let recap: RecapDTO?
+
     var isPartial: Bool { completeness == "partial" }
 
     enum CodingKeys: String, CodingKey {
@@ -149,6 +153,7 @@ struct ExecutionSummary: Codable, Equatable {
         case startedAt, elevationGainM, elevationLossM
         case hrRecovery60Bpm, decouplingPct, trace
         case avgHr, maxHr, totalDistanceM, totalCalories
+        case recap
     }
 
     // Tolerant decode (mirrors AthleteWeekDaySession): EVERY field is optional or
@@ -195,6 +200,64 @@ struct ExecutionSummary: Codable, Equatable {
         maxHr = try c.decodeIfPresent(Double.self, forKey: .maxHr)
         totalDistanceM = try c.decodeIfPresent(Double.self, forKey: .totalDistanceM)
         totalCalories = try c.decodeIfPresent(Double.self, forKey: .totalCalories)
+        recap = try c.decodeIfPresent(RecapDTO.self, forKey: .recap)
+    }
+}
+
+/// Recap proyectado en servidor. Solo ejecución — nunca la prescripción.
+struct RecapDTO: Codable, Equatable {
+    let blocks: [RecapBlockDTO]
+}
+
+struct RecapBlockDTO: Codable, Equatable {
+    let position: Int
+    let label: String
+    let kind: String
+    let modality: String?
+    let durationS: Int?
+    let distanceM: Double?
+    let paceSPerKm: Double?
+    let paceSPer500m: Double?
+    let reps: Int?
+    let loadKg: Double?
+    let sets: [RecapSetDTO]
+    let round: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case position, label, kind, modality, durationS, distanceM, paceSPerKm
+        case paceSPer500m = "paceSPer500M"
+        case reps, loadKg, sets, round
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        position = try c.decodeIfPresent(Int.self, forKey: .position) ?? 0
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
+        kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? "station"
+        modality = try c.decodeIfPresent(String.self, forKey: .modality)
+        durationS = try c.decodeIfPresent(Int.self, forKey: .durationS)
+        distanceM = try c.decodeIfPresent(Double.self, forKey: .distanceM)
+        paceSPerKm = try c.decodeIfPresent(Double.self, forKey: .paceSPerKm)
+        paceSPer500m = try c.decodeIfPresent(Double.self, forKey: .paceSPer500m)
+        reps = try c.decodeIfPresent(Int.self, forKey: .reps)
+        loadKg = try c.decodeIfPresent(Double.self, forKey: .loadKg)
+        sets = try c.decodeIfPresent([RecapSetDTO].self, forKey: .sets) ?? []
+        round = try c.decodeIfPresent(Int.self, forKey: .round)
+    }
+}
+
+struct RecapSetDTO: Codable, Equatable {
+    let setIndex: Int
+    let reps: Int?
+    let loadKg: Double?
+    let isApproach: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        setIndex = try c.decodeIfPresent(Int.self, forKey: .setIndex) ?? 0
+        reps = try c.decodeIfPresent(Int.self, forKey: .reps)
+        loadKg = try c.decodeIfPresent(Double.self, forKey: .loadKg)
+        isApproach = try c.decodeIfPresent(Bool.self, forKey: .isApproach) ?? false
     }
 }
 
@@ -259,6 +322,10 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     /// duration and hides the only number that says how it went.
     let emomRoundsCompleted: Int?
     let emomRoundsPrescribed: Int?
+    /// 0/nil = sin ronda. 1+ = esa ronda (mig 0155). Ausente en cache vieja.
+    let roundIndex: Int? = nil
+    /// Series de `set_executions`. Vacío si el payload no las trae.
+    let sets: [SetActualDTO] = []
 
     /// Seconds spent in each HR zone over this leg, keyed "z1"…"z5" (from the
     /// segment's raw_lap_data_json). Nil when no strap fed the session — the
@@ -288,6 +355,62 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case startedAt, legIndex, legRole, legPhase
         case source, emomRoundsCompleted, emomRoundsPrescribed, zoneSeconds
         case dragFactor, avgCaloriesPerHour, peakDriveForceLbs, avgDriveForceLbs, ergSplits
+        case roundIndex, sets
+    }
+}
+
+extension SegmentActualDTO {
+    // Cache anterior a la 144 no trae `sets` ni `round_index`. Un decode
+    // sintético las exigiría y LossyArray tiraría el tramo entero.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        position = try c.decodeIfPresent(Int.self, forKey: .position) ?? 0
+        itemUid = try c.decodeIfPresent(String.self, forKey: .itemUid)
+        modality = try c.decodeIfPresent(String.self, forKey: .modality) ?? "other"
+        durationSeconds = try c.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        repsCompleted = try c.decodeIfPresent(Int.self, forKey: .repsCompleted)
+        weightUsedKg = try c.decodeIfPresent(Double.self, forKey: .weightUsedKg)
+        distanceMeters = try c.decodeIfPresent(Double.self, forKey: .distanceMeters)
+        avgPaceSPer500m = try c.decodeIfPresent(Double.self, forKey: .avgPaceSPer500m)
+        avgPaceSPerKm = try c.decodeIfPresent(Double.self, forKey: .avgPaceSPerKm)
+        avgPowerW = try c.decodeIfPresent(Double.self, forKey: .avgPowerW)
+        strokeRateSpm = try c.decodeIfPresent(Double.self, forKey: .strokeRateSpm)
+        avgHr = try c.decodeIfPresent(Int.self, forKey: .avgHr)
+        maxHr = try c.decodeIfPresent(Int.self, forKey: .maxHr)
+        calories = try c.decodeIfPresent(Double.self, forKey: .calories)
+        inclinePct = try c.decodeIfPresent(Double.self, forKey: .inclinePct)
+        runCadenceSpm = try c.decodeIfPresent(Int.self, forKey: .runCadenceSpm)
+        avgGradientPct = try c.decodeIfPresent(Double.self, forKey: .avgGradientPct)
+        startedAt = try c.decodeIfPresent(String.self, forKey: .startedAt)
+        legIndex = try c.decodeIfPresent(Int.self, forKey: .legIndex)
+        legRole = try c.decodeIfPresent(String.self, forKey: .legRole)
+        legPhase = try c.decodeIfPresent(String.self, forKey: .legPhase)
+        source = try c.decodeIfPresent(String.self, forKey: .source)
+        emomRoundsCompleted = try c.decodeIfPresent(Int.self, forKey: .emomRoundsCompleted)
+        emomRoundsPrescribed = try c.decodeIfPresent(Int.self, forKey: .emomRoundsPrescribed)
+        zoneSeconds = try c.decodeIfPresent([String: Int].self, forKey: .zoneSeconds)
+        dragFactor = try c.decodeIfPresent(Int.self, forKey: .dragFactor)
+        avgCaloriesPerHour = try c.decodeIfPresent(Double.self, forKey: .avgCaloriesPerHour)
+        peakDriveForceLbs = try c.decodeIfPresent(Double.self, forKey: .peakDriveForceLbs)
+        avgDriveForceLbs = try c.decodeIfPresent(Double.self, forKey: .avgDriveForceLbs)
+        ergSplits = try c.decodeIfPresent([ErgSplitActual].self, forKey: .ergSplits)
+        roundIndex = try c.decodeIfPresent(Int.self, forKey: .roundIndex)
+        sets = try c.decodeIfPresent([SetActualDTO].self, forKey: .sets) ?? []
+    }
+}
+
+struct SetActualDTO: Codable, Equatable {
+    let setIndex: Int
+    let repsActual: Int?
+    let loadActualKg: Double?
+    let isApproach: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        setIndex = try c.decodeIfPresent(Int.self, forKey: .setIndex) ?? 0
+        repsActual = try c.decodeIfPresent(Int.self, forKey: .repsActual)
+        loadActualKg = try c.decodeIfPresent(Double.self, forKey: .loadActualKg)
+        isApproach = try c.decodeIfPresent(Bool.self, forKey: .isApproach) ?? false
     }
 }
 

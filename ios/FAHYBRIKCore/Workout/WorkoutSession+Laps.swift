@@ -134,8 +134,9 @@ extension WorkoutSession {
         // duration (km/min). Only when we actually measured a distance; otherwise
         // nil (no fabricated pace from the prescription). The belt's covered meters
         // feed it exactly like GPS/manual do.
+        let effortSeconds = lapEffortSeconds
         let avgPaceKm: Double? = Self.paceSecPerKm(
-            meters: beltDistance ?? runDistance, seconds: lapElapsedSeconds
+            meters: beltDistance ?? runDistance, seconds: effortSeconds
         )
 
         // Load USED (kg) — ONLY what the athlete DECLARED. It used to fall back to
@@ -297,9 +298,9 @@ extension WorkoutSession {
             templateSegmentId: seg.templateSegmentId,
             position: seg.order,
             modality: seg.wireModality,   // #erg-2: row/ski/bike, not a merged "row"
-            startedAt: now.addingTimeInterval(-lapElapsedSeconds),
+            startedAt: now.addingTimeInterval(-effortSeconds),
             endedAt: now,
-            durationSeconds: lapElapsedSeconds,
+            durationSeconds: effortSeconds,
             avgHRBpm: mergedAvgHR,
             maxHRBpm: mergedMaxHR,
             zoneSecondsByZone: mergedZone,

@@ -458,6 +458,7 @@ export async function ingestExecutionSegments(args: {
     if (seg.peak_drive_force_lbs != null) lap.peak_drive_force_lbs = seg.peak_drive_force_lbs;
     if (seg.avg_drive_force_lbs != null) lap.avg_drive_force_lbs = seg.avg_drive_force_lbs;
     if (seg.erg_splits != null && seg.erg_splits.length > 0) lap.erg_splits = seg.erg_splits;
+    if (seg.duration_seconds != null) lap.work_s = seg.duration_seconds;
     const rawLap =
       Object.keys(lap).length > 0 ? sql.json(lap as Parameters<typeof sql.json>[0]) : null;
 

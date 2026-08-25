@@ -643,6 +643,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       leg_phase: null,
       is_structural: false,
       sets: [],
+      round_index: null,
     };
     const result = buildAssignmentDetail({
       assignment: { ...baseAssignment, status: 'completed' as const },
@@ -659,6 +660,69 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       band_axis: 'pace',
       band: { axis: 'pace', fast_s: 240, slow_s: 254 },
     });
+  });
+
+  it('el recap del detalle sale de la ejecución: 3:39 corridos, no el 5:45 pedido', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-08-25T08:10:00Z', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'pace', unit: 'per_km', value_s: 345 })],
+      executionSegments: [
+        {
+          position: 0,
+          item_uid: 'segment-60',
+          modality: 'run',
+          started_at: '2026-08-25T08:00:00Z',
+          duration_seconds: 345,
+          reps_completed: null,
+          weight_used_kg: null,
+          distance_meters: 1000,
+          avg_pace_s_per_500m: null,
+          avg_pace_s_per_km: 219,
+          avg_power_w: null,
+          stroke_rate_spm: null,
+          avg_hr: null,
+          max_hr: null,
+          calories: null,
+          emom_rounds_completed: null,
+          emom_rounds_prescribed: null,
+          incline_pct: null,
+          avg_gradient_pct: null,
+          run_cadence_spm: null,
+          drag_factor: null,
+          avg_calories_per_hour: null,
+          peak_drive_force_lbs: null,
+          avg_drive_force_lbs: null,
+          erg_splits: null,
+          run_splits: null,
+          source: 'treadmill',
+          zone_seconds: null,
+          leg_index: null,
+          leg_role: null,
+          leg_phase: null,
+          is_structural: false,
+          sets: [],
+          round_index: null,
+        },
+      ],
+    });
+    expect(result.execution?.recap.blocks).toEqual([
+      {
+        position: 0,
+        label: 'Run',
+        kind: 'run',
+        modality: 'run',
+        duration_s: 219,
+        distance_m: 1000,
+        pace_s_per_km: 219,
+        pace_s_per_500m: null,
+        reps: null,
+        load_kg: null,
+        sets: [],
+        round: null,
+      },
+    ]);
   });
 
   it('sesión sin nada que juzgar: run_compliance vacío y declarado, nunca un veredicto inventado', () => {

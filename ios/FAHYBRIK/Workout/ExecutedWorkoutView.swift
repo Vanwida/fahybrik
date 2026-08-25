@@ -641,14 +641,10 @@ struct ExecutedWorkoutView: View {
     // MARK: - Data load (cache-first, then network)
     private func load() async {
         if detail != nil { return }
-        // Accept ANY cached copy for an instant paint, then refresh from the
-        // network below. The previous `cached.execution != nil` gate made this
-        // view the ONLY surface that rejected a cache the brief/list accept — so
-        // when the cache was written pre-completion (execution == nil) a transient
-        // network failure dropped straight to "No pudimos cargar tu entreno" while
-        // the SAME day still opened elsewhere. The view renders fine without an
-        // execution (header shows "Completado"); the refresh fills the numbers.
-        if let cached = AssignmentDetailCache.load(assignmentId) {
+        // Solo se pinta un cache CON ejecución. El brief previo al live no tiene
+        // `execution`: si se acepta, «ver lo que hiciste» sale Completado /
+        // técnica / captura y un fetch fallido lo deja así (card 144).
+        if let cached = AssignmentDetailCache.load(assignmentId), cached.execution != nil {
             detail = cached
         }
         guard let bearer else {

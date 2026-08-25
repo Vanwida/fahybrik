@@ -422,6 +422,9 @@ struct WorkoutContainer: View {
                                 } else {
                                     CompletedAssignmentsStore.markCompleted(assignmentId)
                                 }
+                                // El brief cacheado no tiene ejecución. Si se pinta
+                                // al abrir «ver lo que hiciste», el recap sale vacío.
+                                AssignmentDetailCache.remove(assignmentId)
                                 // #48 — the athlete just did this session HERE, so the
                                 // copy sitting in the watch's Entrenamiento app must
                                 // stop offering it; otherwise the same run looks

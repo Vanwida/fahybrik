@@ -95,7 +95,9 @@ extension WorkoutSession {
     func recordRunLegLap(_ leg: RunLeg, at legIndex: Int) {
         guard let seg = currentSegment else { return }
         let now = Date()
-        let dur = runLegElapsed   // lapElapsedSeconds − runLegStartElapsed (this leg only)
+        // Reloj de trabajo de la cinta (card 167) cuando este tramo lo midió;
+        // si no, la pared de la pierna. El HUD ya lee beltWorkElapsedS.
+        let dur = (leg.isWork && beltWorkElapsedS > 0) ? beltWorkElapsedS : runLegElapsed
         // Covered distance for THIS leg: belt delta wins (a belt IS the tramo's truth),
         // else GPS delta; nil when no device measured it (never the prescribed target).
         let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
