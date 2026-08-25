@@ -11,6 +11,7 @@ teléfono ya no saca un crono de sesión. Se ve el mismo tramo
 que en vertical, más grande (sujeto 112, «Tramo N de M» 22,
 título 28). Cinta y calle recuperan el título. iOS y el gemelo
 leen `LandscapeTramo`. Card 170 (ClickUp aún puede no existir).
+https://github.com/Vanwida/fahybrik/pull/80
 
 **169 · EN VIVO SE LEEN 1 / 2 / 3 (en trunk).** La tanda se lee
 `1 / 2 / 3`. El riel pone el número, no `S1`. iOS y el gemelo
