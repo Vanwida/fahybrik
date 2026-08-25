@@ -197,7 +197,8 @@ final class LecturaDeSesionDesdeDetalleTests: XCTestCase {
             avgHr: 158, maxHr: nil, calories: nil, inclinePct: nil, runCadenceSpm: nil,
             avgGradientPct: nil, startedAt: nil, legIndex: nil, legRole: nil,
             legPhase: nil, source: nil, emomRoundsCompleted: nil,
-            emomRoundsPrescribed: nil, zoneSeconds: nil, dragFactor: nil,
+            emomRoundsPrescribed: nil, roundIndex: nil, sets: [],
+            zoneSeconds: nil, dragFactor: nil,
             avgCaloriesPerHour: nil, peakDriveForceLbs: nil, avgDriveForceLbs: nil,
             ergSplits: nil
         )
@@ -394,7 +395,8 @@ final class LecturaDeSesionDesdeDetalleTests: XCTestCase {
             avgHr: nil, maxHr: nil, calories: nil, inclinePct: nil, runCadenceSpm: nil,
             avgGradientPct: nil, startedAt: nil, legIndex: nil, legRole: nil,
             legPhase: nil, source: nil, emomRoundsCompleted: nil,
-            emomRoundsPrescribed: nil, zoneSeconds: nil, dragFactor: nil,
+            emomRoundsPrescribed: nil, roundIndex: nil, sets: [],
+            zoneSeconds: nil, dragFactor: nil,
             avgCaloriesPerHour: nil, peakDriveForceLbs: nil, avgDriveForceLbs: nil,
             ergSplits: nil
         )

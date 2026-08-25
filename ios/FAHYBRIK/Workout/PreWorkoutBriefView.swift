@@ -722,7 +722,6 @@ struct PreWorkoutBriefView: View {
         }
     }
 
-    @ViewBuilder
     private func resolvedReferencePhrase(_ item: WorkoutItem) -> String? {
         item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase
     }
