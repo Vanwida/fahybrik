@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (130 · gramática + diccionario)
+Última actualización: **2026-08-25** (127 · quién firma los totales)
 
 ## Ahora
 
@@ -166,12 +166,17 @@ a la carrera del atleta y cada tramo declara mín/defecto/máx (dato del coach);
 el ajustador reparte las semanas hacia atrás desde la fecha. Propuesta visual en
 `docs/ciclos-elasticos.html`. Sin decisión de Alex todavía.
 
+**127 · QUIÉN FIRMA LOS TOTALES AL LLEGAR DOS VECES.** El escritor vivo
+prefería el payload nuevo (`coalesce(excluded, existing)`). El comentario y
+la prueba pedían lo contrario: el primer no-nulo se queda. Un segundo
+envío (el mismo entreno, o solo la cinta) ya no pisa `totals_source`.
+Misma dirección que HealthKit/Garmin/Polar. Sin ON CONFLICT nuevo.
+`ComunicadosRenderTests` sigue inestable (ImageRenderer bajo carga);
+aquí no hay Xcode para estabilizarlo. El duplicado del 19 no se borra.
+
 ABIERTO: **122** (el crono arranca con el toque y no con la primera zancada; la
 cinta no detecta que se ha parado; no existe la transición — con decisión de Alex
-dentro) · **125** barrido de letra pequeña y contraste en toda la app · **127** una
-prueba ROJA preexistente (`totals_source` coalescea al revés de su comentario) y
-una INESTABLE (`ComunicadosRenderTests` cae bajo carga, pasa sola). Y el duplicado
-del 19 sigue en la base: borrarlo es dato del atleta.
+dentro) · **125** barrido de letra pequeña y contraste en toda la app.
 
 
 **El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes

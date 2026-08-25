@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · El primer no-nulo firma los totales cuando el entreno llega dos veces
+
+**Qué fallaba (card 127):** `recordWorkoutExecution` escribía
+`totals_source = coalesce(excluded.totals_source, workout_executions.totals_source)`.
+El segundo payload (a menudo un fragmento: solo la cinta, o el mismo entreno reenviado) reelegía el aparato. La prueba `a second sync ADDS the new apparatus and keeps the original source` pedía `concept2` y recibía `treadmill`. El comentario de esa prueba ya decía «the first non-null stands».
+
+**Decidido:** quien firma `totals_source` y `recorded_via` es el primer no-nulo. Misma dirección que HealthKit, Garmin y Polar (`coalesce(existing, excluded)`). `source` sigue fuera del UPDATE. `contributing_sources` sigue siendo UNION. Los totales de cabecera (FC, distancia, calorías) se siguen recalculando después, en `session-totals.ts`. No es un ON CONFLICT nuevo.
+
+Dentro de UN payload, el tramo más largo sigue eligiendo `totals_source`. Esa regla no se reabre cuando llega un segundo envío parcial.
+
+**NO hacer:** no reelegir el aparato más largo a partir de un segundo payload parcial. No inventar un índice ON CONFLICT. No borrar el duplicado del 19-ago en producción.
+
+**Dónde vive:** `web/lib/sync/record-workout-execution.ts`. Contrato: `web/tests/sync/execution-provenance.db.test.ts` y `web/tests/sync/execution-provenance-coalesce.test.ts`.
+
+---
+
 ## 2026-08-24 · Una cabecera manda sobre las líneas de debajo. No se inventa la dosis que no escribió.
 
 **Qué fallaba (card 141):** en un plan escrito a mano la dosis vive a menudo en la cabecera («4 series:», «2 series de 8 reps de:», «4 rondas:») y los hijos van desnudos porque la heredan. El importador buscaba la dosis en cada línea, no la encontraba y mandaba todo a revisión. Es la forma que más cae en el ciclo real de 12 semanas.
