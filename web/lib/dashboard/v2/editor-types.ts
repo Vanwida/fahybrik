@@ -115,12 +115,10 @@ export interface EditorBlock {
    */
   source_block_title?: string | null;
   /**
-   * Texto verbatim que no encaja en la estructura del bloque — la prescripción
-   * en prosa de un bloque de biblioteca, o (import por foto) el texto de una
-   * tarjeta que la gramática no pudo tipar como ejercicio ni como dosis huérfana
-   * (ver web/lib/import/build-proposal.ts). Misma semántica que
-   * WeekDayPart.coach_note (shared/schema/program-templates.ts); el day editor
-   * hoy no tiene UI para editarlo, así que se preserva pero no se muestra.
+   * Descripción de ESTE bloque — la prescripción en prosa de un bloque de
+   * biblioteca, o (import por foto) el texto de una tarjeta que la gramática
+   * no pudo tipar. Misma semántica que WeekDayPart.coach_note. El editor de
+   * día y el compositor de sesión la editan; el atleta la lee en ese bloque.
    */
   coach_note?: string;
   /**

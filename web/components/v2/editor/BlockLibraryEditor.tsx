@@ -292,6 +292,7 @@ export function BlockLibraryEditor({
               onChange={updateBlock}
               onDuplicate={() => duplicateBlock(selected.uid)}
               onSave={handleSave}
+              showBlockDescription={false}
             />
           ) : (
             <EmptyState

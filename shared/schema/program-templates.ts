@@ -10,19 +10,45 @@ import {
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
 
 /**
- * Topes de las DOS notas en prosa que el coach escribe para el atleta y que este
- * lee en el móvil. Son constantes exportadas (y no un `800`/`500` suelto en cada
- * `max()`) porque el mismo número lo necesita el input del dashboard para su
- * `maxLength`: sin una sola fuente, el cliente puede componer un payload que el
- * servidor rechaza y el coach pierde lo escrito.
+ * Topes de las notas en prosa que el coach escribe para el atleta y que este
+ * lee en el móvil. Son constantes exportadas (y no un `800`/`500`/`2000` suelto
+ * en cada `max()`) porque el mismo número lo necesita el input del dashboard
+ * para su `maxLength`: sin una sola fuente, el cliente puede componer un payload
+ * que el servidor rechaza y el coach pierde lo escrito.
  *
  * - SESSION: la nota del ENTRENO (`WeekSession.notes` → `templates.coach_notes`
  *   al materializar) — el brief previo que el atleta lee antes de empezar.
- * - ITEM: la nota de UNA línea prescrita (`WeekDayPartItem.notes` →
+ * - BLOCK: la descripción de UN bloque (`WeekDayPart.coach_note` →
+ *   `template_segments.block_coach_note`) — la ve en ESE bloque, no solo al
+ *   inicio. El tope ya vivía en el schema (2000); ahora tiene nombre.
+ * - ITEM: la técnica de UNA línea (`WeekDayPartItem.notes` →
  *   `template_segments.notes`) — el ajuste de ese ejercicio para ese día.
  */
 export const SESSION_NOTES_MAX = 800;
 export const ITEM_NOTES_MAX = 500;
+export const BLOCK_NOTE_MAX = 2000;
+
+/**
+ * Notas de bloque no vacías, sin repetir, en el orden en que aparecen.
+ * Vacío se queda vacío: no se inventa texto. Si un grupo fusionado trae
+ * varias distintas (fragmentos), se juntan; si todas dicen lo mismo (el
+ * writer estampa la misma prosa en cada fila, como `block_title`), queda una.
+ */
+export function uniqueBlockNotes(
+  values: ReadonlyArray<string | null | undefined>,
+): string | null {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  if (out.length === 0) return null;
+  const joined = out.join('\n');
+  return joined.length > BLOCK_NOTE_MAX ? joined.slice(0, BLOCK_NOTE_MAX) : joined;
+}
 
 /**
  * KIND de un DÍA de la semana (día TIPADO). Un día es `workout` (lleva ≥1 sesión
@@ -218,7 +244,7 @@ export const weekDayPartSchema = z.object({
   // de config_json a propósito: es un tipo cerrado y objetivamente correcto, no
   // otro cajón del blob genérico.
   circuit: circuitConfigSchema.optional(),
-  coach_note: z.string().max(2000).optional(),
+  coach_note: z.string().max(BLOCK_NOTE_MAX).optional(),
   items: z.array(weekDayPartItemSchema).max(24).default([]),
   // Procedencia opcional: cuando el bloque se insertó desde la Biblioteca de
   // Bloques (0037). `source_block_id` referencia `blocks.id`; `block_modifiers`
@@ -465,12 +491,10 @@ export const editorBlockInputSchema = z.object({
   // serializer lo persiste en slots_json; opcional para callers que no lo envían.
   group: structureGroupSchema.optional(),
   source_block_id: z.number().int().positive().nullable().optional(),
-  // Texto verbatim que no encaja en la estructura (misma semántica que
-  // WeekDayPart.coach_note arriba — la prescripción/nota en prosa de un
-  // bloque). Opcional: los callers que no lo envían (el editor de día hoy no
-  // tiene UI para tocarlo) preservan el original vía el serializer, nunca lo
-  // borran por omisión.
-  coach_note: z.string().max(2000).optional(),
+  // Descripción de ESTE bloque (WeekDayPart.coach_note). El editor de día la
+  // manda siempre (vacío incluido) para poder borrarla. Quien omite la clave
+  // (importador, copia vieja) preserva el original vía el serializer.
+  coach_note: z.string().max(BLOCK_NOTE_MAX).optional(),
   // Autoritativo desde el input cuando se envía, como `group`: el day editor
   // manda siempre su valor actual una vez tiene UI para esto. Un caller que
   // aún no lo conoce (copiar día, tests) simplemente lo omite → ausente/false

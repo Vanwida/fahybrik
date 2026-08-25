@@ -825,7 +825,7 @@ async function materializeInlineSessionTemplate(params: {
       await params.client`
         insert into template_segments (
           template_id, position, block_position, block_title, block_format,
-          exercise_id, params_json, notes, prescription_json
+          block_coach_note, exercise_id, params_json, notes, prescription_json
         )
         values (
           ${templateId},
@@ -833,6 +833,7 @@ async function materializeInlineSessionTemplate(params: {
           ${bi},
           ${block.title ?? null},
           ${blockFormat},
+          ${block.coach_note?.trim() || null},
           ${Number(item.exercise_id)},
           ${params.client.json(paramsJson)},
           ${item.notes ?? null},

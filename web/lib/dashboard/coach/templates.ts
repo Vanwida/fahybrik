@@ -8,6 +8,7 @@ import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-o
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
 import { templateFormat } from '@fahybrid/shared/schema/_primitives';
+import { BLOCK_NOTE_MAX, uniqueBlockNotes } from '@fahybrid/shared/schema/program-templates';
 import { segmentParamsSchema } from '@fahybrid/shared/schema/templates';
 import {
   prescriptionSchema,
@@ -20,8 +21,8 @@ import {
  *
  * `template_segments` has ON DELETE CASCADE from `templates`, so the row delete
  * also wipes its segments. Multi-block columns (`block_position`,
- * `block_format`, `block_title`) live on `template_segments` and are grouped
- * by `block_position` on load.
+ * `block_format`, `block_title`, `block_coach_note`) live on `template_segments`
+ * and are grouped by `block_position` on load.
  */
 
 export const templateSegmentInputSchema = z.object({
@@ -30,6 +31,9 @@ export const templateSegmentInputSchema = z.object({
   block_position: z.number().int().nonnegative().default(0),
   block_format: templateFormat.nullable().optional(),
   block_title: z.string().max(120).nullable().optional(),
+  // Descripción de ESTE bloque (WeekDayPart.coach_note). Misma prosa en
+  // todas las filas del grupo, como block_title. Vacío / omitido = null.
+  block_coach_note: z.string().max(BLOCK_NOTE_MAX).nullable().optional(),
   params_json: segmentParamsSchema.default({}),
   notes: z.string().max(4000).nullable().optional(),
   // Structured per-set prescription (migration 0043). TRANSITION: validated by
@@ -145,6 +149,7 @@ export interface TemplateDetailBlock {
   block_position: number;
   block_title: string | null;
   block_format: string | null;
+  coach_note: string | null;
   items: TemplateDetailItem[];
 }
 
@@ -207,6 +212,7 @@ export async function getTemplateDetail(params: {
       block_position: number;
       block_title: string | null;
       block_format: string | null;
+      block_coach_note: string | null;
       exercise_id: string;
       exercise_name: string;
       exercise_category: string;
@@ -222,6 +228,7 @@ export async function getTemplateDetail(params: {
       s.block_position,
       s.block_title,
       s.block_format,
+      s.block_coach_note,
       s.exercise_id::text as exercise_id,
       -- Coach's renamed exercise wins over the base catalog name (mig 0132) — the
       -- editor must show the name THIS coach uses, same as the athlete-facing read.
@@ -247,10 +254,12 @@ export async function getTemplateDetail(params: {
         block_position: row.block_position,
         block_title: row.block_title,
         block_format: row.block_format,
+        coach_note: null,
         items: [],
       };
       blocksMap.set(key, block);
     }
+    block.coach_note = uniqueBlockNotes([block.coach_note, row.block_coach_note]);
     const parsedPresc = safeParsePrescription(row.prescription_json);
     block.items.push({
       id: row.id,
@@ -443,7 +452,7 @@ async function insertSegments(
     await client`
       insert into template_segments (
         template_id, position, block_position, block_title, block_format,
-        exercise_id, params_json, notes, prescription_json
+        block_coach_note, exercise_id, params_json, notes, prescription_json
       )
       values (
         ${template_id},
@@ -451,6 +460,7 @@ async function insertSegments(
         ${seg.block_position},
         ${seg.block_title ?? null},
         ${seg.block_format ?? null},
+        ${seg.block_coach_note?.trim() || null},
         ${seg.exercise_id},
         ${client.json(paramsJson)},
         ${seg.notes ?? null},

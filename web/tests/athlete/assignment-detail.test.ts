@@ -1206,4 +1206,164 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     });
     expect(result.workout!.blocks[0]!.items[0]!.prescription_json!.structure).toBeUndefined();
   });
+
+  it('card 108 · técnica y descripción viven en el bloque 2, no en el 1', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: { ...baseTemplate, coach_notes: null },
+      segments: [
+        {
+          id: '201',
+          position: 0,
+          block_position: 0,
+          block_format: 'strength_block',
+          block_title: 'Fuerza',
+          block_coach_note: null,
+          params_json: { reps: 5 },
+          prescription_json: null,
+          notes: null,
+          exercise_id: '901',
+          exercise_name: 'Back Squat',
+          exercise_slug: 'back-squat',
+          exercise_category: 'strength',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+        {
+          id: '202',
+          position: 1,
+          block_position: 1,
+          block_format: 'intervals',
+          block_title: 'Series',
+          block_coach_note: 'Cadera alta. No dejes caer el tronco.',
+          params_json: { distance_meters: 400 },
+          prescription_json: null,
+          notes: 'Corta si se abre la zancada.',
+          exercise_id: '950',
+          exercise_name: 'Run',
+          exercise_slug: 'run',
+          exercise_category: 'cardio',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+      ],
+    });
+
+    expect(result.workout).not.toBeNull();
+    expect(result.workout!.coach_note).toBeNull();
+    expect(result.workout!.blocks).toHaveLength(2);
+    expect(result.workout!.blocks[0]!.title).toBe('Fuerza');
+    expect(result.workout!.blocks[0]!.coach_note).toBeNull();
+    expect(result.workout!.blocks[0]!.items[0]!.notes).toBeNull();
+    expect(result.workout!.blocks[1]!.title).toBe('Series');
+    expect(result.workout!.blocks[1]!.coach_note).toBe('Cadera alta. No dejes caer el tronco.');
+    expect(result.workout!.blocks[1]!.items[0]!.notes).toBe('Corta si se abre la zancada.');
+  });
+
+  it('card 108 · una nota solo de inicio de sesión sigue al inicio, no en los bloques', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: { ...baseTemplate, coach_notes: 'Calienta 10 min antes.' },
+      segments: [
+        {
+          id: '211',
+          position: 0,
+          block_position: 0,
+          block_format: 'strength_block',
+          block_title: 'Fuerza',
+          block_coach_note: '   ',
+          params_json: { reps: 5 },
+          prescription_json: null,
+          notes: null,
+          exercise_id: '901',
+          exercise_name: 'Back Squat',
+          exercise_slug: 'back-squat',
+          exercise_category: 'strength',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+        {
+          id: '212',
+          position: 1,
+          block_position: 1,
+          block_format: 'intervals',
+          block_title: 'Series',
+          block_coach_note: null,
+          params_json: { distance_meters: 400 },
+          prescription_json: null,
+          notes: null,
+          exercise_id: '950',
+          exercise_name: 'Run',
+          exercise_slug: 'run',
+          exercise_category: 'cardio',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+      ],
+    });
+
+    expect(result.workout!.coach_note).toBe('Calienta 10 min antes.');
+    expect(result.workout!.blocks).toHaveLength(2);
+    expect(result.workout!.blocks[0]!.coach_note).toBeNull();
+    expect(result.workout!.blocks[1]!.coach_note).toBeNull();
+    expect(result.workout!.blocks[0]!.items[0]!.notes).toBeNull();
+    expect(result.workout!.blocks[1]!.items[0]!.notes).toBeNull();
+  });
+
+  it('card 108 · no copia la descripción del bloque 1 al bloque 2', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: { ...baseTemplate, coach_notes: null },
+      segments: [
+        {
+          id: '221',
+          position: 0,
+          block_position: 0,
+          block_format: 'strength_block',
+          block_title: 'Fuerza',
+          block_coach_note: 'Solo el primero.',
+          params_json: { reps: 5 },
+          prescription_json: null,
+          notes: 'Solo la línea uno.',
+          exercise_id: '901',
+          exercise_name: 'Back Squat',
+          exercise_slug: 'back-squat',
+          exercise_category: 'strength',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+        {
+          id: '222',
+          position: 1,
+          block_position: 1,
+          block_format: 'intervals',
+          block_title: 'Series',
+          block_coach_note: null,
+          params_json: { distance_meters: 400 },
+          prescription_json: null,
+          notes: null,
+          exercise_id: '950',
+          exercise_name: 'Run',
+          exercise_slug: 'run',
+          exercise_category: 'cardio',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+      ],
+    });
+
+    expect(result.workout!.blocks[0]!.coach_note).toBe('Solo el primero.');
+    expect(result.workout!.blocks[0]!.items[0]!.notes).toBe('Solo la línea uno.');
+    expect(result.workout!.blocks[1]!.coach_note).toBeNull();
+    expect(result.workout!.blocks[1]!.items[0]!.notes).toBeNull();
+  });
 });

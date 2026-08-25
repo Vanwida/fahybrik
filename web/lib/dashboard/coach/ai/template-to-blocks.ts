@@ -4,7 +4,7 @@ import type { Sql } from '@/lib/db';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
-import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
+import { uniqueBlockNotes, type WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 import {
   defaultConfigForPartFormat,
   presetById,
@@ -60,6 +60,7 @@ export async function loadTemplateAsBlocks(
     block_position: number;
     block_format: string | null;
     block_title: string | null;
+    block_coach_note: string | null;
     exercise_id: string;
     exercise_name: string;
     params_json: Record<string, unknown> | null;
@@ -76,6 +77,7 @@ export async function loadTemplateAsBlocks(
       ts.block_position,
       ts.block_format,
       ts.block_title,
+      ts.block_coach_note,
       ts.exercise_id::text as exercise_id,
       coalesce(ceo.name, e.name) as exercise_name,
       ts.params_json,
@@ -118,11 +120,13 @@ export async function loadTemplateAsBlocks(
         ? templateName || presetById('strength')?.title || 'Principal'
         : `Bloque ${key + 1}`);
 
+    const coachNote = uniqueBlockNotes(groupSegs.map((s) => s.block_coach_note));
     return {
       uid: newBlockUid(),
       format: fmt,
       title,
       config_json: defaultConfigForPartFormat(fmt),
+      ...(coachNote ? { coach_note: coachNote } : {}),
       items: groupSegs.map((s) => {
         // `prescription_json` is the segment's REAL dose; `params_json` is the
         // lossy scalar mirror. Reading only the mirror threw the dose away: a

@@ -272,6 +272,7 @@ async function loadInstanceBlocks(params: {
     block_position: b.block_position,
     block_title: b.block_title,
     block_format: b.block_format,
+    coach_note: b.coach_note,
     items: b.items.map((it) => ({
       id: it.id,
       position: it.position,
@@ -328,6 +329,7 @@ async function copyToLibraryTemplate(params: {
       block_position: number;
       block_title: string | null;
       block_format: string | null;
+      block_coach_note: string | null;
       exercise_id: string;
       params_json: Record<string, unknown> | null;
       notes: string | null;
@@ -339,6 +341,7 @@ async function copyToLibraryTemplate(params: {
       block_position,
       block_title,
       block_format,
+      block_coach_note,
       exercise_id::text as exercise_id,
       params_json,
       notes,
@@ -364,6 +367,7 @@ async function copyToLibraryTemplate(params: {
         block_position: s.block_position,
         block_format: s.block_format,
         block_title: s.block_title,
+        block_coach_note: s.block_coach_note,
         params_json: s.params_json ?? {},
         notes: s.notes,
         prescription_json: s.prescription_json ?? null,

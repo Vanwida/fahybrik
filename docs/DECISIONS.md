@@ -11,6 +11,43 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Técnica y descripción en cada bloque (card 108)
+
+**Qué faltaba:** cada bloque ya tenía descripción
+(`WeekDayPart.coach_note`) y técnica del día (`WeekDayPartItem.notes`).
+Al materializar, la descripción no tenía columna en
+`template_segments`. `assignment-detail.buildBlocks` emitía
+`coach_note: null` en todos los bloques. El atleta solo veía la
+nota del entreno (`templates.coach_notes`) al inicio. El editor de
+día no hidrataba ni editaba `coach_note` por bloque.
+
+**Decidido:**
+
+- No hay un segundo campo. Descripción = `coach_note` de siempre.
+  Técnica del día = `notes` de la línea. Catálogo (`cues` /
+  `exercise_description`) no se toca.
+- Hogar post-materialize: `template_segments.block_coach_note`
+  (mig 0211), igual que `block_title` (0020). Misma prosa en todas
+  las filas del bloque. Nullable. Sin índice. Sin ON CONFLICT.
+- El serve lee las notas no vacías del grupo. Si hay varias
+  distintas (fusión de fragmentos), se juntan. Si ninguna, `null`.
+  No se inventa texto. No se copia el del bloque 1 a un vacío.
+- La nota de sesión sigue solo al inicio (`workout.coach_note`).
+- iOS ya pintaba `block.coachNote`. No se toca Swift.
+
+**NO hacer:** no inventar `technique_notes`. no cerrar la 128. no
+tocar 132, Watch, Xcode, `DEVELOPMENT_TEAM`, feat/publish. no
+marcar ClickUp. no ON CONFLICT nuevo.
+
+**Dónde vive:** mig 0211. Writers: `insertSegments`,
+`materializeInlineSessionTemplate`, clone de instancia,
+`serializeSessionSegments`. Serve: `buildBlocks`. Editor:
+`mapPart`, `sessionsToWire`, `SessionPartCard` / `BlockEditor`.
+Readout: `SessionDetailDrawer`, `SesionScreen`. Tests:
+`assignment-detail.test.ts`, `editor-serialize-coach-note.test.ts`.
+
+---
+
 ## 2026-08-25 · El umbral que se sirve es un test, no un 5 km + 10 s (card 104)
 
 **Qué faltaba:** `deriveModalityThresholds` ya sabía preferir

@@ -15,10 +15,9 @@
 // surfaces. Serializing naively from the editor model alone would WIPE
 // those on every save. So every serializer takes the ORIGINAL loaded shape and
 // PRESERVES the fields the editor cannot edit, matching by `uid`. `coach_note`
-// is a middle case: the editor now CARRIES it (a source can set one — the
-// photo importer does, web/lib/import/build-proposal.ts) but has no UI to edit
-// it, so it round-trips through the block like the others rather than being
-// authored here.
+// (descripción del bloque) ahora tiene UI en el editor de día: si el input
+// la manda, manda (vacío borra). Si un caller viejo omite la clave, se
+// preserva el original.
 //
 // A3 FIX — incomplete lines are NEVER silently dropped. A line with no
 // exercise (exercise_id == null) is invalid data (the DB exercise_id is non-null),
@@ -105,8 +104,9 @@ function serializePart(
     serializeItem(it, originalItemsByUid.get(it.uid)),
   );
 
-  return {
-    // Preserve coach_note / config_json / block_modifiers / athlete_note etc.
+  const next: WeekDayPart = {
+    // Preserve config_json / block_modifiers / athlete_note / coach_note etc.
+    // `coach_note` se ajusta debajo: si el input la manda, manda (vacío borra).
     ...(original ?? {}),
     uid: block.uid,
     // format must be a templateFormat enum; default to a safe value when the
@@ -131,33 +131,35 @@ function serializePart(
       : original?.source_block_id != null
         ? { source_block_id: original.source_block_id }
         : {}),
-    // Same "input wins when sent, else keep the original" shape as the fields
-    // above. No caller clears it by omission today (the day editor has no UI
-    // for it yet) — that is a later decision, not this one.
-    ...(block.coach_note != null
-      ? { coach_note: block.coach_note }
-      : original?.coach_note != null
-        ? { coach_note: original.coach_note }
-        : {}),
-    // Circuito — misma regla que `group`/`source_block_id`/`coach_note`: input
-    // manda cuando se envía, si no se preserva el original. ComponentsForm
-    // siempre manda su `circuit` completo (rounds + pacing son obligatorios en
-    // el schema) mientras el bloque sea Circuito, así que en la práctica esto
-    // es autoritativo para ese archetype; un caller que no lo conoce (copiar
-    // día, tests viejos) simplemente lo omite y el original sobrevive.
+    // Circuito — misma regla que `group`/`source_block_id`: input manda cuando
+    // se envía, si no se preserva el original. ComponentsForm siempre manda su
+    // `circuit` completo (rounds + pacing son obligatorios en el schema)
+    // mientras el bloque sea Circuito; un caller que no lo conoce (copiar día,
+    // tests viejos) lo omite y el original sobrevive.
     ...(block.circuit != null
       ? { circuit: block.circuit }
       : original?.circuit != null
         ? { circuit: original.circuit }
         : {}),
     // Autoritativo desde el input, como `format`/`title` arriba: el day editor
-    // SÍ tiene UI para esto (a diferencia de coach_note), así que el cliente
-    // siempre manda su valor actual — incluida la vuelta a false. `?? false`
+    // SÍ tiene UI para esto, así que el cliente siempre manda su valor actual
+    // — incluida la vuelta a false. `?? false`
     // porque EditorBlock.optional es TS-opcional (otros constructores del tipo
     // — biblioteca, IA, quickline — no lo tocan nunca).
     optional: block.optional ?? false,
     items,
   };
+
+  // Descripción del bloque: input manda cuando se envía (vacío borra de
+  // verdad, no se queda la del original por el spread). Quien omite la
+  // clave (importador, tests viejos) conserva la que ya venía.
+  if (block.coach_note !== undefined) {
+    const trimmed = block.coach_note.trim();
+    if (trimmed) next.coach_note = trimmed;
+    else delete next.coach_note;
+  }
+
+  return next;
 }
 
 // ── Session ────────────────────────────────────────────────────────────────--
@@ -346,6 +348,7 @@ export interface SessionSegmentInput {
   block_position: number;
   block_format: WeekDayPart['format'] | null;
   block_title: string | null;
+  block_coach_note: string | null;
   params_json: Record<string, unknown>;
   notes: string | null;
   prescription_json: WeekDayPartItem['prescription_json'];
@@ -357,6 +360,7 @@ export interface SessionSegmentInput {
 export interface SessionBlockSerInput {
   title: string;
   format: string | null;
+  coach_note?: string;
   items: Array<{
     exercise_id: number | bigint | null;
     exercise_name: string;
@@ -428,6 +432,7 @@ export function serializeSessionSegments(
         block_position: blockPosition,
         block_format: (block.format ?? null) as WeekDayPart['format'] | null,
         block_title: block.title || null,
+        block_coach_note: block.coach_note?.trim() || null,
         params_json: prescriptionToParams(prescription),
         notes: item.notes != null && item.notes !== '' ? item.notes : null,
         prescription_json: prescription,

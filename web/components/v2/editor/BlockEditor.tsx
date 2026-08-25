@@ -16,13 +16,11 @@ import { useState } from 'react';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { undosedLines, type UndosedLine } from '@/lib/dashboard/v2/block-dose';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
-import { ITEM_NOTES_MAX } from '@fahybrid/shared/schema/program-templates';
+import { BlockProseFields } from './block-prose-fields';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
 import { isStrengthModality } from '@/lib/dashboard/v2/editor-axes';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
-import { NoteField } from './fields';
-import { fetchTextSuggestions } from './ai-text-suggest';
 import { PrescriptionFields } from './PrescriptionFields';
 import { ArchetypeBlockForm } from './ArchetypeBlockForm';
 import { AthleteSeesBar } from './AthletePreviewLine';
@@ -45,6 +43,7 @@ export function BlockEditor({
   onAddItem,
   proposedPaths,
   showOptionalToggle,
+  showBlockDescription = true,
 }: {
   block: EditorBlock;
   athleteName?: string;
@@ -60,6 +59,11 @@ export function BlockEditor({
   proposedPaths?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Ver CompositorHeader — solo el day editor lo pasa (fase 2). */
   showOptionalToggle?: boolean;
+  /**
+   * Descripción de ESTE bloque (`coach_note`). La biblioteca de bloques no
+   * la pinta: esa prosa vive en `blocks.description`, no por sub-pieza.
+   */
+  showBlockDescription?: boolean;
 }) {
   const [activeItemUid, setActiveItemUid] = useState<string | null>(
     block.items[0]?.uid ?? null,
@@ -256,89 +260,16 @@ export function BlockEditor({
         </div>
       )}
 
-      {/* La nota de cada línea, donde se pone su dosis: el ajuste de HOY para ese
-          ejercicio. Va aquí y no dentro de cada formulario de arquetipo porque es
-          del ITEM, no de la prescripción — así hay UN solo sitio donde escribirla
-          y las dos vías del compositor (arquetipo y legacy) la tienen igual. */}
-      {block.items.length > 0 ? (
-        <LineNotes
-          items={block.items}
-          blockTitle={block.title}
-          onChangeNote={(uid, notes) => updateItem(uid, { notes })}
-        />
-      ) : null}
+      <BlockProseFields
+        block={block}
+        showDescription={showBlockDescription}
+        onChangeCoachNote={(coach_note) => onChange({ ...block, coach_note })}
+        onChangeItemNote={(uid, notes) => updateItem(uid, { notes })}
+      />
 
       {/* La barra fija del pie: «El atleta ve» en vivo + Guardar bloque. */}
       <AthleteSeesBar block={block} athleteName={athleteName} onSave={onSave} />
     </div>
-  );
-}
-
-/**
- * La NOTA por línea prescrita — texto libre que el atleta lee al abrir ESE
- * ejercicio en su móvil. Es el ajuste del día («baja la carga, vienes de la
- * tirada del domingo»), NO la descripción ni las claves permanentes del
- * ejercicio: eso se escribe una vez en la Biblioteca y vale para siempre. La
- * pista bajo el campo lo dice, para que el coach no confunda las dos.
- *
- * Con una sola línea (casi todo el material del coach) el campo se titula solo y
- * no hace falta encabezar la sección: el ejercicio es el que tiene delante. Con
- * varias, la sección se encabeza una vez y cada campo lleva SU ejercicio.
- */
-const LINE_NOTE_HINT =
-  'Es solo para este día. Lo que vale siempre va en la ficha del ejercicio de tu biblioteca.';
-
-function LineNotes({
-  items,
-  blockTitle,
-  onChangeNote,
-}: {
-  items: EditorItem[];
-  /** Sitúa el ejercicio dentro del entreno cuando se piden borradores. */
-  blockTitle: string;
-  onChangeNote: (uid: string, notes: string) => void;
-}) {
-  const single = items.length === 1;
-  // El contexto de esta ayuda es LA LÍNEA, no la sesión: ese ejercicio y SU
-  // dosis. Pedir borradores de «baja la carga» con el entreno entero delante
-  // devolvería consejos del entreno, no del movimiento que se está dosificando.
-  const suggestFor = (item: EditorItem) => () =>
-    fetchTextSuggestions({
-      surface: 'item_note',
-      context: {
-        ...(item.exercise_name ? { exercise_name: item.exercise_name } : {}),
-        ...(blockTitle ? { block_title: blockTitle } : {}),
-        prescription: item.prescription,
-      },
-    });
-  return (
-    <section className="space-y-2.5">
-      {single ? null : (
-        <div className="space-y-0.5">
-          <span className="v2-micro block">Notas para el atleta</span>
-          <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
-            Las ve al abrir cada ejercicio en el móvil. {LINE_NOTE_HINT}
-          </p>
-        </div>
-      )}
-      {items.map((it) => (
-        <NoteField
-          key={it.uid}
-          id={`item-note-${it.uid}`}
-          label={
-            single
-              ? 'Nota para el atleta'
-              : it.exercise_name || 'Nota de la línea sin ejercicio'
-          }
-          hint={single ? `La ve al abrir este ejercicio en el móvil. ${LINE_NOTE_HINT}` : undefined}
-          value={it.notes ?? ''}
-          placeholder="Baja la carga, vienes de la tirada del domingo."
-          maxLength={ITEM_NOTES_MAX}
-          onChange={(v) => onChangeNote(it.uid, v)}
-          onSuggest={suggestFor(it)}
-        />
-      ))}
-    </section>
   );
 }
 

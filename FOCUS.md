@@ -2,9 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (104 · umbral: un número de verdad)
+Última actualización: **2026-08-25** (108 · técnica y descripción por bloque)
 
 ## Ahora
+
+**108 · TÉCNICA Y DESCRIPCIÓN EN CADA BLOQUE (PR).** Cada bloque
+lleva su propia descripción (`WeekDayPart.coach_note` →
+`template_segments.block_coach_note`) y su técnica del día
+(`item.notes`). Ya no se tiran a null al servir. La nota del
+entreno sigue solo al inicio. Vacío se queda vacío. iOS no
+recalcula. La 128 no se cierra.
+https://app.clickup.com/t/86ak3gp0a
 
 **104 · UN NÚMERO DE VERDAD (PR).** El umbral que se enseña o viaja
 al móvil solo sale de un test (`coach_test` / `athlete_test`) o de

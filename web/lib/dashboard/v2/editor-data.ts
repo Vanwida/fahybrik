@@ -76,6 +76,7 @@ export async function loadSessionEditorModel(params: {
       title,
       format: b.block_format ?? detail.format,
       group: inferGroup(title, b.block_format ?? detail.format),
+      ...(b.coach_note ? { coach_note: b.coach_note } : {}),
       items: b.items.map<EditorItem>((it) => {
         // Prefiere la prescripción ESTRUCTURADA (0043) y degrada a la legacy solo
         // si falta o no valida — igual que loadBlockEditorModel. Antes se llamaba
@@ -319,6 +320,7 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     // comportamiento legacy). Nunca se infiere ni se rellena aquí — solo el
     // coach lo completa desde ComponentsForm.
     circuit: part.circuit,
+    ...(part.coach_note ? { coach_note: part.coach_note } : {}),
     items: (part.items ?? []).map((it) => mapItem(it)),
   };
 }

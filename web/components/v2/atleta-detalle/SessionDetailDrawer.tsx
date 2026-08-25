@@ -314,6 +314,11 @@ export function SessionDetailDrawer({
                     {block.title.trim() !== title.trim() ? (
                       <h3 className="v2-micro">{block.title}</h3>
                     ) : null}
+                    {block.coach_note?.trim() ? (
+                      <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
+                        {block.coach_note}
+                      </p>
+                    ) : null}
                     <div className="flex flex-col gap-1.5">
                       {block.items.map((item) => (
                         <ItemPrescritoHecho
