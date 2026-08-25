@@ -942,6 +942,7 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(item.paramsJson.loadKg, 152)
         XCTAssertEqual(item.resolvedReferences?.count, 1)
         XCTAssertEqual(item.resolvedReferences?.first?.phrase, "a peso de competición")
+        XCTAssertEqual(item.resolvedReferencePhrase, "a peso de competición")
         if case .kg(let value, _, _, _) = item.prescription?.target {
             XCTAssertEqual(value, 152)
         } else {
