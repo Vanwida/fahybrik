@@ -104,6 +104,7 @@ struct LiveFlowView: View {
             case .continuous: ContinuousLiveView(session: session)
             case .setTable:   SetTableLiveView(session: session)
             case .list:       ChecklistLiveView(session: session)
+            case .unknown:    GenericLiveView(session: session)
             }
         } else {
             GenericLiveView(session: session)

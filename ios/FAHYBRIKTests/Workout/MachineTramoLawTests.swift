@@ -18,16 +18,17 @@ final class MachineTramoLawTests: XCTestCase {
     }
 
     func testTodosLosEsquemasTrabajanLaMaquina() {
-        for scheme in PrescriptionScheme.allCases {
+        for scheme in PrescriptionScheme.allCases where scheme != .unknown {
             XCTAssertTrue(MachineTramoLaw.worksMachine(scheme),
                           "\(scheme.rawValue) tiene que decidir, no caer fuera")
         }
+        XCTAssertFalse(MachineTramoLaw.worksMachine(.unknown))
     }
 
     // MARK: - Un remo y una cinta por esquema
 
     func testElMotorAbreTramoDeRemoEnTodosLosEsquemas() {
-        for scheme in PrescriptionScheme.allCases {
+        for scheme in PrescriptionScheme.allCases where scheme != .unknown {
             let s = session(scheme: scheme, modality: .row)
             let tramo = s.currentTramo
             XCTAssertTrue(
@@ -42,7 +43,7 @@ final class MachineTramoLawTests: XCTestCase {
     }
 
     func testElMotorAbreTramoDeCintaEnTodosLosEsquemas() {
-        for scheme in PrescriptionScheme.allCases {
+        for scheme in PrescriptionScheme.allCases where scheme != .unknown {
             let s = session(scheme: scheme, modality: .run)
             let tramo = s.currentTramo
             XCTAssertTrue(

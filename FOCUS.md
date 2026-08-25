@@ -2,21 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 6 · importador de ciclo)
+Última actualización: **2026-08-25** (128 · hueco 7 · motor en vivo)
 
 ## Ahora
 
-**128 · HUECO 6 (PR, card ABIERTA).** Importador de ciclo. Sube el
-suelo (`web/lib/import/` + `shared/domain/import/`) un piso: el
-coach sube un documento → propuesta tipada → revisa → confirma.
-Unidad = tramo de 4-6 semanas (techo 6). Confirmar se niega bajo
-el trinquete del corpus (**71 %**). Lo no tipado entra como nota
-declarada. El ciclo real de 12 semanas NO se escribe en la base.
-Ruta: Biblioteca › Ciclos › Importar ciclo.
-`POST /api/coach/import/proposal` `mode: 'cycle'` ·
-`POST /api/coach/import/confirm` `mode: 'cycle'`.
-La 128 no se cierra.
+**128 · HUECO 7 (PR, card ABIERTA).** Motor en vivo. `Measure.unknown`
+ya no desaparece: dice «no lo sé». Un scheme que no está en el
+catálogo ya no se guarda como `sets` (tabla de hierro).
+`straight_sets` sigue siendo fuerza (alias). La 128 no se cierra.
 Card: https://app.clickup.com/t/86ak49xrn
+
+**128 · HUECO 6 (en trunk).** Importador de ciclo. El coach sube un
+documento → propuesta tipada → revisa → confirma. Unidad = tramo
+de 4-6 semanas (techo 6). Confirmar se niega bajo el trinquete
+del corpus (**71 %**). Lo no tipado entra como nota declarada.
 
 **128 · HUECO 5 (en trunk).** Gramática contra las 1.238 líneas.
 Trinquete 62 % (768) → **71 % (884)**. Entran «N bloques de M series
@@ -143,8 +142,8 @@ solo necesitaban alias (ahora en `exercise_aliases`), 34 faltaban (29 en la
 El importador lee la tabla (peldaño 1b). El puente unilateral queda anclado.
 0 vídeos.
 
-Motor en vivo: `Measure.unknown` **desaparece de la pantalla sin decir nada**
-(`Prescription.swift:333`) y un scheme desconocido degrada a `sets` sin avisar.
+Motor en vivo: `Measure.unknown` y un scheme desconocido **dicen «no lo sé»**
+(hueco 7). Ya no desaparecen ni se pintan como tabla de series.
 
 Importador de ciclo: **el piso de arriba ya está** (hueco 6). Sigue
 `import_plan_html.ts` como camino viejo de un coach y un fichero, sin

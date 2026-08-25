@@ -11,6 +11,7 @@ export * from './completeness';
 export * from './duration';
 export * from './grammar-prompt';
 export * from './to-text';
+export * from './render-honest';
 export * from './to-params';
 export * from './parse';
 export * from './progression';

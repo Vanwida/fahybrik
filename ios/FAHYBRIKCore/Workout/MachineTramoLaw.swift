@@ -63,6 +63,8 @@ enum MachineTramoLaw {
              .chipper, .ladder, .rounds, .hyroxSim, .sets, .superset,
              .warmup, .cooldown:
             return true
+        case .unknown:
+            return false
         }
     }
 

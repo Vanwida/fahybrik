@@ -52,7 +52,11 @@ enum PrescriptionRenderer {
     /// Per-set rows for a strength (or any explicit-`sets`) prescription. Returns
     /// nil when there are no usable sets. When EVERY set is identical the caller
     /// can collapse to a single "N× …" header (see `collapsedSetsLabel`).
+    ///
+    /// Un scheme que no está en el catálogo no es tabla de hierro: devolver filas
+    /// sería inventar el formato (128 · hueco 7).
     static func setRows(_ p: Prescription) -> [SetRow]? {
+        guard p.scheme != .unknown else { return nil }
         guard let sets = p.sets, !sets.isEmpty else { return nil }
         var rows: [SetRow] = []
         for (i, s) in sets.enumerated() {
@@ -450,14 +454,16 @@ enum PrescriptionRenderer {
             // No son formatos con reloj: el título del bloque y la tabla de series ya
             // los cuentan enteros.
             return nil
+        case .unknown:
+            return Vocab.noLoSe
         }
     }
 
     // MARK: - Measure → work string
 
     /// La dosis de una medida en texto, con su BANDA cuando el coach prescribió una
-    /// («12-15», «0:40-1:00», «800-1000 m»). Nil cuando no hay medida, es cero o es
-    /// desconocida — nunca un guion (§7).
+    /// («12-15», «0:40-1:00», «800-1000 m»). Nil cuando no hay medida o es cero.
+    /// Una medida que no sabemos leer dice `Vocab.noLoSe`; no se calla (128 · hueco 7).
     ///
     /// UN solo formateador (§2): antes esto estaba escrito dos veces —aquí y en
     /// `WorkoutSegment.emomWorkString`— con la única diferencia de que el EMOM
@@ -501,7 +507,7 @@ enum PrescriptionRenderer {
             // `deletreandoReps` no cambia nada aquí.
             return Vocab.alFallo
         case .unknown:
-            return nil
+            return Vocab.noLoSe
         }
     }
 
@@ -516,7 +522,7 @@ enum PrescriptionRenderer {
         // El literal «al fallo» YA dice que son repeticiones; repetir la unidad
         // detrás sobra. Se comporta como el reloj y las calorías: sin sufijo.
         case .repsToFailure:       return ""
-        case .unknown:             return ""
+        case .unknown:             return Vocab.noLoSe
         }
     }
 

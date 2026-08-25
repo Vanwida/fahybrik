@@ -38,6 +38,8 @@ enum PM5WorkoutProgrammer {
             return .justRow(pace: pace)
         case .emom, .tabata, .deathBy, .chipper, .ladder, .rounds, .hyroxSim, .sets, .superset:
             return .justRow(pace: pace)
+        case .unknown:
+            return nil
         }
     }
 

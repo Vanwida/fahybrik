@@ -1072,6 +1072,7 @@ struct ActiveWorkoutView: View {
         if session.currentSegment?.isEMOM == true { return .emom }
         // Los formatos de acondicionamiento conservan su cronómetro dedicado.
         if session.currentSegment?.isConditioningTimer == true { return nil }
+        if session.currentSegment?.formatScheme == .unknown { return nil }
         // Y el resto es el suelo honesto de fuerza/reps — el mismo reparto que
         // hacía el `switch` de `modalityHUD`.
         return .fuerza
@@ -1136,11 +1137,10 @@ struct ActiveWorkoutView: View {
             RotatingClockHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
-        case .emom, .sets, .superset, .warmup, .cooldown, .none:
+        case .emom, .sets, .superset, .warmup, .cooldown, .unknown, .none:
             // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
-            // cinco esquemas y el nil — la superserie entre ellos, porque es fuerza y
-            // no arranca ningún reloj de acondicionamiento. Se escriben en vez de un
-            // `default` para que un esquema NUEVO no caiga aquí en silencio.
+            // esquemas y el nil. Se escriben en vez de un `default` para que un
+            // esquema NUEVO no caiga aquí en silencio.
             EmptyView()
         }
     }

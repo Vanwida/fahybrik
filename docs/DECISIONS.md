@@ -10,6 +10,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Motor en vivo (card 128 · hueco 7)
+
+**Qué faltaba:** `Measure.unknown` se pintaba en blanco (`measureWork`
+devolvía nil). Un scheme que no estaba en el catálogo se guardaba
+como `.sets` y el atleta veía una tabla de hierro.
+
+**Decidido:**
+
+- Kind o scheme que el cliente no reconoce no es ausencia. Ausencia
+  se calla (§7). Lo no reconocido se declara: «no lo sé»
+  (`Vocab.noLoSe`, `COPY_NO_LO_SE`).
+- `dosis: null` sin `medida` sigue silencio. `{"kind":"future_dose"}`
+  o `{"scheme":"future_wod"}` se declaran.
+- Decode de scheme cae a `.unknown`, no a `.sets`.
+  `FormatPresentation.unknown` no es `setTable`.
+  `setRows` / `usesMultiSetStrength` no inventan tabla.
+- `straight_sets` es alias de `sets` (`canonicalizing` y
+  `LEGACY_FORMAT_ALIASES`). No es scheme desconocido.
+
+**NO hacer:** no cerrar la 128. no inventar kilos ni dosis. no
+Watch finish. no feat/publish. no 132. no reabrir 130/141/155/127/140.
+no `xcodebuild`. no `DEVELOPMENT_TEAM`.
+
+**Dónde vive:** `PrescriptionRenderer.measureWork` / `wodHeader`,
+`PrescriptionScheme.unknown`, `shared/domain/prescription/render-honest.ts`,
+`dosisConSeries` (doble). Tests: `MotorEnVivoHonestidadTests.swift`,
+`web/tests/prescription/render-honest.test.ts`.
+
 ## 2026-08-25 · Importador de ciclo (card 128 · hueco 6)
 
 **Qué faltaba:** la gramática ya medía el corpus (71 %), pero el coach

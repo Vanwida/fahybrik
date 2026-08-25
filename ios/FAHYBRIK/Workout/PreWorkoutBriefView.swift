@@ -995,9 +995,12 @@ struct PreWorkoutBriefView: View {
         }
         // Sin prescripción estructurada solo se sabe el formato del bloque: se dice
         // el nombre y nada más, que es lo único cierto.
-        guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else { return nil }
+        guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else {
+            return Vocab.noLoSe
+        }
         switch scheme {
         case .sets, .warmup, .cooldown: return nil
+        case .unknown: return Vocab.noLoSe
         case .superset:
             // La superserie NO lleva chapa, y por dos razones distintas. Si la
             // rotación se pliega, quien la anuncia es la tarjeta, con sus rondas y

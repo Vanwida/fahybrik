@@ -154,7 +154,7 @@ extension WorkoutSession {
         case .rotating:   tickRotating(dt: dt, seg: seg, scheme: scheme)
         case .fixed:      tickFixed(dt: dt, seg: seg)
         case .continuous: tickDeadline(dt: dt, seg: seg)
-        case .setTable, .list: break
+        case .setTable, .list, .unknown: break
         }
     }
 

@@ -132,6 +132,9 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     case superset
     case warmup
     case cooldown
+    /// Un scheme que no está en el catálogo. El decode lo guarda aquí, no como
+    /// `.sets`: pintar hierro sería mentir (128 · hueco 7).
+    case unknown
 
     /// Canonicalize a raw wire string into a scheme, accepting BOTH the canonical
     /// rawValues and the legacy values still possibly on the wire — never losing a
@@ -146,7 +149,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
             return
         }
         switch raw {
-        case "strength_block", "strength": self = .sets
+        case "strength_block", "strength", "straight_sets": self = .sets
         case "tempo":                      self = .steady
         case "circuit":                    self = .rounds
         case "test":                       self = .forTime
@@ -155,12 +158,11 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         }
     }
 
-    // Tolerant decode: canonicalize legacy values, and degrade an unrecognized
-    // scheme to `.sets` rather than failing the whole item (the renderer then
-    // treats it as a plain per-set list).
+    // Tolerant decode: canonicalize legacy values. An unrecognized scheme
+    // stays `.unknown` so the renderer can say so. It used to become `.sets`.
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
-        self = PrescriptionScheme(canonicalizing: raw) ?? .sets
+        self = PrescriptionScheme(canonicalizing: raw) ?? .unknown
     }
 
     /// EL NOMBRE DEL FORMATO EN CASTELLANO, para cuando el atleta ve el formato
@@ -189,6 +191,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .superset:  return Vocab.superserie
         case .warmup:    return "Calentamiento"
         case .cooldown:  return "Vuelta a la calma"
+        case .unknown:   return Vocab.noLoSe
         }
     }
 
@@ -215,7 +218,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
             return true
         // La superserie es fuerza: su honestidad vive en la carga y las reps de
         // cada serie, no en un Rx/Scaled de bloque.
-        case .intervals, .steady, .sets, .superset, .warmup, .cooldown:
+        case .intervals, .steady, .sets, .superset, .warmup, .cooldown, .unknown:
             return false
         }
     }
@@ -239,6 +242,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         // lo que cambia es el ORDEN en que se recorren, no la pantalla.
         case .sets, .superset:                            return .setTable
         case .warmup, .cooldown:                          return .list
+        case .unknown:                                    return .unknown
         }
     }
 
@@ -251,7 +255,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     var runsConditioningTimer: Bool {
         switch presentation {
         case .rotating, .fixed, .continuous: return true
-        case .setTable, .list:               return false
+        case .setTable, .list, .unknown:     return false
         }
     }
 
@@ -274,6 +278,7 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case .superset: return "Superserie"
         case .warmup:   return "Warm-up"
         case .cooldown: return "Cool-down"
+        case .unknown:  return Vocab.noLoSe
         }
     }
 }
@@ -290,6 +295,8 @@ enum FormatPresentation: Equatable {
     case continuous
     case setTable
     case list
+    /// Un scheme que no está en el catálogo. No es tabla de series.
+    case unknown
 }
 
 // MARK: - Modality
@@ -344,7 +351,7 @@ enum Measure: Equatable {
     /// decodificaba a `.unknown` y la medida se pintaba EN BLANCO en el móvil.
     case repsToFailure
     /// Unrecognized / malformed kind — kept so an unknown future measure never
-    /// crashes the decode; the renderer simply skips it.
+    /// crashes the decode. The renderer says `Vocab.noLoSe`; it does not skip.
     case unknown
 
     private enum CodingKeys: String, CodingKey {
@@ -398,7 +405,7 @@ extension Measure: Codable {
         case .repsToFailure:
             try c.encode("reps_to_failure", forKey: .kind)
         case .unknown:
-            break
+            try c.encode("unknown", forKey: .kind)
         }
     }
 }
