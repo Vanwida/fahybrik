@@ -1,3 +1,5 @@
+// Cómo se LEE el tramo en horizontal: el mismo dato que en vertical, más grande.
+
 export type LandscapeLiveOwner = 'current-work' | 'decision-gate';
 
 export function landscapeLiveOwner(input: {

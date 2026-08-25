@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 
+/// Cómo se LEE el tramo en horizontal. Espejo de `shared/domain/landscape-tramo.ts`.
 enum LandscapeTramo {
     enum Owner: String, Equatable {
         case currentWork

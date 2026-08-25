@@ -297,9 +297,6 @@ enum Theme {
         // tabular. This is the PM5/Whoop "readout" voice — big mono numbers that
         // hold their column as values change. Use for the hero metric on a card.
         static let readoutHero = Font.system(size: 72, weight: .heavy, design: .monospaced).monospacedDigit()
-        static let landscapeTramoSubject = Font.system(size: 112, weight: .heavy, design: .monospaced).monospacedDigit()
-        static let landscapeTramoIdentity = Font.system(size: 22, weight: .heavy, design: .default).italic()
-        static let landscapeTramoTitle = Font.system(size: 28, weight: .semibold, design: .default)
         static let readoutL    = Font.system(size: 48, weight: .heavy, design: .monospaced).monospacedDigit()
         static let readoutM    = Font.system(size: 34, weight: .bold,  design: .monospaced).monospacedDigit()
         static let readoutS    = Font.system(size: 22, weight: .bold,  design: .monospaced).monospacedDigit()
