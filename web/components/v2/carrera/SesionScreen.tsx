@@ -10,8 +10,7 @@
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { Link } from '@/i18n/navigation';
-import { ItemPrescritoHecho } from '@/components/v2/sesion/ItemPrescritoHecho';
-import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
+import { SessionBlockSection } from '@/components/v2/sesion/ItemPrescritoHecho';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { CarreraSesion } from './CarreraSesion';
@@ -79,11 +78,6 @@ export function SesionScreen({
   }
   for (const list of porItem.values()) list.sort((x, y) => x.position - y.position);
 
-  const veredictoPorLap = new Map<string, RunComplianceVerdict>();
-  for (const t of detail.run_compliance.tramos) {
-    if (t.position != null) veredictoPorLap.set(`${t.item_uid}#${t.position}`, t.verdict);
-  }
-
   // Las líneas de carrera ya las cuenta la lectura de arriba, tramo a tramo.
   const uidsDeCarrera = new Set(lectura?.itemUids ?? []);
 
@@ -138,8 +132,7 @@ export function SesionScreen({
             <CarreraSesion lectura={lectura} compliance={detail.run_compliance} trace={detail.execution?.trace ?? null} />
           ) : null}
 
-          {/* El resto de la sesión: lo que no fue correr, prescrito al lado de
-              hecho, exactamente como ya se lee en el cajón. */}
+          {/* El resto de la sesión: lo que no fue correr, misma lectura que el peek. */}
           {detail.workout && detail.workout.blocks.length > 0 ? (
             <section className="flex flex-col gap-4">
               <h3 className="v2-micro">{lectura ? 'El resto de la sesión' : 'La sesión'}</h3>
@@ -148,24 +141,12 @@ export function SesionScreen({
                 const note = block.coach_note?.trim();
                 if (items.length === 0 && !note) return null;
                 return (
-                  <div key={block.uid} className="flex flex-col gap-1.5">
-                    {block.title.trim() && block.title.trim() !== detail.workout?.name.trim() ? (
-                      <h4 className="flex items-center gap-1.5">
-                        <span className="v2-micro">{block.title}</span>
-                      </h4>
-                    ) : null}
-                    {note ? (
-                      <p className="text-xs leading-relaxed text-[color:var(--v2-muted)]">{note}</p>
-                    ) : null}
-                    {items.map((item) => (
-                      <ItemPrescritoHecho
-                        key={item.uid}
-                        item={item}
-                        actuals={porItem.get(item.uid) ?? []}
-                        verdictByLap={veredictoPorLap}
-                      />
-                    ))}
-                  </div>
+                  <SessionBlockSection
+                    key={block.uid}
+                    block={{ ...block, items }}
+                    sessionTitle={titulo}
+                    actualsByItem={porItem}
+                  />
                 );
               })}
             </section>

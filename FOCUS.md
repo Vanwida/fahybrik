@@ -2,14 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (172 · panel Entreno de hoy)
+Última actualización: **2026-08-25** (109+173 · lectura del día)
 
 ## Ahora
 
-**172 · EL PANEL ENTRENO CARGA EL DÍA HECHO (PR).** Ficha atleta →
-Plan → clic en un día hecho: el panel derecho «Entreno» vuelve a
-pintar prescrito vs hecho. 114+171 (PR 83) no tocó este fetch.
-El peek ya no deriva la curva; solo pregunta si hay archivo.
+**109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
+deja las cards iguales. Dosis pegada al nombre. Nota en cursiva
+solo si el coach la escribió. Barra izquierda solo si hay grupo.
+Día sin `segment_executions` = solo el plan. Día entrenado =
+números al lado, o nada. Cero Hecho / Prescrito / sin registro /
+Sin dosis anotada. El jueves de la foto es un ejemplo, no un
+default. iOS / Neon / Clerk / home live no se tocan.
+
+**172 · EL PANEL ENTRENO CARGA EL DÍA HECHO (en trunk).** Ficha
+atleta → Plan → clic en un día hecho: el GET del peek ya no
+revienta. 114+171 (PR 83) no tocó ese fetch. El peek no deriva
+la curva; solo pregunta si hay archivo.
 
 **132 · RECAP LLENO + PEGATINA DE SERIES (PR compile).** Al acabar
 se ve el entreno: VO2max serie a serie, sled, lunges. Completado /

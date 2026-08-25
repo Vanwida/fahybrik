@@ -114,5 +114,16 @@ describe('prescritoLine — panel Entreno (sesión hecha VO2max + Wall Balls)', 
     expect(line).toContain('3×20');
     expect(line).toContain('9 kg');
     expect(line).not.toBe('Sin dosis anotada');
+    expect(line).not.toMatch(/series|rondas|circuito/i);
+  });
+
+  it('sin params ni prescription no inventa dosis', () => {
+    const empty = itemOf('run', result);
+    const line = prescritoLine({
+      ...empty,
+      prescription_json: null,
+      params_json: {},
+    });
+    expect(line).toBe('');
   });
 });

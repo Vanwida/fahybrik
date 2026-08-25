@@ -11,6 +11,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · El día se lee por agrupación, no por etiquetas (cards 109 + 173)
+
+**Qué fallaba:** el peek del día era una pila de cards iguales. No se veía si
+un ejercicio llevaba series, si dos iban en grupo, si iban seguidos o si un
+run iba solo. O se escondía la dosis, o se inventaban palabras (Prescrito /
+Hecho / sin registro / Sin dosis anotada / circuito / 1º 2º).
+
+**Decidido:** una sola gramática de lectura, igual para cualquier coach y
+cualquier día. El jueves de la foto es un ejemplo de datos, no un default.
+
+- Un ejercicio con series: la dosis completa va pegada a ESE nombre.
+- Nota del coach en cursiva, si existe. Sin nota, sin hueco.
+- Grupo (comparten ronda/descanso): una barra izquierda. Cero badge.
+- Seguidos en el mismo bloque: uno debajo del otro, sin barra.
+- Un run suelto: bloque propio.
+- Día sin `segment_executions`: solo el plan. Día entrenado: números al
+  lado de la dosis, o nada.
+
+**Cómo se decide el grupo (mecanismo, no método):** 2+ ítems y
+(`config_json` de circuito, o format/scheme que comparte ronda). Un
+strength_block con dos levantamientos es seguido. Un circuit con trineo
+y carry es grupo. Un ítem solo es solo.
+
+**Qué se elimina:** las filas Hecho/Prescrito, «sin registro»,
+«Sin dosis anotada», «registrado sin métricas», chips verdes, pills de
+estado del peek, el tile de cumplimiento en el peek, y las frases del
+cajón cuando no hay bloques. Si el coach no lo escribió, no está.
+
+**NO hacer:** no reconstruir StationOrderMark ni copy de circuito/seguido
+(114+171). no inventar «series/rondas» en el cromo. no tocar iOS, Neon,
+Clerk, dominios ni home live. no recortar contenido real del plan.
+
+**Dónde:** `ItemPrescritoHecho` (línea + `blockArrangement` +
+`SessionBlockSection`) y `SessionDetailDrawer`. Tests:
+`day-panel-grammar.test.ts`, `prescrito-line.test.ts`.
+
+---
+
 ## 2026-08-25 · El peek Entreno no carga la curva (card 172)
 
 **Qué fallaba:** en la ficha del atleta, Plan → clic en un día
