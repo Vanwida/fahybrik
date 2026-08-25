@@ -88,6 +88,8 @@ export function weekDaysToProposal(params: {
         sessions: [],
         flags: [],
         state: 'rest',
+        ...(day?.priority ? { priority: day.priority } : {}),
+        ...(day?.substitute ? { substitute: day.substitute } : {}),
       });
       continue;
     }
@@ -123,6 +125,8 @@ export function weekDaysToProposal(params: {
       state: flags.some((f) => f.unresolved_exercise || f.confidence === 'review')
         ? 'review'
         : 'detected',
+      ...(day?.priority ? { priority: day.priority } : {}),
+      ...(day?.substitute ? { substitute: day.substitute } : {}),
     });
   }
 

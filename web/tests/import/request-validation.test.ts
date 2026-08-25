@@ -146,6 +146,24 @@ describe('importConfirmRequestSchema', () => {
     const bad = { ...base, weeks: [{ day_of_week: 2, sessions: [validSession] }] };
     expect(importConfirmRequestSchema.safeParse(bad).success).toBe(false);
   });
+  test('acepta prioridad y sustituto declarados del día', () => {
+    const r = importConfirmRequestSchema.safeParse({
+      ...base,
+      weeks: [{ ...base.weeks[0]!, priority: 'essential', substitute: 'Clase S&C' }],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.weeks[0]!.priority).toBe('essential');
+      expect(r.data.weeks[0]!.substitute).toBe('Clase S&C');
+    }
+  });
+  test('rechaza una prioridad que el ciclo no escribió', () => {
+    const r = importConfirmRequestSchema.safeParse({
+      ...base,
+      weeks: [{ ...base.weeks[0]!, priority: 'critical' }],
+    });
+    expect(r.success).toBe(false);
+  });
   test('a null exercise_id line still PARSES (server rejects it, not the schema)', () => {
     // The schema allows null exercise_id (an incomplete line); the SERVER refuses
     // to save it. This asserts the boundary is enforced in the service, not zod.

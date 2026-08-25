@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { idSchema, isoDateTime, templateFormat } from './_primitives';
 import { prescriptionSchema } from '../domain/prescription';
+import {
+  DAY_SUBSTITUTE_MAX,
+  dayPrioritySchema,
+  readDayIntent,
+} from '../domain/day-intent';
 
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
 
@@ -292,6 +297,19 @@ export const weekDaySchema = z.object({
    * cuenta adherencia, sin intensidad/carga.
    */
   recovery_suggestions: z.array(recoverySuggestionSchema).max(8).optional(),
+  /**
+   * Prioridad de poda del DÍA (card 128 · hueco 3). El coach la escribió
+   * en el día, no en la línea. Tres valores del ciclo: esencial /
+   * importante / complementaria. Ausente = no la declaró (`-` en el
+   * corpus, los 16 descansos). Aditivo, sin migración.
+   */
+  priority: dayPrioritySchema.optional(),
+  /**
+   * Sustituto DECLARADO del día (frase). 31 de 84 días nombran una
+   * clase; 10 más escriben `Alternativa:` dentro de un bloque Z2.
+   * No es un segundo calendario. Aditivo, sin migración.
+   */
+  substitute: z.string().max(DAY_SUBSTITUTE_MAX).optional(),
   /** 0 = rest day. 1-N entrenos. Típico: 1-2. */
   sessions: z.array(weekSessionSchema).max(6),
   /** Foco a nivel día (una sesión puede tener focus propio adicional). */
@@ -318,12 +336,24 @@ export type WeekDay = WeekSlots['days'][0];
  * Legacy `blocks`/`pm_blocks` (deprecated ya en el modelo viejo) se descartan;
  * en producción su contenido vive en `parts`/`pm_parts`.
  */
+function withDayIntent(
+  raw: Record<string, unknown>,
+  day: z.infer<typeof weekDaySchema>,
+): z.infer<typeof weekDaySchema> {
+  const intent = readDayIntent(raw);
+  return {
+    ...day,
+    ...(intent.priority ? { priority: intent.priority } : {}),
+    ...(intent.substitute ? { substitute: intent.substitute } : {}),
+  };
+}
+
 export function normalizeWeekDay(input: unknown): z.infer<typeof weekDaySchema> {
   const raw = (input ?? {}) as Record<string, unknown>;
 
   // Already new shape — pass through.
   if (Array.isArray(raw.sessions)) {
-    return {
+    return withDayIntent(raw, {
       day_of_week: Number(raw.day_of_week ?? 1),
       // Carry the day KIND through (aditivo): a 'rest' day must survive the
       // round-trip, else the deliberate-rest signal is lost on every load/save.
@@ -338,7 +368,7 @@ export function normalizeWeekDay(input: unknown): z.infer<typeof weekDaySchema> 
         (raw.notes as string | undefined) ??
         (raw.coach_note as string | undefined) ??
         undefined,
-    };
+    });
   }
 
   // Legacy am/pm shape — fold into sessions[].
@@ -373,7 +403,7 @@ export function normalizeWeekDay(input: unknown): z.infer<typeof weekDaySchema> 
     sessions.push({ kind: 'workout', blocks: pmParts });
   }
 
-  return {
+  return withDayIntent(raw, {
     day_of_week: Number(raw.day_of_week ?? 1),
     sessions,
     focus: (raw.focus as string | undefined) ?? undefined,
@@ -381,7 +411,7 @@ export function normalizeWeekDay(input: unknown): z.infer<typeof weekDaySchema> 
       (raw.notes as string | undefined) ??
       (raw.coach_note as string | undefined) ??
       undefined,
-  };
+  });
 }
 
 /**
@@ -482,6 +512,10 @@ export const dayEditorSaveSchema = z.object({
   // Validadas server-side; solo se persisten si el día es kind='rest' (serializeDay
   // las descarta en días de entreno). Opcional/aditivo. Enviar `[]` las limpia.
   recovery_suggestions: z.array(recoverySuggestionSchema).max(8).optional(),
+  // Prioridad / sustituto del DÍA (card 128 · hueco 3). Opcional: el editor
+  // de hoy no los manda y serializeDay conserva los del original. null limpia.
+  priority: dayPrioritySchema.nullable().optional(),
+  substitute: z.string().max(DAY_SUBSTITUTE_MAX).nullable().optional(),
   sessions: z.array(editorSessionInputSchema).max(6),
 });
 export type DayEditorSave = z.infer<typeof dayEditorSaveSchema>;

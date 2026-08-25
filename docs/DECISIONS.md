@@ -10,6 +10,45 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Prioridad y sustitución del día (card 128 · hueco 3)
+
+**Qué fallaba:** el ciclo de 12 semanas marca 47 días esenciales, 12
+importantes y 9 complementarias, y 31 de 84 días declaran qué hacer si
+hoy no se puede. FOCUS contó 47 *líneas*. El JSON y
+`docs/ciclo-de-un-coach.html` lo ponen en el DÍA. Cero líneas de trabajo
+llevan «esencial». La prioridad y el sustituto vivían en prosa.
+
+**Decidido:**
+
+- Altura = DÍA. No la línea. No la sesión (este ciclo es una por día).
+- `priority`: `essential` | `important` | `complementary`. Un boolean
+  devolvería 21 días a una nota. `-` / vacío = ausente, no un cuarto
+  valor. Los 16 descansos del corpus no llevan campo.
+- `substitute`: frase declarada (tope 200). 31 valores son etiquetas de
+  clase (`Clase S&C`, `Clase HYROX · RPE 8`, …). No se parsea el RPE ni
+  «bloque de sled aparte». No hay segundo calendario.
+- Segunda fuente, sin solapar: 10 días Z2 tienen `sustituible: "No"` y
+  una línea `Alternativa: 60-75' de bici en Zona 2` (y similares). El
+  mismo campo. No se suman 31+10.
+- Aliases: `prioridad` / `priority`; `sustituible` / `substitute` /
+  `alternativa` / `alternative`. `No` y `-` no se levantan. El
+  `optional` de un bloque es otra cosa.
+- Cabe en `slots_json` (`WeekDay`). Sin tablas. Sin migración. Sin ON
+  CONFLICT. `normalizeWeekDay` tiene que copiarlos: si no, mueren al
+  cargar. La card 128 no se cierra.
+
+**NO hacer:** no adivinar qué día es esencial por el título. no inventar
+un calendario de recambio. no crear un enum de clases. no reabrir hueco
+2. no cerrar la 128.
+
+**Dónde vive:** `shared/domain/day-intent.ts`. Persistido:
+`shared/schema/program-templates.ts` + `serializeDay`. Importador:
+`build-proposal` / `confirm-service` / `import-review`. Atleta:
+`AthleteWeekDay` por weekday de plantilla. Pruebas:
+`web/tests/import/day-intent-corpus.test.ts`.
+
+---
+
 ## 2026-08-25 · Por lado, ámbito del descanso y descanso activo (card 128 · hueco 2)
 
 **Qué fallaba:** 86 líneas del ciclo dicen «por lado» y eso vivía en `note`.

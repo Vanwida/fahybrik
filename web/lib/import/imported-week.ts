@@ -14,6 +14,7 @@
 // structure (the spreadsheet) leaves `cards` undefined and nothing changes; a
 // reader that does (the photo) fills it, and each card becomes its own block.
 
+import type { DayPriority } from '@fahybrid/shared/domain/day-intent';
 import type { Modality } from '@fahybrid/shared/domain/prescription/types';
 
 /** What a card IS. Only `workout` carries training; the rest are the calendar
@@ -55,6 +56,16 @@ export interface ImportedDay {
    * reader looked and the day genuinely holds nothing.
    */
   cards?: ImportedCard[];
+  /**
+   * Prioridad / sustituto que el lector ya vio estructurados (ciclo JSON:
+   * `prioridad`, `sustituible`). El orquestador los levanta; no se adivinan.
+   */
+  priority?: DayPriority;
+  substitute?: string;
+  prioridad?: string;
+  sustituible?: string;
+  alternativa?: string;
+  alternative?: string;
 }
 
 export interface ImportedWeek {
