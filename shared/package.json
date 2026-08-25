@@ -66,6 +66,10 @@
       "types": "./domain/execution-merge/index.ts",
       "default": "./domain/execution-merge/index.ts"
     },
+    "./domain/belt-work-clock": {
+      "types": "./domain/belt-work-clock.ts",
+      "default": "./domain/belt-work-clock.ts"
+    },
     "./domain/running/vdot": {
       "types": "./domain/running/vdot.ts",
       "default": "./domain/running/vdot.ts"
