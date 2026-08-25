@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ── A · Agrupación por bloque. Una card por bloque, no por ejercicio.
+      Las series se leen como filas de una tanda; el circuito comparte una
+      bandeja con las dos estaciones dentro; lo seguido va separado por una
+      regla que cruza la card entera. ── */
+
+.cuerpo { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+.bloque {
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+  background: var(--v2-surface);
+  box-shadow: var(--v2-shadow-card);
+  padding: 12px 14px 14px;
+}
+.bloque > header { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+
+/* La carrera no es una lista de ejercicios: la card entera cambia de piel. */
+.bloque.carrera {
+  border-color: rgba(192, 69, 58, 0.25);
+  border-left: 3px solid var(--v2-mod-carrera);
+  background: var(--v2-mod-carrera-soft);
+}
+.bloque.carrera .micro { color: var(--v2-mod-carrera); }
+
+.ej { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 22px; }
+.dosis { font-size: 13px; font-weight: 600; color: var(--v2-fg); font-variant-numeric: tabular-nums; }
+
+/* Tanda: la fila del ejercicio es una PILA, no una fila suelta. Se ve que hay
+   más de una debajo, y cuántas lo dice el 4×4 del coach. Nada que rellenar. */
+.pila { position: relative; margin-bottom: 2px; }
+.pila .ej {
+  border: 1px solid var(--v2-border-strong);
+  border-radius: var(--v2-r-s);
+  background: var(--v2-surface);
+  padding: 9px 11px;
+  position: relative;
+  z-index: 2;
+}
+.pila i {
+  display: block;
+  height: 5px;
+  border: 1px solid var(--v2-border-strong);
+  border-top: 0;
+  border-radius: 0 0 var(--v2-r-s) var(--v2-r-s);
+  background: var(--v2-elevated);
+}
+.pila i:nth-of-type(1) { margin: 0 5px; }
+.pila i:nth-of-type(2) { margin: 0 10px; }
+.pila i:nth-of-type(3) { margin: 0 15px; }
+
+/* Regla que cruza la card: lo de abajo va DESPUÉS de lo de arriba. */
+.regla { margin: 12px -14px; border-top: 1px solid var(--v2-border); }
+
+/* Bandeja de ronda: las dos estaciones dentro del mismo recipiente. */
+.ronda {
+  border: 1px solid var(--v2-border);
+  border-left: 3px solid var(--v2-mod-circuito);
+  border-radius: var(--v2-r-m);
+  background: var(--v2-mod-circuito-soft);
+  padding: 2px 12px;
+}
+.ronda .ej { padding: 9px 0; }
+.ronda .ej + .ej { border-top: 1px solid rgba(47, 112, 80, 0.18); }
+</style>
+</head>
+<body>
+  <div class="fondo" id="fondo"></div>
+
+  <aside class="panel">
+    <header class="panel-h" id="panel-h"></header>
+    <div class="panel-b">
+      <div class="cuerpo">
+
+        <section class="bloque carrera">
+          <header><i class="punto mod-carrera"></i><span class="micro">RUN</span></header>
+          <div class="ej"><span class="nombre">Run</span></div>
+        </section>
+
+        <section class="bloque">
+          <header><i class="punto mod-fuerza"></i><span class="micro">FUERZA · CADERA</span></header>
+          <div class="pila">
+            <div class="ej"><span class="nombre">Deadlift</span><span class="dosis">4×4</span></div>
+            <i></i><i></i><i></i>
+          </div>
+          <div class="regla"></div>
+          <div class="ej"><span class="nombre">Lunges</span></div>
+        </section>
+
+        <section class="bloque">
+          <header><i class="punto mod-circuito"></i><span class="micro">TRINEOS Y CARRIES</span></header>
+          <div class="ronda">
+            <div class="ej"><span class="nombre">Trineo</span></div>
+            <div class="ej"><span class="nombre">Carry</span></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </aside>
+
+  <script src="fondo.js"></script>
+</body>
+</html>

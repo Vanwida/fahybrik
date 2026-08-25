@@ -6,6 +6,13 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**109 · EL PANEL DEL DÍA DEL COACH (3 propuestas, sin código).**
+Hoy es una pila de cards iguales: no se lee si algo son series,
+misma ronda o estaciones seguidas. Tres direcciones en imagen
+(bloque + pila · marco/columna/franja · pauta con lomo), sin
+Prescrito/Hecho — el panel es plan, no comparación.
+`docs/design/panel-dia-coach/` · falta que Alex elija una.
+
 **132 · RECAP LLENO + PEGATINA DE SERIES (PR).** Al acabar se ve
 el entreno: VO2max serie a serie, sled, lunges. Completado /
 técnica / captura van abajo. La pegatina recorta esos parciales

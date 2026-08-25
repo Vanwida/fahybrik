@@ -1,0 +1,198 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap');
+
+:root {
+  --v2-bg: #f1efeb;
+  --v2-surface: #fefdfb;
+  --v2-surface-2: #ece9e2;
+  --v2-elevated: #f7f5f0;
+  --v2-border: #e4e1da;
+  --v2-border-strong: #d6d2c8;
+  --v2-fg: #201f1b;
+  --v2-muted: #56534c;
+  --v2-faint: #6f6b62;
+  --v2-accent: #201f1b;
+  --v2-accent-fg: #f1efeb;
+  --v2-accent-soft: rgba(32, 31, 27, 0.07);
+  --v2-ok: #2f7050;
+  --v2-warn: #b36a00;
+  --v2-warn-soft: rgba(179, 106, 0, 0.1);
+  --v2-mod-carrera: #c0453a;
+  --v2-mod-carrera-soft: rgba(192, 69, 58, 0.1);
+  --v2-mod-fuerza: #a9791d;
+  --v2-mod-fuerza-soft: rgba(169, 121, 29, 0.1);
+  --v2-mod-circuito: #2f7050;
+  --v2-mod-circuito-soft: rgba(47, 112, 80, 0.1);
+  --v2-r-2xs: 4px;
+  --v2-r-xs: 6px;
+  --v2-r-s: 8px;
+  --v2-r-m: 12px;
+  --v2-r-card: 14px;
+  --v2-r-l: 16px;
+  --v2-r-pill: 9999px;
+  --v2-shadow-card: 0 1px 2px rgba(32, 31, 27, 0.04);
+  --v2-shadow-pop: 0 16px 40px -12px rgba(32, 31, 27, 0.22);
+  --sans: 'Figtree', 'SF Pro Text', system-ui, sans-serif;
+  --display: 'Bricolage Grotesque', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 1440px;
+  height: 700px;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--sans);
+  color: var(--v2-fg);
+  background: var(--v2-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.micro {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--v2-faint);
+}
+
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* ══ FONDO — ficha del atleta, atenuada ═════════════════════════════════ */
+
+.fondo { position: absolute; inset: 0; display: flex; flex-direction: column; }
+
+.fondo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(241, 239, 235, 0.55);
+  pointer-events: none;
+}
+
+.topbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 0 24px;
+  background: var(--v2-surface);
+  border-bottom: 1px solid var(--v2-border);
+}
+
+.marca { width: 22px; height: 22px; border-radius: 6px; background: var(--v2-fg); }
+.nav { display: flex; gap: 20px; font-size: 13px; font-weight: 600; color: var(--v2-muted); }
+.nav .on { color: var(--v2-fg); }
+
+.pagina { padding: 22px 24px; max-width: 1300px; }
+
+.ficha-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.avatar {
+  width: 40px; height: 40px; border-radius: var(--v2-r-pill);
+  background: var(--v2-surface-2); border: 1px solid var(--v2-border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 700; font-size: 16px; color: var(--v2-muted);
+}
+.ficha-h h1 { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--v2-border); margin-bottom: 18px; }
+.tabs span { padding: 10px 12px; font-size: 13.5px; font-weight: 600; color: var(--v2-muted); }
+.tabs .on { color: var(--v2-fg); box-shadow: inset 0 -2px 0 var(--v2-fg); }
+
+.semana {
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+  box-shadow: var(--v2-shadow-card);
+  padding: 14px 16px 16px;
+  width: 940px;
+}
+.semana-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.semana-h b { font-family: var(--display); font-size: 15px; font-weight: 700; }
+.dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.dia {
+  min-height: 128px;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-m);
+  background: var(--v2-surface);
+  overflow: hidden;
+}
+.dia.vacio { border-style: dashed; background: transparent; }
+.dia.sel { border: 1.5px solid var(--v2-fg); }
+.dia-h { padding: 7px 10px; border-bottom: 1px solid var(--v2-border); }
+.dia-h .micro { font-size: 10px; }
+.dia-b { padding: 8px 10px; display: flex; flex-direction: column; gap: 7px; }
+.dia-b .descanso {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 600; color: var(--v2-faint);
+}
+.barra { height: 7px; border-radius: 3px; background: var(--v2-surface-2); }
+.barra.corta { width: 58%; }
+.barra.media { width: 76%; }
+.sesion-sel {
+  margin: -2px -4px; padding: 4px; border-radius: var(--v2-r-xs);
+  background: var(--v2-accent-soft);
+}
+.sesion-sel b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.sesion-sel .mod { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+
+.punto { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.mod-carrera { background: var(--v2-mod-carrera); }
+.mod-fuerza { background: var(--v2-mod-fuerza); }
+.mod-circuito { background: var(--v2-mod-circuito); }
+
+/* ══ PANEL ══════════════════════════════════════════════════════════════ */
+
+.panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--v2-surface);
+  border-left: 1px solid var(--v2-border);
+  box-shadow: var(--v2-shadow-pop);
+}
+
+.panel-h {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--v2-border);
+}
+.panel-h h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-bottom: 7px;
+}
+.panel-h .meta { display: flex; align-items: center; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center;
+  height: 20px; padding: 0 8px;
+  border-radius: var(--v2-r-pill);
+  background: var(--v2-warn-soft);
+  color: var(--v2-warn);
+  font-size: 11px; font-weight: 600;
+}
+.fecha { font-size: 12px; color: var(--v2-muted); font-variant-numeric: tabular-nums; }
+.cerrar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--v2-muted); flex: none;
+}
+.cerrar svg { width: 17px; height: 17px; }
+
+.panel-b { flex: 1; overflow: hidden; }
+
+/* Celdas de dato: vacías cuando el coach no escribió nada. */
+.cel { display: block; }
+.cel.dato { font-size: 12px; color: var(--v2-muted); font-variant-numeric: tabular-nums; }
+.nombre { font-size: 13.5px; font-weight: 600; color: var(--v2-fg); }

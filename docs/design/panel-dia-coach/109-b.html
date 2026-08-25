@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ── B · Sin cards. Tres formas distintas para tres estructuras:
+      la carrera es una franja a sangre, lo seguido es una columna con raíl,
+      el circuito es un marco compartido. La tanda se lee en horizontal. ── */
+
+.cuerpo { padding: 0 20px 18px; }
+
+/* Carrera: franja a sangre, distinta de todo lo demás. */
+.franja {
+  margin: 0 -20px 20px;
+  padding: 14px 20px 15px;
+  background: var(--v2-mod-carrera-soft);
+  border-bottom: 1px solid rgba(192, 69, 58, 0.22);
+  box-shadow: inset 4px 0 0 var(--v2-mod-carrera);
+}
+.franja .micro { color: var(--v2-mod-carrera); display: block; margin-bottom: 8px; }
+
+.tit { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; }
+.linea { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dosis { font-size: 13px; font-weight: 600; color: var(--v2-fg); font-variant-numeric: tabular-nums; }
+
+/* Seguido: columna. Un raíl con un nodo por estación. */
+.columna { position: relative; padding-left: 22px; margin-bottom: 24px; }
+.columna::before {
+  content: '';
+  position: absolute;
+  left: 4px; top: 9px; bottom: 9px;
+  width: 1px;
+  background: var(--v2-border-strong);
+}
+.paso { position: relative; padding-bottom: 16px; }
+.paso:last-child { padding-bottom: 0; }
+.nodo {
+  position: absolute;
+  left: -22px; top: 5px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--v2-surface);
+  border: 2px solid var(--v2-mod-fuerza);
+}
+/* Tanda en horizontal: cuatro marcas seguidas, una por serie. */
+.tanda-h { display: flex; align-items: flex-end; gap: 7px; margin-top: 10px; height: 18px; }
+.tanda-h i { width: 3px; height: 18px; border-radius: 2px; background: var(--v2-mod-fuerza); opacity: 0.5; }
+
+/* Circuito: un solo marco para las dos estaciones. */
+.marco {
+  border: 1px solid var(--v2-border-strong);
+  border-left: 3px solid var(--v2-mod-circuito);
+  border-radius: var(--v2-r-m);
+  background: var(--v2-surface);
+  padding: 0 14px;
+}
+.marco .linea { padding: 12px 0; }
+.marco .linea + .linea { border-top: 1px dashed var(--v2-border-strong); }
+</style>
+</head>
+<body>
+  <div class="fondo" id="fondo"></div>
+
+  <aside class="panel">
+    <header class="panel-h" id="panel-h"></header>
+    <div class="panel-b">
+      <div class="cuerpo">
+
+        <div class="franja">
+          <span class="micro">RUN</span>
+          <div class="linea"><span class="nombre">Run</span></div>
+        </div>
+
+        <h3 class="tit"><i class="punto mod-fuerza"></i><span class="micro">FUERZA · CADERA</span></h3>
+        <div class="columna">
+          <div class="paso">
+            <span class="nodo"></span>
+            <div class="linea"><span class="nombre">Deadlift</span><span class="dosis">4×4</span></div>
+            <div class="tanda-h"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="paso">
+            <span class="nodo"></span>
+            <div class="linea"><span class="nombre">Lunges</span></div>
+          </div>
+        </div>
+
+        <h3 class="tit"><i class="punto mod-circuito"></i><span class="micro">TRINEOS Y CARRIES</span></h3>
+        <div class="marco">
+          <div class="linea"><span class="nombre">Trineo</span></div>
+          <div class="linea"><span class="nombre">Carry</span></div>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+
+  <script src="fondo.js"></script>
+</body>
+</html>

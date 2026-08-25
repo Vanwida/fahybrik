@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ── C · Pauta. Cero cards: una hoja pautada con lomo de bloques a la
+      izquierda. La estructura la dice la geometría — la carrera es una banda
+      que cruza también el lomo, las series son cuatro casillas de un mismo
+      renglón, lo seguido son dos renglones partidos por una regla que cruza
+      la hoja, y el circuito lo abraza un corchete. ── */
+
+.hoja { position: relative; }
+
+.reng { display: grid; grid-template-columns: 116px 1fr; }
+.reng + .reng { border-top: 1px solid var(--v2-border-strong); }
+
+.lomo {
+  padding: 18px 12px 18px 20px;
+  text-align: right;
+  border-right: 1px solid var(--v2-border);
+  background: var(--v2-elevated);
+}
+.contenido { padding: 18px 20px 20px 22px; position: relative; }
+
+.l { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 20px; }
+.l .nombre { font-size: 14px; }
+.dosis { font-size: 13px; font-weight: 600; color: var(--v2-fg); font-variant-numeric: tabular-nums; }
+
+/* Banda de carrera: cruza la hoja entera, lomo incluido. */
+.banda {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  background: var(--v2-mod-carrera-soft);
+  border-bottom: 1px solid rgba(192, 69, 58, 0.25);
+  box-shadow: inset 0 3px 0 var(--v2-mod-carrera);
+}
+.banda .lomo { background: transparent; border-right-color: rgba(192, 69, 58, 0.22); }
+.banda .lomo .micro { color: var(--v2-mod-carrera); }
+
+/* Renglón partido en cuatro: las cuatro series del mismo ejercicio. */
+.pauta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 12px; }
+.pauta i { height: 3px; border-radius: 2px; background: var(--v2-mod-fuerza); opacity: 0.55; }
+
+/* Regla que cruza la hoja: lo de abajo va después, no en la misma ronda. */
+.corte { margin: 15px 0 15px -22px; border-top: 1px solid var(--v2-border); }
+
+/* Corchete: abraza las estaciones que comparten ronda. */
+.corchete { position: relative; padding-left: 16px; }
+.corchete::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 3px; bottom: 3px;
+  width: 11px;
+  border: 1.5px solid var(--v2-mod-circuito);
+  border-right: 0;
+  border-radius: 3px 0 0 3px;
+}
+.corchete .l + .l { margin-top: 18px; }
+</style>
+</head>
+<body>
+  <div class="fondo" id="fondo"></div>
+
+  <aside class="panel">
+    <header class="panel-h" id="panel-h"></header>
+    <div class="panel-b">
+      <div class="hoja">
+
+        <div class="banda">
+          <div class="lomo"><span class="micro">RUN</span></div>
+          <div class="contenido">
+            <div class="l"><span class="nombre">Run</span></div>
+          </div>
+        </div>
+
+        <div class="reng">
+          <div class="lomo"><span class="micro">FUERZA · CADERA</span></div>
+          <div class="contenido">
+            <div class="l"><span class="nombre">Deadlift</span><span class="dosis">4×4</span></div>
+            <div class="pauta"><i></i><i></i><i></i><i></i></div>
+            <div class="corte"></div>
+            <div class="l"><span class="nombre">Lunges</span></div>
+          </div>
+        </div>
+
+        <div class="reng">
+          <div class="lomo"><span class="micro">TRINEOS Y CARRIES</span></div>
+          <div class="contenido">
+            <div class="corchete">
+              <div class="l"><span class="nombre">Trineo</span></div>
+              <div class="l"><span class="nombre">Carry</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+
+  <script src="fondo.js"></script>
+</body>
+</html>
