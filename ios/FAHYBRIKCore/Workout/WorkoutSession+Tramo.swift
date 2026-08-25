@@ -286,6 +286,7 @@ extension WorkoutSession {
         // corre, porque es el denominador de su ritmo.
         if !tramoMide, let last = lastTramoElapsedSeconds { return last }
         if tramoClockArmed { return 0 }
+        if gatesBeltWorkClock { return beltWorkElapsedS }
         return tramoWallClockSeconds
     }
 
@@ -301,6 +302,7 @@ extension WorkoutSession {
     /// measurement.
     var tramoRecordedSeconds: Double {
         if !tramoMide, let last = lastTramoElapsedSeconds { return last }
+        if gatesBeltWorkClock { return beltWorkElapsedS }
         return tramoWallClockSeconds
     }
 
@@ -436,6 +438,7 @@ extension WorkoutSession {
         tramoRestLatched = false
         tramoKey = tramo.key
         tramoStartElapsed = lapElapsedSeconds
+        resetBeltWorkElapsed()
         tramoHRPeak = nil
         tramoErgStartDistance = lapErgLastDistance
         tramoErgStartCalories = lapErgLastCalories
@@ -458,6 +461,7 @@ extension WorkoutSession {
     func resetTramoWindow() {
         tramoKey = ""
         tramoStartElapsed = lapElapsedSeconds
+        resetBeltWorkElapsed()
         tramoClockArmed = false
         tramoRestLatched = false
         tramoErgStartDistance = nil
@@ -607,6 +611,7 @@ extension WorkoutSession {
         tramoErgStartCalories = lapErgLastCalories
         tramoGpsStartDistance = lapGpsDistanceMeters
         tramoStartElapsed = lapElapsedSeconds
+        resetBeltWorkElapsed()
         stampTramoSampleCursors()
         tramoClockArmed = currentTramo.isErg
             && currentTramo.boxedSeconds == nil

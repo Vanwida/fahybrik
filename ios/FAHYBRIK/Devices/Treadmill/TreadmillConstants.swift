@@ -57,7 +57,7 @@ enum TreadmillConstants {
     /// Below this belt speed the treadmill is effectively stopped: pace is
     /// undefined (a divide-by-zero), so it comes back nil and the surface says the
     /// belt is stopped — never a huge number, y nunca un guion (§7 del CONTRATO-UI).
-    static let minMovingSpeedKmh: Double = 0.5
+    static var minMovingSpeedKmh: Double { BeltWorkClock.minMovingKmh }
 
     // The single-pace judging tolerance moved to `PaceTarget.singleToleranceSecPerKm`
     // (FAHYBRIKCore/Plan/RunPaceModel.swift) when the pace domain was shared with the

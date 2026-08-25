@@ -75,7 +75,11 @@ extension WorkoutSession {
     /// leg's measured distance / HR / incline / zone is the DIFF between the values at
     /// close and these. Called wherever a leg's clock starts (prime + both GO paths).
     private func markRunLegStart() {
+        if runEnvironment == .treadmill, treadmillBeltWorking != nil, beltWorkElapsedS > 0 {
+            lastTramoElapsedSeconds = beltWorkElapsedS
+        }
         runLegStartElapsed = lapElapsedSeconds
+        if isRunLegWork { resetBeltWorkElapsed() }
         runLegBeltStart = lapBeltDistanceMeters
         runLegGpsStart = lapGpsDistanceMeters ?? 0
         runLegHRStartCount = lapHRSamples.count

@@ -116,6 +116,7 @@ extension WorkoutSession {
         guard seg.formatScheme?.presentation == .rotating else { return }
         rotPhase = .work
         rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
+        resetBeltWorkElapsed()
     }
 
     private func skipCondCountIn() {
@@ -151,7 +152,12 @@ extension WorkoutSession {
         }
 
         switch scheme.presentation {
-        case .rotating:   tickRotating(dt: dt, seg: seg, scheme: scheme)
+        case .rotating:
+            let phaseDt = (rotPhase == .work && tramoIsRun)
+                ? BeltWorkClock.workTick(wallDt: dt, surface: beltClockSurface,
+                                         window: .work, beltMoving: treadmillBeltWorking)
+                : dt
+            tickRotating(dt: phaseDt, seg: seg, scheme: scheme)
         case .fixed:      tickFixed(dt: dt, seg: seg)
         case .continuous: tickDeadline(dt: dt, seg: seg)
         case .setTable, .list, .unknown: break
@@ -269,6 +275,7 @@ extension WorkoutSession {
         rotRoundIndex = next
         rotPhase = .work
         rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
+        resetBeltWorkElapsed()
         if rotRepsByRound.count < total {
             rotRepsByRound += Array(repeating: nil, count: total - rotRepsByRound.count)
         }
@@ -281,6 +288,7 @@ extension WorkoutSession {
         rotRoundIndex += 1                // survived another minute; the target rises
         rotPhase = .work
         rotPhaseRemaining = Double(seg.formatWorkSeconds ?? 60)
+        resetBeltWorkElapsed()
         WorkoutAudio.shared.playIntervalStart()
         Haptics.cueGo()
     }

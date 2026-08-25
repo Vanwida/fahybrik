@@ -9,6 +9,7 @@
 // es un ATAJO manual, la misma transición.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { beltWorkTick } from '@fahybrid/shared/domain/belt-work-clock';
 import { useTicker } from '../../sim';
 import type { Tramo } from './data';
 import { TRAMOS } from './data';
@@ -34,6 +35,8 @@ export interface OpcionesTramos {
   pausado: boolean;
   /** El atleta no avanza (parado en el semáforo): no suma metros. */
   parado: boolean;
+  /** Cinta FTMS: el reloj de trabajo solo suma con velocidad. Calle = other. */
+  superficie?: 'ftms' | 'other';
   /** Metros por segundo del tramo actual — lo decide cada HUD (GPS o cinta). */
   metrosPorSegundo: (tramo: Tramo) => number;
   /** Cierre de tramo, automático o por el botón. */
@@ -64,12 +67,21 @@ export function useTramos(opts: OpcionesTramos): { estado: EstadoTramos; avanzar
   }, []);
 
   useTicker(opts.corriendo, () => {
-    const { pausado, parado, metrosPorSegundo } = optsRef.current;
+    const { pausado, parado, metrosPorSegundo, superficie = 'other' } = optsRef.current;
     const cur = ref.current;
     const tramo = TRAMOS[cur.idx];
 
     const next: EstadoTramos = { ...cur };
-    if (!pausado) next.legS = cur.legS + 1;
+    if (!pausado) {
+      next.legS =
+        cur.legS +
+        beltWorkTick({
+          wallDt: 1,
+          surface: superficie,
+          window: tramo.tipo === 'trabajo' ? 'work' : 'recovery',
+          beltMoving: !parado,
+        });
+    }
     if (!pausado && !parado) {
       const d = metrosPorSegundo(tramo);
       next.legM = cur.legM + d;

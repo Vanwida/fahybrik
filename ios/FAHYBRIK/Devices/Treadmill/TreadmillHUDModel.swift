@@ -123,6 +123,9 @@ final class TreadmillHUDModel {
     private var bpmCount = 0
 
     private var displayTimer: Timer?
+    /// Wall time spent with the belt stopped, treated like a pause for the
+    /// series-local clock (`legElapsedS`).
+    private var beltStoppedAt: Date?
 
     /// Turns the belt's messy telemetry into the honest speed we SHOW and a stable pace —
     /// deriving speed from the advancing odometer when the machine reports Instantaneous
@@ -636,8 +639,11 @@ final class TreadmillHUDModel {
     /// segment start even if the HUD opened mid-run, and it's pause-correct); for a
     /// series bout there is no per-bout session clock, so we use our own wall clock
     /// measured from the bout opening.
+    ///
+    /// Cinta FTMS de trabajo: el reloj es el de la banda, no el de pared.
     var legElapsedEffective: Double {
-        if isStructured { return session.runLegElapsed }   // the session's per-leg clock
+        if session.gatesBeltWorkClock { return session.beltWorkElapsedS }
+        if isStructured { return session.runLegElapsed }
         return isSeries ? legElapsedS : session.lapElapsedSeconds
     }
 
@@ -697,7 +703,16 @@ final class TreadmillHUDModel {
     private func tick() {
         syncLeg()
         if !paused {
-            legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
+            let gateLocal = session.runEnvironment == .treadmill && !isRecovery && !isCountIn
+            if gateLocal && !beltMoving {
+                if beltStoppedAt == nil { beltStoppedAt = Date() }
+            } else {
+                if let stopped = beltStoppedAt {
+                    pausedAccum += Date().timeIntervalSince(stopped)
+                    beltStoppedAt = nil
+                }
+                legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
+            }
         }
         maybeAutoAdvance()
         feedAudioCoach()
@@ -823,6 +838,7 @@ final class TreadmillHUDModel {
         legStartedAt = Date()
         pausedAccum = 0
         pauseStartedAt = paused ? Date() : nil
+        beltStoppedAt = nil
         // EACH LEG COUNTS FROM ITS OWN OPENING READING. Resetting the tracker makes the
         // leg's first sample establish a new zero, which is what DISCARDS the overshoot
         // — in a 4×400 the belt keeps running through the recovery jog, and those metres
