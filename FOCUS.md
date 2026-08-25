@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (130 · tabla de kilos + resolver al leer)
+Última actualización: **2026-08-24** (130 · gramática + diccionario)
 
 ## Ahora
 
@@ -53,17 +53,12 @@ planificación y ciclo. Internos, URLs (`/periodizacion`, `/microciclos`),
 tipos y API siguen con periodización / microciclo. Solo copy, no rename
 de dominio.
 
-**130 · OBJETIVOS RELATIVOS — piezas 2 y 3 (esta PR).**
-Pieza 1 (tipo + resolutor) ya estaba. Ahora el coach tiene tabla editable de
-kilos de competición (`coach_station_loads`, mig 0208): estación × división ×
-género. Vacío = no lo sé. Sin seed. Sin kilos inventados. Ajustes +
-`GET/PUT /api/coach/station-loads`.
-Al servir el día se inyecta esa tabla, el número va en `target` de siempre y
-la frase en `resolved_references`. Al ejecutar se sella el número en el
-snapshot: un retest no reescribe el histórico. iOS no recalcula.
-Anclas de ritmo (`coach_methodology.run_pace_anchor`) fuera: crear esa fila
-activa 37 defaults horneados.
-Queda pieza 4: gramática + diccionario.
+**130 · OBJETIVOS RELATIVOS — pieza 4 (gramática + diccionario).**
+El importador lee del texto del coach: peso de competición, delta en kg,
+% del peso corporal, ritmo HYROX / race pace / umbral. Fiel o revisión.
+«carga media» no es un tipo: tabla `coach_load_phrases` (mig 0209), mapa
+frase → patrón ya existente. Vacío = revisión. Sin kilos inventados.
+Ajustes + `GET/PUT /api/coach/phrase-dictionary`. La card sigue abierta.
 Ley: DECISIONS 23-ago, addendum 24-ago.
 
 **133 · Los límites de importar un ciclo (decidido, sin construir).** Contrato de

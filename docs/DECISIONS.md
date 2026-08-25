@@ -137,9 +137,11 @@ Media máquina ya existía y estaba desconectada: `methodology/zones.ts` resolv�
 - **Se resuelve AL LEER el día:** `loadAssignmentDetail` inyecta la tabla del coach en `stationLoad`. El número viaja en `prescription_json.target` (el campo de siempre) y la frase en `resolved_references`. iOS no recalcula: pinta la frase si llega.
 - **Sello al ejecutar:** `ingestExecutionSegments` (con `athleteId`) snapshotéa la prescripción YA resuelta. Al servir un día ejecutado, si el snapshot ya no tiene relativos, ese número manda. Un retest no reescribe el histórico. La plantilla guarda la frase para siempre. No se tocó el camino `is_approach` (card 155).
 
+**Estado (2026-08-24, pieza 4):** el importador lee esas frases a `Target.relative`. «carga media» / «ligera» / «pesada» van al diccionario del coach (`coach_load_phrases`, mig 0209): frase → porcentaje de competición, porcentaje de peso corporal o kilos. Vacío = revisión. Se pregunta una vez. La estación la pone la línea, no la fila. No hay kind cualitativo. No hay segundo `%1RM`.
+
 **NO hacer (sigue en pie):** no inventar kilos de competición. No carga cualitativa. No segundo camino `%1RM`. No resolver al guardar la plantilla.
 
-**Dónde vive:** `shared/domain/coach/station-loads.ts`, `shared/domain/hyrox/stations.ts` (`load_axis`), `web/lib/coach/station-loads.ts`, `web/lib/athlete/relative-anchors.ts`, `web/lib/athlete/seal-prescription.ts`, `resolve-relative.ts`, pruebas en `web/tests/domain/coach-station-loads.test.ts` y `web/tests/athlete/assignment-detail.test.ts`.
+**Dónde vive:** `shared/domain/import/relative.ts`, `shared/domain/coach/phrase-dictionary.ts`, `web/lib/coach/phrase-dictionary.ts`, más lo de las piezas 1-3.
 
 ---
 

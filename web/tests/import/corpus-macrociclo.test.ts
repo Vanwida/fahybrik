@@ -86,6 +86,10 @@ function forma(texto: string): string {
 // Sólo sube. Cada vez que suba, cámbialo aquí Y di por qué en el comentario.
 //
 // Historial:
+//   2026-08-24 · 60 % (755 de 1.238) — objetivos relativos (card 130, pieza 4).
+//     El importador lee peso de competición, delta en kg, % del peso corporal
+//     y ritmo HYROX / race pace / umbral. «carga media» sin diccionario sigue
+//     en revisión: no se inventa el mapeo.
 //   2026-08-24 · 59 % (740 de 1.238) — la cabecera manda sobre las líneas de
 //     debajo (card 141). Tres formas planas: «N series:», «N series de N reps
 //     de:» / «N series de N:», «N rondas:». El hijo hereda lo escrito y nada
@@ -98,7 +102,7 @@ function forma(texto: string): string {
 //     DOMINANTE de un plan escrito a mano; «a ritmo HYROX» (30); y un montón de
 //     «Nm <movimiento>» cuyo movimiento la gramática no reconoce como tal y por
 //     eso ni siquiera le engancha la distancia.
-const SUELO_TIPADO_PCT = 59;
+const SUELO_TIPADO_PCT = 60;
 
 describe('el macrociclo real contra la gramática del importador', () => {
   const lineas = lineasDelCorpus();
