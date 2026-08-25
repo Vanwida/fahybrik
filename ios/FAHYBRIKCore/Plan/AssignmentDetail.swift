@@ -207,6 +207,17 @@ struct ExecutionSummary: Codable, Equatable {
 /// Recap proyectado en servidor. Solo ejecución — nunca la prescripción.
 struct RecapDTO: Codable, Equatable {
     let blocks: [RecapBlockDTO]
+
+    init(blocks: [RecapBlockDTO]) {
+        self.blocks = blocks
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        blocks = try c.decodeIfPresent([RecapBlockDTO].self, forKey: .blocks) ?? []
+    }
+
+    enum CodingKeys: String, CodingKey { case blocks }
 }
 
 struct RecapBlockDTO: Codable, Equatable {
@@ -222,6 +233,34 @@ struct RecapBlockDTO: Codable, Equatable {
     let loadKg: Double?
     let sets: [RecapSetDTO]
     let round: Int?
+
+    init(
+        position: Int,
+        label: String,
+        kind: String,
+        modality: String? = nil,
+        durationS: Int? = nil,
+        distanceM: Double? = nil,
+        paceSPerKm: Double? = nil,
+        paceSPer500m: Double? = nil,
+        reps: Int? = nil,
+        loadKg: Double? = nil,
+        sets: [RecapSetDTO] = [],
+        round: Int? = nil
+    ) {
+        self.position = position
+        self.label = label
+        self.kind = kind
+        self.modality = modality
+        self.durationS = durationS
+        self.distanceM = distanceM
+        self.paceSPerKm = paceSPerKm
+        self.paceSPer500m = paceSPer500m
+        self.reps = reps
+        self.loadKg = loadKg
+        self.sets = sets
+        self.round = round
+    }
 
     enum CodingKeys: String, CodingKey {
         case position, label, kind, modality, durationS, distanceM, paceSPerKm
@@ -251,6 +290,13 @@ struct RecapSetDTO: Codable, Equatable {
     let reps: Int?
     let loadKg: Double?
     let isApproach: Bool
+
+    init(setIndex: Int, reps: Int?, loadKg: Double?, isApproach: Bool) {
+        self.setIndex = setIndex
+        self.reps = reps
+        self.loadKg = loadKg
+        self.isApproach = isApproach
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)

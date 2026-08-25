@@ -83,7 +83,13 @@ struct ExecutedWorkoutView: View {
                 // superiores y dos formas de cerrar competirían entre ellas.
                 LecturaDeCarreraView(carrera: carrera, zonas: hrZones, onCerrar: onClose)
             } else if let sesion = lecturaDeSesion {
-                LecturaDeSesionView(sesion: sesion, zonas: hrZones, onCerrar: onClose)
+                LecturaDeSesionView(
+                    sesion: sesion,
+                    zonas: hrZones,
+                    onCerrar: onClose,
+                    onTecnica: hasExercises ? { showTechnique = true } : nil,
+                    onCaptura: canEnrichWithScreenshot ? { showCapture = true } : nil
+                )
             } else {
                 generico
             }

@@ -292,6 +292,60 @@ final class LecturaDeSesionDesdeDetalleTests: XCTestCase {
         XCTAssertEqual(bloque.ritmoDeCorrerSkm, 219)
         XCTAssertNotEqual(bloque.duracionS, 345)
         XCTAssertNotEqual(bloque.ritmoDeCorrerSkm, 345)
+        XCTAssertEqual(sesion.recap?.blocks.count, 1)
+        XCTAssertNil(RecapLayout.projectSeriesSticker(try XCTUnwrap(sesion.recap)))
+    }
+
+    func testElRecapLlenoSeRecortaEnLaPegatinaDeSeries() throws {
+        let json = """
+        {
+          "assignment": {"id": "1", "athlete_id": "64", "scheduled_for": "2026-08-25",
+                         "status": "completed", "store_results": []},
+          "workout": {"name": "VO2max + estaciones", "blocks": []},
+          "execution": {
+            "execution_id": "1", "completeness": "completed", "contributing_sources": [],
+            "segments": [],
+            "recap": {
+              "blocks": [
+                {"position": 0, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 88, "distance_m": 400, "pace_s_per_km": 220, "sets": []},
+                {"position": 1, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 87, "distance_m": 400, "pace_s_per_km": 217, "sets": []},
+                {"position": 2, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 87, "distance_m": 400, "pace_s_per_km": 217, "sets": []},
+                {"position": 3, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 86, "distance_m": 400, "pace_s_per_km": 215, "sets": []},
+                {"position": 4, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 86, "distance_m": 400, "pace_s_per_km": 215, "sets": []},
+                {"position": 5, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 85, "distance_m": 400, "pace_s_per_km": 212, "sets": []},
+                {"position": 6, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 85, "distance_m": 400, "pace_s_per_km": 212, "sets": []},
+                {"position": 7, "label": "VO2max", "kind": "run", "modality": "run",
+                 "duration_s": 82, "distance_m": 400, "pace_s_per_km": 205, "sets": []},
+                {"position": 8, "label": "Sled push", "kind": "station", "modality": "other",
+                 "duration_s": 42, "distance_m": 50, "sets": []},
+                {"position": 9, "label": "Lunges", "kind": "station", "modality": "other",
+                 "duration_s": 95, "distance_m": 100, "sets": []}
+              ]
+            }
+          }
+        }
+        """
+        let detalle = try decodifica(json)
+        let sesion = try XCTUnwrap(LecturaDeSesionDesdeDetalle.sesion(de: detalle))
+        let recap = try XCTUnwrap(sesion.recap)
+        let sticker = try XCTUnwrap(RecapLayout.projectSeriesSticker(recap))
+        XCTAssertEqual(sticker.label, "VO2max")
+        XCTAssertEqual(sticker.pauta, "400 m")
+        XCTAssertEqual(sticker.splits.map(\.durationS), [88, 87, 87, 86, 86, 85, 85, 82].map(Optional.some))
+        XCTAssertEqual(sticker.splits.map(\.paceSPerKm), [220, 217, 217, 215, 215, 212, 212, 205].map(Optional.some))
+        XCTAssertEqual(sticker.splits.last?.isBest, true)
+        XCTAssertEqual(sesion.bloques.map(\.etiqueta), [
+            "VO2max", "VO2max", "VO2max", "VO2max",
+            "VO2max", "VO2max", "VO2max", "VO2max",
+            "Sled push", "Lunges",
+        ])
     }
 
     func testElRecapTraeSeriesYRonda() throws {

@@ -21,6 +21,8 @@ struct LecturaDeSesionView: View {
     /// el lienzo se queda neutro: el color es dato y no se inventa.
     var zonas: HRZoneProfile?
     let onCerrar: () -> Void
+    var onTecnica: (() -> Void)? = nil
+    var onCaptura: (() -> Void)? = nil
 
     private var zonaAmbiente: HRZone? {
         guard let ppm = sesion.fcMediaPpm else { return nil }
@@ -28,6 +30,10 @@ struct LecturaDeSesionView: View {
     }
 
     private var grupos: [GrupoDesglose] { agruparPorRonda(sesion.bloques) }
+    private var piezas: [RecapLayout.Piece] { piezasDeDesglose(sesion: sesion) }
+    private var haySerie: Bool {
+        piezas.contains { if case .series = $0 { return true }; return false }
+    }
     private var totalRondas: Int { sesion.bloques.compactMap(\.ronda).max() ?? 0 }
 
     var body: some View {
@@ -68,8 +74,21 @@ struct LecturaDeSesionView: View {
                         TarjetaDeSeccion(titulo: "Bloque a bloque", nota: "\(sesion.bloques.count) en orden") {
                             VStack(spacing: 10) {
                                 if !sesion.bloques.isEmpty { CabeceraDelDesglose() }
-                                ForEach(Array(grupos.enumerated()), id: \.offset) { _, grupo in
-                                    GrupoDeRonda(grupo: grupo, rondas: totalRondas)
+                                if haySerie {
+                                    ForEach(Array(piezas.enumerated()), id: \.offset) { _, pieza in
+                                        switch pieza {
+                                        case .series(let serie):
+                                            TarjetaSerieRecap(serie: serie)
+                                        case .block(let recap):
+                                            if let bloque = LecturaDeSesionDesdeDetalle.bloqueDe(recap: recap) {
+                                                FilaDeBloque(bloque: bloque)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    ForEach(Array(grupos.enumerated()), id: \.offset) { _, grupo in
+                                        GrupoDeRonda(grupo: grupo, rondas: totalRondas)
+                                    }
                                 }
                             }
                         }
@@ -82,6 +101,13 @@ struct LecturaDeSesionView: View {
                         }
 
                         LoQueDijoElAtletaDeLaSesion(sesion: sesion)
+
+                        AccionesRecap(
+                            completa: sesion.completitud == .completa,
+                            onCompletado: onCerrar,
+                            onTecnica: onTecnica,
+                            onCaptura: onCaptura
+                        )
                     }
                     .padding(.bottom, Theme.Spacing.l)
                 }

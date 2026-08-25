@@ -200,4 +200,26 @@ final class LecturaDeSesionModeloTests: XCTestCase {
         XCTAssertEqual(grupos[0].bloques.count, 2)
         XCTAssertEqual(grupos[1].ronda, 2)
     }
+
+    func testRecapLlenoAgrupaLaTandaYDejaSledYLungesFuera() throws {
+        let laps = [88, 87, 87, 86, 86, 85, 85, 82]
+        var bloques = laps.map {
+            Bloque(modalidad: .correr, etiqueta: "VO2max", duracionS: Double($0), distanciaM: 400)
+        }
+        bloques.append(Bloque(modalidad: .funcional, etiqueta: "Sled push", duracionS: 42, metros: 50))
+        bloques.append(Bloque(modalidad: .funcional, etiqueta: "Lunges", duracionS: 95, metros: 100))
+
+        let sticker = try XCTUnwrap(RecapLayout.projectSeriesSticker(recapDesdeBloques(bloques)))
+        XCTAssertEqual(sticker.label, "VO2max")
+        XCTAssertEqual(sticker.splits.map(\.durationS), laps.map(Optional.some))
+        XCTAssertEqual(sticker.splits.last?.isBest, true)
+
+        let labels = piezasDeDesglose(bloques).map { piece -> String in
+            switch piece {
+            case .series(let s): return s.label
+            case .block(let b): return b.label
+            }
+        }
+        XCTAssertEqual(labels, ["VO2max", "Sled push", "Lunges"])
+    }
 }
