@@ -1311,29 +1311,52 @@ describe('classes 14-17 — invariants', () => {
 // distancia y SIN intensidad ninguna, y encima sin rastro en la nota. Peor que
 // fallar — el coach escribió a qué ritmo y el atleta recibía metros a secas.
 //
-// Estas frases son objetivos DERIVADOS (del test del atleta, de su ritmo de
-// carrera, del peso de su división). Hasta que se resuelvan de verdad, lo
-// honesto es revisar.
+// Las formas que el tipo relativo ya cubre (ritmo de carrera, umbral, peso
+// de competición) se tipan. all-out no tiene referencia: se revisa.
 
-describe('class 18 — un objetivo escrito por referencia nunca sale verde sin objetivo', () => {
-  const PORREFERENCIA = [
-    `SkiErg 3x1000 m a split de carrera, rec 3'`,
-    `6x1000 m a race pace, rec 60 s`,
-    `4x2000 m a umbral, rec 3'`,
-    `Sled Push 3x25 m a peso de carrera`,
-    `SkiErg 1000 m all-out`,
-  ];
-
-  for (const cell of PORREFERENCIA) {
-    test(`«${cell}» baja a revisión con el texto intacto`, () => {
-      const lines = parseNotationCell(cell);
-      expect(lines).toHaveLength(1);
-      expect(lines[0]!.confidence).toBe('review');
-      // El texto se conserva: es lo único que permite al coach (o a la IA)
-      // recuperar la intención que la gramática no supo resolver.
-      expect(lines[0]!.prescription.note ?? '').toContain(cell.split(',')[0]!.trim());
+describe('class 18 — un objetivo escrito por referencia aterriza o se revisa', () => {
+  test('split de carrera en el ski es ritmo de carrera, no metros a secas', () => {
+    const [l] = parseNotationCell(`SkiErg 3x1000 m a split de carrera, rec 3'`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({
+      kind: 'relative',
+      ref: { of: 'race_pace', modality: 'ski' },
     });
-  }
+  });
+
+  test('a race pace sin modalidad nombra el ritmo de carrera (run)', () => {
+    const [l] = parseNotationCell(`6x1000 m a race pace, rec 60 s`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({
+      kind: 'relative',
+      ref: { of: 'race_pace', modality: 'run' },
+    });
+  });
+
+  test('a umbral es ritmo de umbral', () => {
+    const [l] = parseNotationCell(`4x2000 m a umbral, rec 3'`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({
+      kind: 'relative',
+      ref: { of: 'threshold_pace', modality: 'run' },
+    });
+  });
+
+  test('peso de carrera en el trineo es competition_load', () => {
+    const [l] = parseNotationCell(`Sled Push 3x25 m a peso de carrera`);
+    expect(l!.confidence).toBe('detected');
+    expect(l!.prescription.target).toEqual({
+      kind: 'relative',
+      ref: { of: 'competition_load', station: 'hyrox-sled-push' },
+    });
+  });
+
+  test('all-out sigue en revisión: no hay referencia para eso', () => {
+    const lines = parseNotationCell(`SkiErg 1000 m all-out`);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.confidence).toBe('review');
+    expect(lines[0]!.prescription.note ?? '').toContain('SkiErg 1000 m all-out');
+  });
 
   test('si la línea SÍ capturó un objetivo, una frase suelta no la tumba', () => {
     const lines = parseNotationCell(`6x800 m Z5, rec 2:30`);

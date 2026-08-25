@@ -23,6 +23,26 @@ import {
   parseWattsTarget,
   PERCENT_MAX_HR_RE,
 } from './target';
+import {
+  absorbRelativeTarget,
+  stripRelativePhrases,
+  type PhraseDictionary,
+} from './relative';
+
+let sessionDictionary: PhraseDictionary | undefined;
+
+/** Parse-session bag for the coach dictionary. Sync, one cell at a time.
+ *  Callers of finalizeDetected (command, structure, strength) then see the
+ *  same map without a fourth argument on every signature. */
+export function runWithImportSession<T>(dictionary: PhraseDictionary | undefined, fn: () => T): T {
+  const prev = sessionDictionary;
+  sessionDictionary = dictionary;
+  try {
+    return fn();
+  } finally {
+    sessionDictionary = prev;
+  }
+}
 
 // `incomplete`: the exercise itself IS known (a real movement name), its
 // dosage is not — never `detected` (that claims full confidence) and never
@@ -225,10 +245,9 @@ function hasUnconsumedNewAxisTarget(raw: string, p: Prescription): boolean {
  * sin intensidad ninguna y sin rastro en la nota. El coach escribió a qué
  * ritmo; el atleta recibía una distancia y nada más.
  *
- * Estas referencias son objetivos DERIVADOS (del test del atleta, de su ritmo
- * de carrera objetivo, del peso de su división). Resolverlos de verdad es su
- * propia pieza; hasta que exista, lo honesto es revisar, que es justo lo que
- * hacía antes de que la gramática aprendiera a leer la dosis que va delante.
+ * Estas referencias son objetivos DERIVADOS. Las formas que piece 4 ya lee
+ * (ritmo HYROX, peso de competición, % corporal) aterrizan en `Target.relative`
+ * antes de este guardia. Aquí quedan las que el tipo no cubre (all-out, a tope).
  *
  * Curado a propósito, NO un detector genérico de prosa, y con dos frenos:
  *   · sólo dispara si la prescripción tipada no tiene NINGÚN objetivo (ni de
@@ -299,6 +318,10 @@ export function finalizeDetected(
   if (prescription.scheme === 'sets' && bare.length <= 1) {
     return reviewLine(raw, 'sets scheme with no real movement name — token too short to be one');
   }
+  const absorbed = absorbRelativeTarget(prescription, raw, token, sessionDictionary);
+  if ('review' in absorbed) return reviewLine(raw, absorbed.review);
+  prescription = absorbed;
+  const residueRaw = stripRelativePhrases(raw);
   const parsed = prescriptionSchema.safeParse(prescription);
   if (!parsed.success) {
     return reviewLine(raw, `typed prescription failed validation: ${parsed.error.message}`);
@@ -311,7 +334,7 @@ export function finalizeDetected(
   if (hasUnconsumedRest(raw, typed)) {
     return reviewLine(raw, 'a rest clause in the text was not captured in the typed prescription');
   }
-  if (hasUnconsumedLoad(raw, typed)) {
+  if (hasUnconsumedLoad(residueRaw, typed)) {
     return reviewLine(raw, 'a load ("@"/kg) clause in the text was not captured in the typed prescription');
   }
   if (hasUnconsumedNewAxisTarget(raw, typed)) {

@@ -66,10 +66,12 @@ import {
 import {
   finalizeDetected,
   incompleteExerciseLine,
+  runWithImportSession,
   type Parsed,
   type ParsedLine,
   reviewLine,
 } from './result';
+import { stripRelativePhrases, type PhraseDictionary } from './relative';
 
 // ── Public API (shape lives in ./result.ts; re-exported for stability) ────────
 
@@ -90,6 +92,8 @@ export interface ParseNotationCellOptions {
    *  corpus sweep: 49 of 51 real exercises never reached the resolver
    *  because a dose-less name-only line was silently prose). */
   bareNamesAreExercises?: boolean;
+  /** Frases cualitativas de ESTE coach ya traducidas. Vacío = revisión. */
+  phraseDictionary?: PhraseDictionary;
 }
 
 /**
@@ -102,9 +106,11 @@ export function parseNotationCell(
   text: string,
   opts: ParseNotationCellOptions = {},
 ): ParsedLine[] {
-  const cell = normalizeNotation(text);
-  const lines = joinContinuations(cell.split('\n'));
-  return walkCommandingCell(lines, (line) => parseStandaloneWork(line, opts));
+  return runWithImportSession(opts.phraseDictionary, () => {
+    const cell = normalizeNotation(text);
+    const lines = joinContinuations(cell.split('\n'));
+    return walkCommandingCell(lines, (line) => parseStandaloneWork(line, opts));
+  });
 }
 
 function parseStandaloneWork(line: string, opts: ParseNotationCellOptions): ParsedLine[] {
@@ -188,7 +194,9 @@ function hasMetconKeyword(seg: string): boolean {
 }
 
 function isDenseWod(seg: string): boolean {
-  if (hasMetconKeyword(seg)) return true;
+  // «ritmo HYROX» is an intensity, not a multi-station sim. Strip it before
+  // the generic `\bhyrox\b` keyword treats the line as a dense WOD.
+  if (hasMetconKeyword(stripRelativePhrases(seg))) return true;
   // >=2 comma-separated stations that each carry a dose → multi-station WOD.
   const commaStations = seg.split(/,(?!\d)/).filter((p) => /\d/.test(p) && /[a-záéíóúñ]/i.test(p));
   if (commaStations.length >= 2) return true;

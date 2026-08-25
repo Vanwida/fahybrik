@@ -45,6 +45,7 @@ import {
   structuralScheme,
 } from './label';
 import { type Parsed } from './result';
+import { parseRelativeTarget } from './relative';
 
 export function parseBout(seg: string): Parsed | null {
   if (countIntervalGroups(seg) >= 2) return null; // heterogeneous — never fuse
@@ -93,6 +94,7 @@ export function parseBout(seg: string): Parsed | null {
   const watts = parseWattsTarget(seg);
   const caloriesGoal = parseCaloriesGoalTarget(seg);
   const timeCap = parseTimeCapTarget(seg);
+  const relative = parseRelativeTarget(seg);
 
   // A "@"/kg LOAD clause on an Nx-shaped interval means implement work (Sled
   // Push, Farmers Carry, Sandbag Lunges…) — strength.ts's
@@ -137,7 +139,8 @@ export function parseBout(seg: string): Parsed | null {
     hrBpm !== null ||
     watts !== null ||
     caloriesGoal !== null ||
-    timeCap !== null;
+    timeCap !== null ||
+    (relative.status !== 'none' && (dist !== undefined || dur !== undefined));
   if (!strongSignal) {
     if (dur === undefined || rpe === null) return null;
     if (
