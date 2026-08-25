@@ -11,6 +11,7 @@ ya no dice solo «Serie 2 de 4». Se leen las hechas y la actual
 (`1 / 2 / 3 / 4`, o la ventana de tres si hay cinco o más). El
 riel pone el número, no `S1`. iOS y el gemelo leen `TandaStrip`.
 Card 169 (ClickUp aún puede no existir).
+https://github.com/Vanwida/fahybrik/pull/79
 
 **168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (en trunk).** Un toque
 en el chevron deshace la última serie o estación y te deja en
