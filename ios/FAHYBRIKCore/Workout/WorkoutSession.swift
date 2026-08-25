@@ -42,6 +42,12 @@ final class WorkoutSession {
     /// tonta), chosen pre-start. Drives the HUD and the fuente de los metros.
     /// Ephemeral — never persisted.
     var runEnvironment: RunEnvironment? = nil
+    /// Última lectura resuelta de la cinta FTMS. `nil` = no hay feed (cinta tonta,
+    /// reloj, calle). `false` = la máquina está conectada y no manda velocidad.
+    var treadmillBeltWorking: Bool? = nil
+    /// Segundos de TRABAJO en la ventana de cinta, solo mientras la banda manda
+    /// velocidad. El lap de sesión sigue siendo de pared.
+    var beltWorkElapsedS: Double = 0
 
     var currentSegmentIndex: Int = 0
     var elapsedSeconds: Double = 0

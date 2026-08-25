@@ -329,9 +329,9 @@ export const SIN_PULSO_MOTIVO_CALLE = 'sin reloj';
 
 /** TreadmillHUDView.beltReadingLine — lo que la CINTA dice que hace, bajo el
  *  héroe: la misma medida en las unidades del propio dial. Ausente hasta el
- *  primer dato — nunca una fila de guiones. */
+ *  primer dato. El 0 se pinta: está medido. */
 export function lineaLecturaCinta(velocidadKmh: number, conDatos: boolean): string | null {
-  if (!conDatos || velocidadKmh <= 0) return null;
+  if (!conDatos) return null;
   return `${fmt1(velocidadKmh)} km/h en la cinta`;
 }
 

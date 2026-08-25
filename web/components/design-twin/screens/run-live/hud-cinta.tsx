@@ -26,6 +26,7 @@ import {
   Tarjeta,
   TarjetaStepper,
 } from './atoms';
+import { MIN_BELT_MOVING_KMH } from '@fahybrid/shared/domain/belt-work-clock';
 import {
   CINTA_APRIETA_S,
   CINTA_NOMBRE,
@@ -107,7 +108,8 @@ export function HUDCinta({
   const { estado, avanzar } = useTramos({
     corriendo,
     pausado: false,
-    parado: !conDatos,
+    parado: !conDatos || velocidadKmh <= MIN_BELT_MOVING_KMH,
+    superficie: 'ftms',
     metrosPorSegundo: (tramo) => (tramo.tipo === 'trabajo' ? (velocidadKmh * 1000) / 3600 : 1.4),
     onTramo: (idx, motivo) => {
       const tramo = TRAMOS[idx];
@@ -200,6 +202,11 @@ export function HUDCinta({
               </span>
               {ritmo === null && (
                 <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{motivoSinRitmo}</span>
+              )}
+              {lecturaCinta && (
+                <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)', paddingTop: 4 }}>
+                  {lecturaCinta}
+                </span>
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>

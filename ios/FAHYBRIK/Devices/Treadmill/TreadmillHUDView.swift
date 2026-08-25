@@ -244,10 +244,8 @@ struct TreadmillHUDView: View {
 
     // MARK: - Landscape live HUD (#6 — big numbers when the phone is rotated)
 
-    /// Landscape split: the belt's REAL speed fills the left half (reads at 5 m), and the
-    /// controls + a compact metric strip + START/STOP sit on the right. Only for the
-    /// running state — recovery / count-in / connecting keep their centered portrait
-    /// states, which read fine rotated.
+    /// Landscape split: pace and machine speed share the left half (neither hides
+    /// the other). Controls + compact metrics + START/STOP sit on the right.
     private var landscapeLiveHUD: some View {
         let sujeto = landscapeSubject
         return HStack(alignment: .center, spacing: 16) {
@@ -272,6 +270,13 @@ struct TreadmillHUDView: View {
                         .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1).minimumScaleFactor(0.7)
                 }
+                if model.canControlSpeed, let ritmo = heroPace {
+                    Text("\(ritmo) \(Formato.UnidadRitmo.porKm.rawValue) · ritmo real")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                        .padding(.top, 4)
+                }
+                beltReadings
                 Spacer(minLength: 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -637,7 +642,8 @@ struct TreadmillHUDView: View {
 
     private var beltReadingLine: String? {
         var parts: [String] = []
-        if let kmh = model.displaySpeedKmh, kmh > 0 {
+        let speedIsHero = isLandscape && model.canControlSpeed
+        if !speedIsHero, let kmh = model.displaySpeedKmh {
             parts.append("\(Formato.esDecimal(kmh)) km/h en la cinta")
         }
         if let incline = model.liveInclineText { parts.append(incline) }

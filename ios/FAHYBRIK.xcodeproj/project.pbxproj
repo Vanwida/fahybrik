@@ -184,6 +184,9 @@
 		3B7EDEDD67ADE28E62ADCAED /* EmomLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C22985F81A5391CB4E04312 /* EmomLiveView.swift */; };
 		3BF41A01DE020CFC67639243 /* JumpFrameMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3667DFF73AB0244CF1E2967F /* JumpFrameMarker.swift */; };
 		3BFF054AE7383F6DCBB324A6 /* WorkoutSession+Clock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1062720A372E93DA9533753F /* WorkoutSession+Clock.swift */; };
+		B167C10CBE170001A0000002 /* BeltWorkClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000001 /* BeltWorkClock.swift */; };
+		B167C10CBE170001A0000003 /* BeltWorkClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000001 /* BeltWorkClock.swift */; };
+		B167C10CBE170001A0000005 /* BeltWorkClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */; };
 		3C18DA57D1AEA42350245B61 /* RunPaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84F7C8771BEBB8127C071B4 /* RunPaceModel.swift */; };
 		3C28AC291503E97DF8DEED5C /* LecturaDeSesionDesdeDetalleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F48E773FB18D4EAB1C4FAD58 /* LecturaDeSesionDesdeDetalleTests.swift */; };
 		3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AC9F29DD28A8726EFE2134 /* MockDeviceProfileTests.swift */; };
@@ -832,6 +835,8 @@
 		0E2C66CF7D6908E2FE6914BF /* CarreraDeLaSesionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarreraDeLaSesionTests.swift; sourceTree = "<group>"; };
 		100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Series.swift"; sourceTree = "<group>"; };
 		1062720A372E93DA9533753F /* WorkoutSession+Clock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Clock.swift"; sourceTree = "<group>"; };
+		B167C10CBE170001A0000001 /* BeltWorkClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltWorkClock.swift; sourceTree = "<group>"; };
+		B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltWorkClockTests.swift; sourceTree = "<group>"; };
 		108C2087955FB8892D315754 /* EscenariosCiclo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscenariosCiclo.swift; sourceTree = "<group>"; };
 		10DE0983BB5934AEF0640102 /* FormaDelAro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormaDelAro.swift; sourceTree = "<group>"; };
 		110D0DB2E64AEB960DDDAC21 /* HealthKitHistoryWindowReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitHistoryWindowReader.swift; sourceTree = "<group>"; };
@@ -1894,6 +1899,7 @@
 				085DC1311ADF1FCA61D3E8A2 /* WorkoutSession+Bloques.swift */,
 				37146DEACD9D1D5451B0C5D0 /* WorkoutSession+BoutRecords.swift */,
 				7F27428D86F504409F13B526 /* WorkoutSession+Calorias.swift */,
+				B167C10CBE170001A0000001 /* BeltWorkClock.swift */,
 				1062720A372E93DA9533753F /* WorkoutSession+Clock.swift */,
 				5E8558D67B2C147950223DC5 /* WorkoutSession+Conditioning.swift */,
 				6497E17C1F059886359CD87C /* WorkoutSession+EMOM.swift */,
@@ -2321,6 +2327,7 @@
 				3DAC46D64F535FC9BBD36B5B /* RunAltitudeAnchorTests.swift */,
 				C73436A9BBEE97504B5DF9AB /* RunAutoPauseTests.swift */,
 				CCCA81594A588265CB467522 /* RunCueEngineTests.swift */,
+				B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */,
 				B2C38980D3A4757F2E56AF4C /* RunDistanceAuthorityTests.swift */,
 				6410641ED6D1C78BA6BCACDC /* RunMetresNotLostTests.swift */,
 				71FD8786B3D4A9B15C0CC294 /* RunPaceSmootherTests.swift */,
@@ -3572,6 +3579,7 @@
 				EA8533DE580214BF90469B5E /* WorkoutSession+Bloques.swift in Sources */,
 				B397F7E48DD2699041E6E8B2 /* WorkoutSession+BoutRecords.swift in Sources */,
 				0E93E1977E836E176A24592C /* WorkoutSession+Calorias.swift in Sources */,
+				B167C10CBE170001A0000002 /* BeltWorkClock.swift in Sources */,
 				3BFF054AE7383F6DCBB324A6 /* WorkoutSession+Clock.swift in Sources */,
 				AAA6E2BDC54FFA8A356C03C1 /* WorkoutSession+Conditioning.swift in Sources */,
 				B90E8D564E1D396873398DDE /* WorkoutSession+EMOM.swift in Sources */,
@@ -3692,6 +3700,7 @@
 				9D6A40FCFF97CA908393943A /* WorkoutSession+Bloques.swift in Sources */,
 				C4486E82DA2A2192FAFE4B5F /* WorkoutSession+BoutRecords.swift in Sources */,
 				755EA20E4AC4FE689FA022E1 /* WorkoutSession+Calorias.swift in Sources */,
+				B167C10CBE170001A0000003 /* BeltWorkClock.swift in Sources */,
 				530DA95CB8573DF38692D2D1 /* WorkoutSession+Clock.swift in Sources */,
 				E44BC44FB70B9A0C4E871C24 /* WorkoutSession+Conditioning.swift in Sources */,
 				E796A008ABD508FA7ABB0903 /* WorkoutSession+EMOM.swift in Sources */,
@@ -3850,6 +3859,7 @@
 				94DADBDC85A028E5A67521C3 /* RunAltitudeAnchorTests.swift in Sources */,
 				1BED5612C4EE966809ED0BA4 /* RunAutoPauseTests.swift in Sources */,
 				A14109C14009C00549F2B98C /* RunCueEngineTests.swift in Sources */,
+				B167C10CBE170001A0000005 /* BeltWorkClockTests.swift in Sources */,
 				E2155C176C37CDCEA6EE0C65 /* RunDistanceAuthorityTests.swift in Sources */,
 				E6057F6923DA56213DA98515 /* RunLegDisplayTests.swift in Sources */,
 				9C04B407927F20600A478F71 /* RunLegProgressTests.swift in Sources */,

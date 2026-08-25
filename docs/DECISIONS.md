@@ -11,6 +11,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Cinta de casa: el crono de trabajo es el de la banda (card 167)
+
+**Qué faltaba:** en cinta FTMS el crono de la tira arrancaba al pulsar
+o al entrar al bloque (`tick()` de pared). En horizontal el héroe
+elegía velocidad O ritmo.
+
+**Decidido:**
+
+- El trabajo de una tira FTMS solo suma cuando la velocidad
+  resuelta de la máquina supera `BeltWorkClock.minMovingKmh` (0,5).
+  Es umbral de señal, no de metodología.
+- Si la banda para, ese crono no sigue. La recuperación, el 3-2-1
+  y los relojes de formato (EMOM / AMRAP / For Time) siguen en
+  pared. El lap de sesión no se congela: de ahí sale el minuto
+  del formato.
+- La velocidad que manda es la resuelta (`TreadmillSpeedResolver`),
+  no el Instantaneous Speed crudo. Una BH que manda 0 con el
+  odómetro subiendo cuenta como en marcha.
+- Cinta tonta y reloj no tienen feed: `treadmillBeltWorking == nil`
+  y el reloj no se aplica.
+- En el live se leen juntos km/h de máquina y ritmo /km. Cero de
+  velocidad se pinta (está medido). Cero de ritmo no existe.
+
+**NO hacer:** no congelar `lapElapsedSeconds`. no adivinar velocidad
+sin FTMS. no tocar 132, 114, 168/169/170/144. no xcodebuild. no
+ClickUp (rate-limit). no ON CONFLICT nuevo.
+
+**Dónde vive:** `BeltWorkClock` (Core + `shared/domain/belt-work-clock.ts`).
+Feeder: `TreadmillSessionFeeder`. HUD: `legElapsedEffective`,
+`beltReadingLine`. Doble: `hud-cinta` + `useTramos(superficie: ftms)`.
+
+---
+
 ## 2026-08-25 · Estaciones: se ve si es seguido o circuito (card 114)
 
 **Qué faltaba:** el format ya estaba guardado (`circuit` /

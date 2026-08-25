@@ -22,9 +22,13 @@ final class TreadmillSessionFeeder {
     /// tracker that it resets per leg, because a work bout must not inherit the
     /// recovery's metres — a different question with a different answer.)
     private var tracker = TreadmillDistanceTracker()
+    /// Same resolver the HUD uses to paint speed. Instantaneous 0 with a climbing
+    /// odometer still counts as moving (BH / i.Concept).
+    private var speedResolver = TreadmillSpeedResolver()
 
     init(session: WorkoutSession) {
         self.session = session
+        session.noteTreadmillBeltWorking(false)
     }
 
     /// Hand one belt sample to the session. Safe to call for every sample of the whole
@@ -34,6 +38,11 @@ final class TreadmillSessionFeeder {
         // muestra todavía no haya avanzado. Una fuente. La cinta tonta nunca
         // llega aquí, y entonces cuenta el HKWorkout indoor del reloj.
         session.claimTreadmillDistanceSource()
+        speedResolver.ingest(instantaneousKmh: sample.speedKmh,
+                             avgKmh: sample.avgSpeedKmh,
+                             odometerM: sample.totalDistanceM,
+                             at: sample.lastUpdate)
+        session.noteTreadmillBeltWorking(BeltWorkClock.isMoving(speedResolver.displaySpeedKmh))
         let meters = tracker.increment(from: sample)
         if meters > 0 { session.sampleTreadmillDistance(deltaMeters: meters) }
         // A flat belt (0 %) is a real reading and counts toward the average; nil means
@@ -49,5 +58,9 @@ final class TreadmillSessionFeeder {
     }
 
     /// Forget the belt's history — a different machine, or a fresh session.
-    func reset() { tracker.reset() }
+    func reset() {
+        tracker.reset()
+        speedResolver = TreadmillSpeedResolver()
+        session.noteTreadmillBeltWorking(false)
+    }
 }

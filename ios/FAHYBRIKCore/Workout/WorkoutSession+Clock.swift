@@ -60,7 +60,16 @@ extension WorkoutSession {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt
         }
 
-        if currentSegment?.hasRunStructure == true { tickRunStructure(dt: dt) }
+        let workDt = BeltWorkClock.workTick(wallDt: dt,
+                                            surface: beltClockSurface,
+                                            window: beltClockWindow,
+                                            beltMoving: treadmillBeltWorking)
+        if BeltWorkClock.applies(surface: beltClockSurface, window: beltClockWindow,
+                                 beltMoving: treadmillBeltWorking) {
+            beltWorkElapsedS += workDt
+        }
+
+        if currentSegment?.hasRunStructure == true { tickRunStructure(dt: workDt) }
         else if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
         else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
         // AFTER the engines have moved their cursors: if the athlete crossed into a
@@ -96,5 +105,29 @@ extension WorkoutSession {
                 await WorkoutStateStore.shared.save(snapshot)
             }
         }
+    }
+
+    var beltClockSurface: BeltWorkClock.Surface {
+        runEnvironment == .treadmill ? .ftms : .other
+    }
+
+    var beltClockWindow: BeltWorkClock.Window {
+        if isTramoCountIn { return .countIn }
+        if isTramoResting { return .recovery }
+        if tramoIsRun { return .work }
+        return .format
+    }
+
+    var gatesBeltWorkClock: Bool {
+        BeltWorkClock.applies(surface: beltClockSurface, window: beltClockWindow,
+                              beltMoving: treadmillBeltWorking)
+    }
+
+    func noteTreadmillBeltWorking(_ working: Bool) {
+        treadmillBeltWorking = working
+    }
+
+    func resetBeltWorkElapsed() {
+        beltWorkElapsedS = 0
     }
 }
