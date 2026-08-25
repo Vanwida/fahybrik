@@ -614,6 +614,7 @@ extension WorkoutSegment {
     /// fuerza no puede perder.
     var usesMultiSetStrength: Bool {
         guard !isEMOM else { return false }
+        guard prescription?.scheme != .unknown else { return false }
         guard kind == .strength || isSuperset else { return false }
         return (prescription?.sets?.count ?? 0) > 1
     }

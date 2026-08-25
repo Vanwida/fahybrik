@@ -27,6 +27,7 @@ describe('format legacy aliases (canonicalization parity with SQL backfill)', ()
       hyrox_sim: 'hyrox_sim',
       for_time: 'for_time',
       strength_block: 'sets',
+      straight_sets: 'sets',
       circuit: 'rounds',
       emom: 'emom',
       amrap: 'amrap',

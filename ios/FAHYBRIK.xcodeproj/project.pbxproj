@@ -68,6 +68,7 @@
 		13C08B9713D02E0A057AC1FA /* RunStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9FFF40DCB381C74304F1F3 /* RunStructure.swift */; };
 		13CDD2668A7998ABDA91AA41 /* WorkoutLiveDataSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */; };
 		1462E85D93FF3175C6D86863 /* DosisAlFalloYPorImplementoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB1BE003DADB74604830717 /* DosisAlFalloYPorImplementoTests.swift */; };
+		1482F0C91A7B4E6D90C3E5A1 /* MotorEnVivoHonestidadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2A1C9B4D7E6035A1B8C0D4 /* MotorEnVivoHonestidadTests.swift */; };
 		14C0B275F94696BF9BAF5A81 /* AppleWorkoutMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA5B5BB4DF75071C056FC68 /* AppleWorkoutMapper.swift */; };
 		14C77FFA37DF69E96C9430D6 /* ErgLiveStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D9494B04303A5A577798CC7 /* ErgLiveStrip.swift */; };
 		14F1AA9F2B0E922638523C53 /* CicloDelPlanDecodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1357093120F9BE28E90B8781 /* CicloDelPlanDecodeTests.swift */; };
@@ -1421,6 +1422,7 @@
 		ED914E7FD12348A011B65D7E /* Day1Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day1Model.swift; sourceTree = "<group>"; };
 		ED9FFF40DCB381C74304F1F3 /* RunStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunStructure.swift; sourceTree = "<group>"; };
 		EDB1BE003DADB74604830717 /* DosisAlFalloYPorImplementoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DosisAlFalloYPorImplementoTests.swift; sourceTree = "<group>"; };
+		8F2A1C9B4D7E6035A1B8C0D4 /* MotorEnVivoHonestidadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotorEnVivoHonestidadTests.swift; sourceTree = "<group>"; };
 		EDD50B32CE803AB20FBE1A52 /* OutdoorRunHUDModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutdoorRunHUDModel.swift; sourceTree = "<group>"; };
 		EE01832994D8A5A8D347AE3F /* ZonasSemanaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonasSemanaView.swift; sourceTree = "<group>"; };
 		EE14301258CA53506451127D /* RunLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveActivityController.swift; sourceTree = "<group>"; };
@@ -2818,6 +2820,7 @@
 				EDB1BE003DADB74604830717 /* DosisAlFalloYPorImplementoTests.swift */,
 				108C2087955FB8892D315754 /* EscenariosCiclo.swift */,
 				29ECBBC6B1ABB0A00EBC5B8B /* FormaDelAroTests.swift */,
+				8F2A1C9B4D7E6035A1B8C0D4 /* MotorEnVivoHonestidadTests.swift */,
 				4E48B3C2834B7EF903B3B665 /* PlanCicloRenderTests.swift */,
 				D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */,
 				C6A106D963AE6C92E9A96E0F /* RunLegDisplayTests.swift */,
@@ -3817,6 +3820,7 @@
 				5F6FA5B599E2689B51A66781 /* LecturasTests.swift in Sources */,
 				759868AA595B3738C90678E3 /* LenguajeVivoTests.swift in Sources */,
 				E9C29CBDFEC5EBD6C613E682 /* MachineTramoLawTests.swift in Sources */,
+				1482F0C91A7B4E6D90C3E5A1 /* MotorEnVivoHonestidadTests.swift in Sources */,
 				F95A0651AA28B3E9ED1B78D6 /* MirrorWireModelsTests.swift in Sources */,
 				3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */,
 				412634389E44225B77D3E588 /* NoAutoConnectSourceGuardTests.swift in Sources */,

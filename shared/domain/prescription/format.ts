@@ -212,6 +212,7 @@ export const WORKOUT_FORMAT_KEYS = Object.keys(WORKOUT_FORMATS) as WorkoutFormat
 // legacy value maps to exactly one canonical format.
 //
 //   strength_block → sets    (a strength block is the per-set strength table)
+//   straight_sets  → sets    (the older block-format name for the same table)
 //   tempo          → steady  (a tempo effort is a continuous paced bout)
 //   circuit        → rounds  (a circuit is rounds of stations)
 //   test           → for_time (a benchmark test is a fixed effort scored by time)
@@ -223,6 +224,7 @@ export const WORKOUT_FORMAT_KEYS = Object.keys(WORKOUT_FORMATS) as WorkoutFormat
 //                    enum value, so it stays out of LEGACY_TEMPLATE_FORMATS)
 export const LEGACY_FORMAT_ALIASES: Readonly<Record<string, WorkoutFormat>> = {
   strength_block: 'sets',
+  straight_sets: 'sets',
   tempo: 'steady',
   circuit: 'rounds',
   test: 'for_time',
