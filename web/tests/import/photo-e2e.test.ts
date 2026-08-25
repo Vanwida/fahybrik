@@ -63,6 +63,8 @@
  *   2) `resolveImportDefaults`, a los defaults DEL SISTEMA
  *      (`DEFAULT_IMPORT_DEFAULTS`) — el coach de la demo, recién llegado, no
  *      ha tocado esa pantalla todavía.
+ *   3) `loadCoachPhraseDictionary`, mapa vacío. Este test no tiene base.
+ *      Vacío = las frases cualitativas van a revisión, que es lo honesto.
  */
 import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -153,6 +155,10 @@ vi.mock('@/lib/import/exercise-resolve', async (importOriginal) => {
 // ── (2) Los defaults de importación del coach, mockeados a los del sistema ──
 vi.mock('@/lib/coach/import-defaults', () => ({
   resolveImportDefaults: async () => DEFAULT_IMPORT_DEFAULTS,
+}));
+
+vi.mock('@/lib/coach/phrase-dictionary', () => ({
+  loadCoachPhraseDictionary: async () => new Map(),
 }));
 
 // ── El modelo de visión, simulado — mismo patrón que vision-reader.test.ts ──

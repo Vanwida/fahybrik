@@ -39,6 +39,8 @@ import { resolveExercise } from './exercise-resolve';
 import { workoutCards, cardToSessionText, type ImportedCard, type ImportedWeek } from './imported-week';
 import { fillMissingWithDefaults } from './fill-defaults';
 import { resolveImportDefaults } from '@/lib/coach/import-defaults';
+import { loadCoachPhraseDictionary } from '@/lib/coach/phrase-dictionary';
+import type { PhraseDictionary } from '@fahybrid/shared/domain/coach/phrase-dictionary';
 import type { ImportDefaultsValues } from '@fahybrid/shared/domain/coach-import-defaults';
 import type { EditorSession, EditorBlock, EditorItem, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
@@ -177,8 +179,9 @@ async function parseWithAssist(
   text: string,
   llmAssist?: LlmAssist,
   parseOpts?: ParseNotationCellOptions,
+  phraseDictionary?: PhraseDictionary,
 ): Promise<ParsedLine[]> {
-  let lines = parseNotationCell(text, parseOpts);
+  let lines = parseNotationCell(text, { ...parseOpts, phraseDictionary });
   if (llmAssist) {
     const upgraded: ParsedLine[] = [];
     for (const ln of lines) {
@@ -375,8 +378,14 @@ async function buildCardBlock(
   sql: Sql,
   card: ImportedCard,
   llmAssist: LlmAssist | undefined,
+  phraseDictionary?: PhraseDictionary,
 ): Promise<{ block: EditorBlock; flags: ProposalFlag[] }> {
-  const parsed = await parseWithAssist(cardToSessionText(card), llmAssist, { bareNamesAreExercises: true });
+  const parsed = await parseWithAssist(
+    cardToSessionText(card),
+    llmAssist,
+    { bareNamesAreExercises: true },
+    phraseDictionary,
+  );
   const withoutTitle = dropTitleMisreadAsExercise(parsed, card.title);
   const { lines, orphanText } = redistributeOrphanDose(withoutTitle);
   const { items, flags } = await resolveLines(coach_id, sql, lines);
@@ -433,12 +442,13 @@ async function buildDayFromCards(
   cards: readonly ImportedCard[],
   llmAssist: LlmAssist | undefined,
   defaults: ImportDefaultsValues,
+  phraseDictionary?: PhraseDictionary,
 ): Promise<{ day: ProposalDay; flags: ProposalFlag[] }> {
   const blocks: EditorBlock[] = [];
   const flags: ProposalFlag[] = [];
   const truncations: NonNullable<ProposalDay['truncations']> = [];
   for (const card of cards) {
-    const built = await buildCardBlock(coach_id, sql, card, llmAssist);
+    const built = await buildCardBlock(coach_id, sql, card, llmAssist, phraseDictionary);
     blocks.push(built.block);
     flags.push(...built.flags);
     if (card.truncated) {
@@ -511,6 +521,16 @@ export async function buildImportProposal(params: {
     return importDefaults;
   }
 
+  let phraseDictionary: PhraseDictionary | undefined;
+  let phraseDictionaryLoaded = false;
+  async function getPhraseDictionary(): Promise<PhraseDictionary> {
+    if (!phraseDictionaryLoaded) {
+      phraseDictionary = await loadCoachPhraseDictionary(coach_id, sql);
+      phraseDictionaryLoaded = true;
+    }
+    return phraseDictionary ?? new Map();
+  }
+
   const outWeeks: ProposalWeek[] = [];
   for (const w of weeks) {
     const days: ProposalDay[] = [];
@@ -529,6 +549,7 @@ export async function buildImportProposal(params: {
           cards,
           llmAssist,
           await getImportDefaults(),
+          await getPhraseDictionary(),
         );
         countFlags(built.flags);
         days.push(built.day);
@@ -549,7 +570,7 @@ export async function buildImportProposal(params: {
         continue;
       }
 
-      const lines = await parseWithAssist(text, llmAssist);
+      const lines = await parseWithAssist(text, llmAssist, undefined, await getPhraseDictionary());
       const { items, flags } = await resolveLines(coach_id, sql, lines);
       countFlags(flags);
 
