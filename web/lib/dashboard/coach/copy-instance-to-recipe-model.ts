@@ -37,6 +37,7 @@ export type InstanceBlockRow = {
   block_position: number;
   block_title: string | null;
   block_format: string | null;
+  coach_note?: string | null;
   items: Array<{
     id: string;
     position: number;
@@ -96,6 +97,7 @@ export function instanceBlocksToWeekParts(
       }),
     };
     if (circuit) part.circuit = circuit;
+    if (block.coach_note?.trim()) part.coach_note = block.coach_note.trim();
     return part;
   });
 }

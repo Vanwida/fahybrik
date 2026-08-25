@@ -47,9 +47,9 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
 
 /**
  * El campo de NOTA del coach — texto libre que el ATLETA leerá en su móvil. Es
- * uno solo para las dos notas que existen (la del entreno, en la cabecera de la
- * sesión; la de una línea prescrita, en el compositor de dosis) para que las dos
- * se escriban y se lean igual.
+ * uno solo para las tres notas que existen (la del entreno, en la cabecera de
+ * la sesión; la descripción de un bloque; la técnica de una línea) para que se
+ * escriban y se lean igual.
  *
  * Tres reglas que lleva dentro y no se negocian:
  * - SIEMPRE visible (campo Y botón de ayuda). Nada de aparecer al hover: el

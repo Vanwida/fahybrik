@@ -35,6 +35,7 @@ import { MODALITY_META } from '@/components/v2/constants';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { NoteField } from './fields';
+import { BlockProseFields } from './block-prose-fields';
 import { BlockItemTable } from './BlockItemTable';
 import { ArchetypeGrid } from './ArchetypePicker';
 import { BlockTypePicker, OptionalBadge } from './compositor-chrome';
@@ -58,6 +59,7 @@ export function SessionPartCard({
   onAddBlock,
   onRenameBlock,
   onChangeBlockType,
+  onUpdateBlock,
   onReorderBlocks,
   onEditItem,
   onAddItem,
@@ -84,6 +86,8 @@ export function SessionPartCard({
   onRenameBlock: (blockUid: string, title: string) => void;
   /** Cambia el tipo de un bloque ya creado (fuerza, calentamiento, circuito…). */
   onChangeBlockType: (blockUid: string, next: EditorBlock) => void;
+  /** Escribe descripción o técnica de ESE bloque (no de la sesión). */
+  onUpdateBlock: (next: EditorBlock) => void;
   /** Persiste el nuevo orden tras un arrastre (o reorden por teclado). */
   onReorderBlocks: (orderedUids: string[]) => void;
   onEditItem: (blockUid: string, itemUid: string) => void;
@@ -202,6 +206,7 @@ export function SessionPartCard({
                 block={block}
                 onRename={(title) => onRenameBlock(block.uid, title)}
                 onChangeType={(next) => onChangeBlockType(block.uid, next)}
+                onUpdate={onUpdateBlock}
                 onEditItem={(itemUid) => onEditItem(block.uid, itemUid)}
                 onAddItem={() => onAddItem(block.uid)}
                 onRemove={() => onRemoveBlock(block.uid)}
@@ -261,6 +266,7 @@ function SortableBlockCard({
   block,
   onRename,
   onChangeType,
+  onUpdate,
   onEditItem,
   onAddItem,
   onRemove,
@@ -270,6 +276,7 @@ function SortableBlockCard({
   block: EditorBlock;
   onRename: (title: string) => void;
   onChangeType: (next: EditorBlock) => void;
+  onUpdate: (next: EditorBlock) => void;
   onEditItem: (itemUid: string) => void;
   onAddItem: () => void;
   onRemove: () => void;
@@ -358,6 +365,16 @@ function SortableBlockCard({
         </p>
       ) : null}
 
+      <BlockProseFields
+        block={block}
+        onChangeCoachNote={(coach_note) => onUpdate({ ...block, coach_note })}
+        onChangeItemNote={(uid, notes) =>
+          onUpdate({
+            ...block,
+            items: block.items.map((it) => (it.uid === uid ? { ...it, notes } : it)),
+          })
+        }
+      />
       <BlockItemTable
         block={block}
         onEditItem={onEditItem}

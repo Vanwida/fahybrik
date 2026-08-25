@@ -45,6 +45,10 @@ export function sessionsToWire(sessions: EditorSession[]) {
       // Circuito/Core; se omite la clave para el resto (el schema del wire lo
       // define `.optional()`, nunca nullable, así que null lo rechazaría).
       ...(b.circuit ? { circuit: b.circuit } : {}),
+      // Descripción del bloque: el editor siempre manda el valor actual
+      // (vacío incluido) para poder borrarla. Quien no pasa por aquí y
+      // omite la clave conserva la original en el serializer.
+      coach_note: (b.coach_note ?? '').trim(),
       items: b.items.map((it) => ({
         uid: it.uid,
         exercise_id: it.exercise_id,

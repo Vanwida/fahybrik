@@ -25,6 +25,7 @@ export interface TemplateDetailWire {
     block_position: number;
     block_title: string | null;
     block_format: string | null;
+    coach_note?: string | null;
     items: Array<{
       id: string;
       position: number;
@@ -56,7 +57,7 @@ export function templateBlocksToParts(detail: TemplateDetailWire): WeekDayPart[]
   const blocks =
     detail.blocks.length > 0
       ? detail.blocks
-      : [{ block_position: 0, block_title: null, block_format: null, items: [] }];
+      : [{ block_position: 0, block_title: null, block_format: null, coach_note: null, items: [] }];
   return blocks.map((block, index) => {
     const items: WeekDayPartItem[] = block.items.map((item) => ({
       uid: newBlockUid(),
@@ -73,6 +74,9 @@ export function templateBlocksToParts(detail: TemplateDetailWire): WeekDayPart[]
     };
     if (detail.methodology_group_id != null) {
       part.methodology_group_id = detail.methodology_group_id;
+    }
+    if (block.coach_note?.trim()) {
+      part.coach_note = block.coach_note.trim();
     }
     return part;
   });
@@ -93,6 +97,7 @@ interface TemplateSegmentPayload {
   block_position: number;
   block_title: string | null;
   block_format: string | null;
+  block_coach_note: string | null;
   params_json: Record<string, unknown>;
   notes: string | null;
   prescription_json: unknown;
@@ -131,6 +136,7 @@ export function sessionToTemplateUpdatePayload(
         block_position: blockIndex,
         block_title: part.title || null,
         block_format: part.format ?? null,
+        block_coach_note: part.coach_note?.trim() || null,
         params_json: (item.params_json ?? {}) as Record<string, unknown>,
         notes: item.notes ?? null,
         prescription_json: item.prescription_json ?? null,

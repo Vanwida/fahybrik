@@ -2,7 +2,8 @@
  * serializeDay (lib/dashboard/v2/editor-serialize.ts) — «Opcional» (fase 2,
  * ago-2026, docs/DECISIONS.md).
  *
- * A diferencia de coach_note (sin UI, "preserva si se omite"), el día editor
+ * A diferencia de coach_note (quien omite la clave la preserva; el editor
+ * de día ahora la manda siempre, vacío incluido), el día editor
  * SÍ tiene UI para esto desde el día uno: el cliente manda siempre su valor
  * actual, incluida la vuelta a false — mismo contrato que `focus`/`title`.
  * Un caller que aún no conoce el campo (copiar día, tests viejos) lo omite y

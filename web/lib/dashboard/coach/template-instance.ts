@@ -73,11 +73,11 @@ export async function cloneTemplateAsInstance(params: {
   await params.client`
     insert into template_segments (
       template_id, position, exercise_id, params_json, notes,
-      block_position, block_format, block_title, prescription_json
+      block_position, block_format, block_title, block_coach_note, prescription_json
     )
     select
       ${newId}, position, exercise_id, params_json, notes,
-      block_position, block_format, block_title, prescription_json
+      block_position, block_format, block_title, block_coach_note, prescription_json
     from template_segments
     where template_id = ${src}
     order by position

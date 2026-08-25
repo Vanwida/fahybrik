@@ -67,6 +67,7 @@ test('instanceBlocksToWeekParts copies prescription and notes, not invented fiel
         block_position: 0,
         block_title: 'EDITED',
         block_format: 'strength_block',
+        coach_note: 'Cadera alta. No dejes caer el tronco.',
         items: [
           {
             id: '9',
@@ -87,6 +88,7 @@ test('instanceBlocksToWeekParts copies prescription and notes, not invented fiel
   expect(parts[0]!.title).toBe('EDITED');
   expect(parts[0]!.items[0]!.exercise_id).toBe(44);
   expect(parts[0]!.items[0]!.notes).toBe('tope');
+  expect(parts[0]!.coach_note).toBe('Cadera alta. No dejes caer el tronco.');
   expect(parts[0]!.items[0]!.prescription_json).toEqual(presc(5, 85));
   expect(parts[0]!.circuit).toBeUndefined();
 });

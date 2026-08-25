@@ -32,6 +32,7 @@ import {
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
+import { uniqueBlockNotes } from '@fahybrid/shared/schema/program-templates';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
 // El motor de cumplimiento (#66/#71) vive junto al resto de la lectura del
 // coach por dónde nació, pero la pregunta que responde («¿clavó la serie?»)
@@ -459,6 +460,12 @@ interface SegmentRow {
    */
   sealed_prescription_json?: unknown | null;
   notes: string | null;
+  /**
+   * Descripción de ESTE bloque (`template_segments.block_coach_note`).
+   * La misma prosa en todas las filas del grupo, como `block_title`.
+   * Ausente / vacío = el bloque no tiene descripción.
+   */
+  block_coach_note?: string | null;
   exercise_id: string;
   exercise_name: string;
   exercise_slug: string;
@@ -629,6 +636,7 @@ export async function loadAssignmentDetail(
           coalesce(s.block_position, 0)               as block_position,
           s.block_format                              as block_format,
           s.block_title                               as block_title,
+          s.block_coach_note                          as block_coach_note,
           s.params_json                               as params_json,
           s.prescription_json                         as prescription_json,
           s.notes                                     as notes,
@@ -1065,8 +1073,9 @@ function buildBlocks(
       title,
       format: m.format,
       block_position: m.pos,
-      // No per-block coach note column yet; iOS treats null as absent.
-      coach_note: null,
+      // Descripción de ESTE bloque. Vacío se queda vacío: no se inventa
+      // texto ni se copia el del primer bloque a los siguientes.
+      coach_note: uniqueBlockNotes(m.segs.map((s) => s.block_coach_note)),
       // Circuito (template_blocks): real rounds/pacing/descansos cuando el coach
       // los definió. Un bloque circuito SIEMPRE tiene >1 segmento, así que nunca
       // entra en la fusión de fragmentos de arriba (esa solo junta bloques de UN

@@ -141,22 +141,31 @@ export function SesionScreen({
           {/* El resto de la sesión: lo que no fue correr, prescrito al lado de
               hecho, exactamente como ya se lee en el cajón. */}
           {detail.workout && detail.workout.blocks.length > 0 ? (
-            <section className="flex flex-col gap-2">
+            <section className="flex flex-col gap-4">
               <h3 className="v2-micro">{lectura ? 'El resto de la sesión' : 'La sesión'}</h3>
-              <div className="flex flex-col gap-1.5">
-                {detail.workout.blocks.flatMap((block) =>
-                  block.items
-                    .filter((item) => !uidsDeCarrera.has(item.uid))
-                    .map((item) => (
+              {detail.workout.blocks.map((block) => {
+                const items = block.items.filter((item) => !uidsDeCarrera.has(item.uid));
+                const note = block.coach_note?.trim();
+                if (items.length === 0 && !note) return null;
+                return (
+                  <div key={block.uid} className="flex flex-col gap-1.5">
+                    {block.title.trim() && block.title.trim() !== detail.workout?.name.trim() ? (
+                      <h4 className="v2-micro">{block.title}</h4>
+                    ) : null}
+                    {note ? (
+                      <p className="text-xs leading-relaxed text-[color:var(--v2-muted)]">{note}</p>
+                    ) : null}
+                    {items.map((item) => (
                       <ItemPrescritoHecho
                         key={item.uid}
                         item={item}
                         actuals={porItem.get(item.uid) ?? []}
                         verdictByLap={veredictoPorLap}
                       />
-                    )),
-                )}
-              </div>
+                    ))}
+                  </div>
+                );
+              })}
             </section>
           ) : null}
 

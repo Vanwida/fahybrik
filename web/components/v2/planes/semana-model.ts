@@ -142,14 +142,15 @@ export function buildWeekOutline(days: DayModalityInfo[]): SemanaOutlineDay[] {
 // piezas canónicas ya escritas: el mapeo del loader (editor-data.mapSession/
 // mapPart/mapItem: slot posicional, prescripción estructurada o derivada de
 // legacy) y el wire del editor (DayEditor.sessionsToWire: mismos campos, ni uno
-// más). config_json / coach_note / group / notas de bloque NO viajan: el
-// serializer del servidor las preserva por uid contra el día origen persistido —
-// que es exactamente lo que enviamos, así que el clon es fiel.
+// más). config_json / group se preservan por uid contra el día DESTINO.
+// `coach_note` (descripción del bloque) SÍ viaja: si se omite, el serializer
+// conservaría la del destino, no la del origen.
 export function rawDayToWireSessions(day: WeekDay): EditorSessionInput[] {
   return (day.sessions ?? []).map((s, i) => ({
     uid: `session-${i}`,
     slot: i === 0 ? 'am' : i === 1 ? 'pm' : 'extra',
     ...(s.focus ? { focus: s.focus } : {}),
+    ...(s.notes?.trim() ? { notes: s.notes.trim() } : {}),
     blocks: (s.blocks ?? []).map((b, bi) => ({
       uid: b.uid || `block-${bi}`,
       title: b.title,
@@ -159,6 +160,7 @@ export function rawDayToWireSessions(day: WeekDay): EditorSessionInput[] {
       // Un bloque OPCIONAL sigue siéndolo en la copia — dropearlo aquí sería
       // perder el atributo en silencio, no solo un problema de tipos.
       ...(b.optional ? { optional: true } : {}),
+      ...(b.coach_note?.trim() ? { coach_note: b.coach_note.trim() } : {}),
       items: (b.items ?? []).map((it) => ({
         uid: it.uid,
         exercise_id: Number(it.exercise_id),
