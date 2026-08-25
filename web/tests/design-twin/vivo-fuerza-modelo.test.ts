@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TANDA_TODAS_HASTA, TANDA_VENTANA } from '@fahybrid/shared/domain/tanda-strip';
 import { APOYOS_PT } from '@/components/design-twin/kit-vivo';
 import {
   CABEN_CON_DOSIS,
@@ -11,6 +12,7 @@ import {
   UMBRAL_VENTANA,
   VELOCIDAD_DUDOSA,
   VELOCIDAD_SQUAT,
+  VENTANA,
   bandaDe,
   cargaTexto,
   cascada,
@@ -18,6 +20,7 @@ import {
   cifraDeSerie,
   hechaEnLinea,
   msTexto,
+  etiquetaTanda,
   peldanosVisibles,
   perdidaPct,
   serieEnLinea,
@@ -96,6 +99,8 @@ describe('el riel: el umbral se deriva del ancho, no se elige', () => {
   it('caben cuatro peldaños con dosis, y la ventana empieza en la quinta', () => {
     expect(CABEN_CON_DOSIS).toBe(4);
     expect(UMBRAL_VENTANA).toBe(5);
+    expect(CABEN_CON_DOSIS).toBe(TANDA_TODAS_HASTA);
+    expect(VENTANA).toBe(TANDA_VENTANA);
   });
 
   it('con cuatro series se enseñan las cuatro', () => {
@@ -112,6 +117,17 @@ describe('el riel: el umbral se deriva del ancho, no se elige', () => {
     // riel dejaría de medir lo mismo en toda la serie del ejercicio.
     expect(peldanosVisibles(12, 0)).toEqual([0, 1, 2]);
     expect(peldanosVisibles(12, 11)).toEqual([9, 10, 11]);
+  });
+
+  it('la etiqueta de la tanda se lee 1 / 2 / 3, no solo la que toca', () => {
+    const hechas = cerradasHasta(SQUAT_4X10, 1);
+    expect(etiquetaTanda(4, 1, hechas)).toBe('1 / 2 / 3 / 4');
+    expect(etiquetaTanda(12, 6, cerradasHasta(DIP_12, 6))).toBe('6 / 7 / 8');
+    expect(
+      etiquetaTanda(4, 1, {
+        0: { reps: 10, carga: { tipo: 'kg', kg: 82.5 }, rirSentido: null, estado: 'saltada', velocidad: null },
+      }),
+    ).toBe('1 / 2 / 3 / 4');
   });
 });
 
