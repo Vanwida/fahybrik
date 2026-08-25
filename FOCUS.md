@@ -2,18 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (128 · hueco 4 · catálogo + alias)
+Última actualización: **2026-08-25** (128 · hueco 5 · gramática vs corpus)
 
 ## Ahora
 
-**128 · HUECO 4 (card ABIERTA).** Catálogo + alias. El importador ya lee
-`exercise_aliases` (peldaño 1b, delante del mapa a mano). Los 35 que
-solo necesitaban alias entran en esa tabla, con el nombre del ciclo.
-De las 34 altas, 29 ya están en la 0205; esta pieza añade hollow
-rocks (no es el hollow hold). El puente unilateral no puede resolver
-al bilateral. El salto al cajón a una pierna no es fila: es alias de
-box jump. 0 vídeos. La 128 no se cierra.
+**128 · HUECO 5 (card ABIERTA).** Gramática contra las 1.238 líneas.
+Trinquete 62 % (768) → **71 % (884)**. Entran «N bloques de M series
+de:» (corte = el de la 141), 90-90 como nombre, dosis suelta 1×N,
+rango de reloj, tope de pulso, coma decimal en metros y listas
+«N series de: a · b». En revisión, a propósito: «N bloques de M
+rondas» + A/B/C, EMOM «Min N», carga media, «5' entre bloques» y
+dos ámbitos de descanso. La 128 no se cierra.
 Card: https://app.clickup.com/t/86ak49xrn
+
+**128 · HUECO 4 (en trunk).** Catálogo + alias. El importador lee
+`exercise_aliases`. Hollow rocks entra. El puente unilateral no
+cae al bilateral.
 
 **128 · HUECO 3 (en trunk).** Prioridad y sustitución del día, no de la
 línea. `priority` + `substitute` en `slots_json`.

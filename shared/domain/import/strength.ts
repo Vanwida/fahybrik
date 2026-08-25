@@ -150,6 +150,9 @@ function parseRepsFirstMovement(
   const reps = parseInt(m[1]!, 10);
   const token = m[2]!.replace(/\s+/g, ' ').trim();
   if (!token) return null;
+  if (/^(?:more|sets?|exercises?|reps?|repeticiones?|series?|rondas?)$/i.test(token)) {
+    return null;
+  }
   let target: Target | undefined;
   if (m[3] !== undefined) {
     const parts = m[3].split(/[/\-]/).map((x) => parseInt(x, 10));
@@ -269,6 +272,28 @@ export function parseStrength(seg: string): Parsed | null {
     const nxFailure = seg.match(SETS_TO_FAILURE_RE);
     if (nxFailure) failureSets = parseInt(nxFailure[1]!, 10);
     else if (FAILURE_MARKER_RE.test(seg)) failureSets = setCount ?? 1;
+  }
+
+  // A bare "N por lado Name" / "N Name" is one set of what the coach wrote.
+  // No set count is invented: the line named the reps, not the series.
+  if (!perSetReps && setCount === undefined && perSideSlash) {
+    perSetReps = [parseInt(perSideSlash[1]!, 10)];
+  } else if (!perSetReps && setCount === undefined && perSideWords) {
+    perSetReps = [parseInt(perSideWords[1]!, 10)];
+  }
+  if (
+    !perSetReps &&
+    timedSetSeconds === undefined &&
+    failureSets === undefined &&
+    setCount === undefined
+  ) {
+    const mv = parseRepsFirstMovement(seg);
+    if (mv) {
+      perSetReps = [mv.reps];
+      token = mv.token;
+      repsFirstTarget = mv.target;
+      usedRepsFirst = true;
+    }
   }
 
   // Needs a real dosing signal: a per-set/NxM/reps-first scheme, a timed set,

@@ -128,13 +128,17 @@ describe('cabecera que manda — N rondas:', () => {
 });
 
 describe('cabecera que manda — fiel o revisión', () => {
-  test('una cabecera anidada no se lee como series planas', () => {
+  test('N bloques de M series de: hereda las series; los bloques son rondas', () => {
     const lines = parseNotationCell(`3 bloques de 8 series de:
 30" a ritmo Microintervalos
 30" andando rapido`);
-    expect(lines[0]!.confidence).toBe('review');
-    expect(lines[0]!.prescription.note).toContain('3 bloques de 8 series de:');
-    expect(lines[0]!.prescription.sets).toBeUndefined();
+    expect(lines).toHaveLength(2);
+    expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+    expect(lines[0]!.prescription.sets).toHaveLength(8);
+    expect(lines[0]!.prescription.rounds).toBe(3);
+    expect(lines[0]!.prescription.sets![0]!.measure).toEqual({ kind: 'duration', seconds: 30 });
+    expect(lines[1]!.prescription.sets).toHaveLength(8);
+    expect(lines[1]!.prescription.sets![0]!.measure).toEqual({ kind: 'duration', seconds: 30 });
   });
 
   test('si el hijo ya trae su propio Nx, no se adivina qué recuento manda', () => {

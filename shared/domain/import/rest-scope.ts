@@ -12,7 +12,14 @@
 // annotated and EMITTED (consume: false) so the typed field lands without
 // dropping coverage.
 
-import { foldText, isPureRest, parseClockSeconds, parseRest, parseZoneTarget } from './dose';
+import {
+  foldText,
+  isPureRest,
+  normalizeNotation,
+  parseClockSeconds,
+  parseRest,
+  parseZoneTarget,
+} from './dose';
 import type { ActiveRest } from '../prescription/rest';
 import type { Modality } from '../prescription/types';
 
@@ -55,8 +62,12 @@ export function parseStoredRestScope(line: string): StoredRestScope | undefined 
 function clockThenRestCue(line: string): number | undefined {
   const t = foldText(line);
   const m = t.match(/(\d+\s*'\s*\d+\s*''|\d+\s*'{1,2})\s*(?:de\s+)?(?:descanso|rest|parado)\b/i);
-  if (!m) return undefined;
-  return parseClockSeconds(m[1]!);
+  if (m) return parseClockSeconds(m[1]!);
+  // «90'' entre series» no lleva la palabra descanso. No se lee «entre bloques»
+  // sin parado: eso a menudo es un tramo de trabajo («5' en Zona 1 entre bloques»).
+  const scoped = t.match(/(\d+\s*'\s*\d+\s*''|\d+\s*'{1,2})\s+entre\s+(series|rondas)\b/i);
+  if (!scoped) return undefined;
+  return parseClockSeconds(scoped[1]!);
 }
 
 function leftoverOld(line: string): string {
@@ -117,16 +128,17 @@ function annotate(line: string, seconds: number): Omit<GroupRest, 'consume'> {
 }
 
 export function asScopedGroupRest(line: string): GroupRest | undefined {
-  const rest = parseRest(line);
-  const hasCue = REST_CUE_RE.test(foldText(line));
-  if (rest !== undefined && (isPureRest(line) || (hasCue && leftoverOld(line) === ''))) {
-    return { ...annotate(line, rest), consume: true };
+  const text = normalizeNotation(line);
+  const rest = parseRest(text);
+  const hasCue = REST_CUE_RE.test(foldText(text));
+  if (rest !== undefined && (isPureRest(text) || (hasCue && leftoverOld(text) === ''))) {
+    return { ...annotate(text, rest), consume: true };
   }
 
-  const extra = clockThenRestCue(line);
+  const extra = clockThenRestCue(text);
   if (extra === undefined) return undefined;
-  const hasScope = SCOPE_RE.test(line);
+  const hasScope = SCOPE_RE.test(text);
   if (!hasCue && !hasScope) return undefined;
-  if (leftoverExtra(line) !== '') return undefined;
-  return { ...annotate(line, extra), consume: false };
+  if (leftoverExtra(text) !== '') return undefined;
+  return { ...annotate(text, extra), consume: false };
 }

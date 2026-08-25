@@ -51,7 +51,7 @@ import {
 } from './label';
 import { parseBout } from './bout';
 import { walkCommandingCell } from './command';
-import { parseBareTimedOrCalorieSets } from './measure';
+import { parseBareTimedOrCalorieSets, parseLeadingDistanceSet } from './measure';
 import { tryMetconStructure } from './structure';
 import { parseTimeCapTarget, PERCENT_MAX_HR_RE } from './target';
 import {
@@ -198,7 +198,10 @@ function isDenseWod(seg: string): boolean {
   // the generic `\bhyrox\b` keyword treats the line as a dense WOD.
   if (hasMetconKeyword(stripRelativePhrases(seg))) return true;
   // >=2 comma-separated stations that each carry a dose → multi-station WOD.
-  const commaStations = seg.split(/,(?!\d)/).filter((p) => /\d/.test(p) && /[a-záéíóúñ]/i.test(p));
+  const withoutHrTail = seg.replace(/,\s*(?:maximo|máximo|max|tope)\s+\d+\s*(?:ppm|bpm)\b/gi, '');
+  const commaStations = withoutHrTail
+    .split(/,(?!\d)/)
+    .filter((p) => /\d/.test(p) && /[a-záéíóúñ]/i.test(p));
   if (commaStations.length >= 2) return true;
   // A suffixed distance ladder ("1200m / 800m / 400m …") without Nx groups.
   // `(?<![/\d])` excludes a distance unit that is itself the DENOMINATOR of a
@@ -213,8 +216,22 @@ function isDenseWod(seg: string): boolean {
   const distTokens = seg.match(/(?<![/\d])\d+\s*k?m\b(?!\s*\/?\s*h)/gi) ?? [];
   if (distTokens.length >= 3) return true;
   if (distTokens.length >= 2 && seg.includes('/')) return true;
-  // A HYROX station chained (+ / comma) with anything else → simulation piece.
-  if (HYROX_STATION_RE.test(foldText(seg)) && /[+,]/.test(seg)) return true;
+  // A HYROX station chained with another dosed piece → simulation.
+  // A comma after the station that is only a note ("…Sled pull, minimos ciclos")
+  // is not a second station.
+  if (HYROX_STATION_RE.test(foldText(seg)) && /\+/.test(seg)) return true;
+  if (HYROX_STATION_RE.test(foldText(seg))) {
+    const tails = withoutHrTail
+      .split(/(?<!\d),(?!\d)/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (
+      tails.length >= 2 &&
+      tails.slice(1).some((p) => /\d/.test(p) && /[a-záéíóúñ]/i.test(p))
+    ) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -365,6 +382,8 @@ function parseSegment(line: string): ParsedLine {
   if (core) return finalizeDetected(core.token, core.prescription, line);
   const bout = parseBout(line);
   if (bout) return finalizeDetected(bout.token, bout.prescription, line);
+  const leadingDist = parseLeadingDistanceSet(line);
+  if (leadingDist) return finalizeDetected(leadingDist.token, leadingDist.prescription, line);
   // arreglo #2/#3 — distance/duration sets with an optional (possibly
   // per-implement) load: "Sled Push 5x25 m @160 kg". Tried AFTER parseBout
   // (which now refuses these — see its guard) and BEFORE parseStrength

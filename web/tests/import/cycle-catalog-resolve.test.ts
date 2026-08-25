@@ -62,7 +62,7 @@ describe('ciclo · catálogo y alias (puro)', () => {
     expect(termMarksLaterality('hip thrust unilateral')).toBe(true);
   });
 
-  test('el trinquete de gramática del corpus no baja (62 %)', () => {
+  test('el trinquete de gramática del corpus no baja (71 %)', () => {
     const bloques = CORPUS.semanas.flatMap((s) => s.dias.flatMap((d) => d.bloques ?? []));
     let detected = 0;
     let total = 0;
@@ -75,7 +75,7 @@ describe('ciclo · catálogo y alias (puro)', () => {
     }
     expect(total).toBe(1238);
     const pct = Math.floor((detected / total) * 100);
-    expect(pct).toBeGreaterThanOrEqual(62);
+    expect(pct).toBeGreaterThanOrEqual(71);
   });
 });
 

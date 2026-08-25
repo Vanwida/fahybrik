@@ -5,13 +5,14 @@
 // group ends (next commanding header, a nested header, a block title, a
 // warm-up/cool-down section, or the end of the cell).
 //
-// Three flat forms, from the 12-week cycle (nested "N bloques de M series"
-// is a later card — this module reviews those headers and stops inheriting):
+// Flat forms from the 12-week cycle, plus one nested form whose group end
+// is the same as a flat header (next header, title, warmup/cooldown, cell end):
 //   1. "N series:" / "N series de:"           → sets, no reps
 //   2. "N series de N reps de:" / "N series de N:" → sets + reps
-//   3. "N rondas:"                            → rounds
+//   3. "N rondas:" / "N rondas AFAP:"         → rounds
+//   4. "N bloques de M series de:"            → M sets, N rounds
+// "N bloques de M rondas" + Bloque A/B/C stays review: the group end is opaque.
 
-import type { Laterality } from '../prescription/laterality';
 import {
   type Measure,
   type Modality,
@@ -19,15 +20,20 @@ import {
   type PrescriptionSet,
   type Target,
 } from '../prescription/types';
+import {
+  type ChildWork,
+  cleanName,
+  isNameEmbeddedPair,
+  loadTarget,
+  readLeadingWork,
+} from './command-work';
 import { asScopedGroupRest, type GroupRest } from './rest-scope';
 import { parseBout } from './bout';
 import {
   foldText,
-  parseClockSeconds,
   parseDistanceInterval,
   parseEffortTarget,
   parseInterval,
-  parseKg,
   parseLoadPctList,
   parseRest,
   parseRepSeq,
@@ -53,20 +59,31 @@ import { tryRepPlusCombo } from './strength';
 import { parseTimeCapTarget } from './target';
 
 export type HeaderCommand =
-  | { kind: 'sets'; count: number; reps?: number; raw: string }
+  | { kind: 'sets'; count: number; reps?: number; blocks?: number; raw: string }
   | { kind: 'rounds'; count: number; raw: string };
 
 const SETS_REPS_RE =
   /^\s*(\d+)\s+series\s+de\s+(\d+)\s*(?:reps?|repeticiones)?\s*(?:de)?\s*:\s*$/i;
 const SETS_ONLY_RE = /^\s*(\d+)\s+series(?:\s+de)?\s*:\s*$/i;
-const ROUNDS_RE = /^\s*(\d+)\s+rondas?\s*:\s*$/i;
+const ROUNDS_RE = /^\s*(\d+)\s+rondas?\s*(?:afap|for\s*time)?\s*:\s*$/i;
 const NESTED_RE = /^\s*\d+\s+bloques?\s+de\s+/i;
+const BLOCKS_SERIES_RE = /^\s*(\d+)\s+bloques?\s+de\s+(\d+)\s+series(?:\s+de)?\s*:\s*$/i;
+const INLINE_SERIES_RE = /^\s*(\d+)\s+series\s+de\s*:\s*(.+\s·\s.+)$/i;
 
 export function isNestedHeader(line: string): boolean {
-  return NESTED_RE.test(line);
+  return NESTED_RE.test(line) && !BLOCKS_SERIES_RE.test(line);
 }
 
 export function readHeaderCommand(line: string): HeaderCommand | null {
+  const blocks = line.match(BLOCKS_SERIES_RE);
+  if (blocks) {
+    return {
+      kind: 'sets',
+      count: parseInt(blocks[2]!, 10),
+      blocks: parseInt(blocks[1]!, 10),
+      raw: line,
+    };
+  }
   if (isNestedHeader(line)) return null;
   const withReps = line.match(SETS_REPS_RE);
   if (withReps) {
@@ -155,11 +172,40 @@ export function walkCommandingCell(
       );
       continue;
     }
+    const inline = line.match(INLINE_SERIES_RE);
+    if (inline) {
+      command = { kind: 'sets', count: parseInt(inline[1]!, 10), raw: line };
+      groupFrom = out.length;
+      for (const part of inline[2]!.split(/\s*·\s*/).map((s) => s.trim()).filter(Boolean)) {
+        const decision = decideChild(command, part);
+        if (decision.kind === 'skip') continue;
+        if (decision.kind === 'rest') {
+          applyGroupRest(decision.rest);
+          if (decision.rest.consume === false) out.push(stamp(emitGroupRestLine(part, decision.rest)));
+          continue;
+        }
+        if (decision.kind === 'cap') {
+          applyGroupCap(decision.target);
+          continue;
+        }
+        for (const parsed of decision.lines) out.push(stamp(parsed));
+      }
+      command = null;
+      continue;
+    }
     const header = readHeaderCommand(line);
     if (header) {
       command = header;
       groupFrom = out.length;
       continue;
+    }
+    if (!command) {
+      const loneRest = asScopedGroupRest(line);
+      if (loneRest !== undefined && out.length > 0) {
+        applyGroupRest(loneRest);
+        out.push(stamp(emitGroupRestLine(line, loneRest)));
+        continue;
+      }
     }
     if (command) {
       const section = structuralScheme(line);
@@ -187,16 +233,6 @@ export function walkCommandingCell(
     for (const parsed of parseWork(line)) out.push(stamp(parsed));
   }
   return out;
-}
-
-interface ChildWork {
-  token: string;
-  measure?: Measure;
-  target?: Target;
-  rest_s?: number;
-  laterality?: Laterality;
-  modality?: Modality;
-  note?: string;
 }
 
 type ChildDecision =
@@ -260,6 +296,7 @@ function inheritPlusLine(command: HeaderCommand, line: string): ParsedLine[] | n
 function inheritRepSequence(command: HeaderCommand, line: string): ParsedLine | null {
   const seq = parseRepSeq(stripTargetTokens(stripLoadPct(line)));
   if (!seq) return null;
+  if (isNameEmbeddedPair(line)) return null;
   if (seq.length !== command.count) {
     return reviewLine(
       line,
@@ -324,6 +361,7 @@ function emitWork(command: HeaderCommand, child: ChildWork, raw: string): Parsed
   });
   const p: Prescription = { scheme, sets };
   if (command.kind === 'rounds' || scheme === 'intervals') p.rounds = n;
+  if (command.kind === 'sets' && command.blocks !== undefined) p.rounds = command.blocks;
   const modality = child.modality ?? modalityFrom(child.token || raw);
   if (modality) p.modality = modality;
   else if (scheme === 'sets') p.modality = 'strength';
@@ -352,129 +390,6 @@ function readChildWork(line: string): ChildWork | null {
     };
   }
   return readLeadingWork(line, rest_s);
-}
-
-function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | null {
-  const notes: string[] = [];
-  let s = line.replace(/\(([^)]*)\)/g, (_, inner: string) => {
-    const t = inner.trim();
-    if (parseEffortTarget(t) || parseZoneTarget(t) || /%/.test(t)) return ` ${t} `;
-    if (t) notes.push(t);
-    return ' ';
-  });
-  let laterality: Laterality | undefined;
-  const side = s.match(/\b(?:\/\s*lado|por\s+lado|per\s+side|cada\s+lado)\b/i);
-  if (side) {
-    laterality = 'per_side';
-    notes.push(side[0]!.replace(/\s+/g, ' '));
-    s = s.replace(/\s*(?:\/\s*lado|por\s+lado|per\s+side|cada\s+lado)\b/gi, ' ');
-  }
-  const effort = parseEffortTarget(s);
-  const zone = parseZoneTarget(s);
-  const loadList = parseLoadPctList(s);
-  if (loadList && loadList.length >= 3) return null;
-  const kg = parseKg(s);
-  const target = loadTarget(loadList) ?? (kg !== undefined ? { kind: 'kg' as const, value: kg } : undefined);
-  const primary = target ?? effort?.target ?? zone;
-  if (target && effort) notes.push(effort.text);
-  s = stripTargetTokens(stripLoadPct(s)).replace(/\s+/g, ' ').trim();
-  s = s.replace(/\s+\d+(?:[.,]\d+)?\s*kg\b/gi, ' ').replace(/\s+/g, ' ').trim();
-  if (rest_s !== undefined) {
-    s = s
-      .replace(
-        /[/\-–—]?\s*\d+\s*'(?:\s*\d+\s*'')?\s*(?:de\s+)?(?:rest|descanso|recovery)\b.*$/i,
-        ' ',
-      )
-      .replace(/\d+\s*''\s*(?:rest|descanso|recovery)\b.*$/i, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  const clock = leadingClock(s);
-  if (clock) {
-    const token = cleanName(s.slice(clock.length));
-    if (!token) return null;
-    return packWork(token, { kind: 'duration', seconds: clock.seconds }, primary, rest_s, notes, laterality);
-  }
-  const dist = s.match(/^(\d+)\s*m\b\s*(.+)$/i);
-  if (dist) {
-    const token = cleanName(dist[2]!);
-    if (!token) return null;
-    return packWork(
-      token,
-      { kind: 'distance', meters: parseInt(dist[1]!, 10) },
-      primary,
-      rest_s,
-      notes,
-      laterality,
-    );
-  }
-  if (parseRepSeq(s)) return null;
-  const reps = s.match(/^(\d{1,2})\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ].+)$/);
-  if (reps) {
-    const token = cleanName(reps[2]!);
-    if (!token) return null;
-    return packWork(
-      token,
-      { kind: 'reps', value: parseInt(reps[1]!, 10) },
-      primary,
-      rest_s,
-      notes,
-      laterality,
-    );
-  }
-  const token = cleanName(s);
-  if (!token || /\d/.test(token)) return null;
-  if (!primary && rest_s === undefined && notes.length === 0 && token === line.trim()) {
-    return { token };
-  }
-  if (!looksLikeBareMovementName(token) && !primary) return null;
-  return packWork(token, undefined, primary, rest_s, notes, laterality);
-}
-
-function packWork(
-  token: string,
-  measure: Measure | undefined,
-  target: Target | undefined,
-  rest_s: number | undefined,
-  notes: string[],
-  laterality?: Laterality,
-): ChildWork {
-  const modality = modalityFrom(token);
-  return {
-    token,
-    ...(measure ? { measure } : {}),
-    ...(target ? { target } : {}),
-    ...(rest_s !== undefined ? { rest_s } : {}),
-    ...(laterality ? { laterality } : {}),
-    ...(modality ? { modality } : {}),
-    ...(notes.length ? { note: notes.join(' · ') } : {}),
-  };
-}
-
-function loadTarget(loadList: number[] | null): Target | undefined {
-  if (!loadList || loadList.length === 0) return undefined;
-  if (loadList.length === 1) return { kind: 'percent_rm', value: loadList[0]! };
-  if (loadList.length === 2 && loadList[0]! <= loadList[1]!) {
-    return { kind: 'percent_rm', min: loadList[0]!, max: loadList[1]! };
-  }
-  return undefined;
-}
-
-function leadingClock(s: string): { seconds: number; length: number } | null {
-  const m = s.match(/^(\d+\s*'\s*\d+\s*''|\d+\s*'{1,2})(?!\s*\/)/);
-  if (!m) return null;
-  const seconds = parseClockSeconds(m[1]!);
-  if (seconds === undefined) return null;
-  return { seconds, length: m[0].length };
-}
-
-function cleanName(s: string): string {
-  return s
-    .replace(/\b(?:al|de|en|a|x)\s*$/i, '')
-    .replace(/[\s:,.\-—–(/+]+$/u, '')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function emitGroupRestLine(raw: string, rest: GroupRest): ParsedLine {

@@ -152,12 +152,12 @@ export function parseDuration(raw: string): number | undefined {
   return undefined;
 }
 
-/** "4km" → 4000, "500m" → 500. Never "15,5km/h" (pace) nor a word ("más"). */
+/** "4km" → 4000, "500m" → 500, "12,5m" → 12.5. Never "15,5km/h" (pace) nor a word ("más"). */
 export function parseDistanceMeters(raw: string): number | undefined {
   const km = raw.match(/(\d+(?:[.,]\d+)?)\s*km(?!\s*\/?\s*h)/i);
   if (km) return Math.round(parseFloat(km[1]!.replace(',', '.')) * 1000);
-  const m = raw.match(/(\d+)\s*m(?![a-záéíóúñ])/i);
-  if (m) return parseInt(m[1]!, 10);
+  const m = raw.match(/(\d+(?:[.,]\d+)?)\s*m(?![a-záéíóúñ])/i);
+  if (m) return parseFloat(m[1]!.replace(',', '.'));
   return undefined;
 }
 
@@ -175,12 +175,13 @@ export function parseInterval(raw: string): { rounds: number; work_s: number } |
   return { rounds, work_s: parseInt(m[5]!, 10) * 60 };
 }
 
-/** "8x400m" / "12 rounds x 400m" → rounds + per-interval distance (meters). */
+/** "8x400m" / "3 x 12,5m" / "12 rounds x 400m" → rounds + per-interval meters. */
 export function parseDistanceInterval(raw: string): { rounds: number; meters: number } | null {
   const m =
-    raw.match(/(\d+)\s*(?:rounds|x)\s*x?\s*(\d+)\s*m\b/i) ?? raw.match(/(\d+)\s*x\s*(\d{3,4})\b/);
+    raw.match(/(\d+)\s*(?:rounds|x)\s*x?\s*(\d+(?:[.,]\d+)?)\s*m\b/i) ??
+    raw.match(/(\d+)\s*x\s*(\d{3,4})\b/);
   if (!m) return null;
-  return { rounds: parseInt(m[1]!, 10), meters: parseInt(m[2]!, 10) };
+  return { rounds: parseInt(m[1]!, 10), meters: parseFloat(m[2]!.replace(',', '.')) };
 }
 
 /** Count distinct interval groups ("Nx3'", "Nx400m", bare "Nx1200") — >=2 ⇒ a
