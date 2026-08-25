@@ -11,6 +11,54 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · El recap se llena con la ejecución (card 144)
+
+**Qué faltaba:** al acabar el entreno, «ver lo que hiciste»
+salía vacío: Completado / técnica / captura. El atleta 64 lo
+volvió a ver. No era un fallo de guardado: el live sí
+persistía. Era lectura/proyección.
+
+**Causas:**
+
+1. `buildSegmentActuals` tiraba `duration_seconds` del POST y
+   recalculaba `ended_at − started_at` (ventana de pared). Con
+   la cinta parada, pared = 5:45 y trabajo = 3:39.
+2. iOS derivaba el ritmo de duración/distancia y no leía
+   `avg_pace_s_per_km`.
+3. `set_executions` y `round_index` no llegaban al recap.
+4. Tras guardar, el cache del brief (sin `execution`) se
+   pintaba como recap.
+
+**Decidido:**
+
+- Recap = proyección pura de lo ejecutado. Nunca
+  `params_json.pace` ni `prescription_json`.
+- Tiempo de esfuerzo: ritmo medido × distancia; si no,
+  `raw.work_s` / `duration_seconds` del POST; si no, ventana
+  de pared.
+- Ritmo: `avg_pace_*` si existe. `prescribed_pace` se ignora
+  (el campo existe para que un test lo demuestre).
+- `round_index` 0/null = sin ronda; 1+ = esa ronda.
+- Sin sustancia (duración, distancia, ritmo, reps, carga,
+  series) → recap vacío: no hay nada que enseñar.
+- El lap de cinta guarda el reloj de trabajo de la 167, no
+  la pared.
+
+**NO hacer:** no tocar 132 (mockup compartir), 114, 167–170.
+no xcodebuild. no ClickUp. no Neon/prod. no Flexr. no merge
+a main. no App ID de Meta. no design-twin compartir-entreno.
+
+**Dónde viven los números:** `shared/domain/recap.ts`
+(`projectRecap`). Lectura: `session-actuals.ts` +
+`assignment-detail.ts` (`execution.recap`). Escritura:
+`ingest-execution-segments.ts` (`work_s` en
+`raw_lap_data_json`). iOS: `RecapDTO` →
+`LecturaDeSesionDesdeDetalle`. Tests:
+`recap-projection.test.ts`, assignment-detail, session-actuals,
+`LecturaDeSesionDesdeDetalleTests`.
+
+---
+
 ## 2026-08-25 · En horizontal el tramo de ahora se lee grande (card 170)
 
 **Qué faltaba:** girar el teléfono sin una máquina delante

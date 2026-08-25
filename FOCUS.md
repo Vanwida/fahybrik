@@ -2,16 +2,21 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (170 · tramo grande en horizontal)
+Última actualización: **2026-08-25** (144 · recap de lo ejecutado)
 
 ## Ahora
 
-**170 · EN HORIZONTAL EL TRAMO SE LEE GRANDE (PR).** Girar el
-teléfono ya no saca un crono de sesión. Se ve el mismo tramo
-que en vertical, más grande (sujeto 112, «Tramo N de M» 22,
-título 28). Cinta y calle recuperan el título. iOS y el gemelo
-leen `LandscapeTramo`. Card 170 (ClickUp aún puede no existir).
-https://github.com/Vanwida/fahybrik/pull/80
+**144 · EL RECAP SE LLENA CON LO EJECUTADO (PR).** Tras un live
+guardado, «ver lo que hiciste» enseña el entreno: bloques,
+series, ritmos y tiempos reales. No el menú vacío (Completado /
+técnica / captura) ni el 5:45 pedido si corrió 3:39. El servidor
+proyecta `execution.recap` desde la ejecución; iOS lo lee. No
+es la 132 (mockup de compartir).
+https://app.clickup.com/t/86ak5395a
+
+**170 · EN HORIZONTAL EL TRAMO SE LEE GRANDE (en trunk).** Girar
+el teléfono ya no saca un crono de sesión. Mismo tramo, más
+grande. https://github.com/Vanwida/fahybrik/pull/80
 
 **169 · EN VIVO SE LEEN 1 / 2 / 3 (en trunk).** La tanda se lee
 `1 / 2 / 3`. El riel pone el número, no `S1`. iOS y el gemelo
