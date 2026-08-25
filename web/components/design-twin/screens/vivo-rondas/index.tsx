@@ -39,7 +39,7 @@ export const meta: TwinMeta = {
   titulo: 'Muchas rondas — el contador que no crece',
   zona: 'Entreno en vivo',
   estado: 'espejo',
-  actualizado: '2026-08-11',
+  actualizado: '2026-08-25',
   descripcion:
     'La lista de rondas del vivo pinta una fila por ronda y no scrollea, así que a partir de cuatro empuja lo que tiene debajo: es lo que el 10-ago dejó EMPEZAR fuera de pantalla. El trabajo sale de las filas y se escribe una vez, y cuando ni así cabe la lista se colapsa en un contador con la ronda actual grande, la anterior y la siguiente insinuadas. Con cuatro rondas o con treinta, la pantalla mide lo mismo.',
   fuentes: [

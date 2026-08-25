@@ -39,7 +39,7 @@ export const meta: TwinMeta = {
   titulo: 'Correr — calle y cinta',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-08-10',
+  actualizado: '2026-08-25',
   descripcion:
     '4 × 1 km @ 4:35 con 2 min al trote: puerta de bloque, «¿Dónde corres hoy?», y el HUD de calle (GPS, mapa, autopausa) o el de cinta (la velocidad la pones tú, y te decimos qué número marcar) — gira el marco en el HUD.',
   fuentes: [

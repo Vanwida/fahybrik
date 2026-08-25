@@ -320,6 +320,11 @@ private struct RoundsContextStrip: View {
 private struct SujetoTrabajoRonda: View {
     let seg: WorkoutSegment?
     let grande: Bool
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var lineaPt: CGFloat {
+        if vSizeClass == .compact { return LandscapeTramo.titlePt }
+        return grande ? 25 : 17
+    }
 
     private var lineas: [String] {
         (seg?.declaredComponents ?? []).map { c in
@@ -345,7 +350,7 @@ private struct SujetoTrabajoRonda: View {
             VStack(spacing: grande ? 6 : 3) {
                 ForEach(visibles, id: \.self) { linea in
                     Text(linea)
-                        .font(.system(size: grande ? 25 : 17, weight: .heavy).italic())
+                        .font(.system(size: lineaPt, weight: .heavy).italic())
                         .foregroundStyle(Theme.Color.foreground)
                         .multilineTextAlignment(.center)
                         .lineLimit(1)

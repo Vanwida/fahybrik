@@ -2,15 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (169 · series 1/2/3 en el live)
+Última actualización: **2026-08-25** (170 · tramo grande en horizontal)
 
 ## Ahora
 
-**169 · EN VIVO SE LEEN 1 / 2 / 3 (PR).** La etiqueta de la tanda
-ya no dice solo «Serie 2 de 4». Se leen las hechas y la actual
-(`1 / 2 / 3 / 4`, o la ventana de tres si hay cinco o más). El
-riel pone el número, no `S1`. iOS y el gemelo leen `TandaStrip`.
-Card 169 (ClickUp aún puede no existir).
+**170 · EN HORIZONTAL EL TRAMO SE LEE GRANDE (PR).** Girar el
+teléfono ya no saca un crono de sesión. Se ve el mismo tramo
+que en vertical, más grande (sujeto 112, «Tramo N de M» 22,
+título 28). Cinta y calle recuperan el título. iOS y el gemelo
+leen `LandscapeTramo`. Card 170 (ClickUp aún puede no existir).
+https://github.com/Vanwida/fahybrik/pull/80
+
+**169 · EN VIVO SE LEEN 1 / 2 / 3 (en trunk).** La tanda se lee
+`1 / 2 / 3`. El riel pone el número, no `S1`. iOS y el gemelo
+leen `TandaStrip`.
 https://github.com/Vanwida/fahybrik/pull/79
 
 **168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (en trunk).** Un toque

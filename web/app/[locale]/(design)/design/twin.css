@@ -148,6 +148,9 @@
 
 /* Readout de instrumento — mono, RECTO, tabular (Theme.Typography.readout*). */
 .twin-root .t-readout-hero  { font: 800 72px/1.0 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-landscape-tramo-subject { font: 800 112px/1.0 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
+.twin-root .t-landscape-tramo-identity { font: italic 800 22px/1.2 var(--twin-font-sans); letter-spacing: 0.03em; }
+.twin-root .t-landscape-tramo-title { font: 600 28px/1.2 var(--twin-font-sans); }
 .twin-root .t-readout-l     { font: 800 48px/1.0 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
 .twin-root .t-readout-m     { font: 700 34px/1.05 var(--twin-font-mono); font-variant-numeric: tabular-nums; }
 .twin-root .t-readout-s     { font: 700 22px/1.1 var(--twin-font-mono); font-variant-numeric: tabular-nums; }

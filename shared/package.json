@@ -78,6 +78,10 @@
       "types": "./domain/tanda-strip.ts",
       "default": "./domain/tanda-strip.ts"
     },
+    "./domain/landscape-tramo": {
+      "types": "./domain/landscape-tramo.ts",
+      "default": "./domain/landscape-tramo.ts"
+    },
     "./domain/running/vdot": {
       "types": "./domain/running/vdot.ts",
       "default": "./domain/running/vdot.ts"
