@@ -665,13 +665,6 @@ struct WorkoutItem: Codable, Equatable, Identifiable {
     let resolvedReferences: [ResolvedReference]? = nil
     let notes: String?
 
-    /// Primera frase no vacía. `?.first(where:)` sobre el optional se lee como
-    /// la propiedad `first` (`ResolvedReference?`) y el compilador la llama.
-    var resolvedReferencePhrase: String? {
-        guard let refs = resolvedReferences else { return nil }
-        return refs.first(where: { !$0.phrase.isEmpty })?.phrase
-    }
-
     // Explicit keys are required because the wire field `prescription_json`
     // converts (via convertFromSnakeCase) to `prescriptionJson`, not
     // `prescription`. Every other key matches its converted camelCase form.

@@ -64,7 +64,7 @@ struct ExerciseDetailView: View {
             parts.append(rl.kgLabel)
             if rl.needsReview { parts.append("sin confirmar") }
         }
-        if let phrase = item.resolvedReferencePhrase {
+        if let phrase = item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase {
             parts.append(phrase)
         }
         if let header = PrescriptionRenderer.wodHeader(p) { parts.insert(header, at: 0) }
@@ -146,7 +146,7 @@ struct ExerciseDetailView: View {
                     if let rl = item.resolvedLoad {
                         resolvedLoadChip(rl)
                     }
-                    if let phrase = item.resolvedReferencePhrase {
+                    if let phrase = item.resolvedReferences?.first(where: { !$0.phrase.isEmpty })?.phrase {
                         Text(phrase)
                             .scaledFont(12, relativeTo: .footnote)
                             .foregroundStyle(Theme.Color.muted)
