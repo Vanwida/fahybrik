@@ -28,7 +28,7 @@ import 'server-only';
 // orden contrario.
 
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import {
   AssignSequenceError,
@@ -116,7 +116,7 @@ export async function revertPersonalPlanForAthlete(params: {
 
   // ── Fase 1 (bajo el MISMO advisory lock que personalizar/borrar usan para
   //    este atleta): valida en fresco + retira el plan personal. ────────────
-  const outcome: Phase1Outcome = await client.begin(async (tx) => {
+  const outcome: Phase1Outcome = await withOwnOrAmbientTx(client, async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 
     const current = await getCurrentMicrociclo({

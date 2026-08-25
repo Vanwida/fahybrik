@@ -22,7 +22,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
   instantiateMonthFromTemplate,
@@ -112,7 +112,7 @@ export async function addPersonalTramoToChain(params: {
   const athlete_id = Number(params.athlete_id);
 
   type Phase1Outcome = { monthId: number; startIso: string; sequenceDetached: boolean };
-  const outcome: Phase1Outcome = await client.begin(async (txRaw) => {
+  const outcome: Phase1Outcome = await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 
@@ -300,7 +300,7 @@ export async function updatePersonalTramoMeta(params: {
     mineStartDate: string | null;
     rest: PersonalTramoRow[];
   };
-  const outcome: Phase1Outcome = await client.begin(async (txRaw) => {
+  const outcome: Phase1Outcome = await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 

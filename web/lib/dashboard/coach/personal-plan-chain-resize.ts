@@ -11,6 +11,7 @@ import 'server-only';
 // PUNTA que de verdad cambian; el resto no se toca ni se re-lee.
 
 import type { Sql } from '@/lib/db';
+import { withOwnOrAmbientTx } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { instantiateWeekIntoMicrocycle } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
@@ -78,7 +79,7 @@ export async function resizeAssignmentInPlace(params: {
   }
 
   if (newCount > oldCount) {
-    const result = await client.begin(async (txRaw) => {
+    const result = await withOwnOrAmbientTx(client, async (txRaw) => {
       const tx = txRaw as unknown as Sql;
       const newMicroIds: number[] = [];
       for (let wi = oldCount; wi < newCount; wi++) {
@@ -157,7 +158,7 @@ export async function resizeAssignmentInPlace(params: {
     );
   }
   const newEnd = isoDateString(addDays(startMonday, newCount * 7 - 1));
-  await client.begin(async (txRaw) => {
+  await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     let deletedSessions = 0;
     if (removedIds.length > 0) {

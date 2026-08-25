@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import type { ProgramMonthUpdate, MonthRow } from '@fahybrid/shared/domain/coach/program-months';
 import {
   ProgramMonthError,
@@ -79,7 +79,7 @@ export async function upsertMonthTemplate(params: {
 export async function duplicateMonthTemplate(params: {
   coach_id: number | bigint;
   id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<string> {
   return _duplicateMonthTemplate({ ...params, client: params.client ?? defaultSql });
 }
@@ -88,7 +88,7 @@ export async function updateMonthTemplate(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   patch: ProgramMonthUpdate;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<MonthRow> {
   return _updateMonthTemplate({ ...params, client: params.client ?? defaultSql });
 }
@@ -148,22 +148,6 @@ function emptyWeekSlotsJson(): any {
  *
  * Local (no shared): usa `normalizeWeekSlots` de este surface.
  */
-/**
- * Corre `fn` en una transacción del pool, o DIRECTO si `client` ya es un `tx`
- * (postgres.js no tiene `begin` anidado: el callback de `sql.begin` expone
- * `savepoint`). Así el botón del panel sigue igual (pool → begin propio) y un
- * compositor (MCP, importador) puede meter el cascarón en SU transacción.
- */
-async function withOwnOrAmbientTx<T>(
-  client: Sql | TransactionClient,
-  fn: (tx: Sql | TransactionClient) => Promise<T>,
-): Promise<T> {
-  if (typeof (client as Sql).begin === 'function') {
-    return (client as Sql).begin((tx) => fn(tx)) as Promise<T>;
-  }
-  return fn(client);
-}
-
 export async function createMonthTemplateWithEmptyWeeks(params: {
   coach_id: number | bigint;
   payload: unknown;
@@ -345,7 +329,7 @@ export async function duplicateWeekIntoMonth(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   week_id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; week_index: number }> {
   const client = params.client ?? defaultSql;
   const coach_id = Number(params.coach_id);
@@ -355,7 +339,7 @@ export async function duplicateWeekIntoMonth(params: {
   let newWeekId = '';
   let newPosition = 0;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
       where id = ${month_id} and coach_id = ${coach_id}
@@ -383,7 +367,12 @@ export async function duplicateWeekIntoMonth(params: {
     // Canonical week clone (shared): copies ALL content columns incl. slots_json
     // verbatim, athlete_profile and week_number — one source of truth, so this
     // path can never drift from the month/cell copy column list.
-    newWeekId = await cloneWeekTemplateRow({ tx, coach_id, week_id, nameSuffix: ' (copia)' });
+    newWeekId = await cloneWeekTemplateRow({
+      tx: tx as TransactionClient,
+      coach_id,
+      week_id,
+      nameSuffix: ' (copia)',
+    });
 
     const toShift = await tx<Array<{ position: number }>>`
       select position from program_month_weeks
@@ -437,7 +426,7 @@ export async function copyWeekContentInto(params: {
   source_week_id: number | bigint;
   target_week_ids: Array<number | bigint>;
   overwrite: boolean;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ copied_week_ids: string[] }> {
   const client = params.client ?? defaultSql;
   const sourceId = String(params.source_week_id);
@@ -490,7 +479,7 @@ export async function copyWeekContentInto(params: {
     }
   }
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     for (const target of targets) {
       // Clon profundo independiente por destino (sin referencias compartidas).
       const clonedSlots = structuredClone(source.slots_json);

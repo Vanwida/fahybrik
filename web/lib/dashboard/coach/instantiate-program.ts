@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { blockExerciseToItem, type BlockExerciseRow } from './blocks';
@@ -105,7 +105,7 @@ export async function instantiateMonthFromTemplate(params: {
   start_week_number?: number;
   /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
   progression?: ProgressionSpec;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<InstantiateMonthResult> {
   const client = params.client ?? defaultSql;
 
@@ -130,7 +130,7 @@ export async function instantiateMonthFromTemplate(params: {
   const month = await getMonthTemplate({
     coach_id: params.coach_id,
     id: params.month_template_id,
-    client,
+    client: client as Sql,
   });
   if (!month) {
     throw new InstantiateProgramError('not_found', 'Month template not found', 404);
@@ -164,7 +164,7 @@ export async function instantiateMonthFromTemplate(params: {
   let monthAssignmentId = '0';
 
   try {
-    await client.begin(async (tx) => {
+    await withOwnOrAmbientTx(client, async (tx) => {
       for (let i = 0; i < remainingWeeks.length; i++) {
         const weekMeta = remainingWeeks[i]!;
         const weekStart = addDays(startMonday, i * 7);
@@ -234,7 +234,7 @@ export async function instantiateMonthFromTemplate(params: {
   if (isFirstPlan && microcycleIds[0]) {
     try {
       await scheduleWeek1Calibration({
-        client,
+        client: client as Sql,
         coach_id: params.coach_id,
         athlete_id: params.athlete_id,
         week1_monday: startMonday,

@@ -1,6 +1,6 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
@@ -515,7 +515,7 @@ export async function createBlock(
   client: Sql = defaultSql,
 ): Promise<number> {
   let blockId = 0;
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
       insert into blocks (
         slug, title, description, methodology_group_id, format,
@@ -584,7 +584,7 @@ export async function updateBlockFull(
   client: Sql = defaultSql,
 ): Promise<Block | null> {
   let updated: BlockRow | null = null;
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const rows = await tx<BlockRow[]>`
       update blocks set
         title                = ${input.title},

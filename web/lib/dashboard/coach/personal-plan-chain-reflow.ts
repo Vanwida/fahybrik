@@ -38,6 +38,7 @@ import 'server-only';
 // reordenar, y los tramos que vienen DETRÁS del que cambia de tamaño.
 
 import type { Sql } from '@/lib/db';
+import { withOwnOrAmbientTx } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
   instantiateMonthFromTemplate,
@@ -256,7 +257,7 @@ async function clearPersonalTramoAssignment(params: {
   client: Sql;
 }): Promise<void> {
   const { coach_id, athlete_id, month_template_id, client } = params;
-  await client.begin(async (txRaw) => {
+  await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
