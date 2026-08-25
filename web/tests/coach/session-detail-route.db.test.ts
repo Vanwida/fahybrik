@@ -59,6 +59,7 @@ describeWithDb('GET .../sessions/[session_id]/detail — contrato (DB real)', ()
   let clubB: Fixture;
   let assignmentId = 0;
   let emptyAssignmentId = 0;
+  let executionId = 0;
   let segmentIds: number[] = [];
 
   beforeAll(async () => {
@@ -123,7 +124,15 @@ describeWithDb('GET .../sessions/[session_id]/detail — contrato (DB real)', ()
       )
       returning id::text as id
     `;
-    const executionId = Number(execRows[0]!.id);
+    executionId = Number(execRows[0]!.id);
+
+    await sql`
+      insert into workout_traces (execution_id, signal, source, started_at, offsets_s, values)
+      values (
+        ${executionId}, 'distance', 'gps', '2026-08-03T07:00:00Z',
+        ${[0, 60, 120]}::int[], ${[0, 200, 400]}::real[]
+      )
+    `;
 
     await sql`
       insert into segment_executions (
@@ -230,6 +239,29 @@ describeWithDb('GET .../sessions/[session_id]/detail — contrato (DB real)', ()
       sin_dato: 0,
       pct_dentro: 50,
     });
+  });
+
+  test('sesión hecha con traza: 200, available, curva vacía (el peek no deriva)', async () => {
+    vi.mocked(getCoachSession).mockResolvedValue(sessionFor(clubA));
+
+    const res = await GET(req(), ctx(clubA.athleteId, assignmentId));
+    expect(res.status).toBe(200);
+    const { session } = (await res.json()) as {
+      session: {
+        execution: {
+          trace: {
+            available: boolean;
+            splits: unknown[];
+            display_curve: { pace: unknown; hr: unknown };
+          };
+        };
+      };
+    };
+
+    expect(session.execution.trace.available).toBe(true);
+    expect(session.execution.trace.splits).toEqual([]);
+    expect(session.execution.trace.display_curve).toEqual({ pace: null, hr: null });
+    expect(executionId).toBeGreaterThan(0);
   });
 
   test('una plantilla sin ejercicios: no_content y cero invención', async () => {

@@ -127,6 +127,39 @@ export async function loadSessionTrace(args: {
   pace_zones?: readonly ResolvedZone[] | null;
   client?: Sql;
 }): Promise<AssignmentDetailTrace> {
+  try {
+    return await loadSessionTraceInner(args);
+  } catch {
+    // El contrato de este módulo es "nunca un error": una traza que no se
+    // puede derivar es una sesión sin archivo, no un 500 del detalle.
+    return EMPTY_TRACE;
+  }
+}
+
+/**
+ * ¿Hay alguna fila en `workout_traces` para esta ejecución? El cajón Entreno
+ * solo necesita este bit para pintar «Ver la carrera»; no carga la curva.
+ */
+export async function loadTraceAvailability(args: {
+  execution_id: number;
+  client?: Sql;
+}): Promise<boolean> {
+  const client = args.client ?? defaultSql;
+  const rows = await client<Array<{ ok: boolean }>>`
+    select exists(
+      select 1 from workout_traces where execution_id = ${args.execution_id}
+    ) as ok
+  `;
+  return rows[0]?.ok === true;
+}
+
+async function loadSessionTraceInner(args: {
+  execution_id: number;
+  started_at: Date | null;
+  route_polyline?: string | null;
+  pace_zones?: readonly ResolvedZone[] | null;
+  client?: Sql;
+}): Promise<AssignmentDetailTrace> {
   if (!args.started_at) return EMPTY_TRACE;
   const client = args.client ?? defaultSql;
 

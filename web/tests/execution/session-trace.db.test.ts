@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
-import { loadSessionTrace, EMPTY_TRACE } from '@/lib/execution/session-trace';
+import { loadSessionTrace, loadTraceAvailability, EMPTY_TRACE } from '@/lib/execution/session-trace';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeAssignment, makeCoachAndAthlete, makeTemplate, type Fixture } from '../utils/db-fixtures';
@@ -169,6 +169,34 @@ describeWithDb('loadSessionTrace / loadAssignmentDetail (real DB) — el camino 
     expect(detail!.execution!.trace.splits[1]).toMatchObject({ partial: true, distance_m: 900 });
     // Sin fila en workout_routes, el mapa no existe — ni siquiera vacío por error.
     expect(detail!.execution!.trace.route).toEqual({ available: false, points: [], pace_zones: null });
+  });
+
+  it('include_trace:false: available si hay archivo, curva vacía — el peek no deriva', async () => {
+    const startedAtIso = '2026-08-03T10:30:00Z';
+    const { executionId, assignmentId } = await makeExecution(startedAtIso);
+    const offsets_s = Array.from({ length: 20 }, (_, i) => i * 100);
+    await insertTrace(executionId, 'distance', startedAtIso, offsets_s, offsets_s);
+
+    const detail = await loadAssignmentDetail({
+      sql,
+      athlete_id: BigInt(fx.athleteId),
+      assignment_id: BigInt(assignmentId),
+      include_trace: false,
+    });
+    expect(detail).not.toBeNull();
+    expect(detail!.execution).not.toBeNull();
+    expect(detail!.execution!.trace.available).toBe(true);
+    expect(detail!.execution!.trace.splits).toEqual([]);
+    expect(detail!.execution!.trace.display_curve).toEqual({ pace: null, hr: null });
+    expect(detail!.execution!.trace.route).toEqual({ available: false, points: [], pace_zones: null });
+  });
+
+  it('loadTraceAvailability: true con fila, false sin ella', async () => {
+    const startedAtIso = '2026-08-03T10:45:00Z';
+    const { executionId } = await makeExecution(startedAtIso);
+    expect(await loadTraceAvailability({ execution_id: executionId, client: sql })).toBe(false);
+    await insertTrace(executionId, 'distance', startedAtIso, [0, 60], [0, 100]);
+    expect(await loadTraceAvailability({ execution_id: executionId, client: sql })).toBe(true);
   });
 
   // ── El mapa de la ruta (#71) — real hasta el bordillo: polilínea real de

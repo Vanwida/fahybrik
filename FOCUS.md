@@ -2,9 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (114+171 · la app no habla, sobre 132)
+Última actualización: **2026-08-25** (172 · panel Entreno de hoy)
 
 ## Ahora
+
+**172 · EL PANEL ENTRENO CARGA EL DÍA HECHO (PR).** Ficha atleta →
+Plan → clic en un día hecho: el panel derecho «Entreno» vuelve a
+pintar prescrito vs hecho. 114+171 (PR 83) no tocó este fetch.
+El peek ya no deriva la curva; solo pregunta si hay archivo.
 
 **132 · RECAP LLENO + PEGATINA DE SERIES (PR).** Al acabar se ve
 el entreno: VO2max serie a serie, sled, lunges. Completado /

@@ -36,18 +36,23 @@ export async function GET(
   const parsedSession = SessionIdSchema.safeParse({ session_id });
   if (!parsedSession.success) return jsonError('bad_request', 'ID entreno inválido', 400);
 
-  const result = await loadCoachSessionDetail({
-    sql,
-    coach_id: session.coach_id,
-    athlete_id: Number(parsedAthlete.data.id),
-    assignment_id: Number(parsedSession.data.session_id),
-  });
+  try {
+    const result = await loadCoachSessionDetail({
+      sql,
+      coach_id: session.coach_id,
+      athlete_id: Number(parsedAthlete.data.id),
+      assignment_id: Number(parsedSession.data.session_id),
+      include_trace: false,
+    });
 
-  if (!result.ok) {
-    return result.reason === 'athlete_not_found'
-      ? jsonError('not_found', 'Atleta no encontrado', 404)
-      : jsonError('not_found', 'Entreno no encontrado', 404);
+    if (!result.ok) {
+      return result.reason === 'athlete_not_found'
+        ? jsonError('not_found', 'Atleta no encontrado', 404)
+        : jsonError('not_found', 'Entreno no encontrado', 404);
+    }
+
+    return jsonOk({ session: result.session });
+  } catch {
+    return jsonError('internal_error', 'No se pudo cargar el detalle del entreno.', 500);
   }
-
-  return jsonOk({ session: result.session });
 }

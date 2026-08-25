@@ -63,6 +63,12 @@ export async function loadCoachSessionDetail(params: {
   coach_id: number | bigint;
   athlete_id: number;
   assignment_id: number;
+  /**
+   * La curva de la carrera. El cajón y MCP preguntan prescrito vs hecho:
+   * default `false` (solo si hay archivo). La página `/sesion/[id]` pasa
+   * `true` porque ahí sí se pinta el eje.
+   */
+  include_trace?: boolean;
 }): Promise<CoachSessionDetailResult> {
   const { sql, coach_id, athlete_id, assignment_id } = params;
 
@@ -77,6 +83,7 @@ export async function loadCoachSessionDetail(params: {
     sql,
     athlete_id: BigInt(athlete_id),
     assignment_id: BigInt(assignment_id),
+    include_trace: params.include_trace ?? false,
   });
   if (!detail) return { ok: false, reason: 'session_not_found' };
 

@@ -42,6 +42,7 @@ export default async function V2AthleteSessionPage({
     coach_id: session.coach_id,
     athlete_id: athleteId,
     assignment_id: assignmentId,
+    include_trace: true,
   });
   if (!result.ok) notFound();
 

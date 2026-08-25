@@ -1430,4 +1430,121 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(result.workout!.blocks[1]!.coach_note).toBeNull();
     expect(result.workout!.blocks[1]!.items[0]!.notes).toBeNull();
   });
+
+  // Card 172 — el panel Entreno pinta `block.title` y el prescrito. Un nombre
+  // o format vacío no puede tumbar el builder; una sesión hecha de dos
+  // bloques (intervalos + wall balls) tiene que salir con ambos items.
+  // Las dosis de abajo son de fixture, no las de Neon.
+  it('nombre y format vacíos: el título cae a Bloque N, no tira', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: { ...baseTemplate, name: '   ', format: '' },
+      segments: [
+        {
+          id: '800',
+          position: 0,
+          block_position: 0,
+          block_format: '',
+          block_title: null,
+          params_json: { sets: 3, reps: 10 },
+          prescription_json: null,
+          notes: null,
+          exercise_id: '980',
+          exercise_name: 'Run',
+          exercise_slug: 'run',
+          exercise_category: 'cardio',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+      ],
+    });
+    expect(result.workout).not.toBeNull();
+    expect(result.workout!.name.trim()).toBe('');
+    expect(result.workout!.blocks[0]!.title).toBe('Bloque 1');
+  });
+
+  it('sesión hecha VO2max + Wall Balls: dos bloques, execution intacta', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-08-25T08:10:00Z',
+        started_at: '2026-08-25T07:20:00Z',
+        perceived_exertion: 8,
+        total_duration_seconds: 3000,
+      },
+      template: { ...baseTemplate, name: 'VO2max + Wall Balls', format: 'intervals' },
+      segments: [
+        {
+          id: '810',
+          position: 0,
+          block_position: 0,
+          block_format: 'intervals',
+          block_title: 'VO2max',
+          params_json: { distance_meters: 1000, sets: 5 },
+          prescription_json: {
+            scheme: 'intervals',
+            modality: 'run',
+            rounds: 5,
+            rest_s: 90,
+            sets: [
+              {
+                measure: { kind: 'distance', meters: 1000 },
+                target: { kind: 'hr_zone', value: 5 },
+                rest_s: 90,
+              },
+            ],
+          },
+          notes: null,
+          exercise_id: '981',
+          exercise_name: 'Carrera',
+          exercise_slug: 'run',
+          exercise_category: 'cardio',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+        {
+          id: '811',
+          position: 1,
+          block_position: 1,
+          block_format: 'strength_block',
+          block_title: 'Wall Balls',
+          params_json: { sets: 3, reps: 20, weight_kg: 9 },
+          prescription_json: {
+            scheme: 'sets',
+            modality: 'functional',
+            sets: [
+              {
+                measure: { kind: 'reps', value: 20 },
+                target: { kind: 'kg', value: 9 },
+                rest_s: 60,
+              },
+            ],
+            rounds: 3,
+          },
+          notes: null,
+          exercise_id: '982',
+          exercise_name: 'Wall Ball',
+          exercise_slug: 'wall-ball',
+          exercise_category: 'hyrox_station',
+          exercise_video_url: null,
+          exercise_cues: null,
+          exercise_description: null,
+        },
+      ],
+    });
+
+    expect(result.assignment.status).toBe('completed');
+    expect(result.execution).not.toBeNull();
+    expect(result.execution?.perceived_exertion).toBe(8);
+    expect(result.workout).not.toBeNull();
+    expect(result.workout!.name).toBe('VO2max + Wall Balls');
+    expect(result.workout!.blocks).toHaveLength(2);
+    expect(result.workout!.blocks[0]!.title).toBe('VO2max');
+    expect(result.workout!.blocks[0]!.items[0]!.exercise_name).toBe('Carrera');
+    expect(result.workout!.blocks[1]!.title).toBe('Wall Balls');
+    expect(result.workout!.blocks[1]!.items[0]!.exercise_name).toBe('Wall Ball');
+  });
 });
