@@ -265,6 +265,8 @@ final class WorkoutSession {
     /// measured. `repsCurrentSegment` carries the AMRAP partial-round rep tally.
     var fixedRoundsDone: Int = 0
     var fixedRoundSplits: [FixedStationSplit] = []
+    /// Última lista FIXED sellada al ir al «has acabado». Un solo hueco, no un stack.
+    var conditioningUndoHold: ConditioningUndoHold? = nil
 
     /// DESCANSO ENTRE ESTACIONES de una lista fija (el 2:00 del HYROX Conditioning
     /// Test entre remo y burpees). Hasta ahora el motor FIXED no tenía NINGUNA fase

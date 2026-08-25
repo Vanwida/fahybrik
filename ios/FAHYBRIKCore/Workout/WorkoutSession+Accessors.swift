@@ -110,11 +110,26 @@ extension WorkoutSession {
         return pace.map { Int($0.rounded()) }.flatMap { $0 <= RunLegDisplay.maxPaceSecPerKm ? $0 : nil }
     }
 
-    /// True when going back is possible — a previous EMOM interval or a previous
-    /// segment. Drives the (low-emphasis) back chevron's enabled state.
-    var canStepBack: Bool {
-        if currentSegment?.isEMOM == true, emomCountInRemaining <= 0, emomIntervalIndex > 0 { return true }
-        return currentSegmentIndex > 0
+    /// True when the last advance can be undone without leaving live.
+    var canStepBack: Bool { LiveUndo.canUndo(liveUndoCursor) }
+
+    var liveUndoCursor: LiveUndo.Cursor {
+        LiveUndo.Cursor(
+            finished: isFinished,
+            awaitingFinish: isAwaitingFinishDecision,
+            hasConfirmedSet: currentSegment?.usesMultiSetStrength == true
+                && setRecords.contains { $0.confirmed },
+            segmentIndex: currentSegmentIndex,
+            sameBlockAsPrevious: sameBlockAsPrevious,
+            roundsDone: (isConditioningActive && condCountInRemaining <= 0) ? fixedRoundsDone : 0,
+            emomIntervalIndex: emomIntervalIndex,
+            isEmom: currentSegment?.isEMOM == true && emomCountInRemaining <= 0)
+    }
+
+    var sameBlockAsPrevious: Bool {
+        guard currentSegmentIndex > 0, currentSegmentIndex < plan.segments.count else { return false }
+        return plan.segments[currentSegmentIndex - 1].blockGroupingKey
+            == plan.segments[currentSegmentIndex].blockGroupingKey
     }
 
     /// True when the CURRENT segment has accumulated real, not-yet-saved work —

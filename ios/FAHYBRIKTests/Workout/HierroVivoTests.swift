@@ -570,10 +570,8 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertNil(s.pendingSetIndex, "todas cerradas")
     }
 
-    /// AJUSTAR SIGUE SIENDO POSIBLE en cualquier serie, incluida una ya cerrada: es
-    /// lo único que el motor sabe hacer de «deshacer» en el hierro, y un rediseño
-    /// que quita una función y se llama mejora es lo que el deshacer de la cara por
-    /// rondas tuvo prohibido.
+    /// AJUSTAR SIGUE SIENDO POSIBLE en cualquier serie, incluida una ya cerrada.
+    /// Deshacer el último cierre es `stepBack` (card 168), y esto no lo recorta.
     func testLaCargaAjustadaSeHeredaYLaCerradaConservaLaSuya() {
         let s = squat4x10(cerradas: 2)
         s.setSetLoadCascade(2, 77.5)

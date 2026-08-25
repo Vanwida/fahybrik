@@ -356,7 +356,7 @@ export interface Ruta {
  * un aparato parado no saca a nadie de una estación. Lo único que hay que
  * guardar son los cortes, porque son lo único que el reloj no puede saber.
  */
-export function rutaEn(scoreS: number, cortes: Cortes): Ruta {
+export function rutaEn(scoreS: number, cortes: Cortes, heldOpen: readonly number[] = []): Ruta {
   const cerradas: (Cerrado | null)[] = ESTACIONES.map((_, i) => CERRADAS_HYROX[i] ?? null);
   let activo = CERRADAS_HYROX.length;
   let inicioS = ACUMULADO_ANTES_S;
@@ -365,7 +365,9 @@ export function rutaEn(scoreS: number, cortes: Cortes): Ruta {
 
   while (activo < ESTACIONES.length) {
     const item = ESTACIONES[activo];
-    const limite = cortes[activo] ?? motorDe(item)?.selloS ?? Number.POSITIVE_INFINITY;
+    const limite = heldOpen.includes(activo)
+      ? Number.POSITIVE_INFINITY
+      : (cortes[activo] ?? motorDe(item)?.selloS ?? Number.POSITIVE_INFINITY);
     if (scoreS - inicioS < limite) break;
     const cerrada = sellar(item, limite);
     cerradas[activo] = cerrada;

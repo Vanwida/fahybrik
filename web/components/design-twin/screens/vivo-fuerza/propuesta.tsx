@@ -42,6 +42,7 @@
 // reordenan al entrar ni al salir — eso es lo que compra el alto fijo.
 
 import { useCallback, useMemo, useState } from 'react';
+import { popLastConfirmedSet } from '@fahybrid/shared/domain/live-undo';
 import { reloj } from '../../datos-reales';
 import { Label, Mono } from '../../kit';
 import {
@@ -197,6 +198,15 @@ export function Propuesta({
         : `Serie ${activa + 1} cerrada · ${serieEnLinea(s) ?? 'sin dosis escrita'}`
     );
   }, [activa, ejercicio.series, t, onLog]);
+
+  const deshacer = useCallback(() => {
+    const keys = Object.keys(hechas).map(Number);
+    if (keys.length === 0) return;
+    const last = Math.max(...keys);
+    setHechas((previas) => popLastConfirmedSet(previas));
+    setUltima((u) => (keys.length <= 1 ? null : u ? { ...u, descansoS: null } : null));
+    onLog(`Serie ${last + 1} deshecha. Sigues en el ejercicio.`);
+  }, [hechas, onLog]);
 
   const saltarDescanso = useCallback(() => {
     onLog(`Descanso saltado con ${reloj(restanteS)} por delante`);
@@ -441,6 +451,8 @@ export function Propuesta({
             posicion={`${ejercicio.bloque} · ejercicio ${ejercicio.posicion.i} de ${ejercicio.posicion.de}`}
             pausado={pausado}
             onPausa={alternarPausa}
+            onDeshacer={deshacer}
+            puedeDeshacer={Object.keys(hechas).length > 0}
           />
         }
         contexto={

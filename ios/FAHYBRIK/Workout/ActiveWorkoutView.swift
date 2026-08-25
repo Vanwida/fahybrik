@@ -899,7 +899,7 @@ struct ActiveWorkoutView: View {
             }
             .buttonStyle(.plain)
             .disabled(!session.canStepBack)
-            .accessibilityLabel("Volver atrás")
+            .accessibilityLabel("Deshacer el último paso")
             Spacer()
             VStack(spacing: 1) {
                 // Block phase (Calentamiento / Principal / Vuelta a la calma) so the
@@ -1586,20 +1586,7 @@ struct ActiveWorkoutView: View {
     // unsaved live progress.
     private func requestBack() {
         guard session.canStepBack else { return }
-        if session.isEMOMActive, session.emomCountInRemaining <= 0, session.emomIntervalIndex > 0 {
-            session.stepBack()
-            return
-        }
-        if session.currentSegmentHasLiveProgress {
-            pendingNav = PendingNav(
-                title: "Volver al tramo anterior",
-                message: "Perderás lo que llevas en este tramo sin guardar.",
-                confirmTitle: "Volver",
-                action: { session.stepBack() }
-            )
-        } else {
-            session.stepBack()
-        }
+        session.stepBack()
     }
 
     // El nombre del tramo al que vas, o nil si el índice no cae en el plan. Quien
@@ -1654,6 +1641,21 @@ struct ActiveWorkoutView: View {
                             .font(Theme.Typography.small)
                             .foregroundStyle(Theme.Color.muted)
                         ExpertPrimaryButton(title: "Terminar y guardar") { session.finish() }
+                        if session.canStepBack {
+                            Button { session.stepBack() } label: {
+                                Text("Volver atrás")
+                                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                                    .foregroundStyle(Theme.Color.foreground)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(Theme.Color.surfaceElevated)
+                                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                            }
+                            .buttonStyle(PressScaleStyle())
+                            .accessibilityLabel("Deshacer el último paso")
+                        }
                         Button { session.continueAfterPrescribedWork() } label: {
                             Text("Seguir entrenando")
                                 .font(.system(size: 15, weight: .heavy, design: .default).italic())

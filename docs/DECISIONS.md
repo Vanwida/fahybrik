@@ -11,6 +11,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Deshacer el último avance en vivo (card 168)
+
+**Qué faltaba:** un toque de más cerraba una serie o una estación y no
+había forma de volver atrás sin salir del vivo. `stepBack` solo
+conocía el tramo o el intervalo EMOM. `canStepBack` era falso en el
+primer ejercicio. Ajustar kilos no es deshacer el avance. Card 115
+es otra cosa: no te saca del bloque.
+
+**Decidido:**
+
+- Un paso atrás del último avance. No hay historial infinito. Si el
+  modelo ya sabía más (rondas, EMOM, tramos del mismo bloque), no
+  se recorta.
+- La tabla `LiveUndo` decide el paso: serie → se desconfirma;
+  ronda/estación de lista → se desmarca; «has acabado» → se reabre
+  y se sigue en vivo; tramo del mismo bloque → se reabre; primer
+  movimiento de otro bloque → puerta (115). Sesión cerrada → no-op.
+- Una sola puerta: el chevron de siempre. Un toque, sin diálogo.
+  En «Has acabado el entreno» el mismo paso se llama «Volver atrás».
+- iOS y el gemelo leen la misma tabla. El gemelo de fuerza y de
+  For Time tienen el chevron.
+
+**NO hacer:** no inventar un stack. no tocar 115. no tocar 132, 114,
+167, 169/170/144. no xcodebuild. no ClickUp (rate-limit). no
+ON CONFLICT nuevo. no Flexr. no merge a main.
+
+**Dónde vive:** `shared/domain/live-undo.ts` + `LiveUndo.swift`.
+Motor: `stepBack`, `unconfirmLastSet`, `reopenFromFinishDecision`.
+Gemelo: `CromoFormato` (`onDeshacer`). Tests: `live-undo.test.ts`,
+`LiveUndoTests`, `EntrenoSinMiedoTests`.
+
+---
+
 ## 2026-08-25 · Cinta de casa: el crono de trabajo es el de la banda (card 167)
 
 **Qué faltaba:** en cinta FTMS el crono de la tira arrancaba al pulsar

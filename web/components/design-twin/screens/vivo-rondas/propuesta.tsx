@@ -187,6 +187,8 @@ export function Propuesta({
             posicion={contador ? metcon.titulo : `Ronda ${activa + 1} de ${metcon.rondas}`}
             pausado={pausado}
             onPausa={onPausa}
+            onDeshacer={onDeshacer}
+            puedeDeshacer={cerradas.length > 0}
           />
         }
         contexto={<ContextoFormato scoreS={vivoS} cap={cap} />}

@@ -20,7 +20,8 @@
 // trineo, que no lo mide nadie, el toque es lo ÚNICO que puede cerrarla y ahí
 // el relleno naranja se gana.
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { holdOpenLastSceneStation } from '@fahybrid/shared/domain/live-undo';
 import type { TwinAppearance } from '../../types';
 import { COLOR_MODALIDAD, reloj, type ItemReal } from '../../datos-reales';
 import { useTimeline } from '../../sim';
@@ -101,10 +102,11 @@ export function EscenaHyrox({
   onLog: (linea: string) => void;
 }) {
   const [cortes, setCortes] = useState<Cortes>({});
+  const [heldOpen, setHeldOpen] = useState<number[]>([]);
   const [hoja, setHoja] = useState(escenario === 'ruta-entera');
   const { t, pausado, alternarPausa } = useCronoSim();
 
-  const ruta = useMemo(() => rutaEn(SCORE_APERTURA_S + t, cortes), [t, cortes]);
+  const ruta = useMemo(() => rutaEn(SCORE_APERTURA_S + t, cortes, heldOpen), [t, cortes, heldOpen]);
   const terminado = ruta.activo >= ESTACIONES.length;
   // Al terminar, el crono se para: la puntuación es la suma de los parciales,
   // y `inicioS` ya la lleva acumulada.
@@ -139,6 +141,18 @@ export function EscenaHyrox({
       ? filas[ruta.ultimaDeLaEscena]
       : null;
 
+  const deshacer = useCallback(() => {
+    const ultima = ruta.ultimaDeLaEscena ?? (terminado ? ESTACIONES.length - 1 : null);
+    if (ultima == null) return;
+    setHeldOpen((h) => holdOpenLastSceneStation(ultima, h));
+    setCortes((c) => {
+      const next = { ...c };
+      delete next[ultima];
+      return next;
+    });
+    onLog(`Estación ${ultima + 1} deshecha. Sigues en el vivo.`);
+  }, [onLog, ruta.ultimaDeLaEscena, terminado]);
+
   const cromo = (
     <CromoFormato
       posicion={
@@ -146,6 +160,8 @@ export function EscenaHyrox({
       }
       pausado={pausado}
       onPausa={alternarPausa}
+      onDeshacer={deshacer}
+      puedeDeshacer={ruta.ultimaDeLaEscena != null || terminado}
     />
   );
   const contexto = <ContextoFormato scoreS={scoreS} />;
@@ -240,7 +256,10 @@ export function EscenaHyrox({
     <FranjaAccion
       titulo={ruta.activo === ESTACIONES.length - 1 ? 'ÚLTIMA HECHA' : 'ESTACIÓN HECHA'}
       unicaSalida={soloElToque}
-      onClick={() => setCortes({ ...cortes, [ruta.activo]: Math.max(1, parcialS) })}
+      onClick={() => {
+        setHeldOpen((h) => h.filter((i) => i !== ruta.activo));
+        setCortes({ ...cortes, [ruta.activo]: Math.max(1, parcialS) });
+      }}
     />
   );
 

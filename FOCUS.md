@@ -2,15 +2,21 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (167 · cinta: crono al haber velocidad)
+Última actualización: **2026-08-25** (168 · deshacer el último avance)
 
 ## Ahora
 
-**167 · CINTA: EL CRONO ARRANCA CON LA VELOCIDAD (PR).** El tiempo de
-trabajo de una tira FTMS no suma si la máquina no manda velocidad
-(> 0,5 km/h). Si para, el crono se queda. EMOM / AMRAP siguen en
-pared. En el live se leen juntos km/h de máquina y ritmo /km.
-Card 167 (ClickUp aún no existe).
+**168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (PR).** Un toque en el
+chevron (o «Volver atrás» al acabar el plan) deshace la última
+serie o estación y te deja en el vivo. No es un historial. No es
+la 115. iOS y el gemelo leen `LiveUndo`. Card 168 (ClickUp aún
+puede no existir).
+
+**167 · CINTA: EL CRONO ARRANCA CON LA VELOCIDAD (en trunk).** El
+tiempo de trabajo de una tira FTMS no suma si la máquina no manda
+velocidad (> 0,5 km/h). Si para, el crono se queda. EMOM / AMRAP
+siguen en pared. En el live se leen juntos km/h de máquina y ritmo
+/km. Card 167 (ClickUp aún no existe).
 
 **114 · ESTACIONES: SEGUIDO O CIRCUITO (PR).** Un bloque de
 estaciones enseña «circuito» si el format guardado es `circuit` /

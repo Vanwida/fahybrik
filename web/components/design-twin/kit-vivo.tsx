@@ -733,6 +733,21 @@ export function FranjaAccion({
 // simulación de carrera no se llaman igual, y el cromo no es quién para
 // decidirlo.
 
+function IconAtras() {
+  return (
+    <svg width={13} height={13} viewBox="0 0 16 16" aria-hidden>
+      <path
+        d="M10.2 3.2 5.4 8l4.8 4.8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function IconPausa({ reanudar }: { reanudar: boolean }) {
   return (
     <svg width={13} height={13} viewBox="0 0 16 16" aria-hidden>
@@ -758,36 +773,55 @@ export function CromoFormato({
   posicion,
   pausado,
   onPausa,
+  onDeshacer,
+  puedeDeshacer = false,
 }: {
   /** El rótulo del formato, en versales: «FOR TIME» · «POR RONDAS». */
   formato: string;
   posicion: string;
   pausado: boolean;
   onPausa: () => void;
+  onDeshacer?: () => void;
+  puedeDeshacer?: boolean;
 }) {
+  const cromoBoton = {
+    width: BANDA.cromo,
+    height: BANDA.cromo,
+    borderRadius: '50%',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--twin-surface)',
+    border: '1px solid var(--twin-hairline)',
+    padding: 0,
+    flex: '0 0 auto',
+  } as const;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
       <button
         type="button"
         onClick={onPausa}
         aria-label={pausado ? 'Reanudar el entreno' : 'Pausar el entreno'}
-        style={{
-          width: BANDA.cromo,
-          height: BANDA.cromo,
-          borderRadius: '50%',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--twin-surface)',
-          border: '1px solid var(--twin-hairline)',
-          color: 'var(--twin-muted)',
-          cursor: 'pointer',
-          padding: 0,
-          flex: '0 0 auto',
-        }}
+        style={{ ...cromoBoton, color: 'var(--twin-muted)', cursor: 'pointer' }}
       >
         <IconPausa reanudar={pausado} />
       </button>
+      {onDeshacer && (
+        <button
+          type="button"
+          onClick={onDeshacer}
+          disabled={!puedeDeshacer}
+          aria-label="Deshacer el último paso"
+          style={{
+            ...cromoBoton,
+            color: puedeDeshacer ? 'var(--twin-muted)' : 'var(--twin-faint)',
+            cursor: puedeDeshacer ? 'pointer' : 'default',
+            opacity: puedeDeshacer ? 1 : 0.4,
+          }}
+        >
+          <IconAtras />
+        </button>
+      )}
       <span
         style={{
           font: 'italic 800 10px/1 var(--twin-font-sans)',
