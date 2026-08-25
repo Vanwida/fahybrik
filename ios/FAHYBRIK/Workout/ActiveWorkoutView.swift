@@ -126,24 +126,6 @@ struct ActiveWorkoutView: View {
     /// generic timer), and the rest, which reads even better big.
     /// Excluded: the dobles relay, structural blocks (warmup/cooldown checklists)
     /// and the pre-block gate, which owns the screen.
-    /// Horizontal y sin una máquina que reclame la pantalla: el crono manda. Se
-    /// excluyen las puertas de bloque y el final, que son decisiones y necesitan
-    /// sus botones.
-    private var isCronoLandscape: Bool {
-        vSizeClass == .compact
-            && !isErgLandscapeFocus
-            && !session.isAwaitingBlockStart
-            && !session.isAwaitingFinishDecision
-            && !session.isFinished
-    }
-
-    /// El reloj de la sesión, en h:mm:ss cuando pasa de la hora.
-    private var cronoLargo: String {
-        let t = Int(session.elapsedSeconds.rounded())
-        let h = t / 3600, m = (t % 3600) / 60, s = t % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-    }
-
     private var isErgLandscapeFocus: Bool {
         vSizeClass == .compact
             && (isErgSegment || (session.isTramoResting && segmentInvolvesErg))
@@ -244,29 +226,6 @@ struct ActiveWorkoutView: View {
                                      empiezaSinCinta: session.runEnvironment == .indoor,
                                      alSalir: { requestExit() })
                 }
-            } else if isCronoLandscape {
-                // GIRAR EL MÓVIL = QUERER EL RELOJ. Es la postura de dejarlo apoyado
-                // y mirarlo de lejos entre series, y a dos metros lo único que se
-                // lee es el crono. Todo lo demás estorba, así que se va: sólo queda
-                // la barra de arriba para no dejar al atleta encerrado.
-                VStack(spacing: 8) {
-                    topStrip
-                    Spacer(minLength: 0)
-                    Text(cronoLargo)
-                        .font(.system(size: 132, weight: .heavy, design: .default).italic().monospacedDigit())
-                        .minimumScaleFactor(0.4)
-                        .lineLimit(1)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .accessibilityLabel("Tiempo de la sesión")
-                    if let t = session.currentSegment?.title {
-                        Text(t)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(Theme.Color.muted)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, Theme.Spacing.l)
             } else if isErgLandscapeFocus {
                 // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
                 // big numbers, so the device surface owns the screen. The chrome kept
@@ -292,6 +251,8 @@ struct ActiveWorkoutView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 6)
             } else {
+            // Horizontal sin máquina: el mismo HUD que en vertical. El tramo
+            // de ahora crece (`LandscapeTramo`). No hay un crono de sesión.
             VStack(spacing: 8) {
                 topStrip
                 phaseRail

@@ -38,13 +38,19 @@ struct FormatClockHero: View {
     var sub: String? = nil
     var color: Color = Theme.Color.foreground
     var urgent: Bool = false
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var isLandscape: Bool { vSizeClass == .compact }
 
     var body: some View {
         CardSurface(padding: Theme.Spacing.m, topAccent: true, elevated: true) {
             VStack(spacing: 4) {
                 LabelText(text: caption, color: captionColor, size: 10)
                 Text(value)
-                    .font(Theme.Typography.readoutHero)
+                    .font(.system(
+                        size: isLandscape ? LandscapeTramo.subjectPt : 72,
+                        weight: .heavy,
+                        design: .monospaced
+                    ).monospacedDigit())
                     .monospacedDigit()
                     .foregroundStyle(color)
                     .lineLimit(1)
@@ -388,21 +394,30 @@ struct ForTimeContextStrip: View {
 /// he says so when he moves. That is the whole of what it claims.
 private struct StationSubject: View {
     let session: WorkoutSession
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var isLandscape: Bool { vSizeClass == .compact }
 
     private var tramo: LiveTramo { session.currentTramo }
 
     var body: some View {
         VStack(spacing: 2) {
-            LabelText(text: "Ahora", size: 10)
+            LabelText(text: "Ahora", size: isLandscape ? 12 : 10)
             Text(tramo.workLine ?? tramo.label)
-                .font(.system(size: 64, weight: .heavy, design: .default).italic())
+                .font(.system(
+                    size: isLandscape ? LandscapeTramo.subjectPt : 64,
+                    weight: .heavy,
+                    design: .default
+                ).italic())
                 .foregroundStyle(Theme.Color.foreground)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .monospacedDigit()
             if tramo.workLine != nil {
                 Text(tramo.label)
-                    .font(.system(size: 19, weight: .heavy).italic())
+                    .font(.system(
+                        size: isLandscape ? LandscapeTramo.titlePt : 19,
+                        weight: .heavy
+                    ).italic())
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1).minimumScaleFactor(0.6)
             }

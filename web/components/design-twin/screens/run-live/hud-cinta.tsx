@@ -27,6 +27,7 @@ import {
   TarjetaStepper,
 } from './atoms';
 import { MIN_BELT_MOVING_KMH } from '@fahybrid/shared/domain/belt-work-clock';
+import { LANDSCAPE_TRAMO_PT } from '@fahybrid/shared/domain/landscape-tramo';
 import {
   CINTA_APRIETA_S,
   CINTA_NOMBRE,
@@ -191,10 +192,16 @@ export function HUDCinta({
           {cabecera}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 16, alignItems: 'stretch' }}>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
-              <span style={{ font: 'italic 800 12px/1.2 var(--twin-font-sans)', letterSpacing: '0.03em', color: 'var(--twin-accent-text)' }}>
+              <span className="t-landscape-tramo-identity" style={{ color: 'var(--twin-accent-text)' }}>
                 Tramo {estado.idx + 1} de {TRAMOS.length} · objetivo {objetivoLabel()}
               </span>
-              <span className="t-readout-hero" style={{ fontSize: 100, color: colorEstado(estadoObj) }}>
+              <span className="t-landscape-tramo-title" style={{ color: 'var(--twin-fg)' }}>
+                {enRecuperacion ? 'Recuperación' : SEGMENTO_TITULO}
+              </span>
+              <span
+                className="t-landscape-tramo-subject"
+                style={{ fontSize: LANDSCAPE_TRAMO_PT.subject, color: colorEstado(estadoObj) }}
+              >
                 {ritmo !== null ? fmtElapsed(ritmo).replace(/^0/, '') : sinRitmoInfo.cifra}
               </span>
               <span style={{ font: '600 11px/1 var(--twin-font-mono)', letterSpacing: '0.07em', color: 'var(--twin-muted)' }}>

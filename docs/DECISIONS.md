@@ -11,6 +11,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · En horizontal el tramo de ahora se lee grande (card 170)
+
+**Qué faltaba:** girar el teléfono sin una máquina delante
+sustituía el HUD vivo por un crono de sesión de 132 pt.
+El tramo de ahora (qué toca) desaparecía. En cinta y calle
+el landscape ya existía, pero «Tramo N de M» y el título
+se quedaban a 12 pt.
+
+**Decidido:**
+
+- Horizontal enseña el mismo trabajo que vertical, más
+  grande. No es otro reloj. No hay pantalla nueva.
+- `landscapeLiveOwner` solo conoce el trabajo de ahora o
+  una puerta (inicio de bloque / final). El crono de
+  sesión no es un dueño.
+- La escala vive en un sitio: sujeto 112, identidad 22,
+  título 28. iOS y el gemelo leen la misma tabla.
+- Cinta y calle recuperan el título del tramo en
+  horizontal. El héroe de ritmo/velocidad de la 167 se
+  queda.
+
+**NO hacer:** no tocar 132, 114, 167/168/169, 144. no
+deshacer el héroe de cinta. no xcodebuild. no ClickUp
+(rate-limit). no inventar dosis. no Flexr. no merge a
+main.
+
+**Dónde vive:** `shared/domain/landscape-tramo.ts` +
+`LandscapeTramo.swift`. iOS: se fue `isCronoLandscape`.
+Gemelo: `hud-cinta` y `hud-calle`. Tests:
+`landscape-tramo.test.ts`, `LandscapeTramoTests`.
+
+---
+
 ## 2026-08-25 · En vivo se leen 1 / 2 / 3 (card 169)
 
 **Qué faltaba:** durante el live de series el sujeto decía

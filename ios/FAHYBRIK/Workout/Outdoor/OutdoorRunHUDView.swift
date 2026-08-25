@@ -43,6 +43,8 @@ struct OutdoorRunHUDView: View {
     let alSalir: () -> Void
     /// "Avisos de voz" (#63) toggle — shares the key with ProfileView.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
+    @Environment(\.verticalSizeClass) private var vSizeClass
+    private var isLandscape: Bool { vSizeClass == .compact }
 
     init(session: WorkoutSession, hrZones: HRZoneProfile?, alSalir: @escaping () -> Void) {
         _model = State(initialValue: OutdoorRunHUDModel(session: session, hrZones: hrZones))
@@ -135,12 +137,14 @@ struct OutdoorRunHUDView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if model.isStructured {
                     Text("Tramo \(model.legNumber) de \(model.legTotal)")
-                        .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
+                        .scaledFont(LandscapeTramo.identityPt(landscape: isLandscape),
+                                    weight: .heavy, relativeTo: .caption2, italic: true)
                         .tracking(0.6)
                         .foregroundStyle(Theme.Color.accentText)
                 }
                 Text(tituloTramo)
-                    .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+                    .scaledFont(LandscapeTramo.titlePt(landscape: isLandscape),
+                                weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
             }

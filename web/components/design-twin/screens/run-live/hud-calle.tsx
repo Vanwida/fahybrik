@@ -18,6 +18,7 @@ import {
   ProgresoObjetivo,
   Tarjeta,
 } from './atoms';
+import { tramoPt } from '@fahybrid/shared/domain/landscape-tramo';
 import {
   AUTOPAUSA,
   CADENCIA_PRESCRITA_PPM,
@@ -160,10 +161,21 @@ export function HUDCalle({
           <div className="twin-scroll" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Tramo N de M + título */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 2 }}>
-              <span style={{ font: 'italic 800 12px/1 var(--twin-font-sans)', letterSpacing: '0.05em', color: 'var(--twin-accent-text)' }}>
+              <span
+                style={{
+                  font: `italic 800 ${tramoPt(horizontal, 'identity')}px/1.2 var(--twin-font-sans)`,
+                  letterSpacing: '0.05em',
+                  color: 'var(--twin-accent-text)',
+                }}
+              >
                 Tramo {estado.idx + 1} de {TRAMOS.length}
               </span>
-              <span style={{ font: '600 17px/1.2 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>
+              <span
+                style={{
+                  font: `600 ${tramoPt(horizontal, 'title')}px/1.2 var(--twin-font-sans)`,
+                  color: 'var(--twin-fg)',
+                }}
+              >
                 {enRecuperacion ? 'Recuperación' : SEGMENTO_TITULO}
               </span>
             </div>
