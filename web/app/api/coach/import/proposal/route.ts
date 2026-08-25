@@ -1,7 +1,8 @@
 // POST /api/coach/import/proposal — #28 importer, STEP 1 (review). Reads the
 // coach's chosen source — an uploaded xlsx, pasted text, an AI-generated week
-// (`mode: 'generate'`), or screenshots already uploaded via
-// /api/coach/import/upload-url (`mode: 'photo'`) — runs the grammar +
+// (`mode: 'generate'`), screenshots already uploaded via
+// /api/coach/import/upload-url (`mode: 'photo'`), or a CYCLE document
+// (`mode: 'cycle'`, card 128 · hueco 6) — runs the grammar +
 // per-coach resolver + LLM-assist (or, for photo, the vision reader first),
 // and returns a TYPED per-day proposal. Saves NOTHING — the coach reviews it,
 // then the separate /confirm step writes. Coach session required; microcycle

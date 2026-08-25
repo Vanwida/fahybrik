@@ -14,10 +14,12 @@ export function MicrociclosPanel({
   items,
   hasAny,
   onCreate,
+  onImport,
 }: {
   items: V2MicrocicloItem[];
   hasAny: boolean;
   onCreate: () => void;
+  onImport?: () => void;
 }) {
   if (items.length === 0) {
     if (hasAny) {
@@ -41,14 +43,26 @@ export function MicrociclosPanel({
         }
         highlightStep="microciclos"
         action={
-          <button
-            type="button"
-            onClick={onCreate}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="add" size={18} />
-            Crear mi primer ciclo
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {onImport ? (
+              <button
+                type="button"
+                onClick={onImport}
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="upload_file" size={18} />
+                Importar un ciclo
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onCreate}
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="add" size={18} />
+              Crear mi primer ciclo
+            </button>
+          </div>
         }
       />
     );

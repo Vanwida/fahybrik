@@ -30,6 +30,7 @@ import {
 import { weekDaysToProposal } from './generate-proposal';
 import { ImportError, assertMicrocycleOwned } from './import-shared';
 import { isPhotoRequest, buildPhotoProposal } from './photo-proposal';
+import { isCycleRequest, buildCycleProposal } from './cycle-proposal';
 
 // `ImportError` is re-exported (unchanged) so existing consumers —
 // app/api/coach/import/proposal/route.ts among them — keep importing it from
@@ -285,6 +286,14 @@ export async function buildImportProposalFromRequest(params: {
   }
   if (isPhotoRequest(params.body)) {
     return buildPhotoProposal({
+      coach_id: params.coach_id,
+      body: params.body,
+      client: params.client,
+      llmAssist: params.llmAssist,
+    });
+  }
+  if (isCycleRequest(params.body)) {
+    return buildCycleProposal({
       coach_id: params.coach_id,
       body: params.body,
       client: params.client,

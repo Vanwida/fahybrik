@@ -1,0 +1,44 @@
+{
+  "semanas": [
+    {
+      "numero": 1,
+      "subtitulo": "Anclaje de prueba",
+      "dias": [
+        {
+          "dia": "Lunes",
+          "sesion": "Fuerza",
+          "prioridad": "Esencial",
+          "sustituible": "Clase S&C",
+          "bloques": [
+            {
+              "nombre": "Fuerza",
+              "contenido": "Back Squat 5x5 @70%\nEsta linea no es una dosis de nadie"
+            }
+          ],
+          "notas": "Nota del dia, no del bloque"
+        },
+        {
+          "dia": "Martes",
+          "sesion": "Descanso",
+          "bloques": []
+        }
+      ]
+    },
+    {
+      "numero": 2,
+      "subtitulo": "Segunda",
+      "dias": [
+        {
+          "dia": "Miercoles",
+          "sesion": "Z2",
+          "bloques": [
+            {
+              "nombre": "Bici",
+              "contenido": "45' Z2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -141,6 +141,21 @@ export interface ImportProposal {
    * rellenado en silencio es el fallo, no la falta de contenido.
    */
   notices?: WeekNotice[];
+  /**
+   * Solo el importador de CICLO (card 128 · hueco 6). El de semana/foto/IA
+   * no lo trae. Contrato de entrega: tramo, techo, cobertura del trinquete.
+   */
+  delivery?: {
+    week_from: number;
+    week_to: number;
+    source_week_count: number;
+    stretch_min: number;
+    stretch_max: number;
+    coverage_pct: number;
+    coverage_ratchet_pct: number;
+    can_confirm: boolean;
+    source_kind: 'json' | 'markdown';
+  };
 }
 
 /** A rest-day cell — no session to type. */

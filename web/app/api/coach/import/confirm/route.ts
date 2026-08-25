@@ -7,6 +7,7 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { confirmImport } from '@/lib/import/confirm-service';
+import { confirmCycleImport, isCycleConfirmRequest } from '@/lib/import/cycle-confirm';
 import { ImportError } from '@/lib/import/proposal-service';
 
 export const runtime = 'nodejs';
@@ -24,7 +25,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await confirmImport({ coach_id: session.coach_id, body });
+    const result = isCycleConfirmRequest(body)
+      ? await confirmCycleImport({ coach_id: session.coach_id, body })
+      : await confirmImport({ coach_id: session.coach_id, body });
     return jsonOk(result);
   } catch (err) {
     if (err instanceof ImportError) {

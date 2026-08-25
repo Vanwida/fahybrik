@@ -37,6 +37,7 @@ import {
 import type { PipelineProgress, PipelineStepKey } from '@/lib/dashboard/v2/orientacion-types';
 import { CategoryRail } from '@/components/v2/biblioteca/CategoryRail';
 import { NuevoMicrocicloModal } from '@/components/v2/biblioteca/NuevoMicrocicloModal';
+import { ImportCycleDialog } from '@/components/v2/biblioteca/ImportCycleDialog';
 import { EjerciciosPanel } from '@/components/v2/biblioteca/EjerciciosPanel';
 import { BloquesPanel } from '@/components/v2/biblioteca/BloquesPanel';
 import { SesionesPanel } from '@/components/v2/biblioteca/SesionesPanel';
@@ -146,6 +147,7 @@ export function BibliotecaView({
   const [readiness, setReadiness] = useState<V2LibReadiness | null>(null);
   const [query, setQuery] = useState('');
   const [nuevoMicroOpen, setNuevoMicroOpen] = useState(false);
+  const [importCycleOpen, setImportCycleOpen] = useState(false);
   // La acción principal de Comunicados vive en la cabecera (como el resto), pero
   // el compositor lo monta su panel, que es quien tiene la lista que refrescar.
   const [nuevaPlantillaOpen, setNuevaPlantillaOpen] = useState(false);
@@ -263,6 +265,7 @@ export function BibliotecaView({
           <PrimaryAction
             tab={tab}
             onCreateMicro={() => setNuevoMicroOpen(true)}
+            onImportCycle={() => setImportCycleOpen(true)}
             onCreatePlantilla={() => setNuevaPlantillaOpen(true)}
           />
         </div>
@@ -357,6 +360,7 @@ export function BibliotecaView({
               items={microciclos}
               hasAny={data.microciclos.length > 0}
               onCreate={() => setNuevoMicroOpen(true)}
+              onImport={() => setImportCycleOpen(true)}
             />
           ) : null}
           {tab === 'comunicados' ? (
@@ -377,6 +381,12 @@ export function BibliotecaView({
       </div>
 
       {nuevoMicroOpen ? <NuevoMicrocicloModal onClose={() => setNuevoMicroOpen(false)} /> : null}
+      {importCycleOpen ? (
+        <ImportCycleDialog
+          onClose={() => setImportCycleOpen(false)}
+          onDone={() => setImportCycleOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -385,22 +395,32 @@ export function BibliotecaView({
 function PrimaryAction({
   tab,
   onCreateMicro,
+  onImportCycle,
   onCreatePlantilla,
 }: {
   tab: BibliotecaTab;
   onCreateMicro: () => void;
+  onImportCycle: () => void;
   onCreatePlantilla: () => void;
 }) {
   const CLS =
     'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+  const SECONDARY =
+    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)]';
 
   if (tab === 'ejercicios') return null;
   if (tab === 'microciclos') {
     return (
-      <button type="button" onClick={onCreateMicro} className={CLS}>
-        <MIcon name="add" size={18} />
-        Nuevo ciclo
-      </button>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onImportCycle} className={SECONDARY}>
+          <MIcon name="upload_file" size={18} />
+          Importar ciclo
+        </button>
+        <button type="button" onClick={onCreateMicro} className={CLS}>
+          <MIcon name="add" size={18} />
+          Nuevo ciclo
+        </button>
+      </div>
     );
   }
   if (tab === 'comunicados') {
