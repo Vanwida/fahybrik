@@ -59,6 +59,47 @@ a main. no App ID de Meta. no design-twin compartir-entreno.
 
 ---
 
+## 2026-08-25 · Recap lleno y pegatina de series (card 132, corte 25-ago)
+
+**Qué se pica:** el layout de «ver lo que hiciste» cuando el
+recap ya tiene ejecución (144), y la pegatina de series como
+recorte de esos parciales.
+
+**Decidido:**
+
+- Recap lleno = el entreno (VO2max serie a serie con tiempos
+  y ritmos reales, sled, lunges). Completado / técnica /
+  captura van ABAJO, no arriba.
+- Pegatina de series = recorte de los parciales de esa tanda.
+  Cabe en una esquina del vídeo. No es un cartel a pantalla
+  completa. Sin marca. Sin pegatina del día. Sin Meta.
+- Agrupar runs consecutivos de la misma distancia (≥2) es
+  mecanismo. Vive en `projectRecapLayout` /
+  `RecapLayout.project`. Un simulacro 1 km + estación no
+  agrupa: los runs no son consecutivos.
+- Best = `min(duration_s)` si hay más de dos parciales.
+
+**Candidatos:**
+
+- A: agrupar en cada UI (twin e iOS por su cuenta).
+- B: proyección tipada compartida (`RecapSeries` /
+  `RecapLayout`). Elegido: un reviewer re-ejecuta
+  `projectSeriesSticker` y ve los mismos números.
+
+**NO hacer:** no pegatina del día. no conmutador de marca.
+no Swift de Instagram / App ID de Meta (otra sesión). no
+shippear `design-twin/compartir-entreno` como producto. no
+114/171. no 167–170. no xcodebuild. no Neon. no Flexr. no
+main. no promote.
+
+**Dónde vive:** `shared/domain/recap-sticker.ts`. Gemelo:
+`lectura-sesion` escenario `recap-lleno` + `pegatina-series`.
+iOS: `LecturaDeSesionView` + `PegatinaSeriesView`. Tests:
+`recap-sticker.test.ts`, `lectura-sesion-recap-lleno.test.ts`,
+`RecapSeriesStickerTests`.
+
+---
+
 ## 2026-08-25 · En horizontal el tramo de ahora se lee grande (card 170)
 
 **Qué faltaba:** girar el teléfono sin una máquina delante

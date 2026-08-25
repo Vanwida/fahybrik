@@ -2,16 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (144 · recap de lo ejecutado)
+Última actualización: **2026-08-25** (132 · recap lleno + pegatina)
 
 ## Ahora
 
-**144 · EL RECAP SE LLENA CON LO EJECUTADO (PR).** Tras un live
-guardado, «ver lo que hiciste» enseña el entreno: bloques,
-series, ritmos y tiempos reales. No el menú vacío (Completado /
-técnica / captura) ni el 5:45 pedido si corrió 3:39. El servidor
-proyecta `execution.recap` desde la ejecución; iOS lo lee. No
-es la 132 (mockup de compartir).
+**132 · RECAP LLENO + PEGATINA DE SERIES (PR).** Al acabar se ve
+el entreno: VO2max serie a serie, sled, lunges. Completado /
+técnica / captura van abajo. La pegatina recorta esos parciales
+(esquina, sin marca, sin día, sin Meta). Números = `projectRecap`
+(144) → `projectSeriesSticker`.
+https://app.clickup.com/t/86ak4x2cz
+
+**144 · EL RECAP SE LLENA CON LO EJECUTADO (en trunk).** El
+servidor proyecta `execution.recap` desde la ejecución; iOS lo
+lee. No el 5:45 pedido si corrió 3:39.
 https://app.clickup.com/t/86ak5395a
 
 **170 · EN HORIZONTAL EL TRAMO SE LEE GRANDE (en trunk).** Girar
