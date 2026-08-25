@@ -38,8 +38,8 @@ import 'server-only';
 // mismo paso que necesita el camino de LECTURA (`session-trace.ts`), así que
 // ninguno de los dos tiene su propia copia.
 
-import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { loadExecutionTraces } from '@/lib/execution/execution-traces';
 import { computeDecoupling, type EffortLeg } from '@fahybrid/shared/domain/running/decoupling';
 import { computeElevation } from '@fahybrid/shared/domain/running/elevation';
@@ -79,7 +79,7 @@ const LEG_PHASE_SET = new Set<string>(SEGMENT_LEG_PHASES);
  */
 export async function computeMeasuredHeader(args: {
   execution_id: number;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<MeasuredHeaderResult> {
   const client = args.client ?? defaultSql;
   const { execution_id } = args;
@@ -91,7 +91,11 @@ export async function computeMeasuredHeader(args: {
   if (!execution?.started_at) return notWritten(execution_id);
   const anchorEpochS = execution.started_at.getTime() / 1000;
 
-  const traces = await loadExecutionTraces({ execution_id, started_at: execution.started_at, client });
+  const traces = await loadExecutionTraces({
+    execution_id,
+    started_at: execution.started_at,
+    client: client as Sql,
+  });
   if (!traces.hasAnyTrace) return notWritten(execution_id);
   const { hr, speed, altitude } = traces;
 
@@ -181,7 +185,7 @@ async function writeSegmentGradients(args: {
   execution_id: number;
   anchorEpochS: number;
   altitude: { offsets_s: readonly number[]; values: readonly number[] };
-  client: Sql;
+  client: Sql | TransactionClient;
 }): Promise<void> {
   const { execution_id, anchorEpochS, altitude, client } = args;
 
@@ -202,7 +206,7 @@ async function writeSegmentGradients(args: {
   `;
   if (segments.length === 0) return;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     for (const seg of segments) {
       if (!seg.started_at || !seg.ended_at) continue; // ya filtrado arriba; guarda de tipo
       const start_s = seg.started_at.getTime() / 1000 - anchorEpochS;

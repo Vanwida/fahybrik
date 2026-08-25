@@ -75,6 +75,7 @@
 // protege eso con su try/catch.
 
 import type { Sql, TransactionClient } from '@/lib/db';
+import { withOwnOrAmbientTx } from '@/lib/db';
 import { computeExecutionZoneSeconds } from '@/lib/zones/segment-zone-seconds';
 import { findOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { encodePolyline } from '@/lib/sync/polyline';
@@ -137,7 +138,7 @@ function assertCoherentWindow(activity: CanonicalActivity): void {
  * con el esquema.
  */
 export async function materializeFitActivity(args: {
-  sql: Sql;
+  sql: Sql | TransactionClient;
   athlete_id: bigint;
   activity: CanonicalActivity;
   /** Por defecto sí: una actividad importada es una sesión con zonas. El
@@ -163,7 +164,12 @@ export async function materializeFitActivity(args: {
   // plano de Apple Salud SE REEMPLAZA; cualquier otra cosa (viva, asignada,
   // otro import ya archivado) gana y el FIT se salta. ────────────────────────
   let supersedeExecutionId: string | null = null;
-  const overlap = await findOverlappingExecution(sql, athlete_id, activity.started_at, activity.ended_at);
+  const overlap = await findOverlappingExecution(
+    sql as Sql,
+    athlete_id,
+    activity.started_at,
+    activity.ended_at,
+  );
   if (overlap) {
     const owner = await sql<
       Array<{ source: string | null; recorded_via: string | null; assignment_id: string | null }>
@@ -192,7 +198,7 @@ export async function materializeFitActivity(args: {
   // se descarta y el resto conserva su orden (posiciones contiguas). ─────────
   const validLaps = activity.laps.filter((lap) => lap.ended_at.getTime() >= lap.started_at.getTime());
 
-  const executionId = await sql.begin(async (tx) => {
+  const executionId = await withOwnOrAmbientTx(sql, async (tx) => {
     if (supersedeExecutionId) {
       // `on delete cascade` en TODAS las FKs reales de workout_executions.id
       // (segment_executions → set_executions/segment_zone_seconds,
@@ -248,10 +254,16 @@ export async function materializeFitActivity(args: {
     // detalle (mismo fallback que el espejo de HealthKit). ──────────────────
     if (validLaps.length > 0) {
       for (let i = 0; i < validLaps.length; i++) {
-        await insertLapSegment({ tx, executionId, position: i, lap: validLaps[i]!, modality: activity.modality });
+        await insertLapSegment({
+          tx: tx as TransactionClient,
+          executionId,
+          position: i,
+          lap: validLaps[i]!,
+          modality: activity.modality,
+        });
       }
     } else {
-      await insertSummarySegment({ tx, executionId, activity });
+      await insertSummarySegment({ tx: tx as TransactionClient, executionId, activity });
     }
 
     // ── Ruta GPS: mismo formato exacto que `record-workout-execution.ts`
@@ -281,7 +293,12 @@ export async function materializeFitActivity(args: {
         ) as has_samples
       `;
       if (!existingHr[0]!.has_samples) {
-        await insertHrSamples({ tx, athleteId: id, sourceRef: activity.source_ref, samples: activity.hr_samples });
+        await insertHrSamples({
+          tx: tx as TransactionClient,
+          athleteId: id,
+          sourceRef: activity.source_ref,
+          samples: activity.hr_samples,
+        });
       }
     }
 
@@ -290,7 +307,7 @@ export async function materializeFitActivity(args: {
 
   if (args.computeZones !== false) {
     try {
-      await computeExecutionZoneSeconds({ execution_id: Number(executionId), client: sql });
+      await computeExecutionZoneSeconds({ execution_id: Number(executionId), client: sql as Sql });
     } catch {
       // Una zona rota no puede tumbar el lote ya guardado. Mismo try/catch que
       // el espejo de HealthKit; el reconstructor las rellena más tarde.

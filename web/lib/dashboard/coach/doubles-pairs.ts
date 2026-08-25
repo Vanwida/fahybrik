@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import {
   SEQUENCE_DAYS_MIN,
   SEQUENCE_DAYS_MAX,
@@ -258,7 +258,7 @@ export async function createDoublesPair(params: {
   const aId = lo!;
   const bId = hi!;
 
-  const pairId = await client.begin(async (tx) => {
+  const pairId = await withOwnOrAmbientTx(client, async (tx) => {
     // Both athletes must belong to THIS coach (404 otherwise).
     const a = await loadOwnedAthlete(aId, coach_id, tx);
     const b = await loadOwnedAthlete(bId, coach_id, tx);
@@ -382,7 +382,7 @@ export async function dissolveDoublesPair(params: {
   client?: Sql;
 }): Promise<void> {
   const client = params.client ?? defaultSql;
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const rows = await tx<{ id: string; a: string; b: string }[]>`
       update doubles_pairs
       set status = 'dissolved', updated_at = now()
@@ -399,9 +399,9 @@ export async function dissolveDoublesPair(params: {
         404,
       );
     }
-    const users = await resolveAthleteUserIds(tx, Number(row.a), Number(row.b));
+    const users = await resolveAthleteUserIds(tx as unknown as TransactionClient, Number(row.a), Number(row.b));
     if (users) {
-      await clearPairAccountLinks(tx, users.aUser, users.bUser);
+      await clearPairAccountLinks(tx as unknown as TransactionClient, users.aUser, users.bUser);
     }
   });
 }
@@ -438,7 +438,7 @@ export async function unlinkDoublesPairForAthlete(params: {
   const selfAthleteId = Number(params.athlete_id);
   const selfUserId = BigInt(params.user_id);
 
-  return await client.begin(async (tx) => {
+  return await withOwnOrAmbientTx(client, async (tx) => {
     // 1) Dissolve the caller's active pair (either column), row-locked so a
     //    concurrent op can't double-act.
     const pairRows = await tx<{ id: string; a: string; b: string }[]>`
@@ -460,7 +460,7 @@ export async function unlinkDoublesPairForAthlete(params: {
         where id = ${Number(pair.id)}
       `;
       dissolvedPairId = Number(pair.id);
-      const users = await resolveAthleteUserIds(tx, Number(pair.a), Number(pair.b));
+      const users = await resolveAthleteUserIds(tx as unknown as TransactionClient, Number(pair.a), Number(pair.b));
       if (users) {
         aUser = users.aUser;
         bUser = users.bUser;
@@ -486,7 +486,7 @@ export async function unlinkDoublesPairForAthlete(params: {
     let clearedPartner = false;
     let partnerUserId: bigint | null = null;
     if (aUser != null && bUser != null) {
-      await clearPairAccountLinks(tx, aUser, bUser);
+      await clearPairAccountLinks(tx as unknown as TransactionClient, aUser, bUser);
       clearedPartner = true;
       partnerUserId = aUser === selfUserId ? bUser : aUser;
     }

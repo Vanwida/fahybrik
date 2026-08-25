@@ -1,5 +1,6 @@
 import type { Sql, TransactionSql } from 'postgres';
 import { z } from 'zod';
+import { withOwnOrAmbientTx } from '../sql-tx';
 import {
   programMonthUpsertSchema,
   type ProgramMonthUpsert,
@@ -474,12 +475,12 @@ export async function cloneMonthTemplateDeep(params: {
 export async function duplicateMonthTemplate(params: {
   coach_id: number | bigint;
   id: number | bigint;
-  client: Sql;
+  client: Sql | TransactionSql;
 }): Promise<string> {
   let newMonthId = '';
-  await params.client.begin(async (tx) => {
+  await withOwnOrAmbientTx(params.client, async (tx) => {
     newMonthId = await cloneMonthTemplateDeep({
-      tx,
+      tx: tx as TransactionSql,
       coach_id: params.coach_id,
       source_month_id: params.id,
       nameSuffix: ' (copia)',
@@ -502,7 +503,7 @@ export async function updateMonthTemplate(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
   patch: ProgramMonthUpdate;
-  client: Sql;
+  client: Sql | TransactionSql;
 }): Promise<MonthRow> {
   const parsed = programMonthUpdateSchema.safeParse(params.patch);
   if (!parsed.success) {
@@ -513,7 +514,7 @@ export async function updateMonthTemplate(params: {
   const coach_id = Number(params.coach_id);
   const month_id = Number(params.month_id);
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
       where id = ${month_id} and coach_id = ${coach_id}
@@ -600,7 +601,7 @@ export async function deleteMonthTemplate(params: {
     // panel llega con el pool y abre la suya; el asistente llega ya dentro de una
     // (borrado + registro de auditoría tienen que caer juntos o no caer), y
     // postgres.js no anida `begin`.
-    const run = async (tx: Sql | TransactionSql) => {
+    await withOwnOrAmbientTx(client, async (tx) => {
       const owned = await tx<Array<{ id: string }>>`
         select id::text from program_month_templates
         where id = ${month_id as number} and coach_id = ${coach_id as number}
@@ -619,13 +620,7 @@ export async function deleteMonthTemplate(params: {
         await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
       }
       await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
-    };
-
-    if (typeof (client as Sql).begin === 'function') {
-      await (client as Sql).begin((tx) => run(tx));
-    } else {
-      await run(client);
-    }
+    });
   } catch (err) {
     if (err instanceof ProgramMonthError) throw err;
     if (isForeignKeyViolation(err, 'program_sequence_items_month_template_id_fkey')) {
@@ -735,12 +730,7 @@ export async function removeWeekFromMonth(params: {
     }
   };
 
-  // postgres.js: el pool tiene `begin`; un `tx` no. Esa es toda la diferencia.
-  if (typeof (client as Sql).begin === 'function') {
-    await (client as Sql).begin((tx) => run(tx));
-  } else {
-    await run(client);
-  }
+  await withOwnOrAmbientTx(client, run);
 }
 
 export class ProgramMonthError extends Error {

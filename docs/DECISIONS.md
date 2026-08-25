@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Un escritor se une a la transacción del llamador (card 140)
+
+**Qué fallaba:** varios writers abrían SIEMPRE su propia transacción
+(`client.begin` / `sql.begin`). postgres.js no anida `begin`: el cliente que
+entrega un `sql.begin` expone `savepoint`, no otro `begin`. Llamarlos desde
+dentro de una transacción ya abierta reventaba con `client.begin is not a
+function`. La card 135 lo cazó en `appendEmptyWeekToMonth` /
+`removeWeekFromMonth`. Quedaban los de ingest (pendientes de
+`computeMeasuredHeader`), session-totals/record-workout-execution (ya
+aceptaban `tx`, pero la cabecera medida no), y el resto del panel que
+acepta `client` y aun así hacía `begin`.
+
+**Decidido:** el escritor acepta el `tx`/`sql` del llamador y se mete dentro
+si ya hay transacción. Solo abre la suya cuando el llamador no pasó ninguna.
+Mecanismo (`withOwnOrAmbientTx` en `shared/domain/sql-tx.ts`), no método.
+Quien hoy llama sin tx no cambia.
+
+**NO hacer:** no inventar un ON CONFLICT. No crear un índice que pueda
+42P10 (card 116). No rediseñar las dos fases del plan personal: siguen
+pudiendo abrir su begin cuando les llega el pool.
+
+**Dónde vive:** `shared/domain/sql-tx.ts`. Pruebas:
+`web/tests/db/own-or-ambient-tx.test.ts` y
+`web/tests/sync/nested-tx-writers.db.test.ts`.
+
+---
+
 ## 2026-08-25 · El primer no-nulo firma los totales cuando el entreno llega dos veces
 
 **Qué fallaba (card 127):** `recordWorkoutExecution` escribía

@@ -11,7 +11,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { retirePersonalPlan, type RetirePersonalPlanResult } from './personal-plans';
 import {
   loadPersonalTramoChain,
@@ -67,7 +67,7 @@ export async function movePersonalTramoInChain(params: {
   const month_template_id = Number(params.month_template_id);
 
   type Phase1Outcome = { steps: ReflowStep[] };
-  const outcome: Phase1Outcome = await client.begin(async (txRaw) => {
+  const outcome: Phase1Outcome = await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 
@@ -187,7 +187,7 @@ export async function deletePersonalTramoFromChain(params: {
   const month_template_id = Number(params.month_template_id);
 
   type Phase1Outcome = { retired: RetirePersonalPlanResult; steps: ReflowStep[] };
-  const outcome: Phase1Outcome = await client.begin(async (txRaw) => {
+  const outcome: Phase1Outcome = await withOwnOrAmbientTx(client, async (txRaw) => {
     const tx = txRaw as unknown as Sql;
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 

@@ -1,5 +1,5 @@
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import type {
   ProgramSequence,
   ProgramSequenceItem,
@@ -223,7 +223,7 @@ export async function saveCoachSequence(
     }
   }
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     // Upsert the cell. The unique (coach_id, level_id, days_per_week) lets us
     // INSERT ... ON CONFLICT update the policy/progression in place.
     const seqRows = await tx<{ id: string }[]>`
@@ -331,13 +331,13 @@ export async function duplicateSequenceCell(
     );
   }
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     // Deep-clone each source microciclo, retargeted to the destination level,
     // preserving order. Each clone owns its weeks/slots_json (never a shared ref).
     const clonedMonthIds: string[] = [];
     for (const item of src.items) {
       const newMonthId = await cloneMonthTemplateDeep({
-        tx,
+        tx: tx as unknown as Parameters<typeof cloneMonthTemplateDeep>[0]['tx'],
         coach_id: coachId,
         source_month_id: item.month_template_id,
         nameSuffix: ' (copia)',

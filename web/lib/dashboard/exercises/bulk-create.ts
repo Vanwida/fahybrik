@@ -19,7 +19,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { createExercise, createExerciseSchema } from '@/lib/dashboard/exercises/create-exercise';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { nameSimilarity } from '@/lib/dashboard/exercises/near-match';
@@ -157,7 +157,7 @@ export async function createExercisesBulk(params: {
   }
 
   const created: CatalogExercise[] = [];
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     for (const ex of exercises) {
       created.push(await createExercise(ex, BigInt(params.coach_id), tx));
     }

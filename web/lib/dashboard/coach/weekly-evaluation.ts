@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
 import {
   addDays,
@@ -145,7 +145,7 @@ export async function proposeWeekAdjustment(params: {
   // Supersede + insert en UNA transacción: el supersede de la propuesta pending
   // previa NO se confirma hasta que la nueva se inserta con éxito. Un fallo en
   // el insert revierte el supersede → el atleta nunca se queda sin propuesta.
-  const ins = await client.begin(async (tx) => {
+  const ins = await withOwnOrAmbientTx(client, async (tx) => {
     await tx`
       update week_adjustment_proposals
       set status = 'superseded', updated_at = now()

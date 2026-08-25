@@ -2,9 +2,19 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (127 · quién firma los totales)
+Última actualización: **2026-08-25** (140 · writers que se unen a la tx ajena)
 
 ## Ahora
+
+**140 · ESCRITURAS QUE REVIENTAN DENTRO DE UNA TRANSACCIÓN.** postgres.js no
+anida `begin`. Los writers que abrían siempre la suya (`computeMeasuredHeader`
+→ pendientes, `insertZoneProfileVersion`, `updateMonthTemplate` /
+`duplicateWeekIntoMonth`, `instantiateMonthFromTemplate`, y el resto del
+panel que acepta `client`) se unen al `tx` del llamador si ya hay uno; si no,
+abren el suyo. Sin ON CONFLICT nuevo. Sin índice nuevo.
+Card: https://app.clickup.com/t/86ak4ykc7
+
+
 
 **141 · LA CABECERA MANDA SOBRE LAS LÍNEAS DE DEBAJO.** Lo que más fallaba
 al importar: el coach escribe la dosis en «4 series:», «2 series de 8 reps

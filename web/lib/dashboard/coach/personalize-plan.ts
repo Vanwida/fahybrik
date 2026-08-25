@@ -55,7 +55,7 @@ import 'server-only';
 // the very same athlete) — see that file's comment.
 
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { cloneWeekTemplateRow } from '@fahybrid/shared/domain/coach/program-months';
@@ -149,7 +149,7 @@ export async function personalizePlanForAthlete(params: {
   // with an unrelated domain's lock keyed by a small integer (e.g. citas/
   // store.ts's per-slot lock, keyed by raw epoch ms — a different value range
   // entirely, but namespacing costs nothing and documents the intent).
-  const outcome: ForkOutcome = await client.begin(async (tx) => {
+  const outcome: ForkOutcome = await withOwnOrAmbientTx(client, async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
 
     // Re-read FRESH now that we hold the lock — this is what closes the race:
@@ -254,7 +254,7 @@ export async function personalizePlanForAthlete(params: {
 
     for (let i = 0; i < weeksToFork.length; i++) {
       const clonedWeekId = await cloneWeekTemplateRow({
-        tx,
+        tx: tx as unknown as Parameters<typeof cloneWeekTemplateRow>[0]['tx'],
         coach_id,
         week_id: Number(weeksToFork[i]!.week_template_id),
         athleteIdOverride: athlete_id,

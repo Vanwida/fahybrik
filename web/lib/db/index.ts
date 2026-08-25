@@ -29,6 +29,8 @@ export type Sql = ReturnType<typeof createClient>;
  */
 export type TransactionClient = postgres.TransactionSql<{ readonly bigint: bigint }>;
 
+export { withOwnOrAmbientTx } from '@fahybrid/shared/domain/sql-tx';
+
 declare global {
   var __fahybrik_sql: Sql | undefined;
 }

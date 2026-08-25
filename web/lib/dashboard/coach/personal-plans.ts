@@ -13,7 +13,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
 import {
@@ -231,7 +231,7 @@ export async function createPersonalMonthTemplateFromScratch(params: {
 
   let result: { id: string; weeks: Array<{ id: string; week_index: number }> } | null = null;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     // Ownership guard: the athlete must belong to this coach.
     const owned = await tx<Array<{ id: string }>>`
       select id::text from athletes where id = ${athlete_id} and coach_id = ${coach_id} limit 1
@@ -459,7 +459,7 @@ export async function deletePersonalPlanForAthlete(params: {
   const athlete_id = Number(params.athlete_id);
   const month_template_id = Number(params.month_template_id);
 
-  return client.begin(async (tx) => {
+  return withOwnOrAmbientTx(client, async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext('athlete_plan_mutation'), ${athlete_id}::int)`;
     const result = await retirePersonalPlan({
       tx: tx as unknown as TransactionClient,

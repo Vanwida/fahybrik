@@ -13,8 +13,8 @@ import 'server-only';
 // domain (resolveZonesForAthlete); this is only the persistence around it.
 
 import { z } from 'zod';
-import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { standardZonesFor, type CoachZone, type ResolvedZone, type ZonePaceUnit } from '@fahybrid/shared/domain/methodology';
 import {
   resolvedZoneSnapshotSchema,
@@ -112,10 +112,10 @@ export interface InsertedZoneProfile {
  */
 export async function insertZoneProfileVersion(
   params: InsertZoneProfileParams,
-  client: Sql = defaultSql,
+  client: Sql | TransactionClient = defaultSql,
 ): Promise<InsertedZoneProfile> {
   const zones_json = toZonesSnapshot(params.zones);
-  return client.begin(async (tx) => {
+  return withOwnOrAmbientTx(client, async (tx) => {
     const [{ next_version }] = await tx<{ next_version: number }[]>`
       select coalesce(max(version), 0) + 1 as next_version
       from athlete_zone_profiles

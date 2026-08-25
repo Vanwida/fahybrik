@@ -1,7 +1,7 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import type { ProgramMonthUpdate, MonthRow } from '@fahybrid/shared/domain/coach/program-months';
 import {
   ProgramMonthError,
@@ -104,7 +104,7 @@ export async function deleteMonthTemplate(params: {
 export async function createMonthTemplateWithEmptyWeeks(params: {
   coach_id: number | bigint;
   payload: unknown;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; weeks: Array<{ id: string; week_index: number }> }> {
   const parsed = programMonthCreateSchema.safeParse(params.payload);
   if (!parsed.success) {
@@ -122,7 +122,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
   let monthId = '';
   const weeks: Array<{ id: string; week_index: number }> = [];
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const monthRows = await tx<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name)
       values (

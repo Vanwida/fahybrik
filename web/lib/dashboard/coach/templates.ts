@@ -3,7 +3,7 @@ import type { TransactionSql } from 'postgres';
 import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
-import { sql as defaultSql } from '@/lib/db';
+import { sql as defaultSql, withOwnOrAmbientTx } from '@/lib/db';
 import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 
 type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
@@ -285,7 +285,7 @@ export async function createTemplate(params: {
   const client = params.client ?? defaultSql;
 
   let templateId = '';
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
       insert into templates (
         coach_id, name, format, target_level,
@@ -326,7 +326,7 @@ export async function updateTemplate(params: {
   const body = parsed.data;
   const client = params.client ?? defaultSql;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const existing = await tx<
       Array<{
         name: string;
