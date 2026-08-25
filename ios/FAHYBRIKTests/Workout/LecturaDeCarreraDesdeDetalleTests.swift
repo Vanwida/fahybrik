@@ -712,7 +712,8 @@ final class LecturaDeCarreraDesdeDetalleTests: XCTestCase {
             avgHr: nil, maxHr: nil, calories: nil, inclinePct: nil, runCadenceSpm: nil,
             avgGradientPct: nil, startedAt: nil, legIndex: nil, legRole: "recovery",
             legPhase: "main", source: nil, emomRoundsCompleted: nil,
-            emomRoundsPrescribed: nil, zoneSeconds: nil, dragFactor: nil,
+            emomRoundsPrescribed: nil, roundIndex: nil, sets: [],
+            zoneSeconds: nil, dragFactor: nil,
             avgCaloriesPerHour: nil, peakDriveForceLbs: nil, avgDriveForceLbs: nil,
             ergSplits: nil
         )

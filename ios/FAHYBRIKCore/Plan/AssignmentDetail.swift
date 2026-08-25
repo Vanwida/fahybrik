@@ -369,9 +369,9 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let emomRoundsCompleted: Int?
     let emomRoundsPrescribed: Int?
     /// 0/nil = sin ronda. 1+ = esa ronda (mig 0155). Ausente en cache vieja.
-    let roundIndex: Int? = nil
+    let roundIndex: Int?
     /// Series de `set_executions`. Vacío si el payload no las trae.
-    let sets: [SetActualDTO] = []
+    let sets: [SetActualDTO]
 
     /// Seconds spent in each HR zone over this leg, keyed "z1"…"z5" (from the
     /// segment's raw_lap_data_json). Nil when no strap fed the session — the
