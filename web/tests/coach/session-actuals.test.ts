@@ -159,3 +159,28 @@ describe('session-actuals · buildSegmentActuals · zone_seconds', () => {
     expect(buildSegmentActuals([baseRow({ raw_lap_data_json: 'not json' })])[0]!.zone_seconds).toBeNull();
   });
 });
+
+describe('session-actuals · buildSegmentActuals · recap work_s / ronda', () => {
+  it('work_s en el json manda sobre started/ended de pared', () => {
+    const [a] = buildSegmentActuals([
+      baseRow({
+        started_at: '2026-08-25T08:00:00Z',
+        ended_at: '2026-08-25T08:05:45Z',
+        raw_lap_data_json: { work_s: 219, zone_seconds: { z2: 100 } },
+      }),
+    ]);
+    expect(a!.duration_seconds).toBe(219);
+    expect(a!.zone_seconds).toEqual({ z1: 0, z2: 100, z3: 0, z4: 0, z5: 0 });
+  });
+
+  it('sin work_s, la duración sigue saliendo de started/ended', () => {
+    const [a] = buildSegmentActuals([baseRow()]);
+    expect(a!.duration_seconds).toBe(300);
+    expect(a!.round_index).toBeNull();
+  });
+
+  it('round_index viaja', () => {
+    const [a] = buildSegmentActuals([baseRow({ round_index: 2 })]);
+    expect(a!.round_index).toBe(2);
+  });
+});

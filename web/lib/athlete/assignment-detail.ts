@@ -51,6 +51,7 @@ import {
 } from '@fahybrid/shared/domain/strength';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
+import { projectRecap, type Recap } from '@fahybrid/shared/domain/recap';
 
 // A benchmark-slug → current-1RM lookup, built once per request from the
 // athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
@@ -224,6 +225,7 @@ export interface AssignmentDetailExecution {
   // nunca un error. Ver AssignmentDetailTrace para el porqué de la separación
   // entre `splits` (la fuente) y `display_curve` (solo para pintar).
   trace: AssignmentDetailTrace;
+  recap: Recap;
 }
 
 // #34 — one result a calibration-test session must capture. `measure`/`unit` are
@@ -808,6 +810,7 @@ function buildExecutionBlock(
   execution: ExecutionRow | null,
   segments: SegmentActual[],
   trace: AssignmentDetailTrace,
+  labelsByItemUid: Record<string, string> = {},
 ): AssignmentDetailExecution | null {
   const isDone = status === 'completed' || status === 'partial';
   if (!execution && !isDone) return null;
@@ -844,6 +847,22 @@ function buildExecutionBlock(
     total_calories: num(execution?.total_calories),
     segments,
     trace,
+    recap: projectRecap({
+      segments: segments.map((s) => ({
+        position: s.position,
+        item_uid: s.item_uid,
+        modality: s.modality,
+        duration_seconds: s.duration_seconds,
+        distance_meters: s.distance_meters,
+        avg_pace_s_per_km: s.avg_pace_s_per_km,
+        avg_pace_s_per_500m: s.avg_pace_s_per_500m,
+        reps_completed: s.reps_completed,
+        weight_used_kg: s.weight_used_kg,
+        sets: s.sets,
+        round_index: s.round_index,
+      })),
+      labelsByItemUid,
+    }),
   };
 }
 
@@ -907,11 +926,16 @@ export function buildAssignmentDetail(input: {
 
   const slot = slotFromNotes(assignment.notes);
 
+  const recapLabels: Record<string, string> = {};
+  for (const s of segments) {
+    recapLabels[`segment-${s.id}`] = s.exercise_name;
+  }
   const executionBlock = buildExecutionBlock(
     assignment.status,
     execution,
     input.executionSegments ?? [],
     input.executionTrace ?? EMPTY_TRACE,
+    recapLabels,
   );
 
   const base: AssignmentDetailResponse = {
