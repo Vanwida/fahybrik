@@ -1,5 +1,6 @@
 # DECISIONES — FAHYBRID
 
+
 Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Para qué existe:** en julio de 2026 tuvimos que rehacer la metodología entera porque el trabajo previo estaba en el repo pero era indescubrible — una spec huérfana, un motor de reglas muerto y un par de migraciones que habían creado y luego eliminado una entidad, sin que en ningún sitio constara el porqué. Este fichero evita que vuelva a pasar.
@@ -7,6 +8,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **Cuándo se escribe aquí:** siempre que se tome una decisión que condicione el dominio o el modelo de datos, y muy especialmente cuando se **elimina o se descarta** algo. Lo que se borra sin dejar rastro es lo que alguien reconstruye seis meses después.
 
 **Formato:** una entrada por decisión. Qué se decidió, por qué, y qué NO hacer en consecuencia.
+
+---
+
+## 2026-08-25 · Copiar la instancia del atleta a la receta (card 90)
+
+**Qué faltaba:** el coach edita la copia del atleta (`templates` con
+`instance_athlete_id`). La receta que la produjo no se enteraba. Había
+que reescribirla a mano.
+
+**Decidido:**
+
+- El botón vive en el día del atleta, no en Biblioteca. Copia el día
+  guardado (altura de la instancia: una sesión asignada), no la semana
+  entera.
+- Destino = la receta que produjo ESA instancia. Si hay
+  `instance_of_template_id` a una fila de biblioteca, esa sesión. Si nació
+  inline, el hueco de `program_week_templates` (`source_week_template_id`
+  + día + índice de sesión). Un día autorado sin linaje no se copia.
+- Escritura explícita. No autosave. No llama a
+  `resyncWeekTemplateAssignments`. Los demás atletas conservan su copia.
+- Si otros atletas de este coach siguen apuntando a esa receta, 409
+  hasta que confirme. El copy dice cuál receta se pisa.
+- Se copian segmentos, notas y circuito ya prescritos. No se copian
+  ejecuciones ni marcas de aproximación.
+
+**NO hacer:** no cerrar la 128. no tocar 132, Watch, `DEVELOPMENT_TEAM`,
+feat/publish. no cargar el ciclo real de 12 semanas. no ON CONFLICT
+nuevo. no escribir la receta de otro coach ni de otro atleta.
+
+**Dónde vive:** `copyAthleteInstanceDayToRecipe`,
+`POST /api/coach/athletes/[id]/plan/day/[date]/copy-to-recipe`,
+botón en `AthleteDayEditorScreen`. Tests:
+`copy-instance-to-recipe.test.ts`.
 
 ---
 

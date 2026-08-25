@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 import type { AthleteDayEditorData } from '@/lib/dashboard/coach/athlete-day-editor';
 import { RunZonesProvider } from '@/components/v2/editor/run-zones-context';
+import { CopyToRecipeButton } from './CopyToRecipeButton';
 
 export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData }) {
   const multi = data.sessions.length > 1;
@@ -61,6 +62,14 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
                 Sesión {i + 1}
                 {s.title ? ` · ${s.title}` : ''}
               </h2>
+            ) : null}
+            {s.copy_to_recipe ? (
+              <CopyToRecipeButton
+                athleteId={data.athlete_id}
+                isoDate={data.iso_date}
+                templateId={s.template_id}
+                preview={s.copy_to_recipe}
+              />
             ) : null}
             <SessionEditor
               model={s.model}
