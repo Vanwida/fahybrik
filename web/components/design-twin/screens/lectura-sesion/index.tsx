@@ -52,6 +52,7 @@ export const meta: TwinMeta = {
     'Card 132: el recap lleno enseña el entreno (VO2max serie a serie, sled, lunges). Completado / técnica / captura van abajo. La 144 ya llena los números con la ejecución.',
   fuentes: [
     'ios/FAHYBRIK/Workout/PostWorkout/LecturaDeSesionView.swift',
+    'ios/FAHYBRIK/Workout/PostWorkout/LecturaDeSesionRecap.swift',
     'shared/domain/recap-sticker.ts',
   ],
   enApp:
