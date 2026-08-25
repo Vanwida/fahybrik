@@ -145,6 +145,12 @@ export function prescriptionToParams(p: Prescription): ScalarParams {
     if (p.total_s !== undefined) out.time_cap_seconds = p.total_s;
   }
 
+  if (p.laterality === 'per_side') out.laterality = 'per_side';
+  if (p.rest_between_rounds_s !== undefined) out.rest_between_rounds_seconds = p.rest_between_rounds_s;
+  if (p.rest_between_stations_s !== undefined) {
+    out.rest_between_stations_seconds = p.rest_between_stations_s;
+  }
+
   if (p.sets && p.sets.length > 0) {
     out.sets = p.sets.length;
 

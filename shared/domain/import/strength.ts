@@ -236,12 +236,16 @@ export function parseStrength(seg: string): Parsed | null {
     }
   }
 
-  // "4 rounds Bulgarian split squat 8/lado" — per-SIDE reps. The count is in
-  // the text (8, each side); the side qualifier is kept verbatim in the note
-  // (the model has no per-side field yet).
-  const perSide = seg.match(/(\d{1,2})\s*\/\s*lado\b/i);
-  if (!perSetReps && setCount !== undefined && perSide) {
-    perSetReps = Array.from({ length: setCount }, () => parseInt(perSide[1]!, 10));
+  // "4 rounds Bulgarian split squat 8/lado" / "6 por lado Bulgarian" — the
+  // count is per side. The typed field says so; the note keeps the cue so
+  // installed apps that only read `note` still show it.
+  const perSideSlash = seg.match(/(\d{1,2})\s*\/\s*lado\b/i);
+  const perSideWords = seg.match(/(\d{1,2})\s+por\s+lado\b/i);
+  const perSideCue = /(?:por\s+lado|\/\s*lado|per\s+side|cada\s+lado)/i.test(seg);
+  if (!perSetReps && setCount !== undefined && perSideSlash) {
+    perSetReps = Array.from({ length: setCount }, () => parseInt(perSideSlash[1]!, 10));
+  } else if (!perSetReps && setCount !== undefined && perSideWords) {
+    perSetReps = Array.from({ length: setCount }, () => parseInt(perSideWords[1]!, 10));
   }
 
   // "3 rounds 3' max SB walking lunge 20kg" — TIMED sets: the work is measured
@@ -316,7 +320,11 @@ export function parseStrength(seg: string): Parsed | null {
     sets.push(s);
   }
   p.sets = sets;
-  if (perSide) p.note = perSide[0]!.replace(/\s+/g, ''); // the verbatim "8/lado"
+  if (perSideCue) {
+    p.laterality = 'per_side';
+    const cue = (perSideSlash ?? perSideWords)?.[0]?.replace(/\s+/g, '') ?? 'por lado';
+    p.note = cue;
+  }
   // Rep-scheme-FIRST lines ("30-25-20-15 Power Clean 40kg") have no text before
   // the first digit — the token is whatever words remain after the dose.
   // A STANDALONE to-failure marker ("Pull-ups máximo unbroken") carries no

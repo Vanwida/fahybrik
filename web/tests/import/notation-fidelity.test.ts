@@ -187,6 +187,7 @@ describe('class 5 — rounds-header strength combos keep reps AND both movements
     expect(l!.exercise_token).toBe('RDL');
     expect(l!.prescription.sets).toHaveLength(3);
     expect(l!.prescription.sets![0]!.measure).toEqual({ kind: 'reps', value: 8 });
+    expect(l!.prescription.laterality).toBe('per_side');
     expect(l!.prescription.note).toBe('8/lado');
   });
 });

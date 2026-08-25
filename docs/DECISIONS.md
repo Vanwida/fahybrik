@@ -10,6 +10,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · Por lado, ámbito del descanso y descanso activo (card 128 · hueco 2)
+
+**Qué fallaba:** 86 líneas del ciclo dicen «por lado» y eso vivía en `note`.
+La analítica contaba un lado. El descanso entre rondas y entre estaciones
+ya existía en DB e iOS (`restBetweenRoundsS`, `rest_between_stations_seconds`)
+y viajaba fuera de `shared/domain/prescription`. El descanso activo (bici
+fácil, «soltando en bici») se tragaba como un `rest_s` mudo o no se tipaba.
+
+**Decidido:**
+
+- `laterality: 'per_side'` es de la LÍNEA. El número de la medida es el que
+  escribió el coach. `countWorked` / `measureWorked` multiplican por 2.
+  Ausente = total. No es un ejercicio nuevo. El salto al cajón a una pierna
+  no entra aquí.
+- Dos descansos que ya existían entran en el tipo: `rest_between_rounds_s`
+  (alias iOS `restBetweenRoundsS`, alias DB `rest_between_rounds_seconds`) y
+  `rest_between_stations_s` (alias `rest_between_stations_seconds`). iOS
+  sigue leyendo los nombres que ya tiene.
+- Cinco ámbitos en el ciclo. No hay campo guardado para entre bloques ni
+  entre vueltas. No se inventa el sexto. Fiel o se deja fuera.
+- Descanso activo = `active_rest` { measure, modality?, target? }. Es
+  descanso que también es trabajo. No se inventa «easy». No es una serie
+  de trabajo fingida. La carrera estructurada sigue usando `recovery_mode`.
+- Sin tablas nuevas. Sin ON CONFLICT. La card 128 no se cierra.
+
+**NO hacer:** no crear un movimiento «por lado». no meter entre bloques en
+`rest_s`. no cambiar los nombres que iOS ya lee. no inventar kilos ni dosis.
+
+**Dónde vive:** `shared/domain/prescription/{laterality,rest,types}.ts`.
+Analítica: `web/lib/athlete/analytics/strength-work.ts` (×2 al leer
+`prescription_snapshot`). Pruebas: `web/tests/prescription/laterality-rest.test.ts`.
+
+---
+
 ## 2026-08-25 · Un escritor se une a la transacción del llamador (card 140)
 
 **Qué fallaba:** varios writers abrían SIEMPRE su propia transacción

@@ -118,10 +118,16 @@ function collectPrescriptionNumbers(p: Prescription): Set<number> {
   add(p.rounds_max);
   add(p.work_s);
   add(p.rest_s);
+  add(p.rest_between_rounds_s);
+  add(p.rest_between_stations_s);
   add(p.total_s);
   add(p.start);
   add(p.increment);
   addTargetNumbers(p.target, nums);
+  if (p.active_rest) {
+    addMeasureNumbers(p.active_rest.measure, nums);
+    addTargetNumbers(p.active_rest.target, nums);
+  }
   if (p.pace_cap) {
     add(p.pace_cap.max_s);
     add(p.pace_cap.min_s);
@@ -131,6 +137,10 @@ function collectPrescriptionNumbers(p: Prescription): Set<number> {
     add(s.rest_s);
     addMeasureNumbers(s.measure, nums);
     addTargetNumbers(s.target, nums);
+    if (s.active_rest) {
+      addMeasureNumbers(s.active_rest.measure, nums);
+      addTargetNumbers(s.active_rest.target, nums);
+    }
     // Legacy scalar aliases — a set can carry these instead of measure/target
     // pre-normalize; harmless to also scan post-normalize (they are unset).
     add(s.reps);

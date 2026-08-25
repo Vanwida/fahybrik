@@ -121,7 +121,8 @@ describe('cabecera que manda — N rondas:', () => {
 2' rest entre rondas`);
     const work = lines.filter((l) => l.confidence === 'detected');
     expect(work).toHaveLength(2);
-    expect(work.every((l) => l.prescription.sets![0]!.rest_s === 120)).toBe(true);
+    expect(work.every((l) => l.prescription.rest_between_rounds_s === 120)).toBe(true);
+    expect(work.every((l) => l.prescription.sets![0]!.rest_s === undefined)).toBe(true);
     expect(lines.every((l) => !/rest entre rondas/i.test(l.exercise_token))).toBe(true);
   });
 });

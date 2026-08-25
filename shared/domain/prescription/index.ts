@@ -4,6 +4,8 @@
 
 export * from './format';
 export * from './types';
+export * from './laterality';
+export * from './rest';
 export * from './reference';
 export * from './completeness';
 export * from './duration';

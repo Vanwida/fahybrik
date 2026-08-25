@@ -84,7 +84,8 @@ export interface CompletenessResult {
 export function hasAnyDose(p: Prescription): boolean {
   const hasBlockDose = p.total_s != null || p.work_s != null || p.structure != null;
   const hasSetDose = (p.sets ?? []).some((s) => setMeasure(s) != null);
-  return hasBlockDose || hasSetDose;
+  const hasActiveRest = p.active_rest != null || (p.sets ?? []).some((s) => s.active_rest != null);
+  return hasBlockDose || hasSetDose || hasActiveRest;
 }
 
 const blocking = (message: string): CompletenessIssue => ({ severity: 'blocking', message });

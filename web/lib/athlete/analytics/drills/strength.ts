@@ -65,7 +65,7 @@ export async function strengthVolumeDrill(
   for (const s of sets) {
     const e = byExec.get(s.executionId) ?? { day: s.day, assignmentId: s.assignmentId, kg: 0, sets: 0, exercises: new Set<string>() };
     e.sets += 1;
-    if (s.load != null && s.load > 0 && s.reps != null) e.kg += s.load * s.reps;
+    if (s.load != null && s.load > 0 && s.reps != null) e.kg += s.load * s.reps * s.sides;
     if (s.exerciseName) e.exercises.add(s.exerciseName);
     byExec.set(s.executionId, e);
   }

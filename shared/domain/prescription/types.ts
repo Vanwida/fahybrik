@@ -34,6 +34,12 @@
 
 import { z } from 'zod';
 import { normalizeFormat, WORKOUT_FORMAT_KEYS, type WorkoutFormat } from './format';
+import {
+  lateralityFromNotes,
+  lateralitySchema,
+  type Laterality,
+} from './laterality';
+import { liftRestAliases, stripRestAliases, type ActiveRest } from './rest';
 import { referenceIsPace, targetReferenceSchema, type TargetReference } from './reference';
 import { runStructureSchema, type RunStructure } from './run-structure';
 
@@ -584,6 +590,11 @@ export interface PrescriptionSet {
   is_approach?: boolean;
   modality?: Modality; // per-set modality (a block item is one modality; rarely overridden per set)
   rest_s?: number;
+  /**
+   * Descanso que también es trabajo (card 128). Vive en la serie cuando el
+   * descanso activo es de ESA serie. Ausente = el `rest_s` de siempre, parado.
+   */
+  active_rest?: ActiveRest;
   tempo?: string; // e.g. "3-1-1-0"
   note?: string;
 
@@ -622,6 +633,14 @@ function normalizeSet(raw: PrescriptionSet): PrescriptionSet {
   return out;
 }
 
+export const activeRestSchema = z
+  .object({
+    measure: measureSchema,
+    modality: modalitySchema.optional(),
+    target: targetSchema.optional(),
+  })
+  .strict();
+
 const prescriptionSetObjectSchema = z
   .object({
     measure: measureSchema.optional(),
@@ -629,6 +648,7 @@ const prescriptionSetObjectSchema = z
     is_approach: z.boolean().optional(),
     modality: modalitySchema.optional(),
     rest_s: z.number().nonnegative().optional(),
+    active_rest: activeRestSchema.optional(),
     tempo: z.string().max(20).optional(),
     note: z.string().max(400).optional(),
     // Deprecated aliases — validated with the same bounds as before.
@@ -672,14 +692,45 @@ export interface Prescription {
   // best-effort flatten (run-structure-convert.ts) so the installed iOS app keeps
   // decoding. Running only; see run-structure.ts.
   structure?: RunStructure;
+  /**
+   * Esta línea se cuenta por lado (card 128). El número de la medida es el
+   * que escribió el coach (8). La analítica multiplica por dos. Ausente =
+   * el total de siempre. No es un ejercicio nuevo.
+   */
+  laterality?: Laterality;
+  /**
+   * Descanso ENTRE RONDAS. iOS ya lo lee como `restBetweenRoundsS`; la base
+   * lo guarda como `rest_between_rounds_seconds`. El alias se levanta al
+   * parsear. No sustituye a `rest_s`.
+   */
+  rest_between_rounds_s?: number;
+  /**
+   * Descanso ENTRE ESTACIONES (dentro de una ronda). iOS y la base ya lo
+   * leen como `rest_between_stations_seconds`. El alias se levanta aquí.
+   */
+  rest_between_stations_s?: number;
+  /**
+   * Descanso que también es trabajo, a altura de línea. No es una serie
+   * fingida. Sin modalidad ni objetivo inventados.
+   */
+  active_rest?: ActiveRest;
   note?: string;
 }
 
 const MAX_SETS = 60; // a single line never legitimately has more sets than this
 
 function normalizePrescription(raw: Prescription): Prescription {
-  const out: Prescription = { ...raw };
+  const lifted = liftRestAliases(raw);
+  const stripped = stripRestAliases({ ...raw, ...lifted });
+  const out: Prescription = { ...stripped };
   if (!out.target && raw.hr_zone !== undefined) out.target = { kind: 'hr_zone', value: raw.hr_zone };
+  if (!out.laterality) {
+    const fromNotes = lateralityFromNotes(
+      out.note,
+      (out.sets ?? []).map((s) => s.note),
+    );
+    if (fromNotes) out.laterality = fromNotes;
+  }
   return out;
 }
 
@@ -704,6 +755,13 @@ const prescriptionObjectSchema = z
     pace_cap: paceCapSchema.optional(),
     hr_zone: z.number().int().min(HR_ZONE_MIN).max(HR_ZONE_MAX).optional(), // deprecated alias
     structure: runStructureSchema.optional(), // #61 — structured running workout
+    laterality: lateralitySchema.optional(),
+    rest_between_rounds_s: z.number().nonnegative().optional(),
+    rest_between_stations_s: z.number().nonnegative().optional(),
+    rest_between_rounds_seconds: z.number().nonnegative().optional(),
+    rest_between_stations_seconds: z.number().nonnegative().optional(),
+    restBetweenRoundsS: z.number().nonnegative().optional(),
+    active_rest: activeRestSchema.optional(),
     note: z.string().max(2000).optional(),
   })
   .strict()
