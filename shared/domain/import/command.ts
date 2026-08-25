@@ -11,6 +11,7 @@
 //   2. "N series de N reps de:" / "N series de N:" → sets + reps
 //   3. "N rondas:"                            → rounds
 
+import type { Laterality } from '../prescription/laterality';
 import {
   type Measure,
   type Modality,
@@ -18,10 +19,10 @@ import {
   type PrescriptionSet,
   type Target,
 } from '../prescription/types';
+import { asScopedGroupRest, type GroupRest } from './rest-scope';
 import { parseBout } from './bout';
 import {
   foldText,
-  isPureRest,
   parseClockSeconds,
   parseDistanceInterval,
   parseEffortTarget,
@@ -105,13 +106,24 @@ export function walkCommandingCell(
     return line;
   };
 
-  const applyGroupRest = (rest_s: number) => {
+  const applyGroupRest = (rest: GroupRest) => {
     for (let i = groupFrom; i < out.length; i++) {
       const line = out[i]!;
       if (line.confidence !== 'detected') continue;
-      if (line.prescription.rest_s === undefined) line.prescription.rest_s = rest_s;
-      for (const s of line.prescription.sets ?? []) {
-        if (s.rest_s === undefined) s.rest_s = rest_s;
+      const p = line.prescription;
+      if (rest.active_rest && p.active_rest === undefined) p.active_rest = rest.active_rest;
+      if (rest.unstored_scope && rest.scope === undefined) continue;
+      if (rest.scope === 'rounds') {
+        if (p.rest_between_rounds_s === undefined) p.rest_between_rounds_s = rest.seconds;
+        continue;
+      }
+      if (rest.scope === 'stations') {
+        if (p.rest_between_stations_s === undefined) p.rest_between_stations_s = rest.seconds;
+        continue;
+      }
+      if (p.rest_s === undefined) p.rest_s = rest.seconds;
+      for (const s of p.sets ?? []) {
+        if (s.rest_s === undefined) s.rest_s = rest.seconds;
       }
     }
   };
@@ -159,7 +171,10 @@ export function walkCommandingCell(
       const decision = decideChild(command, line);
       if (decision.kind === 'skip') continue;
       if (decision.kind === 'rest') {
-        applyGroupRest(decision.rest_s);
+        applyGroupRest(decision.rest);
+        if (decision.rest.consume === false) {
+          out.push(stamp(emitGroupRestLine(line, decision.rest)));
+        }
         continue;
       }
       if (decision.kind === 'cap') {
@@ -179,19 +194,20 @@ interface ChildWork {
   measure?: Measure;
   target?: Target;
   rest_s?: number;
+  laterality?: Laterality;
   modality?: Modality;
   note?: string;
 }
 
 type ChildDecision =
   | { kind: 'lines'; lines: ParsedLine[] }
-  | { kind: 'rest'; rest_s: number }
+  | { kind: 'rest'; rest: GroupRest }
   | { kind: 'cap'; target: Target }
   | { kind: 'skip' };
 
 function decideChild(command: HeaderCommand, line: string): ChildDecision {
-  const rest = asGroupRest(line);
-  if (rest !== undefined) return { kind: 'rest', rest_s: rest };
+  const rest = asScopedGroupRest(line);
+  if (rest !== undefined) return { kind: 'rest', rest };
   if (isTimeCapOnly(line)) {
     const cap = parseTimeCapTarget(line);
     if (cap) return { kind: 'cap', target: cap };
@@ -280,6 +296,7 @@ function expandDetected(command: HeaderCommand, line: ParsedLine, raw: string): 
     ...(inheritedRest !== undefined ? { rest_s: inheritedRest } : {}),
     ...(line.prescription.modality ? { modality: line.prescription.modality } : {}),
     ...(line.prescription.note ? { note: line.prescription.note } : {}),
+    ...(line.prescription.laterality ? { laterality: line.prescription.laterality } : {}),
   };
   return emitWork(command, work, raw);
 }
@@ -312,6 +329,7 @@ function emitWork(command: HeaderCommand, child: ChildWork, raw: string): Parsed
   else if (scheme === 'sets') p.modality = 'strength';
   else if (scheme === 'for_time') p.modality = 'functional';
   if (child.note) p.note = child.note;
+  if (child.laterality) p.laterality = child.laterality;
   return finalizeDetected(child.token, p, raw);
 }
 
@@ -330,6 +348,7 @@ function readChildWork(line: string): ChildWork | null {
       ...(boutRest !== undefined ? { rest_s: boutRest } : {}),
       ...(bout.prescription.modality ? { modality: bout.prescription.modality } : {}),
       ...(bout.prescription.note ? { note: bout.prescription.note } : {}),
+      ...(bout.prescription.laterality ? { laterality: bout.prescription.laterality } : {}),
     };
   }
   return readLeadingWork(line, rest_s);
@@ -343,10 +362,12 @@ function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | 
     if (t) notes.push(t);
     return ' ';
   });
-  const side = s.match(/\b(\d{1,2}\s*(?:\/\s*lado|por\s+lado)|por\s+lado)\b/i);
+  let laterality: Laterality | undefined;
+  const side = s.match(/\b(?:\/\s*lado|por\s+lado|per\s+side|cada\s+lado)\b/i);
   if (side) {
-    notes.push(side[1]!.replace(/\s+/g, ' '));
-    s = s.replace(/\s*(?:\d{1,2}\s*)?(?:\/\s*lado|por\s+lado)\b/gi, ' ');
+    laterality = 'per_side';
+    notes.push(side[0]!.replace(/\s+/g, ' '));
+    s = s.replace(/\s*(?:\/\s*lado|por\s+lado|per\s+side|cada\s+lado)\b/gi, ' ');
   }
   const effort = parseEffortTarget(s);
   const zone = parseZoneTarget(s);
@@ -373,7 +394,7 @@ function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | 
   if (clock) {
     const token = cleanName(s.slice(clock.length));
     if (!token) return null;
-    return packWork(token, { kind: 'duration', seconds: clock.seconds }, primary, rest_s, notes);
+    return packWork(token, { kind: 'duration', seconds: clock.seconds }, primary, rest_s, notes, laterality);
   }
   const dist = s.match(/^(\d+)\s*m\b\s*(.+)$/i);
   if (dist) {
@@ -385,6 +406,7 @@ function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | 
       primary,
       rest_s,
       notes,
+      laterality,
     );
   }
   if (parseRepSeq(s)) return null;
@@ -398,6 +420,7 @@ function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | 
       primary,
       rest_s,
       notes,
+      laterality,
     );
   }
   const token = cleanName(s);
@@ -406,7 +429,7 @@ function readLeadingWork(line: string, rest_s: number | undefined): ChildWork | 
     return { token };
   }
   if (!looksLikeBareMovementName(token) && !primary) return null;
-  return packWork(token, undefined, primary, rest_s, notes);
+  return packWork(token, undefined, primary, rest_s, notes, laterality);
 }
 
 function packWork(
@@ -415,6 +438,7 @@ function packWork(
   target: Target | undefined,
   rest_s: number | undefined,
   notes: string[],
+  laterality?: Laterality,
 ): ChildWork {
   const modality = modalityFrom(token);
   return {
@@ -422,6 +446,7 @@ function packWork(
     ...(measure ? { measure } : {}),
     ...(target ? { target } : {}),
     ...(rest_s !== undefined ? { rest_s } : {}),
+    ...(laterality ? { laterality } : {}),
     ...(modality ? { modality } : {}),
     ...(notes.length ? { note: notes.join(' · ') } : {}),
   };
@@ -452,23 +477,17 @@ function cleanName(s: string): string {
     .trim();
 }
 
-function asGroupRest(line: string): number | undefined {
-  const rest = parseRest(line);
-  if (rest === undefined) return undefined;
-  if (isPureRest(line)) return rest;
-  if (!/\b(descanso|rest|recuperacion|recovery)\b/.test(foldText(line))) return undefined;
-  const leftover = foldText(line)
-    .replace(/\d+\s*'\s*\d+\s*''/g, ' ')
-    .replace(/\d+\s*'{1,2}/g, ' ')
-    .replace(/\d+\s*:\s*[0-5]?\d(?:\s*:\s*[0-5]?\d)?/g, ' ')
-    .replace(/\d+\s*(?:horas?|min(?:utos?)?|segundos?|seg\.?|s)\b/g, ' ')
-    .replace(
-      /\b(descanso|rest|recuperacion|recovery|entre|rondas?|series|activo|parado|soltando|en|ab|air|bike|bici|de)\b/g,
-      ' ',
-    )
-    .replace(/\s+/g, ' ')
-    .trim();
-  return leftover === '' ? rest : undefined;
+function emitGroupRestLine(raw: string, rest: GroupRest): ParsedLine {
+  const p: Prescription = { scheme: 'sets' };
+  if (rest.active_rest) {
+    p.active_rest = rest.active_rest;
+    if (rest.active_rest.modality) p.modality = rest.active_rest.modality;
+  }
+  if (rest.scope === 'rounds') p.rest_between_rounds_s = rest.seconds;
+  else if (rest.scope === 'stations') p.rest_between_stations_s = rest.seconds;
+  else if (!rest.unstored_scope && p.active_rest === undefined) p.rest_s = rest.seconds;
+  const token = rest.active_rest ? 'descanso activo' : 'descanso';
+  return finalizeDetected(token, p, raw);
 }
 
 function isTimeCapOnly(line: string): boolean {

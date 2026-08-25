@@ -2,9 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (140 · writers que se unen a la tx ajena)
+Última actualización: **2026-08-25** (128 · hueco 2 · por lado y descanso)
 
 ## Ahora
+
+**128 · HUECO 2 (card ABIERTA).** Por lado, ámbito del descanso y descanso
+activo entran en el tipo compartido. `laterality: 'per_side'` en la línea
+(no un ejercicio nuevo). La analítica multiplica ×2. Se suben
+`rest_between_rounds_s` y `rest_between_stations_s` (aliases de iOS/DB).
+Descanso activo = `active_rest` (medida + modalidad/objetivo solo si el
+coach los escribió). Entre bloques / vueltas no tienen campo: se dejan
+fuera. Corpus: 62 % (768 de 1.238). Sin tablas nuevas. Sin ON CONFLICT.
+No se cierra la 128. Card: https://app.clickup.com/t/86ak49xrn
 
 **140 · ESCRITURAS QUE REVIENTAN DENTRO DE UNA TRANSACCIÓN.** postgres.js no
 anida `begin`. Los writers que abrían siempre la suya (`computeMeasuredHeader`
@@ -101,11 +110,9 @@ Media máquina ya existe y está DESCONECTADA: `methodology/zones.ts` resuelve
 competición por división/género devolviendo null a propósito. Nada de eso puede
 aparecer en una prescripción.
 
-Otros tres huecos: **por lado** (86 líneas → hoy texto en `note`, la analítica
-cuenta la mitad) · **ámbito del descanso** (5 ámbitos, 2 alturas; `restBetweenRoundsS`
-y `rest_between_stations_seconds` viven en DB+iOS pero NO en el tipo compartido:
-viajan fuera del contrato) · **prioridad y sustitución del día** (47 esenciales,
-31 de 84 con alternativa declarada: no hay campo).
+Hueco 2 (por lado + descanso) **tipado** en el contrato compartido. Siguen:
+**prioridad y sustitución del día** (47 esenciales, 31 de 84 con alternativa
+declarada: no hay campo). La card 128 sigue abierta.
 
 Cabe SIN tablas nuevas: 4 tramos encadenados (5+4+2+1) = las 4 fases. Los 19
 criterios son metodología, no calendario.

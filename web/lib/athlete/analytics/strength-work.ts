@@ -21,6 +21,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { estimateOneRm } from '@fahybrid/shared/domain/strength';
+import { lateralitySides, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import {
   type AnalyticsCard,
@@ -56,6 +57,7 @@ interface StrengthSetRow {
   execution_id: string;
   assignment_id: string;
   day: string; // YYYY-MM-DD
+  prescription_snapshot?: unknown;
 }
 
 // A normalized in-memory set (strings → numbers once, at the boundary).
@@ -72,6 +74,8 @@ interface WorkSet {
   assignmentId: string;
   day: string;
   week: string;
+  /** 2 when the prescription said por lado; 1 otherwise. */
+  sides: number;
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
@@ -139,7 +143,8 @@ async function loadStrengthSets(
       ${mergedExerciseContent(client, 'exercise_')},
       we.id::text                 as execution_id,
       we.assignment_id::text      as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day
+      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      se.prescription_snapshot
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
     join workout_executions we on we.id = se.execution_id
@@ -168,7 +173,15 @@ async function loadStrengthSets(
     assignmentId: r.assignment_id,
     day: r.day,
     week: isoWeekStart(r.day),
+    sides: sidesFromSnapshot(r.prescription_snapshot),
   }));
+}
+
+function sidesFromSnapshot(snapshot: unknown): number {
+  if (snapshot == null) return 1;
+  const parsed = safeParsePrescription(snapshot);
+  if (!parsed.success) return 1;
+  return lateralitySides(parsed.data.laterality);
 }
 
 // ── Public entry ─────────────────────────────────────────────────────────────
@@ -215,7 +228,7 @@ export async function buildStrengthWorkCards(
 function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard {
   let totalKg = 0;
   for (const s of sets) {
-    if (s.load != null && s.load > 0 && s.reps != null) totalKg += s.load * s.reps;
+    if (s.load != null && s.load > 0 && s.reps != null) totalKg += s.load * s.reps * s.sides;
   }
   const sessions = new Set(sets.map((s) => s.executionId));
   const weeks = Math.max(1, Math.round(period.days / 7));
@@ -224,7 +237,7 @@ function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard
   const byWeek = new Map<string, number>();
   for (const s of sets) {
     if (s.load != null && s.load > 0 && s.reps != null) {
-      byWeek.set(s.week, (byWeek.get(s.week) ?? 0) + s.load * s.reps);
+      byWeek.set(s.week, (byWeek.get(s.week) ?? 0) + s.load * s.reps * s.sides);
     }
   }
   const ordered = [...byWeek.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -259,7 +272,8 @@ function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard
       { id: 'per_week', label: 'Media/sem', value: `${perWeek.value} ${perWeek.unit}`, sub: null, accent: false, drill: null },
     ],
     drill: drill('strength.volume', {}, sessions.size, `de ${sessions.size} sesiones · fecha · tonelaje`),
-    meaning_es: 'Tonelaje = suma de carga × reps de cada serie de trabajo (nunca cuenta los saltos ni las aproximaciones). Peso corporal suma reps, no kg.',
+    meaning_es:
+      'Tonelaje = suma de carga × reps de cada serie de trabajo (nunca cuenta los saltos ni las aproximaciones). Si el coach escribió por lado, las reps cuentan los dos lados. Peso corporal suma reps, no kg.',
   });
 }
 

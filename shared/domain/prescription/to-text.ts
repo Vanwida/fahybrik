@@ -20,6 +20,8 @@
 
 import type { Measure, Modality, Prescription, PrescriptionSet, Target } from './types';
 import { isScalarTarget, prescriptionTarget, setMeasure, setTarget } from './types';
+import { noteIsLateralityCue } from './laterality';
+import type { ActiveRest } from './rest';
 import { relativePhrase } from './reference';
 import {
   isRepeat,
@@ -154,6 +156,26 @@ function formatMeasure(m: Measure): string {
 function restToken(restSeconds: number, modality: Modality | undefined): string {
   const d = formatDuration(restSeconds);
   return modality === 'strength' || modality === undefined ? `descanso ${d}` : `r${d}`;
+}
+
+function lateralitySuffix(p: Prescription): string {
+  return p.laterality === 'per_side' ? ' por lado' : '';
+}
+
+function formatActiveRest(ar: ActiveRest): string {
+  const body = formatMeasure(ar.measure);
+  const where =
+    ar.modality === 'bike'
+      ? 'en bici'
+      : ar.modality === 'row'
+        ? 'en remo'
+        : ar.modality === 'ski'
+          ? 'en ski'
+          : ar.modality === 'run'
+            ? 'andando'
+            : '';
+  const target = ar.target ? formatTarget(ar.target) : '';
+  return ['descanso activo', body, where, target].filter(Boolean).join(' ');
 }
 
 // ── Per-set target sequence ─────────────────────────────────────────────────
@@ -323,7 +345,7 @@ export function prescriptionToText(p: Prescription): string {
     out.push(...flat);
   }
 
-  if (p.note) out.push(p.note);
+  if (p.note && !noteIsLateralityCue(p.note)) out.push(p.note);
   return out.join(' · ').trim();
 }
 
@@ -389,6 +411,7 @@ function flatFields(p: Prescription): string[] {
     const countStr = repSet ? roundsNum(p) || `${count}` : `${count}`;
     if (uniformWork) work = count > 1 ? `${countStr}×${works[0]}` : works[0]!;
     else work = nonEmpty.join('/');
+    if (work) work = `${work}${lateralitySuffix(p)}`;
 
     targetStr = targetSequence(sets.map(setTarget));
 
@@ -445,6 +468,13 @@ function flatFields(p: Prescription): string[] {
 
   const out: string[] = [];
   if (head) out.push(head);
+  if (p.active_rest) out.push(formatActiveRest(p.active_rest));
+  if (p.rest_between_rounds_s !== undefined && p.rest_between_rounds_s > 0) {
+    out.push(`${restToken(p.rest_between_rounds_s, p.modality)} entre rondas`);
+  }
+  if (p.rest_between_stations_s !== undefined && p.rest_between_stations_s > 0) {
+    out.push(`${restToken(p.rest_between_stations_s, p.modality)} entre estaciones`);
+  }
   if (restStr) out.push(restStr);
   if (p.scheme === 'for_time' && p.total_s !== undefined) {
     out.push(`cap ${formatDuration(p.total_s)}`);

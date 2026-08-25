@@ -57,6 +57,16 @@ struct Prescription: Codable, Equatable {
     /// never a replacement). `var` + default for the same back-compat reason as
     /// `structure`: every existing call-site and cached snapshot keeps compiling.
     var restBetweenRoundsS: Int? = nil
+    /// Línea por lado (card 128). El número de la medida es el que escribió el
+    /// coach; `sides` / `prescribedRepsWorked` cuentan los dos. Ausente = total,
+    /// que es lo que era todo hasta ahora. El nombre del campo es el del cable
+    /// (`laterality`). iOS no cambia `restBetweenRoundsS` ni
+    /// `rest_between_stations_seconds`.
+    var laterality: Laterality? = nil
+}
+
+enum Laterality: String, Codable, Equatable {
+    case perSide = "per_side"
 }
 
 // Custom decode kept in an EXTENSION so the compiler still synthesizes the
@@ -70,6 +80,7 @@ extension Prescription {
     enum CodingKeys: String, CodingKey {
         case scheme, modality, sets, rounds, workS, restS, totalS, target, note, start, increment, structure
         case restBetweenRoundsS
+        case laterality
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -86,7 +97,10 @@ extension Prescription {
         increment = try c.decodeIfPresent(Int.self, forKey: .increment)
         structure = try? c.decodeIfPresent(RunStructure.self, forKey: .structure)
         restBetweenRoundsS = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsS)
+        laterality = try c.decodeIfPresent(Laterality.self, forKey: .laterality)
     }
+
+    var sides: Int { laterality == .perSide ? 2 : 1 }
 }
 
 // MARK: - Scheme — the SINGLE unified workout-format enum
@@ -597,6 +611,12 @@ extension PrescriptionSet {
     var prescribedReps: Int? {
         if case let .reps(v, _) = measure, v > 0 { return v }
         return nil
+    }
+
+    /// Reps de trabajo cuando la línea es por lado: el número escrito × 2.
+    func prescribedRepsWorked(laterality: Laterality?) -> Int? {
+        guard let reps = prescribedReps else { return nil }
+        return laterality == .perSide ? reps * 2 : reps
     }
 
     /// El TECHO de una banda de repeticiones («12-15» → 15), nil cuando el coach

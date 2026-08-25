@@ -49,6 +49,7 @@
 // coach simply did not write, the clock stays open.
 
 import { WORKOUT_FORMATS } from './format';
+import { lateralitySides } from './laterality';
 import {
   setMeasure,
   setTarget,
@@ -114,11 +115,12 @@ function paceSeconds(t: Target | undefined): { unit: PaceUnit; seconds: number }
 function setSeconds(s: PrescriptionSet, p: Prescription): number | null {
   const m = setMeasure(s);
   if (!m) return null;
-  if (m.kind === 'duration') return m.seconds;
+  const sides = lateralitySides(p.laterality);
+  if (m.kind === 'duration') return m.seconds * sides;
   if (m.kind === 'distance') {
     const pace = paceSeconds(setTarget(s) ?? prescriptionTarget(p));
     if (!pace) return null;
-    return (m.meters / METRES_PER_PACE_UNIT[pace.unit]) * pace.seconds;
+    return (m.meters / METRES_PER_PACE_UNIT[pace.unit]) * pace.seconds * sides;
   }
   return null; // reps | calories — no rate to convert them with
 }
@@ -229,7 +231,7 @@ function roundsSeconds(p: Prescription): PrescriptionDuration | null {
 
   if (gaps === 0) return known(work * rounds);
 
-  const rest = p.rest_s ?? setRest(p);
+  const rest = p.rest_between_rounds_s ?? p.rest_s ?? setRest(p);
   if (rest == null) {
     // A cyclic protocol without a stated changeover IS just its work window (a
     // plain EMOM's cycle is the minute itself). A between-efforts recovery that
