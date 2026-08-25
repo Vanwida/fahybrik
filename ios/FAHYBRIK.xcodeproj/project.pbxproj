@@ -200,6 +200,7 @@
 		B132STIKBE170001A0000003 /* RecapSeriesSticker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B132STIKBE170001A0000001 /* RecapSeriesSticker.swift */; };
 		B132STIKBE170001A0000005 /* RecapSeriesStickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B132STIKBE170001A0000004 /* RecapSeriesStickerTests.swift */; };
 		B132PEGABE170001A0000002 /* PegatinaSeriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B132PEGABE170001A0000001 /* PegatinaSeriesView.swift */; };
+		B132RECAPBE170001A0000002 /* LecturaDeSesionRecap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B132RECAPBE170001A0000001 /* LecturaDeSesionRecap.swift */; };
 		3C18DA57D1AEA42350245B61 /* RunPaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84F7C8771BEBB8127C071B4 /* RunPaceModel.swift */; };
 		3C28AC291503E97DF8DEED5C /* LecturaDeSesionDesdeDetalleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F48E773FB18D4EAB1C4FAD58 /* LecturaDeSesionDesdeDetalleTests.swift */; };
 		3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AC9F29DD28A8726EFE2134 /* MockDeviceProfileTests.swift */; };
@@ -859,6 +860,7 @@
 		B132STIKBE170001A0000001 /* RecapSeriesSticker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapSeriesSticker.swift; sourceTree = "<group>"; };
 		B132STIKBE170001A0000004 /* RecapSeriesStickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapSeriesStickerTests.swift; sourceTree = "<group>"; };
 		B132PEGABE170001A0000001 /* PegatinaSeriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PegatinaSeriesView.swift; sourceTree = "<group>"; };
+		B132RECAPBE170001A0000001 /* LecturaDeSesionRecap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeSesionRecap.swift; sourceTree = "<group>"; };
 		108C2087955FB8892D315754 /* EscenariosCiclo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscenariosCiclo.swift; sourceTree = "<group>"; };
 		10DE0983BB5934AEF0640102 /* FormaDelAro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormaDelAro.swift; sourceTree = "<group>"; };
 		110D0DB2E64AEB960DDDAC21 /* HealthKitHistoryWindowReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitHistoryWindowReader.swift; sourceTree = "<group>"; };
@@ -2237,6 +2239,7 @@
 				657B1BA46564D592E854D7BA /* LecturaDeSesionPiezas.swift */,
 				0CD476DA78A13873856504AA /* LecturaDeSesionView.swift */,
 				B132PEGABE170001A0000001 /* PegatinaSeriesView.swift */,
+				B132RECAPBE170001A0000001 /* LecturaDeSesionRecap.swift */,
 				BF462CA3ADB586D4E54551E8 /* PersonalRecord.swift */,
 				AB41BF2CACC5E2925AC09BFD /* PRCelebrationView.swift */,
 				132C3EF8A21239C98539DE74 /* RecoveryCaptureView.swift */,
@@ -3430,6 +3433,7 @@
 				EDCF6EC650952BD2809795B0 /* LecturaDeSesionPiezas.swift in Sources */,
 				AFDD08BDC0CBB4A9872FE13F /* LecturaDeSesionView.swift in Sources */,
 				B132PEGABE170001A0000002 /* PegatinaSeriesView.swift in Sources */,
+				B132RECAPBE170001A0000002 /* LecturaDeSesionRecap.swift in Sources */,
 				4F80850D02E4FD75BC1A66FB /* Lecturas.swift in Sources */,
 				EA560A6EFE2FCA6037A6B0AD /* LenguajeVivo.swift in Sources */,
 				5176CB62869C6A3828B622FA /* LenguajeVivoCascada.swift in Sources */,
