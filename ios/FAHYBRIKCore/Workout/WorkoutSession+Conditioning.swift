@@ -435,11 +435,19 @@ extension WorkoutSession {
     /// Undo the last For Time / Chipper / Ladder strike (a mis-tap), restoring the
     /// previous split.
     func unmarkLastRound() {
-        guard isConditioningActive, condCountInRemaining <= 0, !isPaused, !isFinished else { return }
+        guard isConditioningActive, condCountInRemaining <= 0, !isFinished else { return }
         guard fixedRoundsDone > 0 else { return }
         fixedRoundsDone -= 1
         if !fixedRoundSplits.isEmpty { fixedRoundSplits.removeLast() }
         Haptics.light()
+    }
+
+    func restoreConditioningHold(_ hold: ConditioningUndoHold) {
+        condSegmentIndex = currentSegmentIndex
+        condCountInRemaining = 0
+        condStartElapsed = 0
+        fixedRoundsDone = hold.roundsDone
+        fixedRoundSplits = hold.splits
     }
 
     /// Tabata per-round rep tally (the classic min-reps score). The bottom "+ Reps"
@@ -547,6 +555,12 @@ extension WorkoutSession {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
         captureConditioningScore()
+        if wasLast, fixedRoundsDone > 0 {
+            conditioningUndoHold = ConditioningUndoHold(
+                segmentIndex: currentSegmentIndex,
+                roundsDone: fixedRoundsDone,
+                splits: fixedRoundSplits)
+        }
         clearConditioning()
         closeCurrentSegmentLap()
         if wasLast {

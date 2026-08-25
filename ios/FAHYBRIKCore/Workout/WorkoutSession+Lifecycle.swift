@@ -254,48 +254,45 @@ extension WorkoutSession {
         }
     }
 
-    /// Back one step. EMOM mid-block → previous interval (no data loss). Otherwise
-    /// → previous segment, REOPENED with its recorded lap restored so it can be
-    /// resumed + re-closed. No-op at the very start.
     /// Lo que separa dos toques distintos de un dedo torpe. Medido contra el caso
     /// real: un doble toque accidental cae muy por debajo; cerrar dos series a
     /// propósito tan seguido no lo hace nadie con una barra en las manos.
     static let avanceMinimoEntreToques: TimeInterval = 0.8
 
+    /// Un toque: deshace el último avance y sigue en vivo. La tabla es `LiveUndo`.
     func stepBack() {
-        guard !isPaused, !isFinished else { return }
-        if let seg = currentSegment, seg.isEMOM, emomCountInRemaining <= 0, emomIntervalIndex > 0 {
-            Haptics.light()
-            emomIntervalIndex -= 1
-            emomCompletedIntervals = min(emomCompletedIntervals, emomIntervalIndex)
-            // Stepping back restarts the round at the top of its WORK phase.
-            emomPhase = .work
-            emomPhaseRemaining = Double(seg.emomPlan?.workSeconds ?? 60)
-            WorkoutAudio.shared.playIntervalStart()
-            return
-        }
-        guard currentSegmentIndex > 0 else { return }
-
-        // VOLVER NO TE SACA DEL BLOQUE (card 115). El 20-ago Alex quiso volver
-        // atrás dentro de las estaciones porque lo había hecho mal, y apareció
-        // otra vez en el bloque de fuerza. Técnicamente era «un paso atrás» —el
-        // segmento anterior era el último del bloque de antes— pero para el
-        // atleta fue caerse a otro sitio sin haberlo pedido, y ese es justo el
-        // miedo que hace que use la app con pinzas.
-        //
-        // Estando en el PRIMER movimiento de un bloque, volver significa «no
-        // estoy listo con ESTE bloque», no «llévame al anterior»: se aparca en la
-        // puerta del bloque, que congela el reloj y espera un Empezar. No se
-        // borra nada — lo hecho sigue hecho.
-        //
-        // Salir de un bloque hacia atrás deja de poder pasar por accidente. Si
-        // algún día hace falta a propósito, será otro gesto y se verá que lo es.
-        if blockKey(at: currentSegmentIndex - 1) != blockKey(at: currentSegmentIndex) {
+        guard !isFinished else { return }
+        switch LiveUndo.action(for: liveUndoCursor) {
+        case .unconfirmLastSet:
+            unconfirmLastSet()
+        case .unmarkLastRound:
+            unmarkLastRound()
+        case .reopenFromFinish:
+            reopenFromFinishDecision()
+        case .stepBackEmom:
+            stepBackEMOMInterval()
+        case .parkBlockGate:
             Haptics.light()
             armBlock()
+        case .stepBackSegment:
+            stepBackSegment()
+        case .noop:
             return
         }
+    }
 
+    private func stepBackEMOMInterval() {
+        guard let seg = currentSegment, seg.isEMOM, emomIntervalIndex > 0 else { return }
+        Haptics.light()
+        emomIntervalIndex -= 1
+        emomCompletedIntervals = min(emomCompletedIntervals, emomIntervalIndex)
+        emomPhase = .work
+        emomPhaseRemaining = Double(seg.emomPlan?.workSeconds ?? 60)
+        WorkoutAudio.shared.playIntervalStart()
+    }
+
+    private func stepBackSegment() {
+        guard currentSegmentIndex > 0 else { return }
         Haptics.light()
         let origin = currentSegmentIndex
         clearEMOMState()
@@ -303,10 +300,24 @@ extension WorkoutSession {
         clearRunStructure()
         currentSegmentIndex -= 1
         reopenCurrentSegment()
-        // Stepping back into an EARLIER block lands on that block's preview (the
-        // athlete re-approves before its clock runs); stepping back WITHIN the same
-        // multi-segment block resumes the reopened segment running, as before.
         enterOrArm(from: origin)
+    }
+
+    /// El último avance cerró el plan. Se reabre ese tramo y se sigue en vivo.
+    func reopenFromFinishDecision() {
+        guard isAwaitingFinishDecision, !isFinished else { return }
+        isAwaitingFinishDecision = false
+        finishDecisionMade = false
+        isExtraWork = false
+        Haptics.light()
+        reopenCurrentSegment()
+        if let hold = conditioningUndoHold, hold.segmentIndex == currentSegmentIndex {
+            restoreConditioningHold(hold)
+            unmarkLastRound()
+            conditioningUndoHold = nil
+        }
+        isPaused = false
+        lastTick = Date()
     }
 
     /// Jump to an arbitrary segment (phase rail / stepper). Forward closes the
@@ -374,6 +385,7 @@ extension WorkoutSession {
     func finish(completeness: WorkoutCompleteness = .full) {
         self.completeness = completeness
         isAwaitingFinishDecision = false
+        conditioningUndoHold = nil
         Haptics.cueFinish()
         // Capture the in-flight conditioning score before the engine is torn down
         // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when

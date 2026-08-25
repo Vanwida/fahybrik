@@ -51,6 +51,30 @@ final class EntrenoSinMiedoTests: XCTestCase {
         return s
     }
 
+    /// Dos estaciones del mismo bloque: el undo de estación no puede cruzar de bloque.
+    private func sesionDosEstaciones() -> WorkoutSession {
+        func estacion(_ order: Int, _ title: String) -> WorkoutSegment {
+            WorkoutSegment(
+                order: order, title: title, kind: .rowOrSki,
+                blockTitle: "Estaciones", blockPosition: 1,
+                prescription: Prescription(
+                    scheme: .forTime, modality: .ski,
+                    sets: [PrescriptionSet(measure: .distance(meters: 500), target: nil,
+                                           modality: .ski, restS: nil, tempo: nil, note: nil)],
+                    rounds: nil, workS: nil, restS: nil, totalS: nil,
+                    target: nil, note: nil, start: nil, increment: nil))
+        }
+        let plan = WorkoutPlan(id: UUID(), name: "Dos estaciones", format: .forTime,
+                               estimatedDurationSeconds: 1200, blockContext: "Estaciones",
+                               zoneTargets: [], equipment: [],
+                               segments: [estacion(1, "SkiErg"), estacion(2, "Remo")],
+                               coachNote: nil, warmupChecklist: [])
+        let s = WorkoutSession(plan: plan)
+        s.start()
+        s.beginBlock()
+        return s
+    }
+
     // MARK: - 113 · Un toque de más no cuesta una serie
 
     func testDosToquesSeguidosCuentanComoUno() {
@@ -110,6 +134,61 @@ final class EntrenoSinMiedoTests: XCTestCase {
                        "volver desde el primer movimiento NO puede devolverte al bloque de fuerza")
         XCTAssertTrue(s.isAwaitingBlockStart,
                       "te deja en la puerta del bloque, con el reloj parado, esperando Empezar")
+    }
+
+    // MARK: - 168 · Deshacer el último avance sin salir del vivo
+
+    func testDeshacerLaUltimaSerieSigueEnElMismoEjercicio() {
+        let s = sesionFuerzaYEstaciones()
+        XCTAssertFalse(s.canStepBack)
+        s.primaryAdvance()
+        XCTAssertEqual(s.setRecordsConfirmadasParaPrueba, 1)
+        XCTAssertEqual(s.pendingSetIndex, 1)
+        s.stepBack()
+        XCTAssertEqual(s.setRecordsConfirmadasParaPrueba, 0)
+        XCTAssertEqual(s.pendingSetIndex, 0)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertFalse(s.isFinished)
+        XCTAssertFalse(s.isAwaitingFinishDecision)
+        XCTAssertEqual(s.restRemainingSeconds, 0, accuracy: 0.01)
+    }
+
+    func testDeshacerUnaSerieNoBorraLasAnteriores() {
+        let s = sesionFuerzaYEstaciones()
+        s.confirmSet(0)
+        s.dismissRest()
+        s.confirmSet(1)
+        s.stepBack()
+        XCTAssertTrue(s.setRecords[0].confirmed)
+        XCTAssertFalse(s.setRecords[1].confirmed)
+        XCTAssertEqual(s.pendingSetIndex, 1)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+    }
+
+    func testDeshacerLaUltimaEstacionSigueEnVivo() {
+        let s = sesionDosEstaciones()
+        s.jumpTo(0)
+        s.beginBlock()
+        s.lap()
+        XCTAssertEqual(s.currentSegmentIndex, 1)
+        s.stepBack()
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertFalse(s.isFinished)
+        XCTAssertFalse(s.isAwaitingFinishDecision)
+    }
+
+    func testDeshacerDesdeHasAcabadoReabreYSigueEnVivo() {
+        let s = sesionDosEstaciones()
+        s.jumpTo(1)
+        s.beginBlock()
+        s.lap()
+        XCTAssertTrue(s.isAwaitingFinishDecision)
+        XCTAssertFalse(s.isFinished)
+        s.stepBack()
+        XCTAssertFalse(s.isAwaitingFinishDecision)
+        XCTAssertFalse(s.isFinished)
+        XCTAssertEqual(s.currentSegmentIndex, 1)
+        XCTAssertFalse(s.finishDecisionMade)
     }
 
     func testVolverNoBorraLoQueYaEstabaHecho() {

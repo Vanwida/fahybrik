@@ -34,6 +34,8 @@ export function CromoFormato(props: {
   posicion: string;
   pausado: boolean;
   onPausa: () => void;
+  onDeshacer?: () => void;
+  puedeDeshacer?: boolean;
 }): ReactNode {
   return <CromoVivo formato="FOR TIME" {...props} />;
 }

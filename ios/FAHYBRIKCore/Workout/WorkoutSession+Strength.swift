@@ -141,6 +141,32 @@ extension WorkoutSession {
         syncTramoIfNeeded()
     }
 
+    /// El último avance de fuerza: la serie que acabas de cerrar vuelve a pendiente.
+    /// Las anteriores se quedan. El descanso de esa serie se apaga.
+    func unconfirmLastSet() {
+        guard let i = setRecords.lastIndex(where: { $0.confirmed }) else { return }
+        if setRecords[i].status == "skipped" {
+            setRecords[i].repsActual = setRecords[i].repsPrescribed
+            setRecords[i].loadActualKg = nil
+        } else if setRecords[i].loadActualKg == setRecords[i].loadPrescribedKg {
+            setRecords[i].loadActualKg = nil
+        }
+        setRecords[i].confirmed = false
+        setRecords[i].status = "done"
+        setRecords[i].repsSource = nil
+        setRecords[i].repsConfidence = nil
+        setRecords[i].meanVelocityFirstMs = nil
+        setRecords[i].meanVelocityLastMs = nil
+        setRecords[i].velocityLossPct = nil
+        setRecords[i].velocityConfidence = nil
+        if !setRecords.contains(where: { $0.confirmed }) {
+            lastSetClosedElapsed = nil
+        }
+        dismissRest()
+        Haptics.light()
+        syncTramoIfNeeded()
+    }
+
     /// CUÁNTO LLEVAS DESDE QUE SOLTASTE LA BARRA. Sigue corriendo cuando el descanso
     /// prescrito se agota, que es justo cuando el atleta deja de tener referencia.
     ///

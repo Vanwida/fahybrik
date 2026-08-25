@@ -70,6 +70,10 @@
       "types": "./domain/belt-work-clock.ts",
       "default": "./domain/belt-work-clock.ts"
     },
+    "./domain/live-undo": {
+      "types": "./domain/live-undo.ts",
+      "default": "./domain/live-undo.ts"
+    },
     "./domain/running/vdot": {
       "types": "./domain/running/vdot.ts",
       "default": "./domain/running/vdot.ts"
