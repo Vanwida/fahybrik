@@ -70,6 +70,7 @@ export function PlanTab({
     else url.searchParams.delete(SESSION_QUERY_PARAM);
     window.history.replaceState(window.history.state, '', url);
   }, []);
+  const closeSession = useCallback(() => openSessionSynced(null), [openSessionSynced]);
 
   const todayBox = startOfDayInBox(new Date());
   const today = isoDateString(todayBox);
@@ -373,8 +374,8 @@ export function PlanTab({
           key={openSession}
           athleteId={athlete_id}
           assignmentId={openSession}
-          onClose={() => openSessionSynced(null)}
-          onInvalid={() => openSessionSynced(null)}
+          onClose={closeSession}
+          onInvalid={closeSession}
         />
       ) : null}
       {personalizeOpen ? (

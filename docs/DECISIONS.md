@@ -11,6 +11,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-25 · El peek Entreno no carga la curva (card 172)
+
+**Qué fallaba:** en la ficha del atleta, Plan → clic en un día
+hecho, el panel derecho «Entreno» decía «No se pudo cargar el
+detalle del entreno.» El plan de la semana sí cargaba.
+
+**114+171 es inocente.** PR 83 (`793c2dd` / `796d8abf`) quitó
+voz de la app (circuito/seguido, 1º/2º, frases). En el cajón
+solo cayó el chip `StationOrderMark`. No tocó
+`loadAssignmentDetail`, `loadCoachSessionDetail` ni la ruta
+`…/sessions/[id]/detail`.
+
+**Causa:** el peek pedía la traza entera (curva, splits, mapa)
+para un bit: «¿hay archivo?». Una sesión hecha con
+`workout_traces` (VO2max + wall balls) hinchaba el GET y
+caía a 500 / HTML → el cajón no parseaba JSON. Encima,
+`onInvalid` inline reiniciaba el fetch en cada render, y un
+`title`/`trace` ausente podía tumbar el pintado.
+
+**Decidido:** el cajón y MCP preguntan `include_trace: false`
+(EXISTS + `EMPTY_TRACE`). La página `/sesion/[id]` y el brief
+del atleta siguen pidiendo la curva. `loadSessionTrace` no
+lanza: una traza que no se deriva es sesión sin archivo, no
+un 500. El reader del cajón vive fuera de React
+(`readCoachSessionDetailResponse`).
+
+**NO hacer:** no reescribir el día del atleta en Neon. no
+cargar la curva en el peek «por si acaso». no atar este
+fallo a 114+171. no copy nueva. no tocar iOS / Watch / Meta.
+
+**Dónde:** `loadAssignmentDetail({ include_trace })`,
+`loadTraceAvailability`, ruta detail + try/catch,
+`SessionDetailDrawer` (ref de `onInvalid`, `trace?.available`).
+Tests: `session-detail-load.test.ts`, `prescrito-line.test.ts`,
+ruta DB con traza + curva vacía.
+
+---
+
 ## 2026-08-25 · La app no habla (cards 114 + 171)
 
 **Qué se elimina:** las palabras que la app decía cuando el

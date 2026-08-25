@@ -102,6 +102,7 @@ export async function analizarSesiones(
       sql: client,
       athlete_id: BigInt(athlete_id),
       assignment_id: BigInt(s.assignment_id),
+      include_trace: false,
     });
     if (!detail) return null;
     const actuals = await loadSegmentActuals(client, Number(s.execution_id));

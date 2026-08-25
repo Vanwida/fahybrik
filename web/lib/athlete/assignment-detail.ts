@@ -31,7 +31,12 @@ import {
 } from '@/lib/dashboard/v2/zone-profile';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
-import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
+import {
+  loadSessionTrace,
+  loadTraceAvailability,
+  EMPTY_TRACE,
+  type AssignmentDetailTrace,
+} from '@/lib/execution/session-trace';
 import { uniqueBlockNotes } from '@fahybrid/shared/schema/program-templates';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
 // El motor de cumplimiento (#66/#71) vive junto al resto de la lectura del
@@ -102,6 +107,13 @@ export interface AssignmentDetailParams {
    * quien no, lo omite y sale `null`, que ya significa «usa tu suelo».
    */
   gradient_retires_pace_pct?: number | null;
+  /**
+   * La curva / splits / mapa. El cajón Entreno del panel no los pinta: solo
+   * necesita saber si hay archivo para el enlace «Ver la carrera». `false`
+   * pregunta EXISTS y no deriva la traza. Default `true` — el brief del
+   * atleta y la página de sesión sí leen la curva.
+   */
+  include_trace?: boolean;
 }
 
 export interface AssignmentDetailResponse {
@@ -599,13 +611,21 @@ export async function loadAssignmentDetail(
   // `buildAssignmentDetail` más abajo, nunca una segunda forma de resolverlas.
   const executionTrace =
     execution?.execution_id != null
-      ? await loadSessionTrace({
-          execution_id: Number(execution.execution_id),
-          started_at: execution.started_at ? new Date(execution.started_at) : null,
-          route_polyline: execution.route_polyline,
-          pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
-          client: sql,
-        })
+      ? params.include_trace === false
+        ? {
+            ...EMPTY_TRACE,
+            available: await loadTraceAvailability({
+              execution_id: Number(execution.execution_id),
+              client: sql,
+            }),
+          }
+        : await loadSessionTrace({
+            execution_id: Number(execution.execution_id),
+            started_at: execution.started_at ? new Date(execution.started_at) : null,
+            route_polyline: execution.route_polyline,
+            pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
+            client: sql,
+          })
       : EMPTY_TRACE;
 
   // Template + segments. Archived templates still resolve — the athlete
@@ -1087,9 +1107,9 @@ function buildBlocks(
     // titles like "Run 1" / "Estación 1" are positional noise); otherwise the
     // authored block title, then "Bloque N".
     const title = isSingleBlock
-      ? template.name
+      ? template.name?.trim() || `Bloque ${idx + 1}`
       : m.fromFragments
-        ? blockTitleForFormat(m.format)
+        ? blockTitleForFormat(m.format) || `Bloque ${idx + 1}`
         : first?.block_title?.trim() || `Bloque ${idx + 1}`;
 
     return {
@@ -1113,8 +1133,10 @@ function buildBlocks(
 
 // Human label for a block whose per-segment titles are positional noise (a
 // collapsed continuous workout). Mirrors the iOS `formatLabel` vocabulary.
-function blockTitleForFormat(format: string): string {
-  switch (format.toLowerCase()) {
+function blockTitleForFormat(format: string | null | undefined): string {
+  const raw = format?.trim();
+  if (!raw) return '';
+  switch (raw.toLowerCase()) {
     case 'hyrox_sim':      return 'Simulación HYROX';
     case 'simulation':     return 'Simulación';
     case 'amrap':          return 'AMRAP';
@@ -1124,7 +1146,7 @@ function blockTitleForFormat(format: string): string {
     case 'circuit':        return 'Circuito';
     case 'tempo':          return 'Tempo';
     case 'strength_block': return 'Fuerza';
-    default:               return format.replace(/_/g, ' ').toUpperCase();
+    default:               return raw.replace(/_/g, ' ').toUpperCase();
   }
 }
 

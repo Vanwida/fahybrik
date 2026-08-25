@@ -33,6 +33,7 @@ import {
 import type { RunComplianceSummary, RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import { readCoachSessionDetailResponse } from '@/lib/dashboard/coach/session-detail-load';
 
 const STATUS_META: Record<
   CoachSessionDetail['status'],
@@ -111,6 +112,10 @@ export function SessionDetailDrawer({
 }) {
   const [detail, setDetail] = useState<CoachSessionDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const onInvalidRef = useRef(onInvalid);
+  useEffect(() => {
+    onInvalidRef.current = onInvalid;
+  }, [onInvalid]);
 
   useEffect(() => {
     let alive = true;
@@ -118,16 +123,18 @@ export function SessionDetailDrawer({
       credentials: 'include',
     })
       .then(async (res) => {
+        const loaded = await readCoachSessionDetailResponse(res);
         if (!alive) return;
-        if (res.status === 400 || res.status === 404) {
-          if (onInvalid) onInvalid();
+        if (loaded.kind === 'invalid') {
+          if (onInvalidRef.current) onInvalidRef.current();
           else setState('error');
           return;
         }
-        if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as { session: CoachSessionDetail };
-        if (!alive) return;
-        setDetail(body.session);
+        if (loaded.kind === 'error') {
+          setState('error');
+          return;
+        }
+        setDetail(loaded.session);
         setState('ready');
       })
       .catch(() => {
@@ -136,7 +143,7 @@ export function SessionDetailDrawer({
     return () => {
       alive = false;
     };
-  }, [athleteId, assignmentId, onInvalid]);
+  }, [athleteId, assignmentId]);
 
   // Peek: ancla en sitio para localizar el .v2-root; el contenido va al portal.
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -258,7 +265,7 @@ export function SessionDetailDrawer({
                   Sin traza no hay nada más que enseñar allí que aquí, así que la
                   entrada no aparece: un enlace que no lleva a nada es peor que
                   no tenerlo. */}
-              {detail.execution?.trace.available ? (
+              {detail.execution?.trace?.available ? (
                 <Link
                   href={`/atletas/${athleteId}/sesion/${assignmentId}`}
                   className="v2-focus flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:color-mix(in_srgb,var(--v2-accent)_40%,var(--v2-border))] bg-[color:color-mix(in_srgb,var(--v2-accent)_7%,var(--v2-surface-2))] px-3.5 py-3 transition-colors hover:border-[color:var(--v2-accent)]"
@@ -311,7 +318,7 @@ export function SessionDetailDrawer({
                     {/* Una sesión de un solo bloque hereda el nombre de la
                         plantilla (assignment-detail.ts), que es justo el título
                         de esta ficha: repetirlo no informa de nada. */}
-                    {block.title.trim() !== title.trim() ? (
+                    {(block.title ?? '').trim() !== title.trim() ? (
                       <h3 className="flex items-center gap-1.5">
                         <span className="v2-micro">{block.title}</span>
                       </h3>
