@@ -105,8 +105,7 @@ export interface CoachSessionDetail {
   } | null;
   /** Per-exercise actuals the athlete logged (segment_executions), mapped to the
    *  prescribed item via `item_uid`. Empty when the session has no granular log
-   *  (old session / athlete logged only the aggregate) — the UI then shows the
-   *  prescription with no "hecho" line, never a fabricated number. */
+   *  — the UI then shows only the plan, never a fabricated number. */
   segment_actuals: SegmentActual[];
   /** Per-tramo running-compliance verdicts (prescribed band vs executed pace/HR)
    *  + the session aggregate (% of evaluable run tramos in band). Empty tramos /
