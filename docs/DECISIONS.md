@@ -11,6 +11,41 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Tres clases, sin velo ni cifra-plan
+
+**Qué fallaba:** el walk UI no cuadraba. `testTheSessionAcceptsGpsOnTheStreet`
+(400 m = 0) era la cifra: `runProgress` anclaba al sumar y el reloj
+sellaba calle como `.healthkit`. El HUD pintaba el plan («1 km»)
+porque `livePicture.figure` no eran metros. `beginFixedRest
+restEndsTramo=false` era un velo sobre la siguiente estación.
+`isConditioningActive` leía el formato del segmento: primary no
+cerraba el AMRAP.
+
+**Decidido:**
+
+- Cifra = stream − ancla. El mismo CoreLocation que el mapa.
+  Watch en calle firma `.gps`. Authority no tira `.gps` (indoor
+  sigue en HK).
+- Descanso de lista = tramo (`restEndsTramo=true`). Cerrar ese
+  tramo no vuelve a marcar la estación. No es overlay.
+- `primaryAdvance` cierra el tramo. Score es otra puerta.
+  `isConditioningActive` = `condSegmentIndex != nil`.
+
+**Qué se elimina:** el ancla `#in`/`#go` que se comía el primer
+sample; el velo `restEndsTramo=false` de `beginFixedRest`; el
+reloj como solo HealthKit en calle.
+
+**NO hacer:** no un if Chipper. no card por «1 km» vs «1000».
+no parchear el assert 400=0. no declarar hecho: Marc camina
+el debugger. no tocar 105 / 174 / 175 / web / Neon.
+`DEVELOPMENT_TEAM` = `S6W4459DDG`.
+
+**Dónde:** `tramoRunCoveredMeters`, `sampleRunDistance`,
+`beginFixedRest`, `closeTramo`, `isConditioningActive`,
+`WatchWorkoutCoordinator.onDistanceDelta`.
+
+---
+
 ## 2026-08-28 · ForTimeContextStrip no vuelve
 
 **Qué fallaba:** `157cf569` borró `WorkoutFormatHUDs`. Quedó una llamada

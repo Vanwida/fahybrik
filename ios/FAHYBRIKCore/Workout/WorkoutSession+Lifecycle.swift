@@ -202,9 +202,14 @@ extension WorkoutSession {
             return
         }
         if restRemainingSeconds > 0, restEndsTramo {
+            let listRest = seg.fixedListIsStations || seg.strikesAreTramos
             restRemainingSeconds = 0
             restTotalSeconds = 0
             restEndsTramo = false
+            if listRest {
+                syncTramoIfNeeded()
+                return
+            }
         }
         switch currentTramo.cursor {
         case .runLeg:

@@ -3,8 +3,8 @@ import XCTest
 
 // UNA DISTANCIA: cifra y mapa son el mismo stream.
 //
-// Calle → CoreLocation (`.gps`). Indoor / reloj solo → HealthKit.
-// Un podómetro o un `.healthkit` en calle es el sustituto: se tira.
+// Calle → CoreLocation (`.gps`) en iPhone y Watch. Indoor → HealthKit.
+// Un `.healthkit` en calle es el sustituto: se tira. El GPS no se tira.
 
 final class RunDistanceAuthorityTests: XCTestCase {
 
@@ -23,8 +23,8 @@ final class RunDistanceAuthorityTests: XCTestCase {
     func testWithoutASiteAppleStillSignsWatchAndTests() {
         XCTAssertEqual(RunDistanceAuthority.owner(beltOwns: false), .apple)
         XCTAssertTrue(RunDistanceAuthority.acceptsRunSample(source: .healthkit, beltOwns: false))
-        XCTAssertFalse(RunDistanceAuthority.acceptsRunSample(source: .gps, beltOwns: false),
-                       "sin sitio no hay mapa: GPS no firma")
+        XCTAssertTrue(RunDistanceAuthority.acceptsRunSample(source: .gps, beltOwns: false),
+                      "sin sitio el GPS no se tira — el reloj en calle llega como .gps")
         XCTAssertFalse(RunDistanceAuthority.acceptsRunSample(source: .treadmill, beltOwns: false))
         XCTAssertFalse(RunDistanceAuthority.acceptsRunSample(source: .strap, beltOwns: false))
     }

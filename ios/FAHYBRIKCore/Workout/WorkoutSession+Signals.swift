@@ -195,29 +195,23 @@ extension WorkoutSession {
     }
 
     /// Acumula los metros oficiales de carrera. En la calle el delta es el mismo
-    /// CoreLocation que pinta el mapa (`.gps`). Indoor / reloj solo: HealthKit.
+    /// CoreLocation que pinta el mapa (`.gps`) — iPhone y Watch. Indoor / cinta
+    /// tonta: HealthKit. El GPS no se tira.
     ///
     /// El descanso es un tramo: si el tramo no mide (`tramoMide` falso), el
-    /// sample no suma. La autopausa no es descanso — el crono se congela y los
-    /// metros siguen, como en Garmin y Strava. El overlay de rest y la
-    /// recuperación parada sí son tramo: no suman.
+    /// sample no suma. La autopausa no es descanso.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
         guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, tramoMide, deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }
-        // TRABAJO MEDIDO, con su hora (card 143): es lo que distingue al que corre
-        // con el móvil en el bolsillo del que lo dejó en el banco. Sólo metros —el
-        // pulso no vale, que late igual descansando.
         lastMeasuredWorkAt = Date()
-        // Los metros de ESTA pierna antes de sumar, para poder ver CRUZAR el objetivo.
+        latchRunProgress()
         let runMetersBefore = tramoRunCoveredMeters
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
-        // Una estación de correr con dosis se cierra sola al llegar, igual que el
-        // remo y el ski. Aquí es la calle (o la cinta tonta, vía muñeca).
-        considerDistanceClose()
+        considerDistanceClose(beforeMeters: runMetersBefore)
     }
 
     /// La cinta FTMS está viva en esta ventana. A partir de aquí ella firma los
@@ -276,14 +270,11 @@ extension WorkoutSession {
         claimTreadmillDistanceSource()
         // Los metros de ESTA pierna antes de sumar — la prueba del cierre automático
         // es haber visto CRUZAR el objetivo, no estar por encima de él.
+        latchRunProgress()
         let runMetersBefore = tramoRunCoveredMeters
         lapBeltDistanceMeters += deltaMeters
-        // En cinta la distancia la da la MÁQUINA, y eso queda sellado en la fuente de
-        // la traza: quien la lea sabe que estos metros no son de un GPS.
         trace.accumulate(.distance, source: .treadmill, delta: deltaMeters, atSecond: traceSecond())
-        // Y la estación se cierra sola al llegar a sus metros, como ya hacen el remo
-        // y el ski: la cinta era el único aparato que obligaba a pulsar.
-        considerDistanceClose()
+        considerDistanceClose(beforeMeters: runMetersBefore)
     }
 
     /// Live AVERAGE pace (sec/km) covered on the belt this segment — the covered belt

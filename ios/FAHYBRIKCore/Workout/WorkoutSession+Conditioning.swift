@@ -9,7 +9,7 @@ extension WorkoutSession {
     // MARK: Conditioning accessors (read by the format HUDs)
 
     /// True when the current segment runs a non-EMOM conditioning timer.
-    var isConditioningActive: Bool { currentSegment?.isConditioningTimer == true }
+    var isConditioningActive: Bool { condSegmentIndex != nil }
 
     /// True while the conditioning 3-2-1 count-in is on screen.
     var isCondCountIn: Bool { condCountInRemaining > 0 }
@@ -292,7 +292,7 @@ extension WorkoutSession {
         }
         restTotalSeconds = Double(rest)
         restRemainingSeconds = Double(rest)
-        restEndsTramo = false
+        restEndsTramo = true
     }
 
     /// Cortar el descanso y entrar ya en la siguiente estación. El descanso de un

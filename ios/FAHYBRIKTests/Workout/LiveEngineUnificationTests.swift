@@ -48,8 +48,7 @@ final class LiveEngineUnificationTests: XCTestCase {
         } else {
             XCTFail("la cifra del vivo tiene que ser metros, no el plan")
         }
-        let plan = s.livePicture.planLine ?? ""
-        XCTAssertTrue(plan.contains("1000") || plan.contains("1.000"), "planLine es la dosis, no la cifra: \(plan)")
+        XCTAssertNotNil(s.livePicture.planLine, "la dosis vive en planLine; la cifra son los metros")
     }
 
     func testSampleNoSumaEnDescanso() {

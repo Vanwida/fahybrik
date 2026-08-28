@@ -50,6 +50,20 @@ extension WorkoutSession {
                 boxedSeconds: leg.measure.durationSeconds
             )
         }
+        // El descanso de una lista es un tramo. No un velo sobre la siguiente
+        // estación: el cursor ya avanzó al marcar, y pintar esa estación debajo
+        // del rest era el overlay.
+        if restRemainingSeconds > 0, restEndsTramo,
+           seg.fixedListIsStations || seg.strikesAreTramos {
+            return LiveTramo(
+                segmentIndex: i,
+                cursor: .segment,
+                label: "Recuperación",
+                modality: .other,
+                measure: .duration(seconds: Int(restRemainingSeconds.rounded())),
+                boxedSeconds: Int(restTotalSeconds.rounded())
+            )
+        }
         if seg.isEMOM, let plan = seg.emomPlan {
             return seg.rotationTramo(segmentIndex: i,
                                      cursor: .emomInterval(emomIntervalIndex),
@@ -318,7 +332,12 @@ extension WorkoutSession {
     /// ventana) el ancla se fija en cero al entrar, así que no cambia nada.
     var tramoRunCoveredMeters: Double? {
         guard tramoIsRun else { return nil }
-        let covered = runProgress.covered(segmentCoveredMeters: segmentRunCoveredForProgress)
+        if lapBeltOwnsDistance {
+            return tramoBeltDistanceMeters
+        }
+        let now = lapGpsDistanceMeters ?? 0
+        let start = tramoGpsStartDistance ?? 0
+        let covered = now - start
         return covered > 0 ? covered : nil
     }
 
@@ -384,9 +403,8 @@ extension WorkoutSession {
     }
 
     func latchRunProgress() {
-        let key = "\(currentTramo.key)#\(countInRemaining > 0 ? "in" : "go")"
         _ = runProgress.step(
-            legKey: key,
+            legKey: currentTramo.key,
             segmentCoveredMeters: segmentRunCoveredForProgress,
             goal: .open,
             isDistanceLeg: false,
@@ -394,20 +412,15 @@ extension WorkoutSession {
         )
     }
 
-    func considerDistanceClose() {
+    func considerDistanceClose(beforeMeters: Double? = nil) {
         let tramo = currentTramo
         guard tramo.isRun, let target = tramo.targetDistanceMeters, target > 0 else { return }
         let runnable = !isPaused && !isFinished && !isAwaitingBlockStart && countInRemaining <= 0
             && restRemainingSeconds <= 0
-        let key = "\(tramo.key)#go"
-        let closed = runProgress.step(
-            legKey: key,
-            segmentCoveredMeters: segmentRunCoveredForProgress,
-            goal: .distance(meters: target),
-            isDistanceLeg: true,
-            isRunnableNow: runnable
-        )
-        if closed { closeTramo(auto: true) }
+        guard runnable else { return }
+        let now = tramoRunCoveredMeters ?? 0
+        guard now >= target, (beforeMeters ?? 0) < target else { return }
+        closeTramo(auto: true)
     }
 
     /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether

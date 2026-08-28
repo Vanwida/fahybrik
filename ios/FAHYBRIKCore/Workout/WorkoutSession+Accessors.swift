@@ -138,7 +138,7 @@ extension WorkoutSession {
     }
 
     var runLegCoveredMeters: Double {
-        runProgress.covered(segmentCoveredMeters: segmentRunCoveredForProgress)
+        tramoRunCoveredMeters ?? 0
     }
 
     var liveCoveredPaceSecPerKm: Int? {

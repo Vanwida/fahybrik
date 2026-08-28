@@ -7,7 +7,7 @@ import Foundation
 //     sustituto: se tira.
 //   · Cinta enchufada  → FTMS. Ya #47.
 //   · Cinta tonta      → HealthKit indoor de la muñeca. No hay mapa.
-//   · Reloj solo       → HealthKit. No hay mapa en la muñeca.
+//   · Reloj en calle   → el mismo stream, firmado `.gps`. No es solo HealthKit.
 //
 // El sitio lo dice el atleta. No se adivina. No se reconstruye por zancada.
 
@@ -36,8 +36,9 @@ enum RunDistanceAuthority {
 
     /// ¿Puede este delta convertirse en metros oficiales?
     ///
-    /// Calle: sólo `.gps` (el mismo CoreLocation que el mapa). Indoor / reloj
-    /// solo: `.healthkit`. La cinta entra por `sampleTreadmillDistance`.
+    /// Calle: `.gps`. Indoor / cinta tonta: `.healthkit`. Sin sitio el GPS no
+    /// se tira — el reloj en calle llega como `.gps`, no solo como HealthKit.
+    /// La cinta entra por `sampleTreadmillDistance`.
     static func acceptsRunSample(
         source: TraceSource,
         environment: RunEnvironment? = nil,
@@ -45,7 +46,9 @@ enum RunDistanceAuthority {
     ) -> Bool {
         switch owner(environment: environment, beltOwns: beltOwns) {
         case .gps: return source == .gps
-        case .apple: return source == .healthkit
+        case .apple:
+            if environment == .indoor { return source == .healthkit }
+            return source == .healthkit || source == .gps
         case .treadmill, .none: return false
         }
     }

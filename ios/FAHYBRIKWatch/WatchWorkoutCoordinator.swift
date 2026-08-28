@@ -205,12 +205,18 @@ final class WatchWorkoutCoordinator {
         // the recorded avg/max; covered distance feeds run pace. The engine is the
         // single owner of capture state.
         live.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
-        // La fuente va explícita: estos metros los pone `distanceWalkingRunning` de
-        // HealthKit (fusión de Apple), NO un fix de GPS — la muñeca no toca
-        // CoreLocation. Sellarlos como «gps» sería etiquetar el archivo con un aparato
-        // que no los midió.
+        // Calle: el HK outdoor del reloj ES el stream de la calle. Se firma
+        // `.gps` para que sampleRunDistance no lo tire. Cinta / indoor: HealthKit.
+        if engine.runEnvironment == nil,
+           engine.plan.segments.contains(where: \.involvesRun) {
+            engine.runEnvironment = .outdoor
+        }
         live.onDistanceDelta = { [weak engine] meters in
-            engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
+            guard let engine else { return }
+            let source: TraceSource = (engine.runEnvironment == .indoor
+                                       || engine.runEnvironment == .treadmill)
+                ? .healthkit : .gps
+            engine.sampleRunDistance(deltaMeters: meters, source: source)
         }
 
         engine.start()
