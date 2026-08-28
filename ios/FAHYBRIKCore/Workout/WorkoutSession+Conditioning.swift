@@ -424,7 +424,8 @@ extension WorkoutSession {
     // Close the conditioning segment's lap (reusing the standard close path) and
     // advance to the next segment, or finish the session — mirrors
     // `closeEMOMAndAdvance`. Crossing into the next block parks on its preview.
-    private func closeConditioningAndAdvance() {
+    // Internal: `closeTramo` in Lifecycle calls this. `private` is file-scoped.
+    func closeConditioningAndAdvance() {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
         captureConditioningScore()
