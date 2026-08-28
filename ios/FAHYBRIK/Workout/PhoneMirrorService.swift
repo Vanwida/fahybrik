@@ -167,7 +167,7 @@ final class PhoneMirrorService {
     /// failure: if the watch app never joins, the phone runs the workout alone.
     /// `activityKind` is the watch vocabulary ("running" | "strength" | "hyrox" |
     /// "mixed") — the same string WatchConnectivityiOSService.activityKind emits.
-    func begin(session: WorkoutSession, activityKind: String) {
+    func begin(session: WorkoutSession, activityKind: String, reattachIfHeld: Bool = false) {
         self.session = session
         endedWorkoutUuid = nil
         wristRecordedWorkout = false   // one flag per session; the previous one is over
@@ -175,6 +175,15 @@ final class PhoneMirrorService {
         pendingEndSave = nil           // a new session cancels any orphaned end intent
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()   // safety: never begin without the receive handler live
+        WatchConnectivityiOSService.shared.activate()
+        // Card 174 — only a RESTORE reattaches a wrist that is already recording.
+        // A new outing always launches; otherwise a leftover mirror from the
+        // previous finish (grace 10 s) would steal the new engine.
+        if reattachIfHeld, Self.shouldReattachExistingMirror(alreadyHolding: mirrored != nil) {
+            startFrameLoop()
+            tickFrame()
+            return
+        }
         let config = HKWorkoutConfiguration()
         config.activityType = Self.activityType(for: activityKind)
         // Calle o cinta SALE DE LA SESIÓN, que ya lo sabe: `WorkoutContainer` estampa
@@ -309,14 +318,36 @@ final class PhoneMirrorService {
             deliverEnd(save: pending)
             return
         }
-        if session == nil || session?.isFinished == true {
-            // No active engine to mirror — discard the wrist recording.
-            deliverEnd(save: false)
+        // Card 174 / 157 — a missing phone engine is a cold start, not a finish.
+        // Ending the wrist here is what hung the Watch after jetsam: the handler
+        // fires before WorkoutContainer has restored, and nobody asked to stop.
+        if Self.shouldEndUnownedWrist(
+            phoneFinished: session?.isFinished == true,
+            hasPendingEnd: pendingEndSave != nil
+        ) {
+            if session?.isFinished == true {
+                deliverEnd(save: false)
+            }
+            return
+        }
+        if session == nil {
             return
         }
 
         startFrameLoop()
         tickFrame()   // push initial state at once, don't wait a whole interval
+    }
+
+    /// Wrist already recording (phone killed, Watch did not). Reattach; do not
+    /// launch a second Health session.
+    static func shouldReattachExistingMirror(alreadyHolding: Bool) -> Bool {
+        alreadyHolding
+    }
+
+    /// End the wrist only on a real finish (pending end or phone engine already
+    /// closed). A nil phone session is a cold start — hold.
+    static func shouldEndUnownedWrist(phoneFinished: Bool, hasPendingEnd: Bool) -> Bool {
+        hasPendingEnd || phoneFinished
     }
 
     private func startFrameLoop() {

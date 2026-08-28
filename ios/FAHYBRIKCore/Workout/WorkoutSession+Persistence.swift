@@ -1,4 +1,7 @@
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 
 // RECUPERAR UN ENTRENO QUE SE CORTÓ. La foto que se autoguarda cada 5 s lleva el
 // reloj, las vueltas cerradas y los testigos de honestidad del tramo en curso, de
@@ -6,8 +9,13 @@ import Foundation
 // prescripción encima. Lo que los motores no pueden reconstruir —la ronda en la que
 // murió un Tabata, el stream vivo del PM5 o del GPS— se queda perdido a propósito:
 // ese formato arranca de cero antes que apuntar rondas que nadie terminó.
+//
+// Card 174: la foto también lleva la identidad de ESTA salida, el dueño del motor,
+// la superficie (calle/cinta) y el cursor de la carrera estructurada. Sin eso un
+// kill dejaba Hoy vacío y el Watch descolgado. Lock / scene / jetsam PERSISTEN;
+// no llaman a finish (157: solo un final pedido por una persona).
 extension WorkoutSession {
-    func persistedSnapshot() -> PersistedWorkoutState {
+    func persistedSnapshot(leftToResumeLater: Bool = false) -> PersistedWorkoutState {
         PersistedWorkoutState(
             plan: plan,
             startedAt: startedAt,
@@ -30,8 +38,27 @@ extension WorkoutSession {
             declaredLoadKg: loadConfirmed ? manualLoadKg : nil,
             manualRunDistanceMeters: manualRunDistanceMeters,
             rxScaled: rxScaled,
-            scaledNote: scaledNote
+            scaledNote: scaledNote,
+            sessionId: liveSessionId,
+            owner: owner,
+            runEnvironment: runEnvironment,
+            leftToResumeLater: leftToResumeLater,
+            autoPaused: autoPaused,
+            hasArmedInitial: hasArmedInitial,
+            awaitingBlockStart: isAwaitingBlockStart,
+            runLegIndex: runLegIndex,
+            runCountInRemaining: runCountInRemaining,
+            runLegRemaining: runLegRemaining,
+            runLegStartElapsed: runLegStartElapsed,
+            runStructureSegmentIndex: runStructureSegmentIndex
         )
+    }
+
+    /// Write the live photo now. The 5 s tick is not enough: a lock in the first
+    /// seconds, or an auto-pause (tick returns early), left nothing on disk.
+    func persistNow() {
+        let snapshot = persistedSnapshot()
+        Task { await WorkoutStateStore.shared.save(snapshot) }
     }
 
     /// Resume from a crash-recovery snapshot. The ONE restore path: it re-seats the
@@ -72,6 +99,25 @@ extension WorkoutSession {
             setRecords = sets
             setsPrimedSegmentIndex = currentSegmentIndex
         }
+        if let env = snapshot.runEnvironment {
+            runEnvironment = env
+        }
+        if let owner = snapshot.owner {
+            self.owner = owner
+        }
+        isPaused = snapshot.isPaused
+        autoPaused = snapshot.autoPaused ?? false
+        // A photo written mid-run already passed the first gate. Default true so
+        // an older snapshot does not re-arm the preview and freeze the clock.
+        hasArmedInitial = snapshot.hasArmedInitial ?? true
+        if let waiting = snapshot.awaitingBlockStart {
+            isAwaitingBlockStart = waiting
+        }
+        if let idx = snapshot.runLegIndex { runLegIndex = idx }
+        if let remaining = snapshot.runCountInRemaining { runCountInRemaining = remaining }
+        if let remaining = snapshot.runLegRemaining { runLegRemaining = remaining }
+        if let start = snapshot.runLegStartElapsed { runLegStartElapsed = start }
+        if let seg = snapshot.runStructureSegmentIndex { runStructureSegmentIndex = seg }
     }
 
     /// Card 142 — "Salir y seguir luego". El atleta se va A PROPÓSITO a media
@@ -96,6 +142,38 @@ extension WorkoutSession {
         // nadie se enterara, que es exactamente el fallo más caro que puede tener
         // esta ruta.
         Task { await WorkoutStateStore.shared.open() }
-        return persistedSnapshot()
+        return persistedSnapshot(leftToResumeLater: true)
+    }
+
+    /// Lock / scene / terminate write the photo. They never finish (157).
+    func attachProcessPersistence() {
+        #if os(iOS)
+        guard processLifecycleTokens.isEmpty else { return }
+        let center = NotificationCenter.default
+        let save: (Notification) -> Void = { [weak self] _ in
+            self?.persistNow()
+        }
+        processLifecycleTokens = [
+            center.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification,
+                object: nil,
+                queue: .main,
+                using: save
+            ),
+            center.addObserver(
+                forName: UIApplication.willTerminateNotification,
+                object: nil,
+                queue: .main,
+                using: save
+            ),
+        ]
+        #endif
+    }
+
+    func detachProcessPersistence() {
+        #if os(iOS)
+        processLifecycleTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        processLifecycleTokens = []
+        #endif
     }
 }

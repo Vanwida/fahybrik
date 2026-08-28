@@ -2,9 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-28** (174 · live sobrevive un kill)
 
 ## Ahora
+
+**174 · EL LIVE DE CALLE SOBREVIVE UN KILL (PR).** Instantánea en
+Application Support (session id, dueño, tramo, reloj, calle/cinta).
+Cold start reabre ESA sesión — Hoy no queda vacío si el snapshot está
+abierto. WatchConnectivity + Salud se reenganchan; un dueño; lock/scene
+no llaman finish (157). `location` ya estaba; el HUD no suelta el GPS
+en un disappear de scene. Tests de persist / restore / Hoy normal /
+finish limpia / kill no marca finished. Compile simulador iPhone+Watch:
+Alex en el Mac (team S6W4459DDG). No dispositivo. No TestFlight.
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva

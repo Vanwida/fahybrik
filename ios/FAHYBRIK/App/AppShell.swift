@@ -58,6 +58,9 @@ struct AppShell: View {
     // their data from it and never re-fetch (or spin) just because their tab was
     // recreated on switch. See AppDataStore.
     @State private var store = AppDataStore()
+    /// Card 174 — a live outing on disk (or a Watch still recording) must reopen
+    /// THAT session. Hoy never stays empty while the snapshot is open.
+    @State private var liveLaunch: WorkoutLaunch? = nil
 
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
@@ -181,7 +184,38 @@ struct AppShell: View {
                 await RequestQueue.shared.drain(bearer: bearer)
             }
         }
+        .fullScreenCover(item: $liveLaunch) { launch in
+            WorkoutContainer(
+                assignmentId: launch.assignmentId.isEmpty ? nil : launch.assignmentId,
+                fallbackTitle: launch.title,
+                bearer: bearer,
+                hrZones: store.identity.value?.hrZones,
+                onClose: { liveLaunch = nil },
+                onCompleted: { _ in
+                    liveLaunch = nil
+                    Task { await store.planMutated() }
+                }
+            )
+            .environment(store)
+        }
+        .task {
+            WatchConnectivityiOSService.shared.activate()
+            PhoneMirrorService.shared.prepare()
+            guard let saved = await WorkoutStateStore.shared.load() else { return }
+            switch LiveWorkoutResume.coldStart(saved) {
+            case .reopen(_, let assignmentId, _, _):
+                liveLaunch = WorkoutLaunch(
+                    assignmentId: assignmentId ?? "",
+                    title: saved.plan.name
+                )
+            case .todayNormal:
+                break
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                WatchConnectivityiOSService.shared.activate()
+            }
             guard phase == .active, let bearer else { return }
             Task {
                 await WorkoutTraceUploader.sweep(bearer: bearer)

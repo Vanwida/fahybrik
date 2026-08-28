@@ -11,6 +11,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · El live de calle sobrevive un kill (card 174)
+
+**Qué fallaba:** la carrera outdoor vivía en RAM. Un bloqueo o un jetsam
+mataba el proceso. Al desbloquear: Hoy vacío, Watch descolgado. El
+`WorkoutStateStore` ya escribía `workout-state.json` en Application
+Support, pero (1) el primer foto tardaba 5 s y no se escribía en pausa,
+(2) el cold start no reabría ESA sesión — Inicio no tiene cover, el
+restore del contenedor dejaba `loadState = .loading`, (3) `runEnvironment`
+no viajaba, así que no volvía el HUD de calle, (4) `adopt()` del espejo
+cerraba la grabación del Watch si el motor del teléfono aún no estaba
+montado — un final que nadie pidió.
+
+**Decidido (mecanismo, no método):**
+
+- Instantánea en Application Support (store real; el App Group no está
+  en los entitlements y no comparte ficheros iPhone↔Watch). Identidad =
+  `sessionId` de ESTA salida + dueño (`phone`/`watch`) + tramo + reloj +
+  calle/cinta. Se borra solo en `finish` / `discard` pedidos por una
+  persona (157).
+- Cold start: si la instantánea está ABIERTA (no es un «Salir y seguir
+  luego» de la 142), AppShell reabre ESA sesión. Snapshot ausente = Hoy
+  normal.
+- Un dueño. Si el Watch sigue grabando, el teléfono se reengancha; no
+  lanza un segundo `startWatchApp`.
+- Lock / scene / jetsam persisten. No llaman a finish.
+- Background: `location` (iOS) y `workout-processing` (Watch) ya estaban
+  en `project.yml`. Se usan: el HUD de calle no suelta el GPS en un
+  disappear de scene. No se inventó ningún modo.
+
+**NO hacer:** no App Group nuevo (rompe firma). no UX nueva. no segundo
+motor. no finish en scene. no toques web / panel / Neon / Clerk. no
+hardcodear el atleta 64. no xcodebuild en este entorno — el compile en
+simulador (scheme iPhone + Watch, team S6W4459DDG) lo hace Alex en el
+Mac. El 10+ min en calle no se simula como SUCCESS de dispositivo.
+
+**Dónde:** `PersistedWorkoutState` + `LiveWorkoutResume`,
+`WorkoutSession+Persistence`, `AppShell`, `PhoneMirrorService.adopt` /
+`begin`, `OutdoorRunHUDModel.parkKeepingBackground`. Tests:
+`LiveWorkoutResumeTests`.
+
+---
+
 ## 2026-08-25 · El día se lee por agrupación, no por etiquetas (cards 109 + 173)
 
 **Qué fallaba:** el peek del día era una pila de cards iguales. No se veía si

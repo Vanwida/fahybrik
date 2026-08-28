@@ -146,6 +146,7 @@ struct AppRoot: View {
             // Register the mirrored-session handler early (idempotent) so a wrist
             // recording started during a workout is never missed. Cheap, no prompt.
             PhoneMirrorService.shared.prepare()
+            WatchConnectivityiOSService.shared.activate()
             if auth.stage == .authenticated {
                 startHealthKitSync()
                 startPush()

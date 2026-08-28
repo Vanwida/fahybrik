@@ -134,8 +134,159 @@ final class WorkoutRecoveryTests: XCTestCase {
         let loaded = try XCTUnwrap(cargado)
         XCTAssertEqual(loaded.assignmentId, "77")
         XCTAssertTrue(loaded.isPaused)
+        XCTAssertEqual(loaded.leftToResumeLater, true)
         XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: loaded, currentAssignmentId: "77"))
+        // 142 is a banner, not a kidnapping of Hoy (174).
+        XCTAssertEqual(LiveWorkoutResume.coldStart(loaded), .todayNormal)
 
         await store.clear()
+    }
+}
+
+// MARK: - Card 174 — el live sobrevive un kill
+
+final class LiveWorkoutResumeTests: XCTestCase {
+
+    private func plan(id: UUID = UUID()) -> WorkoutPlan {
+        WorkoutPlan(id: id, name: "S", format: .forTime, estimatedDurationSeconds: 0,
+                    blockContext: "", zoneTargets: [], equipment: [],
+                    segments: [WorkoutSegment(order: 1, title: "x", kind: .running)],
+                    coachNote: nil, warmupChecklist: [])
+    }
+
+    private func snapshot(
+        assignment: String?,
+        sessionId: UUID = UUID(),
+        segment: Int = 0,
+        savedAt: Date = Date(),
+        planId: UUID = UUID(),
+        left: Bool? = nil,
+        owner: LiveWorkoutOwner? = .phone
+    ) -> PersistedWorkoutState {
+        PersistedWorkoutState(
+            plan: plan(id: planId), startedAt: Date(), currentSegmentIndex: segment,
+            elapsedSeconds: 10, lapElapsedSeconds: 5, laps: [],
+            repsByCurrentSegment: 0, isPaused: false, savedAt: savedAt,
+            assignmentId: assignment,
+            sessionId: sessionId,
+            owner: owner,
+            runEnvironment: .outdoor,
+            leftToResumeLater: left
+        )
+    }
+
+    func testPersistSurvivesANewStoreInstance() async throws {
+        let name = "test-174-disk-\(UUID().uuidString).json"
+        let sessionId = UUID()
+        let writer = WorkoutStateStore(filename: name)
+        await writer.open()
+        await writer.save(snapshot(assignment: "99", sessionId: sessionId, segment: 2))
+
+        let reader = WorkoutStateStore(filename: name)
+        let loaded = try XCTUnwrap(await reader.load())
+        XCTAssertEqual(loaded.sessionId, sessionId)
+        XCTAssertEqual(loaded.owner, .phone)
+        XCTAssertEqual(loaded.currentSegmentIndex, 2)
+        XCTAssertEqual(loaded.runEnvironment, .outdoor)
+        await reader.clear()
+    }
+
+    func testColdStartRestoresSameSessionIdAndSegment() {
+        let sessionId = UUID()
+        let saved = snapshot(assignment: "42", sessionId: sessionId, segment: 2)
+        XCTAssertEqual(
+            LiveWorkoutResume.coldStart(saved),
+            .reopen(sessionId: sessionId, assignmentId: "42", segmentIndex: 2, owner: .phone)
+        )
+
+        let s = WorkoutSession(plan: saved.plan, startedAt: saved.startedAt, liveSessionId: sessionId)
+        s.restore(from: saved)
+        XCTAssertEqual(s.liveSessionId, sessionId)
+        XCTAssertEqual(s.currentSegmentIndex, 2)
+        XCTAssertEqual(s.runEnvironment, .outdoor)
+        XCTAssertTrue(s.hasArmedInitial)
+        XCTAssertFalse(s.isFinished)
+    }
+
+    func testAbsentSnapshotIsHoyNormal() {
+        XCTAssertEqual(LiveWorkoutResume.coldStart(nil), .todayNormal)
+    }
+
+    func testFinishClearsTheSnapshot() async throws {
+        let store = WorkoutStateStore(filename: "test-174-finish-\(UUID().uuidString).json")
+        await store.open()
+        await store.save(snapshot(assignment: "42"))
+        XCTAssertNotNil(await store.load())
+        await store.close()
+        XCTAssertNil(await store.load(), "finish cierra y borra; un kill no")
+        await store.save(snapshot(assignment: "42"))
+        XCTAssertNil(await store.load(), "cerrojo: un autosave tardío no resucita")
+        await store.clear()
+    }
+
+    func testKillDoesNotMarkFinished() {
+        let s = WorkoutSession(plan: plan())
+        s.assignmentId = "42"
+        s.runEnvironment = .outdoor
+        s.hasArmedInitial = true
+        s.currentSegmentIndex = 1
+        let snap = s.persistedSnapshot()
+        XCTAssertFalse(s.isFinished, "un kill persiste; no llama a finish")
+        XCTAssertNotEqual(snap.leftToResumeLater, true)
+        XCTAssertEqual(snap.sessionId, s.liveSessionId)
+        XCTAssertEqual(snap.currentSegmentIndex, 1)
+        XCTAssertEqual(
+            LiveWorkoutResume.coldStart(snap),
+            .reopen(
+                sessionId: s.liveSessionId,
+                assignmentId: "42",
+                segmentIndex: 1,
+                owner: .phone
+            )
+        )
+    }
+
+    func testOldSnapshotDecodesAndColdStartUsesPlanId() throws {
+        var saved = snapshot(assignment: "42", sessionId: UUID(), segment: 1)
+        saved.sessionId = nil
+        saved.owner = nil
+        saved.runEnvironment = nil
+        let data = try JSONEncoder().encode(saved)
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        obj.removeValue(forKey: "sessionId")
+        obj.removeValue(forKey: "owner")
+        obj.removeValue(forKey: "runEnvironment")
+        obj.removeValue(forKey: "leftToResumeLater")
+        let decoded = try JSONDecoder().decode(
+            PersistedWorkoutState.self,
+            from: try JSONSerialization.data(withJSONObject: obj)
+        )
+        XCTAssertNil(decoded.sessionId)
+        guard case let .reopen(sessionId, assignmentId, segment, owner) = LiveWorkoutResume.coldStart(decoded) else {
+            return XCTFail("un live viejo sin sessionId sigue siendo live")
+        }
+        XCTAssertEqual(sessionId, decoded.plan.id)
+        XCTAssertEqual(assignmentId, "42")
+        XCTAssertEqual(segment, 1)
+        XCTAssertEqual(owner, .phone)
+    }
+
+    func testAdoptWithoutEngineDoesNotEndTheWrist() {
+        XCTAssertFalse(PhoneMirrorService.shouldEndUnownedWrist(phoneFinished: false, hasPendingEnd: false))
+        XCTAssertTrue(PhoneMirrorService.shouldEndUnownedWrist(phoneFinished: true, hasPendingEnd: false))
+        XCTAssertTrue(PhoneMirrorService.shouldEndUnownedWrist(phoneFinished: false, hasPendingEnd: true))
+    }
+
+    func testBeginDoesNotLaunchASecondWatchWhenHolding() {
+        XCTAssertTrue(PhoneMirrorService.shouldReattachExistingMirror(alreadyHolding: true))
+        XCTAssertFalse(PhoneMirrorService.shouldReattachExistingMirror(alreadyHolding: false))
+    }
+
+    func testContainerRestoresLibreBySessionId() {
+        let sessionId = UUID()
+        let saved = snapshot(assignment: nil, sessionId: sessionId, segment: 0)
+        XCTAssertTrue(LiveWorkoutResume.shouldRestoreInContainer(saved, presentingAssignmentId: nil))
+        XCTAssertTrue(LiveWorkoutResume.shouldRestoreInContainer(saved, presentingAssignmentId: sessionId.uuidString))
+        XCTAssertFalse(LiveWorkoutResume.shouldRestoreInContainer(saved, presentingAssignmentId: "otro"))
     }
 }

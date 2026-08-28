@@ -56,6 +56,39 @@ struct PersistedWorkoutState: Codable {
     /// The block-scoped Rx / Scaled choice and its note.
     var rxScaled: String? = nil
     var scaledNote: String? = nil
+
+    // MARK: - Card 174 — live that survives a kill
+    //
+    // The 5 s autosave already wrote this file to Application Support (a real
+    // store: jetsam does not wipe it). What it did NOT carry is the identity of
+    // THIS outing, who owns the engine, and the surface the athlete chose — so a
+    // cold start could not reopen the same outdoor HUD, and a missing assignment
+    // (libre) was discarded as "unknown". Optional + default so an older
+    // snapshot still decodes; the resume gate then fills identity from `plan.id`.
+
+    /// Identity of THIS outing. Distinct from the assignment (a plan can be run
+    /// more than once) and from the plan template. Nil on a pre-174 snapshot.
+    var sessionId: UUID? = nil
+    /// Who runs the ONE engine. The other device records or mirrors. Nil → phone
+    /// (the store that wrote it lives on that device).
+    var owner: LiveWorkoutOwner? = nil
+    /// Calle / cinta. Without this the restored session has no outdoor HUD —
+    /// `superficieViva` waits on a gate the athlete already answered.
+    var runEnvironment: RunEnvironment? = nil
+    /// Card 142 only. A voluntary "Salir y seguir luego" must NOT kidnap Hoy;
+    /// a lock / jetsam / scene never sets this, so cold start reopens the live.
+    var leftToResumeLater: Bool? = nil
+    var autoPaused: Bool? = nil
+    /// Already past the first block gate. Restore without this re-armed the
+    /// preview and froze the clock on a run that was already going.
+    var hasArmedInitial: Bool? = nil
+    var awaitingBlockStart: Bool? = nil
+    /// Structured-run cursor + clocks. Segment index alone is not the leg.
+    var runLegIndex: Int? = nil
+    var runCountInRemaining: Double? = nil
+    var runLegRemaining: Double? = nil
+    var runLegStartElapsed: Double? = nil
+    var runStructureSegmentIndex: Int? = nil
 }
 
 // AUDIT-1 — the honest crash-recovery gate. Pure so the "same assignment + fresh"
@@ -139,5 +172,59 @@ actor WorkoutStateStore {
     func close() {
         closed = true
         try? FileManager.default.removeItem(at: url)
+    }
+}
+
+// MARK: - Card 174 — who owns the live engine
+
+/// One outing, one engine. Phone and Watch never both drive the same session.
+enum LiveWorkoutOwner: String, Codable, Equatable {
+    case phone
+    case watch
+}
+
+// MARK: - Card 174 — cold start vs Hoy vacío
+
+/// Pure resume gate. Hoy is empty ONLY when there is no open live snapshot
+/// (and the Watch is not still running — that reattach is the mirror path).
+/// A voluntary leave (142) is not a live outing: Plan's banner offers it.
+enum LiveWorkoutResume {
+    enum Decision: Equatable {
+        case reopen(sessionId: UUID, assignmentId: String?, segmentIndex: Int, owner: LiveWorkoutOwner)
+        case todayNormal
+    }
+
+    static func coldStart(_ saved: PersistedWorkoutState?, now: Date = Date()) -> Decision {
+        guard let saved else { return .todayNormal }
+        guard !saved.plan.id.uuidString.isEmpty else { return .todayNormal }
+        guard saved.savedAt > now.addingTimeInterval(-WorkoutRecoveryGate.maxAge) else {
+            return .todayNormal
+        }
+        if saved.leftToResumeLater == true { return .todayNormal }
+        let sessionId = saved.sessionId ?? saved.plan.id
+        return .reopen(
+            sessionId: sessionId,
+            assignmentId: saved.assignmentId,
+            segmentIndex: saved.currentSegmentIndex,
+            owner: saved.owner ?? .phone
+        )
+    }
+
+    /// The container reopens THIS snapshot when the cover was raised for it
+    /// (same assignment, or the session id of a libre) — or when Hoy presented
+    /// the live cover with no assignment of its own.
+    static func shouldRestoreInContainer(
+        _ saved: PersistedWorkoutState,
+        presentingAssignmentId: String?,
+        now: Date = Date()
+    ) -> Bool {
+        let presenting = presentingAssignmentId.flatMap { $0.isEmpty ? nil : $0 }
+        switch coldStart(saved, now: now) {
+        case .reopen(let sessionId, let assignmentId, _, _):
+            guard let presenting else { return true }
+            return assignmentId == presenting || sessionId.uuidString == presenting
+        case .todayNormal:
+            return WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: presenting)
+        }
     }
 }

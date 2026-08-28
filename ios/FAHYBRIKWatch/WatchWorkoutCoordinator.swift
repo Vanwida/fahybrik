@@ -166,6 +166,7 @@ final class WatchWorkoutCoordinator {
             plan: runnablePlan(payload: payload, detail: detail),
             hrZones: Self.hrZones(from: payload)
         )
+        engine.owner = .watch
         launch(engine: engine, payload: payload)
     }
 
@@ -185,11 +186,13 @@ final class WatchWorkoutCoordinator {
         let engine = WorkoutSession(
             plan: snapshot.plan,
             hrZones: Self.hrZones(from: payload),
-            startedAt: snapshot.startedAt
+            startedAt: snapshot.startedAt,
+            liveSessionId: snapshot.sessionId ?? snapshot.plan.id
         )
         // The SAME restore the phone uses — the session owns it, so the wrist can
         // never resume with a different idea of what the athlete had confirmed.
         engine.restore(from: snapshot)
+        engine.owner = .watch
         launch(engine: engine, payload: payload)
     }
 

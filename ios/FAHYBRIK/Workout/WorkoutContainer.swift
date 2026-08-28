@@ -226,24 +226,34 @@ struct WorkoutContainer: View {
         // ofrece encima la instantánea de un entreno prescrito que no es el suyo.
         if freeContext == nil,
            let saved = await WorkoutStateStore.shared.load(),
-           // Solo para la MISMA asignación, reciente (<6 h) y sin terminar ni
-           // descartar (esas se limpian al cerrar). Una instantánea vieja sin
-           // asignación se descarta, nunca se adivina.
-           WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
+           LiveWorkoutResume.shouldRestoreInContainer(
+            saved, presentingAssignmentId: assignmentId
+           ) {
             // SE RETOMA SOLO, NO SE PREGUNTA. Antes esto abría un aviso y, si el
             // atleta tocaba «Empezar» en la pantalla previa en vez del aviso,
             // arrancaba una sesión NUEVA cuyo autoguardado pisaba la instantánea de
             // la anterior: el trabajo no es que no se enseñara, es que se perdía.
             // Que no se pierda un entreno no puede depender de acertar un botón.
             //
-            // Descartar sigue existiendo, dentro del entreno, donde siempre.
-            let recuperada = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
+            // loadState tenía que pasar a .ready: si no, Hoy / el cover se
+            // quedaban en el spinner y el live no se veía (card 174).
+            let recuperada = WorkoutSession(
+                plan: saved.plan,
+                hrZones: hrZones,
+                startedAt: saved.startedAt,
+                liveSessionId: saved.sessionId ?? saved.plan.id
+            )
             recuperada.restore(from: saved)
             session = recuperada
+            let detail = saved.assignmentId.flatMap { AssignmentDetailCache.load($0) }
+            loadState = .ready(saved.plan, detail)
             PhoneMirrorService.shared.begin(
                 session: recuperada,
-                activityKind: mirrorActivityKind(for: saved.plan)
+                activityKind: mirrorActivityKind(for: saved.plan),
+                reattachIfHeld: true
             )
+            WatchConnectivityiOSService.shared.activate()
+            recuperada.start()
             phase = .active
             return
         }
@@ -602,7 +612,7 @@ struct WorkoutContainer: View {
             return
         }
 
-        guard let assignmentId else {
+        guard let assignmentId, !assignmentId.isEmpty else {
             loadState = .ready(WorkoutPlan.minimal(title: fallbackTitle), nil)
             return
         }
@@ -668,7 +678,12 @@ struct WorkoutContainer: View {
                         crashRecoveryPrompt = nil
                     }
                     PrimaryButton(title: "Seguir donde lo dejé") {
-                        let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
+                        let recovered = WorkoutSession(
+                            plan: saved.plan,
+                            hrZones: hrZones,
+                            startedAt: saved.startedAt,
+                            liveSessionId: saved.sessionId ?? saved.plan.id
+                        )
                         // ONE restore path, owned by the session (AUDIT-1: the gate
                         // already ensured the assignment matches). Field-by-field
                         // copying here left the honesty carriers behind — reps
@@ -682,7 +697,8 @@ struct WorkoutContainer: View {
                         // esto vuelve a ponerla en marcha.
                         PhoneMirrorService.shared.begin(
                             session: recovered,
-                            activityKind: mirrorActivityKind(for: saved.plan)
+                            activityKind: mirrorActivityKind(for: saved.plan),
+                            reattachIfHeld: true
                         )
                         crashRecoveryPrompt = nil
                         phase = .active

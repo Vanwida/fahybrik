@@ -74,7 +74,18 @@ struct OutdoorRunHUDView: View {
             // La pantalla despierta la lleva WorkoutContainer por fase (dueño
             // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
         }
-        .onDisappear { model.teardown() }
+        .onDisappear {
+            // Lock / scene / recreate no es un final. Soltar el GPS aquí era
+            // soltar el modo `location` y dejar el proceso expuesto al jetsam.
+            let keep = !model.session.isFinished
+                && model.session.runEnvironment == .outdoor
+                && model.session.tramoIsRun
+            if keep {
+                model.parkKeepingBackground()
+            } else {
+                model.teardown()
+            }
+        }
         // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
         // bloque). Existían sólo para bajar el cover cuando la sesión se iba de
         // correr; ahora el reparto lo hace `ActiveWorkoutView.superficieViva`, que

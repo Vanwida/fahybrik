@@ -8,7 +8,8 @@ import Foundation
 //   · Cinta tonta      → HKWorkout indoor del reloj. Apple cuenta.
 //
 // Se elige en `RunPreStartFlow` (brief prescrito y constructor libre), viaja
-// en la sesión y abre el HUD correcto. Ephemeral — no se persiste.
+// en la sesión y abre el HUD correcto. La instantánea viva (card 174) la
+// guarda: sin ella un kill repreguntaba calle/cinta y Hoy salía vacío.
 enum RunEnvironment: String, Equatable, CaseIterable {
     case outdoor     // Calle
     case treadmill   // Cinta con conexión (FTMS)

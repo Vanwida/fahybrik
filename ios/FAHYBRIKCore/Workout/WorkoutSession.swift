@@ -34,13 +34,18 @@ final class WorkoutSession {
     /// second-in-zone the coach read was bucketed against a number nobody measured.
     let hrZones: HRZoneProfile?
     let startedAt: Date
+    /// Identity of THIS outing (card 174). Survives a kill so cold start reopens
+    /// the same session, not a new one on the same assignment.
+    let liveSessionId: UUID
+    /// Who runs the ONE engine. Watch records or mirrors; it never starts a second.
+    var owner: LiveWorkoutOwner = .phone
     /// AUDIT-1 — the backend assignment this session logs to, stamped onto the
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
     /// Where the athlete said they run TODAY (calle / cinta enchufada / cinta
     /// tonta), chosen pre-start. Drives the HUD and the fuente de los metros.
-    /// Ephemeral — never persisted.
+    /// Persisted with the live snapshot so a kill does not re-ask calle/cinta.
     var runEnvironment: RunEnvironment? = nil
     /// Última lectura resuelta de la cinta FTMS. `nil` = no hay feed (cinta tonta,
     /// reloj, calle). `false` = la máquina está conectada y no manda velocidad.
@@ -428,6 +433,8 @@ final class WorkoutSession {
     var timer: Timer?
     var lastTick: Date = Date()
     var autoSaveTicker: Int = 0
+    /// Tokens for didEnterBackground / willTerminate — persist, never finish.
+    @ObservationIgnored var processLifecycleTokens: [NSObjectProtocol] = []
     var lapHRSamples: [Int] = []
     var lapZoneAccumSec: [Int: Double] = [:]
 
@@ -567,9 +574,15 @@ final class WorkoutSession {
     /// una medida (§7).
     var lastSetClosedElapsed: Double?
 
-    init(plan: WorkoutPlan, hrZones: HRZoneProfile? = nil, startedAt: Date = Date()) {
+    init(
+        plan: WorkoutPlan,
+        hrZones: HRZoneProfile? = nil,
+        startedAt: Date = Date(),
+        liveSessionId: UUID = UUID()
+    ) {
         self.plan = plan
         self.hrZones = hrZones
         self.startedAt = startedAt
+        self.liveSessionId = liveSessionId
     }
 }

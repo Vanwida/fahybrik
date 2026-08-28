@@ -32,11 +32,16 @@ extension WorkoutSession {
             #endif
             if emomSegmentIndex == nil { armBlock() }
         }
+        // Card 174 — the first photo must exist before the 5 s tick. A lock or
+        // jetsam in the opening seconds used to leave nothing on disk.
+        persistNow()
+        attachProcessPersistence()
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        detachProcessPersistence()
         WorkoutAudio.shared.deactivate()
     }
 
@@ -52,6 +57,7 @@ extension WorkoutSession {
         } else {
             isPaused = true
         }
+        persistNow()
     }
 
     func beginAutoPauseEvaluation() { autoPauseEvaluadores += 1 }
@@ -74,6 +80,7 @@ extension WorkoutSession {
         guard autoPauseEvaluadores > 0 else { return }
         isPaused = true
         autoPaused = true
+        persistNow()
     }
 
     /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
@@ -84,6 +91,7 @@ extension WorkoutSession {
         isPaused = false
         autoPaused = false
         lastTick = Date()
+        persistNow()
     }
 
     /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete

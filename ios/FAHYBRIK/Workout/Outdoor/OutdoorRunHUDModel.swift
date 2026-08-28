@@ -44,6 +44,9 @@ final class OutdoorRunHUDModel {
     private var displayTimer: Timer?
     private var lastLegKey = ""
     private var lastPaused = false
+    /// True while this outing still owns GPS + Live Activity. A view recreate
+    /// must not drop the `location` background claim (card 174).
+    private var isLive = false
 
     /// How often the live values + auto-close + auto-pause are re-evaluated. GPS
     /// fixes are coarser than this, so it's a display cadence, not a sampling one.
@@ -59,6 +62,15 @@ final class OutdoorRunHUDModel {
     // MARK: - Lifecycle
 
     func start() {
+        if isLive {
+            if displayTimer == nil {
+                displayTimer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
+                    self?.tick()
+                }
+            }
+            return
+        }
+        isLive = true
         // Continue an EARLIER outdoor stint's trace (the athlete closed the screen
         // mid-run and re-opened it): seed the buffer + map from what's captured so
         // the polyline and the map pick up where they left off, not from zero.
@@ -97,7 +109,15 @@ final class OutdoorRunHUDModel {
         session.beginAutoPauseEvaluation()
     }
 
+    /// Scene / lock / view recreate: keep GPS + Live Activity. Dropping them
+    /// surrenders `UIBackgroundModes.location` and leaves the process to jetsam.
+    func parkKeepingBackground() {
+        displayTimer?.invalidate(); displayTimer = nil
+        if let poly = encodedPolyline() { session.capturedRoutePolyline = poly }
+    }
+
     func teardown() {
+        isLive = false
         // Antes que nada: dejar de vigilar. Si el atleta cerró esto parado en un
         // semáforo, la sesión no puede quedarse pausada sin nadie que la despierte.
         session.endAutoPauseEvaluation()

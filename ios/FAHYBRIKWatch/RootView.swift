@@ -30,9 +30,18 @@ struct RootView: View {
             // Look for a resumable crash snapshot each time the pushed day changes.
             .task(id: plan.today?.assignmentId ?? "") {
                 if coordinator.phase == .idle, let today = plan.today, !today.isDone {
-                    recoverable = await coordinator.restorableSnapshot(
+                    let saved = await coordinator.restorableSnapshot(
                         payload: today, detail: plan.assignmentDetail
                     )
+                    switch LiveWorkoutResume.coldStart(saved) {
+                    case .reopen:
+                        if let saved {
+                            coordinator.resume(from: saved, payload: today)
+                        }
+                        recoverable = nil
+                    case .todayNormal:
+                        recoverable = saved
+                    }
                 } else {
                     recoverable = nil
                 }
