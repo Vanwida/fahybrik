@@ -221,7 +221,7 @@ extension WorkoutSession {
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
         // Una estación de correr con dosis se cierra sola al llegar, igual que el
         // remo y el ski. Aquí es la calle (o la cinta tonta, vía muñeca).
-        advanceRunStationIfGoalMet(beforeMeters: runMetersBefore)
+        considerDistanceClose()
     }
 
     /// La cinta FTMS está viva en esta ventana. A partir de aquí ella firma los
@@ -286,7 +286,7 @@ extension WorkoutSession {
         trace.accumulate(.distance, source: .treadmill, delta: deltaMeters, atSecond: traceSecond())
         // Y la estación se cierra sola al llegar a sus metros, como ya hacen el remo
         // y el ski: la cinta era el único aparato que obligaba a pulsar.
-        advanceRunStationIfGoalMet(beforeMeters: runMetersBefore)
+        considerDistanceClose()
     }
 
     /// Live AVERAGE pace (sec/km) covered on the belt this segment — the covered belt

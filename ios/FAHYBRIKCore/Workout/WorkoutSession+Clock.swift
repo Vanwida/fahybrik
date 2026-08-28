@@ -69,34 +69,9 @@ extension WorkoutSession {
             beltWorkElapsedS += workDt
         }
 
-        if currentSegment?.hasRunStructure == true { tickRunStructure(dt: workDt) }
-        else if currentSegment?.isEMOM == true { tickEMOM(dt: dt) }
-        else if currentSegment?.isConditioningTimer == true { tickConditioning(dt: dt) }
-        // AFTER the engines have moved their cursors: if the athlete crossed into a
-        // new work window, re-anchor its clock and its device counters (see
-        // WorkoutSession+Tramo). One call covers all three engines.
+        tickTramo(dt: dt, workDt: workDt)
         syncTramoIfNeeded()
-
-        // Per-set rest countdown. The zero cue must SURVIVE a distracted athlete
-        // (Alex, mid-workout: "es fácil distraerse") AND a phone lying on the floor:
-        // a heads-up at 10 s, the 3-2-1 ticks, and an unmissable double at zero, all
-        // on the workout cue vocabulary rather than the UI-tap one.
-        if restRemainingSeconds > 0 {
-            let before = restRemainingSeconds
-            let after = before - dt
-            if before > 10.0 && after <= 10.0 { Haptics.cueStop() } // prepárate
-            for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-                Haptics.cueTick()
-            }
-            if after <= 0 {
-                restRemainingSeconds = 0
-                restTotalSeconds = 0
-                Haptics.cueGo()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.cueGo() }
-            } else {
-                restRemainingSeconds = after
-            }
-        }
+        considerDistanceClose()
 
         autoSaveTicker += 1
         if autoSaveTicker >= 20 {        // 0.25s × 20 = 5s
@@ -138,4 +113,112 @@ extension WorkoutSession {
         if tramoIsRun, beltWorkElapsedS > 0 { return beltWorkElapsedS }
         return lapElapsedSeconds
     }
+
+    /// One clock. Count-in, rest, boxed work, then the segment cap.
+    func tickTramo(dt: Double, workDt: Double) {
+        if countInRemaining > 0 {
+            tickCountIn(dt)
+            return
+        }
+        if restRemainingSeconds > 0 {
+            tickUnifiedRest(dt)
+        }
+        if workRemaining > 0, restRemainingSeconds <= 0 {
+            let phaseDt = (tramoIsRun && !isTramoResting) ? workDt : dt
+            tickWorkBox(phaseDt)
+        }
+        if restRemainingSeconds <= 0 {
+            advanceStationIfClockGoalMet()
+        }
+    }
+
+    private func tickCountIn(_ dt: Double) {
+        let before = countInRemaining
+        countInRemaining = max(0, before - dt)
+        if before.rounded(.up) == countInRemaining.rounded(.up) { return }
+        if countInRemaining <= 0 {
+            finishCountIn()
+        } else {
+            WorkoutAudio.shared.playTick()
+            Haptics.cueTick()
+        }
+    }
+
+    func skipCountIn() {
+        guard countInRemaining > 0 else { return }
+        countInRemaining = 0
+        finishCountIn()
+    }
+
+    func finishCountIn() {
+        countInRemaining = 0
+        if currentSegment?.isConditioningTimer == true {
+            condStartElapsed = lapElapsedSeconds
+            if let seg = currentSegment {
+                startRotatingFirstPhase(seg)
+                if seg.formatScheme?.presentation != .rotating,
+                   let total = seg.formatTotalSeconds, total > 0 {
+                    workRemaining = Double(total)
+                }
+            }
+        }
+        if isRunStructureActive { markRunLegStart() }
+        if currentSegment?.isEMOM == true, let plan = currentSegment?.emomPlan {
+            emomPhase = .work
+            workRemaining = Double(plan.workSeconds)
+        }
+        reanchorTramoDeviceWindowAtGo()
+        latchRunProgress()
+        WorkoutAudio.shared.playGo()
+        Haptics.cueGo()
+        #if os(iOS)
+        if isRunStructureActive { AudioCoach.shared.announceRunLeg(in: self) }
+        #endif
+    }
+
+    private func tickUnifiedRest(_ dt: Double) {
+        let before = restRemainingSeconds
+        let after = before - dt
+        if before > 10.0 && after <= 10.0 { Haptics.cueStop() }
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.cueTick()
+        }
+        if after <= 0 {
+            restRemainingSeconds = 0
+            restTotalSeconds = 0
+            let ends = restEndsTramo
+            restEndsTramo = false
+            Haptics.cueGo()
+            if ends {
+                WorkoutAudio.shared.playIntervalStart()
+                closeTramo(auto: true)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.cueGo() }
+            }
+        } else {
+            restRemainingSeconds = after
+        }
+    }
+
+    private func tickWorkBox(_ dt: Double) {
+        let before = workRemaining
+        let after = before - dt
+        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
+            WorkoutAudio.shared.playTick()
+            Haptics.cueTick()
+        }
+        #if os(iOS)
+        if isRunStructureActive {
+            AudioCoach.shared.runLegTimeRemaining(after, in: self)
+        }
+        #endif
+        if after <= 0 {
+            workRemaining = 0
+            closeTramo(auto: true)
+        } else {
+            workRemaining = after
+        }
+    }
+
 }

@@ -12,9 +12,6 @@ import SwiftUI
 // crown free for load and match the Apple Workout paging model.
 struct LiveFlowView: View {
     let session: WorkoutSession
-    // #68 — the structured-run driver lives on the coordinator (workout lifetime); the
-    // tramo screen reads it. Pulled from the environment so paging never recreates it.
-    @Environment(WatchWorkoutCoordinator.self) private var coordinator
 
     // 0 = map · 1 = live (default) · 2 = pause/finish. Swipe-left from live lands
     // on pause/finish; swipe-right on the map.
@@ -58,142 +55,52 @@ struct LiveFlowView: View {
 
     @ViewBuilder
     private var familyView: some View {
-        // #23 — HYROX dobles RELAY: the partner works this station while the athlete
-        // recovers. Pre-empts the format routing (the athlete performs no work here —
-        // nothing is logged); "Relevo ▸" advances to their own next station. Shares
-        // the SAME engine flags as the phone (currentSegmentIsPartnerRelay / advanceRelay).
-        if session.currentSegmentIsPartnerRelay {
-            RelayLiveView(session: session)
-        } else if session.isRunStructureActive, let driver = coordinator.runLegDriver {
-            // #68 — a folded run block carrying a `structure` runs the tramo HUD (the
-            // athlete runs the series from the wrist), regardless of its folded scheme
-            // (.intervals / .steady). Falls through to the scalar presentation only if
-            // the driver is somehow absent (never during an active session).
-            StructuredRunLiveView(session: session, driver: driver)
-        } else if session.currentSegment?.kind == .running {
-            // CORRIENDO MANDA LO QUE EL RELOJ MIDE, NO CÓMO SE LLAME EL FORMATO.
-            //
-            // Las fuentes no escriben el mismo esquema para la misma cosa: el
-            // constructor libre escribe una serie de correr como `intervals`, el
-            // coach como `sets` (plantilla 314, «3x1000m»), y la gramática nativa
-            // como `structure`. Repartiendo por presentación, el mismo entreno caía
-            // en tres pantallas distintas según quién lo hubiera escrito — y una de
-            // las tres era el RELOJ DE PARED, el guion de burpees y planchas
-            // («sin GPS que valga, estás en el sitio»): sin metros, sin ritmo y en
-            // modo ciego mientras el atleta corría por la calle (8-ago).
-            //
-            // Por eso la rama de correr se resuelve ENTERA aquí y no deja caer nada
-            // al reparto de abajo: con tramos manda la pantalla de tramos (la rama
-            // de arriba), y sin ellos el rodaje. Las dos miden GPS, que es lo único
-            // que corriendo contesta la pregunta.
-            ContinuousLiveView(session: session)
-        } else if let presentation {
-            switch presentation {
-            // EMOM lleva su plan y su fase propia (`EmomLiveView`); el resto
-            // de la familia rotativa —intervals, tabata, death by, steady
-            // funcional— tiene el sujeto que le toca en `RelojDeParedLiveView`
-            // (`GuionRelojDePared`). Ver el comentario de cada vista para el
-            // porqué del reparto.
-            case .rotating:
-                if session.currentSegment?.isEMOM == true {
-                    EmomLiveView(session: session)
-                } else {
-                    RelojDeParedLiveView(session: session)
-                }
-            case .fixed:      FixedLiveView(session: session)
-            case .continuous: ContinuousLiveView(session: session)
-            case .setTable:   SetTableLiveView(session: session)
-            case .list:       ChecklistLiveView(session: session)
-            case .unknown:    GenericLiveView(session: session)
-            }
+        if session.currentSegment?.usesMultiSetStrength == true {
+            SetTableLiveView(session: session)
+        } else if session.currentBlockIsStructural {
+            ChecklistLiveView(session: session)
         } else {
-            GenericLiveView(session: session)
-        }
-    }
-
-    // The live HUD family for the current segment — the structured scheme first,
-    // then a scalar-kind fallback for a legacy / freeform segment.
-    private var presentation: FormatPresentation? {
-        if let p = session.currentSegment?.prescription?.scheme.presentation { return p }
-        switch session.currentSegment?.kind {
-        case .running, .rowOrSki: return .continuous
-        case .strength:           return .setTable
-        default:                  return nil
+            LivePicturePage(session: session)
         }
     }
 }
 
-// MARK: - Dobles relay (standalone wrist)
-
-// #23 — the wrist RELAY screen: the partner works this station; the athlete
-// recovers. Mirrors the phone's relay surface, compact for the wrist — status +
-// "{partner} hace {station}" + recovery clock + live HR, and a single "Relevo ▸"
-// that advances to the athlete's own next station. NOTHING is logged here (the
-// relay never counts as the athlete's work volume — see advanceRelay).
-private struct RelayLiveView: View {
+private struct LivePicturePage: View {
     let session: WorkoutSession
 
-    private var station: String {
-        session.currentSegment?.doblesSplit?.stationLabel
-            ?? session.currentSegment?.title ?? "esta estación"
-    }
-    private var partner: String {
-        session.currentSegment?.doblesSplit?.partnerName ?? "Tu compañero"
-    }
-
     var body: some View {
-        // Diseño (`watch-dobles`): mientras rema la pareja, el sujeto es TU salida
-        // (recuperas / sales en …). Mando — puedes tocar para el relevo.
+        let pic = session.livePicture
         WatchReloj(
             paginas: {
                 var list: [WatchPagina] = [
                     WatchPagina(
-                        id: "relevo",
-                        contexto: "\(partner) · \(station)",
+                        id: "live",
+                        contexto: pic.label,
                         modo: .mando,
-                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
-                        segundoEtiqueta: "Recupera",
-                        segundoValor: session.nextSegment.map { "Luego entras · \($0.title)" } ?? "Relevo",
-                        accion: "Toca · relevo",
-                        onToca: { session.advanceRelay() }
+                        sujeto: figureText(pic.figure),
+                        segundoValor: pic.planLine,
+                        accion: actionTitle(pic.primary),
+                        onToca: {
+                            switch pic.primary {
+                            case .startBlock: session.beginBlock()
+                            default: session.primaryAdvance(fromAthleteTap: true)
+                            }
+                        }
                     ),
                 ]
-                if let pulso = WatchPaginasComunes.pulso(
-                    bpm: session.liveHRBpm,
-                    zone: session.liveZone,
-                    modo: .mando
-                ) {
-                    list.append(pulso)
+                if let score = pic.score.label {
+                    list.append(
+                        WatchPagina(
+                            id: "score",
+                            contexto: pic.label,
+                            modo: .mando,
+                            sujeto: figureText(pic.figure),
+                            segundoValor: score,
+                            accion: "Toca · \(score.lowercased())",
+                            onToca: { session.scoreStrike() }
+                        )
+                    )
                 }
-                return list
-            }(),
-            tinte: WatchTheme.orange
-        )
-    }
-}
-
-// MARK: - Generic fallback
-
-// A legacy / freeform segment with no scheme and no locomotion kind: elapsed +
-// the prescribed work line + a single advance. Honest — shows only what the
-// segment actually carries.
-private struct GenericLiveView: View {
-    let session: WorkoutSession
-
-    var body: some View {
-        WatchReloj(
-            paginas: {
-                var list: [WatchPagina] = [
-                    WatchPagina(
-                        id: "gen",
-                        contexto: session.currentSegment?.title ?? "Entreno",
-                        modo: .mando,
-                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
-                        segundoValor: session.currentSegment?.previewWorkLine,
-                        accion: "Toca · hecho",
-                        onToca: { session.primaryAdvance() }
-                    ),
-                ]
                 if let pulso = WatchPaginasComunes.pulso(
                     bpm: session.liveHRBpm,
                     zone: session.liveZone,
@@ -205,5 +112,26 @@ private struct GenericLiveView: View {
             }(),
             tinte: WatchTinte.color(for: session.liveZone)
         )
+    }
+
+    private func figureText(_ figure: LivePicture.Figure) -> String {
+        switch figure {
+        case .meters(let m): return "\(Int(m.rounded())) m"
+        case .calories(let c): return "\(c) cal"
+        case .countdown(let s): return WatchFormat.clock(s)
+        case .elapsed(let s): return WatchFormat.clock(s)
+        case .reps(let n): return "\(n)"
+        case .none: return WatchFormat.clock(session.tramoElapsedSeconds)
+        }
+    }
+
+    private func actionTitle(_ primary: LivePicture.Primary) -> String {
+        switch primary {
+        case .startBlock: return "Toca · empezar"
+        case .skipCountIn: return "Toca · saltar"
+        case .dismissRest: return "Toca · seguir"
+        case .closeTramo: return "Toca · hecho"
+        case .finish: return "Toca · terminar"
+        }
     }
 }

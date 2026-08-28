@@ -199,6 +199,15 @@ final class WorkoutSession {
     var restRemainingSeconds: Double = 0
     var restTotalSeconds: Double = 0
 
+    /// One count-in, one boxed-work countdown, one rest. Format clocks write here.
+    var countInRemaining: Double = 0
+    var workRemaining: Double = 0
+    /// When the rest hits zero, close the current tramo (EMOM change, run recovery).
+    /// Strength rest is overlay: expiry does not close the set.
+    var restEndsTramo: Bool = false
+    /// The only RunLegProgress. GPS, belt and wrist feed it. HUD reads it.
+    var runProgress = RunLegProgress()
+
     // MARK: - Block-transition gate
     //
     // Each coach BLOCK starts and ends with the athlete's approval. While
@@ -230,7 +239,6 @@ final class WorkoutSession {
     // Live ONLY while the current segment is an EMOM. `emomSegmentIndex` records
     // which segment owns this state so entering / re-entering re-initialises it
     // cleanly and leaving it tears the timer + audio down.
-    var emomCountInRemaining: Double = 0    // 3-2-1 pre-roll; 0 once running
     var emomIntervalIndex: Int = 0          // 0-based interval within the EMOM
     /// Which half of the cycle is running. A plain EMOM has no transition, so it
     /// stays `.work` for the whole cycle and behaves exactly as it always has; an
@@ -238,9 +246,6 @@ final class WorkoutSession {
     /// Same two-phase vocabulary as the rotating engine — one notion of work vs
     /// change in the whole app.
     var emomPhase: RotatingPhase = .work
-    /// Count-DOWN remaining in the CURRENT phase (the whole cycle when there is no
-    /// explicit transition).
-    var emomPhaseRemaining: Double = 0
     var emomCompletedIntervals: Int = 0
     var emomSegmentIndex: Int? = nil
     static let countInSeconds: Double = 3
@@ -256,7 +261,6 @@ final class WorkoutSession {
     // count-in fires after "Empezar"; `condStartElapsed` marks GO so the count-in
     // (and pre-GO time) never inflates the format clock / score. `condSegmentIndex`
     // records which segment owns the state so re-entry re-initialises cleanly.
-    var condCountInRemaining: Double = 0
     var condStartElapsed: Double = 0   // lapElapsedSeconds at GO
     var condSegmentIndex: Int? = nil
 
@@ -278,16 +282,12 @@ final class WorkoutSession {
     ///
     /// Una simulación HYROX no prescribe descansos y sigue yendo seguida, que es lo
     /// correcto: en carrera el reloj no para.
-    var fixedRestRemaining: Double = 0
-    var fixedRestTotal: Double = 0
-
     /// ROTATING formats (Tabata / Intervals / Death By) — the work/rest phase, the
     /// 0-based round index, the count-DOWN remaining in the current phase, and the
     /// Tabata per-round rep tally. `deathByFailed` ends a Death By on "Fallé".
     enum RotatingPhase: String { case work, rest }
     var rotPhase: RotatingPhase = .work
     var rotRoundIndex: Int = 0
-    var rotPhaseRemaining: Double = 0
     /// One entry per round; `nil` = the athlete never counted that round. Counting is
     /// OPTIONAL, so a filled-with-zeros array would publish a Tabata score of 0 reps
     /// for everyone who just did the eight rounds (see `captureConditioningScore`).
@@ -316,8 +316,6 @@ final class WorkoutSession {
     // it), else closes MANUALLY ("Tramo hecho") — there is no live phone GPS yet
     // (#64), so a distance leg without a belt is never left waiting on nothing.
     var runLegIndex: Int = 0                  // 0-based cursor into the expanded leg list
-    var runCountInRemaining: Double = 0       // 3-2-1 pre-roll; 0 once the first leg runs
-    var runLegRemaining: Double = 0           // count-DOWN within a TIME leg (0 for a distance leg)
     var runLegStartElapsed: Double = 0    // lapElapsedSeconds at the current leg's GO
     var runStructureSegmentIndex: Int? = nil  // which segment owns the cursor
 

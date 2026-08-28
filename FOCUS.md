@@ -2,450 +2,52 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-28** (live: un motor)
 
 ## Ahora
 
-**109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
-deja las cards iguales. Dosis pegada al nombre. Nota en cursiva
-solo si el coach la escribió. Barra izquierda solo si hay grupo.
-Día sin `segment_executions` = solo el plan. Día entrenado =
-números al lado, o nada. Cero Hecho / Prescrito / sin registro /
-Sin dosis anotada. El jueves de la foto es un ejemplo, no un
-default. iOS / Neon / Clerk / home live no se tocan.
-
-**172 · EL PANEL ENTRENO CARGA EL DÍA HECHO (en trunk).** Ficha
-atleta → Plan → clic en un día hecho: el GET del peek ya no
-revienta. 114+171 (PR 83) no tocó ese fetch. El peek no deriva
-la curva; solo pregunta si hay archivo.
-
-**132 · RECAP LLENO + PEGATINA DE SERIES (PR compile).** Al acabar
-se ve el entreno: VO2max serie a serie, sled, lunges. Completado /
-técnica / captura van abajo. La pegatina recorta esos parciales
-(esquina, sin marca, sin día, sin Meta). Números = `projectRecap`
-(144) → `projectSeriesSticker`. Compile Watch/Core: `roundIndex` y
-`sets` de `SegmentActualDTO` ya no son `let` con default +
-asignación en `init(from:)`. `resolvedReferencePhrase` ya no
-lleva `@ViewBuilder`.
-https://app.clickup.com/t/86ak4x2cz
-
-**144 · EL RECAP SE LLENA CON LO EJECUTADO (en trunk).** El
-servidor proyecta `execution.recap` desde la ejecución; iOS lo
-lee. No el 5:45 pedido si corrió 3:39.
-https://app.clickup.com/t/86ak5395a
-
-**170 · EN HORIZONTAL EL TRAMO SE LEE GRANDE (en trunk).** Girar
-el teléfono ya no saca un crono de sesión. Mismo tramo, más
-grande. https://github.com/Vanwida/fahybrik/pull/80
-
-**169 · EN VIVO SE LEEN 1 / 2 / 3 (en trunk).** La tanda se lee
-`1 / 2 / 3`. El riel pone el número, no `S1`. iOS y el gemelo
-leen `TandaStrip`.
-https://github.com/Vanwida/fahybrik/pull/79
-
-**168 · DESHACER EL ÚLTIMO AVANCE EN VIVO (en trunk).** Un toque
-en el chevron deshace la última serie o estación y te deja en
-el vivo. iOS y el gemelo leen `LiveUndo`.
-
-**167 · CINTA: EL CRONO ARRANCA CON LA VELOCIDAD (en trunk).** El
-tiempo de trabajo de una tira FTMS no suma si la máquina no manda
-velocidad (> 0,5 km/h). Si para, el crono se queda. EMOM / AMRAP
-siguen en pared. En el live se leen juntos km/h de máquina y ritmo
-/km. Card 167 (ClickUp aún no existe).
-
-**114 + 171 · LA APP NO HABLA (PR).** Si el coach no lo escribió,
-vacío. Se quitaron circuito/seguido/no lo sé de estaciones, el
-chip, badges, `1º`/`Min N`, no lo sé de medida/scheme, Dura lo
-que tardes y familia, umbral sin test, huecos que narran, y el
-juicio (Vas mejor, Afloja/Aprieta, Aguantaste…). Cero copy
-nueva. Se queda chrome, TandaStrip, Circuito del editor,
-Preguntar al coach, al fallo, En banda/Aguanta. 132 no se toca.
-https://github.com/Vanwida/fahybrik/pull/83
-https://app.clickup.com/t/86ak3gvhv
-
-**108 · TÉCNICA Y DESCRIPCIÓN EN CADA BLOQUE (PR).** Cada bloque
-lleva su propia descripción (`WeekDayPart.coach_note` →
-`template_segments.block_coach_note`) y su técnica del día
-(`item.notes`). Ya no se tiran a null al servir. La nota del
-entreno sigue solo al inicio. Vacío se queda vacío. iOS no
-recalcula. La 128 no se cierra.
-https://app.clickup.com/t/86ak3gp0a
-
-**104 · UN NÚMERO DE VERDAD (PR).** El umbral que se enseña o viaja
-al móvil solo sale de un test (`coach_test` / `athlete_test`) o de
-la marca `run_threshold_s_per_km` de ESE atleta. Un 5 km + 10 s o
-un perfil del alta no cuentan: el hueco queda vacío (171).
-Puerta: `measuredThresholdSeconds`. iOS no recalcula.
-La 128 no se cierra.
-https://app.clickup.com/t/86ak3m89b
-
-**90 · COPIAR LO DEL ATLETA A LA RECETA (PR).** En el día del atleta
-(`/atletas/[id]/dia/[fecha]`) hay «Copiar a la receta». Copia el día
-guardado de ESA instancia a la receta que la produjo (sesión de
-biblioteca o el hueco de `program_week_templates`). No resincroniza a
-otros atletas. Si otros siguen apuntando a esa receta, pide confirmación.
-Writer: `copyAthleteInstanceDayToRecipe`. Card ABIERTA.
-https://app.clickup.com/t/86ak2yck1
-
-**128 · HUECO 7 (PR, card ABIERTA).** Motor en vivo. `Measure.unknown`
-y un scheme fuera de catálogo quedan vacíos (171). Un scheme
-desconocido ya no se guarda como `sets` (tabla de hierro).
-`straight_sets` sigue siendo fuerza (alias). La 128 no se cierra.
-Card: https://app.clickup.com/t/86ak49xrn
-
-**128 · HUECO 6 (en trunk).** Importador de ciclo. El coach sube un
-documento → propuesta tipada → revisa → confirma. Unidad = tramo
-de 4-6 semanas (techo 6). Confirmar se niega bajo el trinquete
-del corpus (**71 %**). Lo no tipado entra como nota declarada.
-
-**128 · HUECO 5 (en trunk).** Gramática contra las 1.238 líneas.
-Trinquete 62 % (768) → **71 % (884)**. Entran «N bloques de M series
-de:» (corte = el de la 141), 90-90 como nombre, dosis suelta 1×N,
-rango de reloj, tope de pulso, coma decimal en metros y listas
-«N series de: a · b». En revisión, a propósito: «N bloques de M
-rondas» + A/B/C, EMOM «Min N», carga media, «5' entre bloques» y
-dos ámbitos de descanso.
-
-**128 · HUECO 4 (en trunk).** Catálogo + alias. El importador lee
-`exercise_aliases`. Hollow rocks entra. El puente unilateral no
-cae al bilateral.
-
-**128 · HUECO 3 (en trunk).** Prioridad y sustitución del día, no de la
-línea. `priority` + `substitute` en `slots_json`.
-
-**140 · ESCRITURAS QUE REVIENTAN DENTRO DE UNA TRANSACCIÓN.** postgres.js no
-anida `begin`. Los writers que abrían siempre la suya (`computeMeasuredHeader`
-→ pendientes, `insertZoneProfileVersion`, `updateMonthTemplate` /
-`duplicateWeekIntoMonth`, `instantiateMonthFromTemplate`, y el resto del
-panel que acepta `client`) se unen al `tx` del llamador si ya hay uno; si no,
-abren el suyo. Sin ON CONFLICT nuevo. Sin índice nuevo.
-Card: https://app.clickup.com/t/86ak4ykc7
-
-
-
-**141 · LA CABECERA MANDA SOBRE LAS LÍNEAS DE DEBAJO.** Lo que más fallaba
-al importar: el coach escribe la dosis en «4 series:», «2 series de 8 reps
-de:» o «4 rondas:» y los hijos van desnudos. La gramática lee la cabecera,
-reparte solo lo escrito y no inventa reps. Lo anidado («N bloques de M
-series») sigue en revisión. Banco: 25 % → 59 % (740 de 1.238).
-Ley: DECISIONS 24-ago.
-
-**155 · LA APROXIMACIÓN SALE DEL VOLUMEN.** La marca de la 151 ya viajaba
-hasta el teléfono y se veía. Al guardar se caía: `set_executions` no tenía
-columna y el volumen, la serie más pesada y la carga de fuerza sumaban esos
-kilos. Ahora `is_approach` vive en la serie ejecutada (mig 0207), el escritor
-de siempre la persiste, y solo las series de trabajo cuentan. El resumen las
-sigue enseñando con la etiqueta. No se tocó el ON CONFLICT del guardado.
-
-**157 · UN ENTRENO, UN FINAL — el reloj y el móvil dejan de ir por su cuenta.**
-Acabar en el móvil obligaba a acabar OTRA VEZ en el reloj (y al revés). Raíz: en
-el reloj vive una app de entreno completa (`WatchWorkoutCoordinator`) con su
-cronómetro, su grabación de Salud, su resumen y su envío al servidor — dos dueños
-del mismo entreno, ninguno mandando. De ahí los duplicados y los «completado»
-falsos.
-
-Ahora: `MirrorEnded` lleva `reason` (`MirrorWire.EndReason`). Solo `athlete`
-propaga — un final humano en la muñeca cierra el motor del móvil
-(`wristFinishedByAthlete` → `WorkoutContainer`). El autocierre por perder señal
-manda `watchdog` y NO termina nada: era eso lo que costaba el entreno al salir a
-descansar entre bloques. Y el móvil manda `WatchWireKeys.liveEnd` por
-WatchConnectivity SIEMPRE, con espejo o sin él, para alcanzar al reloj cuando iba
-por libre → `finishFromPhone()`: guarda su HKWorkout en Salud, vuelve a reposo,
-NO manda ejecución (la manda el móvil, que es el dueño).
-
-Compilan iOS y watchOS; 1.648 pruebas en verde. **Esto NO se prueba con pruebas:
-son dos aparatos, se comprueba entrenando.** Sin instalar en su iPhone.
-Card: https://app.clickup.com/t/86ak56898
-
-**158 · EL ENTRENADOR PUEDE CAMBIAR EL TIPO DE UN BLOQUE.**
-El chip junto al nombre ya no es un adorno: es el mismo selector que al añadir (calentamiento, fuerza, circuito, carrera…). Los ejercicios y la dosis se quedan. Grok.
-Card: https://app.clickup.com/t/86ak56had
-
-**156 · UN CALENTAMIENTO SE VEÍA COMO FUERZA.**
-El martes de la semana 1 ya era `format: warmup`. El editor no lo pintaba (sin chip, color del primer ejercicio = fuerza) y `create_microcycle` no tenía título de sesión: el asistente pegó el nombre del entreno en el primer bloque y la plataforma lo copió como título. Cada día lleva `title` (como `create_session`); el editor reconoce calentamiento/vuelta. Los títulos ya guardados no se reescriben.
-Ley: DECISIONS 24-ago. Card: https://app.clickup.com/t/86ak5675p
-
-**162 · COPY VISIBLE: PLANIFICACIÓN / CICLO.** El coach y el atleta leen
-planificación y ciclo. Internos, URLs (`/periodizacion`, `/microciclos`),
-tipos y API siguen con periodización / microciclo. Solo copy, no rename
-de dominio.
-
-**130 · OBJETIVOS RELATIVOS — pieza 4 (gramática + diccionario).**
-El importador lee del texto del coach: peso de competición, delta en kg,
-% del peso corporal, ritmo HYROX / race pace / umbral. Fiel o revisión.
-«carga media» no es un tipo: tabla `coach_load_phrases` (mig 0209), mapa
-frase → patrón ya existente. Vacío = revisión. Sin kilos inventados.
-Ajustes + `GET/PUT /api/coach/phrase-dictionary`. La card sigue abierta.
-Ley: DECISIONS 23-ago, addendum 24-ago.
-
-**133 · Los límites de importar un ciclo (decidido, sin construir).** Contrato de
-ENTREGA, nunca de contenido: unidad = tramo de 4-6 semanas, techo por
-importación, propuesta revisable siempre, **umbral de cobertura para poder
-confirmar**, y lo no tipado entra como nota declarada y jamás como prescripción a
-medias. Criterio de vocabulario: una forma entra si sale en más de un coach o
-muchas veces en uno; si sale una vez en 1.238 líneas es dialecto.
-Ley: DECISIONS 23-ago. El umbral concreto se fija con cobertura real, no antes.
-
-**129 · El catálogo, con los básicos que faltaban (EN PRODUCCIÓN, mig 0205).**
-119 → 148 ejercicios. Faltaban curl de bíceps, encogimientos, remo invertido,
-mountain climbers y buenos días, entre otros. Regla de Alex: **una fila es un
-MOVIMIENTO, no una manera de hacerlo** — por eso las 51 líneas sin resolver del
-macrociclo son 29 filas y no 51, y el salto al cajón a una pierna NO entra.
-90 alias ES/EN, y anclado el falso positivo del puente de glúteo unilateral (que
-resolvía al bilateral). Sigue: 0 de 148 con vídeo.
-
-**128 · EL CICLO DE UN COACH, AUDITADO (sin código, solo diagnóstico).** Alex trajo
-un macrociclo HYROX real de 12 semanas (84 días, 310 bloques, 1.238 líneas, 392
-formas de línea, 209 movimientos). Informe: `docs/ciclo-de-un-coach.html`.
-
-Diagnóstico raíz: **el modelo sabe decir un número; el ciclo dice «relativo a algo
-que el atleta ya tiene»**. 130+ líneas piden ritmo HYROX / peso de competición /
-carga media / ritmo del test, y `Target` solo admite absolutos + `percent_rm`. Es
-un criterio EXPLÍCITO del coach («sin kilos concretos en las plantillas»), y es lo
-que hace reutilizable una plantilla: requisito central de FLEXR, no de este JSON.
-Media máquina ya existe y está DESCONECTADA: `methodology/zones.ts` resuelve
-`race_pace`/umbral contra las marcas, y `hyrox/stations.ts` modela la carga de
-competición por división/género devolviendo null a propósito. Nada de eso puede
-aparecer en una prescripción.
-
-Hueco 2 (por lado + descanso) **tipado** en trunk. Hueco 3 (prioridad y
-sustitución) **tipado** en el DÍA: `priority` + `substitute` en
-`slots_json`. FOCUS decía 47 líneas; el ciclo las pone en 47 días.
-Siguen: catálogo + alias, gramática, importador de ciclo, motor.
-La card 128 sigue abierta.
-
-Cabe SIN tablas nuevas: 4 tramos encadenados (5+4+2+1) = las 4 fases. Los 19
-criterios son metodología, no calendario.
-
-Catálogo: 148 + hollow rocks. De 209 movimientos del ciclo, 112 existían, 35
-solo necesitaban alias (ahora en `exercise_aliases`), 34 faltaban (29 en la
-0205 + hollow rocks; el resto eran maneras de un movimiento ya dado de alta).
-El importador lee la tabla (peldaño 1b). El puente unilateral queda anclado.
-0 vídeos.
-
-Motor en vivo: `Measure.unknown` y un scheme desconocido **dicen «no lo sé»**
-(hueco 7). Ya no desaparecen ni se pintan como tabla de series.
-
-Importador de ciclo: **el piso de arriba ya está** (hueco 6). Sigue
-`import_plan_html.ts` como camino viejo de un coach y un fichero, sin
-ampliar. El producto usa el suelo de `web/lib/import/` +
-`shared/domain/import/` («fiel o review», IA solo para lo denso).
-
-Medida objetiva acordada: las 1.238 líneas como **corpus**, % tipado y fiel.
-Orden propuesto: (1) objetivos relativos (2) por lado + descanso (3) prioridad y
-sustitución (4) catálogo + alias (5) gramática (6) importador (7) motor.
-Huecos 1-3 ya tienen código. La 128 sigue abierta.
-
-**111 · MCP receta de biblioteca (feat/mcp-microcycle-crud):** `create_microcycle` /
-`update_microcycle` escriben SIEMPRE en receta (`program_*_templates`), nunca en
-lo entregado. Completitud blocking; update resincroniza solo `scheduled`. V1
-sin plan personal ni publicar.
-
-**LA PRUEBA DE ALEX DEL 20-AGO — 8 cards, 7 cerradas.** Detalle en ClickUp 116
-a 123 y en DECISIONS 20-ago; aquí solo el estado.
-
-EN PRODUCCIÓN, sin instalar nada: **116** el guardado llevaba roto desde el
-13-ago 07:11 (la mig 0191 dejó parcial el índice de la asignación y Postgres no
-lo infiere desde `on conflict`: 42P10 en los CUATRO escritores; arreglado con la
-0203, índice llano) · **117** una lectura de sensor fuera de banda ya no tumba el
-POST entero, se encaja o se guarda hueco · **120** un libre reenviado es el mismo
-entreno (llave: `started_at`) · **121** un entreno se archiva en el día en que se
-HIZO. Los 5 libres del 19 mal archivados, movidos.
-
-EN EL REPO, PENDIENTE DE QUE ALEX INSTALE: **119** el teléfono no leía los metros
-que la muñeca lleva mandando siempre (en cinta tonta = cero metros y 0:00 de
-ritmo); ahora los recoge y el podómetro se aparta mientras la muñeca emite ·
-**123** la estación de correr se cierra sola al llegar a sus metros, como ya
-hacían remo y ski, y la pantalla enseña la dosis y lo que falta (de paso:
-`tramoRunCoveredMeters` prometía «cinta si la hay» y leía solo Apple, así que con
-FTMS conectada no había cuenta atrás) · **121** la hora de fin se sella al
-terminar, no al pulsar guardar · **118** correr DENTRO de una sesión ya no la
-convierte en carrera (manda si se lleva más de la mitad del tiempo) y sin metros
-medidos no hay lectura de carrera.
-
-LA LECTURA DEL ENTRENO, DE MOCK A APP EN UNA NOCHE (118 → 124 → 126). Alex validó
-la propuesta del doble («vamos a integrarlo») y está construida:
-· **124** el contrato de UI gana suelo tipográfico (15 pt en iPhone, 16 en reloj) y
-  contraste AA MEDIDO. Lo medido cambia el diagnóstico: el gris de apoyo pasa AA
-  de sobra (6,5:1 / 5,6:1) — cuando un apoyo no se lee es el TAMAÑO, no el color.
-· **126 pieza 1, EN PRODUCCIÓN** (6c05b34c, 34a95904, mig 0204): la sesión sabe sus
-  totales. Se calculan al guardar en UN sitio (`session-totals.ts`) y viajan en el
-  detalle. Escalera: traza de pulso → tramos ponderados por duración → nada.
-  Distancia SOLO si una modalidad la midió: correr+remo no son metros de nada.
-  Rellenado lo viejo: la sesión del 20-ago ya lee FC 115/149; 41 de 55 con pulso.
-· **126 pieza 2, PENDIENTE DE INSTALAR** (d5aaedf6): las 7 capas en Swift,
-  sustituyendo a la lectura genérica. Los totales se LEEN, no se recalculan.
-  Tres degradaciones DECLARADAS por límites del cable: fuerza sin serie a serie
-  (volumen = reps × carga máx), sin número de ronda (lista plana) y sin descanso
-  medido. Cada una es card futura, no excusa. 1.621 tests.
-
-EN DEBATE (20-ago, sin construir): **ciclos elásticos** — la secuencia se ancla
-a la carrera del atleta y cada tramo declara mín/defecto/máx (dato del coach);
-el ajustador reparte las semanas hacia atrás desde la fecha. Propuesta visual en
-`docs/ciclos-elasticos.html`. Sin decisión de Alex todavía.
-
-**127 · QUIÉN FIRMA LOS TOTALES AL LLEGAR DOS VECES.** El escritor vivo
-prefería el payload nuevo (`coalesce(excluded, existing)`). El comentario y
-la prueba pedían lo contrario: el primer no-nulo se queda. Un segundo
-envío (el mismo entreno, o solo la cinta) ya no pisa `totals_source`.
-Misma dirección que HealthKit/Garmin/Polar. Sin ON CONFLICT nuevo.
-`ComunicadosRenderTests` sigue inestable (ImageRenderer bajo carga);
-aquí no hay Xcode para estabilizarlo. El duplicado del 19 no se borra.
-
-ABIERTO: **122** (el crono arranca con el toque y no con la primera zancada; la
-cinta no detecta que se ha parado; no existe la transición — con decisión de Alex
-dentro) · **125** barrido de letra pequeña y contraste en toda la app.
-
-
-**El reloj, auditado y arreglado (105, en trunk):** auditoría en 6 frentes
-(ciclo de vida, running, cronómetros, inventario de las 17 vistas, estándares
-de mercado). Cuatro arreglos: (1) cards 72+102 eran UNA raíz — `deliverEnd`
-mandaba el cierre una vez sin ACK ni reintento y el auto-reparo de `start()`
-solo cubría `.ending`; ahora reintenta hasta ACK, repara CUALQUIER estado
-`!= .idle` y hay vigía de 5 min que autoguarda (45 s cortaba entrenos reales).
-(2) card 101 en DOS pasos: la guarda del podómetro era código inalcanzable, y
-el primer arreglo NO cubría bloques mixtos (se pliegan a `kind = .reps`) —
-ahora pregunta `tramoIsRun`. (3) `tramoGpsStartDistance`, gemelo del de ergo y
-cinta: cada carrera del bloque empieza en cero. (4) la muñeca enseña metros y
-ritmo en una estación de correr. Verificado: los 2 targets compilan, 1573 tests
-en verde. **La card 67 estaba medio desfasada** (el EMOM ya estaba bien) y **la
-70 es una reversión de decisión, no un bug** — anotado en sus cards.
-Rediseño propuesto en el doble (`watch-legible`, 5 escenarios): suelo de 16 pt,
-el crono deja de caer a 44 pt por tener 5 glifos, corona, bloqueo por agua,
-«ahora/después», terminar al alcance. **Pendiente del visto bueno de Alex.**
-
-**Mañana 21-ago Alex prueba en real (asignación 482, plantilla 687, card 107):**
-resuelto contra la base, ejercicio a ejercicio — NO son 4 rondas de 8 bloques,
-son 8 bloques (las «4 rondas» son 4 parejas correr+estación ya expandidas, lo
-dicen las notas del coach): calentamiento 6' Z2 · 1.000 m + SkiErg 500 m · 1.000 m
-+ Burpee Broad Jump 40 m · 1.000 m + Rowing 500 m · 1.000 m + Wall Balls 25×9 kg,
-con 2:00 de descanso tras cada estación. NO hay trineo (eso fue el 20). Los
-arreglos de arriba son justo lo que esa sesión necesita, y la dosis de cada
-estación SÍ viaja hasta el tramo (verificado: `prescription_json` se sirve
-verbatim), así que la cuenta atrás de metros y el cierre automático tienen de
-dónde leer. La sesión se llama «Compromised» en el plan: es contenido del coach.
-
-**Claro y oscuro del panel (106, `feat/coach-theme-toggle`):** el botón
-de siempre vuelve a la barra. Acento = piel del club, no naranja de
-sistema. Landing / iOS / reloj no se tocan. Ley: DECISIONS 20-ago.
-
-**Correo de avisos del club (78, `feat/coach-inbox-email`):** leads, citas
-y bajas van a `coaches.club_notify_email`. Vacío = no se manda. hello@ y
-`LEADS_NOTIFY_EMAIL` ya no son el buzón de nadie. Campo en `/es/club`.
-Ley: DECISIONS 19-ago «El correo de avisos es del club». No iOS. No main.
-
-**Piel del club a los dispositivos (19-ago, en trunk):** el coach elige UN
-color y el servidor deriva la familia entera para las DOS superficies (panel
-perla / app casi negra) con AA garantizado en los papeles con significado:
-`shared/domain/coach/club-accent.ts` + 15 tests sobre 10 colores reales. El
-relleno conserva el color elegido salvo que se confunda con el fondo (exigir
-3:1 movía hasta el naranja actual). `GET /api/auth/me` devuelve `club` con
-hexes YA resueltos para fondo oscuro: iOS NO recalcula color. El panel «Tu
-club» estrena vista previa doble (panel + app), dice qué ajustó y por qué,
-avisa de choque con verde/rojo/ámbar y declara su alcance. Ley: DECISIONS
-2026-08-19 «La personalización del club tiene DOS niveles» — estándar (piel
-viva, un binario, todos) vs por encargo (app propia con icono y nombre
-propios, build por cliente, precio muy superior). iOS y el reloj leen la piel (`ClubThemeStore`, persistida; se limpia en
-signOut; el reloj por `WatchTodayPayload`) y los correos del atleta la pintan
-(`resolveClubEmailSkin`: alta, código, las 4 de citas, recordatorio, resumen,
-nurture, lista de espera y aceptación de pago; `coachVoice` deja de firmar la
-marca cableada); los correos NUESTROS siguen con nuestra marca. De
-paso: el panel pintaba texto con `--v2-accent` en 179 sitios (1,9:1 con el
-naranja guardado) → todos a `--v2-accent-text`. EN PRODUCCIÓN (99bcb4d1, con el merge de origin dentro).
-Pendiente: nombre y logo del club llegan al móvil pero no se pintan en
-ninguna pantalla de la app; un solo logo para dos fondos.
-
-**Rediseño FLEXR del panel (19-ago, COMPLETO y EN PRODUCCIÓN):** el panel
-entero adopta FLEXR (contrato `projects/FLEXR/DESIGN.md`, canvas dirección C):
-cromo FLEXR (claro perla; el oscuro y el botón vuelven 20-ago),
-Bricolage+Figtree, sidebar flotante con slot de tenant, casa =
-/atletas (toggle tarjetas/tabla, chips-filtro, franja de triage; /hoy = cola),
-todas las pantallas restyleadas, cero em dash en copy (417 sust.), QA con
-Chrome sobre prod hecho. El «bg raro movido» tenía DOS raíces, ambas
-muertas: clases dark: siempre-activas (html legacy con .dark fijo) y los
-overlays fixed de la ficha atrapados por el wrapper animado (containing
-block por transform): el reveal pasa a fill backwards y el cajón de sesión
-+ 10 modales se portalan al v2-root vía ModalPortal. iOS/doble/landing intactos.
-**Resuelto (19-ago, decidido por Alex):** «Editar día» va SIEMPRE al día real
-del atleta (/atletas/[id]/dia/[fecha]) anclado a la semana en pantalla; la
-plantilla se edita solo desde «Editar plan». Verificado en prod con el atleta
-64 (plantilla 89 con sessions=[] y semana entregada llena: los dos recibos
-pueden divergir y el botón ya no enseña el vacío).
-
-**UX coach (solo lectura, 18-ago):** el hueco es que el estado no se
-entiende, no el publicar-tras-MCP. Mapa:
-`docs/coach-ux-grok.html`. Recorrido Preview Coach Demo 1:
-`docs/coach-ux-recorrido.html`. Sin implementar. Main/prod/FLEXR intactos.
-
-**Corte prod 19-ago:** `fahybrid.com` y `app.fahybrid.com` sirven el
-rediseño FLEXR (deploys de hoy desde `integration/trunk` local, worktree
-fijado; smoke ok en los dos dominios). El corte pineado del 17-ago quedó
-atrás. Migs Production sin cambios (0 pendientes al desplegar).
-
-
-**Bloque vs propuesta (`feat/coach-bloque-vs-propuesta`):**
-`month_2_pending` ya no mezcla «el bloque se acabó» y «hay una
-propuesta de mes por validar». `block_ended` = sin siguiente bloque
-(crítico). `month_2_pending` = validar propuesta. No auto-asigna.
-No main, no Production.
-
-**Receta vs bloque en Hoy (`feat/coach-hoy-receta-vs-bloque`):** la tira
-de asignación separa el programa del atleta (titular: nunca tuvo /
-terminó el X) de la receta de su celda (motivo: «Tu método»). Dos
-puertas: Reponer bloque (modal de biblioteca → `assign-draft`, queda en
-borrador) y Crear receta. «El sistema sigue tu método» exige 34/34.
-Ley: DECISIONS 18-ago «Lo que le falta al atleta y lo que le falta a la
-receta son dos ejes». No se asigna solo. No main, no Production.
-
-**Carril del microciclo (`feat/coach-parcial-rail`):** badge «N de M
-publicadas», cada semana del carril Visible / Borrador, ejecución
-cortada = «a medias». No se dice «parcial». No se publica solo.
-Caso: Marc 17–23 draft, 24–30 published. Ley: DECISIONS 18-ago
-«Parcial son tres nombres».
-
-**Borrador vivo en Preview (`feat/demo-draft-week`):** Marc Vidal
-tiene 17–23 ago en `draft` (`delivery_mode=manual`) y 24–30
-`published`. Recorrido: Preview `/es/acceso-demo` → Coach Demo 1 →
-Marc → Plan.
-
-**Hoy + altas honestos (`feat/coach-hoy-altas-honestas`):** `/es/hoy`
-no pinta salud si nadie ve la semana. El alta no dice «antes de
-arrancar» si el atleta ya entrenó, chateó o tiene bloque vencido.
-Ley: DECISIONS 18-ago «Hoy del club no pinta salud». No se publica
-solo. No se asigna el mes. No main, no Production, no FLEXR.
-
-**Semana honesta (#35, en trunk):** Resumen y Plan titulan la semana
-calendario del chip. Un bloque de julio no se llama «Esta semana».
-
-**Chip de entrega (#34, en trunk):** Visible · No lo ve · Semana vacía ·
-Bloque terminado · Sin plan. Misma puerta que MCP `athlete_sees_it`.
-
-**Trunk 18-ago:** #29–#35 en `integration/trunk`. No main.
-
-**Clonabilidad iOS (#33):** marca/bundle/dominio/esquema/equipo en
-`settings.base`. Team id en AASA (público, decisión pendiente).
-
-**Carrera hogar:** shipeada en Swift (13-ago). Plan personal atleta 64
-cerrado. Tests = loop (CMJ + feedback `test_result`, mig 0196).
-
-## Espera Alex
-
-- iPhone: abrir la app (API `app.fahybrid.com`). Sign in with Apple.
-  No usar `/es/acceso-demo` (404 en prod).
-- Elegir capas del layout de vídeos de técnica: `docs/video-tecnica-layouts.html`
-- Chat contextual: `/es/design/chat-contexto`.
-- ZIP GDPR Garmin para validar el importador FIT.
+**LIVE · UN MOTOR (PR, este cloud).** WorkoutSession tenía tres relojes,
+dos descansos, tres auto-cierres de distancia y dos superficies.
+Las cards 101, 67, 72, 110, 157 y 176 eran un formato que caía por
+la rama equivocada.
+
+Queda: un cursor (`LiveTramo`), una `livePicture` (HUD = render),
+un descanso (`restRemainingSeconds`), un `RunLegProgress`,
+`primaryAdvance` = cerrar tramo. Watch = mismo motor o espejo de
+esa lectura, nunca ambos.
+
+Se borraron (no se parchearon): ticks por formato, `conditioningPrimary`,
+familias Watch (Fixed / Rotating / StructuredRun / Continuous / Emom /
+RelojDePared), `WatchRunLegDriver`, árbol `WorkoutFormatHUDs` +
+`EmomVivoView`, plan en hero, segundo odometro de cinta.
+
+Conservado: `LiveTramo`, un `RunLegProgress`, `sampleRunDistance`,
+`sampleErg`, `injectLiveHR`. SetTable / Checklist / 105 (cinta y
+calle, Opus) no se redibujan.
+
+101 = la cifra bebe el mismo GPS que el mapa.
+72 y 110 = el mismo dueño cierra el tramo.
+176 = gestos de persona sobre ESA sesión. PR 90 no se sigue.
+157 = un finish de persona.
+
+Inventario: `docs/audits/live-run-patches-root.md`.
+Ley: DECISIONS 28-ago.
+
+**NO es hecho de producto.** Cloud Linux no compiló Xcode. Marc
+lanza debugger en Mac: Chipper Y run+recuperación, iPhone+Watch.
+
+No tocar: 105 maqueta runner, 174 PR 87, 175 PR 88, web, Neon,
+`DEVELOPMENT_TEAM` (`S6W4459DDG`). No segundo audit. No otro cloud.
+
+## Espera Alex / Marc
+
+- Marc: simulador iPhone + Watch. Chipper y run con recuperación.
+- iPhone físico: no xcodebuild desde este cloud.
 
 ## Parqueado (no tocar)
 
-Onboarding 15 agujeros · 29 rutas coach sin pantalla · `coach_methodology`
-vacía · vivo ergo/AMRAP/FT · 22 bloques incompletos · 20 secuencias.
+Onboarding · 29 rutas coach · `coach_methodology` vacía · 105 rediseño.
 
 ## Ley
 
-`docs/DECISIONS.md`. Se cita la entrada de la pieza, no se pega el fichero.
-
-## Regla de gasto
-
-Un átomo por sesión de agente. Grok default. Claude solo UI gorda.
-Bugs 1–3 líneas: Hermes. FOCUS no se hincha: si hace falta relato, va al tablero.
+`docs/DECISIONS.md`. Se cita la entrada, no se pega el fichero.

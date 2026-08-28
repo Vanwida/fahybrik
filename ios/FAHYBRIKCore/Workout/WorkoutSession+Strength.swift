@@ -258,10 +258,12 @@ extension WorkoutSession {
         guard let s = seconds, s > 0 else { return }
         restTotalSeconds = Double(s)
         restRemainingSeconds = Double(s)
+        restEndsTramo = false
     }
 
     func dismissRest() {
         restRemainingSeconds = 0
         restTotalSeconds = 0
+        restEndsTramo = false
     }
 }

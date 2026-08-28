@@ -67,8 +67,9 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.phase, MirrorWire.Phase.active)
         XCTAssertEqual(f.progressText, "TRAMO 1/2")
         XCTAssertEqual(f.countdownRemaining, s.runLegRemaining)
-        XCTAssertEqual(f.countdownRemaining, 120)                 // primed to the leg's duration
-        XCTAssertEqual(f.lineTitle, "2:00")                       // the measure, not "Series"
+        XCTAssertEqual(f.countdownRemaining, 120)
+        XCTAssertEqual(f.detailLine, "2:00")
+        XCTAssertEqual(f.lineTitle, s.livePicture.label)
     }
 
     // MARK: - DISTANCE tramo → no countdown (the wrist hero shows elapsed/measure)
@@ -79,7 +80,8 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let f = mirror.buildFrame(from: s)
         XCTAssertNil(f.countdownRemaining)        // distance → no fabricated countdown
         XCTAssertEqual(f.progressText, "TRAMO 1/2")
-        XCTAssertEqual(f.lineTitle, "800 m")
+        XCTAssertEqual(f.detailLine, "800 m")
+        XCTAssertEqual(f.lineTitle, s.livePicture.label)
     }
 
     // MARK: - Recovery tramo → "Recupera <modo>" + its measure, timed countdown
@@ -90,8 +92,8 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         s.primaryAdvance()                       // manual "tramo hecho" → recovery leg 1
         XCTAssertFalse(s.isRunLegWork)
         let f = mirror.buildFrame(from: s)
-        XCTAssertEqual(f.lineTitle, "Recupera caminando")
-        XCTAssertEqual(f.detailLine, "1:00")                      // the recovery's measure
+        XCTAssertEqual(f.lineTitle, "Recuperación")
+        XCTAssertEqual(f.detailLine, "1:00")
         XCTAssertEqual(f.progressText, "TRAMO 2/2")
         XCTAssertEqual(f.countdownRemaining, s.runLegRemaining)   // timed recovery counts down
     }

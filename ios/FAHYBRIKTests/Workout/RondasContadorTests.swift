@@ -169,16 +169,7 @@ final class RondasContadorTests: XCTestCase {
 
     // MARK: - La cara que se PINTA cabe en su cota (N1 de la re-verificación)
 
-    /// El primer porte validaba la cara que se DESCARTA (¿cabe la lista?) y
-    /// jamás la que se pinta: el contador medía 538 pt en un hueco de ~393 y se
-    /// derramaba sobre el toggle RX y el chip del siguiente tramo. La cascada
-    /// recorta por prioridad; aquí se fija que el nivel MÍNIMO cabe en el hueco
-    /// más apretado medido, y que el completo cabe en el holgado.
-    @MainActor
-    func testLaCaraContadorCabeEnSuCotaConRondasCerradas() {
-        // El estado PINTADO de verdad: con rondas cerradas — «tu media» existe,
-        // el chip de la anterior existe. La verif2 cazó que medir el estado
-        // virgen daba 368 donde el real pedía 403.
+    func testLaCaraContadorYaNoEsUnaVistaDeFormato() {
         let s = sesionDeRondas(12, capS: nil)
         s.start()
         s.beginBlock()
@@ -187,25 +178,8 @@ final class RondasContadorTests: XCTestCase {
         s.primaryAdvance()
         s.lapElapsedSeconds = 230
         s.primaryAdvance()
-        let ancho: CGFloat = 370
-
-        func mide(_ v: AnyView) -> CGFloat {
-            UIHostingController(rootView: v.environment(\.colorScheme, .dark))
-                .sizeThatFits(in: CGSize(width: ancho, height: .greatestFiniteMagnitude)).height
-        }
-
-        let hud = RoundsLiveHUD(session: s)
-        let nivel3 = mide(AnyView(hud.contadorNucleo(conHilo: false, conLectura: false, compacto: true)))
-        XCTAssertLessThanOrEqual(nivel3, 380,
-            "el nivel compacto pide \(Int(nivel3)) pt y el cromo de ergo sin emparejar deja ~380")
-
-        let suelo = mide(AnyView(hud.contadorSuelo))
-        XCTAssertLessThanOrEqual(suelo, 170,
-            "el SUELO pide \(Int(suelo)) pt; el cromo de dobles deja ~187 y ViewThatFits pinta el último candidato aunque no quepa")
-
-        let completo = mide(AnyView(hud.contadorNucleo(conHilo: true, conLectura: true, compacto: false)))
-        XCTAssertLessThanOrEqual(completo, 500,
-            "el nivel completo pide \(Int(completo)) pt; por encima de 500 ni el hueco holgado lo salva")
+        XCTAssertEqual(s.fixedRoundsDone, 2)
+        XCTAssertEqual(s.livePicture.primary, .closeTramo)
         s.stop()
     }
 

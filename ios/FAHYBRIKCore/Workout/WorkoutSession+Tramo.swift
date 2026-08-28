@@ -170,15 +170,9 @@ extension WorkoutSession {
     /// surface keys off, whichever engine produced it.
     var isTramoResting: Bool {
         if isExtraWork { return false }
+        if restRemainingSeconds > 0 { return true }
         if isRunStructureActive { return !isRunCountIn && !isRunLegWork }
-        if currentSegment?.isEMOM == true {
-            return emomCountInRemaining <= 0 && emomPhase == .rest && emomPhaseRemaining > 0
-        }
-        // Descanso ENTRE ESTACIONES de una lista fija (el 2:00 del HCT). El motor
-        // FIXED no tenía fase de descanso y el `rest_s` prescrito no lo leía nadie:
-        // las estaciones encadenaban sin pausa y el atleta no sabía si parar.
-        if fixedRestRemaining > 0 { return true }
-        return rotPhase == .rest && rotPhaseRemaining > 0
+        return false
     }
 
     /// LA RECUPERACIÓN DE UNA SERIE DE CORRER, CUANDO SE HACE EN MOVIMIENTO.
@@ -200,50 +194,25 @@ extension WorkoutSession {
     var tramoMide: Bool { !isTramoResting || isTramoRecuperandoEnMovimiento }
 
     /// Seconds left of the rest, for the countdown that IS the rest screen.
-    var tramoRestRemaining: Double {
-        if isRunStructureActive { return Swift.max(0, runLegRemaining) }
-        if currentSegment?.isEMOM == true { return Swift.max(0, emomPhaseRemaining) }
-        if fixedRestRemaining > 0 { return fixedRestRemaining }
-        return Swift.max(0, rotPhaseRemaining)
-    }
+    var tramoRestRemaining: Double { Swift.max(0, restRemainingSeconds) }
 
     /// Seconds left of the WORK window when the format boxes it (an EMOM minute, a
     /// Tabata 20 s, a timed run leg). nil when the window ends on work done, not on
     /// a clock — a 500 m bout has no countdown and must not invent one.
     var tramoWorkRemaining: Double? {
-        guard !isTramoResting else { return nil }
-        if isRunStructureActive {
-            return runLegRemaining > 0 ? runLegRemaining : nil
-        }
-        if currentSegment?.isEMOM == true, emomCountInRemaining <= 0 {
-            return Swift.max(0, emomPhaseRemaining)
-        }
-        if isConditioningActive, condCountInRemaining <= 0, rotPhaseRemaining > 0 {
-            return rotPhaseRemaining
-        }
-        // A CLOCK-measured station ("2 min de bici" inside a For Time). The box is
-        // the station's own duration and the tramo clock is what fills it, so the
-        // countdown is honest with or without a machine on the other end.
+        guard !isTramoResting, countInRemaining <= 0 else { return nil }
+        if workRemaining > 0 { return workRemaining }
         let tramo = currentTramo
-        if tramo.isFixedStation, let boxed = tramo.boxedSeconds, boxed > 0,
-           condCountInRemaining <= 0 {
+        if tramo.isFixedStation, let boxed = tramo.boxedSeconds, boxed > 0 {
             return Swift.max(0, Double(boxed) - tramoElapsedSeconds)
         }
         return nil
     }
 
     /// True while ANY engine's 3-2-1 is on screen.
-    var isTramoCountIn: Bool {
-        if isRunStructureActive { return isRunCountIn }
-        if currentSegment?.isEMOM == true { return emomCountInRemaining > 0 }
-        return condCountInRemaining > 0
-    }
+    var isTramoCountIn: Bool { countInRemaining > 0 }
 
-    var tramoCountInRemaining: Double {
-        if isRunStructureActive { return Swift.max(0, runCountInRemaining) }
-        if currentSegment?.isEMOM == true { return Swift.max(0, emomCountInRemaining) }
-        return Swift.max(0, condCountInRemaining)
-    }
+    var tramoCountInRemaining: Double { Swift.max(0, countInRemaining) }
 
     /// What the athlete moves to after this window — the second question of every
     /// rest screen. nil on the last round of the last segment, where "luego" is a lie.
@@ -349,20 +318,96 @@ extension WorkoutSession {
     /// ventana) el ancla se fija en cero al entrar, así que no cambia nada.
     var tramoRunCoveredMeters: Double? {
         guard tramoIsRun else { return nil }
-        if isRunStructureActive {
-            let cubiertos = runLegCoveredMeters
-            return cubiertos > 0 ? cubiertos : nil
+        let covered = runProgress.covered(segmentCoveredMeters: segmentRunCoveredForProgress)
+        return covered > 0 ? covered : nil
+    }
+
+    var livePicture: LivePicture {
+        let tramo = currentTramo
+        let primary: LivePicture.Primary
+        if isAwaitingBlockStart {
+            primary = .startBlock
+        } else if countInRemaining > 0 {
+            primary = .skipCountIn
+        } else if restRemainingSeconds > 0, !restEndsTramo {
+            primary = .dismissRest
+        } else if isLastSegment && tramoRoundIndex + 1 >= tramoRoundTotal {
+            primary = .finish
+        } else {
+            primary = .closeTramo
         }
-        // LA CINTA, CUANDO HAY CINTA. Esto es lo que la cabecera prometía desde el
-        // principio y el cuerpo no hacía: se leía sólo el acumulador de Apple, y
-        // `liveRunDistanceMeters` devuelve nil en cuanto la cinta reclama la ventana.
-        // Resultado: con una cinta FTMS conectada, «los metros de esta pierna» eran
-        // nil — ni cuenta atrás en la estación, ni forma de saber que había llegado
-        // a sus 1.000 m. El gemelo por tramo de la cinta ya existía y ya reancla su
-        // cero en cada estación; sólo faltaba mirarlo.
-        if lapBeltOwnsDistance { return tramoBeltDistanceMeters }
-        guard let total = liveRunDistanceMeters else { return nil }
-        return Swift.max(0, total - (tramoGpsStartDistance ?? 0))
+        let figure: LivePicture.Figure
+        if countInRemaining > 0 {
+            figure = .countdown(countInRemaining)
+        } else if restRemainingSeconds > 0, !isTramoRecuperandoEnMovimiento {
+            figure = .countdown(restRemainingSeconds)
+        } else if let m = tramoRunCoveredMeters, tramo.isRun {
+            figure = .meters(m)
+        } else if let m = tramoErgDistanceMeters, tramo.isErg {
+            figure = .meters(m)
+        } else if let c = tramoErgCalories, tramo.isErg {
+            figure = .calories(c)
+        } else if let w = tramoWorkRemaining {
+            figure = .countdown(w)
+        } else {
+            figure = .elapsed(tramoElapsedSeconds)
+        }
+        return LivePicture(
+            label: tramo.label,
+            figure: figure,
+            planLine: tramo.workLine,
+            nextLine: nextTramoLine,
+            primary: primary,
+            score: liveScore,
+            coveredMeters: tramo.isRun ? tramoRunCoveredMeters : nil,
+            restRemaining: restRemainingSeconds,
+            countInRemaining: countInRemaining
+        )
+    }
+
+    /// Score inside the open window. The clock does not own this tap.
+    var liveScore: LivePicture.Score {
+        guard countInRemaining <= 0, restRemainingSeconds <= 0 else { return .none }
+        switch currentSegment?.formatScheme {
+        case .amrap: return .round
+        case .tabata where rotPhase == .work: return .reps
+        default: return .none
+        }
+    }
+
+    func scoreStrike() {
+        switch liveScore {
+        case .round: bumpAmrapRound()
+        case .reps: tabataAddRep()
+        case .none: break
+        }
+    }
+
+    func latchRunProgress() {
+        let key = "\(currentTramo.key)#\(countInRemaining > 0 ? "in" : "go")"
+        _ = runProgress.step(
+            legKey: key,
+            segmentCoveredMeters: segmentRunCoveredForProgress,
+            goal: .open,
+            isDistanceLeg: false,
+            isRunnableNow: false
+        )
+    }
+
+    func considerDistanceClose() {
+        let tramo = currentTramo
+        guard tramo.isRun, let target = tramo.targetDistanceMeters, target > 0 else { return }
+        let runnable = !isPaused && !isFinished && !isAwaitingBlockStart && countInRemaining <= 0
+            && restRemainingSeconds <= 0
+        let key = "\(tramo.key)#go"
+        let closed = runProgress.step(
+            legKey: key,
+            segmentCoveredMeters: segmentRunCoveredForProgress,
+            goal: .distance(meters: target),
+            isDistanceLeg: true,
+            isRunnableNow: runnable
+        )
+        if closed { closeTramo(auto: true) }
     }
 
     /// Fraction of the tramo's goal covered, 0…1 — the ONE progress number, whether
@@ -445,6 +490,7 @@ extension WorkoutSession {
         tramoBeltStartDistance = lapBeltDistanceMeters
         tramoGpsStartDistance = lapGpsDistanceMeters
         stampTramoSampleCursors()
+        latchRunProgress()
         // A device-measured window with no time box starts when the MACHINE starts.
         // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
         // has no business running through any of that.
@@ -474,6 +520,7 @@ extension WorkoutSession {
         tramoPaceSampleStart = 0
         tramoPowerSampleStart = 0
         tramoSpmSampleStart = 0
+        runProgress.reset()
     }
 
     /// What the monitor measured in the window that just closed, as the athlete
@@ -521,7 +568,7 @@ extension WorkoutSession {
     /// Can this window close itself at all right now? The shared guard: the session
     /// has to be live and past its count-in for any automatic transition to be real.
     private var stationCanAutoClose: Bool {
-        !isPaused && !isFinished && !isAwaitingBlockStart && condCountInRemaining <= 0
+        !isPaused && !isFinished && !isAwaitingBlockStart && countInRemaining <= 0
     }
 
     /// The goal has been REACHED on the machine → advance the work cursor.
@@ -569,38 +616,8 @@ extension WorkoutSession {
     /// El cierre a mano no desaparece: la cinta puede caerse, el reloj puede no
     /// estar, y sin metros no hay cierre automático. Esto quita un toque, nunca la
     /// libertad de darlo.
-    func advanceRunStationIfGoalMet(beforeMeters: Double?) {
-        guard stationCanAutoClose else { return }
-        let tramo = currentTramo
-        // SÓLO una ESTACIÓN de una lista fija. Es la ventana que nadie más puede
-        // cerrar: el bloque mixto se pliega en un segmento sin distancia, así que la
-        // pantalla de la cinta lo ve «abierto» y no lo toca. Una carrera continua o
-        // una serie estructurada SÍ tienen dueño en la pantalla (`ownsAutoAdvance`),
-        // y meterse ahí las cerraría dos veces. Un dueño por ventana.
-        guard tramo.isFixedStation else { return }
-        guard tramo.isRun, let target = tramo.targetDistanceMeters, target > 0 else { return }
-        guard let now = tramoRunCoveredMeters, now >= target, (beforeMeters ?? 0) < target else { return }
-        routeAutomaticStationAdvance(tramo: tramo)
-    }
-
-    /// Adónde va un cierre AUTOMÁTICO de ventana, según qué cursor la posee. Una sola
-    /// copia para el ergómetro y para la carrera: si mañana aparece un tercer aparato
-    /// que sabe cuándo ha terminado, entra por aquí y no reinventa el reparto.
     private func routeAutomaticStationAdvance(tramo: LiveTramo) {
-        if tramo.isFixedStation {
-            markRoundDone(auto: true)
-        } else if currentSegment?.formatScheme == .intervals {
-            intervalsBoutDone(auto: true)
-        } else if currentSegment?.isConditioningTimer == true,
-                  currentSegment?.formatScheme == .steady {
-            // Steady conditioning block finished its m/cal piece.
-            Haptics.cueGo()
-            closeConditioningAndAdvanceFromMachine()
-        } else {
-            // Plain segment (not a format timer) — classic lap.
-            Haptics.cueGo()
-            lapFromMachine()
-        }
+        closeTramo(auto: true)
     }
 
     /// Re-anchor the tramo device window to the monitor's current cumulative
@@ -613,6 +630,7 @@ extension WorkoutSession {
         tramoStartElapsed = lapElapsedSeconds
         resetBeltWorkElapsed()
         stampTramoSampleCursors()
+        latchRunProgress()
         tramoClockArmed = currentTramo.isErg
             && currentTramo.boxedSeconds == nil
             && !isTramoResting
@@ -625,7 +643,7 @@ extension WorkoutSession {
     func advanceStationIfClockGoalMet() {
         guard stationCanAutoClose else { return }
         guard currentTramo.closesOnClock(elapsedInTramo: tramoElapsedSeconds) else { return }
-        markRoundDone(auto: true)
+        closeTramo(auto: true)
     }
 }
 

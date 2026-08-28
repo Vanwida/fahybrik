@@ -47,8 +47,9 @@ final class TreadmillHUDModel {
     private(set) var latest = TreadmillSample()
     var bleBpm: Int? { hub.bleBpm }
 
-    // Per-leg live accumulation (observed).
-    private(set) var legDistanceM: Double = 0
+    // Per-leg live accumulation (observed). Metres come from the session
+    // RunLegProgress, the same number the map and the livePicture drink.
+    var legDistanceM: Double { session.tramoRunCoveredMeters ?? 0 }
     private(set) var legElapsedS: Double = 0
     private(set) var isComplete = false
     private(set) var paused = false
@@ -103,7 +104,6 @@ final class TreadmillHUDModel {
 
     // Leg identity + timing (wall-clock, pause-aware).
     private var activeLegKey = ""
-    private var autoAdvancedLegKey: String?
     private var legStartedAt = Date()
     private var pausedAccum: TimeInterval = 0
     private var pauseStartedAt: Date?
@@ -518,7 +518,7 @@ final class TreadmillHUDModel {
     ///
     /// Sólo se RELLENA un objetivo ausente; nunca se pisa uno que el segmento ya
     /// traía. Y no se toca `ownsAutoAdvance`: el cierre de una estación lo hace el
-    /// motor (`advanceRunStationIfGoalMet`), y dos dueños la cerrarían dos veces.
+    /// motor (`considerDistanceClose`), y dos dueños la cerrarían dos veces.
     private func withStationGoal(_ leg: TreadmillLeg) -> TreadmillLeg {
         guard leg.goal == .open,
               session.currentTramo.isFixedStation,
@@ -697,7 +697,6 @@ final class TreadmillHUDModel {
 
         updateLegDistance(from: merged)
         accumulateAverages(from: merged)
-        maybeAutoAdvance()
     }
 
     private func tick() {
@@ -714,7 +713,6 @@ final class TreadmillHUDModel {
                 legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
             }
         }
-        maybeAutoAdvance()
         feedAudioCoach()
     }
 
@@ -753,11 +751,10 @@ final class TreadmillHUDModel {
         // On a cover REOPEN the leg already covered this much — seed the ring so it
         // resumes there instead of at zero (the tracker is fresh, so its first sample
         // contributes 0 and nothing is double-counted).
-        if let rehydrated = pendingRehydratedLegDistanceM {
-            legDistanceM = max(legDistanceM, rehydrated)
+        if pendingRehydratedLegDistanceM != nil {
             pendingRehydratedLegDistanceM = nil
         }
-        legDistanceM += beltTracker.increment(from: sample)
+        _ = beltTracker.increment(from: sample)
     }
 
     /// On a REOPEN of the treadmill cover mid-run this model is fresh (legDistanceM 0)
@@ -771,7 +768,6 @@ final class TreadmillHUDModel {
         guard !isStructured, !isSeries else { return }
         let already = session.lapBeltDistanceMeters
         guard already > 0 else { return }
-        legDistanceM = already
         pendingRehydratedLegDistanceM = already
     }
 
@@ -783,19 +779,6 @@ final class TreadmillHUDModel {
         // too would count every reading twice.
         if let v = sample.inclinePct { inclineSum += v; inclineCount += 1 }
         if let v = currentBpm { bpmSum += v; bpmCount += 1 }
-    }
-
-    /// Drive the advance ONLY for legs we own; the session rolls the rest on its
-    /// own clock. Fires once per leg.
-    private func maybeAutoAdvance() {
-        guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
-        let leg = currentLeg
-        guard leg.ownsAutoAdvance, autoAdvancedLegKey != activeLegKey else { return }
-        guard leg.goal.isComplete(distanceM: legDistanceM, elapsedS: legElapsedEffective) else { return }
-        isComplete = true
-        Haptics.success()
-        autoAdvancedLegKey = activeLegKey
-        session.primaryAdvance()   // segment for a continuous run, bout for a series
     }
 
     // MARK: - Leg state
@@ -832,7 +815,6 @@ final class TreadmillHUDModel {
     }
 
     private func resetLegState() {
-        legDistanceM = 0
         legElapsedS = 0
         isComplete = false
         legStartedAt = Date()

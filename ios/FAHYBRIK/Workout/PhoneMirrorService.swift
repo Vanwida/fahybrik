@@ -435,7 +435,6 @@ final class PhoneMirrorService {
             // advanceRelay() (the same path the phone's "Relevo ▸" uses): it logs NO
             // lap for the athlete. Falling through to primaryAdvance() → lap() would
             // record the partner's station as the athlete's work and corrupt volume.
-            else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
             // Un dedo en la muñeca rebota igual que uno en el móvil (card 113).
             else { session.primaryAdvance(fromAthleteTap: true) }
@@ -481,40 +480,19 @@ final class PhoneMirrorService {
         // ActiveWorkoutView.modalityHUD, which branches on isRunStructureActive BEFORE
         // the conditioning HUD. The folded-block seg.title / previewWorkLine are frozen
         // across every tramo, so reading them here would pin "tramo 1" on the wrist.
+        let picture = session.livePicture
         let lineTitle: String?
         let detailLine: String?
-        if session.isRunStructureActive, let leg = session.currentRunLeg {
-            let lines = runLegLines(leg)
-            lineTitle = lines.title
-            detailLine = lines.detail
+        let relay = seg?.doblesSplit?.role == .partner
+        let relayWho = seg?.doblesSplit?.partnerName ?? "Tu compañero"
+        let relayStation = seg?.doblesSplit?.stationLabel ?? seg?.title ?? "estación"
+        let splitLine = seg?.doblesSplit?.liveSplitLine
+        if relay {
+            lineTitle = "\(relayWho) hace \(relayStation)"
+            detailLine = "Recupera — siguiente: tú"
         } else {
-            // #23 — a HYROX dobles relay station reads on the mirrored wrist as the
-            // relay ("{partner} hace SkiErg" / "Recupera — siguiente: tú"), not as work
-            // the athlete performs. A SHARED station (.split) carries the reparto pact
-            // in detailLine ("Tú 60 / Guillem 40 · alterna 250m"); non-dobles keeps the
-            // work line. partnerName / splitLine ride on the split when present.
-            let relay = seg?.doblesSplit?.role == .partner
-            let relayWho = seg?.doblesSplit?.partnerName ?? "Tu compañero"
-            let relayStation = seg?.doblesSplit?.stationLabel ?? seg?.title ?? "estación"
-            let splitLine = seg?.doblesSplit?.liveSplitLine
-            if relay {
-                lineTitle = "\(relayWho) hace \(relayStation)"
-                detailLine = "Recupera — siguiente: tú"
-            } else if session.isStationTramo {
-                // A ROUTE (a For Time / HYROX sim walked station by station). The
-                // folded segment title is every movement of the block joined with
-                // dots and its work line is the block's — both frozen from the first
-                // station to the last, so the wrist would say the same thing for
-                // twenty minutes. The TRAMO says which station he is on and what it
-                // asks for, and it changes the instant he moves — whether he tapped
-                // or the monitor closed the piece for him.
-                let tramo = session.currentTramo
-                lineTitle = tramo.label
-                detailLine = splitLine ?? tramo.workLine
-            } else {
-                lineTitle = seg?.title
-                detailLine = splitLine ?? seg?.previewWorkLine
-            }
+            lineTitle = picture.label
+            detailLine = splitLine ?? picture.planLine
         }
 
         // #56 — the current dobles turn (mine/partner/split + rep reparto), so the
@@ -676,18 +654,15 @@ final class PhoneMirrorService {
             objetivoEsCalorias = false
         } else if let metros = tramo.targetDistanceMeters {
             objetivoMedida = metros
-            // Correr: la cinta si la hay, el GPS si no. Es la MISMA regla que usa
-            // el motor para el ritmo de la pierna, así que ritmo y metros no
-            // pueden contar cosas distintas.
-            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            hecho = session.livePicture.coveredMeters
             objetivoEsCalorias = false
         } else if let cal = tramo.targetCalories {
             objetivoMedida = Double(cal)
-            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            hecho = session.livePicture.coveredMeters
             objetivoEsCalorias = true
         } else {
             objetivoMedida = nil
-            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            hecho = session.livePicture.coveredMeters
             objetivoEsCalorias = false
         }
 
@@ -758,20 +733,6 @@ final class PhoneMirrorService {
         case .tooSlow:  return "tooSlow"
         case .unknown:  return "unknown"
         }
-    }
-
-    // A structured-run leg → the wrist's work line + objetivo line, from the SAME leg
-    // cursor the phone HUD drives. Reuses the shared RunLegDisplay / RunPaceModel
-    // formatting (never a fabricated string): a WORK leg reads its measure + objetivo
-    // ("800 m" / "4:25–4:35 /km"); a RECOVERY reads "Recupera <modo>" + its measure.
-    private func runLegLines(_ leg: RunLeg) -> (title: String, detail: String?) {
-        let measure = RunLegDisplay.measureLabel(leg)
-        if leg.isRecovery {
-            let mode = RunLegDisplay.recoveryModeWord(leg.recoveryMode)
-            return (mode.isEmpty ? "Recupera" : "Recupera \(mode)",
-                    measure.isEmpty ? nil : measure)
-        }
-        return (measure.isEmpty ? "Corre" : measure, leg.objetivoLabel)
     }
 
     // The fields that gate a resend: everything EXCEPT the free-running clocks
@@ -871,31 +832,9 @@ final class PhoneMirrorService {
     // The active format countdown (count-in, EMOM interval, AMRAP/steady window, or
     // a rotating phase), in seconds — nil when the format runs an open count-up.
     private func countdown(_ session: WorkoutSession) -> Double? {
-        // A structured run: the 3-2-1 pre-roll first, then a TIME tramo's count-down;
-        // a DISTANCE tramo has NO countdown (nil → the wrist hero shows elapsed/measure,
-        // not a fabricated clock). Painting the pre-roll here is what removes the ~3s
-        // offset — the phone excludes the count-in from the leg clock, so the wrist must
-        // too, instead of counting up a lapElapsed that accrued during the pre-roll.
-        if session.isRunStructureActive {
-            if session.runCountInRemaining > 0 { return session.runCountInRemaining }
-            return session.currentRunLeg?.isTimed == true ? session.runLegRemaining : nil
-        }
-        let seg = session.currentSegment
-        if seg?.isEMOM == true {
-            if session.emomCountInRemaining > 0 { return session.emomCountInRemaining }
-            return session.emomPhaseRemaining > 0 ? session.emomPhaseRemaining : nil
-        }
-        if session.isConditioningActive, let scheme = seg?.formatScheme {
-            if session.condCountInRemaining > 0 { return session.condCountInRemaining }
-            switch scheme.presentation {
-            case .fixed, .continuous:
-                if seg?.formatTotalSeconds != nil { return session.condRemaining }
-            case .rotating:
-                return session.rotPhaseRemaining > 0 ? session.rotPhaseRemaining : nil
-            default:
-                break
-            }
-        }
+        if session.countInRemaining > 0 { return session.countInRemaining }
+        if session.restRemainingSeconds > 0 { return session.restRemainingSeconds }
+        if case .countdown(let s) = session.livePicture.figure { return s }
         return nil
     }
 

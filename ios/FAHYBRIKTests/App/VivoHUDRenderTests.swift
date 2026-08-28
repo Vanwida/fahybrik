@@ -36,9 +36,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let sesion = sesionDeEmom(zonas: Self.zonas())
         sesion.liveHRBpm = 165        // Z4 con el umbral de 170 — donde vive un EMOM
         let imagen = render(lienzo(sesion) {
-            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {}) {
-                Self.cromo("EMOM 12")
-            }
+            Self.lecturaViva(sesion, cromo: Self.cromo("EMOM 12"))
         }, nombre: "emom-vivo-con-pulso")
         XCTAssertNotNil(imagen, "El EMOM en vivo tiene que renderizar con pulso")
     }
@@ -49,9 +47,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // no el pulso. Lo único que desaparece es el tinte y el chip (§7).
         let sesion = sesionDeEmom(zonas: nil)
         let imagen = render(lienzo(sesion) {
-            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {}) {
-                Self.cromo("EMOM 12")
-            }
+            Self.lecturaViva(sesion, cromo: Self.cromo("EMOM 12"))
         }, nombre: "emom-vivo-sin-ancla-fc")
         XCTAssertNotNil(imagen, "Sin ancla de FC el EMOM no se rompe: el minuto sigue mandando")
     }
@@ -128,7 +124,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // en esa celda se lee como un parcial de cero; el hueco se dice.
         let sesion = sesionDeForTime()
         let imagen = render(lienzo(sesion) {
-            VStack { ForTimeLiveHUD(session: sesion); Spacer() }
+            VStack { Self.lecturaViva(sesion, cromo: Self.cromo("FOR TIME")); Spacer() }
         }, nombre: "formato-fortime-sin-vueltas")
         XCTAssertTrue(sesion.fixedRoundSplits.isEmpty, "El caso de diseño es ANTES de la primera vuelta")
         XCTAssertNotNil(imagen, "El For Time tiene que sostenerse sin ninguna vuelta hecha")
@@ -299,6 +295,20 @@ final class VivoHUDRenderTests: XCTestCase {
     /// Aquí se imita con la misma altura para que la primera fila del marco pese lo
     /// que pesa de verdad: si la captura se hiciera sin él, el ancla del sujeto
     /// saldría de otro sitio y la imagen mentiría.
+    @ViewBuilder
+    private static func lecturaViva(_ sesion: WorkoutSession, cromo: some View) -> some View {
+        let pic = sesion.livePicture
+        VStack(alignment: .leading, spacing: 8) {
+            cromo
+            Text(pic.label)
+                .font(.system(size: 15, weight: .heavy).italic())
+            Text(pic.primary.label)
+                .font(.system(size: 15, weight: .semibold))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(20)
+    }
+
     @ViewBuilder
     private static func cromo(_ titulo: String) -> some View {
         HStack(spacing: 10) {

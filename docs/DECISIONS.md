@@ -11,6 +11,43 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Un motor live. Se borran las ramas, no se parchean (cards 101, 67, 72, 110, 157, 176)
+
+**Qué fallaba:** el vivo tenía tres relojes (EMOM, conditioning, structured run),
+dos descansos (`restRemainingSeconds` vs un rest de tramo), tres auto-cierres
+de distancia (cinta, GPS, muñeca) y dos superficies (Watch standalone y
+espejo). Cada card era un formato que caía por la rama equivocada. Un if
+Chipper o una vista Watch nueva era el mismo fallo con otro nombre.
+
+**Decidido:** un cursor de tramo (`LiveTramo`), una lectura (`livePicture`),
+HUD = render de esa lectura, Watch = el mismo motor o espejo de esa lectura
+(nunca ambos), un descanso, un `RunLegProgress` en el motor,
+`primaryAdvance` = cerrar tramo. La cifra de carrera bebe el mismo GPS que
+el mapa porque el plan ya no es el hero y no hay tres progresos.
+
+**Qué se elimina:** `tickEMOM` / `tickConditioning` / `tickFixed` /
+`tickRotating` como motores; `conditioningPrimary` y el avance por
+`formatScheme`; `WatchRunLegDriver`; las familias Watch Fixed / StructuredRun /
+Continuous / Emom / RelojDePared; `WorkoutFormatHUDs` + `EmomVivoView`;
+el plan en hero (`800 m`, `4:00` como cifra); el odometro propio de
+`TreadmillHUDModel` para cerrar o pintar metros; dos dueños de finish.
+
+**Qué se conserva:** `LiveTramo`, un `RunLegProgress`, `sampleRunDistance`,
+`sampleErg`, `injectLiveHR`. SetTable, Checklist, y las pantallas 105
+(cinta / calle) no se redibujan.
+
+**NO hacer:** no reconstruir ticks ni HUDs por formato. no mergear PR 90
+(`cursor/watch-live-pause-finish-f195`). no lanzar otro cloud de audit ni
+otro implementer. no tocar 105 / 174 / 175. no inventar xcodebuild SUCCESS
+en Linux. no declarar hecho de producto: Marc prueba Chipper y
+run+recuperación en Mac.
+
+**Dónde:** `WorkoutSession+Clock`, `+Lifecycle.closeTramo`,
+`+Tramo.livePicture`, `RunLegProgress`, `LiveFlowView.LivePicturePage`.
+Inventario: `docs/audits/live-run-patches-root.md`.
+
+---
+
 ## 2026-08-25 · El día se lee por agrupación, no por etiquetas (cards 109 + 173)
 
 **Qué fallaba:** el peek del día era una pila de cards iguales. No se veía si

@@ -53,7 +53,9 @@ extension WorkoutSession {
         guard let seg = currentSegment, seg.isConditioningTimer else { clearConditioning(); return }
         condSegmentIndex = currentSegmentIndex
         condStartElapsed = lapElapsedSeconds          // provisional; reset at GO
-        condCountInRemaining = Self.countInSeconds
+        countInRemaining = Self.countInSeconds
+        restEndsTramo = false
+        runProgress.reset()
         fixedRoundsDone = 0
         fixedRoundSplits = []
         ergIntervalBoutsRecorded = 0
@@ -112,127 +114,16 @@ extension WorkoutSession {
         }
     }
 
-    private func startRotatingFirstPhase(_ seg: WorkoutSegment) {
+    func startRotatingFirstPhase(_ seg: WorkoutSegment) {
         guard seg.formatScheme?.presentation == .rotating else { return }
         rotPhase = .work
-        rotPhaseRemaining = Double(workPhaseSeconds(seg) ?? 0)
+        workRemaining = Double(workPhaseSeconds(seg) ?? 0)
+        restRemainingSeconds = 0
+        restEndsTramo = false
         resetBeltWorkElapsed()
     }
 
-    private func skipCondCountIn() {
-        guard let seg = currentSegment else { return }
-        condCountInRemaining = 0
-        condStartElapsed = lapElapsedSeconds
-        startRotatingFirstPhase(seg)
-        reanchorTramoDeviceWindowAtGo()
-        WorkoutAudio.shared.playGo()
-        Haptics.cueGo()
-    }
-
-    func tickConditioning(dt: Double) {
-        guard let seg = currentSegment, let scheme = seg.formatScheme else { return }
-
-        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
-        if condCountInRemaining > 0 {
-            let before = condCountInRemaining
-            condCountInRemaining = max(0, before - dt)
-            if before.rounded(.up) != condCountInRemaining.rounded(.up) {
-                if condCountInRemaining <= 0 {
-                    condStartElapsed = lapElapsedSeconds      // GO — the format clock starts now
-                    startRotatingFirstPhase(seg)
-                    reanchorTramoDeviceWindowAtGo()
-                    WorkoutAudio.shared.playGo()
-                    Haptics.cueGo()
-                } else {
-                    WorkoutAudio.shared.playTick()
-                    Haptics.cueTick()
-                }
-            }
-            return
-        }
-
-        switch scheme.presentation {
-        case .rotating:
-            let phaseDt = (rotPhase == .work && tramoIsRun)
-                ? BeltWorkClock.workTick(wallDt: dt, surface: beltClockSurface,
-                                         window: .work, beltMoving: treadmillBeltWorking)
-                : dt
-            tickRotating(dt: phaseDt, seg: seg, scheme: scheme)
-        case .fixed:      tickFixed(dt: dt, seg: seg)
-        case .continuous: tickDeadline(dt: dt, seg: seg)
-        case .setTable, .list, .unknown: break
-        }
-    }
-
-    // FIXED — AMRAP counts DOWN a fixed window and closes at 0:00; a capped For
-    // Time counts UP and closes when the cap is hit (the capped finish). An open
-    // For Time has no deadline → it just counts up until "Hecho".
-    private func tickFixed(dt: Double, seg: WorkoutSegment) {
-        // DESCANSO entre estaciones: mientras corre, la siguiente estación NO empieza
-        // — ni su reloj ni su goal automático. Si no se parara aquí, el 2:00 del
-        // protocolo se lo comería la estación siguiente sin que nadie lo viera.
-        if fixedRestRemaining > 0 {
-            let before = fixedRestRemaining
-            let after = before - dt
-            for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-                WorkoutAudio.shared.playTick()
-                Haptics.cueTick()
-            }
-            if after <= 0 {
-                fixedRestRemaining = 0
-                fixedRestTotal = 0
-                WorkoutAudio.shared.playIntervalStart()
-                Haptics.cueGo()
-            } else {
-                fixedRestRemaining = after
-            }
-            tickDeadline(dt: dt, seg: seg)
-            return
-        }
-        // A CLOCK-measured station inside the route ("2 min de bici") ends on its own
-        // seconds — the one station transition that needs no machine, because the
-        // thing that measures it is the clock this tick is already running. Checked
-        // before the block deadline so a station never outlives the cap.
-        advanceStationIfClockGoalMet()
-        tickDeadline(dt: dt, seg: seg)
-    }
-
-    // Shared deadline tick for AMRAP / capped For-Time / Steady: tick the final 3s,
-    // bocina + close at zero. No-op when the format has no cap/window (open clock).
-    private func tickDeadline(dt: Double, seg: WorkoutSegment) {
-        guard let total = seg.formatTotalSeconds else { return }
-        let remaining = Double(total) - condElapsed
-        let before = remaining + dt
-        for boundary in [3.0, 2.0, 1.0] where before > boundary && remaining <= boundary {
-            WorkoutAudio.shared.playTick()
-            Haptics.cueTick()
-        }
-        if remaining <= 0 {
-            WorkoutAudio.shared.playFinish()
-            Haptics.cueFinish()
-            closeConditioningAndAdvance()
-        }
-    }
-
-    // ROTATING — count DOWN the current phase, tick the last 3s, roll at zero.
-    private func tickRotating(dt: Double, seg: WorkoutSegment, scheme: PrescriptionScheme) {
-        // A distance-based interval bout has no fixed duration → it waits for
-        // "Serie hecha" / a GPS auto-lap; nothing to tick down.
-        guard rotPhaseRemaining > 0 else { return }
-        let before = rotPhaseRemaining
-        let after = before - dt
-        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-            WorkoutAudio.shared.playTick()
-            Haptics.cueTick()
-        }
-        if after <= 0 {
-            rollRotatingPhase(seg: seg, scheme: scheme)
-        } else {
-            rotPhaseRemaining = after
-        }
-    }
-
-    private func rollRotatingPhase(seg: WorkoutSegment, scheme: PrescriptionScheme) {
+    func rollRotatingPhase(seg: WorkoutSegment, scheme: PrescriptionScheme) {
         switch scheme {
         case .deathBy:
             advanceDeathByMinute()          // a completed minute = an implicit "logré"
@@ -243,7 +134,10 @@ extension WorkoutSession {
                 if scheme == .intervals { recordErgIntervalBout(at: rotRoundIndex) }
                 if let rest = seg.formatRestSeconds {
                     rotPhase = .rest
-                    rotPhaseRemaining = Double(rest)
+                    restRemainingSeconds = Double(rest)
+                    restTotalSeconds = Double(rest)
+                    restEndsTramo = true
+                    workRemaining = 0
                     // "Para" — NOT the movement-change tone this used to borrow, which
                     // is the cue for "next round, different movement". Under effort the
                     // two must not sound alike.
@@ -293,30 +187,7 @@ extension WorkoutSession {
         Haptics.cueGo()
     }
 
-    // The bottom primary button, routed by scheme.
-    func conditioningPrimary(_ seg: WorkoutSegment) {
-        if condCountInRemaining > 0 { skipCondCountIn(); return }
-        switch seg.formatScheme {
-        case .amrap:                                          bumpAmrapRound()
-        case .tabata:                                         tabataAddRep()
-        case .intervals:                                      intervalsBoutDone()
-        case .deathBy:                                        deathByLogged()
-        // A ROUTE closes one STATION at a time: the big button and the active line
-        // do the same thing, and the last station closes the block on its own. Only
-        // a format with nothing smaller than itself to close ends the block outright
-        // — otherwise the biggest button on the screen skipped the rest of the WOD.
-        // Una lista de RONDAS tiene algo más pequeño que ella misma: la ronda. El
-        // mismo principio — el botón cierra RONDA a ronda y la última cierra el
-        // bloque sola (11-ago, el contador de rondas).
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            if seg.fixedListIsStations || fixedListTotal > 1 { markRoundDone() }
-            else { closeConditioningAndAdvance() }
-        case .steady:                                         closeConditioningAndAdvance()
-        default:                                              lap()
-        }
-    }
-
-    // MARK: Conditioning actions (called by the format HUDs / the view)
+    // MARK: Conditioning actions (score and station close)
 
     /// AMRAP "+ Ronda" — one tap per completed round; the partial-round rep tally
     /// resets for the new round. The block auto-closes when the window hits 0:00.
@@ -414,12 +285,14 @@ extension WorkoutSession {
             s.rotationSet(at: closedStation)?.restS ?? s.prescription?.restS
         } ?? 0
         guard rest > 0 else {
-            fixedRestRemaining = 0
-            fixedRestTotal = 0
+            restRemainingSeconds = 0
+            restTotalSeconds = 0
+            restEndsTramo = false
             return
         }
-        fixedRestTotal = Double(rest)
-        fixedRestRemaining = Double(rest)
+        restTotalSeconds = Double(rest)
+        restRemainingSeconds = Double(rest)
+        restEndsTramo = false
     }
 
     /// Cortar el descanso y entrar ya en la siguiente estación. El descanso de un

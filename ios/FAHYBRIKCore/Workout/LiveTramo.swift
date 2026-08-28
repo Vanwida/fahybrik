@@ -272,6 +272,15 @@ extension WorkoutSegment {
         }
     }
 
+    /// A strike on this list closes a tramo (station or round). AMRAP strikes
+    /// are score inside the same window; they are not a cursor.
+    var strikesAreTramos: Bool {
+        if fixedListIsStations { return true }
+        guard formatScheme?.presentation == .fixed, formatScheme != .amrap else { return false }
+        let lines = formatRounds ?? declaredComponents.count
+        return lines > 1
+    }
+
     /// Seconds a station is boxed to, when its own work is measured BY THE CLOCK
     /// ("2 min de bici" inside a For Time). The app owns that measurement with no
     /// machine involved, so the window ends when the seconds are done exactly as an
@@ -331,4 +340,64 @@ extension WorkoutSegment {
             boxedSeconds: boxedSeconds
         )
     }
+}
+
+// MARK: - Live reading
+
+/// What the athlete reads RIGHT NOW. HUD and Watch render this. They do not
+/// own a clock, a rest, or a distance close.
+struct LivePicture: Equatable {
+    enum Figure: Equatable {
+        case meters(Double)
+        case calories(Int)
+        case countdown(Double)
+        case elapsed(Double)
+        case reps(Int)
+        case none
+    }
+
+    enum Primary: Equatable {
+        case startBlock
+        case skipCountIn
+        case dismissRest
+        case closeTramo
+        case finish
+
+        var label: String {
+            switch self {
+            case .startBlock: return "EMPEZAR"
+            case .skipCountIn: return "SALTAR"
+            case .dismissRest: return "SEGUIR"
+            case .closeTramo: return "HECHO"
+            case .finish: return "TERMINAR"
+            }
+        }
+    }
+
+    /// Intra-window log. Not a second clock. AMRAP rounds and Tabata reps live here.
+    enum Score: Equatable {
+        case none
+        case round
+        case reps
+
+        var label: String? {
+            switch self {
+            case .none: return nil
+            case .round: return "+ RONDA"
+            case .reps: return "+ REPS"
+            }
+        }
+    }
+
+    var label: String
+    var figure: Figure
+    /// Prescription of this window ("800 m"). Never the hero figure.
+    var planLine: String?
+    var nextLine: String?
+    var primary: Primary
+    var score: Score
+    /// Same metres the map / GPS stream just wrote. Nil when this window is not a run.
+    var coveredMeters: Double?
+    var restRemaining: Double
+    var countInRemaining: Double
 }

@@ -4,6 +4,49 @@ import Foundation
 // cae, qué zona marca el pulso y a qué ritmo se está cubriendo. Puras lecturas — si
 // algo de aquí escribe, está en el fichero equivocado.
 extension WorkoutSession {
+    /// Old names read the one clock. They are not a second engine.
+    var emomCountInRemaining: Double {
+        get { countInRemaining }
+        set { countInRemaining = newValue }
+    }
+    var condCountInRemaining: Double {
+        get { countInRemaining }
+        set { countInRemaining = newValue }
+    }
+    var runCountInRemaining: Double {
+        get { countInRemaining }
+        set { countInRemaining = newValue }
+    }
+    var emomPhaseRemaining: Double {
+        get { emomPhase == .rest ? restRemainingSeconds : workRemaining }
+        set {
+            if emomPhase == .rest { restRemainingSeconds = newValue }
+            else { workRemaining = newValue }
+        }
+    }
+    var rotPhaseRemaining: Double {
+        get { rotPhase == .rest ? restRemainingSeconds : workRemaining }
+        set {
+            if rotPhase == .rest { restRemainingSeconds = newValue }
+            else { workRemaining = newValue }
+        }
+    }
+    var runLegRemaining: Double {
+        get { isRunLegWork ? workRemaining : restRemainingSeconds }
+        set {
+            if isRunLegWork { workRemaining = newValue }
+            else { restRemainingSeconds = newValue }
+        }
+    }
+    var fixedRestRemaining: Double {
+        get { restRemainingSeconds }
+        set { restRemainingSeconds = newValue }
+    }
+    var fixedRestTotal: Double {
+        get { restTotalSeconds }
+        set { restTotalSeconds = newValue }
+    }
+
     var currentSegment: WorkoutSegment? {
         guard currentSegmentIndex < plan.segments.count else { return nil }
         return plan.segments[currentSegmentIndex]
@@ -89,10 +132,13 @@ extension WorkoutSession {
     /// Los metros cubiertos en la PIERNA en curso — cinta si la hay, GPS si no.
     /// Una sola regla, para que el ritmo de la pierna y los metros que se pintan
     /// no puedan contar cosas distintas de la misma carrera.
+    var segmentRunCoveredForProgress: Double {
+        if lapBeltOwnsDistance { return lapBeltDistanceMeters }
+        return lapGpsDistanceMeters ?? 0
+    }
+
     var runLegCoveredMeters: Double {
-        let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
-        let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
-        return beltDelta > 0 ? beltDelta : gpsDelta
+        runProgress.covered(segmentCoveredMeters: segmentRunCoveredForProgress)
     }
 
     var liveCoveredPaceSecPerKm: Int? {

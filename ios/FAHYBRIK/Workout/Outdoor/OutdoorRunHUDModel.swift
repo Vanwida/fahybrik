@@ -37,7 +37,6 @@ final class OutdoorRunHUDModel {
     private let gps: RunLocationProvider
     private var smoother = RunPaceSmoother()
     private var autoPauseCtl = RunAutoPause()
-    private var legProgress = RunLegProgress()
     private let liveActivity = RunLiveActivityController()
 
     private var routePoints: [RoutePoint] = []
@@ -196,7 +195,6 @@ final class OutdoorRunHUDModel {
         livePaceSecPerKm = smoother.paceSecPerKm(now: t)
         legCoveredMeters = coveredLegMeters()
         evaluateAutoPause(now: t)
-        evaluateLegClose()
         feedAudioCoach()
         refreshLiveActivity(now: t)
     }
@@ -211,9 +209,7 @@ final class OutdoorRunHUDModel {
     /// each running station at zero on its own. On a plain single-tramo run
     /// segment the anchor is zero and the number is identical to `coveredMeters`.
     private func coveredLegMeters() -> Double {
-        isStructured
-            ? legProgress.covered(segmentCoveredMeters: coveredMeters)
-            : (session.tramoRunCoveredMeters ?? 0)
+        session.tramoRunCoveredMeters ?? 0
     }
 
     // MARK: Auto-pause
@@ -237,23 +233,6 @@ final class OutdoorRunHUDModel {
         case .release: session.autoResume(); Haptics.light()
         case .none: break
         }
-    }
-
-    // MARK: GPS distance-leg auto-close (structured only — mirrors WatchRunLegDriver)
-
-    private func evaluateLegClose() {
-        guard isStructured else { return }
-        let key = "\(session.currentSegmentIndex)#\(session.runLegIndex)#\(session.isRunCountIn ? "in" : "go")"
-        let runnable = !session.isPaused && !session.isFinished
-            && !session.isAwaitingBlockStart && !session.isRunCountIn
-        let advance = legProgress.step(
-            legKey: key,
-            segmentCoveredMeters: coveredMeters,
-            goal: session.currentRunLeg?.goal ?? .open,
-            isDistanceLeg: session.currentRunLegIsDistance,
-            isRunnableNow: runnable
-        )
-        if advance { Haptics.success(); session.primaryAdvance() }
     }
 
     // MARK: Audio coach (GPS pace + continuous km splits)

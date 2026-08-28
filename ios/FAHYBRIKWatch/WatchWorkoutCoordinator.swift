@@ -31,13 +31,6 @@ final class WatchWorkoutCoordinator {
     /// read `coordinator.session?.…` in their body update every tick.
     private(set) var session: WorkoutSession?
 
-    /// #68 — the structured-run DISTANCE-leg driver, owned here with WORKOUT lifetime
-    /// (created at launch, stopped at reset). Living on the coordinator — not the
-    /// structured view — is what makes a DISTANCE tramo auto-close even while the
-    /// athlete has paged to another watch screen, and keeps its per-leg baseline
-    /// across the view being recreated by watchOS paging. Nil until a session starts.
-    private(set) var runLegDriver: WatchRunLegDriver?
-
     /// HealthKit live session (HR / kcal / distance + the workout save). Owned here
     /// and driven purely as a metric source; the engine is the UI clock authority.
     let live = LiveWorkoutSession()
@@ -221,13 +214,6 @@ final class WatchWorkoutCoordinator {
         }
 
         engine.start()
-        // #68 — the per-leg distance driver runs for the WHOLE session: it reads the
-        // covered distance the HK stream feeds into the engine and closes a DISTANCE
-        // tramo via the same primaryAdvance() the treadmill uses. Owning it here (not
-        // in the view) makes the auto-close independent of which page is on screen.
-        let driver = WatchRunLegDriver(session: engine)
-        runLegDriver = driver
-        driver.start()
         WatchHaptics.start()
 
         // Fase 0 — inertial capture rides with the HK workout. Live processing
@@ -484,8 +470,6 @@ final class WatchWorkoutCoordinator {
     /// leaks into a new session.
     func reset() {
         session?.stop()
-        runLegDriver?.stop()
-        runLegDriver = nil
         stopSensorTick()
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         live.onHeartRate = nil

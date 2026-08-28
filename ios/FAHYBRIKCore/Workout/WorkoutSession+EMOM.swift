@@ -20,8 +20,11 @@ extension WorkoutSession {
         emomIntervalIndex = 0
         emomCompletedIntervals = 0
         emomPhase = .work
-        emomPhaseRemaining = Double(plan.workSeconds)
-        emomCountInRemaining = Self.countInSeconds
+        workRemaining = Double(plan.workSeconds)
+        restRemainingSeconds = 0
+        restEndsTramo = false
+        countInRemaining = Self.countInSeconds
+        runProgress.reset()
         WorkoutAudio.shared.activate()
         WorkoutAudio.shared.playTick()   // the opening "3" of the 3-2-1 count-in
     }
@@ -34,16 +37,6 @@ extension WorkoutSession {
         emomPhase = .work
         emomPhaseRemaining = 0
         emomCompletedIntervals = 0
-    }
-
-    func skipCountIn() {
-        guard let plan = currentSegment?.emomPlan else { return }
-        emomCountInRemaining = 0
-        emomPhase = .work
-        emomPhaseRemaining = Double(plan.workSeconds)
-        reanchorTramoDeviceWindowAtGo()
-        WorkoutAudio.shared.playGo()
-        Haptics.cueGo()
     }
 
     // Advance to the next EMOM interval, or close the block on the last one. Reached
@@ -110,49 +103,6 @@ extension WorkoutSession {
         }
     }
 
-    // Drive the EMOM count-in and per-PHASE countdown. Fires the count-in ticks +
-    // "go", the last-3s ticks, the end-of-work cue (interval EMOMs only), the
-    // top-of-interval beep and the auto-roll to the next interval (or the block
-    // close on the last one). Runs off the same 0.25s tick as the main clock.
-    func tickEMOM(dt: Double) {
-        guard let plan = currentSegment?.emomPlan else { return }
-
-        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
-        if emomCountInRemaining > 0 {
-            let before = emomCountInRemaining
-            emomCountInRemaining = max(0, before - dt)
-            if before.rounded(.up) != emomCountInRemaining.rounded(.up) {
-                if emomCountInRemaining <= 0 {
-                    emomPhase = .work
-                    emomPhaseRemaining = Double(plan.workSeconds)
-                    reanchorTramoDeviceWindowAtGo()
-                    WorkoutAudio.shared.playGo()
-                    Haptics.cueGo()
-                } else {
-                    WorkoutAudio.shared.playTick()
-                    Haptics.cueTick()
-                }
-            }
-            return
-        }
-
-        // Running phase: count down, tick the final 3 seconds, roll at zero. On an
-        // interval EMOM those ticks now also run into the END OF THE WORK, which is
-        // the whole point of the format — the athlete is warned when to STOP, not
-        // only when to start.
-        let before = emomPhaseRemaining
-        let after = before - dt
-        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-            WorkoutAudio.shared.playTick()
-            Haptics.cueTick()
-        }
-        if after <= 0 {
-            rollEMOMPhase(plan)
-        } else {
-            emomPhaseRemaining = after
-        }
-    }
-
     /// A phase hit zero. An INTERVAL EMOM (explicit transition) closes the WORK
     /// first — the distinct "para" cue + a firm haptic — and only rolls to the next
     /// round when the transition is spent. A plain EMOM has no transition, so its
@@ -165,7 +115,10 @@ extension WorkoutSession {
             // Close THIS station's work (metres / cal / pace) before the change window.
             recordEMOMIntervalBout(at: emomIntervalIndex)
             emomPhase = .rest
-            emomPhaseRemaining = Double(plan.restSeconds)
+            restRemainingSeconds = Double(plan.restSeconds)
+            restTotalSeconds = Double(plan.restSeconds)
+            restEndsTramo = true
+            workRemaining = 0
             WorkoutAudio.shared.playWorkEnd()
             Haptics.cueStop()
             return

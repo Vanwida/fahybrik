@@ -56,7 +56,8 @@ extension WorkoutSession {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { clearRunStructure(); return }
         runStructureSegmentIndex = currentSegmentIndex
         runLegIndex = 0
-        runCountInRemaining = Self.countInSeconds
+        countInRemaining = Self.countInSeconds
+        runProgress.reset()
         primeRunLeg()
         WorkoutAudio.shared.activate()
         WorkoutAudio.shared.playTick()   // opening "3" of the 3-2-1 count-in
@@ -74,7 +75,7 @@ extension WorkoutSession {
     /// Snapshot the per-WORK-leg execution baselines at a leg's GO (#break-2). Each
     /// leg's measured distance / HR / incline / zone is the DIFF between the values at
     /// close and these. Called wherever a leg's clock starts (prime + both GO paths).
-    private func markRunLegStart() {
+    func markRunLegStart() {
         if runEnvironment == .treadmill, treadmillBeltWorking != nil, beltWorkElapsedS > 0 {
             lastTramoElapsedSeconds = beltWorkElapsedS
         }
@@ -92,30 +93,24 @@ extension WorkoutSession {
     /// DISTANCE leg has no clock countdown — the belt / manual close ends it).
     private func primeRunLeg() {
         markRunLegStart()
-        runLegRemaining = currentRunLeg?.durationSeconds.map(Double.init) ?? 0
-    }
-
-    private func skipRunCountIn() {
-        runCountInRemaining = 0
-        markRunLegStart()
-        WorkoutAudio.shared.playGo()
-        Haptics.cueGo()
-        #if os(iOS)
-        AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
-        #endif
-    }
-
-    // The bottom primary button for a structured run ("Tramo hecho" / "Saltar
-    // descanso"): skip the count-in, else advance the current leg.
-    func runStructurePrimary() {
-        if runCountInRemaining > 0 { skipRunCountIn(); return }
-        advanceRunLeg(auto: false)
+        let seconds = currentRunLeg?.durationSeconds.map(Double.init) ?? 0
+        if isRunLegWork {
+            workRemaining = seconds
+            restRemainingSeconds = 0
+            restEndsTramo = false
+        } else {
+            workRemaining = 0
+            restRemainingSeconds = seconds
+            restTotalSeconds = seconds
+            restEndsTramo = seconds > 0
+        }
+        latchRunProgress()
     }
 
     // Advance to the next leg, or close the block on the last one. `auto` = the leg's
     // own TIME countdown rolled over (or the belt auto-closed via primaryAdvance);
     // otherwise the athlete tapped through.
-    private func advanceRunLeg(auto: Bool) {
+    func advanceRunLeg(auto: Bool) {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { return }
         // #break-2: the just-finished leg's OWN measured split (covered distance /
         // duration / pace / HR) is available HERE at the boundary. Record a WORK leg as
@@ -179,46 +174,4 @@ extension WorkoutSession {
     // tramo desde las bases tomadas en su GO — así una pirámide 1200/1000/800 aterriza
     // como tres ritmos honestos y no como una media.
 
-    // Drives the structured-run count-in + the current TIME leg's countdown off the
-    // 0.25s tick. A DISTANCE leg (runLegRemaining == 0) never auto-rolls here — it
-    // waits for the belt (TreadmillHUDModel → primaryAdvance) or a manual "Tramo
-    // hecho". Parallel to tickEMOM / tickConditioning.
-    func tickRunStructure(dt: Double) {
-        // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
-        if runCountInRemaining > 0 {
-            let before = runCountInRemaining
-            runCountInRemaining = Swift.max(0, before - dt)
-            if before.rounded(.up) != runCountInRemaining.rounded(.up) {
-                if runCountInRemaining <= 0 {
-                    markRunLegStart()   // GO — the leg clock + per-leg baselines start now
-                    WorkoutAudio.shared.playGo()
-                    Haptics.cueGo()
-                    #if os(iOS)
-                    AudioCoach.shared.announceRunLeg(in: self)   // voice the first tramo (#63, iOS-only)
-                    #endif
-                } else {
-                    WorkoutAudio.shared.playTick()
-                    Haptics.cueTick()
-                }
-            }
-            return
-        }
-        // TIME leg: count down, tick the final 3s, auto-roll at zero. A DISTANCE leg
-        // has no countdown → nothing to tick.
-        guard runLegRemaining > 0 else { return }
-        let before = runLegRemaining
-        let after = before - dt
-        for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {
-            WorkoutAudio.shared.playTick()
-            Haptics.cueTick()
-        }
-        #if os(iOS)
-        AudioCoach.shared.runLegTimeRemaining(after, in: self)   // once-per-leg "10 segundos" (#63, iOS-only)
-        #endif
-        if after <= 0 {
-            advanceRunLeg(auto: true)
-        } else {
-            runLegRemaining = after
-        }
-    }
 }

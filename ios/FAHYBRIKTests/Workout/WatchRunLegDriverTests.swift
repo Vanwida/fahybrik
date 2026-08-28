@@ -1,18 +1,11 @@
 import XCTest
 @testable import FAHYBRIK
 
-// #68 — the wrist DISTANCE-leg driver (WatchRunLegDriver) on a REAL WorkoutSession.
-// It proves the two properties the team lead required of the design:
-//   (1) a DISTANCE tramo auto-closes from covered distance + a tick — with NO view
-//       involved — so paging away to another watch screen never stops the close;
-//   (2) the per-leg baseline lives with the DRIVER (workout lifetime on the
-//       coordinator), so it survives the structured view being recreated by paging;
-//       a driver rebuilt mid-leg (the rejected per-view design) would lose it.
-// The driver reads the SAME covered distance the HK stream feeds via sampleRunDistance and
-// closes via the SAME primaryAdvance() the treadmill uses (recording stays aggregate).
-final class WatchRunLegDriverTests: XCTestCase {
+// El cierre de una pierna de distancia vive en el motor. GPS, cinta y muñeca
+// escriben `sampleRunDistance` / `sampleTreadmillDistance`. Un RunLegProgress
+// decide. No hay driver de muñeca.
 
-    // MARK: - Builders (mirror StructuredRunEngineTests)
+final class WatchRunLegDriverTests: XCTestCase {
 
     private func work(_ m: RunSegmentMeasure) -> RunElement {
         .segment(RunSegment(kind: .work, measure: m, target: nil, resolved: nil,
@@ -34,65 +27,43 @@ final class WatchRunLegDriverTests: XCTestCase {
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
                                coachNote: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
-        s.start(); s.beginBlock(); s.stop()   // into count-in, cursor preserved, timer off
+        s.start(); s.beginBlock(); s.stop()
         return s
     }
 
-    // (1) Auto-close purely from covered distance + tick() — NO view. A DISTANCE tramo
-    // closes; a TIME recovery is session-owned and the driver never closes it.
-    func testAutoClosesDistanceLegViaTickWithNoView() {
+    func testAutoClosesDistanceLegFromSampleWithoutDriver() {
         let s = structuredSession([main([
             work(.distance(m: 800)), rec(.duration(s: 60), .parado), work(.distance(m: 600)),
         ])])
-        s.primaryAdvance()                    // skip the 3-2-1 → leg 0 (800 m)
-        let driver = WatchRunLegDriver(session: s)
-
-        driver.tick()                         // baseline at 0
-        s.sampleRunDistance(deltaMeters: 500, source: .healthkit); driver.tick()
+        s.primaryAdvance()
+        s.sampleRunDistance(deltaMeters: 500, source: .healthkit)
         XCTAssertEqual(s.runLegIndex, 0)
-        XCTAssertEqual(driver.legCoveredMeters, 500, accuracy: 0.001)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 500, accuracy: 0.001)
+        XCTAssertEqual(s.runProgress.covered(segmentCoveredMeters: s.segmentRunCoveredForProgress), 500, accuracy: 0.001)
 
-        s.sampleRunDistance(deltaMeters: 350, source: .healthkit); driver.tick()   // covered 850 ≥ 800 → close
-        XCTAssertEqual(s.runLegIndex, 1)      // → the recovery (TIME)
+        s.sampleRunDistance(deltaMeters: 350, source: .healthkit)
+        XCTAssertEqual(s.runLegIndex, 1)
         XCTAssertFalse(s.isRunLegWork)
 
-        // Recovery is a TIME leg → covered distance must NOT close it (session clock).
-        s.sampleRunDistance(deltaMeters: 1000, source: .healthkit); driver.tick(); driver.tick()
+        s.sampleRunDistance(deltaMeters: 1000, source: .healthkit)
         XCTAssertEqual(s.runLegIndex, 1)
 
-        s.primaryAdvance()                    // manual "saltar descanso" → leg 2 (600 m)
+        s.primaryAdvance()
         XCTAssertEqual(s.currentRunLeg?.distanceMeters, 600)
-        driver.tick()                         // re-baseline, discarding the recovery overshoot
-        s.sampleRunDistance(deltaMeters: 600, source: .healthkit); driver.tick()   // covered 600 in-leg → close last
-        // The wrist closed the last leg, so the prescribed work is done — and the athlete
-        // is asked once rather than the watch ending his session for him.
+        s.sampleRunDistance(deltaMeters: 600, source: .healthkit)
         XCTAssertTrue(s.isAwaitingFinishDecision)
         XCTAssertFalse(s.isFinished)
         s.finish()
         XCTAssertTrue(s.isFinished)
     }
 
-    // (2) The baseline SURVIVES a view recreation because the driver (not the view)
-    // holds it — and a driver rebuilt mid-leg (the rejected per-view design) loses it.
-    func testBaselineSurvivesViewRecreationButNotDriverRecreation() {
+    func testCoveredLivesOnTheSessionNotOnADriver() {
         let s = structuredSession([main([work(.distance(m: 800))])])
-        s.primaryAdvance()                    // skip count-in → leg 0
-        let driver = WatchRunLegDriver(session: s)
-        driver.tick()                         // baseline 0
-        s.sampleRunDistance(deltaMeters: 400, source: .healthkit); driver.tick()
-        XCTAssertEqual(driver.legCoveredMeters, 400, accuracy: 0.001)
-
-        // A paging-recreated VIEW just re-reads THIS driver → covered is intact.
-        s.sampleRunDistance(deltaMeters: 50, source: .healthkit); driver.tick()
-        XCTAssertEqual(driver.legCoveredMeters, 450, accuracy: 0.001,
-                       "coordinator-owned driver → covered keeps counting from leg start")
-        XCTAssertEqual(s.runLegIndex, 0)      // 450 < 800 → still mid-leg, not miscounted
-
-        // The rejected per-view design: a driver REBUILT mid-leg baselines at the
-        // current reading and loses the in-leg progress — the bug we avoid.
-        let rebuiltMidLeg = WatchRunLegDriver(session: s)
-        rebuiltMidLeg.tick()                  // first tick baselines at covered 450
-        XCTAssertEqual(rebuiltMidLeg.legCoveredMeters, 0, accuracy: 0.001,
-                       "a driver rebuilt mid-leg loses the tramo's progress → must live with workout lifetime")
+        s.primaryAdvance()
+        s.sampleRunDistance(deltaMeters: 400, source: .healthkit)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 400, accuracy: 0.001)
+        s.sampleRunDistance(deltaMeters: 50, source: .healthkit)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 450, accuracy: 0.001)
+        XCTAssertEqual(s.runLegIndex, 0)
     }
 }

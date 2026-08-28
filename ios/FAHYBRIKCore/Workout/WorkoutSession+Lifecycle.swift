@@ -177,7 +177,7 @@ extension WorkoutSession {
     /// puerta. Sólo tienen que marcarlo los dos sitios donde hay un dedo detrás; el
     /// defecto no frena nada, que es el comportamiento de siempre.
     func primaryAdvance(fromAthleteTap: Bool = false) {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, currentSegment != nil else { return }
         if fromAthleteTap {
             let ahora = Date()
             if let ultimo = lastPrimaryAdvanceAt,
@@ -186,18 +186,52 @@ extension WorkoutSession {
             }
             lastPrimaryAdvanceAt = ahora
         }
-        if seg.hasRunStructure {
-            runStructurePrimary()
-        } else if seg.isEMOM {
-            if emomCountInRemaining > 0 { skipCountIn(); return }
+        if countInRemaining > 0 { skipCountIn(); return }
+        if restRemainingSeconds > 0, !restEndsTramo {
+            dismissRest()
+            return
+        }
+        closeTramo(auto: false)
+    }
+
+    /// Close the current window. Manual tap and auto-close (clock, GPS, erg) share this.
+    func closeTramo(auto: Bool = false) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
+        if currentSegmentIsPartnerRelay {
+            advanceRelay()
+            return
+        }
+        if restRemainingSeconds > 0, restEndsTramo {
+            restRemainingSeconds = 0
+            restTotalSeconds = 0
+            restEndsTramo = false
+        }
+        switch currentTramo.cursor {
+        case .runLeg:
+            advanceRunLeg(auto: auto)
+        case .emomInterval:
             guard let plan = seg.emomPlan else { return }
             rollEMOMPhase(plan)
-        } else if seg.isConditioningTimer {
-            conditioningPrimary(seg)
-        } else if seg.usesMultiSetStrength {
-            strengthPrimary()
-        } else {
+        case .fixedStation:
+            markRoundDone(auto: auto)
+        case .conditioningRound:
+            guard let scheme = seg.formatScheme else { return }
+            if scheme == .intervals {
+                intervalsBoutDone(auto: auto)
+            } else {
+                rollRotatingPhase(seg: seg, scheme: scheme)
+            }
+        case .strengthSet:
+            if let i = pendingSetIndex { confirmSet(i); return }
             lap()
+        case .segment:
+            if seg.strikesAreTramos {
+                markRoundDone(auto: auto)
+            } else if seg.isConditioningTimer {
+                closeConditioningAndAdvance()
+            } else {
+                lap()
+            }
         }
     }
 

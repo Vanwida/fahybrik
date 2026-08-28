@@ -1,19 +1,7 @@
 import Foundation
 
-// Per-leg covered-distance tracker for a WRIST-driven structured run (#68). The
-// watch has no belt odometer: covered distance arrives from HealthKit
-// (distanceWalkingRunning), accumulated by the shared engine per SEGMENT
-// (`WorkoutSession.liveRunDistanceMeters`). This value type turns that
-// segment-cumulative distance into the CURRENT leg's covered distance + the
-// auto-close decision for a DISTANCE leg — mirroring the treadmill's per-leg
-// baseline (TreadmillHUDModel.distanceBaselineM): each leg counts from the reading
-// at which it opens, so a prior leg's overshoot is discarded.
-//
-// PURE — no timer, no @Observable, no device. The watch driver is the thin shell
-// that reads the session's public state, calls `step(...)` each display tick, and
-// performs the side effect (`session.primaryAdvance()`) when it returns true. Kept
-// here (shared) so it is unit-tested from FAHYBRIKTests (there is no watch test
-// target).
+// Un progreso de pierna. GPS, cinta y muñeca alimentan el mismo `step`.
+// PURE: no timer, no vista, no segundo cierre.
 
 struct RunLegProgress {
     /// The covered-distance reading captured when the active leg opened. The current
@@ -33,6 +21,13 @@ struct RunLegProgress {
     /// progress readout.
     func covered(segmentCoveredMeters: Double) -> Double {
         max(0, segmentCoveredMeters - baselineMeters)
+    }
+
+    /// New session or discarded window. The next `step` captures a fresh baseline.
+    mutating func reset() {
+        baselineMeters = 0
+        activeKey = ""
+        autoClosedKey = ""
     }
 
     /// Evaluate one display tick. Re-baselines when the active leg changed (a new

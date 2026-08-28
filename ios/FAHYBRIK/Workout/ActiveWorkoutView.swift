@@ -210,10 +210,6 @@ struct ActiveWorkoutView: View {
                 // pantalla que ya no tiene nada detrás.
                 Ambiente(zona: session.liveZone)
                 switch viva {
-                case .emom:
-                    EmomVivoView(session: session,
-                                 accionTitulo: primaryTitle,
-                                 alTocarAccion: { primaryAction() }) { topStrip }
                 case .fuerza:
                     FuerzaVivoView(session: session,
                                    accionTitulo: primaryTitle,
@@ -952,7 +948,7 @@ struct ActiveWorkoutView: View {
 
     private var relayButton: some View {
         ExpertPrimaryButton(title: "Relevo ▸", height: 56, enabled: true) {
-            session.advanceRelay()
+            session.primaryAdvance(fromAthleteTap: true)
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.bottom, Theme.Spacing.l)
@@ -987,7 +983,7 @@ struct ActiveWorkoutView: View {
     // pintar seis vistas y dos a la vez, con reglas distintas de ritmo y de cierre.
     // Ahora hay UNA por lo que estás haciendo, y cuál de las dos lo decide la
     // respuesta que ya diste al empezar («¿dónde corres?», la puerta del bloque).
-    private enum SuperficieViva { case emom, fuerza, correrFuera, correrCinta }
+    private enum SuperficieViva { case fuerza, correrFuera, correrCinta }
 
     /// Qué superficie del §10 posee la pantalla ahora mismo, o nil cuando manda el
     /// árbol de siempre.
@@ -1020,9 +1016,8 @@ struct ActiveWorkoutView: View {
         }
         if session.isTramoResting { return nil }
         if session.tramoIsErg { return nil }
-        if session.currentSegment?.isEMOM == true { return .emom }
-        // Los formatos de acondicionamiento conservan su cronómetro dedicado.
         if session.currentSegment?.isConditioningTimer == true { return nil }
+        if session.currentSegment?.isEMOM == true { return nil }
         if session.currentSegment?.formatScheme == .unknown { return nil }
         // Y el resto es el suelo honesto de fuerza/reps — el mismo reparto que
         // hacía el `switch` de `modalityHUD`.
@@ -1041,19 +1036,9 @@ struct ActiveWorkoutView: View {
         } else if session.tramoIsErg {
             // Erg work, alone or inside any format.
             ErgHUDContent(session: session, pm5: activePM5)
-        } else if session.currentSegment?.isConditioningTimer == true {
-            // Conditioning formats route by SCHEME to their dedicated timer (the
-            // block-level fold means one segment = one format), regardless of kind.
-            // A free-order format (AMRAP / For Time / Chipper) genuinely does not
-            // know which movement the athlete is on, so the format keeps the subject
-            // — but if a monitor is streaming under it, its numbers are shown rather
-            // than thrown away.
-            conditioningHUD
-            // The monitor's live numbers ride under a free-order format because
-            // nothing knows whether he is on the machine, so throwing them away
-            // would lose real data. On a ROUTE the app DOES know — and he is not on
-            // it, or the erg surface would have taken the screen. Leaving the rower's
-            // numbers under "50 wall balls" would read as his current work.
+        } else if session.currentSegment?.isConditioningTimer == true
+                    || session.currentSegment?.isEMOM == true {
+            livePictureHUD
             if segmentInvolvesErg, activePM5.isConnected, !session.isStationTramo {
                 ErgLiveStrip(session: session, pm5: activePM5)
             }
@@ -1068,31 +1053,44 @@ struct ActiveWorkoutView: View {
     }
 
     @ViewBuilder
-    private var conditioningHUD: some View {
-        switch session.currentSegment?.formatScheme {
-        case .amrap:     AmrapLiveHUD(session: session)
-        // LOS CUATRO ESQUEMAS QUE PERDIERON SU RELOJ DEDICADO (5-ago). Sus casos
-        // REALES ya los sirve quien mide: una serie o un rodaje de correr se los
-        // lleva la superficie de calle/cinta (matriz «Series · calle/cinta» y
-        // «Rodaje · calle/cinta»), uno de ergo `ErgHUDContent` («Rodaje · ergo»), y
-        // el descanso de cualquiera de ellos `RestSurface`. Lo que puede caer aquí es
-        // el resto: un trabajo rotativo que nadie mide (una tabata de burpees). Para
-        // eso NO hay pantalla diseñada, así que se usa el suelo honesto que ya
-        // existe —el reloj del bloque con el movimiento y su dosis— en vez de
-        // inventar una: dice menos, pero no dice nada falso.
-        case .tabata, .intervals, .deathBy, .steady:
-            // Los rotativos y el continuo NO van a la cara por rondas: su cursor es
-            // `rotRoundIndex` (lo mueve el reloj del motor), no `fixedRoundsDone`,
-            // y un contador colgado del cursor equivocado se queda congelado en
-            // «Ronda 1». Conservan su suelo honesto: el reloj del bloque.
-            RotatingClockHUD(session: session)
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            ForTimeLiveHUD(session: session)
-        case .emom, .sets, .superset, .warmup, .cooldown, .unknown, .none:
-            // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
-            // esquemas y el nil. Se escriben en vez de un `default` para que un
-            // esquema NUEVO no caiga aquí en silencio.
-            EmptyView()
+    private var livePictureHUD: some View {
+        let pic = session.livePicture
+        VStack(alignment: .leading, spacing: 8) {
+            Text(pic.label)
+                .font(.system(size: 15, weight: .heavy).italic())
+                .foregroundStyle(Theme.Color.ink)
+            Text(figureText(pic.figure))
+                .font(.system(size: 56, weight: .heavy, design: .default).italic().monospacedDigit())
+                .foregroundStyle(Theme.Color.ink)
+                .minimumScaleFactor(0.4)
+                .lineLimit(1)
+            if let plan = pic.planLine {
+                Text(plan)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.inkMuted)
+            }
+            if let next = pic.nextLine {
+                Text(next)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.inkMuted)
+            }
+            if let score = pic.score.label {
+                Button(score) { session.scoreStrike() }
+                    .font(.system(size: 15, weight: .heavy).italic())
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func figureText(_ figure: LivePicture.Figure) -> String {
+        switch figure {
+        case .meters(let m): return "\(Int(m.rounded())) m"
+        case .calories(let c): return "\(c) cal"
+        case .countdown(let s): return Formato.clock(s)
+        case .elapsed(let s): return Formato.clock(s)
+        case .reps(let n): return "\(n)"
+        case .none: return Formato.clock(session.tramoElapsedSeconds)
         }
     }
 
@@ -1365,78 +1363,12 @@ struct ActiveWorkoutView: View {
     // TERMINAR on the last segment, HECHO for a discrete strength/reps piece,
     // SIGUIENTE to move to the next leg.
     private var primaryTitle: String {
-        // Warmup / cooldown: one tap closes the whole structural block.
         if session.currentBlockIsStructural {
             return session.currentBlockRegion?.phase == .cooldown
                 ? "VUELTA A LA CALMA HECHA"
                 : "CALENTAMIENTO HECHO"
         }
-        // #61 structured run: skip the count-in, then advance the leg cursor. A WORK
-        // leg is closed by "TRAMO HECHO" (the honest manual/belt affordance — a
-        // distance leg without a belt has no live GPS yet), a recovery by skipping it.
-        if session.isRunStructureActive {
-            if session.isRunCountIn { return "SALTAR" }
-            if session.isLastSegment && session.runLegNumber >= session.runLegTotal { return "TERMINAR" }
-            return session.isRunLegWork ? "TRAMO HECHO" : "SALTAR DESCANSO"
-        }
-        if session.currentSegment?.isEMOM == true {
-            // During the post-Empezar 3-2-1, the button SKIPS the count-in.
-            if session.emomCountInRemaining > 0 { return "SALTAR" }
-            // Interval EMOM: finishing the work early opens the change window, so
-            // say so — "SIGUIENTE" would promise the next round and deliver a change.
-            if session.currentSegment?.emomPlan?.hasTransition == true,
-               session.emomIntervalsRemaining > 0 {
-                return session.emomPhase == .work ? "HE ACABADO" : "EMPEZAR RONDA"
-            }
-            if session.emomIntervalsRemaining > 0 { return "SIGUIENTE" }
-            // Last interval: TERMINAR ends the session only on the FINAL block;
-            // otherwise it closes the EMOM and opens the next block's preview.
-            return session.isLastSegment ? "TERMINAR" : "SIGUIENTE"
-        }
-        if session.currentSegment?.isConditioningTimer == true {
-            return conditioningPrimaryTitle
-        }
-        if session.isLastSegment { return "TERMINAR" }
-        switch session.currentSegment?.kind {
-        case .strength, .reps: return "HECHO"
-        default:               return "SIGUIENTE"
-        }
-    }
-
-    // The conditioning bottom button label, by scheme. During the post-Empezar
-    // 3-2-1 it SKIPS the count-in. AMRAP marks a round; For Time / Chipper / Ladder
-    // / Steady close (final time); Tabata logs a rep; Intervals end a bout. Death By
-    // uses dual buttons (see `deathByControls`) — this label is for accessibility.
-    private var conditioningPrimaryTitle: String {
-        if session.condCountInRemaining > 0 { return "SALTAR" }
-        switch session.currentSegment?.formatScheme {
-        case .amrap:     return "+ RONDA"
-        case .tabata:    return "+ REPS"
-        case .intervals: return session.rotPhase == .work ? "SERIE HECHA" : "SALTAR DESCANSO"
-        case .deathBy:   return "LO LOGRÉ"
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim, .steady:
-            // On a ROUTE the button closes the STATION, so it has to say so — and it
-            // stays available even when the machine is about to close it by itself:
-            // the automatic exit removes a tap, never the athlete's freedom to cut a
-            // piece short, take a broken monitor out of the loop, or move on.
-            if session.currentSegment?.fixedListIsStations == true {
-                let last = session.fixedRoundsDone >= session.fixedListTotal - 1
-                if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
-                return "ESTACIÓN HECHA"
-            }
-            // Una lista de RONDAS cierra ronda a ronda, igual que la ruta cierra
-            // estaciones — el botón dice lo que hace y la última cierra el bloque.
-            // `.steady` queda fuera aunque declare rondas: su motor cierra el bloque
-            // entero (`conditioningPrimary`), y una etiqueta «RONDA HECHA» sobre un
-            // botón que cierra el bloque es la mentira exacta que no se escribe.
-            if session.currentSegment?.formatScheme != .steady, session.fixedListTotal > 1 {
-                let last = session.fixedRoundsDone >= session.fixedListTotal - 1
-                if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
-                return "RONDA HECHA"
-            }
-            return session.isLastSegment ? "TERMINAR" : "HECHO"
-        default:         return "SIGUIENTE"
-        }
+        return session.livePicture.primary.label
     }
 
     // The bottom action area: Death By gets a dual "Fallé / Lo logré" control (the
