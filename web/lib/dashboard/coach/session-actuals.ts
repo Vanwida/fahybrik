@@ -19,6 +19,7 @@
 // of this shape on purpose.
 
 import type { Sql } from '@/lib/db';
+import { optionalBooleanColumn } from '@/lib/db/optional-column';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
 import { groupRunSplits, type RunLegSplitItem } from '@/lib/execution/run-splits';
@@ -324,7 +325,8 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       st.reps_actual,
       st.load_actual_kg::text as load_actual_kg,
       st.status,
-      st.is_approach
+      -- 0207: to_jsonb de la serie. Clave ausente → false (trabajo).
+      ${optionalBooleanColumn(sql, 'st', 'is_approach', false)}
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
     where se.execution_id = ${executionId}

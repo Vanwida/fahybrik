@@ -1,4 +1,6 @@
 import type { Sql } from '@/lib/db';
+import { optionalTextColumn } from '@/lib/db/optional-column';
+import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import {
   prescriptionToParams,
@@ -658,7 +660,8 @@ export async function loadAssignmentDetail(
           coalesce(s.block_position, 0)               as block_position,
           s.block_format                              as block_format,
           s.block_title                               as block_title,
-          s.block_coach_note                          as block_coach_note,
+          -- 0211: to_jsonb del segmento. Clave ausente → NULL, no 42703.
+          ${optionalTextColumn(sql, 's', 'block_coach_note')},
           s.params_json                               as params_json,
           s.prescription_json                         as prescription_json,
           s.notes                                     as notes,
@@ -679,21 +682,34 @@ export async function loadAssignmentDetail(
       // Circuito (template_blocks, migración 0159): config real de rounds/pacing/
       // descansos por block_position, cuando el coach la definió. Ausente para la
       // mayoría de templates hoy — comportamiento legacy intacto.
-      const circuitRows = await sql<
-        Array<{
-          block_position: number;
-          rounds: number;
-          pacing: string;
-          work_seconds: number | null;
-          rest_between_stations_seconds: number | null;
-          rest_between_rounds_seconds: number | null;
-        }>
-      >`
-        select block_position, rounds, pacing, work_seconds,
-               rest_between_stations_seconds, rest_between_rounds_seconds
-        from template_blocks
-        where template_id = ${assignment.template_id}::bigint
-      `;
+      let circuitRows: Array<{
+        block_position: number;
+        rounds: number;
+        pacing: string;
+        work_seconds: number | null;
+        rest_between_stations_seconds: number | null;
+        rest_between_rounds_seconds: number | null;
+      }> = [];
+      try {
+        circuitRows = await sql<
+          Array<{
+            block_position: number;
+            rounds: number;
+            pacing: string;
+            work_seconds: number | null;
+            rest_between_stations_seconds: number | null;
+            rest_between_rounds_seconds: number | null;
+          }>
+        >`
+          select block_position, rounds, pacing, work_seconds,
+                 rest_between_stations_seconds, rest_between_rounds_seconds
+          from template_blocks
+          where template_id = ${assignment.template_id}::bigint
+        `;
+      } catch (err) {
+        // 0159 ausente: sin config de circuito. Los segmentos siguen siendo el plan.
+        if (!isPgMissingRelation(err, 'template_blocks')) throw err;
+      }
       circuitBlocks = circuitRows.map((r) => ({
         block_position: r.block_position,
         config: {

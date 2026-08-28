@@ -11,6 +11,45 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Detail: columna opcional se lee, no tumba el GET
+
+**Qué fallaba:** GET `/api/athlete/assignments/:id/detail` en el
+Preview de PR 91 contestaba 500 con cuerpo vacío. El week de la
+misma rama era 200 y listaba esos días. Sin el payload el atleta
+no abre el día del coach. No es un id ni un formato: los 5 del
+week (484–488, todos `scheduled`, con plantilla) fallaban igual.
+
+**Qué se descartó:** `set_executions.is_approach` (0207) / 
+`loadSegmentActuals` como causa de ESE 500. Esa query solo corre
+si hay `workout_executions`. Los cinco días están `scheduled`.
+Dobles / HYROX tampoco: 485 es tempo, no sim.
+
+**La clase (la de esta mañana):** el lector nombra una columna
+que Preview Neon puede no tener. El week no la selecciona. El
+detail sí. `template_segments.block_coach_note` (0211) es la que
+el detail añade y el week no. La ruta no atrapa el throw → 500
+vacío.
+
+**Decidido:** un solo camino de lectura para columna opcional.
+`to_jsonb(alias)->>'col'` solo ve columnas que existen; ausente
+= NULL (texto) o el defecto del dominio (`is_approach` → false =
+trabajo). No un `if` por formato. No un catch que fabrique el
+workout. `template_blocks` (0159) si la relación no existe: config
+de circuito vacía; los segmentos siguen siendo el plan.
+
+**Qué se elimina:** el identificador desnudo `s.block_coach_note`
+y `st.is_approach` en esos SELECT.
+
+**NO hacer:** no parche de un assignment. no rama HYROX. no
+inventar un plan en el catch. no caminar el sim. no merge. no
+promote. no DEMO_ACCESS en prod. no aliases Preview →
+fahybrid.com. no 105 / Watch / HUD live / forks de formato.
+
+**Dónde:** `web/lib/db/optional-column.ts`,
+`loadAssignmentDetail`, `loadSegmentActuals`.
+
+---
+
 ## 2026-08-28 · Tres clases, sin velo ni cifra-plan
 
 **Qué fallaba:** el walk UI no cuadraba. `testTheSessionAcceptsGpsOnTheStreet`

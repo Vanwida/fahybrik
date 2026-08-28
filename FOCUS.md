@@ -2,27 +2,24 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-28** (live: tres clases)
+Última actualización: **2026-08-28** (detail: columna opcional)
 
 ## Ahora
 
-**LIVE · PR 91** (`cursor/live-un-motor-0406`). Walk UI no se hizo.
-Compile no cuenta. Tres clases en el motor:
+**DETAIL · PR 91** (`cursor/live-un-motor-0406`). El week lista
+el día; GET `/assignments/:id/detail` era 500 vacío. No es HYROX:
+los 5 del week (scheduled, sin execution) fallaban igual.
+`is_approach` (0207) no corre sin execution — descartado para
+ESE 500. El detail SÍ selecciona `block_coach_note` (0211);
+el week no.
 
-- a) Una cifra. Calle = CoreLocation. `tramoRunCoveredMeters` =
-  stream − ancla (no un progreso que se come el primer sample).
-  Watch en calle firma `.gps`. Authority no tira `.gps`.
-- b) El descanso es un tramo. `beginFixedRest` ya no es overlay
-  (`restEndsTramo=true`). Recuperación no es velo. Si el tramo no
-  mide, no suma.
-- c) `primaryAdvance` cierra el tramo. AMRAP: score = ronda,
-  primary = cierra. `isConditioningActive` es el motor
-  (`condSegmentIndex`), no el formato del segmento.
+Lectura única: `to_jsonb(alias)->>'col'` (ausente = NULL, no
+42703). Mismo camino para `is_approach` si hay execution.
+`template_blocks` 42P01 → sin config de circuito, no un plan
+inventado.
 
-planLine «1 km» no es card: el HUD pintaba el plan porque la
-cifra no eran metros.
+**NO es hecho de producto.** No se camina el sim. No merge.
+Hecho de código: 488 y 485 en Preview = 200 con blocks/items.
 
-**NO es hecho.** Linux no es SUCCESS. Marc: debugger Mac,
-Chipper Y run+recuperación, iPhone+Watch.
-
-No tocar: 105, 174, 175, web, Neon, `DEVELOPMENT_TEAM` (`S6W4459DDG`).
+No tocar: 105, 174, 175, HUD live, Watch, forks de formato,
+`DEVELOPMENT_TEAM` (`S6W4459DDG`). Neon de producto no.
