@@ -187,6 +187,7 @@
 		B167C10CBE170001A0000002 /* BeltWorkClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000001 /* BeltWorkClock.swift */; };
 		B167C10CBE170001A0000003 /* BeltWorkClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000001 /* BeltWorkClock.swift */; };
 		B167C10CBE170001A0000005 /* BeltWorkClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */; };
+		B175A0E1C4D17500AAEA02 /* BlockPreviewGateLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B175A0E1C4D17500AAEA01 /* BlockPreviewGateLayoutTests.swift */; };
 		B168UNDOBE170001A0000002 /* LiveUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000001 /* LiveUndo.swift */; };
 		B168UNDOBE170001A0000003 /* LiveUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000001 /* LiveUndo.swift */; };
 		B168UNDOBE170001A0000005 /* LiveUndoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B168UNDOBE170001A0000004 /* LiveUndoTests.swift */; };
@@ -851,6 +852,7 @@
 		B167C10CBE170001A0000001 /* BeltWorkClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltWorkClock.swift; sourceTree = "<group>"; };
 		B168UNDOBE170001A0000001 /* LiveUndo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveUndo.swift; sourceTree = "<group>"; };
 		B167C10CBE170001A0000004 /* BeltWorkClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltWorkClockTests.swift; sourceTree = "<group>"; };
+		B175A0E1C4D17500AAEA01 /* BlockPreviewGateLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPreviewGateLayoutTests.swift; sourceTree = "<group>"; };
 		B168UNDOBE170001A0000004 /* LiveUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveUndoTests.swift; sourceTree = "<group>"; };
 		B169TANDABE170001A0000001 /* TandaStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandaStrip.swift; sourceTree = "<group>"; };
 		B169TANDABE170001A0000004 /* TandaStripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandaStripTests.swift; sourceTree = "<group>"; };
@@ -2309,6 +2311,7 @@
 			isa = PBXGroup;
 			children = (
 				AF98AEC6595EEA02941F54A5 /* AutoPausaNoSobreviveTests.swift */,
+				B175A0E1C4D17500AAEA01 /* BlockPreviewGateLayoutTests.swift */,
 				3CFF8B2F4451DE1FB58F4988 /* BloqueMixtoConCarreraTests.swift */,
 				0E2C66CF7D6908E2FE6914BF /* CarreraDeLaSesionTests.swift */,
 				F45BC7DCE5C583CF3A8485B1 /* CarreraEstructuradaFartlekTests.swift */,
@@ -3791,6 +3794,7 @@
 				ABA7C20218275BB791CCE3BA /* AutoPausaNoSobreviveTests.swift in Sources */,
 				38F9EDD5FBF767C5EFBFE803 /* AvailabilityServiceTests.swift in Sources */,
 				C1240E4E483AAD11A809ACAF /* BenchmarkDeltaTests.swift in Sources */,
+				B175A0E1C4D17500AAEA02 /* BlockPreviewGateLayoutTests.swift in Sources */,
 				600E103FCFDF040AC4021986 /* BloqueMixtoConCarreraTests.swift in Sources */,
 				E9E4D0CD51A32061D5FD04CF /* CarreraDeLaSesionTests.swift in Sources */,
 				31D9AE6558B17029AE63751E /* CarreraEstructuradaFartlekTests.swift in Sources */,

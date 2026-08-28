@@ -90,12 +90,23 @@ struct BlockPreviewGate: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
                 }
                 ScrollView { workList }
-                    .layoutPriority(1)
-                footer
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.l)
+            // The footer used to live in this VStack, next to a flexible
+            // ScrollView, inside a ZStack whose background ignores the safe
+            // area. That stack was proposed the FULL screen height, so the
+            // 16 pt bottom padding sat inside the home indicator: EMPEZAR
+            // became a clipped strip you could not tap, with a black hole
+            // above it (the expanded scroll, not the list pushing).
+            // `.anchoredAction` is safeAreaInset: the bar stays above the
+            // home indicator, the list scrolls over it, the fill covers the
+            // indicator. Extra `s` keeps the button at the same xl inset
+            // the list already uses (l + s = xl).
+            .anchoredAction(separator: false) {
+                footer
+                    .padding(.horizontal, Theme.Spacing.s)
+            }
         }
         .transition(.opacity)
     }
@@ -218,6 +229,7 @@ struct BlockPreviewGate: View {
                 .scaledFont(12, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.faint)
             ExpertPrimaryButton(title: "EMPEZAR", height: 64, action: onEmpezar)
+                .accessibilityIdentifier("empezar-bloque")
         }
         .frame(maxWidth: .infinity)
     }

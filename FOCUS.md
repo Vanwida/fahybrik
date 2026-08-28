@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-28** (175 · EMPEZAR encima del home indicator)
 
 ## Ahora
+
+**175 · EL BOTÓN DE EMPEZAR QUEDA ENTERO (PR).** En la puerta
+del bloque, EMPEZAR vive en `anchoredAction` (safe area, encima
+del home indicator). Con 8 tramos el plan hace scroll; el botón
+no se esconde. Cualquier coach, cualquier día. La previa
+(`PreWorkoutBriefView`) no era esta pantalla. 171 / 174 / 116 /
+132 / web / Neon no se tocan.
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva
