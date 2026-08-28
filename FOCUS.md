@@ -2,9 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-28** (176 · pausar y terminar en la muñeca)
 
 ## Ahora
+
+**176 · EN EL VIVO DEL RELOJ SE PAUSA Y SE TERMINA (PR).** Chipper
+28-ago, atleta 64: en la muñeca no había esos dos gestos. El cable
+ya sabía pausar y solo un final de persona cierra el teléfono (157).
+Pausar estaba detrás de un deslizamiento; Terminar solo sin señal.
+Ahora: un control cada uno en el vivo. El iPhone se entera (misma
+sesión). Terminar pide confirmación. No es la 105 ni la 157 ni la 72.
+Hecho de producto: Marc con debugger. https://app.clickup.com/t/86ak7kwqz
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva

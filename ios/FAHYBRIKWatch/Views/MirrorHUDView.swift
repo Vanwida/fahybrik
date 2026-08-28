@@ -80,6 +80,18 @@ struct MirrorHUDView: View {
                 }
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if WatchLiveSessionActs.offersControls(isEnding: controller.state == .ending),
+               phase != MirrorWire.Phase.paused,
+               !atenuado {
+                WatchLiveSessionControls(
+                    style: .compact,
+                    paused: false,
+                    onPauseResume: pauseOrResumeFromWrist,
+                    onFinish: { controller.finishLocally() }
+                )
+            }
+        }
         // Out-of-zone nudge — same throttle as the standalone continuous screen, and
         // only while actually working (never on a gate / pause / rest).
         .onChange(of: controller.liveZone) { _, zone in
@@ -432,12 +444,19 @@ struct MirrorHUDView: View {
     private var pausedOverlay: some View {
         ZStack {
             WatchTheme.bg.opacity(0.92).ignoresSafeArea()
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 30, weight: .heavy))
+                    .font(.system(size: 26, weight: .heavy))
                     .foregroundStyle(WatchTheme.orange)
                 WatchLabel(text: "En pausa", accent: true)
+                WatchLiveSessionControls(
+                    style: .stacked,
+                    paused: true,
+                    onPauseResume: pauseOrResumeFromWrist,
+                    onFinish: { controller.finishLocally() }
+                )
             }
+            .padding(.horizontal, 12)
         }
     }
 
@@ -530,37 +549,20 @@ struct MirrorHUDView: View {
     }
 
     private var normalControls: some View {
-        VStack(spacing: 11) {
-            pauseResumeButton
-            Text("El entreno se controla desde el iPhone")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
-        }
+        WatchLiveSessionControls(
+            style: .stacked,
+            paused: phase == MirrorWire.Phase.paused,
+            onPauseResume: pauseOrResumeFromWrist,
+            onFinish: { controller.finishLocally() }
+        )
         .padding(.horizontal, 12)
     }
 
-    private var pauseResumeButton: some View {
+    /// Pausa / reanuda en el motor del teléfono. La muñeca no tiene un segundo
+    /// reloj: el siguiente frame trae la fase y `applyPhase` para HealthKit.
+    private func pauseOrResumeFromWrist() {
         let paused = phase == MirrorWire.Phase.paused
-        return Button {
-            WatchHaptics.tap()
-            controller.sendCommand(paused ? MirrorWire.CommandKind.resume : MirrorWire.CommandKind.pause)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: paused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 18, weight: .heavy))
-                Text(paused ? "Reanudar" : "Pausar")
-                    .font(.system(size: 16, weight: .heavy))
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(WatchTheme.ink)
-            .padding(.horizontal, 16)
-            .frame(height: 52)
-            .frame(maxWidth: .infinity)
-            .background(WatchTheme.surfaceRaised)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
+        controller.sendCommand(paused ? MirrorWire.CommandKind.resume : MirrorWire.CommandKind.pause)
     }
 
     // Phone unreachable but recording alive → honest local exit (mirrors

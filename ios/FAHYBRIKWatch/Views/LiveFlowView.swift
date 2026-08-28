@@ -2,9 +2,10 @@ import SwiftUI
 
 // The live workout shell (variant C · "Auto · 1 botón"). The LIVE screen is
 // primary — one big button advances everything, zero navigation during effort.
-// A horizontal swipe reaches the peripheral pages: LEFT → Pausar / Terminar,
-// RIGHT → the session map. Between blocks the engine parks on the block gate;
-// per-set rest overlays the live screen (keeping its state alive).
+// Pausar y Terminar viven EN el vivo (un control cada uno, card 176). El
+// deslizamiento a la página de controles se queda; ya no es el único camino.
+// A horizontal swipe still reaches the session map. Between blocks the engine
+// parks on the block gate; per-set rest overlays the live screen.
 //
 // NOTE (deviation): the map is reached by swipe-right rather than crown. The
 // strength screen (SetTableLiveView) claims the crown for ±load (mockup 4d), so
@@ -19,6 +20,7 @@ struct LiveFlowView: View {
     // 0 = map · 1 = live (default) · 2 = pause/finish. Swipe-left from live lands
     // on pause/finish; swipe-right on the map.
     @State private var page = 1
+    @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
         TabView(selection: $page) {
@@ -52,6 +54,17 @@ struct LiveFlowView: View {
         .overlay {
             if session.restRemainingSeconds > 0 {
                 RestBannerView(session: session)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if WatchLiveSessionActs.offersControls(isEnding: session.isFinished),
+               !atenuado {
+                WatchLiveSessionControls(
+                    style: .compact,
+                    paused: session.isPaused,
+                    onPauseResume: { coordinator.togglePause() },
+                    onFinish: { session.finish(completeness: .partial) }
+                )
             }
         }
     }

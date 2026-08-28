@@ -11,6 +11,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · En el vivo de la muñeca se pausa y se termina (card 176)
+
+**Qué fallaba:** en Chipper (28-ago, atleta 64) el vivo del reloj no tenía
+cómo pausar ni terminar. El atleta estaba en la muñeca y esos dos gestos
+no existían ahí.
+
+**Causa (verificada, no hipótesis):** el cable ya sabía. `CommandKind.pause`
+/ `resume` llegan al motor del teléfono. `EndReason.athlete` cierra el
+mismo entreno (157). En el espejo, Pausar vivía en una página de
+deslizamiento y Terminar solo si `isConnectionLost`. El toque del vivo
+avanza el tramo (72), no la sesión.
+
+**Decidido:** dos actos de SESIÓN, distintos del avance de tramo y del
+vigía / cap / estación. Un control cada uno, en el vivo, no un roce.
+Pausar manda al teléfono (mismo reloj). Terminar es de persona:
+`finishLocally()` → `EndReason.athlete` → el teléfono cierra la misma
+sesión. Confirmación antes de terminar. El deslizamiento se queda; ya
+no es el único camino. Sin señal se sigue pudiendo guardar en local.
+
+**Qué se elimina:** la frase «El entreno se controla desde el iPhone»
+en la página de controles del espejo. Mentía.
+
+**NO hacer:** no rediseñar la app del reloj (105). no dejar que el
+toque, el cap, el vigía o la estación terminen (157, 72). no tocar
+web / Neon. no xcodebuild contra iPhone físico. no declarar hecho de
+producto: eso lo mira Marc con el debugger.
+
+**Dónde:** `WatchLiveSessionActs` (mecanismo, testeable),
+`WatchLiveSessionControls` (un gesto cada uno), espejo y modo a solas.
+Tests en `MirrorWireModelsTests`.
+
+---
+
 ## 2026-08-25 · El día se lee por agrupación, no por etiquetas (cards 109 + 173)
 
 **Qué fallaba:** el peek del día era una pila de cards iguales. No se veía si

@@ -407,7 +407,7 @@ final class PhoneMirrorService {
                 // terminarlo a mano, con su resumen y su guardado, dos veces el
                 // mismo trabajo. Ahora un final humano en la muñeca termina aquí
                 // también — y SOLO un final humano (ver `wristFinishedByAthlete`).
-                if ended?.reason == MirrorWire.EndReason.athlete {
+                if WatchLiveSessionActs.phoneEngineCloses(reason: ended?.reason) {
                     wristRecordedWorkout = true   // su HKWorkout es el de esta sesión
                     wristFinishedByAthlete = true
                 }
@@ -447,10 +447,8 @@ final class PhoneMirrorService {
             send(MirrorWire.MessageType.frame, frame)
             lastSentKey = structuralKey(frame)
             lastSentAt = Date()
-        case MirrorWire.CommandKind.pause:
-            if !session.isPaused { session.togglePause() }
-        case MirrorWire.CommandKind.resume:
-            if session.isPaused { session.togglePause() }
+        case MirrorWire.CommandKind.pause, MirrorWire.CommandKind.resume:
+            _ = WatchLiveSessionActs.applyPauseResume(kind, to: session)
         case MirrorWire.CommandKind.deathByFail:
             session.deathByFail()
         default:

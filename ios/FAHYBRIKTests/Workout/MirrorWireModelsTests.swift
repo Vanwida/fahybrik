@@ -122,4 +122,69 @@ final class MirrorWireModelsTests: XCTestCase {
         XCTAssertNil(f.beltTargetM)
         XCTAssertNil(f.beltPaceSecPerKm)
     }
+
+    // MARK: - Actos de sesión en la muñeca (card 176)
+
+    func testSoloUnaPersonaCierraElMotorDelTelefono() {
+        XCTAssertTrue(WatchLiveSessionActs.phoneEngineCloses(reason: MirrorWire.EndReason.athlete))
+        XCTAssertFalse(WatchLiveSessionActs.phoneEngineCloses(reason: MirrorWire.EndReason.watchdog))
+        XCTAssertFalse(WatchLiveSessionActs.phoneEngineCloses(reason: MirrorWire.EndReason.phone))
+        XCTAssertFalse(WatchLiveSessionActs.phoneEngineCloses(reason: MirrorWire.EndReason.discarded))
+        XCTAssertFalse(WatchLiveSessionActs.phoneEngineCloses(reason: nil))
+    }
+
+    func testElVivoOfreceLosDosActosYAlCerrarNo() {
+        XCTAssertTrue(WatchLiveSessionActs.offersControls(isEnding: false))
+        XCTAssertFalse(WatchLiveSessionActs.offersControls(isEnding: true))
+    }
+
+    func testPausarYReanudarLleganAlMotor() {
+        let s = sesionViva()
+        XCTAssertFalse(s.isPaused)
+        XCTAssertTrue(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.pause, to: s))
+        XCTAssertTrue(s.isPaused)
+        XCTAssertFalse(s.isFinished)
+        XCTAssertTrue(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.resume, to: s))
+        XCTAssertFalse(s.isPaused)
+    }
+
+    func testPausarNoEsAvanzarNiTerminar() {
+        let s = sesionViva()
+        XCTAssertFalse(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.advance, to: s))
+        XCTAssertFalse(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.deathByFail, to: s))
+        XCTAssertFalse(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.sync, to: s))
+        XCTAssertFalse(s.isPaused)
+        XCTAssertFalse(s.isFinished)
+    }
+
+    func testPausaRepetidaNoInvierteElReloj() {
+        let s = sesionViva()
+        XCTAssertTrue(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.pause, to: s))
+        XCTAssertFalse(WatchLiveSessionActs.applyPauseResume(MirrorWire.CommandKind.pause, to: s))
+        XCTAssertTrue(s.isPaused)
+    }
+
+    private func sesionViva() -> WorkoutSession {
+        let set = PrescriptionSet(
+            measure: .reps(count: 5), target: nil,
+            modality: .strength, restS: 60, tempo: nil, note: nil
+        )
+        let rx = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: [set], rounds: 1, workS: nil, restS: 60, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil, structure: nil
+        )
+        let seg = WorkoutSegment(
+            order: 1, title: "Fuerza", kind: .strength,
+            blockTitle: "Fuerza", blockPosition: 1, prescription: rx
+        )
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Sesión", format: .sets,
+            estimatedDurationSeconds: 600, blockContext: "Test", zoneTargets: [],
+            equipment: [], segments: [seg], coachNote: nil,
+            warmupChecklist: []
+        ))
+        s.start(); s.beginBlock(); s.stop()
+        return s
+    }
 }
