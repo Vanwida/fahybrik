@@ -6,35 +6,23 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**LIVE · UN MOTOR (PR, este cloud).** WorkoutSession tenía tres relojes,
-dos descansos, tres auto-cierres de distancia y dos superficies.
-Las cards 101, 67, 72, 110, 157 y 176 eran un formato que caía por
-la rama equivocada.
+**LIVE · UN MOTOR (PR 91, este cloud).** Compile: `closeConditioningAndAdvance`
+deja de ser private (una forma). Después, tres clases (no parches):
 
-Queda: un cursor (`LiveTramo`), una `livePicture` (HUD = render),
-un descanso (`restRemainingSeconds`), un `RunLegProgress`,
-`primaryAdvance` = cerrar tramo. Watch = mismo motor o espejo de
-esa lectura, nunca ambos.
-
-Se borraron (no se parchearon): ticks por formato, `conditioningPrimary`,
-familias Watch (Fixed / Rotating / StructuredRun / Continuous / Emom /
-RelojDePared), `WatchRunLegDriver`, árbol `WorkoutFormatHUDs` +
-`EmomVivoView`, plan en hero, segundo odometro de cinta.
-
-Conservado: `LiveTramo`, un `RunLegProgress`, `sampleRunDistance`,
-`sampleErg`, `injectLiveHR`. SetTable / Checklist / 105 (cinta y
-calle, Opus) no se redibujan.
-
-101 = la cifra bebe el mismo GPS que el mapa.
-72 y 110 = el mismo dueño cierra el tramo.
-176 = gestos de persona sobre ESA sesión. PR 90 no se sigue.
-157 = un finish de persona.
+- a) Una distancia. Cifra y mapa = CoreLocation. Se borró el podómetro
+  como fuente oficial. `RunDistanceAuthority` acepta `.gps` en calle
+  y tira HK ahí (sustituto). Reloj solo / cinta tonta siguen en HK.
+- b) El descanso es un tramo. `sampleRunDistance` no suma si
+  `!tramoMide`. Overlay y recuperación parada no miden. El trote sí.
+- c) Un dueño. Start Watch standalone + móvil: el motor del reloj
+  cede (`yieldToPhone`). Un `WorkoutSession` (el del teléfono).
+  La muñeca pasa a espejo. No se guarda un segundo HKWorkout.
 
 Inventario: `docs/audits/live-run-patches-root.md`.
-Ley: DECISIONS 28-ago.
+Ley: DECISIONS 28-ago (motor) y la entrada de las tres clases.
 
-**NO es hecho de producto.** Cloud Linux no compiló Xcode. Marc
-lanza debugger en Mac: Chipper Y run+recuperación, iPhone+Watch.
+**NO es hecho de producto.** Linux no compiló Xcode. Marc lanza
+debugger en Mac: Chipper Y run+recuperación, iPhone+Watch.
 
 No tocar: 105 maqueta runner, 174 PR 87, 175 PR 88, web, Neon,
 `DEVELOPMENT_TEAM` (`S6W4459DDG`). No segundo audit. No otro cloud.

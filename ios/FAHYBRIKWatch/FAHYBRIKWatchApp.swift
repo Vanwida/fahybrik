@@ -39,8 +39,8 @@ struct FAHYBRIKWatchApp: App {
 }
 
 /// Mirror mode's entry point: when the phone calls startWatchApp(with:), watchOS
-/// launches this app and delivers the workout config here. Hand it to the mirror
-/// controller (which yields if a standalone session is already running).
+/// launches this app and delivers the workout config here. The mirror controller
+/// yields any standalone engine so the phone is the only WorkoutSession.
 final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
         Task { @MainActor in MirrorSessionController.shared.start(config: workoutConfiguration) }

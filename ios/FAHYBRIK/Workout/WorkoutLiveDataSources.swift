@@ -25,12 +25,13 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     enum Status { case unknown, denied, authorized, active }
     var status: Status = .unknown
 
-    // LA DISTANCIA YA NO SALE DE AQUÍ. La cuenta Apple (`RunPedometer`), que funde
-    // podómetro y GPS y sigue contando en un túnel. Aquí vivía nuestro acumulador con
-    // sus tres puertas, y ahí vivía el bug de los metros: el tope de 60 m tiraba
-    // cualquier hueco de señal de más de quince segundos. CoreLocation se queda sólo
-    // con lo que Apple no da: las COORDENADAS del recorrido y la VELOCIDAD instantánea
-    // que se pinta en pantalla.
+    // UN STREAM. El mismo fix que pinta el mapa suma los metros. El tope de 60 m
+    // que tiraba un hueco de señal era el otro fork: no vuelve. El paso mínimo
+    // es el del dibujo (2 m), no un segundo filtro.
+
+    /// Called on every ACCURACY-GATED fix that also advanced the route — the same
+    /// delta the map just accepted. Cifra y mapa no pueden divergir.
+    var onDistanceDelta: ((Double) -> Void)?
 
     /// Called on every ACCURACY-GATED fix with CoreLocation's instantaneous speed
     /// (m/s) and its speed-accuracy (m/s; negative = invalid) — the source the
@@ -40,8 +41,7 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     var onSpeed: ((_ speedMps: Double, _ speedAccuracyMps: Double) -> Void)?
 
     /// Called with the coordinate of each fix that also produced real movement (the
-    /// same fixes that feed `onDistanceDelta`), plus the first fix — so the live
-    /// route trace (#64) is well-spaced and free of standstill jitter.
+    /// same fixes that feed `onDistanceDelta`), plus the first fix.
     var onCoordinate: ((CLLocationCoordinate2D) -> Void)?
 
     /// La altura sobre el nivel del mar del fix, con su precisión vertical (negativa
@@ -58,9 +58,8 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     private var lastLocation: CLLocation?
     private var isRunning = false
 
-    /// Paso mínimo entre dos puntos del DIBUJO del recorrido (m). No cuenta metros —
-    /// eso es de Apple— sólo evita que la polilínea acumule el temblor de estar
-    /// parado. Es el mismo número que usa el filtro del sistema.
+    /// Paso mínimo entre dos puntos del recorrido (m). El mismo umbral vale para
+    /// el dibujo y para los metros: un stream.
     private static let minStepMeters: CLLocationDistance = 2
 
     override init() {
@@ -135,14 +134,14 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
             onSpeed?(loc.speed, loc.speedAccuracy)
             onAltitude?(loc.altitude, loc.verticalAccuracy)
 
-            // El RECORRIDO, que es lo único que se sigue derivando de los fixes: un
-            // punto por cada avance real, para que la polilínea no acumule jitter.
             guard let prev = lastLocation else {
-                onCoordinate?(loc.coordinate)       // seed the trace at the first fix
+                onCoordinate?(loc.coordinate)
                 lastLocation = loc
                 continue
             }
-            if loc.distance(from: prev) >= Self.minStepMeters {
+            let delta = loc.distance(from: prev)
+            if delta >= Self.minStepMeters {
+                onDistanceDelta?(delta)
                 onCoordinate?(loc.coordinate)
                 lastLocation = loc
             }

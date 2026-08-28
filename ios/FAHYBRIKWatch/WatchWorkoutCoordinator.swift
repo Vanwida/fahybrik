@@ -147,9 +147,9 @@ final class WatchWorkoutCoordinator {
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
         repairStuckPhaseIfNeeded()
-        // Symmetric guard with MirrorSessionController.start (which yields to a live
-        // standalone session): a mirror recording driven by the phone must equally
-        // block a second, standalone engine here — the only path to a duplicate run.
+        // If the phone is already the engine (mirror recording), this start is
+        // the extra owner. Decline. The reverse — phone start while we are live —
+        // is `yieldToPhone`, not a second WorkoutSession.
         guard phase == .idle, MirrorSessionController.shared.state == .idle,
               payload.dayKind == WatchDayKind.session else {
             Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
@@ -375,6 +375,25 @@ final class WatchWorkoutCoordinator {
                 }
             }
         }
+    }
+
+    /// El teléfono acaba de arrancar SU motor. El de aquí es el extra: se suelta
+    /// sin mandar ejecución y sin marcar el día hecho. La muñeca pasa a espejo.
+    func yieldToPhone() {
+        guard phase == .active || session != nil else { return }
+        Self.log.warning("yielding standalone engine to phone mirror")
+        didFinalize = true
+        stopSensorTick()
+        live.onHeartRate = nil
+        live.onDistanceDelta = nil
+        session?.stop()
+        session = nil
+        assignmentId = nil
+        phase = .idle
+        live.abandon()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
+        Task { await WorkoutStateStore.shared.clear() }
+        didFinalize = false
     }
 
     /// EL TELÉFONO YA TERMINÓ ESTE ENTRENO. La muñeca cierra lo suyo y se aparta.

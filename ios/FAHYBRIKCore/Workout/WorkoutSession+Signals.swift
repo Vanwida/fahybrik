@@ -194,19 +194,15 @@ extension WorkoutSession {
         }
     }
 
-    /// Acumula los metros oficiales de carrera: los de Apple (HKWorkout outdoor /
-    /// indoor, `distanceWalkingRunning`). No es un integrador nuestro.
+    /// Acumula los metros oficiales de carrera. En la calle el delta es el mismo
+    /// CoreLocation que pinta el mapa (`.gps`). Indoor / reloj solo: HealthKit.
     ///
-    /// UNA FUENTE. Si la cinta FTMS ha reclamado la ventana, este delta se tira.
-    /// Un `.gps` (salto entre fixes, podómetro, pasos × zancada) también se tira:
-    /// `RunDistanceAuthority` es la puerta, y los tests fallan si alguien la salta.
-    ///
-    /// LA DISTANCIA ES UN HECHO FÍSICO; EL TIEMPO PARADO ES UNA POLÍTICA. Por eso la
-    /// puerta mira la pausa MANUAL y no la autopausa: con la autopausa enganchada el
-    /// crono se congela —eso es lo que el atleta espera— pero los metros se siguen
-    /// contando, que es lo que hacen Garmin y Strava.
+    /// El descanso es un tramo: si el tramo no mide (`tramoMide` falso), el
+    /// sample no suma. La autopausa no es descanso — el crono se congela y los
+    /// metros siguen, como en Garmin y Strava. El overlay de rest y la
+    /// recuperación parada sí son tramo: no suman.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
-        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, tramoMide, deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }
@@ -265,6 +261,7 @@ extension WorkoutSession {
         // dedicated run block.
         guard !isPaused, !isFinished, !isAwaitingBlockStart,
               MachineTramoLaw.recordsFTMS(tramo: currentTramo, segment: currentSegment),
+              tramoMide,
               deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsTreadmill(environment: runEnvironment) else { return }
         // TRABAJO MEDIDO, con su hora (card 143): es lo que distingue al que corre

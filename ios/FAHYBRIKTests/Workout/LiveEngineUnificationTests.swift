@@ -35,8 +35,11 @@ final class LiveEngineUnificationTests: XCTestCase {
 
     func testLaCifraBebeElMismoGPSQueElProgreso() {
         let s = chipperSession()
+        s.runEnvironment = .outdoor
         XCTAssertTrue(s.tramoIsRun)
         s.sampleRunDistance(deltaMeters: 420, source: .healthkit)
+        XCTAssertNil(s.livePicture.coveredMeters, "HK no sustituye al stream del mapa")
+        s.sampleRunDistance(deltaMeters: 420, source: .gps)
         let covered = s.runProgress.covered(segmentCoveredMeters: s.segmentRunCoveredForProgress)
         XCTAssertEqual(covered, 420, accuracy: 0.001)
         XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 420, accuracy: 0.001)
@@ -47,6 +50,18 @@ final class LiveEngineUnificationTests: XCTestCase {
         }
         let plan = s.livePicture.planLine ?? ""
         XCTAssertTrue(plan.contains("1000") || plan.contains("1.000"), "planLine es la dosis, no la cifra: \(plan)")
+    }
+
+    func testSampleNoSumaEnDescanso() {
+        let s = chipperSession()
+        s.sampleRunDistance(deltaMeters: 100, source: .healthkit)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 100, accuracy: 0.001)
+        s.restRemainingSeconds = 30
+        s.restTotalSeconds = 30
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertFalse(s.tramoMide)
+        s.sampleRunDistance(deltaMeters: 250, source: .healthkit)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 100, accuracy: 0.001)
     }
 
     func testPrimaryAdvanceCierraLaEstacionDelChipper() {

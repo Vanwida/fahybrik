@@ -11,6 +11,39 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Tres clases del vivo: un stream, un descanso, un dueño
+
+**Qué fallaba:** el motor unificado seguía partido en tres sitios. La cifra
+de calle bebía un podómetro sellado como HealthKit mientras el mapa bebía
+CoreLocation (`RunDistanceAuthority` tiraba `.gps`). El overlay de rest y
+la recuperación que no era tramo seguían sumando metros. Start standalone
+en el reloj + start en el móvil dejaba dos `WorkoutSession` (el espejo
+declinaba y cada lado se quedaba dueño).
+
+**Decidido:**
+
+- Calle: cifra y mapa = el mismo CoreLocation. Owner `.gps`. HK / podómetro
+  no sustituyen. Reloj solo y cinta tonta: HealthKit (no hay mapa).
+- `sampleRunDistance` / `sampleTreadmillDistance` no suman si `!tramoMide`.
+  El descanso es un tramo. El trote de vuelta mide. La autopausa no es
+  descanso.
+- Si el teléfono arranca, el motor standalone del reloj cede. Un motor,
+  el otro espejo. `abandon()` no escribe un segundo HKWorkout.
+
+**Qué se elimina:** `RunPedometer` como fuente oficial; `usesPhonePedometer`;
+el rechazo de `.gps` en calle; el “declina y quédate dueño” del espejo
+cuando el standalone está vivo.
+
+**NO hacer:** no devolver el podómetro como cifra de calle. no un if
+Chipper para GPS. no un tercer coordinador. no declarar hecho de
+producto: Marc prueba en Mac (Chipper Y run+recuperación). no tocar
+105 / 174 / 175 / web / Neon. `DEVELOPMENT_TEAM` = `S6W4459DDG`.
+
+**Dónde:** `RunDistanceAuthority`, `RunLocationProvider.onDistanceDelta`,
+`WorkoutSession+Signals.tramoMide`, `WatchWorkoutCoordinator.yieldToPhone`.
+
+---
+
 ## 2026-08-28 · Un motor live. Se borran las ramas, no se parchean (cards 101, 67, 72, 110, 157, 176)
 
 **Qué fallaba:** el vivo tenía tres relojes (EMOM, conditioning, structured run),

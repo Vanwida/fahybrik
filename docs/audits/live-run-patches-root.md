@@ -34,6 +34,9 @@ caía por la rama equivocada:
 - plan en hero
 - odometro de cinta que cierra o inventa metros
 - PR 90 como camino
+- `RunPedometer` como cifra de calle (sustituto de CoreLocation)
+- el rechazo de `.gps` en `RunDistanceAuthority` en calle
+- el “declina y quédate dueño” del espejo ante un standalone vivo
 
 ## Se conserva
 

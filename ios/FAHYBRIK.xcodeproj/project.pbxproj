@@ -101,7 +101,6 @@
 		1E52D1673783E73686306DC8 /* JumpPhysics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C55531387B88B41DA8D94B /* JumpPhysics.swift */; };
 		1E9008F766EE7E8E2C142269 /* ComunicadosLista.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6357B39016D5166B4712B07 /* ComunicadosLista.swift */; };
 		1E9E5B88228527A98BEB4548 /* PM5DataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F42D39E6AC6BF54E79BA15 /* PM5DataParser.swift */; };
-		1F1418BA14FC985102FD3EAB /* RunPedometer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235FBA42C6F19FBFAE59BA7D /* RunPedometer.swift */; };
 		1F42D8D0FDBEA8D2795177B3 /* TestRecordCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5114B2D9BCA39CCB2821DA6C /* TestRecordCelebrationView.swift */; };
 		1F56CAB14C805E8A8D0303B2 /* GuionRelojDePared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6EE6099201087103C221B1 /* GuionRelojDePared.swift */; };
 		1FD06B8536543C32108D05F5 /* DoblesLiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */; };
@@ -904,7 +903,6 @@
 		22E8C5CC0905BCBC48019522 /* PM5LiveStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5LiveStreamView.swift; sourceTree = "<group>"; };
 		233D0942A0A59156E8D7098E /* CoachSpeaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachSpeaker.swift; sourceTree = "<group>"; };
 		2346317B6F3CA4FFA893C0F8 /* WatchFormato.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchFormato.swift; sourceTree = "<group>"; };
-		235FBA42C6F19FBFAE59BA7D /* RunPedometer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunPedometer.swift; sourceTree = "<group>"; };
 		23BA7D679666BE3C285C30B4 /* ProgresoDeCarrera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgresoDeCarrera.swift; sourceTree = "<group>"; };
 		23CD285BE66F1F080F8D705F /* ComunicadoNotaSecciones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoNotaSecciones.swift; sourceTree = "<group>"; };
 		240AA2F54005BEF81363BC6D /* ErgConnectCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgConnectCard.swift; sourceTree = "<group>"; };
@@ -2545,7 +2543,6 @@
 				C18634F34DD13AF5C162866E /* RunAutoPause.swift */,
 				EE14301258CA53506451127D /* RunLiveActivityController.swift */,
 				1B2029D942B4C76C0580E790 /* RunPaceSmoother.swift */,
-				235FBA42C6F19FBFAE59BA7D /* RunPedometer.swift */,
 				C03734547D7601E89F3E6270 /* RunPhoneSensorPlan.swift */,
 				7E7404F52D9E2EA1343D075D /* RunRouteMapView.swift */,
 			);
@@ -3509,7 +3506,6 @@
 				DD32A406F569C759C2A0E05B /* RunLiveActivityController.swift in Sources */,
 				3C18DA57D1AEA42350245B61 /* RunPaceModel.swift in Sources */,
 				60E8404EB91C946F0A26761E /* RunPaceSmoother.swift in Sources */,
-				1F1418BA14FC985102FD3EAB /* RunPedometer.swift in Sources */,
 				7856FB5E3443DE224E49BBFC /* RunPhoneSensorPlan.swift in Sources */,
 				A4DD4729225A5C74ADBCC5A3 /* RunPiernasDerivadas.swift in Sources */,
 				39C68B76C2A72E924DEDC317 /* RunPreStartFlow.swift in Sources */,

@@ -127,7 +127,9 @@ extension WorkoutSession {
             ? (lapInclineSum - runLegInclineSumStart) / Double(inclineCountDelta)
             : nil
         // Source precedence mirrors the aggregate close: real movement data > HR-only.
-        let source = beltDelta > 0 ? "treadmill" : (gpsDelta > 0 ? "healthkit" : (avgHR != nil ? "healthkit" : "manual"))
+        let source = beltDelta > 0 ? "treadmill"
+            : (gpsDelta > 0 ? (runEnvironment?.usesPhoneGPS == true ? "gps" : "healthkit")
+               : (avgHR != nil ? "healthkit" : "manual"))
         let lap = LapRecord(
             id: UUID(),
             segmentId: seg.id,

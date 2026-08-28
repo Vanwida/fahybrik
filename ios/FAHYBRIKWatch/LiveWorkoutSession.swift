@@ -36,6 +36,8 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     /// `source_workout_ref`. The save happens on the session-state delegate, off the
     /// call that ended the session — a continuation bridges that gap.
     private var endContinuation: CheckedContinuation<String?, Never>?
+    /// HK session being dropped so the phone can own. Its `.ended` must not save.
+    private var abandonedSession: HKWorkoutSession?
 
     // MARK: - Authorization
 
@@ -111,6 +113,16 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         isPaused = false
     }
 
+    /// Drop the HK session without writing a workout. The phone is now the
+    /// engine: a leftover HKWorkout would be a second owner in Salud.
+    func abandon() {
+        let ending = session
+        abandonedSession = ending
+        tickTimer?.invalidate()
+        ending?.end()
+        reset()
+    }
+
     /// End the HK session and return the saved HKWorkout's UUID string (nil when
     /// there was no live session, or the save failed). Awaits the actual
     /// `finishWorkout` on the session-state delegate so the id is real before the
@@ -151,7 +163,13 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
     ) {
         let endDate = date
         Task { @MainActor [weak self] in
-            guard let self, toState == .ended, let builder = self.builder else { return }
+            guard let self, toState == .ended else { return }
+            if workoutSession === self.abandonedSession {
+                self.abandonedSession = nil
+                self.finishEnd(returning: nil)
+                return
+            }
+            guard let builder = self.builder else { return }
             var savedWorkoutId: String? = nil
             do {
                 try await builder.endCollection(at: endDate)

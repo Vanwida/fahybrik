@@ -44,8 +44,11 @@ final class WatchRunLegDriverTests: XCTestCase {
         s.sampleRunDistance(deltaMeters: 350, source: .healthkit)
         XCTAssertEqual(s.runLegIndex, 1)
         XCTAssertFalse(s.isRunLegWork)
-
+        XCTAssertTrue(s.isTramoResting)
+        let coveredAtRest = s.segmentRunCoveredForProgress
         s.sampleRunDistance(deltaMeters: 1000, source: .healthkit)
+        XCTAssertEqual(s.segmentRunCoveredForProgress, coveredAtRest, accuracy: 0.001,
+                       "el descanso parado no suma metros")
         XCTAssertEqual(s.runLegIndex, 1)
 
         s.primaryAdvance()
@@ -55,6 +58,21 @@ final class WatchRunLegDriverTests: XCTestCase {
         XCTAssertFalse(s.isFinished)
         s.finish()
         XCTAssertTrue(s.isFinished)
+    }
+
+    func testTroteDeRecuperacionSiSuma() {
+        let s = structuredSession([main([
+            work(.distance(m: 400)), rec(.duration(s: 90), .trote), work(.distance(m: 400)),
+        ])])
+        s.primaryAdvance()
+        s.sampleRunDistance(deltaMeters: 400, source: .healthkit)
+        XCTAssertEqual(s.runLegIndex, 1)
+        XCTAssertTrue(s.isTramoRecuperandoEnMovimiento)
+        XCTAssertTrue(s.tramoMide)
+        let before = s.segmentRunCoveredForProgress
+        s.sampleRunDistance(deltaMeters: 80, source: .healthkit)
+        XCTAssertEqual(s.segmentRunCoveredForProgress, before + 80, accuracy: 0.001,
+                       "el trote de vuelta es un tramo que mide")
     }
 
     func testCoveredLivesOnTheSessionNotOnADriver() {

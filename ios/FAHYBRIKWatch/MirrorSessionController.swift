@@ -6,8 +6,8 @@ import os
 // MIRROR MODE — the wrist side of the 90% session. The iPhone drives the workout
 // (the only engine); the watch RECORDS it (HKWorkoutSession + HKLiveWorkoutBuilder
 // → HR / kcal / one saved HKWorkout) and renders frames the phone pushes. It never
-// runs the engine here — the standalone WatchWorkoutCoordinator owns phone-less
-// sessions and always wins a conflict.
+// runs the engine here. If a standalone engine is live when the phone starts,
+// that engine yields: one WorkoutSession, the phone's. The wrist records.
 //
 // Transport is the HealthKit mirrored-session app-data channel: the phone launches
 // this app with a HKWorkoutConfiguration (→ MirrorAppDelegate.handle), we build the
@@ -120,9 +120,13 @@ final class MirrorSessionController: NSObject {
 
     // MARK: - Start
 
-    /// Phone launched us with a workout config. Stand up the recording UNLESS a
-    /// standalone (phone-less) session is already running — that one wins.
+    /// Phone launched us. A live standalone engine is the extra owner: it
+    /// yields, then this recording starts. One WorkoutSession (the phone's).
     func start(config: HKWorkoutConfiguration) {
+        if WatchWorkoutCoordinator.shared.phase != .idle {
+            Self.log.warning("phone start found a standalone engine — yielding")
+            WatchWorkoutCoordinator.shared.yieldToPhone()
+        }
         // Card 72 — recover from ANY dirty leftover state, not an enumerated list.
         // The original self-heal only covered `.ending` (a stuck close); the far
         // more common wedge is `.recording` — the phone's end handshake never made
@@ -134,8 +138,8 @@ final class MirrorSessionController: NSObject {
             Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), isClosing=\(self.isClosing, privacy: .public)) — self-healing before the new recording")
             forceReleaseStuckSession()
         }
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else {
-            Self.log.warning("start(config:) declined — state=\(String(describing: self.state), privacy: .public) standaloneCoordinatorPhase=\(String(describing: WatchWorkoutCoordinator.shared.phase), privacy: .public)")
+        guard state == .idle else {
+            Self.log.warning("start(config:) declined — state=\(String(describing: self.state), privacy: .public)")
             return
         }
         state = .recording

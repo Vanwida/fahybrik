@@ -284,7 +284,9 @@ extension WorkoutSession {
         let computedSource: String
         if usedPM5 { computedSource = "pm5" }
         else if usedBelt { computedSource = "treadmill" }
-        else if usedGPS { computedSource = "healthkit" }
+        else if usedGPS {
+            computedSource = (runEnvironment?.usesPhoneGPS == true) ? "gps" : "healthkit"
+        }
         else if hasManualEntry { computedSource = "manual" }
         else if !lapHRSamples.isEmpty { computedSource = "healthkit" }
         else { computedSource = "manual" }

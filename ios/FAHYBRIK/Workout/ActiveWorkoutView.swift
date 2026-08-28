@@ -90,8 +90,6 @@ struct ActiveWorkoutView: View {
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
-    /// El contador de Apple. Sustituye al nuestro (ver `RunPedometer`).
-    @State private var pedometro = RunPedometer()
     @State private var liveHR = LiveHeartRateProvider()
     /// THE owner of the belt → session recording, alive for the whole workout (see the
     /// type). Wired to the shared device layer in `wireLiveSources`, like the strap.
@@ -326,7 +324,6 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             session.stop()
             runGPS.stop()
-            pedometro.stop()
             RunAltimeter.shared.onAltitude = nil
             RunAltimeter.shared.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
@@ -341,7 +338,6 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
-                pedometro.stop()
                 RunAltimeter.shared.stop()
                 releaseDevicesOnFinish()
                 onFinish()
@@ -365,11 +361,6 @@ struct ActiveWorkoutView: View {
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
             // so the phone keeps recording HR alone.
             if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
-            // Y LOS METROS, por el mismo reparto: mientras la muñeca emite, el
-            // podómetro del teléfono se aparta; si la muñeca se cae a mitad, vuelve.
-            // Sin esto el relevo solo se aplicaría al empezar el tramo, y una muñeca
-            // que entra tarde dejaría a las dos fuentes sumando. Card 119.
-            updateRunGPS()
         }
         // Multi-PM5: any role store can tick. Resolve the active role for THIS
         // tramo and only feed that monitor's numbers into the session window.
@@ -611,18 +602,12 @@ struct ActiveWorkoutView: View {
     // Hook the optional providers' callbacks into the session. Done once on
     // appear; the closures capture `session`, which is stable for the screen.
     private func wireLiveSources() {
-        // LA DISTANCIA LA CUENTA APPLE. El podómetro funde zancada y GPS, así que
-        // sigue contando en un túnel y con el móvil en el bolsillo — y no depende de
-        // que nadie nos conceda ejecución de fondo. Se sella como `healthkit` porque
-        // es el mismo motor que alimenta la distancia de Salud; `gps` sería mentir,
-        // que es justo lo que se quita.
-        pedometro.onDistanceDelta = { meters in
-            session.sampleRunDistance(deltaMeters: meters, source: .healthkit)
+        // UN STREAM: los metros salen del mismo CoreLocation que el mapa. Cuando
+        // la calle manda, `updateRunGPS` apaga este proveedor y pinta el de la
+        // superficie. Cuando no, este es el único CL vivo.
+        runGPS.onDistanceDelta = { meters in
+            session.sampleRunDistance(deltaMeters: meters, source: .gps)
         }
-        // La VELOCIDAD medida, para el archivo de la sesión. La pantalla de calle tiene
-        // su propio proveedor y hace lo mismo; sólo uno de los dos está vivo cada vez
-        // (`updateRunGPS` se aparta cuando la calle manda), así que la serie no se
-        // duplica.
         runGPS.onSpeed = { speed, accuracy in
             session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: accuracy)
         }
@@ -733,24 +718,14 @@ struct ActiveWorkoutView: View {
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
     //
-    // El guion (qué debería estar encendido) vive en `RunPhoneSensorPlan`, puro y
-    // testeable — bug cazado por Alex, card 101: el podómetro y el GPS propio
-    // compartían una sola guarda ("¿posee la pantalla de calle la superficie?"),
-    // que apaga el GPS propio con razón (dos `CLLocationManager` duplicarían la
-    // velocidad) pero apagaba el podómetro SIN razón — los metros no dependen de
-    // qué vista está montada. Ver la nota larga en `RunPhoneSensorPlan.swift`.
+    // El guion (qué debería estar encendido) vive en `RunPhoneSensorPlan`.
+    // Un solo CoreLocation: si la calle ya tiene el suyo, este se apaga.
     private func updateRunGPS() {
         let plan = RunPhoneSensorPlan.decide(
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
-            streetScreenOwnsSurface: superficieViva == .correrFuera,
-            wristIsRecording: PhoneMirrorService.shared.wristJoined
+            streetScreenOwnsSurface: superficieViva == .correrFuera
         )
-        if plan.pedometer {
-            pedometro.start(from: session.startedAt)
-        } else {
-            pedometro.stop()
-        }
         if plan.ownGPS {
             // EL PERMISO DE FONDO VA CON LA CARRERA, NO CON LA PANTALLA. Sólo lo pedía
             // la superficie de calle, así que un tramo de correr dentro de un EMOM (que

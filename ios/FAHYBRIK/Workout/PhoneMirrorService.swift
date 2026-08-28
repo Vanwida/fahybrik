@@ -382,18 +382,9 @@ final class PhoneMirrorService {
                     session?.injectLiveHR(hr.bpm, source: .healthkit)
                 }
             case MirrorWire.MessageType.distance:
-                // LOS METROS DE LA MUÑECA. El reloj los saca de su
-                // `HKLiveWorkoutBuilder` (`distanceWalkingRunning`) y los manda
-                // desde que existe el canal — pero aquí no los leía NADIE, así que
-                // una carrera en cinta tonta (donde el podómetro del teléfono está
-                // apagado a propósito: el móvil no va en el cuerpo) se guardaba sin
-                // un solo metro y sin ritmo. Card 119.
-                //
-                // Se sellan `.healthkit` porque es el motor de Apple, el mismo que
-                // firma la distancia de Salud; `RunDistanceAuthority` decide dentro
-                // del motor si esta ventana los acepta. El podómetro del teléfono
-                // se aparta mientras la muñeca emite (`RunPhoneSensorPlan`), así que
-                // nunca hay dos fuentes sumando a la vez.
+                // Metros de la muñeca (HK). En calle la autoridad tira el
+                // sustituto: cifra y mapa son CoreLocation. En cinta tonta
+                // HealthKit es el stream (no hay mapa).
                 if let d = env.body(as: MirrorDistanceSample.self) {
                     session?.sampleRunDistance(deltaMeters: d.deltaMeters, source: .healthkit)
                 }
