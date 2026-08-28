@@ -44,6 +44,9 @@ enum Theme {
         static let foreground = dyn(light: ui(0x0F1217), dark: ui(0xF5F3F0)) // text   (18.8:1 / —)
         static let muted      = dyn(light: ui(0x474D55), dark: ui(0x9A938B)) // muted  (8.5:1)
         static let faint      = dyn(light: ui(0x79808A), dark: ui(0x6B6258)) // faint  (UI 3.99:1)
+        /// livePicture HUD names (Watch-shaped). Same ink as the page text.
+        static let ink = foreground
+        static let inkMuted = muted
 
         // Hairlines / outlines flip from warm-white-on-black to black-on-white at
         // the same low alphas — the instrument-panel seam, inverted.

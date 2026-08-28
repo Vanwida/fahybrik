@@ -11,6 +11,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · ForTimeContextStrip no vuelve
+
+**Qué fallaba:** `157cf569` borró `WorkoutFormatHUDs`. Quedó una llamada
+en `ErgHUDContent:188`. Único fail iPhone en `6f5b8c67` (Watch ok).
+
+**Decidido:** no restaurar el tipo. La tira de estación pinta
+`livePicture` (label / plan / next / score) y el reloj del bloque
+(`tramoWorkRemaining` o `condElapsed`) — la cifra que la ruta pondría
+en `figure` cuando el ergo no se ha comido el hero. `Theme.Color.ink`
+es alias de `foreground`; el HUD de ruta ya lo nombraba así.
+
+**Qué se elimina:** `ForTimeContextStrip` se queda muerto. No vuelve
+una rama For Time para que compile el PM5.
+
+**NO hacer:** no devolver `WorkoutFormatHUDs`. no un if Chipper. no
+declarar hecho: Marc recompila iPhone+Watch y camina Chipper Y
+run+recuperación.
+
+**Dónde:** `ErgHUDContent.livePictureContextStrip`, `Theme.Color.ink`.
+
+---
+
 ## 2026-08-28 · Tres clases del vivo: un stream, un descanso, un dueño
 
 **Qué fallaba:** el motor unificado seguía partido en tres sitios. La cifra

@@ -181,11 +181,12 @@ struct ErgHUDContent: View {
     @ViewBuilder
     private var contextStrip: some View {
         if session.isStationTramo {
-            // A station of a route. The monitor has earned the screen, but the BLOCK
-            // clock is the score of a For Time — it cannot vanish just because the
-            // athlete reached the rower. Same strip the route's own HUD shows, so
-            // arriving at the erg changes the numbers, never the frame.
-            ForTimeContextStrip(session: session)
+            // A station of a route. The monitor has the metres; the strip is the
+            // same livePicture the route HUD paints, so arriving at the erg
+            // changes the numbers, never the frame. The block clock stays —
+            // that clock is the score of the route and cannot vanish behind
+            // the machine. ForTimeContextStrip died with the format branches.
+            livePictureContextStrip
         } else if session.isTramoCountIn {
             HStack(spacing: 8) {
                 LabelText(text: "Prepárate", color: Theme.Color.accentText, size: 10)
@@ -213,6 +214,65 @@ struct ErgHUDContent: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Serie \(session.tramoRoundIndex + 1) de \(max(1, session.tramoRoundTotal)). \(prescriptionLine)")
         }
+    }
+
+    /// Same reading `ActiveWorkoutView.livePictureHUD` paints. The figure on
+    /// an erg station is metres — already the goal box — so the strip keeps
+    /// label / plan / next / score and the block clock that figure would
+    /// have been on a station nothing else measures.
+    private var livePictureContextStrip: some View {
+        let pic = session.livePicture
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pic.label)
+                    .font(.system(size: 11, weight: .heavy).italic())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .fixedSize()
+                if let plan = pic.planLine, !plan.isEmpty {
+                    Text(plan)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                if let next = pic.nextLine, !next.isEmpty {
+                    Text(next)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.Color.faint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            Spacer(minLength: 6)
+            if let score = pic.score.label {
+                Button(score) { session.scoreStrike() }
+                    .font(.system(size: 11, weight: .heavy).italic())
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+            Text(livePictureBlockClock)
+                .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Theme.Color.foreground)
+                .monospacedDigit()
+        }
+        .stripChrome()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(livePictureStripA11y)
+    }
+
+    /// Cap remaining when the route boxes the block; elapsed otherwise.
+    /// Same fields `livePicture.figure` uses when the station is not an erg.
+    private var livePictureBlockClock: String {
+        if let remaining = session.tramoWorkRemaining {
+            return Formato.clock(remaining, anchoFijo: true)
+        }
+        return Formato.clock(session.condElapsed, anchoFijo: true)
+    }
+
+    private var livePictureStripA11y: String {
+        let pic = session.livePicture
+        return ([pic.label] + [pic.planLine, pic.nextLine].compactMap { $0 } + [livePictureBlockClock])
+            .filter { !$0.isEmpty }
+            .joined(separator: ". ")
     }
 
     /// What this window is + what follows it.

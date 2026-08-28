@@ -2,30 +2,25 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-28** (live: un motor)
+Última actualización: **2026-08-28** (live: tira PM5 = livePicture)
 
 ## Ahora
 
-**LIVE · UN MOTOR (PR 91, este cloud).** Compile: `closeConditioningAndAdvance`
-deja de ser private (una forma). Después, tres clases (no parches):
+**LIVE · PR 91.** Watch sim ya compilaba en `6f5b8c67`. iPhone fallaba
+en `ErgHUDContent:188` (`ForTimeContextStrip` muerto con las ramas).
+La tira de estación bebe `livePicture` — el mismo contexto que el HUD
+de ruta. El tipo no vuelve. `Theme.Color.ink` / `inkMuted` son alias
+de foreground/muted (el HUD de ruta los nombra así).
 
-- a) Una distancia. Cifra y mapa = CoreLocation. Se borró el podómetro
-  como fuente oficial. `RunDistanceAuthority` acepta `.gps` en calle
-  y tira HK ahí (sustituto). Reloj solo / cinta tonta siguen en HK.
-- b) El descanso es un tramo. `sampleRunDistance` no suma si
-  `!tramoMide`. Overlay y recuperación parada no miden. El trote sí.
-- c) Un dueño. Start Watch standalone + móvil: el motor del reloj
-  cede (`yieldToPhone`). Un `WorkoutSession` (el del teléfono).
-  La muñeca pasa a espejo. No se guarda un segundo HKWorkout.
+Tres clases (cuadran en estático; Marc las camina):
+- a) Una distancia = CoreLocation en calle.
+- b) El descanso es un tramo (`!tramoMide` no suma).
+- c) Un dueño (`yieldToPhone`).
 
-Inventario: `docs/audits/live-run-patches-root.md`.
-Ley: DECISIONS 28-ago (motor) y la entrada de las tres clases.
+**NO es hecho.** Linux no es compile. Marc: iPhone+Watch, Chipper Y
+run+recuperación.
 
-**NO es hecho de producto.** Linux no compiló Xcode. Marc lanza
-debugger en Mac: Chipper Y run+recuperación, iPhone+Watch.
-
-No tocar: 105 maqueta runner, 174 PR 87, 175 PR 88, web, Neon,
-`DEVELOPMENT_TEAM` (`S6W4459DDG`). No segundo audit. No otro cloud.
+No tocar: 105, 174, 175, web, Neon, `DEVELOPMENT_TEAM` (`S6W4459DDG`).
 
 ## Espera Alex / Marc
 
