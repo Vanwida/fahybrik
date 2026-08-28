@@ -31,13 +31,21 @@ import { CASOS as EMOM } from '@/components/design-twin/screens/watch-emom/guion
 import { CASOS as FORTIME } from '@/components/design-twin/screens/watch-fortime/guion';
 import { CASOS as AMRAP } from '@/components/design-twin/screens/watch-amrap/guion';
 import { CASOS as DOBLES } from '@/components/design-twin/screens/watch-dobles/guion';
+import { CASOS as CORREDOR } from '@/components/design-twin/screens/corredor/guion';
 
 interface Caso {
   nombre: string;
   paginas: readonly PaginaReloj[];
 }
 
-/** Las nueve. Añadir una vista es añadir una línea aquí. */
+/**
+ * El censo. Añadir una vista es añadir una línea aquí.
+ *
+ * La décima no es «una más»: `corredor` es la interfaz del corredor y la
+ * comparte con el iPhone (mismo `guion.ts`). Entra en este censo porque el
+ * presupuesto de la muñeca no perdona a nadie — que una vista sea compartida
+ * no la exime de caber en 188 pt.
+ */
 const VISTAS: ReadonlyArray<readonly [string, readonly Caso[]]> = [
   ['rodaje', RODAJE],
   ['series de calle', SERIES],
@@ -48,6 +56,7 @@ const VISTAS: ReadonlyArray<readonly [string, readonly Caso[]]> = [
   ['For Time', FORTIME],
   ['AMRAP', AMRAP],
   ['dobles', DOBLES],
+  ['el corredor', CORREDOR],
 ];
 
 describe('el lienzo del reloj', () => {
@@ -81,9 +90,9 @@ describe('el lienzo del reloj', () => {
   });
 });
 
-describe('las nueve vistas', () => {
-  it('son nueve', () => {
-    expect(VISTAS).toHaveLength(9);
+describe('las vistas de la muñeca', () => {
+  it('son las nueve por formato más la del corredor', () => {
+    expect(VISTAS).toHaveLength(10);
   });
 
   for (const [vista, casos] of VISTAS) {
