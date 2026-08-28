@@ -50,6 +50,13 @@ import * as watchEmom from './screens/watch-emom';
 import * as watchFortime from './screens/watch-fortime';
 import * as watchAmrap from './screens/watch-amrap';
 import * as watchDobles from './screens/watch-dobles';
+// EL CORREDOR (28-ago, card 105): una interfaz, dos superficies. Las dos leen
+// `screens/corredor/guion.ts`, que es donde vive la regla — el sujeto es lo que
+// FALTA de la pieza que tienes delante. Nació de la auditoría del reloj: el
+// espejo y el standalone enseñaban cosas distintas de la misma sesión porque
+// cada uno decidía por su cuenta qué pintar.
+import * as corredor from './screens/corredor';
+import * as watchCorredor from './screens/watch-corredor';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -103,6 +110,8 @@ export const SCREENS: TwinScreenModule[] = [
   watchFortime,
   watchAmrap,
   watchDobles,
+  corredor,
+  watchCorredor,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -116,6 +125,11 @@ export function getScreen(id: string): TwinScreenModule | undefined {
  * entreno en vivo y se enseña sola, agrupada por su propia lógica.
  */
 export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
+  // Va la primera a propósito: NO es «una vista más de correr». Es la interfaz
+  // del corredor, y las dos entradas son la misma pantalla en dos superficies
+  // (comparten `screens/corredor/guion.ts`). Donde choque con las de abajo,
+  // manda ésta.
+  { grupo: 'El corredor · una interfaz, dos superficies', ids: ['corredor', 'watch-corredor'] },
   { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
   {
     grupo: 'En vivo, por quién gobierna',
