@@ -13,9 +13,52 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 **El nombre del coach ya sale de la base** en las push, los correos de cita y de lead y los `.ics`. Y **un lead se graba con su dueño en la captura** (0147): NULL significa «sin asignar», nunca «el coach por defecto».
 
-**En curso / lo siguiente:** card 105 — auditoría Apple Watch cerrada (`docs/audits/watch-ui-ux-audit-card-105.md`); **handoff a Opus** para UN mockup de corredor en Chipper standalone (Alex corta antes de construir). Las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
+**En curso / lo siguiente:** card 105 — auditoría cerrada y **el mockup del corredor está listo para que Alex corte** (abajo: `/es/design/corredor` y `/es/design/watch-corredor`); nada de Swift tocado. Las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
 
 **Esperan decisión de Alex:** si guardamos la serie de ritmo (`execution_streams`) · el identificador de coach en el enlace público de captura · las tres filas «Pablo Amigo» (60/61/62) con los atletas repartidos · el modelo de las 5 estaciones de HYROX · borrar o revivir `methodology_blocks`/`methodology_rules` (motor muerto cuya forma sigue siendo un catálogo de fases) · la firma de distribución, que bloquea TestFlight.
+
+---
+
+## PARA CORTAR · El corredor: UNA interfaz, dos superficies (28-ago, card 105)
+
+**Se abre en `/es/design/corredor` (iPhone) y `/es/design/watch-corredor`
+(muñeca).** Mismos cuatro escenarios en las dos, y el mismo escenario enseña el
+mismo instante: no son dos pantallas parecidas, comparten el modelo entero
+(`web/components/design-twin/screens/corredor/guion.ts`). Ése es el arreglo del
+hallazgo de fondo de la auditoría — el espejo del reloj lee `currentTramo` y el
+standalone lo ignora, así que la misma sesión se veía de dos maneras en el
+mismo brazo. Ahora no hay dos sitios donde decidirlo.
+
+**La regla:** *el sujeto es lo que FALTA de la pieza que tienes delante, en la
+unidad en que esa pieza se mide.* Run de 800 m con GPS → faltan 284 m. Estación
+que no mide nadie (60 wall balls, sled) o GPS sin fijar → no falta nada medible,
+el sujeto cae al reloj de la estación y la dosis del coach sube al segundo
+nivel. **Y lo que decide no es el formato: es QUIÉN MIDE la pieza** — dos
+estaciones del mismo chipper prescritas en metros se comportan distinto porque
+una la ve el GPS y la otra no la ve nadie. De esa misma variable sale el peso de
+la acción: si el hito puede cerrar, el botón es un atajo; si no, es la única
+salida.
+
+**Tres raíces, no tres síntomas:** (1) «sin medir» confundía «no hay fuente» con
+«la fuente marca cero» (`guard meters > 0` en `Formato.distanciaCubierta`) — la
+medida pasa a tener tres estados y **el cero es un dato**: recién fijado el GPS
+y con 0 m cubiertos, se lee «faltan 800 m»; (2) el ritmo tenía DOS definiciones,
+la suavizada del móvil y la acumulada del reloj, o sea dos números de la misma
+carrera — queda UNA, metros del tramo entre tiempo del tramo; (3) el `time_cap`,
+que el motor calculaba y ninguna pantalla pintaba, se ve, y enciende el sujeto
+en naranja **sólo** en los últimos 30 s.
+
+**Lo que NO toca, a propósito:** pausar/terminar (176) — el velo de pausa del
+móvil enseña dónde caen sin dibujarlas —, metros de sesión (101), reloj 4:00
+(67), tap-cambia-ronda (72) y sync (157). Cero Swift.
+
+**Nota de coherencia para cuando se construya:** `vivo-correr` tiñe el lienzo
+con un umbral de 162 ppm que `datos-reloj.ts` ya identificó como **un valor por
+defecto del cliente Swift, no el dato de ningún atleta**. Estas dos pantallas no
+tiñen, porque no hay ancla de FC en 8 de 8. Hay que reconciliarlo.
+
+Decisión y consecuencias: `docs/DECISIONS.md` (28-ago). Auditoría de origen:
+`docs/audits/watch-ui-ux-audit-card-105.md` §12.
 
 ---
 

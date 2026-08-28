@@ -10,6 +10,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · El corredor es UNA interfaz con dos superficies, no dos pantallas que se parecen
+
+**Decidido:** correr en vivo deja de ser «la vista del móvil» + «la vista de la muñeca» y pasa a ser **una sola interfaz** cuyo modelo vive en un fichero que las dos importan (`web/components/design-twin/screens/corredor/guion.ts`; pantallas `/es/design/corredor` y `/es/design/watch-corredor`). Nace de la auditoría de la card 105, que encontró que el **espejo** del reloj lee `currentTramo` y el **standalone** lo ignora: la misma sesión, en el mismo brazo, se veía de dos maneras.
+
+**La regla que la ordena, y de la que salen todos los casos:** *el sujeto es lo que FALTA de la pieza que tienes delante, medido en la unidad en que esa pieza se mide.* Run de 800 m con GPS → faltan 284 m. Tramo cajeado en tiempo → quedan 2:12. Estación que no mide nadie (60 wall balls, sled 50 m) o GPS sin fijar → no falta nada medible, así que **el sujeto cae al reloj de la estación** y la dosis del coach sube al segundo nivel. No son tres pantallas: es una regla con tres desenlaces honestos. **Y lo que decide no es el formato del bloque: es QUIÉN MIDE la pieza** — dos estaciones del mismo chipper con la misma unidad prescrita (metros) se comportan distinto porque una la mide el GPS y la otra no la mide nadie.
+
+**Corolario que ya gobierna el peso de la acción en las dos superficies:** si alguien mide, el hito puede cerrar la estación y el botón es un atajo (contorno en el móvil, modo `ojeada` en la muñeca); si no mide nadie, tu toque es la ÚNICA salida (relleno naranja, modo `ciego`). Es la misma regla del motor («salida por la MEDIDA, no por el movimiento») subida a la pintura.
+
+**Dos raíces arregladas, no dos síntomas:**
+
+1. **«Sin medir» confundía «no hay fuente» con «la fuente marca cero».** `Formato.distanciaCubierta` lleva un `guard meters > 0` y devuelve `nil`, así que con el GPS fuerte y la traza pintándose en el mapa la distancia decía «sin medir». La medida pasa a tener **tres** estados —`midiendo` (y **el cero es un dato**, §6.2 bis: un contador se pinta en cero) · `buscando` (se dice, no se inventa un ritmo) · `nadie` (no existe la caja)—. Recién fijado y con 0 m cubiertos, el sujeto lee **800 m que faltan**.
+2. **El ritmo tenía dos definiciones, una por superficie.** En el teléfono `OutdoorRunHUDModel.livePaceSecPerKm` sale de la velocidad GPS suavizada (instantáneo) y en la muñeca `RunLegDisplay.legPaceSecPerKm` sale de metros/tiempo del tramo (acumulado): dos números distintos de la misma carrera, que es el fallo que persigue el §2 del CONTRATO-UI pero con las dos pantallas en el mismo brazo. **Queda UNA: ritmo del tramo = metros del tramo / tiempo del tramo**, con suelo de 10 m. Se elige la acumulada porque en una estación con objetivo la pregunta no es «a cuánto voy ahora» sino «¿llego a mi objetivo en ESTA pieza?», y sólo ésa la contesta — además de que no baila con el brazo en movimiento.
+
+**El `time_cap` se ve por primera vez.** El motor lo calculaba (`tickDeadline`) y ninguna pantalla lo pintaba. Va en la franja de contexto del móvil, tiene página propia en la muñeca (techo de sujeto + puntuación del bloque de segundo) y **enciende el sujeto en naranja sólo en los últimos 30 s**: un aviso permanente no avisa.
+
+**Multi-tenant, en una decisión pequeña que se repetirá:** el nombre de la estación sale del catálogo del coach, así que puede ser tan largo como él quiera y no cabe en 188 pt. La regla es **se recorta el NOMBRE, jamás la posición** («3/8»), y por eso la posición va primero: en un chipper la cuenta es lo que no puedes reconstruir mirando alrededor; el nombre lo tienes delante.
+
+**Sin ancla de FC no hay zona, y por tanto no hay tinte** — en NINGUNA de las dos superficies. Es el 100 % de la base (`athletes.max_hr_bpm` NULL en 8 de 8, ni un `lthr_bpm`). Nota de coherencia: `vivo-correr` sí tiñe porque usa `UMBRAL = 162 ppm`, que `datos-reloj.ts` ya identificó como **un valor por defecto del cliente Swift y no el dato de ningún atleta**. Aquí manda el hallazgo nuevo.
+
+**Procedencia de las cifras:** la FORMA (chipper de 8 estaciones, carrera de 800 m con `time_cap` de 4:00) es una **prescripción**, no una ejecución — `time_cap` nació el 26-jul, vive en `prescription_json` y tiene **cero filas** de entreno porque ningún coach lo ha usado. Los ritmos y el pulso salen de la ejecución **104** del atleta 67 (cinco repeticiones medidas de 950 a 1600 m, ~4:10/km, FC de 138 a 178).
+
+**En consecuencia, no hacer:** no volver a escribir el sujeto, el ritmo o el juicio en la vista de una superficie — si hay que tocarlos, se tocan en el modelo compartido y cambian en las dos; no escribir «Ronda» donde el motor cuenta ESTACIONES (`fixedListIsStations`); no pintar cero metros medidos como una ausencia; no rellenar el aro ni la barra con el tiempo transcurrido en una estación que nadie mide (fingir progreso); y no diseñar aquí pausar/terminar — son la card 176, y esta propuesta les deja el sitio sin dibujarlos.
+
+---
+
 ## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
 
 **Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.

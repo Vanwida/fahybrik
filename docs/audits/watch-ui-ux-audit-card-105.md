@@ -227,4 +227,38 @@ No rediseñar pause/finish, metros globales de sesión, tap-cambia-ronda ni sync
 
 ---
 
+## 12. Dónde aterrizó (28-ago) — el círculo cerrado
+
+La respuesta NO es una vista de reloj más: es **una interfaz de corredor con dos
+superficies**, cuyo modelo vive en un solo fichero que las dos importan
+(`web/components/design-twin/screens/corredor/guion.ts`). Así el hallazgo §5.4
+(espejo ≠ standalone) deja de poder repetirse: no hay dos sitios donde decidir
+qué se enseña.
+
+| Se abre en | Qué es |
+|---|---|
+| `/es/design/corredor` | El corredor · iPhone |
+| `/es/design/watch-corredor` | El corredor · muñeca |
+
+Los cuatro escenarios (`estacion-carrera`, `cap-encima`, `estacion-ciega`,
+`sin-senal`) son los mismos en las dos: abrir el mismo escenario en las dos URLs
+enseña el mismo instante.
+
+**Qué queda contestado de esta auditoría:** §5.1 (copy «Ronda» → estación) ·
+§5.2 y §6 (estación, dosis, metros que faltan, ritmo, tiempo de estación y
+parcial anterior, todos en la muñeca) · §5.4 (convergencia por construcción) ·
+§5.5 (una carrera dentro del chipper SÍ activa metros y ritmo) · §5.6 (el
+`time_cap` se ve, y se enciende en los últimos 30 s) · §5.7 (la ruta de
+estaciones va en el bisel y en la cinta del móvil). Y el fallo del iPhone que
+motivó la card —«sin medir» con el GPS fuerte— se arregla en la raíz: la medida
+pasa a tener tres estados y el cero es un dato.
+
+**Qué NO toca, a propósito:** pausa/terminar (176), metros de sesión (101),
+reloj 4:00 (67), tap-cambia-ronda (72) y sync (157). El velo de pausa del móvil
+enseña dónde caen las de la 176 sin dibujarlas.
+
+Razonamiento y consecuencias: `docs/DECISIONS.md`, entrada del 2026-08-28.
+
+---
+
 *Auditoría generada por recorrido de código. Sin ejecución de suite como prueba.*
