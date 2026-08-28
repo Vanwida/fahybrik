@@ -12,6 +12,7 @@ del home indicator). Con 8 tramos el plan hace scroll; el botón
 no se esconde. Cualquier coach, cualquier día. La previa
 (`PreWorkoutBriefView`) no era esta pantalla. 171 / 174 / 116 /
 132 / web / Neon no se tocan.
+https://github.com/Vanwida/fahybrik/pull/88
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva
