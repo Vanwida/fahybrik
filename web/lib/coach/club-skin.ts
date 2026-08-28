@@ -15,21 +15,6 @@ import { buildClubAccent } from '@fahybrid/shared/domain/coach/club-accent';
 import type { ClubFicha, ClubSkinPatch } from '@fahybrid/shared/schema/coach-club-skin';
 import { getClubNotifyEmail, updateClubNotifyEmail } from '@/lib/coach/club-notify';
 
-interface ClubSkinRow {
-  club_skin_name: string | null;
-  club_logo_url: string | null;
-  club_accent_hex: string | null;
-}
-
-function toSkin(row: ClubSkinRow | undefined): ClubSkin {
-  if (!row) return emptyClubSkin();
-  return {
-    name: row.club_skin_name,
-    logo_url: row.club_logo_url,
-    accent_hex: row.club_accent_hex,
-  };
-}
-
 async function withNotify(
   coach_id: bigint | number,
   skin: ClubSkin | null,
@@ -42,18 +27,35 @@ async function withNotify(
   };
 }
 
+function asText(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s.length === 0 ? null : s;
+}
+
+function skinFromRow(row: Record<string, unknown> | undefined): ClubSkin {
+  if (!row) return emptyClubSkin();
+  return {
+    name: asText(row.club_skin_name),
+    logo_url: asText(row.club_logo_url),
+    accent_hex: asText(row.club_accent_hex),
+  };
+}
+
 export async function getClubSkin(
   coach_id: bigint | number,
   client: Sql = defaultSql,
 ): Promise<ClubFicha | null> {
-  const rows = await client<ClubSkinRow[]>`
-    select club_skin_name, club_logo_url, club_accent_hex
-    from coaches
+  // `select *`: una columna 0199 que Preview aún no tiene no tumba el GET.
+  // La clave ausente queda undefined → piel vacía, no 42703. Misma clase
+  // que `to_jsonb` / `coach_running_thresholds`.
+  const rows = await client<Array<Record<string, unknown>>>`
+    select * from coaches
     where id = ${coach_id}
     limit 1
   `;
   if (rows.length === 0) return null;
-  return withNotify(coach_id, toSkin(rows[0]), client);
+  return withNotify(coach_id, skinFromRow(rows[0]), client);
 }
 
 export async function updateClubSkin(

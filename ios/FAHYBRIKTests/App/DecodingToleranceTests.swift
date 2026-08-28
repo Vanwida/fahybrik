@@ -45,4 +45,18 @@ final class DecodingToleranceTests: XCTestCase {
         // items arrives as a string (not an array) → [] instead of throwing the payload.
         XCTAssertEqual(try decode(#"{"items":"oops"}"#).items, [])
     }
+
+    /// GET /auth/me con club null y sin hr_zones sigue siendo una sesión.
+    /// Un 200 mínimo no puede tumbar el decode y dejar el start en spinner.
+    func testMeResponseDecodesClubNullWithoutHrZones() throws {
+        let json = """
+        {"athlete":{"id":"67","full_name":"Ada"},"club":null}
+        """
+        let resp = try APIClient.makeJSONDecoder().decode(MeResponse.self, from: Data(json.utf8))
+        XCTAssertEqual(resp.athlete.id, "67")
+        XCTAssertEqual(resp.athlete.fullName, "Ada")
+        XCTAssertNil(resp.club)
+        XCTAssertNil(resp.athlete.hrZones)
+        XCTAssertNil(resp.athlete.avatarUrl)
+    }
 }

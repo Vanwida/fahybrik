@@ -789,6 +789,112 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertTrue(plan.segments.allSatisfy { $0.blockPhase == .warmup })
     }
 
+    /// Un día prescrito con calentamiento + series + vuelta a la calma
+    /// tiene que abrir brief/live. El 200 del detail no basta si `from`
+    /// devuelve nil y el contenedor se queda en `.loading`.
+    func test_prescribedDay_warmupIntervalsCooldown_isReadyLaunch() throws {
+        let json = """
+        {
+          "assignment": {
+            "id": "asg_day",
+            "athlete_id": "ath",
+            "scheduled_for": "2026-08-25",
+            "status": "scheduled",
+            "station_assignment": null,
+            "my_role": null
+          },
+          "workout": {
+            "name": "Tempo",
+            "blocks": [
+              {
+                "uid": "w",
+                "title": "Calentamiento",
+                "format": "circuit",
+                "block_position": 0,
+                "items": [
+                  {
+                    "uid": "w1",
+                    "exercise_id": "1",
+                    "exercise_name": "Movilidad",
+                    "exercise_slug": "mobility",
+                    "exercise_category": "mobility",
+                    "exercise_video_url": null,
+                    "cues": null,
+                    "params_json": { "duration_seconds": 60 },
+                    "notes": null
+                  }
+                ]
+              },
+              {
+                "uid": "i",
+                "title": "Series de carrera",
+                "format": "intervals",
+                "block_position": 1,
+                "items": [
+                  {
+                    "uid": "i1",
+                    "exercise_id": "2",
+                    "exercise_name": "Run",
+                    "exercise_slug": "run",
+                    "exercise_category": "running",
+                    "exercise_video_url": null,
+                    "cues": null,
+                    "params_json": { "duration_seconds": 300 },
+                    "prescription_json": {
+                      "scheme": "rounds",
+                      "rounds": 3,
+                      "sets": [{ "measure": { "kind": "duration", "value": 300 } }]
+                    },
+                    "notes": null
+                  }
+                ]
+              },
+              {
+                "uid": "c",
+                "title": "Vuelta a la calma",
+                "format": "circuit",
+                "block_position": 2,
+                "items": [
+                  {
+                    "uid": "c1",
+                    "exercise_id": "3",
+                    "exercise_name": "Bike",
+                    "exercise_slug": "bike",
+                    "exercise_category": "cardio",
+                    "exercise_video_url": null,
+                    "cues": null,
+                    "params_json": { "duration_seconds": 120 },
+                    "notes": null
+                  }
+                ]
+              }
+            ]
+          }
+        }
+        """
+        let detail = try decode(json)
+        switch WorkoutLaunchBody.from(detail: detail) {
+        case .ready(let plan, _):
+            XCTAssertEqual(plan.name, "Tempo")
+            XCTAssertFalse(plan.segments.isEmpty)
+        default:
+            XCTFail("un día con bloques prescritos tiene que ser ready, no unusable")
+        }
+    }
+
+    func test_emptyWorkout_isUnusableLaunch() throws {
+        let json = """
+        {
+          "assignment": { "id": "1", "athlete_id": "1", "scheduled_for": "2026-08-25", "status": "scheduled" },
+          "workout": { "name": "X", "blocks": [] }
+        }
+        """
+        if case .unusable = WorkoutLaunchBody.from(detail: try decode(json)) {
+            return
+        }
+        XCTFail("sin bloques el launch es unusable — failed, no spinner")
+    }
+
     // MARK: - Executed-session detail (`execution` block)
     //
     // Powers ExecutedWorkoutView (tap a DONE session → read-only what-you-logged).

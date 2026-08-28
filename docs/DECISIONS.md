@@ -11,6 +11,49 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Sesión ready: me no 500, start no espera un me roto
+
+**Qué fallaba:** EMPEZAR un día prescrito (detail 200,
+`scheduled`, execution vacío) se quedaba en overlay blanco +
+spinner. Cero POST `execution/start`. Watch en readiness. GET
+`/api/auth/me` en Preview = 500 cuerpo vacío. El 200 del detail
+no basta: sin sesión ready el start no sigue.
+
+**Qué se descartó:** if por el día, if HYROX, tocar el plan, un
+segundo escritor. `loadAthleteHrZones` como causa de ESE 500:
+`GET /api/athlete/zones` ya era 200. El week y el detail no
+son esta card.
+
+**La clase (la de esta mañana, otra puerta):** el lector nombra
+una columna que Preview Neon puede no tener. `/me` SELECTA
+`athletes.avatar_url` (0179) y, si hay coach, `club_skin_*`
+(0199). 42703 o `.toISOString()` sobre un timestamp que llega
+string → throw sin catch → 500 vacío. En el teléfono, `/me` y
+el GET del día compartían el mismo actor: un me colgado deja
+`loadPlan` en `.loading`.
+
+**Decidido:** una sesión ready. Perfil = `to_jsonb(a)` + mapper
+puro (clave ausente = null). Piel = `select *` (clave ausente =
+vacío). 42703 de piel → `club: null`, no inventar atleta. iOS:
+identidad por otro buzón (`APIClient.identity`); GET con
+timeout 20 s; retomar una instantánea deja `.ready`, no el
+spinner. `WorkoutLaunchBody` es ready | jump | unusable — el
+unusable es `.failed`, no overlay eterno.
+
+**Qué se elimina:** el SELECT que nombra `a.avatar_url` /
+`a.max_hr_bpm` / `a.preferred_language` y el de
+`coaches.club_skin_name` desnudo.
+
+**NO hacer:** no if del día. no if HYROX. no 105. no segundo
+escritor. no inventar bloques. no tocar el plan del atleta. no
+caminar el sim. no merge. no promote.
+
+**Dónde:** `web/lib/athlete/profile.ts`, `web/lib/coach/club-skin.ts`,
+`web/app/api/auth/me/route.ts`, `APIClient.identity`,
+`WorkoutLaunchBody`, `WorkoutContainer.loadPlan`.
+
+---
+
 ## 2026-08-28 · Detail: columna opcional se lee, no tumba el GET
 
 **Qué fallaba:** GET `/api/athlete/assignments/:id/detail` en el

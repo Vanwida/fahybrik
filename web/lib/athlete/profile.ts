@@ -59,65 +59,94 @@ export interface AthleteProfileDTO {
   preferred_language: string | null;
 }
 
-// ── Internal row shape coming off Postgres ────────────────────────────────────
+// ── jsonb → DTO ───────────────────────────────────────────────────────────────
+//
+// `to_jsonb(a)` only serializes columns that EXIST. A Preview Neon that has
+// not run 0179 (`avatar_url`) or 0129 (`max_hr_bpm`) must still produce a
+// session — missing key = null, never 42703, never TypeError on .toISOString().
 
-interface AthleteRow {
-  athlete_id: string;
-  full_name: string;
-  /** La BASE de entrega tal y como está en la columna (sin variante). */
-  avatar_url: string | null;
-  dob: string | null;
-  sex: 'male' | 'female' | 'other' | null;
-  height_cm: string | null;
-  weight_kg: string | null;
-  body_fat_pct: string | null;
-  // int column → postgres.js returns a JS number (no ::text cast, like training_days_per_week).
-  max_hr_bpm: number | null;
-  training_experience_years: string | null;
-  primary_discipline: string | null;
-  training_days_per_week: number | null;
-  equipment_access: string | null;
-  injuries_json: unknown;
-  onboarded_at: Date | null;
-  coach_id: string | null;
-  created_at: Date;
-  goal_type: string | null;
-  goal_other_text: string | null;
-  preferred_language: string | null;
+function jsonbText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const t = value.trim();
+  return t.length > 0 ? t : null;
 }
 
-// postgres.js returns numeric columns as strings when using explicit ::text
-// casts. Convert to a JS number (null if not finite).
-function toNumber(v: string | null): number | null {
-  if (v === null) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function jsonbId(value: unknown): string | null {
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
+  if (typeof value === 'string' && value.trim() !== '') return value.trim();
+  return null;
 }
 
-function rowToDTO(row: AthleteRow, hr_zones: HrZonesDTO | null): AthleteProfileDTO {
+function jsonbNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function jsonbInt(value: unknown): number | null {
+  const n = jsonbNumber(value);
+  return n == null ? null : Math.round(n);
+}
+
+function jsonbIso(value: unknown): string | null {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  return null;
+}
+
+function jsonbDob(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+  return m?.[1] ?? null;
+}
+
+function jsonbSex(value: unknown): AthleteProfileDTO['sex'] {
+  return value === 'male' || value === 'female' || value === 'other' ? value : null;
+}
+
+/** Mapper puro: clave ausente = null. Sin id no hay atleta. */
+export function athleteProfileFromJsonb(raw: unknown): AthleteProfileDTO | null {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const id = jsonbId(row.id);
+  if (!id) return null;
   return {
-    hr_zones,
-    id: row.athlete_id,
-    full_name: row.full_name,
-    avatar_url: profilePhotoUrl(row.avatar_url, PROFILE_PHOTO_VARIANTS.ficha),
-    dob: row.dob,
-    sex: row.sex,
-    height_cm: toNumber(row.height_cm),
-    weight_kg: toNumber(row.weight_kg),
-    body_fat_pct: toNumber(row.body_fat_pct),
-    max_hr_bpm: row.max_hr_bpm,
-    training_experience_years: toNumber(row.training_experience_years),
-    primary_discipline: row.primary_discipline,
-    training_days_per_week: row.training_days_per_week,
-    equipment_access: row.equipment_access,
+    id,
+    full_name: jsonbText(row.full_name) ?? '',
+    avatar_url: profilePhotoUrl(jsonbText(row.avatar_url), PROFILE_PHOTO_VARIANTS.ficha),
+    dob: jsonbDob(row.dob),
+    sex: jsonbSex(row.sex),
+    height_cm: jsonbNumber(row.height_cm),
+    weight_kg: jsonbNumber(row.weight_kg),
+    body_fat_pct: jsonbNumber(row.body_fat_pct),
+    max_hr_bpm: jsonbInt(row.max_hr_bpm),
+    hr_zones: null,
+    training_experience_years: jsonbNumber(row.training_experience_years),
+    primary_discipline: jsonbText(row.primary_discipline),
+    training_days_per_week: jsonbInt(row.training_days_per_week),
+    equipment_access: jsonbText(row.equipment_access),
     injuries_json: row.injuries_json ?? [],
-    onboarded_at: row.onboarded_at?.toISOString() ?? null,
-    coach_id: row.coach_id,
-    created_at: row.created_at.toISOString(),
-    goal_type: row.goal_type,
-    goal_other_text: row.goal_other_text,
-    preferred_language: row.preferred_language,
+    onboarded_at: jsonbIso(row.onboarded_at),
+    coach_id: jsonbId(row.coach_id),
+    created_at: jsonbIso(row.created_at) ?? new Date(0).toISOString(),
+    goal_type: jsonbText(row.goal_type),
+    goal_other_text: jsonbText(row.goal_other_text),
+    preferred_language: jsonbText(row.preferred_language),
   };
+}
+
+async function withHrZones(
+  profile: AthleteProfileDTO,
+  client: Sql | TransactionClient,
+): Promise<AthleteProfileDTO> {
+  profile.hr_zones = buildHrZonesDTO(
+    await loadAthleteHrZones(Number(profile.id), client as Sql),
+  );
+  return profile;
 }
 
 // ── Public loaders ────────────────────────────────────────────────────────────
@@ -130,39 +159,17 @@ export async function loadAthleteProfileByUserId(
   client: Sql | TransactionClient,
   userId: bigint,
 ): Promise<AthleteProfileDTO | null> {
-  const rows = await (client as Sql)<AthleteRow[]>`
-    select
-      a.id::text                              as athlete_id,
-      a.full_name,
-      a.avatar_url,
-      to_char(a.dob, 'YYYY-MM-DD')           as dob,
-      a.sex,
-      a.height_cm::text,
-      a.weight_kg::text,
-      a.body_fat_pct::text,
-      a.max_hr_bpm,
-      a.training_experience_years::text,
-      a.primary_discipline,
-      a.training_days_per_week,
-      a.equipment_access,
-      a.injuries_json,
-      a.onboarded_at,
-      a.coach_id::text,
-      a.created_at,
-      a.goal_type::text                       as goal_type,
-      a.goal_other_text,
-      a.preferred_language
+  const rows = await (client as Sql)<{ athlete: unknown }[]>`
+    select to_jsonb(a) as athlete
     from users u
     join athletes a on a.user_id = u.id
     where u.id = ${userId}
       and u.deleted_at is null
     limit 1
   `;
-  const row = rows[0];
-  if (!row) return null;
-  // The zones ride along with the identity so the live engine never has to ask
-  // a second time — and so it can never start a session without them.
-  return rowToDTO(row, buildHrZonesDTO(await loadAthleteHrZones(Number(row.athlete_id), client as Sql)));
+  const profile = athleteProfileFromJsonb(rows[0]?.athlete);
+  if (!profile) return null;
+  return withHrZones(profile, client);
 }
 
 /**
@@ -173,35 +180,13 @@ export async function loadAthleteProfileById(
   client: Sql | TransactionClient,
   athleteId: number,
 ): Promise<AthleteProfileDTO | null> {
-  const rows = await (client as Sql)<AthleteRow[]>`
-    select
-      a.id::text                              as athlete_id,
-      a.full_name,
-      a.avatar_url,
-      to_char(a.dob, 'YYYY-MM-DD')           as dob,
-      a.sex,
-      a.height_cm::text,
-      a.weight_kg::text,
-      a.body_fat_pct::text,
-      a.max_hr_bpm,
-      a.training_experience_years::text,
-      a.primary_discipline,
-      a.training_days_per_week,
-      a.equipment_access,
-      a.injuries_json,
-      a.onboarded_at,
-      a.coach_id::text,
-      a.created_at,
-      a.goal_type::text                       as goal_type,
-      a.goal_other_text,
-      a.preferred_language
+  const rows = await (client as Sql)<{ athlete: unknown }[]>`
+    select to_jsonb(a) as athlete
     from athletes a
     where a.id = ${athleteId}
     limit 1
   `;
-  const row = rows[0];
-  if (!row) return null;
-  // The zones ride along with the identity so the live engine never has to ask
-  // a second time — and so it can never start a session without them.
-  return rowToDTO(row, buildHrZonesDTO(await loadAthleteHrZones(Number(row.athlete_id), client as Sql)));
+  const profile = athleteProfileFromJsonb(rows[0]?.athlete);
+  if (!profile) return null;
+  return withHrZones(profile, client);
 }

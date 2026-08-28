@@ -244,6 +244,7 @@ struct WorkoutContainer: View {
                 session: recuperada,
                 activityKind: mirrorActivityKind(for: saved.plan)
             )
+            loadState = .ready(saved.plan, nil)
             phase = .active
             return
         }
@@ -608,11 +609,7 @@ struct WorkoutContainer: View {
         }
 
         if let cached = AssignmentDetailCache.load(assignmentId) {
-            if cached.isJumpVideo {
-                loadState = .jump(cached)
-            } else if let plan = WorkoutPlan.from(detail: cached) {
-                loadState = .ready(plan, cached)
-            }
+            applyLaunch(WorkoutLaunchBody.from(detail: cached), failIfUnusable: false)
         }
 
         guard let bearer else {
@@ -623,21 +620,43 @@ struct WorkoutContainer: View {
         }
 
         do {
-            let detail = try await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
+            let detail = try await fetchDetailBounded(assignmentId, bearer: bearer)
             AssignmentDetailCache.save(detail)
-            if detail.isJumpVideo {
-                loadState = .jump(detail)
-            } else if let plan = WorkoutPlan.from(detail: detail) {
-                loadState = .ready(plan, detail)
-            } else if case .loading = loadState {
-                // Fetched, but there is no runnable workout body (rest day / empty).
-                // Surface it honestly rather than inventing a fake session.
-                loadState = .failed
-            }
+            applyLaunch(WorkoutLaunchBody.from(detail: detail), failIfUnusable: true)
         } catch {
-            // Offline / auth / server error. Keep the cached real plan if the cache
-            // already gave us one; otherwise fail honestly with a retry.
+            // Offline / auth / server / presupuesto agotado. Keep the cached real
+            // plan if the cache already gave us one; otherwise fail honestly.
             if case .loading = loadState { loadState = .failed }
+        }
+    }
+
+    /// Un GET de identidad colgado no puede dejar el overlay en `.loading`
+    /// cuatro minutos. A los 20 s se falla con reintento.
+    private static let detailBudget: TimeInterval = 20
+
+    private func fetchDetailBounded(_ id: String, bearer: String) async throws -> AssignmentDetail {
+        try await withThrowingTaskGroup(of: AssignmentDetail.self) { group in
+            group.addTask {
+                try await PlanService.fetchAssignmentDetail(id, bearer: bearer)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(Self.detailBudget * 1_000_000_000))
+                throw URLError(.timedOut)
+            }
+            let first = try await group.next()!
+            group.cancelAll()
+            return first
+        }
+    }
+
+    private func applyLaunch(_ body: WorkoutLaunchBody, failIfUnusable: Bool) {
+        switch body {
+        case .jump(let detail):
+            loadState = .jump(detail)
+        case .ready(let plan, let detail):
+            loadState = .ready(plan, detail)
+        case .unusable:
+            if failIfUnusable, case .loading = loadState { loadState = .failed }
         }
     }
 

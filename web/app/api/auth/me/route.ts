@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { loadAthleteProfileByUserId } from '@/lib/athlete/profile';
 import { getClubSkin } from '@/lib/coach/club-skin';
 import { deviceClubTheme } from '@fahybrid/shared/domain/coach/club-skin';
+import { isPgMissingColumn } from '@/lib/dashboard/db/pg-errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,9 +44,21 @@ export async function GET(req: Request) {
     return jsonError('not_found', 'Athlete profile not found', 404);
   }
 
-  // La piel del club de su coach: el atleta ve la marca de quien le entrena, no
-  // la nuestra. Sin coach o sin piel, todo va a null y la app pinta lo suyo.
-  const skin = athlete.coach_id ? await getClubSkin(BigInt(athlete.coach_id), sql) : null;
+  // La piel del club de su coach. Columna 0199 ausente → club vacío, no
+  // 500: la sesión del atleta no depende de que Preview tenga la piel.
+  let skin = null;
+  if (athlete.coach_id) {
+    try {
+      skin = await getClubSkin(BigInt(athlete.coach_id), sql);
+    } catch (err) {
+      const missingSkin =
+        isPgMissingColumn(err, 'club_skin_name') ||
+        isPgMissingColumn(err, 'club_logo_url') ||
+        isPgMissingColumn(err, 'club_accent_hex');
+      if (!missingSkin) throw err;
+      skin = null;
+    }
+  }
 
   return jsonOk({
     user: {

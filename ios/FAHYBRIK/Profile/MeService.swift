@@ -94,7 +94,7 @@ struct MeResponse: Decodable {
 
 enum MeService {
     static func fetch(bearer: String) async throws -> AthleteIdentity {
-        let resp: MeResponse = try await APIClient.shared.get(path: "api/auth/me", bearer: bearer)
+        let resp: MeResponse = try await APIClient.identity.get(path: "api/auth/me", bearer: bearer)
         ClubThemeStore.update(resp.club)
         return resp.athlete
     }
@@ -123,7 +123,7 @@ struct ProfileUpdate: Encodable {
 
 enum ProfileService {
     static func update(bearer: String, body: ProfileUpdate) async throws -> AthleteIdentity {
-        let resp: MeResponse = try await APIClient.shared.patch(
+        let resp: MeResponse = try await APIClient.identity.patch(
             path: "api/athlete/profile",
             body: body,
             bearer: bearer

@@ -866,3 +866,18 @@ indirect enum JSONValue: Codable, Equatable {
         return nil
     }
 }
+
+/// Lo que EMPEZAR hace con un detail 200: brief/live, salto, o fallo honesto.
+/// Nunca se queda a medias — `.unusable` es el que el contenedor convierte
+/// en `.failed`, no en spinner.
+enum WorkoutLaunchBody {
+    case jump(AssignmentDetail)
+    case ready(WorkoutPlan, AssignmentDetail)
+    case unusable
+
+    static func from(detail: AssignmentDetail) -> WorkoutLaunchBody {
+        if detail.isJumpVideo { return .jump(detail) }
+        if let plan = WorkoutPlan.from(detail: detail) { return .ready(plan, detail) }
+        return .unusable
+    }
+}

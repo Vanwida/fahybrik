@@ -38,6 +38,9 @@ enum APIError: Error {
 
 actor APIClient {
     static let shared = APIClient()
+    /// Identidad (/auth/me, PATCH perfil). Otro buzón: un GET de sesión
+    /// colgado no puede encolar el GET del detail que abre el día.
+    static let identity = APIClient()
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -216,6 +219,7 @@ actor APIClient {
     ) async throws -> TResp {
         var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "GET"
+        req.timeoutInterval = 20
         req.addValue("application/json", forHTTPHeaderField: "Accept")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
