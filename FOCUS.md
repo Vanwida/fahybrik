@@ -21,9 +21,17 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## PARA CORTAR · El corredor: UNA interfaz, dos superficies (28-ago, card 105)
 
-**Se abre en `/es/design/corredor` (iPhone) y `/es/design/watch-corredor`
-(muñeca).** Mismos cuatro escenarios en las dos, y el mismo escenario enseña el
-mismo instante: no son dos pantallas parecidas, comparten el modelo entero
+**Se ve sin entrar a ningún sitio, en `docs/mocks/`:**
+[`corredor-iphone.png`](docs/mocks/corredor-iphone.png) ·
+[`corredor-watch.png`](docs/mocks/corredor-watch.png). Capturas reales de las
+dos superficies, con su panel de escenarios al lado. Están en el repo a
+propósito: la preview vive detrás del Clerk de desarrollo, así que un enlace
+desplegado no es una entrega.
+
+**Y para tocarlo, con el doble levantado en local** (`pnpm dev:web`):
+`/es/design/corredor` (iPhone) y `/es/design/watch-corredor` (muñeca). Mismos
+cuatro escenarios en las dos, y el mismo escenario enseña el mismo instante: no
+son dos pantallas parecidas, comparten el modelo entero
 (`web/components/design-twin/screens/corredor/guion.ts`). Ése es el arreglo del
 hallazgo de fondo de la auditoría — el espejo del reloj lee `currentTramo` y el
 standalone lo ignora, así que la misma sesión se veía de dos maneras en el
