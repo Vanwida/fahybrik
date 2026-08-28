@@ -851,6 +851,42 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertFalse(cabecera.lowercased().contains("vuelta"))
     }
 
+    /// Un gesto = un tramo. LEG SWINGS (ítem 3 de 4 del calentamiento) no
+    /// se come el 80 m ni salta al gate del bloque 2.
+    func testUnGestoDelCalentamientoCierraSoloEseTramo() {
+        let titulos = ["Run 8:00", "Drills", "LEG SWINGS", "Run 80 m"]
+        let warmup = titulos.enumerated().map { i, titulo in
+            WorkoutSegment(order: i + 1, title: titulo, kind: .reps,
+                           blockTitle: "Calentamiento", blockPosition: 0)
+        }
+        let principal = WorkoutSegment(order: 5, title: "Series", kind: .running,
+                                       blockTitle: "Series de carrera", blockPosition: 1)
+        let s = armedSession(warmup + [principal])
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertEqual(s.currentSegment?.title, "Run 8:00")
+        XCTAssertFalse(s.isLastStructuralSegment)
+
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegment?.title, "Drills")
+        XCTAssertFalse(s.isAwaitingBlockStart)
+
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegment?.title, "LEG SWINGS")
+        XCTAssertFalse(s.isAwaitingBlockStart)
+        XCTAssertTrue(s.laps.isEmpty, "los ítems de lista no fabrican volumen")
+
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegment?.title, "Run 80 m",
+                       "el gesto cierra LEG SWINGS, no el bloque")
+        XCTAssertFalse(s.isAwaitingBlockStart)
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.isLastStructuralSegment)
+
+        s.primaryAdvance()
+        XCTAssertTrue(s.isAwaitingBlockStart, "el último ítem sí abre el gate del siguiente bloque")
+        XCTAssertEqual(s.currentSegment?.title, "Series")
+    }
+
     func testMedidaConRangoSobreviveElViajeDeIdaYVuelta() throws {
         // Encode + decode: el techo no se pierde por el camino (el espejo del reloj
         // y la cola sin conexión guardan medidas ya decodificadas).

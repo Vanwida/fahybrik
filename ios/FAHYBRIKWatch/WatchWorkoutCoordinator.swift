@@ -27,6 +27,8 @@ final class WatchWorkoutCoordinator {
     private static let snapshotFreshnessWindow: TimeInterval = 6 * 60 * 60
 
     private(set) var phase: Phase = .idle
+    /// El teléfono ya lleva el motor. Un EMPEZAR aquí sería el segundo dueño.
+    private(set) var phoneOwnsLive = false
     /// The live engine — nil until a session starts. @Observable, so views that
     /// read `coordinator.session?.…` in their body update every tick.
     private(set) var session: WorkoutSession?
@@ -150,7 +152,7 @@ final class WatchWorkoutCoordinator {
         // If the phone is already the engine (mirror recording), this start is
         // the extra owner. Decline. The reverse — phone start while we are live —
         // is `yieldToPhone`, not a second WorkoutSession.
-        guard phase == .idle, MirrorSessionController.shared.state == .idle,
+        guard !phoneOwnsLive, phase == .idle, MirrorSessionController.shared.state == .idle,
               payload.dayKind == WatchDayKind.session else {
             Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
             return
@@ -171,7 +173,7 @@ final class WatchWorkoutCoordinator {
         repairStuckPhaseIfNeeded()
         // Same symmetric guard as start: never resume a standalone engine while the
         // phone is driving a mirror recording (the reverse of MirrorSessionController).
-        guard phase == .idle, MirrorSessionController.shared.state == .idle else {
+        guard !phoneOwnsLive, phase == .idle, MirrorSessionController.shared.state == .idle else {
             Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
             return
         }
@@ -385,6 +387,12 @@ final class WatchWorkoutCoordinator {
 
     /// El teléfono acaba de arrancar SU motor. El de aquí es el extra: se suelta
     /// sin mandar ejecución y sin marcar el día hecho. La muñeca pasa a espejo.
+    /// El teléfono acaba de arrancar. Si aquí había motor, se suelta.
+    func notePhoneLive() {
+        phoneOwnsLive = true
+        if phase == .active || session != nil { yieldToPhone() }
+    }
+
     func yieldToPhone() {
         guard phase == .active || session != nil else { return }
         Self.log.warning("yielding standalone engine to phone mirror")
@@ -416,6 +424,7 @@ final class WatchWorkoutCoordinator {
     /// No toca nada si el atleta ya terminó en la muñeca y está en su resumen: ese
     /// final es suyo y se cierra con «Listo».
     func finishFromPhone() {
+        phoneOwnsLive = false
         guard phase == .active else { return }
         // Ata el `finalize()` que RootView dispara al ver el motor cerrado: aquí no
         // hay resumen ni envío que hacer.

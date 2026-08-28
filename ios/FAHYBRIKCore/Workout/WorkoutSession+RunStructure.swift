@@ -100,9 +100,15 @@ extension WorkoutSession {
             restEndsTramo = false
         } else {
             workRemaining = 0
-            restRemainingSeconds = seconds
-            restTotalSeconds = seconds
-            restEndsTramo = seconds > 0
+            if seconds > 0 {
+                restRemainingSeconds = seconds
+                restTotalSeconds = seconds
+            } else {
+                restRemainingSeconds = 0
+                restTotalSeconds = 0
+            }
+            // Rest es un tramo aunque no tenga reloj: se cierra a gesto.
+            restEndsTramo = true
         }
         latchRunProgress()
     }

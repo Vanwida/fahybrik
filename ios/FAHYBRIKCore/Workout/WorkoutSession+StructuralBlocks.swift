@@ -1,9 +1,8 @@
 import Foundation
 
-// CALENTAMIENTO Y VUELTA A LA CALMA: se registran como UNA finalización de bloque,
-// nunca ejercicio a ejercicio, y quedan fuera del volumen y de la analítica. Con
-// dos puertas para que no se cuente dos veces (el botón y el backstop que lo
-// deduce del primer trabajo real) y una clave por bloque que las hace idempotentes.
+// CALENTAMIENTO Y VUELTA A LA CALMA: quedan fuera del volumen. El lap
+// estructural lo sella el backstop al entrar al trabajo (o endBlockEarly),
+// no el botón. Un gesto cierra un tramo; no salta al siguiente gate.
 extension WorkoutSession {
     // MARK: - Warmup / cooldown structural completion
 
@@ -65,26 +64,6 @@ extension WorkoutSession {
         if let m = lapErgDistanceMeters, m > 0 { return m }
         if let m = lapGpsDistanceMeters, m > 0 { return m }
         return nil
-    }
-
-    /// "Calentamiento hecho" / "Vuelta a la calma hecha" — close the WHOLE
-    /// structural block as ONE completion and advance past it. One tap, never
-    /// per-exercise.
-    func completeStructuralBlock() {
-        guard !isPaused, !isFinished, !isAwaitingBlockStart,
-              let region = currentBlockRegion, currentBlockIsStructural else { return }
-        Haptics.success()
-        appendStructuralLap(for: region, durationSeconds: max(0, lapElapsedSeconds))
-        // No per-exercise laps for the block — drop any live state, jump past it.
-        discardCurrentLiveState()
-        let next = region.lastIndex + 1
-        if next < plan.segments.count {
-            let origin = currentSegmentIndex
-            currentSegmentIndex = next
-            enterOrArm(from: origin)
-        } else {
-            finishPrescribedWork()
-        }
     }
 
     /// Backstop: when the athlete confirms their first real working set, infer that

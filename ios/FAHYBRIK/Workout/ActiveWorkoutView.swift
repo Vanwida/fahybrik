@@ -1323,14 +1323,8 @@ struct ActiveWorkoutView: View {
             .frame(height: 88)
     }
 
-    // A structural block closes as ONE completion; everything else advances.
     private func primaryAction() {
-        if session.currentBlockIsStructural {
-            session.completeStructuralBlock()
-        } else {
-            // Hay un dedo detrás: pide el antirrebote (card 113).
-            session.primaryAdvance(fromAthleteTap: true)
-        }
+        session.primaryAdvance(fromAthleteTap: true)
     }
 
     // Context-labelled, never the generic "LAP". EMOM: EMPEZAR during the count-in,
@@ -1338,7 +1332,7 @@ struct ActiveWorkoutView: View {
     // TERMINAR on the last segment, HECHO for a discrete strength/reps piece,
     // SIGUIENTE to move to the next leg.
     private var primaryTitle: String {
-        if session.currentBlockIsStructural {
+        if session.isLastStructuralSegment {
             return session.currentBlockRegion?.phase == .cooldown
                 ? "VUELTA A LA CALMA HECHA"
                 : "CALENTAMIENTO HECHO"

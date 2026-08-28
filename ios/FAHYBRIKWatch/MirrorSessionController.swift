@@ -123,10 +123,10 @@ final class MirrorSessionController: NSObject {
     /// Phone launched us. A live standalone engine is the extra owner: it
     /// yields, then this recording starts. One WorkoutSession (the phone's).
     func start(config: HKWorkoutConfiguration) {
-        if WatchWorkoutCoordinator.shared.phase != .idle {
-            Self.log.warning("phone start found a standalone engine — yielding")
-            WatchWorkoutCoordinator.shared.yieldToPhone()
-        }
+        // startWatchApp = el teléfono ya lleva el motor. notePhoneLive
+        // cede el standalone si lo había: un EMPEZAR en el mismo instante
+        // no abre el segundo WorkoutSession.
+        WatchWorkoutCoordinator.shared.notePhoneLive()
         // Card 72 — recover from ANY dirty leftover state, not an enumerated list.
         // The original self-heal only covered `.ending` (a stuck close); the far
         // more common wedge is `.recording` — the phone's end handshake never made

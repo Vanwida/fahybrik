@@ -100,20 +100,49 @@ extension Prescription {
         guard dosis.modality == nil || dosis.modality == .run else { return nil }
         guard let medida = Self.medidaDeCorrer(dosis.measure) else { return nil }
 
-        // Aquí el descanso del BLOQUE sí es dato y no relleno: en `intervals` es
-        // el que el propio motor rotativo ejecuta como fase de parada, y es el
-        // que el constructor libre escribe en los dos sitios a la vez.
+        // El descanso del BLOQUE en `intervals` es dato: el constructor libre
+        // lo escribe a la vez en el set y en el plano. `nil` no es «no hay»:
+        // es que no se sabe cuánto dura. Cero escrito sí es «no hay».
         let descanso = dosis.restS ?? restS
         let objetivo = dosis.target ?? target
 
         var legs: [RunLeg] = []
         for i in 0..<rondas {
             legs.append(Self.trabajo(medida: medida, objetivo: objetivo))
-            if let descanso, descanso > 0, i < rondas - 1 {
-                legs.append(Self.recuperacion(segundos: descanso))
+            if i < rondas - 1, let rest = Self.restEntreWorks(descanso, scheme: .intervals) {
+                legs.append(rest)
             }
         }
         return legs
+    }
+
+    /// Serie de solo work: el rest ENTRE repeticiones es un tramo. Si el árbol
+    /// ya trae recovery, no se toca. La duración es dato del coach; la
+    /// presencia, del motor. Cero escrito = no hay. `nil` en una serie
+    /// (`intervals` / `rounds`) = rest abierto (el gesto cierra).
+    static func serieConRestEntreWorks(
+        _ legs: [RunLeg],
+        restS: Int?,
+        scheme: PrescriptionScheme
+    ) -> [RunLeg] {
+        if legs.contains(where: \.isRecovery) { return legs }
+        guard legs.count > 1, legs.allSatisfy(\.isWork) else { return legs }
+        guard let rest = restEntreWorks(restS, scheme: scheme) else { return legs }
+        var out: [RunLeg] = []
+        for (i, leg) in legs.enumerated() {
+            out.append(leg)
+            if i < legs.count - 1 { out.append(rest) }
+        }
+        return out
+    }
+
+    /// `nil` = esta serie no lleva rest (sets/drills, o cero escrito).
+    private static func restEntreWorks(_ restS: Int?, scheme: PrescriptionScheme) -> RunLeg? {
+        if let restS, restS > 0 { return recuperacion(segundos: restS) }
+        if restS == nil, scheme == .intervals || scheme == .rounds {
+            return recuperacion(segundos: nil)
+        }
+        return nil
     }
 
     // MARK: - Piezas compartidas
@@ -124,8 +153,15 @@ extension Prescription {
                recoveryMode: nil, phaseRole: .main)
     }
 
-    private static func recuperacion(segundos: Int) -> RunLeg {
-        RunLeg(kind: .recovery, measure: .duration(s: segundos), target: nil,
+    /// `segundos` nil o ≤0 = rest abierto: el HUD lo muestra y lo cierra el gesto.
+    static func recuperacion(segundos: Int?) -> RunLeg {
+        let measure: RunSegmentMeasure
+        if let s = segundos, s > 0 {
+            measure = .duration(s: s)
+        } else {
+            measure = .unknown
+        }
+        return RunLeg(kind: .recovery, measure: measure, target: nil,
                resolved: nil, inclinePct: nil, cadenceSpm: nil,
                // Ni el coach ni el constructor libre escriben todavía CÓMO se
                // recupera, sólo cuánto dura. No se inventa «trotando» ni

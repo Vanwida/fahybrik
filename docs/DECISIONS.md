@@ -11,6 +11,53 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-28 · Tres clases del vivo: rest, gesto, dueño
+
+**Qué se vio (debugger, Series umbral, asg 485):** Tramo 14/19
+Run 5:00 se cierra solo → Tramo 15/19 Run 5:00, cero Descanso /
+Recuperación / SALTAR. Igual 15→16. Tras 16, gate del bloque 3.
+`TRAMO HECHO` ×3 en el bloque 2 saltó al gate (los 3×5:00 no
+tenían rest que cerrar). `CALENTAMIENTO HECHO` en LEG SWINGS 3/8
+cerró todo el bloque 1 (no avanzó al 80 m). Health Access
+concedido; Watch en esfera; iPhone HUD «SIN RELOJ».
+
+**Qué se descartó:** if Series umbral / if 485 / if HYROX. Un
+segundo escritor. Inventar duración (90/120/300). Inventar
+bloques en el plan. Tocar el stream GPS. Card 105 / pantalla
+Watch extra. `91-rest` como símbolo suelto.
+
+**La clase:** el átomo del vivo es el tramo. Work, rest e ítem
+de calentamiento se cierran igual: un gesto (o el reloj, si hay
+duración) cierra ESE tramo y el motor arma el siguiente.
+
+- Presencia del rest entre esfuerzos de una serie = mecanismo.
+  Duración = dato del coach. `rest_s>0` → timed. `nil` en
+  `intervals`/`rounds` → abierto (gesto). Cero escrito → no hay.
+  Árbol con recovery → no doblar. `scheme=sets` sin `rest_s` →
+  no inventar (drills).
+- `primaryAdvance` cierra un tramo. No un bloque. No «saltar al
+  siguiente gate».
+- Un dueño: la misma `livePicture`. `live_start_v1` +
+  `phoneOwnsLive` + `startWatchApp`. El standalone cede. No
+  segundo finish.
+
+**Qué se elimina:** el salto `completeStructuralBlock` →
+`lastIndex+1`; el hueco `expandedLegs()` de solo work sin rest
+entre repeticiones; la ausencia de `live_start` (el reloj no
+sabía que el teléfono ya llevaba el motor).
+
+**NO hacer:** no if del día. no segundo escritor. no 105. no
+tocar GPS / authority / cifra. no caminar el sim. no merge.
+Hecho de producto lo declara Marc.
+
+**Dónde:** `serieConRestEntreWorks`, `piernasDeRondas`,
+`primeRunLeg` (`restEndsTramo=true` también abierto),
+`tickUnifiedRest` (abierto = solo gesto), `primaryAdvance` en
+calentamiento, `WatchWireKeys.liveStart`,
+`WatchWorkoutCoordinator.phoneOwnsLive`.
+
+---
+
 ## 2026-08-28 · Sesión ready: me no 500, start no espera un me roto
 
 **Qué fallaba:** EMPEZAR un día prescrito (detail 200,

@@ -32,6 +32,9 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// async, so the first cold-launch push would otherwise be silently dropped;
     /// we hold the latest here and flush it from `activationDidCompleteWith`.
     @MainActor private var pendingContext: PendingContext?
+    /// `live_start` in the same activation race: if the session is still
+    /// bringing up, the watch never hears that the phone already owns live.
+    @MainActor private var pendingLiveStart = false
 
     private enum PendingContext {
         case push(WatchTodayPayload)
@@ -200,8 +203,31 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// Se manda por mensaje directo (el reloj está despierto, está entrenando) y,
     /// si no hay alcance en ese instante, se encola: el aviso no puede depender de
     /// que el bluetooth esté fino justo al pulsar Terminar.
+    /// El teléfono acaba de arrancar el motor. El reloj no abre otro.
+    @MainActor
+    func startLiveWorkout() {
+        guard WCSession.isSupported() else { return }
+        activate()
+        let session = WCSession.default
+        guard session.activationState == .activated else {
+            pendingLiveStart = true
+            return
+        }
+        pendingLiveStart = false
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+        let body: [String: Any] = [WatchWireKeys.liveStart: true]
+        if session.isReachable {
+            session.sendMessage(body, replyHandler: nil) { _ in
+                Task { @MainActor in session.transferUserInfo(body) }
+            }
+        } else {
+            session.transferUserInfo(body)
+        }
+    }
+
     @MainActor
     func endLiveWorkout() {
+        pendingLiveStart = false
         guard WCSession.isSupported() else { return }
         activate()
         let session = WCSession.default
@@ -238,12 +264,14 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// `activationDidCompleteWith(.activated)`.
     @MainActor
     private func flushPendingContext() {
-        guard let pending = pendingContext else { return }
-        pendingContext = nil
-        switch pending {
-        case .push(let payload): send(payload)
-        case .clear:             clearToday()
+        if let pending = pendingContext {
+            pendingContext = nil
+            switch pending {
+            case .push(let payload): send(payload)
+            case .clear:             clearToday()
+            }
         }
+        if pendingLiveStart { startLiveWorkout() }
     }
 
     // MARK: - Watch → iPhone results

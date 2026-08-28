@@ -174,6 +174,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         Task { @MainActor in
             if Self.applyLiveEnd(message) { return }
+            if Self.applyLiveStart(message) { return }
             WatchPlanModel.shared.update(from: message)
         }
     }
@@ -183,6 +184,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         // reloj estaba fuera de alcance, llega por aquí en cuanto vuelve.
         Task { @MainActor in
             if Self.applyLiveEnd(userInfo) { return }
+            if Self.applyLiveStart(userInfo) { return }
             WatchPlanModel.shared.update(from: userInfo)
         }
     }
@@ -193,6 +195,14 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard body[WatchWireKeys.liveEnd] != nil else { return false }
         WatchWorkoutCoordinator.shared.finishFromPhone()
+        return true
+    }
+
+    /// «El motor ya corre en el teléfono». Cede el standalone; no abre otro.
+    @MainActor
+    private static func applyLiveStart(_ body: [String: Any]) -> Bool {
+        guard body[WatchWireKeys.liveStart] != nil else { return false }
+        WatchWorkoutCoordinator.shared.notePhoneLive()
         return true
     }
 

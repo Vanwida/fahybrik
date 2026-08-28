@@ -392,7 +392,12 @@ extension Prescription {
             return runLegsDerivadas
         }
         let legs = s.expandedLegs()
-        return legs.isEmpty ? nil : legs
+        guard !legs.isEmpty else { return nil }
+        // `times: N` de solo work no es N esfuerzos pegados: entre ellos hay
+        // descanso. Si el árbol ya trae recovery, no se toca. Si el plano
+        // trae `restS`, esa es la duración. Si es una serie (intervals /
+        // rounds) sin duración, el rest existe igual y se cierra a gesto.
+        return Self.serieConRestEntreWorks(legs, restS: restS, scheme: scheme)
     }
 }
 

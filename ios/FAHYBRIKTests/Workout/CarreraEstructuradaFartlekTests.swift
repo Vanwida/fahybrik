@@ -216,6 +216,11 @@ final class CarreraEstructuradaFartlekTests: XCTestCase {
         XCTAssertEqual(linea.headline, "1200/1000/800 m")
         XCTAssertEqual(linea.zone, .z4)
         XCTAssertEqual(linea.detail, "descanso 2:00")
+        let legs = try XCTUnwrap(p.runStructureLegs)
+        XCTAssertEqual(legs.count, 5, "3 work + 2 rest del plano")
+        XCTAssertEqual(legs[1].durationSeconds, 120)
+        XCTAssertTrue(legs[1].isRecovery)
+        XCTAssertTrue(legs.last?.isWork == true)
     }
 
     /// Sin estructura, la línea es la de siempre — byte por byte.

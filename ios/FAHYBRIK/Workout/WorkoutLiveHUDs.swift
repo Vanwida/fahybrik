@@ -21,11 +21,9 @@ import SwiftUI
 // Todas leen `WorkoutSession` + `PM5ConnectionStore` como fuentes únicas — sin
 // estado duplicado. Tokens de Theme/Atoms.
 
-// MARK: - Warmup / cooldown checklist (ONE structural completion)
+// MARK: - Warmup / cooldown checklist
 //
-// A readable checklist of every movement in the block, looping `prescription.rounds`
-// as a display guide ("Ronda X de N"). The WHOLE block is gated behind ONE button
-// in ActiveWorkoutView ("Calentamiento hecho") — never per-exercise logging.
+// Lista de movimientos. Un gesto = el tramo de ahora, no el bloque.
 
 struct StructuralBlockChecklist: View {
     let segments: [WorkoutSegment]
@@ -64,7 +62,7 @@ struct StructuralBlockChecklist: View {
                 }
 
                 Hairline()
-                Text("Marca el bloque entero cuando termines.")
+                Text("Un movimiento cada vez.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.Color.faint)
                     .padding(.horizontal, 12)

@@ -2,25 +2,31 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-28** (sesión ready: me + start)
+Última actualización: **2026-08-28** (live: rest=tramo, un gesto, un dueño)
 
 ## Ahora
 
-**SESIÓN READY · PR 91** (`cursor/live-un-motor-0406`). EMPEZAR un
-día prescrito se quedaba en overlay blanco + spinner. GET detail
-ya es 200. GET `/api/auth/me` en Preview era 500 vacío — misma
-clase que el detail: el lector nombra columnas que Preview Neon
-puede no tener (`athletes.avatar_url` 0179, `club_skin_*` 0199).
-El actor de red de iOS encolaba el GET del día detrás de ese me.
+**LIVE · PR 91** (`cursor/live-un-motor-0406`). Debugger Series umbral
+(atleta 67, asg 485, no Chipper). Tres clases, un escritor:
 
-Lectura: `to_jsonb(a)` del perfil; `select *` de la piel; club
-null si 42703. iOS: `/me` va por `APIClient.identity`; loadPlan
-tiene presupuesto 20 s; retomar deja `.ready`.
+1. Rest es un tramo del HUD. `times: N` de solo work en una serie
+   (`intervals`/`rounds`) no pega los works. Entre ellos hay rest
+   (durado si `rest_s>0`; abierto si `nil`). El árbol que ya trae
+   recovery no se dobla. `sets`/drills no inventan rest. Cero
+   escrito = no hay.
+2. Un gesto = un tramo. Se borra el salto `lastIndex+1` del
+   calentamiento. LEG SWINGS no se come el 80 m.
+3. Un dueño. `live_start_v1` + `phoneOwnsLive` + `startWatchApp`.
+   El reloj no abre otro `WorkoutSession`. No 105.
 
-**NO es hecho de producto.** No se camina el sim. No merge.
-Hecho de código: me no 500 vacío; start no depende de un me
-roto. Tests de la clase.
+**NO es hecho de producto.** Marc camina el debugger. No merge.
 
-No tocar: plan del 67, 105, HUD live, Watch, forks de formato,
+No tocar: plan del 67, 105, stream GPS (`RunDistanceAuthority` /
+`sampleRunDistance` / cifra 24 m → 2,44 km), forks de formato,
 inventario de bloques, `DEVELOPMENT_TEAM` (`S6W4459DDG`).
 Neon de producto no.
+
+## Cerrado en esta PR (código)
+
+- Detail 200 (columnas opcionales).
+- Sesión ready: `/me` no 500; start no espera un me roto.

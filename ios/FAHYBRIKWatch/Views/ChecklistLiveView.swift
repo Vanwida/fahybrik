@@ -1,10 +1,9 @@
 import SwiftUI
 
-// LIST family — warm-up / cool-down. The block's drills as a tickable checklist;
-// the athlete checks them off for their own tracking, then one "Hecho ▸" logs the
-// WHOLE block as a single structural completion (never per-exercise — warmup work
-// is excluded from volume analytics). Falls back to a plain advance for a
-// non-structural list. Design: "Lista · checklist, avanzar".
+// LIST family — warm-up / cool-down. The drills are a checklist for the
+// athlete's own tracking. "Hecho ▸" cierra ESTE tramo (`primaryAdvance`),
+// no el bloque. El lap estructural lo sella el backstop al entrar al
+// trabajo. Design: "Lista · checklist, un gesto = un tramo".
 struct ChecklistLiveView: View {
     let session: WorkoutSession
 
@@ -64,11 +63,7 @@ struct ChecklistLiveView: View {
     }
 
     private func complete() {
-        if session.currentBlockIsStructural {
-            session.completeStructuralBlock()
-        } else {
-            session.primaryAdvance()
-        }
+        session.primaryAdvance(fromAthleteTap: true)
     }
 
     // MARK: - Derived

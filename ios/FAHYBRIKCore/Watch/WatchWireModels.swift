@@ -176,6 +176,10 @@ enum WatchWireKeys {
     /// por su cuenta, el aviso del espejo no llega a ninguna parte y el atleta se
     /// queda con el entreno abierto en la muñeca.
     static let liveEnd = "live_end_v1"
+    /// Teléfono → reloj: «el motor ya corre aquí». El reloj no arranca
+    /// un segundo WorkoutSession. El espejo HK es el que pinta; esto
+    /// solo cierra el hueco si startWatchApp no levantó la app.
+    static let liveStart = "live_start_v1"
 }
 
 // MARK: - Coders (the single encode/decode contract, shared by both ends)

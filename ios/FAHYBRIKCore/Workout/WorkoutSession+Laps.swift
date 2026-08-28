@@ -68,6 +68,17 @@ extension WorkoutSession {
     // HR / zone / PM5 samples, appends it, and resets the per-segment accumulators.
     func closeCurrentSegmentLap() {
         guard let seg = currentSegment else { return }
+        // Un gesto del calentamiento cierra el tramo, no fabrica volumen.
+        // El lap estructural (uno por bloque) se sella en el último ítem
+        // o en el backstop al entrar al trabajo. La carrera estructurada
+        // dentro del calentamiento (4×80 m) sigue por su propio cursor.
+        if currentBlockIsStructural, !seg.hasRunStructure {
+            if isLastStructuralSegment, let region = currentBlockRegion {
+                appendStructuralLap(for: region, durationSeconds: max(0, lapElapsedSeconds))
+            }
+            resetSegmentAccumulators()
+            return
+        }
         // #break-2: a structured/interval run records ONE lap per WORK leg during
         // advanceRunLeg (each with its own pace), so there is no blended aggregate to
         // build here — just reset the per-segment accumulators the per-leg path used.

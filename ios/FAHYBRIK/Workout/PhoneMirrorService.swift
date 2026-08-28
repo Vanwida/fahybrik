@@ -98,8 +98,8 @@ final class PhoneMirrorService {
     // startWatchApp can fail SILENTLY on the first try (watch waking / app cold) —
     // the athlete then trains without wrist HR and never knows why. Retry a couple
     // of times, a few seconds apart, before giving up quietly.
-    private static let watchLaunchAttempts = 3
-    private static let watchLaunchRetrySeconds: TimeInterval = 3
+    private static let watchLaunchAttempts = 15
+    private static let watchLaunchRetrySeconds: TimeInterval = 4
     // Bumped by begin()/end() so a stale retry loop from a previous session can't
     // launch the watch app after the workout it belonged to is gone.
     @ObservationIgnored private var watchLaunchGeneration = 0
@@ -189,6 +189,7 @@ final class PhoneMirrorService {
         // reprompt once the athlete has decided. Then launch the watch app.
         watchLaunchGeneration += 1
         let generation = watchLaunchGeneration
+        WatchConnectivityiOSService.shared.startLiveWorkout()
         Task { [weak self] in
             guard let self else { return }
             try? await self.healthStore.requestAuthorization(
@@ -210,7 +211,8 @@ final class PhoneMirrorService {
                     cont.resume(returning: ok)
                 }
             }
-            if launched || wristJoined { return }
+            if wristJoined { return }
+            if launched { return }
             guard attempt < Self.watchLaunchAttempts else { return }
             try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
         }
@@ -413,10 +415,8 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Apply a wrist control tap to the engine — the SAME routing the phone's own
-    /// primary button uses (ActiveWorkoutView.primaryAction), so a structural block
-    /// closes as one completion rather than a single-segment advance. Pause/resume
-    /// route through the engine's own togglePause so audio/haptics stay consistent.
+    /// Apply a wrist control tap to the engine — the SAME primaryAdvance
+    /// the phone uses. Un gesto = un tramo. Pause/resume van por togglePause.
     private func applyCommand(_ kind: String) {
         guard let session else { return }
         switch kind {
@@ -426,8 +426,6 @@ final class PhoneMirrorService {
             // advanceRelay() (the same path the phone's "Relevo ▸" uses): it logs NO
             // lap for the athlete. Falling through to primaryAdvance() → lap() would
             // record the partner's station as the athlete's work and corrupt volume.
-            else if session.currentBlockIsStructural { session.completeStructuralBlock() }
-            // Un dedo en la muñeca rebota igual que uno en el móvil (card 113).
             else { session.primaryAdvance(fromAthleteTap: true) }
         case MirrorWire.CommandKind.sync:
             // La muñeca pide re-base (arranque en frío / reconexión). Forzar el

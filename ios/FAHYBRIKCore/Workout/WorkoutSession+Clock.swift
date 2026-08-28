@@ -177,6 +177,8 @@ extension WorkoutSession {
     }
 
     private func tickUnifiedRest(_ dt: Double) {
+        // Rest abierto (sin duración): el gesto cierra, el reloj no.
+        guard restTotalSeconds > 0 else { return }
         let before = restRemainingSeconds
         let after = before - dt
         if before > 10.0 && after <= 10.0 { Haptics.cueStop() }

@@ -300,6 +300,45 @@ final class StructuredRunEngineTests: XCTestCase {
         return (model, src)
     }
 
+    /// `times: N` de solo work en una serie: el rest es un tramo. Cerrar el
+    /// 5:00 no arma el siguiente 5:00. El gesto sobre el rest sí.
+    func testSerieDeSoloWorkElRestEsUnTramo() {
+        let s = structuredSession([main([rep(3, [work(.duration(s: 300))])])], scheme: .rounds)
+        XCTAssertEqual(s.runLegTotal, 5)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertFalse(s.isTramoResting)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertFalse(s.isRunLegWork)
+        XCTAssertEqual(s.currentTramo.label, "Recuperación")
+        XCTAssertNil(s.currentRunLeg?.durationSeconds)
+        XCTAssertEqual(s.runLegIndex, 1)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertEqual(s.runLegIndex, 2)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertEqual(s.runLegIndex, 4)
+    }
+
+    /// Tras el último work de la serie el motor arma el siguiente bloque,
+    /// no inventa otro Run. Tres works + dos rests = cinco cierres.
+    func testAlAcabarLaSerieArmaElSiguienteBloque() {
+        let series = structuredSegment([main([rep(3, [work(.duration(s: 300))])])], scheme: .rounds)
+        let calma = WorkoutSegment(order: 2, title: "BikeErg", kind: .rowOrSki,
+                                   blockTitle: "Vuelta a la calma", blockPosition: 2)
+        let s = WorkoutSession(plan: plan([series, calma]))
+        s.start(); s.beginBlock(); s.stop()
+        s.primaryAdvance()
+        for _ in 0..<5 { s.primaryAdvance() }
+        XCTAssertTrue(s.isAwaitingBlockStart)
+        XCTAssertEqual(s.currentSegment?.title, "BikeErg")
+        XCTAssertFalse(s.isRunStructureActive)
+    }
+
     private func structuredSegment(_ structure: RunStructure, scheme: PrescriptionScheme = .intervals) -> WorkoutSegment {
         let rx = Prescription(scheme: scheme, modality: .run, sets: nil, rounds: nil, workS: nil,
                               restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil,
@@ -308,8 +347,9 @@ final class StructuredRunEngineTests: XCTestCase {
                               blockTitle: "Series", blockPosition: 1, prescription: rx)
     }
 
-    private func structuredSession(_ structure: RunStructure) -> WorkoutSession {
-        let s = WorkoutSession(plan: plan([structuredSegment(structure)]))
+    private func structuredSession(_ structure: RunStructure,
+                                  scheme: PrescriptionScheme = .intervals) -> WorkoutSession {
+        let s = WorkoutSession(plan: plan([structuredSegment(structure, scheme: scheme)]))
         s.start()        // arms the block (isAwaitingBlockStart = true) + schedules the timer
         s.beginBlock()   // clears the gate → startRunStructure (count-in, runLegIndex 0)
         s.stop()         // kill the timer; the leg-cursor state is preserved

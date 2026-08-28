@@ -193,12 +193,19 @@ extension WorkoutSession {
             || lapHadPM5
     }
 
-    /// True when the current block is a warmup / cooldown — logged as ONE
-    /// structural completion (a checklist gated behind a single button), never
-    /// per-exercise. Excluded from volume/analytics.
+    /// True when the current block is a warmup / cooldown.
+    /// Excluded from volume/analytics. Un gesto sigue siendo un tramo:
+    /// no cierra el bloque entero.
     var currentBlockIsStructural: Bool {
         guard let phase = currentBlockRegion?.phase else { return false }
         return phase == .warmup || phase == .cooldown
+    }
+
+    /// Último ítem del calentamiento / vuelta a la calma: el botón
+    /// puede decir HECHO de fase; el gesto igual cierra solo este tramo.
+    var isLastStructuralSegment: Bool {
+        guard currentBlockIsStructural, let region = currentBlockRegion else { return false }
+        return currentSegmentIndex == region.lastIndex
     }
 
     /// The completeness lock (concept §B / decision F.2): TRUE when the session
