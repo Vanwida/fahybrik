@@ -64,8 +64,7 @@ tip, no código nuevo.
    quedan vivos sólo en el escaparate DEBUG. Son dos looks de correr en el
    repo: hay que cerrarlo.
 2. **Ruta en `HKWorkoutRouteBuilder`**: atarla exige esperar el uuid que la
-   muñeca contesta después del cierre. El mapa del recap **funciona**; falta
-   Salud.
+   muñeca contesta después del cierre. El mapa del recap **funciona**; falta Salud.
 3. **Pasados 99 min el crono son 6 glifos** y no cabe de sujeto (sólo se llega
    ahí sin un metro medido en 1 h 40). El kit manda la hora al contexto; hay un
    test que clava el límite. Y **«sin señal» también sale en una cinta sin
