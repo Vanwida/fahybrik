@@ -6,8 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**LIVE · PR 91** (`cursor/live-un-motor-0406`). Un escritor. Se borra, no
-se suma. **NO merge.**
+**LIVE · PR 91** (`cursor/live-un-motor-0406`). Un escritor. Se borra, no se suma. **NO merge.**
 
 **105 CORTADA. La interfaz de correr en la muñeca ya no es propuesta:**
 `datos | VIVO | controles`, el esfuerzo en el CENTRO y el deslizamiento se
