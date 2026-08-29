@@ -423,22 +423,20 @@ final class WorkoutSession {
     // the ingest feeds it, but the HUD (reopen rehydration) and the mirror can read.
     var lapBeltDistanceMeters: Double = 0
 
-    // MARK: - El kilómetro de un rodaje, detectado UNA vez
+    // EL KILÓMETRO NO SE CUENTA AQUÍ, Y NO ES UN OLVIDO.
     //
-    // El cursor vive donde entran los metros — calle y cinta escriben en el mismo
-    // motor, así que hay una sola cuenta. Antes lo llevaba `RunCueEngine`, el cerebro
-    // del audio, alimentado por los dos modelos de HUD desde sus propios timers: dos
-    // entradas al mismo cursor y sólo la cinta lo reiniciaba al abrir tramo.
+    // Hubo aquí un cursor (`RunKmSplits`) que cortaba el kilómetro con los metros del
+    // tramo y su reloj. Era una SEGUNDA regla:
+    // `shared/domain/running/km-splits.ts` ya corta el kilómetro, y su cabecera lo
+    // dice con todas las letras — «UNA fuente (la traza cruda de `workout_traces`), N
+    // proyecciones; los kilómetros NUNCA se persisten; este módulo es el único sitio
+    // que sabe derivarlos». Dos reglas sobre la misma traza acaban discrepando, y el
+    // sitio donde se nota es el peor: la voz diciendo un ritmo y la fila del recap
+    // diciendo otro para el mismo kilómetro.
     //
-    // El suceso sale por `onKmSplit` y lo consume quien puede: la voz lo dice, la
-    // muñeca lo escribe como `HKWorkoutEvent.lap` en el HKWorkout. El motor no habla
-    // ni de voz ni de HealthKit — sólo detecta.
-    var kmSplits = RunKmSplits()
-
-    /// Un kilómetro se acaba de cerrar. Lo pone la capa que sabe anunciar (el móvil);
-    /// nil = nadie escucha, y el motor sigue contando igual. `@ObservationIgnored`
-    /// porque es un cable, no estado que pinte nadie.
-    @ObservationIgnored var onKmSplit: ((RunKmSplit) -> Void)?
+    // Así que el corte vive donde ya vivía, y el aviso en vivo es de Apple (ver
+    // `AppleWorkoutMapper.kmSteps`). El motor sigue alimentando la traza —
+    // `sampleRunDistance` acumula la señal `.distance`— que es de donde sale todo.
 
     var timer: Timer?
     var lastTick: Date = Date()

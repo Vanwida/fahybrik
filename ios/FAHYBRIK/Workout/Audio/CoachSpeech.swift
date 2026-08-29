@@ -136,9 +136,11 @@ enum CoachSpeech {
         }
     }
 
-    /// An out-of-band pace nudge. Faster than prescribed is quantified ("Vas 15
-    /// segundos rápido"); slower is a short push ("Aprieta un poco") — a running
-    /// athlete acts faster on "aprieta" than on a number.
+    /// LA APP NO HABLA DEL RITMO (cards 114+171). Devuelve cadena vacía a
+    /// propósito: el veredicto se PINTA —la zona tiñe el lienzo, el numeral cambia de
+    /// tono—, no se dice. La firma se queda porque la histéresis de
+    /// `RunCueEngine.onPaceSample` sigue siendo la que decide CUÁNDO habría algo que
+    /// decir, y ese cuándo es lo que gobierna el háptico.
     static func paceCorrection(status: TargetStatus, deltaSec: Int?) -> String {
         switch status {
         case .tooFast, .tooSlow, .inTarget, .unknown:
@@ -146,10 +148,10 @@ enum CoachSpeech {
         }
     }
 
-    /// A per-km split: "Kilómetro 3. 4 minutos 42 segundos."
-    static func split(km: Int, splitSec: Int) -> String {
-        "Kilómetro \(km). \(clock(splitSec))."
-    }
+    // AQUÍ VIVÍA `split(km:splitSec:)`, la frase del kilómetro. El aviso de parcial
+    // es de Apple: lo da la app Entrenamiento cuando el kilómetro es un PASO del
+    // entreno que le mandamos (`AppleWorkoutMapper.kmSteps`). Era además la última
+    // frase que quedaba hablando después de «la app no habla».
 
     /// The last-10-seconds heads-up before a timed leg / recovery rolls over.
     static let countdown = "10 segundos"

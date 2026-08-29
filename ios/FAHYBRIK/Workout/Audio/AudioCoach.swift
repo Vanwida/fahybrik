@@ -94,13 +94,17 @@ final class AudioCoach {
         }
     }
 
-    /// UN KILÓMETRO CUMPLIDO, dicho en voz alta. El suceso lo detecta el motor
-    /// (`RunKmSplits`), que es donde entran los metros; aquí sólo se pronuncia. No hay
-    /// segunda voz posible porque no hay segundo detector: el mismo suceso alimenta
-    /// esto y la vuelta que la muñeca escribe en el HKWorkout.
-    func announceKmSplit(_ split: RunKmSplit) {
-        enqueue(engine.announce(split: split))
-    }
+    // EL KILÓMETRO NO LO DICE ESTA VOZ, Y ES DELIBERADO.
+    //
+    // El aviso de parcial es de Apple: lo da la app Entrenamiento cuando el kilómetro
+    // es un PASO del entreno que le mandamos (`AppleWorkoutMapper.kmSteps`). Una
+    // segunda voz nuestra sobre lo mismo son dos voces en el oído del atleta y, peor,
+    // dos reglas de dónde cae el kilómetro — la nuestra y la de Apple.
+    //
+    // Lo que esta voz SÍ dice sigue siendo suyo porque Apple no lo tiene: el tramo que
+    // empieza (`announceRunLeg`), la corrección de ritmo contra la banda del coach
+    // (`paceUpdate`) y los 10 segundos que quedan de un tramo por tiempo
+    // (`runLegTimeRemaining`).
 
     // MARK: - Queue drain
 

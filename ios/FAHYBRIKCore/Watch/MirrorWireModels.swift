@@ -35,12 +35,6 @@ enum MirrorWire {
         /// never feels the 3-2-1, GO or rest end. ADDITIVE: an older watch ignores
         /// the type and keeps running.
         static let haptic = "haptic"
-        /// Phone → watch: UN KILÓMETRO CUMPLIDO. El motor lo detecta (los metros
-        /// entran en él) y la muñeca lo escribe en el HKWorkout que está grabando
-        /// como `HKWorkoutEvent.lap` — el tipo que Apple tiene para esto. Así el
-        /// parcial vive en la salud del atleta y en el resumen de Apple, no sólo en
-        /// nuestra voz. ADDITIVE: un reloj viejo ignora el tipo y sigue.
-        static let lap = "lap"
         /// Watch → phone: a live heart-rate sample from the wrist sensor.
         static let hr = "hr"
         /// Watch → phone: metros que acaba de contar el HKWorkout (outdoor o
@@ -331,20 +325,6 @@ struct MirrorEnd: Codable {
 struct MirrorHaptic: Codable, Equatable {
     let cue: String
     var seq: Int? = nil
-}
-
-/// Phone → watch: UN KILÓMETRO CUMPLIDO, para que la muñeca lo escriba en el
-/// HKWorkout como `HKWorkoutEvent.lap`.
-///
-/// Viaja el kilómetro y lo que costó, y nada más. EL INSTANTE NO VIAJA: un
-/// `HKWorkoutEvent` necesita un `DateInterval` que caiga DENTRO de la ventana del
-/// builder, y la única que conoce esa ventana es la muñeca. Mandar nuestro epoch
-/// para que allí lo tradujeran sería un dato que nadie puede usar.
-struct MirrorKmSplit: Codable, Equatable {
-    /// El kilómetro cumplido (1, 2, 3…). Es la identidad del suceso.
-    let km: Int
-    /// Lo que costó ESE kilómetro, en segundos. En un kilómetro es también su ritmo.
-    let splitSeconds: Double
 }
 
 /// Watch → phone: live HR off the wrist sensor. The phone injects it into the

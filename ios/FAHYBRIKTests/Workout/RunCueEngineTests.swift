@@ -1,9 +1,14 @@
 import XCTest
 @testable import FAHYBRIK
 
-// #63 — the stateful cue engine (pace hysteresis, km splits, once-per-leg
-// countdown, finish gating) and the AudioCoach drain/ducking wiring driven with a
-// mock speaker + mock audio session (no AVFoundation).
+// #63 — the stateful cue engine (pace hysteresis, once-per-leg countdown, finish
+// gating) and the AudioCoach drain/ducking wiring driven with a mock speaker + mock
+// audio session (no AVFoundation).
+//
+// EL KILÓMETRO NO ESTÁ AQUÍ y es deliberado: lo corta
+// `shared/domain/running/km-splits.ts` sobre la traza —«el único sitio que sabe
+// derivarlos»— y lo ANUNCIA Apple (`AppleWorkoutMapper.kmSteps`). Esta voz llevaba su
+// propio cursor y su propia frase; las dos eran una segunda regla.
 final class RunCueEngineTests: XCTestCase {
 
     private func sampleLeg() -> CueLeg {
@@ -30,7 +35,7 @@ final class RunCueEngineTests: XCTestCase {
         XCTAssertNil(engine.onPaceSample(status: .tooFast, deltaSec: 15, now: 0))   // dwell not met
         XCTAssertNil(engine.onPaceSample(status: .tooFast, deltaSec: 15, now: 5))
         let fired = engine.onPaceSample(status: .tooFast, deltaSec: 15, now: 10)    // dwell met
-        XCTAssertEqual(fired?.text, "Vas 15 segundos rápido.")
+        XCTAssertEqual(fired?.text, "", "la app no habla del ritmo (114+171); el cuándo sí es suyo")
         XCTAssertEqual(fired?.priority, .pace)
     }
 
@@ -62,32 +67,6 @@ final class RunCueEngineTests: XCTestCase {
         XCTAssertNil(engine.onPaceSample(status: .tooSlow, deltaSec: 12, now: 22))   // dwell met, but < 30s since last
         let slow = engine.onPaceSample(status: .tooSlow, deltaSec: 12, now: 45)      // dwell + interval met
         XCTAssertEqual(slow?.text, "")
-    }
-
-    // MARK: - El kilómetro: la voz ya no lo DETECTA, sólo lo dice
-    //
-    // El cursor vivía aquí y lo empujaban los dos modelos de HUD. Ahora lo lleva el
-    // motor (`RunKmSplits`, con sus propios tests) y esto sólo pone en palabras el
-    // suceso que le llega — que es lo que garantiza que no haya una segunda voz.
-
-    func testLaVozPronunciaElParcialQueLeLlega() {
-        let engine = RunCueEngine()
-        let split = RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300)
-        XCTAssertEqual(engine.announce(split: split).text, "Kilómetro 1. 5 minutos.")
-    }
-
-    func testElParcialUsaElRitmoDelKilometroNoElAcumulado() {
-        let engine = RunCueEngine()
-        // Segundo kilómetro a 5:10, cruzado en el minuto 10:10 del rodaje. Se dice el
-        // parcial (310 s), nunca los 610 acumulados.
-        let split = RunKmSplit(km: 2, splitSeconds: 310, atElapsedSeconds: 610)
-        XCTAssertEqual(engine.announce(split: split).text, "Kilómetro 2. 5 minutos 10 segundos.")
-    }
-
-    func testElParcialEsLaPrioridadMasBaja() {
-        let engine = RunCueEngine()
-        let split = RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300)
-        XCTAssertEqual(engine.announce(split: split).priority, .split)
     }
 
     // MARK: - Countdown
@@ -140,29 +119,46 @@ final class RunCueEngineTests: XCTestCase {
         super.tearDown()
     }
 
+    /// EL DRAIN, con lo que ESTA voz sí dice. El kilómetro ya no pasa por aquí — lo
+    /// anuncia Apple —, así que la cola se prueba con la corrección de ritmo, que es
+    /// suya porque juzga contra la banda del coach y eso Apple no lo tiene.
     func testCoachSpeaksFirstCueDucksAndDrainsInOrder() {
         let speaker = MockSpeaker(); let session = MockSession()
-        let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
+        var ahora: TimeInterval = 0
+        let coach = AudioCoach(engine: RunCueEngine(minCorrectionInterval: 30, correctionDwell: 10),
+                               speaker: speaker, audioSession: session, now: { ahora })
 
-        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))
-        XCTAssertEqual(speaker.spoken, ["Kilómetro 1. 5 minutos."])
-        XCTAssertEqual(session.last, true)
-
-        coach.announceKmSplit(RunKmSplit(km: 2, splitSeconds: 300, atElapsedSeconds: 600))
+        // Primera corrección: fuera de banda desde t=0, dispara al cumplirse el dwell.
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)
+        XCTAssertTrue(speaker.spoken.isEmpty, "el dwell aún no se cumplió")
+        ahora = 10
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)
         XCTAssertEqual(speaker.spoken.count, 1)
+        XCTAssertEqual(session.last, true, "encolar baja el volumen de lo demás")
 
-        speaker.finishCurrent()                                 // first done → drain the second
-        XCTAssertEqual(speaker.spoken, ["Kilómetro 1. 5 minutos.", "Kilómetro 2. 5 minutos."])
+        // Segunda, en la otra dirección y pasado el intervalo mínimo: se ENCOLA.
+        ahora = 20
+        coach.paceUpdate(status: .tooSlow, deltaSec: 12)
+        ahora = 45
+        coach.paceUpdate(status: .tooSlow, deltaSec: 12)
+        XCTAssertEqual(speaker.spoken.count, 1, "no se habla encima de lo que suena")
 
-        speaker.finishCurrent()                                 // queue empty → un-duck / release
+        speaker.finishCurrent()                                 // la primera acabó → drena
+        XCTAssertEqual(speaker.spoken.count, 2)
+
+        speaker.finishCurrent()                                 // cola vacía → suelta el audio
         XCTAssertEqual(session.last, false)
     }
 
     func testCoachRespectsDisabledSetting() {
         UserDefaults.standard.set(false, forKey: AudioCoachSettings.enabledKey)
         let speaker = MockSpeaker(); let session = MockSession()
-        let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
-        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))
+        var ahora: TimeInterval = 0
+        let coach = AudioCoach(engine: RunCueEngine(minCorrectionInterval: 30, correctionDwell: 10),
+                               speaker: speaker, audioSession: session, now: { ahora })
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)
+        ahora = 10
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)
         XCTAssertTrue(speaker.spoken.isEmpty)
         XCTAssertTrue(session.calls.isEmpty)
     }
@@ -179,7 +175,11 @@ final class RunCueEngineTests: XCTestCase {
     func testStopSpeakingSilencesAndReleases() {
         let speaker = MockSpeaker(); let session = MockSession()
         let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
-        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))   // hablando
+        var ahora: TimeInterval = 0
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)
+        ahora = 10
+        coach.paceUpdate(status: .tooFast, deltaSec: 15)          // hablando
+        _ = ahora
         coach.stopSpeaking()
         XCTAssertEqual(speaker.stopCount, 1)
         XCTAssertEqual(session.last, false)

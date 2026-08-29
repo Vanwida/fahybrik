@@ -726,10 +726,10 @@ final class TreadmillHUDModel {
             AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
                                          deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
         }
-        // EL KILÓMETRO YA NO SE ALIMENTA DESDE AQUÍ. Lo detecta el motor cuando entran
-        // los metros (`RunKmSplits`) y sale por `session.onKmSplit`. Esta pantalla y la
-        // de calle empujaban el MISMO cursor, cada una con su timer y con su idea de
-        // los metros y del tiempo del tramo.
+        // EL KILÓMETRO NO SE ALIMENTA DESDE AQUÍ. Lo corta
+        // `shared/domain/running/km-splits.ts` sobre la traza y lo anuncia Apple. Esta
+        // pantalla y la de calle empujaban el MISMO cursor, cada una con su timer y
+        // con su idea de los metros y del tiempo del tramo.
     }
 
     // The odometer-health logic that used to live here (trust the machine's Total

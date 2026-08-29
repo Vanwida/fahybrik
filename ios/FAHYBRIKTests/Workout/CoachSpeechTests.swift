@@ -131,11 +131,6 @@ final class CoachSpeechTests: XCTestCase {
         XCTAssertEqual(CoachSpeech.paceCorrection(status: .tooSlow, deltaSec: 12), "")
     }
 
-    func testSplitAndCountdownAndFinish() {
-        XCTAssertEqual(CoachSpeech.split(km: 3, splitSec: 282), "Kilómetro 3. 4 minutos 42 segundos.")
-        XCTAssertEqual(CoachSpeech.countdown, "10 segundos")
-        XCTAssertEqual(CoachSpeech.finish(totalSeconds: 2538), "Entreno completado. Tiempo total 42 minutos 18 segundos.")
-    }
 
     // MARK: - CueQueue priority + purge
 

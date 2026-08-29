@@ -224,7 +224,14 @@ enum AppleWorkoutMapper {
         for element in elements {
             switch element {
             case let .segment(segment):
-                loose.append(intervalStep(for: RunLeg(segment, phaseRole: role), hrMax: hrMax))
+                let leg = RunLeg(segment, phaseRole: role)
+                // Un tramo largo de distancia entra como sus kilómetros, para que
+                // Apple cante cada uno. Ver `kmSteps`.
+                if let porKm = kmSteps(for: leg, hrMax: hrMax) {
+                    loose.append(contentsOf: porKm)
+                } else {
+                    loose.append(intervalStep(for: leg, hrMax: hrMax))
+                }
 
             case let .repeatBlock(times, inner):
                 flushLoose()
@@ -252,6 +259,52 @@ enum AppleWorkoutMapper {
 
     private static func intervalStep(for leg: RunLeg, hrMax: HRZoneProfile?) -> IntervalStep {
         IntervalStep(leg.isRecovery ? .recovery : .work, step: step(for: leg, hrMax: hrMax))
+    }
+
+    // MARK: - El kilómetro como PASO, que es como Apple lo anuncia
+
+    /// UN TRAMO LARGO DE DISTANCIA, TROCEADO EN KILÓMETROS.
+    ///
+    /// Por qué: el aviso de parcial de un kilómetro es de Apple, y `WorkoutKit` **no
+    /// tiene una alerta de split** — su familia `WorkoutAlert` es cadencia, pulso,
+    /// potencia y velocidad, y nada más (comprobado contra la documentación). Lo que
+    /// Apple SÍ anuncia es el fin de cada PASO. Así que un «10 km en Z2» que viaja
+    /// como un paso de 10.000 m no dice nada hasta el final, y el mismo trabajo
+    /// expresado como diez pasos de 1.000 m hace que la app Entrenamiento cante cada
+    /// kilómetro — con su voz, con su ritmo, y sin que nosotros hablemos encima.
+    ///
+    /// El trabajo prescrito NO CAMBIA: diez veces mil metros son los mismos diez mil,
+    /// con la misma alerta de objetivo en cada uno. Cambia dónde Apple pone una marca.
+    ///
+    /// Sólo se trocea lo que tiene sentido trocear:
+    ///   · un objetivo de DISTANCIA — un tramo por tiempo no tiene kilómetros que
+    ///     cortar, y trocearlo por distancia le cambiaría la medida al coach;
+    ///   · de al menos dos kilómetros — partir 1.200 m en «1 km + 200 m» convierte un
+    ///     tramo en dos y el segundo no es trabajo que nadie pidiera;
+    ///   · y sólo el trabajo de la parte PRINCIPAL o un tramo suelto continuo: en una
+    ///     serie de 6×1000 el hito es la serie, no el kilómetro, y ahí Apple ya
+    ///     anuncia cada repetición porque cada una ya es su paso.
+    ///
+    /// Devuelve nil cuando no hay nada que trocear, y entonces el paso viaja entero.
+    static func kmSteps(for leg: RunLeg, hrMax: HRZoneProfile?) -> [IntervalStep]? {
+        guard !leg.isRecovery, leg.phaseRole == .main else { return nil }
+        guard case let .distance(meters) = leg.goal, meters >= 2000 else { return nil }
+        // Sólo un múltiplo exacto: con 10.400 m el último trozo sería de 400 y eso ya
+        // no es «un kilómetro», es un tramo nuevo que el coach no escribió.
+        guard meters.truncatingRemainder(dividingBy: 1000) == 0 else { return nil }
+        let kms = Int(meters / 1000)
+        let unKm = WorkoutGoal.distance(1000, .meters)
+        guard CustomWorkout.supportsGoal(unKm, activity: activity, location: location) else { return nil }
+        let (alert, notasSueltas) = supportedAlert(for: leg, hrMax: hrMax)
+        // El nombre dice el kilómetro DE CUÁNTOS, que es lo que el atleta necesita
+        // leer en la muñeca cuando Apple le canta el paso.
+        return (1...kms).map { i in
+            let etiqueta = clampName(([("km \(i)/\(kms)"), leg.objetivoLabel]
+                .compactMap { $0 } + notasSueltas).joined(separator: " · "))
+            return IntervalStep(.work, step: WorkoutStep(
+                goal: unKm, alert: alert, displayName: etiqueta.isEmpty ? nil : etiqueta
+            ))
+        }
     }
 
     // MARK: - Leg → step

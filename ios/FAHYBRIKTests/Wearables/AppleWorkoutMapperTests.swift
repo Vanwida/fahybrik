@@ -422,4 +422,61 @@ final class AppleWorkoutMapperTests: XCTestCase {
             .notEligible(.sessionHasNonRunWork)
         )
     }
+
+    // MARK: - El kilómetro como PASO, que es como Apple lo anuncia
+    //
+    // `WorkoutKit` NO tiene alerta de split: su familia `WorkoutAlert` es cadencia,
+    // pulso, potencia y velocidad, y nada más. Lo que Apple anuncia es el fin de cada
+    // PASO. Así que un tramo largo de distancia viaja troceado en kilómetros y la app
+    // Entrenamiento canta cada uno — con su voz, y sin que nosotros hablemos encima.
+
+    func testUnTramoLargoDeDistanciaViajaComoSusKilometros() throws {
+        let pasos = try XCTUnwrap(
+            AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .distance(m: 10_000))), hrMax: nil)
+        )
+        XCTAssertEqual(pasos.count, 10, "diez kilómetros, diez pasos que Apple puede cantar")
+        XCTAssertEqual(pasos.first?.step.displayName, "km 1/10")
+        XCTAssertEqual(pasos.last?.step.displayName, "km 10/10")
+        for paso in pasos {
+            XCTAssertEqual(paso.purpose, .work)
+            XCTAssertEqual(paso.step.goal, .distance(1000, .meters), "el trabajo no cambia: mil metros cada uno")
+        }
+    }
+
+    /// El OBJETIVO viaja en cada kilómetro, no sólo en el primero: la alerta del coach
+    /// tiene que seguir sonando el kilómetro 8 igual que el 1.
+    func testCadaKilometroLlevaElObjetivoDelCoach() throws {
+        let tramo = segment(measure: .distance(m: 3_000),
+                            target: .pace(valueS: nil, minS: 265, maxS: 275))
+        let pasos = try XCTUnwrap(AppleWorkoutMapper.kmSteps(for: leg(tramo), hrMax: nil))
+        XCTAssertEqual(pasos.count, 3)
+        for paso in pasos {
+            XCTAssertNotNil(paso.step.alert, "la banda de ritmo del coach, en los tres")
+        }
+    }
+
+    // UN TRAMO POR TIEMPO NO TIENE KILÓMETROS QUE CORTAR. Trocearlo por distancia le
+    // cambiaría al coach la medida que escribió.
+    func testUnTramoPorTiempoNoSeTrocea() {
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .duration(s: 4_500))), hrMax: nil))
+    }
+
+    // PARTIR 1.200 m EN «1 km + 200 m» CONVIERTE UN TRAMO EN DOS, y el segundo no es
+    // trabajo que nadie pidiera. Sólo un múltiplo exacto se trocea.
+    func testUnaDistanciaQueNoEsMultiploDeMilNoSeTrocea() {
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .distance(m: 1_200))), hrMax: nil))
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .distance(m: 1_000))), hrMax: nil),
+                     "un solo kilómetro ya es su propio paso; trocearlo no añade ninguna marca")
+    }
+
+    // EN UNA SERIE EL HITO ES LA SERIE, no el kilómetro: cada repetición ya es su paso
+    // y Apple ya la canta. Y una recuperación no se trocea nunca.
+    func testNiLaRecuperacionNiFueraDeLaParteePrincipalSeTrocean() {
+        let recuperacion = segment(kind: .recovery, measure: .distance(m: 2_000), recoveryMode: .trote)
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(recuperacion), hrMax: nil))
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .distance(m: 2_000)), role: .warmup),
+                                                hrMax: nil))
+        XCTAssertNil(AppleWorkoutMapper.kmSteps(for: leg(segment(measure: .distance(m: 2_000)), role: .cooldown),
+                                                hrMax: nil))
+    }
 }

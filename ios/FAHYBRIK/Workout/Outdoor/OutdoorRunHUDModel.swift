@@ -45,11 +45,12 @@ final class OutdoorRunHUDModel {
 
     /// LA CADENCIA DE LOS EFECTOS, NO UN RELOJ. Esto no publica tiempo ni posee
     /// distancia: el crono es del motor (0,25 s, `WorkoutSession`), los metros son del
-    /// motor (`legCoveredMeters` los pregunta) y el kilómetro lo detecta el motor
-    /// (`RunKmSplits`) cuando entran. Lo que queda aquí necesita un ritmo propio
-    /// porque son EFECTOS, no lecturas: vigilar la auto-pausa (que tiene que engancharse
-    /// aunque el GPS se calle), alimentar la voz y refrescar la Live Activity. Los fixes
-    /// del GPS son más gruesos que esto, así que tampoco es una cadencia de muestreo.
+    /// motor (`legCoveredMeters` los pregunta) y el kilómetro sale de la traza
+    /// (`shared/domain/running/km-splits.ts`), no de aquí. Lo que queda necesita un
+    /// ritmo propio porque son EFECTOS, no lecturas: vigilar la auto-pausa (que tiene
+    /// que engancharse aunque el GPS se calle), alimentar la voz y refrescar la Live
+    /// Activity. Los fixes del GPS son más gruesos que esto, así que tampoco es una
+    /// cadencia de muestreo.
     private static let tickSeconds: TimeInterval = 0.5
     /// Cada cuántos puntos nuevos se vuelve a codificar el recorrido en la sesión.
     /// A un fix por segundo son unos cinco segundos de exposición: es lo máximo de
@@ -267,12 +268,12 @@ final class OutdoorRunHUDModel {
             AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
                                          deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
         }
-        // EL KILÓMETRO YA NO SE ALIMENTA DESDE AQUÍ. Lo detecta el motor, en el
-        // instante en que entran los metros y con su propio reloj de tramo
-        // (`RunKmSplits`), y sale por `session.onKmSplit`. Esta pantalla lo empujaba
-        // con su timer de medio segundo y con SU idea de los metros y del tiempo,
-        // igual que lo hacía la de la cinta: dos entradas al mismo cursor y sólo una
-        // de las dos lo reiniciaba al abrir un tramo.
+        // EL KILÓMETRO NO SE ALIMENTA DESDE AQUÍ, Y NO SE ALIMENTA EN NINGÚN SITIO.
+        // Lo corta `shared/domain/running/km-splits.ts` sobre la traza —una fuente, N
+        // proyecciones— y lo ANUNCIA Apple, cuando el kilómetro es un paso del entreno
+        // que le mandamos (`AppleWorkoutMapper.kmSteps`). Esta pantalla lo empujaba con
+        // su timer de medio segundo y con SU idea de los metros y del tiempo, igual que
+        // la de la cinta: dos entradas a un cursor que ya no existe.
     }
 
     // MARK: Live Activity

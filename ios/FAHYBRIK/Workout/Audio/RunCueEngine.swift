@@ -99,17 +99,11 @@ final class RunCueEngine {
         }
     }
 
-    /// EL KILÓMETRO YA VIENE DETECTADO. Aquí sólo se pone en palabras.
-    ///
-    /// Antes este método TAMBIÉN lo detectaba: llevaba su propio cursor
-    /// (`lastSplitKm` / `lastSplitElapsed`) alimentado por los dos modelos de HUD.
-    /// El cursor vive ahora en el motor (`RunKmSplits`), que es donde entran los
-    /// metros — así el suceso también puede llegar a la grabación de Apple como una
-    /// vuelta, y no sólo a la voz.
-    func announce(split: RunKmSplit) -> CoachUtterance {
-        CoachUtterance(text: CoachSpeech.split(km: split.km, splitSec: split.paceSecPerKm),
-                       priority: .split)
-    }
+    // AQUÍ VIVÍA EL CORTE DEL KILÓMETRO, con su propio cursor (`lastSplitKm` /
+    // `lastSplitElapsed`) empujado por los dos modelos de HUD. Era una segunda regla:
+    // `shared/domain/running/km-splits.ts` ya corta el kilómetro sobre la traza y su
+    // cabecera declara que es «el único sitio que sabe derivarlos». Y el aviso en vivo
+    // es de Apple, no de esta voz. Ver `AppleWorkoutMapper.kmSteps`.
 
     /// Remaining seconds on a TIMED leg → a single "10 segundos" heads-up per leg.
     /// (The 3-2-1 stays on tones; only the 10s gets a voice.)

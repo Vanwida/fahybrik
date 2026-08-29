@@ -210,25 +210,12 @@ extension WorkoutSession {
         let runMetersBefore = tramoRunCoveredMeters
         lapHadGPS = true
         lapGpsDistanceMeters = (lapGpsDistanceMeters ?? 0) + deltaMeters
+        // EL KILÓMETRO SALE DE ESTA MISMA LÍNEA, pero no aquí: la señal `.distance`
+        // que se acaba de acumular ES la fuente de la que
+        // `shared/domain/running/km-splits.ts` corta los kilómetros. Una segunda
+        // cuenta en el motor sería una segunda regla sobre la misma traza.
         trace.accumulate(.distance, source: source, delta: deltaMeters, atSecond: traceSecond())
-        noteKmSplitIfCrossed()
         considerDistanceClose(beforeMeters: runMetersBefore)
-    }
-
-    /// EL KILÓMETRO, mirado en el único sitio donde se sabe: justo después de sumar
-    /// los metros y ANTES de que `considerDistanceClose` pueda cerrar el tramo y
-    /// poner los acumuladores a cero.
-    ///
-    /// Sólo en un RODAJE. Una carrera estructurada se anuncia por tramo — el coach
-    /// escribió 6×1000, y ahí «kilómetro 3» no es ningún hito: el hito es la serie.
-    /// En descanso tampoco: los metros de una recuperación al trote son reales pero
-    /// no son parte de la cuenta del rodaje.
-    func noteKmSplitIfCrossed() {
-        guard !isRunStructureActive, !isTramoResting,
-              let covered = tramoRunCoveredMeters else { return }
-        guard let split = kmSplits.step(coveredMeters: covered,
-                                        elapsedSeconds: tramoElapsedSeconds) else { return }
-        onKmSplit?(split)
     }
 
     /// La cinta FTMS está viva en esta ventana. A partir de aquí ella firma los
@@ -291,7 +278,6 @@ extension WorkoutSession {
         let runMetersBefore = tramoRunCoveredMeters
         lapBeltDistanceMeters += deltaMeters
         trace.accumulate(.distance, source: .treadmill, delta: deltaMeters, atSecond: traceSecond())
-        noteKmSplitIfCrossed()
         considerDistanceClose(beforeMeters: runMetersBefore)
     }
 
