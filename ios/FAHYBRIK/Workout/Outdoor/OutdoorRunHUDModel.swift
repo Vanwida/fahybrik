@@ -31,8 +31,6 @@ final class OutdoorRunHUDModel {
     // que ninguno esté mal. Si algún día se decide unificarlos, el otro sitio a
     // tocar es `WorkoutSession+Accessors.swift`.
     private(set) var livePaceSecPerKm: Int?
-    /// The CURRENT leg's covered distance (m), for the "1,4 / 2,0 km" readout.
-    private(set) var legCoveredMeters: Double = 0
 
     private let gps: RunLocationProvider
     private var smoother = RunPaceSmoother()
@@ -45,8 +43,13 @@ final class OutdoorRunHUDModel {
     private var lastLegKey = ""
     private var lastPaused = false
 
-    /// How often the live values + auto-close + auto-pause are re-evaluated. GPS
-    /// fixes are coarser than this, so it's a display cadence, not a sampling one.
+    /// LA CADENCIA DE LOS EFECTOS, NO UN RELOJ. Esto no publica tiempo ni posee
+    /// distancia: el crono es del motor (0,25 s, `WorkoutSession`), los metros son del
+    /// motor (`legCoveredMeters` los pregunta) y el kilómetro lo detecta el motor
+    /// (`RunKmSplits`) cuando entran. Lo que queda aquí necesita un ritmo propio
+    /// porque son EFECTOS, no lecturas: vigilar la auto-pausa (que tiene que engancharse
+    /// aunque el GPS se calle), alimentar la voz y refrescar la Live Activity. Los fixes
+    /// del GPS son más gruesos que esto, así que tampoco es una cadencia de muestreo.
     private static let tickSeconds: TimeInterval = 0.5
     /// Cada cuántos puntos nuevos se vuelve a codificar el recorrido en la sesión.
     /// A un fix por segundo son unos cinco segundos de exposición: es lo máximo de
@@ -211,24 +214,27 @@ final class OutdoorRunHUDModel {
         let t = now
         gpsQuality = GPSSignalQuality.from(horizontalAccuracyM: gps.latestHorizontalAccuracyM)
         livePaceSecPerKm = smoother.paceSecPerKm(now: t)
-        legCoveredMeters = coveredLegMeters()
         evaluateAutoPause(now: t)
         feedAudioCoach()
         refreshLiveActivity(now: t)
     }
 
-    /// The CURRENT leg's covered distance: baseline-adjusted per structured leg
-    /// (RunLegProgress discards a prior leg's overshoot). UN-structured is NOT
-    /// always "the whole segment" any more: a mixed block (Run 1.000 · SkiErg 500 ·
-    /// Run 1.000 · …) folds to one segment, so `coveredMeters` (the raw GPS total)
-    /// would show the third run station arriving at 2.000-y-pico instead of 0.
-    /// `session.tramoRunCoveredMeters` is the tramo-anchored twin — same anchor
-    /// `tramoErgStartDistance`/`tramoBeltStartDistance` already use — so it starts
-    /// each running station at zero on its own. On a plain single-tramo run
-    /// segment the anchor is zero and the number is identical to `coveredMeters`.
-    private func coveredLegMeters() -> Double {
-        session.tramoRunCoveredMeters ?? 0
-    }
+    /// LOS METROS DEL TRAMO SE PREGUNTAN, NO SE COPIAN.
+    ///
+    /// Era una propiedad guardada que el tick de medio segundo rellenaba con este
+    /// mismo accesor del motor. O sea: una segunda copia de una cifra que el motor ya
+    /// tenía, retrasada hasta medio segundo respecto a él — la pantalla podía decir
+    /// «1,40 km» mientras el motor cerraba el tramo a 1.500. Calculada, la vista lee
+    /// del motor y de nadie más.
+    ///
+    /// Y no es «todo el segmento»: un bloque mixto (Run 1.000 · SkiErg 500 · Run
+    /// 1.000 · …) se pliega en un segmento, así que el total crudo del GPS haría que
+    /// la tercera estación de correr apareciera llegando a 2.000-y-pico en vez de a 0.
+    /// `tramoRunCoveredMeters` está anclado al tramo — el mismo ancla que ya usan
+    /// `tramoErgStartDistance` / `tramoBeltStartDistance` — así que cada estación
+    /// empieza en cero por su cuenta. En un rodaje de un solo tramo el ancla es cero y
+    /// la cifra es idéntica a `coveredMeters`.
+    var legCoveredMeters: Double { session.tramoRunCoveredMeters ?? 0 }
 
     // MARK: Auto-pause
 
