@@ -2,42 +2,36 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-29** (live: correr es de Apple)
+Última actualización: **2026-08-29** (live: rest que cierra + reloj que entra)
 
 ## Ahora
 
 **LIVE · PR 91** (`cursor/live-un-motor-0406`). Un escritor. Se borra, no
-se suma. **Correr ya tiene dueño y es Apple**: cada fila del inventario
-verificada contra la documentación, dos descartadas (abajo).
+se suma. **NO merge.**
 
-**Dos escritores para una carrera, y ganaba el malo.** Debugger, Z2 de
-Alex, asignación 494: al terminar 3,78 km/22:33/153/5:58; al reabrir
-**22:40 y cero bloques**, con **0 POSTs en 18 h**.
+**Debugger 29-ago, serie de umbral. Ya es verdad:** el rest es el mismo HUD
+que el Run (no el overlay gym) y el footer del reloj dice build 21.
 
-1. **iOS no escribía al terminar.** Del final a GUARDAR el entreno vivía
-   SOLO en memoria: `finish()` ya cerró la instantánea y el resumen no
-   encola. La separación estaba en la base sin usar (`workout_executions`
-   upserta por `assignment_id` con `coalesce`): **lo MEDIDO va al
-   terminar** —lo declarado en nil, que es lo que impide pisar el RPE— y
-   **lo DECLARADO va en el resumen**. Compartir es un accesorio.
-2. **El volcado de Salud sí escribía.** El HKWorkout de la MUÑECA llegaba
-   sin firma, así que `linkExecution` lo adoptaba. Sus cuatro guardas
-   preguntan por evidencia que sólo existe si nuestro POST llegó primero —
-   eran una carrera. La firma sube a
-   `FAHYBRIKCore/HealthKit/SaludNuestra.swift` (mismo literal), la ponen
-   las dos vías de la muñeca, y el lector aprende la regla que las MUESTRAS
-   ya tenían: `measuredOnly` para entrenos.
-3. **Y ese escritor guardaba MENOS que el huérfano.** El mismo HKWorkout
-   sin asignación deja km, pulso, calorías, UN tramo y zonas; casado con la
-   sesión del coach dejaba duración y procedencia y **nada más**. El mismo
-   entreno salía PEOR por estar prescrito. Un escritor:
-   `materializeHealthkitWorkout` con `assignment_id`, sin rama (`unique
-   (assignment_id)` y los NULL no colisionan).
-4. **Las zonas son cuerpo de la carrera**, no adorno del sujeto: se
-   pintaban sólo si el sujeto ERA la zona, así que un rodaje con objetivo
-   de zona se quedaba sin saber dónde estuvo el pulso.
+**Y las dos que seguían siendo falsas, las dos con una causa cada una:**
 
-Cero servidor, cero migraciones en las dos.
+1. **El motor no cerraba el rest** (timer subiendo, distancia clavada, el
+   siguiente Run sin armar). `sampleRunDistance` tenía una guarda
+   `tramoMide` que tiraba el sample en una recuperación **sin modo
+   escrito** — y los metros que cierran una recuperación de DISTANCIA son
+   justo esos. Sin metros que crucen la meta, el cursor no avanza. La
+   guarda es de la CINTA (una banda rodando sin el atleta encima) y ahí se
+   queda; el GPS la pierde. Si está parado, CoreLocation no reporta nada:
+   la guarda no ahorraba nada en el caso que la motivó.
+2. **El reloj no entraba en la sesión** (SIN RELOJ en el móvil, readiness
+   en la muñeca). El móvil pedía `startWatchApp` **cada 4 s** y el apretón
+   en frío tarda más; la segunda petición llegaba con la primera a medias y
+   `MirrorSessionController.start` se auto-curaba de cualquier estado ≠
+   `.idle`, **terminando la sesión que la primera acababa de crear**. El
+   último force-release dejaba el reloj en `.idle` = la esfera. Ahora se
+   pide una vez y se ESPERA (12 s), y la muñeca sólo cura un estado
+   genuinamente viejo (20 s sin señal). El error de `startWatchApp` deja de
+   tirarse: el móvil estrena el `Logger` que la muñeca ya tenía, así que
+   «SIN RELOJ» pasa a tener diagnóstico.
 
 ## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 

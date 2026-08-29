@@ -11,6 +11,84 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · La puerta del descanso era de la cinta, no del GPS
+
+**Debugger, serie de umbral.** Cuatro síntomas en una pantalla: «el motor no cierra
+el rest · el timer cuenta hacia arriba · la distancia clavada · el siguiente Run no
+se arma». **Eran una línea.**
+
+`sampleRunDistance` tenía una guarda `tramoMide` que descartaba el sample cuando el
+tramo en curso era una recuperación **sin modo escrito** (`recoveryMode` nil →
+`isTramoRecuperandoEnMovimiento` falso). Consecuencias:
+
+- la distancia se quedaba clavada mientras el atleta trotaba;
+- el volumen de carrera de la sesión salía corto por todo lo trotado — que es
+  **exactamente** el daño que el comentario de `advanceRunLeg` dice que se evita
+  grabando las recuperaciones;
+- y una recuperación medida en **DISTANCIA no podía cerrarse nunca**, porque los
+  metros que la cierran (`considerDistanceClose`) son los que la guarda descartaba.
+  Ahí están «no cierra el rest» y «el siguiente Run no se arma»: sin metros que
+  crucen la meta el cursor no avanza, y la pantalla se queda con un crono subiendo.
+
+**La regla de la que salió la guarda sigue en pie, y es sobre el NOMBRE:** «sin modo
+escrito no se inventa un trote: es DESCANSO». Cómo lo llamamos es una afirmación
+nuestra; los metros son un hecho de CoreLocation. **Y si el atleta está de verdad
+parado, el GPS no reporta movimiento** — la guarda no ahorraba nada en el caso que
+la motivó.
+
+**Decidido:** la guarda es de la CINTA, donde sí se gana el sueldo (una banda
+rodando mientras el atleta se baja acumularía metros que nadie corrió), y se queda
+en `sampleTreadmillDistance`. El GPS la pierde.
+
+**NO hacer:** no volver a decidir si se GRABA un dato medido a partir de lo que el
+coach ESCRIBIÓ. Y no inventar un auto-cierre por umbral de velocidad para una
+recuperación abierta (sin duración y sin distancia): esa se cierra a gesto, y si eso
+no basta, la decisión es de Alex, no un umbral nuestro.
+
+---
+
+## 2026-08-29 · Relanzar el reloj encima de un arranque a medias era lo que lo tumbaba
+
+**Debugger, misma serie.** El teléfono decía **SIN RELOJ** y la app del reloj se
+quedaba en la esfera de readiness, no en `livePicture`. **Los dos síntomas son una
+causa**, y está en el apretón de manos.
+
+El teléfono pedía `startWatchApp` **cada 4 s hasta 15 veces** mirando sólo
+`wristJoined`. Pero el apretón en frío tarda más que eso: la app del reloj arranca,
+pide permiso de HealthKit, hace `beginCollection` y **sólo entonces** llama a
+`startMirroringToCompanionDevice`. Así que la segunda petición entraba con la
+primera a medio camino — y `MirrorSessionController.start` se auto-cura de
+**cualquier** estado que no sea `.idle`, así que **terminaba la sesión que la
+primera acababa de crear**. Repetido cada 4 s, el último force-release deja el reloj
+en `.idle`: `RootView` pinta readiness y el teléfono no tiene sesión espejada que
+adoptar.
+
+**Decidido, en los dos extremos:**
+
+- El teléfono pide **una** vez y **espera** a que entre, con una ventana de 12 s (por
+  encima del arranque en frío) sondeando cada medio segundo para no dejar la mano
+  quieta si entra al primer intento. Cinco intentos, no quince.
+- La muñeca sólo se auto-cura de un estado **genuinamente viejo**, medido por cuánto
+  lleva sin señal (20 s), no de cualquier estado que no sea `.idle`. Un arranque de
+  hace dos segundos se respeta y la petición se declina. La cura sigue ahí para lo
+  que la motivó (card 72: una muñeca atascada semanas) y el timeout de cinco minutos
+  sigue cubriendo la abandonada: **uno protege el arranque en marcha, el otro la
+  muñeca olvidada.**
+- Y **el arranque cuenta como señal de vida**: `lastSignalAt` se sellaba sólo en
+  `beginMirroring`, después del permiso de HealthKit, así que sin esto la guarda
+  nueva no habría servido de nada.
+
+**Y el error de `startWatchApp` deja de tirarse.** Se descartaba con `{ _, _ in }`,
+así que «SIN RELOJ» **no tenía diagnóstico posible**: de un apretón de manos de dos
+lados sólo logueaba uno. El teléfono estrena el `Logger` del mismo subsistema que la
+muñeca — que lo tiene desde la card 72 por esta misma razón — y dice cuándo pide,
+cuándo falla y con qué error, y cuándo la muñeca entra.
+
+**NO hacer:** no subir la cadencia de reintento por encima del apretón de manos. No
+curar un estado por el hecho de no ser `.idle`.
+
+---
+
 ## 2026-08-29 · Un escritor de Salud: con asignación se guarda LO MISMO que sin ella
 
 **Lo que faltaba por ver del caso 494.** Había **dos** escritores para el mismo
