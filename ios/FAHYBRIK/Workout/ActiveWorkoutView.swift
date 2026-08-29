@@ -1445,14 +1445,24 @@ struct ActiveWorkoutView: View {
     }
 
     // Exit affordance (preview gate + in-progress HUD) — the heart of "ABANDONAR ≠
-    // TERMINAR". With REAL recorded work, opens the 3-option decision sheet (seguir
-    // / terminar y guardar / descartar) and freezes the clock while the athlete
-    // decides. With nothing recorded (just started, or warmup-only), there's
-    // nothing to save → discard immediately and silently (§C.1): no execution, the
-    // session stays pending, no fake "done". The clock is left frozen at a preview
-    // gate (it isn't running there).
+    // TERMINAR". Con algo MEDIDO abre la hoja de tres opciones (seguir / terminar y
+    // guardar / descartar) y congela el reloj mientras el atleta decide. Sin nada
+    // medido —recién entrado, o parado en la puerta de un bloque— no hay nada que
+    // guardar y se sale directo: ni ejecución, ni «hecho» falso.
+    //
+    // SALIR NO ERA TERMINAR, Y ESTA LÍNEA ERA LA CAUSA. La puerta preguntaba por el
+    // trabajo que CUENTA (una pregunta de completitud, que excluye el calentamiento a
+    // propósito) en vez de por lo que se MIDIÓ. El día que caminó el debugger empieza
+    // por un calentamiento de 8:00: con 1:52 y 307 m de GPS ya en pantalla, esa
+    // pregunta valía `false` y el aspa se iba por `onExit()` — descarte silencioso, de
+    // vuelta a Plan con EMPEZAR y sin recap.
+    //
+    // No hay caso especial para el aspa: hay UNA puerta y ahora pregunta lo que tiene
+    // que preguntar (`hayMedidoQueSePerderia`, que ya no mira de qué fase es el
+    // bloque). Pasada la puerta, terminar es lo que siempre fue — cerrar la sesión,
+    // persistir y abrir el recap de esa sesión guardada.
     private func requestExit() {
-        guard session.hasRecordedWork else { onExit(); return }
+        guard session.hayMedidoQueSePerderia else { onExit(); return }
         if !session.isAwaitingBlockStart { session.pauseForVideo() }
         exitStep = .choose
     }

@@ -226,15 +226,34 @@ extension WorkoutSession {
         return currentSegmentIndex == region.lastIndex
     }
 
-    /// The completeness lock (concept §B / decision F.2): TRUE when the session
-    /// holds at least one unit of REAL work — a closed working lap or live progress
-    /// on a NON-structural segment. Warmup/cooldown completions are EXCLUDED: a
-    /// "calentamiento hecho" tap must not force a false partial nor block a clean
-    /// discard. No real work → only ABANDONAR (discard) is offered; "Terminar y
-    /// guardar" never appears, so a barely-started session can't be saved as done.
-    var hasRecordedWork: Bool {
-        laps.contains { !$0.isStructural }
-            || (currentSegmentHasLiveProgress && !currentBlockIsStructural)
+    /// HAY ALGO MEDIDO QUE SE PERDERÍA AL SALIR. Es la única pregunta que decide si
+    /// el aspa puede irse callando.
+    ///
+    /// AQUÍ VIVÍA `hasRecordedWork`, y era la pregunta equivocada en este sitio.
+    /// Contestaba «¿esto cuenta como TRABAJO?» —para la completitud— y por eso
+    /// EXCLUÍA el calentamiento: un «calentamiento hecho» no puede marcar la sesión
+    /// como cumplida. Correcto para lo suyo. Pero se usaba además para decidir si al
+    /// salir hay algo que guardar, y ahí la exclusión miente.
+    ///
+    /// Lo que costó, en el debugger del 29-ago: el día caminado es un híbrido de 17
+    /// tramos cuyo tramo 1 es un calentamiento de 8:00. Con 1:52 corridos, 307 m de
+    /// GPS y su mapa en pantalla, `currentBlockIsStructural` valía true, el progreso
+    /// vivo se anulaba, y la salida se iba por la rama «no hay nada que guardar»:
+    /// descarte SILENCIOSO. El atleta volvía a Plan con EMPEZAR y sin recap, con los
+    /// metros y el recorrido tirados. SALIR NO ERA TERMINAR.
+    ///
+    /// Se borra en vez de dejarla al lado, y por dos razones: no le quedaba ningún
+    /// llamante —era el único—, y su propio comentario describía una regla que ya no
+    /// existe («sin trabajo real sólo se ofrece ABANDONAR»), cuando la hoja de salida
+    /// ofrece las cuatro opciones desde hace tiempo. Un accesor muerto que documenta
+    /// un comportamiento que no pasa es la trampa lista para que alguien la vuelva a
+    /// cablear en el sitio equivocado.
+    ///
+    /// Aquí no se pregunta de qué FASE es el bloque: se pregunta si alguien MIDIÓ
+    /// algo. Un calentamiento con 307 m medidos es una carrera de 307 m — cómo se
+    /// llame el bloque no borra el GPS.
+    var hayMedidoQueSePerderia: Bool {
+        !laps.isEmpty || currentSegmentHasLiveProgress
     }
 
     /// Blocks the athlete has actually COMPLETED — fully moved past
