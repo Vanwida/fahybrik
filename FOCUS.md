@@ -2,32 +2,30 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-29** (live: rest de pie es Descanso)
+Última actualización: **2026-08-29** (live: se borra overlay gym / CALENTAMIENTO HECHO / launched)
 
 ## Ahora
 
 **LIVE · PR 91** (`cursor/live-un-motor-0406`). Tres clases. Un
 escritor. Se borra, no se suma control.
 
-1. Una sesión. Watch y teléfono suscriben `livePicture`.
-   `live_start_v1` + `phoneOwnsLive`. No 105.
-2. El HUD bebe live. Cifra GPS de work **no se toca.**
-3. El motor avanza. Rest de pie (sin modo / `.parado`) =
-   tramo Descanso: la calle se baja, metros de work no suman,
-   un gesto arma el siguiente work. Trote/caminar sigue
-   midiendo. Borrado: `strengthPrimary`. Cerrado
-   `piernasDeRondas` (no compilaba).
+Debugger f5894e9 Series umbral: overlay gym (91-rest),
+CALENTAMIENTO HECHO cerraba el bloque, Watch en esfera.
 
-**NO es hecho de producto.** Marc camina Chipper Y run+rest
-(DESCANSO en HUD, metros no suman, al acabar rest arma work,
-Watch en la misma sesión). Sin eso no se cierran 101/67/72/110/157/176.
+1. Rest ES el HUD del Run. Overlay `RestSurface`+RX no monta.
+2. Un tap = un tramo. Borrado el override CALENTAMIENTO HECHO.
+3. Watch entra en `livePicture`. Éxito = `wristJoined`, no
+   `startWatchApp` ok. No 105.
+
+**NO es hecho de producto.** Marc camina Chipper O umbral:
+rest HUD (no gym), siguiente Run solo, Watch no es esfera.
+Sin eso no merge.
 
 No tocar: GPS/authority, 105, 174, 175, plan del 67,
-`DEVELOPMENT_TEAM` (`S6W4459DDG`). Neon no. No merge.
+`DEVELOPMENT_TEAM` (`S6W4459DDG`). Neon no.
 
 ## Cerrado en código (esta PR)
 
-- Detail 200. Sesión ready (`/me` no 500).
-- Rest entre works de serie. Un gesto en calentamiento.
-- `skipFixedRest` fuera. Rest de lista = `livePicture`.
-- Rest de pie = Descanso. `strengthPrimary` fuera.
+- Detail 200. Sesión ready. Rest entre works. `skipFixedRest` fuera.
+- Rest de pie = Descanso. Overlay gym fuera. `strengthPrimary` fuera.
+- `if launched` fuera. CALENTAMIENTO HECHO override fuera.

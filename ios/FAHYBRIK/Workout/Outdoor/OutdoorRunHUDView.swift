@@ -157,8 +157,7 @@ struct OutdoorRunHUDView: View {
     }
 
     private var tituloTramo: String {
-        if model.isRecovery { return "Recuperación" }
-        return model.currentSegment?.title ?? "Correr"
+        model.session.livePicture.label
     }
 
     private func chip(_ texto: String, encendido: Bool, icono: String) -> some View {
@@ -187,7 +186,7 @@ struct OutdoorRunHUDView: View {
                 .scaledFont(15, weight: .medium, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.muted)
         } else if model.isRecovery {
-            EtiquetaSujeto(texto: model.legTimeRemaining != nil ? "Recuperación" : "Llevas recuperando")
+            EtiquetaSujeto(texto: model.session.livePicture.label)
             Numeral(texto: Formato.clock(model.legTimeRemaining ?? model.legElapsedEffective))
         } else {
             switch model.runTarget {

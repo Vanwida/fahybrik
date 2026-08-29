@@ -1332,12 +1332,7 @@ struct ActiveWorkoutView: View {
     // TERMINAR on the last segment, HECHO for a discrete strength/reps piece,
     // SIGUIENTE to move to the next leg.
     private var primaryTitle: String {
-        if session.isLastStructuralSegment {
-            return session.currentBlockRegion?.phase == .cooldown
-                ? "VUELTA A LA CALMA HECHA"
-                : "CALENTAMIENTO HECHO"
-        }
-        return session.livePicture.primary.label
+        session.livePicture.primary.label
     }
 
     // The bottom action area: Death By gets a dual "Fallé / Lo logré" control (the

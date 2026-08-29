@@ -887,6 +887,50 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertEqual(s.currentSegment?.title, "Series")
     }
 
+    /// El 4×80 del calentamiento es el último segmento. Un tap no cierra
+    /// el bloque: cierra UN tramo (80 m o su rest) y el motor arma el siguiente.
+    func testCalentamientoHechoNoCierraElBloqueEnEl80() {
+        let swings = WorkoutSegment(order: 1, title: "LEG SWINGS", kind: .reps,
+                                    blockTitle: "Calentamiento", blockPosition: 0)
+        let rx = Prescription(
+            scheme: .intervals, modality: .run, sets: nil, rounds: 4,
+            workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+            start: nil, increment: nil,
+            structure: [RunPhase(role: .main, elements: [
+                .repeatBlock(times: 4, elements: [
+                    .segment(RunSegment(kind: .work, measure: .distance(m: 80),
+                                        target: nil, resolved: nil, inclinePct: nil,
+                                        cadenceSpm: nil, recoveryMode: nil)),
+                    .segment(RunSegment(kind: .recovery, measure: .duration(s: 60),
+                                        target: nil, resolved: nil, inclinePct: nil,
+                                        cadenceSpm: nil, recoveryMode: .parado))
+                ])
+            ])]
+        )
+        let ochenta = WorkoutSegment(order: 2, title: "Run 80 m", kind: .running,
+                                     blockTitle: "Calentamiento", blockPosition: 0,
+                                     prescription: rx)
+        let series = WorkoutSegment(order: 3, title: "Series", kind: .running,
+                                    blockTitle: "Series", blockPosition: 1)
+        let s = armedSession([swings, ochenta, series])
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegment?.title, "Run 80 m")
+        XCTAssertTrue(s.isLastStructuralSegment)
+        XCTAssertTrue(s.isRunStructureActive)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertEqual(s.livePicture.label, "Descanso")
+        XCTAssertFalse(s.isAwaitingBlockStart, "el rest del 80 no abre el gate")
+        XCTAssertTrue(s.currentBlockIsStructural)
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertEqual(s.runLegIndex, 2)
+        XCTAssertFalse(s.isAwaitingBlockStart)
+        XCTAssertEqual(s.currentSegment?.title, "Run 80 m")
+    }
+
     func testMedidaConRangoSobreviveElViajeDeIdaYVuelta() throws {
         // Encode + decode: el techo no se pierde por el camino (el espejo del reloj
         // y la cola sin conexión guardan medidas ya decodificadas).

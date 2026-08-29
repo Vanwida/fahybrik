@@ -11,6 +11,36 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Se borra el overlay gym, el override de fase y el launched
+
+**Qué se vio (debugger f5894e9, Series umbral):** 91-rest
+card gym DESCANSO SERIE 2/5, 00:00, HECHO, RX/ESCALADO, no
+ Distancia, no SALTAR, no arma el siguiente Run. CALENTAMIENTO
+HECHO en el 80 m (i=10/14/18/22) cerraba el bloque 1. Watch
+en esfera (90-watch). HUD live se quedaba en el work (90-hud).
+
+**Qué sobraba:** rest de pie con modalidad «otra» bajaba la
+calle y montaba `RestSurface` + cromo gym. `primaryTitle`
+decía CALENTAMIENTO HECHO en el último segmento aunque
+quedaran tramos. `startWatchApp` ok se tomaba por éxito y
+el reloj se quedaba en la esfera.
+
+**Decidido:** rest de una serie de correr ES el mismo HUD
+(`livePicture`, calle/cinta). Sin modo = Descanso; el motor
+arma el siguiente tramo (tiempo o gesto). El botón bebe
+`livePicture.primary`. El reloj entra cuando `wristJoined`,
+no cuando HealthKit dice ok. No 105.
+
+**Qué se elimina:** el unmount de la calle en rest de pie;
+el override CALENTAMIENTO HECHO / VUELTA A LA CALMA HECHA;
+`if launched { return }`.
+
+**NO hacer:** no if Chipper. no pegar Distancia/SALTAR al
+gym. no 105/174/175. no GPS. no merge. Hecho = debugger
+Chipper O umbral: rest HUD, siguiente Run, Watch no esfera.
+
+---
+
 ## 2026-08-29 · Rest de pie es Descanso. No se inventa un trote
 
 **Qué sobraba:** `piernasDeRondas` sin `}` (no compilaba).

@@ -500,8 +500,7 @@ struct TreadmillHUDView: View {
     }
 
     private var legTitle: String {
-        if model.isRecovery { return "Recuperación" }
-        return model.currentSegment?.title ?? "Correr"
+        model.session.livePicture.label
     }
 
     /// The screen's subject, centred in whatever height the rest of the stack doesn't need.
@@ -531,7 +530,7 @@ struct TreadmillHUDView: View {
         let restante = model.legTimeRemaining
         return CardSurface(padding: Theme.Spacing.l, topAccent: true, elevated: true) {
             VStack(spacing: 8) {
-                LabelText(text: restante != nil ? "Recuperación" : "Llevas recuperando", size: 10)
+                LabelText(text: model.session.livePicture.label, size: 10)
                 Text(Formato.clock(restante ?? model.legElapsedEffective))
                     .font(Theme.Typography.readoutHero)
                     .foregroundStyle(Theme.Color.foreground)

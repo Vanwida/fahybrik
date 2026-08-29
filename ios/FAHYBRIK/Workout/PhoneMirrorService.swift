@@ -199,20 +199,18 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Launch the watch app with up to `watchLaunchAttempts` tries, a few seconds
-    /// apart — stopping early once a launch reports success, the wrist has joined,
-    /// or a newer begin()/end() superseded this loop. Silent to the athlete beyond
-    /// that: if the watch never comes, the phone records alone as always.
+    /// Lanza el reloj hasta que entra en la misma `livePicture` (`wristJoined`),
+    /// un begin()/end() nuevo anula el bucle, o se acaban los intentos.
+    /// `startWatchApp` puede decir ok y dejar la esfera: eso no es éxito.
     private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
         for attempt in 1...Self.watchLaunchAttempts {
             guard generation == watchLaunchGeneration, !wristJoined else { return }
-            let launched: Bool = await withCheckedContinuation { cont in
-                healthStore.startWatchApp(with: config) { ok, _ in
-                    cont.resume(returning: ok)
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                healthStore.startWatchApp(with: config) { _, _ in
+                    cont.resume()
                 }
             }
             if wristJoined { return }
-            if launched { return }
             guard attempt < Self.watchLaunchAttempts else { return }
             try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
         }

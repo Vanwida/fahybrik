@@ -148,11 +148,12 @@ final class LiveEngineUnificationTests: XCTestCase {
         s.primaryAdvance()
         XCTAssertEqual(s.livePicture.label, "Descanso")
         XCTAssertTrue(s.isTramoResting)
-        XCTAssertFalse(s.tramoIsRun)
+        XCTAssertTrue(s.tramoIsRun, "el rest ES el HUD del Run, no el overlay gym")
         XCTAssertFalse(s.tramoMide)
-        XCTAssertNil(s.livePicture.coveredMeters)
+        let coveredAtRest = s.livePicture.coveredMeters ?? 0
         s.sampleRunDistance(deltaMeters: 400, source: .gps)
-        XCTAssertNil(s.livePicture.coveredMeters, "el rest no suma los metros del work")
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, coveredAtRest, accuracy: 0.001,
+                       "el rest no suma los metros del work")
 
         s.primaryAdvance()
         XCTAssertTrue(s.isRunLegWork)

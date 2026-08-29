@@ -313,7 +313,7 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertFalse(s.isRunLegWork)
         XCTAssertEqual(s.currentTramo.label, "Descanso")
         XCTAssertEqual(s.livePicture.label, "Descanso")
-        XCTAssertFalse(s.tramoIsRun)
+        XCTAssertTrue(s.tramoIsRun, "el rest se queda en el HUD de correr")
         XCTAssertFalse(s.tramoMide)
         XCTAssertNil(s.currentRunLeg?.durationSeconds)
         XCTAssertEqual(s.runLegIndex, 1)
