@@ -40,6 +40,7 @@ final class OutdoorRunHUDModel {
     private let liveActivity = RunLiveActivityController()
 
     private var routePoints: [RoutePoint] = []
+    private var lastPublishedPoints = 0
     private var displayTimer: Timer?
     private var lastLegKey = ""
     private var lastPaused = false
@@ -47,6 +48,12 @@ final class OutdoorRunHUDModel {
     /// How often the live values + auto-close + auto-pause are re-evaluated. GPS
     /// fixes are coarser than this, so it's a display cadence, not a sampling one.
     private static let tickSeconds: TimeInterval = 0.5
+    /// Cada cuántos puntos nuevos se vuelve a codificar el recorrido en la sesión.
+    /// A un fix por segundo son unos cinco segundos de exposición: es lo máximo de
+    /// mapa que puede faltarle a la escritura del final si la app muere justo ahí.
+    /// El resumen vuelve a mandar el recorrido completo y `workout_routes` es un
+    /// upsert por ejecución, así que en el camino normal no falta nada.
+    private static let routePublishEvery = 5
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
     init(session: WorkoutSession, hrZones: HRZoneProfile?, gps: RunLocationProvider = RunLocationProvider()) {
@@ -63,6 +70,7 @@ final class OutdoorRunHUDModel {
         // the polyline and the map pick up where they left off, not from zero.
         if let existing = session.capturedRoutePolyline {
             routePoints = PolylineCodec.decode(existing)
+            lastPublishedPoints = routePoints.count
             coordinates = routePoints.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         }
         gps.onDistanceDelta = { [weak self] meters in
@@ -82,8 +90,10 @@ final class OutdoorRunHUDModel {
             RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
         }
         gps.onCoordinate = { [weak self] coord in
-            self?.coordinates.append(coord)
-            self?.routePoints.append(RoutePoint(lat: coord.latitude, lon: coord.longitude))
+            guard let self else { return }
+            self.coordinates.append(coord)
+            self.routePoints.append(RoutePoint(lat: coord.latitude, lon: coord.longitude))
+            self.publishRoute()
         }
         gps.start()
         gps.setBackgroundUpdates(true)   // paired with the `location` UIBackgroundMode
@@ -104,18 +114,26 @@ final class OutdoorRunHUDModel {
         gps.setBackgroundUpdates(false)   // stop background GPS the moment the run closes (battery)
         gps.stop()
         liveActivity.end()
-        // Hand the captured trace to the session so the post-workout summary can ship
-        // it in the execution payload + draw the mini-map. Only overwrite when we have
-        // a real trace, so closing a no-signal stint never wipes an earlier one.
-        if let poly = encodedPolyline() { session.capturedRoutePolyline = poly }
+        publishRoute(force: true)
     }
 
-    /// The captured route as a compact encoded polyline for persistence, or nil when
-    /// the run recorded no usable trace (no GPS / denied). Read by the post-workout
-    /// summary to ship it in the execution payload.
-    func encodedPolyline() -> String? {
-        guard routePoints.count >= 2 else { return nil }
-        return PolylineCodec.encode(routePoints)
+    /// EL RECORRIDO VIVE EN LA SESIÓN, NO EN ESTA PANTALLA — y llega ahí MIENTRAS se
+    /// corre, no al desmontarse.
+    ///
+    /// Se escribía sólo en `teardown()`, y el orden lo hacía llegar tarde: al
+    /// terminar, el motor sella el final → `onFinish()` → cambia la fase → y sólo
+    /// ENTONCES desaparece esta vista y corre su teardown. Con el guardado en el
+    /// final del esfuerzo (que es donde tiene que estar), el POST salía sin mapa.
+    ///
+    /// Se re-codifica cada `routePublishEvery` puntos y siempre al cerrar: al metro
+    /// sería re-codificar la traza entera en cada fix, y el tope de pérdida son esos
+    /// pocos puntos. Sólo se sobrescribe con traza de verdad, así que cerrar un tramo
+    /// sin señal nunca borra la de antes.
+    private func publishRoute(force: Bool = false) {
+        guard routePoints.count >= 2 else { return }
+        guard force || routePoints.count - lastPublishedPoints >= Self.routePublishEvery else { return }
+        lastPublishedPoints = routePoints.count
+        session.capturedRoutePolyline = PolylineCodec.encode(routePoints)
     }
 
     // MARK: - Manual controls (from the view)

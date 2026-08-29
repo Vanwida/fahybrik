@@ -328,6 +328,9 @@ struct WorkoutContainer: View {
                                 // athlete fills the summary; PostWorkoutSummaryView
                                 // stamps source_workout_ref.
                                 PhoneMirrorService.shared.end(save: true)
+                                // LO MEDIDO SE GUARDA AQUÍ, antes de que aparezca una
+                                // sola pantalla. Ver `guardarLoMedido`.
+                                guardarLoMedido(session)
                                 phase = trasElEsfuerzo(session)
                             }
                         },
@@ -554,6 +557,50 @@ struct WorkoutContainer: View {
         CarreraDeLaSesion.carrera(laps: session.laps, segmentos: session.plan.segments) != nil
             ? .lecturaCarrera
             : .summary
+    }
+
+    /// LO MEDIDO SE GUARDA AL TERMINAR EL ESFUERZO, no al pulsar GUARDAR.
+    ///
+    /// Entre el final y ese toque hay una lectura de carrera, un resumen, un RPE y un
+    /// botón de compartir, y en todo ese rato el entreno vivía SOLO en memoria: el
+    /// motor ya había cerrado su instantánea de recuperación dentro de `finish()` y el
+    /// resumen no encola si falla. Matar la app ahí se llevaba kilómetros, pulso y
+    /// mapa. Ahora, cuando aparece el resumen, ya no queda nada por guardar y
+    /// compartir no puede borrar nada.
+    ///
+    /// `enqueueOnFailure: true` — al contrario que el resumen, que reintenta a mano
+    /// para no mentir con un «guardado». Aquí no hay nadie mirando, así que sin línea
+    /// la escritura se encola y sale en el próximo arranque con bearer fresco: es lo
+    /// que hace que salir del metro no cueste el entreno.
+    ///
+    /// Y la TRAZA se aparca en el mismo instante (la serie de ritmo y de pulso de la
+    /// que salen los kilómetros del recap), con su resguardo en disco. Se resuelve
+    /// contra el `execution_id` que conteste el POST — o contra el de la cola, días
+    /// más tarde.
+    ///
+    /// NO se hace en dos casos, y los dos son honestos: un entreno LIBRE todavía no
+    /// tiene asignación (la crea el servidor al guardarlo, así que no hay fila que
+    /// actualizar), y un cierre CONJUNTO de dobles lo escribe su propio endpoint.
+    private func guardarLoMedido(_ session: WorkoutSession) {
+        guard freeContext == nil, logTarget == .solo else { return }
+        guard let payload = MedidoAlTerminar.payload(session: session, assignmentId: assignmentId) else { return }
+        let recorder = session.trace
+        let startedAt = session.startedAt
+        let bearer = self.bearer
+        Task {
+            let parkId = await WorkoutTraceUploader.park(
+                await MedidoAlTerminar.closedTraces(recorder: recorder, startedAt: startedAt)
+            )
+            let submission = await WorkoutExecutionAPI.submitReturning(
+                payload, bearer: bearer, enqueueOnFailure: true
+            )
+            await WorkoutTraceUploader.resolve(
+                parkId: parkId,
+                executionId: submission.executionId,
+                queuedRequestId: submission.queuedRequestId,
+                bearer: bearer
+            )
+        }
     }
 
     // The wrist recording's activity kind (mirror mode), in the watch vocabulary

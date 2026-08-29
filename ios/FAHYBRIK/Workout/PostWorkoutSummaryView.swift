@@ -354,7 +354,7 @@ struct PostWorkoutSummaryView: View {
                         )
                     }
                     let parkId = await WorkoutTraceUploader.park(
-                        await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
+                        await MedidoAlTerminar.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
                     )
                     await WorkoutTraceUploader.resolve(
                         parkId: parkId,
@@ -386,9 +386,14 @@ struct PostWorkoutSummaryView: View {
         let submitted = payload
         let target = logTarget
         Task { @MainActor in
-            let parkId = await WorkoutTraceUploader.park(
-                await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
-            )
+            // LA TRAZA SÓLO SE APARCA AQUÍ EN EL CIERRE CONJUNTO DE DOBLES. En el
+            // camino solo la aparcó ya el final del esfuerzo, junto con lo medido
+            // (`WorkoutContainer.guardarLoMedido`), y aparcarla dos veces subiría el
+            // mismo archivo dos veces contra el mismo execution_id.
+            let parkId: UUID? = target == .doublesJoint
+                ? await WorkoutTraceUploader.park(
+                    await MedidoAlTerminar.closedTraces(recorder: recorder, startedAt: sessionStartedAt))
+                : nil
             let submission: ExecutionSubmission
             switch target {
             case .solo:
@@ -403,7 +408,8 @@ struct PostWorkoutSummaryView: View {
                 )
             }
             // El archivo sube POR SU CUENTA. No bloquea el cierre: el resguardo ya
-            // está en disco y el id se sella con lo que contestó el POST.
+            // está en disco y el id se sella con lo que contestó el POST. Con
+            // `parkId` nil (el camino solo, que ya lo aparcó al terminar) no hace nada.
             Task {
                 await WorkoutTraceUploader.resolve(
                     parkId: parkId,
@@ -447,9 +453,23 @@ struct PostWorkoutSummaryView: View {
             return true
         case .showRetry:
             isSaving = false
-            saveError = WorkoutFinishPersist.retryMessage
+            saveError = WorkoutFinishPersist.mensajeDeReintento(
+                loMedidoYaEstaGuardado: loMedidoYaEstaGuardado
+            )
             return false
         }
+    }
+
+    /// LO MEDIDO YA ESTÁ EN LA BASE. `WorkoutContainer.guardarLoMedido` lo escribe al
+    /// terminar el esfuerzo, así que un fallo de red aquí ya no cuesta el entreno —
+    /// cuesta el RPE y las notas, y el mensaje tiene que decir eso.
+    ///
+    /// Los tres casos en que NO se pre-guardó: un entreno LIBRE (todavía no hay
+    /// asignación a la que colgar la fila), un cierre CONJUNTO de dobles (lo escribe
+    /// su propio endpoint) y un registro A MANO (nunca corrió un motor). Son las
+    /// mismas tres condiciones que el guardado del contenedor, en el mismo orden.
+    private var loMedidoYaEstaGuardado: Bool {
+        freeContext == nil && logTarget == .solo && !manualEntry
     }
 
     // #28 — the joint card's "Seguir": close, still passing any PRs to the review gate.
@@ -504,19 +524,6 @@ struct PostWorkoutSummaryView: View {
     /// La segunda serie se guarda AL LADO de la nuestra (misma señal, otra fuente),
     /// jamás encima. Es lo que hace que un fallo de la puerta de distancia se vea solo
     /// la próxima vez en lugar de vivir escondido hasta que alguien lo note corriendo.
-    private static func closedTraces(
-        recorder: WorkoutTraceRecorder,
-        startedAt: Date
-    ) async -> [WorkoutTraceDTO] {
-        if !recorder.points(of: .distance, source: .gps).isEmpty {
-            let reference = await HealthKitDistanceProbe.cumulativeSeries(
-                startedAt: startedAt, endedAt: Date()
-            )
-            recorder.adopt(reference, as: .distance, source: .healthkit)
-        }
-        return recorder.traces(startedAt: startedAt)
-    }
-
     private static func firstValue<T>(
         of task: Task<T?, Never>,
         timeout: TimeInterval

@@ -62,6 +62,21 @@ final class WorkoutFinishPersistTests: XCTestCase {
         XCTAssertEqual(WorkoutFinishPersist.retryMessage, "No se ha guardado. Reintenta.")
     }
 
+    // EL MISMO FALLO NO SIGNIFICA LO MISMO EN LOS DOS CAMINOS. Con lo medido ya
+    // escrito al terminar el esfuerzo (`MedidoAlTerminar`), un fallo aquí cuesta el
+    // RPE y las notas, no el entreno. Decir «no se ha guardado» asustaría al atleta
+    // hasta repetir una carrera que está en la base con sus kilómetros y su mapa.
+    func testConLoMedidoYaEscritoElMensajeNoAsusta() {
+        XCTAssertEqual(
+            WorkoutFinishPersist.mensajeDeReintento(loMedidoYaEstaGuardado: true),
+            "Tu carrera ya está guardada. Falta cómo fue."
+        )
+        XCTAssertEqual(
+            WorkoutFinishPersist.mensajeDeReintento(loMedidoYaEstaGuardado: false),
+            WorkoutFinishPersist.retryMessage
+        )
+    }
+
     // MARK: - La hora de fin es la del entreno, no la de la red
 
     // Card 121: el 20-ago el guardado estuvo roto y Alex se quedó horas en el

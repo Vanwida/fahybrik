@@ -10,6 +10,19 @@ enum WorkoutFinishPersist {
     }
 
     static let retryMessage = "No se ha guardado. Reintenta."
+
+    /// EL MISMO FALLO, PERO LA CARRERA YA ESTÁ. Cuando lo medido se escribió al
+    /// terminar el esfuerzo (ver `MedidoAlTerminar`), un fallo aquí no pierde el
+    /// entreno: pierde el RPE y las notas. Decir «no se ha guardado» sería mentir en
+    /// la dirección que asusta, y el atleta acabaría repitiendo un entreno que está
+    /// en la base de datos con sus kilómetros, su pulso y su mapa.
+    static let retryMessageYaMedido = "Tu carrera ya está guardada. Falta cómo fue."
+
+    /// Cuál de los dos decir.
+    static func mensajeDeReintento(loMedidoYaEstaGuardado: Bool) -> String {
+        loMedidoYaEstaGuardado ? retryMessageYaMedido : retryMessage
+    }
+
     static let notesLimit = 4000
 
     static func decide(_ submission: ExecutionSubmission) -> Decision {
