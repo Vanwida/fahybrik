@@ -45,19 +45,9 @@ estrechada— y el apretón de manos del reloj. En DECISIONS.
 
 ## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 
-- **El km: se borró mi capa** (segunda regla sobre `km-splits.ts`) y `kmSteps` trocea
-  el tramo para que Apple cante cada paso — pero sólo vale en la app de Apple: **ver
-  el bloqueante 1, hoy no se canta**.
-- **Las páginas del reloj se quedan**: recordaba el ÍNDICE. Por **id**.
-- **Muere el `tickTimer`** (sin un lector): manda `HKLiveWorkoutBuilder.elapsedTime`.
-  Y **una** regla de cuenta atrás. Se borra la pantalla de cinta de la muñeca (cero
-  llamantes) y sus tres campos `belt*`.
-- **Los metros del tramo se preguntan, no se copian**; el recorrido llega a la
-  sesión mientras se corre; y el historial ya no divide metros de CORRER entre
-  segundos de SESIÓN.
-- **Descartado:** `WatchRunLegDriver` no existe · `RunAutoPause` y
-  `RunPaceSmoother` se quedan · rellenar el descanso con el `rest_s` del plano
-  (la gramática exige `measure` en todo segmento, así que no llega por el cable).
+**Borrado:** mi capa de km · el `tickTimer` sin lectores · la pantalla de cinta de la muñeca y sus campos `belt*` · el degradado que apagaba la zona · el `TabView` sobre el paginador · los velos de pausa y descanso.
+**Arreglado:** páginas por **id** y no por índice · una regla de cuenta atrás · los metros del tramo se preguntan · el recorrido llega mientras se corre · el recap se persiste al End antes de cualquier UI.
+**Descartado con motivo:** `WatchRunLegDriver` no existe · `RunAutoPause`/`RunPaceSmoother` se quedan · rellenar el descanso con el `rest_s` del plano (la gramática exige `measure`).
 
 ## Pendiente de esta rama (con nombre, no como hueco)
 
