@@ -38,9 +38,6 @@ tip, no código nuevo.
    `startMirroringToCompanionDevice` —la llamada que suscribe al móvil— se hacía
    con `try?`, y los dos caminos a idle eran mudos.
 
-**Descartado sin escribirlo:** rellenar el descanso con el `rest_s` del plano —
-la gramática exige `measure` en TODO segmento, así que esa forma no llega.
-
 ## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 
 - **El km: el corte ya existía, el aviso es de Apple.** Se borra mi capa (era
@@ -54,7 +51,8 @@ la gramática exige `measure` en TODO segmento, así que esa forma no llega.
   campos `belt*`; cae el acoplamiento del espejo a `DeviceHub`.
 - **Los metros del tramo se preguntan, no se copian**; el recorrido llega a la
   sesión mientras se corre; y el historial ya no divide metros de CORRER entre
-  segundos de la SESIÓN.
+  segundos de SESIÓN. Y **descartado sin escribirlo**: rellenar el descanso con
+  el `rest_s` del plano (la gramática exige `measure` en todo segmento).
 - **Descartado:** `WatchRunLegDriver` no existe · `RunAutoPause` y
   `RunPaceSmoother` se quedan (Apple no da auto-pausa a terceros).
 
@@ -69,12 +67,11 @@ la gramática exige `measure` en TODO segmento, así que esa forma no llega.
    muñeca contesta después del cierre. El mapa del recap **funciona**; falta
    Salud.
 3. **Pasados 99 min el crono son 6 glifos** y no cabe de sujeto (sólo se llega
-   ahí sin un metro medido en 1 h 40). El kit manda la hora al contexto; no
-   está construido y hay un test que clava el límite.
-4. **«Sin señal» también sale en una cinta sin emparejar**, donde tocaría «sin
-   máquina»: el cable no dice si la carrera es de calle.
-5. **El span del correr en el historial** y **un rodaje continuo no llega a la
-   muñeca** (`eligibility` exige `structure` nativa): los dos igual.
+   ahí sin un metro medido en 1 h 40). El kit manda la hora al contexto; hay un
+   test que clava el límite. Y **«sin señal» también sale en una cinta sin
+   emparejar**, donde tocaría «sin máquina»: el cable no dice si es de calle.
+4. **El span del correr en el historial** y **un rodaje continuo no llega a la
+   muñeca** (`eligibility` exige `structure` nativa): igual que estaban.
 
 **SIN COMPILAR NI EJECUTAR:** no hay Xcode aquí. El listón es el **debugger
 recorriendo un Largo Z2 en simulador (iPhone + Watch)**, sin hacer.
