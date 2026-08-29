@@ -184,6 +184,9 @@ final class MirrorSessionController: NSObject {
         // DESPUÉS del permiso de HealthKit, así que una segunda petición a los 4 s veía
         // «una eternidad sin señal» y curaba justo el arranque que había que respetar.
         lastSignalAt = Date()
+        // La actividad, ANTES de crear la sesión: es lo que decide qué páginas pinta
+        // la muñeca, y la pantalla existe desde que `state` es `.recording`.
+        actividad = config.activityType
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
@@ -216,6 +219,7 @@ final class MirrorSessionController: NSObject {
         frameReceivedAt = nil
         liveHR = nil
         metrosPropios = 0
+        actividad = nil
         isConnectionLost = false
         hkPaused = false
     }
@@ -451,11 +455,16 @@ final class MirrorSessionController: NSObject {
     /// mismo criterio que en `LiveWorkoutSession`, no un contador nuestro.
     var segundosPropios: TimeInterval { builder?.elapsedTime ?? 0 }
 
-    /// ¿Esta sesión es de correr? Lo dice la configuración con la que se creó, que es
+    /// ¿Esta sesión es de correr? Lo dice la configuración con la que ARRANCÓ, que es
     /// dato de la sesión y no una frase que tenga que mandar el teléfono.
-    var esCorrer: Bool {
-        session?.workoutConfiguration.activityType == .running
-    }
+    ///
+    /// Se guarda al pedir el arranque y no se lee de `session?.workoutConfiguration`,
+    /// porque `state` pasa a `.recording` —y con él `isActive`, que es lo que hace que
+    /// la pantalla exista— ANTES de que la sesión de HealthKit esté creada: el permiso
+    /// va por medio. Leyéndola del objeto, una carrera se pintaba un instante como si
+    /// no lo fuera.
+    var esCorrer: Bool { actividad == .running }
+    private var actividad: HKWorkoutActivityType?
 
     /// PAUSAR ES DE LA MUÑECA. Apple pausa la sesión que ella OWNS, y de paso se le
     /// dice al teléfono para que su motor siga la misma pausa cuando esté ahí.
@@ -707,6 +716,7 @@ final class MirrorSessionController: NSObject {
         frameReceivedAt = nil
         liveHR = nil
         metrosPropios = 0
+        actividad = nil
         isConnectionLost = false
         hkPaused = false
         isClosing = false
