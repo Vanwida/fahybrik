@@ -27,6 +27,15 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         return GuionDelEspejo.paginas(recibida, bpm: bpm, elapsed: 0, avanzar: {})
     }
 
+    /// LA PÁGINA DEL ESFUERZO, por su nombre. En correr la lista son tres páginas y
+    /// la primera es el panel de datos, así que `.first` ya no es la que se mira
+    /// corriendo — buscarla por id es además lo que hace el lienzo.
+    private func vivo(_ s: WorkoutSession, bpm: Int? = nil) throws -> WatchPagina {
+        let paginas = try paginasEnLaMuneca(s, bpm: bpm)
+        return try XCTUnwrap(paginas.first { $0.id == GuionCorrer.idVivo },
+                             "correr tiene que traer su página del vivo")
+    }
+
     // MARK: - El caso del gimnasio
 
     /// 5 × 500 m a 5:00/km creado en la app y arrancado desde el móvil. Lo que se
@@ -52,12 +61,25 @@ final class EspejoDeCaboARaboTests: XCTestCase {
     }
 
     func testLaSerieEnseñaLosMetrosQueFaltanYNoElCronoDeLaSesion() throws {
-        let paginas = try paginasEnLaMuneca(seriesLibres())
-        let primera = try XCTUnwrap(paginas.first)
-        XCTAssertTrue(primera.contexto.hasPrefix("Serie 1 / 5"))
-        // 500 m prescritos y cero cubiertos todavía: faltan los 500.
-        XCTAssertEqual(primera.sujeto, "500")
-        XCTAssertEqual(primera.unidad, "m")
+        let s = seriesLibres()
+        // Con el GPS ya fijado: 500 m prescritos y 180 cubiertos → faltan 320.
+        s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
+        let vivo = try vivo(s)
+        XCTAssertTrue(vivo.contexto.hasPrefix("Serie 1 de 5"), vivo.contexto)
+        XCTAssertTrue(vivo.contexto.hasSuffix("te quedan"),
+                      "la banda dice CON PALABRAS si es lo cubierto o lo que falta")
+        XCTAssertEqual(vivo.sujeto, "320")
+        XCTAssertEqual(vivo.unidad, "m")
+    }
+
+    /// Y ANTES DE QUE EL GPS FIJE no se pinta un «te faltan 500» que no se ha medido:
+    /// el sujeto cae al reloj de la pieza y la muñeca dice por qué. Es el estado que
+    /// ve todo el mundo los primeros segundos de cada carrera.
+    func testAntesDeQueFijeElGpsSeDiceQueNoHaySenal() throws {
+        let vivo = try vivo(seriesLibres())
+        XCTAssertEqual(vivo.nota, WatchNota.sinSenal)
+        XCTAssertTrue(vivo.contexto.hasSuffix("llevas"), vivo.contexto)
+        XCTAssertNil(vivo.unidad, "sin metros medidos el sujeto es un reloj, no una distancia")
     }
 
     /// Y AVANZAN. Este test faltaba, y su ausencia dejó pasar el peor fallo de la
@@ -67,10 +89,11 @@ final class EspejoDeCaboARaboTests: XCTestCase {
     /// caza afirmar que el número CAMBIA cuando el atleta corre.
     func testLosMetrosQueFaltanBajanCuandoElAtletaCorre() throws {
         let s = seriesLibres()
-        let alSalir = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
+        s.sampleRunDistance(deltaMeters: 60, source: .healthkit)
+        let alSalir = try vivo(s).sujeto
 
-        s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
-        let aMitad = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
+        s.sampleRunDistance(deltaMeters: 120, source: .healthkit)
+        let aMitad = try vivo(s).sujeto
 
         XCTAssertNotEqual(aMitad, alSalir, "el numeral se quedaba congelado toda la serie")
         XCTAssertLessThan(Int(aMitad) ?? .max, Int(alSalir) ?? 0)
@@ -80,20 +103,34 @@ final class EspejoDeCaboARaboTests: XCTestCase {
     /// existir: lo que cierra este tramo es el hito de distancia, así que la
     /// muñeca NO anuncia ninguna acción mientras corres.
     func testCorriendoNoSeAnunciaNingunaAccion() throws {
+        let s = seriesLibres()
+        s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
+        let vivo = try vivo(s)
+        XCTAssertNil(vivo.accion)
+        XCTAssertEqual(vivo.modo, .ojeada)
+    }
+
+    /// LOS CONTROLES ESTÁN, PERO EN SU PÁGINA. Que corriendo no se anuncie ninguna
+    /// acción no significa que no se pueda pausar: significa que el botón no le roba
+    /// altura al dato. Está a un deslizamiento.
+    func testLosControlesExistenEnSuPaginaYNoEnLaDelEsfuerzo() throws {
         let paginas = try paginasEnLaMuneca(seriesLibres())
-        let primera = try XCTUnwrap(paginas.first)
-        XCTAssertNil(primera.accion)
-        XCTAssertEqual(primera.modo, .ojeada)
+        XCTAssertEqual(paginas.map(\.id),
+                       [GuionCorrer.idDatos, GuionCorrer.idVivo, GuionCorrer.idControles])
+        let controles = try XCTUnwrap(paginas.last?.botones)
+        XCTAssertEqual(controles.first?.titulo, "Pausar")
+        XCTAssertEqual(controles.last?.titulo, "Terminar")
     }
 
     /// Y no puede caer en la tabla de hierro por venir escrita de una fuente o de
     /// otra: la pantalla la decide la modalidad, no el nombre del formato.
     func testUnaSerieDeCorrerNoSePintaComoFuerza() throws {
-        let paginas = try paginasEnLaMuneca(seriesLibres())
-        let primera = try XCTUnwrap(paginas.first)
-        XCTAssertNotEqual(primera.id, "serie-fuerza")
-        XCTAssertNil(primera.nota, "«lo dices tú» es de fuerza: corriendo lo mide el reloj")
-        XCTAssertNotEqual(primera.unidad, "kg")
+        let s = seriesLibres()
+        s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
+        let vivo = try vivo(s)
+        XCTAssertNotEqual(vivo.id, "serie-fuerza")
+        XCTAssertNil(vivo.nota, "«lo dices tú» es de fuerza: corriendo lo mide el reloj")
+        XCTAssertNotEqual(vivo.unidad, "kg")
     }
 
     // MARK: - La misma cosa escrita por el coach
@@ -121,8 +158,14 @@ final class EspejoDeCaboARaboTests: XCTestCase {
     }
 
     func testLasDosFuentesPintanLaMismaPantalla() throws {
-        let libre = try paginasEnLaMuneca(seriesLibres())
-        let coach = try paginasEnLaMuneca(seriesDelCoach())
+        let sLibre = seriesLibres()
+        let sCoach = seriesDelCoach()
+        sLibre.sampleRunDistance(deltaMeters: 180, source: .healthkit)
+        sCoach.sampleRunDistance(deltaMeters: 180, source: .healthkit)
+        let libre = try paginasEnLaMuneca(sLibre)
+        let coach = try paginasEnLaMuneca(sCoach)
+        // LA MISMA INTERFAZ, las mismas tres páginas y en el mismo orden.
+        XCTAssertEqual(libre.map(\.id), coach.map(\.id))
         // No se comparan los números (uno es 5×500 y el otro 3×1000), se compara
         // que sea LA MISMA pantalla: mismo sujeto, mismo modo, misma ausencia de
         // acción anunciada. Que una acabara en la tabla de hierro es exactamente
@@ -131,11 +174,12 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         // Esto falló hasta que el motor aprendió a leer una tabla de `sets` como
         // lo que es (`RunSeriesDeSets.swift`): antes, la serie del coach no tenía
         // cursor de tramo y la muñeca la pintaba como un rodaje.
-        XCTAssertEqual(libre.first?.id, coach.first?.id)
-        XCTAssertEqual(libre.first?.unidad, coach.first?.unidad)
-        XCTAssertEqual(libre.first?.modo, coach.first?.modo)
-        XCTAssertTrue(coach.first?.contexto.hasPrefix("Serie 1 / 3") == true,
-                      "la serie del coach tiene que contar sus tres repeticiones")
+        let vivoLibre = try XCTUnwrap(libre.first { $0.id == GuionCorrer.idVivo })
+        let vivoCoach = try XCTUnwrap(coach.first { $0.id == GuionCorrer.idVivo })
+        XCTAssertEqual(vivoLibre.unidad, vivoCoach.unidad)
+        XCTAssertEqual(vivoLibre.modo, vivoCoach.modo)
+        XCTAssertTrue(vivoCoach.contexto.hasPrefix("Serie 1 de 3"),
+                      "la serie del coach tiene que contar sus tres repeticiones: \(vivoCoach.contexto)")
     }
 
     // MARK: - Fuerza

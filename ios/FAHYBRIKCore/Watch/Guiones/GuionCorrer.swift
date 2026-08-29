@@ -167,7 +167,9 @@ enum GuionCorrer {
             // `ojeada`: hay gesto latente (la pantalla entera), pero no se anuncia.
             modo: .ojeada,
             sujeto: falta?.cifra ?? WatchFormat.clock(e.enPiezaS),
-            unidad: falta?.unidad,
+            // `flatMap` y no `falta?.unidad`: la unidad ya es opcional, así que el
+            // encadenado daría `String??` y no encaja en el campo.
+            unidad: falta.flatMap(\.unidad),
             // EN PAUSA EL DATO NO DESAPARECE, SE APAGA: sigues sabiendo dónde lo
             // dejaste. El aro se queda donde estaba y los controles de al lado
             // ofrecen «Reanudar».
