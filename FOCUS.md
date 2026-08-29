@@ -39,29 +39,26 @@ Alex, asignación 494: al terminar 3,78 km/22:33/153/5:58; al reabrir
 
 Cero servidor, cero migraciones en las dos.
 
-## Cerrado en código (esta PR, esta tanda)
-
-El por qué de cada uno, con el caso real, en `docs/DECISIONS.md` (29-ago).
+## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 
 - **El km: el corte ya existía, el aviso es de Apple.** Metí una segunda
-  regla (`RunKmSplits.swift`) sobre lo que `km-splits.ts` ya corta —«el
-  único sitio que sabe derivarlos»— y una segunda voz cuando la app **ya no
-  habla** (`796d8abf`). Se borra mi capa. `AppleWorkoutMapper.kmSteps`
-  trocea un tramo largo de distancia en km: `WorkoutKit` **no tiene alerta
-  de split**, pero Apple anuncia el fin de cada PASO.
-- **Las páginas del reloj se quedan.** Recordaba el ÍNDICE y el guion no
-  devuelve lista fija: la página cambiaba bajo el pulgar. Por **id**.
+  regla sobre lo que `km-splits.ts` ya corta —«el único sitio que sabe
+  derivarlos»— y una segunda voz cuando la app **ya no habla**. Se borra mi
+  capa. `AppleWorkoutMapper.kmSteps` trocea un tramo largo de distancia en
+  km: `WorkoutKit` **no tiene alerta de split**, pero Apple anuncia el fin
+  de cada PASO.
+- **Las páginas del reloj se quedan**: recordaba el ÍNDICE y el guion no
+  devuelve lista fija, así que la página cambiaba bajo el pulgar. Por **id**.
 - **Muere el `tickTimer` de `LiveWorkoutSession`** (1 Hz, mirando NUESTRO
   `isPaused`, **sin un lector**). Manda `HKLiveWorkoutBuilder.elapsedTime`.
-- **Una regla para la cuenta atrás**: `standalone`/`mirrored` convivían en
-  la MISMA pantalla. Y el háptico del 3-2-1 lee el entero QUE SE PINTA.
-- **Se borra la pantalla de cinta de la muñeca** (cero llamantes) y sus
-  tres campos `belt*`, copia de `MirrorTramo`. Cae con ellos el
-  acoplamiento del espejo a `DeviceHub`.
+- **Una regla para la cuenta atrás**, y el háptico del 3-2-1 lee el entero
+  QUE SE PINTA.
+- **Se borra la pantalla de cinta de la muñeca** (cero llamantes) y sus tres
+  campos `belt*`, copia de `MirrorTramo`. Cae con ellos el acoplamiento del
+  espejo a `DeviceHub`.
 - **Los metros del tramo se preguntan, no se copian**, y el recorrido llega
-  a la sesión **mientras se corre**: con el orden real la escritura del
-  final iba sin mapa.
-- **Numerador y denominador, del mismo sitio**: el historial dividía metros
+  a la sesión **mientras se corre**.
+- **Numerador y denominador del mismo sitio**: el historial dividía metros
   de CORRER entre segundos de la SESIÓN.
 
 ## Descartado del inventario (motivo entero en DECISIONS)
@@ -70,28 +67,21 @@ El por qué de cada uno, con el caso real, en `docs/DECISIONS.md` (29-ago).
 - **`RunAutoPause`/`RunPaceSmoother` se quedan**: Apple no da auto-pausa a
   terceros, y `runningSpeed` es la velocidad DE LA MUÑECA.
 
-## Pendiente de esta rama (tres, con nombre)
+## Pendiente de esta rama (con nombre, no como hueco)
 
-1. **Ruta en `HKWorkoutRouteBuilder`.** La API sirve, pero atarla exige
-   esperar el uuid que la muñeca contesta segundos después del cierre, y
-   ese encuentro asíncrono no se hace a medias. Hoy la ruta es la
-   polilínea y el mapa del recap **funciona**; falta que lo vea Salud.
-2. **Reloj en solitario en un día de sólo correr.** Segundo motor, sobra
-   — pero declinarlo hoy deja sin superficie a quien no activó el envío a
-   la app Entrenamiento (`AppleWatchWorkoutScheduler.isEnabled`, opt-in en
-   Perfil). Necesita que viaje en `WatchTodayPayload`, o es downgrade.
-3. **El span del correr en el historial.** `CarreraDeLaSesion.duracion`
-   mide bloque a bloque por reloj de pared a propósito: suma-vs-span ES la
-   recuperación que nadie grabó. El historial no puede reproducirla porque
-   `SegmentActualDTO` trae `started_at` y no `ended_at`. En un rodaje da
-   igual (un tramo, span = suma).
-4. **Un rodaje continuo no llega hoy a la muñeca**, así que Apple no tiene
-   paso que cantarle. Asimetría de UNA línea:
-   `AppleWorkoutMapper.eligibility` exige `structure` NATIVA mientras el
-   motor acepta además las DERIVADAS (`runLegsDerivadas`). Cerrarlo pide
-   cambiar su carga de `RunStructure` a `[RunLeg]` y con ella
-   `customWorkout` — refactor del mapper, no un corte. Y un Z2 por TIEMPO
-   no tiene arreglo por esta vía: sin distancia no hay km que hacer pasos.
+1. **Ruta en `HKWorkoutRouteBuilder`**: la API sirve, pero atarla exige
+   esperar el uuid que la muñeca contesta segundos después del cierre. Hoy
+   la ruta es la polilínea y el mapa del recap **funciona**; falta Salud.
+2. **Reloj en solitario en un día de sólo correr**: segundo motor, sobra —
+   pero declinarlo deja sin superficie a quien no activó el envío a la app
+   Entrenamiento (opt-in en Perfil).
+3. **El span del correr en el historial**: `CarreraDeLaSesion.duracion` mide
+   por reloj de pared a propósito (suma-vs-span ES la recuperación que nadie
+   grabó) y `SegmentActualDTO` no trae `ended_at`. En un rodaje da igual.
+4. **Un rodaje continuo no llega a la muñeca**, así que Apple no tiene paso
+   que cantarle: `eligibility` exige `structure` NATIVA mientras el motor
+   acepta además las DERIVADAS. Cerrarlo es refactor del mapper, no un corte.
+   Y un Z2 por TIEMPO no tiene arreglo por esta vía.
 
 **SIN COMPILAR NI EJECUTAR:** no hay Xcode aquí. Símbolos de Apple
 verificados contra la documentación y los propios contra su declaración,
