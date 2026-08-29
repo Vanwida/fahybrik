@@ -138,8 +138,14 @@ enum GuionCorrer {
             contexto: "La sesión",
             filas: filas,
             // Sin pulso no hay nada que explicar; con pulso y sin zona, sí.
-            nota: (e.bpm != nil && e.zonaViva == nil) ? WatchNota.sinAncla : nil
+            nota: sinZonaConPulso(e) ? WatchNota.sinAncla : nil
         )
+    }
+
+    /// Hay pulso pero no hay contra qué compararlo. Es EL ESTADO DE HOY: ningún
+    /// atleta tiene umbral medido, así que sin esto la página callaría el motivo.
+    private static func sinZonaConPulso(_ e: Estado) -> Bool {
+        e.bpm != nil && e.zonaViva == nil
     }
 
     // MARK: - 2 · El vivo
@@ -203,7 +209,8 @@ enum GuionCorrer {
             modo: .mando,
             sujeto: queda.map(WatchFormat.countdown) ?? WatchFormat.clock(e.enPiezaS),
             tono: WatchTheme.zoneGreen,
-            segundoEtiqueta: e.siguiente == nil ? nil : "Luego",
+            // La etiqueta sólo existe si hay algo que etiquetar.
+            segundoEtiqueta: e.siguiente.map { _ in "Luego" },
             segundoValor: e.siguiente,
             accion: "Toca · empezar ya",
             onToca: g.empezarYa,
