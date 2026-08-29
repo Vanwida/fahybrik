@@ -103,18 +103,11 @@ extension Prescription {
         // El descanso del BLOQUE en `intervals` es dato: el constructor libre
         // lo escribe a la vez en el set y en el plano. `nil` no es «no hay»:
         // es que no se sabe cuánto dura. Cero escrito sí es «no hay».
-        let descanso = dosis.restS ?? restS
         let objetivo = dosis.target ?? target
-
-        var legs: [RunLeg] = []
-        for i in 0..<rondas {
-            legs.append(Self.trabajo(medida: medida, objetivo: objetivo))
-            if i < rondas - 1, let rest = Self.restEntreWorks(descanso, scheme: .intervals) {
-                legs.append(rest)
-            }
+        let works = (0..<rondas).map { _ in
+            Self.trabajo(medida: medida, objetivo: objetivo)
         }
-        return legs
-    }
+        return Self.serieConRestEntreWorks(works, restS: dosis.restS ?? restS, scheme: .intervals)
 
     /// Serie de solo work: el rest ENTRE repeticiones es un tramo. Si el árbol
     /// ya trae recovery, no se toca. La duración es dato del coach; la

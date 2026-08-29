@@ -38,15 +38,6 @@ extension WorkoutSession {
             else { restRemainingSeconds = newValue }
         }
     }
-    var fixedRestRemaining: Double {
-        get { restRemainingSeconds }
-        set { restRemainingSeconds = newValue }
-    }
-    var fixedRestTotal: Double {
-        get { restTotalSeconds }
-        set { restTotalSeconds = newValue }
-    }
-
     var currentSegment: WorkoutSegment? {
         guard currentSegmentIndex < plan.segments.count else { return nil }
         return plan.segments[currentSegmentIndex]

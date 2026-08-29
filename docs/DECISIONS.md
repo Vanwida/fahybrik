@@ -11,6 +11,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Se borra el segundo writer de rest, no se suma control
+
+**Qué sobraba:** `skipFixedRest` + `fixedRestRemaining` eran
+otro cierre del mismo descanso. El HUD de lista decía DESCANSO
+y `livePicture` decía Recuperación (velo). `piernasDeRondas`
+insertaba rest por su cuenta al lado de `serieConRestEntreWorks`.
+
+**Decidido:** un reloj (`restRemainingSeconds`). Un gesto
+(`primaryAdvance`). Una lectura (`livePicture.label`: Descanso
+en lista/Chipper, Cambio en EMOM, Recuperación en pierna de
+carrera). `RestSurface` bebe esa lectura. Cifra GPS no se toca.
+
+**Qué se elimina:** `skipFixedRest`, `fixedRestRemaining`,
+`fixedRestTotal`.
+
+**NO hacer:** no if Chipper. no 105/174/175. no GPS. no merge.
+Hecho = debugger Chipper Y run+rest, Watch en la sesión.
+
+---
+
 ## 2026-08-28 · Tres clases del vivo: rest, gesto, dueño
 
 **Qué se vio (debugger, Series umbral, asg 485):** Tramo 14/19

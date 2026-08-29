@@ -50,15 +50,15 @@ extension WorkoutSession {
                 boxedSeconds: leg.measure.durationSeconds
             )
         }
-        // El descanso de una lista es un tramo. No un velo sobre la siguiente
-        // estación: el cursor ya avanzó al marcar, y pintar esa estación debajo
-        // del rest era el overlay.
-        if restRemainingSeconds > 0, restEndsTramo,
-           seg.fixedListIsStations || seg.strikesAreTramos {
+        // Rest con dueño de tramo: la lectura ES el descanso, no un velo
+        // sobre el siguiente work. Carrera estructurada ya salió arriba
+        // (su recovery es una pierna). Fuerza sigue en overlay
+        // (`restEndsTramo=false`).
+        if restRemainingSeconds > 0, restEndsTramo {
             return LiveTramo(
                 segmentIndex: i,
                 cursor: .segment,
-                label: "Recuperación",
+                label: seg.isEMOM ? "Cambio" : "Descanso",
                 modality: .other,
                 measure: .duration(seconds: Int(restRemainingSeconds.rounded())),
                 boxedSeconds: Int(restTotalSeconds.rounded())

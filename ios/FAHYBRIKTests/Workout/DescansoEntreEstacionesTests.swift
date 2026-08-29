@@ -44,11 +44,14 @@ final class DescansoEntreEstacionesTests: XCTestCase {
 
     func testCerrarUnaEstacionAbreSuDescanso() {
         let s = sesionDeEstaciones(restS: 120)
-        XCTAssertEqual(s.fixedRestRemaining, 0, "no se descansa antes de empezar")
+        XCTAssertEqual(s.restRemainingSeconds, 0, "no se descansa antes de empezar")
 
         s.markRoundDone()
-        XCTAssertEqual(s.fixedRestRemaining, 120, accuracy: 0.001)
+        XCTAssertEqual(s.restRemainingSeconds, 120, accuracy: 0.001)
         XCTAssertTrue(s.isTramoResting, "la ÚNICA superficie de descanso tiene que verlo")
+        XCTAssertEqual(s.currentTramo.label, "Descanso")
+        XCTAssertEqual(s.livePicture.label, "Descanso",
+                       "HUD y Watch beben la misma lectura, no un velo")
         XCTAssertEqual(s.tramoRestRemaining, 120, accuracy: 0.001,
                        "y la cuenta atrás que pinta la pantalla de descanso, también")
     }
@@ -58,7 +61,7 @@ final class DescansoEntreEstacionesTests: XCTestCase {
     func testSinDescansoPrescritoLasEstacionesVanSeguidas() {
         let s = sesionDeEstaciones(restS: nil)
         s.markRoundDone()
-        XCTAssertEqual(s.fixedRestRemaining, 0)
+        XCTAssertEqual(s.restRemainingSeconds, 0)
         XCTAssertFalse(s.isTramoResting, "una simulación no para: el reloj de carrera no para")
     }
 
@@ -67,19 +70,22 @@ final class DescansoEntreEstacionesTests: XCTestCase {
     func testTrasLaUltimaEstacionNoQuedaDescansoColgando() {
         let s = sesionDeEstaciones(restS: 120)
         s.markRoundDone()
-        s.skipFixedRest()
+        s.primaryAdvance()
         s.markRoundDone()
-        s.skipFixedRest()
+        s.primaryAdvance()
         s.markRoundDone()   // la tercera y última
-        XCTAssertEqual(s.fixedRestRemaining, 0)
+        XCTAssertEqual(s.restRemainingSeconds, 0)
     }
 
+    /// Un gesto cierra el DESCANSO, no la siguiente estación.
     func testCortarElDescansoEntraYaEnLaSiguienteEstacion() {
         let s = sesionDeEstaciones(restS: 120)
         s.markRoundDone()
         XCTAssertTrue(s.isTramoResting)
-        s.skipFixedRest()
-        XCTAssertEqual(s.fixedRestRemaining, 0)
+        let hechas = s.fixedRoundsDone
+        s.primaryAdvance()
+        XCTAssertEqual(s.restRemainingSeconds, 0)
         XCTAssertFalse(s.isTramoResting)
+        XCTAssertEqual(s.fixedRoundsDone, hechas, "el gesto no se come la estación que viene")
     }
 }

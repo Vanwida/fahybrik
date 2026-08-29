@@ -295,16 +295,6 @@ extension WorkoutSession {
         restEndsTramo = true
     }
 
-    /// Cortar el descanso y entrar ya en la siguiente estación. El descanso de un
-    /// protocolo es parte del protocolo, así que expira solo; esto existe para el
-    /// atleta que decide seguir, no para saltárselo por defecto.
-    func skipFixedRest() {
-        guard fixedRestRemaining > 0 else { return }
-        fixedRestRemaining = 0
-        fixedRestTotal = 0
-        Haptics.light()
-    }
-
     /// Undo the last For Time / Chipper / Ladder strike (a mis-tap), restoring the
     /// previous split.
     func unmarkLastRound() {

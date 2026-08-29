@@ -12,8 +12,8 @@ import SwiftUI
 // the floor, three metres away, sweating. Everything that helped while working
 // (split, watts, stroke rate) is gone, because none of it is true any more.
 //
-// Shared by every engine that rests: an EMOM change window, a Tabata / interval
-// rest. The structured-run engine keeps its own recovery leg surface.
+// Render de `livePicture` en rest. No inventa la palabra: bebe el label.
+// La carrera estructurada sigue en su superficie de pierna.
 struct RestSurface: View {
     let session: WorkoutSession
     /// The workout's action, LANDSCAPE ONLY (portrait keeps its own bottom button
@@ -71,7 +71,7 @@ struct RestSurface: View {
     /// REST (stand and breathe). Naming them the same would flatten the difference
     /// the format exists to create.
     private var phaseWord: String {
-        session.currentSegment?.isEMOM == true ? "CAMBIO" : "DESCANSO"
+        session.livePicture.label.uppercased()
     }
 
     // MARK: - 2 · The subject: how long is left

@@ -32,20 +32,21 @@ final class DescansoTodosLosFormatosTests: XCTestCase {
     func testElDescansoDelEjercicioVale_enUnBloqueDeRondas() {
         let s = rondas(10, descansoDelEjercicio: 45)
         s.markRoundDone()
-        XCTAssertEqual(s.fixedRestRemaining, 45, accuracy: 0.01,
+        XCTAssertEqual(s.restRemainingSeconds, 45, accuracy: 0.01,
                        "10 rondas con 45 s escritos no pueden encadenarse sin descanso")
+        XCTAssertEqual(s.livePicture.label, "Descanso")
     }
 
     func testElDescansoDeLaRondaGanaAlDelEjercicio() {
         let s = rondas(10, descansoDelEjercicio: 45, descansoDeLaRonda: 20)
         s.markRoundDone()
-        XCTAssertEqual(s.fixedRestRemaining, 20, accuracy: 0.01)
+        XCTAssertEqual(s.restRemainingSeconds, 20, accuracy: 0.01)
     }
 
     func testSinDescansoEscritoNoSeInventaNinguno() {
         // Un simulacro va seguido a propósito: si el coach no lo pide, no aparece.
         let s = rondas(8, descansoDelEjercicio: nil)
         s.markRoundDone()
-        XCTAssertEqual(s.fixedRestRemaining, 0, accuracy: 0.01)
+        XCTAssertEqual(s.restRemainingSeconds, 0, accuracy: 0.01)
     }
 }

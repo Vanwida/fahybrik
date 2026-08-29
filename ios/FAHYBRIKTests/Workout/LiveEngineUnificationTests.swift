@@ -77,8 +77,10 @@ final class LiveEngineUnificationTests: XCTestCase {
         let s = chipperSession()
         s.restRemainingSeconds = 45
         s.restTotalSeconds = 45
+        s.restEndsTramo = true
         XCTAssertEqual(s.tramoRestRemaining, 45, accuracy: 0.001)
         XCTAssertEqual(s.livePicture.restRemaining, 45, accuracy: 0.001)
+        XCTAssertEqual(s.livePicture.label, "Descanso")
         XCTAssertTrue(s.isTramoResting)
     }
 
