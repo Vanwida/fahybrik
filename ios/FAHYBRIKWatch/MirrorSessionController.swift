@@ -136,13 +136,9 @@ final class MirrorSessionController: NSObject {
 
     // MARK: - Start
 
-    /// Phone launched us. A live standalone engine is the extra owner: it
-    /// yields, then this recording starts. One WorkoutSession (the phone's).
+    /// El teléfono nos ha lanzado. Si esta muñeca ya tenía SU motor corriendo, ése es
+    /// el segundo: se cierra —guardando— y luego empieza esta grabación. UN motor.
     func start(config: HKWorkoutConfiguration) {
-        // startWatchApp = el teléfono ya lleva el motor. notePhoneLive
-        // cede el standalone si lo había: un EMPEZAR en el mismo instante
-        // no abre el segundo WorkoutSession.
-        WatchWorkoutCoordinator.shared.notePhoneLive()
         // Card 72 — recover from ANY dirty leftover state, not an enumerated list.
         // The original self-heal only covered `.ending` (a stuck close); the far
         // more common wedge is `.recording` — the phone's end handshake never made
@@ -199,6 +195,12 @@ final class MirrorSessionController: NSObject {
         SensorCapture.shared.start()
 
         Task {
+            // EL ORDEN IMPORTA: watchOS no admite dos `HKWorkoutSession` a la vez, así
+            // que el motor propio se cierra —y su entreno se guarda— ANTES de crear
+            // esta grabación. Antes esto era una llamada suelta al principio de `start`
+            // que ni esperaba ni guardaba: las dos sesiones se solapaban un instante y
+            // lo grabado por la muñeca se tiraba.
+            await WatchWorkoutCoordinator.shared.cerrarMotorPropio()
             await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
             beginRecording(config: config)
         }

@@ -48,8 +48,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     /// `source_workout_ref`. The save happens on the session-state delegate, off the
     /// call that ended the session — a continuation bridges that gap.
     private var endContinuation: CheckedContinuation<String?, Never>?
-    /// HK session being dropped so the phone can own. Its `.ended` must not save.
-    private var abandonedSession: HKWorkoutSession?
 
     // MARK: - Authorization
 
@@ -123,14 +121,22 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         isPaused = false
     }
 
-    /// Drop the HK session without writing a workout. The phone is now the
-    /// engine: a leftover HKWorkout would be a second owner in Salud.
-    func abandon() {
-        let ending = session
-        abandonedSession = ending
-        ending?.end()
-        reset()
-    }
+    // AQUÍ ESTABA `abandon()`, Y TIRABA LA GRABACIÓN A LA BASURA.
+    //
+    // Acababa la `HKWorkoutSession` SIN escribir el entreno —tenía su propio camino en
+    // el delegado para saltarse el `finishWorkout`— y lo justificaba así: «the phone is
+    // now the engine: a leftover HKWorkout would be a second owner in Salud».
+    //
+    // Las dos mitades de ese razonamiento son falsas. El teléfono no es el motor de la
+    // grabación: la `HKWorkoutSession` vive EN EL RELOJ, que es lo que dice Apple y lo
+    // que hace esta clase. Y el «segundo dueño en Salud» ya está resuelto desde antes
+    // por `SaludNuestra.firma`, que sella lo que escribimos para que ningún lector lo
+    // cuente como medido por un aparato.
+    //
+    // Lo que sí hacía era perder datos: un atleta que empieza en la muñeca y diez
+    // minutos después abre el teléfono se quedaba sin esos diez minutos — pulso,
+    // calorías y metros incluidos. La grabación se CIERRA (`end()`, que guarda), nunca
+    // se descarta: esos minutos existieron.
 
     /// End the HK session and return the saved HKWorkout's UUID string (nil when
     /// there was no live session, or the save failed). Awaits the actual
@@ -159,11 +165,8 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
         let endDate = date
         Task { @MainActor [weak self] in
             guard let self, toState == .ended else { return }
-            if workoutSession === self.abandonedSession {
-                self.abandonedSession = nil
-                self.finishEnd(returning: nil)
-                return
-            }
+            // No hay rama que se salte el guardado: TODA sesión que acaba escribe su
+            // entreno. La que existía era la de `abandon()` — ver la nota de arriba.
             guard let builder = self.builder else { return }
             var savedWorkoutId: String? = nil
             do {

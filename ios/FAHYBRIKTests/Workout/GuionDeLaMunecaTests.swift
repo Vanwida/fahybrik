@@ -107,4 +107,17 @@ final class GuionDeLaMunecaTests: XCTestCase {
         let p = GuionDeLaMuneca.paginas(e, .init())
         XCTAssertEqual(p.map(\.id), ["tiempo", GuionCorrer.idControles])
     }
+
+    // MARK: - En pausa, el dato no desaparece
+
+    /// La pausa de la muñeca sola es la de Apple sobre su propia sesión, y se pinta
+    /// como en 105: el numeral se APAGA, no se va.
+    func testEnPausaElNumeralSeApagaPeroSigueAhi() {
+        var e = corriendo()
+        e.enPausa = true
+        let vivo = GuionCorrer.vivo(GuionDeLaMuneca.comoCorrer(e), .init())
+        XCTAssertEqual(vivo.sujeto, "01:52", "sigues sabiendo dónde lo dejaste")
+        XCTAssertEqual(vivo.tono, WatchTheme.inkApagado)
+        XCTAssertTrue(vivo.contexto.hasPrefix("En pausa"))
+    }
 }

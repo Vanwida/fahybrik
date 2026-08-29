@@ -198,11 +198,12 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         return true
     }
 
-    /// «El motor ya corre en el teléfono». Cede el standalone; no abre otro.
+    /// «Ya hay una sesión en marcha por la otra vía». Cierra el motor de la muñeca
+    /// —guardando lo grabado— para que no haya dos; no abre ninguno.
     @MainActor
     private static func applyLiveStart(_ body: [String: Any]) -> Bool {
         guard body[WatchWireKeys.liveStart] != nil else { return false }
-        WatchWorkoutCoordinator.shared.notePhoneLive()
+        Task { await WatchWorkoutCoordinator.shared.cerrarMotorPropio() }
         return true
     }
 
