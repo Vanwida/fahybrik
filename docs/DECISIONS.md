@@ -11,6 +11,68 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Correr en la muñeca: tres páginas, el vivo en el centro
+
+**Alex cortó la card 105**, así que la interfaz de correr en la muñeca deja de ser
+propuesta y pasa a ser la que hay: `datos | VIVO | controles`, deslizando en
+horizontal, con el esfuerzo en el CENTRO — ni los datos ni los controles están a más
+de un gesto, y volver al esfuerzo tampoco. Fuente: `docs/mocks/reloj-correr*.png` en
+la rama `cursor/reloj-correr-tres-paginas-5db7` (diseño, no se mergea).
+
+**Una interfaz, no dos.** Un rodaje libre y un 5×1.000 del coach son las mismas tres
+páginas con distinto contenido. Por eso `GuionRodaje` y `GuionSeries` dejan de servir
+el espejo y nace `GuionCorrer`: si fueran dos guiones, el mismo entreno se vería
+distinto según quién lo escribió, que es el fallo que la card 67 vino a cerrar.
+
+**Dos alcances, cada uno declarado.** «¿Cómo va la carrera?» y «¿cuánto me falta?» no
+son la misma pregunta, y contestarlas en la misma caja ya confundió a un atleta de
+verdad. Los datos hablan de la SESIÓN, el vivo de la PIEZA, y cada página lo dice en
+su banda. Consecuencia en el cable: `sessionRunMeters` y `sessionPaceSecPerKm`, porque
+`hechoMedida` son los metros de ESTA pierna y en un 6×800 con trote de vuelta eso no
+se parece a lo que llevas corrido.
+
+**El sujeto del vivo es lo que FALTA**, en la unidad en que la pieza se mide, con los
+dos decimales de la medida (5,24 + 4,76 = 10,00; redondeando a uno la suma deja de
+dar). Sin metros medidos cae al reloj de la pieza y la banda pasa a decir «llevas»:
+no se inventa un ritmo ni se pinta un cero con cara de dato.
+
+**Lo que se corrigió por el camino, y no era cosmético:**
+
+- **El relleno de zona era un degradado y por eso no se leía.** Iba a negro puro
+  arriba y abajo y dejaba el color vivo sólo en la franja del centro — justo donde va
+  el numeral, que lo tapa. El diagnóstico fácil («el tinte es flojo») no arregla nada.
+  Plano al 45 %, tope MEDIDO: lo pone el ámbar de la Z4, porque el aro tiene que
+  mantener 3:1 contra el lienzo y al 50 % ya se queda en 2,67. Del degradado queda una
+  viñeta en las esquinas y en las dos bandas de versales.
+- **El cromo no puede ser un gris fijo si el fondo no es negro fijo.** `#8A8A8E` da
+  2,30:1 sobre la Z3 y 2,09:1 sobre el ámbar: la unidad y las versales dejaban de
+  leerse. Blanco con alfa 0,76, que cruza el 4,5 contra el peor caso.
+- **La aritmética del sujeto era un `switch` sobre `texto.count`**, que cuenta la coma
+  y la unidad como cifras enteras: «4,76 km» salía a 4 glifos → 56 pt cuando de verdad
+  ocupa 2,86 y le caben 77. Portada la del kit (decimal al 42 %, unidad al 30 %).
+- **El crono de la muñeca escribía las horas** («1:02:40», siete glifos) y el sujeto
+  tiene tope de cinco. Un rodaje largo pasa de la hora casi siempre, o sea que era el
+  entreno más habitual de todos. Pasa a minutos («62:40»).
+- **Dos paginadores sobre la misma pantalla.** El `TabView` de `MirrorHUDView`
+  envolvía al paginador del lienzo y le robaba el deslizamiento. En correr se quita.
+- **Los velos de pausa y descanso desaparecen en correr**: son ESTADOS de la página
+  del vivo (numeral apagado, fondo `restBg`), no una capa por encima. Taparla borraba
+  el ritmo, los metros y el aro justo cuando hacen falta.
+
+**Nuevo en el motor:** `CommandKind.newLap` → `closeCurrentSegmentLap()`. Es el corte
+del ATLETA: sella el parcial con lo que lleva medido y reabre a cero sin tocar la
+prescripción. Sólo se ofrece sin estructura escrita, y no por prudencia de pantalla —
+esa función se salta a propósito el parcial en series y EMOM porque allí cada tramo
+escribe el suyo, así que el botón existe exactamente donde el motor lo cumple.
+
+**En consecuencia, no hacer:** no añadir una cuarta página al vivo de correr ni un
+botón a las dos primeras (en ellas un botón le quita 52 pt al dato, el 21 % del
+lienzo, para ofrecer algo que corriendo no se usa). No teñir el descanso con la zona.
+No escribir un veredicto de ritmo en color mientras el lienzo lleve la zona: un «en
+objetivo» verde sobre lienzo verde no se lee y sobre ámbar dice dos cosas a la vez.
+
+---
+
 ## 2026-08-29 · Descartado: rellenar el descanso con el `rest_s` del plano
 
 **Se consideró y NO se escribió.** Queda aquí porque la hipótesis es razonable y
