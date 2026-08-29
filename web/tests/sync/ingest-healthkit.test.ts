@@ -164,7 +164,12 @@ function makeRoutedFakeSql(routes: {
   const tag = (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown[]> => {
     const raw = strings.join('?');
     calls.push({ raw, values });
-    if (/^\s*insert\s+into/i.test(raw)) return Promise.resolve([]);
+    // Un INSERT con `returning` devuelve su fila, como el driver de verdad. Sin esto
+    // el escritor de Salud cortaba justo despues del upsert de la ejecución (no tenía
+    // id al que colgar el tramo) y el doble no podía ver ni el tramo ni las zonas.
+    if (/^\s*insert\s+into/i.test(raw)) {
+      return Promise.resolve(/returning/i.test(raw) ? [{ id: '9001' }] : []);
+    }
     if (/^\s*update\s+/i.test(raw)) return Promise.resolve([]);
     // SELECTs, routed by target table. Guard check first (its FROM is
     // workout_executions AND it filters on source_workout_ref); the assignment
@@ -309,5 +314,66 @@ describe('ingestHealthkitBatch — non-empty table (el de-dupe del ENTRENO es ex
     expect(result.workouts_skipped_duplicate).toBe(1);
     // El de-dupe de las MUESTRAS ya no se decide aquí sino dentro del SQL, así que
     // este doble no puede opinar: ver healthkit-historico.db.test.ts.
+  });
+});
+
+describe('ingestHealthkitBatch — un escritor: con asignación se guarda LO MISMO que sin ella', () => {
+  // EL FALLO QUE ESTO CLAVA (debugger 29-ago, Z2 de Alex, asignación 494). Había DOS
+  // escritores para el mismo HKWorkout: el huérfano guardaba km, pulso, calorías, UN
+  // tramo y las zonas; el que casaba con la asignación guardaba la duración y la
+  // procedencia, y nada más. O sea que el MISMO entreno salía PEOR casado con la
+  // sesión que el coach prescribió que si esa sesión no hubiera existido: «22:40 y
+  // cero bloques» donde el huérfano guardaba 3,78 km y 153 ppm.
+
+  /** Los valores ligados del primer INSERT que toca `tabla`. */
+  function insertOn(calls: Call[], tabla: string): Call | undefined {
+    return calls.find((c) => new RegExp(`insert\\s+into\\s+${tabla}`, 'i').test(c.raw));
+  }
+
+  it('la ejecución con asignación lleva km, pulso y calorías', async () => {
+    const { sql, calls } = makeRoutedFakeSql({
+      biometric: [],
+      executionGuard: [], // nadie lo ha grabado por el camino estructurado
+      assignmentLookup: [{ id: '494', existing_source: null, existing_via: null }],
+    });
+    await ingestHealthkitBatch({ sql, athlete_id: BigInt(64), batch: workoutOnlyBatch() });
+
+    const exec = insertOn(calls, 'workout_executions');
+    expect(exec).toBeDefined();
+    // La asignación, y con ella las medidas que antes se tiraban.
+    expect(exec!.values).toContain('494');
+    expect(exec!.values).toContain(8000); // total_distance_m
+    expect(exec!.values).toContain(162); // avg_hr
+    expect(exec!.values).toContain(184); // max_hr
+    expect(exec!.values).toContain(432); // total_calories
+  });
+
+  it('y deja UN tramo, que es lo que hace que la sesión no salga con cero bloques', async () => {
+    const { sql, calls } = makeRoutedFakeSql({
+      biometric: [],
+      executionGuard: [],
+      assignmentLookup: [{ id: '494', existing_source: null, existing_via: null }],
+    });
+    await ingestHealthkitBatch({ sql, athlete_id: BigInt(64), batch: workoutOnlyBatch() });
+
+    const tramo = insertOn(calls, 'segment_executions');
+    expect(tramo).toBeDefined();
+    expect(tramo!.values).toContain(8000); // sus metros
+    expect(tramo!.values).toContain(162); // su pulso
+    // El tramo NO se escribe si la ejecución ya tiene tramos propios: los del motor
+    // en vivo son mejores que este agregado de uno. La guarda va dentro del SQL.
+    expect(tramo!.raw).toMatch(/where\s+not\s+exists/i);
+  });
+
+  it('lo grabado en la app no se pisa: un live corta antes de escribir', async () => {
+    const { sql, calls } = makeRoutedFakeSql({
+      biometric: [],
+      executionGuard: [],
+      assignmentLookup: [{ id: '494', existing_source: null, existing_via: 'live' }],
+    });
+    await ingestHealthkitBatch({ sql, athlete_id: BigInt(64), batch: workoutOnlyBatch() });
+
+    expect(insertOn(calls, 'workout_executions')).toBeUndefined();
+    expect(insertOn(calls, 'segment_executions')).toBeUndefined();
   });
 });

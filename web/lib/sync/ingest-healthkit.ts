@@ -256,7 +256,6 @@ async function linkExecution(args: {
     const standalone = await materializeHealthkitWorkout({ sql, athlete_id, workout });
     return standalone.outcome === 'inserted' || standalone.outcome === 'exists';
   }
-
   // Skip if a Garmin-sourced execution already exists — Garmin wins (better
   // lap precision per spec).
   if (assign.existing_source === 'garmin') return true;
@@ -270,53 +269,12 @@ async function linkExecution(args: {
   // CÓMO se grabó, que es la pregunta que faltaba.
   if (assign.existing_via === 'live') return true;
 
-  await sql`
-    insert into workout_executions (
-      assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
-      source, source_workout_ref, recorded_via
-    ) values (
-      ${assign.id}::bigint,
-      ${athlete_id as unknown as number},
-      ${startedAt},
-      ${endedAt},
-      ${Math.round(workout.duration_seconds)},
-      'healthkit',
-      ${workout.source_workout_id},
-      -- HOW the record came to exist. This row exists because a workout showed up
-      -- in Apple Health and the sync batch brought it: 'imported'. A DIFFERENT
-      -- question from source above (WHAT apparatus measured it) — never conflate
-      -- them. A session run inside FAHYBRID is written 'live' by
-      -- recordWorkoutExecution, and existsOverlappingExecution stops this path
-      -- before it can restamp it.
-      'imported'::execution_recording_method
-    )
-    on conflict (assignment_id) do update
-      set started_at = case
-            when workout_executions.source in ('garmin', 'manual') then workout_executions.started_at
-            else excluded.started_at
-          end,
-          ended_at = case
-            when workout_executions.source in ('garmin', 'manual') then workout_executions.ended_at
-            else excluded.ended_at
-          end,
-          total_duration_seconds = case
-            when workout_executions.source in ('garmin', 'manual') then workout_executions.total_duration_seconds
-            else excluded.total_duration_seconds
-          end,
-          source = case
-            when workout_executions.source in ('garmin', 'manual') then workout_executions.source
-            else excluded.source
-          end,
-          source_workout_ref = case
-            when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
-            else excluded.source_workout_ref
-          end,
-          -- Existing wins: an ingest can only ADD what nobody knew. A session
-          -- already stamped 'live' or 'manual' stays that way — a later device
-          -- sync of the same session does not turn it into an import.
-          recorded_via = coalesce(workout_executions.recorded_via, excluded.recorded_via),
-          updated_at = now()
-  `;
+  // EL MISMO ESCRITOR QUE EL HUÉRFANO, y ahí estaba el fallo. Aquí vivía un `insert`
+  // propio que escribía la duración y la procedencia, **y nada más**: ni km, ni pulso,
+  // ni calorías, ni un solo tramo, ni zonas. O sea que el MISMO entreno salía PEOR
+  // casado con la sesión que el coach prescribió que si no hubiera existido esa sesión
+  // — «22:40 y cero bloques» donde el huérfano guardaba 3,78 km y 153 ppm.
+  await materializeHealthkitWorkout({ sql, athlete_id, workout, assignment_id: assign.id });
 
   // Close the loop: a synced HealthKit workout proves the session was done, so
   // promote a still-'scheduled' assignment to 'completed'. Never clobbers an
