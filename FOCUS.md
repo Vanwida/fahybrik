@@ -21,12 +21,21 @@ Alex, asignación 494: al terminar 3,78 km/22:33/153/5:58; al reabrir
    terminar** —lo declarado en nil, que es lo que impide pisar el RPE— y
    **lo DECLARADO va en el resumen**. Compartir es un accesorio.
 2. **El volcado de Salud sí escribía.** El HKWorkout de la MUÑECA llegaba
-   sin firma, así que `linkExecution` lo adoptaba: duración de **reloj de
-   pared** y ni un tramo. Sus cuatro guardas preguntan por evidencia que
-   sólo existe si nuestro POST llegó primero — eran una carrera. La firma
-   sube a `FAHYBRIKCore/HealthKit/SaludNuestra.swift` (mismo literal), la
-   ponen las dos vías de la muñeca, y el lector aprende la regla que las
-   MUESTRAS ya tenían: `measuredOnly` para entrenos.
+   sin firma, así que `linkExecution` lo adoptaba. Sus cuatro guardas
+   preguntan por evidencia que sólo existe si nuestro POST llegó primero —
+   eran una carrera. La firma sube a
+   `FAHYBRIKCore/HealthKit/SaludNuestra.swift` (mismo literal), la ponen
+   las dos vías de la muñeca, y el lector aprende la regla que las MUESTRAS
+   ya tenían: `measuredOnly` para entrenos.
+3. **Y ese escritor guardaba MENOS que el huérfano.** El mismo HKWorkout
+   sin asignación deja km, pulso, calorías, UN tramo y zonas; casado con la
+   sesión del coach dejaba duración y procedencia y **nada más**. El mismo
+   entreno salía PEOR por estar prescrito. Un escritor:
+   `materializeHealthkitWorkout` con `assignment_id`, sin rama (`unique
+   (assignment_id)` y los NULL no colisionan).
+4. **Las zonas son cuerpo de la carrera**, no adorno del sujeto: se
+   pintaban sólo si el sujeto ERA la zona, así que un rodaje con objetivo
+   de zona se quedaba sin saber dónde estuvo el pulso.
 
 Cero servidor, cero migraciones en las dos.
 

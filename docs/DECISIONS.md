@@ -11,6 +11,67 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Un escritor de Salud: con asignación se guarda LO MISMO que sin ella
+
+**Lo que faltaba por ver del caso 494.** Había **dos** escritores para el mismo
+HKWorkout, y escribían cosas distintas:
+
+| | huérfano (`materializeHealthkitWorkout`) | con asignación (`linkExecution`) |
+|---|---|---|
+| duración | sí | sí (de pared) |
+| `avg_hr` / `max_hr` | **sí** | **no** |
+| `total_distance_m` / `total_calories` | **sí** | **no** |
+| fila de `segment_executions` | **sí** (una, con metros, pulso y ritmo) | **no** |
+| zonas | **sí** | **no** |
+
+O sea: el MISMO entreno **salía peor casado con la sesión que el coach prescribió
+que si esa sesión no hubiera existido**. «22:40 y cero bloques» donde el huérfano
+guardaba 3,78 km y 153 ppm. Eso es el «tira lo medido», y es también el «0
+bloques».
+
+**Decidido: un escritor.** Se borra el `insert` de `linkExecution` y pasa por
+`materializeHealthkitWorkout` con su `assignment_id`. **Sin rama:** la restricción
+es `unique (assignment_id)` y en SQL los NULL no colisionan entre sí, así que el
+mismo `on conflict (assignment_id)` sirve para los dos — para el huérfano nunca
+dispara.
+
+Las reglas que se conservan, y las que se estrenan:
+
+- `garmin` / `manual` no se pisan (mejor precisión de laps · lo dijo una persona).
+- `recorded_via` sólo se RELLENA: un live no se convierte en importación porque su
+  HKWorkout llegue después.
+- **lo MEDIDO sólo RELLENA:** un km o un pulso que ya estaba no se sustituye por el
+  de Salud.
+- **el tramo sólo se escribe si la ejecución no tiene tramos propios** (`where not
+  exists`): los del motor en vivo, con sus piernas y sus zonas congeladas, son
+  mejores que este agregado de uno, y pisarlos sería cambiar una carrera por su
+  resumen.
+- **el guard de solape descalifica al HUÉRFANO, no al que ya tiene asignación
+  resuelta:** ahí el solape ES la fila de su propia asignación, y saltar por él era
+  justo lo que la dejaba sin km ni pulso.
+
+**NO hacer:** no volver a tener un escritor por camino. Cero migraciones.
+
+---
+
+## 2026-08-29 · Las zonas son cuerpo de la carrera, no adorno del sujeto
+
+**Qué fallaba:** el reparto de zonas se pintaba SOLO cuando el sujeto de la lectura
+era la zona, con el argumento escrito de que «en cualquier otra lectura sería una
+barra más que nadie vino a buscar».
+
+**Por qué está mal:** el sujeto es una decisión sobre el TITULAR — qué se lee
+primero —, no sobre qué existe. En un rodaje el sujeto suele ser el ritmo, así que
+el atleta se quedaba sin saber dónde estuvo su pulso **en una carrera cuyo objetivo
+era literalmente una zona**.
+
+**Decidido:** el cuerpo de una carrera son sus **kilómetros, su ritmo, sus zonas y
+su mapa**. Se borra la condición; de si hay algo que repartir ya contesta
+`ZoneCoverage.read` devolviendo nil, que es quien debe contestarlo. El doble
+llevaba la misma condición y se movió en el mismo lote.
+
+---
+
 ## 2026-08-29 · El kilómetro: el corte ya existía y el aviso es de Apple
 
 **Corte de Alex sobre mi propio trabajo**, y las dos cosas que había metido de más:
