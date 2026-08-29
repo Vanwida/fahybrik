@@ -81,6 +81,12 @@ final class MirrorSessionController: NSObject {
     /// a partial recording is worth infinitely more than a lost one (see
     /// WatchWorkoutCoordinator.finishLocally).
     private static let recordingStuckTimeout: TimeInterval = 300
+    /// A partir de cuándo un estado que no es `.idle` se considera VIEJO y se puede
+    /// curar. Por encima de lo que tarda un arranque en frío (arrancar la app, permiso
+    /// de HealthKit, `beginCollection`, `startMirroringToCompanionDevice`) y muy por
+    /// debajo del `recordingStuckTimeout` de cinco minutos, que es el otro extremo: uno
+    /// protege el arranque en marcha, el otro la muñeca abandonada.
+    private static let startStaleAfter: TimeInterval = 20
     /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
     /// faster than the engine needs).
     private static let hrRelayMinInterval: TimeInterval = 1
@@ -134,8 +140,28 @@ final class MirrorSessionController: NSObject {
         // eliminate this) and nothing ever moved the wrist off `.recording`. Every
         // future state added to `State` is covered for free because this checks
         // "not idle", never a case list.
+        // UN ARRANQUE A MEDIAS NO ES UN ESTADO SUCIO, Y CURARLO ERA LO QUE LO MATABA.
+        //
+        // El teléfono pedía `startWatchApp` cada 4 s mientras esperaba, y el apretón de
+        // manos en frío tarda más que eso (arrancar, permiso de HealthKit,
+        // `beginCollection`, `startMirroringToCompanionDevice`). Así que la segunda
+        // petición entraba aquí con la primera en marcha, veía `state == .recording` y
+        // TERMINABA la sesión que la primera acababa de crear. Repetido, el último
+        // force-release dejaba esto en `.idle`: el teléfono decía SIN RELOJ y la muñeca
+        // se quedaba en la esfera de readiness — los dos síntomas del 29-ago, una causa.
+        //
+        // La cura sigue existiendo, que para eso está (card 72: una muñeca atascada en
+        // `.recording` durante semanas). Lo que cambia es CUÁNDO: sólo un estado
+        // GENUINAMENTE viejo, medido por cuánto lleva sin señal, no cualquier estado que
+        // no sea `.idle`. Un arranque de hace dos segundos se respeta y esta petición se
+        // declina — el de antes acabará y el espejo entrará.
+        let llevaSinSenal = Date().timeIntervalSince(lastSignalAt)
         if state != .idle || isClosing {
-            Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), isClosing=\(self.isClosing, privacy: .public)) — self-healing before the new recording")
+            guard llevaSinSenal > Self.startStaleAfter else {
+                Self.log.info("start(config:) declinado — hay un arranque en marcha (\(llevaSinSenal, privacy: .public)s). No se toca.")
+                return
+            }
+            Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), isClosing=\(self.isClosing, privacy: .public), \(llevaSinSenal, privacy: .public)s sin señal) — self-healing before the new recording")
             forceReleaseStuckSession()
         }
         guard state == .idle else {
@@ -143,6 +169,11 @@ final class MirrorSessionController: NSObject {
             return
         }
         state = .recording
+        // EL PROPIO ARRANQUE ES UNA SEÑAL DE VIDA, y sin esto la guarda de arriba no
+        // servía de nada: `lastSignalAt` sólo se sellaba en `beginMirroring`, que corre
+        // DESPUÉS del permiso de HealthKit, así que una segunda petición a los 4 s veía
+        // «una eternidad sin señal» y curaba justo el arranque que había que respetar.
+        lastSignalAt = Date()
         frame = nil
         frameReceivedAt = nil
         liveHR = nil

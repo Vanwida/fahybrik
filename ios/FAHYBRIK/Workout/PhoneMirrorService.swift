@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
 // PHONE side of MIRROR MODE — the 90% session. The athlete drives the workout from
 // the iPhone (this app's rich UI runs the ONE engine, WorkoutSession) while the
@@ -76,6 +77,16 @@ final class PhoneMirrorService {
 
     @ObservationIgnored private let healthStore = HKHealthStore()
 
+    /// EL LADO DEL TELÉFONO NO LOGUEABA NADA, y es el que lanza la app del reloj,
+    /// reintenta y adopta la sesión espejada. La muñeca sí lo hace desde la card 72
+    /// («una muñeca atascada era invisible porque nada aquí logueaba nunca»), así que
+    /// de un apretón de manos de dos lados sólo se veía uno: «SIN RELOJ» no tenía
+    /// diagnóstico por construcción. Mismo subsistema que el otro lado, para leer los
+    /// dos en la misma consola.
+    @ObservationIgnored private static let log = Logger(
+        subsystem: Marca.subsistemaLog("mirror"), category: "phone-lifecycle"
+    )
+
     private static let frameInterval: TimeInterval = 1
     // Heartbeat resend even when nothing structural changed, so a wrist that missed
     // a frame re-bases its clocks within a few seconds.
@@ -89,11 +100,26 @@ final class PhoneMirrorService {
     // retry has had a real chance, never as the sole attempt.
     private static let endRetryInterval: TimeInterval = 2
     private static let endRetryMaxAttempts = 4
-    // startWatchApp can fail SILENTLY on the first try (watch waking / app cold) —
-    // the athlete then trains without wrist HR and never knows why. Retry a couple
-    // of times, a few seconds apart, before giving up quietly.
-    private static let watchLaunchAttempts = 15
-    private static let watchLaunchRetrySeconds: TimeInterval = 4
+    // LANZAR NO ES ENTRAR, Y RELANZAR ENCIMA IMPIDE ENTRAR.
+    //
+    // Esto pedía `startWatchApp` cada 4 s hasta 15 veces mirando sólo `wristJoined`.
+    // Pero el apretón de manos del espejo tarda MÁS de 4 s en frío: la app del reloj
+    // arranca, pide permiso de HealthKit, hace `beginCollection` y sólo entonces llama
+    // a `startMirroringToCompanionDevice`. Así que la segunda petición llegaba con la
+    // primera a medio camino — y `MirrorSessionController.start` se auto-cura de
+    // cualquier estado que no sea `.idle`, así que TERMINABA la sesión que acababa de
+    // crear y volvía a empezar. Con la cadencia corta eso se puede repetir hasta que
+    // el último force-release deja el reloj en `.idle`: el teléfono dice SIN RELOJ y la
+    // muñeca se queda en la esfera de readiness. Los dos síntomas, una causa.
+    //
+    // Ahora se pide UNA vez y se ESPERA a que entre, con una ventana que da para un
+    // arranque en frío. Sólo si no entra se vuelve a pedir.
+    private static let watchLaunchAttempts = 5
+    /// Cuánto se espera a que la muñeca ENTRE antes de volver a pedir el arranque. Por
+    /// encima del apretón de manos completo en frío, no por debajo.
+    private static let watchJoinWindowSeconds: TimeInterval = 12
+    /// Cada cuánto se comprueba si ya entró, dentro de esa ventana.
+    private static let watchJoinPollSeconds: TimeInterval = 0.5
     // Bumped by begin()/end() so a stale retry loop from a previous session can't
     // launch the watch app after the workout it belonged to is gone.
     @ObservationIgnored private var watchLaunchGeneration = 0
@@ -193,20 +219,45 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Lanza el reloj hasta que entra en la misma `livePicture` (`wristJoined`),
-    /// un begin()/end() nuevo anula el bucle, o se acaban los intentos.
-    /// `startWatchApp` puede decir ok y dejar la esfera: eso no es éxito.
+    /// Pide el arranque del reloj y ESPERA a que entre en la misma `livePicture`
+    /// (`wristJoined`). Un `begin()`/`end()` nuevo anula el bucle.
+    ///
+    /// `startWatchApp` puede decir ok y dejar la esfera, así que su ok no es éxito —
+    /// pero su ERROR sí es información, y se tiraba (`{ _, _ in }`). Cuando falla, el
+    /// atleta entrena sin muñeca y no hay una línea en ninguna parte que diga por qué:
+    /// «SIN RELOJ» no tenía diagnóstico posible. Ahora lo tiene.
+    ///
+    /// Y entre petición y petición se espera de verdad: relanzar encima de un arranque
+    /// a medias es lo que lo tumbaba (ver `watchJoinWindowSeconds`).
     private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
         for attempt in 1...Self.watchLaunchAttempts {
             guard generation == watchLaunchGeneration, !wristJoined else { return }
-            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                healthStore.startWatchApp(with: config) { _, _ in
-                    cont.resume()
+
+            let error = await withCheckedContinuation { (cont: CheckedContinuation<Error?, Never>) in
+                healthStore.startWatchApp(with: config) { _, error in
+                    cont.resume(returning: error)
                 }
             }
-            if wristJoined { return }
-            guard attempt < Self.watchLaunchAttempts else { return }
-            try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
+            if let error {
+                Self.log.error("startWatchApp falló (intento \(attempt, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            } else {
+                Self.log.info("startWatchApp pedido (intento \(attempt, privacy: .public)); esperando a que la muñeca entre")
+            }
+
+            // La ventana de espera. Se sondea `wristJoined` en vez de dormir del tirón
+            // para no dejar la mano quieta doce segundos cuando entra al primer intento.
+            let pasos = Int((Self.watchJoinWindowSeconds / Self.watchJoinPollSeconds).rounded())
+            for _ in 0..<pasos {
+                try? await Task.sleep(for: .seconds(Self.watchJoinPollSeconds))
+                guard generation == watchLaunchGeneration else { return }
+                if wristJoined {
+                    Self.log.info("la muñeca entró en el intento \(attempt, privacy: .public)")
+                    return
+                }
+            }
+        }
+        if !wristJoined {
+            Self.log.error("la muñeca no entró tras \(Self.watchLaunchAttempts, privacy: .public) intentos — el entreno sigue sin ella")
         }
     }
 
@@ -294,6 +345,7 @@ final class PhoneMirrorService {
         mirrored.delegate = delegateShim
         self.mirrored = mirrored
         wristJoined = true
+        Self.log.info("sesión espejada adoptada — la muñeca está DENTRO de la sesión")
 
         // Late join after the phone already finished (or orphaned session with no
         // live engine): stop the wrist immediately. Free workouts are the usual
