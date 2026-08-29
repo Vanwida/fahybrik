@@ -11,6 +11,59 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · El kilómetro: el corte ya existía y el aviso es de Apple
+
+**Corte de Alex sobre mi propio trabajo**, y las dos cosas que había metido de más:
+
+**1 · Una segunda regla del kilómetro.** `shared/domain/running/km-splits.ts` ya
+corta el kilómetro, y su cabecera lo declara: *«UNA fuente (la traza cruda de
+`workout_traces`), N proyecciones; los kilómetros NUNCA se persisten; este módulo
+es el único sitio que sabe derivarlos»* (DECISIONS, 2026-08-11 «La carrera guarda
+su NEGATIVO»). Mi `RunKmSplits.swift` cortaba sobre OTRA entrada — los metros del
+tramo y su reloj — así que iba a discrepar justo donde más duele: la voz diciendo
+un ritmo y la fila del recap otro **para el mismo kilómetro**.
+
+**2 · Una segunda voz.** La app ya no habla: `796d8abf` «la app no habla»
+(114+171) vació `paceCorrection` a cadena vacía. `CoachSpeech.split` se quedó
+hablando, y yo lo cablée.
+
+**Decidido.** El corte vive donde ya vivía (la traza, en TS, sin persistir) y el
+**aviso en vivo es de Apple**. Se borra mi capa entera: `RunKmSplits` y sus tests,
+`kmSplits`/`onKmSplit`/`noteKmSplitIfCrossed` del motor, el reparto de
+`ActiveWorkoutView`, `AudioCoach.announceKmSplit`, `RunCueEngine.announce`,
+`CoachSpeech.split`, y el cable de la vuelta (`MirrorKmSplit`,
+`MessageType.lap`, `sendKmSplit`, `MirrorSessionController.writeLap`).
+
+**Cómo suena entonces, y es lo verificado contra la documentación:** `WorkoutKit`
+**no tiene alerta de split** — su familia `WorkoutAlert` es cadencia, pulso,
+potencia y velocidad, y nada más. Lo que Apple SÍ anuncia es el fin de cada
+**PASO**. Así que `AppleWorkoutMapper.kmSteps` trocea un tramo largo de distancia
+en kilómetros y la app Entrenamiento canta cada uno, con su voz y su ritmo. El
+trabajo prescrito no cambia: diez veces mil metros son los mismos diez mil, con la
+misma alerta de objetivo en cada uno; cambia dónde Apple pone una marca.
+
+Se trocea **sólo** lo que tiene sentido: objetivo de DISTANCIA, múltiplo exacto de
+mil, mínimo dos km, y trabajo de la parte PRINCIPAL. Un tramo por tiempo no tiene
+kilómetros que cortar (trocearlo por distancia le cambiaría la medida al coach);
+1.200 m partidos serían un tramo y un sobrante que nadie pidió; y en una serie el
+hito es la serie, donde cada repetición ya es su propio paso.
+
+**LO QUE ESTO NO ALCANZA TODAVÍA, y es una asimetría de UNA línea:**
+`AppleWorkoutMapper.eligibility` exige una `structure` NATIVA
+(`item.prescription?.structure`), mientras el motor acepta además las piernas
+DERIVADAS (`Prescription.runStructureLegs` cae a `runLegsDerivadas` para la tabla
+de `sets` del coach y para un continuo). Así que un rodaje continuo **no llega hoy
+a la muñeca**, y sin llegar no hay paso que Apple pueda cantar. Cerrarlo pide
+cambiar la carga de `eligibility` de `RunStructure` a `[RunLeg]` y con ella
+`customWorkout`, que es refactor del mapper con sus tests — no un corte. Y un Z2
+por TIEMPO no tiene arreglo por esta vía: no hay kilómetros que hacer pasos.
+
+**NO hacer:** no volver a cortar el kilómetro en Swift. No devolverle la voz a la
+app para el kilómetro. No persistir kilómetros (la 2026-08-11 lo prohíbe: mejorar
+el algoritmo no puede exigir rehacer filas).
+
+---
+
 ## 2026-08-29 · El volcado de Salud deja de escribir la sesión del atleta
 
 **El debugger, Z2 de Alex, asignación 494.** Al terminar, la app tenía **3,78 km ·

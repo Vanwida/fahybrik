@@ -36,11 +36,15 @@ Cero servidor, cero migraciones en las dos.
 
 El por qué de cada uno, con el caso real, en `docs/DECISIONS.md` (29-ago).
 
-- **Un km es un suceso.** El cursor vivía en el cerebro del AUDIO, lo
-  empujaban los DOS modelos de HUD y sólo la cinta lo reiniciaba al abrir
-  tramo (un rodaje de CALLE arrastraba los metros del tramo anterior). Lo
-  detecta el motor donde entran los metros (`RunKmSplits`) → `onKmSplit`:
-  la voz lo dice, la muñeca lo escribe como `HKWorkoutEvent.lap`.
+- **El km: el corte ya existía y el aviso es de Apple.** Metí una segunda
+  regla (`RunKmSplits.swift`) cuando `shared/domain/running/km-splits.ts`
+  ya corta el km y su cabecera dice que es «el único sitio que sabe
+  derivarlos»; y una segunda voz, cuando la app **ya no habla**
+  (`796d8abf`, 114+171, dejó `CoachSpeech.split` hablando). Se borra mi
+  capa entera. Lo anuncia Apple: `AppleWorkoutMapper.kmSteps` trocea un
+  tramo largo de distancia en km y la app Entrenamiento canta cada paso —
+  `WorkoutKit` **no tiene alerta de split** (cadencia/pulso/potencia/
+  velocidad y nada más), pero sí anuncia el fin de cada PASO.
 - **Las páginas del reloj se quedan.** El lienzo recordaba el ÍNDICE y el
   guion no devuelve lista fija: la página cambiaba debajo del pulgar. Por **id**.
 - **Muere el `tickTimer` de `LiveWorkoutSession`** (1 Hz, mirando NUESTRO
@@ -80,6 +84,13 @@ El por qué de cada uno, con el caso real, en `docs/DECISIONS.md` (29-ago).
    recuperación que nadie grabó. El historial no puede reproducirla porque
    `SegmentActualDTO` trae `started_at` y no `ended_at`. En un rodaje da
    igual (un tramo, span = suma).
+4. **Un rodaje continuo no llega hoy a la muñeca**, así que Apple no tiene
+   paso que cantarle. Asimetría de UNA línea:
+   `AppleWorkoutMapper.eligibility` exige `structure` NATIVA mientras el
+   motor acepta además las DERIVADAS (`runLegsDerivadas`). Cerrarlo pide
+   cambiar su carga de `RunStructure` a `[RunLeg]` y con ella
+   `customWorkout` — refactor del mapper, no un corte. Y un Z2 por TIEMPO
+   no tiene arreglo por esta vía: sin distancia no hay km que hacer pasos.
 
 **SIN COMPILAR NI EJECUTAR:** no hay Xcode aquí. Símbolos de Apple
 verificados contra la documentación y los propios contra su declaración,
