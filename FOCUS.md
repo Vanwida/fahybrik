@@ -17,18 +17,16 @@ Alex, asignación 494: al terminar 3,78 km/22:33/153/5:58; al reabrir
 1. **iOS no escribía al terminar.** Del final a GUARDAR el entreno vivía
    SOLO en memoria: `finish()` ya cerró la instantánea y el resumen no
    encola. La separación estaba en la base sin usar (`workout_executions`
-   upserta por `assignment_id` con `coalesce`), así que **lo MEDIDO va al
+   upserta por `assignment_id` con `coalesce`): **lo MEDIDO va al
    terminar** —lo declarado en nil, que es lo que impide pisar el RPE— y
-   **lo DECLARADO va en el resumen**. Compartir es un accesorio: cuando
-   aparece no queda nada por guardar.
+   **lo DECLARADO va en el resumen**. Compartir es un accesorio.
 2. **El volcado de Salud sí escribía.** El HKWorkout de la MUÑECA llegaba
    sin firma, así que `linkExecution` lo adoptaba: duración de **reloj de
-   pared** y ni un tramo. Sus cuatro guardas preguntan todas por
-   evidencia que sólo existe si nuestro POST llegó primero — eran una
-   carrera. La firma sube a `FAHYBRIKCore/HealthKit/SaludNuestra.swift`
-   (mismo literal), la ponen las dos vías de la muñeca, y el lector
-   aprende la regla que las MUESTRAS ya tenían: `measuredOnly` para
-   entrenos. De «¿llegó ya el nuestro?» a «¿es nuestro?».
+   pared** y ni un tramo. Sus cuatro guardas preguntan por evidencia que
+   sólo existe si nuestro POST llegó primero — eran una carrera. La firma
+   sube a `FAHYBRIKCore/HealthKit/SaludNuestra.swift` (mismo literal), la
+   ponen las dos vías de la muñeca, y el lector aprende la regla que las
+   MUESTRAS ya tenían: `measuredOnly` para entrenos.
 
 Cero servidor, cero migraciones en las dos.
 
@@ -36,36 +34,30 @@ Cero servidor, cero migraciones en las dos.
 
 El por qué de cada uno, con el caso real, en `docs/DECISIONS.md` (29-ago).
 
-- **El km: el corte ya existía y el aviso es de Apple.** Metí una segunda
-  regla (`RunKmSplits.swift`) cuando `shared/domain/running/km-splits.ts`
-  ya corta el km y su cabecera dice que es «el único sitio que sabe
-  derivarlos»; y una segunda voz, cuando la app **ya no habla**
-  (`796d8abf`, 114+171, dejó `CoachSpeech.split` hablando). Se borra mi
-  capa entera. Lo anuncia Apple: `AppleWorkoutMapper.kmSteps` trocea un
-  tramo largo de distancia en km y la app Entrenamiento canta cada paso —
-  `WorkoutKit` **no tiene alerta de split** (cadencia/pulso/potencia/
-  velocidad y nada más), pero sí anuncia el fin de cada PASO.
-- **Las páginas del reloj se quedan.** El lienzo recordaba el ÍNDICE y el
-  guion no devuelve lista fija: la página cambiaba debajo del pulgar. Por **id**.
+- **El km: el corte ya existía, el aviso es de Apple.** Metí una segunda
+  regla (`RunKmSplits.swift`) sobre lo que `km-splits.ts` ya corta —«el
+  único sitio que sabe derivarlos»— y una segunda voz cuando la app **ya no
+  habla** (`796d8abf`). Se borra mi capa. `AppleWorkoutMapper.kmSteps`
+  trocea un tramo largo de distancia en km: `WorkoutKit` **no tiene alerta
+  de split**, pero Apple anuncia el fin de cada PASO.
+- **Las páginas del reloj se quedan.** Recordaba el ÍNDICE y el guion no
+  devuelve lista fija: la página cambiaba bajo el pulgar. Por **id**.
 - **Muere el `tickTimer` de `LiveWorkoutSession`** (1 Hz, mirando NUESTRO
-  `isPaused`, **sin un solo lector**). Manda `HKLiveWorkoutBuilder.elapsedTime`.
-- **Una regla para la cuenta atrás.** `standalone`/`mirrored` convivían en
-  la MISMA pantalla. Queda `remaining()`, y el háptico del 3-2-1 lee el
-  entero QUE SE PINTA.
+  `isPaused`, **sin un lector**). Manda `HKLiveWorkoutBuilder.elapsedTime`.
+- **Una regla para la cuenta atrás**: `standalone`/`mirrored` convivían en
+  la MISMA pantalla. Y el háptico del 3-2-1 lee el entero QUE SE PINTA.
 - **Se borra la pantalla de cinta de la muñeca** (cero llamantes) y sus
-  tres campos `belt*`, copia de `MirrorTramo`. Cae `isTreadmillLive` y con
-  él el acoplamiento del espejo a `DeviceHub`.
+  tres campos `belt*`, copia de `MirrorTramo`. Cae con ellos el
+  acoplamiento del espejo a `DeviceHub`.
 - **Los metros del tramo se preguntan, no se copian**, y el recorrido llega
-  a la sesión **mientras se corre**: con el orden real (`finish` →
-  `onFinish` → fase → `onDisappear`) la escritura del final iba sin mapa.
-- **Numerador y denominador, del mismo sitio.** El historial dividía metros
-  de CORRER entre segundos de la SESIÓN: con un bloque de core detrás, el
-  ritmo medio salía más lento que cualquiera de sus tramos.
+  a la sesión **mientras se corre**: con el orden real la escritura del
+  final iba sin mapa.
+- **Numerador y denominador, del mismo sitio**: el historial dividía metros
+  de CORRER entre segundos de la SESIÓN.
 
 ## Descartado del inventario (motivo entero en DECISIONS)
 
-- **`WatchRunLegDriver` no existe**: el test que lleva su nombre es un
-  guarda-raíl que lo dice. Nada que borrar.
+- **`WatchRunLegDriver` no existe**: el test que lleva su nombre lo dice.
 - **`RunAutoPause`/`RunPaceSmoother` se quedan**: Apple no da auto-pausa a
   terceros, y `runningSpeed` es la velocidad DE LA MUÑECA.
 
