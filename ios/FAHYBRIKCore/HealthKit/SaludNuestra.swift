@@ -39,7 +39,10 @@ enum SaludNuestra {
 
     /// El diccionario de metadata con la firma puesta, para pasárselo tal cual a
     /// `HKWorkoutBuilder.addMetadata` / `HKQuantitySample(metadata:)`.
-    static let metadata: [String: Any] = [firma: true]
+    ///
+    /// Calculado, no guardado: un `[String: Any]` global no es `Sendable`, y esto lo
+    /// llaman el teléfono y la muñeca desde contextos asíncronos.
+    static var metadata: [String: Any] { [firma: true] }
 
     /// ¿Lo escribimos nosotros? La pregunta que hacen los lectores antes de tragarse
     /// un dato como si lo hubiera medido un aparato.

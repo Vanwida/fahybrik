@@ -1903,7 +1903,6 @@
 				E9C191A1EE31AC0ADB805396 /* Trace */,
 				328802A6B2D7559DB3EF927B /* CountdownFormat.swift */,
 				92DA6B8763900D48D9F54ACB /* RunKmSplits.swift */,
-				8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */,
 				427998999C86379C4D56126C /* DoblesTurn.swift */,
 				785016334244E8DFD29E3C35 /* ErgCounterPolicy.swift */,
 				8925609DB271071B935E9CF7 /* HRRecovery.swift */,
@@ -2162,6 +2161,14 @@
 				527B6B20D42AB64D4F086227 /* VelocityBand.swift */,
 			);
 			path = Sensor;
+			sourceTree = "<group>";
+		};
+		B7C9B09137A6117DA0BBACDD /* HealthKit */ = {
+			isa = PBXGroup;
+			children = (
+				8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */,
+			);
+			path = HealthKit;
 			sourceTree = "<group>";
 		};
 		6F7DAA30934857301B561C6C /* Zonas */ = {
@@ -2423,6 +2430,7 @@
 			isa = PBXGroup;
 			children = (
 				027123652F40605496E5DD2C /* Devices */,
+				B7C9B09137A6117DA0BBACDD /* HealthKit */,
 				548EF67AFBA7F23DE1B38D09 /* Plan */,
 				6A7BF4F588682C4450FA34A7 /* Sensor */,
 				021EE92493AA33528CE56ADE /* Theme */,
