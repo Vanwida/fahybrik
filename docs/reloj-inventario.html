@@ -195,8 +195,8 @@
       </div>
       <span class="sello falta">Sin portar</span>
     </header>
-    <div class="swift"><span class="k">En Swift hoy</span><p>No existe vista de cinta en el reloj. Sólo <code>MirrorHUDView.treadmillContent</code> (<code>:243</code>), y sigue en el lenguaje VIEJO: <code>LiveScaffold</code> + <code>GiantNumber</code> + barra de cápsula.</p></div>
-    <p class="verdicto">El cable YA lleva los metros (<code>beltDistanceM</code>, <code>beltTargetM</code>, <code>beltPaceSecPerKm</code>). Falta la pantalla y falta decir «del móvil».</p>
+    <div class="swift"><span class="k">En Swift hoy</span><p>La cinta NO tiene pantalla propia en el reloj, y es a propósito: la pinta el mismo guion que cualquier carrera, porque el tramo del cable trae sus metros y su objetivo como los de un rodaje. <code>MirrorHUDView.treadmillContent</code> —que sí existía, en el lenguaje viejo— estaba MUERTA (cero llamantes) y se borró el 29-ago con sus cinco ayudantes.</p></div>
+    <p class="verdicto">Los metros llegan por <code>MirrorTramo.hechoMedida</code> / <code>objetivoMedida</code>, y <code>tramoRunCoveredMeters</code> ya resuelve cinta-o-GPS por autoridad. Los tres campos <code>beltDistanceM</code> / <code>beltTargetM</code> / <code>beltPaceSecPerKm</code> eran una COPIA de eso y se borraron con su única lectora. Lo que falta no es pantalla: es decir «del móvil». Ver docs/DECISIONS.md (2026-08-29).</p>
     <div class="escenarios">
       <figure class="esc">
         <div class="tiros">

@@ -25,9 +25,11 @@
 //     SegmentExecutionDTO.distance_meters (PostWorkoutSummaryView) →
 //     /api/sync/workout-execution → web/lib/sync/ingest-execution-segments.ts
 //     (columna distance_meters): los metros del cinturón SÍ persisten
-//   ios/FAHYBRIKWatch/Views/MirrorHUDView.swift (treadmillContent: ritmo grande /km +
-//     barra de progreso de metros + metros cubiertos/objetivo; el móvil lleva el
-//     Bluetooth y se lo espeja al reloj)
+//   ios/FAHYBRIKCore/Watch/Guiones/GuionDelEspejo.swift (la cinta en el reloj NO
+//     tiene pantalla propia: el tramo del cable trae sus metros y su objetivo como
+//     los de cualquier carrera, así que la pinta el mismo guion. El móvil lleva el
+//     Bluetooth y le espeja el tramo. `MirrorHUDView.treadmillContent` y los tres
+//     campos belt* del cable se borraron el 29-ago por muertos y duplicados)
 //   ios/FAHYBRIK/Devices/Treadmill/TreadmillConstants.swift (FTMS: Fitness Machine
 //     Service 1826 / Treadmill Data 2ACD)
 

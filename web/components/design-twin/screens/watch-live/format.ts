@@ -1,12 +1,15 @@
 // Formateadores del reloj — espejo de WatchFormat (LiveHUDShared.swift), que a
-// su vez delega en WorkoutSession.formatElapsed y CountdownFormat.standalone.
+// su vez delega en WorkoutSession.formatElapsed y CountdownFormat.
 //
-// OJO: el reloj NO formatea como el iPhone y por eso no se reusa `fmtClock` de
-// sim.ts. Dos diferencias que se ven en pantalla:
-//   · el tiempo lleva los minutos a dos cifras — «04:36», no «4:36».
-//   · la cuenta atrás por debajo del minuto es «:45» (con dos puntos delante),
-//     y CEIL, no round: el reloj es la única pantalla y debe ir en paso con los
-//     pitidos del motor.
+// OJO: el reloj NO formatea el TIEMPO como el iPhone y por eso no se reusa
+// `fmtClock` de sim.ts: lleva los minutos a dos cifras — «04:36», no «4:36».
+//
+// La CUENTA ATRÁS sí: por debajo del minuto es «:45» (con dos puntos delante) y
+// redondea al más cercano, igual que el móvil. Aquí decía CEIL, y era cierto
+// mientras `CountdownFormat` tenía dos funciones (`standalone` CEIL / `mirrored`
+// ROUND). Quedó una —la regla del móvil, que es el dueño del tiempo— porque las
+// dos convivían en la misma pantalla del espejo y el mismo segundo se leía
+// distinto según quién lo pintara. Ver docs/DECISIONS.md (2026-08-29).
 
 /** WorkoutSession.formatElapsed — «04:36» · «1:02:40». */
 export function clock(seconds: number): string {
@@ -18,9 +21,9 @@ export function clock(seconds: number): string {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${s}`;
 }
 
-/** CountdownFormat.standalone — CEIL; «:45» por debajo del minuto, «01:30» a partir de él. */
+/** CountdownFormat.remaining — ROUND; «:45» por debajo del minuto, «01:30» a partir de él. */
 export function countdown(seconds: number): string {
-  const whole = Math.max(0, Math.ceil(seconds));
+  const whole = Math.max(0, Math.round(seconds));
   return whole < 60 ? `:${String(whole).padStart(2, '0')}` : clock(whole);
 }
 
