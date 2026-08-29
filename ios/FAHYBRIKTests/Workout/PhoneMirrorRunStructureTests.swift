@@ -109,7 +109,14 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertNotEqual(key0, key1)            // "TRAMO 1/2 · 800 m" ≠ "TRAMO 2/2 · 600 m"
     }
 
-    // MARK: - Treadmill belt ring — a continuous distance run sends covered/target/pace
+    // MARK: - El aro de la cinta sale del TRAMO, no de tres campos aparte
+    //
+    // El cable llevaba `beltDistanceM` / `beltTargetM` / `beltPaceSecPerKm` para que
+    // la muñeca llenase el aro de una carrera de cinta. Eran una copia: el tramo ya
+    // manda lo cubierto y el objetivo de CUALQUIER carrera, y `tramoRunCoveredMeters`
+    // ya resuelve cinta-o-GPS por autoridad — así que el reloj tenía dos números para
+    // la misma cosa y sólo una pantalla (ya borrada) leía la copia. Estos tests
+    // sustituyen a los del aro de cinta y clavan que el dato viaja UNA vez.
 
     private func continuousRunSession(targetM: Double) -> WorkoutSession {
         let seg = WorkoutSegment(order: 1, title: "5 km", kind: .running,
@@ -120,51 +127,27 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
             coachNote: nil, warmupChecklist: []))
     }
 
-    func testTreadmillContinuousRunSendsBeltRing() {
+    func testCintaContinuaViajaEnElTramoUnaSolaVez() {
         let s = continuousRunSession(targetM: 5000)
         s.lapElapsedSeconds = 300
-        s.sampleTreadmillDistance(deltaMeters: 1200)     // belt covered 1.2 km
-
-        mirror.isTreadmillLive = { true }
-        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
+        s.sampleTreadmillDistance(deltaMeters: 1200)     // la cinta llevó 1,2 km
 
         let f = mirror.buildFrame(from: s)
-        XCTAssertEqual(f.beltDistanceM ?? 0, 1200, accuracy: 0.001)   // fills the wrist ring
-        XCTAssertEqual(f.beltTargetM, 5000)
-        XCTAssertNotNil(f.beltPaceSecPerKm)                          // honest covered average
-        XCTAssertNil(f.countdownRemaining)                          // distance leg → still no fake clock
+        let t = try? XCTUnwrap(f.tramo)
+        XCTAssertEqual(t?.objetivoMedida, 5000)
+        XCTAssertEqual(t?.hechoMedida ?? 0, 1200, accuracy: 0.001)   // llena el aro
+        XCTAssertEqual(t?.cierre, "machineGoal")                     // lo cierra la medida
+        XCTAssertNil(f.countdownRemaining)                           // distancia → sin reloj falso
     }
 
-    func testTreadmillBeltRingAbsentWhenBeltNotLive() {
+    func testLoCubiertoDelTramoMueveLaClaveEstructural() {
+        // El aro tiene que llenarse conforme entran metros, y eso lo decide la clave:
+        // `hechoMedida` entra en ella AL METRO. Era el trabajo del cubo de la cinta.
         let s = continuousRunSession(targetM: 5000)
         s.sampleTreadmillDistance(deltaMeters: 1200)
-        mirror.isTreadmillLive = { false }
-        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
-        let f = mirror.buildFrame(from: s)
-        XCTAssertNil(f.beltDistanceM)                    // no belt live → no ring, no divergence
-    }
-
-    func testTreadmillFoldedSeriesDoesNotSendBeltRing() {
-        // A folded interval SERIES: `targetDistanceMeters` is PER-BOUT (400) while the
-        // belt accumulator spans ALL bouts of the segment — a ring would overflow, so
-        // the gate excludes it (per-leg covered isn't in the engine). It keeps its
-        // per-bout lines instead. Locks the gate against the isRunStructureActive-only
-        // check that would have let a series through.
-        let rx = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: 4,
-                              workS: nil, restS: 60, totalS: nil, target: nil, note: nil,
-                              start: nil, increment: nil)
-        let seg = WorkoutSegment(order: 1, title: "4×400", kind: .running,
-                                 targetDistanceMeters: 400, blockTitle: "Series",
-                                 blockPosition: 1, prescription: rx)
-        let s = WorkoutSession(plan: WorkoutPlan(
-            id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
-            blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []))
-        s.sampleTreadmillDistance(deltaMeters: 300)
-        mirror.isTreadmillLive = { true }
-        defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }
-        let f = mirror.buildFrame(from: s)
-        XCTAssertNil(f.beltDistanceM)                    // series → no ring
+        let antes = mirror.structuralKey(mirror.buildFrame(from: s))
+        s.sampleTreadmillDistance(deltaMeters: 8)
+        XCTAssertNotEqual(antes, mirror.structuralKey(mirror.buildFrame(from: s)))
     }
 
     // MARK: - Regla viva: the treadmill tramo surfaces via the SHARED live descriptor

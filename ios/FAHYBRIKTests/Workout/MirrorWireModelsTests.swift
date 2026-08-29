@@ -61,21 +61,6 @@ final class MirrorWireModelsTests: XCTestCase {
         XCTAssertEqual(f.phase, "someFuturePhase")
     }
 
-    // MARK: - Treadmill belt fields round-trip (optional + additive)
-
-    func testTreadmillBeltFrameRoundTrips() throws {
-        var f = sampleFrame(phase: MirrorWire.Phase.active, countdown: nil)
-        f.beltDistanceM = 620
-        f.beltTargetM = 800
-        f.beltPaceSecPerKm = 278
-        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.frame, f))
-        let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorStateFrame.self))
-        XCTAssertEqual(back, f)
-        XCTAssertEqual(back.beltDistanceM, 620)
-        XCTAssertEqual(back.beltTargetM, 800)
-        XCTAssertEqual(back.beltPaceSecPerKm, 278)
-    }
-
     // MARK: - Haptic cue message (phone engine → wrist)
 
     func testHapticCueRoundTripsThroughEnvelope() throws {
@@ -113,13 +98,17 @@ final class MirrorWireModelsTests: XCTestCase {
         }
     }
 
-    func testOldFrameWithoutBeltFieldsDecodesToNil() throws {
-        // A phone that predates the belt fields sends a frame without them → nil, so an
-        // older watch just renders the standard active glance (no ring). Additive, safe.
-        let json = Data(#"{"phase":"active","sessionElapsed":10,"lapElapsed":2}"#.utf8)
+    func testUnaTramaConCamposQueYaNoExistenSigueDecodificando() throws {
+        // Un móvil con los tres campos de cinta (`beltDistanceM` y compañía, borrados
+        // al quitar su pantalla) manda una trama que los lleva. El reloj nuevo tiene
+        // que IGNORARLOS, no fallar el decode entero: si fallara, un teléfono sin
+        // actualizar dejaría la muñeca en negro toda la sesión.
+        let json = Data(#"""
+        {"phase":"active","sessionElapsed":10,"lapElapsed":2,
+         "beltDistanceM":620,"beltTargetM":800,"beltPaceSecPerKm":278}
+        """#.utf8)
         let f = try MirrorWire.decoder.decode(MirrorStateFrame.self, from: json)
-        XCTAssertNil(f.beltDistanceM)
-        XCTAssertNil(f.beltTargetM)
-        XCTAssertNil(f.beltPaceSecPerKm)
+        XCTAssertEqual(f.phase, MirrorWire.Phase.active)
+        XCTAssertEqual(f.sessionElapsed, 10)
     }
 }

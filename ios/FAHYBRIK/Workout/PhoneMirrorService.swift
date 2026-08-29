@@ -74,12 +74,6 @@ final class PhoneMirrorService {
     @ObservationIgnored private var endedWorkoutUuid: String?
     @ObservationIgnored private var didRegisterHandler = false
 
-    /// Whether a treadmill belt is LIVE — the device-layer signal the mirror's belt
-    /// branch reads (the engine is treadmill-agnostic, so it can't answer this). A
-    /// seam: injectable so the frame-builder test drives the branch without a real BLE
-    /// hub; in production it reads the shared device hub (accessed lazily on call).
-    @ObservationIgnored var isTreadmillLive: () -> Bool = { DeviceHub.shared.treadmillLink.isLive }
-
     @ObservationIgnored private let healthStore = HKHealthStore()
 
     private static let frameInterval: TimeInterval = 1
@@ -497,31 +491,6 @@ final class PhoneMirrorService {
             )
         }
 
-        // Live TREADMILL belt progress — ONLY a plain CONTINUOUS distance run, where the
-        // segment IS the tramo (the belt accumulator equals the leg's covered distance).
-        // Excluded: a #61 STRUCTURED run and a folded interval SERIES — there the belt
-        // total spans multiple bouts while `targetDistanceMeters` is per-bout, so a ring
-        // would overflow; per-leg covered distance doesn't live in the engine. Those keep
-        // their per-leg measure / objetivo / TRAMO lines. This is exactly the HUD's own
-        // continuous-leg condition (`!structured && !series`), so the wrist ring fires
-        // when — and only when — the phone HUD treats it as one continuous leg. Covered
-        // comes from the session's belt accumulator, target from the prescribed distance,
-        // pace is the honest covered average; the zone rides on `targetZone` + local HR.
-        let beltDistanceM: Double?
-        let beltTargetM: Double?
-        let beltPaceSecPerKm: Int?
-        if let seg, isTreadmillLive(), seg.kind == .running,
-           !session.isRunStructureActive, !TreadmillLegResolver.isRunSeries(seg),
-           let target = seg.targetDistanceMeters, target > 0 {
-            beltDistanceM = session.lapBeltDistanceMeters
-            beltTargetM = target
-            beltPaceSecPerKm = session.liveBeltPaceSecPerKm
-        } else {
-            beltDistanceM = nil
-            beltTargetM = nil
-            beltPaceSecPerKm = nil
-        }
-
         return MirrorStateFrame(
             phase: phase,
             blockTitle: session.currentBlockRegion?.title,
@@ -545,9 +514,6 @@ final class PhoneMirrorService {
                 && session.pendingSetIndex == nil,
             restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
             dobles: dobles,
-            beltDistanceM: beltDistanceM,
-            beltTargetM: beltTargetM,
-            beltPaceSecPerKm: beltPaceSecPerKm,
             hapticCue: pendingHapticCue,
             hapticSeq: pendingHapticSeq,
             tramo: buildTramo(session),
@@ -733,15 +699,6 @@ final class PhoneMirrorService {
         // (partner → mine) flips the key so a fresh frame is resent the instant the turn
         // changes, driving the wrist's "entras tú" haptic on the very next tick.
         let doblesKey = f.dobles.map { "\($0.role):\($0.station)" } ?? ""
-        // The belt target is structural; the covered distance must UPDATE the ring as it
-        // fills (the wrist can't tick distance locally — it doesn't know the belt speed),
-        // so the covered metres ride in the key AL METRO: it resends as meters accrue,
-        // at most once per frame (`frameInterval` ya lo capa a una por segundo), never
-        // per centimetre. Pace rides along on the resend. Iban en cubos de 10 m y a
-        // ritmo de carrera eso es un refresco cada tres segundos — el numeral se
-        // clavaba y luego saltaba de diez en diez.
-        let beltTargetKey = f.beltTargetM.map { String(Int($0)) } ?? ""
-        let beltBucketKey = f.beltDistanceM.map { String(Int($0)) } ?? ""
         // Every whole second of a countdown / rest forces a frame so the wrist
         // can fire local 3-2-1 ticks even if a dedicated haptic packet is lost,
         // and so the re-based clock never drifts more than ~1 s.
@@ -808,8 +765,6 @@ final class PhoneMirrorService {
             f.restRemaining != nil ? "rest" : "",
             restSec,
             doblesKey,
-            beltTargetKey,
-            beltBucketKey,
             hapticKey,
             tramoKey,
         ]

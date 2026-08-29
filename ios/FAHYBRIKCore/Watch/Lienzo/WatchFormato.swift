@@ -24,7 +24,7 @@ enum WatchFormat {
     /// Con un ritmo medido delante SIEMPRE sabe escribirlo, así que nunca devuelve
     /// hueco. El llamante que TODAVÍA no tiene ritmo no pinta un guion: degrada a la
     /// siguiente verdad (el reloj del tramo) y lo dice en la etiqueta — ver
-    /// `StructuredRunLiveView.lecturaDelTramo` y `MirrorHUDView.lecturaDeCinta`.
+    /// `StructuredRunLiveView.lecturaDelTramo`.
     static func pace(_ secondsPerUnit: Int) -> String {
         Formato.ritmoCifras(Double(secondsPerUnit))
     }
