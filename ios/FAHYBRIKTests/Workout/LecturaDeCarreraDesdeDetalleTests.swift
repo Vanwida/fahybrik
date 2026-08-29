@@ -745,4 +745,81 @@ final class LecturaDeCarreraDesdeDetalleTests: XCTestCase {
         XCTAssertEqual(lectura.veredictosRecuperacion.count, 5,
                        "la recuperación también la juzgó el servidor, con o sin traza")
     }
+
+    // MARK: - El numerador y el denominador, del mismo sitio
+
+    /// UNA CARRERA NO SE DIVIDE ENTRE LOS SEGUNDOS DE TODA LA SESIÓN.
+    ///
+    /// La distancia sale de los tramos de CORRER (se filtran por modalidad) y la
+    /// duración salía de `execution.total_duration_seconds`, que cuenta el bloque de
+    /// core del final. Resultado: el ritmo medio de la carrera más lento que
+    /// cualquiera de los tramos que lo componen — y distinto de lo que el atleta vio
+    /// al terminar, que sólo mide el correr.
+    ///
+    /// Aquí: 4.000 m de correr en 1.000 s (4:10 /km) dentro de una sesión de 1.600 s.
+    /// Con el denominador viejo salían 6:40 /km, un ritmo que no corrió nadie.
+    func testLaDuracionDeLaCarreraNoIncluyeElBloqueQueNoEsCorrer() throws {
+        let json = """
+        {
+          "assignment": {
+            "id": "494", "athlete_id": "64",
+            "scheduled_for": "2026-08-29", "status": "completed"
+          },
+          "execution": {
+            "execution_id": "9001",
+            "total_duration_seconds": 1600,
+            "completeness": "full",
+            "contributing_sources": ["gps"],
+            "started_at": "2026-08-29 07:00:00+00",
+            "ended_at": "2026-08-29 07:26:40+00",
+            "segments": [
+              {
+                "position": 0, "item_uid": "segment-1", "modality": "run",
+                "started_at": "2026-08-29 07:00:00+00",
+                "duration_seconds": 1000, "distance_meters": 4000,
+                "avg_pace_s_per_km": 250, "avg_hr": 152, "sets": []
+              },
+              {
+                "position": 1, "item_uid": "segment-2", "modality": "strength",
+                "started_at": "2026-08-29 07:16:40+00",
+                "duration_seconds": 600, "distance_meters": null, "sets": []
+              }
+            ]
+          }
+        }
+        """
+        let carrera = try XCTUnwrap(LecturaDeCarreraDesdeDetalle.carrera(de: decodifica(json)))
+        XCTAssertEqual(carrera.distanciaM, 4000)
+        XCTAssertEqual(carrera.duracionS, 1000, "los 600 s de core no son carrera")
+    }
+
+    /// Y con una fila vieja cuyos tramos no traen duración, el total de la sesión
+    /// sigue siendo el respaldo: es peor denominador, pero es el único que hay y sin
+    /// él no habría ritmo que leer.
+    func testSinDuracionEnLosTramosManadaElTotalDeLaSesion() throws {
+        let json = """
+        {
+          "assignment": {
+            "id": "494", "athlete_id": "64",
+            "scheduled_for": "2026-08-29", "status": "completed"
+          },
+          "execution": {
+            "execution_id": "9002",
+            "total_duration_seconds": 1353,
+            "completeness": "full",
+            "contributing_sources": ["gps"],
+            "started_at": "2026-08-29 07:00:00+00",
+            "segments": [
+              {
+                "position": 0, "item_uid": "segment-1", "modality": "run",
+                "started_at": "2026-08-29 07:00:00+00",
+                "duration_seconds": null, "distance_meters": 3780, "sets": []
+              }
+            ]
+          }
+        }
+        """
+        let carrera = try XCTUnwrap(LecturaDeCarreraDesdeDetalle.carrera(de: decodifica(json)))
+        XCTAssertEqual(carrera.duracionS, 1353)
+    }
 }

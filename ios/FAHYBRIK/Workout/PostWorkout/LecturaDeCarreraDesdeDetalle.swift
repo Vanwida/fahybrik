@@ -110,9 +110,25 @@ enum LecturaDeCarreraDesdeDetalle {
         let traza = trazaDe(ejecucion.trace)
         let ruta = ejecucion.trace.map(rutaDe) ?? []
 
+        // EL NUMERADOR Y EL DENOMINADOR, DEL MISMO SITIO.
+        //
+        // La distancia salía de los tramos de CORRER (arriba se filtran por
+        // modalidad) y la duración del total de la SESIÓN. En una sesión que es
+        // mayormente correr pero no sólo —un rodaje y un bloque de core, que es lo
+        // que `correrManda` admite— eso divide los metros de la carrera entre los
+        // segundos de todo, y el ritmo medio sale más lento que ninguno de los
+        // tramos que lo componen. Y no coincide con lo que el atleta vio al
+        // terminar, que sí mide sólo el correr (`CarreraDeLaSesion.duracion`).
+        //
+        // Manda lo que midieron los tramos. El total de la sesión queda como
+        // respaldo para una fila vieja cuyos tramos no traen duración: peor
+        // denominador, pero es el único que hay, y sin él no habría ritmo.
+        //
+        // En un rodaje —un solo tramo de correr, el caso de un Largo Z2— las dos
+        // cifras son la misma, así que final e historial dicen lo mismo.
         let distancia = segmentos.compactMap(\.distanceMeters).reduce(0, +)
-        let duracion = Double(ejecucion.totalDurationSeconds
-            ?? segmentos.compactMap(\.durationSeconds).reduce(0, +))
+        let medidoEnTramos = segmentos.compactMap(\.durationSeconds).reduce(0, +)
+        let duracion = Double(medidoEnTramos > 0 ? medidoEnTramos : (ejecucion.totalDurationSeconds ?? 0))
 
         return Carrera(
             titulo: detalle.workout?.name ?? tituloAlternativo ?? "Carrera",
