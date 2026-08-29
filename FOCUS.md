@@ -40,8 +40,7 @@ eran una pregunta contestada por quien no le tocaba.** El por qué en DECISIONS.
    `hayMedidoQueSePerderia` y `hasRecordedWork` se borra (sin llamantes, y su
    comentario describía una regla que ya no existe).
 
-Del walk anterior (`5a8e2c0`) quedan cerrados el rest —la guarda `tramoMide`,
-estrechada— y el apretón de manos del reloj. En DECISIONS.
+Del walk de `5a8e2c0` quedan cerrados el rest y el apretón de manos. En DECISIONS.
 
 ## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 
@@ -57,12 +56,17 @@ estrechada— y el apretón de manos del reloj. En DECISIONS.
    Apple sólo canta en SU app —donde las tres páginas no están— y un Z2 `steady`
    ni llega ahí (`eligibility` exige estructura nativa). Propuesta en DECISIONS:
    el corte del km como SUCESO grabado en la traza. **Decide Alex.**
-2. **DOS DUEÑOS DE SESIÓN en la muñeca**, así que «una sesión, dos aparatos
-   suscritos» aún no se cumple del todo: `LiveWorkoutSession` (solitario) y
-   `MirrorSessionController` (espejo), y entre ellos un cierre + un arranque, no
-   una suscripción. Ya se borró lo que tiraba la grabación al traspasar
-   (`abandon()`); unificar es borrar UNO de los dos y arrastra el canal de tramas,
-   el cableado del motor y el fin en solitario. No es un parche.
+2. **CLASE 1 VIVA: dos dueños, y el aviso que existe para esto hace la mitad.**
+   `liveStart` está en el cable *para* el caso en que `startWatchApp` no levanta la
+   app, y al llegar sólo cierra el motor de la muñeca — nunca la pone a grabar. De
+   ahí el iPhone con SIN RELOJ y el reloj en readiness. Debajo, dos dueños de
+   `HKWorkoutSession`: `LiveWorkoutSession` (guarda, va en el coordinador) y
+   `MirrorSessionController` (crea la suya, duplica el delegado del builder, sólo
+   despierta con `startWatchApp`). **Diseño en DECISIONS**: el dueño es el primero,
+   el espejo pasa a suscriptor y `liveStart` lleva actividad + ubicación. Las dos
+   mitades van juntas —arrancar por WC sin unificar da DOS sesiones— y son ~200
+   líneas que mueven canal, watchdog y fin, sin compilador aquí. **Nombrado, no
+   empezado a medias.**
 3. **El reloj EN SOLITARIO sigue con `LiveFlowView`**, que arma sus páginas a
    mano, y `GuionRodaje`/`GuionSeries` viven en el escaparate DEBUG: dos looks.
 4. **Ruta en `HKWorkoutRouteBuilder`**: Salud no recibe recorrido; el mapa del

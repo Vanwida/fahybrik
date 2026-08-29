@@ -83,6 +83,53 @@ borrar uno de los dos, y arrastra el canal de tramas
 del motor y el camino de fin en solitario. No es un parche y no cabe en media tanda: va
 nombrado en FOCUS.
 
+### Clase 1 · Sigue viva: DOS dueños, y el aviso que existe para esto hace la mitad
+
+Walk del 29-ago sobre `d59ce98b`: el iPhone corría (AL AIRE LIBRE, GPS fuerte, 442 m,
+mapa moviéndose) con **SIN RELOJ** y el pulso en «sin reloj», y el reloj se quedó en
+readiness (74, dos puntos, footer 21). **Nunca entró en la sesión.** Borrar la pantalla
+de CONECTANDO no era la clase: era su síntoma visible.
+
+**El diagnóstico, con el cable delante.** `WatchWireKeys.liveStart` existe con este
+comentario:
+
+> «Teléfono → reloj: *el motor ya corre aquí*. El reloj no arranca un segundo
+> WorkoutSession. El espejo HK es el que pinta; **esto sólo cierra el hueco si
+> `startWatchApp` no levantó la app**.»
+
+Es decir: hay un mensaje que existe **exactamente** para el caso que se caminó
+—`startWatchApp` no levantó la app— y lo único que hace al llegar es cerrar el motor de
+la muñeca. Nunca la pone a GRABAR. Así que el «hueco» no se cierra: la muñeca acaba sin
+nada y el teléfono se queda solo. La frase «el motor ya corre aquí» es la que sobra.
+
+**Y debajo hay dos dueños de `HKWorkoutSession` en la muñeca:**
+
+- `LiveWorkoutSession` — el envoltorio fino: arranca, pausa, termina y **guarda**. Lo usa
+  el coordinador en solitario. Ya publica pulso, calorías y metros del builder.
+- `MirrorSessionController` — crea **su propia** sesión, la espeja al acompañante y pinta
+  las tramas. Duplica el delegado del builder (su `applyHR`/`applyDistance` es lo mismo
+  que el `apply(stats:type:)` del otro) y sólo se le puede despertar con `startWatchApp`.
+
+**Lo decidido (diseño), y por qué las dos mitades van juntas:** el dueño es
+`LiveWorkoutSession` —una instancia, la que ya cuelga del coordinador— y
+`MirrorSessionController` deja de crear sesión: pasa a ser el suscriptor del canal.
+Necesita tres cosas del dueño, que hoy no expone: `startMirroringToCompanionDevice()`,
+`sendToRemoteWorkoutSession(_:)` y un gancho de datos remotos (como los
+`onHeartRate`/`onDistanceDelta` que ya tiene). Con eso, `liveStart` puede llevar la
+actividad y la ubicación y **poner a la muñeca en sesión por el canal que sí funciona**
+—el mismo que le lleva el plan y el readiness— en vez de depender sólo de
+`startWatchApp`. La muñeca es la sesión; el teléfono se suscribe.
+
+**Por qué NO está construido todavía, dicho claro:** las dos mitades están acopladas. Si
+`liveStart` arranca la sesión propia **antes** de unificar los dueños, un
+`startWatchApp` que sí llegue crearía la segunda — y volveríamos a dos, que es peor que
+el bug. Y la unificación son ~200 líneas que mueven el canal de tramas, el watchdog, el
+apretón de fin y la continuación del guardado, en una VM **sin compilador**. Empezarla a
+medias rompe la única vía viva del entreno. Va nombrada, no empezada.
+
+**NO hacer:** ni un reintento más de `startWatchApp` (no es el apretón de manos, es que
+al llegar no se pone a grabar), ni parchear la pantalla de readiness.
+
 ### Clase 2 · Salir no era terminar
 
 Aspa en el HUD → Plan con EMPEZAR. Sin recap, porque no hubo fin de sesión ni
