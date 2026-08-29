@@ -127,16 +127,16 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
             coachNote: nil, warmupChecklist: []))
     }
 
-    func testCintaContinuaViajaEnElTramoUnaSolaVez() {
+    func testCintaContinuaViajaEnElTramoUnaSolaVez() throws {
         let s = continuousRunSession(targetM: 5000)
         s.lapElapsedSeconds = 300
         s.sampleTreadmillDistance(deltaMeters: 1200)     // la cinta llevó 1,2 km
 
         let f = mirror.buildFrame(from: s)
-        let t = try? XCTUnwrap(f.tramo)
-        XCTAssertEqual(t?.objetivoMedida, 5000)
-        XCTAssertEqual(t?.hechoMedida ?? 0, 1200, accuracy: 0.001)   // llena el aro
-        XCTAssertEqual(t?.cierre, "machineGoal")                     // lo cierra la medida
+        let t = try XCTUnwrap(f.tramo)
+        XCTAssertEqual(t.objetivoMedida, 5000)
+        XCTAssertEqual(t.hechoMedida ?? 0, 1200, accuracy: 0.001)    // llena el aro
+        XCTAssertEqual(t.cierre, "machineGoal")                      // lo cierra la medida
         XCTAssertNil(f.countdownRemaining)                           // distancia → sin reloj falso
     }
 
