@@ -31,12 +31,16 @@ BG = "#000000"
 SURFACE_RAISED = "#1F1F1F"
 INK = "#FFFFFF"
 # El gris secundario de WatchTheme (#8A8A8E) vale sobre negro y NO vale sobre un
-# lienzo teñido: sobre el verde de la Z3 al 45 % se queda en 2,29:1 y la unidad y
-# las versales dejan de leerse — el mismo «no se lee de un vistazo» que motivó el
-# relleno fuerte. Un gris fijo no puede vivir sobre un fondo que cambia de color,
-# así que el cromo pasa a ser BLANCO con alfa: mantiene 5,5:1 contra las cinco
-# zonas y 10,5:1 sobre negro, sin dejar de pesar menos que el dato (§4).
-DIM = "rgba(255,255,255,0.70)"
+# lienzo teñido: sobre el verde de la Z3 al 45 % se queda en 2,30:1 y sobre el
+# ámbar en 2,09:1, así que la unidad y las versales dejan de leerse — el mismo «no
+# se lee de un vistazo» que motivó el relleno fuerte. Un gris fijo no puede vivir
+# sobre un fondo que cambia de color, así que el cromo pasa a ser BLANCO con alfa.
+#
+# El alfa es 0,76 y también sale de medir, no de elegir: contra el ámbar de la Z4
+# —que es el peor caso— 0,70 se queda en 4,47:1, por debajo del 4,5 que pide un
+# texto pequeño, y 0,76 lo cruza con margen (4,95:1). Sobre negro da 11,76:1 y
+# sigue pesando menos que el dato (§4), que va en blanco puro.
+DIM = "rgba(255,255,255,0.76)"
 ORANGE = "#F06A2A"       # la acción
 ORANGE_SOFT = "#FF8A4C"  # el aro: pasa el 3:1 contra las cinco zonas, el de marca no
 ZONE_GREEN = "#2FD14F"   # Z3 «medio» — la única zona que sale en estas láminas
@@ -79,10 +83,17 @@ SEGUNDO_BASE = 22
 #
 # Por qué 45 y no más: el techo NO es de gusto, lo pone el ámbar de la Z4. El aro
 # del bisel (#FF8A4C) tiene que mantener 3:1 contra el lienzo porque es un
-# elemento gráfico que hay que entender, y sobre ámbar al 45 % se queda en 3,09:1
-# — al 55 % cae a 2,30 y el aro desaparece. Con ese mismo 45 %, el numeral blanco
-# va de 7,9:1 (verde) a 12,3:1 (azul), y las cinco zonas quedan a un vistazo:
-# Z2 #133173 · Z3 #159438 · Z4 #73511D · Z5 #732222 · Z1 #3E3E40.
+# elemento gráfico que hay que entender, y sobre ámbar al 45 % se queda en 3,08:1
+# — al 50 % ya es 2,67 y al 55 % 2,31, o sea que el aro desaparece. Con ese mismo
+# 45 % el numeral blanco va de 7,18:1 (ámbar, el peor) a 12,25:1 (azul), y las
+# cinco zonas quedan a un vistazo:
+#
+#   Z1 #3E3E40 · Z2 #133173 · Z3 #155E24 · Z4 #73511D · Z5 #732323
+#
+# Todos estos números están MEDIDOS en el navegador (`color-mix` resuelto y leído
+# por un lienzo 2D, luminancia relativa y razón de contraste), no calculados a
+# mano: los primeros que escribí traían un hex mal (la Z3, con el 94 decimal
+# escrito como 0x94) y tres razones de contraste equivocadas.
 TINTE_MAX = 45
 
 # La viñeta: oscurece las esquinas (donde la curva del bisel se come el lienzo) y
@@ -474,9 +485,10 @@ def pagina_controles(*, pausado: bool = False, activa: int = 2) -> str:
         _boton("Nuevo tramo", alto=altos[1], fondo=SURFACE_RAISED, color=INK),
         # Los tres botones son OPACOS. El rojo traslúcido de la primera versión
         # (14 % sobre negro) dejaba pasar el lienzo: sobre la zona en verde el
-        # botón salía oliva y su texto rojo se quedaba en 1,32:1. Estos dos hexes
-        # son exactamente lo que aquel traslúcido daba sobre negro, así que el
-        # botón se ve igual que antes y ahora no depende de la zona.
+        # botón salía #365C2A —oliva— y su texto rojo se quedaba en 2,37:1. Estos
+        # dos hexes son exactamente lo que aquel traslúcido daba sobre negro, así
+        # que el botón se ve igual que antes, su texto sube a 5,69:1 y ahora no
+        # depende de la zona.
         _boton("Terminar", alto=altos[2], fondo="#240B0B", color=ZONE_RED,
                borde="box-shadow:inset 0 0 0 1.5px #732323;"),
     ]
@@ -544,7 +556,11 @@ def render(html: str, salida: str, ancho: int, alto: int, escala: int = 3) -> No
         sys.exit("falta google-chrome en el PATH")
     if os.path.exists(salida):
         os.remove(salida)
-    with tempfile.TemporaryDirectory() as tmp:
+    # `ignore_cleanup_errors` porque a Chrome se le mata en cuanto el PNG está
+    # escrito y sus hijos siguen vaciando el perfil un instante: sin esto, el
+    # borrado del temporal lanza «Directory not empty» y aborta la tanda a media
+    # lámina, dejando unos PNG nuevos y otros viejos.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         pagina = os.path.join(tmp, "m.html")
         with open(pagina, "w", encoding="utf-8") as f:
             f.write(html)
@@ -647,10 +663,11 @@ def lamina_hoja() -> tuple[str, int, int]:
  <div>{tira_zonas()}</div>
  <div class="pie" style="max-width:640px">
   <b>El relleno es la zona, plano y al 45 %.</b> El tope no es de gusto: lo pone el ámbar de la
-  Z4, porque el aro naranja tiene que mantener 3:1 contra el lienzo y ahí se queda en 3,09
-  (al 55 % cae a 2,30 y el aro desaparece). Con ese mismo 45 % el numeral blanco va de 7,9:1
-  sobre el verde a 12,3:1 sobre el azul. Del degradado de antes queda una <b>viñeta</b>: negro
-  en las esquinas, donde la curva del bisel se come el lienzo, y en las dos bandas de versales.
+  Z4, porque el aro naranja tiene que mantener 3:1 contra el lienzo y ahí se queda en 3,08
+  (al 50 % ya es 2,67 y al 55 % 2,31 — el aro desaparece). Con ese mismo 45 % el numeral blanco
+  va de 7,18:1 sobre el ámbar, que es el peor caso, a 12,25:1 sobre el azul. Del degradado de
+  antes queda una <b>viñeta</b>: negro en las esquinas, donde la curva del bisel se come el
+  lienzo, y en las dos bandas de versales. Todo medido en el navegador, no a mano.
   <br/><br/>
   Y mientras el lienzo lleve la zona, <b>en esta pantalla no habla en color nada más</b>: el
   veredicto del ritmo es una palabra, porque un «en objetivo» verde sobre un lienzo verde no se
