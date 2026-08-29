@@ -32,7 +32,19 @@ struct WatchReloj: View {
     var bisel: AnyView? = nil
     var destello: WatchDestello = WatchDestello()
 
-    @State private var indice = 0
+    /// LA PÁGINA SE GUARDA POR SU NOMBRE, NO POR SU SITIO.
+    ///
+    /// Un guion no devuelve una lista fija: `GuionRodaje` publica la del ritmo y
+    /// la de la distancia sólo cuando el GPS fija, y pone el pulso PRIMERO en
+    /// cuanto hay zona viva. Con el índice como memoria, el atleta que se dejaba
+    /// el reloj en la página 1 sin señal se lo encontraba en «distancia» al fijar
+    /// el GPS, y de nuevo en otra al llegar el primer latido: la página que
+    /// eligió cambiaba debajo del pulgar sin que él tocara nada.
+    ///
+    /// Con el id, cada página es ella misma mientras exista. Y si deja de existir
+    /// —se pierde la señal y el ritmo desaparece— se cae al sujeto, que es la
+    /// primera, en vez de a la que haya heredado ese número.
+    @State private var paginaId: String?
     @State private var destelloOpacity: Double = 0
     @State private var dragOffset: CGFloat = 0
 
@@ -60,11 +72,18 @@ struct WatchReloj: View {
     @Environment(\.isLuminanceReduced) private var atenuado
     @State private var golpe: CGFloat = 1
 
+    /// Dónde está la página guardada DENTRO de la lista de ahora. Sin memoria, o
+    /// con una página que ya no existe, manda la primera.
+    private var indice: Int {
+        guard let paginaId, let i = paginas.firstIndex(where: { $0.id == paginaId }) else { return 0 }
+        return i
+    }
+
     private var paginaActiva: WatchPagina {
         guard !paginas.isEmpty else {
             return WatchPagina(id: "vacio", contexto: "", modo: .ojeada, sujeto: "—")
         }
-        return paginas[min(max(0, indice), paginas.count - 1)]
+        return paginas[min(indice, paginas.count - 1)]
     }
 
     private var varias: Bool { paginas.count > 1 }
@@ -121,14 +140,11 @@ struct WatchReloj: View {
             withAnimation(.easeOut(duration: 0.45)) { destelloOpacity = 0 }
             WatchHaptics.transition()
         }
-        .onChange(of: paginas.count) { _, _ in
-            if indice >= paginas.count { indice = max(0, paginas.count - 1) }
-        }
         // Bajas la muñeca → vuelves al sujeto. Igual que la app de Apple, que
         // regresa sola a métricas: al levantar el brazo no puedes encontrarte en
         // una página que no pediste y que ya no puedes abandonar deslizando.
         .onChange(of: atenuado) { _, reducida in
-            if reducida { indice = 0 }
+            if reducida { paginaId = paginas.first?.id }
         }
     }
 
@@ -321,7 +337,7 @@ struct WatchReloj: View {
     private func ir(_ destino: Int) {
         guard !paginas.isEmpty else { return }
         let n = ((destino % paginas.count) + paginas.count) % paginas.count
-        withAnimation(.easeInOut(duration: 0.2)) { indice = n }
+        withAnimation(.easeInOut(duration: 0.2)) { paginaId = paginas[n].id }
     }
 
     private func accesibilidad(_ p: WatchPagina) -> String {
