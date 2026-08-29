@@ -14,7 +14,21 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     @Published private(set) var heartRate: Double = 0
     @Published private(set) var activeKcal: Double = 0
     @Published private(set) var distanceMeters: Double = 0
-    @Published private(set) var elapsedSeconds: TimeInterval = 0
+
+    /// LO QUE LLEVA GRABADO ESTA SESIÓN, SEGÚN APPLE.
+    ///
+    /// No es un `@Published` movido por un timer nuestro, y ahí estaba el fallo:
+    /// había un `Timer` de 1 Hz calculando `Date() - startDate` para publicar este
+    /// número. Un segundo reloj, con su propia idea de la pausa (miraba
+    /// `isPaused`, que es nuestro, no el de la sesión de HealthKit) y sin un solo
+    /// lector — las vistas leen el crono del motor, que es el que sabe de tramos,
+    /// descansos y auto-pausa.
+    ///
+    /// `HKLiveWorkoutBuilder.elapsedTime` (watchOS 5) es lo que Apple deriva del
+    /// contenido del builder: la misma cifra que verá el HKWorkout guardado. El
+    /// crono que LEE el atleta sigue siendo el del motor; esto es la duración de
+    /// la GRABACIÓN, y sólo hay un sitio de donde sacarla.
+    var elapsedSeconds: TimeInterval { builder?.elapsedTime ?? 0 }
 
     // Live-metric hooks. The workout coordinator sets these to pipe the HealthKit
     // stream straight into the WorkoutSession engine: each new HR reading and each
@@ -29,8 +43,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     private let store = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
-    private var startDate: Date?
-    private var tickTimer: Timer?
     /// Resumed once the HKWorkout is saved (or the save fails), so `end()` can hand
     /// the finished workout's UUID back to the coordinator for the execution's
     /// `source_workout_ref`. The save happens on the session-state delegate, off the
@@ -93,8 +105,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
             builder.beginCollection(withStart: start) { [weak self] _, _ in
                 Task { @MainActor in
                     self?.isActive = true
-                    self?.startDate = start
-                    self?.startTickTimer()
                 }
             }
         } catch {
@@ -118,7 +128,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     func abandon() {
         let ending = session
         abandonedSession = ending
-        tickTimer?.invalidate()
         ending?.end()
         reset()
     }
@@ -134,20 +143,6 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
             endContinuation = continuation
             session?.end()
         }
-    }
-
-    // MARK: - Tick loop for elapsed time
-
-    private func startTickTimer() {
-        tickTimer?.invalidate()
-        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let start = self.startDate, !self.isPaused else { return }
-                self.elapsedSeconds = Date().timeIntervalSince(start)
-            }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        tickTimer = t
     }
 
 }
@@ -205,17 +200,13 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
 
     @MainActor
     private func reset() {
-        tickTimer?.invalidate()
-        tickTimer = nil
         session = nil
         builder = nil
-        startDate = nil
         isActive = false
         isPaused = false
         heartRate = 0
         activeKcal = 0
         distanceMeters = 0
-        elapsedSeconds = 0
         lastReportedDistance = 0
     }
 }
