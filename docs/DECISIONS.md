@@ -11,6 +11,72 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Las dos clases del debugger, y la pieza que producía cada una
+
+Walk en simulador con **compilación OK y build 21**. Dos clases, no doce bugs, y las
+dos tienen la misma forma: **una pregunta contestada por quien no le tocaba**.
+
+### Clase 1 · La muñeca no estaba EN la sesión
+
+Pantalla negra, spinner, «CONECTANDO…», «El entreno se controla desde el iPhone», dos
+puntos de página. Ni vivo, ni pausa, ni fin — porque todo colgaba de que llegara la
+primera trama del teléfono.
+
+**La pieza es esa pantalla.** El modelo de Apple es el que manda: `HKWorkoutSession`
+vive EN EL RELOJ y el teléfono es el acompañante. Mientras la muñeca es la que graba,
+una pantalla que declara que el entreno es de otro aparato es simplemente falsa — y de
+paso escondía los dos controles que sí son suyos.
+
+**Decidido:** sin trama, la muñeca pinta **lo que ella mide** (`GuionDeLaMuneca`): el
+reloj y los metros de su `HKLiveWorkoutBuilder` y el pulso de su sensor. Son LAS MISMAS
+tres páginas de 105 con la pieza ABIERTA, que es la verdad: nadie le ha dicho qué tramo
+es éste, así que el sujeto es el reloj y la banda dice «llevas». La trama pasa de ser la
+CONDICIÓN de que exista pantalla a ser lo que la ENRIQUECE (qué pierna, qué objetivo, el
+veredicto del ritmo).
+
+**No es un segundo motor:** no hay cursor de tramos, ni avance, ni prescripción. No se
+decide nada; se enseña lo que Apple ya midió.
+
+Y lo que le faltaba para ser dueña: `pausar()`/`reanudar()` actúan sobre SU sesión (y
+además avisan al teléfono), y `metrosPropios` deja de ser un privado que sólo servía
+para calcular el delta que se relaya — la muñeca tenía la cifra y no se la pintaba a sí
+misma.
+
+**NO hacer:** no devolver un spinner ni una frase que ceda el entreno al teléfono. No
+ofrecer «Nuevo tramo» cuando la muñeca va sola: el parcial lo sella el motor, así que
+ese botón se iría al vacío (pausar y terminar sí son suyos). Y no arreglar esto con un
+tercer reintento de `startWatchApp`: el problema no era el apretón de manos.
+
+### Clase 2 · Salir no era terminar
+
+Aspa en el HUD → Plan con EMPEZAR. Sin recap, porque no hubo fin de sesión ni
+persistencia.
+
+**La pieza era una línea:** la puerta de salida preguntaba `hasRecordedWork`, que
+contesta «¿esto cuenta como TRABAJO?» y por eso EXCLUYE el calentamiento a propósito —
+un «calentamiento hecho» no puede marcar la sesión como cumplida. Correcto para la
+completitud, y la pregunta equivocada para decidir si hay algo que guardar.
+
+El día caminado es un híbrido de 17 tramos cuyo **tramo 1 es un calentamiento de 8:00**.
+Con 1:52 corridos, 307 m de GPS y el mapa en pantalla, `currentBlockIsStructural` valía
+true, el `&&` anulaba el progreso vivo, y la salida se iba por `onExit()`: **descarte
+silencioso**.
+
+**Decidido:** `hayMedidoQueSePerderia` — no mira la fase del bloque, pregunta si alguien
+MIDIÓ algo. Un calentamiento con 307 m medidos es una carrera de 307 m. Pasada la
+puerta, terminar es lo que ya era: cerrar la sesión, persistir y abrir el recap de esa
+sesión guardada.
+
+`hasRecordedWork` se **borra**: no le quedaba ningún llamante, y su comentario describía
+una regla que ya no existe («sin trabajo real sólo se ofrece ABANDONAR») cuando la hoja
+de salida ofrece las cuatro opciones. Un accesor muerto que documenta un comportamiento
+que no pasa es la trampa lista para volver a cablearse mal.
+
+**NO hacer:** no añadir un botón de recap en Plan ni un caso especial para el aspa. Hay
+UNA puerta y ahora pregunta lo que tiene que preguntar.
+
+---
+
 ## 2026-08-29 · El km NO se canta en ninguna superficie, y por qué (bloqueante)
 
 **Hallazgo, no decisión.** Va primero porque contradice un supuesto del listón:
