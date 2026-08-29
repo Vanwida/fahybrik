@@ -20,6 +20,7 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
+import { SET_IS_WORKING } from '@/lib/execution/set-work';
 import { estimateOneRm } from '@fahybrid/shared/domain/strength';
 import { lateralitySides, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
@@ -151,8 +152,7 @@ async function loadStrengthSets(
     left join exercises e on e.id = se.exercise_id
     ${joinCoachOverride(client, coachId)}
     where we.athlete_id = ${athleteId}
-      and st.status <> 'skipped'
-      and coalesce(st.is_approach, false) = false
+      and ${SET_IS_WORKING(client)}
       and coalesce(se.is_structural, false) = false
       and coalesce(se.modality, case when e.category = 'strength' then 'strength' else 'other' end) = 'strength'
       and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz

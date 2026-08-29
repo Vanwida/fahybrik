@@ -18,6 +18,7 @@ import 'server-only';
 // =============================================================================
 
 import type { Sql } from '@/lib/db';
+import { SET_IS_WORKING } from '@/lib/execution/set-work';
 import { sql as defaultSql } from '@/lib/db';
 import { loadDoublesTrainingPartner } from '@/lib/athlete/doubles-training-partner';
 import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
@@ -110,8 +111,7 @@ export async function buildJointSummary(
             from set_executions st
             join segment_executions se on se.id = st.segment_execution_id
             where se.execution_id = we.id
-              and st.status <> 'skipped'
-              and coalesce(st.is_approach, false) = false
+              and ${SET_IS_WORKING(client)}
               and st.load_actual_kg is not null
               and st.reps_actual is not null
           )
@@ -150,8 +150,7 @@ export async function buildJointSummary(
             from set_executions st
             join segment_executions se on se.id = st.segment_execution_id
             where se.execution_id = we.id
-              and st.status <> 'skipped'
-              and coalesce(st.is_approach, false) = false
+              and ${SET_IS_WORKING(client)}
               and st.load_actual_kg is not null
               and st.reps_actual is not null
           )

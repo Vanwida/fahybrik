@@ -6,8 +6,8 @@
 //   is_approach: ¿qué clase? trabajo (false/ausente) | aproximación
 //
 // Ausente = trabajo. Así ninguna fila anterior a 0207 cambia de significado.
-// El SQL que filtra set_executions debe espejar esto:
-//   st.status <> 'skipped' and coalesce(st.is_approach, false) = false
+// El SQL que filtra set_executions debe espejar esto via SET_IS_WORKING
+// (`web/lib/execution/set-work.ts`), no copiando el coalesce a mano.
 
 export function isWorkingSet(set: {
   status?: string | null;

@@ -2,9 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-29** (178 · is_approach prod 42703)
 
 ## Ahora
+
+**178 · ANALÍTICAS CARRERA CAÍDA EN PROD (PR).** Neon prod no tiene mig
+0207 (`set_executions.is_approach`). Las rutas que la nombraban en SQL
+tiraban 42703: assignment detail, actuals del coach, volumen de fuerza,
+dobles tonelaje y, vía `loadSegmentActuals`, Analíticas → Carrera
+(`/running/progress` y sections). Arreglo de clase: `optional-column.ts` +
+`SET_IS_WORKING` (to_jsonb; ausente = trabajo). Pendiente aplicar 0207
+en Neon prod para que el escritor persista aproximaciones.
+https://app.clickup.com/t/86ak852uy
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva
