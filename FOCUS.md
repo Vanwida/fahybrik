@@ -1,7 +1,7 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-30**
+Última actualización: **2026-08-29**
 
 ---
 
@@ -16,6 +16,34 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 **En curso / lo siguiente:** las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
 
 **Esperan decisión de Alex:** si guardamos la serie de ritmo (`execution_streams`) · el identificador de coach en el enlace público de captura · las tres filas «Pablo Amigo» (60/61/62) con los atletas repartidos · el modelo de las 5 estaciones de HYROX · borrar o revivir `methodology_blocks`/`methodology_rules` (motor muerto cuya forma sigue siendo un catálogo de fases) · la firma de distribución, que bloquea TestFlight.
+
+---
+
+## PARA MIRAR · Correr en la muñeca, en tres páginas (card 105, 29-ago)
+
+**Solo diseño. Cero Swift, cero web, cero migraciones.** Cinco PNG en el repo, que se
+abren sin entrar a ningún sitio:
+
+| Lámina | Qué es |
+|---|---|
+| [`docs/mocks/reloj-correr.png`](docs/mocks/reloj-correr.png) | La interfaz entera: las tres páginas y el gesto |
+| [`docs/mocks/reloj-correr-vivo.png`](docs/mocks/reloj-correr-vivo.png) | La página del esfuerzo |
+| [`docs/mocks/reloj-correr-datos.png`](docs/mocks/reloj-correr-datos.png) | La página de los datos (ritmo · distancia · ppm · zona) |
+| [`docs/mocks/reloj-correr-controles.png`](docs/mocks/reloj-correr-controles.png) | Pausar · nuevo tramo · terminar |
+| [`docs/mocks/reloj-correr-estados.png`](docs/mocks/reloj-correr-estados.png) | Los seis estados: sin señal, sin umbral, en pausa, confirmar, serie prescrita, recupera |
+
+**Una sola interfaz, no tres variantes:** *datos ← vivo → controles*, y el vivo es el
+CENTRO, así que ni las cifras ni el pausar están nunca a más de un gesto. El sujeto es
+lo que FALTA de la pieza que tienes delante; los datos hablan de la SESIÓN y lo dicen;
+y las páginas de vivo no llevan un solo botón —corriendo no se toca— así que los 52 pt
+que hoy se come el botón grande vuelven al número.
+
+**Lo único que no existe hoy es «Nuevo tramo»:** cierra lo que llevas medido y empieza
+de cero sin tocar la prescripción, y sólo se ofrece cuando los cortes son del atleta.
+Razonamiento, el hallazgo del tinte al 38 % y lo que NO se toca: `docs/DECISIONS.md`
+(entrada del 2026-08-29).
+
+**Pendiente:** el visto bueno de Alex antes de llevar nada a Swift.
 
 ---
 
@@ -188,6 +216,10 @@ ahora, pero la UI es muy pobre, muy pequeña, debemos trabajarla muchísimo».
 aparte, porque es otro problema de diseño: 40 mm a distancia de brazo, en
 movimiento y sudando — ahí el sujeto es casi lo único que cabe y el resto
 debería ser una segunda página, no letra pequeña alrededor.
+
+**Abierto el 29-ago por CORRER** (card 105, arriba): «el resto debería ser una segunda
+página» es literalmente la interfaz de tres páginas de `docs/mocks/reloj-correr*.png`.
+Las demás modalidades del reloj siguen sin tocar.
 
 Hallazgo al mirarlo (no perderlo): **avanzar de ronda desde la muñeca YA
 funciona.** El canal de vuelta existe (`PhoneMirrorService.applyCommand`,
