@@ -436,8 +436,9 @@ final class WorkoutSession {
     var kmSplits = RunKmSplits()
 
     /// Un kilómetro se acaba de cerrar. Lo pone la capa que sabe anunciar (el móvil);
-    /// nil = nadie escucha, y el motor sigue contando igual.
-    var onKmSplit: ((RunKmSplit) -> Void)?
+    /// nil = nadie escucha, y el motor sigue contando igual. `@ObservationIgnored`
+    /// porque es un cable, no estado que pinte nadie.
+    @ObservationIgnored var onKmSplit: ((RunKmSplit) -> Void)?
 
     var timer: Timer?
     var lastTick: Date = Date()

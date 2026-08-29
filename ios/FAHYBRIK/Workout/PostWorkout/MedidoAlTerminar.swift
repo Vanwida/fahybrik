@@ -88,11 +88,18 @@ enum MedidoAlTerminar {
     /// conjunto de dobles).
     ///
     /// De paso le pide a Apple Salud su SEGUNDA OPINIÓN sobre los metros, que es lo
-    /// que hace esto asíncrono. Aparcada al TERMINAR, esa opinión puede llegar vacía:
-    /// la muñeca escribe su HKWorkout unos segundos después de que se le pida cerrar.
-    /// Es una degradación del CONTRASTE, nunca de lo medido — el ritmo y el pulso de
-    /// la traza son nuestros y están completos; lo que puede faltar es la distancia de
-    /// Apple al lado, para compararlas.
+    /// que hace esto asíncrono. El contraste se pide sólo cuando de verdad medimos
+    /// distancia con el GPS: en cinta los metros los da la máquina y compararlos con
+    /// lo que anduvo el atleta no significa nada, y en una sesión de fuerza no hay
+    /// nada que contrastar. La segunda serie se guarda AL LADO de la nuestra (misma
+    /// señal, otra fuente), jamás encima — es lo que hace que un fallo de la puerta de
+    /// distancia se vea la próxima vez en lugar de vivir escondido.
+    ///
+    /// Aparcada al TERMINAR, esa opinión puede llegar vacía: la muñeca escribe su
+    /// HKWorkout unos segundos después de que se le pida cerrar. Es una degradación
+    /// del CONTRASTE, nunca de lo medido — el ritmo y el pulso de la traza son
+    /// nuestros y están completos; lo que puede faltar es la distancia de Apple al
+    /// lado, para compararlas.
     static func closedTraces(
         recorder: WorkoutTraceRecorder,
         startedAt: Date

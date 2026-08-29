@@ -294,7 +294,8 @@ final class MirrorSessionController: NSObject {
     /// rechaza, y el único que conoce esa ventana es este lado. Un parcial más largo
     /// que lo que llevamos grabando (la muñeca se unió tarde) se recorta al arranque.
     private func writeLap(_ split: MirrorKmSplit) {
-        guard state == .recording, let builder, let start = session?.startDate else { return }
+        guard state == .recording, let builder,
+              let session, let start = session.startDate else { return }
         let end = Date()
         let begin = max(start, end.addingTimeInterval(-max(0, split.splitSeconds)))
         guard end > begin else { return }

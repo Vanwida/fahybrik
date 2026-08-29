@@ -514,16 +514,6 @@ struct PostWorkoutSummaryView: View {
     // Await whichever finishes first — the response or a timeout — WITHOUT blocking
     // on the (possibly slow) submit: a timeout resumes with nil while the submit
     // keeps running to completion in the background. Resume is guarded exactly once.
-    /// La traza de la sesión, cerrada — con la SEGUNDA OPINIÓN de Apple Salud sobre
-    /// los metros dentro cuando la hay.
-    ///
-    /// El contraste se pide sólo cuando de verdad medimos distancia con el GPS: en
-    /// cinta los metros los da la máquina y compararlos con lo que anduvo el atleta
-    /// no significa nada, y en una sesión de fuerza no hay nada que contrastar.
-    ///
-    /// La segunda serie se guarda AL LADO de la nuestra (misma señal, otra fuente),
-    /// jamás encima. Es lo que hace que un fallo de la puerta de distancia se vea solo
-    /// la próxima vez en lugar de vivir escondido hasta que alguien lo note corriendo.
     private static func firstValue<T>(
         of task: Task<T?, Never>,
         timeout: TimeInterval
