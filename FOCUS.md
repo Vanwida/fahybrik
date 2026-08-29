@@ -77,6 +77,5 @@ sus dos agujeros son posteriores** (`fa8831f1`, `9a2336a3`). Re-walk sobre el ti
 **SIN COMPILAR NI EJECUTAR:** no hay Xcode aquí. El listón es el **debugger
 recorriendo un Largo Z2 en simulador (iPhone + Watch)**, sin hacer.
 
-No tocar: GPS/authority (la cifra que cuadra con el mapa), 174, 175, plan
-del 67, `DEVELOPMENT_TEAM` (`S6W4459DDG`). Neon no. **105 ya está cortada:
-su interfaz es la que hay, no se inventa otra.**
+No tocar: GPS/authority, 174, 175, plan del 67, `DEVELOPMENT_TEAM`
+(`S6W4459DDG`). Neon no. **105 cortada: su interfaz es la que hay.**
