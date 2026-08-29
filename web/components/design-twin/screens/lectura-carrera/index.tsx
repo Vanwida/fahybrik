@@ -171,9 +171,13 @@ export function Screen({ escenario, appearance, onLog }: TwinScreenProps) {
             <SinArchivo desde={ARCHIVO_DESDE} revision={revision} />
           )}
 
-          {/* El reparto de zonas solo cuando el sujeto ES la zona: en cualquier
-              otra lectura sería una barra más que nadie vino a buscar. */}
-          {lectura.sujeto.clase === 'tiempo-en-zona' && zonas.length > 0 && (
+          {/* EL CUERPO DE UNA CARRERA SON SUS KILÓMETROS, SU RITMO, SUS ZONAS Y SU
+              MAPA. Esto se pintaba sólo cuando el sujeto ERA la zona, con el
+              argumento de que en otra lectura era «una barra más que nadie vino a
+              buscar». Pero el sujeto decide el TITULAR, no qué existe: en un rodaje
+              el sujeto suele ser el ritmo, y el atleta se quedaba sin saber dónde
+              estuvo su pulso en una carrera cuyo objetivo era una zona. */}
+          {zonas.length > 0 && (
             <Seccion titulo="Dónde estuvo tu pulso">
               <BarraZonas segmentos={zonas} />
             </Seccion>

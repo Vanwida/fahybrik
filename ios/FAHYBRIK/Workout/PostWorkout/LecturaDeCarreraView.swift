@@ -95,13 +95,19 @@ struct LecturaDeCarreraView: View {
 
         // MARK: - El reparto de zonas
         //
-        // Solo cuando el sujeto ES la zona. En cualquier otra lectura sería una
-        // barra más que nadie vino a buscar.
+        // EL CUERPO DE UNA CARRERA SON SUS KILÓMETROS, SU RITMO, SUS ZONAS Y SU MAPA.
+        //
+        // Esto sólo se pintaba cuando el SUJETO era la zona, con el argumento de que
+        // en otra lectura era «una barra más que nadie vino a buscar». Pero el sujeto
+        // es una decisión sobre el TITULAR —qué se lee primero—, no sobre qué existe:
+        // en un rodaje el sujeto suele ser el ritmo, y entonces el atleta se quedaba
+        // sin saber dónde estuvo su pulso en una carrera cuyo objetivo era
+        // literalmente una zona. Ahora se pinta cuando hay algo que repartir, y de eso
+        // ya contesta `ZoneCoverage.read` devolviendo nil.
 
         @ViewBuilder
         private var repartoDeZonas: some View {
-            if case .tiempoEnZona = lectura.sujeto,
-               let cobertura = ZoneCoverage.read(zoneSeconds: carrera.zonasS,
+            if let cobertura = ZoneCoverage.read(zoneSeconds: carrera.zonasS,
                                                  windowSeconds: carrera.duracionS) {
                 SeccionDeLectura(titulo: "Dónde estuvo tu pulso") {
                     VStack(alignment: .leading, spacing: 4) {
