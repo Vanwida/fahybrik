@@ -707,6 +707,7 @@
 		EFF0BE7D5C7543F05874A03D /* RunDistanceAuthority.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E06CA535E229B097483A04 /* RunDistanceAuthority.swift */; };
 		F050753995897D7691BDFC29 /* JumpReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3A4AA8B0463A87D7C0C3CC /* JumpReportView.swift */; };
 		F0BD26DAFD50CDA3681C31F3 /* InjuryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9EF8E668CB2CF467C847928 /* InjuryServiceTests.swift */; };
+		FCD5CDA6E890EC433978BD8F /* SaludNuestraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E52D7A5F042FFB96D7732 /* SaludNuestraTests.swift */; };
 		F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */; };
 		F0D6A102995BF2B74B86F836 /* AthletePhotoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D28A7728666849597315503 /* AthletePhotoTests.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
@@ -1396,6 +1397,7 @@
 		D904EE038E0FDF9C4F160FEA /* DoblesLiveBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveBanner.swift; sourceTree = "<group>"; };
 		D97A61118C7BFE1C854713F5 /* HealthKitDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitDTO.swift; sourceTree = "<group>"; };
 		D9EF8E668CB2CF467C847928 /* InjuryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjuryServiceTests.swift; sourceTree = "<group>"; };
+		A18E52D7A5F042FFB96D7732 /* SaludNuestraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaludNuestraTests.swift; sourceTree = "<group>"; };
 		D9F944EB2A4E14748224DD5D /* AthleticBackgroundStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AthleticBackgroundStep.swift; sourceTree = "<group>"; };
 		DA8F533B42B013698D985B07 /* WorkoutExecutionSpineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutExecutionSpineTests.swift; sourceTree = "<group>"; };
 		DADF4B169A666E2E848C3A8D /* HierroVivoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HierroVivoTests.swift; sourceTree = "<group>"; };
@@ -2556,6 +2558,7 @@
 				9226579B8D1344AA829A4B5E /* HealthHistoryImportPanelRenderTests.swift */,
 				E5ED140A213F7EF8CF240090 /* HealthHistoryImportTests.swift */,
 				D9EF8E668CB2CF467C847928 /* InjuryServiceTests.swift */,
+				A18E52D7A5F042FFB96D7732 /* SaludNuestraTests.swift */,
 			);
 			path = Health;
 			sourceTree = "<group>";
@@ -3861,6 +3864,7 @@
 				2035E06E5991F723F9145691 /* HubChatAnaliticasRenderTests.swift in Sources */,
 				31A34C41F79B8DCF5F6606BE /* HuecoDeclaradoRenderTests.swift in Sources */,
 				F0BD26DAFD50CDA3681C31F3 /* InjuryServiceTests.swift in Sources */,
+				FCD5CDA6E890EC433978BD8F /* SaludNuestraTests.swift in Sources */,
 				5C5A4C3460A5EC99107620B6 /* JumpPhysicsTests.swift in Sources */,
 				F3EEAA6DE2296AE646640CF1 /* KeychainTokenStoreTests.swift in Sources */,
 				ED04845CF48BFB816015403D /* LecturaDeCarreraDesdeDetalleTests.swift in Sources */,
