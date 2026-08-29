@@ -37,7 +37,7 @@ import HealthKit
 //     heart rate, active energy and distance. Without a guard, every sample we
 //     write here would be re-ingested minutes later as if some device had
 //     measured it — the athlete's active energy would count twice. Every sample
-//     this writer produces is therefore stamped with `writtenHereKey`, and
+//     this writer produces is therefore stamped with `SaludNuestra.firma`, and
 //     `HealthKitSyncService` drops stamped samples on the way in.
 //
 // The write is best-effort and never gates FAHYBRID's own save: no permission,
@@ -67,17 +67,6 @@ struct HealthKitWorkoutDraft {
 }
 
 enum HealthKitWorkoutWriter {
-    /// Metadata flag stamped on every sample this app writes, so the app's own
-    /// readers can tell "measured by a device" from "written by us" (rule 2).
-    ///
-    /// LLEVA LA MARCA DENTRO Y ASÍ SE QUEDA. No es copy: es la clave con la que
-    /// están sellados los samples que ya viven en Apple Salud de cada atleta.
-    /// Renombrarla no migra nada —HealthKit no reescribe metadata— y todo lo
-    /// escrito hasta hoy dejaría de reconocerse como nuestro, así que volvería a
-    /// contarse como medido por un dispositivo. NO derivar de `Marca`.
-    /// Ver docs/ios-clonabilidad.md § lo que no se toca.
-    static let writtenHereKey = "FAHYBRIDWrittenByApp"
-
     /// Every quantity type this writer may produce. Authorization derives from
     /// this exact list (HealthKitPermissions.shareTypes), so a type can never end
     /// up written-but-unauthorized — HealthKit silently drops those samples and
@@ -198,7 +187,7 @@ enum HealthKitWorkoutWriter {
             }
             try await builder.addMetadata([
                 HKMetadataKeyIndoorWorkout: draft.isIndoor,
-                writtenHereKey: true,
+                SaludNuestra.firma: true,
             ])
             try await builder.endCollection(at: draft.endedAt)
             let workout = try await builder.finishWorkout()
@@ -253,7 +242,7 @@ enum HealthKitWorkoutWriter {
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)
         let distanceType = distanceType(for: draft.activityType)
         let bpm = HKUnit.count().unitDivided(by: .minute())
-        let metadata: [String: Any] = [writtenHereKey: true]
+        let metadata: [String: Any] = SaludNuestra.metadata
 
         var samples: [HKQuantitySample] = []
         for segment in draft.segments {

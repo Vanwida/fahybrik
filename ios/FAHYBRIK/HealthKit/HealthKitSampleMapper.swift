@@ -73,7 +73,27 @@ enum HealthKitSampleMapper {
     /// device had measured it, and the athlete's active energy would be counted twice.
     /// Samples from the watch app (a different writer) carry no stamp and flow normally.
     static func measuredOnly(_ samples: [HKQuantitySample]) -> [HKQuantitySample] {
-        samples.filter { $0.metadata?[HealthKitWorkoutWriter.writtenHereKey] == nil }
+        samples.filter { !SaludNuestra.esNuestro($0.metadata) }
+    }
+
+    /// NI LOS ENTRENOS QUE ESCRIBIMOS NOSOTROS. El gemelo de `measuredOnly`, y faltaba.
+    ///
+    /// Un HKWorkout nuestro llega al servidor por DOS caminos: la ejecución
+    /// estructurada (con sus tramos, su ritmo y sus zonas, y este uuid dentro como
+    /// `source_workout_ref`) y este volcado, que sólo sabe traer duración. El volcado
+    /// llegaba sin firma, así que `linkExecution` lo adoptaba como una importación
+    /// ajena y escribía la sesión del atleta con **duración de reloj de pared y cero
+    /// tramos** — 22:40 y cero bloques donde la app tenía 22:33 y 3,78 km.
+    ///
+    /// Las guardas del servidor no fallaron: todas preguntan por evidencia que sólo
+    /// existe si nuestro POST llegó primero, así que eran una carrera. Aquí la pregunta
+    /// es de identidad y no se puede perder.
+    ///
+    /// Un entreno de OTRA app (Garmin, Strava, la app Entrenamiento de Apple) no lleva
+    /// firma y sigue entrando: es la única vía que tiene, y ahí la duración de Salud es
+    /// lo único que se sabe.
+    static func measuredOnly(_ workouts: [HKWorkout]) -> [HKWorkout] {
+        workouts.filter { !SaludNuestra.esNuestro($0.metadata) }
     }
 
     static func quantitySamples(

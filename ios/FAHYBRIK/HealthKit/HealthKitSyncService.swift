@@ -259,7 +259,16 @@ final class HealthKitSyncService {
             )
             do {
                 let result = try await descriptor.result(for: store)
-                let workouts = result.addedSamples
+                // LA PÁGINA se mide por lo que ENTREGÓ HealthKit; el ENVÍO, por lo que
+                // no es nuestro. Contar la página con la lista filtrada cortaría el
+                // bucle en una página llena de entrenos propios y dejaría las
+                // siguientes esperando a que el observador vuelva a disparar.
+                let page = result.addedSamples
+                // NO NOS LEEMOS A NOSOTROS MISMOS — la misma regla que ya aplicaban las
+                // muestras y que a los ENTRENOS le faltaba. El ancla avanza sobre la
+                // página completa, así que los nuestros quedan vistos y saltados, no
+                // pendientes de reentrega. Ver `SaludNuestra`.
+                let workouts = HealthKitSampleMapper.measuredOnly(page)
                 if !workouts.isEmpty {
                     let dtos = workouts.map { HealthKitSampleMapper.workout($0) }
                     // El ancla sólo avanza si el lote llegó o quedó encolado: si no,
@@ -268,7 +277,7 @@ final class HealthKitSyncService {
                 }
                 anchor = result.newAnchor
                 writeAnchor(anchor, for: "workouts")
-                if workouts.count < Self.pageLimit { return }
+                if page.count < Self.pageLimit { return }
             } catch {
                 // Failure path — leave last-written anchor so the next fire retries.
                 return

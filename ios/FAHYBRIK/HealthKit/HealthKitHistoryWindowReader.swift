@@ -65,7 +65,12 @@ final class HealthKitHistoryWindowReader: HealthHistoryWindowImporting {
                 limit: Self.pageLimit
             )
             let result = try await descriptor.result(for: store)
-            let dtos = result.addedSamples.map { HealthKitSampleMapper.workout($0) }
+            // Ni aquí nos leemos a nosotros mismos: un entreno que corrió DENTRO de la
+            // app ya está en la base con sus tramos, y traerlo otra vez por el volcado
+            // lo reescribiría con la duración de reloj de pared de Salud. Es la misma
+            // regla que las muestras aplican dos métodos más abajo. Ver `SaludNuestra`.
+            let dtos = HealthKitSampleMapper.measuredOnly(result.addedSamples)
+                .map { HealthKitSampleMapper.workout($0) }
             if !dtos.isEmpty { try await push(workouts: dtos, samples: []) }
             anchor = result.newAnchor
             if result.addedSamples.count < Self.pageLimit { return }

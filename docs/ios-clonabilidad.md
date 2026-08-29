@@ -170,12 +170,17 @@ cuenta — que es justo lo que no debe pasar.
 Y para un clon **no hace falta cambiarlas**: cada app tiene su propio sandbox de
 `UserDefaults`, así que dos marcas instaladas en el mismo teléfono no se pisan.
 
-### 3.2 `HealthKitWorkoutWriter.writtenHereKey = "FAHYBRIDWrittenByApp"`
+### 3.2 `SaludNuestra.firma = "FAHYBRIDWrittenByApp"`
 
-Es el sello con el que están marcados los samples que ya viven en Apple Salud de
-cada atleta. HealthKit no reescribe metadata: al renombrar la clave, todo lo
-escrito hasta hoy deja de reconocerse como nuestro y vuelve a contarse como
-medido por un dispositivo. Anotado en el propio fichero.
+Es el sello con el que están marcados los samples y los entrenos que ya viven en
+Apple Salud de cada atleta. HealthKit no reescribe metadata: al renombrar la
+clave, todo lo escrito hasta hoy deja de reconocerse como nuestro y vuelve a
+contarse como medido por un dispositivo. Anotado en el propio fichero.
+
+Vivía en `HealthKitWorkoutWriter` (target del teléfono) y el 29-ago se mudó a
+`ios/FAHYBRIKCore/HealthKit/SaludNuestra.swift`, que compilan los dos targets:
+**la muñeca también firma**, porque es quien escribe el HKWorkout de casi todas
+las sesiones. El literal es el mismo, así que no migra nada.
 
 ### 3.3 La firma de los entrenos programados en el reloj
 

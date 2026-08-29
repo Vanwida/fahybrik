@@ -583,6 +583,11 @@ final class MirrorSessionController: NSObject {
     private static func endAndSave(builder: HKLiveWorkoutBuilder?) async -> String? {
         guard let builder else { return nil }
         do {
+            // LA FIRMA, ANTES DE SELLAR. Sin ella este HKWorkout llegaba al servidor
+            // indistinguible de una importación ajena y el volcado de Salud lo
+            // adoptaba: duración de reloj de pared y cero tramos encima del entreno
+            // real. Ver `SaludNuestra`.
+            try? await builder.addMetadata(SaludNuestra.metadata)
             try await builder.endCollection(at: Date())
             let workout = try await builder.finishWorkout()
             return workout?.uuid.uuidString

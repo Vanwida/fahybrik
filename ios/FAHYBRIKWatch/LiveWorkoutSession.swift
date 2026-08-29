@@ -167,6 +167,11 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
             guard let builder = self.builder else { return }
             var savedWorkoutId: String? = nil
             do {
+                // LA FIRMA, ANTES DE SELLAR. La muñeca en solitario también relaya su
+                // ejecución (el sobre del outbox, con este uuid dentro), así que su
+                // HKWorkout es un transporte DUPLICADO igual que el del espejo. Ver
+                // `SaludNuestra`.
+                try? await builder.addMetadata(SaludNuestra.metadata)
                 try await builder.endCollection(at: endDate)
                 let workout = try await builder.finishWorkout()
                 savedWorkoutId = workout?.uuid.uuidString

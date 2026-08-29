@@ -224,6 +224,7 @@
 		42E2F6E09696E2C475A4FDBD /* PM5Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D6A21827AF7C5A06299BAB5 /* PM5Service.swift */; };
 		42F8C7D9A654019D7E71D92B /* CountdownFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328802A6B2D7559DB3EF927B /* CountdownFormat.swift */; };
 		7860B5335F8073ED32037B76 /* RunKmSplits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DA6B8763900D48D9F54ACB /* RunKmSplits.swift */; };
+		09555CF3A59ECE7633793962 /* SaludNuestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */; };
 		4323E4EC2AA5930BE4E4D20F /* SensorDecimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5D2400982CF74DFDE92713 /* SensorDecimator.swift */; };
 		4333657E9C5D7B0C6AD4000B /* WorkoutSession+StructuralBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E403187E4FBB4109E77C9C /* WorkoutSession+StructuralBlocks.swift */; };
 		43E421E59E15167EB522EF9F /* RunPhoneSensorPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A48CF392300A4EDC37095690 /* RunPhoneSensorPlanTests.swift */; };
@@ -273,6 +274,7 @@
 		534C998303E340E80469F455 /* RunLegProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F78752D79490616810E4F36 /* RunLegProgress.swift */; };
 		5390D1C4208D4C0DA643EDBB /* CountdownFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328802A6B2D7559DB3EF927B /* CountdownFormat.swift */; };
 		A919BDEFA1C6934C085D9190 /* RunKmSplits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DA6B8763900D48D9F54ACB /* RunKmSplits.swift */; };
+		EA0AFBACAF2115CC43C521E5 /* SaludNuestra.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */; };
 		53B53649A6223F66E73784FF /* RunStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4536ACD9B240A6DDCDF325A8 /* RunStructureTests.swift */; };
 		53BED8207DE1CAB3060B3D1A /* HRProvenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AB3E2FBF445091413BB293B /* HRProvenanceTests.swift */; };
 		549BD5C45B7518B214623E40 /* LecturaDeCarreraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14209912FD6BC4229B817D7 /* LecturaDeCarreraView.swift */; };
@@ -948,6 +950,7 @@
 		3211E4DD5A803BFD2342F461 /* ComunicadoNotaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoNotaView.swift; sourceTree = "<group>"; };
 		328802A6B2D7559DB3EF927B /* CountdownFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormat.swift; sourceTree = "<group>"; };
 		92DA6B8763900D48D9F54ACB /* RunKmSplits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunKmSplits.swift; sourceTree = "<group>"; };
+		8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaludNuestra.swift; sourceTree = "<group>"; };
 		32C9CD61B4A421F8C2F4E9CC /* BloquesDelEntreno.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BloquesDelEntreno.swift; sourceTree = "<group>"; };
 		339393195A20ADB48340066A /* ScanDecisionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDecisionEngineTests.swift; sourceTree = "<group>"; };
 		339EE90FF180852D710A7754 /* PrescriptionRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrescriptionRenderer.swift; sourceTree = "<group>"; };
@@ -1900,6 +1903,7 @@
 				E9C191A1EE31AC0ADB805396 /* Trace */,
 				328802A6B2D7559DB3EF927B /* CountdownFormat.swift */,
 				92DA6B8763900D48D9F54ACB /* RunKmSplits.swift */,
+				8425BE225B9E8617A75CB9BE /* SaludNuestra.swift */,
 				427998999C86379C4D56126C /* DoblesTurn.swift */,
 				785016334244E8DFD29E3C35 /* ErgCounterPolicy.swift */,
 				8925609DB271071B935E9CF7 /* HRRecovery.swift */,
@@ -3264,6 +3268,7 @@
 				1727227CCA7D7D9C57E982EC /* CorrerTendenciasView.swift in Sources */,
 				5390D1C4208D4C0DA643EDBB /* CountdownFormat.swift in Sources */,
 				A919BDEFA1C6934C085D9190 /* RunKmSplits.swift in Sources */,
+				EA0AFBACAF2115CC43C521E5 /* SaludNuestra.swift in Sources */,
 				A7BB85C02DDB80D37C71D25A /* CurvaDeCarrera.swift in Sources */,
 				0C995FE66347BF2F50462BA8 /* DataOrigin.swift in Sources */,
 				AA27B7CFD653512B56C3BBB9 /* Day1Flow.swift in Sources */,
@@ -3645,6 +3650,7 @@
 				3F5B58AE8A8E601CAFD03E96 /* ChecklistLiveView.swift in Sources */,
 				42F8C7D9A654019D7E71D92B /* CountdownFormat.swift in Sources */,
 				7860B5335F8073ED32037B76 /* RunKmSplits.swift in Sources */,
+				09555CF3A59ECE7633793962 /* SaludNuestra.swift in Sources */,
 				DA2709659C6CDA0FB06A8BE1 /* DoblesTurn.swift in Sources */,
 				BEC01C5F1FDEA60125169D2A /* ErgCounterPolicy.swift in Sources */,
 				12B0D98FDB248BE76539F09D /* ExecutionTrace.swift in Sources */,
