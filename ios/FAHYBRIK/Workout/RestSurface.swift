@@ -77,7 +77,7 @@ struct RestSurface: View {
     // MARK: - 2 · The subject: how long is left
 
     private var countdown: some View {
-        Text(Formato.clock(session.tramoRestRemaining, anchoFijo: true))
+        Text(figureText)
             .font(.system(size: isLandscape ? 108 : 130, weight: .heavy, design: .monospaced)
                 .monospacedDigit())
             .foregroundStyle(isUrgent ? Theme.Color.accentText : Theme.Color.info)
@@ -85,12 +85,31 @@ struct RestSurface: View {
             .minimumScaleFactor(0.4)
             .contentTransition(.numericText())
             .frame(maxWidth: .infinity)
-            .accessibilityLabel("\(phaseWord.lowercased()), quedan \(Int(session.tramoRestRemaining.rounded())) segundos")
+            .accessibilityLabel("\(phaseWord.lowercased()), \(figureText)")
+    }
+
+    /// La cifra es la de `livePicture`. Rest abierto = elapsed, no 00:00.
+    private var figureText: String {
+        switch session.livePicture.figure {
+        case .countdown(let s), .elapsed(let s):
+            return Formato.clock(s, anchoFijo: true)
+        case .meters(let m):
+            return "\(Int(m.rounded())) m"
+        case .calories(let c):
+            return "\(c) cal"
+        case .reps(let n):
+            return "\(n)"
+        case .none:
+            return Formato.clock(session.tramoElapsedSeconds, anchoFijo: true)
+        }
     }
 
     /// The last three seconds go accent — the same threshold the audible ticks use,
     /// so eyes and ears say the same thing.
-    private var isUrgent: Bool { session.tramoRestRemaining <= 3 }
+    private var isUrgent: Bool {
+        if case .countdown(let s) = session.livePicture.figure { return s <= 3 }
+        return false
+    }
 
     // MARK: - 3 · What comes next
 

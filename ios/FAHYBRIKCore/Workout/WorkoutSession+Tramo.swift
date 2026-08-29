@@ -41,6 +41,19 @@ extension WorkoutSession {
         // A structured run walks its own leg list; its legs already carry measure
         // and intensity, so the tramo is a projection, not a re-derivation.
         if isRunStructureActive, let leg = currentRunLeg {
+            // Rest de pie = el mismo tramo que Chipper (Descanso). El HUD
+            // de calle se baja solo: `tramoIsRun` es falso. El trote de
+            // vuelta sigue siendo correr (Recuperación, GPS mide).
+            if !leg.isWork, !leg.recuperaEnMovimiento {
+                return LiveTramo(
+                    segmentIndex: i,
+                    cursor: .runLeg(runLegIndex),
+                    label: "Descanso",
+                    modality: .other,
+                    measure: leg.measure.asMeasure,
+                    boxedSeconds: leg.measure.durationSeconds
+                )
+            }
             return LiveTramo(
                 segmentIndex: i,
                 cursor: .runLeg(runLegIndex),

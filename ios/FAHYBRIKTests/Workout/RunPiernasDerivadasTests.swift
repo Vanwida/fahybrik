@@ -146,18 +146,18 @@ final class RunPiernasDerivadasTests: XCTestCase {
         XCTAssertNil(p.runStructureLegs)
     }
 
-    // MARK: - La recuperación: se mide, no se supone
+    // MARK: - La recuperación: el modo lo escribe el coach
 
-    /// Sin modo escrito NO se supone que está parado: se mide. Es lo que devuelve
-    /// el trote de vuelta al dato — sus metros, su ritmo y su zona.
-    func testLaRecuperacionSinModoSeMide() throws {
+    /// Sin modo escrito es DESCANSO, no un trote inventado. El plano ya
+    /// dice «descanso»; el vivo no puede medir metros de work ahí.
+    func testSinModoElRestEsDescanso() throws {
         let p = pres(.intervals, modality: .run,
                      sets: [set(.distance(meters: 800), rest: 90)],
                      rounds: 3, restS: 90)
         let legs = try XCTUnwrap(p.runStructureLegs)
         XCTAssertTrue(legs[1].isRecovery)
-        XCTAssertTrue(legs[1].recuperaEnMovimiento,
-                      "sin modo se MIDE lo que pase; suponer que está parado tira dato real")
+        XCTAssertFalse(legs[1].recuperaEnMovimiento,
+                       "sin modo no se inventa un trote; es descanso")
     }
 
     // MARK: - La estructura: rest es un tramo, no un if del formato
@@ -239,8 +239,12 @@ final class RunPiernasDerivadasTests: XCTestCase {
         let trabajo = RunLeg(kind: .work, measure: .distance(m: 800), target: nil,
                              resolved: nil, inclinePct: nil, cadenceSpm: nil,
                              recoveryMode: nil, phaseRole: .main)
+        let sinModo = RunLeg(kind: .recovery, measure: .unknown, target: nil,
+                             resolved: nil, inclinePct: nil, cadenceSpm: nil,
+                             recoveryMode: nil, phaseRole: .main)
         XCTAssertFalse(parado.recuperaEnMovimiento)
         XCTAssertTrue(trote.recuperaEnMovimiento)
+        XCTAssertFalse(sinModo.recuperaEnMovimiento, "sin modo es descanso, no trote")
         XCTAssertFalse(trabajo.recuperaEnMovimiento, "el trabajo no es una recuperación")
     }
 }

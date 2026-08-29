@@ -11,6 +11,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Rest de pie es Descanso. No se inventa un trote
+
+**Qué sobraba:** `piernasDeRondas` sin `}` (no compilaba).
+`strengthPrimary` muerto. El rest que el motor pega entre
+works de una serie (`rest_s` nil, sin modo) se leía como
+correr: `recuperaEnMovimiento` era cierto si el modo no era
+`.parado`, `currentTramo` decía Recuperación con modalidad
+run, `superficieViva` dejaba la calle montada. El HUD no
+decía DESCANSO. Los metros del work seguían sumando.
+
+**Decidido:** el OFF se mide sólo si el coach escribió
+`trote` o `caminar`. Sin modo = DESCANSO (el plano ya lo
+dice así). Ese tramo no es correr: label Descanso, modalidad
+otra, cursor `.runLeg`. La calle se baja sola. `sampleRunDistance`
+no suma (`tramoIsRun` falso). `RestSurface` bebe
+`livePicture.figure` (abierto = elapsed, no 00:00). Trote de
+vuelta y cifra GPS de work no se tocan. Un gesto sigue
+cerrando un tramo.
+
+**Qué se elimina:** `strengthPrimary`. El «nil mide». El
+velo de la calle sobre el rest de pie.
+
+**NO hacer:** no if Chipper. no 105/174/175. no GPS de work.
+no merge. Hecho = debugger Chipper Y run+rest, Watch en la
+sesión.
+
+---
+
 ## 2026-08-29 · Se borra el segundo writer de rest, no se suma control
 
 **Qué sobraba:** `skipFixedRest` + `fixedRestRemaining` eran

@@ -240,17 +240,6 @@ extension WorkoutSession {
         }
     }
 
-    /// El escalón de la fuerza por series: si corre el descanso, lo salta; si queda
-    /// serie por cerrar, la cierra (y arranca SU descanso); y solo cuando no queda
-    /// ninguna, cierra el ejercicio. Idéntico al ciclo trabajo→descanso→trabajo del
-    /// rotativo, con la diferencia de mando que define la fuerza: aquí quien cierra
-    /// la serie es el atleta, nunca el reloj.
-    private func strengthPrimary() {
-        if restRemainingSeconds > 0 { dismissRest(); return }
-        if let i = pendingSetIndex { confirmSet(i); return }
-        lap()
-    }
-
     /// La serie que el atleta tiene delante: la primera sin confirmar y sin saltar.
     /// Nil cuando el tramo no va por series o cuando ya están todas cerradas — y
     /// entonces el escalón vuelve a ser el ejercicio.

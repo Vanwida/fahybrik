@@ -254,22 +254,15 @@ struct RunLeg: Equatable {
     var isWork: Bool { kind == .work }
     var isRecovery: Bool { kind == .recovery }
 
-    /// UNA RECUPERACIÓN DE CORRER NO ES UN DESCANSO — y de esto sale media
-    /// pantalla.
-    ///
-    /// El diseño viejo daba por hecho que entre series el atleta está de pie
-    /// («jadeando y mirando el reloj», `GuionSeries`), así que congelaba el
-    /// cronómetro del tramo, dejaba de pintar metros y ofrecía controles. En una
-    /// serie de calle eso es falso la mayoría de las veces: la vuelta al principio
-    /// se trota, y ese trote es trabajo — tiene su zona, sus metros y su ritmo, y
-    /// es lo que separa una serie bien hecha de una mal hecha.
-    ///
-    /// Sólo `parado` para de verdad. Y cuando NO SE SABE el modo —que es lo que
-    /// llega hoy de las dos fuentes derivadas, porque ninguna lo escribe todavía—
-    /// se MIDE en vez de suponer: si el atleta trota, sus metros y su ritmo
-    /// aparecen; si se queda quieto, el GPS dice cero y no se pinta ningún ritmo.
-    /// Medir no inventa nada; suponer que está parado tira dato real.
-    var recuperaEnMovimiento: Bool { isRecovery && recoveryMode != .parado }
+    /// El OFF se mide sólo si el coach lo escribió como movimiento
+    /// (`trote` / `caminar`). Sin modo — el rest que el motor pega entre
+    /// works, el `rest_s` del plano — es DESCANSO: el HUD lo dice y los
+    /// metros de work no suman. Inventar un trote cuando nadie lo escribió
+    /// era la part de más. `.parado` sigue siendo parado.
+    var recuperaEnMovimiento: Bool {
+        guard isRecovery, let mode = recoveryMode else { return false }
+        return mode == .trote || mode == .caminar
+    }
 }
 
 // Declared in an EXTENSION so the compiler still synthesizes the memberwise init

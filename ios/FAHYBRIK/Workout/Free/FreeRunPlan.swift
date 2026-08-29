@@ -77,8 +77,8 @@ struct FreeRunPaso: Identifiable, Equatable {
     var zona: Int
     var ritmoSegPorKm: Int
     var rpe: Double
-    /// Sólo para una recuperación: cómo se toma. `nil` = no lo dice, y entonces
-    /// el motor MIDE lo que pase en vez de suponerlo (`RunLeg.recuperaEnMovimiento`).
+    /// Sólo para una recuperación: cómo se toma. `nil` = DESCANSO (no se
+    /// inventa un trote). `trote` / `caminar` sí se miden.
     var modo: RunRecoveryMode?
     /// Cuesta, en %. `nil` = llano / lo que haya. Sirve para cinta y para calle.
     var cuestaPct: Double?

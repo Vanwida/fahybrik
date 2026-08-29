@@ -108,6 +108,7 @@ extension Prescription {
             Self.trabajo(medida: medida, objetivo: objetivo)
         }
         return Self.serieConRestEntreWorks(works, restS: dosis.restS ?? restS, scheme: .intervals)
+    }
 
     /// Serie de solo work: el rest ENTRE repeticiones es un tramo. Si el árbol
     /// ya trae recovery, no se toca. La duración es dato del coach; la
@@ -147,6 +148,8 @@ extension Prescription {
     }
 
     /// `segundos` nil o ≤0 = rest abierto: el HUD lo muestra y lo cierra el gesto.
+    /// Sin modo escrito no se inventa un trote: es DESCANSO (el plano ya
+    /// dice «descanso»; el vivo no puede decir otra cosa).
     static func recuperacion(segundos: Int?) -> RunLeg {
         let measure: RunSegmentMeasure
         if let s = segundos, s > 0 {
@@ -156,10 +159,6 @@ extension Prescription {
         }
         return RunLeg(kind: .recovery, measure: measure, target: nil,
                resolved: nil, inclinePct: nil, cadenceSpm: nil,
-               // Ni el coach ni el constructor libre escriben todavía CÓMO se
-               // recupera, sólo cuánto dura. No se inventa «trotando» ni
-               // «parado»: sin modo, el motor MIDE lo que pase (ver
-               // `RunLeg.recuperaEnMovimiento`) en vez de suponerlo.
                recoveryMode: nil, phaseRole: .main)
     }
 

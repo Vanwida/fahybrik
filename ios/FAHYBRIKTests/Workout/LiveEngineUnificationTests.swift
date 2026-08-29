@@ -114,4 +114,49 @@ final class LiveEngineUnificationTests: XCTestCase {
         s.primaryAdvance()
         XCTAssertFalse(s.isConditioningActive)
     }
+
+    /// El walk del debugger: serie 3×5:00 sin rest_s. Cerrar el work no
+    /// pega el siguiente. El HUD dice DESCANSO. El GPS de work no suma.
+    /// Un gesto arma el siguiente work. Watch bebe la misma lectura.
+    func testRunConRestVistoDescansoNoSumaYArmaWork() {
+        let rx = Prescription(
+            scheme: .rounds, modality: .run, sets: nil, rounds: 3,
+            workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+            start: nil, increment: nil,
+            structure: [RunPhase(role: .main, elements: [
+                .repeatBlock(times: 3, elements: [
+                    .segment(RunSegment(kind: .work, measure: .duration(s: 300),
+                                        target: nil, resolved: nil, inclinePct: nil,
+                                        cadenceSpm: nil, recoveryMode: nil))
+                ])
+            ])]
+        )
+        let seg = WorkoutSegment(order: 1, title: "Series", kind: .running,
+                                 blockTitle: "Series", blockPosition: 1, prescription: rx)
+        let plan = WorkoutPlan(id: UUID(), name: "Series", format: .intervals,
+                               estimatedDurationSeconds: 900, blockContext: "Series",
+                               zoneTargets: [], equipment: [], segments: [seg],
+                               coachNote: nil, warmupChecklist: [])
+        let s = WorkoutSession(plan: plan)
+        s.start(); s.beginBlock(); s.stop()
+        s.runEnvironment = .outdoor
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        s.sampleRunDistance(deltaMeters: 24, source: .gps)
+        XCTAssertEqual(s.livePicture.coveredMeters ?? 0, 24, accuracy: 0.001)
+
+        s.primaryAdvance()
+        XCTAssertEqual(s.livePicture.label, "Descanso")
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertFalse(s.tramoIsRun)
+        XCTAssertFalse(s.tramoMide)
+        XCTAssertNil(s.livePicture.coveredMeters)
+        s.sampleRunDistance(deltaMeters: 400, source: .gps)
+        XCTAssertNil(s.livePicture.coveredMeters, "el rest no suma los metros del work")
+
+        s.primaryAdvance()
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertEqual(s.runLegIndex, 2)
+        XCTAssertNotEqual(s.livePicture.label, "Descanso")
+    }
 }
