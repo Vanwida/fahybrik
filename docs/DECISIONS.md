@@ -182,18 +182,29 @@ tramo en curso era una recuperación **sin modo escrito** (`recoveryMode` nil �
 
 **La regla de la que salió la guarda sigue en pie, y es sobre el NOMBRE:** «sin modo
 escrito no se inventa un trote: es DESCANSO». Cómo lo llamamos es una afirmación
-nuestra; los metros son un hecho de CoreLocation. **Y si el atleta está de verdad
-parado, el GPS no reporta movimiento** — la guarda no ahorraba nada en el caso que
-la motivó.
+nuestra; los metros son un hecho.
 
-**Decidido:** la guarda es de la CINTA, donde sí se gana el sueldo (una banda
-rodando mientras el atleta se baja acumularía metros que nadie corrió), y se queda
-en `sampleTreadmillDistance`. El GPS la pierde.
+**CORREGIDO EL 29-ago, mismo día:** el primer arreglo quitó la guarda ENTERA del GPS
+razonando que «parado, CoreLocation no reporta movimiento, así que no ahorraba nada».
+Eso hacía pasar este caso y **rompía el de enfrente**, que ya estaba clavado en
+`WatchRunLegDriverTests`: un descanso PARADO de 60 s pasaba a sumar los metros que
+llegaran, que son el atleta andando a por agua y no volumen de carrera. «Parado el
+GPS no reporta» es cierto en la calle y no es una regla — con la cinta, o con la
+muñeca en la mano, sí llegan.
+
+**Decidido:** eran DOS preguntas metidas en una propiedad, y se separan.
+`tramoMide` decide si corre el **cronómetro**; `tramoMideDistancia` (nueva) si cuentan
+los **metros**. Cuentan los del trabajo, los del trote escrito y los de una
+recuperación cuya **meta son metros** —que son justo los que la cierran—; no cuentan
+los de un descanso parado. En `sampleTreadmillDistance` la guarda sigue siendo la
+ancha, porque allí no hay meta de distancia que rescatar.
 
 **NO hacer:** no volver a decidir si se GRABA un dato medido a partir de lo que el
-coach ESCRIBIÓ. Y no inventar un auto-cierre por umbral de velocidad para una
-recuperación abierta (sin duración y sin distancia): esa se cierra a gesto, y si eso
-no basta, la decisión es de Alex, no un umbral nuestro.
+coach ESCRIBIÓ como NOMBRE del tramo (el modo). Sí a partir de su MEDIDA, que es otra
+cosa. No inventar un auto-cierre por umbral de velocidad para una recuperación abierta
+(sin duración y sin distancia): esa se cierra a gesto, y si eso no basta, la decisión
+es de Alex. Y no volver a arreglar una mitad de esta regla sin correr la otra: las dos
+direcciones están en un test, juntas, a propósito.
 
 ---
 
