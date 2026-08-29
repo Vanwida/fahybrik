@@ -198,10 +198,29 @@ extension WorkoutSession {
     /// CoreLocation que pinta el mapa (`.gps`) — iPhone y Watch. Indoor / cinta
     /// tonta: HealthKit. El GPS no se tira.
     ///
-    /// El descanso es un tramo: si el tramo no mide (`tramoMide` falso), el
-    /// sample no suma. La autopausa no es descanso.
+    /// LA PUERTA DEL DESCANSO ERA DE LA CINTA, NO DEL GPS. Aquí había un `tramoMide`
+    /// que tiraba el sample cuando el tramo en curso era una recuperación sin MODO
+    /// escrito (`recoveryMode` nil → `isTramoRecuperandoEnMovimiento` falso). Lo que
+    /// costó, medido en el debugger del 29-ago sobre una serie de umbral:
+    ///
+    ///   · la distancia se quedaba clavada en pantalla mientras el atleta trotaba;
+    ///   · el volumen de carrera de la sesión salía corto por todo lo trotado — que es
+    ///     exactamente el daño que `advanceRunLeg` dice que existe para evitar;
+    ///   · y una recuperación medida en DISTANCIA no podía cerrarse NUNCA, porque los
+    ///     metros que la cerrarían son los que esta línea estaba descartando. De ahí
+    ///     «el motor no cierra el rest» y «el siguiente Run no se arma».
+    ///
+    /// La regla de la que salió («sin modo escrito no se inventa un trote: es
+    /// DESCANSO») es correcta y sigue en pie — pero es sobre el NOMBRE, no sobre la
+    /// medida. Cómo lo llamamos es una afirmación nuestra; los metros son un hecho de
+    /// CoreLocation. Y si el atleta está de verdad parado, el GPS no reporta
+    /// movimiento, así que la puerta no ahorraba nada en el caso que la motivó.
+    ///
+    /// Donde sí se gana el sueldo es en la CINTA: una banda que sigue rodando mientras
+    /// el atleta se baja acumularía metros que nadie corrió. Ahí `tramoMide` se queda
+    /// (`sampleTreadmillDistance`, abajo). La autopausa tampoco es descanso.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
-        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, tramoMide, deltaMeters > 0 else { return }
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }

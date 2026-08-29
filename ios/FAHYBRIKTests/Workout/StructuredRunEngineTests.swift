@@ -364,4 +364,70 @@ final class StructuredRunEngineTests: XCTestCase {
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
                     coachNote: nil, warmupChecklist: [])
     }
+
+    // MARK: - Una recuperación medida en DISTANCIA se cierra sola
+    //
+    // Debugger 29-ago (serie de umbral): «el motor no cierra el rest, la distancia se
+    // queda clavada, el siguiente Run no se arma». Las tres eran la MISMA línea.
+    //
+    // `sampleRunDistance` tenía una puerta `tramoMide` que tiraba el sample cuando el
+    // tramo era una recuperación sin MODO escrito. Los metros que cierran una
+    // recuperación de distancia son precisamente los que esa puerta descartaba, así que
+    // no podía cerrarse nunca: el atleta trotaba, la cifra no se movía y el cursor no
+    // avanzaba. La puerta era de la CINTA (una banda rodando sin el atleta encima), no
+    // del GPS: si está parado, CoreLocation no reporta movimiento y no hay nada que
+    // filtrar.
+
+    /// Una recuperación de 200 m SIN modo escrito. El label sigue siendo «Descanso» —
+    /// no se inventa un trote — pero los metros son un hecho y la cierran.
+    func testUnaRecuperacionDeDistanciaSinModoSeCierraConSusMetros() {
+        let recuperacionSinModo = RunElement.segment(
+            RunSegment(kind: .recovery, measure: .distance(m: 200), target: nil, resolved: nil,
+                       inclinePct: nil, cadenceSpm: nil, recoveryMode: nil)
+        )
+        let s = structuredSession([main([
+            work(.distance(m: 1000)), recuperacionSinModo, work(.distance(m: 1000)),
+        ])])
+        s.runEnvironment = .outdoor
+        s.primaryAdvance()                                   // salta el 3-2-1 → tramo 0 (work)
+
+        // Cierra el primer trabajo con sus mil metros.
+        s.sampleRunDistance(deltaMeters: 1000, source: .gps)
+        XCTAssertEqual(s.runLegIndex, 1, "el work de 1.000 se cierra al cruzar su meta")
+        XCTAssertFalse(s.isRunLegWork, "y el tramo 1 es la recuperación")
+        XCTAssertEqual(s.livePicture.label, "Descanso", "sin modo escrito no se inventa un trote")
+
+        // El ancla de la ventana la mueve `syncTramoIfNeeded`, que en la app corre en el
+        // tick de 0,25 s. Aquí el timer está parado (`structuredSession` lo mata para
+        // preservar el cursor), así que se llama a mano — sin esto los metros del tramo
+        // anterior contarían como de la recuperación.
+        s.syncTramoIfNeeded()
+
+        // LOS METROS DE LA RECUPERACIÓN CUENTAN. Antes se tiraban aquí.
+        s.sampleRunDistance(deltaMeters: 120, source: .gps)
+        XCTAssertEqual(s.runLegIndex, 1, "a 120 de 200 todavía no ha llegado")
+        XCTAssertEqual(s.tramoRunCoveredMeters ?? 0, 120, accuracy: 0.001,
+                       "la distancia no se queda clavada mientras trota la recuperación")
+
+        // Y al cruzar los 200, el motor cierra el rest y ARMA el siguiente Run.
+        s.sampleRunDistance(deltaMeters: 90, source: .gps)
+        XCTAssertEqual(s.runLegIndex, 2, "el rest se cierra solo y el siguiente Run se arma")
+        XCTAssertTrue(s.isRunLegWork)
+    }
+
+    /// Y el volumen de la sesión los lleva: lo trotado en la recuperación no desaparece
+    /// del total de carrera, que es el daño que `advanceRunLeg` dice que evita grabar
+    /// las recuperaciones.
+    func testLoTrotadoEnLaRecuperacionEntraEnElTotalDeLaSesion() {
+        let recuperacionSinModo = RunElement.segment(
+            RunSegment(kind: .recovery, measure: .distance(m: 200), target: nil, resolved: nil,
+                       inclinePct: nil, cadenceSpm: nil, recoveryMode: nil)
+        )
+        let s = structuredSession([main([work(.distance(m: 400)), recuperacionSinModo])])
+        s.runEnvironment = .outdoor
+        s.primaryAdvance()
+        s.sampleRunDistance(deltaMeters: 400, source: .gps)   // cierra el work
+        s.sampleRunDistance(deltaMeters: 150, source: .gps)   // trota parte de la recuperación
+        XCTAssertEqual(s.lapGpsDistanceMeters ?? 0, 550, accuracy: 0.001)
+    }
 }
