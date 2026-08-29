@@ -485,6 +485,11 @@ final class PhoneMirrorService {
             if session.isPaused { session.togglePause() }
         case MirrorWire.CommandKind.deathByFail:
             session.deathByFail()
+        case MirrorWire.CommandKind.newLap:
+            // El corte del atleta en una carrera libre: sella el parcial con lo que
+            // lleva medido y reabre los acumuladores a cero. NO avanza nada — la
+            // prescripción no se toca, que es lo que lo distingue de `advance`.
+            session.closeCurrentSegmentLap()
         default:
             break
         }
@@ -569,6 +574,13 @@ final class PhoneMirrorService {
             hapticCue: pendingHapticCue,
             hapticSeq: pendingHapticSeq,
             tramo: buildTramo(session),
+            // LA CARRERA, no la pierna. La página de datos de la muñeca contesta
+            // «¿cómo va?» y todo lo demás de esta trama contesta «¿cuánto falta?»:
+            // dos alcances, y cada página dice de cuál habla. Cero metros viajan
+            // como nil — sin medida no hay cifra que pintar.
+            sessionRunMeters: session.sessionRunMeters > 0 ? session.sessionRunMeters : nil,
+            sessionPaceSecPerKm: session.sessionRunPaceSecPerKm,
+            hasBlockAfter: session.hasBlockAfterCurrent,
             // La serie abierta, del MISMO accesor del motor que lee el reloj en
             // solitario: contar no puede depender de por qué vía llegó el entreno.
             sensorWindow: {

@@ -104,6 +104,16 @@ enum MirrorWire {
         /// el motor ya avanza solo). Confundir los dos marcaría como superado el
         /// minuto en el que el atleta acaba de fallar.
         static let deathByFail = "deathByFail"
+        /// NUEVO TRAMO — el corte del ATLETA. Cierra lo que lleva medido y empieza de
+        /// cero SIN tocar la prescripción: produce un parcial con sus metros, su
+        /// tiempo y su ritmo, que es lo que le llega al coach.
+        ///
+        /// Sólo existe cuando los cortes son suyos. Si el coach escribió la
+        /// estructura, el corte ya está escrito y este gesto no se ofrece — y no por
+        /// prudencia de pantalla: `closeCurrentSegmentLap` se salta a propósito la
+        /// creación del parcial en las series y los EMOM, porque ahí cada tramo ya
+        /// escribe el suyo. El botón existe exactamente donde el motor lo cumple.
+        static let newLap = "newLap"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
@@ -190,6 +200,30 @@ struct MirrorStateFrame: Codable, Equatable {
     /// no dos. OPTIONAL + ADDITIVE como el resto: un reloj viejo lo ignora y
     /// sigue con las frases; un móvil viejo lo omite → nil y el reloj degrada.
     var tramo: MirrorTramo? = nil
+    /// LO QUE LLEVA LA SESIÓN de correr: metros y ritmo medio.
+    ///
+    /// DOS ALCANCES, CADA UNO DECLARADO. Todo lo demás que viaja en esta trama es
+    /// del TRAMO —lo que falta de la pieza que tienes delante—, y la página de datos
+    /// de la muñeca contesta la otra pregunta: «¿cómo va la carrera?». Meter un
+    /// tiempo restante junto a una distancia cubierta en la misma caja ya confundió
+    /// a un atleta de verdad, así que las dos preguntas van en dos páginas y cada
+    /// una dice arriba de qué habla.
+    ///
+    /// Sin esto la muñeca no tenía la cifra: `MirrorTramo.hechoMedida` son los
+    /// metros de ESTA pierna, y en un 6×800 con trote de vuelta eso no es ni de
+    /// lejos lo que llevas corrido. El ritmo medio, igual: el del tramo describe la
+    /// serie, no la carrera.
+    ///
+    /// OPTIONAL + ADDITIVE como el resto: un móvil viejo los omite y la página de
+    /// datos pinta sólo lo que hay, nunca un cero con cara de medida.
+    var sessionRunMeters: Double? = nil
+    var sessionPaceSecPerKm: Int? = nil
+    /// ¿Queda BLOQUE después de este? Lo pregunta la página de controles de la
+    /// muñeca para ofrecer «Siguiente bloque», y va como campo propio en vez de
+    /// deducirse de `isFinalStep`: ese es una conjunción de cuatro cosas (bloque,
+    /// puerta, tramo y serie), así que negarlo no significa «hay bloque siguiente»
+    /// — significa «este toque no acaba el entreno», que es otra frase.
+    var hasBlockAfter: Bool? = nil
     /// LA SERIE ABIERTA, para el contador de repeticiones de la muñeca.
     ///
     /// El reloj tiene la señal pero no el contexto: sin saber qué serie está

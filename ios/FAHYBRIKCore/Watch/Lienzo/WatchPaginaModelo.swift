@@ -15,7 +15,7 @@ import SwiftUI
 // MARK: - Modo
 
 /// Lo que el atleta PUEDE hacer ahora mismo — manda sobre el formato.
-enum WatchModo {
+enum WatchModo: Equatable {
     /// Ni mirar ni tocar: el reloj enuncia y espera. Oferta atenuada, jamás petición.
     case ciego
     /// Mirar sin tocar: un dato a sangre. Gesto latente sin franja anunciada.
@@ -56,7 +56,7 @@ struct WatchFila: Identifiable {
 /// Un botón de la página de controles.
 struct WatchBoton: Identifiable {
     /// Cómo pesa un botón. No es estética: es cuánto cuesta equivocarse.
-    enum Peso {
+    enum Peso: Equatable {
         /// La acción más frecuente y más urgente: rellena en el naranja de la acción.
         case principal
         /// Una acción normal: superficie levantada.
@@ -144,6 +144,18 @@ extension WatchPagina {
     /// True cuando esta página gobierna con un numeral. Las dos que no —el panel y
     /// los controles— se saltan la aritmética del sujeto.
     var tieneSujeto: Bool { cuerpo == nil }
+
+    /// Las filas, si esta página es un panel. Nil en las otras dos.
+    var filas: [WatchFila]? {
+        if case .some(.panel(let f)) = cuerpo { return f }
+        return nil
+    }
+
+    /// Los botones, si esta página es la de controles. Nil en las otras dos.
+    var botones: [WatchBoton]? {
+        if case .some(.controles(let b)) = cuerpo { return b }
+        return nil
+    }
 }
 
 // MARK: - Destello

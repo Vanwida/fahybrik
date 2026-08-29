@@ -180,12 +180,11 @@ struct WatchReloj: View {
 
                 Spacer(minLength: 4)
 
-                switch p.cuerpo {
-                case let .panel(filas):
+                if let filas = p.filas {
                     panel(filas)
-                case let .controles(botones):
+                } else if let botones = p.botones {
                     controles(botones)
-                case nil:
+                } else {
                     sujeto(p, alto: alto)
                 }
 
@@ -446,16 +445,15 @@ struct WatchReloj: View {
 
     private func accesibilidad(_ p: WatchPagina) -> String {
         var parts = [p.contexto]
-        switch p.cuerpo {
-        case let .panel(filas):
+        if let filas = p.filas {
             // El panel se lee fila a fila: sin esto VoiceOver anunciaba el contexto
             // y nada más, porque su sujeto está vacío a propósito.
             parts += filas.map { f in
                 [f.etiqueta, f.valor, f.unidad, f.cola].compactMap { $0 }.joined(separator: " ")
             }
-        case let .controles(botones):
+        } else if let botones = p.botones {
             parts += botones.map(\.titulo)
-        case nil:
+        } else {
             parts.append(p.sujeto)
             if let u = p.unidad { parts.append(u) }
         }

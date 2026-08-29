@@ -196,6 +196,22 @@ enum Formato {
         distancia(meters, decimales: 2, siempreDecimales: true)
     }
 
+    /// La MISMA distancia medida, partida en cifra y unidad — «5,24» + «km».
+    ///
+    /// Hermana de `distanciaCubierta`, no una segunda grafía: es literalmente esa,
+    /// separada. Existe por el numeral de la muñeca, que pinta la unidad a un 30 %
+    /// del cuerpo y el decimal a un 42 %: con la unidad DENTRO del string, «5,24 km»
+    /// se mide como siete glifos de dato y el numeral se queda en la mitad de su
+    /// tamaño. Mismo motivo y mismo patrón que `carga` frente a `kg`.
+    static func distanciaCifra(_ meters: Double) -> Cifra? {
+        guard meters > 0 else { return nil }
+        if meters >= 1000 {
+            return Cifra(cifra: esDecimal(meters / 1000, decimals: 2, siempreDecimales: true),
+                         unidad: "km")
+        }
+        return Cifra(cifra: conMillar(meters), unidad: "m")
+    }
+
     // MARK: - Carga
 
     /// «80 kg» · «82,5 kg».

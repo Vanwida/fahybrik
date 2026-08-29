@@ -132,6 +132,33 @@ extension WorkoutSession {
         tramoRunCoveredMeters ?? 0
     }
 
+    /// LOS METROS DE CORRER DE LA SESIÓN ENTERA — los tramos ya cerrados más el
+    /// abierto. Es la otra pregunta que contesta la carrera: `runLegCoveredMeters`
+    /// dice lo que llevas de ESTA pierna, y en un 6×800 con trote de vuelta eso no
+    /// se parece a lo que llevas corrido.
+    ///
+    /// No se acumula en una variable nueva: los tramos cerrados YA guardan sus
+    /// metros (`LapRecord.distanceCoveredMeters`, que sale de este mismo
+    /// acumulador antes de resetearse) y el abierto es el acumulador en curso. Un
+    /// segundo contador sería una segunda verdad sobre la misma carrera.
+    var sessionRunMeters: Double {
+        let cerrados = laps
+            .filter { $0.modality == SegmentKind.running.modality }
+            .compactMap(\.distanceCoveredMeters)
+            .reduce(0, +)
+        let abierto = lapBeltOwnsDistance ? lapBeltDistanceMeters : (lapGpsDistanceMeters ?? 0)
+        return cerrados + abierto
+    }
+
+    /// El ritmo medio de la CARRERA (sec/km), por la misma derivación única que el
+    /// resto. Nil mientras no haya metros: sin numerador no hay ritmo, y un número
+    /// aquí sería una media inventada.
+    var sessionRunPaceSecPerKm: Int? {
+        Self.paceSecPerKm(meters: sessionRunMeters, seconds: elapsedSeconds)
+            .map { Int($0.rounded()) }
+            .flatMap { $0 <= RunLegDisplay.maxPaceSecPerKm ? $0 : nil }
+    }
+
     var liveCoveredPaceSecPerKm: Int? {
         let pace: Double?
         if isRunStructureActive {

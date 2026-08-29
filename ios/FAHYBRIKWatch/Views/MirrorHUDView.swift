@@ -23,11 +23,27 @@ struct MirrorHUDView: View {
     @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
-        TabView(selection: $page) {
-            livePage.tag(0)
-            controlsPage.tag(1)
+        // CORRER TRAE SUS TRES PÁGINAS, así que no se envuelve. Dos paginadores
+        // sobre la misma pantalla —el `TabView` de fuera y el del lienzo— son dos
+        // gestos peleándose por el mismo deslizamiento, y el de fuera gana: los
+        // controles quedaban a la derecha del vivo y las páginas del guion dejaban
+        // de alcanzarse. Las otras seis familias siguen con su envoltorio.
+        if paginasConControles {
+            livePage
+        } else {
+            TabView(selection: $page) {
+                livePage.tag(0)
+                controlsPage.tag(1)
+            }
+            .tabViewStyle(.page)
         }
-        .tabViewStyle(.page)
+    }
+
+    /// ¿Las páginas de ahora traen ya sus controles? Decide también si las capas de
+    /// pausa y descanso se pintan: en correr las dos son ESTADOS de la página del
+    /// vivo (el numeral apagado, el fondo de descanso), no un velo por encima.
+    private var paginasConControles: Bool {
+        frame.map(GuionDelEspejo.traeControles) ?? false
     }
 
     // MARK: - Live page
@@ -72,13 +88,23 @@ struct MirrorHUDView: View {
                 } else {
                     activeContent
                 }
-                // Los dos tapan la pantalla entera, así que en atenuado bajan el
-                // brillo en vez de quedarse encendidos a plena luz: el descanso es
-                // POR DEFINICIÓN el momento en que la muñeca está abajo.
-                if phase == MirrorWire.Phase.paused {
-                    pausedOverlay.opacity(atenuado ? 0.65 : 1)
-                } else if let rest = frame?.restRemaining {
-                    restOverlay(base: rest).opacity(atenuado ? 0.7 : 1)
+                // EN CORRER NO HAY VELO. La pausa es el numeral apagado y el
+                // descanso es el fondo `restBg` con lo que viene detrás: los dos son
+                // ESTADOS de la página del vivo, no una capa por encima. Taparla
+                // borraba el ritmo, los metros que faltan y el aro justo cuando hacen
+                // falta — «sigues sabiendo dónde lo dejaste» es el punto de la pausa.
+                //
+                // Las otras seis familias conservan las dos capas hasta que sus
+                // guiones digan la pausa y el descanso por sí mismos.
+                if !paginasConControles {
+                    // Los dos tapan la pantalla entera, así que en atenuado bajan el
+                    // brillo en vez de quedarse encendidos a plena luz: el descanso es
+                    // POR DEFINICIÓN el momento en que la muñeca está abajo.
+                    if phase == MirrorWire.Phase.paused {
+                        pausedOverlay.opacity(atenuado ? 0.65 : 1)
+                    } else if let rest = frame?.restRemaining {
+                        restOverlay(base: rest).opacity(atenuado ? 0.7 : 1)
+                    }
                 }
             }
         }
@@ -181,9 +207,21 @@ struct MirrorHUDView: View {
                         avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) },
                         // Death by: «al fallar» no es un avance cualquiera —
                         // ver el comentario de `deathByFail` en MirrorWireModels.
-                        rendirse: { controller.sendCommand(MirrorWire.CommandKind.deathByFail) }
+                        rendirse: { controller.sendCommand(MirrorWire.CommandKind.deathByFail) },
+                        // Los mandos de la página de controles de correr. Van por el
+                        // mismo cable que el resto: el motor del móvil es el único que
+                        // muta, la muñeca no avanza nada en local.
+                        pausar: { controller.sendCommand(MirrorWire.CommandKind.pause) },
+                        reanudar: { controller.sendCommand(MirrorWire.CommandKind.resume) },
+                        nuevoTramo: { controller.sendCommand(MirrorWire.CommandKind.newLap) },
+                        // TERMINAR de verdad: acabar en un sitio es acabar, así que
+                        // cierra la grabación de la muñeca Y el entreno del móvil
+                        // (`EndReason.athlete`). El `advance` del último paso no
+                        // sirve: en un bloque con tramos por delante no acaba nada.
+                        terminar: { controller.finishLocally() }
                     ),
                     tinte: WatchTinte.color(for: controller.liveZone),
+                    inicial: GuionDelEspejo.inicial(f),
                     bisel: bisel
                 )
             }

@@ -29,7 +29,14 @@ enum GuionDelEspejo {
         /// (que en este formato marca el minuto como CUMPLIDO) — ver
         /// `MirrorWire.CommandKind.deathByFail`. Sin valor, degrada a `avanzar`
         /// para que un llamante que no lo pase no se quede sin ningún gesto.
-        rendirse: (() -> Void)? = nil
+        rendirse: (() -> Void)? = nil,
+        /// Los mandos de la página de controles de CORRER. Van con valor por defecto
+        /// porque las otras seis familias siguen recibiendo sus controles del
+        /// paginador de la vista, no de sus páginas.
+        pausar: @escaping () -> Void = {},
+        reanudar: @escaping () -> Void = {},
+        nuevoTramo: @escaping () -> Void = {},
+        terminar: @escaping () -> Void = {}
     ) -> [WatchPagina] {
         guard let t = f.tramo else { return generico(f, bpm: bpm, elapsed: elapsed, avanzar: avanzar) }
 
@@ -40,11 +47,21 @@ enum GuionDelEspejo {
         case .fuerza:
             return GuionFuerza.paginas(fuerza(t, bpm: bpm, elapsed: enTramo),
                                        GuionFuerza.Gestos(serieHecha: avanzar))
-        case .rodaje:
-            return GuionRodaje.paginas(rodaje(t, f, bpm: bpm, elapsed: enTramo))
-        case .series:
-            return GuionSeries.paginas(series(t, bpm: bpm, elapsed: enTramo),
-                                       GuionSeries.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
+        // CORRER ES UNA SOLA INTERFAZ, no dos. Un rodaje libre y un 5×1.000 del
+        // coach son las mismas tres páginas con distinto contenido: si fueran dos
+        // guiones, el mismo entreno se vería distinto según quién lo escribió.
+        case .rodaje, .series:
+            return GuionCorrer.paginas(
+                correr(t, f, bpm: bpm, elapsed: enTramo),
+                GuionCorrer.Gestos(
+                    pausar: pausar,
+                    reanudar: reanudar,
+                    nuevoTramo: nuevoTramo,
+                    siguienteBloque: avanzar,
+                    terminar: terminar,
+                    empezarYa: avanzar
+                )
+            )
         case .emom:
             return GuionEmom.paginas(emom(t, bpm: bpm, elapsed: enTramo),
                                      GuionEmom.Gestos(marcarHecha: avanzar))
@@ -67,6 +84,30 @@ enum GuionDelEspejo {
         case .ninguno:
             return generico(f, bpm: bpm, elapsed: elapsed, avanzar: avanzar)
         }
+    }
+
+    // MARK: - Qué trae la lista de páginas
+
+    /// True cuando las páginas de esta trama YA traen su propia página de controles.
+    ///
+    /// Lo pregunta la vista para NO envolverlas en un segundo paginador: correr es
+    /// una sola interfaz de tres páginas, y un `TabView` por encima serían dos
+    /// paginadores con dos gestos distintos sobre la misma pantalla — el de fuera
+    /// robándole el deslizamiento al de dentro. Las otras seis familias siguen
+    /// recibiendo sus controles de la vista, que es de donde los recibían.
+    static func traeControles(_ f: MirrorStateFrame) -> Bool {
+        guard let t = f.tramo else { return false }
+        switch guionPara(t) {
+        case .rodaje, .series: return true
+        default:               return false
+        }
+    }
+
+    /// En qué página se abre el lienzo, por id. En correr, la del ESFUERZO: es la
+    /// del centro y la que tiene que estar puesta mientras corres. Nil = la primera,
+    /// que es lo que hacen las demás.
+    static func inicial(_ f: MirrorStateFrame) -> String? {
+        traeControles(f) ? GuionCorrer.idVivo : nil
     }
 
     // MARK: - Qué guion sirve este tramo
@@ -154,38 +195,60 @@ enum GuionDelEspejo {
         )
     }
 
-    private static func rodaje(_ t: MirrorTramo, _ f: MirrorStateFrame, bpm: Int?, elapsed: Double) -> GuionRodaje.Estado {
-        GuionRodaje.Estado(
-            esCorrer: t.modalidad == PrescriptionModality.run.rawValue,
-            zonaObjetivo: zona(f.targetZone),
-            zonaViva: zona(t.zonaViva),
-            bpm: bpm,
+    /// LA TRAMA → EL ESTADO DE CORRER. Aquí no se decide nada: se proyecta. Lo que
+    /// no se sabe se queda nil y la página lo dice, nunca lo rellena.
+    private static func correr(_ t: MirrorTramo, _ f: MirrorStateFrame, bpm: Int?, elapsed: Double) -> GuionCorrer.Estado {
+        let fase: GuionCorrer.Fase = {
+            if f.phase == MirrorWire.Phase.paused { return .pausa }
+            return t.enDescanso ? .recupera : .corriendo
+        }()
+
+        // QUÉ MIDE ESTA PIEZA. Los metros mandan sobre el reloj: cuando el coach
+        // escribió «800 m», lo que falta son metros aunque haya una ventana de
+        // tiempo abierta detrás. Las calorías quedan fuera — eso es un ergo, no una
+        // carrera, y su guion es otro.
+        let pieza: GuionCorrer.Pieza = {
+            if let objetivo = t.objetivoMedida, objetivo > 0, !t.objetivoEsCalorias {
+                return .distancia(objetivoM: objetivo, hechoM: t.hechoMedida)
+            }
+            if let queda = t.ventanaQueda { return .tiempo(quedaS: queda) }
+            return .abierta
+        }()
+
+        return GuionCorrer.Estado(
+            contextoPieza: contextoDeLaPieza(t),
+            fase: fase,
+            pieza: pieza,
+            enPiezaS: elapsed,
+            sesionS: f.sessionElapsed,
+            sesionMetros: f.sessionRunMeters,
+            sesionRitmoSecPorKm: f.sessionPaceSecPerKm,
             ritmoSecPorKm: t.ritmoSecPorKm,
-            metros: t.hechoMedida,
-            objetivoMetros: t.objetivoMedida,
-            segundos: elapsed
+            objetivoLabel: t.objetivoLabel,
+            objetivoEstado: estado(t.objetivoEstado),
+            bpm: bpm,
+            zonaViva: zona(t.zonaViva),
+            siguiente: t.siguiente,
+            // LA FORMA es la estructura que escribió el coach. Si viene, los cortes
+            // ya están escritos y «Nuevo tramo» no se ofrece.
+            hayEstructura: (t.forma?.count ?? 0) > 1,
+            hayBloqueSiguiente: f.hasBlockAfter ?? false
         )
     }
 
-    private static func series(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionSeries.Estado {
-        GuionSeries.Estado(
-            fase: t.enDescanso ? .recupera : .trabajo,
-            enMovimiento: t.recuperacionEnMovimiento,
-            // La parte del entreno viaja por el cable: sin ella el calentamiento
-            // de una serie llegaba a la muñeca como «Serie 1 / 6».
-            parte: t.parte.flatMap(RunPhaseRole.init(rawValue:)) ?? .main,
-            serie: t.rondaN ?? 1,
-            totalSeries: t.rondaTotal ?? 1,
-            cierre: cierre(t),
-            metrosEnTramo: t.hechoMedida,
-            quedaS: t.ventanaQueda,
-            enTramoS: elapsed,
-            ritmoSecPorKm: t.ritmoSecPorKm,
-            objetivo: t.objetivoLabel.map { ($0, estado(t.objetivoEstado)) },
-            loQueViene: t.siguiente,
-            zonaViva: zona(t.zonaViva),
-            bpm: bpm
-        )
+    /// Cómo se llama la pieza en la banda de arriba. Un CALENTAMIENTO también es una
+    /// pierna de trabajo, y sin mirar la parte se anunciaba como «Serie 1 de 6».
+    private static func contextoDeLaPieza(_ t: MirrorTramo) -> String {
+        let parte = t.parte.flatMap(RunPhaseRole.init(rawValue:)) ?? .main
+        switch parte {
+        case .warmup:   return "Calentamiento"
+        case .cooldown: return "Vuelta a la calma"
+        case .main:
+            if let n = t.rondaN, let total = t.rondaTotal, total > 1 {
+                return "Serie \(n) de \(total)"
+            }
+            return t.etiqueta ?? "Rodaje"
+        }
     }
 
     /// El EMOM. El cable trae la tarea de ESTA ronda, no el plan entero, así que
@@ -252,9 +315,7 @@ enum GuionDelEspejo {
                     ? .calorias(objetivo: Int(objetivo), cubiertas: t.hechoMedida.map(Int.init))
                     : .metros(objetivo: objetivo, cubiertos: t.hechoMedida)
             } else {
-                // Un hito sin objetivo no es un hito de verdad (mismo criterio
-                // que `cierre(_:)` para `GuionSeries` más abajo): cierra el
-                // atleta.
+                // Un hito sin objetivo no es un hito de verdad: cierra el atleta.
                 cierre = .atleta
             }
         case "sessionClock", "formatClock":
@@ -417,22 +478,6 @@ enum GuionDelEspejo {
     private static func aroContinuo(_ t: MirrorTramo) -> Aro {
         guard let queda = t.ventanaQueda, let total = t.ventanaTotal, total > 0 else { return .ninguno }
         return .continuo(queda: max(0, min(1, queda / total)))
-    }
-
-    /// QUIÉN CIERRA la ventana — lo resuelve el motor y viaja resuelto, para que
-    /// la muñeca no vuelva a decidirlo por su cuenta con otra regla.
-    private static func cierre(_ t: MirrorTramo) -> GuionSeries.Cierre {
-        switch t.cierre {
-        case "machineGoal":
-            // Un hito sin metros no es un hito: si el objetivo no viaja, quien
-            // cierra de verdad es el atleta y el sujeto tiene que cambiar.
-            guard let m = t.objetivoMedida, m > 0 else { return .atleta }
-            return .hito(metros: m)
-        case "sessionClock", "formatClock":
-            return .reloj
-        default:
-            return .atleta
-        }
     }
 
     // MARK: - La lectura genérica, para lo que aún no tiene guion

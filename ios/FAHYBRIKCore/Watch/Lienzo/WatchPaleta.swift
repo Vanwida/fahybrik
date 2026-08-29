@@ -65,6 +65,12 @@ enum WatchTheme {
     /// menos que el dato, que va en blanco puro.
     static let dim   = Color.white.opacity(0.76)  // secondary / labels
 
+    /// EL DATO EN PAUSA. No desaparece, se APAGA: sigues sabiendo dónde lo dejaste.
+    /// Por debajo de `dim` a propósito — en pausa el numeral tiene que pesar MENOS
+    /// que su propia etiqueta, porque lo que la pantalla está diciendo es «esto está
+    /// detenido», no el número.
+    static let inkApagado = Color.white.opacity(0.45)
+
     // Brand orange (the single sharp accent).
     //
     // DYNAMIC: when the athlete's coach has a club accent, the phone pushes it

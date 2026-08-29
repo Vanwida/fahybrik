@@ -9,9 +9,22 @@ import Foundation
 // MARK: - Numeral formatting
 
 enum WatchFormat {
-    /// Count-UP clock ("08:21", "1:02:40"). Delegates to the engine's formatter so
-    /// the watch and phone read time identically.
-    static func clock(_ seconds: Double) -> String { Formato.clock(seconds, anchoFijo: true) }
+    /// Count-UP clock ("08:21", "63:00"). Delegates to the engine's formatter so el
+    /// reloj y el teléfono lean el tiempo igual.
+    ///
+    /// EN MINUTOS, TAMBIÉN PASADA LA HORA — y no es una preferencia de estilo, es el
+    /// ancho del lienzo. Escribía «1:02:40», que son SIETE glifos, y el sujeto de la
+    /// muñeca tiene un tope de cinco: por encima el numeral se encoge por debajo de
+    /// su suelo de 43 pt y deja de leerse como el dato. Un rodaje largo pasa de la
+    /// hora casi siempre, así que el caso no es raro: es el entreno más habitual de
+    /// todos. Con `enHoras: false` el mismo tiempo es «62:40», cinco glifos, que
+    /// entran justos.
+    ///
+    /// El teléfono sigue escribiendo las horas: allí sobra el ancho, y quien quiere
+    /// saber la hora de un rodaje la lee ahí.
+    static func clock(_ seconds: Double) -> String {
+        Formato.clock(seconds, anchoFijo: true, enHoras: false)
+    }
 
     /// Count-DOWN readout (count-in, intervalo, descanso, tramo). Una sola regla en
     /// las dos vías del reloj — y la del móvil, que es el dueño del tiempo. Ver
