@@ -11,6 +11,59 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · El km NO se canta en ninguna superficie, y por qué (bloqueante)
+
+**Hallazgo, no decisión.** Va primero porque contradice un supuesto del listón:
+«el km lo canta Apple» y «el Watch está en la sesión con las tres páginas» **no
+pueden ser verdad a la vez** con las APIs que hay, y hoy no son verdad ninguna de
+las dos para un Largo Z2.
+
+**Comprobado contra la documentación de Apple, no de memoria:**
+
+- `HKWorkoutSession` tiene UN inicializador, `init(healthStore:configuration:)`.
+  **No existe ninguno que acepte un `WorkoutPlan`.** Así que una sesión nuestra no
+  puede llevar un plan de WorkoutKit dentro.
+- WorkoutKit es, literalmente, «create, preview, and sync workout compositions **to
+  the Workout app**», y `WorkoutPlan` es «a wrapper... your app can use to **open
+  the object in Workout** or schedule it». Los avisos de paso son de la app
+  Entrenamiento de Apple ejecutando el plan, no de nuestra sesión.
+
+**Las dos superficies son excluyentes en tiempo de ejecución:**
+
+1. **App Entrenamiento de Apple** (`AppleWatchWorkoutScheduler`, opt-in de Perfil):
+   Apple ejecuta el `CustomWorkout` y canta el fin de cada paso — pero en pantalla
+   está SU interfaz, no nuestras tres páginas. El propio comentario del scheduler lo
+   dice: «No phone».
+2. **Sesión espejada** (la nuestra, el 90 % de los entrenos, donde viven las tres
+   páginas): Apple no tiene plan que ejecutar, así que **no canta nada**.
+
+**Y para un Largo Z2 no canta ni en la 1:** `AppleWorkoutMapper.eligibility` exige
+`structure` NATIVA, y un Z2 se escribe `steady` sin estructura (sus piernas son
+DERIVADAS). O sea que ni llega a la app de Apple.
+
+**Encima, la capa propia se borró.** El 29-ago se quitó la voz del km de la app
+razonando que «Apple ya lo anuncia y no se inventa una segunda voz». Ese
+razonamiento sólo vale en la superficie 1. En la 2 no hay primera voz que duplicar:
+hay silencio. Fue un cambio correcto en su premisa y equivocado en su alcance.
+
+**El diseño que propongo (no construido, decisión de Alex):** que el corte del km
+sea **un suceso**, que es la palabra que usó él. El dispositivo corta el kilómetro
+UNA vez sobre la traza que ya acumula, lo **graba como evento** en la traza, lo dice
+en voz en ese instante, y el recap (132) pinta esos mismos eventos grabados. Así no
+hay dos verdades: es un corte, grabado una vez, dicho en vivo y renderizado después
+— y `km-splits.ts` deja de ser el que corta para pasar a ser el respaldo de las
+carreras que llegaron sin eventos. Nunca hay dos voces a la vez, porque las dos
+superficies son excluyentes por construcción.
+
+**Lo que NO hacer mientras esto no se decida:** no volver a meter un cortador de km
+en el dispositivo que calcule su número por su cuenta y lo diga sin grabarlo. Eso sí
+son dos verdades: el atleta oye «km 3 en 5:58» y el recap le dice 5:59 porque lo
+recalculó el servidor sobre la serie completa. Y no ampliar `eligibility` a las
+piernas derivadas creyendo que arregla el aviso: mandaría el Largo Z2 a la app de
+Apple, que es justo donde las tres páginas no existen.
+
+---
+
 ## 2026-08-29 · Correr en la muñeca: tres páginas, el vivo en el centro
 
 **Alex cortó la card 105**, así que la interfaz de correr en la muñeca deja de ser
