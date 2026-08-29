@@ -11,6 +11,41 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Descartado: rellenar el descanso con el `rest_s` del plano
+
+**Se consideró y NO se escribió.** Queda aquí porque la hipótesis es razonable y
+alguien la va a volver a tener.
+
+El walk del 29-ago traía un dato que parecía señalar a otro sitio: «el 5:00 de work
+SÍ se cierra; el rest no». La asimetría invita a una explicación limpia: el work
+lleva su reloj en su propia medida, y el del descanso vive en el `rest_s` del plano,
+que `primeRunLeg` no lee — sólo lee `currentRunLeg?.durationSeconds`. Encaja además
+con que `PrescriptionRenderer` ya le imprime «descanso 1:30» al atleta, así que el
+dato existiría en el plano y el motor sería el único ciego. Y `serieConRestEntreWorks`
+sólo mira `rest_s` para PEGAR descansos donde no hay: si el árbol ya trae uno,
+devuelve la lista tal cual.
+
+**Por qué no.** La gramática compartida (`shared/domain/prescription/run-structure.ts`)
+declara `measure` **obligatorio** en todo segmento, y el esquema exige `m`/`s` int > 0.
+Un descanso sin medida **no llega por el cable**. El decodificador de iOS lo confirma
+desde el otro lado: `RunSegment.init(from:)` hace `try c.decode` sobre `measure`, así
+que un `null` no degrada a `.unknown` — revienta el segmento, y `Prescription` decodifica
+`structure` con `try?`, de modo que la estructura entera cae y el ítem se va al camino
+DERIVADO. La única vía que quedaba a un descanso sin medida era la tolerancia a un
+discriminador futuro desconocido, que no es el caso de un plano escrito hoy.
+
+Habría sido arreglar una forma que el servidor no manda, y de paso meter una segunda
+fuente de verdad para la duración de un descanso.
+
+**En consecuencia, no hacer:** no añadir `rest_s` como respaldo de la medida de un
+segmento mientras la gramática la exija. Si algún día se quiere permitir un descanso
+sin medida, se cambia **primero** el esquema compartido (y su validación), no el
+motor de iOS. Y si se cambia, el relleno va en el ÁRBOL antes de expandir (para que
+lo hereden por igual el motor en vivo y el plan de WorkoutKit que va a la muñeca,
+que hoy encodea desde `structure` sin ver la prescripción), nunca en la lista plana.
+
+---
+
 ## 2026-08-29 · La puerta del descanso era de la cinta, no del GPS
 
 **Debugger, serie de umbral.** Cuatro síntomas en una pantalla: «el motor no cierra
