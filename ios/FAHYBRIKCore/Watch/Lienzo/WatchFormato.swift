@@ -13,11 +13,10 @@ enum WatchFormat {
     /// the watch and phone read time identically.
     static func clock(_ seconds: Double) -> String { Formato.clock(seconds, anchoFijo: true) }
 
-    /// STANDALONE count-DOWN readout (CEIL) — the watch is the sole display, so it
-    /// shows the whole second in lock-step with the engine's audio ticks (count-in,
-    /// interval, rest, tramo). The MIRROR path rounds instead (matches the phone) via
-    /// `CountdownFormat.mirrored`, called directly from MirrorHUDView.
-    static func countdown(_ seconds: Double) -> String { CountdownFormat.standalone(seconds) }
+    /// Count-DOWN readout (count-in, intervalo, descanso, tramo). Una sola regla en
+    /// las dos vías del reloj — y la del móvil, que es el dueño del tiempo. Ver
+    /// `CountdownFormat`.
+    static func countdown(_ seconds: Double) -> String { CountdownFormat.remaining(seconds) }
 
     /// Pace seconds → "m:ss" (e.g. 278 → "4:38").
     ///

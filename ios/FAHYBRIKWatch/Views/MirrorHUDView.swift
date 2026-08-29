@@ -12,10 +12,12 @@ struct MirrorHUDView: View {
     // 0 = live (default) · 1 = controls (one swipe away).
     @State private var page = 0
     @State private var lastZoneHapticAt: Date = .distantPast
-    /// Local 3-2-1 ceil last felt — the count-in re-bases between frames, so
-    /// ticks must fire here when the displayed second changes, not only when a
-    /// phone frame lands (phone timers die in background).
-    @State private var lastCountInCeil: Int? = nil
+    /// El último segundo del 3-2-1 que se sintió. El count-in se re-basa entre
+    /// tramas, así que el tick tiene que dispararse aquí cuando cambia el segundo
+    /// QUE SE VE — no sólo cuando llega una trama (los timers del móvil mueren en
+    /// segundo plano). Es el mismo entero que pinta `CountdownFormat`: número y
+    /// golpe no pueden discrepar.
+    @State private var ultimoSegundoSentido: Int? = nil
     /// La muñeca bajada. El lienzo lo resuelve para el vivo; aquí se aplica a las
     /// dos capas que lo tapan (pausa y descanso), que no pasan por él.
     @Environment(\.isLuminanceReduced) private var atenuado
@@ -123,10 +125,10 @@ struct MirrorHUDView: View {
         LiveScaffold(status: frame?.blockTitle) {
             TimelineView(.periodic(from: .now, by: 0.25)) { context in
                 let remaining = countInRemaining(context.date)
-                let ceil = max(0, Int(ceil(remaining)))
+                let visible = CountdownFormat.wholeSeconds(remaining)
                 VStack(spacing: 6) {
                     WatchLabel(text: "Prepárate")
-                    GiantNumber(text: CountdownFormat.standalone(remaining), size: 84, color: WatchTheme.orange)
+                    GiantNumber(text: CountdownFormat.remaining(remaining), size: 84, color: WatchTheme.orange)
                     if let next = frame?.lineTitle {
                         Text(next)
                             .font(.system(size: 12, weight: .semibold))
@@ -134,22 +136,22 @@ struct MirrorHUDView: View {
                             .padding(.top, 1)
                     }
                 }
-                // Local tick: fire when the CEIL second drops (3→2→1→0).
-                .onChange(of: ceil) { _, n in
+                // El golpe cae cuando baja el segundo QUE SE VE (3→2→1→0).
+                .onChange(of: visible) { _, n in
                     guard phase == MirrorWire.Phase.countIn else { return }
-                    if n > 0, lastCountInCeil == nil || n < (lastCountInCeil ?? n + 1) {
+                    if n > 0, ultimoSegundoSentido == nil || n < (ultimoSegundoSentido ?? n + 1) {
                         Haptics.cueTick()
-                    } else if n == 0, (lastCountInCeil ?? 1) > 0 {
+                    } else if n == 0, (ultimoSegundoSentido ?? 1) > 0 {
                         Haptics.cueGo()
                     }
-                    lastCountInCeil = n
+                    ultimoSegundoSentido = n
                 }
                 .onAppear {
-                    if ceil > 0 { lastCountInCeil = ceil }
+                    if visible > 0 { ultimoSegundoSentido = visible }
                 }
             }
         }
-        .onDisappear { lastCountInCeil = nil }
+        .onDisappear { ultimoSegundoSentido = nil }
     }
 
     private func countInRemaining(_ now: Date) -> Double {
@@ -364,8 +366,7 @@ struct MirrorHUDView: View {
                     Spacer(minLength: 0)
                     WatchLabel(text: "Vuelve en", color: WatchTheme.zoneGreen.opacity(0.85))
                     GiantNumber(
-                        // MIRROR of the phone's rest clock → round like the phone (#68).
-                        text: CountdownFormat.mirrored(max(0, base - sinceFrame(context.date))),
+                        text: CountdownFormat.remaining(max(0, base - sinceFrame(context.date))),
                         size: 80,
                         color: WatchTheme.zoneGreen
                     )
@@ -526,8 +527,7 @@ struct MirrorHUDView: View {
     private func heroClock(_ now: Date) -> String {
         guard let f = frame else { return WatchFormat.clock(0) }
         if let countdown = f.countdownRemaining {
-            // MIRROR of the phone's countdown → round like the phone (#68).
-            return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
+            return CountdownFormat.remaining(max(0, countdown - sinceFrame(now)))
         }
         return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
     }

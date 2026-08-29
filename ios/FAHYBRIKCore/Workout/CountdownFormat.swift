@@ -1,34 +1,39 @@
 import Foundation
 
-// Count-DOWN readouts for the wrist HUDs. Two functions, one per context, because
-// the correct rounding differs (#68):
+// LA CUENTA ATRÁS, UNA SOLA REGLA.
 //
-//   • standalone(_:) — CEIL. The watch is the SOLE display. It shows the whole
-//     second (":03" through the entire 3rd second, never ":00" before the boundary),
-//     so a 3-2-1 count-in / interval / rest / tramo countdown stays in lock-step with
-//     the engine's OWN audio ticks (which fire as each second boundary is crossed).
+// Había dos funciones — `standalone` (CEIL) y `mirrored` (ROUND) — porque el reloj
+// tenía dos ideas del mismo segundo: el count-in redondeaba hacia arriba y el
+// crono del héroe hacia el más cercano, así que la misma cuenta atrás se leía
+// distinta según qué la pintara. La de arriba iba además 1 s POR DELANTE del
+// móvil (la foto del bug de Alex).
 //
-//   • mirrored(_:) — ROUND. The watch is MIRRORING the iPhone's live session, so its
-//     clock must match the phone, which formats remaining time with
-//     `Formato.clock` (round to nearest). CEIL made the mirror read 1s
-//     AHEAD of the phone (Alex's bug photo). Round → the same remaining maps to the
-//     same integer on both screens.
+// Manda el móvil, que es el dueño del tiempo: formatea con `Formato.clock`
+// (ROUND), así que la muñeca redondea igual y el mismo `remaining` cae en el
+// mismo entero en las dos pantallas. El háptico del 3-2-1 se dispara con ESTE
+// entero, no con otro calculado aparte: número y golpe no pueden discrepar.
 //
-// Pure + shared so both are unit-tested from FAHYBRIKTests (there is no watch test
-// target). The <60s form reads ":34" (the mockup's interval style); a minute or more
-// delegates to the shared elapsed formatter. Never negative.
+// Pura y compartida por los dos targets, así que la recorre FAHYBRIKTests (no hay
+// target de test del reloj). Por debajo del minuto se lee ":34" (el estilo de
+// intervalo del mockup); de un minuto en adelante delega en el formateador
+// compartido. Nunca negativa.
+//
+// LO QUE SIGUE ABIERTO, Y NO ES EL REDONDEO: la muñeca pinta
+// `countdownRemaining - sinceFrame(now)`, una cifra que el móvil nunca pintó, así
+// que entre tramas las dos pantallas siguen pudiendo diferir en un segundo por el
+// viaje del paquete. El arreglo de raíz es mandar el INSTANTE de vencimiento en
+// vez de los segundos que quedan — un dato absoluto que las dos calculan igual
+// contra un reloj de pared que ya está sincronizado. Ver docs/DECISIONS.md.
 enum CountdownFormat {
-    /// CEIL — the watch's own countdown (count-in, interval, rest, tramo). Shows the
-    /// whole second so the number never drops to ":00" before the boundary and stays
-    /// in sync with the engine's audio ticks.
-    static func standalone(_ seconds: Double) -> String {
-        format(max(0, Int(seconds.rounded(.up))))
+    /// Los segundos que QUEDAN, con la regla del móvil (round to nearest).
+    static func remaining(_ seconds: Double) -> String {
+        format(max(0, Int(seconds.rounded())))
     }
 
-    /// ROUND — a countdown that DUPLICATES the iPhone's display (mirror mode). Rounds
-    /// to nearest so the wrist clock matches the phone's `Formato.clock`.
-    static func mirrored(_ seconds: Double) -> String {
-        format(max(0, Int(seconds.rounded())))
+    /// El entero que se PINTA. El háptico del 3-2-1 lo lee de aquí para que el
+    /// golpe caiga en el segundo que el atleta está viendo.
+    static func wholeSeconds(_ seconds: Double) -> Int {
+        max(0, Int(seconds.rounded()))
     }
 
     private static func format(_ wholeSeconds: Int) -> String {
