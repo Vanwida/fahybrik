@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-29** (live: se borra overlay gym / CALENTAMIENTO HECHO / launched)
+Última actualización: **2026-08-29** (live: build 21, card 177)
 
 ## Ahora
 
@@ -29,3 +29,4 @@ No tocar: GPS/authority, 105, 174, 175, plan del 67,
 - Detail 200. Sesión ready. Rest entre works. `skipFixedRest` fuera.
 - Rest de pie = Descanso. Overlay gym fuera. `strengthPrimary` fuera.
 - `if launched` fuera. CALENTAMIENTO HECHO override fuera.
+- Card 177: `CURRENT_PROJECT_VERSION` 21. Watch lee `CFBundleVersion`.

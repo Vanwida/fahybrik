@@ -11,6 +11,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Un solo CURRENT_PROJECT_VERSION (card 177)
+
+**Qué fallaba:** si el número no cambia, watchOS no instala el
+binario nuevo y la muñeca se queda en el viejo sin aviso.
+
+**Decidido:** un número, `settings.base` de `ios/project.yml`.
+Este ship es 21. `MARKETING_VERSION` se queda 1.0. El Watch
+lee `CFBundleVersion` del bundle en el footer que ya existía
+(reposo). Sin segundo literal. Sin pantalla extra. Cada ship
+que se pruebe en dispositivo: +1 a esa línea.
+
+**NO hacer:** no otro version. no 105. no rest/HUD/GPS.
+
+---
+
 ## 2026-08-29 · Se borra el overlay gym, el override de fase y el launched
 
 **Qué se vio (debugger f5894e9, Series umbral):** 91-rest

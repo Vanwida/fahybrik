@@ -297,13 +297,10 @@ private struct ResumeOfferView: View {
     }
 }
 
-/// La versión y la build de ESTE binario, discreta y en reposo.
+/// CFBundleVersion de ESTE binario (`CURRENT_PROJECT_VERSION`), en reposo.
 private struct VersionFooter: View {
     private var texto: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "v\(version) (\(build))"
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
     }
 
     var body: some View {
