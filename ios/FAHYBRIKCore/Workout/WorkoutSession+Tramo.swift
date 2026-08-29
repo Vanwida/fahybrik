@@ -212,6 +212,27 @@ extension WorkoutSession {
     /// dejaba el ritmo de la recuperación sin denominador y los metros a cero.
     var tramoMide: Bool { !isTramoResting || isTramoRecuperandoEnMovimiento }
 
+    /// LOS METROS DE LA VENTANA SON UN DATO. Hermana de `tramoMide`, y no es la
+    /// misma pregunta: aquélla decide si corre el CRONÓMETRO, ésta si cuentan los
+    /// METROS. Separarlas es lo que arregla el descanso que no cerraba sin abrir el
+    /// agujero de enfrente.
+    ///
+    /// Una recuperación medida en METROS («trota 200 m») escrita SIN modo no «mide»
+    /// —su reloj se congela, y eso está bien— pero sus metros son exactamente lo
+    /// que la cierra (`considerDistanceClose`). Tirarlos la dejaba abierta para
+    /// siempre: es el «el motor no cierra el rest, la distancia clavada, el
+    /// siguiente Run no se arma» del debugger del 29-ago, que eran una línea.
+    ///
+    /// Un descanso PARADO de 60 s no cuenta, y ahí la puerta se queda: los metros
+    /// que llegaran son el atleta andando a por agua, no volumen de carrera. En la
+    /// calle eso casi nunca pasa —parado, CoreLocation no reporta movimiento— pero
+    /// «casi nunca» no es una regla, y con la cinta o con la muñeca en la mano sí
+    /// llegan.
+    var tramoMideDistancia: Bool {
+        if tramoMide { return true }
+        return currentTramo.targetDistanceMeters != nil
+    }
+
     /// Seconds left of the rest, for the countdown that IS the rest screen.
     var tramoRestRemaining: Double { Swift.max(0, restRemainingSeconds) }
 

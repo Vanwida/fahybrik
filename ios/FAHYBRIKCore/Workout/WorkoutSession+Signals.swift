@@ -198,10 +198,10 @@ extension WorkoutSession {
     /// CoreLocation que pinta el mapa (`.gps`) — iPhone y Watch. Indoor / cinta
     /// tonta: HealthKit. El GPS no se tira.
     ///
-    /// LA PUERTA DEL DESCANSO ERA DE LA CINTA, NO DEL GPS. Aquí había un `tramoMide`
-    /// que tiraba el sample cuando el tramo en curso era una recuperación sin MODO
-    /// escrito (`recoveryMode` nil → `isTramoRecuperandoEnMovimiento` falso). Lo que
-    /// costó, medido en el debugger del 29-ago sobre una serie de umbral:
+    /// LA PUERTA ERA DEMASIADO ANCHA, NO SOBRABA. Aquí había un `tramoMide` que
+    /// tiraba el sample en TODA recuperación sin MODO escrito (`recoveryMode` nil →
+    /// `isTramoRecuperandoEnMovimiento` falso). Lo que costó, medido en el debugger
+    /// del 29-ago sobre una serie de umbral:
     ///
     ///   · la distancia se quedaba clavada en pantalla mientras el atleta trotaba;
     ///   · el volumen de carrera de la sesión salía corto por todo lo trotado — que es
@@ -212,15 +212,21 @@ extension WorkoutSession {
     ///
     /// La regla de la que salió («sin modo escrito no se inventa un trote: es
     /// DESCANSO») es correcta y sigue en pie — pero es sobre el NOMBRE, no sobre la
-    /// medida. Cómo lo llamamos es una afirmación nuestra; los metros son un hecho de
-    /// CoreLocation. Y si el atleta está de verdad parado, el GPS no reporta
-    /// movimiento, así que la puerta no ahorraba nada en el caso que la motivó.
+    /// medida. Cómo lo llamamos es una afirmación nuestra; los metros son un hecho.
     ///
-    /// Donde sí se gana el sueldo es en la CINTA: una banda que sigue rodando mientras
-    /// el atleta se baja acumularía metros que nadie corrió. Ahí `tramoMide` se queda
-    /// (`sampleTreadmillDistance`, abajo). La autopausa tampoco es descanso.
+    /// Así que la puerta no se quita, se ESTRECHA: `tramoMideDistancia`. Cuentan los
+    /// metros del trabajo, los del trote escrito y los de una recuperación cuya meta
+    /// SON metros; no cuentan los de un descanso parado, que es el atleta andando a
+    /// por agua. Quitarla del todo hacía pasar el caso del debugger y rompía el de
+    /// enfrente, que ya estaba clavado en un test (`WatchRunLegDriverTests`).
+    ///
+    /// Y en la CINTA la puerta sigue siendo la ancha: una banda que rueda mientras el
+    /// atleta se baja acumularía metros que nadie corrió, y ahí no hay meta de
+    /// distancia que rescatar (`sampleTreadmillDistance`, abajo). La autopausa
+    /// tampoco es descanso.
     func sampleRunDistance(deltaMeters: Double, source: TraceSource) {
-        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun, deltaMeters > 0 else { return }
+        guard !isManuallyPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun,
+              tramoMideDistancia, deltaMeters > 0 else { return }
         guard RunDistanceAuthority.acceptsRunSample(
             source: source, environment: runEnvironment, beltOwns: lapBeltOwnsDistance
         ) else { return }

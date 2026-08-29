@@ -415,6 +415,45 @@ final class StructuredRunEngineTests: XCTestCase {
         XCTAssertTrue(s.isRunLegWork)
     }
 
+    /// LA REGLA, EN SUS DOS DIRECCIONES Y EN UN SITIO. Cuentan los metros de una
+    /// recuperación cuya META son metros (son los que la cierran); NO cuentan los de
+    /// un descanso parado (serían el atleta andando a por agua).
+    ///
+    /// Existe porque el primer arreglo del descanso quitó la puerta ENTERA y con eso
+    /// pasaba el caso del debugger y se rompía el de enfrente, que ya estaba clavado
+    /// en `WatchRunLegDriverTests`. Las dos mitades juntas aquí para que la próxima
+    /// vez se vea que son una sola regla.
+    func testCuentanLosMetrosDeLaRecuperacionQueSeMIDEEnMetrosYNoLosDelDescansoParado() {
+        let recuperacionDeMetros = RunElement.segment(
+            RunSegment(kind: .recovery, measure: .distance(m: 200), target: nil, resolved: nil,
+                       inclinePct: nil, cadenceSpm: nil, recoveryMode: nil)
+        )
+        let s = structuredSession([main([work(.distance(m: 400)), recuperacionDeMetros])])
+        s.runEnvironment = .outdoor
+        s.primaryAdvance()
+        s.sampleRunDistance(deltaMeters: 400, source: .gps)   // cierra el work
+        XCTAssertFalse(s.isRunLegWork)
+        XCTAssertFalse(s.tramoMide, "sin modo escrito su RELOJ se congela, y eso está bien")
+        XCTAssertTrue(s.tramoMideDistancia, "pero sus METROS son los que la cierran")
+        s.sampleRunDistance(deltaMeters: 120, source: .gps)
+        XCTAssertEqual(s.tramoRunCoveredMeters ?? 0, 120, accuracy: 0.001)
+
+        // Y la otra mitad: un descanso PARADO no suma.
+        let parado = RunElement.segment(
+            RunSegment(kind: .recovery, measure: .duration(s: 60), target: nil, resolved: nil,
+                       inclinePct: nil, cadenceSpm: nil, recoveryMode: .parado)
+        )
+        let p = structuredSession([main([work(.distance(m: 400)), parado])])
+        p.runEnvironment = .outdoor
+        p.primaryAdvance()
+        p.sampleRunDistance(deltaMeters: 400, source: .gps)
+        XCTAssertFalse(p.tramoMideDistancia, "un descanso parado no tiene metros que contar")
+        let antes = p.segmentRunCoveredForProgress
+        p.sampleRunDistance(deltaMeters: 1_000, source: .gps)
+        XCTAssertEqual(p.segmentRunCoveredForProgress, antes, accuracy: 0.001,
+                       "el descanso parado no suma metros")
+    }
+
     /// Y el volumen de la sesión los lleva: lo trotado en la recuperación no desaparece
     /// del total de carrera, que es el daño que `advanceRunLeg` dice que evita grabar
     /// las recuperaciones.
