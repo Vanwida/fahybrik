@@ -422,14 +422,25 @@ extension WorkoutSession {
         captureEMOMScore()   // a "Terminar y guardar" mid-EMOM keeps X/Y rondas (#break-1)
         clearEMOMState()
         clearConditioning()
+        // LO CORRIDO DE LA PIERNA EN CURSO, antes de soltar la estructura: sin cursor
+        // ya no se sabe qué pierna era. Ver `recordRunLegEnCurso`.
+        recordRunLegEnCurso()
         clearRunStructure()
         // Close the in-flight segment so the final segment is never dropped from
         // the execution record (finish can be reached via the last lap auto-finish,
         // "Terminar bloque", or "Terminar y guardar" mid-session). lap() will have
         // already closed and zeroed lapElapsedSeconds, so a residual >0 means work
-        // is pending. A structural warmup/cooldown only ever logs via its own
-        // "hecho" button — an untapped one emits NO row (null = not done).
-        if !isFinished, currentSegment != nil, lapElapsedSeconds > 0, !currentBlockIsStructural {
+        // is pending.
+        //
+        // AQUÍ HABÍA UN `!currentBlockIsStructural`, y era la fase del PLAN decidiendo
+        // qué se guarda. La política de los bloques estructurales es real —un
+        // calentamiento sin tocar «hecho» no emite fila, porque null es «no hecho»— pero
+        // vive DENTRO de `closeCurrentSegmentLap`, que la aplica ella misma y además
+        // sabe sellar el lap estructural del bloque. Repetirla aquí como condición para
+        // ni llamarla convertía «esta fase no cuenta como trabajo» en «lo medido en esta
+        // fase no se guarda», que es otra frase: un calentamiento con metros de GPS es
+        // una carrera de esos metros.
+        if !isFinished, currentSegment != nil, lapElapsedSeconds > 0 {
             closeCurrentSegmentLap()
         }
         // HRR anchor: recovery offsets measure from the moment the EFFORT ended.

@@ -92,6 +92,40 @@ extension WorkoutSession {
         ergIntervalBoutsRecorded += 1
     }
 
+    /// LA PIERNA QUE SE ESTABA CORRIENDO CUANDO SE TERMINÓ. Sus metros existen.
+    ///
+    /// `recordRunLegLap` sólo se llamaba desde `advanceRunLeg`, o sea en el LÍMITE de
+    /// una pierna. Terminar a media pierna no es un límite, así que lo corrido se
+    /// quedaba sin fila — y `closeCurrentSegmentLap` no lo rescataba porque en una
+    /// carrera estructurada se aparta a propósito («cada pierna escribe la suya»).
+    /// Resultado, visto en el debugger del 29-ago con un 1×800 libre: 470 m en el
+    /// suelo, con su mapa, y un recap sin kilómetros, sin ritmo y sin zonas — un
+    /// formulario para teclear el pulso a mano. La telemetría estaba; lo que faltaba
+    /// era la fila.
+    ///
+    /// No hay regla nueva: `advanceRunLeg` graba TODA pierna que acaba sin preguntar
+    /// si llegó a su meta, y ésta acaba igual — la termina el atleta en vez del
+    /// objetivo. Se pide sólo que haya algo QUE GRABAR: metros medidos o reloj
+    /// corrido. Sin eso la fila sería de ceros, que es lo que pasaría si el final cae
+    /// justo en un límite que `advanceRunLeg` acaba de grabar (el cursor ya está en la
+    /// siguiente, que no ha empezado).
+    func recordRunLegEnCurso() {
+        guard isRunStructureActive,
+              let legs = currentSegment?.runStructureLegs,
+              legs.indices.contains(runLegIndex),
+              metrosDeLaPiernaEnCurso > 0 || runLegElapsed > 0 else { return }
+        recordRunLegLap(legs[runLegIndex], at: runLegIndex)
+    }
+
+    /// Los metros de la pierna EN CURSO, por la MISMA resta con la que se graba su
+    /// fila: la cinta manda si midió, el GPS si no. Existe para que la puerta de
+    /// `recordRunLegEnCurso` y la cifra que acaba en la fila no puedan discrepar.
+    var metrosDeLaPiernaEnCurso: Double {
+        let belt = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
+        if belt > 0 { return belt }
+        return Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
+    }
+
     func recordRunLegLap(_ leg: RunLeg, at legIndex: Int) {
         guard let seg = currentSegment else { return }
         let now = Date()
