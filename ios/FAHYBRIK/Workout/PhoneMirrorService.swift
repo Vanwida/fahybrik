@@ -262,8 +262,11 @@ final class PhoneMirrorService {
     }
 
     /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
-    /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
-    /// so without this kick the wrist can sit on "Conectando…" until the 1 Hz timer.
+    ///
+    /// Ya no existe para sacar a la muñeca de un spinner: sin trama pinta lo que ella
+    /// mide (`GuionDeLaMuneca`), así que nunca se queda esperando. Sigue existiendo
+    /// para que el CONTEXTO llegue pronto — qué pierna, qué objetivo, el veredicto del
+    /// ritmo —, que es lo que la trama añade y la muñeca sola no puede saber.
     func kickFrame() {
         guard mirrored != nil, session != nil else { return }
         tickFrame()

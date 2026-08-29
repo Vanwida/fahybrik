@@ -113,8 +113,14 @@ final class MirrorSessionController: NSObject {
     /// re-enter the close path.
     private var isClosing = false
     private var lastHRRelayAt: Date = .distantPast
-    /// Cumulative Apple distance last relayed, so we emit only the increment.
-    private var lastReportedDistance: Double = 0
+
+    /// LOS METROS DE ESTA SESIÓN, los que cuenta Apple. Acumulados del
+    /// `HKLiveWorkoutBuilder` que esta muñeca OWNS — no un dato que llegue del móvil.
+    ///
+    /// Era `private var lastReportedDistance`, y sólo existía para calcular el
+    /// incremento que se le relaya al teléfono: la muñeca tenía la cifra y no se la
+    /// pintaba a sí misma. Es el mismo valor, con el nombre de lo que es y visible.
+    private(set) var metrosPropios: Double = 0
     private var lastDistanceRelayAt: Date = .distantPast
     /// Later of "recording started" and "last frame" — the watchdog reference.
     private var lastSignalAt: Date = .distantPast
@@ -181,6 +187,7 @@ final class MirrorSessionController: NSObject {
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
+        metrosPropios = 0
         isConnectionLost = false
         hkPaused = false
         isClosing = false
@@ -208,6 +215,7 @@ final class MirrorSessionController: NSObject {
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
+        metrosPropios = 0
         isConnectionLost = false
         hkPaused = false
     }
@@ -437,6 +445,40 @@ final class MirrorSessionController: NSObject {
         }
     }
 
+    // MARK: - Lo que la muñeca puede hacer con SU sesión
+
+    /// Segundos de esta sesión, según Apple. `HKLiveWorkoutBuilder` es el reloj — el
+    /// mismo criterio que en `LiveWorkoutSession`, no un contador nuestro.
+    var segundosPropios: TimeInterval { builder?.elapsedTime ?? 0 }
+
+    /// ¿Esta sesión es de correr? Lo dice la configuración con la que se creó, que es
+    /// dato de la sesión y no una frase que tenga que mandar el teléfono.
+    var esCorrer: Bool {
+        session?.workoutConfiguration.activityType == .running
+    }
+
+    /// PAUSAR ES DE LA MUÑECA. Apple pausa la sesión que ella OWNS, y de paso se le
+    /// dice al teléfono para que su motor siga la misma pausa cuando esté ahí.
+    ///
+    /// Antes esto no existía: la pausa sólo llegaba dentro de una trama
+    /// (`applyPhase`), así que sin trama —el caso del arranque en frío, y el que
+    /// caminó el debugger— no había forma de pausar la grabación desde la muñeca. Un
+    /// control que sólo funciona si el otro aparato contesta no es un control.
+    func pausar() {
+        guard state == .recording else { return }
+        if !hkPaused { session?.pause(); hkPaused = true }
+        sendCommand(MirrorWire.CommandKind.pause)
+    }
+
+    func reanudar() {
+        guard state == .recording else { return }
+        if hkPaused { session?.resume(); hkPaused = false }
+        sendCommand(MirrorWire.CommandKind.resume)
+    }
+
+    /// True cuando la grabación de ESTA muñeca está pausada.
+    var enPausa: Bool { hkPaused }
+
     /// Mirror the engine's pause state onto the HK session so paused/rest minutes
     /// don't accrue kcal and no rest-HR reaches the recording.
     private func applyPhase(_ phase: String) {
@@ -664,6 +706,7 @@ final class MirrorSessionController: NSObject {
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
+        metrosPropios = 0
         isConnectionLost = false
         hkPaused = false
         isClosing = false
@@ -782,9 +825,9 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
     private func applyDistance(_ stats: HKStatistics?) {
         guard let q = stats?.sumQuantity() else { return }
         let total = q.doubleValue(for: .meter())
-        let delta = total - lastReportedDistance
+        let delta = total - metrosPropios
         guard delta > 0 else { return }
-        lastReportedDistance = total
+        metrosPropios = total
         relayDistance(delta)
     }
 }

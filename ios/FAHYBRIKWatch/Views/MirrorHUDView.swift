@@ -42,8 +42,14 @@ struct MirrorHUDView: View {
     /// ¿Las páginas de ahora traen ya sus controles? Decide también si las capas de
     /// pausa y descanso se pintan: en correr las dos son ESTADOS de la página del
     /// vivo (el numeral apagado, el fondo de descanso), no un velo por encima.
+    ///
+    /// Sin trama es SIEMPRE cierto: las páginas de la muñeca sola llevan las suyas
+    /// —pausar y terminar sobre su propia sesión—, así que envolverlas en el `TabView`
+    /// pondría dos paginadores encima de la misma pantalla y una página de controles
+    /// que no puede hacer nada.
     private var paginasConControles: Bool {
-        frame.map(GuionDelEspejo.traeControles) ?? false
+        guard let f = frame else { return true }
+        return GuionDelEspejo.traeControles(f)
     }
 
     // MARK: - Live page
@@ -67,8 +73,13 @@ struct MirrorHUDView: View {
             if controller.state == .ending {
                 savingOverlay
             } else if frame == nil {
-                // Espejo activo sin trama: nunca dejar la pantalla en negro.
-                waitingForPhoneOverlay
+                // SIN TRAMA, LA MUÑECA PINTA LO QUE ELLA MIDE. Aquí vivía
+                // `waitingForPhoneOverlay` — spinner, «CONECTANDO…» y «El entreno se
+                // controla desde el iPhone» — hasta que el teléfono empujara la
+                // primera trama. La sesión de HealthKit ya era de esta muñeca y ya
+                // estaba grabando, así que esa pantalla decía que el entreno era de
+                // otro y de paso escondía la pausa y el fin. Ver `GuionDeLaMuneca`.
+                propioContent
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
             } else if phase == MirrorWire.Phase.countIn {
@@ -228,20 +239,33 @@ struct MirrorHUDView: View {
         }
     }
 
-    /// Espejo grabando / unido, todavía sin trama del iPhone. Antes era EmptyView
-    /// → pantalla negra (muy visible en libre de fuerza: el reloj arranca al
-    /// Empezar y el teléfono tarda un momento en mandar el primer frame).
-    private var waitingForPhoneOverlay: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .tint(WatchTheme.orange)
-            WatchLabel(text: "Conectando…", accent: true)
-            Text("El entreno se controla\ndesde el iPhone")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
+    /// LA MUÑECA GRABANDO, sin que el teléfono haya hablado todavía — o sin que hable
+    /// nunca. Las mismas páginas y el mismo lienzo, rellenos con lo que mide ella:
+    /// el reloj y los metros de su `HKLiveWorkoutBuilder` y el pulso de su sensor.
+    /// Pausar y terminar actúan sobre SU sesión, así que existen desde el primer
+    /// segundo.
+    private var propioContent: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            WatchReloj(
+                paginas: GuionDeLaMuneca.paginas(
+                    GuionDeLaMuneca.Estado(
+                        esCorrer: controller.esCorrer,
+                        segundos: controller.segundosPropios,
+                        metros: controller.metrosPropios,
+                        bpm: controller.liveHR,
+                        zona: controller.liveZone,
+                        enPausa: controller.enPausa
+                    ),
+                    GuionCorrer.Gestos(
+                        pausar: { controller.pausar() },
+                        reanudar: { controller.reanudar() },
+                        terminar: { controller.finishLocally() }
+                    )
+                ),
+                tinte: WatchTinte.color(for: controller.liveZone),
+                inicial: GuionCorrer.idVivo
+            )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
@@ -482,22 +506,29 @@ struct MirrorHUDView: View {
         }
     }
 
+    /// Los controles de las familias que todavía reciben su página de esta vista y no
+    /// de su guion (fuerza, ergo, EMOM…).
+    ///
+    /// AQUÍ DECÍA «El entreno se controla desde el iPhone», y se borra con la pantalla
+    /// de CONECTANDO por la misma razón: es falso y encima se lee como una excusa. La
+    /// sesión de HealthKit es de la muñeca, y pausar actúa sobre ella.
     private var normalControls: some View {
         VStack(spacing: 11) {
             pauseResumeButton
-            Text("El entreno se controla desde el iPhone")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 12)
     }
 
     private var pauseResumeButton: some View {
-        let paused = phase == MirrorWire.Phase.paused
+        // La pausa se lee de la trama cuando la hay (el motor del teléfono es quien
+        // manda mientras está), y de la grabación propia cuando no.
+        let paused = frame == nil ? controller.enPausa : phase == MirrorWire.Phase.paused
         return Button {
             WatchHaptics.tap()
-            controller.sendCommand(paused ? MirrorWire.CommandKind.resume : MirrorWire.CommandKind.pause)
+            // Y ACTÚA SOBRE LA SESIÓN DE ESTA MUÑECA, además de avisar al teléfono.
+            // Mandar sólo el comando dejaba el botón muerto justo cuando más falta
+            // hace: sin trama no hay nadie al otro lado que lo aplique.
+            if paused { controller.reanudar() } else { controller.pausar() }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: paused ? "play.fill" : "pause.fill")

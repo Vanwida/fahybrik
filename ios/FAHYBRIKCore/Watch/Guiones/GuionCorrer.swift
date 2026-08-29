@@ -78,6 +78,11 @@ enum GuionCorrer {
         /// ofrece: el corte ya está escrito.
         var hayEstructura: Bool = false
         var hayBloqueSiguiente: Bool = false
+        /// ¿Se puede cortar un tramo AHORA MISMO? El parcial lo sella el motor, que
+        /// vive en el teléfono, así que cuando la muñeca va sola no hay a quién
+        /// pedirlo — y un botón que se va al vacío es peor que no tenerlo. Pausar y
+        /// terminar sí son suyos: actúan sobre la sesión que ella OWNS.
+        var puedeCortarTramo: Bool = true
     }
 
     struct Gestos {
@@ -284,7 +289,7 @@ enum GuionCorrer {
         // prescripción — produce un parcial con sus metros, su tiempo y su ritmo.
         // Sólo cuando los cortes son del ATLETA: si el coach escribió la estructura,
         // el corte ya está escrito y el botón no está.
-        if !e.hayEstructura {
+        if !e.hayEstructura, e.puedeCortarTramo {
             botones.append(WatchBoton(id: "nuevoTramo", titulo: "Nuevo tramo", onToca: g.nuevoTramo))
         }
 

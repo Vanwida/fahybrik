@@ -302,8 +302,9 @@ struct ActiveWorkoutView: View {
         .allowsLandscape()
         .onAppear {
             session.start()
-            // Free workouts open the mirror BEFORE this view mounts; push a frame
-            // the instant the engine is live so the wrist leaves "Conectando…".
+            // Free workouts open the mirror BEFORE this view mounts; push a frame en
+            // cuanto el motor esté vivo para que el CONTEXTO del tramo llegue pronto.
+            // (La muñeca ya no espera a nadie para tener pantalla — pinta lo que mide.)
             PhoneMirrorService.shared.kickFrame()
             wireLiveSources()
             // Seed the monitor flag: the athlete may have paired in the pre-start
