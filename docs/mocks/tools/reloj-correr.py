@@ -30,7 +30,13 @@ import time
 BG = "#000000"
 SURFACE_RAISED = "#1F1F1F"
 INK = "#FFFFFF"
-DIM = "#8A8A8E"
+# El gris secundario de WatchTheme (#8A8A8E) vale sobre negro y NO vale sobre un
+# lienzo teñido: sobre el verde de la Z3 al 45 % se queda en 2,29:1 y la unidad y
+# las versales dejan de leerse — el mismo «no se lee de un vistazo» que motivó el
+# relleno fuerte. Un gris fijo no puede vivir sobre un fondo que cambia de color,
+# así que el cromo pasa a ser BLANCO con alfa: mantiene 5,5:1 contra las cinco
+# zonas y 10,5:1 sobre negro, sin dejar de pesar menos que el dato (§4).
+DIM = "rgba(255,255,255,0.70)"
 ORANGE = "#F06A2A"       # la acción
 ORANGE_SOFT = "#FF8A4C"  # el aro: pasa el 3:1 contra las cinco zonas, el de marca no
 ZONE_GREEN = "#2FD14F"   # Z3 «medio» — la única zona que sale en estas láminas
@@ -61,21 +67,32 @@ VERSALES_TRACKING = 1.1
 AVANCE_VERSAL = 0.72
 SEGUNDO_BASE = 22
 
-# El degradado que mete el tinte en una banda central: negro donde corre el aro
-# y negro al pie, donde viven las versales.
+# EL RELLENO DE ZONA — plano y fuerte, no una banda que se desvanece.
+#
+# La primera versión de estas láminas bajó el tinte del 38 % del kit al 22 %
+# porque «no se leía como un tinte ambiente». Diagnóstico equivocado: lo que no
+# dejaba leer la zona era el DEGRADADO, que iba a negro puro arriba y abajo y
+# dejaba el color vivo sólo en una franja estrecha del centro — justo donde va el
+# numeral, que lo tapa. Bajar el porcentaje encima de eso apagó el único sitio
+# donde el color aún existía. Se corrige por la raíz: relleno PLANO al 45 % y el
+# negro reducido a una viñeta.
+#
+# Por qué 45 y no más: el techo NO es de gusto, lo pone el ámbar de la Z4. El aro
+# del bisel (#FF8A4C) tiene que mantener 3:1 contra el lienzo porque es un
+# elemento gráfico que hay que entender, y sobre ámbar al 45 % se queda en 3,09:1
+# — al 55 % cae a 2,30 y el aro desaparece. Con ese mismo 45 %, el numeral blanco
+# va de 7,9:1 (verde) a 12,3:1 (azul), y las cinco zonas quedan a un vistazo:
+# Z2 #133173 · Z3 #159438 · Z4 #73511D · Z5 #732222 · Z1 #3E3E40.
+TINTE_MAX = 45
+
+# La viñeta: oscurece las esquinas (donde la curva del bisel se come el lienzo) y
+# las dos bandas de versales, y deja el cuerpo de la pantalla PLANO. Es lo que
+# queda del degradado de antes: contraste donde hace falta, sin apagar el color.
 DEGRADADO = (
-    "linear-gradient(180deg,#000 0%,rgba(0,0,0,0.80) 14%,"
-    "rgba(0,0,0,0) 46%,rgba(0,0,0,0.72) 74%,#000 100%)"
+    "radial-gradient(128% 96% at 50% 46%,rgba(0,0,0,0) 54%,rgba(0,0,0,0.34) 100%),"
+    "linear-gradient(180deg,rgba(0,0,0,0.34) 0%,rgba(0,0,0,0) 13%,"
+    "rgba(0,0,0,0) 86%,rgba(0,0,0,0.30) 100%)"
 )
-# El kit fija TINTE_MAX = 38 %, y a pantalla completa eso NO es «un tinte
-# ambiente, oscuro y saturado apenas» (CONTRATO-UI §10.1): el verde de la Z3 a
-# 38 % sobre negro da #12501E, que es un fondo verde con letras encima y encima
-# se parece al verde del propio dato de zona, así que el color deja de
-# discriminar. A 22 % el fondo sigue diciendo la zona de reojo y el numeral
-# sigue siendo lo único claro de la pantalla. Es un hallazgo de esta lámina, y
-# está anotado en la PR: el 38 % del kit nunca se había mirado a tamaño real,
-# porque las nueve vistas del doble van todas sin ancla.
-TINTE_MAX = 22
 
 AVANCE_SANS = {":": 0.32, ".": 0.30, ",": 0.30, " ": 0.28, "·": 0.34,
                "×": 0.60, "—": 0.62, "-": 0.35, "/": 0.40, "~": 0.60}
@@ -276,6 +293,17 @@ def aro_continuo(queda: float, *, color: str = ORANGE_SOFT) -> str:
     )
 
 
+def aro_vacio() -> str:
+    """Sólo el carril: no se sabe cuánto queda, y no se insinúa un progreso.
+
+    Antes esto era un aro naranja al 22 % de alfa, que sobre negro se leía como
+    «apagado» y sobre un lienzo teñido no se lee de ninguna manera: un traslúcido
+    calibrado contra el negro deja de significar nada en cuanto el fondo tiene
+    color. El carril dice lo mismo y no depende del fondo.
+    """
+    return _svg(f'<path d="{TRAZADO}" fill="none" stroke="{VIA}" stroke-width="{GROSOR}"/>')
+
+
 def aro_segmentado(total: int, hechas: int, fraccion: float) -> str:
     hueco, paso = 7, PERIMETRO / total
     largo = paso - hueco
@@ -380,8 +408,12 @@ def pagina_datos(*, con_zona: bool = True, activa: int = 0) -> str:
             _fallo(f"la fila «{etiqueta}» mide {ancho:.0f} pt sobre {ANCHO_UTIL}")
         marca = ""
         if chip:
+            # El nombre de la zona va en BLANCO, no en el color de la zona: el
+            # lienzo ya ES ese color, así que escribirlo encima de sí mismo lo
+            # borra (verde sobre verde = 3,9:1 y de la misma tinta). El color lo
+            # dice el fondo; la etiqueta dice las palabras.
             marca = (f'<span style="font-family:var(--sans);font-size:11.5px;font-weight:800;'
-                     f'letter-spacing:0.3px;color:{ZONE_GREEN};margin-left:8px;'
+                     f'letter-spacing:0.3px;color:{INK};margin-left:8px;'
                      f'padding-bottom:2px">{chip}</span>')
         html.append(
             f'<div style="width:100%;display:flex;flex-direction:column;align-items:flex-start">'
@@ -398,22 +430,24 @@ def pagina_datos(*, con_zona: bool = True, activa: int = 0) -> str:
 
 def pagina_vivo(*, contexto: str = "rodaje · te quedan", sujeto: str = "4,76",
                 unidad: str = "km", ritmo: str = "5:12 /km", nota: str = "",
-                juicio: str = "", tono_juicio: str = ZONE_GREEN,
-                opacidad: float = 1.0, activa: int = 1) -> str:
+                juicio: str = "", opacidad: float = 1.0, activa: int = 1) -> str:
     """Lo que FALTA de la pieza que tienes delante. Cero controles: corriendo no se toca.
 
     El JUICIO ocupa el hueco de la etiqueta, no una tercera línea ni un apéndice
     del valor: sin objetivo la etiqueta dice «ritmo» y con objetivo dice cómo vas.
-    Así el veredicto es una palabra Y un color, y sigue habiendo un solo segundo
-    nivel — «ritmo 4:10 /km · En objetivo» mide 195 pt y se recortaba.
+    Así sigue habiendo un solo segundo nivel — «ritmo 4:10 /km · En objetivo» mide
+    195 pt y se recortaba.
+
+    Y el veredicto es una PALABRA, no un color: mientras el lienzo lleve la zona de
+    pulso, en esta pantalla no puede hablar en color nada más. Un «en objetivo»
+    verde sobre un lienzo verde no se lee, y con la zona en ámbar o en rojo el
+    mismo verde diría dos cosas a la vez.
     """
     alto = alto_sujeto(sujeto, unidad, segundo=bool(ritmo), nota=bool(nota), puntos=True)
     seg = ""
     if ritmo:
-        seg = segundo_nivel(ritmo, etiqueta=juicio or "ritmo",
-                            color=tono_juicio if juicio else INK,
-                            tono_etiqueta=tono_juicio if juicio else DIM,
-                            opacidad=opacidad)
+        seg = segundo_nivel(ritmo, etiqueta=juicio or "ritmo", color=INK,
+                            tono_etiqueta=INK if juicio else DIM, opacidad=opacidad)
     return (versales(contexto, tono="rgba(255,255,255,0.85)")
             + '<span style="flex:1"></span>'
             + numeral(sujeto, unidad, alto=alto, opacidad=opacidad)
@@ -438,8 +472,13 @@ def pagina_controles(*, pausado: bool = False, activa: int = 2) -> str:
     botones = [
         _boton("Reanudar" if pausado else "Pausar", alto=altos[0], fondo=ORANGE, color="#160800"),
         _boton("Nuevo tramo", alto=altos[1], fondo=SURFACE_RAISED, color=INK),
-        _boton("Terminar", alto=altos[2], fondo="rgba(255,77,77,0.14)", color=ZONE_RED,
-               borde="box-shadow:inset 0 0 0 1.5px rgba(255,77,77,0.45);"),
+        # Los tres botones son OPACOS. El rojo traslúcido de la primera versión
+        # (14 % sobre negro) dejaba pasar el lienzo: sobre la zona en verde el
+        # botón salía oliva y su texto rojo se quedaba en 1,32:1. Estos dos hexes
+        # son exactamente lo que aquel traslúcido daba sobre negro, así que el
+        # botón se ve igual que antes y ahora no depende de la zona.
+        _boton("Terminar", alto=altos[2], fondo="#240B0B", color=ZONE_RED,
+               borde="box-shadow:inset 0 0 0 1.5px #732323;"),
     ]
     return (versales("en pausa · 27:15" if pausado else "rodaje · 27:15",
                      tono="rgba(255,255,255,0.85)")
@@ -541,6 +580,31 @@ def render(html: str, salida: str, ancho: int, alto: int, escala: int = 3) -> No
 ARO_RODAJE = aro_continuo(QUEDA)
 
 
+def tira_zonas() -> str:
+    """Las cinco zonas con el relleno de verdad, para poder juzgar de un vistazo.
+
+    Está aquí porque el criterio de la card es que Z2/Z3/Z4 se distingan corriendo,
+    y las láminas enseñan sólo la Z3 del escenario: sin la tira no hay forma de
+    comprobarlo. Es una leyenda, no una pantalla.
+    """
+    zonas = [(1, "#8A8A8E", "muy suave"), (2, "#2A6CFF", "suave"), (3, ZONE_GREEN, "medio"),
+             (4, "#FFB340", "fuerte"), (5, ZONE_RED, "máximo")]
+    chips = []
+    for n, hue, nombre in zonas:
+        relleno = f"color-mix(in srgb,{hue} {TINTE_MAX}%,{BG})"
+        chips.append(
+            f'<div style="width:108px">'
+            f'<div style="height:52px;border-radius:14px;background:{relleno};'
+            f'display:flex;align-items:center;justify-content:center;gap:7px">'
+            f'<span style="font-family:var(--mono);font-size:19px;font-weight:800;color:#fff">'
+            f'Z{n}</span>'
+            f'<span style="width:16px;height:3px;border-radius:2px;background:{ORANGE_SOFT}"></span>'
+            f'</div>'
+            f'<div class="gesto" style="margin-top:5px;text-align:center">{nombre}</div></div>'
+        )
+    return (f'<div style="display:flex;align-items:flex-start;gap:10px">{"".join(chips)}</div>')
+
+
 def lamina_hoja() -> tuple[str, int, int]:
     esc = 1.5
     cols = []
@@ -579,7 +643,21 @@ def lamina_hoja() -> tuple[str, int, int]:
 <div style="margin-top:26px;display:flex;align-items:flex-start;gap:22px">
  {cols[0]}{flecha}{cols[1]}{flecha}{cols[2]}
 </div>
-<div class="pie" style="margin-top:26px">
+<div style="margin-top:26px;display:flex;gap:34px;align-items:flex-start">
+ <div>{tira_zonas()}</div>
+ <div class="pie" style="max-width:640px">
+  <b>El relleno es la zona, plano y al 45 %.</b> El tope no es de gusto: lo pone el ámbar de la
+  Z4, porque el aro naranja tiene que mantener 3:1 contra el lienzo y ahí se queda en 3,09
+  (al 55 % cae a 2,30 y el aro desaparece). Con ese mismo 45 % el numeral blanco va de 7,9:1
+  sobre el verde a 12,3:1 sobre el azul. Del degradado de antes queda una <b>viñeta</b>: negro
+  en las esquinas, donde la curva del bisel se come el lienzo, y en las dos bandas de versales.
+  <br/><br/>
+  Y mientras el lienzo lleve la zona, <b>en esta pantalla no habla en color nada más</b>: el
+  veredicto del ritmo es una palabra, porque un «en objetivo» verde sobre un lienzo verde no se
+  lee y sobre uno ámbar diría dos cosas a la vez.
+ </div>
+</div>
+<div class="pie" style="margin-top:22px">
  <b>De dónde salen los números.</b> Rodaje de 10 km a los 5.240 m: ejecución 145 del atleta 66
  (10.000 m a 5:12/km, FC media 150 ppm). El tiempo y los metros que faltan se derivan de ahí.
  <b>La zona es la única excepción</b>, y va marcada: sale de un umbral <i>medido</i> de 168 ppm
@@ -590,7 +668,7 @@ def lamina_hoja() -> tuple[str, int, int]:
  <b>El aro</b> del bisel es lo que queda del rodaje; cuesta cero altura de contenido.
  Lienzo real 208 × 248 pt, útil 188 × 212 — las medidas de estas capturas salen de las mismas
  constantes que hace cumplir <code>kit-watch/modelo.ts</code>, no del ojo.
-</div>""", 1420), 1420, 950)
+</div>""", 1420), 1420, 1090)
 
 
 def lamina_pagina(titulo: str, bajada: str, pagina: str, notas: list[tuple[str, str]],
@@ -618,15 +696,15 @@ def lamina_estados() -> tuple[str, int, int]:
                                   ritmo="", nota="sin señal · buscando"),
          "El GPS no ha fijado: no hay metros ni ritmo que pintar, así que el sujeto cae al reloj "
          "de la pieza. No se inventa un ritmo ni se pinta un cero que parezca dato.",
-         ZONE_GREEN, "", aro_continuo(1.0, color="rgba(255,138,76,0.22)")),
+         ZONE_GREEN, "", aro_vacio()),
         ("Sin umbral — <b>el estado de hoy</b>", pagina_datos(con_zona=False, activa=0),
          "Ningún atleta tiene umbral medido, así que no hay zona: el pulso va en ppm crudos, "
          "lo dice al pie y <b>el lienzo no se tiñe</b>. El color es un dato.",
          None, "", ARO_RODAJE),
         ("En pausa", pagina_vivo(opacidad=0.42, contexto="en pausa · te quedan"),
-         "El dato no desaparece, se apaga: sigues sabiendo dónde lo dejaste. El aro deja de "
-         "avanzar y los controles de al lado ofrecen «Reanudar».",
-         ZONE_GREEN, "", aro_continuo(QUEDA, color="rgba(255,138,76,0.35)")),
+         "El dato no desaparece, se apaga: sigues sabiendo dónde lo dejaste. El aro se queda "
+         "donde estaba y los controles de al lado ofrecen «Reanudar».",
+         ZONE_GREEN, "", ARO_RODAJE),
         ("Terminar, confirmado", pagina_confirmar(),
          "Terminar es la única acción destructiva de la interfaz y va abajo, en rojo y "
          "confirmada — con la misma pregunta que ya hace la app.",
@@ -641,8 +719,9 @@ def lamina_estados() -> tuple[str, int, int]:
          ZONE_GREEN, "", aro_segmentado(5, 2, 700 / 1200)),
         ("Recupera", pagina_recupera(),
          "El descanso es el único tramo de una carrera en el que se puede mirar y tocar: es "
-         "aquí, y sólo aquí, donde el vivo anuncia un gesto. El aro sigue siendo naranja — "
-         "el aro es la estructura; lo que cambia con el estado es el fondo.",
+         "aquí, y sólo aquí, donde el vivo anuncia un gesto. El aro sigue siendo naranja "
+         "—el aro es la estructura— y el fondo es el único apagado de la interfaz en marcha: "
+         "en el descanso la zona deja de mandar. Es <code>restBg</code>, no un tinte de zona.",
          None, REST_BG, aro_continuo(72 / 90)),
     ]
     celdas = "".join(
@@ -684,7 +763,11 @@ def main() -> None:
                                 "una línea en anunciarlo — y esos 15 pt vuelven al número."),
              ("El aro", "Lo que queda del rodaje, trazado sobre el borde. Es el sitio más barato "
                         "del reloj: ahí no cabe texto."),
-             ("El tinte", "Tu zona de pulso tiñe el lienzo, siempre — y sin umbral no hay tinte.")]), 3),
+             ("El relleno", "Tu zona de pulso <b>es</b> el lienzo: relleno plano al 45 %, no un "
+                            "degradado que se va a negro. Del negro queda una viñeta en las "
+                            "esquinas y en las bandas de versales. Sin umbral no hay relleno y el "
+                            "fondo es negro de verdad — las dos cosas, en la lámina de "
+                            "estados.")]), 3),
         ("reloj-correr-datos.png", lamina_pagina(
             "La página de los datos",
             "Cuatro cifras de la sesión de un vistazo: es la respuesta a «¿cómo va la carrera?», "

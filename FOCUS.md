@@ -40,7 +40,13 @@ que hoy se come el botón grande vuelven al número.
 
 **Lo único que no existe hoy es «Nuevo tramo»:** cierra lo que llevas medido y empieza
 de cero sin tocar la prescripción, y sólo se ofrece cuando los cortes son del atleta.
-Razonamiento, el hallazgo del tinte al 38 % y lo que NO se toca: `docs/DECISIONS.md`
+
+**La zona ES el lienzo:** relleno plano al 45 % (techo medido: por encima muere el aro
+sobre el ámbar de la Z4) y del negro queda una viñeta. Lo que apagaba la zona era el
+degradado del kit, que va a negro arriba y abajo y deja el color justo donde el numeral
+lo tapa — no el porcentaje. De ahí salen tres reglas para cualquier lienzo con color:
+el cromo es blanco con alfa y no un gris fijo, nada más habla en color, y ninguna
+superficie es traslúcida. Razonamiento y lo que NO se toca: `docs/DECISIONS.md`
 (entrada del 2026-08-29).
 
 **Pendiente:** el visto bueno de Alex antes de llevar nada a Swift.
