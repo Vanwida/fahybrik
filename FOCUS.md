@@ -26,11 +26,13 @@ sea que el rodaje largo no cabía.
 eran una pregunta contestada por quien no le tocaba.** El por qué en DECISIONS.
 
 1. **La muñeca no estaba EN la sesión.** Spinner + «CONECTANDO…» + «El entreno se
-   controla desde el iPhone»: todo el vivo colgaba de que llegara una trama.
-   Esa pantalla ES la pieza — la sesión de HealthKit ya era suya y estaba
-   grabando. Se borra; sin trama pinta lo que ELLA mide (`GuionDeLaMuneca`, las
-   mismas tres páginas con la pieza abierta), y pausar/terminar actúan sobre su
-   propia sesión. La trama pasa de condición a enriquecimiento.
+   controla desde el iPhone»: todo el vivo colgaba de que llegara una trama. Esa
+   pantalla ES la pieza — su sesión de HealthKit ya estaba grabando. Se borra; sin
+   trama pinta lo que ELLA mide (`GuionDeLaMuneca`: las mismas tres páginas con la
+   pieza abierta) y pausar/terminar actúan sobre su propia sesión. **Y en el
+   motor:** `abandon()` acababa la grabación SIN escribir el entreno al traspasar,
+   así que empezar en la muñeca y abrir luego el móvil costaba esos minutos.
+   Borrado: toda sesión que acaba guarda.
 2. **Salir no era terminar.** La puerta preguntaba por el trabajo que CUENTA
    (excluye el calentamiento a propósito) en vez de por lo que se MIDIÓ. El día
    caminado empieza por un calentamiento de 8:00: con 307 m de GPS ya en
@@ -38,14 +40,14 @@ eran una pregunta contestada por quien no le tocaba.** El por qué en DECISIONS.
    `hayMedidoQueSePerderia` y `hasRecordedWork` se borra (sin llamantes, y su
    comentario describía una regla que ya no existe).
 
-Del walk anterior (sobre `5a8e2c0`) quedan cerrados el rest que no cerraba —la
-guarda `tramoMide`, estrechada— y el apretón de manos del reloj. En DECISIONS.
+Del walk anterior (`5a8e2c0`) quedan cerrados el rest —la guarda `tramoMide`,
+estrechada— y el apretón de manos del reloj. En DECISIONS.
 
 ## Cerrado en código (esta PR · el por qué de cada uno en DECISIONS, 29-ago)
 
-- **El km: se borró mi capa** (era segunda regla sobre `km-splits.ts`) y `kmSteps`
-  trocea el tramo para que Apple cante cada paso — pero eso sólo vale en la app de
-  Apple: **ver el bloqueante 1, hoy no se canta**.
+- **El km: se borró mi capa** (segunda regla sobre `km-splits.ts`) y `kmSteps` trocea
+  el tramo para que Apple cante cada paso — pero sólo vale en la app de Apple: **ver
+  el bloqueante 1, hoy no se canta**.
 - **Las páginas del reloj se quedan**: recordaba el ÍNDICE. Por **id**.
 - **Muere el `tickTimer`** (sin un lector): manda `HKLiveWorkoutBuilder.elapsedTime`.
   Y **una** regla de cuenta atrás. Se borra la pantalla de cinta de la muñeca (cero
@@ -65,14 +67,18 @@ guarda `tramoMide`, estrechada— y el apretón de manos del reloj. En DECISIONS
    Apple sólo canta en SU app —donde las tres páginas no están— y un Z2 `steady`
    ni llega ahí (`eligibility` exige estructura nativa). Propuesta en DECISIONS:
    el corte del km como SUCESO grabado en la traza. **Decide Alex.**
-2. **El reloj EN SOLITARIO (sin espejo abierto) sigue con `LiveFlowView`**, que
-   arma sus páginas a mano, y `GuionRodaje`/`GuionSeries` viven en el escaparate
-   DEBUG: dos looks de correr en el repo.
-3. **Ruta en `HKWorkoutRouteBuilder`**: Salud no recibe recorrido. El mapa del
-   recap **funciona** (polilínea nuestra).
-4. **Pasados 99 min el crono son 6 glifos** y no cabe de sujeto · **«sin señal»
-   sale también en una cinta sin emparejar**, donde tocaría «sin máquina» · el
-   **span del correr en el historial**, igual que estaba.
+2. **DOS DUEÑOS DE SESIÓN en la muñeca**, así que «una sesión, dos aparatos
+   suscritos» aún no se cumple del todo: `LiveWorkoutSession` (solitario) y
+   `MirrorSessionController` (espejo), y entre ellos un cierre + un arranque, no
+   una suscripción. Ya se borró lo que tiraba la grabación al traspasar
+   (`abandon()`); unificar es borrar UNO de los dos y arrastra el canal de tramas,
+   el cableado del motor y el fin en solitario. No es un parche.
+3. **El reloj EN SOLITARIO sigue con `LiveFlowView`**, que arma sus páginas a
+   mano, y `GuionRodaje`/`GuionSeries` viven en el escaparate DEBUG: dos looks.
+4. **Ruta en `HKWorkoutRouteBuilder`**: Salud no recibe recorrido; el mapa del
+   recap funciona con nuestra polilínea. **Pasados 99 min** el crono son 6 glifos
+   y no cabe de sujeto. **«Sin señal»** sale también en una cinta sin emparejar,
+   donde tocaría «sin máquina». Y el **span del correr en el historial**, igual.
 
 **SIN COMPILAR AQUÍ:** no hay Xcode en esta VM. El debugger sí compiló en el Mac
 (build 21); lo de este turno no se ha compilado ni ejecutado.

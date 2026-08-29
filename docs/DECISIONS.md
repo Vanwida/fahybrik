@@ -47,6 +47,42 @@ ofrecer «Nuevo tramo» cuando la muñeca va sola: el parcial lo sella el motor,
 ese botón se iría al vacío (pausar y terminar sí son suyos). Y no arreglar esto con un
 tercer reintento de `startWatchApp`: el problema no era el apretón de manos.
 
+### Clase 1 bis · El traspaso que tiraba la grabación de la muñeca
+
+Además de la pantalla, la clase 1 tenía una pieza en el motor: `notePhoneLive()` /
+`yieldToPhone()`. Decían que «el teléfono ya lleva el motor» y que «la muñeca pasa a
+espejo», y eso es falso en lo que importa — la `HKWorkoutSession` vive EN EL RELOJ en
+las dos vías y el teléfono es el acompañante que se suscribe.
+
+Y no era sólo una frase. `LiveWorkoutSession.abandon()` acababa la sesión **sin escribir
+el entreno** (tenía su propia rama en el delegado para saltarse el `finishWorkout`), con
+este razonamiento: *«the phone is now the engine: a leftover HKWorkout would be a second
+owner in Salud»*. Las dos mitades son falsas: el teléfono no es el motor de la grabación,
+y el «segundo dueño en Salud» ya lo resuelve `SaludNuestra.firma` desde antes, que sella
+lo nuestro para que ningún lector lo cuente como medido por un aparato.
+
+**Lo que costaba:** quien empieza en la muñeca y a los diez minutos abre el teléfono
+perdía esos diez minutos — pulso, calorías y metros.
+
+**Decidido:** se borra `abandon()` y su rama del delegado. Toda sesión que acaba escribe
+su entreno. Lo que queda es más pequeño y honesto (`cerrarMotorPropio()`): empieza una
+sesión espejada, así que el segundo MOTOR —el cursor de tramos de la muñeca— se cierra,
+**guardando**. Es `async` a propósito: watchOS no admite dos sesiones a la vez, así que
+el espejo ESPERA a que esté cerrada antes de crear la suya (antes se solapaban un
+instante).
+
+La exclusión de un solo motor se queda: `phoneOwnsLive` + el guard simétrico de
+`start`/`resume` es mecanismo, no una frase.
+
+**Lo que NO está hecho, y es el invariante entero:** «una sesión, dos aparatos
+suscritos» todavía no se cumple del todo. Siguen habiendo **dos dueños de sesión** en la
+muñeca —`LiveWorkoutSession` (en solitario) y `MirrorSessionController` (espejo)— y lo
+que hay entre ellos es un cierre y un arranque, no una suscripción. Unificarlos es
+borrar uno de los dos, y arrastra el canal de tramas
+(`sendToRemoteWorkoutSession` / `didReceiveDataFromRemoteWorkoutSession`), el cableado
+del motor y el camino de fin en solitario. No es un parche y no cabe en media tanda: va
+nombrado en FOCUS.
+
 ### Clase 2 · Salir no era terminar
 
 Aspa en el HUD → Plan con EMPEZAR. Sin recap, porque no hubo fin de sesión ni
