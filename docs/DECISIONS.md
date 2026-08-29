@@ -11,6 +11,90 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · El volcado de Salud deja de escribir la sesión del atleta
+
+**El debugger, Z2 de Alex, asignación 494.** Al terminar, la app tenía **3,78 km ·
+22:33 · 153 ppm · 5:58 /km** — coherentes entre sí. Al reabrir la sesión guardada
+tras morir el proceso: **22:40 y cero bloques**. Y cero POSTs a
+`/api/sync/workout-execution` en 18 horas.
+
+**Quién escribió esa fila:** no la app. El volcado de Salud. El HKWorkout que
+escribe la **muñeca** llegaba al servidor **sin firma**, indistinguible de una
+importación ajena, y `linkExecution` (`web/lib/sync/ingest-healthkit.ts`) lo
+adoptaba: `total_duration_seconds = Math.round(workout.duration_seconds)`, que es
+**reloj de pared** (los 22:40 llevan dentro la puerta del bloque y el 3-2-1), y ni
+un tramo, porque un volcado de Salud no tiene tramos que traer. Encima
+`markAssignmentDoneFromDevice` la marcaba completa.
+
+**Por qué sus cuatro guardas no lo pararon:** uuid ya grabado, solape de tiempo,
+`source = 'garmin'` y `recorded_via = 'live'` preguntan **todas** por evidencia
+que sólo existe si nuestro POST llegó primero. Eran una carrera, y ese día se
+perdió porque el POST no salió nunca.
+
+**Decidido:** la pregunta deja de ser *«¿llegó ya el nuestro?»* (una carrera) y
+pasa a ser *«¿es nuestro?»* (una identidad). La firma
+(`SaludNuestra.firma = "FAHYBRIDWrittenByApp"`) existía y sólo la ponía el
+teléfono; sube a `ios/FAHYBRIKCore/HealthKit/SaludNuestra.swift`, que compilan los
+dos targets, **con el mismo literal** — renombrarlo no migra nada porque HealthKit
+no reescribe metadata. Ahora firman las **dos** vías de la muñeca (espejo y
+solitario), y las dos relayan su ejecución estructurada, así que su HKWorkout es
+un transporte **duplicado** en los dos casos.
+
+Y el lector aprende la regla que las MUESTRAS ya tenían y a los ENTRENOS le
+faltaba: `HealthKitSampleMapper.measuredOnly` para workouts, en el observador y en
+el importador de historial.
+
+**Detalle que importa:** la página del anclado se cuenta con lo que entregó
+HealthKit, **no** con la lista filtrada — contarla filtrada cortaría el bucle en
+una página llena de entrenos propios y dejaría las siguientes esperando.
+
+**Lo que NO cambia:** un entreno de otra app (Garmin, Strava, la app Entrenamiento
+de Apple) no lleva firma y sigue entrando por ahí — es su única vía, y ahí la
+duración de Salud es lo único que se sabe. **La red de seguridad de los nuestros
+cambia de sitio, no desaparece:** el POST de lo medido se encola
+(`enqueueOnFailure: true`) y sale con los tramos dentro. Antes la red era este
+volcado, y era una red que mentía: prefería un número de reloj de pared sin tramos
+a esperar el bueno.
+
+**NO hacer:** no volver a guardar por evidencia («si no hay fila, escribo yo»).
+Y no renombrar la firma.
+
+**Cero cambios de servidor. Cero migraciones.**
+
+---
+
+## 2026-08-29 · La carrera no se divide entre los segundos de toda la sesión
+
+**Qué fallaba:** la lectura de carrera del historial
+(`LecturaDeCarreraDesdeDetalle`) sacaba la DISTANCIA de los tramos de correr —
+filtrados por modalidad unas líneas antes — y la DURACIÓN de
+`execution.total_duration_seconds`, que es la de la sesión entera. Numerador de un
+sitio, denominador de otro. En una sesión que es mayormente correr pero no sólo
+(un rodaje y un bloque de core, que es justo lo que `correrManda` admite) el ritmo
+medio sale más lento que cualquiera de los tramos que lo componen.
+
+Y no coincidía con lo que el atleta vio al terminar, que sí mide sólo el correr
+(`CarreraDeLaSesion.duracion`). Media identidad «finish = history» estaba roto en
+un coalesce puesto al revés.
+
+**Decidido:** manda lo que midieron los tramos. El total de la sesión queda como
+respaldo para una fila vieja cuyos tramos no traen duración — peor denominador,
+pero es el único que hay y sin él no habría ritmo que leer. En un rodaje (un solo
+tramo de correr) las dos cifras son la misma, así que final e historial dicen lo
+mismo.
+
+**Lo que queda abierto, y es una decisión de dominio, no un bug:**
+`CarreraDeLaSesion.duracion` mide el correr **bloque a bloque por reloj de pared**
+(`max(suma de laps, span del bloque)`) a propósito: la diferencia entre la suma y
+el span **es** la recuperación que nadie grabó, y es lo que impide llamar
+«uniforme» a un 5×1000. El historial no puede reproducir ese span porque
+`SegmentActualDTO` trae `started_at` pero no `ended_at`. Para un rodaje da igual
+(un tramo, span = suma). Para una serie grabada por el camino viejo, el historial
+verá la suma y el final el span. Unificarlo pide exponer el fin del tramo en el
+cable, y eso es una decisión aparte.
+
+---
+
 ## 2026-08-29 · Correr es de Apple: se borra lo que ya tenía dueño
 
 **El mandato de Alex:** dejar de inventar código de correr y de reloj.

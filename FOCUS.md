@@ -21,6 +21,17 @@ por `assignment_id` con `coalesce`. Así que **lo MEDIDO va al terminar**
 resumen**. Compartir es un accesorio: cuando aparece no queda nada por
 guardar. Cero servidor, cero migraciones.
 
+**Y quien SÍ escribía era el volcado de Salud** (debugger, Z2 de Alex,
+asignación 494: al terminar 3,78 km/22:33/153/5:58; al reabrir **22:40 y
+cero bloques**, con 0 POSTs en 18 h). El HKWorkout de la MUÑECA llegaba
+sin firma, así que `linkExecution` lo adoptaba: duración de **reloj de
+pared** y ni un tramo. Sus cuatro guardas preguntan todas por evidencia
+que sólo existe si nuestro POST llegó primero — eran una carrera. La
+firma sube a `FAHYBRIKCore/HealthKit/SaludNuestra.swift` (mismo literal),
+la ponen las dos vías de la muñeca, y el lector aprende la regla que las
+MUESTRAS ya tenían: `measuredOnly` para entrenos. La pregunta pasa de
+«¿llegó ya el nuestro?» a «¿es nuestro?».
+
 ## Cerrado en código (esta PR, esta tanda)
 
 - **Un km es un suceso.** El cursor vivía en el cerebro del AUDIO,
@@ -39,14 +50,18 @@ guardar. Cero servidor, cero migraciones.
 - **Una regla para la cuenta atrás.** `standalone`/`mirrored` convivían
   en la MISMA pantalla del espejo. Queda `remaining()` con la regla del
   móvil, y el háptico del 3-2-1 lee el entero QUE SE PINTA.
-- **Se borra la pantalla de cinta de la muñeca** (`treadmillContent` + 5
-  ayudantes, cero llamantes) y con ella los tres campos `belt*` del
-  cable, que eran copia de `MirrorTramo`. Cae `isTreadmillLive` y el
-  acoplamiento del espejo a `DeviceHub`.
+- **Se borra la pantalla de cinta de la muñeca** (cero llamantes) y sus
+  tres campos `belt*` del cable, que eran copia de `MirrorTramo`. Cae
+  `isTreadmillLive` y el acoplamiento del espejo a `DeviceHub`.
 - **Los metros del tramo se preguntan, no se copian**
   (`legCoveredMeters` era copia con medio segundo de retraso), y el
   recorrido llega a la sesión **mientras se corre** (cada 5 puntos): con
   el orden real la escritura del final salía sin mapa.
+- **El numerador y el denominador, del mismo sitio.** El historial de una
+  carrera dividía los metros de CORRER entre los segundos de la SESIÓN
+  (coalesce al revés): con un bloque de core detrás, el ritmo medio salía
+  más lento que cualquiera de sus tramos, y distinto del final. Manda lo
+  que midieron los tramos.
 
 ## Descartado, con motivo (no reabrir sin leer esto)
 
@@ -58,18 +73,21 @@ guardar. Cero servidor, cero migraciones.
   watchOS; en iOS no hay API) y `runningSpeed` (watchOS 9) es la velocidad
   DE LA MUÑECA, que una carrera de calle conducida desde el móvil no tiene.
 
-## Pendiente de esta rama (dos, con nombre)
+## Pendiente de esta rama (tres, con nombre)
 
-1. **Ruta en `HKWorkoutRouteBuilder`.** La API sirve (`insertRouteData` +
-   `finishRoute(with:)` atan la ruta a un HKWorkout ya guardado), pero
-   atarla exige esperar el uuid que la muñeca contesta segundos después
-   del cierre, y ese encuentro asíncrono no se hace a medias. Hoy la ruta
-   es la polilínea y el mapa del recap **funciona**; falta que lo vea Salud.
+1. **Ruta en `HKWorkoutRouteBuilder`.** La API sirve, pero atarla exige
+   esperar el uuid que la muñeca contesta segundos después del cierre, y
+   ese encuentro asíncrono no se hace a medias. Hoy la ruta es la
+   polilínea y el mapa del recap **funciona**; falta que lo vea Salud.
 2. **Reloj en solitario en un día de sólo correr.** Segundo motor, sobra
    — pero declinarlo hoy deja sin superficie a quien no activó el envío a
    la app Entrenamiento (`AppleWatchWorkoutScheduler.isEnabled`, opt-in
-   en Perfil). Necesita que esa disponibilidad viaje en
-   `WatchTodayPayload`, o es un downgrade.
+   en Perfil). Necesita que viaje en `WatchTodayPayload`, o es un downgrade.
+3. **El span del correr en el historial.** `CarreraDeLaSesion.duracion`
+   mide bloque a bloque por reloj de pared a propósito: la diferencia
+   suma-vs-span ES la recuperación que nadie grabó. El historial no puede
+   reproducirla porque `SegmentActualDTO` trae `started_at` y no
+   `ended_at`. Para un rodaje da igual (un tramo, span = suma).
 
 **SIN COMPILAR NI EJECUTAR:** esta máquina no tiene Xcode. Símbolos de
 Apple verificados contra la documentación y los propios contra su
