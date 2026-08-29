@@ -87,6 +87,10 @@ final class MirrorSessionController: NSObject {
     /// debajo del `recordingStuckTimeout` de cinco minutos, que es el otro extremo: uno
     /// protege el arranque en marcha, el otro la muñeca abandonada.
     private static let startStaleAfter: TimeInterval = 20
+    /// Esperas entre intentos de suscribir al teléfono (`suscribirAlTelefono`). El
+    /// primero va sin esperar; los demás dan tiempo a que el canal del acompañante
+    /// esté listo tras un arranque en frío.
+    private static let mirrorRetryDelays: [TimeInterval] = [0, 0.5, 2.0, 5.0]
     /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
     /// faster than the engine needs).
     private static let hrRelayMinInterval: TimeInterval = 1
@@ -231,11 +235,16 @@ final class MirrorSessionController: NSObject {
                         // (como se hacía, descartando el error con `_, _`) dejaba
                         // watchdog + relay + un canal vivo sobre una sesión que
                         // jamás iba a guardar nada. Se libera y a idle.
+                        Self.log.error("beginCollection falló — no hay grabación, se vuelve a idle")
                         self.resetToIdle()
                     }
                 }
             }
         } catch {
+            // Volver a idle es dejar la muñeca en la esfera de readiness con el
+            // teléfono diciendo SIN RELOJ: el síntoma exacto del 29-ago. Callado era
+            // indistinguible de «el teléfono nunca pidió nada», así que queda dicho.
+            Self.log.error("HKWorkoutSession no se pudo crear: \(error.localizedDescription, privacy: .public) — se vuelve a idle")
             resetToIdle()
         }
     }
@@ -247,7 +256,31 @@ final class MirrorSessionController: NSObject {
         startSensorRelay()
         requestSyncUntilFirstFrame()
         WatchHaptics.start()
-        Task { try? await session.startMirroringToCompanionDevice() }
+        Task { await suscribirAlTelefono(session) }
+    }
+
+    /// UNA sesión, dos aparatos suscritos: ésta es la llamada que suscribe al
+    /// teléfono, y la única. Si falla no hay espejo —el teléfono se queda en SIN
+    /// RELOJ y no puede ni terminar el entreno— y nada más en el sistema la
+    /// reintenta: `requestSyncUntilFirstFrame` pide tramas por un canal que aún no
+    /// existe, y el watchdog sólo sabe que no llegan.
+    ///
+    /// Se tragaba el error con `try?`, así que un espejo caído era indistinguible de
+    /// uno abierto. Ahora se reintenta y, si no entra, queda dicho en el log en vez
+    /// de dejar la muñeca grabando para nadie.
+    private func suscribirAlTelefono(_ session: HKWorkoutSession) async {
+        for (intento, espera) in Self.mirrorRetryDelays.enumerated() {
+            if espera > 0 { try? await Task.sleep(for: .seconds(espera)) }
+            guard state == .recording, self.session === session else { return }
+            do {
+                try await session.startMirroringToCompanionDevice()
+                Self.log.info("espejo abierto al teléfono (intento \(intento + 1, privacy: .public))")
+                return
+            } catch {
+                Self.log.error("startMirroringToCompanionDevice falló (intento \(intento + 1, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        Self.log.error("el teléfono no pudo suscribirse al espejo — la muñeca graba sola")
     }
 
     private func startSensorRelay() {
