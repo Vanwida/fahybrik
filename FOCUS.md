@@ -77,5 +77,4 @@ guarda `tramoMide`, estrechada— y el apretón de manos del reloj. En DECISIONS
 **SIN COMPILAR AQUÍ:** no hay Xcode en esta VM. El debugger sí compiló en el Mac
 (build 21); lo de este turno no se ha compilado ni ejecutado.
 
-No tocar: GPS/authority, 174, 175, plan del 67, `DEVELOPMENT_TEAM`
-(`S6W4459DDG`). Neon no. **105 cortada: su interfaz es la que hay.**
+No tocar: GPS/authority, 174, 175, plan del 67, `DEVELOPMENT_TEAM` (`S6W4459DDG`). Neon no. **105 cortada: su interfaz es la que hay.**
