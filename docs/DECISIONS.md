@@ -11,6 +11,202 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-29 · Correr es de Apple: se borra lo que ya tenía dueño
+
+**El mandato de Alex:** dejar de inventar código de correr y de reloj.
+Apple ya es dueña de la carrera. Se verificó cada fila contra la
+documentación real (HealthKit, WorkoutKit, CoreLocation) antes de tocar
+nada, y dos filas se descartaron porque la realidad no las sostenía.
+
+**Lo que Apple posee, y pasa a mandar:**
+
+- `HKLiveWorkoutBuilder.elapsedTime` (watchOS 5) es la duración de la
+  grabación. Muere el `Timer` de 1 Hz de `LiveWorkoutSession`, que
+  calculaba `Date() - startDate`, miraba NUESTRO `isPaused` en vez del
+  estado de la sesión de HealthKit, y **no tenía un solo lector**.
+- `HKWorkoutEvent.lap` es el parcial de un kilómetro. El motor detecta
+  el cruce y la muñeca lo escribe en el HKWorkout, así que el kilómetro
+  vive en la salud del atleta y no sólo en una frase dicha en voz alta.
+- `HKWorkoutSessionType.primary` es **sólo watchOS**: el teléfono no
+  puede abrir una sesión propia, sólo adoptar la espejada. La
+  arquitectura que ya había (muñeca graba, móvil conduce) es la correcta
+  y no se toca.
+- `WorkoutKit` + `AppleWatchWorkoutScheduler` ya llevan las carreras a
+  la app Entrenamiento nativa. Es el puente y se queda.
+
+**Un dueño por cifra.** Tiempo: el motor en el móvil, la grabación en la
+muñeca. Distancia en calle: CoreLocation en el móvil, sin cambios —
+`RunDistanceAuthority` ya lo decía y la cifra que cuadra con el mapa **no
+se toca**. Pulso: el builder de la muñeca. Kilómetro: un solo detector
+(`RunKmSplits`) en el motor. Recorrido: la sesión, escrito mientras se
+corre.
+
+**Filas DESCARTADAS del inventario, y por qué:**
+
+1. **`WatchRunLegDriver` no existe.** El test que lleva su nombre es un
+   guarda-raíl cuya propia cabecera dice «no hay driver de muñeca»: el
+   cierre de una pierna de distancia vive en `RunLegProgress` +
+   `considerDistanceClose` del motor compartido. No había nada que
+   borrar.
+2. **`RunAutoPause` / `RunPaceSmoother` se quedan.** Apple no tiene
+   auto-pausa para terceros: `HKWorkoutEventType.motionPaused` lo genera
+   el sistema DENTRO de una sesión de watchOS y no se puede pedir; en iOS
+   no hay API. Y `HKQuantityTypeIdentifier.runningSpeed` (watchOS 9) es
+   la velocidad de Apple **en la muñeca**, así que una carrera de calle
+   con el móvil como superficie no tiene de dónde sacarla. Lo que sí
+   sobraba era que el timer publicara cifras: `legCoveredMeters` era una
+   copia del motor con medio segundo de retraso y pasa a preguntarse.
+
+**Lo que se borra por estar muerto:** la pantalla de cinta de la muñeca
+(`treadmillContent` y sus cinco ayudantes) no la llamaba nadie desde que
+el tramo del cable trae los metros como cualquier carrera; con su única
+lectora se van los tres campos que la alimentaban (`beltDistanceM`,
+`beltTargetM`, `beltPaceSecPerKm`), que eran una copia de
+`MirrorTramo.hechoMedida/objetivoMedida`. Cae con ellos el gancho
+`isTreadmillLive`, y con él el acoplamiento del espejo a `DeviceHub`.
+
+**NO hacer:** no meter `HKWorkoutSession` en el teléfono (sólo adopta la
+espejada). No leer `runningSpeed` para pintar el ritmo de una carrera de
+calle conducida desde el móvil. No reintroducir una segunda voz para el
+kilómetro: el detector es uno y sale por `onKmSplit`.
+
+---
+
+## 2026-08-29 · La página del reloj se guarda por su nombre, no por su sitio
+
+**Qué fallaba:** el lienzo recordaba el ÍNDICE de la página. Pero un
+guion no devuelve una lista fija: `GuionRodaje` publica la del ritmo y la
+de la distancia sólo cuando el GPS fija, y pone el pulso PRIMERO en
+cuanto hay zona viva. Así que el atleta que dejaba el reloj en la página
+1 sin señal se la encontraba convertida en «distancia» al fijar el GPS, y
+en otra al llegar el primer latido. La página elegida cambiaba debajo del
+pulgar sin tocar nada. El `onChange(paginas.count)` que había era un
+clamp: parcheaba el desbordamiento, no la identidad.
+
+**Decidido:** `WatchPagina` ya era `Identifiable` con un id estable
+(`pulso`, `ritmo`, `distancia`, `tiempo`, `zona`). El lienzo guarda ese
+id. Una página que desaparece cae al sujeto, que es la primera, no a la
+que herede su número.
+
+**NO hacer:** no volver a un índice. Y si un guion necesita reordenar sus
+páginas, los ids son el contrato — cambiar un id ES cambiar de página.
+
+---
+
+## 2026-08-29 · Una sola regla para una cuenta atrás, y la raíz que sigue abierta
+
+**Qué había:** `CountdownFormat.standalone` (CEIL) y `.mirrored` (ROUND).
+No eran «una por dispositivo»: convivían en la MISMA pantalla del espejo
+— el count-in redondeaba hacia arriba y el crono del héroe hacia el más
+cercano.
+
+**Decidido:** una, `remaining()`, con la regla del móvil, que es el dueño
+del tiempo. Eso conserva el arreglo por el que nació `mirrored` (la
+muñeca leía 1 s por delante del móvil) y mata la divergencia interna.
+`wholeSeconds()` expone el entero QUE SE PINTA para que el háptico del
+3-2-1 lo lea de ahí: antes disparaba con un `ceil` calculado aparte, así
+que el reloj podía enseñar `:02` y golpear el tres.
+
+**LO QUE SIGUE ABIERTO, y no es el redondeo:** la muñeca pinta
+`countdownRemaining - sinceFrame(now)`, una cifra que el móvil nunca
+pintó, así que entre tramas las dos pantallas siguen pudiendo diferir en
+un segundo por el viaje del paquete. El arreglo de raíz es mandar el
+**instante de vencimiento** en vez de los segundos que quedan: un dato
+absoluto que las dos calculan igual contra relojes de pared que ya están
+sincronizados. Toca el cable, el constructor de tramas y los guiones que
+leen `ventanaQueda`, así que se hace aparte.
+
+---
+
+## 2026-08-29 · La carrera se guarda al TERMINAR, no al pulsar guardar
+
+**Qué fallaba:** entre el final del esfuerzo y el toque de GUARDAR hay
+una lectura de carrera, un resumen, un RPE, unas notas y un botón de
+compartir. En todo ese rato el entreno existía SOLO en memoria: `finish()`
+ya había cerrado la instantánea de recuperación
+(`WorkoutStateStore.close()`) y el resumen pasa `enqueueOnFailure: false`.
+Matar la app ahí se llevaba kilómetros, pulso y mapa.
+
+**La separación ya estaba en la base y no se usaba:** `workout_executions`
+hace UPSERT por `assignment_id` con `coalesce(excluded.campo, campo)` en
+cada columna, y `workout_routes` upserta por ejecución. Se puede escribir
+dos veces sin duplicar y sin pisar. Así que:
+
+- **al TERMINAR va lo MEDIDO** (`MedidoAlTerminar`): duración, tramos,
+  ritmo, zonas, recorrido — y lo declarado en NIL a propósito, porque el
+  `coalesce` garantiza entonces que esta escritura no puede borrar un RPE
+  posterior. Con `enqueueOnFailure: true`: aquí no hay nadie mirando, así
+  que sin línea se encola y sale en el próximo arranque.
+- **en el RESUMEN va lo DECLARADO**: RPE, notas, dificultad, molestia, y
+  el uuid del HKWorkout de la muñeca, que contesta unos segundos después
+  de que se le pida cerrar.
+
+La TRAZA (de la que el servidor deriva los kilómetros y la curva) se
+aparca en el mismo instante, con su resguardo en disco. Se aparca UNA
+vez: el resumen sólo la aparca en el cierre conjunto de dobles, porque
+hacerlo dos veces subiría el mismo archivo contra el mismo
+`execution_id`.
+
+**Y el recorrido llega a la sesión mientras se corre**, cada cinco
+puntos, no al desmontarse la pantalla: con el orden real (`finish` →
+`onFinish` → cambio de fase → `onDisappear` del HUD) la escritura del
+final salía sin mapa.
+
+**Compartir pasa a ser un accesorio de verdad:** cuando aparece, ya no
+queda nada por guardar.
+
+**Copy:** «No se ha guardado. Reintenta.» sería mentira ahora en el
+camino solo, y en la dirección que asusta — el atleta repetiría una
+carrera que está en la base. Con lo medido escrito: «Tu carrera ya está
+guardada. Falta cómo fue.»
+
+**NO se pre-guarda en tres casos, los tres honestos:** entreno LIBRE (la
+asignación la crea el servidor al guardarlo, no hay fila que actualizar),
+cierre CONJUNTO de dobles (lo escribe su endpoint) y registro A MANO
+(nunca corrió un motor). Y tampoco un esfuerzo de cero segundos: un
+entreno abandonado en la puerta no es una carrera de cero metros, y
+escribirlo marcaría la asignación como hecha.
+
+**Cero cambios de servidor. Cero migraciones.**
+
+---
+
+## 2026-08-29 · Un kilómetro es un suceso, no una frase
+
+**Qué fallaba:** el cursor del kilómetro vivía en `RunCueEngine`, el
+cerebro del AUDIO. Tres consecuencias:
+
+1. El suceso moría en la voz. Nadie más podía enterarse — ni la
+   grabación de Apple, que tiene un tipo para esto, ni el resumen.
+2. Lo alimentaban DOS modelos de HUD, calle y cinta, cada uno desde su
+   propio timer de medio segundo y con su idea de «metros cubiertos» y de
+   «segundos del tramo». Dos entradas al mismo cursor.
+3. El cursor lo reiniciaba SÓLO la cinta al abrir tramo
+   (`AudioCoach.enterContinuousRun`). En la calle nadie: un rodaje
+   arrastraba los metros del tramo anterior y su «kilómetro 1» era
+   mentira.
+
+**Decidido:** el detector (`RunKmSplits`) vive donde entran los metros —
+el motor. Lo llaman las dos vías de distancia antes de que
+`considerDistanceClose` pueda cerrar el tramo, y `syncTramoIfNeeded` lo
+reinicia, que es quien SABE que el tramo cambió. El suceso sale por
+`session.onKmSplit` y se reparte en un sitio: la voz lo dice y la muñeca
+lo escribe como `HKWorkoutEvent.lap`. **No hay segunda voz porque no hay
+segundo detector.**
+
+**Dos decisiones de honestidad dentro:** saltarse más de un kilómetro de
+golpe (un salto de GPS) NO produce parcial, porque repartir los segundos
+a medias fabricaría dos ritmos que nadie midió; y el INSTANTE del cruce
+no viaja en el cable, porque un `HKWorkoutEvent` tiene que caer dentro de
+la ventana del builder y la única que la conoce es la muñeca.
+
+**Las filas del recap siguen derivándose de `workout_traces` en el
+servidor**, que es una sola regla en un solo sitio. La lista del motor no
+se persiste **a propósito**: si se persistiera habría dos reglas para los
+mismos kilómetros y acabarían discrepando.
+
+---
+
 ## 2026-08-29 · Un solo CURRENT_PROJECT_VERSION (card 177)
 
 **Qué fallaba:** si el número no cambia, watchOS no instala el
