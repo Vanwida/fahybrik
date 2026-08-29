@@ -1657,12 +1657,23 @@ struct ActiveWorkoutView: View {
     // Step 2 — destructive, irreversible confirm (§C.3). ABANDONAR = scrap: no
     // execution is written, the session returns to pending. "Seguir" is the safe
     // way back; the red solid button is the deliberate confirm.
+    /// POR QUÉ SIGUE EXISTIENDO DESCARTAR, incluso con GPS ya escrito.
+    ///
+    /// No es «tirar la carrera»: es el atleta declarando **que esto no fue una sesión**
+    /// — abrió el entreno equivocado, o arrancó andando hacia la salida. Ese caso
+    /// existe y no tiene otra salida honesta: sin él, un arranque por error deja la
+    /// asignación marcada con una carrera que nadie hizo.
+    ///
+    /// Y lo que descarta es NUESTRA ejecución, no lo medido: el `HKWorkout` que grabó
+    /// el reloj (o el teléfono) se queda en Apple Salud con sus metros, su pulso y su
+    /// recorrido. Así que la palabra «se descartará» era media verdad, y con GPS en el
+    /// suelo la mitad que faltaba es la que importa. Se dice.
     private var exitDiscardContent: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             Text("¿Abandonar el entreno?")
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.danger)
-            Text("Se descartará lo que has registrado y el entreno volverá a quedar pendiente. Esto no se puede deshacer.")
+            Text(descartarMessage)
                 .font(Theme.Typography.small)
                 .foregroundStyle(Theme.Color.muted)
             Button {
@@ -1684,6 +1695,14 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    /// Lo que de verdad pasa al abandonar. Con algo medido se dice que Salud lo
+    /// conserva: descartar declina archivar ESTA asignación, no borra la grabación.
+    private var descartarMessage: String {
+        let base = "El entreno volverá a quedar pendiente y no se guardará como hecho. Esto no se puede deshacer."
+        guard session.hayMedidoQueSePerderia else { return base }
+        return base + " Lo que ya midió el reloj sigue en Apple Salud."
+    }
+
     // "N de M bloques" for the exit sheet — N = blocks the athlete completed
     // (the in-flight one isn't "hecho"), M = total blocks. Pluralised on M.
     private var exitBlocksDone: Int { session.completedBlockCount }
@@ -1692,8 +1711,19 @@ struct ActiveWorkoutView: View {
     private var exitChooseMessage: String {
         "Llevas \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) hechos."
     }
+
+    /// LO QUE SE GUARDA, DICHO POR LO MEDIDO. Decía «Guarda 0 de 1 bloque» con 470 m de
+    /// GPS en el suelo y su mapa en pantalla: cierto sobre los BLOQUES del plan y falso
+    /// sobre la carrera, que sí se guarda. Contar bloques es la forma de decirle al
+    /// atleta cuánto del plano cumplió; no es la forma de decirle si su carrera se
+    /// pierde. Con metros medidos se nombran los metros — sin adornos y sin meter un
+    /// panel de km en un formulario de bloques.
     private var terminarSubcaption: String {
-        "Guarda \(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit) · el resto queda sin completar"
+        let bloques = "\(exitBlocksDone) de \(exitBlocksTotal) \(exitBlockUnit)"
+        guard let medido = Formato.distanciaCubierta(session.sessionRunMeters) else {
+            return "Guarda \(bloques) · el resto queda sin completar"
+        }
+        return "Guarda \(medido) corridos · \(bloques) del plan"
     }
 
     // The "Terminar bloque" confirm. For an EMOM it names the honest partial
