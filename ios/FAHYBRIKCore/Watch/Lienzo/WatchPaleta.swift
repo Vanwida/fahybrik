@@ -51,7 +51,19 @@ enum WatchTheme {
 
     // Text.
     static let ink   = hex(0xFFFFFF)             // primary
-    static let dim   = hex(0x8A8A8E)             // secondary / labels
+
+    /// EL CROMO NO PUEDE SER UN GRIS FIJO, porque el fondo ya no es negro fijo.
+    ///
+    /// Era `#8A8A8E`, que vale sobre negro y NO vale sobre un lienzo teñido: sobre
+    /// el verde de la Z3 al 45 % se queda en 2,30:1 y sobre el ámbar de la Z4 en
+    /// 2,09:1, así que la unidad, las versales y el segundo nivel dejan de leerse
+    /// — el mismo «no se lee de un vistazo» que motivó el relleno plano.
+    ///
+    /// Blanco con alfa sí: el alfa sale de medir contra el peor caso (el ámbar).
+    /// 0,70 se queda en 4,47:1, por debajo del 4,5 que pide un texto pequeño;
+    /// 0,76 lo cruza con margen (4,95:1). Sobre negro da 11,76:1 y sigue pesando
+    /// menos que el dato, que va en blanco puro.
+    static let dim   = Color.white.opacity(0.76)  // secondary / labels
 
     // Brand orange (the single sharp accent).
     //
@@ -106,7 +118,7 @@ enum WatchTheme {
     /// de aquí, así que no hay dos tablas que puedan divergir.
     static func zoneHex(_ zone: HRZone) -> UInt32 {
         switch zone {
-        case .z1: return 0x8A8A8E   // recovery — muted gray (== dim)
+        case .z1: return 0x8A8A8E   // recovery — muted gray
         case .z2: return 0x2A6CFF   // aerobic base
         case .z3: return 0x2FD14F   // tempo
         case .z4: return 0xFFB340   // threshold

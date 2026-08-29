@@ -38,6 +38,52 @@ enum WatchModo {
     }
 }
 
+// MARK: - Cuerpo de la página
+
+/// Una fila del panel: su etiqueta en versales y su valor, con la unidad aparte
+/// para poder pintarla más pequeña sin que le robe ancho a la cifra.
+struct WatchFila: Identifiable {
+    let id: String
+    let etiqueta: String
+    let valor: String
+    var unidad: String? = nil
+    /// Cola en la misma fila — «Z3 medio» junto a los ppm. Va con su color porque
+    /// la zona ES lo que significa el pulso, no una fila aparte.
+    var cola: String? = nil
+    var colaTono: Color? = nil
+}
+
+/// Un botón de la página de controles.
+struct WatchBoton: Identifiable {
+    /// Cómo pesa un botón. No es estética: es cuánto cuesta equivocarse.
+    enum Peso {
+        /// La acción más frecuente y más urgente: rellena en el naranja de la acción.
+        case principal
+        /// Una acción normal: superficie levantada.
+        case normal
+        /// La única destructiva. Va en rojo y CONFIRMADA.
+        case destructiva
+    }
+    let id: String
+    let titulo: String
+    var peso: Peso = .normal
+    /// Pregunta de confirmación. Presente ⇒ el botón pregunta antes de hacer.
+    var confirma: String? = nil
+    let onToca: () -> Void
+}
+
+/// El cuerpo ALTERNATIVO al numeral. Nil en `WatchPagina` = la página es un
+/// sujeto a sangre, que es el caso de siempre y el de las siete familias.
+enum WatchCuerpo {
+    /// Varias filas y NINGÚN sujeto. Es la única página de la interfaz sin un
+    /// número que gobierne, y eso es su definición: el panel al que se va a
+    /// buscar una cifra, no la que se mira corriendo.
+    case panel([WatchFila])
+    /// Botones apilados. La única página que los tiene, porque es la única a la
+    /// que se llega habiendo decidido dejar de mirar y tocar.
+    case controles([WatchBoton])
+}
+
 // MARK: - Página
 
 /// Una página del reloj. Lo que no cabe no encoge: se va a la siguiente.
@@ -69,6 +115,35 @@ struct WatchPagina: Identifiable {
     /// enfoque el número para leerlo. Sube el valor para disparar el golpe; que
     /// el número en sí sea el mismo o distinto no importa, sólo el cambio.
     var latido: Int = 0
+    /// Cuerpo alternativo al numeral (panel o controles). Cuando viene, el lienzo
+    /// lo pinta y `sujeto` no se usa: son excluyentes, y por eso las dos páginas
+    /// que lo llevan se construyen con `panel(...)` / `controles(...)`, que no
+    /// piden sujeto.
+    var cuerpo: WatchCuerpo? = nil
+    /// El fondo de esta página manda sobre el tinte de zona. Lo usa el DESCANSO:
+    /// es el único tramo en marcha en el que la zona deja de gobernar, porque lo
+    /// que importa es que estás parado, no a qué intensidad estabas.
+    var fondo: Color? = nil
+}
+
+extension WatchPagina {
+    /// LA PÁGINA PANEL. Sin sujeto a propósito: una página que intenta ser panel y
+    /// sujeto a la vez es la «letra pequeña alrededor» que hay que quitar.
+    static func panel(id: String, contexto: String, filas: [WatchFila], nota: String? = nil) -> WatchPagina {
+        WatchPagina(id: id, contexto: contexto, modo: .ojeada, sujeto: "",
+                    nota: nota, cuerpo: .panel(filas))
+    }
+
+    /// LA PÁGINA DE CONTROLES. `mando` porque a esta se llega parado: aquí la
+    /// decisión se anuncia y se puede tocar.
+    static func controles(id: String, contexto: String, botones: [WatchBoton]) -> WatchPagina {
+        WatchPagina(id: id, contexto: contexto, modo: .mando, sujeto: "",
+                    cuerpo: .controles(botones))
+    }
+
+    /// True cuando esta página gobierna con un numeral. Las dos que no —el panel y
+    /// los controles— se saltan la aritmética del sujeto.
+    var tieneSujeto: Bool { cuerpo == nil }
 }
 
 // MARK: - Destello
@@ -107,8 +182,22 @@ enum WatchNota {
 // MARK: - Tinte del lienzo
 
 enum WatchTinte {
-    /// Tope del tinte de zona. Por encima el aro y las versales pierden contraste.
-    static let maxOpacity: Double = 0.38
+    /// EL RELLENO DE ZONA — PLANO y fuerte, no una banda que se desvanece.
+    ///
+    /// Estaba al 38 % debajo de un degradado que iba a negro puro arriba y abajo y
+    /// dejaba el color vivo sólo en una franja estrecha del centro — justo donde va
+    /// el numeral, que lo tapa. Así la zona no se leía, y el diagnóstico fácil era
+    /// «el tinte es flojo»: bajarlo o subirlo no arregla nada, porque el problema
+    /// era el degradado. Se corrige por la raíz: relleno plano y el negro reducido a
+    /// una viñeta (`WatchVineta`).
+    ///
+    /// Por qué 45 y no más: el techo NO es de gusto, lo pone el ámbar de la Z4. El
+    /// aro (`orangeSoft`) es un elemento gráfico que hay que entender, así que tiene
+    /// que mantener 3:1 contra el lienzo, y sobre ámbar al 45 % se queda en 3,08:1
+    /// — al 50 % ya es 2,67 y al 55 % 2,31, o sea que el aro desaparece. Con ese
+    /// mismo 45 % el numeral blanco va de 7,18:1 (ámbar, el peor caso) a 12,25:1
+    /// (azul). Medido, no elegido.
+    static let maxOpacity: Double = 0.45
 
     /// Color de relleno del fondo, o nil → negro puro (sin ancla / sin zona).
     static func color(for zone: HRZone?) -> Color? {
@@ -201,22 +290,114 @@ enum WatchPaginasComunes {
 
 // MARK: - Altura del sujeto (ancho manda)
 
+// EL HALLAZGO QUE MANDA SOBRE TODO LO DEMÁS: en la muñeca NO limita el alto,
+// limita el ANCHO. El lienzo tiene 212 pt de alto útil y sólo 188 de ancho, así
+// que un sujeto se queda pequeño por número de cifras mucho antes que por falta
+// de sitio vertical:
+//
+//   glifos │ ejemplo  │ altura de cifra
+//   ───────┼──────────┼────────────────
+//      1   │ `9`      │ 150  (le daría para más, pero ahí manda el techo)
+//      2   │ `43`     │ 110
+//      3   │ `139`    │  73
+//      4   │ `1:30`   │  55
+//      5   │ `63:45`  │  44  ← el suelo
+//      6   │ `102:40` │  37  ← ya no es un sujeto, es una línea de texto grande
+//
+// Consecuencia: **lo que no cabe NO SE ENCOGE, se parte en páginas.** Y una cifra
+// menos no es un 20 % más de altura: es un 50 %, así que quitarle un glifo a un
+// sujeto es la palanca de legibilidad más grande que hay en este lienzo.
+//
+// Esto era un `switch` sobre `texto.count`, que cuenta la coma y la unidad como
+// cifras enteras: «4,76» + «km» salía a 4 glifos → 56 pt, cuando de verdad ocupa
+// 2,86 y le caben 77. El numeral del vivo perdía un tercio de su tamaño por una
+// aproximación.
 enum WatchSujeto {
-    /// Techo / suelo del numeral (pt de cifra), espejo del kit-watch.
-    static let techo: CGFloat = 110
-    static let suelo: CGFloat = 44
+    /// El lienzo del Apple Watch en puntos, y lo que dejan sus safe areas.
+    static let anchoUtil: CGFloat = 188
+    static let altoUtil: CGFloat = 212
 
-    /// Altura de cifra por número de glifos. En la muñeca limita el ANCHO, no el alto.
-    static func alto(para texto: String) -> CGFloat {
-        let n = max(1, texto.count)
-        let porAncho: CGFloat
-        switch n {
-        case 1: porAncho = techo
-        case 2: porAncho = 96
-        case 3: porAncho = 72
-        case 4: porAncho = 56
-        default: porAncho = suelo
-        }
-        return porAncho
+    /// Lo que se lleva cada fila del lienzo, si está.
+    static let filaContexto: CGFloat = 14
+    static let filaSegundo: CGFloat = 26
+    static let filaAccion: CGFloat = 15
+    static let filaNota: CGFloat = 13
+    static let filaPuntos: CGFloat = 14
+    /// Aire mínimo por encima y por debajo del sujeto.
+    static let aire: CGFloat = 10
+
+    /// Altura de las cifras respecto al cuerpo de la fuente (cap height de la mono):
+    /// la conversión entre «quiero un número de 100 pt» y el `font-size` real.
+    static let capEm: CGFloat = 0.70
+    /// En una monoespaciada TODOS los glifos avanzan lo mismo (0,6 em en Menlo), así
+    /// que el sujeto se mide contando glifos y no estimando por carácter.
+    static let avanceMono: CGFloat = 0.60
+    /// La unidad («m», «kg», «/km») va pegada al numeral a un 30 % del cuerpo.
+    static let unidadEm: CGFloat = 0.30
+    /// EL DECIMAL NO ES EL DATO, ES LA PRECISIÓN, y por eso va a un 42 %. Con la coma
+    /// avanzando como una cifra más, «4,76» se leía «4 , 76»: la coma abría un hueco
+    /// idéntico al de un dígito y partía el número en dos.
+    static let decimalEm: CGFloat = 0.42
+
+    /// Techo: por encima el glifo pelea con la curva del bisel y no gana legibilidad.
+    static let techo: CGFloat = 150
+    /// Suelo: la altura a la que un sujeto deja de pesar sobre su apoyo y pasa a
+    /// leerse como una línea de texto grande.
+    static let suelo: CGFloat = 43
+    /// Y el otro tope, el que de verdad se cruza: cinco cifras enteras.
+    static let glifosMax = 5
+
+    /// Parte un sujeto en la CIFRA que se lee y el DECIMAL que la afina.
+    static func partirDecimal(_ texto: String) -> (entero: String, decimal: String) {
+        guard let i = texto.firstIndex(of: ",") else { return (texto, "") }
+        return (String(texto[texto.startIndex..<i]), String(texto[i...]))
+    }
+
+    /// Ancho de un sujeto medido en glifos de cuerpo entero, decimal y unidad aparte.
+    static func anchoEnGlifos(_ texto: String, unidad: String? = nil) -> CGFloat {
+        let (entero, decimal) = partirDecimal(texto)
+        return CGFloat(entero.count)
+            + CGFloat(decimal.count) * decimalEm
+            + CGFloat(unidad?.count ?? 0) * unidadEm
+    }
+
+    /// Lo que el ANCHO del lienzo deja para este texto y su unidad.
+    static func altoPorAncho(_ texto: String, unidad: String? = nil) -> CGFloat {
+        anchoUtil / (max(1, anchoEnGlifos(texto, unidad: unidad)) * avanceMono) * capEm
+    }
+
+    /// Lo que el PRESUPUESTO VERTICAL deja, una vez puestos los apoyos de la página.
+    static func altoPorPresupuesto(_ p: WatchPagina, varias: Bool) -> CGFloat {
+        var ocupado = filaContexto
+        if p.segundoValor != nil { ocupado += filaSegundo }
+        if p.modo.pintaFranja, p.accion != nil { ocupado += filaAccion }
+        if p.nota != nil { ocupado += filaNota }
+        if varias { ocupado += filaPuntos }
+        return min(techo, altoUtil - ocupado - 2 * aire)
+    }
+
+    /// LA altura de cifra que de verdad alcanza este sujeto: el menor de los dos
+    /// límites. En la muñeca casi siempre gana el ancho.
+    static func alto(de p: WatchPagina, varias: Bool) -> CGFloat {
+        min(altoPorPresupuesto(p, varias: varias),
+            altoPorAncho(p.sujeto, unidad: p.unidad))
+    }
+
+    /// El diagnóstico de una página: si no cabe, POR QUÉ no cabe. Lo recorre la
+    /// suite sobre las páginas de los guiones, así que un sujeto que no entra rompe
+    /// el test en vez de llegar a la muñeca con el número encogido.
+    enum Veredicto: Equatable {
+        case cabe(CGFloat)
+        case demasiadosGlifos(Int)
+        case sinSitio(CGFloat)
+    }
+
+    static func veredicto(de p: WatchPagina, varias: Bool) -> Veredicto {
+        // Las páginas sin sujeto (panel, controles) no pasan por esta aritmética.
+        guard p.tieneSujeto else { return .cabe(0) }
+        let enteras = partirDecimal(p.sujeto).entero.count
+        if enteras > glifosMax { return .demasiadosGlifos(enteras) }
+        let alto = alto(de: p, varias: varias)
+        return alto >= suelo ? .cabe(alto) : .sinSitio(alto)
     }
 }

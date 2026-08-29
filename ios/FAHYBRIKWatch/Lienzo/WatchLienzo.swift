@@ -24,6 +24,11 @@ struct WatchReloj: View {
     let paginas: [WatchPagina]
     /// Color de zona o de estado (recuperación). Nil = fondo negro, sin tinte.
     let tinte: Color?
+    /// EN QUÉ PÁGINA SE ABRE, por id. Existe porque la del esfuerzo es la del
+    /// CENTRO y es la que tiene que estar puesta mientras corres: ni los datos ni
+    /// los controles están a más de un gesto, y volver al esfuerzo tampoco.
+    /// Nil = la primera, que es lo que hacen las familias de una sola página útil.
+    var inicial: String? = nil
     /// Un lienzo PROPIO en vez del tinte plano. Lo usa la página de zona, cuyo
     /// fondo no es un color sino un dato: la pantalla se llena del color de tu
     /// zona conforme te acercas a la siguiente. Cuando viene, `tinte` se ignora —
@@ -73,9 +78,15 @@ struct WatchReloj: View {
     @State private var golpe: CGFloat = 1
 
     /// Dónde está la página guardada DENTRO de la lista de ahora. Sin memoria, o
-    /// con una página que ya no existe, manda la primera.
+    /// con una página que ya no existe, manda la de arranque (`inicial`) — y si
+    /// tampoco existe, la primera.
     private var indice: Int {
-        guard let paginaId, let i = paginas.firstIndex(where: { $0.id == paginaId }) else { return 0 }
+        if let paginaId, let i = paginas.firstIndex(where: { $0.id == paginaId }) { return i }
+        return indiceInicial
+    }
+
+    private var indiceInicial: Int {
+        guard let inicial, let i = paginas.firstIndex(where: { $0.id == inicial }) else { return 0 }
         return i
     }
 
@@ -92,31 +103,27 @@ struct WatchReloj: View {
         GeometryReader { geo in
             ZStack {
                 WatchTheme.bg.ignoresSafeArea()
-                if let fondo, !atenuado {
+                if let propio = paginaActiva.fondo, !atenuado {
+                    // El fondo de la PÁGINA manda sobre el tinte de zona. Lo usa el
+                    // descanso: es el único tramo en marcha en el que la zona deja
+                    // de gobernar, porque lo que importa es que estás parado.
+                    propio.ignoresSafeArea()
+                } else if let fondo, !atenuado {
                     // El lienzo de zona sustituye al tinte, no se suma: los dos
                     // pintan lo mismo y superponerlos ensuciaría el hue.
                     fondo.ignoresSafeArea()
                 } else if let tinte, !atenuado {
+                    // PLANO. Antes iba al 38 % debajo de un degradado a negro puro
+                    // que dejaba el color vivo sólo en la franja del centro — justo
+                    // donde va el numeral, que lo tapa —, así que la zona no se leía
+                    // de un vistazo por mucho que se subiera el porcentaje.
                     tinte.opacity(WatchTinte.maxOpacity)
                         .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
                 }
-                // Degradado OLED: aire arriba/abajo, sujeto legible en el centro.
-                LinearGradient(
-                    colors: [
-                        Color.black,
-                        Color.black.opacity(0.80),
-                        Color.black.opacity(0),
-                        Color.black.opacity(0.72),
-                        Color.black,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                // Con la muñeca baja el degradado sube: menos píxeles encendidos
-                // alrededor del sujeto, que es lo único que hay que poder leer.
-                .opacity(atenuado ? 0.75 : 0.55)
-                .ignoresSafeArea()
+                // Y del degradado de antes queda esto: contraste en las esquinas y
+                // en las dos bandas de versales, cuerpo de la pantalla intacto.
+                WatchVineta(atenuado: atenuado)
 
                 if let bisel { bisel.ignoresSafeArea() }
 
@@ -142,9 +149,11 @@ struct WatchReloj: View {
         }
         // Bajas la muñeca → vuelves al sujeto. Igual que la app de Apple, que
         // regresa sola a métricas: al levantar el brazo no puedes encontrarte en
-        // una página que no pediste y que ya no puedes abandonar deslizando.
+        // una página que no pediste y que ya no puedes abandonar deslizando. Y
+        // «el sujeto» es la de ARRANQUE, no la primera de la lista: en correr la
+        // primera es el panel de datos, que es justo la que no se mira en marcha.
         .onChange(of: atenuado) { _, reducida in
-            if reducida { paginaId = paginas.first?.id }
+            if reducida, !paginas.isEmpty { paginaId = paginas[indiceInicial].id }
         }
     }
 
@@ -152,7 +161,7 @@ struct WatchReloj: View {
     private func contenido(size: CGSize) -> some View {
         let p = paginaActiva
         let franja = p.modo.pintaFranja ? p.accion : nil
-        let alto = WatchSujeto.alto(para: p.sujeto)
+        let alto = WatchSujeto.alto(de: p, varias: varias)
 
         VStack(spacing: 0) {
             // Área principal = el botón (toque) + deslizamiento (páginas).
@@ -171,33 +180,14 @@ struct WatchReloj: View {
 
                 Spacer(minLength: 4)
 
-                HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    // El numeral del CONTRATO (§10.2): LA monoespaciada de cero
-                    // rachado, recta — la del doble. La display itálica del port
-                    // hacía bailar el crono y no era el canon aprobado.
-                    Text(p.sujeto)
-                        .font(.custom("Menlo-Bold", size: alto))
-                        .foregroundStyle(p.tono)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        // EL LATIDO. Un golpe de escala de 340 ms cuando `p.latido`
-                        // cambia — nunca al montar la página, sólo al CAMBIAR: si
-                        // disparara con el primer valor puesto, la ronda 1 de un
-                        // tabata pulsaría sin que hubiera pasado nada todavía.
-                        .scaleEffect(golpe)
-                        .onChange(of: p.latido) { _, _ in
-                            golpe = 1
-                            withAnimation(.easeOut(duration: 0.18)) { golpe = 1.14 }
-                            withAnimation(.easeOut(duration: 0.16).delay(0.18)) { golpe = 1 }
-                        }
-                    if let u = p.unidad {
-                        Text(u)
-                            .font(.system(size: alto * 0.30, weight: .heavy).monospacedDigit())
-                            .foregroundStyle(WatchTheme.dim)
-                            .lineLimit(1)
-                    }
+                switch p.cuerpo {
+                case let .panel(filas):
+                    panel(filas)
+                case let .controles(botones):
+                    controles(botones)
+                case nil:
+                    sujeto(p, alto: alto)
                 }
-                .frame(maxWidth: .infinity)
 
                 Spacer(minLength: 4)
 
@@ -306,6 +296,120 @@ struct WatchReloj: View {
         .frame(width: size.width, height: size.height)
     }
 
+    /// EL NUMERAL A SANGRE — el cuerpo de siempre y el de siete de las nueve
+    /// familias.
+    @ViewBuilder
+    private func sujeto(_ p: WatchPagina, alto: CGFloat) -> some View {
+        // EL DECIMAL NO ES EL DATO, ES LA PRECISIÓN. Lo parte el lienzo, no las
+        // vistas: pasan «4,76» y aquí se resuelve. Escrito todo al mismo cuerpo se
+        // lee «4 , 76» —la coma abre un hueco igual que un dígito y parte el número
+        // en dos— y encima se come el ancho que necesita la cifra.
+        let (entero, decimal) = WatchSujeto.partirDecimal(p.sujeto)
+        HStack(alignment: .lastTextBaseline, spacing: 0) {
+            // El numeral del CONTRATO (§10.2): LA monoespaciada de cero rachado,
+            // recta — la del doble. La display itálica del port hacía bailar el
+            // crono y no era el canon aprobado.
+            Text(entero)
+                .font(.custom("Menlo-Bold", size: alto))
+                .foregroundStyle(p.tono)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            if !decimal.isEmpty {
+                Text(decimal)
+                    .font(.custom("Menlo-Bold", size: alto * WatchSujeto.decimalEm / WatchSujeto.capEm))
+                    .foregroundStyle(p.tono)
+                    .lineLimit(1)
+            }
+            if let u = p.unidad {
+                Text(u)
+                    .font(.system(size: alto * WatchSujeto.unidadEm, weight: .heavy).monospacedDigit())
+                    .foregroundStyle(WatchTheme.dim)
+                    .lineLimit(1)
+                    .padding(.leading, 2)
+            }
+        }
+        // EL LATIDO. Un golpe de escala cuando `p.latido` cambia — nunca al montar
+        // la página, sólo al CAMBIAR: si disparara con el primer valor puesto, la
+        // ronda 1 de un tabata pulsaría sin que hubiera pasado nada todavía.
+        .scaleEffect(golpe)
+        .onChange(of: p.latido) { _, _ in
+            golpe = 1
+            withAnimation(.easeOut(duration: 0.18)) { golpe = 1.14 }
+            withAnimation(.easeOut(duration: 0.16).delay(0.18)) { golpe = 1 }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// EL PANEL — la única página sin sujeto. Cuatro cifras de la sesión de un
+    /// vistazo, cada una con su etiqueta encima: es la respuesta a «¿cómo va la
+    /// carrera?», que no es la misma pregunta que «¿cuánto me falta?».
+    ///
+    /// El precio está medido y se acepta a cambio: cuatro filas bajan cada número a
+    /// 24 pt (≈3,5 mm de alto), que se lee con el brazo levantado pero no de reojo
+    /// en marcha. Para eso está la página de al lado.
+    @ViewBuilder
+    private func panel(_ filas: [WatchFila]) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(filas) { f in
+                Text(f.etiqueta.uppercased())
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(1.0)
+                    .foregroundStyle(WatchTheme.dim)
+                    .lineLimit(1)
+                HStack(alignment: .lastTextBaseline, spacing: 0) {
+                    let (entero, decimal) = WatchSujeto.partirDecimal(f.valor)
+                    Text(entero)
+                        .font(.custom("Menlo-Bold", size: 24))
+                        .foregroundStyle(WatchTheme.ink)
+                        .lineLimit(1)
+                    if !decimal.isEmpty {
+                        Text(decimal)
+                            .font(.custom("Menlo-Bold", size: 24 * WatchSujeto.decimalEm / WatchSujeto.capEm))
+                            .foregroundStyle(WatchTheme.ink)
+                            .lineLimit(1)
+                    }
+                    if let u = f.unidad {
+                        Text(u)
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundStyle(WatchTheme.dim)
+                            .padding(.leading, 1)
+                    }
+                    if let cola = f.cola {
+                        // La zona no es una fila aparte: es lo que SIGNIFICA tu
+                        // pulso, así que va con él y con su color.
+                        Text(cola)
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundStyle(f.colaTono ?? WatchTheme.dim)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.leading, 6)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// LOS CONTROLES — la única página con botones, porque es la única a la que se
+    /// llega habiendo decidido dejar de mirar y tocar. En las otras dos un botón le
+    /// quitaría 52 pt al dato (el 21 % del lienzo) para ofrecer algo que corriendo
+    /// no se usa.
+    ///
+    /// Rueda con la corona a propósito: es la única página de la interfaz donde eso
+    /// vale, porque a esta se llega parado.
+    @ViewBuilder
+    private func controles(_ botones: [WatchBoton]) -> some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                ForEach(botones) { b in
+                    WatchBotonDeControl(boton: b)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
     private var gestoPrincipal: some Gesture {
         let p = paginaActiva
         return DragGesture(minimumDistance: 0)
@@ -341,11 +445,93 @@ struct WatchReloj: View {
     }
 
     private func accesibilidad(_ p: WatchPagina) -> String {
-        var parts = [p.contexto, p.sujeto]
-        if let u = p.unidad { parts.append(u) }
+        var parts = [p.contexto]
+        switch p.cuerpo {
+        case let .panel(filas):
+            // El panel se lee fila a fila: sin esto VoiceOver anunciaba el contexto
+            // y nada más, porque su sujeto está vacío a propósito.
+            parts += filas.map { f in
+                [f.etiqueta, f.valor, f.unidad, f.cola].compactMap { $0 }.joined(separator: " ")
+            }
+        case let .controles(botones):
+            parts += botones.map(\.titulo)
+        case nil:
+            parts.append(p.sujeto)
+            if let u = p.unidad { parts.append(u) }
+        }
         if let s = p.segundoValor { parts.append(s) }
         if let a = p.accion { parts.append(a) }
-        return parts.joined(separator: ", ")
+        if let n = p.nota { parts.append(n) }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+}
+
+// MARK: - El botón de la página de controles
+//
+// Tres pesos, y no son estética: son cuánto cuesta equivocarse.
+//   · `principal`   — la más frecuente y la más urgente (Pausar). Arriba, la más
+//     grande y en el naranja de la acción.
+//   · `normal`      — una acción más (Nuevo tramo, Siguiente bloque).
+//   · `destructiva` — la única que no se puede deshacer (Terminar). Abajo, en rojo
+//     y CONFIRMADA: un desliz de más no puede acabar una carrera.
+private struct WatchBotonDeControl: View {
+    let boton: WatchBoton
+    @State private var preguntando = false
+
+    var body: some View {
+        Button {
+            WatchHaptics.tap()
+            if boton.confirma != nil {
+                preguntando = true
+            } else {
+                boton.onToca()
+            }
+        } label: {
+            Text(boton.titulo)
+                .font(.system(size: boton.peso == .principal ? 17 : 15, weight: .heavy))
+                .foregroundStyle(tinta)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity)
+                .frame(height: boton.peso == .principal ? 56 : 48)
+                .background(relleno)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(borde, lineWidth: boton.peso == .destructiva ? 1.5 : 0)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .confirmationDialog(
+            boton.confirma ?? "",
+            isPresented: $preguntando,
+            titleVisibility: .visible
+        ) {
+            Button(boton.titulo, role: .destructive) { boton.onToca() }
+            Button("Seguir", role: .cancel) { }
+        }
+    }
+
+    private var tinta: Color {
+        switch boton.peso {
+        case .principal:   return WatchTheme.bg
+        case .normal:      return WatchTheme.ink
+        case .destructiva: return WatchTheme.zoneRed
+        }
+    }
+
+    private var relleno: Color {
+        switch boton.peso {
+        case .principal:   return WatchTheme.orange
+        case .normal:      return WatchTheme.surfaceRaised
+        // Rellenarlo de rojo pondría la acción destructiva como la más pesada de la
+        // pantalla; en rojo sobre casi negro se lee igual y no compite con Pausar.
+        case .destructiva: return WatchTheme.zoneRed.opacity(0.16)
+        }
+    }
+
+    private var borde: Color {
+        boton.peso == .destructiva ? WatchTheme.zoneRed.opacity(0.55) : .clear
     }
 }
 
@@ -389,6 +575,66 @@ private extension View {
         } else {
             self
         }
+    }
+}
+
+// MARK: - La viñeta
+//
+// LO QUE QUEDA DEL DEGRADADO, y por qué se cambió. El degradado OLED iba a negro
+// puro arriba y abajo y dejaba el color vivo en una franja estrecha del centro —
+// exactamente donde va el numeral, que la tapa. Con eso la zona no se leía, y el
+// diagnóstico fácil («el tinte es flojo, súbelo») no arregla nada: el problema no
+// era el porcentaje, era que el degradado apagaba el color en las dos terceras
+// partes de la pantalla.
+//
+// La viñeta hace lo que el degradado hacía bien y nada más: oscurece las ESQUINAS,
+// donde la curva del bisel se come el lienzo y el aro necesita separarse del
+// fondo, y las dos BANDAS DE VERSALES, donde hay texto pequeño. El cuerpo de la
+// pantalla se queda plano y con su color entero.
+struct WatchVineta: View {
+    let atenuado: Bool
+
+    /// Con la muñeca baja la viñeta aprieta: menos píxeles encendidos alrededor del
+    /// sujeto, que es lo único que hay que poder leer con el brazo colgando. Va en
+    /// los negros y no en un `.opacity` del conjunto porque por encima de 1 se
+    /// satura y no oscurecería nada.
+    private var k: Double { atenuado ? 1.7 : 1 }
+
+    private func negro(_ alfa: Double) -> Color {
+        Color.black.opacity(min(1, alfa * k))
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let lado = max(geo.size.width, geo.size.height)
+            ZStack {
+                // Esquinas: transparente hasta el 54 % del radio, negro al 34 % en
+                // el borde. Es el único sitio donde el fondo tiene que ceder.
+                RadialGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: .clear, location: 0.54),
+                        .init(color: negro(0.34), location: 1),
+                    ]),
+                    center: UnitPoint(x: 0.5, y: 0.46),
+                    startRadius: 0,
+                    endRadius: lado * 0.64
+                )
+                // Las dos bandas de texto pequeño: la de contexto arriba y la de
+                // nota / puntos abajo. En el 73 % de en medio no toca nada.
+                LinearGradient(
+                    stops: [
+                        .init(color: negro(0.34), location: 0.00),
+                        .init(color: .clear, location: 0.13),
+                        .init(color: .clear, location: 0.86),
+                        .init(color: negro(0.30), location: 1.00),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
