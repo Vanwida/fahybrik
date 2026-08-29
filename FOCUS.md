@@ -56,17 +56,17 @@ Del walk de `5a8e2c0` quedan cerrados el rest y el apretón de manos. En DECISIO
    Apple sólo canta en SU app —donde las tres páginas no están— y un Z2 `steady`
    ni llega ahí (`eligibility` exige estructura nativa). Propuesta en DECISIONS:
    el corte del km como SUCESO grabado en la traza. **Decide Alex.**
-2. **CLASE 1 VIVA: dos dueños, y el aviso que existe para esto hace la mitad.**
-   `liveStart` está en el cable *para* el caso en que `startWatchApp` no levanta la
-   app, y al llegar sólo cierra el motor de la muñeca — nunca la pone a grabar. De
-   ahí el iPhone con SIN RELOJ y el reloj en readiness. Debajo, dos dueños de
-   `HKWorkoutSession`: `LiveWorkoutSession` (guarda, va en el coordinador) y
-   `MirrorSessionController` (crea la suya, duplica el delegado del builder, sólo
-   despierta con `startWatchApp`). **Diseño en DECISIONS**: el dueño es el primero,
-   el espejo pasa a suscriptor y `liveStart` lleva actividad + ubicación. Las dos
-   mitades van juntas —arrancar por WC sin unificar da DOS sesiones— y son ~200
-   líneas que mueven canal, watchdog y fin, sin compilador aquí. **Nombrado, no
-   empezado a medias.**
+2. **CLASE 1 VIVA: dos dueños de `HKWorkoutSession` en la muñeca.** `liveStart` está
+   en el cable *para* cuando `startWatchApp` no levanta la app, y al llegar sólo
+   cierra el motor de la muñeca — nunca la pone a grabar: de ahí SIN RELOJ en el
+   iPhone y readiness en el reloj. **Verificado en la doc**: `HKWorkoutSessionType`
+   sólo tiene `.primary` («on watchOS») y `.mirrored` («on the companion iOS
+   device»), así que `MirrorSessionController` creando la suya es un SEGUNDO primary
+   donde Apple tiene uno. **Diseño en DECISIONS** con las tres cosas que lo hacen un
+   pase con compilador: el orden del `ended` (el uuid existe tras `finishWorkout` y
+   el canal muere con la sesión), el timeout de un `finishWorkout` colgado, y las
+   guardas de época. El lado del dueño se escribió y se **revirtió** antes de
+   empujar: sin migrar el espejo era API muerta. **Diseñado; no empezado.**
 3. **El reloj EN SOLITARIO sigue con `LiveFlowView`**, que arma sus páginas a
    mano, y `GuionRodaje`/`GuionSeries` viven en el escaparate DEBUG: dos looks.
 4. **Ruta en `HKWorkoutRouteBuilder`**: Salud no recibe recorrido; el mapa del

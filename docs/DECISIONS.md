@@ -120,12 +120,39 @@ actividad y la ubicación y **poner a la muñeca en sesión por el canal que sí
 —el mismo que le lleva el plan y el readiness— en vez de depender sólo de
 `startWatchApp`. La muñeca es la sesión; el teléfono se suscribe.
 
-**Por qué NO está construido todavía, dicho claro:** las dos mitades están acopladas. Si
-`liveStart` arranca la sesión propia **antes** de unificar los dueños, un
-`startWatchApp` que sí llegue crearía la segunda — y volveríamos a dos, que es peor que
-el bug. Y la unificación son ~200 líneas que mueven el canal de tramas, el watchdog, el
-apretón de fin y la continuación del guardado, en una VM **sin compilador**. Empezarla a
-medias rompe la única vía viva del entreno. Va nombrada, no empezada.
+**Verificado en la documentación de Apple, no copiado de una receta:** `HKWorkoutSessionType`
+tiene exactamente dos casos — `.primary`, «a primary session running on watchOS», y
+`.mirrored`, «a mirrored session, running on the companion iOS device». Así que el modelo
+no admite interpretación: la sesión ES del reloj y el iPhone es su espejo. Nuestro
+`MirrorSessionController` creando su propia `HKWorkoutSession` en la muñeca es un segundo
+`.primary` donde Apple sólo tiene uno.
+
+**Por qué NO está construido todavía, dicho claro.** Se intentó en la tanda del 29-ago y
+se REVIRTIÓ antes de empujar, porque quedaba como API muerta: el lado del dueño
+(`mirrorToCompanion`, `sendToCompanion`, `onRemoteData`, `onExternalEnd`,
+`start(config:)`) se escribe fácil y es additivo, pero **no tiene un solo llamante hasta
+que el espejo deja de crear su sesión**, y ahí está el trabajo de verdad. Tres cosas lo
+hacen un pase con compilador y no un rato:
+
+1. **El orden del último paquete.** El `ended` con el uuid del `HKWorkout` tiene que salir
+   por el canal ANTES de terminar la sesión, porque el canal muere con ella — y el uuid
+   sólo existe después de `finishWorkout`. El cierre del espejo secuencia eso a mano
+   (`endAndSaveWithTimeout` → mandar `ended` → `session.end()`), mientras el del dueño
+   usa `session.end()` + una continuación en el delegado. Son dos diseños distintos del
+   mismo cierre; unificarlos es mover la secuencia DENTRO del dueño, que es el único que
+   puede ordenar su propia sesión.
+2. **El timeout.** `finishWorkout` se ha visto colgarse y dejar la muñeca en
+   «Guardando…» con la sesión viva; el escape era apagar el reloj. Ese acotado tiene que
+   viajar con el cierre.
+3. **Las guardas de época.** Existen porque hoy pueden solaparse dos sesiones (una
+   cerrando, otra arrancando). Con un dueño **se simplifican**, no se mueven — pero
+   quitarlas mal reintroduce justo el eco que mataba la grabación recién empezada.
+
+Cablearlo a medias es peor que el bug: si `liveStart` arranca la sesión propia sin
+unificar, un `startWatchApp` que sí llegue crea la segunda; y ponerle guardas mutuas a
+los dos dueños, más otro seam en el gate del HUD (que hoy pregunta por el estado del
+espejo, no por si la muñeca graba), es exactamente el parche que este corte prohíbe.
+**Nombrado y diseñado; no empezado.**
 
 **NO hacer:** ni un reintento más de `startWatchApp` (no es el apretón de manos, es que
 al llegar no se pone a grabar), ni parchear la pantalla de readiness.
