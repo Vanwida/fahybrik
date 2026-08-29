@@ -423,6 +423,22 @@ final class WorkoutSession {
     // the ingest feeds it, but the HUD (reopen rehydration) and the mirror can read.
     var lapBeltDistanceMeters: Double = 0
 
+    // MARK: - El kilómetro de un rodaje, detectado UNA vez
+    //
+    // El cursor vive donde entran los metros — calle y cinta escriben en el mismo
+    // motor, así que hay una sola cuenta. Antes lo llevaba `RunCueEngine`, el cerebro
+    // del audio, alimentado por los dos modelos de HUD desde sus propios timers: dos
+    // entradas al mismo cursor y sólo la cinta lo reiniciaba al abrir tramo.
+    //
+    // El suceso sale por `onKmSplit` y lo consume quien puede: la voz lo dice, la
+    // muñeca lo escribe como `HKWorkoutEvent.lap` en el HKWorkout. El motor no habla
+    // ni de voz ni de HealthKit — sólo detecta.
+    var kmSplits = RunKmSplits()
+
+    /// Un kilómetro se acaba de cerrar. Lo pone la capa que sabe anunciar (el móvil);
+    /// nil = nadie escucha, y el motor sigue contando igual.
+    var onKmSplit: ((RunKmSplit) -> Void)?
+
     var timer: Timer?
     var lastTick: Date = Date()
     var autoSaveTicker: Int = 0

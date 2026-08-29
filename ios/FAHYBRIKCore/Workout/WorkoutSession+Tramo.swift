@@ -507,6 +507,10 @@ extension WorkoutSession {
         tramoErgStartCalories = lapErgLastCalories
         tramoBeltStartDistance = lapBeltDistanceMeters
         tramoGpsStartDistance = lapGpsDistanceMeters
+        // Tramo nuevo, kilómetro 1. Es el reinicio que en la calle no existía: la
+        // cinta lo pedía a mano (`AudioCoach.enterContinuousRun`) y el rodaje de
+        // calle nunca, así que su cuenta arrastraba los metros del tramo anterior.
+        kmSplits.reset()
         stampTramoSampleCursors()
         latchRunProgress()
         // A device-measured window with no time box starts when the MACHINE starts.

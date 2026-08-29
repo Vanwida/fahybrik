@@ -85,12 +85,7 @@ final class AudioCoach {
         if let utterance = engine.onTimeRemaining(remaining, legKey: key) { enqueue(utterance) }
     }
 
-    // MARK: - Treadmill events (from TreadmillHUDModel)
-
-    /// A new continuous-run leg opened — restart the km-split cursor for it.
-    func enterContinuousRun() {
-        engine.resetSplits()
-    }
+    // MARK: - Run events (from the HUD models)
 
     /// Live pace vs the leg's pace target.
     func paceUpdate(status: TargetStatus, deltaSec: Int?) {
@@ -99,11 +94,12 @@ final class AudioCoach {
         }
     }
 
-    /// Covered distance on a continuous run → per-km splits.
-    func distanceUpdate(distanceM: Double, elapsedS: Double) {
-        if let utterance = engine.onDistance(distanceM: distanceM, elapsedS: elapsedS) {
-            enqueue(utterance)
-        }
+    /// UN KILÓMETRO CUMPLIDO, dicho en voz alta. El suceso lo detecta el motor
+    /// (`RunKmSplits`), que es donde entran los metros; aquí sólo se pronuncia. No hay
+    /// segunda voz posible porque no hay segundo detector: el mismo suceso alimenta
+    /// esto y la vuelta que la muñeca escribe en el HKWorkout.
+    func announceKmSplit(_ split: RunKmSplit) {
+        enqueue(engine.announce(split: split))
     }
 
     // MARK: - Queue drain

@@ -64,27 +64,30 @@ final class RunCueEngineTests: XCTestCase {
         XCTAssertEqual(slow?.text, "")
     }
 
-    // MARK: - Km splits
+    // MARK: - El kilómetro: la voz ya no lo DETECTA, sólo lo dice
+    //
+    // El cursor vivía aquí y lo empujaban los dos modelos de HUD. Ahora lo lleva el
+    // motor (`RunKmSplits`, con sus propios tests) y esto sólo pone en palabras el
+    // suceso que le llega — que es lo que garantiza que no haya una segunda voz.
 
-    func testSplitsFireOncePerKilometreFromLegDistance() {
+    func testLaVozPronunciaElParcialQueLeLlega() {
         let engine = RunCueEngine()
-        XCTAssertNil(engine.onDistance(distanceM: 500, elapsedS: 150))              // km 0
-        XCTAssertEqual(engine.onDistance(distanceM: 1000, elapsedS: 300)?.text, "Kilómetro 1. 5 minutos.")
-        XCTAssertNil(engine.onDistance(distanceM: 1500, elapsedS: 450))            // still km 1
-        XCTAssertEqual(engine.onDistance(distanceM: 2000, elapsedS: 610)?.text, "Kilómetro 2. 5 minutos 10 segundos.")
+        let split = RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300)
+        XCTAssertEqual(engine.announce(split: split).text, "Kilómetro 1. 5 minutos.")
     }
 
-    func testResetSplitsRestartsTheKilometreCursor() {
+    func testElParcialUsaElRitmoDelKilometroNoElAcumulado() {
         let engine = RunCueEngine()
-        _ = engine.onDistance(distanceM: 1000, elapsedS: 300)
-        _ = engine.onDistance(distanceM: 2000, elapsedS: 600)
-        engine.resetSplits()   // new continuous-run leg
-        XCTAssertEqual(engine.onDistance(distanceM: 1000, elapsedS: 300)?.text, "Kilómetro 1. 5 minutos.")
+        // Segundo kilómetro a 5:10, cruzado en el minuto 10:10 del rodaje. Se dice el
+        // parcial (310 s), nunca los 610 acumulados.
+        let split = RunKmSplit(km: 2, splitSeconds: 310, atElapsedSeconds: 610)
+        XCTAssertEqual(engine.announce(split: split).text, "Kilómetro 2. 5 minutos 10 segundos.")
     }
 
-    func testSplitPriorityIsLowest() {
+    func testElParcialEsLaPrioridadMasBaja() {
         let engine = RunCueEngine()
-        XCTAssertEqual(engine.onDistance(distanceM: 1000, elapsedS: 300)?.priority, .split)
+        let split = RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300)
+        XCTAssertEqual(engine.announce(split: split).priority, .split)
     }
 
     // MARK: - Countdown
@@ -141,11 +144,11 @@ final class RunCueEngineTests: XCTestCase {
         let speaker = MockSpeaker(); let session = MockSession()
         let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
 
-        coach.distanceUpdate(distanceM: 1000, elapsedS: 300)   // split → speaks immediately, ducks
+        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))
         XCTAssertEqual(speaker.spoken, ["Kilómetro 1. 5 minutos."])
         XCTAssertEqual(session.last, true)
 
-        coach.distanceUpdate(distanceM: 2000, elapsedS: 600)   // second split → queued, not spoken yet
+        coach.announceKmSplit(RunKmSplit(km: 2, splitSeconds: 300, atElapsedSeconds: 600))
         XCTAssertEqual(speaker.spoken.count, 1)
 
         speaker.finishCurrent()                                 // first done → drain the second
@@ -159,7 +162,7 @@ final class RunCueEngineTests: XCTestCase {
         UserDefaults.standard.set(false, forKey: AudioCoachSettings.enabledKey)
         let speaker = MockSpeaker(); let session = MockSession()
         let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
-        coach.distanceUpdate(distanceM: 1000, elapsedS: 300)
+        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))
         XCTAssertTrue(speaker.spoken.isEmpty)
         XCTAssertTrue(session.calls.isEmpty)
     }
@@ -176,7 +179,7 @@ final class RunCueEngineTests: XCTestCase {
     func testStopSpeakingSilencesAndReleases() {
         let speaker = MockSpeaker(); let session = MockSession()
         let coach = AudioCoach(engine: RunCueEngine(), speaker: speaker, audioSession: session, now: { 0 })
-        coach.distanceUpdate(distanceM: 1000, elapsedS: 300)   // speaking
+        coach.announceKmSplit(RunKmSplit(km: 1, splitSeconds: 300, atElapsedSeconds: 300))   // hablando
         coach.stopSpeaking()
         XCTAssertEqual(speaker.stopCount, 1)
         XCTAssertEqual(session.last, false)

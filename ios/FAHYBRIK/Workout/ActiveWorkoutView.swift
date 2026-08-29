@@ -623,6 +623,18 @@ struct ActiveWorkoutView: View {
         liveHR.onSample = { bpm in
             session.injectLiveHR(bpm, source: .healthkit)
         }
+        // UN KILÓMETRO CUMPLIDO, UN SUCESO, DOS DESTINOS Y NINGUNA SEGUNDA VOZ.
+        //
+        // Lo detecta el motor cuando entran los metros — una sola cuenta para calle y
+        // cinta (`RunKmSplits`). Aquí sólo se reparte: se dice en voz alta, y viaja a
+        // la muñeca para que lo escriba como VUELTA en el HKWorkout que está
+        // grabando. Esa vuelta es el aviso de parcial de Apple: la lleva su propio
+        // resumen y la lleva la salud del atleta, sin que nosotros inventemos un
+        // segundo canal para lo mismo.
+        session.onKmSplit = { split in
+            AudioCoach.shared.announceKmSplit(split)
+            PhoneMirrorService.shared.sendKmSplit(split)
+        }
         // A BLE chest/arm strap connected in the pre-workout brief now records into
         // the ENGINE (zones + hr_avg), not just the treadmill HUD's display — so it
         // counts on any workout, with or without a treadmill cover open. Highest HR

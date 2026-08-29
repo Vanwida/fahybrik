@@ -28,10 +28,6 @@ final class RunCueEngine {
     private var lastCorrectionAt: TimeInterval?   // when we last spoke a correction
     private var lastSpokenDirection: TargetStatus?// last direction spoken (nil once back in band)
 
-    // Split cursor (continuous run).
-    private var lastSplitKm = 0
-    private var lastSplitElapsed: TimeInterval = 0
-
     // Countdown — fired at most once per leg key.
     private var countdownDoneKey: String?
 
@@ -52,16 +48,8 @@ final class RunCueEngine {
     /// Full reset for a new workout.
     func reset() {
         resetPace()
-        resetSplits()
         countdownDoneKey = nil
         didAnnounceRun = false
-    }
-
-    /// Reset the km-split cursor — called when a NEW continuous-run leg opens so
-    /// "Kilómetro 1" counts from that leg's own distance, not cumulative.
-    func resetSplits() {
-        lastSplitKm = 0
-        lastSplitElapsed = 0
     }
 
     private func resetPace() {
@@ -111,17 +99,16 @@ final class RunCueEngine {
         }
     }
 
-    /// Covered distance on a continuous run → a split when a whole kilometre is
-    /// crossed. `distanceM` / `elapsedS` are the CURRENT leg's accumulation.
-    func onDistance(distanceM: Double, elapsedS: TimeInterval) -> CoachUtterance? {
-        let km = Int(distanceM / 1000)
-        guard km > lastSplitKm else { return nil }
-        let split = elapsedS - lastSplitElapsed
-        lastSplitKm = km
-        lastSplitElapsed = elapsedS
-        guard split > 0 else { return nil }
-        return CoachUtterance(text: CoachSpeech.split(km: km, splitSec: Int(split.rounded())),
-                              priority: .split)
+    /// EL KILÓMETRO YA VIENE DETECTADO. Aquí sólo se pone en palabras.
+    ///
+    /// Antes este método TAMBIÉN lo detectaba: llevaba su propio cursor
+    /// (`lastSplitKm` / `lastSplitElapsed`) alimentado por los dos modelos de HUD.
+    /// El cursor vive ahora en el motor (`RunKmSplits`), que es donde entran los
+    /// metros — así el suceso también puede llegar a la grabación de Apple como una
+    /// vuelta, y no sólo a la voz.
+    func announce(split: RunKmSplit) -> CoachUtterance {
+        CoachUtterance(text: CoachSpeech.split(km: split.km, splitSec: split.paceSecPerKm),
+                       priority: .split)
     }
 
     /// Remaining seconds on a TIMED leg → a single "10 segundos" heads-up per leg.

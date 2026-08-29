@@ -210,6 +210,19 @@ final class PhoneMirrorService {
         }
     }
 
+    /// UN KILÓMETRO CUMPLIDO, a la muñeca, para que lo escriba como VUELTA en el
+    /// HKWorkout que está grabando (`HKWorkoutEvent.lap`).
+    ///
+    /// No lleva háptico ni fuerza una trama: el parcial no cambia lo que se pinta —
+    /// cambia lo que se GUARDA. Sin espejo no hay nada que hacer y se calla: la voz
+    /// del móvil ya lo ha dicho, y el kilómetro no se pierde porque la traza lo
+    /// lleva igual.
+    func sendKmSplit(_ split: RunKmSplit) {
+        guard mirrored != nil else { return }
+        send(MirrorWire.MessageType.lap,
+             MirrorKmSplit(km: split.km, splitSeconds: split.splitSeconds))
+    }
+
     /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
     /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
     /// so without this kick the wrist can sit on "Conectando…" until the 1 Hz timer.

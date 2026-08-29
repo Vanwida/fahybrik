@@ -726,11 +726,10 @@ final class TreadmillHUDModel {
             AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
                                          deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
         }
-        // Km splits are a CONTINUOUS-run concept; a series / structured run announces
-        // per tramo instead, so it never gets a competing split.
-        if !isStructured, !isSeries, !isRecovery {
-            AudioCoach.shared.distanceUpdate(distanceM: legDistanceM, elapsedS: legElapsedEffective)
-        }
+        // EL KILÓMETRO YA NO SE ALIMENTA DESDE AQUÍ. Lo detecta el motor cuando entran
+        // los metros (`RunKmSplits`) y sale por `session.onKmSplit`. Esta pantalla y la
+        // de calle empujaban el MISMO cursor, cada una con su timer y con su idea de
+        // los metros y del tiempo del tramo.
     }
 
     // The odometer-health logic that used to live here (trust the machine's Total
@@ -807,11 +806,9 @@ final class TreadmillHUDModel {
         // belt to this leg's prescribed incline if it has one (the axis the belt obeys).
         programCurrentLegOnMachine()
         applyPrescribedInclineToMachine()
-        // A new continuous-run leg → restart the coach's km-split cursor so splits
-        // count from THIS leg's distance, not cumulatively across the workout (#63).
-        if !isStructured, !isSeries, !currentLeg.isRecovery {
-            AudioCoach.shared.enterContinuousRun()
-        }
+        // El reinicio del cursor del kilómetro ya no se pide desde aquí: lo hace
+        // `syncTramoIfNeeded` en el motor, que es quien SABE que el tramo cambió — y
+        // por eso ahora también reinicia en la calle, donde nadie lo pedía.
     }
 
     private func resetLegState() {

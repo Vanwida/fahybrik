@@ -256,6 +256,8 @@ final class MirrorSessionController: NSObject {
             if let h = envelope.body(as: MirrorHaptic.self) {
                 playEngineCue(h.cue, seq: h.seq)
             }
+        case MirrorWire.MessageType.lap:
+            if let s = envelope.body(as: MirrorKmSplit.self) { writeLap(s) }
         default:
             break                       // tolerant: a newer phone may speak more types
         }
@@ -278,6 +280,30 @@ final class MirrorSessionController: NSObject {
             // Unknown future cue — a firm start is better than silence.
             Haptics.cueGo()
         }
+    }
+
+    /// EL PARCIAL DEL KILÓMETRO, ESCRITO DONDE APPLE LO GUARDA.
+    ///
+    /// `HKWorkoutEvent.lap` es el tipo que Apple tiene para esto, y el builder lo
+    /// admite (`addWorkoutEvents`), así que el kilómetro acaba dentro del HKWorkout:
+    /// lo lee el resumen de Salud y lo lee cualquier app del ecosistema. Sin esto el
+    /// parcial existía sólo como una frase dicha en voz alta y se perdía al acabar.
+    ///
+    /// El intervalo se ancla con el reloj de la MUÑECA, no con el epoch del teléfono:
+    /// el evento tiene que caer dentro de la ventana del builder o HealthKit lo
+    /// rechaza, y el único que conoce esa ventana es este lado. Un parcial más largo
+    /// que lo que llevamos grabando (la muñeca se unió tarde) se recorta al arranque.
+    private func writeLap(_ split: MirrorKmSplit) {
+        guard state == .recording, let builder, let start = session?.startDate else { return }
+        let end = Date()
+        let begin = max(start, end.addingTimeInterval(-max(0, split.splitSeconds)))
+        guard end > begin else { return }
+        let event = HKWorkoutEvent(
+            type: .lap,
+            dateInterval: DateInterval(start: begin, end: end),
+            metadata: nil
+        )
+        builder.addWorkoutEvents([event]) { _, _ in }
     }
 
     private func applyFrame(_ f: MirrorStateFrame) {

@@ -243,10 +243,12 @@ final class OutdoorRunHUDModel {
             AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
                                          deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
         }
-        // Km splits are a CONTINUOUS-run concept; a structured run announces per tramo.
-        if !isStructured, !isRecovery {
-            AudioCoach.shared.distanceUpdate(distanceM: coveredMeters, elapsedS: legElapsedEffective)
-        }
+        // EL KILÓMETRO YA NO SE ALIMENTA DESDE AQUÍ. Lo detecta el motor, en el
+        // instante en que entran los metros y con su propio reloj de tramo
+        // (`RunKmSplits`), y sale por `session.onKmSplit`. Esta pantalla lo empujaba
+        // con su timer de medio segundo y con SU idea de los metros y del tiempo,
+        // igual que lo hacía la de la cinta: dos entradas al mismo cursor y sólo una
+        // de las dos lo reiniciaba al abrir un tramo.
     }
 
     // MARK: Live Activity
