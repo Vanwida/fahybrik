@@ -151,7 +151,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         // path so the plan lands now instead of waiting for the next push.
         let context = session.receivedApplicationContext
         if !context.isEmpty {
-            Task { @MainActor in WatchPlanModel.shared.update(from: context) }
+            Task { @MainActor in Self.ingestContext(context) }
         }
         drainOutbox()
         // La traza medida en la muñeca lleva su propio buzón de ficheros, y este es
@@ -167,7 +167,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
         Task { @MainActor in
-            WatchPlanModel.shared.update(from: applicationContext)
+            Self.ingestContext(applicationContext)
         }
     }
 
@@ -194,9 +194,22 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     @MainActor
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard body[WatchWireKeys.liveEnd] != nil else { return false }
+        WatchLiveStartStore.clear()
         WatchWorkoutCoordinator.shared.finishFromPhone()
         MirrorSessionController.shared.cerrarPorElTelefono()
         return true
+    }
+
+    /// El contexto persistente es el único aviso que sobrevive a Health Review:
+    /// `handle(_:)` no se reentrega y el `transferUserInfo` ya se consumió.
+    @MainActor
+    private static func ingestContext(_ context: [String: Any]) {
+        WatchPlanModel.shared.update(from: context)
+        if context.isEmpty {
+            WatchLiveStartStore.clear()
+            return
+        }
+        _ = applyLiveStart(context)
     }
 
     /// El teléfono ya corre: la muñeca ENTRA en la sesión (misma puerta que
@@ -207,7 +220,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         guard let start = WatchLiveStart.resolving(from: body, today: WatchPlanModel.shared.today) else {
             return false
         }
-        MirrorSessionController.shared.start(config: start.configuration)
+        MirrorSessionController.shared.start(start)
         return true
     }
 

@@ -11,6 +11,68 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · El walk de `b30994bd` no era `beginCollection`. Era Health Review sin sesión que sobreviva
+
+Walk del debugger sobre `b30994bd` (Mac, compile SUCCESS, CFBundleVersion 22,
+Libre 1×800). Mismo síntoma que `375ded21`: Health Review, luego «Abre
+FAHYBRID en el iPhone» + teléfono rojo. Nunca las tres páginas. Nunca
+pausa. iPhone SIN RELOJ. Recap SÍ (385 m, 2:26, 6:19/km) — no se toca.
+HR/zonas no: la muñeca no tuvo sesión.
+
+El delete de `beginCollection` falso → `session.end()` **no cambió el
+walk.** Esa clase no era, o no era la única, o el binario no llegó a
+ese `completion`. `HKWorkoutBuilder.beginCollection(withStart:)` «Sets
+the workout’s start date and begins building the workout» — va DESPUÉS
+de `HKWorkoutSession.startActivity(with:)` «Starts the workout session
+activity». El walk se quedó antes.
+
+**La pieza, con la doc delante (no adivinada):**
+
+- `HKHealthStore.requestAuthorization(toShare:read:)` «Asynchronously
+  requests permission to save and read the specified data types». Ese
+  sheet ES Health Review. En `MirrorSessionController.start` se
+  `await`-aba ANTES de `startActivity`. Durante el sheet no hay
+  `HKWorkoutSession`.
+- `WKApplicationDelegate.handle(_:)` «the user started a workout
+  session on the paired iPhone». `HKHealthStore.startWatchApp(with:)`
+  «Launches or wakes the companion watchOS app to create a new workout
+  session». Tras el sheet, `handle` no se reentrega: el launch ya ocurrió.
+- `WKApplicationDelegate.handleActiveWorkoutRecovery` «the app
+  relaunches after crashing during an active workout session».
+  `HKHealthStore.recoverActiveWorkoutSession` «Recovers an active
+  workout session». Solo existen si ya hubo sesión. El gate las deja
+  vacías.
+- `liveStart` iba por `sendMessage` / `transferUserInfo`. Se consume.
+  `updateApplicationContext([today])` sustituye el diccionario entero
+  y borra `liveStart` si alguna vez estuvo. Al activar, el Watch leía
+  el contexto y actualizaba el plan — no llamaba `applyLiveStart`.
+
+Proceso nuevo, idle, sin `today` (libre) → EmptyState. iPhone SIN RELOJ
+porque nunca hubo primary. Recap del GPS del teléfono intacto.
+
+**¿Muro solo de simulador?** Health Review en el simulador de Watch
+puede matar el proceso al conceder y no reentregar `handle` ni el
+mensaje. En un Watch de verdad, `HKAuthorizationStatus.sharingAuthorized`
+hace que `requestAuthorization` no vuelva a pintar el sheet. Si tras
+este corte el walk en simulador sigue siendo Health → EmptyState y el
+Watch no recibe `liveStart` en el contexto, el sheet del simulador es
+el muro: no hay config que inventar. En dispositivo, conceder una vez
+basta.
+
+**Decidido:** se borra el gate. `startActivity` primero; el permiso
+después, si la sesión no nació. `liveStart` viaja en el
+applicationContext CON el día. El aviso se guarda en disco antes de
+cualquier sheet y se pide en `applicationDidFinishLaunching`. Si Apple
+tiene una sesión, `handleActiveWorkoutRecovery` recupera ESA primary
+— no se crea otra.
+
+**NO hacer:** no parchear la copy de EmptyState. No reintentar
+`startWatchApp`. No segundo dueño. No bump de `CURRENT_PROJECT_VERSION`
+(el walk ya mostró 22). No tocar recap / `finish()` / authority GPS.
+No inventar voz del km.
+
+---
+
 ## 2026-08-30 · Health Access y luego «Abre el iPhone»: `beginCollection` no es la sesión
 
 Walk del debugger sobre `375ded21` (simulador, build 21, Libre 1×800 outdoor).

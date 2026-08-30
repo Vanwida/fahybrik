@@ -26,6 +26,11 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     /// contenido del builder: la misma cifra que verá el HKWorkout guardado.
     var elapsedSeconds: TimeInterval { builder?.elapsedTime ?? 0 }
 
+    /// Actividad de la sesión recuperada (`recoverActiveWorkoutSession`).
+    var recoveredActivityType: HKWorkoutActivityType? {
+        session?.workoutConfiguration.activityType
+    }
+
     var onHeartRate: ((Int) -> Void)?
     var onDistanceDelta: ((Double) -> Void)?
     /// Paquetes del teléfono por el canal del espejo
@@ -73,6 +78,45 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         let workout = HKObjectType.workoutType()
         if store.authorizationStatus(for: workout) == .sharingAuthorized { return }
         await Self.requestWorkoutAuthorization(store: store)
+    }
+
+    /// `HKHealthStore.recoverActiveWorkoutSession` — «Recovers an active
+    /// workout session». La misma primary, no otra. Apple avisa por
+    /// `handleActiveWorkoutRecovery` cuando el proceso muere a mitad.
+    func recoverActiveIfNeeded() async {
+        guard session == nil else { return }
+        let recovered: HKWorkoutSession? = await withCheckedContinuation { cont in
+            store.recoverActiveWorkoutSession { session, error in
+                if let error {
+                    Self.log.error("recoverActiveWorkoutSession: \(error.localizedDescription, privacy: .public)")
+                }
+                cont.resume(returning: session)
+            }
+        }
+        guard let recovered, recovered.state != .ended else { return }
+        let builder = recovered.associatedWorkoutBuilder()
+        recovered.delegate = self
+        builder.delegate = self
+        self.session = recovered
+        self.builder = builder
+        switch recovered.state {
+        case .running:
+            isActive = true
+            isPaused = false
+        case .paused:
+            isActive = true
+            isPaused = true
+        case .prepared, .notStarted:
+            recovered.startActivity(with: Date())
+            isActive = true
+            isPaused = false
+        default:
+            // `.stopped` u otro estado que no se reabre: no es un segundo dueño.
+            self.session = nil
+            self.builder = nil
+            return
+        }
+        Self.log.info("sesión recuperada")
     }
 
     // MARK: - Start / pause / resume

@@ -162,6 +162,56 @@ final class WatchLiveStartTests: XCTestCase {
         XCTAssertEqual(WatchLiveStart.activityType(for: "otro"), .other)
         XCTAssertEqual(WatchLiveStart.activityType(for: nil), .other)
     }
+
+    func testMergedContextKeepsTodayAndLiveStart() throws {
+        let start = WatchLiveStart(activityKind: "running", locationType: .outdoor)
+        let startData = try WatchWire.encoder.encode(start)
+        let today = WatchTodayPayload.minimalTest(activityKind: "strength")
+        let todayData = try WatchWire.encoder.encode(today)
+        let dict = WatchApplicationContext.dictionary(today: todayData, liveStart: startData)
+        XCTAssertNotNil(dict[WatchWireKeys.today] as? Data)
+        XCTAssertNotNil(dict[WatchWireKeys.liveStart] as? Data)
+        let resolved = WatchLiveStart.resolving(from: dict, today: today)
+        XCTAssertEqual(resolved, start, "liveStart del contexto gana sobre el día")
+    }
+
+    func testTodayOnlyContextDoesNotInventAStart() {
+        let today = WatchTodayPayload.minimalTest(activityKind: "running")
+        let todayData = try? WatchWire.encoder.encode(today)
+        let dict = WatchApplicationContext.dictionary(today: todayData, liveStart: nil)
+        XCTAssertNil(WatchLiveStart.resolving(from: dict, today: today))
+    }
+
+    func testPendingStoreSurvivesARelaunch() {
+        WatchLiveStartStore.clear()
+        let start = WatchLiveStart(activityKind: "running", locationType: .outdoor)
+        WatchLiveStartStore.persist(start)
+        XCTAssertEqual(WatchLiveStartStore.load(), start)
+        WatchLiveStartStore.clear()
+        XCTAssertNil(WatchLiveStartStore.load())
+    }
+
+    func testStalePendingStoreIsIgnored() {
+        WatchLiveStartStore.clear()
+        let start = WatchLiveStart(activityKind: "running", locationType: .outdoor)
+        WatchLiveStartStore.persist(start)
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970 - WatchLiveStartStore.freshness - 1,
+            forKey: WatchLiveStartStore.atKey
+        )
+        XCTAssertNil(WatchLiveStartStore.load())
+        WatchLiveStartStore.clear()
+    }
+
+    func testConfigurationRoundtripKind() {
+        let config = HKWorkoutConfiguration()
+        config.activityType = .running
+        config.locationType = .outdoor
+        let start = WatchLiveStart(configuration: config)
+        XCTAssertEqual(start.activityKind, "running")
+        XCTAssertEqual(start.location, "outdoor")
+        XCTAssertEqual(start.configuration.activityType, .running)
+    }
 }
 
 private extension WatchTodayPayload {

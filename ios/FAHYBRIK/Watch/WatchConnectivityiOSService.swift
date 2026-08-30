@@ -6,8 +6,10 @@ import WatchConnectivity
 //   • iPhone → Watch (push): the day's session + readiness, sent via
 //     WCSession.updateApplicationContext. Application context OVERWRITES itself,
 //     the right semantics for "current day" — no stale queue builds up on the
-//     watch. The full assignment detail is embedded so the watch can build the
-//     SAME WorkoutPlan and run the SAME engine as the phone.
+//     watch. While a phone-started session is live, `liveStart` rides in the
+//     SAME dictionary: a today-only write would wipe the start that has to
+//     survive Health Review. The full assignment detail is embedded so the
+//     watch can build the SAME WorkoutPlan and run the SAME engine as the phone.
 //
 //   • Watch → iPhone (results): a finished execution arrives via
 //     didReceiveUserInfo. We decode it into the exact WorkoutExecutionPayload the
@@ -36,6 +38,11 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// bringing up, the watch never hears that it must JOIN — and the
     /// activity/location cannot be a Bool; they travel with the pending start.
     @MainActor private var pendingLiveStart: WatchLiveStart?
+    /// Viaja en el applicationContext CON el día. Un `send(today)` que
+    /// publique sólo `today` borra `liveStart` (overwrite). Tras Health
+    /// Review el proceso del reloj puede nacer de cero: el mensaje ya se
+    /// consumió; el contexto es lo que queda.
+    @MainActor private var activeLiveStart: WatchLiveStart?
 
     private enum PendingContext {
         case push(WatchTodayPayload)
@@ -189,13 +196,29 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             return
         }
         guard session.isPaired, session.isWatchAppInstalled else { return }
+        lastTodayPayload = finalPayload
+        publishContext(today: data)
+    }
 
-        do {
-            try session.updateApplicationContext([WatchWireKeys.today: data])
-            lastTodayPayload = finalPayload
-        } catch {
-            // Silent; watch keeps its last known good context.
+    /// `updateApplicationContext` sustituye el diccionario entero. Hoy y
+    /// `liveStart` salen en la misma escritura.
+    @MainActor
+    private func publishContext(today: Data? = nil) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired, session.isWatchAppInstalled else { return }
+        let todayData: Data?
+        if let today {
+            todayData = today
+        } else if let last = lastTodayPayload {
+            todayData = try? WatchWire.encoder.encode(last)
+        } else {
+            todayData = nil
         }
+        let liveData = activeLiveStart.flatMap { try? WatchWire.encoder.encode($0) }
+        let body = WatchApplicationContext.dictionary(today: todayData, liveStart: liveData)
+        try? session.updateApplicationContext(body)
     }
 
     /// ACABAR EN UN SITIO ES ACABAR: decirle al reloj que este entreno ya terminó
@@ -209,6 +232,7 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     func startLiveWorkout(_ start: WatchLiveStart) {
         guard WCSession.isSupported() else { return }
         activate()
+        activeLiveStart = start
         let session = WCSession.default
         guard session.activationState == .activated else {
             pendingLiveStart = start
@@ -216,6 +240,7 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         }
         pendingLiveStart = nil
         guard session.isPaired, session.isWatchAppInstalled else { return }
+        publishContext()
         guard let data = try? WatchWire.encoder.encode(start) else { return }
         let body: [String: Any] = [WatchWireKeys.liveStart: data]
         if session.isReachable {
@@ -230,11 +255,21 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     @MainActor
     func endLiveWorkout() {
         pendingLiveStart = nil
+        activeLiveStart = nil
         guard WCSession.isSupported() else { return }
         activate()
         let session = WCSession.default
         guard session.activationState == .activated,
               session.isPaired, session.isWatchAppInstalled else { return }
+        // Quitar `liveStart` del contexto sin borrar el día. Tras un
+        // relaunch del teléfono `lastTodayPayload` es nil; el diccionario
+        // que YA publicamos sigue en `applicationContext`.
+        if lastTodayPayload == nil,
+           let data = session.applicationContext[WatchWireKeys.today] as? Data,
+           let decoded = try? WatchWire.decoder.decode(WatchTodayPayload.self, from: data) {
+            lastTodayPayload = decoded
+        }
+        publishContext()
         let body: [String: Any] = [WatchWireKeys.liveEnd: true]
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
@@ -252,6 +287,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // tenía delegate ni activación — el `.clear` pendiente no se vaciaba nunca
         // y todo lo que llegara de la muñeca se perdía en silencio.
         activate()
+        activeLiveStart = nil
+        pendingLiveStart = nil
         let session = WCSession.default
         guard session.activationState == .activated else {
             pendingContext = .clear

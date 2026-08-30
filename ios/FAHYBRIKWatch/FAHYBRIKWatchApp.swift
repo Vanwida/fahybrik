@@ -48,12 +48,23 @@ final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
     /// aviso se pierde y la muñeca se queda en idle.
     func applicationDidFinishLaunching() {
         WatchConnectivityService.shared.activate()
+        Task { @MainActor in MirrorSessionController.shared.resumeAfterLaunch() }
     }
 
     /// `WKApplicationDelegate.handle(_:)` — «the user started a workout
     /// session on the paired iPhone». `HKHealthStore.startWatchApp` lanza
     /// la app **para crear** esa sesión (`startWatchApp(with:completion:)`).
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
-        Task { @MainActor in MirrorSessionController.shared.start(config: workoutConfiguration) }
+        Task { @MainActor in
+            MirrorSessionController.shared.start(WatchLiveStart(configuration: workoutConfiguration))
+        }
+    }
+
+    /// `handleActiveWorkoutRecovery` — «the app relaunches after crashing
+    /// during an active workout session». Solo existe si ya hubo sesión.
+    /// Health Review ANTES de `startActivity` no deja nada que recuperar:
+    /// ahí entra `resumeAfterLaunch` (el aviso en disco / contexto).
+    func handleActiveWorkoutRecovery() {
+        Task { @MainActor in await MirrorSessionController.shared.recoverAfterCrash() }
     }
 }

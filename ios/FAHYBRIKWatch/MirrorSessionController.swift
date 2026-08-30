@@ -14,7 +14,7 @@ import os
 // second knock while recording is declined — not a guard between two owners.
 @MainActor
 @Observable
-final class MirrorSessionController: NSObject {
+final class MirrorSessionController {
 
     static let shared = MirrorSessionController()
 
@@ -117,7 +117,7 @@ final class MirrorSessionController: NSObject {
     private var sensorSeq: Int = 0
     private static let sensorRelayInterval: TimeInterval = 0.5
 
-    private override init() { super.init() }
+    private init() {}
 
     // MARK: - Start
 
@@ -125,7 +125,15 @@ final class MirrorSessionController: NSObject {
     /// Si el HUD ya está grabando, esta petición se declina: hay UN dueño, y
     /// ya está en marcha. Si la muñeca llevaba el motor en solitario, se cede
     /// el cursor y se REUTILIZA la grabación (no se mata para crear otra).
+    func start(_ payload: WatchLiveStart) {
+        WatchLiveStartStore.persist(payload)
+        start(config: payload.configuration)
+    }
+
     func start(config: HKWorkoutConfiguration) {
+        if WatchLiveStartStore.load() == nil {
+            WatchLiveStartStore.persist(WatchLiveStart(configuration: config))
+        }
         // Card 72 — recover from ANY dirty leftover HUD state, not an enumerated
         // list. A start in flight is not dirty: only a genuinely stale state
         // (no signal past `startStaleAfter`) is healed. Healing a 2-second-old
@@ -160,12 +168,18 @@ final class MirrorSessionController: NSObject {
         Task {
             await WatchWorkoutCoordinator.shared.cederMotor()
             attachToOwner()
-            await owner.requestAuthorization()
+            // `startActivity(with:)` «Starts the workout session activity».
+            // `requestAuthorization` «Asynchronously requests permission» —
+            // ese sheet ES Health Review. Esperarlo ANTES de startActivity
+            // dejaba la muñeca sin sesión: si el proceso muere al conceder,
+            // `handle(_:)` no se reentrega y `liveStart` por mensaje ya se
+            // consumió → idle → EmptyState. La sesión se crea YA.
             await owner.start(configuration: config)
+            if owner.isActive {
+                beginMirroring()
+            }
+            await owner.requestAuthorization()
             if !owner.isActive {
-                // Health Access acaba de volver: un primer init a veces no
-                // crea. Un segundo start, no un startWatchApp, ni un idle
-                // que pinta «Abre FAHYBRID en el iPhone».
                 await owner.start(configuration: config)
             }
             guard state == .recording else { return }
@@ -180,6 +194,34 @@ final class MirrorSessionController: NSObject {
         }
     }
 
+    /// Tras Health Review el proceso puede nacer de cero. El aviso está en
+    /// disco; `handle(_:)` no vuelve (`startWatchApp` ya lanzó).
+    func resumeAfterLaunch() {
+        guard state == .idle, !owner.isActive else { return }
+        guard let pending = WatchLiveStartStore.load() else { return }
+        Self.log.info("arranque pendiente tras Health — se pide startActivity ahora")
+        start(config: pending.configuration)
+    }
+
+    /// `WKApplicationDelegate.handleActiveWorkoutRecovery` — «the app
+    /// relaunches after crashing during an active workout session».
+    /// `HKHealthStore.recoverActiveWorkoutSession` — «Recovers an active
+    /// workout session». Misma sesión, no un segundo dueño.
+    func recoverAfterCrash() async {
+        await owner.recoverActiveIfNeeded()
+        if owner.isActive {
+            guard state == .idle else { return }
+            state = .recording
+            lastSignalAt = Date()
+            actividad = owner.recoveredActivityType
+            attachToOwner()
+            SensorCapture.shared.start()
+            beginMirroring()
+            return
+        }
+        resumeAfterLaunch()
+    }
+
     /// Last-resort unstick: drop the HUD and force-release the owner so a new
     /// start can proceed without rebooting the watch.
     private func forceReleaseStuckSession() {
@@ -187,7 +229,7 @@ final class MirrorSessionController: NSObject {
         stopSensorRelay()
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         owner.forceRelease()
-        resetToIdle()
+        resetToIdle(clearPending: false)
     }
 
     private func attachToOwner() {
@@ -565,7 +607,7 @@ final class MirrorSessionController: NSObject {
         )
     }
 
-    private func resetToIdle() {
+    private func resetToIdle(clearPending: Bool = true) {
         stopWatchdog()
         stopSensorRelay()
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
@@ -578,6 +620,7 @@ final class MirrorSessionController: NSObject {
         hkPaused = false
         isClosing = false
         state = .idle
+        if clearPending { WatchLiveStartStore.clear() }
     }
 
     // MARK: - Connection watchdog

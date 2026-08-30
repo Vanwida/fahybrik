@@ -10,9 +10,11 @@ import HealthKit
 // silently drifted; there is now no second definition to keep in sync.
 //
 // TRANSPORT
-//   iPhone → Watch : the encoded `WatchTodayPayload` is placed as a single `Data`
-//                    value under `WatchWireKeys.today` in the WCSession
-//                    applicationContext (overwrite semantics — always "today").
+//   iPhone → Watch : `WatchTodayPayload` under `WatchWireKeys.today` AND, while
+//                    a phone-started session is live, `WatchLiveStart` under
+//                    `WatchWireKeys.liveStart`, in the SAME applicationContext.
+//                    `updateApplicationContext` overwrites the whole dictionary
+//                    — a today-only push wipes `liveStart`. They travel together.
 //   Watch → iPhone : the encoded `WatchExecutionEnvelope` is placed under
 //                    `WatchWireKeys.executionResult` in a WCSession
 //                    transferUserInfo (queued across launches / reachability).
@@ -248,6 +250,65 @@ struct WatchLiveStart: Codable, Equatable {
             return decoded
         }
         return fallback(today: today)
+    }
+
+    /// `handle(_:)` solo entrega `HKWorkoutConfiguration`. Misma tabla al revés.
+    init(configuration config: HKWorkoutConfiguration) {
+        self.init(
+            activityKind: Self.kind(for: config.activityType),
+            locationType: config.locationType
+        )
+    }
+
+    static func kind(for type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .running: return "running"
+        case .functionalStrengthTraining: return "strength"
+        case .mixedCardio: return "mixed"
+        default: return "other"
+        }
+    }
+}
+
+/// El diccionario que `updateApplicationContext` publica entero. Hoy y
+/// `liveStart` van juntos: el contexto no es una cola, es un overwrite.
+enum WatchApplicationContext {
+    static func dictionary(today: Data?, liveStart: Data?) -> [String: Any] {
+        var body: [String: Any] = [:]
+        if let today { body[WatchWireKeys.today] = today }
+        if let liveStart { body[WatchWireKeys.liveStart] = liveStart }
+        return body
+    }
+}
+
+/// El aviso de arranque que tiene que vivir el sheet de Health. `handle(_:)`
+/// no se reentrega (`startWatchApp` ya lanzó). `sendMessage` /
+/// `transferUserInfo` se consumen. Sin esto, Health Review deja la muñeca
+/// idle y EmptyState pinta «Abre FAHYBRID en el iPhone».
+enum WatchLiveStartStore {
+    static let key = "fahybrik.watch.pendingLiveStart.v1"
+    static let atKey = "fahybrik.watch.pendingLiveStart.at.v1"
+    /// Un persist de ayer no puede abrir una sesión hoy. Health Review
+    /// + la carrera caben aquí; un leftover no.
+    static let freshness: TimeInterval = 30 * 60
+
+    static func persist(_ start: WatchLiveStart) {
+        guard let data = try? WatchWire.encoder.encode(start) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: atKey)
+    }
+
+    static func load() -> WatchLiveStart? {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let at = UserDefaults.standard.object(forKey: atKey) as? TimeInterval,
+              Date().timeIntervalSince1970 - at < freshness
+        else { return nil }
+        return try? WatchWire.decoder.decode(WatchLiveStart.self, from: data)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: atKey)
     }
 }
 
