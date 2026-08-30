@@ -195,15 +195,19 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard body[WatchWireKeys.liveEnd] != nil else { return false }
         WatchWorkoutCoordinator.shared.finishFromPhone()
+        MirrorSessionController.shared.cerrarPorElTelefono()
         return true
     }
 
-    /// «Ya hay una sesión en marcha por la otra vía». Cierra el motor de la muñeca
-    /// —guardando lo grabado— para que no haya dos; no abre ninguno.
+    /// El teléfono ya corre: la muñeca ENTRA en la sesión (misma puerta que
+    /// `startWatchApp` → `handle(config)`). Un `true` legado se resuelve con el
+    /// día empujado.
     @MainActor
     private static func applyLiveStart(_ body: [String: Any]) -> Bool {
-        guard body[WatchWireKeys.liveStart] != nil else { return false }
-        Task { await WatchWorkoutCoordinator.shared.cerrarMotorPropio() }
+        guard let start = WatchLiveStart.resolving(from: body, today: WatchPlanModel.shared.today) else {
+            return false
+        }
+        MirrorSessionController.shared.start(config: start.configuration)
         return true
     }
 

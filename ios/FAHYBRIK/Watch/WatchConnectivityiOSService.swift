@@ -33,8 +33,9 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// we hold the latest here and flush it from `activationDidCompleteWith`.
     @MainActor private var pendingContext: PendingContext?
     /// `live_start` in the same activation race: if the session is still
-    /// bringing up, the watch never hears that the phone already owns live.
-    @MainActor private var pendingLiveStart = false
+    /// bringing up, the watch never hears that it must JOIN — and the
+    /// activity/location cannot be a Bool; they travel with the pending start.
+    @MainActor private var pendingLiveStart: WatchLiveStart?
 
     private enum PendingContext {
         case push(WatchTodayPayload)
@@ -205,17 +206,18 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// que el bluetooth esté fino justo al pulsar Terminar.
     /// El teléfono acaba de arrancar el motor. El reloj no abre otro.
     @MainActor
-    func startLiveWorkout() {
+    func startLiveWorkout(_ start: WatchLiveStart) {
         guard WCSession.isSupported() else { return }
         activate()
         let session = WCSession.default
         guard session.activationState == .activated else {
-            pendingLiveStart = true
+            pendingLiveStart = start
             return
         }
-        pendingLiveStart = false
+        pendingLiveStart = nil
         guard session.isPaired, session.isWatchAppInstalled else { return }
-        let body: [String: Any] = [WatchWireKeys.liveStart: true]
+        guard let data = try? WatchWire.encoder.encode(start) else { return }
+        let body: [String: Any] = [WatchWireKeys.liveStart: data]
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
                 Task { @MainActor in session.transferUserInfo(body) }
@@ -227,7 +229,7 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
 
     @MainActor
     func endLiveWorkout() {
-        pendingLiveStart = false
+        pendingLiveStart = nil
         guard WCSession.isSupported() else { return }
         activate()
         let session = WCSession.default
@@ -271,7 +273,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             case .clear:             clearToday()
             }
         }
-        if pendingLiveStart { startLiveWorkout() }
+        if let pending = pendingLiveStart {
+            pendingLiveStart = nil
+            startLiveWorkout(pending)
+        }
     }
 
     // MARK: - Watch → iPhone results

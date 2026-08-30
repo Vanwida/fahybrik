@@ -149,9 +149,10 @@ final class WatchWorkoutCoordinator {
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
         repairStuckPhaseIfNeeded()
-        // Ya hay una grabación espejada en marcha: este start sería el SEGUNDO motor.
-        // Se declina. El caso simétrico —empieza el espejo mientras aquí hay motor— lo
-        // cierra `cerrarMotorPropio()`, que tampoco abre un segundo.
+        // Ya hay una grabación espejada en marcha: este start sería el SEGUNDO motor
+        // (cursor de tramos), no un segundo HKWorkoutSession. Se declina. El caso
+        // simétrico —empieza el teléfono mientras aquí hay motor— lo cede
+        // `cederMotor()`, que suelta el cursor y deja la grabación viva.
         guard !phoneOwnsLive, phase == .idle, MirrorSessionController.shared.state == .idle,
               payload.dayKind == WatchDayKind.session else {
             Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
@@ -231,7 +232,7 @@ final class WatchWorkoutCoordinator {
 
         Task {
             await live.requestAuthorization()
-            live.start(
+            await live.start(
                 activityType: payload.healthKitActivityType,
                 locationType: payload.healthKitLocationType
             )
@@ -385,41 +386,19 @@ final class WatchWorkoutCoordinator {
         }
     }
 
-    /// EMPIEZA UNA SESIÓN ESPEJADA, así que el motor de aquí sobra: **un** motor.
-    ///
-    /// Se llamaba `notePhoneLive` / `yieldToPhone` y decía que «el teléfono ya lleva el
-    /// motor» y que «la muñeca pasa a espejo». Eso es falso en lo que importa: la
-    /// `HKWorkoutSession` vive EN EL RELOJ en las dos vías, y el teléfono es el
-    /// acompañante que se suscribe. Lo que de verdad pasa aquí es más pequeño y más
-    /// honesto: la sesión espejada arranca, y el segundo MOTOR —el cursor de tramos de
-    /// esta muñeca— se cierra para que no haya dos.
-    ///
-    /// Y se cierra GUARDANDO. Antes llamaba a `live.abandon()`, que acababa la
-    /// grabación sin escribir el entreno: el atleta que empezaba en la muñeca y a los
-    /// diez minutos abría el teléfono perdía esos diez minutos de pulso, calorías y
-    /// metros. Ahora se sellan en Salud, con la firma de `SaludNuestra` puesta, que es
-    /// lo que evita que se cuenten dos veces.
-    ///
-    /// Es `async` a propósito: watchOS no admite dos sesiones a la vez, así que el
-    /// espejo tiene que ESPERAR a que ésta esté cerrada antes de crear la suya. Antes
-    /// no se esperaba a nada y las dos se solapaban un instante.
-    func cerrarMotorPropio() async {
+    /// El teléfono entra: el cursor de tramos de esta muñeca sobra — **un** motor.
+    /// La `HKWorkoutSession` NO se cierra. Es la misma grabación; el teléfono se
+    /// suscribe. Matarla aquí para que el espejo creara otra era el segundo dueño.
+    func cederMotor() async {
         phoneOwnsLive = true
         guard phase == .active || session != nil else { return }
-        Self.log.warning("cerrando el motor de la muñeca: empieza una sesión espejada")
+        Self.log.warning("cediendo el motor de la muñeca: el teléfono se suscribe a la misma grabación")
         didFinalize = true
         stopSensorTick()
-        live.onHeartRate = nil
-        live.onDistanceDelta = nil
         session?.stop()
         session = nil
         assignmentId = nil
         phase = .idle
-        // Guarda lo grabado. La ejecución la manda el teléfono (si la mandaran los dos
-        // el entreno llegaría dos veces al servidor), pero el HKWorkout de estos
-        // minutos es de la muñeca y se queda.
-        await live.end()
-        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         await WorkoutStateStore.shared.clear()
         didFinalize = false
     }

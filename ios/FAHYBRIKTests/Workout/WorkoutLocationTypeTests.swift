@@ -93,6 +93,77 @@ final class WorkoutLocationTypeTests: XCTestCase {
     }
 }
 
+// CLASE 1 — el aviso que existe para cuando `startWatchApp` no levanta la app
+// tiene que LLEVAR con qué arrancar, no un `true`. Un Bool no pone a la muñeca
+// a grabar. Estas pruebas clavan el sobre y la resolución del legado.
+final class WatchLiveStartTests: XCTestCase {
+
+    func testResolvingMissingKeyIsNil() {
+        XCTAssertNil(WatchLiveStart.resolving(from: [:], today: nil))
+    }
+
+    func testLegacyTrueFallsBackToOutdoorRunWhenNoDay() {
+        let start = WatchLiveStart.resolving(
+            from: [WatchWireKeys.liveStart: true],
+            today: nil
+        )
+        XCTAssertEqual(start?.activityKind, "running")
+        XCTAssertEqual(start?.location, "outdoor")
+        XCTAssertEqual(start?.configuration.activityType, .running)
+        XCTAssertEqual(start?.configuration.locationType, .outdoor)
+    }
+
+    func testLegacyTrueUsesTodaysActivityAndResolvedLocation() {
+        let today = WatchTodayPayload.minimalTest(activityKind: "strength")
+        let start = WatchLiveStart.resolving(
+            from: [WatchWireKeys.liveStart: true],
+            today: today
+        )
+        XCTAssertEqual(start?.activityKind, "strength")
+        XCTAssertEqual(start?.location, "indoor")
+        XCTAssertEqual(start?.configuration.activityType, .functionalStrengthTraining)
+        XCTAssertEqual(start?.configuration.locationType, .indoor)
+    }
+
+    func testEncodedPayloadRoundtripsAndWinsOverToday() throws {
+        let sent = WatchLiveStart(activityKind: "running", locationType: .outdoor)
+        let data = try WatchWire.encoder.encode(sent)
+        let today = WatchTodayPayload.minimalTest(activityKind: "strength")
+        let start = WatchLiveStart.resolving(
+            from: [WatchWireKeys.liveStart: data],
+            today: today
+        )
+        XCTAssertEqual(start, sent)
+        XCTAssertEqual(start?.configuration.activityType, .running)
+        XCTAssertEqual(start?.configuration.locationType, .outdoor)
+    }
+
+    func testIndoorStrengthConfiguration() {
+        let start = WatchLiveStart(activityKind: "strength", locationType: .indoor)
+        XCTAssertEqual(start.location, "indoor")
+        XCTAssertEqual(start.configuration.activityType, .functionalStrengthTraining)
+        XCTAssertEqual(start.configuration.locationType, .indoor)
+    }
+
+    func testGarbageDataFallsBack() {
+        let start = WatchLiveStart.resolving(
+            from: [WatchWireKeys.liveStart: Data("no soy el sobre".utf8)],
+            today: nil
+        )
+        XCTAssertEqual(start?.activityKind, "running")
+        XCTAssertEqual(start?.location, "outdoor")
+    }
+
+    func testActivityTypeTableMatchesTheDayPayload() {
+        XCTAssertEqual(WatchLiveStart.activityType(for: "running"), .running)
+        XCTAssertEqual(WatchLiveStart.activityType(for: "strength"), .functionalStrengthTraining)
+        XCTAssertEqual(WatchLiveStart.activityType(for: "hyrox"), .functionalStrengthTraining)
+        XCTAssertEqual(WatchLiveStart.activityType(for: "mixed"), .mixedCardio)
+        XCTAssertEqual(WatchLiveStart.activityType(for: "otro"), .other)
+        XCTAssertEqual(WatchLiveStart.activityType(for: nil), .other)
+    }
+}
+
 private extension WatchTodayPayload {
     /// Un payload mínimo para preguntarle por su `locationType`. El resto de campos no
     /// intervienen en esa decisión.

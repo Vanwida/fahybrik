@@ -1,12 +1,17 @@
 import Foundation
 import HealthKit
+import os
 
-// HKWorkoutSession + HKLiveWorkoutBuilder wrapper. Owns the HR / kcal /
-// distance live stream, piped into the WorkoutSession engine by the coordinator
-// (onHeartRate / onDistanceDelta). On end() we save the
-// workout to HealthKit so the iPhone HealthKitSyncService picks it up via
-// the existing HKObserverQuery and forwards to the FAHYBRIK backend — no
-// duplicate transport path from the watch.
+// UN dueño de HKWorkoutSession en la muñeca. Apple: `HKWorkoutSessionType.primary`
+// es «a primary session running on watchOS»; `.mirrored` es «on the companion iOS
+// device». Esta clase es el primary. El teléfono se suscribe. El coordinador
+// (solitario) y el espejo (HUD + canal) son dos lecturas de LA MISMA instancia.
+//
+// Cierre, en este orden, porque el canal muere con la sesión y el uuid solo
+// existe después de `finishWorkout` (`HKWorkoutBuilder.finishWorkout`):
+//   1. endCollection + finishWorkout, acotados
+//   2. onWillTearDownChannel (el `ended` sale por la sesión que aún vive)
+//   3. session.end()
 @MainActor
 final class LiveWorkoutSession: NSObject, ObservableObject {
     @Published private(set) var isActive: Bool = false
@@ -17,43 +22,41 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
     /// LO QUE LLEVA GRABADO ESTA SESIÓN, SEGÚN APPLE.
     ///
-    /// No es un `@Published` movido por un timer nuestro, y ahí estaba el fallo:
-    /// había un `Timer` de 1 Hz calculando `Date() - startDate` para publicar este
-    /// número. Un segundo reloj, con su propia idea de la pausa (miraba
-    /// `isPaused`, que es nuestro, no el de la sesión de HealthKit) y sin un solo
-    /// lector — las vistas leen el crono del motor, que es el que sabe de tramos,
-    /// descansos y auto-pausa.
-    ///
     /// `HKLiveWorkoutBuilder.elapsedTime` (watchOS 5) es lo que Apple deriva del
-    /// contenido del builder: la misma cifra que verá el HKWorkout guardado. El
-    /// crono que LEE el atleta sigue siendo el del motor; esto es la duración de
-    /// la GRABACIÓN, y sólo hay un sitio de donde sacarla.
+    /// contenido del builder: la misma cifra que verá el HKWorkout guardado.
     var elapsedSeconds: TimeInterval { builder?.elapsedTime ?? 0 }
 
-    // Live-metric hooks. The workout coordinator sets these to pipe the HealthKit
-    // stream straight into the WorkoutSession engine: each new HR reading and each
-    // incremental distance delta as they arrive. Kept as closures (no Combine) so
-    // the coordinator owns the wiring and this stays a thin HK wrapper.
     var onHeartRate: ((Int) -> Void)?
     var onDistanceDelta: ((Double) -> Void)?
-    /// Cumulative distance last reported to `onDistanceDelta`, so we emit only the
-    /// in-window increment (HK distance is cumulative across the workout).
+    /// Paquetes del teléfono por el canal del espejo
+    /// (`HKWorkoutSessionDelegate.workoutSession(_:didReceiveDataFromRemoteWorkoutSession:)`).
+    var onRemoteData: ((Data) -> Void)?
+    /// Justo antes de `session.end()`, con la sesión capturada de ESTA época —
+    /// el `ended` tiene que salir por ella, no por `self.session`, que un
+    /// force-release puede haber sustituido durante el save.
+    var onWillTearDownChannel: ((_ workoutUuid: String?, _ session: HKWorkoutSession) async -> Void)?
+    /// La sesión se acabó sin que lo pidiéramos nosotros (fallo o fin del sistema).
+    var onEndedExternally: (() -> Void)?
+
     private var lastReportedDistance: Double = 0
 
     private let store = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
-    /// Resumed once the HKWorkout is saved (or the save fails), so `end()` can hand
-    /// the finished workout's UUID back to the coordinator for the execution's
-    /// `source_workout_ref`. The save happens on the session-state delegate, off the
-    /// call that ended the session — a continuation bridges that gap.
-    private var endContinuation: CheckedContinuation<String?, Never>?
+    private var isClosing = false
+    private var isMirroring = false
+    private var endWaiters: [CheckedContinuation<String?, Never>] = []
+
+    private static let log = Logger(subsystem: Marca.subsistemaLog("live"), category: "watch-session")
+    /// `finishWorkout` se ha visto colgarse y dejar la muñeca en «Guardando…»
+    /// con la sesión viva; el escape era apagar el reloj.
+    private static let saveTimeout: Duration = .seconds(8)
+    /// Esperas entre intentos de `startMirroringToCompanionDevice`. El primero
+    /// va sin esperar; los demás dan tiempo al canal del acompañante.
+    private static let mirrorRetryDelays: [TimeInterval] = [0, 0.5, 2.0, 5.0]
 
     // MARK: - Authorization
 
-    /// The HealthKit types the live recording reads and shares — single source so
-    /// the standalone and mirror paths request identical permissions (mirror mode
-    /// reuses this via `requestWorkoutAuthorization(store:)`, never a second copy).
     static let workoutDataTypes: Set<HKSampleType> = [
         HKObjectType.workoutType(),
         HKQuantityType(.heartRate),
@@ -61,33 +64,31 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         HKQuantityType(.distanceWalkingRunning)
     ]
 
-    /// Request the permissions a live/mirror recording needs on the given store.
-    /// Safe to call repeatedly. Shared entry point for both wrist recording paths.
     static func requestWorkoutAuthorization(store: HKHealthStore) async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         try? await store.requestAuthorization(toShare: workoutDataTypes, read: workoutDataTypes)
     }
 
-    /// Request the HealthKit permissions the live session needs BEFORE the first
-    /// start (the engine never asks). Read+share HR / active energy / distance and
-    /// share the workout itself so the saved HKWorkout carries them and the iPhone
-    /// HealthKitSyncService can forward it. Safe to call repeatedly.
     func requestAuthorization() async {
         await Self.requestWorkoutAuthorization(store: store)
     }
 
-    // MARK: - Start / pause / resume / end
+    // MARK: - Start / pause / resume
 
-    /// `locationType` VIENE DECLARADO, no se supone. Es la pista con la que watchOS
-    /// decide si la distancia la MIDE con el GPS del reloj o la ESTIMA con el
-    /// acelerómetro, así que dejarlo en `.unknown` —como estaba— era entregar a una
-    /// heurística la diferencia entre un ritmo medido y uno inventado. Lo resuelve
-    /// `WorkoutLocationType`, la misma regla que usa el espejo desde el teléfono.
-    func start(activityType: HKWorkoutActivityType, locationType: HKWorkoutSessionLocationType) {
-        guard !isActive else { return }
+    func start(activityType: HKWorkoutActivityType, locationType: HKWorkoutSessionLocationType) async {
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
         config.locationType = locationType
+        await start(configuration: config)
+    }
+
+    /// Arranca ESTA sesión, o no hace nada si ya está grabando. Si un cierre
+    /// está a medias, espera a que acabe — no crea un segundo primary.
+    func start(configuration config: HKWorkoutConfiguration) async {
+        if isClosing {
+            _ = await close(save: true)
+        }
+        guard !isActive, session == nil else { return }
 
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: config)
@@ -100,14 +101,23 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
             let start = Date()
             session.startActivity(with: start)
-            builder.beginCollection(withStart: start) { [weak self] _, _ in
-                Task { @MainActor in
-                    self?.isActive = true
+            let collected = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+                builder.beginCollection(withStart: start) { success, _ in
+                    Task { @MainActor in
+                        cont.resume(returning: success)
+                    }
                 }
             }
+            guard self.session === session else { return }
+            if collected {
+                isActive = true
+            } else {
+                Self.log.error("beginCollection falló — no hay grabación")
+                session.end()
+                reset()
+            }
         } catch {
-            // No surface to user yet — log only. Real handling can show an
-            // alert overlay once we have one.
+            Self.log.error("HKWorkoutSession no se pudo crear: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -121,36 +131,136 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         isPaused = false
     }
 
-    // AQUÍ ESTABA `abandon()`, Y TIRABA LA GRABACIÓN A LA BASURA.
-    //
-    // Acababa la `HKWorkoutSession` SIN escribir el entreno —tenía su propio camino en
-    // el delegado para saltarse el `finishWorkout`— y lo justificaba así: «the phone is
-    // now the engine: a leftover HKWorkout would be a second owner in Salud».
-    //
-    // Las dos mitades de ese razonamiento son falsas. El teléfono no es el motor de la
-    // grabación: la `HKWorkoutSession` vive EN EL RELOJ, que es lo que dice Apple y lo
-    // que hace esta clase. Y el «segundo dueño en Salud» ya está resuelto desde antes
-    // por `SaludNuestra.firma`, que sella lo que escribimos para que ningún lector lo
-    // cuente como medido por un aparato.
-    //
-    // Lo que sí hacía era perder datos: un atleta que empieza en la muñeca y diez
-    // minutos después abre el teléfono se quedaba sin esos diez minutos — pulso,
-    // calorías y metros incluidos. La grabación se CIERRA (`end()`, que guarda), nunca
-    // se descarta: esos minutos existieron.
+    // MARK: - Companion (el teléfono se suscribe)
 
-    /// End the HK session and return the saved HKWorkout's UUID string (nil when
-    /// there was no live session, or the save failed). Awaits the actual
-    /// `finishWorkout` on the session-state delegate so the id is real before the
-    /// coordinator tags + relays the execution with it.
+    /// `HKWorkoutSession.startMirroringToCompanionDevice` — watchOS 10. El
+    /// iPhone recibe la sesión `.mirrored` en `workoutSessionMirroringStartHandler`.
+    func subscribeCompanion() async {
+        guard let session else { return }
+        if isMirroring { return }
+        for (intento, espera) in Self.mirrorRetryDelays.enumerated() {
+            if espera > 0 { try? await Task.sleep(for: .seconds(espera)) }
+            guard self.session === session, isActive, !isClosing else { return }
+            do {
+                try await session.startMirroringToCompanionDevice()
+                isMirroring = true
+                Self.log.info("espejo abierto al teléfono (intento \(intento + 1, privacy: .public))")
+                return
+            } catch {
+                Self.log.error("startMirroringToCompanionDevice falló (intento \(intento + 1, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        Self.log.error("el teléfono no pudo suscribirse al espejo — la muñeca graba sola")
+    }
+
+    /// `HKWorkoutSession.sendToRemoteWorkoutSession(data:)` — iOS 17 / watchOS 10.
+    func sendToCompanion(_ data: Data) async {
+        guard let session else { return }
+        try? await session.sendToRemoteWorkoutSession(data: data)
+    }
+
+    // MARK: - End
+
+    /// Cierra GUARDANDO. Idempotente: un segundo llamante espera el mismo uuid.
     @discardableResult
     func end() async -> String? {
-        guard session != nil else { return nil }
-        return await withCheckedContinuation { continuation in
-            endContinuation = continuation
-            session?.end()
+        await close(save: true)
+    }
+
+    func discard() async {
+        _ = await close(save: false)
+    }
+
+    /// Último recurso (muñeca atascada semanas). No espera al save.
+    func forceRelease() {
+        session?.end()
+        let waiters = endWaiters
+        endWaiters = []
+        reset()
+        waiters.forEach { $0.resume(returning: nil) }
+    }
+
+    private func close(save: Bool) async -> String? {
+        if session == nil, !isClosing { return nil }
+        if isClosing {
+            return await withCheckedContinuation { endWaiters.append($0) }
+        }
+        isClosing = true
+        let closingSession = session
+        let closingBuilder = builder
+
+        var uuid: String?
+        if save {
+            uuid = await saveWithTimeout(session: closingSession, builder: closingBuilder)
+        } else {
+            closingBuilder?.discardWorkout()
+        }
+
+        if let closingSession {
+            await onWillTearDownChannel?(uuid, closingSession)
+        }
+        closingSession?.end()
+
+        let waiters = endWaiters
+        endWaiters = []
+        if session === closingSession {
+            reset()
+        } else {
+            isClosing = false
+        }
+        waiters.forEach { $0.resume(returning: uuid) }
+        return uuid
+    }
+
+    /// End collection + finishWorkout, but never wait longer than `saveTimeout`.
+    /// On timeout we end the HK session so HealthKit unblocks even if the save
+    /// await is stuck (cancellation alone does not abort a hung HealthKit call).
+    private func saveWithTimeout(session: HKWorkoutSession?,
+                                 builder: HKLiveWorkoutBuilder?) async -> String? {
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            var resumed = false
+            func resumeOnce(_ value: String?) {
+                guard !resumed else { return }
+                resumed = true
+                cont.resume(returning: value)
+            }
+            Task { @MainActor in
+                resumeOnce(await Self.endAndSave(builder: builder))
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: Self.saveTimeout)
+                session?.end()
+                resumeOnce(nil)
+            }
         }
     }
 
+    /// `HKWorkoutBuilder.endCollection(withEnd:)` + `finishWorkout`. La firma
+    /// va ANTES de sellar — ver `SaludNuestra`.
+    private static func endAndSave(builder: HKLiveWorkoutBuilder?) async -> String? {
+        guard let builder else { return nil }
+        do {
+            try? await builder.addMetadata(SaludNuestra.metadata)
+            try await builder.endCollection(at: Date())
+            let workout = try await builder.finishWorkout()
+            return workout?.uuid.uuidString
+        } catch {
+            return nil
+        }
+    }
+
+    private func reset() {
+        session = nil
+        builder = nil
+        isActive = false
+        isPaused = false
+        isClosing = false
+        isMirroring = false
+        heartRate = 0
+        activeKcal = 0
+        distanceMeters = 0
+        lastReportedDistance = 0
+    }
 }
 
 // MARK: - HKWorkoutSessionDelegate
@@ -158,31 +268,28 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 extension LiveWorkoutSession: HKWorkoutSessionDelegate {
     nonisolated func workoutSession(
         _ workoutSession: HKWorkoutSession,
+        didReceiveDataFromRemoteWorkoutSession data: [Data]
+    ) {
+        Task { @MainActor [weak self] in
+            guard let self, workoutSession === self.session else { return }
+            for packet in data { self.onRemoteData?(packet) }
+        }
+    }
+
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
         didChangeTo toState: HKWorkoutSessionState,
         from fromState: HKWorkoutSessionState,
         date: Date
     ) {
-        let endDate = date
         Task { @MainActor [weak self] in
-            guard let self, toState == .ended else { return }
-            // No hay rama que se salte el guardado: TODA sesión que acaba escribe su
-            // entreno. La que existía era la de `abandon()` — ver la nota de arriba.
-            guard let builder = self.builder else { return }
-            var savedWorkoutId: String? = nil
-            do {
-                // LA FIRMA, ANTES DE SELLAR. La muñeca en solitario también relaya su
-                // ejecución (el sobre del outbox, con este uuid dentro), así que su
-                // HKWorkout es un transporte DUPLICADO igual que el del espejo. Ver
-                // `SaludNuestra`.
-                try? await builder.addMetadata(SaludNuestra.metadata)
-                try await builder.endCollection(at: endDate)
-                let workout = try await builder.finishWorkout()
-                savedWorkoutId = workout?.uuid.uuidString
-            } catch {
-                // Best-effort: even if the save fails the local timer should
-                // stop so the UI returns to the brief screen.
-            }
-            self.finishEnd(returning: savedWorkoutId)
+            guard let self, workoutSession === self.session, toState == .ended else { return }
+            // Cierre nuestro: ya guardamos ANTES de session.end(). Un segundo
+            // finishWorkout aquí era el otro diseño, y unificarlos es no
+            // mezclarlos.
+            guard !self.isClosing else { return }
+            _ = await self.close(save: true)
+            self.onEndedExternally?()
         }
     }
 
@@ -191,31 +298,11 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
         didFailWithError error: Error
     ) {
         Task { @MainActor [weak self] in
-            // A mid-session failure ends it with no saved workout; still resume any
-            // `end()` await so the coordinator's finalize can't hang.
-            self?.finishEnd(returning: nil)
+            guard let self, workoutSession === self.session else { return }
+            if self.isClosing { return }
+            self.forceRelease()
+            self.onEndedExternally?()
         }
-    }
-
-    /// Reset local state and resume a pending `end()` await with the saved id.
-    @MainActor
-    private func finishEnd(returning savedWorkoutId: String?) {
-        let continuation = endContinuation
-        endContinuation = nil
-        reset()
-        continuation?.resume(returning: savedWorkoutId)
-    }
-
-    @MainActor
-    private func reset() {
-        session = nil
-        builder = nil
-        isActive = false
-        isPaused = false
-        heartRate = 0
-        activeKcal = 0
-        distanceMeters = 0
-        lastReportedDistance = 0
     }
 }
 
@@ -232,7 +319,8 @@ extension LiveWorkoutSession: HKLiveWorkoutBuilderDelegate {
             guard let qType = type as? HKQuantityType else { continue }
             let stats = workoutBuilder.statistics(for: qType)
             Task { @MainActor [weak self] in
-                self?.apply(stats: stats, type: qType)
+                guard let self, workoutBuilder === self.builder else { return }
+                self.apply(stats: stats, type: qType)
             }
         }
     }

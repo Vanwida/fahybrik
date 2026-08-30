@@ -11,6 +11,53 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · Un dueño: se borra la `HKWorkoutSession` del espejo
+
+**Decidido y hecho.** El dueño es `LiveWorkoutSession` —una instancia, la del
+coordinador—. De `MirrorSessionController` se borra la sesión, el builder y los
+dos delegados de HealthKit. El espejo queda como HUD y suscriptor del canal.
+
+**Por qué era uno, no dos parches.** `liveStart` existía para el walk
+(`d59ce98b`: iPhone SIN RELOJ, reloj en readiness) y sólo cerraba el motor.
+Arrancarlo sin unificar creaba un segundo primary en cuanto `startWatchApp`
+llegara. Las guardas mutuas entre dos dueños eran el parche prohibido.
+
+**El cierre es uno, y vive en el dueño** — comprobado contra la doc, no copiado
+de una receta:
+
+1. `HKWorkoutBuilder.finishWorkout` (acotado a 8 s; un save colgado dejaba la
+   muñeca en «Guardando…» hasta apagar el reloj).
+2. `ended` por `sendToRemoteWorkoutSession` sobre la sesión **capturada** de esa
+   época — el uuid solo existe después de `finishWorkout` y el canal muere con
+   `session.end()`.
+3. `HKWorkoutSession.end()`.
+
+Las guardas de época se quedan en `=== self.session` del dueño (un paquete
+tarde de la sesión que se está yendo no pisa la nueva). Con un dueño no hay
+eco entre dos primaries.
+
+**`liveStart` arranca.** El valor es un `WatchLiveStart` (actividad + ubicación
+ya resueltas). Un `true` legado se resuelve con el día empujado o calle. Las
+dos puertas (`startWatchApp` → `handle(config)` y el cable WC) llaman al mismo
+`MirrorSessionController.start`. La segunda se declina porque el HUD ya está
+grabando — no porque haya dos dueños.
+
+**`cederMotor()` suelta el cursor y no mata la grabación.** Cerrar el HKWorkout
+para que el espejo creara otro era el segundo dueño. Quien empieza en la
+muñeca y abre el teléfono sigue en la misma sesión.
+
+**SIN RELOJ todavía puede pasar** si no hay reloj emparejado, si
+`startMirroringToCompanionDevice` falla del todo, o si la app del reloj no
+está en marcha y `startWatchApp` no la levanta. El caso del walk —reloj en
+readiness, app viva— ya no es ése: `liveStart` pone la muñeca en sesión.
+
+**NO hacer:** no devolver un `HKWorkoutSession` al espejo. No añadir guardas
+mutuas entre dos dueños. No reintentar `startWatchApp` otra vez. No parchear
+readiness. No inventar voz del km. Esta VM no tiene Xcode: el Swift no se ha
+compilado aquí.
+
+---
+
 ## 2026-08-29 · Las dos clases del debugger, y la pieza que producía cada una
 
 Walk en simulador con **compilación OK y build 21**. Dos clases, no doce bugs, y las
@@ -152,7 +199,7 @@ Cablearlo a medias es peor que el bug: si `liveStart` arranca la sesión propia 
 unificar, un `startWatchApp` que sí llegue crea la segunda; y ponerle guardas mutuas a
 los dos dueños, más otro seam en el gate del HUD (que hoy pregunta por el estado del
 espejo, no por si la muñeca graba), es exactamente el parche que este corte prohíbe.
-**Nombrado y diseñado; no empezado.**
+**Hecho el 30-ago** — ver la entrada de ese día. No se cableó a medias.
 
 **NO hacer:** ni un reintento más de `startWatchApp` (no es el apretón de manos, es que
 al llegar no se pone a grabar), ni parchear la pantalla de readiness.

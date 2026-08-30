@@ -176,10 +176,79 @@ enum WatchWireKeys {
     /// por su cuenta, el aviso del espejo no llega a ninguna parte y el atleta se
     /// queda con el entreno abierto en la muñeca.
     static let liveEnd = "live_end_v1"
-    /// Teléfono → reloj: «el motor ya corre aquí». El reloj no arranca
-    /// un segundo WorkoutSession. El espejo HK es el que pinta; esto
-    /// solo cierra el hueco si startWatchApp no levantó la app.
+    /// Teléfono → reloj: el motor ya corre en el teléfono. La muñeca ENTRA
+    /// en la sesión — arranca (o reutiliza) la `HKWorkoutSession` del dueño
+    /// y espeja al acompañante. El valor es un `WatchLiveStart` codificado
+    /// (actividad + ubicación). Un `true` suelto de un teléfono viejo sigue
+    /// valiendo: se resuelve con el día empujado o calle por defecto.
     static let liveStart = "live_start_v1"
+}
+
+/// Teléfono → reloj: con qué actividad y dónde medir. Viaja bajo
+/// `WatchWireKeys.liveStart` para que la muñeca arranque SU sesión por el
+/// mismo cable que le trae el plan, sin esperar a que `startWatchApp` la
+/// despierte — y sin inventar un segundo dueño de `HKWorkoutSession`.
+///
+/// El mapa de actividad es el mismo que `WatchTodayPayload.healthKitActivityType`
+/// y `PhoneMirrorService.activityType(for:)`: tres sitios, una tabla.
+struct WatchLiveStart: Codable, Equatable {
+    let activityKind: String
+    /// `"outdoor"` | `"indoor"`. Ya resuelto en el teléfono
+    /// (`WorkoutLocationType.resolve`); la muñeca no lo vuelve a decidir.
+    let location: String
+
+    init(activityKind: String, locationType: HKWorkoutSessionLocationType) {
+        self.activityKind = activityKind
+        switch locationType {
+        case .indoor: self.location = "indoor"
+        default:      self.location = "outdoor"
+        }
+    }
+
+    /// Para tests y para el `true` legado: misma forma, sin pasar por HealthKit.
+    init(activityKind: String, location: String) {
+        self.activityKind = activityKind
+        self.location = location
+    }
+
+    var configuration: HKWorkoutConfiguration {
+        let config = HKWorkoutConfiguration()
+        config.activityType = Self.activityType(for: activityKind)
+        config.locationType = location == "indoor" ? .indoor : .outdoor
+        return config
+    }
+
+    /// El mismo vocabulario que el payload del día y el espejo del teléfono.
+    static func activityType(for kind: String?) -> HKWorkoutActivityType {
+        switch kind {
+        case "running"?:  return .running
+        case "strength"?: return .functionalStrengthTraining
+        case "hyrox"?:    return .functionalStrengthTraining
+        case "mixed"?:    return .mixedCardio
+        default:          return .other
+        }
+    }
+
+    /// Un teléfono viejo mandaba `true`. Un sobre que no decodifica, igual.
+    /// El día empujado ya está en la muñeca; si no hay día, calle — el
+    /// mismo defecto de `WorkoutLocationType.resolve` (GPS de más, nunca de menos).
+    static func fallback(today: WatchTodayPayload?) -> WatchLiveStart {
+        WatchLiveStart(
+            activityKind: today?.activityKind ?? "running",
+            locationType: today?.healthKitLocationType ?? .outdoor
+        )
+    }
+
+    /// `nil` solo si el aviso no venía. Si venía — Data nuestra, `true` viejo
+    /// u otra basura— siempre hay un arranque que pedir.
+    static func resolving(from body: [String: Any], today: WatchTodayPayload?) -> WatchLiveStart? {
+        guard let raw = body[WatchWireKeys.liveStart] else { return nil }
+        if let data = raw as? Data,
+           let decoded = try? WatchWire.decoder.decode(WatchLiveStart.self, from: data) {
+            return decoded
+        }
+        return fallback(today: today)
+    }
 }
 
 // MARK: - Coders (the single encode/decode contract, shared by both ends)

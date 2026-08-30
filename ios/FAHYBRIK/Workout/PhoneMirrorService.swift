@@ -209,7 +209,9 @@ final class PhoneMirrorService {
         // reprompt once the athlete has decided. Then launch the watch app.
         watchLaunchGeneration += 1
         let generation = watchLaunchGeneration
-        WatchConnectivityiOSService.shared.startLiveWorkout()
+        WatchConnectivityiOSService.shared.startLiveWorkout(
+            WatchLiveStart(activityKind: activityKind, locationType: config.locationType)
+        )
         Task { [weak self] in
             guard let self else { return }
             try? await self.healthStore.requestAuthorization(
