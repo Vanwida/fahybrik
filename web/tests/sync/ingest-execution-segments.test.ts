@@ -443,7 +443,7 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     expect(n).toBe(2); // replaced cleanly, the 3rd set is gone
   });
 
-  test('is_approach viaja al set guardado y el agregado del tramo solo cuenta trabajo', async () => {
+  test('el agregado del tramo solo cuenta trabajo (aproximación por el cable)', async () => {
     const { executionId } = await seedExecution();
     await ingestExecutionSegments({
       sql,
@@ -465,20 +465,14 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
       ],
     });
 
-    const sets = await sql<
-      Array<{ set_index: number; load_actual_kg: string; is_approach: boolean }>
-    >`
-      select se.set_index, se.load_actual_kg::text as load_actual_kg, se.is_approach
+    const sets = await sql<Array<{ set_index: number; load_actual_kg: string }>>`
+      select se.set_index, se.load_actual_kg::text as load_actual_kg
       from set_executions se
       join segment_executions seg on seg.id = se.segment_execution_id
       where seg.execution_id = ${executionId} and seg.position = 0
       order by se.set_index
     `;
     expect(sets).toHaveLength(4);
-    expect(sets[0]!.is_approach).toBe(true);
-    expect(sets[1]!.is_approach).toBe(true);
-    expect(sets[2]!.is_approach).toBe(false);
-    expect(sets[3]!.is_approach).toBe(false);
     expect(Number(sets[0]!.load_actual_kg)).toBe(50);
 
     const [seg] = await sql<Array<{ reps_completed: number | null; weight_used_kg: string | null }>>`
@@ -490,11 +484,11 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     expect(Number(seg!.weight_used_kg)).toBe(100);
 
     const actuals = await loadSegmentActuals(sql, executionId);
-    expect(actuals[0]!.sets.map((s) => s.is_approach)).toEqual([true, true, false, false]);
-    expect(actuals[0]!.sets.filter((s) => s.is_approach)).toHaveLength(2);
+    expect(actuals).toHaveLength(1);
+    expect(actuals[0]!.sets).toHaveLength(4);
   });
 
-  test('sin is_approach en el cable la serie guardada es trabajo', async () => {
+  test('sin is_approach en el cable el agregado cuenta la serie', async () => {
     const { executionId } = await seedExecution();
     await ingestExecutionSegments({
       sql,
@@ -508,13 +502,13 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
         },
       ],
     });
-    const [row] = await sql<Array<{ is_approach: boolean }>>`
-      select se.is_approach
-      from set_executions se
-      join segment_executions seg on seg.id = se.segment_execution_id
-      where seg.execution_id = ${executionId}
+    const [seg] = await sql<Array<{ reps_completed: number | null; weight_used_kg: string | null }>>`
+      select reps_completed, weight_used_kg::text as weight_used_kg
+      from segment_executions
+      where execution_id = ${executionId} and position = 0
     `;
-    expect(row!.is_approach).toBe(false);
+    expect(seg!.reps_completed).toBe(5);
+    expect(Number(seg!.weight_used_kg)).toBe(80);
   });
 });
 

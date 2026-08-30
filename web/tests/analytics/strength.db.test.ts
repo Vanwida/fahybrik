@@ -55,9 +55,18 @@ async function seedStrengthSegment(params: {
     returning id::text
   `;
   const executionId = Number(exec[0]!.id);
+  const snapshot = {
+    sets: sets.map((s) => ({ is_approach: s.is_approach === true })),
+  };
   const seg = await sql<Array<{ id: string }>>`
-    insert into segment_executions (execution_id, position, exercise_id, modality, context_format, context_source, source)
-    values (${executionId}, 0, ${exerciseId}, 'strength', 'sets', 'block', 'demo')
+    insert into segment_executions (
+      execution_id, position, exercise_id, modality,
+      context_format, context_source, source, prescription_snapshot
+    )
+    values (
+      ${executionId}, 0, ${exerciseId}, 'strength',
+      'sets', 'block', 'demo', ${sql.json(snapshot as Parameters<typeof sql.json>[0])}
+    )
     returning id::text
   `;
   const segId = Number(seg[0]!.id);
@@ -65,11 +74,10 @@ async function seedStrengthSegment(params: {
     await sql`
       insert into set_executions (
         segment_execution_id, set_index, reps_prescribed, reps_actual,
-        load_prescribed_kg, load_actual_kg, rpe, status, confirmed, is_approach
+        load_prescribed_kg, load_actual_kg, rpe, status, confirmed
       ) values (
         ${segId}, ${s.set_index}, ${s.reps_prescribed}, ${s.reps_actual},
-        ${s.load_prescribed_kg}, ${s.load_actual_kg}, ${s.rpe ?? null}, ${s.status}, true,
-        ${s.is_approach ?? false}
+        ${s.load_prescribed_kg}, ${s.load_actual_kg}, ${s.rpe ?? null}, ${s.status}, true
       )
     `;
   }

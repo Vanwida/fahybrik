@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isWorkingSet } from '@fahybrid/shared/domain/strength';
 import {
   approachFromPrescription,
+  isWorkingSet,
   resolveIsApproach,
-} from '@/lib/sync/ingest-execution-segments';
+} from '@fahybrid/shared/domain/strength';
 
 describe('isWorkingSet', () => {
   it('ausente y false son trabajo', () => {

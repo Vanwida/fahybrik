@@ -2,9 +2,15 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-25** (109+173 · lectura del día)
+Última actualización: **2026-08-30** (178 · un esquema)
 
 ## Ahora
+
+**178 · CARRERA CARGA: UN ESQUEMA (PR).** Analíticas → Carrera 500 en
+prod: `running/progress` (y assignment-detail) pedían `st.is_approach`.
+Production no tiene esa columna (42703). La 0207 no se aplica: la marca
+sale del snapshot de la prescripción. El SQL ya no nombra la columna.
+No se reabre 155. No iOS. No main.
 
 **109 + 173 · EL DÍA SE LEE POR AGRUPACIÓN (PR).** El peek derecho
 deja las cards iguales. Dosis pegada al nombre. Nota en cursiva

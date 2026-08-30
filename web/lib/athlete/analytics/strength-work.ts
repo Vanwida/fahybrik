@@ -13,14 +13,15 @@
 //   • effort_rpe       — RPE/RIR trend (opt-in fields → honest gate when scarce)
 //
 // Honest contract (same as the rest of the tab): SKIPS never count (a skipped set
-// has reps_actual = NULL and is excluded); APPROACH sets never count (card 155);
-// an unloaded lift contributes reps but no tonnage; zero logged sets → a gate
-// with an invitation, never fabricated zeros.
+// has reps_actual = NULL and is excluded); APPROACH sets never count (card 155,
+// resueltas del snapshot — card 178: el SQL no nombra una columna que prod no
+// tiene); an unloaded lift contributes reps but no tonnage; zero logged sets → a
+// gate with an invitation, never fabricated zeros.
 
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
-import { estimateOneRm } from '@fahybrid/shared/domain/strength';
+import { estimateOneRm, isWorkingSet, resolveIsApproach } from '@fahybrid/shared/domain/strength';
 import { lateralitySides, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import {
@@ -45,6 +46,7 @@ const TONNE_THRESHOLD_KG = 1000;
 
 // ── DB row ───────────────────────────────────────────────────────────────────
 interface StrengthSetRow {
+  set_index: number;
   reps_actual: number | null;
   reps_prescribed: number | null;
   load_actual_kg: string | null;
@@ -130,6 +132,7 @@ async function loadStrengthSets(
 
   const rows = await client<StrengthSetRow[]>`
     select
+      st.set_index,
       st.reps_actual,
       st.reps_prescribed,
       st.load_actual_kg::text     as load_actual_kg,
@@ -152,7 +155,6 @@ async function loadStrengthSets(
     ${joinCoachOverride(client, coachId)}
     where we.athlete_id = ${athleteId}
       and st.status <> 'skipped'
-      and coalesce(st.is_approach, false) = false
       and coalesce(se.is_structural, false) = false
       and coalesce(se.modality, case when e.category = 'strength' then 'strength' else 'other' end) = 'strength'
       and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz
@@ -160,21 +162,33 @@ async function loadStrengthSets(
     order by we.started_at asc, se.position asc, st.set_index asc
   `;
 
-  return rows.map((r) => ({
-    reps: r.reps_actual,
-    repsPrescribed: r.reps_prescribed,
-    load: numOrNull(r.load_actual_kg),
-    loadPrescribed: numOrNull(r.load_prescribed_kg),
-    rpe: numOrNull(r.rpe),
-    rir: numOrNull(r.rir),
-    exerciseId: r.exercise_id,
-    exerciseName: r.exercise_name,
-    executionId: r.execution_id,
-    assignmentId: r.assignment_id,
-    day: r.day,
-    week: isoWeekStart(r.day),
-    sides: sidesFromSnapshot(r.prescription_snapshot),
-  }));
+  return rows.flatMap((r) => {
+    if (
+      !isWorkingSet({
+        status: r.status,
+        is_approach: resolveIsApproach(undefined, r.prescription_snapshot, r.set_index),
+      })
+    ) {
+      return [];
+    }
+    return [
+      {
+        reps: r.reps_actual,
+        repsPrescribed: r.reps_prescribed,
+        load: numOrNull(r.load_actual_kg),
+        loadPrescribed: numOrNull(r.load_prescribed_kg),
+        rpe: numOrNull(r.rpe),
+        rir: numOrNull(r.rir),
+        exerciseId: r.exercise_id,
+        exerciseName: r.exercise_name,
+        executionId: r.execution_id,
+        assignmentId: r.assignment_id,
+        day: r.day,
+        week: isoWeekStart(r.day),
+        sides: sidesFromSnapshot(r.prescription_snapshot),
+      },
+    ];
+  });
 }
 
 function sidesFromSnapshot(snapshot: unknown): number {
