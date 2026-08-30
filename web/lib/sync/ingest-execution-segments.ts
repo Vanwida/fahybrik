@@ -17,7 +17,7 @@ import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
-import { isWorkingSet } from '@fahybrid/shared/domain/strength';
+import { isWorkingSet, resolveIsApproach } from '@fahybrid/shared/domain/strength';
 import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import {
   prescriptionHasRelativeTarget,
@@ -143,22 +143,7 @@ export function deriveRepsStatus(
   return 'done';
 }
 
-/** `is_approach` del set i (1-based) en el snapshot de la prescripción, si viene. */
-export function approachFromPrescription(snapshot: unknown, setIndex: number): boolean | undefined {
-  if (snapshot == null || typeof snapshot !== 'object') return undefined;
-  const sets = (snapshot as { sets?: unknown }).sets;
-  if (!Array.isArray(sets)) return undefined;
-  const raw = sets[setIndex - 1];
-  if (raw == null || typeof raw !== 'object') return undefined;
-  const v = (raw as { is_approach?: unknown }).is_approach;
-  return typeof v === 'boolean' ? v : undefined;
-}
-
-/** Cable manda; si omite, se lee la prescripción. Ausente en las dos = trabajo. */
-export function resolveIsApproach(wire: boolean | undefined, snapshot: unknown, setIndex: number): boolean {
-  if (typeof wire === 'boolean') return wire;
-  return approachFromPrescription(snapshot, setIndex) === true;
-}
+export { approachFromPrescription, resolveIsApproach } from '@fahybrid/shared/domain/strength';
 
 // One working set of a strength segment. All optional except `set_index`; a NULL
 // `reps_actual` means the set was skipped (never a fabricated 0).
@@ -174,7 +159,8 @@ export const setInputSchema = z.object({
   confirmed: z.boolean().optional(),
   tempo: z.string().max(20).optional(),
   rest_s: z.number().int().min(0).optional(),
-  // Card 155 / mig 0207. Optional: un cliente viejo no lo manda.
+  // Card 151: la marca vive en la prescripción. El cable puede mandarla;
+  // el lector la resuelve del snapshot. No hay columna en set_executions.
   is_approach: z.boolean().optional(),
   // Sensor fases 2–3 (mig 0175/0176). Optional: older clients omit.
   reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
@@ -662,7 +648,6 @@ export async function ingestExecutionSegments(args: {
               reps_prescribed, reps_actual,
               load_prescribed_kg, load_actual_kg,
               rpe, rir, status, confirmed, tempo, rest_s,
-              is_approach,
               reps_source, reps_confidence,
               mean_velocity_first_m_s, mean_velocity_last_m_s,
               velocity_loss_pct, rom_m, velocity_confidence
@@ -679,7 +664,6 @@ export async function ingestExecutionSegments(args: {
               ${s.confirmed ?? false},
               ${s.tempo ?? null},
               ${s.rest_s ?? null},
-              ${isApproach},
               ${s.reps_source ?? null},
               ${sanitizeConfidence(s.reps_confidence)},
               ${s.mean_velocity_first_m_s ?? null},

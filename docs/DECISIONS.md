@@ -11,6 +11,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · Un esquema: las queries no nombran columnas que prod no tiene (card 178)
+
+**Qué fallaba:** Analíticas → Carrera no cargaba en producción.
+`GET /api/athlete/analytics/running/progress` recorre sesiones con
+`analizarSesiones` → `loadSegmentActuals`. Esa lectura (y assignment-detail,
+misma clase) hacía `SELECT st.is_approach`. Production Neon no tiene esa
+columna. Postgres 42703.
+
+**La columna se inventó.** Card 155 (mig 0207) la añadió al repo para
+persistir la aproximación en la serie ejecutada. El esquema de producción
+nunca la tuvo. El código la nombró igual. Un esquema es el de prod.
+
+**Decidido:** las queries no nombran `set_executions.is_approach`. La marca
+ya vive en la prescripción (`sets[].is_approach`, card 151) y viaja en
+`segment_executions.prescription_snapshot` (mig 0120, esa sí está). Un solo
+resolutor (`resolveIsApproach` / `isWorkingSet` en `working-set.ts`). El
+SQL de series no la nombra. El INSERT del guardado tampoco. El agregado
+del tramo sigue excluyendo aproximación en JS, con el cable o el snapshot.
+
+**Qué se elimina de SQL:** `st.is_approach` en `loadSegmentActuals`,
+`strength-work`, las dos sumas de dobles, y el INSERT de
+`ingestExecutionSegments`.
+
+**Qué no se toca:** iOS, Watch, PR 91, DEVELOPMENT_TEAM. No se aplica 0207
+a prod. No se reabre 155. No hay `if` en la pantalla de analíticas. No se
+fusiona a main.
+
+**Sigue inventado (y se dice):** el fichero `0207_set_execution_is_approach.sql`
+sigue en el repo. Si alguien lo aplica, la columna existiría y nadie la
+leería. No es el arreglo de esta card. La marca solo-cable (el teléfono la
+manda y la prescripción no la tenía) se usa al guardar el agregado; al
+releer, sin snapshot, no hay etiqueta. Eso era 155 y no se reabre.
+
+**NO hacer:** no comprobar `information_schema` ni try/catch para esconder
+el 42703. no un `if (running)` en analíticas. no aplicar 0207 como si esta
+fuera la 155. no volver a poner `st.is_approach` en un SELECT.
+
+**Dónde:** `shared/domain/strength/working-set.ts`, `session-actuals.ts`,
+`strength-work.ts`, `dobles-joint-summary.ts`, `ingest-execution-segments.ts`.
+
+---
+
 ## 2026-08-25 · El día se lee por agrupación, no por etiquetas (cards 109 + 173)
 
 **Qué fallaba:** el peek del día era una pila de cards iguales. No se veía si

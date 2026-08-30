@@ -30,9 +30,10 @@ import {
   type SegmentLegRole,
 } from '@/lib/execution/segment-work';
 import type { RepsStatus } from '@fahybrid/shared/schema';
+import { resolveIsApproach } from '@fahybrid/shared/domain/strength';
 import { workSecondsFromRaw } from '@fahybrid/shared/domain/recap';
 
-/** Una serie ejecutada, con la marca de aproximación (card 155). */
+/** Una serie ejecutada. `is_approach` sale del snapshot de la prescripción, no de una columna. */
 export interface SetActual {
   set_index: number;
   reps_actual: number | null;
@@ -315,7 +316,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       reps_actual: number | null;
       load_actual_kg: string | number | null;
       status: string;
-      is_approach: boolean;
+      prescription_snapshot: unknown;
     }>
   >`
     select
@@ -324,7 +325,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       st.reps_actual,
       st.load_actual_kg::text as load_actual_kg,
       st.status,
-      st.is_approach
+      se.prescription_snapshot
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
     where se.execution_id = ${executionId}
@@ -340,7 +341,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       reps_actual: r.reps_actual,
       load_actual_kg: num(r.load_actual_kg),
       status: r.status === 'scaled' || r.status === 'skipped' ? r.status : 'done',
-      is_approach: r.is_approach === true,
+      is_approach: resolveIsApproach(undefined, r.prescription_snapshot, r.set_index),
     });
     bySeg.set(r.segment_id, list);
   }
