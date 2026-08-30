@@ -22,9 +22,13 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
     /// LO QUE LLEVA GRABADO ESTA SESIÓN, SEGÚN APPLE.
     ///
-    /// `HKLiveWorkoutBuilder.elapsedTime` (watchOS 5) es lo que Apple deriva del
-    /// contenido del builder: la misma cifra que verá el HKWorkout guardado.
-    var elapsedSeconds: TimeInterval { builder?.elapsedTime ?? 0 }
+    /// `HKWorkoutBuilder.elapsedTime(at:)` «Calculates the duration of the
+    /// workout at the specified time». Cero si `beginCollection` no armó
+    /// el builder (`startDate` nil). No es un crono nuestro.
+    var elapsedSeconds: TimeInterval {
+        guard let builder else { return 0 }
+        return builder.elapsedTime(at: Date())
+    }
 
     /// Actividad de la sesión recuperada (`recoverActiveWorkoutSession`).
     var recoveredActivityType: HKWorkoutActivityType? {
@@ -42,6 +46,9 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     var onWillTearDownChannel: ((_ workoutUuid: String?, _ session: HKWorkoutSession) async -> Void)?
     /// La sesión se acabó sin que lo pidiéramos nosotros (fallo o fin del sistema).
     var onEndedExternally: (() -> Void)?
+    /// Apple pasó a `.running` / `.paused` (`workoutSession(_:didChangeTo:)`).
+    /// El HUD no es la sesión: esto es cuando la primary de verdad vive.
+    var onBecameLive: (() -> Void)?
 
     private var lastReportedDistance: Double = 0
 
@@ -100,21 +107,20 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         self.session = recovered
         self.builder = builder
         switch recovered.state {
-        case .running:
-            isActive = true
-            isPaused = false
-        case .paused:
-            isActive = true
-            isPaused = true
+        case .running, .paused:
+            applyAppleState(recovered.state)
         case .prepared, .notStarted:
+            recovered.prepare()
             recovered.startActivity(with: Date())
-            isActive = true
-            isPaused = false
+            applyAppleState(recovered.state)
         default:
-            // `.stopped` u otro estado que no se reabre: no es un segundo dueño.
             self.session = nil
             self.builder = nil
             return
+        }
+        if isActive {
+            onBecameLive?()
+            await subscribeCompanion()
         }
         Self.log.info("sesión recuperada")
     }
@@ -128,42 +134,74 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         await start(configuration: config)
     }
 
-    /// Arranca ESTA sesión, o no hace nada si ya está grabando. Si un cierre
-    /// está a medias, espera a que acabe — no crea un segundo primary.
-    ///
-    /// `HKWorkoutSession.startActivity(with:)` es lo que pone la sesión en
-    /// marcha (doc: «Starts the workout session activity»).
-    /// `HKWorkoutBuilder.beginCollection(withStart:)` solo arma el builder.
-    /// Tratar un `beginCollection` falso como «no hay sesión» —`session.end()`
-    /// + idle— era el walk: Health Access, luego «Abre FAHYBRID en el iPhone».
+    /// Arranca ESTA primary, o la lleva a `.running` si el objeto ya existe
+    /// pero Apple aún no la ha puesto en marcha. Un objeto `HKWorkoutSession`
+    /// no es una sesión viva: `isActive` sigue `session.state` (`.running` /
+    /// `.paused`). El walk de `1be0aad4` pintó las 3 páginas con 00:00 porque
+    /// el primer `start` creaba el objeto, marcaba `isActive` y el segundo
+    /// salía por `session != nil` sin `startActivity` ni `beginCollection`.
     func start(configuration config: HKWorkoutConfiguration) async {
         if isClosing {
             _ = await close(save: true)
         }
-        guard session == nil else {
-            if !isActive { isActive = true }
+        if session == nil {
+            do {
+                let session = try HKWorkoutSession(healthStore: store, configuration: config)
+                let builder = session.associatedWorkoutBuilder()
+                builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+                session.delegate = self
+                builder.delegate = self
+                self.session = session
+                self.builder = builder
+            } catch {
+                Self.log.error("HKWorkoutSession no se pudo crear: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+        }
+        guard let session, let builder else { return }
+
+        switch session.state {
+        case .notStarted:
+            session.prepare()
+            session.startActivity(with: Date())
+        case .prepared:
+            session.startActivity(with: Date())
+        case .running, .paused:
+            break
+        default:
+            applyAppleState(session.state)
             return
         }
 
-        do {
-            let session = try HKWorkoutSession(healthStore: store, configuration: config)
-            let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
-            session.delegate = self
-            builder.delegate = self
-            self.session = session
-            self.builder = builder
-
-            let start = Date()
-            session.startActivity(with: start)
-            isActive = true
-            builder.beginCollection(withStart: start) { success, error in
-                if !success {
-                    Self.log.error("beginCollection no armó el builder: \(error?.localizedDescription ?? "sin error", privacy: .public) — la sesión sigue; startActivity ya la puso en marcha")
-                }
+        // `beginCollection` «Sets the workout’s start date and begins building
+        // the workout». Sin esto `elapsedTime(at:)` es 0 — el 00:00 del walk.
+        if builder.startDate == nil {
+            do {
+                try await builder.beginCollection(at: session.startDate ?? Date())
+            } catch {
+                Self.log.error("beginCollection: \(error.localizedDescription, privacy: .public)")
             }
-        } catch {
-            Self.log.error("HKWorkoutSession no se pudo crear: \(error.localizedDescription, privacy: .public)")
+        }
+        applyAppleState(session.state)
+        if isActive {
+            onBecameLive?()
+            await subscribeCompanion()
+        }
+    }
+
+    /// `HKWorkoutSessionState.running` «The workout session is running».
+    /// `paused` es la misma sesión, detenida. Cualquier otro estado no es live.
+    func applyAppleState(_ state: HKWorkoutSessionState) {
+        switch state {
+        case .running:
+            isActive = true
+            isPaused = false
+        case .paused:
+            isActive = true
+            isPaused = true
+        default:
+            isActive = false
+            isPaused = false
         }
     }
 
@@ -329,7 +367,13 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
         date: Date
     ) {
         Task { @MainActor [weak self] in
-            guard let self, workoutSession === self.session, toState == .ended else { return }
+            guard let self, workoutSession === self.session else { return }
+            self.applyAppleState(toState)
+            if toState == .running {
+                self.onBecameLive?()
+                await self.subscribeCompanion()
+            }
+            guard toState == .ended else { return }
             // Cierre nuestro: ya guardamos ANTES de session.end(). Un segundo
             // finishWorkout aquí era el otro diseño, y unificarlos es no
             // mezclarlos.

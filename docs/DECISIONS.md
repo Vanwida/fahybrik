@@ -11,6 +11,46 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · Chrome en la muñeca no es una `HKWorkoutSession`
+
+Walk `1be0aad4` v23 Mac, Libre 1×800. iPhone SIN RELOJ + FC sin reloj
+(187→388 m). Watch: 3 páginas «AL AIRE LIBRE · llevas», crono 00:00.
+Recap del iPhone 388 m · 2:19 · 5:59/km. Al salir, EmptyState — ese
+copy no es el muro.
+
+**Hipótesis, verificada.** `MirrorHUDView` con `frame == nil` pinta
+`GuionDeLaMuneca` (contexto «Al aire libre», banda «llevas»). El
+sujeto es `WatchFormat.clock(segundosPropios)`. `segundosPropios` es
+`HKWorkoutBuilder.elapsedTime(at:)` — «Calculates the duration of the
+workout at the specified time». Cero si `beginCollection` no armó el
+builder (`startDate` nil). No es un motor: es chrome sobre una
+primary que no llegó a `.running`.
+
+`HKWorkoutSessionType.primary` «A primary session running on
+watchOS». `.mirrored` «on the companion iOS device».
+`startMirroringToCompanionDevice` «Starts mirroring the workout
+session to the companion iOS device». El iPhone entra por
+`workoutSessionMirroringStartHandler`. Sin primary `.running` no hay
+espejo → SIN RELOJ. Un síntoma, no dos copies.
+
+**La pieza.** `LiveWorkoutSession.start` hacía `isActive = true` al
+crear el objeto y `startActivity`, y `guard session == nil else {
+isActive = true; return }`. El primer `start` (antes del grant) dejaba
+un objeto muerto. El segundo, ya con permiso, salía sin
+`startActivity` ni `beginCollection`. El HUD se quedaba. El crono no.
+
+**Decidido:** `isActive` sigue `HKWorkoutSessionState` (`.running` /
+`.paused` — «The workout session is running»). Si el objeto existe y
+está `.notStarted` / `.prepared`, `prepare()` + `startActivity(with:)`
++ `beginCollection(at:)` sobre ESA sesión. El canal al teléfono cuando
+`didChangeTo` `.running`. Una primary. Cero motor nuevo.
+
+**NO hacer:** no inventar crono. No segundo dueño. No parchear EmptyState.
+No reintentar `startWatchApp`. No bump de versión. No tocar recap /
+GPS. No inventar voz del km.
+
+---
+
 ## 2026-08-30 · El walk de `b30994bd` no era `beginCollection`. Era Health Review sin sesión que sobreviva
 
 Walk del debugger sobre `b30994bd` (Mac, compile SUCCESS, CFBundleVersion 22,

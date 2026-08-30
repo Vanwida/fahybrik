@@ -2,32 +2,30 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero; el mapa que abre él es `docs/tablero.html`.
-Última actualización: **2026-08-30** (clase 1: liveStart no sobrevive a Health)
+Última actualización: **2026-08-30** (clase 1: chrome ≠ sesión Apple)
 
 ## Ahora
 
 **LIVE · PR 91** (`cursor/live-un-motor-0406`). Un escritor. Se borra, no se suma. **NO merge.**
 
-**Walk `b30994bd` (Mac, compile SUCCESS, CFBundleVersion 22, Libre 1×800):**
-Health Review, luego «Abre FAHYBRID en el iPhone» + teléfono rojo. Nunca
-entró. Nunca 3 páginas. Nunca pausa. iPhone SIN RELOJ. GPS=map 24→393 m.
-Recap SÍ (385 m, 2:26, 6:19/km) — no tocar. Sin HR/zonas: no hubo sesión.
+**Walk `1be0aad4` v23 Mac (Libre 1×800):** iPhone SIN RELOJ + FC sin reloj
+todo el rato (187→388 m). GPS=map. Watch: 3 páginas AL AIRE LIBRE ·
+llevas, crono 00:00. Eso es `GuionDeLaMuneca` (chrome), no una
+`HKWorkoutSession` `.primary` con `HKLiveWorkoutBuilder`. Recap iPhone
+388 m · 2:19 · 5:59/km — no tocar. EmptyState al salir: no es el muro;
+no se parchea el copy.
 
-**Por qué el delete de `beginCollection` no cambió el walk.** Ese teardown
-va DESPUÉS de `startActivity`. El walk nunca llegó. Health Review es
-`requestAuthorization` («Asynchronously requests permission»). Se llamaba
-ANTES de `startActivity`. Sin sesión, `handleActiveWorkoutRecovery` y
-`recoverActiveWorkoutSession` no tienen nada que recuperar. Tras el sheet
-el proceso nace idle: `handle(_:)` no se reentrega (`startWatchApp` ya
-lanzó); `liveStart` iba por mensaje/userInfo (se consume) y un
-`updateApplicationContext` de `today` lo borraba. Idle + sin `today` =
-EmptyState.
+**Hipótesis: confirmada.** `start()` creaba el objeto, ponía `isActive =
+true` y el segundo `start` salía por `session != nil` sin
+`startActivity` ni `beginCollection`. `elapsedTime(at:)` = 0. Sin
+`.running` no hay `startMirroringToCompanionDevice` → el iPhone no es
+suscriptor `.mirrored`.
 
-**Borrado:** el gate auth→sesión. `startActivity` ya. `liveStart` viaja
-en el applicationContext CON el día. El aviso se guarda en disco y se
-pide al lanzar. `handleActiveWorkoutRecovery` recupera la misma primary
-si Apple la tiene. Sin segundo dueño. Sin reintento de `startWatchApp`.
-Sin bump de versión. Sin tocar el copy.
+**Borrado:** esa mentira. `isActive` sigue `session.state` (`.running` /
+`.paused`). Si el objeto existe y no corre, se llama `prepare()` +
+`startActivity` + `beginCollection(at:)`. El espejo al teléfono cuando
+Apple dice `.running`. Una primary. Sin motor nuevo. Sin bump de
+versión.
 
 **Dueño:** `LiveWorkoutSession`. El espejo no crea sesión.
 
@@ -36,7 +34,7 @@ Sin bump de versión. Sin tocar el copy.
 ## Cerrado en código (esta PR · el por qué en DECISIONS)
 
 **Borrado:** el segundo primary · matar la sesión si `beginCollection`
-falla · el gate Health-antes-de-sesión · `abandon()` · CONECTANDO ·
+falla · `isActive` al crear el objeto · `abandon()` · CONECTANDO ·
 `hasRecordedWork` · capa de km · `tickTimer` · cinta de la muñeca ·
 degradado · `TabView` sobre el paginador · velos.
 **Arreglado:** recap = telemetría · `finish()` escribe la pierna abierta.
@@ -49,7 +47,8 @@ degradado · `TabView` sobre el paginador · velos.
 3. Ruta en `HKWorkoutRouteBuilder`. Crono a 6 glifos / 99 min. «Sin señal»
    en cinta sin emparejar. Span del historial.
 
-**SIN COMPILAR AQUÍ:** no hay Xcode. Este turno no se compiló.
+**SIN COMPILAR AQUÍ:** no hay Xcode. Marc compila en Mac + Libre 1×800.
+Si SIN RELOJ o crono 00:00: sigue sin hecho.
 
 No tocar: GPS/authority, 174, 175, plan del 67, `DEVELOPMENT_TEAM`
 (`S6W4459DDG`). Neon no. Analítica 178 no. **105 cortada.**

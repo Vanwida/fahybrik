@@ -168,20 +168,14 @@ final class MirrorSessionController {
         Task {
             await WatchWorkoutCoordinator.shared.cederMotor()
             attachToOwner()
-            // `startActivity(with:)` «Starts the workout session activity».
-            // `requestAuthorization` «Asynchronously requests permission» —
-            // ese sheet ES Health Review. Esperarlo ANTES de startActivity
-            // dejaba la muñeca sin sesión: si el proceso muere al conceder,
-            // `handle(_:)` no se reentrega y `liveStart` por mensaje ya se
-            // consumió → idle → EmptyState. La sesión se crea YA.
-            await owner.start(configuration: config)
-            if owner.isActive {
-                beginMirroring()
-            }
+            // El aviso ya está en disco y en el contexto. El permiso va
+            // ANTES de crear la primary: un `HKWorkoutSession` nacido sin
+            // grant dejaba el objeto vivo, `isActive` mentía y el segundo
+            // `start` salía sin `startActivity` ni `beginCollection`.
+            // El HUD (AL AIRE LIBRE · llevas) pintaba 00:00; el iPhone
+            // SIN RELOJ porque no hubo `startMirroringToCompanionDevice`.
             await owner.requestAuthorization()
-            if !owner.isActive {
-                await owner.start(configuration: config)
-            }
+            await owner.start(configuration: config)
             guard state == .recording else { return }
             metrosPropios = owner.distanceMeters
             if owner.heartRate > 0 { liveHR = Int(owner.heartRate.rounded()) }
@@ -189,7 +183,7 @@ final class MirrorSessionController {
             if owner.isActive {
                 beginMirroring()
             } else {
-                Self.log.error("el dueño no arrancó — el HUD se queda; no se vuelve a idle")
+                Self.log.error("la primary aún no está .running — el HUD espera a didChangeTo, no se vuelve a idle")
             }
         }
     }
@@ -258,6 +252,10 @@ final class MirrorSessionController {
         live.onEndedExternally = { [weak self] in
             guard let self, self.state == .recording else { return }
             self.resetToIdle()
+        }
+        live.onBecameLive = { [weak self] in
+            guard let self, self.state == .recording else { return }
+            self.beginMirroring()
         }
     }
 
