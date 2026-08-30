@@ -162,16 +162,21 @@ final class MirrorSessionController: NSObject {
             attachToOwner()
             await owner.requestAuthorization()
             await owner.start(configuration: config)
-            guard state == .recording else { return }
-            guard owner.isActive else {
-                Self.log.error("el dueño no arrancó — se vuelve a idle")
-                resetToIdle()
-                return
+            if !owner.isActive {
+                // Health Access acaba de volver: un primer init a veces no
+                // crea. Un segundo start, no un startWatchApp, ni un idle
+                // que pinta «Abre FAHYBRID en el iPhone».
+                await owner.start(configuration: config)
             }
+            guard state == .recording else { return }
             metrosPropios = owner.distanceMeters
             if owner.heartRate > 0 { liveHR = Int(owner.heartRate.rounded()) }
             hkPaused = owner.isPaused
-            beginMirroring()
+            if owner.isActive {
+                beginMirroring()
+            } else {
+                Self.log.error("el dueño no arrancó — el HUD se queda; no se vuelve a idle")
+            }
         }
     }
 

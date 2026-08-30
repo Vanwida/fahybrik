@@ -42,6 +42,17 @@ struct FAHYBRIKWatchApp: App {
 /// `MirrorSessionController.start` — the owner is `LiveWorkoutSession`, not a
 /// second HKWorkoutSession created in this delegate.
 final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
+    /// `WKApplicationDelegate.applicationDidFinishLaunching` — el cable WC
+    /// no puede esperar al `onAppear` de SwiftUI: `liveStart` llega por
+    /// `transferUserInfo` al activar, y si activate() corre después, el
+    /// aviso se pierde y la muñeca se queda en idle.
+    func applicationDidFinishLaunching() {
+        WatchConnectivityService.shared.activate()
+    }
+
+    /// `WKApplicationDelegate.handle(_:)` — «the user started a workout
+    /// session on the paired iPhone». `HKHealthStore.startWatchApp` lanza
+    /// la app **para crear** esa sesión (`startWatchApp(with:completion:)`).
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
         Task { @MainActor in MirrorSessionController.shared.start(config: workoutConfiguration) }
     }

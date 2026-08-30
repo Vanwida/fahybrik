@@ -11,6 +11,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · Health Access y luego «Abre el iPhone»: `beginCollection` no es la sesión
+
+Walk del debugger sobre `375ded21` (simulador, build 21, Libre 1×800 outdoor).
+Health Access, luego copy «Abre FAHYBRID en el iPhone» + teléfono rojo. Nunca
+las tres páginas. El iPhone en SIN RELOJ. Footer 21 solo en idle.
+
+**La pieza.** `HKWorkoutSession.startActivity(with:)` «Starts the workout
+session activity». `HKWorkoutBuilder.beginCollection(withStart:)` «Sets the
+workout’s start date and begins building the workout». Un `false` del builder
+se trataba como «no hay sesión»: `session.end()` + `reset()` + el espejo
+hacía `resetToIdle()`. Sin `today` en un arranque en frío, idle es EmptyState
+— la copy que se pidió borrar como producto, no como texto.
+
+Health Access era `requestAuthorization` (el sheet). Al volver, el primer
+`beginCollection` en simulador (y a veces en frío tras el grant) falla. Matar
+ahí la primary es devolver la muñeca al teléfono.
+
+**Decidido:** `startActivity` pone `isActive`. Un `beginCollection` falso se
+logea y no se toca la sesión. El HUD no vuelve a idle porque el dueño no
+arrancó. `startMirroringToCompanionDevice` no exige el builder armado. WC se
+activa en `applicationDidFinishLaunching` (`WKApplicationDelegate`) para que
+`liveStart` no llegue a un cable que aún no existe.
+
+**NO hacer:** no parchear la copy de EmptyState. No reintentar `startWatchApp`.
+No devolver un segundo dueño. No inventar voz del km.
+
+---
+
 ## 2026-08-30 · Un dueño: se borra la `HKWorkoutSession` del espejo
 
 **Decidido y hecho.** El dueño es `LiveWorkoutSession` —una instancia, la del

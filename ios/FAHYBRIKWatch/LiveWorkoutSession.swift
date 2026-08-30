@@ -70,6 +70,8 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     }
 
     func requestAuthorization() async {
+        let workout = HKObjectType.workoutType()
+        if store.authorizationStatus(for: workout) == .sharingAuthorized { return }
         await Self.requestWorkoutAuthorization(store: store)
     }
 
@@ -84,11 +86,20 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
     /// Arranca ESTA sesión, o no hace nada si ya está grabando. Si un cierre
     /// está a medias, espera a que acabe — no crea un segundo primary.
+    ///
+    /// `HKWorkoutSession.startActivity(with:)` es lo que pone la sesión en
+    /// marcha (doc: «Starts the workout session activity»).
+    /// `HKWorkoutBuilder.beginCollection(withStart:)` solo arma el builder.
+    /// Tratar un `beginCollection` falso como «no hay sesión» —`session.end()`
+    /// + idle— era el walk: Health Access, luego «Abre FAHYBRID en el iPhone».
     func start(configuration config: HKWorkoutConfiguration) async {
         if isClosing {
             _ = await close(save: true)
         }
-        guard !isActive, session == nil else { return }
+        guard session == nil else {
+            if !isActive { isActive = true }
+            return
+        }
 
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: config)
@@ -101,20 +112,11 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
             let start = Date()
             session.startActivity(with: start)
-            let collected = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
-                builder.beginCollection(withStart: start) { success, _ in
-                    Task { @MainActor in
-                        cont.resume(returning: success)
-                    }
+            isActive = true
+            builder.beginCollection(withStart: start) { success, error in
+                if !success {
+                    Self.log.error("beginCollection no armó el builder: \(error?.localizedDescription ?? "sin error", privacy: .public) — la sesión sigue; startActivity ya la puso en marcha")
                 }
-            }
-            guard self.session === session else { return }
-            if collected {
-                isActive = true
-            } else {
-                Self.log.error("beginCollection falló — no hay grabación")
-                session.end()
-                reset()
             }
         } catch {
             Self.log.error("HKWorkoutSession no se pudo crear: \(error.localizedDescription, privacy: .public)")
@@ -140,7 +142,7 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         if isMirroring { return }
         for (intento, espera) in Self.mirrorRetryDelays.enumerated() {
             if espera > 0 { try? await Task.sleep(for: .seconds(espera)) }
-            guard self.session === session, isActive, !isClosing else { return }
+            guard self.session === session, !isClosing else { return }
             do {
                 try await session.startMirroringToCompanionDevice()
                 isMirroring = true
