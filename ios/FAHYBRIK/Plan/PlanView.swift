@@ -50,6 +50,11 @@ struct PlanView: View {
     @State private var pausado: Bool = false
     @State private var pausadoDesde: String? = nil
     @State private var hayProximaSemana: Bool = false
+    @State private var lunesVisible: String = ""
+    @State private var lunesEnCarril: [String] = []
+    @State private var semanasPorLunes: [String: SemanaDelPlan] = [:]
+    @State private var posicionPorLunes: [String: PosicionEnBloque] = [:]
+    @State private var semanasPedidas: Set<String> = []
     @State private var cargando: Bool = true
     @State private var falloDeCarga: Bool = false
 
@@ -90,11 +95,6 @@ struct PlanView: View {
     // cambian cuál es el día mostrado. La card que lo pinta es siempre la
     // misma (`heroe(_:)`); solo cambia el dato. Nunca dos pantallas para lo
     // mismo, nunca un salto a otro sitio por tocar un chip.
-    @State private var verProximaSemana = false
-    @State private var semanaSiguiente: SemanaDelPlan? = nil
-    @State private var posicionSiguiente: PosicionEnBloque? = nil
-    @State private var cargandoSiguiente = false
-    @State private var falloSiguiente = false
     /// El día elegido A MANO dentro de la semana visible. `nil` = el que toca
     /// por defecto (hoy en esta semana; el primero con algo al hojear otra).
     @State private var diaSeleccionadoId: String? = nil
@@ -236,7 +236,7 @@ struct PlanView: View {
                     posicion: posicionVisible,
                     intencion: semanaVisible?.intencion
                 )
-                carrilConGesto
+                carrilPaginado
                 heroe
                 if let segunda = sesionSecundariaMostrada {
                     filaSegundaSesion(segunda)
@@ -245,22 +245,59 @@ struct PlanView: View {
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.s)
-            .animation(.spring(response: 0.38, dampingFraction: 0.86), value: verProximaSemana)
+            .animation(.spring(response: 0.38, dampingFraction: 0.86), value: lunesVisible)
             .animation(.spring(response: 0.3, dampingFraction: 0.88), value: diaSeleccionadoId)
+            .onChange(of: lunesVisible) { anterior, nuevo in
+                guard !nuevo.isEmpty, nuevo != anterior else { return }
+                if !anterior.isEmpty { Haptics.light() }
+                diaSeleccionadoId = nil
+                expandirCarril(alrededor: nuevo)
+                Task { await cargarSemana(nuevo) }
+            }
         }
         .refreshable {
-            if verProximaSemana { await cargarSiguiente(force: true) } else { await cargar(force: true) }
+            if miraEstaSemana {
+                await cargar(force: true)
+            } else {
+                await cargarSemana(lunesVisible, force: true)
+            }
         }
         .anchoredAction { accionAnclada }
     }
 
     // MARK: - Un solo mecanismo: seleccionar un día cambia qué muestra la card
 
-    /// La semana que la pantalla enseña AHORA: la actual, o la que viene si se
-    /// deslizó el carril. TODO lo de abajo lee de aquí — es la MISMA
-    /// composición siempre, solo cambia el dato (Alex, 7-ago).
-    private var semanaVisible: SemanaDelPlan? { verProximaSemana ? (semanaSiguiente ?? semana) : semana }
-    private var posicionVisible: PosicionEnBloque? { verProximaSemana ? posicionSiguiente : posicion }
+    /// La semana que la pantalla enseña AHORA. TODO lo de abajo lee de aquí —
+    /// es la MISMA composición siempre, solo cambia el dato (Alex, 7-ago).
+    private var hoyIso: String {
+        store.planWeek.value?.week.todayIso ?? SemanaCalendario.hoyIso()
+    }
+
+    private var lunesDeHoy: String {
+        if let start = store.planWeek.value?.week.weekStart, !start.isEmpty {
+            return start
+        }
+        return SemanaCalendario.lunes(conteniendo: Date())
+    }
+
+    private var miraEstaSemana: Bool {
+        lunesVisible.isEmpty || lunesVisible == lunesDeHoy
+    }
+
+    private var semanaVisible: SemanaDelPlan? {
+        if !lunesVisible.isEmpty {
+            return semanasPorLunes[lunesVisible]
+                ?? SemanaCalendario.semanaVacia(lunes: lunesVisible, hoyIso: hoyIso)
+        }
+        return semana
+    }
+
+    private var posicionVisible: PosicionEnBloque? {
+        if !lunesVisible.isEmpty, let p = posicionPorLunes[lunesVisible] {
+            return p
+        }
+        return miraEstaSemana ? posicion : nil
+    }
 
     /// El día que la card muestra: el que el atleta seleccionó a mano dentro de
     /// la semana visible; si no seleccionó ninguno, hoy (en esta semana) o el
@@ -269,7 +306,7 @@ struct PlanView: View {
         if let id = diaSeleccionadoId, let dia = semana.dias.first(where: { $0.id == id }) {
             return dia
         }
-        return semana.hoy ?? semana.dias.first { !$0.sesiones.isEmpty }
+        return semana.diaPorDefecto
     }
 
     private var diaMostradoActual: DiaDelPlan? { semanaVisible.flatMap(diaMostrado) }
@@ -290,54 +327,54 @@ struct PlanView: View {
         diaSeleccionadoId = dia.id
     }
 
-    /// El carril, con el gesto que cambia de semana. Deslizar a la izquierda
-    /// pide la que viene; a la derecha, vuelve a esta — un solo salto, nunca
-    /// más allá de lo que el servidor confirmó que existe (`hasNextWeek`). Cada
-    /// salto de semana limpia la selección: se empieza en el día por defecto de
-    /// la semana a la que se llega, no en un id que ya no pertenece a ella.
     @ViewBuilder
-    private var carrilConGesto: some View {
-        if let semanaVis = semanaVisible {
+    private var carrilPaginado: some View {
+        if !lunesEnCarril.isEmpty {
+            PlanCarrilPager(
+                lunesEnCarril: lunesEnCarril,
+                lunesVisible: $lunesVisible,
+                semanaDe: { lunes in
+                    semanasPorLunes[lunes]
+                        ?? SemanaCalendario.semanaVacia(lunes: lunes, hoyIso: hoyIso)
+                },
+                idDestacado: { diaMostrado($0)?.id },
+                onDia: seleccionarDia
+            ) { dia in
+                accionesDelDia(dia)
+            }
+        } else if let semanaVis = semanaVisible {
             CarrilSemana(semana: semanaVis, idDestacado: diaMostrado(semanaVis)?.id, onDia: seleccionarDia) { dia in
                 accionesDelDia(dia)
             }
-            // `simultaneous`: un DragGesture normal en el contenedor se come el
-            // tap de los ChipDia hijos aunque tenga `minimumDistance` — así conviven.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 24)
-                    .onEnded { valor in
-                        guard abs(valor.translation.width) > abs(valor.translation.height) else { return }
-                        if valor.translation.width < -40, !verProximaSemana, hayProximaSemana {
-                            Haptics.light()
-                            diaSeleccionadoId = nil
-                            verProximaSemana = true
-                            Task { await cargarSiguiente() }
-                        } else if valor.translation.width > 40, verProximaSemana {
-                            Haptics.light()
-                            diaSeleccionadoId = nil
-                            verProximaSemana = false
-                        }
-                    }
-            )
         }
     }
 
-    private func cargarSiguiente(force: Bool = false) async {
-        guard let token = effectiveBearer else {
-            falloSiguiente = true
-            return
+    private func expandirCarril(alrededor lunes: String) {
+        let extra = SemanaCalendario.paginas(alrededor: lunes)
+        lunesEnCarril = Set(lunesEnCarril).union(extra).sorted()
+        Task {
+            for vecino in extra where vecino != lunes {
+                await cargarSemana(vecino)
+            }
         }
-        if semanaSiguiente != nil, !force { return }
-        cargandoSiguiente = semanaSiguiente == nil
+    }
+
+    private func cargarSemana(_ lunes: String, force: Bool = false) async {
+        guard let token = effectiveBearer, !lunes.isEmpty else { return }
+        if !force, semanasPedidas.contains(lunes) { return }
+        if semanasPorLunes[lunes] == nil {
+            semanasPorLunes[lunes] = SemanaCalendario.semanaVacia(lunes: lunes, hoyIso: hoyIso)
+        }
         do {
-            let resp = try await PlanService.fetchWeek(bearer: token, weekOffset: 1)
-            semanaSiguiente = SemanaDelPlan.desde(resp)
-            posicionSiguiente = PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel)
-            falloSiguiente = false
+            let resp = try await PlanService.fetchWeek(bearer: token, weekStart: lunes)
+            semanasPorLunes[lunes] = SemanaDelPlan.desde(resp)
+            if let p = PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel) {
+                posicionPorLunes[lunes] = p
+            }
+            semanasPedidas.insert(lunes)
         } catch {
-            if semanaSiguiente == nil { falloSiguiente = true }
+            semanasPedidas.insert(lunes)
         }
-        cargandoSiguiente = false
     }
 
     /// El héroe: la sesión del día mostrado en grande —con su desglose REAL,
@@ -360,20 +397,10 @@ struct PlanView: View {
             // ayer/mañana solo cuando el día mostrado es HOY de verdad.
             HeroeDescanso(
                 dia: dia,
-                semana: semana ?? SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil),
+                semana: semanaVisible ?? semana ?? SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil),
                 medidoAyer: medidoAyer,
-                mostrarContexto: dia.esHoy && !verProximaSemana,
+                mostrarContexto: dia.esHoy && miraEstaSemana,
                 onAbrir: { abrir($0) }
-            )
-            .frame(maxHeight: .infinity)
-        } else if verProximaSemana {
-            // La semana que viene existe (`hasNextWeek`) pero llegó vacía: el
-            // coach todavía no le puso sesiones. Un hecho, no un error.
-            RedesignEmptyState(
-                symbol: "calendar.badge.clock",
-                title: "Tu coach aún no ha llenado la semana que viene",
-                message: "En cuanto le ponga sesiones las verás aquí.",
-                exit: .explained(note: "Desliza a la derecha para volver a esta semana.")
             )
             .frame(maxHeight: .infinity)
         } else {
@@ -490,7 +517,7 @@ struct PlanView: View {
                 ? ("VER LO QUE HICISTE", { executedLaunch = launch(sesion) })
                 : ("▶ EMPEZAR", { workoutLaunch = launch(sesion) })
         }
-        if !verProximaSemana, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
+        if miraEstaSemana, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
             return ("VER LO DE MAÑANA", { abrir(manana.sesion) })
         }
         return nil
@@ -556,8 +583,14 @@ struct PlanView: View {
                 exit: hayProximaSemana
                     ? .action(title: "Ver la semana que viene") {
                         Haptics.light()
-                        verProximaSemana = true
-                        Task { await cargarSiguiente() }
+                        if let next = SemanaCalendario.adyacente(lunes: lunesDeHoy, semanas: 1) {
+                            if lunesEnCarril.isEmpty {
+                                lunesEnCarril = SemanaCalendario.paginas(alrededor: next)
+                            }
+                            lunesVisible = next
+                            expandirCarril(alrededor: next)
+                            Task { await cargarSemana(next) }
+                        }
                     }
                     : .explained(note: "Aparecerá aquí el mismo día."),
                 symbolColor: Theme.Color.accentText
@@ -667,6 +700,9 @@ struct PlanView: View {
         }
         partner = store.partner.value?.partner
         cargando = false
+        for lunes in lunesEnCarril where lunes != lunesDeHoy {
+            await cargarSemana(lunes)
+        }
         // El desglose del día mostrado lo dispara `.task(id: claveDeMostrado)`
         // en el body — no hace falta pedirlo aquí también.
     }
@@ -682,6 +718,18 @@ struct PlanView: View {
         pausado = resp.week.paused
         pausadoDesde = resp.week.pausedSince
         hayProximaSemana = resp.week.hasNextWeek ?? false
+        let lunes = resp.week.weekStart
+        if let modelo = semana {
+            semanasPorLunes[lunes] = modelo
+        }
+        if let p = posicion {
+            posicionPorLunes[lunes] = p
+        }
+        semanasPedidas.insert(lunes)
+        if lunesEnCarril.isEmpty {
+            lunesVisible = lunes
+            lunesEnCarril = SemanaCalendario.ventana(alrededor: lunes, radio: 2)
+        }
     }
 
     // MARK: - El desglose del día MOSTRADO
@@ -690,7 +738,7 @@ struct PlanView: View {
     /// cambia CUÁL es el día mostrado — por semana, por selección o por la
     /// sesión concreta. `.task(id:)` cancela y repite la petición sola.
     private var claveDeMostrado: String {
-        "\(verProximaSemana)|\(diaSeleccionadoId ?? "")|\(sesionMostrada?.assignmentId ?? "")"
+        "\(lunesVisible)|\(diaSeleccionadoId ?? "")|\(sesionMostrada?.assignmentId ?? "")"
     }
 
     /// El desglose REAL del día que la card enseña AHORA — sus bloques, su
@@ -704,7 +752,7 @@ struct PlanView: View {
             desgloseDeMostrado = nil
             // Solo el descanso de HOY sin seleccionar nada enseña ayer medido —
             // es el marco de `HeroeDescanso`, no el de un día hojeado aparte.
-            if !verProximaSemana, diaSeleccionadoId == nil {
+            if miraEstaSemana, diaSeleccionadoId == nil {
                 await cargarMedidoDeAyer(token: token)
             } else {
                 medidoAyer = nil

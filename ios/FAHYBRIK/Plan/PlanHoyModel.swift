@@ -119,7 +119,7 @@ struct DiaDelPlan: Identifiable, Equatable {
 struct SemanaDelPlan: Equatable {
     let dias: [DiaDelPlan]
     /// El índice de hoy dentro de `dias`; nil cuando hoy cae fuera de la semana
-    /// servida (el atajo a la semana siguiente, un desfase de zona horaria).
+    /// servida.
     let indiceHoy: Int?
     /// Lo que el coach escribió para ESTA semana. El sistema no escribe aquí.
     let intencion: String?
@@ -133,6 +133,10 @@ struct SemanaDelPlan: Equatable {
     let planStartsOn: String?
 
     var hoy: DiaDelPlan? { indiceHoy.flatMap { dias.indices.contains($0) ? dias[$0] : nil } }
+
+    var diaPorDefecto: DiaDelPlan? {
+        hoy ?? dias.first { !$0.sesiones.isEmpty } ?? dias.first
+    }
 
     /// True en cuanto un día lleva una asignación real. Una semana de puro
     /// descanso (atleta recién dado de alta) se lee como «todavía no hay plan».

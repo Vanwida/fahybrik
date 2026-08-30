@@ -11,6 +11,36 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-30 · El carril L–D pagina semanas de Calendar (card 182)
+
+**Qué fallaba:** en domingo 30 ago (último día de 24–30) el carril no
+pasaba a 31 ago–6 sep. El swipe existía. La siguiente semana podía ir
+vacía.
+
+**La raíz:** `PlanView` era un interruptor de dos semanas
+(`verProximaSemana`) cerrado con `hasNextWeek`. El servidor solo
+confirmaba la semana siguiente si tenía entrenos publicados, y
+`week_offset` estaba recortado a `[0, 1]`. Eso no es un pager de
+semanas. El mismo corte aparece lunes o sábado.
+
+**Decidido:** la tira es un pager de semanas Calendar. Lunes–domingo en
+Europe/Madrid. `Calendar.dateInterval(of: .weekOfYear)` y
+`date(byAdding: .weekOfYear)` son la aritmética. El gesto es
+`TabView` + `PageTabViewStyle`. Una semana vacía sigue siendo página.
+`has_next_week` no cierra el gesto.
+
+**Qué se elimina:** el Bool `verProximaSemana`, el DragGesture que
+exigía `hayProximaSemana`, y el tope `week_offset ∈ [0, 1]`.
+
+**NO hacer:** no un motor de semanas a medida. no un `if` de domingo.
+no bloquear la página porque el coach no haya publicado. no tocar PR 91
+ni `cursor/live-un-motor-0406`.
+
+**Dónde:** `SemanaCalendario`, `PlanCarrilPager`, `PlanView`,
+`resolveAthleteWeekStart`, `GET /api/athlete/plan/week?week_start=`.
+
+---
+
 ## 2026-08-30 · Un esquema: las queries no nombran columnas que prod no tiene (card 178)
 
 **Qué fallaba:** Analíticas → Carrera no cargaba en producción.

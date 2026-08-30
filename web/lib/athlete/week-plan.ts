@@ -137,14 +137,12 @@ export interface AthleteWeekPlan {
 export async function buildAthleteWeekPlan(
   athlete_id: number | bigint,
   weekOffset = 0,
+  weekStartOverride?: Date,
 ): Promise<AthleteWeekPlan> {
   // "Today" must resolve in the box timezone (Europe/Madrid), not UTC —
   // otherwise between 00:00–02:00 BCN the athlete is shown yesterday's week.
-  // `weekOffset` shifts the window forward by N weeks (0 = this week, 1 = the
-  // next-week peek); `today_iso` stays the real today, so a peeked week has no
-  // "today" row and reads as a preview.
   const today = startOfDayInBox(new Date());
-  const weekStart = addDays(mondayOfWeek(today), weekOffset * 7);
+  const weekStart = weekStartOverride ?? addDays(mondayOfWeek(today), weekOffset * 7);
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
@@ -232,8 +230,6 @@ export async function buildAthleteWeekPlan(
       // esto no es una consulta nueva y aislada: es la misma fila que ya se mira
       // para saber si la semana está en borrador, ahora también por su `focus`.
       weekStates({ athlete_id, week_starts: [weekStartIso] }),
-      // Whether the athlete can peek a NEXT week with real, published content
-      // (drives the "Próxima semana" affordance). Relative to the returned week.
       hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
       // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
       loadPausedState(athlete_id),
@@ -320,7 +316,6 @@ export async function buildAthleteWeekPlan(
     // Athlete-facing week focus (a short coach line, no per-day detail). Null
     // when the week wasn't materialized from a month template / has no focus.
     focus,
-    // True when a next week with published content exists (peek affordance).
     has_next_week,
     days,
     // #13 — the client shows "en pausa" when paused; the week structure is still

@@ -2,33 +2,26 @@ import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { buildAthleteMacroSummary } from '@/lib/coach/macro-progress';
 import { getNextRace, getTargetRace } from '@/lib/races/next-race';
+import { resolveAthleteWeekStart } from '@/lib/athlete/week-window';
 import { buildAthleteWeekPlan } from '@/lib/athlete/week-plan';
 import { sql } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Weekly-delivery model: the athlete sees THIS week and may PEEK the next one
-// (the week that unlocks Saturday) — only the next, never arbitrary navigation.
-// So we accept a single bounded offset: 0 = this week (default), 1 = next week.
-const MAX_WEEK_OFFSET = 1;
-
-function parseWeekOffset(request: Request): number {
-  const raw = new URL(request.url).searchParams.get('week_offset');
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(MAX_WEEK_OFFSET, Math.max(0, Math.trunc(n)));
-}
-
 export async function GET(request: Request) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));
   if (!auth) return jsonError('unauthorized', 'Bearer token required', 401);
 
-  const weekOffset = parseWeekOffset(request);
+  const url = new URL(request.url);
+  const weekStart = resolveAthleteWeekStart({
+    weekStartIso: url.searchParams.get('week_start'),
+    weekOffsetRaw: url.searchParams.get('week_offset'),
+  });
   const summary = await buildAthleteMacroSummary({ athlete_id: auth.athlete_id });
   // Single source of truth for "the athlete's week" (lib/athlete/week-plan.ts),
   // shared with the Dobles connected plan so the two never diverge.
-  const week = await buildAthleteWeekPlan(auth.athlete_id, weekOffset);
+  const week = await buildAthleteWeekPlan(auth.athlete_id, 0, weekStart);
   const coach_name = await getCoachName(auth.athlete_id);
 
   // RACE countdown. `target_race` = the goal the plan peaks to; `next_race` =

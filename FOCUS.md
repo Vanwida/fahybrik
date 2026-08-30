@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-30** (178 · un esquema)
+Última actualización: **2026-08-30** (182 · pager de semana)
 
 ## Ahora
+
+**182 · EL CARRIL PASA DE SEMANA (PR).** La tira L–D pagina la semana
+de al lado cualquier día, también el domingo, también si la siguiente
+va vacía. Calendar (lunes–domingo, Europe/Madrid) + TabView. Ya no es
+un interruptor de dos semanas cerrado con `hasNextWeek`. Instalar:
+versión 21. No PR 91. No live.
+https://app.clickup.com/t/86ak88k37
 
 **178 · CARRERA CARGA: UN ESQUEMA (PR).** Analíticas → Carrera 500 en
 prod: `running/progress` (y assignment-detail) pedían `st.is_approach`.

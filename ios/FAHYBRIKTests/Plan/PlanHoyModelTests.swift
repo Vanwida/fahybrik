@@ -93,6 +93,12 @@ final class PlanHoyModelTests: XCTestCase {
         XCTAssertEqual(semana.sesionDeManana?.sesion.title, "Sentadilla")
     }
 
+    func testUnaSemanaVaciaSigueTeniendoUnDiaQueMostrar() {
+        let vacia = SemanaCalendario.semanaVacia(lunes: "2026-08-31", hoyIso: "2026-08-30")
+        XCTAssertEqual(vacia.diaPorDefecto?.isoDate, "2026-08-31")
+        XCTAssertEqual(vacia.diaPorDefecto?.estado, .descanso)
+    }
+
     func testSinNadaDespuesDeHoyLaSemanaEstaCerrada() throws {
         let semana = semanaDe(
             [

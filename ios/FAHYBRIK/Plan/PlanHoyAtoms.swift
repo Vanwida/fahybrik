@@ -122,6 +122,33 @@ struct CarrilSemana<Menu: View>: View {
     }
 }
 
+struct PlanCarrilPager<Menu: View>: View {
+    let lunesEnCarril: [String]
+    @Binding var lunesVisible: String
+    let semanaDe: (String) -> SemanaDelPlan
+    let idDestacado: (SemanaDelPlan) -> String?
+    let onDia: (DiaDelPlan) -> Void
+    @ViewBuilder var menu: (DiaDelPlan) -> Menu
+
+    var body: some View {
+        TabView(selection: $lunesVisible) {
+            ForEach(lunesEnCarril, id: \.self) { lunes in
+                let semana = semanaDe(lunes)
+                CarrilSemana(
+                    semana: semana,
+                    idDestacado: idDestacado(semana),
+                    onDia: onDia,
+                    menu: menu
+                )
+                .tag(lunes)
+                .accessibilityLabel("Semana del \(lunes)")
+            }
+        }
+        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+        .frame(height: 88)
+    }
+}
+
 /// La ficha de un día: inicial arriba, número en medio, sello abajo. El día
 /// DESTACADO (normalmente hoy) va sobre un fondo tintado con su filo, que es lo
 /// que ata el carril con el héroe.

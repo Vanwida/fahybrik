@@ -291,6 +291,7 @@
 		596FFFD6C5B7EB986CA923DE /* GuionEstaciones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF842652C39DCE540CD67BF /* GuionEstaciones.swift */; };
 		5A0C180CE405482368863BA6 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09B1C18FB0D59D66BB13DA54 /* BarcodeScannerView.swift */; };
 		5A83C042D8BDB96D7B3E318F /* PlanHoyModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5B5FA9B3CD115B189B4652A /* PlanHoyModel.swift */; };
+		A31C8E2F4B7D90E1C5A6F204 /* SemanaCalendario.swift in Sources */ = {isa = PBXBuildFile; fileRef = B42D9F3E5C8A01F2D6B7E315 /* SemanaCalendario.swift */; };
 		5AC8BE902E87C9BDE654A5FC /* AnalyticsCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F97F5ED9605254944B92BC /* AnalyticsCharts.swift */; };
 		5ADBE6C7DB39B3ADDA2BEED6 /* ActivityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFA2798CE0D8978A3FF6537 /* ActivityDetector.swift */; };
 		5B05CE1F2AF23C6455381CBE /* GuionRuta.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD86040DF1940315EE2D211C /* GuionRuta.swift */; };
@@ -632,6 +633,7 @@
 		DA5FA028EA658CAD85EE7360 /* TreadmillHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2987C54DE3A0D9FDDD575E56 /* TreadmillHUDView.swift */; };
 		DAB8F84BC8A2A2AEEDF4D07D /* PersonalBasicsStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832F1A6ED588857AED79A4D3 /* PersonalBasicsStep.swift */; };
 		DAD88E3E71B8E4FF1BF62FF9 /* PlanHoyModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */; };
+		C53E0A1B6D8F24C7E9A0B316 /* SemanaCalendarioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D64F1B2C7E9A35D8F0B1C427 /* SemanaCalendarioTests.swift */; };
 		DAF124F9FE9A33059DEEC915 /* PersonalRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF462CA3ADB586D4E54551E8 /* PersonalRecord.swift */; };
 		DB26985E0CE045D2FCD53B74 /* WorkoutSession+Series.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */; };
 		DB6BBE856242573DD327BBD6 /* EnduranceBenchmarksStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */; };
@@ -1382,6 +1384,7 @@
 		D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPreviewGate.swift; sourceTree = "<group>"; };
 		D3302CBCD91530DF2423E668 /* TreadmillSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillSources.swift; sourceTree = "<group>"; };
 		D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanHoyModelTests.swift; sourceTree = "<group>"; };
+		D64F1B2C7E9A35D8F0B1C427 /* SemanaCalendarioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanaCalendarioTests.swift; sourceTree = "<group>"; };
 		D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveTests.swift; sourceTree = "<group>"; };
 		D3907778855FC5CE14AEBAA2 /* SessionFeedbackCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFeedbackCard.swift; sourceTree = "<group>"; };
 		D3A119EF4ACCD7D41E0EC821 /* WorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutModels.swift; sourceTree = "<group>"; };
@@ -1430,6 +1433,7 @@
 		E46EA36D8F153A96F0826B91 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E4C4A881A9FF6FF9943756D3 /* Generated-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Generated-Info.plist"; sourceTree = "<group>"; };
 		E5B5FA9B3CD115B189B4652A /* PlanHoyModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanHoyModel.swift; sourceTree = "<group>"; };
+		B42D9F3E5C8A01F2D6B7E315 /* SemanaCalendario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanaCalendario.swift; sourceTree = "<group>"; };
 		E5ED140A213F7EF8CF240090 /* HealthHistoryImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryImportTests.swift; sourceTree = "<group>"; };
 		E61F84C0FCD2D3B53262EF35 /* ReadinessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessService.swift; sourceTree = "<group>"; };
 		E6357B39016D5166B4712B07 /* ComunicadosLista.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadosLista.swift; sourceTree = "<group>"; };
@@ -1963,6 +1967,7 @@
 				76A9FA3AF0BBE29C6F3C285F /* PlanHoyAtoms.swift */,
 				E5B5FA9B3CD115B189B4652A /* PlanHoyModel.swift */,
 				C3A6F6A06597A99FDB74B021 /* PlanService.swift */,
+				B42D9F3E5C8A01F2D6B7E315 /* SemanaCalendario.swift */,
 				7977DBCE8367B9C75CC6D124 /* PlanView.swift */,
 				CFDFAE896A7B1788ACD9E8DD /* ResumenSemanaCard.swift */,
 				6C3F5652E7B0EA4C1290C977 /* SessionExercisesSheet.swift */,
@@ -2861,6 +2866,7 @@
 				8F2A1C9B4D7E6035A1B8C0D4 /* MotorEnVivoHonestidadTests.swift */,
 				4E48B3C2834B7EF903B3B665 /* PlanCicloRenderTests.swift */,
 				D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */,
+				D64F1B2C7E9A35D8F0B1C427 /* SemanaCalendarioTests.swift */,
 				C6A106D963AE6C92E9A96E0F /* RunLegDisplayTests.swift */,
 				DFE92063058308435DC37F74 /* RunLegProgressTests.swift */,
 				4536ACD9B240A6DDCDF325A8 /* RunStructureTests.swift */,
@@ -3486,6 +3492,7 @@
 				22E1A040160E3DD43F919FF9 /* PlanHoyAtoms.swift in Sources */,
 				5A83C042D8BDB96D7B3E318F /* PlanHoyModel.swift in Sources */,
 				17BB28C19D105D86E548A7A1 /* PlanService.swift in Sources */,
+				A31C8E2F4B7D90E1C5A6F204 /* SemanaCalendario.swift in Sources */,
 				3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */,
 				383939F4F669E266EE9515A4 /* PolylineCodec.swift in Sources */,
 				CAB6C7FE963C8303FFBEA934 /* PostWorkoutSummaryView.swift in Sources */,
@@ -3887,6 +3894,7 @@
 				70E9FA7CDECA0EAEF029E5D7 /* PhoneMirrorTramoTests.swift in Sources */,
 				61476DEAAFEBE811EB1F3103 /* PlanCicloRenderTests.swift in Sources */,
 				DAD88E3E71B8E4FF1BF62FF9 /* PlanHoyModelTests.swift in Sources */,
+				C53E0A1B6D8F24C7E9A0B316 /* SemanaCalendarioTests.swift in Sources */,
 				88DBA7EAB4CAD272CFB89835 /* PolylineCodecTests.swift in Sources */,
 				1AF0FB50DD64E10F76FAD391 /* PostWorkoutFeedbackTests.swift in Sources */,
 				BD60F1956D8B724284E1A277 /* PreWorkoutDeviceEligibilityTests.swift in Sources */,
@@ -4137,7 +4145,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4240,7 +4248,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;

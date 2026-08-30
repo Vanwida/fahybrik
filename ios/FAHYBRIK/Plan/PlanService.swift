@@ -106,8 +106,7 @@ struct AthleteWeekPayload: Codable {
     /// THIS week is about (no per-day detail). Nil when the coach set none / the
     /// week wasn't materialized from a month template (honest: no focus shown).
     let focus: String?
-    /// True when a NEXT week with published content exists — drives the "Próxima
-    /// semana" peek affordance. Nil/false → no next week to preview.
+    /// True when a next week with published content exists.
     let hasNextWeek: Bool?
     /// True when the coach has PAUSED this athlete's plan (lesión / vacaciones /
     /// parón / otro). The week structure still ships, but the client shows a paused
@@ -307,13 +306,22 @@ struct APIErrorBody: Decodable {
 }
 
 enum PlanService {
-    /// Fetch a week of the plan. `weekOffset` is bounded to the weekly-delivery
-    /// model: 0 = this week (default), 1 = the NEXT-week peek (the one that
-    /// unlocks Saturday). The backend clamps anything beyond [0, 1].
-    static func fetchWeek(bearer: String, weekOffset: Int = 0) async throws -> AthletePlanWeekResponse {
-        let path = weekOffset > 0
-            ? "api/athlete/plan/week?week_offset=\(weekOffset)"
-            : "api/athlete/plan/week"
+    /// Fetch a Calendar week of the plan. `weekStart` is a Monday (or any day
+    /// in that week; the server snaps to Monday). `weekOffset` is a signed
+    /// shift from today's Monday when the caller has no Monday yet.
+    static func fetchWeek(
+        bearer: String,
+        weekStart: String? = nil,
+        weekOffset: Int = 0
+    ) async throws -> AthletePlanWeekResponse {
+        let path: String
+        if let weekStart, !weekStart.isEmpty {
+            path = "api/athlete/plan/week?week_start=\(weekStart)"
+        } else if weekOffset != 0 {
+            path = "api/athlete/plan/week?week_offset=\(weekOffset)"
+        } else {
+            path = "api/athlete/plan/week"
+        }
         return try await APIClient.shared.get(path: path, bearer: bearer)
     }
 
