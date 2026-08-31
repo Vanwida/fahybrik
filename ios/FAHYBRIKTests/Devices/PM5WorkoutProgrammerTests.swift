@@ -3,7 +3,8 @@ import XCTest
 
 // Mapping tests: our prescription domain → the PM5's native workout menu.
 // The flagship case is the free "5×500m r1:30" (exactly what FreeWorkoutDraft
-// builds), which must land on the monitor as fixed-distance intervals 500m/1:30.
+// builds). The APP clocks series and rest, so the monitor gets one 500 m bout,
+// not a type-7 interval series.
 final class PM5WorkoutProgrammerTests: XCTestCase {
 
     // MARK: - Builders (mirror FreeWorkoutDraft / the assignment fold shapes)
@@ -47,44 +48,63 @@ final class PM5WorkoutProgrammerTests: XCTestCase {
 
     // MARK: - The flagship free piece
 
-    func testFree5x500r90MapsToDistanceIntervals() {
+    func testFree5x500r90MapsToSingleBoutFixedDistance() {
         // Exactly what FreeWorkoutDraft builds for "5×500 r1:30 @1:52/500m":
         // scheme intervals, rounds 5, restS 90, one set (distance 500, pace 112),
         // scalar mirrors distance=500 / pace 224 s/km.
+        // The app owns series/rest; the monitor gets this bout only.
         let pace = Target.pace(unit: .per500m, valueS: 112, minS: nil, maxS: nil)
         let p = prescription(scheme: .intervals,
                              sets: [distanceSet(500, restS: 90, target: pace)],
                              rounds: 5, restS: 90, target: pace)
-        let spec = PM5WorkoutProgrammer.spec(for: ergSegment(distance: 500, pacePerKm: 224, prescription: p))
-        XCTAssertEqual(spec, .distanceIntervals(workMeters: 500, restSeconds: 90, pace: 112))
+        let seg = ergSegment(distance: 500, pacePerKm: 224, prescription: p)
+        XCTAssertEqual(PM5WorkoutProgrammer.spec(for: seg),
+                       .fixedDistance(meters: 500, splitMeters: nil, pace: 112))
+        XCTAssertFalse(PM5WorkoutProgrammer.monitorRunsTheSeries(seg))
+    }
+
+    func testNxDistancePlusRestIsSingleBoutOnSkiAndRow() {
+        // Ticket shape: N × 400 m + rest. Same driver for ski and row
+        // (`SegmentKind.rowOrSki`); no machine branch.
+        let p = prescription(scheme: .intervals, sets: [distanceSet(400, restS: 90)],
+                             rounds: 4, restS: 90)
+        let seg = ergSegment(distance: 400, prescription: p)
+        XCTAssertEqual(PM5WorkoutProgrammer.spec(for: seg),
+                       .fixedDistance(meters: 400, splitMeters: nil))
+        XCTAssertFalse(PM5WorkoutProgrammer.monitorRunsTheSeries(seg))
     }
 
     func testRestlessSeriesFoldsIntoOneFixedPieceSplitByBout() {
-        // 5×500 with NO rest ≡ 2500 m continuous with 500 m splits — the honest
-        // monitor equivalent (fixed intervals need a rest).
+        // 5×500 with NO rest ≡ 2500 m continuous with 500 m splits — one piece,
+        // no rest clock for the app to own.
         let p = prescription(scheme: .intervals, sets: [distanceSet(500)], rounds: 5)
         let spec = PM5WorkoutProgrammer.spec(for: ergSegment(distance: 500, prescription: p))
         XCTAssertEqual(spec, .fixedDistance(meters: 2500, splitMeters: 500))
     }
 
-    func testTimeSeriesMapsToTimeIntervals() {
+    func testTimeSeriesWithRestMapsToSingleBoutFixedTime() {
         // 8×0:90 r0:60 by time — the per-bout duration lives in the scalar mirror
-        // (FreeWorkoutDraft leaves workS nil for series).
+        // (FreeWorkoutDraft leaves workS nil for series). Same rule as distance:
+        // the app clocks rest; the monitor gets this bout only.
         let p = prescription(scheme: .intervals, sets: [
             PrescriptionSet(measure: .duration(seconds: 90), target: nil, modality: nil, restS: 60, tempo: nil, note: nil),
         ], rounds: 8, restS: 60)
-        let spec = PM5WorkoutProgrammer.spec(for: ergSegment(duration: 90, prescription: p))
-        XCTAssertEqual(spec, .timeIntervals(workSeconds: 90, restSeconds: 60))
+        let seg = ergSegment(duration: 90, prescription: p)
+        XCTAssertEqual(PM5WorkoutProgrammer.spec(for: seg),
+                       .fixedTime(seconds: 90, splitSeconds: nil))
+        XCTAssertFalse(PM5WorkoutProgrammer.monitorRunsTheSeries(seg))
     }
 
-    func testCalorieSeriesMapsToCalorieIntervals() {
+    func testCalorieSeriesWithRestMapsToSingleBoutFixedCalories() {
         // 5×15 cal r1:00 — calories never flatten into scalars, the typed set
-        // measure carries them.
+        // measure carries them. Same rule as distance.
         let p = prescription(scheme: .intervals, sets: [
             PrescriptionSet(measure: .calories(15), target: nil, modality: nil, restS: 60, tempo: nil, note: nil),
         ], rounds: 5, restS: 60)
-        let spec = PM5WorkoutProgrammer.spec(for: ergSegment(prescription: p))
-        XCTAssertEqual(spec, .calorieIntervals(workCalories: 15, restSeconds: 60))
+        let seg = ergSegment(prescription: p)
+        XCTAssertEqual(PM5WorkoutProgrammer.spec(for: seg),
+                       .fixedCalories(calories: 15, splitCalories: nil))
+        XCTAssertFalse(PM5WorkoutProgrammer.monitorRunsTheSeries(seg))
     }
 
     func testHeterogeneousPyramidDegradesToJustRow() {

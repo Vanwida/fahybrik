@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · N × distancia + descanso en PM5: bout fijo, no type 7
+
+**Decidido (FH-41):** un plan uniforme N × distancia | tiempo | calorías + descanso no se programa como intervalos nativos del PM5 (CSAFE type 7). El monitor recibe solo el bout (`fixedDistance` / `fixedTime` / `fixedCalories`). La app marca serie y descanso. Al cambiar de serie: terminate + reprogramar ese bout. Ski y remo usan el mismo driver (`SegmentKind.rowOrSki`).
+
+**Por qué:** type 7 deja el odómetro de la sesión (813 m en un 400). Type 7 + rest nativo + rest de la app = dos relojes. Reprogramar type 7 por serie reinicia «row to begin» y otra serie infinita.
+
+**Descartado:** un workout nativo de intervalos PM5 en paralelo al motor de la app.
+
+**En consecuencia, no hacer:** no inventar un motor de sesión/HUD; no ramificar por máquina en programmer/codec/service; no tocar Watch, resumen, UI live ni el codec (terminate + program ya existen). `monitorRunsTheSeries` sigue siendo el mecanismo: true solo si el spec es type 7; para este shape es false, y la clave de tramo (`sN-rK`) no cambia en el descanso.
+
+---
+
 ## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
 
 **Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
