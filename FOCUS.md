@@ -1,11 +1,13 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-07-30**
+Última actualización: **2026-08-31**
 
 ---
 
 ## En qué estamos ahora
+
+**FH-41 (PR, sin merge):** N × distancia + descanso en PM5 ya no es CSAFE type 7. `PM5WorkoutProgrammer` manda un bout `fixedDistance` (o time/cal). `monitorRunsTheSeries` es false; la app sigue siendo el reloj; la clave de tramo no cambia en el descanso. Pendiente de soak: live + SkiErg PM5 + N × distancia + descanso (el monitor debe mostrar 0…N m de ESA serie).
 
 **Que el software sea de verdad multi-coach.** Alex, el 29-jul: *«al final esto derivará a FLEXR, este código, y lo venderemos a otros coaches. Pablo es nuestro coach, no es "el coach". Habrán con suerte miles de coaches.»* Es la **HARD RULE Nº0** de `CLAUDE.md`, y la línea es: **MECANISMO en código** (cómo se calcula un TSS, cómo se detectan los tramos, cómo se resuelve un ancla) · **MÉTODO en dato editable** (dónde cortan las zonas, los pesos del readiness, los umbrales de veredicto). La pregunta que decide cada caso: *¿otro entrenador competente lo haría distinto?*
 

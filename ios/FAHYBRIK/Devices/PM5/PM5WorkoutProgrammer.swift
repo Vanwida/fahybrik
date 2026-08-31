@@ -5,10 +5,10 @@ import Foundation
 // segment, fully unit-testable, no CoreBluetooth.
 //
 // PRINCIPLE — program what the monitor can natively RUN, never approximate:
-//   · uniform intervals with rest    → fixed dist/time/cal INTERVALS (the free
-//     "5×500 r1:30" → distanceIntervals(500, 90); the monitor runs work+rest
-//     itself — note the PM has no interval COUNT for fixed intervals, it repeats
-//     until the athlete stops; the app's session engine owns the 5 rounds)
+//   · uniform intervals WITH rest    → one bout (fixed dist/time/cal). The app
+//     clocks series and rest (same as EMOM). Type 7 native intervals would run
+//     a second clock and leave the odometer accumulating across bouts (813 m
+//     on a 400 m ski). Each work window is terminate + this bout only.
 //   · intervals with NO rest         → folded into one fixed piece whose SPLIT is
 //     the bout (5×500 r0 ≡ 2500m with 500m splits — same thing, honestly)
 //   · steady / for-time / warm-up    → fixed distance / time / calories
@@ -48,12 +48,10 @@ enum PM5WorkoutProgrammer {
     }
 
     /// True when the piece we send makes the MONITOR run the whole series itself
-    /// (native work+rest intervals). Then the monitor already zeroes its own split
-    /// counter between bouts, and re-sending the piece on every bout would restart
-    /// the series under the athlete — so the app re-anchors its own window and
-    /// leaves the monitor alone. False for everything the APP clocks (EMOM, Tabata,
-    /// a heterogeneous pyramid, a single piece), where each window has to be sent
-    /// again to get the counter back to zero.
+    /// (native work+rest intervals, CSAFE type 7). Then re-sending on every bout
+    /// would restart the series under the athlete. False for everything the APP
+    /// clocks: EMOM, Tabata, a heterogeneous pyramid, a single piece, and
+    /// N × measure + rest (one bout per window, so the counter returns to zero).
     static func monitorRunsTheSeries(_ segment: WorkoutSegment) -> Bool {
         switch spec(for: segment)?.kind {
         case .distanceIntervals, .timeIntervals, .calorieIntervals: return true
@@ -63,8 +61,9 @@ enum PM5WorkoutProgrammer {
 
     // MARK: - Shapes
 
-    /// Uniform interval work → the PM's native fixed-interval modes; rest-less
-    /// series fold into one fixed piece split by the bout.
+    /// Uniform interval work. With rest the APP is the clock, so the monitor
+    /// gets only this bout — not a type-7 series that would run its own rest.
+    /// Rest-less series fold into one fixed piece split by the bout.
     private static func intervalsSpec(_ segment: WorkoutSegment, _ p: Prescription, pace: Double?) -> PM5WorkoutSpec {
         let rest = p.restS ?? p.sets?.first?.restS ?? 0
         guard let measure = boutMeasure(segment, p) else { return .justRow(pace: pace) }
@@ -75,17 +74,17 @@ enum PM5WorkoutProgrammer {
             let m = Int(meters.rounded())
             guard m > 0 else { return .justRow(pace: pace) }
             return rest > 0
-                ? .distanceIntervals(workMeters: m, restSeconds: rest, pace: pace)
+                ? .fixedDistance(meters: m, pace: pace)
                 : .fixedDistance(meters: m * rounds, splitMeters: m, pace: pace)
         case .duration(let seconds):
             guard seconds > 0 else { return .justRow(pace: pace) }
             return rest > 0
-                ? .timeIntervals(workSeconds: seconds, restSeconds: rest, pace: pace)
+                ? .fixedTime(seconds: seconds, pace: pace)
                 : .fixedTime(seconds: seconds * rounds, splitSeconds: seconds, pace: pace)
         case .calories(let cals):
             guard cals > 0 else { return .justRow(pace: pace) }
             return rest > 0
-                ? .calorieIntervals(workCalories: cals, restSeconds: rest, pace: pace)
+                ? .fixedCalories(calories: cals, pace: pace)
                 : .fixedCalories(calories: cals * rounds, splitCalories: cals, pace: pace)
         case .reps, .unknown:
             return .justRow(pace: pace)
