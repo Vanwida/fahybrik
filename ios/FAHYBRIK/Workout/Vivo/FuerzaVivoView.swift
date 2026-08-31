@@ -31,8 +31,9 @@ import SwiftUI
 // presupuesto de ancho y la encoge lo justo. El arreglo va a la raíz.
 //
 // EL MOTOR NO SE HA TOCADO: `confirmSet`, `setSetReps`, `setSetLoadCascade`,
-// `setSetRPE/RIR`, `setSetSkipped`, `startRest` y el cebado de la carga siguen
-// siendo los mismos. Lo que cambia es el idioma.
+// `setSetRPE/RIR`, `setSetSkipped` y `startRest` siguen siendo las mismas
+// llamadas. El salto de serie en vivo reutiliza `setSetSkipped`; el último
+// pendiente cierra el tramo con `lap()`, sin picker de kg.
 
 /// El hierro en vivo, dentro del marco del §10.
 ///
@@ -69,10 +70,33 @@ struct FuerzaVivoView<Cromo: View>: View {
         } accion: {
             // LA FUERZA LA CIERRAS TÚ: el toque es lo único que puede cerrar la
             // serie, y por eso aquí —y no en el EMOM— se gana el relleno (§10.5).
-            FranjaAccion(titulo: tituloDeAccion,
-                         unicaSalida: true,
-                         nota: notaDeAccion,
-                         accion: ejecutarAccion)
+            // El salto de serie vive JUNTO a esa salida (no solo en la hoja del
+            // riel). No es `unicaSalida`: no lleva naranja y no pasa por
+            // `alTocarAccion` (el gancho donde FH-46 pondría el picker de kg).
+            HStack(alignment: .center, spacing: Theme.Spacing.s) {
+                if muestraSaltoDeSerie {
+                    Button(action: saltarSerieActual) {
+                        Text("Saltar esta serie")
+                            .scaledFont(12, weight: .heavy, relativeTo: .footnote, italic: true)
+                            .tracking(0.4)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(Theme.Color.muted)
+                            .frame(width: 84, maxHeight: .infinity)
+                            .background(Theme.Color.surface.opacity(0.7))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .accessibilityLabel("Saltar esta serie")
+                }
+                FranjaAccion(titulo: tituloDeAccion,
+                             unicaSalida: true,
+                             nota: notaDeAccion,
+                             accion: ejecutarAccion)
+            }
         }
         .onAppear { cebarCarga() }
         .onChange(of: session.currentSegmentIndex) { _, _ in
@@ -124,6 +148,19 @@ struct FuerzaVivoView<Cromo: View>: View {
         if descansando { session.dismissRest(); return }
         if let i = seriePendiente { session.confirmSet(i); return }
         alTocarAccion()
+    }
+
+    /// Skip on the live surface: same `setSetSkipped` as the editor. Never
+    /// `confirmSet` (copies kg) and never `alTocarAccion` (FH-46 picker hook).
+    /// Last pending → `lap()` inside `setSetSkipped`.
+    private var muestraSaltoDeSerie: Bool {
+        !descansando && seriePendiente != nil
+    }
+
+    private func saltarSerieActual() {
+        guard let i = seriePendiente else { return }
+        Haptics.light()
+        session.setSetSkipped(i, true)
     }
 
     // MARK: - Contexto — el pacto del coach para este ejercicio

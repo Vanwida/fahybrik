@@ -2305,6 +2305,11 @@ final class WorkoutSession {
             recomputeSetStatus(index)
         }
         setRecords[index].confirmed = true
+        // Last pending skip closes the exercise: same `lap()` as "exercise done",
+        // without `confirmSet` (that copies kg) and without a picker hook.
+        if skipped && !setRecords.contains(where: { !$0.confirmed && $0.status != "skipped" }) {
+            lap()
+        }
     }
 
     /// done when reps AND load match the prescription, else scaled. A skipped set
