@@ -1304,7 +1304,11 @@ extension WorkoutPlan {
             targetPowerWatts: prescription?.wattsTarget ?? p.watts,
             targetCalories: p.calories,         // #erg-1: calorie erg target now visible in HUD
             targetZone: p.hrZone.flatMap { HRZone(rawValue: $0) },
-            loadKg: p.loadKg,
+            // FH-46: a %RM line arrives as `load_pct` (loadKg nil). The brief
+            // already shows `resolved_load`; seed the live scalar with the same
+            // absolute kg (`value ?? min` → `minKg`) so the close wheel is not
+            // the 20 kg fallback. Do not recompute %RM here.
+            loadKg: p.loadKg ?? item.resolvedLoad?.minKg,
             targetRpe: p.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
