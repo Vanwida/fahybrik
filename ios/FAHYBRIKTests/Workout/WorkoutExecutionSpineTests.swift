@@ -388,4 +388,112 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         let line = PrescriptionRenderer.summaryLine(p)
         XCTAssertEqual(line.detail, "≤ 0:08", "The roxzone cap must read as a ceiling on the exercise card.")
     }
+
+    // MARK: - FH-47 · skip de una serie (setSetSkipped, sin picker ni 0 kg)
+
+    private func strengthSets(_ n: Int, kg: Double = 60, rest: Int? = 60) -> Prescription {
+        let one = PrescriptionSet(measure: .reps(5), target: .kg(value: kg, min: nil, max: nil),
+                                  modality: .strength, restS: rest, tempo: nil, note: nil)
+        return Prescription(scheme: .sets, modality: .strength,
+                            sets: Array(repeating: one, count: n),
+                            rounds: nil, workS: nil, restS: nil, totalS: nil,
+                            target: nil, note: nil, start: nil, increment: nil)
+    }
+
+    private func strengthSegment(title: String, order: Int, rx: Prescription,
+                                 templateId: Int) -> WorkoutSegment {
+        WorkoutSegment(order: order, title: title, kind: .strength,
+                       templateSegmentId: templateId, targetReps: 5,
+                       loadKg: rx.sets?.first?.prescribedLoadKg,
+                       blockTitle: "A", blockPosition: 1, prescription: rx)
+    }
+
+    func testSkipSetDoesNotCopyKgOrStartRest() {
+        // Skip of set N in a 4×5: cursor to N+1; other sets remain; no rest; kg nil.
+        let s = armedSession([strengthSegment(title: "Front Squat", order: 1,
+                                              rx: strengthSets(4), templateId: 9)])
+        s.primeSetsIfNeeded()
+        XCTAssertEqual(s.setRecords.count, 4)
+
+        s.setSetSkipped(0, true)
+
+        XCTAssertEqual(s.currentSegmentIndex, 0, "Skip of set 1 must not eat the exercise.")
+        XCTAssertEqual(s.setRecords.count, 4, "The other three sets remain.")
+        XCTAssertEqual(s.setRecords[0].status, "skipped")
+        XCTAssertNil(s.setRecords[0].loadActualKg, "Skipped set is never 0 kg.")
+        XCTAssertNil(s.setRecords[0].repsActual)
+        XCTAssertEqual(s.setRecords[0].confirmed, true)
+        XCTAssertTrue(s.setRecords[1...3].allSatisfy { !$0.confirmed && $0.status != "skipped" })
+        XCTAssertEqual(s.restRemainingSeconds, 0, "Skip does not start rest.")
+        XCTAssertFalse(s.repsSkipped, "Multi-set skip is not setRepsSkipped.")
+        XCTAssertTrue(s.laps.isEmpty, "A mid-exercise skip must not close the segment.")
+    }
+
+    func testSkipMiddleSetAdvancesCursorNotExercise() {
+        let s = armedSession([strengthSegment(title: "Front Squat", order: 1,
+                                              rx: strengthSets(4), templateId: 9)])
+        s.primeSetsIfNeeded()
+        s.setSetSkipped(0, true)
+        s.setSetSkipped(1, true)
+
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertEqual(s.setRecords.count, 4)
+        XCTAssertEqual(s.setRecords[0].status, "skipped")
+        XCTAssertEqual(s.setRecords[1].status, "skipped")
+        XCTAssertTrue(s.setRecords[2...3].allSatisfy { !$0.confirmed })
+        XCTAssertTrue(s.laps.isEmpty)
+    }
+
+    func testSkipLastPendingClosesExerciseWithoutDeclaringKg() throws {
+        // Last pending skip → lap() to the next exercise. No confirmSet, no 0 kg.
+        let squat = strengthSegment(title: "Front Squat", order: 1,
+                                    rx: strengthSets(4), templateId: 9)
+        let bench = strengthSegment(title: "Bench Press", order: 2,
+                                    rx: strengthSets(4), templateId: 10)
+        let s = armedSession([squat, bench])
+        s.primeSetsIfNeeded()
+
+        s.setSetSkipped(0, true)
+        s.setSetSkipped(1, true)
+        s.setSetSkipped(2, true)
+        XCTAssertEqual(s.currentSegmentIndex, 0, "Three of four skips stay on the squat.")
+        XCTAssertTrue(s.laps.isEmpty)
+
+        s.setSetSkipped(3, true)
+
+        XCTAssertEqual(s.currentSegmentIndex, 1, "Last pending skip advances the exercise.")
+        XCTAssertEqual(s.currentSegment?.title, "Bench Press")
+        XCTAssertEqual(s.laps.count, 1)
+        let closed = try XCTUnwrap(s.laps.last?.sets)
+        XCTAssertEqual(closed.count, 4)
+        XCTAssertTrue(closed.allSatisfy { $0.status == "skipped" })
+        XCTAssertTrue(closed.allSatisfy { $0.loadActualKg == nil }, "Never 0 kg on a skip.")
+        XCTAssertTrue(closed.allSatisfy { $0.repsActual == nil })
+        XCTAssertNil(s.laps.last?.weightUsedKg)
+        XCTAssertEqual(s.restRemainingSeconds, 0)
+    }
+
+    func testSkipLastSetAfterConfirmedSiblingsLeavesTheirKgAndNilOnSkip() throws {
+        let s = armedSession([strengthSegment(title: "Front Squat", order: 1,
+                                              rx: strengthSets(3, kg: 60), templateId: 9)])
+        s.primeSetsIfNeeded()
+        s.confirmSet(0)
+        s.dismissRest()
+        s.confirmSet(1)
+        s.dismissRest()
+        XCTAssertEqual(s.setRecords[0].loadActualKg, 60)
+        XCTAssertEqual(s.setRecords[1].loadActualKg, 60)
+
+        s.setSetSkipped(2, true)
+
+        let closed = try XCTUnwrap(s.laps.last?.sets)
+        XCTAssertEqual(closed.count, 3)
+        XCTAssertEqual(closed[0].loadActualKg, 60)
+        XCTAssertEqual(closed[1].loadActualKg, 60)
+        XCTAssertEqual(closed[2].status, "skipped")
+        XCTAssertNil(closed[2].loadActualKg, "The skipped set is nil kg, not 0.")
+        XCTAssertNil(closed[2].repsActual)
+        XCTAssertEqual(s.laps.last?.weightUsedKg, 60, "Aggregate is the max DECLARED load.")
+        XCTAssertFalse(closed.contains { $0.loadActualKg == 0 })
+    }
 }
