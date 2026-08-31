@@ -28,7 +28,6 @@
 
 import type { Sql } from '@/lib/db';
 import { coerceJson, toJsonValue } from '@/lib/json-column';
-import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { findOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { fuseDeviceLaps, type DeviceLapRow } from '@/lib/sync/fuse-device-laps';
 import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
@@ -392,11 +391,7 @@ async function ingestGarminActivity(args: {
     `;
     executionInserted = true;
 
-    // Close the loop: a synced Garmin activity proves the session was performed,
-    // so promote a still-'scheduled' assignment to 'completed'. Guarded to never
-    // clobber an explicit manual 'partial'/'completed' or coach 'skipped'/'missed'.
-    await markAssignmentDoneFromDevice(sql, rows[0].id, athlete_id);
-
+    // Archivo sí; Hecho no. Un activity Garmin imported no es el Guardar del atleta.
     const exec = await sql<{ id: string; ref: string | null }[]>`
       select id::text, source_workout_ref as ref
       from workout_executions

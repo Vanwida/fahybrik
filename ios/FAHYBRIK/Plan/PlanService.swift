@@ -298,14 +298,6 @@ struct MoveSessionResult: Decodable {
     let session: MovedSession
 }
 
-// Decoded shape of an API error body ({ error: { code, message } }, mirrors
-// web/lib/api/responses.ts). Lets callers turn a 409/422 into precise,
-// athlete-facing copy (completed vs out-of-week) instead of a generic failure.
-struct APIErrorBody: Decodable {
-    struct Detail: Decodable { let code: String; let message: String }
-    let error: Detail
-}
-
 enum PlanService {
     /// Fetch a week of the plan. `weekOffset` is bounded to the weekly-delivery
     /// model: 0 = this week (default), 1 = the NEXT-week peek (the one that
@@ -385,7 +377,22 @@ enum PlanService {
     /// the SERVER (only it knows what the execution holds): a clean mark resets
     /// immediately; an execution with real recorded work comes back as
     /// `.needsConfirmation`, and the caller re-issues with `confirm: true`.
-    enum ResetOutcome { case reset, needsConfirmation }
+    enum ResetOutcome: Equatable {
+        case reset
+        case needsConfirmation
+
+        /// 409 `needs_confirmation` → el diálogo destructivo (`confirmationDialog`
+        /// de SwiftUI), nunca el error genérico. Otro 409 se deja tirar.
+        static func mappingHTTPError(_ error: Error) -> ResetOutcome? {
+            guard case let APIError.http(status, data) = error, status == 409 else {
+                return nil
+            }
+            if APIErrorBody.code(from: data) == "needs_confirmation" {
+                return .needsConfirmation
+            }
+            return nil
+        }
+    }
 
     /// Borrar un entreno LIBRE del todo (asignación + ejecución). Solo sesiones
     /// self-origin — el servidor rechaza las del coach con `coach_session` (ahí lo
@@ -418,10 +425,9 @@ enum PlanService {
                 bearer: bearer
             )
             return .reset
-        } catch let APIError.http(status, data) where status == 409 {
-            let code = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
-            if code == "needs_confirmation" { return .needsConfirmation }
-            throw APIError.http(status, data)   // a different 409 (not undoable) — surface it
+        } catch {
+            if let mapped = ResetOutcome.mappingHTTPError(error) { return mapped }
+            throw error
         }
     }
 }

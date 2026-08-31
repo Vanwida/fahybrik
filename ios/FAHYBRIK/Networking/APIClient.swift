@@ -400,6 +400,35 @@ actor APIClient {
     }
 }
 
+// Envelope `{ error: { code, message } }` — `web/lib/api/responses.ts`.
+// `JSONDecoder.decode` (Foundation) lee el cable; si el envelope se desvía,
+// `JSONSerialization.jsonObject(with:)` (Foundation) saca el `code` igual.
+// Un 409 `needs_confirmation` no puede caer a un error genérico porque un
+// campo extra rompió Codable (card 183).
+struct APIErrorBody: Decodable {
+    struct Detail: Decodable {
+        let code: String
+        let message: String?
+    }
+    let error: Detail
+
+    static func code(from data: Data) -> String? {
+        if let nested = try? APIClient.makeJSONDecoder().decode(Self.self, from: data) {
+            return nested.error.code
+        }
+        if let nested = try? JSONDecoder().decode(Self.self, from: data) {
+            return nested.error.code
+        }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        if let error = obj["error"] as? [String: Any], let code = error["code"] as? String {
+            return code
+        }
+        return obj["code"] as? String
+    }
+}
+
 struct Empty: Codable {}
 
 // Shared ISO 8601 parsing for API date fields. The backend may send timestamps

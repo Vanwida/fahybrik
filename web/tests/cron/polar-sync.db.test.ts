@@ -115,7 +115,7 @@ describeWithDb('polar v4 poller (real DB)', () => {
   }
 
   test(
-    'connected athlete → session (execution+segments+hr+done) + sleep + recharge',
+    'connected athlete → session (execution+segments+hr, sin Hecho) + sleep + recharge',
     async () => {
       const fx = await setup();
       const templateId = await makeTemplate({ fx, name: 'Run day' });
@@ -138,7 +138,7 @@ describeWithDb('polar v4 poller (real DB)', () => {
       expect(exec[0]!.ref).toBe('S1');
 
       const status = await sql<{ status: string }[]>`select status from workout_assignments where id = ${assignmentId}`;
-      expect(status[0]!.status).toBe('completed');
+      expect(status[0]!.status).toBe('scheduled');
 
       const segs = await sql<{ n: number; modality: string }[]>`
         select count(*)::int as n, min(se.modality) as modality

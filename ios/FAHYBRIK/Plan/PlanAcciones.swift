@@ -247,6 +247,10 @@ extension PlanView {
                 case .needsConfirmation: undoConfirmTarget = session
                 }
             } catch {
+                if PlanService.ResetOutcome.mappingHTTPError(error) == .needsConfirmation {
+                    undoConfirmTarget = session
+                    return
+                }
                 Haptics.error()
                 mostrarError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
             }
@@ -303,7 +307,7 @@ extension PlanView {
         guard case let APIError.http(status, data) = error else {
             return "No se pudo mover la sesión. Revisa tu conexión."
         }
-        let code = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
+        let code = APIErrorBody.code(from: data)
         switch status {
         case 409: return "Esta sesión ya está completada y no se puede mover."
         case 422:

@@ -2,11 +2,14 @@
 //
 // `workout_executions` has NO status column. Whether a session reads as DONE vs
 // PENDING lives entirely in `workout_assignments.status`. The mere EXISTENCE of
-// an execution row does not make a session done — the assignment must be flipped.
-// Historically only the manual / live-timer recorder flipped it, so device-sync
-// ingests (HealthKit, Garmin) filed an execution but left the assignment
-// 'scheduled' → the athlete still saw "Empezar" on a workout they'd finished.
-// Both writers now route through this module so the rule lives in ONE place.
+// an execution row does not make a session done — the assignment must be flipped
+// by an explicit save (live finish, "Marcar como hecha", test battery).
+//
+// A passive device import (HealthKit / Garmin / Polar, recorded_via='imported')
+// may file an execution for analytics. It does NOT flip status. Hecho is the
+// athlete wanting to save, not a leftover HKWorkout landing on the day's only
+// assignment (card 183). Do not reopen "entreno hecho sigue Empezar" by putting
+// a device flip back: recordWorkoutExecution already calls setAssignmentStatus.
 
 import type { Sql, TransactionClient } from '@/lib/db';
 
@@ -29,27 +32,5 @@ export async function setAssignmentStatus(
     update workout_assignments
     set status = ${status}::assignment_status, updated_at = now()
     where id = ${assignmentId} and athlete_id = ${athleteId}
-  `;
-}
-
-/**
- * DEVICE-INGEST flip — a synced wearable workout (HealthKit / Garmin) PROVES the
- * session was performed. We promote a still-'scheduled' assignment to
- * 'completed'. We deliberately do NOT clobber an explicit decision already on the
- * row: a manual 'partial' (the honest "ya no puedo más" save), a manual
- * 'completed', or a coach 'skipped' / 'missed' all stand — a later passive sync
- * must never silently overwrite them. Hence the `status = 'scheduled'` guard.
- */
-export async function markAssignmentDoneFromDevice(
-  sql: Sql | TransactionClient,
-  assignmentId: number | string,
-  athleteId: number | bigint,
-): Promise<void> {
-  await sql`
-    update workout_assignments
-    set status = 'completed'::assignment_status, updated_at = now()
-    where id = ${assignmentId as unknown as number}
-      and athlete_id = ${athleteId as unknown as number}
-      and status = 'scheduled'::assignment_status
   `;
 }

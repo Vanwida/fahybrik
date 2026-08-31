@@ -31,7 +31,6 @@
 
 import type { Sql } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
-import { markAssignmentDoneFromDevice } from './assignment-status';
 import { existsOverlappingExecution } from './execution-time-dedupe';
 import { canonicalizeHealthkitMetric } from './metric-map';
 import { materializeHealthkitWorkout } from './materialize-healthkit-workout';
@@ -318,12 +317,8 @@ async function linkExecution(args: {
           updated_at = now()
   `;
 
-  // Close the loop: a synced HealthKit workout proves the session was done, so
-  // promote a still-'scheduled' assignment to 'completed'. Never clobbers an
-  // explicit manual 'partial'/'completed' or a coach 'skipped'/'missed' (the
-  // helper guards on status='scheduled'). This is the fix for the "done workout
-  // still shows Empezar" bug — the insert above filed actuals but left status.
-  await markAssignmentDoneFromDevice(sql, assign.id, athlete_id);
+  // Archivo sí; Hecho no. recorded_via='imported' no es el Guardar del atleta.
+  // setAssignmentStatus (recordWorkoutExecution) es quien flippea el día.
   return true;
 }
 

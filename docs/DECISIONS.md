@@ -11,6 +11,44 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · Hecho es un Guardar, no un import (card 183)
+
+**Qué fallaba:** el día salía Hecho sin que el atleta guardara. El ingest
+de HealthKit (`linkExecution`), si había exactamente 1 asignación ese día,
+insertaba `workout_executions` `recorded_via=imported` y llamaba
+`markAssignmentDoneFromDevice` → `status=completed`. Garmin y Polar hacían
+lo mismo. Deshacer mandaba `confirm:false`; el servidor respondía 409
+`needs_confirmation` (la fila HK tenía duración); iOS no leía el `code` y
+enseñaba «Inténtalo de nuevo».
+
+**Decidido:** Hecho en Plan/día sale de una sesión terminada que el atleta
+quiso guardar (`setAssignmentStatus` vía `recordWorkoutExecution` / Marcar
+como hecha / test battery). Un import pasivo no flippea la asignación.
+`markAssignmentDoneFromDevice` se elimina. El archivo del workout imported
+puede existir; el día no está Hecho.
+
+Deshacer es una escritura. El servidor decide: sin trabajo real borra; con
+trabajo real y `confirm:false` responde 409 `needs_confirmation` y no
+borra; `confirm:true` borra. iOS mapea ese 409 a `confirmationDialog`
+(SwiftUI), nunca al sheet genérico. `APIErrorBody.code(from:)` usa
+`JSONDecoder` y, si el envelope se desvía, `JSONSerialization.jsonObject(with:)`.
+
+**Qué se elimina:** `markAssignmentDoneFromDevice` y sus tres llamadas
+(HealthKit, Garmin, Polar). El «fix» de «entreno hecho sigue Empezar» que
+trataba un import como prueba de sesión hecha.
+
+**NO hacer:** no reabrir «entreno hecho sigue Empezar» volviendo a flippear
+desde un ingest. Si el atleta guardó, `recordWorkoutExecution` ya flippea.
+No tocar PR 91, `HKWorkoutSession`, live HUD, Watch session. No parchear el
+dump Auto Layout de la hoja ni `updateTag` de `recomputeAthlete`.
+
+**Dónde:** `assignment-status.ts`, `ingest-healthkit.ts`, `ingest-garmin.ts`,
+`ingest-polar.ts`, `session-reset.ts`, `plan/session/reset/route.ts`,
+`APIErrorBody` + `PlanService.ResetOutcome.mappingHTTPError`,
+`PlanAcciones.pedirDeshacer`.
+
+---
+
 ## 2026-08-30 · Un esquema: las queries no nombran columnas que prod no tiene (card 178)
 
 **Qué fallaba:** Analíticas → Carrera no cargaba en producción.

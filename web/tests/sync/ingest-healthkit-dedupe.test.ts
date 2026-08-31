@@ -200,12 +200,13 @@ describeWithDb('ingestHealthkitBatch — de-dupe / anti-double-count (real DB)',
     expect(r1.workouts_skipped_duplicate).toBe(0);
     expect(r1.executions_linked).toBe(1);
 
-    // First sync linked + flipped A to completed.
+    // First sync archives the execution. Hecho only after the athlete saves
+    // (card 183) — an imported HKWorkout does not flip scheduled → completed.
     expect(await executionCount(fx)).toBe(1);
     const [a1] = await sql<Array<{ status: string }>>`
       select status::text as status from workout_assignments where id = ${aId}
     `;
-    expect(a1!.status).toBe('completed');
+    expect(a1!.status).toBe('scheduled');
 
     // Re-send the SAME workout → the source_workout_id/ref guard short-circuits.
     const r2 = await ingestHealthkitBatch({ sql, athlete_id: BigInt(fx.athleteId), batch });

@@ -589,8 +589,7 @@ async function insertSlotAssignment(params: {
   // sigue 'scheduled' el atleta no ha tocado nada — es seguro REEMPLAZAR su
   // contenido por el recién materializado (resincronizar una edición posterior
   // del coach, 0158). En cualquier otro estado ('completed'/'partial'/'skipped'/
-  // 'missed') el atleta ya actuó sobre esa fila: se deja intacta, siempre — la
-  // misma guarda que usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts).
+  // 'missed') el atleta ya actuó sobre esa fila: se deja intacta, siempre.
   const dup = await params.client<Array<{ id: string; status: string }>>`
     select id::text, status::text from workout_assignments
     where athlete_id = ${params.athlete_id as number}

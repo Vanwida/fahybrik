@@ -30,6 +30,7 @@ import { z } from 'zod';
 import { sql } from '@/lib/db';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
+import { verdictForSessionReset } from '@/lib/athlete/session-reset';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 
 export const runtime = 'nodejs';
@@ -79,18 +80,6 @@ export async function POST(req: Request) {
       return jsonError('not_found', 'Session not found', 404);
     }
 
-    // Already pending → nothing to undo. Idempotent success so a double-tap of
-    // "Deshacer" (or a stale UI) never errors.
-    if (row.status === 'scheduled') {
-      return jsonOk({ reset: true, status: 'scheduled', deleted_execution: false });
-    }
-
-    // Only a finished session (done / partial) can be undone. missed/skipped are
-    // not "hechos" — the row menu never offers undo there; reject defensively.
-    if (row.status !== 'completed' && row.status !== 'partial') {
-      return jsonError('conflict', 'This session has no completion to undo', 409);
-    }
-
     // What does the linked execution actually hold? (NULL row → no execution,
     // e.g. status set without a sync — then there is nothing destructive to lose.)
     const execRows = await sql<ExecutionRow[]>`
@@ -111,10 +100,21 @@ export async function POST(req: Request) {
     `;
     const exec = execRows[0];
     const hasRecordedWork = exec?.has_recorded_work ?? false;
+    const verdict = verdictForSessionReset({
+      status: row.status,
+      hasRecordedWork,
+      confirm,
+    });
 
+    if (verdict.action === 'already_scheduled') {
+      return jsonOk({ reset: true, status: 'scheduled', deleted_execution: false });
+    }
+    if (verdict.action === 'not_undoable') {
+      return jsonError('conflict', 'This session has no completion to undo', 409);
+    }
     // Real measured work + no explicit confirm → refuse, deleting nothing. The
     // client shows the destructive confirm and retries with confirm: true.
-    if (hasRecordedWork && !confirm) {
+    if (verdict.action === 'needs_confirmation') {
       return jsonError(
         'needs_confirmation',
         'This session has recorded work that will be permanently deleted',

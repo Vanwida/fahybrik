@@ -19,7 +19,6 @@
 
 import type { Sql } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
-import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
 import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { deriveLapIntensity } from '@/lib/garmin/lap-mapping';
 import type { NormalizedSession, NormalizedSleep, NormalizedRecharge } from '@/lib/polar/normalize';
@@ -117,7 +116,7 @@ export async function ingestPolarSession(args: {
           updated_at = now()
   `;
 
-  await markAssignmentDoneFromDevice(sql, assign.id, athlete_id);
+  // Archivo sí; Hecho no. Polar imported no es el Guardar del atleta.
 
   // Segments only when WE own the execution now (never disturb a garmin/manual one).
   const owned = await sql<{ id: string; source: string | null }[]>`

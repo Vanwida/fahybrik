@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-30** (178 · un esquema)
+Última actualización: **2026-08-31** (183 · Hecho = Guardar)
 
 ## Ahora
+
+**183 · HECHO ES GUARDAR (PR).** Un HK/Garmin/Polar imported no flippea
+el día a completed. Hecho sale de `setAssignmentStatus` (Guardar /
+Marcar como hecha). Deshacer: trabajo real → 409 `needs_confirmation`
+→ `confirmationDialog`; sin trabajo → borra a la primera. iOS no
+enseña «inténtalo de nuevo» ante ese 409. 157 / PR 91 / live no se
+tocan. https://app.clickup.com/t/86ak8crub
 
 **178 · CARRERA CARGA: UN ESQUEMA (PR).** Analíticas → Carrera 500 en
 prod: `running/progress` (y assignment-detail) pedían `st.is_approach`.

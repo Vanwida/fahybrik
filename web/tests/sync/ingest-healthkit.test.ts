@@ -264,8 +264,8 @@ describe('ingestHealthkitBatch — double-transport guard (structured execution 
 
   it('DOES link when no execution carries the incoming source_workout_ref (normal passive sync)', async () => {
     // Control: same workout, but path 1 never ran (executionGuard empty). The
-    // ingest must still link to the day's scheduled assignment and flip it — the
-    // guard only suppresses the DUPLICATE case, never the legitimate one.
+    // ingest still archives the day's only assignment. It does NOT flip Hecho
+    // — recorded_via=imported is not the athlete's Guardar (card 183).
     const { sql, calls } = makeRoutedFakeSql({
       biometric: [],
       executionGuard: [], // nothing recorded this workout yet
@@ -283,8 +283,25 @@ describe('ingestHealthkitBatch — double-transport guard (structured execution 
     );
     expect(executionInserts.length).toBe(1);
     const assignmentFlips = calls.filter((c) => /update\s+workout_assignments/i.test(c.raw));
-    expect(assignmentFlips.length).toBe(1);
+    expect(assignmentFlips.length).toBe(0);
     expect(result.executions_linked).toBe(1);
+  });
+
+  it('1 asignación scheduled + HK import no deja el día completed', async () => {
+    const { sql, calls } = makeRoutedFakeSql({
+      biometric: [],
+      executionGuard: [],
+      assignmentLookup: [{ id: '510', existing_source: null, existing_via: null }],
+    });
+
+    await ingestHealthkitBatch({
+      sql,
+      athlete_id: BigInt(64),
+      batch: workoutOnlyBatch(),
+    });
+
+    expect(calls.some((c) => /insert\s+into\s+workout_executions/i.test(c.raw))).toBe(true);
+    expect(calls.some((c) => /update\s+workout_assignments/i.test(c.raw))).toBe(false);
   });
 });
 
