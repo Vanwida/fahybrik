@@ -22,13 +22,10 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
 
     /// LO QUE LLEVA GRABADO ESTA SESIÓN, SEGÚN APPLE.
     ///
-    /// `HKWorkoutBuilder.elapsedTime(at:)` «Calculates the duration of the
-    /// workout at the specified time». Cero si `beginCollection` no armó
-    /// el builder (`startDate` nil). No es un crono nuestro.
-    var elapsedSeconds: TimeInterval {
-        guard let builder else { return 0 }
-        return builder.elapsedTime(at: Date())
-    }
+    /// `HKLiveWorkoutBuilder.elapsedTime` — «The elapsed time for the
+    /// workout based on the builder’s current contents, including pauses».
+    /// Cero hasta `beginCollection`. No es un crono nuestro.
+    var elapsedSeconds: TimeInterval { builder?.elapsedTime ?? 0 }
 
     /// Actividad de la sesión recuperada (`recoverActiveWorkoutSession`).
     var recoveredActivityType: HKWorkoutActivityType? {
@@ -173,13 +170,22 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
             return
         }
 
-        // `beginCollection` «Sets the workout’s start date and begins building
-        // the workout». Sin esto `elapsedTime(at:)` es 0 — el 00:00 del walk.
+        // `beginCollection(withStart:)` «Sets the workout’s start date and
+        // begins building the workout». Es el del builder vivo, no el
+        // `beginCollection(at:)` del writer offline. Sin esto
+        // `elapsedTime` es 0 — el 00:00 del walk.
         if builder.startDate == nil {
-            do {
-                try await builder.beginCollection(at: session.startDate ?? Date())
-            } catch {
-                Self.log.error("beginCollection: \(error.localizedDescription, privacy: .public)")
+            let start = session.startDate ?? Date()
+            let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+                builder.beginCollection(withStart: start) { success, error in
+                    if !success {
+                        Self.log.error("beginCollection: \(error?.localizedDescription ?? "sin error", privacy: .public)")
+                    }
+                    cont.resume(returning: success)
+                }
+            }
+            if !ok {
+                Self.log.error("beginCollection no armó el builder — startActivity sigue; no se mata la sesión")
             }
         }
         applyAppleState(session.state)
@@ -220,7 +226,7 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     /// `HKWorkoutSession.startMirroringToCompanionDevice` — watchOS 10. El
     /// iPhone recibe la sesión `.mirrored` en `workoutSessionMirroringStartHandler`.
     func subscribeCompanion() async {
-        guard let session else { return }
+        guard let session, session.state == .running else { return }
         if isMirroring { return }
         for (intento, espera) in Self.mirrorRetryDelays.enumerated() {
             if espera > 0 { try? await Task.sleep(for: .seconds(espera)) }

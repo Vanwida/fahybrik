@@ -99,6 +99,10 @@ final class MirrorSessionController {
     /// Set while we drive the teardown, so a second `end` (phone retry, local tap)
     /// does not start a parallel close.
     private var isClosing = false
+    /// Arranque en vuelo: el HUD no es esto. `state = .recording` solo cuando
+    /// Apple está en `.running` / `.paused`. Pintar las 3 páginas al crear el
+    /// objeto era el 00:00 del walk (chrome, no telemetría).
+    private var arrancando = false
     /// Quién pidió el cierre — viaja en el `ended` que el dueño manda ANTES de
     /// `session.end()`. Se sella al entrar en `closeRecording`.
     private var pendingEndReason: String = MirrorWire.EndReason.phone
@@ -134,58 +138,56 @@ final class MirrorSessionController {
         if WatchLiveStartStore.load() == nil {
             WatchLiveStartStore.persist(WatchLiveStart(configuration: config))
         }
-        // Card 72 — recover from ANY dirty leftover HUD state, not an enumerated
-        // list. A start in flight is not dirty: only a genuinely stale state
-        // (no signal past `startStaleAfter`) is healed. Healing a 2-second-old
-        // recording was what killed the walk of 29-ago.
         let llevaSinSenal = Date().timeIntervalSince(lastSignalAt)
-        if state != .idle || isClosing {
+        if arrancando || state != .idle || isClosing {
             guard llevaSinSenal > Self.startStaleAfter else {
                 Self.log.info("start(config:) declinado — hay un arranque en marcha (\(llevaSinSenal, privacy: .public)s). No se toca.")
                 return
             }
-            Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), isClosing=\(self.isClosing, privacy: .public), \(llevaSinSenal, privacy: .public)s sin señal) — self-healing before the new recording")
+            Self.log.warning("start(config:) found a dirty state (\(String(describing: self.state), privacy: .public), arrancando=\(self.arrancando, privacy: .public), \(llevaSinSenal, privacy: .public)s sin señal) — self-healing before the new recording")
             forceReleaseStuckSession()
         }
-        guard state == .idle else {
+        guard state == .idle, !arrancando else {
             Self.log.warning("start(config:) declined — state=\(String(describing: self.state), privacy: .public)")
             return
         }
-        state = .recording
+        arrancando = true
         lastSignalAt = Date()
         actividad = config.activityType
-        frame = nil
-        frameReceivedAt = nil
-        liveHR = owner.heartRate > 0 ? Int(owner.heartRate.rounded()) : nil
-        metrosPropios = owner.distanceMeters
-        isConnectionLost = false
-        hkPaused = owner.isPaused
         isClosing = false
         attachToOwner()
-
-        SensorCapture.shared.start()
 
         Task {
             await WatchWorkoutCoordinator.shared.cederMotor()
             attachToOwner()
-            // El aviso ya está en disco y en el contexto. El permiso va
-            // ANTES de crear la primary: un `HKWorkoutSession` nacido sin
-            // grant dejaba el objeto vivo, `isActive` mentía y el segundo
-            // `start` salía sin `startActivity` ni `beginCollection`.
-            // El HUD (AL AIRE LIBRE · llevas) pintaba 00:00; el iPhone
-            // SIN RELOJ porque no hubo `startMirroringToCompanionDevice`.
             await owner.requestAuthorization()
             await owner.start(configuration: config)
-            guard state == .recording else { return }
-            metrosPropios = owner.distanceMeters
-            if owner.heartRate > 0 { liveHR = Int(owner.heartRate.rounded()) }
-            hkPaused = owner.isPaused
             if owner.isActive {
-                beginMirroring()
+                entrarEnSesion()
             } else {
-                Self.log.error("la primary aún no está .running — el HUD espera a didChangeTo, no se vuelve a idle")
+                arrancando = false
+                Self.log.error("la primary aún no está .running — el HUD no pinta chrome; espera a didChangeTo")
             }
         }
+    }
+
+    /// El HUD es la sesión de Apple, no el objeto. Solo aquí `state` pasa
+    /// a `.recording` — `HKWorkoutSessionState.running` / `.paused`.
+    private func entrarEnSesion() {
+        arrancando = false
+        guard state == .idle || state == .recording else { return }
+        if state == .idle {
+            state = .recording
+            frame = nil
+            frameReceivedAt = nil
+            liveHR = owner.heartRate > 0 ? Int(owner.heartRate.rounded()) : nil
+            metrosPropios = owner.distanceMeters
+            isConnectionLost = false
+            hkPaused = owner.isPaused
+            SensorCapture.shared.start()
+        }
+        lastSignalAt = Date()
+        beginMirroring()
     }
 
     /// Tras Health Review el proceso puede nacer de cero. El aviso está en
@@ -202,15 +204,11 @@ final class MirrorSessionController {
     /// `HKHealthStore.recoverActiveWorkoutSession` — «Recovers an active
     /// workout session». Misma sesión, no un segundo dueño.
     func recoverAfterCrash() async {
+        attachToOwner()
         await owner.recoverActiveIfNeeded()
         if owner.isActive {
-            guard state == .idle else { return }
-            state = .recording
-            lastSignalAt = Date()
             actividad = owner.recoveredActivityType
-            attachToOwner()
-            SensorCapture.shared.start()
-            beginMirroring()
+            entrarEnSesion()
             return
         }
         resumeAfterLaunch()
@@ -254,8 +252,7 @@ final class MirrorSessionController {
             self.resetToIdle()
         }
         live.onBecameLive = { [weak self] in
-            guard let self, self.state == .recording else { return }
-            self.beginMirroring()
+            self?.entrarEnSesion()
         }
     }
 
@@ -617,6 +614,7 @@ final class MirrorSessionController {
         isConnectionLost = false
         hkPaused = false
         isClosing = false
+        arrancando = false
         state = .idle
         if clearPending { WatchLiveStartStore.clear() }
     }

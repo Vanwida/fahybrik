@@ -11,6 +11,42 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · El HUD no entra al crear el objeto. Entra cuando Apple corre
+
+Walk `1be0aad4` v23: 3 páginas AL AIRE LIBRE, 00:00, iPhone SIN RELOJ.
+`a900f117` corrigió `isActive` del dueño, pero el espejo seguía haciendo
+`state = .recording` al pedir el arranque. `RootView` pinta el HUD si
+`mirror.isActive` (`state != .idle`). Eso es chrome sobre un
+`HKWorkoutSession` recién `init`, no una primary `.running`.
+
+Doc Apple (buscada):
+
+- `init(healthStore:configuration:)` «Returns a newly instantiated
+  workout session» — instanciar no es correr.
+- `startActivity(with:)` «Starts the workout session activity».
+- `HKWorkoutSessionState.running` «The workout session is running».
+- `HKWorkoutSessionType.primary` «A primary session running on watchOS».
+- `associatedWorkoutBuilder()` «Returns the live workout builder
+  associated with the workout session».
+- `HKLiveWorkoutBuilder.elapsedTime` «The elapsed time for the workout
+  based on the builder’s current contents, including pauses».
+- `beginCollection(withStart:)` «Sets the workout’s start date and
+  begins building the workout».
+- `startMirroringToCompanionDevice` «Starts mirroring the workout
+  session to the companion iOS device».
+
+**Decidido:** se borra el fork. El HUD (`state = .recording`) solo
+cuando `session.state` es `.running` / `.paused`. El crono es
+`elapsedTime` del builder vivo — no `elapsedTime(at:)` del writer
+offline, no un tercer reloj. `beginCollection(withStart:)` es el de
+la sesión live. El espejo al teléfono cuando `.running`. Build 24
+para que watchOS instale el binario.
+
+**NO hacer:** no inventar motor / crono / HUD. No segundo dueño. No
+parchear EmptyState. No segundo PR. No merge. No tocar recap / GPS.
+
+---
+
 ## 2026-08-30 · Chrome en la muñeca no es una `HKWorkoutSession`
 
 Walk `1be0aad4` v23 Mac, Libre 1×800. iPhone SIN RELOJ + FC sin reloj
