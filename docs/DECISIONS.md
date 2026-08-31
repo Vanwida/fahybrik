@@ -10,16 +10,6 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-08-31 · Skip de una serie en vivo reutiliza `setSetSkipped` (FH-47)
-
-**Decidido (Doc Plan aprobado):** saltar una serie de fuerza es la acción que ya existía (`setSetSkipped`), expuesta en la superficie viva junto a «serie hecha», no un motor nuevo ni el salto de ejercicio (`setRepsSkipped`). El último pendiente cierra el tramo con `lap()` — el mismo avance que «ejercicio hecho» — sin `confirmSet` (copiaría kg) y sin el gancho `alTocarAccion` (donde FH-46 interpondrá el picker). Persistencia: `status = skipped`, `load_actual_kg` nil, reps nil. Nunca 0 kg. Un skip no arranca descanso.
-
-**Por qué no se inventó un tipo:** Apple no tiene «skip set». `Button` es el control; `ButtonRole` (cancel / destructive / close / confirm) no describe este gesto. El registro por serie ya admite skipped + kg nil en el cable y en la ingesta.
-
-**En consecuencia, no hacer:** no clonar el advance del Watch; no motor de skip; no `Measurement`; no abrir la rueda de kg en este camino; no rediseñar el resumen atleta / HUD; no usar «Saltar ejercicio» en un multi-set.
-
----
-
 ## 2026-08-31 · N × distancia + descanso en PM5: bout fijo, no type 7
 
 **Decidido (FH-41):** un plan uniforme N × distancia | tiempo | calorías + descanso no se programa como intervalos nativos del PM5 (CSAFE type 7). El monitor recibe solo el bout (`fixedDistance` / `fixedTime` / `fixedCalories`). La app marca serie y descanso. Al cambiar de serie: terminate + reprogramar ese bout. Ski y remo usan el mismo driver (`SegmentKind.rowOrSki`).
