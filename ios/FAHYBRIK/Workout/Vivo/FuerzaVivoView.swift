@@ -84,7 +84,10 @@ struct FuerzaVivoView<Cromo: View>: View {
                             .tracking(0.4)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.Color.muted)
-                            .frame(width: 84, maxHeight: .infinity)
+                            // Two real View.frame overloads — Apple has no
+                            // `frame(width:maxHeight:)`.
+                            .frame(width: 84)
+                            .frame(maxHeight: .infinity)
                             .background(Theme.Color.surface.opacity(0.7))
                             .overlay(
                                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
