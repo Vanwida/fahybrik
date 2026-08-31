@@ -7,7 +7,9 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-46 (este lote, no merge):** al cerrar un ejercicio de fuerza/sled con kg (resuelto o prescrito) se pide el kilo con `KgWheel` (`Picker` + `.wheel`). Semilla = `ResolvedLoad.minKg` al armar el vivo. Un kg por ejercicio; no se copia al siguiente. `confirmSet` igual (SERIE HECHA sigue por serie). Sin skip (PR 101 revertido de main). Sin FH-48.
+**Cerrado · FH-47 — skip de una serie en vivo.** En la superficie de fuerza, junto a «serie hecha». Reutiliza `setSetSkipped` (status skipped, kg nil, reps nil; nunca 0 kg; no arranca descanso). El último pendiente cierra el tramo con `lap()`, sin `confirmSet` y sin abrir la rueda de kg de FH-46.
+
+**En main · FH-46 (PR #102):** al cerrar un ejercicio de fuerza/sled con kg se pide el kilo con `KgWheel`. Semilla = `ResolvedLoad.minKg`. Un kg por ejercicio; no se copia al siguiente. `confirmSet` igual. Sin FH-48.
 
 **En main · FH-41 (PR #99):** N × distancia + descanso en PM5 ya no es CSAFE type 7. `PM5WorkoutProgrammer` manda un bout `fixedDistance` (o time/cal). `monitorRunsTheSeries` es false; la app sigue siendo el reloj; la clave de tramo no cambia en el descanso. Pendiente de soak: live + SkiErg PM5 + N × distancia + descanso (el monitor debe mostrar 0…N m de ESA serie).
 

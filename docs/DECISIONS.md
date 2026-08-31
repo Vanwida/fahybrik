@@ -10,13 +10,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · Skip de una serie en vivo reutiliza `setSetSkipped` (FH-47)
+
+**Decidido (Doc Plan aprobado):** saltar una serie de fuerza es la acción que ya existía (`setSetSkipped`), expuesta en la superficie viva junto a «serie hecha», no un motor nuevo ni el salto de ejercicio (`setRepsSkipped`). El último pendiente cierra el tramo con `lap()` — el mismo avance que «ejercicio hecho» — sin `confirmSet` (copiaría kg) y sin abrir la rueda de kg de FH-46 (`cierreDeCarga` / `alTocarAccion`). Persistencia: `status = skipped`, `load_actual_kg` nil, reps nil. Nunca 0 kg. Un skip no arranca descanso.
+
+**Por qué no se inventó un tipo:** Apple no tiene «skip set». `Button` es el control; `ButtonRole` (cancel / destructive / close / confirm) no describe este gesto. El registro por serie ya admite skipped + kg nil en el cable y en la ingesta.
+
+**En consecuencia, no hacer:** no clonar el advance del Watch; no motor de skip; no `Measurement`; no abrir la rueda de kg en este camino; no rediseñar el resumen atleta / HUD; no usar «Saltar ejercicio» en un multi-set.
+
+---
+
 ## 2026-08-31 · El kg de fuerza se declara al cerrar el EJERCICIO (FH-46)
 
-**Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47; el skip no se implementa aquí).
+**Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47).
 
 **Por qué:** `resolved_load` se ve en el brief y se tiraba al armar (`segment(from:)` solo leía `params_json.load_kg`; un %RM se aplana a `load_pct`). La rueda ya existía (`KgWheel` = `SwiftUI.Picker` + `.pickerStyle(.wheel)`). `Foundation.UnitMass.kilograms` es magnitud, no un control. WorkoutKit / `HKWorkoutSession` no registran la carga del coach.
 
-**En consecuencia, no hacer:** no clonar la rueda; no usar `Measurement<UnitMass>` como UI; no llamar `setSetLoadCascade` hacia otros tramos (`resetSegmentManualAndGPS` ya aísla); no tocar `endBlockEarly`, skip (FH-47), Watch, HUD, %RM de `shared/domain/strength/resolve.ts`, PM5 ni el fondo en vivo.
+**En consecuencia, no hacer:** no clonar la rueda; no usar `Measurement<UnitMass>` como UI; no llamar `setSetLoadCascade` hacia otros tramos (`resetSegmentManualAndGPS` ya aísla); no tocar `endBlockEarly`, Watch, HUD, %RM de `shared/domain/strength/resolve.ts`, PM5 ni el fondo en vivo.
 
 ---
 
