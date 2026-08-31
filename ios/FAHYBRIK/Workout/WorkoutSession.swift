@@ -36,7 +36,8 @@ final class WorkoutSession {
     var phoneActivityKind: String = "mixed"
     /// Free / ad-hoc run — persists so cold launch resumes without an assignment.
     var isFreeRun: Bool = false
-    /// Test seam matching `HKLiveWorkoutBuilder.elapsedTime`. Production is nil;
+    /// Test seam matching Apple's builder clock (`elapsedTime` / `elapsedTime(at:)`).
+    /// Production is nil;
     /// tests inject a ≥30 s clock. Not a homemade run clock.
     var testElapsedTime: TimeInterval? = nil
     #endif
@@ -2734,7 +2735,8 @@ final class WorkoutSession {
         currentSegment?.kind == .running ? (lapGpsDistanceMeters ?? manualRunDistanceMeters) : nil
     }
 
-    /// Apple's `HKLiveWorkoutBuilder.elapsedTime` when the phone owns the run;
+    /// Apple's builder clock when the phone owns the run (Live `elapsedTime` on
+    /// iOS 26; `HKWorkoutBuilder.elapsedTime(at:)` on 18);
     /// the test seam when tests inject a ≥30 s clock; nil on Watch / no session.
     func liveElapsedTime() -> TimeInterval? {
         #if os(iOS)

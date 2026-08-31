@@ -2,13 +2,18 @@ import Foundation
 import HealthKit
 import Observation
 
-// iPhone PRIMARY `HKWorkoutSession` + `HKLiveWorkoutBuilder` (Apple, iOS 17+,
-// deploy 18). This object IS the run. The coach plan hangs off `runUUID`.
-// The homemade Timer in WorkoutSession is a poller of `builder.elapsedTime`,
-// not the clock (FH-48).
+// iPhone PRIMARY `HKWorkoutSession` (Apple, iOS 17+, deploy 18). This object
+// IS the run. The coach plan hangs off `runUUID`.
+//
+// Builder (Apple, not a Fahybrid clock):
+//   • iOS 26+: `associatedWorkoutBuilder()` → `HKLiveWorkoutBuilder.elapsedTime`
+//     (session-associated; pauses included).
+//   • iOS 18–25: `HKWorkoutBuilder` (iOS 12+) + `elapsedTime(at:)`. The Live
+//     builder / data source / `associatedWorkoutBuilder` are iOS 26 in this SDK.
+//     Pause/resume are recorded as `HKWorkoutEvent` so Apple's duration
+//     accounts for holds.
 //
 // One primary only. Watch ADOPTS via `workoutSessionMirroringStartHandler`.
-// Do not also create an HKWorkoutSession on the wrist (two primaries desync).
 @MainActor
 @Observable
 final class PhoneWorkoutRun: NSObject {
@@ -22,7 +27,9 @@ final class PhoneWorkoutRun: NSObject {
     @ObservationIgnored private let delegateShim = PhoneWorkoutRunDelegate()
 
     private(set) var session: HKWorkoutSession?
-    private(set) var builder: HKLiveWorkoutBuilder?
+    /// `HKWorkoutBuilder` is iOS 12+. On iOS 26 the value is the Live subclass
+    /// from `associatedWorkoutBuilder()`.
+    private(set) var builder: HKWorkoutBuilder?
     private(set) var runUUID: UUID?
 
     /// True while THIS process owns a primary (not mirrored) HK session.
@@ -31,8 +38,14 @@ final class PhoneWorkoutRun: NSObject {
         return session.type == .primary
     }
 
-    /// Apple's clock, including pauses. Nil until the builder is attached.
-    var elapsedTime: TimeInterval? { builder?.elapsedTime }
+    /// Apple's clock. Live `elapsedTime` on iOS 26; `elapsedTime(at:)` on 18.
+    var elapsedTime: TimeInterval? {
+        guard let builder else { return nil }
+        if #available(iOS 26.0, *), let live = builder as? HKLiveWorkoutBuilder {
+            return live.elapsedTime
+        }
+        return builder.elapsedTime(at: Date())
+    }
 
     @ObservationIgnored private var pendingSave = false
     @ObservationIgnored private var didMarkFirstBlock = false
@@ -69,20 +82,27 @@ final class PhoneWorkoutRun: NSObject {
         config.locationType = Self.locationType(for: activityKind)
         do {
             let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
-            let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(
-                healthStore: healthStore, workoutConfiguration: config
-            )
             session.delegate = delegateShim
-            builder.delegate = delegateShim
             let uuid = UUID()
             self.session = session
-            self.builder = builder
             self.runUUID = uuid
             self.didMarkFirstBlock = false
-            builder.addMetadata([Self.metadataRunUUIDKey: uuid.uuidString]) { _, _ in }
 
             let start = Date()
+            let builder: HKWorkoutBuilder
+            if #available(iOS 26.0, *) {
+                let live = session.associatedWorkoutBuilder()
+                live.dataSource = HKLiveWorkoutDataSource(
+                    healthStore: healthStore, workoutConfiguration: config
+                )
+                builder = live
+            } else {
+                builder = HKWorkoutBuilder(
+                    healthStore: healthStore, configuration: config, device: .local()
+                )
+            }
+            self.builder = builder
+            builder.addMetadata([Self.metadataRunUUIDKey: uuid.uuidString]) { _, _ in }
             session.startActivity(with: start)
             builder.beginCollection(withStart: start) { _, _ in }
             // Do not pause here. Fresh start parks on the preview via armBlock()
@@ -99,33 +119,38 @@ final class PhoneWorkoutRun: NSObject {
     }
 
     /// Reattach a session Apple handed back from `recoverActiveWorkoutSession`.
-    /// Recreates the live data source (WWDC: the session/builder restore; the
-    /// data source does not). Does not start a new activity.
+    /// iOS 26 only (`associatedWorkoutBuilder` + Live data source). Recreates
+    /// the live data source (WWDC: session/builder restore; data source does not).
     func attachRecovered(_ recovered: HKWorkoutSession) {
         session = recovered
-        let builder = recovered.associatedWorkoutBuilder()
-        builder.dataSource = HKLiveWorkoutDataSource(
-            healthStore: healthStore,
-            workoutConfiguration: recovered.workoutConfiguration
-        )
         recovered.delegate = delegateShim
-        builder.delegate = delegateShim
-        self.builder = builder
-        if let raw = builder.metadata[Self.metadataRunUUIDKey] as? String,
-           let uuid = UUID(uuidString: raw) {
-            runUUID = uuid
+        if #available(iOS 26.0, *) {
+            let live = recovered.associatedWorkoutBuilder()
+            live.dataSource = HKLiveWorkoutDataSource(
+                healthStore: healthStore,
+                workoutConfiguration: recovered.workoutConfiguration
+            )
+            builder = live
+            if let raw = live.metadata[Self.metadataRunUUIDKey] as? String,
+               let uuid = UUID(uuidString: raw) {
+                runUUID = uuid
+            } else {
+                runUUID = runUUID ?? UUID()
+            }
         } else {
+            builder = nil
             runUUID = runUUID ?? UUID()
         }
         didMarkFirstBlock = true
     }
 
-    /// Pin `@available` against deploy 18.0. MCP listed mixed iOS 26 / watchOS 5
-    /// for neighbouring symbols; `recoverActiveWorkoutSession` is on HKHealthStore
-    /// and the iPhone session it returns is the iOS 17+ `HKWorkoutSession`.
+    /// `recoverActiveWorkoutSession` is iOS 26.0 in this SDK (watchOS 5). Pin
+    /// against deploy 18: no-op below 26; `LiveWorkoutResume` still restores
+    /// the coach snapshot so process death does not birth an empty cover.
     func recover() async -> HKWorkoutSession? {
         if let session { return session }
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
+        guard #available(iOS 26.0, *) else { return nil }
         return await withCheckedContinuation { cont in
             healthStore.recoverActiveWorkoutSession { session, _ in
                 Task { @MainActor in
@@ -138,8 +163,30 @@ final class PhoneWorkoutRun: NSObject {
 
     // MARK: - Pause / resume / end / segments / mirror
 
-    func pause() { session?.pause() }
-    func resume() { session?.resume() }
+    func pause() {
+        session?.pause()
+        recordDisconnectedPauseEvent(.pause)
+    }
+
+    func resume() {
+        session?.resume()
+        recordDisconnectedPauseEvent(.resume)
+    }
+
+    /// On iOS 18 the builder is not associated with the session. Apple's
+    /// `elapsedTime(at:)` only subtracts holds if we record `HKWorkoutEvent`.
+    /// iOS 26 Live builder is wired to the session — do not double-count.
+    private func recordDisconnectedPauseEvent(_ type: HKWorkoutEventType) {
+        if #available(iOS 26.0, *) { return }
+        guard let builder else { return }
+        let now = Date()
+        let event = HKWorkoutEvent(
+            type: type,
+            dateInterval: DateInterval(start: now, end: now),
+            metadata: nil
+        )
+        builder.addWorkoutEvents([event]) { _, _ in }
+    }
 
     /// Apple segment for a coach-block crossing. First block already started
     /// with `startActivity` — only later blocks call `beginNewActivity`.
@@ -147,7 +194,7 @@ final class PhoneWorkoutRun: NSObject {
         guard let session else { return }
         if !didMarkFirstBlock {
             didMarkFirstBlock = true
-            session.resume()
+            resume()
             return
         }
         let config = HKWorkoutConfiguration()
@@ -220,9 +267,10 @@ final class PhoneWorkoutRun: NSObject {
     }
 }
 
-// NSObject shim — HKWorkoutSessionDelegate / HKLiveWorkoutBuilderDelegate are
-// NSObjectProtocol. Delegate is weak on the session/builder.
-private final class PhoneWorkoutRunDelegate: NSObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
+// NSObject shim — HKWorkoutSessionDelegate is NSObjectProtocol.
+// `HKLiveWorkoutBuilderDelegate` is iOS 26; we do not conform (those
+// callbacks were empty — the phone does not own Watch meters).
+private final class PhoneWorkoutRunDelegate: NSObject, HKWorkoutSessionDelegate {
     weak var owner: PhoneWorkoutRun?
 
     func workoutSession(
@@ -247,11 +295,4 @@ private final class PhoneWorkoutRunDelegate: NSObject, HKWorkoutSessionDelegate,
             PhoneMirrorService.shared.handleIncoming(data)
         }
     }
-
-    func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
-
-    func workoutBuilder(
-        _ workoutBuilder: HKLiveWorkoutBuilder,
-        didCollectDataOf collectedTypes: Set<HKSampleType>
-    ) {}
 }
