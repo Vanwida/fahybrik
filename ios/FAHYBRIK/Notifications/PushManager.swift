@@ -160,6 +160,10 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // FH-48 — Apple owns the run. Reattach before any SwiftUI @State cover.
+        Task { @MainActor in
+            _ = await PhoneWorkoutRun.shared.recover()
+        }
         return true
     }
 

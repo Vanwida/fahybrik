@@ -236,7 +236,8 @@ struct InicioView: View {
             testBatteryNonce += 1
         }
         .fullScreenCover(item: $workoutLaunch) { launch in
-            // EMPEZAR runs the real prescribed workout via WorkoutContainer.
+            // User-initiated Empezar. Process-death resume is AppShell +
+            // LiveWorkoutResume — this @State is nil after jetsam (FH-48).
             WorkoutContainer(
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,

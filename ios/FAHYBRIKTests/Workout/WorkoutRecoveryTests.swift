@@ -1,9 +1,11 @@
 import XCTest
 @testable import FAHYBRIK
 
-// AUDIT lote A (recovery honesto) — the crash-recovery gate + the store latch. The
-// gate decides "offer this snapshot?" purely (same assignment · fresh · real); the
-// latch guarantees a late autosave can never resurrect a finished/discarded snapshot.
+// AUDIT lote A (recovery honesto) + FH-48. The gate decides "offer this snapshot?"
+// purely (same assignment · fresh · free/ad-hoc). The latch guarantees a late
+// autosave can never resurrect a finished snapshot. FH-48 tests the done criteria
+// (≥30 s clock jump, lock, process death, Watch one-primary, free) — a 5 s
+// happy path is not enough.
 final class WorkoutRecoveryTests: XCTestCase {
 
     private func plan(id: UUID = UUID()) -> WorkoutPlan {
@@ -25,10 +27,14 @@ final class WorkoutRecoveryTests: XCTestCase {
         XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: "42"), currentAssignmentId: "42"))
     }
 
-    func testRejectsNilAssignment() {
-        // An older snapshot (or ad-hoc) with no assignment is never offered — no guessing.
+    func testRejectsNilAssignmentIntoAssignedContainer() {
+        // Free / ad-hoc snapshot must not be recovered into a prescribed assignment.
         XCTAssertFalse(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: nil), currentAssignmentId: "42"))
-        XCTAssertFalse(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: nil), currentAssignmentId: nil))
+    }
+
+    func testOffersFreeAdHocWithoutAssignment() {
+        // FH-48 — free / ad-hoc also resumes. The gate used to drop nil assignmentId.
+        XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: nil), currentAssignmentId: nil))
     }
 
     func testRejectsDifferentAssignment() {
@@ -47,7 +53,7 @@ final class WorkoutRecoveryTests: XCTestCase {
 
     func testOldSnapshotDecodesWithNilAssignment() throws {
         // A snapshot from a build BEFORE assignmentId existed (key absent) still decodes,
-        // with assignmentId nil → the gate then discards it.
+        // with assignmentId nil. Offered only on an unassigned (free) container.
         let data = try JSONEncoder().encode(snapshot(assignment: "42"))
         var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         obj.removeValue(forKey: "assignmentId")
@@ -81,5 +87,128 @@ final class WorkoutRecoveryTests: XCTestCase {
         XCTAssertNotNil(loaded)                      // persistence works again
 
         await store.clear()
+    }
+
+    // MARK: - FH-48 · Apple owns the run (not a 5 s happy path)
+
+    private func snapshot(
+        assignment: String?,
+        elapsed: Double,
+        lap: Double,
+        isPaused: Bool,
+        hk: UUID? = nil,
+        isFree: Bool = false,
+        segmentIndex: Int = 0,
+        primed: Bool = true
+    ) -> PersistedWorkoutState {
+        PersistedWorkoutState(
+            plan: plan(),
+            startedAt: Date().addingTimeInterval(-elapsed),
+            currentSegmentIndex: segmentIndex,
+            elapsedSeconds: elapsed,
+            lapElapsedSeconds: lap,
+            laps: [],
+            repsByCurrentSegment: 8,
+            isPaused: isPaused,
+            savedAt: Date(),
+            assignmentId: assignment,
+            hkSessionUUID: hk,
+            isFree: isFree,
+            currentSegmentPrimed: primed
+        )
+    }
+
+    /// ≥30 s background/lock catch-up: Apple's elapsedTime jumps; cursor and
+    /// progress must not reset to zero. A 5 s tick is not this test.
+    func testThirtySecondClockJumpKeepsCursorAndProgress() {
+        let s = WorkoutSession(plan: plan())
+        s.restore(from: snapshot(assignment: "42", elapsed: 12, lap: 7, isPaused: false))
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertEqual(s.elapsedSeconds, 12, accuracy: 0.01)
+        XCTAssertFalse(s.isAwaitingBlockStart)
+
+        s.testElapsedTime = 12
+        s.applyLiveClock()
+        s.testElapsedTime = 12 + 30
+        s.applyLiveClock()
+
+        XCTAssertEqual(s.elapsedSeconds, 42, accuracy: 0.01)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertEqual(s.lapElapsedSeconds, 37, accuracy: 0.01)
+        XCTAssertGreaterThan(s.elapsedSeconds, 0)
+        XCTAssertFalse(s.isAwaitingBlockStart)
+        s.stop()
+    }
+
+    /// Lock: restore applies isPaused; a ≥30 s Apple clock jump must not advance
+    /// the coach cursor or zero progress.
+    func testLockPauseAppliedAndThirtySecondJumpDoesNotAdvance() {
+        let s = WorkoutSession(plan: plan())
+        s.restore(from: snapshot(assignment: "42", elapsed: 40, lap: 15, isPaused: true))
+        XCTAssertTrue(s.isPaused)
+        XCTAssertEqual(s.elapsedSeconds, 40, accuracy: 0.01)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+
+        s.testElapsedTime = 40 + 30
+        s.applyLiveClock()
+
+        XCTAssertTrue(s.isPaused)
+        XCTAssertEqual(s.elapsedSeconds, 40, accuracy: 0.01)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        XCTAssertEqual(s.lapElapsedSeconds, 15, accuracy: 0.01)
+        s.stop()
+    }
+
+    /// Process death: restore + start() must NOT armBlock() (that wipes EMOM).
+    func testProcessDeathRestoreDoesNotArmBlockOrWipeEMOM() {
+        let s = WorkoutSession(plan: plan())
+        s.restore(from: snapshot(assignment: "42", elapsed: 95, lap: 20, isPaused: false))
+        s.emomIntervalIndex = 4
+        XCTAssertFalse(s.isAwaitingBlockStart)
+
+        s.start()
+
+        XCTAssertFalse(s.isAwaitingBlockStart, "armBlock() parks on the preview")
+        XCTAssertEqual(s.emomIntervalIndex, 4, "armBlock() → clearEMOMState() zeros this")
+        XCTAssertEqual(s.elapsedSeconds, 95, accuracy: 0.01)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+        s.stop()
+    }
+
+    func testCoachPlanHangsOffSessionUUID() throws {
+        let uuid = UUID()
+        let snap = snapshot(assignment: "42", elapsed: 30, lap: 10, isPaused: false, hk: uuid)
+        XCTAssertEqual(snap.hkSessionUUID, uuid)
+        let data = try JSONEncoder().encode(snap)
+        let decoded = try JSONDecoder().decode(PersistedWorkoutState.self, from: data)
+        XCTAssertEqual(decoded.hkSessionUUID, uuid)
+        XCTAssertEqual(decoded.elapsedSeconds, 30, accuracy: 0.01)
+    }
+
+    func testFreeSnapshotCarriesIsFreeAndResumes() throws {
+        let snap = snapshot(assignment: nil, elapsed: 33, lap: 11, isPaused: false, isFree: true)
+        XCTAssertTrue(snap.isFree)
+        XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: snap, currentAssignmentId: nil))
+        let s = WorkoutSession(plan: plan())
+        s.restore(from: snap)
+        XCTAssertTrue(s.isFreeRun)
+        XCTAssertEqual(s.elapsedSeconds, 33, accuracy: 0.01)
+        s.start()
+        XCTAssertFalse(s.isAwaitingBlockStart)
+        s.stop()
+    }
+
+    /// One HK primary. Adopting a Watch-created session while the phone already
+    /// owns the run is the Watch-desync (0:00 / other cursor).
+    func testWatchAdoptRefusedWhenPhoneHasPrimary() {
+        XCTAssertTrue(WorkoutPrimaryRule.shouldAdoptCompanion(hasPrimary: false))
+        XCTAssertFalse(WorkoutPrimaryRule.shouldAdoptCompanion(hasPrimary: true))
+    }
+
+    func testFreshStartStillArmsBlock() {
+        let s = WorkoutSession(plan: plan())
+        s.start()
+        XCTAssertTrue(s.isAwaitingBlockStart)
+        s.stop()
     }
 }

@@ -97,8 +97,8 @@ struct FreeInicioView: View {
             )
         }
         .fullScreenCover(item: $workoutLaunch) { launch in
-            // A session of the week still pending — the same brief/execution flow
-            // the coached Plan opens. Nothing free-specific is re-implemented.
+            // User-initiated start. Process-death resume is AppShell +
+            // LiveWorkoutResume (this @State dies with the process; FH-48).
             WorkoutContainer(
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,

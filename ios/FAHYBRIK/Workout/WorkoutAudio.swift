@@ -10,11 +10,10 @@ import AVFoundation
 //     over the athlete's music. A `.playback` AVAudioSession plays THROUGH the
 //     silent switch — correct for a workout app — and `.mixWithOthers` overlays
 //     the beep on top of music without stopping it.
-//   • Keeping the engine running for the duration of the EMOM holds the audio
-//     session in the "playing" state, which — paired with the `audio`
-//     UIBackgroundMode — keeps the app (and its interval Timer) alive while the
-//     screen is LOCKED, so the every-minute beep still fires from a pocketed
-//     phone. The engine renders silence between beeps; nothing audible leaks.
+//   • The engine renders silence between beeps so cues still fire. That is NOT
+//     the owner of the run (FH-48). Apple's `HKWorkoutSession` owns the live;
+//     this path is only the cue speaker. Do not treat a silent AVAudioEngine
+//     as a keep-alive that "is" the workout.
 //
 // Tones are synthesised sine bursts (with a short attack/decay envelope to avoid
 // clicks), so there are no bundled audio assets to ship or keep in sync.

@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · FH-48 — el iPhone posee el run; el Timer casero no es el reloj
+
+**Decidido (Doc Plan aprobado, no reinterpretar):** el live del iPhone es un `HKWorkoutSession` + builder (Apple; Live builder en iOS 26+, `HKWorkoutBuilder` en 18–25; deploy 18). El plan del coach (bloque/serie/tramo) se serializa colgando de ese UUID en `WorkoutStateStore`. Un store, DRY, sin fork por formato. Cold launch llama `recoverActiveWorkoutSession` (iOS 26+) y reabre el mismo cover — no un cover vacío, no `armBlock()` en restore. Free / ad-hoc también se retoman (el gate ya no tira un snapshot sin `assignmentId`). Un solo primary: el Watch ADOPTA (`workoutSessionMirroringStartHandler`); no se llama `startWatchApp` (eso crea otra sesión). `WorkoutKit.WorkoutPlan` no persiste el live. `UIApplication.didEnterBackgroundNotification` no es el almacén.
+
+**Por qué:** el live era un `Timer` 0,25 s en `@State` (`WorkoutSession` @Observable dentro de un `fullScreenCover`). iOS no lo trata como workout; background / lock / jetsam lo matan; `workoutLaunch` nace nil; el JSON del store no se abría; el modal de recover no llamaba `begin` y el Watch se quedaba en 0:00. Misma clase que medir distancia a mano en el Watch: copia de un tipo de Apple, invertida.
+
+**Descartado:** keep-alives de audio / location / BLE como dueño del run (siguen por cues / GPS / PM5 — síntoma, no dueño). Watch-as-primary para un live arrancado en el teléfono (dos `HKWorkoutSession` = Watch desincronizado). Reloj casero. Modal de recover solo para la misma assignment (el free moría). Reusar `start()`+`armBlock()` como restore (fabricaba sesión nueva y borraba EMOM).
+
+**En consecuencia, no hacer:** no inventar otro session / HUD / Watch / week engine; no tocar HUD/Vivo, PM5 (FH-41), metros del Watch (FH-42), picker de kg (FH-46, ya en main), skip (FH-47, revertido), `HealthKitWorkoutWriter` ni el scheduler de WorkoutKit; no persistir el live en WorkoutKit; no abrir un cover vacío si Apple no tiene sesión y no hay snapshot fresco.
+
+---
+
 ## 2026-08-31 · El kg de fuerza se declara al cerrar el EJERCICIO (FH-46)
 
 **Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47; el skip no se implementa aquí).

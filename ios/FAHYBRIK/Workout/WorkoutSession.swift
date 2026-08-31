@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if os(iOS)
+import UIKit
+#endif
 
 /// Did the athlete reach the END of the prescribed protocol, or stop short?
 /// `.full` → the assignment is marked 'completed'; `.partial` → 'partial' (the
@@ -27,6 +30,16 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
+    #if os(iOS)
+    /// Watch vocabulary ("running" | "strength" | "hyrox" | "mixed") — the Apple
+    /// session's HKWorkoutConfiguration. Set by the container before start.
+    var phoneActivityKind: String = "mixed"
+    /// Free / ad-hoc run — persists so cold launch resumes without an assignment.
+    var isFreeRun: Bool = false
+    /// Test seam matching `HKLiveWorkoutBuilder.elapsedTime`. Production is nil;
+    /// tests inject a ≥30 s clock. Not a homemade run clock.
+    var testElapsedTime: TimeInterval? = nil
+    #endif
     /// Where the athlete said they run TODAY (cinta / calle), chosen pre-start.
     /// Drives the auto-open of the right live HUD and keeps GPS off on a treadmill
     /// run (indoor GPS noise reads as phantom pace). Ephemeral — never persisted.
@@ -312,7 +325,13 @@ final class WorkoutSession {
 
     private var timer: Timer?
     private var lastTick: Date = Date()
+    /// Last Apple `elapsedTime` (or test seam) — the poller diffs this, it is not
+    /// the clock. Date `lastTick` remains the Watch / no-HK fallback.
+    private var lastAppleElapsed: TimeInterval? = nil
     private var autoSaveTicker: Int = 0
+    #if os(iOS)
+    private var foregroundObserver: NSObjectProtocol?
+    #endif
     private var lapHRSamples: [Int] = []
     private var lapZoneAccumSec: [Int: Double] = [:]
 
@@ -427,6 +446,15 @@ final class WorkoutSession {
         self.plan = plan
         self.hrZones = hrZones
         self.startedAt = startedAt
+    }
+
+    deinit {
+        #if os(iOS)
+        if let foregroundObserver {
+            NotificationCenter.default.removeObserver(foregroundObserver)
+        }
+        #endif
+        timer?.invalidate()
     }
 
     var currentSegment: WorkoutSegment? {
@@ -681,17 +709,27 @@ final class WorkoutSession {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may
         // have closed the store on finish/discard.
         Task { await WorkoutStateStore.shared.open() }
+        #if os(iOS)
+        // Apple owns the run. Create/retain HKWorkoutSession on Empezar. A
+        // restore already attached the recovered session — startIfNeeded no-ops.
+        PhoneWorkoutRun.shared.startIfNeeded(activityKind: phoneActivityKind)
+        persistNow()
+        if foregroundObserver == nil {
+            foregroundObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willEnterForegroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in self?.applyLiveClock() }
+        }
+        #endif
         guard timer == nil else { return }
         lastTick = Date()
+        lastAppleElapsed = liveElapsedTime()
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            self?.tick()
+            self?.applyLiveClock()
         }
-        // First appearance: ARM the current block (show its preview, hold the
-        // clock) so the session begins with the athlete's approval, not a timer
-        // that's already running. A crash-recovered EMOM keeps its live interval
-        // state (emomSegmentIndex != nil) and resumes running, exactly as before.
-        // Re-appearances (hasArmedInitial) just resume the timer — they never
-        // re-arm a block mid-session.
+        // First appearance: ARM the current block. Restore sets hasArmedInitial
+        // so this MUST NOT run — armBlock() wipes EMOM/run/conditioning.
         if !hasArmedInitial {
             hasArmedInitial = true
             #if os(iOS)
@@ -716,8 +754,15 @@ final class WorkoutSession {
         if isPaused {
             isPaused = false
             lastTick = Date()
+            lastAppleElapsed = liveElapsedTime()
+            #if os(iOS)
+            PhoneWorkoutRun.shared.resume()
+            #endif
         } else {
             isPaused = true
+            #if os(iOS)
+            PhoneWorkoutRun.shared.pause()
+            #endif
         }
     }
 
@@ -730,6 +775,9 @@ final class WorkoutSession {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         isPaused = true
         autoPaused = true
+        #if os(iOS)
+        PhoneWorkoutRun.shared.pause()
+        #endif
     }
 
     /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
@@ -740,6 +788,10 @@ final class WorkoutSession {
         isPaused = false
         autoPaused = false
         lastTick = Date()
+        lastAppleElapsed = liveElapsedTime()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.resume()
+        #endif
     }
 
     /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
@@ -751,6 +803,9 @@ final class WorkoutSession {
     func pauseForVideo() -> Bool {
         guard !isPaused, !isFinished else { return false }
         isPaused = true
+        #if os(iOS)
+        PhoneWorkoutRun.shared.pause()
+        #endif
         return true
     }
 
@@ -760,6 +815,10 @@ final class WorkoutSession {
         guard isPaused, !isFinished else { return }
         isPaused = false
         lastTick = Date()
+        lastAppleElapsed = liveElapsedTime()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.resume()
+        #endif
     }
 
     func tap(reps: Int = 1) {
@@ -932,8 +991,12 @@ final class WorkoutSession {
         isExtraWork = true
         isPaused = false
         lastTick = Date()
+        lastAppleElapsed = liveElapsedTime()
         resetTramoWindow()
         Haptics.cueGo()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.resume()
+        #endif
     }
 
     /// End the session and route to the post-workout summary. `completeness` is the
@@ -973,6 +1036,9 @@ final class WorkoutSession {
         AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
         #endif
         stop()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.end(save: true)
+        #endif
         // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
         // never be re-offered as "recuperar entreno en curso", and the latch stops a
         // late autosave Task from re-creating the snapshot after this.
@@ -984,6 +1050,9 @@ final class WorkoutSession {
     /// resurrect the discarded session.
     func discardAndClose() {
         stop()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.end(save: false)
+        #endif
         Task { await WorkoutStateStore.shared.close() }
     }
 
@@ -1041,6 +1110,10 @@ final class WorkoutSession {
         primeRxScaledIfNeeded()
         isPaused = false
         isAwaitingBlockStart = true
+        #if os(iOS)
+        // Preview gate: Apple's clock freezes until beginBlock → resume.
+        PhoneWorkoutRun.shared.pause()
+        #endif
     }
 
     /// "Empezar" — leave the preview and START the current block. Resets the tick
@@ -1052,7 +1125,11 @@ final class WorkoutSession {
         isAwaitingBlockStart = false
         isPaused = false
         lastTick = Date()
+        lastAppleElapsed = liveElapsedTime()
         Haptics.medium()
+        #if os(iOS)
+        PhoneWorkoutRun.shared.markCoachBlockStart(activityKind: phoneActivityKind)
+        #endif
         onEnterSegment()
     }
 
@@ -2645,18 +2722,56 @@ final class WorkoutSession {
         currentSegment?.kind == .running ? (lapGpsDistanceMeters ?? manualRunDistanceMeters) : nil
     }
 
+    /// Apple's `HKLiveWorkoutBuilder.elapsedTime` when the phone owns the run;
+    /// the test seam when tests inject a ≥30 s clock; nil on Watch / no session.
+    func liveElapsedTime() -> TimeInterval? {
+        #if os(iOS)
+        if let testElapsedTime { return testElapsedTime }
+        return PhoneWorkoutRun.shared.elapsedTime
+        #else
+        return nil
+        #endif
+    }
+
+    /// Poll Apple's clock (or the test seam) and advance coach engines by the
+    /// delta. The Timer is a poller, not the run. Internal so recovery tests can
+    /// inject a 30 s jump without a 5 s happy path.
+    func applyLiveClock() {
+        tick()
+    }
+
+    private func persistNow() {
+        Task { [snapshot = persistedSnapshot()] in
+            await WorkoutStateStore.shared.save(snapshot)
+        }
+    }
+
     private func tick() {
         // The block-preview gate freezes ALL clocks (elapsed, lap, EMOM count-in/
-        // countdown) until the athlete taps Empezar; resetting lastTick means the
-        // elapsed clock can't jump by the time spent on the preview.
+        // countdown) until the athlete taps Empezar. Apple's session is paused
+        // for that hold — do not reset lastAppleElapsed (a Date reset used to
+        // eat background time).
         guard !isPaused, !isFinished, !isAwaitingBlockStart, !isAwaitingFinishDecision else {
             lastTick = Date()
+            if let apple = liveElapsedTime() { lastAppleElapsed = apple }
             return
         }
-        let now = Date()
-        let dt = now.timeIntervalSince(lastTick)
-        lastTick = now
-        elapsedSeconds += dt
+        let dt: Double
+        if let apple = liveElapsedTime() {
+            // Apple owns the session clock (includes pauses). Catch-up after
+            // background / lock / jetsam is the delta, including ≥30 s.
+            let prev = lastAppleElapsed ?? apple
+            dt = max(0, apple - prev)
+            lastAppleElapsed = apple
+            elapsedSeconds = apple
+            lastTick = Date()
+        } else {
+            // Watch standalone / tests without an HK session — existing Date tick.
+            let now = Date()
+            dt = now.timeIntervalSince(lastTick)
+            lastTick = now
+            elapsedSeconds += dt
+        }
         lapElapsedSeconds += dt
         if let zone = liveZone {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt
@@ -2772,6 +2887,20 @@ final class WorkoutSession {
             isPaused: isPaused,
             savedAt: Date(),
             assignmentId: assignmentId,
+            hkSessionUUID: {
+                #if os(iOS)
+                return PhoneWorkoutRun.shared.runUUID
+                #else
+                return nil
+                #endif
+            }(),
+            isFree: {
+                #if os(iOS)
+                return isFreeRun
+                #else
+                return false
+                #endif
+            }(),
             // The in-flight segment's honesty carriers travel with it, so a recovered
             // session resumes what the athlete DECLARED instead of re-priming the
             // prescription over it. Only the DECLARED load rides along — a primed one
@@ -2809,6 +2938,14 @@ final class WorkoutSession {
         rxScaled = snapshot.rxScaled
         scaledNote = snapshot.scaledNote
         manualRunDistanceMeters = snapshot.manualRunDistanceMeters
+        isPaused = snapshot.isPaused
+        // Restore must NOT call armBlock() on the later start() — that wipes
+        // EMOM / run / conditioning. The athlete is already inside the block.
+        hasArmedInitial = true
+        lastAppleElapsed = snapshot.elapsedSeconds
+        #if os(iOS)
+        isFreeRun = snapshot.isFree || snapshot.assignmentId == nil
+        #endif
         if let kg = snapshot.declaredLoadKg {
             manualLoadKg = kg
             primedLoadKg = nil          // declared, not primed → `loadConfirmed` holds

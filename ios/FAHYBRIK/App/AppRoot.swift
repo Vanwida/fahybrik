@@ -128,6 +128,9 @@ struct AppRoot: View {
             // Register the mirrored-session handler early (idempotent) so a wrist
             // recording started during a workout is never missed. Cheap, no prompt.
             PhoneMirrorService.shared.prepare()
+            // Reattach Apple's primary session before any tab @State exists
+            // (FH-48). The live cover is presented from AppShell once authenticated.
+            Task { _ = await PhoneWorkoutRun.shared.recover() }
             if auth.stage == .authenticated {
                 startHealthKitSync()
                 startPush()

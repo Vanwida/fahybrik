@@ -54,6 +54,11 @@ struct AppShell: View {
     // its tab directly now that Chat is a first-class destination).
     @State private var pushRouter = PushRouter.shared
 
+    // Process-level live resume (FH-48). `workoutLaunch` on Inicio/Plan/Free
+    // is @State and dies with the process; this cover is the one that reopens
+    // after jetsam / kill so we do not birth an empty session.
+    @State private var liveResume = LiveWorkoutResume.shared
+
     var body: some View {
         // Native `TabView` owns the safe-area anchoring, the opaque bar material
         // (extended into the home-indicator area), and the per-tab content inset.
@@ -114,6 +119,25 @@ struct AppShell: View {
             ChatView(bearer: bearer)
                 .environment(store)
         }
+        .fullScreenCover(item: Binding(
+            get: { liveResume.cover },
+            set: { liveResume.cover = $0 }
+        )) { item in
+            WorkoutContainer(
+                assignmentId: item.assignmentId,
+                fallbackTitle: item.title,
+                bearer: bearer,
+                freeContext: item.freeContext,
+                hrZones: store.identity.value?.hrZones,
+                recoveredSession: item.session,
+                onClose: { liveResume.dismiss() },
+                onCompleted: { _ in
+                    liveResume.dismiss()
+                    Task { await store.planMutated() }
+                }
+            )
+            .environment(store)
+        }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -129,6 +153,7 @@ struct AppShell: View {
             // with the live token (see RequestQueue.drain).
             if bearer != nil {
                 await RequestQueue.shared.drain(bearer: bearer)
+                await liveResume.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
             }
         }
         .onChange(of: scenePhase) { _, phase in

@@ -2,17 +2,17 @@ import Foundation
 import Observation
 import HealthKit
 
-// MIRROR MODE — the wrist side of the 90% session. The iPhone drives the workout
-// (the only engine); the watch RECORDS it (HKWorkoutSession + HKLiveWorkoutBuilder
-// → HR / kcal / one saved HKWorkout) and renders frames the phone pushes. It never
-// runs the engine here — the standalone WatchWorkoutCoordinator owns phone-less
-// sessions and always wins a conflict.
+// MIRROR MODE — the wrist side of the 90% session. The iPhone PRIMARY
+// `HKWorkoutSession` owns the run (FH-48). This controller ADOPTS the mirrored
+// session via `workoutSessionMirroringStartHandler`. It never CREATES an
+// `HKWorkoutSession` — two primaries desync the wrist (0:00 / other cursor).
+// Standalone (athlete starts on the wrist) stays in WatchWorkoutCoordinator +
+// LiveWorkoutSession and always wins a conflict.
 //
-// Transport is the HealthKit mirrored-session app-data channel: the phone launches
-// this app with a HKWorkoutConfiguration (→ MirrorAppDelegate.handle), we build the
-// session, beginCollection, then startMirroringToCompanionDevice(). Frames + end
-// arrive on `didReceiveDataFromRemoteWorkoutSession`; HR + commands + the closing
-// workout id go back via `sendToRemoteWorkoutSession`. Wire = MirrorWireModels.
+// Transport is the HealthKit mirrored-session app-data channel. Frames + end
+// arrive on `didReceiveDataFromRemoteWorkoutSession`; HR + commands go back via
+// `sendToRemoteWorkoutSession`. A mirrored session must NOT `finishWorkout`
+// (the iPhone primary already saves). Wire = MirrorWireModels.
 @MainActor
 @Observable
 final class MirrorSessionController: NSObject {
@@ -68,6 +68,7 @@ final class MirrorSessionController: NSObject {
     private let store = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var didRegisterHandler = false
     /// Local intent flag so a run of paused frames never double-pauses the session.
     private var hkPaused = false
     /// Set while we drive the teardown, so the session's own `.ended` callback can't
@@ -80,12 +81,43 @@ final class MirrorSessionController: NSObject {
 
     private override init() { super.init() }
 
-    // MARK: - Start
+    // MARK: - Start / adopt
 
-    /// Phone launched us with a workout config. Stand up the recording UNLESS a
-    /// standalone (phone-less) session is already running — that one wins.
+    /// Register `workoutSessionMirroringStartHandler` once, as early as possible.
+    /// Idempotent. The iPhone primary mirrors TO us; we adopt — we do not create.
+    func prepare() {
+        guard !didRegisterHandler, HKHealthStore.isHealthDataAvailable() else { return }
+        didRegisterHandler = true
+        store.workoutSessionMirroringStartHandler = { [weak self] mirrored in
+            Task { @MainActor in self?.adopt(mirrored) }
+        }
+    }
+
+    /// Phone launched us with a workout config (`handle`). Used to CREATE a
+    /// second primary (Watch desync). Now: wait for `adopt`. Do not create.
     func start(config: HKWorkoutConfiguration) {
         guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        prepare()
+        Task { await LiveWorkoutSession.requestWorkoutAuthorization(store: store) }
+    }
+
+    /// Apple handed us the mirrored session. This is the only Watch entry for a
+    /// phone-started live. Recreates the live data source (WWDC: session/builder
+    /// restore; data source does not). Does not startActivity / beginCollection /
+    /// startMirroringToCompanionDevice — those belong to the iPhone primary.
+    func adopt(_ mirrored: HKWorkoutSession) {
+        guard WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        guard session == nil else { return }
+        prepare()
+        session = mirrored
+        let builder = mirrored.associatedWorkoutBuilder()
+        builder.dataSource = HKLiveWorkoutDataSource(
+            healthStore: store,
+            workoutConfiguration: mirrored.workoutConfiguration
+        )
+        mirrored.delegate = self
+        builder.delegate = self
+        self.builder = builder
         state = .recording
         frame = nil
         frameReceivedAt = nil
@@ -93,41 +125,25 @@ final class MirrorSessionController: NSObject {
         isConnectionLost = false
         hkPaused = false
         isClosing = false
-
-        Task {
-            await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
-            beginRecording(config: config)
-        }
-    }
-
-    private func beginRecording(config: HKWorkoutConfiguration) {
-        guard state == .recording, session == nil else { return }
-        do {
-            let session = try HKWorkoutSession(healthStore: store, configuration: config)
-            let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
-            session.delegate = self
-            builder.delegate = self
-            self.session = session
-            self.builder = builder
-
-            let start = Date()
-            session.startActivity(with: start)
-            builder.beginCollection(withStart: start) { [weak self] _, _ in
-                Task { @MainActor in self?.beginMirroring() }
-            }
-        } catch {
-            resetToIdle()
-        }
-    }
-
-    private func beginMirroring() {
-        guard let session, state == .recording else { return }
         lastSignalAt = Date()
         startWatchdog()
         requestSyncUntilFirstFrame()
         WatchHaptics.start()
-        Task { try? await session.startMirroringToCompanionDevice() }
+        Task { await LiveWorkoutSession.requestWorkoutAuthorization(store: store) }
+    }
+
+    /// `handleActiveWorkoutRecovery` (WatchKit) + `recoverActiveWorkoutSession`.
+    /// Re-adopts a mirrored session after Watch process death. A recovered
+    /// `.primary` belongs to standalone `LiveWorkoutSession` — do not steal it.
+    func recoverIfNeeded() {
+        prepare()
+        guard session == nil, HKHealthStore.isHealthDataAvailable() else { return }
+        store.recoverActiveWorkoutSession { recovered, _ in
+            Task { @MainActor in
+                guard let recovered, recovered.type == .mirrored else { return }
+                self.adopt(recovered)
+            }
+        }
     }
 
     // MARK: - Incoming (phone → watch)
@@ -229,7 +245,11 @@ final class MirrorSessionController: NSObject {
         stopWatchdog()
 
         var workoutUuid: String?
-        if save {
+        if session?.type == .mirrored {
+            // iPhone primary already finishes the builder. A second finishWorkout
+            // is a second HKWorkout — the desync FH-48 forbids.
+            workoutUuid = nil
+        } else if save {
             workoutUuid = await endAndSave()
         } else {
             builder?.discardWorkout()

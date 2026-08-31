@@ -7,9 +7,35 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-46 (este lote, no merge):** al cerrar un ejercicio de fuerza/sled con kg (resuelto o prescrito) se pide el kilo con `KgWheel` (`Picker` + `.wheel`). Semilla = `ResolvedLoad.minKg` al armar el vivo. Un kg por ejercicio; no se copia al siguiente. `confirmSet` igual (SERIE HECHA sigue por serie). Sin skip (PR 101 revertido de main). Sin FH-48.
+**FH-48 — el live no muere en background (este lote, no merge).** Apple posee la sesión (`HKWorkoutSession` + builder en el iPhone, deploy 18). El plan del coach cuelga de ese UUID. Al matar el proceso: `recoverActiveWorkoutSession` (iOS 26+) + snapshot; no nace un cover vacío. Free/ad-hoc también se retoman. Un solo primary: el Watch ADOPTA, no crea. El Timer 0,25 s es un poller de `elapsedTime`, no el reloj. Audio/location/BLE no son el dueño.
 
-**En main · FH-41 (PR #99):** N × distancia + descanso en PM5 ya no es CSAFE type 7. `PM5WorkoutProgrammer` manda un bout `fixedDistance` (o time/cal). `monitorRunsTheSeries` es false; la app sigue siendo el reloj; la clave de tramo no cambia en el descanso. Pendiente de soak: live + SkiErg PM5 + N × distancia + descanso (el monitor debe mostrar 0…N m de ESA serie).
+Doc Plan aprobado: Notion `3cd4164765c181daa913c141c367125b`. Ticket: `3cd4164765c181debfbed369a06fb8af`.
+
+**No tocar en este lote:** HUD/Vivo, PM5 (FH-41), metros del Watch (FH-42), `HealthKitWorkoutWriter`, WorkoutKit scheduler, skip (FH-47), picker de kg (FH-46 — ya en main).
+
+**En main (no este lote):** FH-46 kg (PR #102) · FH-41 PM5 (PR #99) · skip PR #101 revertido (PR #103). Rebase sobre `b2eb31f7`.
+
+**Lo siguiente (fuera de FH-48):** las cuatro vistas en vivo que faltan en Swift · cablear `coach_methodology`.
+
+---
+
+## Cerrado el 31-ago · FH-48 Live se pierde al pasar a background
+
+Causa: el live era un `Timer` casero en `@State` (`WorkoutSession` + `fullScreenCover`). iOS no lo trata como workout; background/jetsam lo matan; `workoutLaunch` nace nil; `WorkoutStateStore` escribía JSON y nadie lo abría en cold launch; el gate tiraba el free; `start()`+`armBlock()` fabricaba sesión nueva; el modal de recover no llamaba `PhoneMirrorService.begin`.
+
+**Qué es ahora:** iPhone crea y retiene `HKWorkoutSession` en Empezar. Cold launch recupera. Un store, un UUID. Watch espejo adopta. Keep-alives (audio/location/BLE) siguen para sensores/cues — síntoma, no dueño.
+
+Prueba de verdad: dispositivo, ≥30 s en otra app / lock, kill de proceso, Watch y free. Un happy path de 5 s no vale.
+
+---
+
+## En main · FH-46 kg (PR #102) y FH-41 PM5 (PR #99)
+
+Al cerrar un ejercicio de fuerza/sled con kg se pide el kilo con `KgWheel` (`Picker` + `.wheel`). Semilla = `ResolvedLoad.minKg`. Un kg por ejercicio; `confirmSet` igual. N × distancia + descanso en PM5 ya no es CSAFE type 7: bout `fixedDistance` (o time/cal); `monitorRunsTheSeries` es false.
+
+---
+
+## En qué estábamos (30-jul)
 
 **Que el software sea de verdad multi-coach.** Alex, el 29-jul: *«al final esto derivará a FLEXR, este código, y lo venderemos a otros coaches. Pablo es nuestro coach, no es "el coach". Habrán con suerte miles de coaches.»* Es la **HARD RULE Nº0** de `CLAUDE.md`, y la línea es: **MECANISMO en código** (cómo se calcula un TSS, cómo se detectan los tramos, cómo se resuelve un ancla) · **MÉTODO en dato editable** (dónde cortan las zonas, los pesos del readiness, los umbrales de veredicto). La pregunta que decide cada caso: *¿otro entrenador competente lo haría distinto?*
 

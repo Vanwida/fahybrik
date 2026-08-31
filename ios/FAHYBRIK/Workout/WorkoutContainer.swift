@@ -54,6 +54,8 @@ struct WorkoutContainer: View {
     /// ended up in the seconds-per-zone the coach reads. A session with no zones
     /// simply records no zone time, and the HUD shows the pulse without a zone.
     var hrZones: HRZoneProfile? = nil
+    /// Cold-launch reattach. When set, skip the brief, do not armBlock, remirror.
+    var recoveredSession: WorkoutSession? = nil
 
     enum Phase: Equatable {
         case brief
@@ -149,13 +151,17 @@ struct WorkoutContainer: View {
             )
         }
         .task {
-            // A free workout is a one-off in-memory build with no assignment — never
-            // offer to recover an unrelated prescribed snapshot over it.
-            if freeContext == nil,
-               let saved = await WorkoutStateStore.shared.load(),
-               // AUDIT-1/2 — offer ONLY for the same assignment, fresh (<6h) and not a
-               // finished/discarded snapshot (those are cleared on close). An older
-               // snapshot with no assignment is discarded, never guessed.
+            if let recovered = recoveredSession {
+                session = recovered
+                loadState = .ready(recovered.plan, nil)
+                phase = .active
+                PhoneMirrorService.shared.begin(
+                    session: recovered,
+                    activityKind: mirrorActivityKind(for: recovered.plan)
+                )
+                return
+            }
+            if let saved = await WorkoutStateStore.shared.load(),
                WorkoutRecoveryGate.shouldOffer(saved: saved, currentAssignmentId: assignmentId) {
                 crashRecoveryPrompt = saved
             }
@@ -183,12 +189,11 @@ struct WorkoutContainer: View {
                         let new = WorkoutSession(plan: plan, hrZones: hrZones)
                         new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         new.runEnvironment = runEnv       // #8 — auto-open the chosen run HUD
+                        new.phoneActivityKind = mirrorActivityKind(for: plan)
+                        new.isFreeRun = freeContext != nil || assignmentId == nil
                         session = new
                         manualEntry = false
-                        // Mirror mode: remote-start the wrist recording alongside the
-                        // live engine. Non-blocking — the workout runs alone if the
-                        // watch never joins. Manual/capture flows never begin (below).
-                        PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: plan))
+                        PhoneMirrorService.shared.begin(session: new, activityKind: new.phoneActivityKind)
                         // #56 — dobles en vivo: emit presence so the training partner's
                         // phone sees this session live. Self-gates (no pair / private →
                         // stops); a no-op for an ad-hoc session (no numeric assignment).
@@ -453,12 +458,17 @@ struct WorkoutContainer: View {
         // brief + the assignment fetch and go straight to the live engine.
         if let free = freeContext {
             loadState = .ready(free.plan, nil)
+            // A recoverable free snapshot is already on the modal — do not
+            // birth a second engine underneath it (startIfNeeded would open
+            // another Apple session before Recuperar).
+            if crashRecoveryPrompt != nil { return }
             let new = WorkoutSession(plan: free.plan, hrZones: hrZones)
             new.runEnvironment = free.runEnvironment   // #8 — chosen in the free builder
+            new.phoneActivityKind = mirrorActivityKind(for: free.plan)
+            new.isFreeRun = true
             session = new
             manualEntry = false
-            // Mirror the free workout to the wrist too (records HR + one HKWorkout).
-            PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: free.plan))
+            PhoneMirrorService.shared.begin(session: new, activityKind: new.phoneActivityKind)
             phase = .active
             return
         }
@@ -516,15 +526,17 @@ struct WorkoutContainer: View {
                     }
                     PrimaryButton(title: "Recuperar") {
                         let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
-                        // ONE restore path, owned by the session (AUDIT-1: the gate
-                        // already ensured the assignment matches). Field-by-field
-                        // copying here left the honesty carriers behind — reps
-                        // confirmation, per-set detail, declared load — and the
-                        // segment re-primed itself with the PRESCRIPTION on entry.
+                        recovered.phoneActivityKind = mirrorActivityKind(for: saved.plan)
+                        recovered.isFreeRun = saved.isFree || saved.assignmentId == nil
                         recovered.restore(from: saved)
                         session = recovered
                         crashRecoveryPrompt = nil
                         phase = .active
+                        // The modal used to skip begin — Watch stayed at 0:00.
+                        PhoneMirrorService.shared.begin(
+                            session: recovered,
+                            activityKind: recovered.phoneActivityKind
+                        )
                     }
                 }
             }

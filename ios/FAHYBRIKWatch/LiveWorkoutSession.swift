@@ -1,12 +1,13 @@
 import Foundation
 import HealthKit
 
-// HKWorkoutSession + HKLiveWorkoutBuilder wrapper. Owns the HR / kcal /
-// distance live stream, piped into the WorkoutSession engine by the coordinator
-// (onHeartRate / onDistanceDelta). On end() we save the
-// workout to HealthKit so the iPhone HealthKitSyncService picks it up via
-// the existing HKObserverQuery and forwards to the FAHYBRIK backend — no
-// duplicate transport path from the watch.
+// HKWorkoutSession + HKLiveWorkoutBuilder wrapper for WATCH STANDALONE only
+// (athlete starts on the wrist). Phone-started live is adopted in
+// MirrorSessionController — this type must not also create a session then
+// (two primaries desync; FH-48). Owns the HR / kcal / distance live stream
+// (FH-42 meters — do not retouch), piped into the WorkoutSession engine by
+// the coordinator. On end() we save the workout to HealthKit so the iPhone
+// HealthKitSyncService picks it up via the existing HKObserverQuery.
 @MainActor
 final class LiveWorkoutSession: NSObject, ObservableObject {
     @Published private(set) var isActive: Bool = false

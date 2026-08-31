@@ -18,9 +18,15 @@ struct PersistedWorkoutState: Codable {
     /// AUDIT-1 — the backend assignment this snapshot belongs to. Crash recovery is
     /// offered ONLY for the SAME assignment, so a recovered session can never be
     /// cross-attributed to whatever workout happens to be open now. Optional (`var …
-    /// = nil`): a snapshot written by an older build decodes nil → recovery discards
-    /// it rather than guessing.
+    /// = nil`): a snapshot written by an older build decodes nil. Free / ad-hoc
+    /// also persist nil — they resume via the Apple session UUID, not this field.
     var assignmentId: String? = nil
+    /// Apple `HKWorkoutSession` run UUID (builder metadata). The coach plan hangs
+    /// off this — one store, no fork per format. Optional so older snapshots decode.
+    var hkSessionUUID: UUID? = nil
+    /// True when the snapshot is a free / ad-hoc run (no assignment). Older
+    /// snapshots default false; a nil assignmentId on a fresh snapshot is also free.
+    var isFree: Bool = false
 
     // MARK: - Honesty carriers of the IN-FLIGHT segment
     //
@@ -58,13 +64,22 @@ struct PersistedWorkoutState: Codable {
     var scaledNote: String? = nil
 }
 
-// AUDIT-1 — the honest crash-recovery gate. Pure so the "same assignment + fresh"
-// rule is unit-tested, not eyeballed. A snapshot with no assignment (older build /
-// ad-hoc), a DIFFERENT assignment, an empty plan, or one older than `maxAge` is never
-// offered — we discard rather than resurrect the wrong session.
+// Honest crash-recovery gate. Pure so the rule is unit-tested, not eyeballed.
+// A DIFFERENT assignment, an empty plan, or one older than `maxAge` is never
+// offered. Free / ad-hoc (nil assignment) DO resume — the gate used to drop
+// them, which is why a killed free run birthed an empty session (FH-48).
 enum WorkoutRecoveryGate {
     /// The recovery window — the same 6 h the watch uses.
     static let maxAge: TimeInterval = 6 * 3600
+
+    static func isFresh(
+        _ saved: PersistedWorkoutState,
+        now: Date = Date(),
+        maxAge: TimeInterval = WorkoutRecoveryGate.maxAge
+    ) -> Bool {
+        guard !saved.plan.id.uuidString.isEmpty else { return false }
+        return saved.savedAt > now.addingTimeInterval(-maxAge)
+    }
 
     static func shouldOffer(
         saved: PersistedWorkoutState,
@@ -72,10 +87,19 @@ enum WorkoutRecoveryGate {
         now: Date = Date(),
         maxAge: TimeInterval = WorkoutRecoveryGate.maxAge
     ) -> Bool {
-        guard let savedAssignment = saved.assignmentId, savedAssignment == currentAssignmentId else { return false }
-        guard !saved.plan.id.uuidString.isEmpty else { return false }
-        return saved.savedAt > now.addingTimeInterval(-maxAge)
+        guard isFresh(saved, now: now, maxAge: maxAge) else { return false }
+        if let current = currentAssignmentId {
+            return saved.assignmentId == current
+        }
+        // Unassigned container (free / ad-hoc): offer an unassigned snapshot.
+        return saved.assignmentId == nil
     }
+}
+
+/// One `HKWorkoutSession` primary (FH-48). The companion ADOPTS; it never
+/// creates a second session. Extra primaries desync the Watch (0:00 / other cursor).
+enum WorkoutPrimaryRule {
+    static func shouldAdoptCompanion(hasPrimary: Bool) -> Bool { !hasPrimary }
 }
 
 actor WorkoutStateStore {

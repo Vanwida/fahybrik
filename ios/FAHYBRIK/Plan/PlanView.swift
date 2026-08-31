@@ -203,6 +203,8 @@ struct PlanView: View {
         // Detalle — same path as Today's "Empezar" (presents the prescribed
         // workout for the tapped day's assignment).
         .fullScreenCover(item: $workoutLaunch) { launch in
+            // User-initiated Empezar. Process-death resume is AppShell +
+            // LiveWorkoutResume — this @State is nil after jetsam (FH-48).
             WorkoutContainer(
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,

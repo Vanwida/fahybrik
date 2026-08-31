@@ -11,8 +11,8 @@ struct RootView: View {
     @EnvironmentObject private var plan: WatchPlanModel
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
     // Mirror mode (iPhone-driven session): takes precedence over ALL idle content
-    // when active. It can't co-occur with a standalone session — start() declines
-    // while the coordinator is busy.
+    // when active (`adopt` flips `isActive`). It can't co-occur with a standalone
+    // session — the coordinator yields while the mirror is recording.
     @Environment(MirrorSessionController.self) private var mirror
 
     /// A fresh, matching crash snapshot for today's session, if one is on disk — the

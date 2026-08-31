@@ -8,8 +8,9 @@ import Foundation
 //
 // Transport: the HealthKit mirrored-session app-data channel
 // (sendToRemoteWorkoutSession / didReceiveDataFromRemoteWorkoutSession), NOT
-// WatchConnectivity — the system launches the watch app, keeps the session alive
-// and carries these bytes both ways while the workout runs.
+// WatchConnectivity. The Apple session is the owner of the run (FH-48); this
+// wire only rebases HUD frames. A `sync` command still asks the phone for a
+// fresh frame after adopt — it is not a second clock.
 //
 // Every message travels as a MirrorEnvelope so one decode dispatches by type.
 // Coders are PLAIN JSON (same rationale as WatchWire: snake_case conversion is

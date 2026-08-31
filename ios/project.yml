@@ -118,20 +118,15 @@ targets:
         # (e.g. plan_published refresh). User-facing alerts don't require this
         # mode but it future-proofs background plan/chat refresh on tap.
         #
-        # `audio` — the live EMOM/interval timer plays the every-minute beep + the
-        # last-3s ticks through an AVAudioEngine (see WorkoutAudio). Keeping that
-        # engine running while the EMOM is active holds background execution so the
-        # cue STILL fires with the screen locked / phone pocketed mid-workout.
-        # `location` (#64) — an OUTDOOR run keeps measuring distance/pace/route and
-        # closing tramos with the screen locked / phone pocketed.
+        # Background modes are a SYMPTOM of the sensors/cues, not the owner of
+        # the run (FH-48). Apple's HKWorkoutSession owns the live. Do not strip
+        # these modes (GPS, BLE, cue playback still need them) and do not treat
+        # them as the thing that keeps the workout alive.
+        # `audio` — EMOM/interval cue playback through WorkoutAudio (not the clock).
+        # `location` (#64) — outdoor GPS distance/pace/route while locked.
         # allowsBackgroundLocationUpdates is enabled ONLY during an active outdoor
         # run and disabled the moment it ends (RunLocationProvider.setBackgroundUpdates).
-        # `bluetooth-central` — an INDOOR workout with NO audio cue and NO GPS (a
-        # strength session with just a HR strap, or an erg / treadmill set) would
-        # otherwise be suspended the instant the screen locks, and the pulse / belt /
-        # PM5 telemetry would stop arriving mid-set. This mode keeps CoreBluetooth
-        # streaming while the phone is pocketed — the same background BLE Zwift,
-        # Wahoo and Peloton rely on.
+        # `bluetooth-central` — indoor HR strap / erg / treadmill telemetry.
         UIBackgroundModes:
           - remote-notification
           - audio

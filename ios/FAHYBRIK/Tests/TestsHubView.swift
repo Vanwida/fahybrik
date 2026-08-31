@@ -81,6 +81,8 @@ struct TestsHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: reloadToken) { await load() }
         .fullScreenCover(item: $workoutLaunch) { launch in
+            // User-initiated start. Process-death resume is AppShell +
+            // LiveWorkoutResume (this @State dies with the process; FH-48).
             WorkoutContainer(
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,

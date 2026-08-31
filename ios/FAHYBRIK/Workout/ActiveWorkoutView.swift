@@ -267,6 +267,8 @@ struct ActiveWorkoutView: View {
         // same opt-in as the treadmill/erg HUD covers; portrait restores on exit.
         .allowsLandscape()
         .onAppear {
+            // Apple owns the run; this starts the poller. A recovered session
+            // already armed the block — start() must not armBlock() (FH-48).
             session.start()
             wireLiveSources()
             // Seed the monitor flag: the athlete may have paired in the pre-start

@@ -3,12 +3,10 @@ import Observation
 import HealthKit
 
 // Glue between the wrist UI, the shared WorkoutSession engine, and the HealthKit
-// live-metric stream. It builds the runnable plan from the pushed assignment
-// detail, owns the engine (timers, laps, format state) + the HealthKit session
-// (HR / distance / kcal + the on-end HKWorkout save), pipes live HR and covered
-// distance into the engine, and on finish assembles the execution payload EXACTLY
-// as the iPhone does, hands it to the phone over WatchConnectivity, and marks the
-// day done locally.
+// live-metric stream — WATCH STANDALONE only (athlete starts on the wrist).
+// Phone-started live is MirrorSessionController.adopt (FH-48); this coordinator
+// must not also create an HKWorkoutSession then. Meters (HR / distance) stay
+// LiveWorkoutSession (FH-42 — do not retouch).
 @MainActor
 @Observable
 final class WatchWorkoutCoordinator {
@@ -116,9 +114,8 @@ final class WatchWorkoutCoordinator {
     }
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
-        // Symmetric guard with MirrorSessionController.start (which yields to a live
-        // standalone session): a mirror recording driven by the phone must equally
-        // block a second, standalone engine here — the only path to a duplicate run.
+        // Symmetric guard with MirrorSessionController (adopt sets .recording):
+        // a phone-driven mirror must block a second, standalone engine here.
         guard phase == .idle, MirrorSessionController.shared.state == .idle,
               payload.dayKind == WatchDayKind.session else { return }
         let engine = WorkoutSession(
@@ -130,9 +127,8 @@ final class WatchWorkoutCoordinator {
 
     /// Resume a crash-recovered session: same launch, but the engine is rebuilt from
     /// the on-disk snapshot (its exact plan + progress) rather than the pushed detail
-    /// — so 40+ minutes of laps survive process death. The engine re-arms the current
-    /// block on start (as the phone does), so the athlete reconfirms with the clock at
-    /// the recovered elapsed.
+    /// — so 40+ minutes of laps survive process death. `restore` marks the block
+    /// already armed — `start()` must not `armBlock()` (that wipes EMOM / run).
     func resume(from snapshot: PersistedWorkoutState, payload: WatchTodayPayload) {
         // Same symmetric guard as start: never resume a standalone engine while the
         // phone is driving a mirror recording (the reverse of MirrorSessionController).

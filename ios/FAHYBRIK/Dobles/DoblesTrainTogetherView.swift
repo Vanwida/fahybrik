@@ -83,6 +83,8 @@ struct DoblesTrainTogetherView: View {
         .navigationTitle("Entrenar a la vez")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showJointWorkout) {
+            // User-initiated start. Process-death resume is AppShell +
+            // LiveWorkoutResume (these @State flags die with the process; FH-48).
             if let sessionId {
                 WorkoutContainer(
                     assignmentId: sessionId,
