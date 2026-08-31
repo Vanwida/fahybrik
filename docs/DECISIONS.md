@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-08-31 · El kg de fuerza se declara al cerrar el EJERCICIO (FH-46)
+
+**Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47; el skip no se implementa aquí).
+
+**Por qué:** `resolved_load` se ve en el brief y se tiraba al armar (`segment(from:)` solo leía `params_json.load_kg`; un %RM se aplana a `load_pct`). La rueda ya existía (`KgWheel` = `SwiftUI.Picker` + `.pickerStyle(.wheel)`). `Foundation.UnitMass.kilograms` es magnitud, no un control. WorkoutKit / `HKWorkoutSession` no registran la carga del coach.
+
+**En consecuencia, no hacer:** no clonar la rueda; no usar `Measurement<UnitMass>` como UI; no llamar `setSetLoadCascade` hacia otros tramos (`resetSegmentManualAndGPS` ya aísla); no tocar `endBlockEarly`, skip (FH-47), Watch, HUD, %RM de `shared/domain/strength/resolve.ts`, PM5 ni el fondo en vivo.
+
+---
+
 ## 2026-08-31 · N × distancia + descanso en PM5: bout fijo, no type 7
 
 **Decidido (FH-41):** un plan uniforme N × distancia | tiempo | calorías + descanso no se programa como intervalos nativos del PM5 (CSAFE type 7). El monitor recibe solo el bout (`fixedDistance` / `fixedTime` / `fixedCalories`). La app marca serie y descanso. Al cambiar de serie: terminate + reprogramar ese bout. Ski y remo usan el mismo driver (`SegmentKind.rowOrSki`).

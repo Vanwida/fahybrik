@@ -48,14 +48,16 @@ final class WorkoutExecutionSpineTests: XCTestCase {
     // Single-item block JSON — the common shape for the segment-build assertions.
     private func oneItemWorkout(category: String, slug: String, name: String,
                                 params: String, prescription: String? = nil,
+                                resolvedLoad: String? = nil,
                                 format: String = "straight_sets") -> String {
         let rx = prescription.map { ", \"prescription_json\": \($0)" } ?? ""
+        let rl = resolvedLoad.map { ", \"resolved_load\": \($0)" } ?? ""
         return """
         {
           "assignment": { "id": "asg1", "athlete_id": "ath1", "scheduled_for": "2026-07-20", "status": "scheduled" },
           "workout": { "name": "\(name)", "blocks": [ { "uid": "b", "title": "Bloque", "format": "\(format)", "block_position": 1, "items": [
             { "uid": "i1", "exercise_id": "e1", "exercise_name": "\(name)", "exercise_slug": "\(slug)", "exercise_category": "\(category)",
-              "exercise_video_url": null, "cues": null, "params_json": \(params)\(rx), "notes": null }
+              "exercise_video_url": null, "cues": null, "params_json": \(params)\(rx)\(rl), "notes": null }
           ] } ] } }
         """
     }
@@ -220,6 +222,124 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         s.primaryAdvance()
         let lap = try XCTUnwrap(s.laps.last)
         XCTAssertEqual(lap.weightUsedKg, 60, "The aggregate load is the max DECLARED one.")
+    }
+
+    // MARK: - FH-46 · kg al cerrar el ejercicio
+
+    private func resolvedLoadJSON(minKg: Double, pct: Int = 80, oneRm: Double = 110) -> String {
+        "{ \"pct_label\": \"\(pct)%\", \"kg_label\": \"\(Int(minKg)) kg\", \"min_kg\": \(minKg), \"max_kg\": null, \"one_rm_kg\": \(oneRm), \"needs_review\": false }"
+    }
+
+    func testResolvedLoadMinKgSeedsSegmentLoadKg() throws {
+        // Causa: un %RM se aplana a load_pct; segment(from:) solo leía load_kg y
+        // el vivo caía al fallback de 20 kg. Semilla = ResolvedLoad.minKg.
+        let detail = try decode(oneItemWorkout(
+            category: "strength", slug: "back-squat", name: "Back Squat",
+            params: "{ \"sets\": 4, \"reps\": 5, \"load_pct\": 80 }",
+            resolvedLoad: resolvedLoadJSON(minKg: 88)))
+        let item = try XCTUnwrap(detail.workout?.blocks.first?.items.first)
+        XCTAssertNil(item.paramsJson.loadKg)
+        XCTAssertEqual(item.resolvedLoad?.minKg, 88)
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertEqual(seg.loadKg, 88, "The live scalar must carry the brief's resolved kg.")
+    }
+
+    func testParamsLoadKgWinsOverResolvedLoad() throws {
+        // params.loadKg is already absolute — do not replace it with minKg.
+        let detail = try decode(oneItemWorkout(
+            category: "strength", slug: "back-squat", name: "Back Squat",
+            params: "{ \"sets\": 4, \"reps\": 5, \"load_kg\": 100, \"load_pct\": 80 }",
+            resolvedLoad: resolvedLoadJSON(minKg: 88)))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertEqual(seg.loadKg, 100)
+    }
+
+    func testPercentRMWithoutResolvedLoadDoesNotInventKg() throws {
+        let detail = try decode(oneItemWorkout(
+            category: "strength", slug: "back-squat", name: "Back Squat",
+            params: "{ \"sets\": 4, \"reps\": 5, \"load_pct\": 80 }"))
+        let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
+        XCTAssertNil(seg.loadKg, "No resolved_load → no fabricated kg. Do not recompute %RM.")
+    }
+
+    func testConfirmExerciseLoadWithoutSpinSavesProposed() throws {
+        let set = PrescriptionSet(measure: .reps(5), target: .kg(value: 100, min: nil, max: nil),
+                                  modality: .strength, restS: 90, tempo: nil, note: nil)
+        let rx = Prescription(scheme: .sets, modality: .strength, sets: [set], rounds: nil, workS: nil,
+                              restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Back Squat", kind: .strength, templateSegmentId: 7,
+                                 targetReps: 5, loadKg: 100, blockTitle: "A", blockPosition: 1, prescription: rx)
+        let s = armedSession([seg])
+        s.primeManualLoadIfNeeded()
+        XCTAssertEqual(s.manualLoadKg, 100)
+        XCTAssertFalse(s.loadConfirmed, "Priming is not a declaration.")
+        s.confirmExerciseLoad(100)
+        XCTAssertTrue(s.loadConfirmed, "HECHO without spinning declares the proposed kg.")
+        s.primaryAdvance()
+        let lap = try XCTUnwrap(s.laps.last)
+        XCTAssertEqual(lap.weightUsedKg, 100)
+        XCTAssertEqual(lap.sets?.first?.loadActualKg, 100)
+        XCTAssertEqual(lap.sets?.first?.loadPrescribedKg, 100)
+    }
+
+    func testConfirmExerciseLoadStaysOnThisExerciseOnly() throws {
+        func lift(_ title: String, kg: Double, order: Int) -> WorkoutSegment {
+            let set = PrescriptionSet(measure: .reps(5), target: .kg(value: kg, min: nil, max: nil),
+                                      modality: .strength, restS: 60, tempo: nil, note: nil)
+            let rx = Prescription(scheme: .sets, modality: .strength, sets: [set], rounds: nil, workS: nil,
+                                  restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil)
+            return WorkoutSegment(order: order, title: title, kind: .strength, templateSegmentId: order,
+                                  targetReps: 5, loadKg: kg, blockTitle: "A", blockPosition: 1, prescription: rx)
+        }
+        let s = armedSession([lift("Back Squat", 80, 1), lift("Bench Press", 60, 2)])
+        s.primeManualLoadIfNeeded()
+        s.confirmExerciseLoad(95)
+        s.primaryAdvance()
+        XCTAssertEqual(s.laps.last?.weightUsedKg, 95)
+        XCTAssertEqual(s.laps.last?.sets?.first?.loadActualKg, 95)
+
+        s.primeManualLoadIfNeeded()
+        XCTAssertEqual(s.currentSegment?.title, "Bench Press")
+        XCTAssertEqual(s.currentSegment?.loadKg, 60)
+        XCTAssertEqual(s.manualLoadKg, 60, "Next exercise primes from ITS load, not the previous declaration.")
+        XCTAssertFalse(s.loadConfirmed)
+    }
+
+    func testConfirmExerciseLoadWritesNonSkippedSeriesOnly() throws {
+        let one = PrescriptionSet(measure: .reps(5), target: .kg(value: 60, min: nil, max: nil),
+                                  modality: .strength, restS: 60, tempo: nil, note: nil)
+        let rx = Prescription(scheme: .sets, modality: .strength, sets: [one, one, one], rounds: nil,
+                              workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Front Squat", kind: .strength, templateSegmentId: 9,
+                                 targetReps: 5, loadKg: 60, blockTitle: "A", blockPosition: 1, prescription: rx)
+        let s = armedSession([seg])
+        s.primeSetsIfNeeded()
+        s.setSetSkipped(1, true)
+        s.confirmExerciseLoad(77.5)
+        XCTAssertEqual(s.setRecords[0].loadActualKg, 77.5)
+        XCTAssertNil(s.setRecords[1].loadActualKg, "A skipped series does not take the exercise kg.")
+        XCTAssertEqual(s.setRecords[1].status, "skipped")
+        XCTAssertEqual(s.setRecords[2].loadActualKg, 77.5)
+    }
+
+    func testConfirmExerciseLoadDoesNotOpenWhenAllSeriesSkipped() throws {
+        // Cruce con FH-47: si todas las series están saltadas, no se declara kg.
+        let one = PrescriptionSet(measure: .reps(5), target: .kg(value: 60, min: nil, max: nil),
+                                  modality: .strength, restS: 60, tempo: nil, note: nil)
+        let rx = Prescription(scheme: .sets, modality: .strength, sets: [one, one], rounds: nil,
+                              workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
+                              start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Front Squat", kind: .strength, templateSegmentId: 9,
+                                 targetReps: 5, loadKg: 60, blockTitle: "A", blockPosition: 1, prescription: rx)
+        let s = armedSession([seg])
+        s.primeSetsIfNeeded()
+        s.setSetSkipped(0, true)
+        s.setSetSkipped(1, true)
+        s.primeManualLoadIfNeeded()
+        s.confirmExerciseLoad(80)
+        XCTAssertTrue(s.setRecords.allSatisfy { $0.loadActualKg == nil })
+        XCTAssertFalse(s.loadConfirmed, "All skipped → the close picker must not declare a load.")
     }
 
     func testBodyweightRepsCloseHasNoSyntheticSet() throws {

@@ -32,7 +32,8 @@ import SwiftUI
 //
 // EL MOTOR NO SE HA TOCADO: `confirmSet`, `setSetReps`, `setSetLoadCascade`,
 // `setSetRPE/RIR`, `setSetSkipped`, `startRest` y el cebado de la carga siguen
-// siendo los mismos. Lo que cambia es el idioma.
+// siendo los mismos. FH-46 solo cambia el CUÁNDO: al cerrar el ejercicio se
+// declara un kg con la `KgWheel` que ya existía.
 
 /// El hierro en vivo, dentro del marco del §10.
 ///
@@ -51,6 +52,8 @@ struct FuerzaVivoView<Cromo: View>: View {
     /// Espejo local de la carga de un tramo de UNA serie, cebado de la
     /// prescripción. Mismo contrato que tenía `StrengthLiveHUD`.
     @State private var cargaKg: Double?
+    /// Rueda al CERRAR el ejercicio (FH-46): un kg para este tramo, no por serie.
+    @State private var cierreDeCarga: CierreDeCarga?
 
     private var seg: WorkoutSegment? { session.currentSegment }
     private var descansando: Bool { session.restRemainingSeconds > 0 }
@@ -77,6 +80,7 @@ struct FuerzaVivoView<Cromo: View>: View {
         .onAppear { cebarCarga() }
         .onChange(of: session.currentSegmentIndex) { _, _ in
             editando = nil
+            cierreDeCarga = nil
             cargaKg = nil
             cebarCarga()
         }
@@ -88,6 +92,13 @@ struct FuerzaVivoView<Cromo: View>: View {
         .sheet(item: $editando) { serie in
             EditorDeSerie(session: session, indice: serie.indice)
                 .presentationDetents([.medium])
+        }
+        .sheet(item: $cierreDeCarga) { cierre in
+            HojaCargaAlCerrar(semillaKg: cierre.kg) { kg in
+                session.confirmExerciseLoad(kg)
+                cierreDeCarga = nil
+                alTocarAccion()
+            }
         }
     }
 
@@ -123,7 +134,20 @@ struct FuerzaVivoView<Cromo: View>: View {
     private func ejecutarAccion() {
         if descansando { session.dismissRest(); return }
         if let i = seriePendiente { session.confirmSet(i); return }
+        if let kg = kgAlCerrarEjercicio {
+            cierreDeCarga = CierreDeCarga(kg: kg)
+            return
+        }
         alTocarAccion()
+    }
+
+    /// Fuerza/sled con kg resuelto o prescrito, y al menos una serie no saltada.
+    /// El skip de todas las series es FH-47: aquí solo el cruce, no el botón.
+    private var kgAlCerrarEjercicio: Double? {
+        guard admiteCarga else { return nil }
+        if !session.setRecords.isEmpty,
+           session.setRecords.allSatisfy({ $0.status == "skipped" }) { return nil }
+        return cargaKg ?? session.manualLoadKg ?? seg?.loadKg
     }
 
     // MARK: - Contexto — el pacto del coach para este ejercicio
@@ -413,6 +437,13 @@ struct SerieEnEdicion: Identifiable, Equatable {
     var id: Int { indice }
 }
 
+/// Identidad de la hoja de kg al cerrar el ejercicio. `kg` es la semilla
+/// (resuelto o prescrito); girar o no, HECHO declara ese valor.
+private struct CierreDeCarga: Identifiable {
+    let id = UUID()
+    let kg: Double
+}
+
 /// Las series a lo ancho, con la que tienes delante encendida.
 ///
 /// Es un RIEL, no una tabla: dice en qué serie vas y cómo quedaron las anteriores,
@@ -645,32 +676,51 @@ private struct PasoDecimal: View {
     }
 }
 
-/// La rueda de carga: pasos de 2,5 kg, redondeando lo que entre a la rejilla de
-/// discos. «esta y siguientes» dice lo que hace.
+/// La rueda de carga: `KgWheel` (SwiftUI.Picker + `.pickerStyle(.wheel)`).
+/// «esta y siguientes» dice lo que hace en el editor de serie; no se clona.
 private struct RuedaDeCarga: View {
     let valor: Double
     let alCambiar: (Double) -> Void
 
-    private var pasos: Binding<Int> {
+    private var units: Binding<Int> {
         Binding(get: { max(1, Int((valor / 2.5).rounded())) },
                 set: { alCambiar(Double($0) * 2.5) })
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            LabelText(text: "\(Vocab.carga) · esta y siguientes", size: 10)
-            Picker(Vocab.carga, selection: pasos) {
-                ForEach(1...120, id: \.self) { u in
-                    Text(KgWheel.kgLabel(Double(u) * 2.5))
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .tag(u)
-                }
+        KgWheel(label: "\(Vocab.carga) · esta y siguientes", units: units)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+/// Hoja al cerrar el ejercicio: la misma `KgWheel`, semilla = kg propuesto.
+/// HECHO sin girar guarda ese propuesto. `Measurement<UnitMass>` no es un control.
+private struct HojaCargaAlCerrar: View {
+    let alConfirmar: (Double) -> Void
+    @State private var units: Int
+
+    init(semillaKg: Double, alConfirmar: @escaping (Double) -> Void) {
+        self.alConfirmar = alConfirmar
+        _units = State(initialValue: max(1, Int((semillaKg / 2.5).rounded())))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            HStack {
+                Text(Formato.kg(Double(units) * 2.5))
+                    .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer()
+                Button("HECHO") { alConfirmar(Double(units) * 2.5) }
+                    .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.accentText)
             }
-            .pickerStyle(.wheel)
-            .frame(height: 84)
-            .clipped()
+            KgWheel(label: Vocab.carga, units: $units)
         }
-        .frame(maxWidth: .infinity)
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Theme.Color.background)
+        .compactSheet()
     }
 }
 
