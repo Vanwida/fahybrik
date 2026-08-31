@@ -5,7 +5,9 @@ import XCTest
 // purely (same assignment · fresh · free/ad-hoc). The latch guarantees a late
 // autosave can never resurrect a finished snapshot. FH-48 tests the done criteria
 // (≥30 s clock jump, lock, process death, Watch one-primary, free) — a 5 s
-// happy path is not enough.
+// happy path is not enough. @MainActor: the run is a UI/HealthKit session
+// (`PhoneWorkoutRun`); same isolation as PhoneMirrorRunStructureTests.
+@MainActor
 final class WorkoutRecoveryTests: XCTestCase {
 
     private func plan(id: UUID = UUID()) -> WorkoutPlan {

@@ -705,6 +705,16 @@ final class WorkoutSession {
     /// (label them "estimado"); false when it came from the athlete's own test.
     var hrZonesEstimated: Bool { hrZones?.estimated ?? false }
 
+    #if os(iOS)
+    /// `PhoneWorkoutRun` is `@MainActor` — `HKWorkoutSession` is a UI/HealthKit
+    /// session (Apple `MainActor`). This engine is only driven from the main
+    /// run loop (SwiftUI, `Timer` on `RunLoop.main`, XCTest). Apple's
+    /// `MainActor.assumeIsolated`, not a homemade queue and not a second clock.
+    private func phoneRun<T: Sendable>(_ body: @MainActor () throws -> T) rethrows -> T {
+        try MainActor.assumeIsolated(body)
+    }
+    #endif
+
     func start() {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may
         // have closed the store on finish/discard.
@@ -712,7 +722,8 @@ final class WorkoutSession {
         #if os(iOS)
         // Apple owns the run. Create/retain HKWorkoutSession on Empezar. A
         // restore already attached the recovered session — startIfNeeded no-ops.
-        PhoneWorkoutRun.shared.startIfNeeded(activityKind: phoneActivityKind)
+        let kind = phoneActivityKind
+        phoneRun { PhoneWorkoutRun.shared.startIfNeeded(activityKind: kind) }
         persistNow()
         if foregroundObserver == nil {
             foregroundObserver = NotificationCenter.default.addObserver(
@@ -756,12 +767,12 @@ final class WorkoutSession {
             lastTick = Date()
             lastAppleElapsed = liveElapsedTime()
             #if os(iOS)
-            PhoneWorkoutRun.shared.resume()
+            phoneRun { PhoneWorkoutRun.shared.resume() }
             #endif
         } else {
             isPaused = true
             #if os(iOS)
-            PhoneWorkoutRun.shared.pause()
+            phoneRun { PhoneWorkoutRun.shared.pause() }
             #endif
         }
     }
@@ -776,7 +787,7 @@ final class WorkoutSession {
         isPaused = true
         autoPaused = true
         #if os(iOS)
-        PhoneWorkoutRun.shared.pause()
+        phoneRun { PhoneWorkoutRun.shared.pause() }
         #endif
     }
 
@@ -790,7 +801,7 @@ final class WorkoutSession {
         lastTick = Date()
         lastAppleElapsed = liveElapsedTime()
         #if os(iOS)
-        PhoneWorkoutRun.shared.resume()
+        phoneRun { PhoneWorkoutRun.shared.resume() }
         #endif
     }
 
@@ -804,7 +815,7 @@ final class WorkoutSession {
         guard !isPaused, !isFinished else { return false }
         isPaused = true
         #if os(iOS)
-        PhoneWorkoutRun.shared.pause()
+        phoneRun { PhoneWorkoutRun.shared.pause() }
         #endif
         return true
     }
@@ -817,7 +828,7 @@ final class WorkoutSession {
         lastTick = Date()
         lastAppleElapsed = liveElapsedTime()
         #if os(iOS)
-        PhoneWorkoutRun.shared.resume()
+        phoneRun { PhoneWorkoutRun.shared.resume() }
         #endif
     }
 
@@ -995,7 +1006,7 @@ final class WorkoutSession {
         resetTramoWindow()
         Haptics.cueGo()
         #if os(iOS)
-        PhoneWorkoutRun.shared.resume()
+        phoneRun { PhoneWorkoutRun.shared.resume() }
         #endif
     }
 
@@ -1037,7 +1048,7 @@ final class WorkoutSession {
         #endif
         stop()
         #if os(iOS)
-        PhoneWorkoutRun.shared.end(save: true)
+        phoneRun { PhoneWorkoutRun.shared.end(save: true) }
         #endif
         // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
         // never be re-offered as "recuperar entreno en curso", and the latch stops a
@@ -1051,7 +1062,7 @@ final class WorkoutSession {
     func discardAndClose() {
         stop()
         #if os(iOS)
-        PhoneWorkoutRun.shared.end(save: false)
+        phoneRun { PhoneWorkoutRun.shared.end(save: false) }
         #endif
         Task { await WorkoutStateStore.shared.close() }
     }
@@ -1112,7 +1123,7 @@ final class WorkoutSession {
         isAwaitingBlockStart = true
         #if os(iOS)
         // Preview gate: Apple's clock freezes until beginBlock → resume.
-        PhoneWorkoutRun.shared.pause()
+        phoneRun { PhoneWorkoutRun.shared.pause() }
         #endif
     }
 
@@ -1128,7 +1139,8 @@ final class WorkoutSession {
         lastAppleElapsed = liveElapsedTime()
         Haptics.medium()
         #if os(iOS)
-        PhoneWorkoutRun.shared.markCoachBlockStart(activityKind: phoneActivityKind)
+        let kind = phoneActivityKind
+        phoneRun { PhoneWorkoutRun.shared.markCoachBlockStart(activityKind: kind) }
         #endif
         onEnterSegment()
     }
@@ -2727,7 +2739,7 @@ final class WorkoutSession {
     func liveElapsedTime() -> TimeInterval? {
         #if os(iOS)
         if let testElapsedTime { return testElapsedTime }
-        return PhoneWorkoutRun.shared.elapsedTime
+        return phoneRun { PhoneWorkoutRun.shared.elapsedTime }
         #else
         return nil
         #endif
@@ -2889,7 +2901,7 @@ final class WorkoutSession {
             assignmentId: assignmentId,
             hkSessionUUID: {
                 #if os(iOS)
-                return PhoneWorkoutRun.shared.runUUID
+                return phoneRun { PhoneWorkoutRun.shared.runUUID }
                 #else
                 return nil
                 #endif

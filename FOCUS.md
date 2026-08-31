@@ -7,7 +7,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-48 — el live no muere en background (este lote, no merge).** Apple posee la sesión (`HKWorkoutSession` + builder en el iPhone, deploy 18). El plan del coach cuelga de ese UUID. Al matar el proceso: `recoverActiveWorkoutSession` (iOS 26+) + snapshot; no nace un cover vacío. Free/ad-hoc también se retoman. Un solo primary: el Watch ADOPTA, no crea. El Timer 0,25 s es un poller de `elapsedTime`, no el reloj. Audio/location/BLE no son el dueño.
+**FH-48 — el live no muere en background (este lote, no merge).** Apple posee la sesión (`HKWorkoutSession` + builder en el iPhone, deploy 18). El plan del coach cuelga de ese UUID. Al matar el proceso: `recoverActiveWorkoutSession` (iOS 26+) + snapshot; no nace un cover vacío. Free/ad-hoc también se retoman. Un solo primary: el Watch ADOPTA, no crea. El Timer 0,25 s es un poller de `elapsedTime`, no el reloj. Audio/location/BLE no son el dueño. `WorkoutSession` habla con `PhoneWorkoutRun` vía `MainActor.assumeIsolated` (el run es sesión UI/HealthKit; no un queue casero).
 
 Doc Plan aprobado: Notion `3cd4164765c181daa913c141c367125b`. Ticket: `3cd4164765c181debfbed369a06fb8af`.
 
