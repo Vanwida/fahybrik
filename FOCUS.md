@@ -1,13 +1,13 @@
 # FOCUS — FAHYBRID
 
 Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
-Última actualización: **2026-08-31**
+Última actualización: **2026-09-01**
 
 ---
 
 ## En qué estamos ahora
 
-**FH-46 (este lote, no merge):** al cerrar un ejercicio de fuerza/sled con kg (resuelto o prescrito) se pide el kilo con `KgWheel` (`Picker` + `.wheel`). Semilla = `ResolvedLoad.minKg` al armar el vivo. Un kg por ejercicio; no se copia al siguiente. `confirmSet` igual (SERIE HECHA sigue por serie). Sin skip (PR 101 revertido de main). Sin FH-48.
+**FH-53 (este lote, no merge):** no se podía guardar el entreno. Causa raíz: prod no tiene `segment_executions_position_unique` `(execution_id, position)` que `0001_init.sql` ya declara; el ingest hace `ON CONFLICT` sobre esas columnas → Postgres 42P10 → 500 → rollback de `createFreeWorkout` → retry = otro 500. Migración **0149** (idempotente, IF NOT EXISTS). El cliente deja de cerrar el resumen como éxito si el POST no es 2xx; REINTENTAR drena `RequestQueue` (ya encola 5xx; no encola 4xx). Overlay: ya no dice «está guardado». Log único en `APIClient` (status + body). Sin segundo motor, sin FH-48, sin bump iOS. Esta sesión: con unique en prod, drain en primer plano del binario ya instalado; sin unique, no se recupera en este binario.
 
 **En main · FH-41 (PR #99):** N × distancia + descanso en PM5 ya no es CSAFE type 7. `PM5WorkoutProgrammer` manda un bout `fixedDistance` (o time/cal). `monitorRunsTheSeries` es false; la app sigue siendo el reloj; la clave de tramo no cambia en el descanso. Pendiente de soak: live + SkiErg PM5 + N × distancia + descanso (el monitor debe mostrar 0…N m de ESA serie).
 

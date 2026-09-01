@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · Guardar el entreno: el unique de 0001 es el árbitro; no hay segundo motor (FH-53)
+
+**Decidido (Doc Plan, Owner 1-sep-2026):** el POST que ya existe (`URLSession.shared` + `RequestQueue` en disco) es el único motor. Esta sesión se perdió porque Postgres en prod no tiene el unique que `0001_init.sql` ya nombra (`segment_executions_position_unique` sobre `(execution_id, position)`). El ingest hace `ON CONFLICT (execution_id, position)`; sin ese árbitro Postgres lanza 42P10, `createFreeWorkout` (una transacción) hace rollback, el retry es otro 500, y el JSON en RAM muere si iOS mata la app.
+
+**Por qué no un retry patch ni un background session:** Owner: la causa raíz es el unique en API y el fondo es otro ticket (FH-48). `URLSession.shared` es lo que usa `APIClient`. No se añade `URLSessionConfiguration.background`. HealthKitWorkoutWriter no es el historial.
+
+**Cliente:** no cerrar el resumen como éxito si el POST no fue 2xx. Un 5xx/offline ya entra en `RequestQueue` (`isRetriable`); REINTENTAR drena esa cola, no abre un segundo POST (un segundo POST libre crearía otra sesión). Un 4xx no se encola. El overlay «Has acabado / todo está guardado» mentía: el trabajo aún no está persistido. Un solo log de fallo: `Logger` + `OSLogPrivacy.public` en `APIClient.requireSuccess` (status + body).
+
+**En consecuencia, no hacer:** no inventar un segundo motor de guardado; no reescribir el ingest; no mezclar FH-48; no tocar HUD / Watch outbox / HKWorkoutSession; no subir versión iOS por este lote. Si al aplicar 0149 el unique de 0001 YA está y 42P10 sigue, el ON CONFLICT no casa con el índice real — parar y verificar en DB, no parchear el ingest.
+
+---
+
 ## 2026-08-31 · El kg de fuerza se declara al cerrar el EJERCICIO (FH-46)
 
 **Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47; el skip no se implementa aquí).

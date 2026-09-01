@@ -1384,7 +1384,7 @@ struct ActiveWorkoutView: View {
     // The PRESCRIPTION IS DONE overlay. Reaching the end of the plan is a moment,
     // not a trapdoor: it used to drop the athlete straight into the summary, so a
     // session he wanted to extend was over before he could say so. The work is
-    // already closed and safe either way; this only asks what he wants to do next.
+    // still on the phone — POST / GUARDAR is what persists it (not this overlay).
     // Terminar is the accent default (it IS the expected answer), Seguir is right
     // beside it, and the scrim does nothing — this is a real choice, not a dialog
     // to dismiss by accident.
@@ -1398,7 +1398,7 @@ struct ActiveWorkoutView: View {
                         Text("Has acabado el entreno")
                             .font(Theme.Typography.headlineM)
                             .foregroundStyle(Theme.Color.foreground)
-                        Text("Todo lo que has hecho está guardado. Si te apetece seguir, sigue: lo que añadas se suma.")
+                        Text("Aún no está guardado. Si te apetece seguir, sigue: lo que añadas se suma.")
                             .font(Theme.Typography.small)
                             .foregroundStyle(Theme.Color.muted)
                         ExpertPrimaryButton(title: "Terminar y guardar") { session.finish() }
