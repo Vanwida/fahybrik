@@ -14,7 +14,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Decidido (Plan reescrito, Owner 1-sep-2026):** un solo `HKWorkoutSession` en el iPhone (Apple, iOS 17+, deploy 18). FAHYBRID solo persiste el plan del coach (bloque/serie/tramo) colgado de ese UUID. Cero segundo reloj. Cero keep-alives como dueño. Cero `UIBackgroundModes` extra.
 
-**Reloj:** `HKWorkoutSession.startDate` + pause/resume de ESA sesión (`WorkoutRunClock`). Una fórmula. `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` / `recoverActiveWorkoutSession` son iOS 26: recover se usa ADEMÁS del plan en disco, nunca en vez, y nunca como reloj. No se usa `HKWorkoutBuilder.elapsedTime(at:)` en 18 — eso era el split 18/26 de PR 100, un parche.
+**Reloj:** `HKWorkoutSession.startDate` + pause/resume de ESA sesión (`WorkoutRunClock`). Una fórmula. `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` / `recoverActiveWorkoutSession` / `init(healthStore:configuration:)` son iOS 26: recover se usa ADEMÁS del plan en disco, nunca en vez, y nunca como reloj. En deploy 18 se **crea** con `init(configuration:)` (deprecado en la clase iOS 17+; Apple docs MCP). No se usa `HKWorkoutBuilder.elapsedTime(at:)` en 18 — eso era el split 18/26 de PR 100, un parche. PR 106 compiló el init de 26 contra deploy 18 y Verify KO.
 
 **Muerte del proceso en 18:** Apple no recupera la sesión. Se reabre el plan del coach DESDE DISCO (cold launch Y `scenePhase.active`), con o sin bearer, free incluido, sin `armBlock()`. En 26: recover de Apple + el mismo disco.
 
@@ -22,7 +22,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Causa raíz:** el live de prod era un `Timer` en `@State` (`WorkoutSession` + `fullScreenCover`). iOS no lo trata como workout. No fue un HealthKit mal instalado. PR 100 no se mergea.
 
-**En consecuencia, no hacer:** no partir el reloj por builder 18/26; no tratar recover-on-26 como el done; no gatear el resume por bearer; no inventar un Timer como dueño; no mezclar FH-53; no subir el deploy a 26; no tocar HUD / PM5 / metros Watch / writer de Salud.
+**En consecuencia, no hacer:** no llamar `init(healthStore:configuration:)` en el path 18; no partir el reloj por builder 18/26; no tratar recover-on-26 como el done; no gatear el resume por bearer; no inventar un Timer como dueño; no mezclar FH-53; no subir el deploy a 26; no tocar HUD / PM5 / metros Watch / writer de Salud.
 
 ---
 
