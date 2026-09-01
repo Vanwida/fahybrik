@@ -57,6 +57,22 @@ final class WorkoutRecoveryTests: XCTestCase {
         XCTAssertEqual(decoded.currentSegmentIndex, 0)   // the rest still decodes
     }
 
+    func testRunEnvironmentRoundTripsOnSnapshot() throws {
+        for env in RunEnvironment.allCases {
+            var snap = snapshot(assignment: "42")
+            snap.runEnvironment = env
+            let data = try JSONEncoder().encode(snap)
+            let decoded = try JSONDecoder().decode(PersistedWorkoutState.self, from: data)
+            XCTAssertEqual(decoded.runEnvironment, env)
+        }
+        let data = try JSONEncoder().encode(snapshot(assignment: "42"))
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        obj.removeValue(forKey: "runEnvironment")
+        let stripped = try JSONSerialization.data(withJSONObject: obj)
+        let decoded = try JSONDecoder().decode(PersistedWorkoutState.self, from: stripped)
+        XCTAssertNil(decoded.runEnvironment)
+    }
+
     // MARK: - Store latch (AUDIT-2/3)
 
     func testCloseLatchStopsResurrection() async throws {

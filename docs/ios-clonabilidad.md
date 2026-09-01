@@ -20,7 +20,7 @@ En `ios/project.yml`, bloque `settings.base`:
 | `BRAND_BUNDLE_ID` | `com.fahybrid.app` | bundle id de los **5 targets** (app, reloj, widgets, tests, UITests), `CFBundleURLName` y `WKCompanionAppBundleIdentifier` |
 | `BRAND_WEB_DOMAIN` | `fahybrid.com` | `applinks:` de los dos entitlements, clave `BrandWebDomain` del Info.plist de app y reloj, y de ahí `Marca` en Swift (legales, cuenta, origen del reproductor, base del backend por defecto) |
 | `BRAND_URL_SCHEME` | `fahybrid` | `CFBundleURLSchemes` (enlace profundo de invitación de pareja) |
-| `DEVELOPMENT_TEAM` | `TBD` | firma de los tres targets firmables |
+| `DEVELOPMENT_TEAM` | `S6W4459DDG` | firma de los tres targets firmables (team de ESTE binario; un clon cambia esta línea) |
 
 Tras tocar cualquiera: `cd ios && xcodegen generate` y commit del `.pbxproj`.
 
@@ -46,10 +46,11 @@ Ordenado por lo que bloquea antes.
    que darlo de alta en developer.apple.com con sus capacidades (Sign in with
    Apple, HealthKit, Push, Associated Domains) y crear la app en App Store
    Connect. Checklist: `docs/app-store/testflight-checklist.md`.
-2. **Team ID y certificados de firma.** `DEVELOPMENT_TEAM: TBD` es deliberado y
-   tiene que seguir compilando en simulador. Se pone en la línea de
-   `settings.base` o por línea de comandos:
-   `xcodebuild … DEVELOPMENT_TEAM=AB12CD34EF`.
+2. **Team ID y certificados de firma.** `DEVELOPMENT_TEAM` en `settings.base`
+   está clavado al team de ESTE binario (`S6W4459DDG`). `TBD` se descartó
+   (2026-09-01): cada xcodegen / bump de pbxproj lo devolvía a «no team» y el
+   Owner tenía que reescribirlo en cada build de dispositivo. Un clon cambia
+   esa única línea. `CODE_SIGN_STYLE` sigue Automatic.
 
    ⚠️ **Pero el team id SÍ viaja en el repo, al contrario de lo que dice
    `docs/DECISIONS.md` (2026-08-16).** Está en claro en
@@ -198,8 +199,9 @@ marca nueva).
 
 `FahybrikApiBase` y `FahybrikDemoEntry` conservan el nombre interno viejo. No se
 renombran porque un clon no gana nada: se queda con el nombre que haya, y
-cambiarlo obliga a mover los dos lectores de Swift sin ninguna ventaja. `TBD` en
-`DEVELOPMENT_TEAM` es igual de deliberado.
+cambiarlo obliga a mover los dos lectores de Swift sin ninguna ventaja.
+`DEVELOPMENT_TEAM` ya no es `TBD`: está clavado al team de ESTE binario
+(2026-09-01).
 
 ---
 
@@ -275,8 +277,8 @@ cuanto la app se publica. Lo que **no** es defendible es el estado actual, donde
   los asignan las consolas de Garmin y Zepp. No se inventan (sección 2.1).
 - **Segundo bundle / firma de App Store Connect:** requiere cuenta, certificados y
   ficha creadas a mano (sección 2.1).
-- **`DEVELOPMENT_TEAM: TBD`:** se queda en TBD, que es lo que mantiene la build de
-  simulador verde sin cuenta.
+- **`DEVELOPMENT_TEAM`:** clavado al team de ESTE binario (`S6W4459DDG`).
+  `TBD` se descartó (2026-09-01). Un clon cambia la línea de `settings.base`.
 - **Claves de almacenamiento `fahybrik.*`, `FAHYBRIDWrittenByApp`, firma de
   WorkoutKit:** congeladas (sección 3).
 - **Sin infraestructura de localización:** es el hueco grande y sigue abierto

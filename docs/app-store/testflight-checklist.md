@@ -42,7 +42,7 @@ Two paths:
 
 **Path A — Automatic signing (recommended for solo dev):**
 - [ ] In Xcode → Project → Signing & Capabilities, set Team to the Vanwida team. Xcode generates Distribution + Development certs and provisioning profiles automatically.
-- [ ] Update `ios/project.yml` `DEVELOPMENT_TEAM: TBD` → real 10-char ID, regenerate xcodeproj (`xcodegen generate`), commit. **Una sola línea**, en `settings.base`: los tres targets firmables lo heredan (antes estaba escrito en cada uno). Sin tocar el repo también vale: `xcodebuild … DEVELOPMENT_TEAM=AB12CD34EF`.
+- [x] `ios/project.yml` `settings.base` `DEVELOPMENT_TEAM` está clavado (`S6W4459DDG`). No volver a `TBD`: xcodegen / bump de pbxproj lo borraba y Xcode pedía el team en cada build de dispositivo. Un clon FLEXR cambia esa única línea. `CODE_SIGN_STYLE` sigue Automatic.
 
 **Path B — Manual signing with Fastlane Match (only if a CI pipeline lands later):**
 - [ ] Create a private Vanwida org repo `vanwida/fahybrik-certificates` (gitignored from this repo).

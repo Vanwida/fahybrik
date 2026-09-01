@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · El team de firma de ESTE binario se clava; `TBD` se descarta
+
+**El hueco:** `DEVELOPMENT_TEAM: TBD` (16-ago / 17-ago) se eligió para el
+simulador. Cada `xcodegen` o bump de `project.pbxproj` devolvía el proyecto a
+«Automatic signing with no team». El Owner tenía que volver a escribir
+`S6W4459DDG` en cada build de dispositivo, y Xcode no encontraba perfiles para
+`com.fahybrid.app`.
+
+**Decidido:** `DEVELOPMENT_TEAM: S6W4459DDG` en `settings.base` de
+`ios/project.yml`. Lo heredan app, reloj y widgets. `CODE_SIGN_STYLE` sigue
+Automatic. El team id ya viaja en el AASA (corrección 18-ago): no es un secreto;
+es el operador de ESTE binario. Un clon FLEXR cambia esa única línea.
+
+**Se descarta:** `TBD` como valor canónico de firma. El simulador sigue
+compilando con team puesto. No se inventa otro team. No se vuelve a escribir
+el team en cada target a mano.
+
+**NO hacer:** no revertir a `TBD` «para el simulador»; no un team distinto; no
+dejar `project.yml` y `pbxproj` desfasados.
+
+---
+
 ## 2026-09-01 · La versión del binario se ve DENTRO de la app (iPhone y Watch)
 
 **Decidido (Owner, Guidelines §7):** cada update iOS/WatchOS sube
