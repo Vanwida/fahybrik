@@ -9,10 +9,13 @@ import { rosterStatus, type RosterStatus } from '@/lib/dashboard/v2/atletas-stat
 import { isCheckinRisk } from '@/lib/dashboard/coach/checkin-presentation';
 import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { InjuryZone, InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 
 export interface RosterRow {
   athlete_id: string;
   full_name: string;
+  /** Foto del atleta (base de entrega), null = iniciales. */
+  avatar_url: string | null;
   /** Real level name from athlete_levels.name (e.g. 'N1', 'N4'). Null = not assigned. */
   level: string | null;
   status: RosterStatus;
@@ -39,6 +42,8 @@ export interface RosterRow {
    *  adaptive-rule band) — drives the «Check-in N · hoy» chip. Null otherwise;
    *  a bad check-in from yesterday never paints it (viejo ≠ hoy). */
   checkin_risk_sub: number | null;
+  /** Entrega de la semana calendario (Visible / No lo ve / …). */
+  week_chip: AthleteWeekChip;
 }
 
 /** Build the label from the microciclo name + week, e.g. "Acumulación · sem 3". */
@@ -53,6 +58,7 @@ export function toRosterRow(a: AthleteRow): RosterRow {
   return {
     athlete_id: a.athlete_id,
     full_name: a.full_name,
+    avatar_url: a.avatar_url,
     level,
     status: rosterStatus(a),
     phase_label: phaseLabel(a),
@@ -78,5 +84,6 @@ export function toRosterRow(a: AthleteRow): RosterRow {
       a.checkin_today_sub != null && isCheckinRisk(a.checkin_today_sub)
         ? a.checkin_today_sub
         : null,
+    week_chip: a.week_chip,
   };
 }

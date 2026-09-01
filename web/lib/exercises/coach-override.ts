@@ -253,6 +253,19 @@ export async function upsertCoachExerciseOverride(
 export type CoachExerciseRow = CatalogExercise & {
   coach_id: string | null;
   origin: ExerciseOrigin;
+  /** Los dos idiomas, ya con la voz del coach por delante (0172). El nombre que se
+   *  PINTA lo elige el idioma de quien mira; los dos viajan para poder BUSCAR por
+   *  cualquiera de ellos. */
+  name_es: string | null;
+  name_en: string | null;
+  /** El vocabulario buscable de la fila, normalizado en el servidor con la misma
+   *  función que indexa (`fahybrid_normalize_term`): alias base + sinónimos de este
+   *  coach, separados por espacio. */
+  search_terms: string;
+  movement_pattern: string | null;
+  is_unilateral: boolean;
+  implement_count: number | null;
+  archived_at: string | null;
   base_name: string;
   base_cues: string | null;
   base_description: string | null;
@@ -263,8 +276,76 @@ export type CoachExerciseRow = CatalogExercise & {
   override_video_url: string | null;
 };
 
+/**
+ * El vocabulario buscable de una fila, en un solo texto ya NORMALIZADO.
+ *
+ * Junta las dos capas de alias con su precedencia intacta (el sinónimo del coach y
+ * el alias base son los dos válidos para ENCONTRAR; la precedencia importa al
+ * RESOLVER un texto a un ejercicio, no al filtrar una lista) y normaliza con la
+ * misma función que indexa la tabla, `fahybrid_normalize_term`. Va normalizado a
+ * propósito: el filtro en cliente no puede reproducir el `unaccent` de Postgres, y
+ * dos normalizadores distintos son dos resultados distintos para la misma letra.
+ * Requiere `e` en el scope.
+ */
+function searchTermsAgg(client: Client, coachId: bigint | number | null) {
+  return client`(
+    select coalesce(string_agg(t.term_normalized, ' '), '')
+    from (
+      select a.term_normalized from exercise_aliases a where a.exercise_id = e.id
+      union
+      select s.term_normalized from coach_exercise_synonyms s
+       where s.exercise_id = e.id
+         and ${coachId === null ? client`false` : client`s.coach_id = ${coachId}`}
+    ) t
+  )`;
+}
+
+/**
+ * EL predicado de búsqueda del catálogo, uno para todos los lectores.
+ *
+ * Busca en todo lo que un humano puede escribir para nombrar el movimiento: el
+ * nombre MERGEADO (el que el coach ve), los dos idiomas (0172), el slug, y las dos
+ * capas de vocabulario — alias base y sinónimos aprendidos de ESTE coach (0109).
+ *
+ * POR PALABRA CONTENIDA, no por prefijo: «gluteo» tiene que encontrar «Puente de
+ * glúteo» y «row» tiene que devolver el ergómetro Y el remo con barra, que es
+ * exactamente lo que un prefijo se dejaba fuera. Y NORMALIZADO con la misma función
+ * que indexa la tabla, así que las tildes y las mayúsculas dejan de contar.
+ *
+ * `term` entra CRUDO (sin `%`): el envoltorio es de aquí, para que ningún caller
+ * tenga que acordarse. Requiere `e` y `ceo` en scope.
+ */
+export function exerciseSearchFilter(
+  client: Client,
+  term: string | null,
+  coachId: bigint | number | null,
+) {
+  const raw = term?.trim() ? term.trim() : null;
+  if (!raw) return client`true`;
+  const like = client`'%' || fahybrid_normalize_term(${raw}) || '%'`;
+  const synonyms =
+    coachId === null
+      ? client`false`
+      : client`exists (
+          select 1 from coach_exercise_synonyms s
+           where s.exercise_id = e.id and s.coach_id = ${coachId}
+             and s.term_normalized like ${like}
+        )`;
+  return client`(
+    fahybrid_normalize_term(coalesce(ceo.name, e.name)) like ${like}
+    or fahybrid_normalize_term(coalesce(ceo.name_es, e.name_es, '')) like ${like}
+    or fahybrid_normalize_term(coalesce(ceo.name_en, e.name_en, '')) like ${like}
+    or fahybrid_normalize_term(e.slug) like ${like}
+    or exists (
+      select 1 from exercise_aliases a
+       where a.exercise_id = e.id and a.term_normalized like ${like}
+    )
+    or ${synonyms}
+  )`;
+}
+
 /** The full coach-facing SELECT list (merged + base + raw override + origin). */
-export function coachExerciseColumns(client: Client) {
+export function coachExerciseColumns(client: Client, coachId: bigint | number | null = null) {
   const baseCols = csv(
     client,
     COACH_OVERRIDE_FIELDS.map((f) => client`e.${client(f)} as ${client(`base_${f}`)}`),
@@ -283,6 +364,19 @@ export function coachExerciseColumns(client: Client) {
     e.equipment                as equipment,
     e.default_metrics_json     as default_metrics_json,
     e.hyrox_station_position   as hyrox_station_position,
+    e.movement_pattern         as movement_pattern,
+    e.is_unilateral            as is_unilateral,
+    e.implement_count          as implement_count,
+    e.archived_at              as archived_at,
+    -- Los dos idiomas, con la voz del coach por delante (0172): el nombre que se
+    -- MUESTRA sale del idioma de quien mira, y los dos viajan para que el buscador
+    -- encuentre por cualquiera de ellos aunque esté mirando en el otro.
+    coalesce(ceo.name_es, e.name_es) as name_es,
+    coalesce(ceo.name_en, e.name_en) as name_en,
+    -- El vocabulario con el que ESTE coach puede escribir el movimiento: los alias
+    -- base de 0172 más los sinónimos que él mismo enseñó (0109). Ya normalizados,
+    -- porque quien busca en cliente no puede recalcular el unaccent de Postgres.
+    ${searchTermsAgg(client, coachId)} as search_terms,
     ${mergedExerciseContent(client)},
     ${baseCols},
     ${overrideCols},
@@ -351,7 +445,7 @@ export async function loadCoachExerciseRow(
   exercise_id: bigint,
 ): Promise<CoachExerciseRow | null> {
   const rows = await client<CoachExerciseRow[]>`
-    select ${coachExerciseColumns(client)}
+    select ${coachExerciseColumns(client, coach_id)}
     from exercises e
     ${joinCoachOverride(client, coach_id)}
     where e.id = ${exercise_id}

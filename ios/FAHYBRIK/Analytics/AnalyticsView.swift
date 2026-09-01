@@ -35,6 +35,9 @@ struct AnalyticsView: View {
     var bearer: String? = nil
     /// FREE tier switch (athlete without coach) — hides the chat affordance.
     var hasCoach: Bool = true
+    /// La puerta «Mi carrera» del hub de Carrera cambia de pestaña (Carreras):
+    /// enlazar, no duplicar — la regla del mapa v2.
+    var onOpenTab: ((AppTab) -> Void)? = nil
 
     @Environment(AppDataStore.self) private var store
 
@@ -50,6 +53,18 @@ struct AnalyticsView: View {
     /// Y el hub degrada honestamente si el atleta tampoco tiene batería, así que
     /// la cadena se cierra en vez de acabar en otro callejón.
     @State private var showTestsHub = false
+    @State private var showCheckin = false
+    /// El progreso de carrera, con su propia carga (ver `progresoDeCarrera`).
+    @State private var progreso: RunningProgressPayload?
+    @State private var progresoFallo = false
+    /// LAS ANALÍTICAS DEL CUERPO — carga, capacidad y recuperación, en una LISTA de
+    /// lecturas. Se piden SIEMPRE, sea cual sea la sección del rail: el cuerpo es
+    /// uno y sus bloques viven por encima del rail (ver `elCuerpo`).
+    @State private var analiticas: AnaliticasAtleta?
+    /// Las series de la batería, para la sección de Fuerza. Se piden UNA vez por
+    /// apertura de la pestaña: una curva de marcas no cambia mientras se mira.
+    @State private var seriesDeBateria: [BenchmarkSeries] = []
+    @State private var seriesDeBateriaListas = false
 
     /// Effective bearer: the one AppShell passed, else the persisted token.
     private var effectiveBearer: String? {
@@ -63,12 +78,60 @@ struct AnalyticsView: View {
     private var currentSection: AnalyticsSection? { slice.value }
 
     var body: some View {
+        // LA PESTAÑA GANA NAVEGACIÓN (mapa v2, 13-ago): el hub de Carrera es un
+        // resumen corto de puertas y cada puerta EMPUJA su vista — historial,
+        // tendencias, capacidad, por tipo… El stack vive aquí (patrón de la tab
+        // Carreras) para que un push cubra el cromo entero; la raíz esconde la
+        // barra porque su identidad la pinta `chrome`.
+        NavigationStack {
+            raiz
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: CorrerDestino.self) { destino in
+                    destinoDeCorrer(destino)
+                }
+        }
+    }
+
+    private var raiz: some View {
         // `head` queda fijo: el título, las secciones y (en Ergo) la máquina son
         // la IDENTIDAD de lo que estás mirando, y no deben irse al scrollear.
         // El cuerpo `llena` cuando hay tarjetas y reparte el aire cuando no —
         // resuelto por contenido, no por una decisión a priori (§6.1).
         CenteredScreen(head: { chrome }) {
-            main
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxl) {
+                // LAS PASTILLAS MANDAN (Alex, 13-ago). Todo lo que se pinta bajo
+                // el rail se LEE como contenido de la pestaña elegida, así que el
+                // cuerpo —disposición, carga, sueño, variabilidad— solo aparece en
+                // Recup., que es su pestaña. El sueño no pinta nada en Carrera:
+                // la sección de una modalidad lleva SOLO su modalidad.
+                if section == .recovery {
+                    elCuerpo
+                }
+                main
+            }
+        }
+        .sheet(isPresented: $showCheckin) {
+            CheckinView(
+                bearer: effectiveBearer,
+                onSubmitted: { _, _ in
+                    showCheckin = false
+                    Task { await store.refreshReadiness(force: true) }
+                },
+                onSkipped: { showCheckin = false },
+                onServerSynced: {}
+            )
+        }
+        // EL TINTE DEL VEREDICTO VA DETRÁS DE TODO, incluido el cromo, y NO
+        // scrollea: es el lienzo de la pantalla, no un fondo de una tarjeta. Es la
+        // misma pieza `Ambiente` que tiñe la lectura de una carrera con la zona de
+        // pulso — aquí el sujeto es el veredicto, así que tiñe él.
+        .background(alignment: .top) {
+            if section == .running, let p = progreso {
+                Ambiente(
+                    zona: nil,
+                    tono: AnaliticasCorrerView.tono(ProgresoDeCarrera.veredictoEfectivo(p).clase)
+                )
+            }
         }
         .refreshable {
             // Pull-to-refresh: re-pull the active section×period fresh (force
@@ -101,10 +164,175 @@ struct AnalyticsView: View {
         }
         // Revalidate whenever the bearer, section or period changes. Cache-first:
         // a warm slice renders instantly; this just refreshes it (throttled + SWR).
+        // EL CUERPO NO DEPENDE DE LA SECCIÓN, así que su carga tampoco: se pide una
+        // vez por apertura de la pestaña y no vuelve a pedirse al cambiar de rail.
+        // Colgarla de `refreshKey` habría hecho cinco viajes para traer lo mismo.
+        .task(id: effectiveBearer ?? "") {
+            await cargarAnaliticas()
+        }
         .task(id: refreshKey) {
             store.activate(bearer: effectiveBearer)
-            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+            if section == .running {
+                await cargarProgreso()
+            } else if section == .strength {
+                // A LA VEZ, NO EN FILA: son dos fuentes independientes, y
+                // encadenarlas le costaría al atleta un viaje de ida y vuelta
+                // entero antes de ver la sección.
+                async let evidencia: Void = cargarFuerza()
+                async let seccion: Void = store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+                _ = await (evidencia, seccion)
+            } else {
+                await store.refreshAnalyticsSection(section, period: period, erg: scopedErg)
+            }
         }
+    }
+
+    // MARK: - Carrera · ¿estoy mejorando?
+
+    /// La pantalla de progreso de carrera, con su propia carga. No pasa por el
+    /// motor SWR de secciones a propósito: no devuelve `AnalyticsSection` y
+    /// doblar aquel contrato hasta que le cupiera dejaría de describir lo que
+    /// sirve, además de romper a quien ya dibuja tarjetas con él.
+    @ViewBuilder
+    private var progresoDeCarrera: some View {
+        if let p = progreso {
+            // EL HUB (mapa v2): veredicto etiquetado + puertas, y cada puerta
+            // empuja su vista. La tira anterior y sus grupos viven ahora
+            // repartidos por las vistas de nivel 1 (Forma lleva ejecución;
+            // Tendencias, volumen y terreno; Capacidad, lo suyo). Aquí ya no
+            // hay ningún botón de tests: la salida por ancla vive en Capacidad
+            // y aterriza en SU test.
+            CorrerHubView(
+                progreso: p,
+                bearer: effectiveBearer,
+                onAbrirCarreras: { onOpenTab?(.carreras) }
+            )
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.bottom, Theme.Spacing.xxl)
+        } else if progresoFallo {
+            RedesignEmptyState(
+                symbol: "arrow.clockwise",
+                title: "No pudimos cargar tu progreso",
+                message: "Revisa tu conexión e inténtalo de nuevo.",
+                exit: .action(title: "Reintentar") { Task { await cargarProgreso() } }
+            )
+        } else {
+            VStack(spacing: Theme.Spacing.m) {
+                ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+            }
+            .padding(.horizontal, Theme.Spacing.xl)
+        }
+    }
+
+    private func cargarProgreso() async {
+        guard let bearer = effectiveBearer else { return }
+        progresoFallo = false
+        do {
+            progreso = try await AnalyticsService.fetchRunningProgress(bearer: bearer)
+        } catch {
+            // Sin caché previa el fallo se dice; con ella se conserva lo último
+            // bueno, que es más útil que un error sobre una pantalla en blanco.
+            if progreso == nil { progresoFallo = true }
+        }
+    }
+
+    /// LAS VISTAS DEL HOGAR DEL RUNNING, una por puerta. Las que leen del
+    /// payload de progreso lo exigen: solo se llega a ellas desde un hub que ya
+    /// lo tenía, así que el fallback es un esqueleto de un instante, no un
+    /// estado que el atleta vaya a habitar.
+    @ViewBuilder
+    private func destinoDeCorrer(_ destino: CorrerDestino) -> some View {
+        switch destino {
+        case .historial:
+            CorrerHistorialView(bearer: effectiveBearer)
+        case .tendencias:
+            CorrerTendenciasView(bearer: effectiveBearer, analiticas: analiticas)
+        case .porTipo:
+            CorrerPorTipoView(bearer: effectiveBearer)
+        case .capacidad:
+            if let p = progreso {
+                CorrerCapacidadView(progreso: p, analiticas: analiticas, bearer: effectiveBearer)
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .forma:
+            if let p = progreso {
+                CorrerFormaView(progreso: p, analiticas: analiticas, onDrill: { ref in
+                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
+                })
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .adherencia:
+            if let p = progreso {
+                CorrerAdherenciaView(progreso: p, onDrill: { ref in
+                    drillTarget = DrillTarget(ref: ref, period: p.periodoDeDrill)
+                })
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        case .cansado:
+            if let p = progreso {
+                CorrerCansadoView(progreso: p)
+            } else {
+                AnalyticsSkeletonCard()
+            }
+        }
+    }
+
+    /// Las lecturas del cuerpo. Un fallo se traga EN SILENCIO a propósito: los
+    /// bloques del cuerpo son lo primero de la pantalla, y un error rojo ahí
+    /// arriba taparía una sección de carrera que sí ha cargado. Si no llegan, no
+    /// se pintan — que es exactamente lo que hace la app con lo que no sabe.
+    private func cargarAnaliticas() async {
+        guard let bearer = effectiveBearer else { return }
+        analiticas = try? await AnalyticsService.fetchLecturas(bearer: bearer)
+    }
+
+    // MARK: - Fuerza · ¿estoy más fuerte?
+
+    /// LA EVIDENCIA DE CAMBIO EN FUERZA, que hasta hoy vivía escondida en Perfil:
+    /// la evolución de cada 1RM y las curvas de los tests que miden fuerza. En
+    /// Perfil se queda el número de hoy —quién eres—; cómo has cambiado se lee
+    /// aquí, que es donde se pregunta.
+    private var fuerza: BloquesDeFuerza {
+        let levantamientos = FuerzaProgreso.levantamientos(store.strengthMaxes.value ?? [])
+        return BloquesDeFuerza(
+            levantamientos: levantamientos,
+            tests: FuerzaProgreso.tests(
+                seriesDeBateria,
+                yaEnLevantamientos: Set(levantamientos.map(\.id))
+            )
+        )
+    }
+
+    private var hayFuerza: Bool { section == .strength && fuerza.hayAlgo }
+
+    /// Los 1RM ya viven en el store (los usa Inicio desde hace meses), así que
+    /// sólo se revalidan — el motor SWR decide si toca red. Las series de la
+    /// batería sí se piden, UNA vez, y sólo al abrir esta sección: un fallo se
+    /// traga en silencio porque los levantamientos se sostienen sin ellas.
+    private func cargarFuerza() async {
+        await store.refreshStrengthMaxes()
+        guard let bearer = effectiveBearer, !seriesDeBateriaListas else { return }
+        if let series = try? await TestBatteryService.fetchBenchmarkHistory(bearer: bearer) {
+            seriesDeBateria = series
+            seriesDeBateriaListas = true
+        }
+    }
+
+    /// La fuerza que el móvil YA tiene, por delante de lo que traiga el servidor.
+    /// Se pinta también mientras la sección carga o cuando falla: es dato propio,
+    /// y esconderlo detrás de un esqueleto sería negar algo que ya sabemos.
+    @ViewBuilder
+    private func conFuerza<Contenido: View>(@ViewBuilder _ resto: () -> Contenido) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxl) {
+            if hayFuerza {
+                fuerza.padding(.horizontal, Theme.Spacing.xl)
+            }
+            resto()
+        }
+        .padding(.bottom, Theme.Spacing.xl)
     }
 
     /// Composite identity that drives the revalidation task (erg only for Ergo).
@@ -261,37 +489,112 @@ struct AnalyticsView: View {
 
     // MARK: - Body
 
+    /// EL CUERPO, ANTES DEL RAIL.
+    ///
+    /// No duermes distinto para correr que para levantar: la disposición, la carga,
+    /// lo que sostienes y cómo lo asimilas no tienen modalidad, así que viven
+    /// ARRIBA y sin rail. Meterlas dentro de cada sección las repetiría cinco veces
+    /// (firmado 12-ago).
+    ///
+    /// **EL ORDEN NO ES UNA LISTA DE BLOQUES, ES UN RECORRIDO DE GRUPOS.** Cómo
+    /// llegas hoy (lo que ya funcionaba), la carga con su afirmación, y después
+    /// cada grupo que el motor sirva, en su sitio y con su etiqueta. Un grupo nuevo
+    /// del servidor —ejecución, terreno— aparece dibujado sin tocar esta vista, que
+    /// es toda la promesa del contrato de lecturas.
+    ///
+    /// La densidad crece hacia abajo: primero cómo llegas hoy, luego a qué ritmo
+    /// estás cargando, y al final el detalle de cada señal con su historia.
+    @ViewBuilder
+    private var elCuerpo: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xxxl) {
+            if let r = store.readiness.value {
+                ComoLlegoHoyBloque(readiness: r, onCheckin: { showCheckin = true })
+            }
+            if let a = analiticas {
+                BloqueDeCarga(
+                    lecturas: a.lecturas.deGrupo(.carga),
+                    hechos: a.hechos,
+                    metodo: a.metodo,
+                    ventana: a.ventanaEs,
+                    onSalida: { showTestsHub = true }
+                )
+                ForEach(Self.gruposDelCuerpo, id: \.self) { grupo in
+                    if let etiqueta = grupo.etiqueta {
+                        GrupoDeLecturas(
+                            etiqueta: etiqueta,
+                            lecturas: a.lecturas.deGrupo(grupo),
+                            ventana: a.ventanaEs,
+                            onSalida: { showTestsHub = true }
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.l)
+    }
+
+    /// LOS GRUPOS DEL CUERPO — solo lo que de verdad no tiene modalidad. `carga`
+    /// va aparte (lleva la afirmación de sujeto) y `desconocido` no entra nunca.
+    ///
+    /// Capacidad, ejecución, volumen y terreno NO están aquí y estuvieron: son
+    /// running puro —velocidad crítica, deriva, kilómetros, cuestas— y colgarlos
+    /// del cuerpo los sacaba de la pestaña de Carrera. Desde el hub v2 (13-ago)
+    /// viven repartidos por sus vistas: capacidad en `CorrerCapacidadView`,
+    /// ejecución en `CorrerFormaView`, volumen y terreno en
+    /// `CorrerTendenciasView`.
+    private static let gruposDelCuerpo: [GrupoLectura] = [
+        .recuperacion,
+    ]
+
     @ViewBuilder
     private var main: some View {
-        if let loaded = currentSection {
+        // CARRERA NO ES UNA SECCIÓN DE TARJETAS. Una rejilla enumera métricas;
+        // esta pregunta se contesta con UN veredicto y la evidencia que lo
+        // sostiene, así que la sección de correr tiene su propia pantalla y su
+        // propia llamada. Las otras cuatro siguen exactamente igual.
+        if section == .running {
+            progresoDeCarrera
+        } else if let loaded = currentSection {
             // Una sección puede llegar LLENA DE TARJETAS y vacía de fondo: el
             // servidor emite siempre su juego de cards, y con un atleta recién
             // dado de alta todas vienen sin cifra. Eso no es una lista corta, es
             // un Vacío — y se pinta como Vacío.
+            //
+            // SALVO que la sección tenga evidencia PROPIA: la fuerza la trae el
+            // móvil, no esta llamada. Pintar «todavía no hay nada que analizar»
+            // encima de dos bloques llenos de curvas sería la app contradiciéndose.
             if AnalyticsVerdict.isBlank(loaded) {
-                emptyState(loaded)
+                if hayFuerza {
+                    conFuerza { EmptyView() }
+                } else {
+                    emptyState(loaded)
+                }
             } else {
                 loadedBody(loaded)
             }
         } else if slice.isRevalidating || !slice.hasLoaded {
             // Cold load (no cache yet) — quiet skeletons, not an empty state.
-            VStack(spacing: Theme.Spacing.m) {
-                ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+            conFuerza {
+                VStack(spacing: Theme.Spacing.m) {
+                    ForEach(0..<3, id: \.self) { _ in AnalyticsSkeletonCard() }
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
         } else {
             // Ni caché ni respuesta: es un error, y un error lleva reintento.
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tus analíticas",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar") {
-                    Task {
-                        await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
-                    }
-                },
-                eyebrow: section.navLabel
-            )
+            conFuerza {
+                RedesignEmptyState(
+                    symbol: "arrow.clockwise",
+                    title: "No pudimos cargar tus analíticas",
+                    message: "Revisa tu conexión e inténtalo de nuevo.",
+                    exit: .action(title: "Reintentar") {
+                        Task {
+                            await store.refreshAnalyticsSection(section, period: period, erg: scopedErg, force: true)
+                        }
+                    },
+                    eyebrow: section.navLabel
+                )
+            }
         }
     }
 
@@ -300,6 +603,16 @@ struct AnalyticsView: View {
             // El sujeto, primero y más grande.
             if let verdict = AnalyticsVerdict.of(loaded) {
                 verdictBlock(verdict, in: loaded)
+            }
+
+            // LA EVIDENCIA DE CAMBIO VA ANTES DEL DETALLE, Y FUERA DEL PERIODO.
+            // Un 1RM no pertenece a una ventana de siete días: es la historia
+            // entera de ese levantamiento, y colgarlo por debajo del selector
+            // diría que la obedece — que es justo lo que no hace.
+            if hayFuerza {
+                fuerza
+                    .padding(.top, Theme.Spacing.s)
+                    .padding(.bottom, Theme.Spacing.m)
             }
 
             // El periodo, a su tamaño real, justo encima de lo que califica.
@@ -488,7 +801,9 @@ struct AnalyticsVerdict {
 
 // MARK: - Skeleton card (cold-load placeholder)
 
-private struct AnalyticsSkeletonCard: View {
+// Internal, no `private`: las vistas del hogar del running (Correr/) lo usan
+// como marcador de carga — es la pieza compartida de esta pestaña (§0).
+struct AnalyticsSkeletonCard: View {
     @State private var pulse = false
     var body: some View {
         CardSurface(padding: 15) {

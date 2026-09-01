@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tests agnósticos · el plan · FAHYBRID</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0b;--surface:#131315;--surface2:#1a1a1d;--line:#222226;--line2:#2e2e33;
+  --fg:#eceae6;--muted:#98938b;--faint:#5f5a53;--accent:#ff6b35;--ok:#3fc773;--warn:#f2a52e;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',sans-serif;background:var(--bg);color:var(--fg);line-height:1.6}
+.wrap{max-width:880px;margin:0 auto;padding:48px 24px 90px}
+.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:10px}
+h1{font-size:44px;line-height:1.02;font-weight:900;font-style:italic;letter-spacing:-1px;text-transform:uppercase}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:15px;margin-top:14px;max-width:640px}
+.meta{display:flex;gap:18px;margin-top:18px;font-size:12px;color:var(--faint);flex-wrap:wrap}
+.meta b{color:var(--muted);font-weight:600}
+section{margin-top:64px}
+h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:6px}
+h3{font-size:22px;font-weight:800;font-style:italic;margin-bottom:14px;letter-spacing:-.3px}
+p{color:#c9c5be;font-size:15px;margin-bottom:12px;max-width:720px}
+p b,li b{color:var(--fg)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:16px}
+.card h4{font-size:16px;font-weight:800;margin-bottom:8px}
+.card h4 .n{display:inline-flex;width:26px;height:26px;border-radius:8px;background:var(--accent);color:#0a0a0b;font-style:italic;font-weight:900;align-items:center;justify-content:center;margin-right:10px;font-size:14px;transform:skewX(-6deg)}
+.card p{font-size:14px;margin-bottom:8px}
+.card p:last-child{margin-bottom:0}
+.mono{font-family:ui-monospace,'SF Mono',Menlo,monospace}
+.tagline{border-left:3px solid var(--accent);background:rgba(255,107,53,.05);padding:14px 18px;border-radius:0 10px 10px 0;margin:18px 0;font-size:15px;color:var(--fg)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:14px}
+th{text-align:left;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding:9px 12px;border-bottom:1px solid var(--line2);font-weight:700}
+td{padding:10px 12px;border-bottom:1px solid var(--line);color:#c9c5be;vertical-align:top}
+td b{color:var(--fg);font-weight:600}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:rgba(63,199,115,.12);color:var(--ok)}
+.pill.warn{background:rgba(242,165,46,.14);color:var(--warn)}
+.pill.acc{background:rgba(255,107,53,.13);color:var(--accent)}
+.pill.dim{background:rgba(255,255,255,.06);color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media(max-width:640px){.two{grid-template-columns:1fr}h1{font-size:34px}}
+.die{border-color:rgba(242,63,63,.25)}
+.die h4{color:#f0997b}
+.stay{border-color:rgba(63,199,115,.25)}
+.stay h4{color:var(--ok)}
+ul{margin:10px 0 12px 0;padding-left:0;list-style:none}
+li{position:relative;padding-left:20px;margin-bottom:8px;color:#c9c5be;font-size:14px}
+li::before{content:'';position:absolute;left:0;top:9px;width:8px;height:2px;background:var(--accent)}
+.flow{display:flex;align-items:stretch;gap:0;margin:20px 0 6px;flex-wrap:wrap}
+.fbox{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:14px 16px;text-align:center}
+.fbox .t{font-size:13px;font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:.04em}
+.fbox .d{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+.farr{display:flex;align-items:center;color:var(--accent);font-weight:900;padding:0 10px;font-size:18px}
+@media(max-width:640px){.flow{flex-direction:column}.farr{justify-content:center;transform:rotate(90deg);padding:2px 0}}
+.fase{display:flex;gap:16px;margin-top:14px}
+.fase .num{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:var(--surface2);border:1px solid var(--line2);color:var(--accent);font-weight:900;font-style:italic;display:flex;align-items:center;justify-content:center;font-size:15px}
+.fase .cuerpo{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.fase .cuerpo h4{font-size:15px;font-weight:800;margin-bottom:4px}
+.fase .cuerpo p{font-size:13.5px;margin-bottom:4px}
+.fase .ve{font-size:12px;color:var(--faint)}
+.fase .ve b{color:var(--muted);font-weight:600}
+.cruce{background:var(--surface);border:1px solid rgba(242,165,46,.35);border-radius:14px;padding:20px 22px;margin-top:16px}
+.cruce h4{font-size:16px;font-weight:800;margin-bottom:8px;color:var(--warn)}
+.cruce .op{display:flex;gap:10px;margin-top:10px;align-items:baseline}
+.cruce .op .tag{flex:0 0 auto}
+.cruce .op p{font-size:13.5px;margin:0}
+footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="eyebrow">Cards 104 · 105 — plan debatido, 26 ago 2026</div>
+<h1>Tests <span>agnósticos</span><br>para miles de coaches</h1>
+<p class="sub">Cada coach hace sus tests. Quizás la mayoría usan los mismos — no lo sabemos, y no nos toca saberlo: <b>nosotros somos la herramienta</b>. Hasta hoy esto era manual; esto es el plan para que cualquier coach cree sus tests, la app los mida, y cuando el test es «de calculadora», la calculadora dé un número de verdad.</p>
+<div class="meta">
+  <span><b>Estado:</b> plan a debate — 2 cruces pendientes de Alex</span>
+  <span><b>Sustituye a:</b> el sistema de tests actual (cableado)</span>
+</div>
+
+<!-- ============================================================ -->
+<section>
+<h2>La pieza clave</h2>
+<h3>Un test no es una entidad nueva: es una sesión con bandera</h3>
+<p>Un 3'+9', un 2k de remo, un FTP de 20', un 1RM, un Bronco: todos son bloques y prescripciones que <b>nuestro lenguaje ya escribe y nuestra app ya ejecuta en vivo</b>. Si inventamos un «constructor de tests» aparte, mantenemos dos constructores para siempre y siempre estarán desincronizados.</p>
+<div class="tagline">El coach crea el test donde crea todo — el constructor de sesiones — con su nombre y su protocolo. La bandera lo convierte en test. Lo que lo hace test son <b>tres capas de dato encima</b>.</div>
+
+<div class="flow">
+  <div class="fbox"><div class="t">Protocolo</div><div class="d">La sesión de siempre.<br>Bloques + prescripciones.</div></div>
+  <div class="farr">→</div>
+  <div class="fbox"><div class="t">Salidas</div><div class="d">Qué produce y de dónde<br>se extrae. Medible por la app.</div></div>
+  <div class="farr">→</div>
+  <div class="fbox"><div class="t">Calculadora</div><div class="d">Cuando el test la lleva:<br>de lo medido al número.</div></div>
+  <div class="farr">→</div>
+  <div class="fbox"><div class="t">Destino</div><div class="d">Ancla del atleta (y sus zonas)<br>o métrica con historial.</div></div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Las tres capas — mecanismo nuestro, método del coach</h2>
+
+<div class="card">
+<h4><span class="n">1</span>Salidas: qué produce el test</h4>
+<p>Cada salida lleva <b>el nombre que el coach quiera</b> («VC», «mi umbral», «pico») + un <b>tipo medible nuestro</b> + una <b>regla de extracción</b> de un catálogo cerrado sobre los segmentos del protocolo. La regla es lo que permite que la app <b>mida sola</b> el test de cualquier coach, en vivo, sin conocerlo de antes.</p>
+<table>
+<tr><th>Nuestro (mecanismo)</th><th>Del coach (método)</th></tr>
+<tr><td><b>Tipos medibles:</b> tiempo · ritmo/km · ritmo/500 m · kg · reps · vatios · ppm · cm · metros</td><td>Cómo se llama cada salida, y cuáles lleva su test</td></tr>
+<tr><td><b>Reglas de extracción:</b> ritmo medio del segmento N · tiempo del segmento · media de los últimos X min · carga máxima levantada · FC media del tramo · distancia cubierta · mejor de N tramos · valor tecleado</td><td>Qué regla usa cada salida y sobre qué segmento</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4><span class="n">2</span>Calculadora: de lo medido al número</h4>
+<p>Un <b>catálogo de cálculos parametrizado</b> — mecanismo nuestro, parámetros del coach. No fórmulas libres (irreproducibles, invalidables); y la salida de emergencia que lo mantiene agnóstico: <b>el coach siempre puede teclear el ancla a mano</b>. Su matemática rara nunca lo bloquea.</p>
+<table>
+<tr><th>Cálculo (catálogo)</th><th>Ejemplo real</th></tr>
+<tr><td><b>Velocidad crítica de dos tramos</b></td><td>3'+9' → VC = (d9−d3)/360 → umbral de carrera</td></tr>
+<tr><td><b>Media de ventana</b></td><td>30' → ritmo medio de los últimos 20' = umbral directo</td></tr>
+<tr><td><b>% de un valor</b></td><td>FTP = 95% de los vatios medios del 20'</td></tr>
+<tr><td><b>Estimación de 1RM</b> (Epley / Brzycki)</td><td>3RM de 110 kg → 1RM estimado</td></tr>
+<tr><td><b>Desplazamiento</b></td><td>Ritmo del test +8 s → referencia de trabajo en ergo</td></tr>
+<tr><td><b>Conversión distancia→ritmo</b></td><td>Cooper 12': metros → ritmo/km</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4><span class="n">3</span>Destino: para qué sirve el resultado</h4>
+<p>Una salida puede atarse a un <b>ancla del atleta</b> — el vocabulario tipado que las prescripciones ya saben resolver (umbral por modalidad, 1RM por levantamiento, LTHR, ritmo de carrera… el mismo de los objetivos relativos de la card 130). De las anclas cuelgan <b>las bandas de zona del coach</b>, versionadas como hasta ahora.</p>
+<p>Lo que no es ancla (un CMJ, el tiempo de su WOD-test) queda como <b>métrica con historial</b>: se compara en el tiempo, alimenta analíticas, no alimenta prescripciones. Nada se pierde y nada se inventa.</p>
+</div>
+
+<div class="card">
+<h4>El arreglo que esto destapa en las zonas</h4>
+<p>Nuestro modelo de bandas solo sabe <b>desplazamientos en segundos</b> sobre el umbral. La calculadora de referencia usa desplazamientos para ergos pero <b>porcentajes</b> para correr (Z2 = 1,18–1,30 × VC) — y no es capricho: un +45 s/km significa cosas distintas a 3:30 que a 5:00. Son dos escuelas legítimas → la fila de banda necesita su tipo, <span class="mono">porcentaje | desplazamiento</span>, como dato del coach. Sin eso, o cableamos una escuela o la falseamos.</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Honestidad sobre lo que hay</h2>
+<h3>Qué muere y qué se queda</h3>
+<div class="two">
+<div class="card die">
+<h4>Muere</h4>
+<ul>
+<li>Los <b>6 tipos de test cableados</b> (<span class="mono">TEST_TYPES</span>): pasan a ser datos que cada coach crea. Los 6 se siembran como plantillas de ejemplo editables.</li>
+<li>La <b>batería de calibración fija</b>: era nuestra elección de tests, y elegir tests es método del coach.</li>
+<li>La idea de que el umbral llega «ya calculado de fuera»: el cálculo entra en el producto.</li>
+</ul>
+</div>
+<div class="card stay">
+<h4>Se queda (es el destino, no el sistema de tests)</h4>
+<ul>
+<li><b>Anclas versionadas</b> del atleta (<span class="mono">athlete_zone_profiles</span>, 1RMs): donde todo test aterriza.</li>
+<li><b>Bandas de zona editables por coach</b> con defecto estándar — ganando el tipo porcentaje|desplazamiento.</li>
+<li>El <b>resolver</b> que traduce «Z4» a un ritmo concreto en cada prescripción.</li>
+<li>La <b>ejecución en vivo</b> (iOS + reloj): el protocolo del test se corre como cualquier sesión.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Roto contra la realidad</h2>
+<h3>Doce tests reales contra el modelo</h3>
+<table>
+<tr><th>Test</th><th>Salidas (extracción)</th><th>Cálculo</th><th>Destino</th><th></th></tr>
+<tr><td><b>3' + 9'</b></td><td>ritmo medio de cada tramo</td><td>VC dos tramos</td><td>ancla · umbral carrera</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>30 minutos</b></td><td>ritmo medio últimos 20'</td><td>directo</td><td>ancla · umbral carrera</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>2k remo / 1k ski</b></td><td>ritmo /500 del tramo</td><td>directo o desplazamiento</td><td>ancla · umbral ergo</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>2-1-2 ergo</b></td><td>ritmo medio del test</td><td>desplazamiento</td><td>ancla · umbral ergo</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>FTP 20'</b></td><td>vatios medios del tramo</td><td>% de un valor (95%)</td><td>ancla · FTP</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>1RM directo</b></td><td>carga máxima levantada</td><td>—</td><td>ancla · 1RM</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>3RM → 1RM</b></td><td>carga + reps</td><td>Epley</td><td>ancla · 1RM estimado</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>LTHR del 30'</b></td><td>FC media últimos 20'</td><td>directo</td><td>ancla · LTHR</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>Cooper 12'</b></td><td>distancia cubierta</td><td>distancia→ritmo</td><td>ancla o métrica</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>CMJ</b></td><td>cm (medido o tecleado)</td><td>—</td><td>métrica con historial</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>Simulacro HYROX</b></td><td>tiempo total</td><td>tiempo/8000</td><td>ancla · ritmo de carrera</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>WOD-test del box</b></td><td>tiempo total</td><td>—</td><td>métrica con historial</td><td><span class="pill ok">entra</span></td></tr>
+<tr><td><b>Índice compuesto raro</b></td><td>lo que sea</td><td>no está en el catálogo</td><td>ancla <b>a mano</b></td><td><span class="pill warn">salida declarada</span></td></tr>
+</table>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Decisión tuya</h2>
+<h3>Los dos cruces abiertos</h3>
+
+<div class="cruce">
+<h4>Cruce 1 · Cuánta libertad de cálculo</h4>
+<div class="op"><span class="pill acc tag">Recomendado</span><p><b>Catálogo parametrizado.</b> Cubre los doce casos reales; cada cálculo es explicable, testeable y el mismo para todos. Lo que no cabe → ancla a mano.</p></div>
+<div class="op"><span class="pill dim tag">Alternativa</span><p><b>Fórmulas libres del coach.</b> Máxima libertad, pero irreproducible, invalidable, y una fórmula rota prescribe ritmos rotos sin que nadie lo vea.</p></div>
+</div>
+
+<div class="cruce">
+<h4>Cruce 2 · ¿Anclas propias del coach?</h4>
+<div class="op"><span class="pill acc tag">Recomendado</span><p><b>V1 con nuestro vocabulario tipado</b> (umbral, 1RM, LTHR, ritmo de carrera…) + métricas libres con historial. Cubre todo lo visto en ciclos reales.</p></div>
+<div class="op"><span class="pill dim tag">Después</span><p><b>Anclas creadas por el coach</b> referenciables desde prescripciones («al 90% de MI VC»). Agranda el lenguaje de prescripción por coach: potente, pero cada pieza (iOS, reloj, analíticas, IA) tiene que entenderlo. No para la v1.</p></div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Cómo se construye</h2>
+<h3>Cinco fases, commits pequeños</h3>
+
+<div class="fase"><div class="num">1</div><div class="cuerpo">
+<h4>El cálculo, puro y probado</h4>
+<p>Catálogo de cálculos en <span class="mono">shared</span> (VC dos tramos, ventana, %, Epley, desplazamiento, distancia→ritmo), probado contra los números literales de la calculadora HTML de referencia. Y el tipo de banda porcentaje|desplazamiento en el modelo de zonas + migración.</p>
+<div class="ve"><b>Se ve en:</b> nada aún — es el suelo. Verificable por pruebas contra casos reales.</div>
+</div></div>
+
+<div class="fase"><div class="num">2</div><div class="cuerpo">
+<h4>El test como dato del coach</h4>
+<p>La bandera de test sobre la plantilla de sesión + las salidas (tipo, extracción, ancla destino) + su calculadora. Los 6 tests de hoy se convierten en plantillas de ejemplo editables — nadie pierde nada.</p>
+<div class="ve"><b>Se ve en:</b> el constructor del dashboard — «esta sesión es un test» y sus salidas.</div>
+</div></div>
+
+<div class="fase"><div class="num">3</div><div class="cuerpo">
+<h4>La calculadora en /tests</h4>
+<p>Eliges el test, metes lo medido (o se pre-rellena del resultado guiado del atleta si ya lo corrió), ves el ancla + las 6 bandas con el modelo del coach, y «Guardar en el atleta» por el camino versionado que ya existe. Usable también sin guardar.</p>
+<div class="ve"><b>Se ve en:</b> app.fahybrid.com/tests — la card 104 cerrada.</div>
+</div></div>
+
+<div class="fase"><div class="num">4</div><div class="cuerpo">
+<h4>La app mide el test de cualquier coach</h4>
+<p>El vivo de iOS ejecuta el protocolo como cualquier sesión (ya lo hace) y las reglas de extracción capturan las salidas solas al terminar. El resultado viaja al historial del test y a la calculadora ya relleno.</p>
+<div class="ve"><b>Se ve en:</b> el iPhone del atleta — corre el test de SU coach y los números salen sin teclear.</div>
+</div></div>
+
+<div class="fase"><div class="num">5</div><div class="cuerpo">
+<h4>Historial y recalibración</h4>
+<p>La métrica con historial (CMJ, WOD-tests), la comparación test a test, y la señal de recalibrar («este ancla tiene N semanas y el RPE reportado no cuadra») — la guía de uso de la calculadora HTML, convertida en producto en vez de en texto.</p>
+<div class="ve"><b>Se ve en:</b> la ficha del atleta — tendencia de cada test y aviso de ancla caducada.</div>
+</div></div>
+
+<p style="margin-top:22px"><b>Fuera de alcance, dicho:</b> el «ritmo HYROX» de la calculadora es la referencia <span class="mono">race_pace</span> de la card 130 — se conecta ahí cuando se resuelva al servir el día, no se duplica aquí. Y la pestaña «Cómo se usa» es metodología del coach: a su manual, no a código.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+<h2>Riesgos declarados</h2>
+<ul>
+<li><b>La extracción sobre segmentos</b> es la pieza con más incógnitas: depende de que el vivo atribuya bien cada tramo (los laps con tramo ya existen para correr; ergo y fuerza ya dejan lap por segmento). Donde la atribución falle, la salida queda vacía y se declara — nunca se estima.</li>
+<li><b>Migrar los 6 tests actuales a plantillas</b> tiene que conservar los resultados históricos ya guardados (anclas versionadas intactas — solo cambia quién define el test).</li>
+<li><b>El catálogo de cálculos se queda corto seguro</b> con algún coach: la vara de medir para ampliar es la de siempre — entra si aparece en más de un coach o muchas veces en uno.</li>
+</ul>
+</section>
+
+<footer>
+<span>FAHYBRID · plan de tests agnósticos · cards 104/105</span>
+<span>26 ago 2026 · pendiente: 2 cruces</span>
+</footer>
+
+</div>
+</body>
+</html>

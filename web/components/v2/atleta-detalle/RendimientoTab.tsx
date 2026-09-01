@@ -24,6 +24,8 @@ import {
   RunningEconomyPanel,
   ThresholdWorkPanel,
 } from './rendimiento/PhysiologyPanels';
+import { CoberturaDatos } from './rendimiento/CoberturaDatos';
+import { ZonasPanel } from './rendimiento/ZonasPanel';
 import { PerfTile, readinessTone } from './rendimiento/ui';
 import { EM_DASH, fmtInt, fmtPace, lastNonNull } from './rendimiento/format';
 import type { PerformancePayload } from '@/lib/dashboard/coach/deep-dive-performance';
@@ -36,7 +38,22 @@ const GEN_FMT = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid',
 });
 
-export function RendimientoTab({ athleteId }: { athleteId: string }) {
+export function RendimientoTab({
+  athleteId,
+  athleteName,
+  coachName,
+  omitEvaluar,
+  omitZonas,
+}: {
+  athleteId: string;
+  athleteName: string;
+  /** El nombre con el que el atleta ve firmados los comunicados (el del club).
+   *  Baja hasta aquí porque «Dar feedback» abre el compositor desde la gráfica
+   *  de zonas, sin pasar por la pestaña «Del coach». */
+  coachName: string;
+  omitEvaluar?: boolean;
+  omitZonas?: boolean;
+}) {
   const [performance, setPerformance] = useState<PerformancePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -61,12 +78,15 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
   }, [athleteId]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
+      <div className="flex items-center gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
         <MIcon name="progress_activity" size={16} className="animate-spin" />
         Cargando rendimiento…
       </div>
@@ -75,7 +95,7 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
 
   if (loadError) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
+      <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
         <span className="text-xs font-medium text-[color:var(--v2-danger)]">{loadError}</span>
         <button
           type="button"
@@ -122,8 +142,10 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
         </span>
       </div>
 
-      {/* Autoregulation — evaluate / review the week (self-contained fetch) */}
-      <EvaluarSemanaPanel athleteId={athleteId} />
+      {omitEvaluar ? null : <EvaluarSemanaPanel athleteId={athleteId} />}
+
+      {/* Qué datos hay de verdad y si el «antes del plan» es creíble */}
+      <CoberturaDatos coverage={performance.data_coverage} />
 
       {/* Headline stat cluster */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -146,22 +168,29 @@ export function RendimientoTab({ athleteId }: { athleteId: string }) {
       {/* 1 · Disposición */}
       <ReadinessPanel history={history} gap={performance.race_readiness_gap} />
 
-      {/* 2 · Polarization 80/0/20 */}
+      {/* 2 · Tiempo en zonas — la evidencia semanal de la que sale la
+             polarización de abajo. Va antes a propósito: el reparto medido
+             primero, el veredicto sobre él después. */}
+      {omitZonas ? null : (
+        <ZonasPanel athleteId={athleteId} athleteName={athleteName} coachName={coachName} />
+      )}
+
+      {/* 3 · Polarization 80/0/20 */}
       <PolarizationPanel
         byWindow={performance.polarization_by_window}
         history={performance.polarization_history}
       />
 
-      {/* 3 · Top exercises */}
+      {/* 4 · Top exercises */}
       <ExercisesPanel exercises={performance.exercises} />
 
-      {/* 4 · Running economy + 5 · Lactate threshold */}
+      {/* 5 · Running economy + 6 · Lactate threshold */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <RunningEconomyPanel series={performance.running_economy} />
         <ThresholdWorkPanel series={performance.threshold_work} />
       </div>
 
-      {/* 6 · Anaerobic capacity + 7 · HYROX prediction */}
+      {/* 7 · Anaerobic capacity + 8 · HYROX prediction */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <AnaerobicPanel series={performance.anaerobic_capacity} />
         <HyroxPredictionPanel prediction={performance.hyrox_prediction} />

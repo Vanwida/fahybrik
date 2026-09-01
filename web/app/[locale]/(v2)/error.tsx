@@ -34,14 +34,14 @@ export default function V2Error({
       tone="danger"
       icon="error"
       title="Algo ha fallado"
-      description="No hemos podido cargar esta sección. Vuelve a intentarlo — si sigue fallando, tus datos están a salvo: es esta pantalla la que no se pinta."
+      description="No hemos podido cargar esta sección. Vuelve a intentarlo. Si sigue fallando, tus datos están a salvo: es esta pantalla la que no se pinta."
       action={
         <>
           <button type="button" onClick={reset} className={screenNoticeActionClass}>
             <MIcon name="refresh" size={18} /> Reintentar
           </button>
-          <Link href="/hoy" className={screenNoticeActionSecondaryClass}>
-            Ir a Hoy
+          <Link href="/atletas" className={screenNoticeActionSecondaryClass}>
+            Ir a Atletas
           </Link>
         </>
       }

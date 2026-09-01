@@ -162,7 +162,7 @@ export function PagosPanel({ data }: { data: CoachBilling }) {
         <h1 className="v2-display text-[clamp(28px,5vw,42px)] text-[color:var(--v2-fg)]">Pagos</h1>
         <p className="max-w-[62ch] text-sm text-[color:var(--v2-muted)]">
           El estado de cobro de tu roster. Los <span className="font-semibold text-[color:var(--v2-fg)]">vencidos</span> van
-          primero — son los que hay que perseguir. El precio es el que acordaste con cada atleta.
+          primero: son los que hay que perseguir. El precio es el que acordaste con cada atleta.
         </p>
       </header>
 

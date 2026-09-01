@@ -71,6 +71,13 @@ export interface RelojProps {
    * entonces el fondo es negro y no se insinúa ninguna zona.
    */
   tinte: string | null;
+  /**
+   * Un lienzo PROPIO en vez del tinte plano. Lo usa la página de zona, cuyo
+   * fondo no es un color sino un dato: la pantalla se llena del color de tu
+   * zona conforme te acercas a la siguiente. Cuando viene, `tinte` se ignora —
+   * los dos pintan lo mismo y superponerlos ensuciaría el hue.
+   */
+  fondo?: ReactNode;
   /** El progreso, dibujado en el bisel. Cuesta cero altura de contenido. */
   bisel?: ReactNode;
   /** Sube `n` para un golpe de luz a pantalla completa (una transición). */
@@ -92,7 +99,7 @@ export function tinte(color: string, pct = TINTE_MAX): string {
 /** Deslizamiento mínimo, en px, para que un arrastre cuente como cambio de página. */
 const DESLIZ_MIN = 24;
 
-export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojProps) {
+export function Reloj({ paginas, tinte: color, fondo, bisel, destello, onLog }: RelojProps) {
   const [i, setI] = useState(0);
   // La página activa se acota en vez de indexar a lo loco: una vista puede
   // reducir sus páginas en marcha (se desempareja la máquina, se acaba el
@@ -120,14 +127,16 @@ export function Reloj({ paginas, tinte: color, bisel, destello, onLog }: RelojPr
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: W.bg, overflow: 'hidden' }}>
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: color ? tinte(color) : W.bg,
-          transition: 'background-color 700ms ease',
-        }}
-      />
+      {fondo ?? (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: color ? tinte(color) : W.bg,
+            transition: 'background-color 700ms ease',
+          }}
+        />
+      )}
       <div style={{ position: 'absolute', inset: 0, background: DEGRADADO }} />
       {bisel}
       <Destello n={destello?.n ?? 0} color={destello?.color ?? W.orangeSoft} />

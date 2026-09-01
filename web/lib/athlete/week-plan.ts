@@ -32,7 +32,8 @@ import {
   type PrescriptionRole,
   type SessionDurationItem,
 } from '@fahybrid/shared/domain/prescription';
-import { sql } from '@/lib/db';
+import { sql, type Sql } from '@/lib/db';
+import { weekStates, type WeekPublishState } from '@/lib/mcp/shape-write';
 
 export interface AthleteWeekDaySession {
   assignment_id: string;
@@ -108,6 +109,22 @@ export interface AthleteWeekPlan {
   paused: boolean;
   paused_since: string | null;
   paused_reason: string | null;
+  /**
+   * La fecha (ISO, lunes) en la que EMPIEZA el trabajo ya programado, cuando cae
+   * DESPUÉS de la ventana que se está sirviendo. `null` = no hay nada programado
+   * más adelante.
+   *
+   * Existe para que un estado vacío no mienta. Un plan siempre arranca en lunes
+   * (el materializador alinea a lunes), así que un atleta al que se le asigna el
+   * plan un martes tiene entre 1 y 7 días sin nada — y hasta hoy la app le decía
+   * «tu coach aún no ha publicado tu plan», que es FALSO: está publicado y
+   * empieza más tarde. El atleta lo leía como negligencia de su coach.
+   *
+   * Con esto el cliente distingue los dos vacíos: «se está preparando» (null) y
+   * «empieza el lunes 10» (fecha). NO afirma nada sobre lo que el coach hará ni
+   * cuándo — solo refleja lo que YA está programado (docs/DECISIONS.md, 7-ago).
+   */
+  plan_starts_on: string | null;
 }
 
 export async function buildAthleteWeekPlan(
@@ -196,19 +213,34 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, weekMeta, has_next_week, pausedState] = await Promise.all([
-    resolveMicrocicloName(microcycleId),
-    // Coach-authored week meta from the source week template, resolved through the
-    // assignment in ONE query: the athlete-facing "Foco de la semana"
-    // (program_week_templates.focus) AND the per-rest-day recovery suggestions (#47).
-    resolveWeekTemplateMeta(microcycleId),
-    // Whether the athlete can peek a NEXT week with real, published content
-    // (drives the "Próxima semana" affordance). Relative to the returned week.
-    hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
-    // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
-    loadPausedState(athlete_id),
-  ]);
-  const focus = weekMeta.focus;
+  const [microciclo_name, weekMeta, weekState, has_next_week, pausedState, plan_starts_on] =
+    await Promise.all([
+      resolveMicrocicloName(microcycleId),
+      // Coach-authored week meta from the source week template, resolved through the
+      // assignment in ONE query: the athlete-facing "Foco de la semana"
+      // (program_week_templates.focus) AND the per-rest-day recovery suggestions (#47).
+      resolveWeekTemplateMeta(microcycleId),
+      // El estado REAL de esta semana en `weekly_plans` — reutiliza el mismo lector
+      // que ya usa el portón de visibilidad del conector (`shape-write.ts`), así que
+      // esto no es una consulta nueva y aislada: es la misma fila que ya se mira
+      // para saber si la semana está en borrador, ahora también por su `focus`.
+      weekStates({ athlete_id, week_starts: [weekStartIso] }),
+      // Whether the athlete can peek a NEXT week with real, published content
+      // (drives the "Próxima semana" affordance). Relative to the returned week.
+      hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
+      // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
+      loadPausedState(athlete_id),
+      // Cuándo empieza lo ya programado, si cae después de esta ventana — para que
+      // un estado vacío pueda decir «empieza el lunes 10» en vez de mentir.
+      firstScheduledAfter(athlete_id, weekEndIso),
+    ]);
+  // El foco de LA SEMANA DEL ATLETA manda; el de la plantilla es el defecto
+  // heredado (docs/DECISIONS.md — el foco vive en la semana, no solo en la
+  // plantilla). Una semana en 'draft' no adelanta su foco por esta puerta: el
+  // mismo portón que esconde sus sesiones (la NOT EXISTS de arriba) esconde su
+  // foco propio, aunque `weekStates` lo lea crudo para quien SÍ puede verlo
+  // (el coach en su panel, el conector).
+  const focus = resolveAthleteFacingFocus(weekState.get(weekStartIso)!, weekMeta.focus);
 
   // C35 — partner_visibility is exposed as-is. The DB filter by athlete_id
   // already isolates each user's sessions, so the only rows here belong to
@@ -288,7 +320,59 @@ export async function buildAthleteWeekPlan(
     paused: pausedState.paused,
     paused_since: pausedState.paused_since,
     paused_reason: pausedState.paused_reason,
+    // Null cuando no hay nada programado más adelante: el cliente dirá «se está
+    // preparando» en vez de afirmar que el coach no ha publicado.
+    plan_starts_on,
   };
+}
+
+/**
+ * El foco que ve el atleta para SU semana: el override de `weekly_plans.focus`
+ * manda; el de la plantilla (`program_week_templates.focus`, vía
+ * `resolveWeekTemplateMeta`) es el defecto heredado; sin ninguno de los dos,
+ * `null` (nunca se inventa una línea). Pura y exportada para poder probar las
+ * cuatro combinaciones (semana / plantilla / ninguno / borrador) sin tocar la
+ * base de datos.
+ *
+ * Un 'draft' NO adelanta su foco: es el mismo portón que ya esconde las
+ * sesiones de esa semana (la NOT EXISTS de la consulta principal). `weekStates`
+ * lee el foco CRUDO porque otros llamantes (el panel del coach, el conector) SÍ
+ * pueden ver un borrador propio — aquí, en el lector del atleta, es donde se
+ * aplica el portón.
+ */
+export function resolveAthleteFacingFocus(
+  weekState: { state: WeekPublishState; focus: string | null },
+  templateFocus: string | null,
+): string | null {
+  const weeklyFocus = weekState.state === 'draft' ? null : weekState.focus;
+  return weeklyFocus ?? templateFocus;
+}
+
+/**
+ * La primera fecha con trabajo programado DESPUÉS de `afterIso`, o null.
+ *
+ * Misma verja de publicación que el resto del fichero (`hasPublishedWeek`): una
+ * semana todavía en borrador NO cuenta, porque para el atleta aún no existe.
+ * Devuelve la fecha del primer entreno, no el lunes de su semana — el copy dice
+ * literalmente cuándo empieza a entrenar, que es lo que pregunta el atleta.
+ */
+async function firstScheduledAfter(
+  athlete_id: number | bigint,
+  afterIso: string,
+): Promise<string | null> {
+  const rows = await sql<Array<{ starts_on: string }>>`
+    select min(wa.scheduled_for)::text as starts_on
+    from workout_assignments wa
+    where wa.athlete_id = ${athlete_id as number}
+      and wa.scheduled_for > ${afterIso}::date
+      and not exists (
+        select 1 from weekly_plans wp
+        where wp.athlete_id = ${athlete_id as number}
+          and wp.week_start = date_trunc('week', wa.scheduled_for)::date
+          and wp.status = 'draft'
+      )
+  `;
+  return rows[0]?.starts_on ?? null;
 }
 
 /**
@@ -426,7 +510,13 @@ async function hasPublishedWeek(
   return rows[0]?.has_next ?? false;
 }
 
-type TemplateSummary = {
+// Exported: `web/lib/chat/context-preview.ts` reuses this EXACT computation
+// (block grouping, title classification, `sessionDuration`) for a chat
+// message's session-context preview line — the "prescripción corta y su
+// reloj" is precisely what this function already derives for the week card.
+// Two independent readers of the same rows would drift on the block-role
+// heuristic (`classifyBlock`); reusing keeps it a single mechanism.
+export type TemplateSummary = {
   est_duration_minutes: number | null;
   duration_unknown_reason: DurationUnknownReason | null;
   blocks_count: number | null;
@@ -466,13 +556,20 @@ type SegmentRow = {
 // absent from the map (its sessions get null fields). NOTE: `block_position`
 // groups segments into blocks (warmup / metcon / cooldown …); `block_title`
 // names them.
-async function loadTemplateSummaries(
+// `client` defaults to the module's own `sql` — every OTHER call in this file
+// still does the same (this file has no DI anywhere else). It exists as a
+// parameter ONLY so an exported reuse site (`web/lib/chat/context-preview.ts`)
+// can point it at a caller-scoped client (a test branch, a transaction)
+// instead of silently escaping to the default pool — the same
+// `args.sql ?? defaultSql` shape `lib/chat/service.ts` already uses.
+export async function loadTemplateSummaries(
   templateIds: string[],
+  client: Sql = sql,
 ): Promise<Map<string, TemplateSummary>> {
   const out = new Map<string, TemplateSummary>();
   if (templateIds.length === 0) return out;
 
-  const segs = await sql<SegmentRow[]>`
+  const segs = await client<SegmentRow[]>`
     select
       ts.template_id::text as template_id,
       ts.block_position as block_position,
@@ -537,7 +634,7 @@ async function loadTemplateSummaries(
   // never be described twice.
   const uncovered = templateIds.filter((id) => !out.has(id));
   if (uncovered.length > 0) {
-    const clocks = await sql<ClockRow[]>`
+    const clocks = await client<ClockRow[]>`
       select t.id::text as template_id, t.meta_json->'prescription' as prescription
       from templates t
       where t.id = any(${uncovered}::bigint[])

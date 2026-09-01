@@ -26,8 +26,8 @@ export type MacroPhaseAssignment = {
 
 /**
  * Tramo real de un microciclo asignado (AGNÓSTICO) derivado de
- * `athlete_month_assignments`. `block_type` = NOMBRE del microciclo del coach (no
- * una fase ACC/TRANS/REAL). `week_count` = nº de semanas del microciclo
+ * `athlete_month_assignments`. `block_type` = NOMBRE del microciclo del coach.
+ * `week_count` = nº de semanas del microciclo
  * (array_length(microcycle_ids); span por fechas como fallback). `first_week` =
  * índice de semana acumulado (1-based) del primer microciclo del tramo, para
  * mapear la posición dentro del plan completo.
@@ -122,6 +122,16 @@ export async function buildMacroProgress(params: {
         count(*) filter (where wa.status = 'completed')::int as completed
       from workout_assignments wa
       where wa.athlete_id = ${params.athlete_id as number}
+        -- SOLO lo que pertenece a un microciclo. Sin esto, el «progreso del
+        -- microciclo» contaba TODA semana en que el atleta tuvo cualquier cosa:
+        -- entrenos libres suyos, tests sueltos, restos de pruebas. En el caso
+        -- real de Alex eso pintaba S1..S3 con entrenos de julio que no son de
+        -- ningún plan, marcaba S3 como la semana actual, y el microciclo recién
+        -- asignado (que arranca el lunes) aparecía como S4 — el coach leía que
+        -- su atleta iba por la semana 3 de un plan que no ha empezado.
+        -- Un microcycle_id null es exactamente «esto no es del plan»: lo llevan
+        -- los entrenos libres, la calibración y la semana cero, por diseño.
+        and wa.microcycle_id is not null
       group by 1
     )
     select
@@ -388,7 +398,13 @@ export async function buildAthleteMacroSummary(params: {
   const weekStart = mondayOfWeek(today);
   const todayIso = isoDateString(today);
 
-  const week_label = await currentMicrocicloLabel(params.athlete_id, today, todayIso, client);
+  // Primero la cadena (si el atleta camina un microciclo asignado, esa es SU
+  // posición); sin cadena, la posición se deriva del calendario real — un plan
+  // directo (semanas dictadas o montadas a mano) también tiene «en qué semana
+  // vas», y dejarlo en blanco era mentir por omisión (Alex, 12-ago).
+  const week_label =
+    (await currentMicrocicloLabel(params.athlete_id, today, todayIso, client)) ??
+    (await semanaDelPlanDirecto(params.athlete_id, today, client));
 
   // Días hasta la carrera objetivo (unified `races` spine, priority='target').
   const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
@@ -444,6 +460,79 @@ async function currentMicrocicloLabel(
   return `${r.name} · semana ${weekN} de ${totalWeeks}`;
 }
 
+/**
+ * Hasta dónde mira atrás el fallback del plan directo. Acota la consulta; en la
+ * práctica ningún plan directo llega aquí sin que antes exista una estructura
+ * (y si llega, el conteo simplemente se queda en el borde en vez de fallar).
+ */
+const DIRECT_PLAN_LOOKBACK_WEEKS = 104;
+
+/**
+ * La posición SIN cadena: «semana N», derivada del calendario real del atleta.
+ *
+ * Un plan directo (semanas dictadas por MCP, montadas a mano en la ficha, o los
+ * entrenos libres del atleta sin coach) no tiene microciclo que le dé nombre ni
+ * total — pero «en qué semana vas» sigue siendo un hecho: N = semanas SEGUIDAS
+ * con trabajo programado, contando hacia atrás desde la semana mirada, incluida.
+ * Una semana sin NADA programado corta la cuenta: en planificación directa una
+ * semana totalmente vacía es un plan que (todavía) no continúa, y arrastrar el
+ * número por encima del agujero contaría un plan que no existe.
+ *
+ * SIN «de M» a propósito: el total de un plan directo no es un hecho — crece a
+ * medida que el coach publica, y un «de M» que cambia cada sábado se lee como la
+ * longitud de un bloque que nadie declaró (§7). El total solo existe cuando lo
+ * declara una cadena, y entonces lo dice `currentMicrocicloLabel`.
+ *
+ * Null cuando la semana mirada no tiene nada programado: ahí no hay posición que
+ * enseñar, y la pantalla del plan ya cuenta ese estado con sus propias palabras.
+ */
+async function semanaDelPlanDirecto(
+  athlete_id: number | bigint,
+  today: Date,
+  client: Sql,
+): Promise<string | null> {
+  const anchorMonday = mondayOfWeek(today);
+  const desdeIso = isoDateString(addDays(anchorMonday, -7 * DIRECT_PLAN_LOOKBACK_WEEKS));
+  const hastaIso = isoDateString(addDays(anchorMonday, 6));
+  // date_trunc('week') en Postgres es el lunes ISO — la misma ancla que
+  // `mondayOfWeek`, para que las dos mitades no puedan discrepar en el borde.
+  const rows = await client<Array<{ week_start: string }>>`
+    select distinct to_char(date_trunc('week', wa.scheduled_for), 'YYYY-MM-DD') as week_start
+    from workout_assignments wa
+    where wa.athlete_id = ${athlete_id as number}
+      and wa.scheduled_for between ${desdeIso}::date and ${hastaIso}::date
+  `;
+  const n = semanasSeguidasConTrabajo(
+    rows.map((r) => r.week_start),
+    isoDateString(anchorMonday),
+  );
+  return n === null ? null : `semana ${n}`;
+}
+
+/**
+ * Cuenta las semanas seguidas con trabajo hasta el ancla (incluida). Pura y
+ * exportada para poder fijar con tests el borde que importa: el agujero corta.
+ *
+ * @param mondaysIso lunes (ISO) de las semanas CON algo programado
+ * @param anchorMondayIso lunes de la semana mirada
+ * @returns N (1-based) o null si la semana mirada no tiene nada
+ */
+export function semanasSeguidasConTrabajo(
+  mondaysIso: string[],
+  anchorMondayIso: string,
+): number | null {
+  const semanas = new Set(mondaysIso);
+  if (!semanas.has(anchorMondayIso)) return null;
+  let n = 1;
+  let cursor = parseIsoDate(anchorMondayIso);
+  while (n <= DIRECT_PLAN_LOOKBACK_WEEKS) {
+    cursor = addDays(cursor, -7);
+    if (!semanas.has(isoDateString(cursor))) break;
+    n += 1;
+  }
+  return n;
+}
+
 export type AthleteMacroProgressPayload = {
   /** Kept null for iOS Codable parity — the athlete never receives a phase label. */
   block: null;
@@ -475,6 +564,10 @@ export async function buildAthleteMacroProgress(params: {
         count(*) filter (where wa.status = 'completed')::int as completed
       from workout_assignments wa
       where wa.athlete_id = ${params.athlete_id as number}
+        -- Mismo acotado que el ribbon del coach (arriba): el progreso del plan
+        -- solo cuenta lo que ES del plan. Un entreno libre del atleta no puede
+        -- crear una semana de su periodización.
+        and wa.microcycle_id is not null
       group by 1
     )
     select to_char(week_start, 'YYYY-MM-DD') as week_start, scheduled, completed

@@ -109,7 +109,7 @@ export function PipelineCue({
   // ── First-run: full ribbon with named nodes ────────────────────────────────
   if (effectiveMode === 'firstrun') {
     return (
-      <div className="mb-4 flex flex-wrap items-stretch rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 py-3">
+      <div className="mb-4 flex flex-wrap items-stretch rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 py-3">
         {PIPELINE_STEP_META.map((s, i) => {
           const done = progress[s.key];
           const isNow = s.key === cur;
@@ -140,7 +140,7 @@ export function PipelineCue({
       <div className="mb-4 inline-flex w-auto items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-label">
         <span
           className="rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
-          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+          style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
         >
           {badge}
         </span>
@@ -149,7 +149,7 @@ export function PipelineCue({
           type="button"
           onClick={() => setStoredMode('compact')}
           aria-label="Mostrar el flujo"
-          className="v2-focus inline-flex rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent)]"
+          className="v2-focus inline-flex rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent-text)]"
         >
           <MIcon name="unfold_more" size={15} />
         </button>
@@ -162,7 +162,7 @@ export function PipelineCue({
     <div className="mb-4 flex items-center gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-2 text-label">
       <span
         className="shrink-0 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
-        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
       >
         {badge}
       </span>
@@ -174,7 +174,7 @@ export function PipelineCue({
         type="button"
         onClick={() => setStoredMode('collapsed')}
         aria-label="Contraer el flujo"
-        className="v2-focus inline-flex shrink-0 rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent)]"
+        className="v2-focus inline-flex shrink-0 rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent-text)]"
       >
         <MIcon name="unfold_less" size={15} />
       </button>
@@ -238,7 +238,7 @@ function FlowNode({
     : now
       ? { background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }
       : done
-        ? { background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }
+        ? { background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }
         : { background: 'var(--v2-surface-2)', color: 'var(--v2-faint)' };
   const nameColor = info
     ? 'var(--v2-info)'

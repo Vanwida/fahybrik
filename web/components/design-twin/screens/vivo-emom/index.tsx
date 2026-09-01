@@ -26,10 +26,11 @@ export const meta: TwinMeta = {
   id: 'vivo-emom',
   titulo: 'El minuto manda — EMOM e intervalos en vivo',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'El reloj gobierna: acaba el minuto, acaba la ronda. El minuto es el ambiente de la pantalla (faena, tuyo, se acaba) y la tarea se cuenta sola solo si hay una máquina contándola. Gira el marco: el tramo decide la cara, y el formato nunca suelta su franja.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Workout/Vivo/EmomVivoView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: true,
 };

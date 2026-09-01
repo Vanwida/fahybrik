@@ -129,6 +129,158 @@ export function ChevronRight() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Los tres arquetipos de vacío de MarksLibraryView.content: cargando, fallo de
+// carga, catálogo vacío. Un guion no es un dato — se omite o se explica con
+// palabras (CONTRATO-UI §6.2 bis / §7).
+// ---------------------------------------------------------------------------
+
+/** ProgressView().tint(accentText) — el indeterminado de iOS, sin título ni frase. */
+export function Spinner({ size = 26 }: { size?: number }) {
+  return (
+    <>
+      {/* Nombre propio (`marks-spin`) para no chocar con el keyframe de otra pantalla. */}
+      <style>{'@keyframes marks-spin { to { transform: rotate(360deg); } }'}</style>
+      <span
+        aria-hidden
+        style={{
+          display: 'inline-block',
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          border: `${Math.max(2, size / 10)}px solid color-mix(in srgb, var(--twin-accent-text) 25%, transparent)`,
+          borderTopColor: 'var(--twin-accent-text)',
+          animation: 'marks-spin 780ms linear infinite',
+        }}
+      />
+    </>
+  );
+}
+
+function IconRetry({ size = 34 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 12a8 8 0 1 1-2.34-5.66"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20 4v5h-5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconStopwatch({ size = 34 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 13V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M9.5 2h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12 2v2.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconClock({ size = 11 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** El símbolo del vacío: `arrow.clockwise` (fallo) o `stopwatch` (catálogo vacío). */
+export function EmptySymbol({ tipo, size = 34 }: { tipo: 'reintentar' | 'cronometro'; size?: number }) {
+  return (
+    <span aria-hidden style={{ color: 'var(--twin-faint)', display: 'inline-flex' }}>
+      {tipo === 'reintentar' ? <IconRetry size={size} /> : <IconStopwatch size={size} />}
+    </span>
+  );
+}
+
+/** La salida del vacío (`EmptyStateExit`): una acción de aquí mismo, o una nota de qué falta y quién lo llena. */
+export type VacioSalida = { tipo: 'accion'; texto: string; onTap: () => void } | { tipo: 'explicado'; nota: string };
+
+/**
+ * RedesignEmptyState — símbolo mudo, título, frase y la salida, siempre. Nunca
+ * un guion, nunca un callejón sin salida: `salida` es obligatoria porque cada
+ * sitio de uso tiene que decidir cuál de las dos es.
+ */
+export function VacioHonesto({
+  simbolo,
+  titulo,
+  mensaje,
+  salida,
+}: {
+  simbolo: ReactNode;
+  titulo: string;
+  mensaje: string;
+  salida: VacioSalida;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 12,
+        padding: '0 24px',
+        textAlign: 'center',
+      }}
+    >
+      {simbolo}
+      <span style={{ font: 'italic 800 17px/1.3 var(--twin-font-sans)', color: 'var(--twin-fg)' }}>{titulo}</span>
+      <span style={{ font: '500 13px/1.4 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{mensaje}</span>
+      {salida.tipo === 'accion' ? (
+        <button
+          type="button"
+          className="tw-btn-primary"
+          onClick={salida.onTap}
+          style={{ height: 50, width: '100%', maxWidth: 280, letterSpacing: 1, marginTop: 4 }}
+        >
+          {salida.texto}
+        </button>
+      ) : (
+        <NotaSalida nota={salida.nota} />
+      )}
+    </div>
+  );
+}
+
+/** La caja de nota compartida (`noteBox`): lo que hace falta y de quién depende — nunca un botón falso. */
+function NotaSalida({ nota }: { nota: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '8px 12px',
+        marginTop: 4,
+        maxWidth: 280,
+        background: 'var(--twin-surface)',
+        border: '1px solid var(--twin-hairline)',
+        borderRadius: 10,
+      }}
+    >
+      <span style={{ color: 'var(--twin-faint)', display: 'inline-flex', paddingTop: 1 }}>
+        <IconClock />
+      </span>
+      <span style={{ font: '500 12px/1.4 var(--twin-font-sans)', color: 'var(--twin-faint)', textAlign: 'left' }}>
+        {nota}
+      </span>
+    </div>
+  );
+}
+
 /**
  * CardSurface: relleno degradado (la cara con luz cenital), costura de hairline
  * más viva arriba y sombra blanda para que flote sobre el lienzo.

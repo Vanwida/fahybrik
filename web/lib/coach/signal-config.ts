@@ -22,6 +22,11 @@ import {
   readinessBucket,
   type ReadinessBucket,
 } from '@/lib/dashboard/constants/readiness';
+import {
+  COACH_SIGNAL_THRESHOLD_MAX_DAYS,
+  COACH_SIGNAL_THRESHOLD_MIN_DAYS,
+  DEFAULT_COACH_SIGNAL_THRESHOLDS,
+} from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 // Re-export the readiness band single-source so consumers can pull both the
 // signal thresholds and the readiness bands from one module if they wish.
@@ -99,11 +104,27 @@ export const SIGNAL_THRESHOLDS = {
   review_due_mensual_days: 30,
   /** Cadencia trimestral: revisión vencida si pasan más de estos días sin 1:1 → review_1on1_due. */
   review_due_trimestral_days: 90,
+
+  // ── Comunicados del coach — EDITABLES POR EL COACH (mig 0161) ──────────────
+  // Estos tres NO son constantes del sistema: son el DEFECTO que sirve mientras
+  // el coach no escriba su fila en `coach_signal_thresholds` (HARD RULE Nº0, el
+  // umbral es método). Se importan de shared para que el defecto viva en UN sitio
+  // — el resolutor (lib/coach/signal-thresholds.ts) los pisa con los suyos antes
+  // de evaluar. Nunca leer estas claves directamente desde una superficie: pedir
+  // los vigentes a `resolveEffectiveThresholds`.
+  ...DEFAULT_COACH_SIGNAL_THRESHOLDS,
 } as const;
 
 export type SignalThresholdKey = keyof typeof SIGNAL_THRESHOLDS;
 
 // ── Zod schema (validates the shape + sane bounds; guards future edits) ───────
+
+/** Los tres editables comparten límites: los mismos que refuerza la tabla. */
+const coachEditableDays = z
+  .number()
+  .int()
+  .min(COACH_SIGNAL_THRESHOLD_MIN_DAYS)
+  .max(COACH_SIGNAL_THRESHOLD_MAX_DAYS);
 
 export const signalThresholdsSchema = z
   .object({
@@ -129,6 +150,9 @@ export const signalThresholdsSchema = z
     workout_libre_recent_days: z.number().int().positive(),
     review_due_mensual_days: z.number().int().positive(),
     review_due_trimestral_days: z.number().int().positive(),
+    communication_question_unanswered_days: coachEditableDays,
+    communication_task_overdue_critical_days: coachEditableDays,
+    communication_protocol_unopened_days: coachEditableDays,
   })
   .strict()
   // Trimestral debe ser una ventana MÁS larga que mensual (coherencia de cadencia).

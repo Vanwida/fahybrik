@@ -13,11 +13,21 @@
  *   (2) global alias    — the static term→slug map (GLOBAL_ALIASES, mirrored from
  *                         infra/scripts/parse_blocks_lib.ts) → catalog by slug.
  *                         Unscoped by coach — see the note on layer (2) below.
- *   (3) catalog name exact       — `lower(coalesce(override.name, exercises.name))`
- *                         == normalized term, scoped to what THIS coach may see.
+ *   (3) catalog name exact       — `unaccent(lower(coalesce(override.name, exercises.name)))`
+ *                         == unaccent(normalized term), scoped to what THIS coach may see.
  *   (4) catalog name substring   — same merged-name + scope, term ⊂ name or
  *                         name ⊂ term (shortest name wins).
  *   (5) miss            — { exercise_id: null, normalized }; caller escalates.
+ *
+ * ACCENTS (migration 0151): `normalized` is already accent-free (TS-side NFD
+ * strip in `normalizeTerm`), so layers (3)/(4) wrap the SQL side in Postgres's
+ * `unaccent()` too — plain `lower()` does NOT fold á/é/í/ó/ú/ü/ñ, so an
+ * accented catalog name ("Puente de Glúteo") could never match an unaccented
+ * term and the importer would silently create a duplicate next to it. Layer
+ * (1)/(2) were never affected: `coach_exercise_synonyms.term_normalized` is
+ * written AND read through the same `normalizeTerm()` (both TS, no SQL-side
+ * name comparison), and GLOBAL_ALIASES resolves to an ASCII `slug` (exact
+ * match, no accents to begin with).
  *
  * OWNERSHIP (migration 0132, `lib/exercises/coach-override.ts`): layers (3)/(4)
  * are the ones that ENUMERATE/RESOLVE by name, so per that module's contract they
@@ -73,17 +83,44 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'turkish get up': 'turkish-get-up',
   'pull up': 'pull-up',
   'pull ups': 'pull-up',
+  // ES↔EN translation, not a new movement (2026-08-05 sweep against the real
+  // catalog — "Dominada" IS "Pull-up", same movement in two languages, and a
+  // translation is our own mechanism, never a coach's methodology). The
+  // "(lastrada)"/qualifier suffix on a real card ("Dominada (lastrada)")
+  // still resolves through this key via aliasToSlug's word-window scan — no
+  // extra key needed for that; the WEIGHTED form below is a distinct catalog
+  // row and needs its own key precisely because it is a different movement.
+  'dominada': 'pull-up',
+  'dominadas': 'pull-up',
+  'dominada lastrada': 'weighted-pullup',
+  'dominadas lastradas': 'weighted-pullup',
   'push up': 'push-up',
   'push ups': 'push-up',
+  // Caught by verifying, not by inspection: aliasToSlug's word-window scan
+  // checks the LONGEST window first, but "push up" (2 words) is a substring
+  // of "scapular push up" (3 words) — without its OWN 3-word key, "Scapular
+  // Push Up" (migration 0152) silently resolved to the generic push-up
+  // instead, a wrong-exercise bug the coach would never notice. The explicit
+  // longer key wins the race before the shorter one ever gets a look.
+  'scapular push up': 'scapular-push-up',
+  'scapular push ups': 'scapular-push-up',
   'dip': 'weighted-dip',
   'dips': 'weighted-dip',
   'lateral raise': 'lateral-raise',
   'elevaciones laterales': 'lateral-raise',
   'cable fly': 'cable-fly',
   'aperturas en polea': 'cable-fly',
+  // "Press Banca" IS "Bench Press" — same translation-not-invention rule.
+  'press banca': 'bench-press',
   // ergs / cardio
   'row': 'row',
   'rowing': 'row',
+  // "Remo" bare is the ERG (cardio) — same word, same "row"/"clean"/"ski"
+  // single-word convention already used below; a genuinely different
+  // movement that happens to CONTAIN "remo" ("Remo con barra", a barbell row
+  // — strength, not cardio) is the coach's to correct once via learnSynonym
+  // (layer 1, which always wins next time), exactly like "row"/"clean" today.
+  'remo': 'row',
   'skierg': 'ski-erg',
   'ski': 'ski-erg',
   'ab': 'assault-bike',
@@ -118,6 +155,9 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'db snatch': 'dumbbell-snatch',
   'db box step': 'box-step-up',
   'box step': 'box-step-up',
+  // "Step Ups Cajón" IS "Box Step-up" — "cajón" is the box, same movement.
+  'step ups cajon': 'box-step-up',
+  'step up cajon': 'box-step-up',
   'devil press': 'devil-press',
   // core / mobility
   'side plank': 'side-plank',
@@ -125,6 +165,46 @@ export const GLOBAL_ALIASES: Readonly<Record<string, string>> = {
   'plank': 'plank',
   'sit up': 'sit-up',
   'sit ups': 'sit-up',
+  // "Forward Leg Swing" is the catalog's generic "Leg Swings" done in the
+  // forward/back plane — the SAME drill, direction specified, not a
+  // different one (unlike "Puente de glúteo" vs "Hip Thrust", which stay
+  // UNALIASED below in the sweep's negative findings — those are genuinely
+  // different movements). "Balanceo de pierna(s)" is its Spanish name, added
+  // for the same reason "carrera"/"correr" sit next to "run" above.
+  'forward leg swing': 'leg-swings',
+  'forward leg swings': 'leg-swings',
+  'balanceo de pierna': 'leg-swings',
+  'balanceo de piernas': 'leg-swings',
+  // English equivalents for the Spanish-named rows added by migration 0152
+  // (mobility/activation base catalog) — the row's OWN name is the coach's
+  // real Spanish wording (per that migration's header), so the catalog-name
+  // exact/substring layers already resolve the exact Spanish phrase once the
+  // row exists; these are for the English side of the same movement. NOT
+  // resolvable yet — 0152 is written but NOT applied (client sign-off
+  // pending); these keys become live the moment it runs, safe to ship ahead
+  // of it (aliasToSlug finds the slug, the `exercises` lookup just misses
+  // until the row exists, same as any other miss).
+  'glute bridge': 'glute-bridge',
+  // Same race as "Scapular Push Up" above, same fix: "single leg glute
+  // bridge" (4 words) CONTAINS "glute bridge" (2 words) as its last two
+  // words. Without its own 4-word key here, the scan's first pass (the full
+  // 4-word window) misses, and it falls through to the 2-word pass, where
+  // "glute bridge" — a real key — wins, resolving to the BILATERAL bridge
+  // instead of this single-leg one. Caught the same way: running the real
+  // resolver against a real branch, not by reading the code.
+  'single leg glute bridge': 'single-leg-glute-bridge',
+  'glute bridge march': 'glute-bridge-march',
+  'isometric glute bridge': 'glute-bridge-isometric-hold',
+  'glute bridge hold': 'glute-bridge-isometric-hold',
+  // "90-90"/"90/90" carries no letters at all — the ONLY way it resolves is
+  // this exact-string key; the catalog row is named descriptively ("90/90
+  // Hip Stretch") for OTHER coaches browsing it, which the bare digits would
+  // never usefully be.
+  '90-90': 'hip-90-90-stretch',
+  '90/90': 'hip-90-90-stretch',
+  'quadruped hip extension': 'quadruped-hip-extension',
+  'donkey kick': 'quadruped-hip-extension',
+  'donkey kicks': 'quadruped-hip-extension',
 };
 
 // ---------------------------------------------------------------------------
@@ -183,12 +263,27 @@ export function normalizeTerm(raw: string): string {
  * then the longest word-window (up to 4 words) found ANYWHERE in the candidate —
  * so "8r db depth jump" and "db snatch" both resolve. Returns the catalog slug
  * or null. Deterministic (longest window wins, scanned left-to-right).
+ *
+ * Parenthetical qualifiers ("Dominada (lastrada)", a real card line) are
+ * common Spanish notation and must not defeat the window-scan: the ONLY
+ * splitter was a literal space, so "dominada (lastrada)" tokenized as
+ * `["dominada", "(lastrada)"]` — the 2-word window never matched a
+ * "dominada lastrada" key (parens are not spaces), and the loop fell through
+ * to the 1-word "dominada" match instead, silently discarding the qualifier.
+ * Stripping just the paren CHARACTERS (never their content) before splitting
+ * turns it into two clean words, so a 2-word key can still claim the
+ * qualified form ahead of the bare 1-word fallback, exactly as the
+ * longest-window-wins contract already promises for space-separated input.
  */
 function aliasToSlug(candidate: string): string | null {
   if (!candidate) return null;
   const exact = GLOBAL_ALIASES[candidate];
   if (exact) return exact;
-  const words = candidate.split(' ');
+  const words = candidate
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ');
   for (let len = Math.min(4, words.length); len >= 1; len--) {
     for (let i = 0; i + len <= words.length; i++) {
       const slug = GLOBAL_ALIASES[words.slice(i, i + len).join(' ')];
@@ -233,6 +328,44 @@ export async function resolveExercise(
     if (syn[0]) return { exercise_id: Number(syn[0].exercise_id), via: 'synonym' };
   }
 
+  // (1b) EL VOCABULARIO COMPARTIDO — `exercise_aliases` (migraciones 0172/0178).
+  //
+  // 197 términos bilingües (ES/EN) que hasta ahora SOLO alimentaban el buscador
+  // de la biblioteca del coach y eran invisibles aquí: el importador tiraba de
+  // GLOBAL_ALIASES, un mapa escrito a mano en TS, mientras la tabla con el
+  // vocabulario bueno estaba al lado sin que nadie la leyera. Dos conocimientos
+  // que tenían que ser uno.
+  //
+  // VA ANTES DEL MAPA A MANO, y no es un capricho de orden: este layer exige
+  // que el término ENTERO coincida, mientras `aliasToSlug` recorre ventanas de
+  // hasta 4 palabras dentro del término. Una coincidencia entera es siempre más
+  // específica que una parcial. El caso que lo motiva: «puente de gluteo
+  // unilateral» no está en el mapa a mano, pero su ventana «puente de gluteo»
+  // sí — y resolvía CON CONFIANZA al puente BILATERAL, existiendo el unilateral
+  // en catálogo. Un ejercicio equivocado dado por bueno es peor que no
+  // encontrarlo. Con la tabla delante, el término entero manda.
+  //
+  // Se prueba la forma ligera (solo tildes/espacios) y la agresiva (sin prefijo
+  // de ruido ni sufijo de carga), igual que el layer siguiente, porque los
+  // términos de la tabla están guardados ya normalizados y sin acentos.
+  // La agresiva puede quedar vacía (un término que era todo ruido); en ese caso
+  // se repite la ligera, que nunca lo está si el término tenía letras.
+  const aliasLight = light;
+  const aliasStrict = normalized || light;
+  if (aliasLight) {
+    const byAlias = await client<Array<{ id: string }>>`
+      select e.id::text as id
+      from exercise_aliases a
+      join exercises e on e.id = a.exercise_id
+      ${joinCoachOverride(client, coachId)}
+      where (a.term_normalized = ${aliasLight} or a.term_normalized = ${aliasStrict})
+        and ${visibleToCoach(client, coachId)}
+      order by (e.coach_id is null) asc, length(a.term_normalized) desc, e.id asc
+      limit 1
+    `;
+    if (byAlias[0]) return { exercise_id: Number(byAlias[0].id), via: 'alias' };
+  }
+
   // (2) Global alias map → catalog slug. Try the light form first (keeps alias
   // keys that embed an equipment token, e.g. "db snatch"), then the aggressive
   // key (handles "front squat 70kg" → "front squat").
@@ -267,28 +400,37 @@ export async function resolveExercise(
     // (3) Catalog name, exact — matched against the coach's MERGED name
     // (override.name ?? base.name; see file header). Scoped to what this coach
     // may see so this can never resolve into another coach's PROPIO exercise.
+    //
+    // `unaccent(lower(...))` on BOTH sides (migration 0151): `normalized` is
+    // already accent-free (TS-side NFD strip in normalizeTerm), but `lower()`
+    // alone does NOT strip accents in SQL — an exercise named "Puente de
+    // Glúteo" produced `puente de glúteo` here against `puente de gluteo` on
+    // the TS side and could never match. Unaccenting BOTH sides (not just the
+    // column) is belt-and-suspenders: `normalized` is a no-op under it today,
+    // but it means the two sides can never silently drift onto different
+    // folding rules again.
     const exact = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
-      where lower(coalesce(ceo.name, e.name)) = ${normalized}
+      where unaccent(lower(coalesce(ceo.name, e.name))) = unaccent(${normalized})
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, e.id asc
       limit 1
     `;
     if (exact[0]) return { exercise_id: Number(exact[0].id), via: 'name_exact' };
 
-    // (4) Catalog name, substring — same merged-name + visibility scope as (3).
-    // The term is contained in the (merged) name OR the name is contained in the
-    // term. Deterministic: own-before-base first, then shortest name (most
-    // specific), then id.
+    // (4) Catalog name, substring — same merged-name + visibility scope as (3),
+    // same unaccent fix. The term is contained in the (merged) name OR the
+    // name is contained in the term. Deterministic: own-before-base first,
+    // then shortest name (most specific), then id.
     const sub = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
       where (
-          position(${normalized} in lower(coalesce(ceo.name, e.name))) > 0
-          or position(lower(coalesce(ceo.name, e.name)) in ${normalized}) > 0
+          position(unaccent(${normalized}) in unaccent(lower(coalesce(ceo.name, e.name)))) > 0
+          or position(unaccent(lower(coalesce(ceo.name, e.name))) in unaccent(${normalized})) > 0
         )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, length(coalesce(ceo.name, e.name)) asc, e.id asc

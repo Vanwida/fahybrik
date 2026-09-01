@@ -22,19 +22,23 @@ import {
   AUTOPAUSA,
   CADENCIA_PRESCRITA_PPM,
   CUENTA_ATRAS_S,
+  ETIQUETA_GPS,
   UMBRAL_BPM,
   INCLINACION_PRESCRITA_PCT,
-  OBJETIVO_SKM,
   SEGMENTO_TITULO,
+  SIN_PULSO_MOTIVO_CALLE,
   TRAMOS,
   colorEstado,
   estadoRitmo,
   fmtDistancia,
+  fmtDistanciaCubierta,
   fmtElapsed,
   guionCalle,
+  objetivoLabel,
   palabraEstadoCalle,
   pulsoEn,
   ritmoCalleSkm,
+  sinRitmo,
   type CalidadGPS,
 } from './data';
 import { fraccionTramo, restanteTramo, useTramos } from './engine';
@@ -107,6 +111,8 @@ export function HUDCalle({
   const estadoObj = enRecuperacion ? 'sin-juicio' : estadoRitmo(ritmo);
   const bpm = corriendo ? pulsoEn(estado.legS + estado.idx * 60) : null;
   const zona = bpm ? hrZone(bpm, UMBRAL_BPM) : null;
+  // Sin ritmo medido el sujeto degrada al objetivo (OutdoorRunHUDModel.lecturaViva).
+  const sinRitmoCalle = sinRitmo(estado.legS);
 
   const cuerpo = (
     <div
@@ -136,7 +142,7 @@ export function HUDCalle({
           etiqueta={voz ? 'Silenciar avisos de voz' : 'Activar avisos de voz'}
           color={voz ? 'var(--twin-accent-text)' : 'var(--twin-muted)'}
         />
-        <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Cerrar" />
+        <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Salir del entreno" />
       </div>
 
       <MapaRuta metros={estado.segM} calidad={calidad} pausado={autoPausada || pausaManual} alto={horizontal ? 120 : 250} />
@@ -183,38 +189,52 @@ export function HUDCalle({
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <Etiqueta texto="Ritmo GPS" size={10} />
+                  <Etiqueta texto={ritmo !== null ? 'Ritmo GPS' : sinRitmoCalle.etiqueta} size={10} />
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span className="t-readout-hero" style={{ fontSize: 60, color: colorEstado(estadoObj) }}>
-                      {ritmo ? fmtElapsed(ritmo).replace(/^0/, '') : '—:—'}
+                      {ritmo !== null ? fmtElapsed(ritmo).replace(/^0/, '') : sinRitmoCalle.cifra}
                     </span>
-                    <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>/km</span>
+                    {ritmo !== null && <span className="t-readout-label" style={{ color: 'var(--twin-muted)' }}>/km</span>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
-                      Objetivo {fmtElapsed(OBJETIVO_SKM).replace(/^0/, '')} /km
-                    </span>
-                    {palabraEstadoCalle(estadoObj) && (
-                      <span
-                        style={{
-                          font: 'italic 800 10px/1 var(--twin-font-sans)',
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          color: colorEstado(estadoObj),
-                        }}
-                      >
-                        {palabraEstadoCalle(estadoObj)}
+                  {ritmo !== null ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-fg)' }}>
+                        Objetivo {objetivoLabel()}
                       </span>
-                    )}
-                  </div>
+                      {palabraEstadoCalle(estadoObj) && (
+                        <span
+                          style={{
+                            font: 'italic 800 10px/1 var(--twin-font-sans)',
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            color: colorEstado(estadoObj),
+                          }}
+                        >
+                          {palabraEstadoCalle(estadoObj)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+                      {ETIQUETA_GPS[calidad]}
+                    </span>
+                  )}
                 </div>
               </Tarjeta>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              <Celda etiqueta="Distancia" valor={fmtDistancia(estado.segM)} />
+              {/* La distancia CUBIERTA lleva sus dos decimales (`Formato.distanciaCubierta`):
+                  en una medida los ceros son el dato. La dosis del tramo, abajo, va con uno. */}
+              <Celda etiqueta="Distancia" valor={fmtDistanciaCubierta(estado.segM)} />
               <Celda etiqueta="Tiempo" valor={fmtElapsed(estado.legS)} />
-              <Celda etiqueta="Pulso" valor={bpm ? `${bpm}` : '—'} unidad="bpm" color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'} />
+              <Celda
+                etiqueta="Pulso"
+                valor={bpm !== null ? `${bpm}` : null}
+                unidad="bpm"
+                color={zona ? `var(--twin-z${zona})` : 'var(--twin-fg)'}
+                ausente={SIN_PULSO_MOTIVO_CALLE}
+              />
             </div>
 
             {zona && (

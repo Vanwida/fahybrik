@@ -14,9 +14,14 @@ import ActivityKit
 
 struct RunActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
-        /// Current smoothed pace, e.g. "4:47". Cuando el GPS todavía no puede
-        /// avalarlo, este campo trae la RAZÓN en su sitio ("Buscando GPS"), no un
-        /// hueco: la pantalla bloqueada obedece el §7 igual que la app.
+        /// El ritmo, y SÓLO el ritmo: «4:47», o "" cuando todavía no hay ninguno.
+        ///
+        /// Aquí vivía la excusa: sin ritmo medido se metía en este campo el estado
+        /// del GPS, y la pantalla bloqueada acababa diciendo «RITMO · GPS fuerte
+        /// /km» — una palabra ocupando el sitio de un número, con una unidad
+        /// pegada detrás que la hacía leer como una medida. Decir por qué no hay
+        /// dato es correcto; decirlo EN EL HUECO DEL DATO, no. Cuando esto viene
+        /// vacío, el widget cambia de sujeto y enseña el tiempo, que sí es cierto.
         var paceLabel: String
         /// "Tramo 2/5" for a structured run, or "" for a continuous run (no legs).
         var legLabel: String

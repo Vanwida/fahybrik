@@ -13,7 +13,7 @@ import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/ra
 import { upsertLeadComplete } from '@/lib/leads/store';
 import { sendLeadConfirmation, sendLeadNotification } from '@/lib/leads/email';
 import { getCapacityState, type CapacityState } from '@/lib/coach/capacity';
-import { coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
+import { coachIdForLead, coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
 import { countWaitlist, joinWaitlist } from '@/lib/leads/waitlist';
 import { sendWaitlistJoinedEmail } from '@/lib/leads/waitlist-email';
 
@@ -62,17 +62,19 @@ export async function POST(req: Request) {
   // la fila y no del entorno: si mañana un lead entra por otro enlace, el correo lo nombra
   // a él sin tocar esto.
   const coachName = await coachNameForLead(sql, BigInt(res.id));
+  const coachId = await coachIdForLead(sql, BigInt(res.id));
   if (capacity?.full) {
     const jw = await joinWaitlist(res.id); // idempotent; returns the lead's contact for the email
     // Waitlist-joined email instead of the booking confirmation; internal notify stays.
     await Promise.allSettled([
-      sendLeadNotification(input),
+      sendLeadNotification(input, coachId),
       jw
         ? sendWaitlistJoinedEmail({
             email: jw.email,
             nombre: jw.nombre,
             unsubscribe_token: jw.unsubscribe_token,
             coach_name: coachName,
+            coach_id: coachId?.toString() ?? null,
           })
         : Promise.resolve(),
     ]);
@@ -89,8 +91,8 @@ export async function POST(req: Request) {
   // senders return a result rather than throwing. The confirmation carries the booking link
   // (/es/cita/[token]) so a lead who didn't pick a slot on the final screen can still book.
   await Promise.allSettled([
-    sendLeadNotification(input),
-    sendLeadConfirmation(input, res.token, coachName),
+    sendLeadNotification(input, coachId),
+    sendLeadConfirmation(input, res.token, coachName, coachId),
   ]);
 
   // Return the token so the onboarding final screen can offer the slot picker inline.

@@ -4,9 +4,10 @@ import SwiftUI
 // a FULL-SCREEN step flow presented when the athlete taps "Empezar", per the
 // approved mockup — never an embedded widget lost inside a form.
 //
-//   PASO 1 — "¿Dónde corres hoy?": two BIG cards (En cinta / En la calle) + Continuar.
-//   PASO 2 — only for "En cinta": "Conecta tu cinta" — the how-to guide, the
-//            compatibility note, "Buscar mi cinta" and "Correr sin conectar".
+//   PASO 1 — "¿Dónde corres hoy?": three BIG cards
+//            (Calle / Cinta con conexión / Cinta sin conexión) + Continuar.
+//   PASO 2 — only for "Cinta con conexión": "Conecta tu cinta" — the how-to guide,
+//            the compatibility note, "Buscar mi cinta" and "Correr sin conectar".
 //   PASO 3 — "Cintas cerca": the list of found belts. A FULL-SCREEN STEP of this same
 //            flow, exactly as the mockup drew it — NOT a sheet.
 //
@@ -26,7 +27,8 @@ import SwiftUI
 //
 // Finishing the sequence calls the caller's ORIGINAL start closure with the chosen
 // RunEnvironment — the session stamping + right-HUD auto-open plumbing downstream
-// stays untouched. "En la calle" starts immediately after paso 1.
+// stays untouched. Calle y cinta tonta arrancan al momento; la enchufada
+// pasa por conectar. "Correr sin conectar" reetiqueta a cinta tonta.
 struct RunPreStartFlow: View {
     /// Shown small over the question so the athlete knows WHAT they're starting.
     let sessionTitle: String
@@ -114,18 +116,30 @@ struct RunPreStartFlow: View {
 
     private var locationStep: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            Text("¿Dónde corres hoy?")
-                .font(.system(size: 28, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            bigCard(value: .treadmill, icon: "figure.run",
-                    title: "En cinta", subtitle: "Conéctala y contrólala")
-            bigCard(value: .outdoor, icon: "location.fill",
-                    title: "En la calle", subtitle: "GPS, mapa y ritmo en vivo")
-            Spacer(minLength: 0)
+            // Girado no hay alto para título + tres tarjetas + botón y este paso
+            // puede abrirse YA en apaisado — la pantalla del entreno permite
+            // landscape desde la fase activa. Sin scroll, el «Continuar» quedaba
+            // por debajo del borde y el atleta atrapado. Misma regla que el vivo:
+            // el contenido se desplaza y la acción queda clavada debajo.
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    Text("¿Dónde corres hoy?")
+                        .font(.system(size: 28, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
+                    bigCard(value: .outdoor, icon: "location.fill",
+                            title: "Calle", subtitle: "El reloj cuenta afuera")
+                    bigCard(value: .treadmill, icon: "figure.run",
+                            title: "Cinta con conexión", subtitle: "La máquina cuenta")
+                    bigCard(value: .indoor, icon: "applewatch",
+                            title: "Cinta sin conexión", subtitle: "El reloj cuenta en indoor")
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxHeight: .infinity)
             ExpertPrimaryButton(title: "Continuar", height: 56, enabled: choice != nil) {
                 guard let choice else { return }
-                if choice == .outdoor {
-                    onStart(.outdoor)     // la calle: nothing to connect — GO
+                if choice.startsImmediately {
+                    onStart(choice)
                 } else {
                     withAnimation(.easeInOut(duration: 0.2)) { step = .treadmill }
                 }
@@ -167,7 +181,7 @@ struct RunPreStartFlow: View {
         TreadmillConnectGuide(
             link: hub.treadmill.link,
             onSearch: { searchBelt() },
-            onSkip: { onStart(.treadmill) },
+            onSkip: { onStart(.indoor) },
             onStartConnected: { onStart(.treadmill) }
         )
         // NO .onAppear CONNECT. This step used to silently reconnect a remembered belt
@@ -307,33 +321,42 @@ struct TreadmillConnectGuide: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            Text("Conecta tu cinta")
-                .font(.system(size: 28, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
+            // En apaisado (la cinta puede caerse con el HUD girado, y esta guía es
+            // lo que aparece entonces) el título + guía + nota + dos botones no
+            // caben en ~380 pt: sin scroll, las DOS salidas («Buscar mi cinta» /
+            // «Correr sin conectar») quedaban recortadas bajo el borde. El
+            // contenido se desplaza; las acciones quedan clavadas debajo.
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    Text("Conecta tu cinta")
+                        .font(.system(size: 28, weight: .heavy, design: .default).italic())
+                        .foregroundStyle(Theme.Color.foreground)
 
-            if link.isLive {
-                connectedCard
-            } else {
-                // The belt dropped → say it plainly, ABOVE the how-to. Nothing is
-                // recovering it; "Buscar mi cinta" below is the way back, through the
-                // list, with the athlete choosing.
-                if link == .lost { lostCard }
-                howToCard
-                if isBusy { busyLine }
-            }
+                    if link.isLive {
+                        connectedCard
+                    } else {
+                        // The belt dropped → say it plainly, ABOVE the how-to. Nothing is
+                        // recovering it; "Buscar mi cinta" below is the way back, through the
+                        // list, with the athlete choosing.
+                        if link == .lost { lostCard }
+                        howToCard
+                        if isBusy { busyLine }
+                    }
 
-            compatibilityNote
+                    compatibilityNote
 
-            if let onShareDiagnostics, !link.isLive {
-                Button(action: onShareDiagnostics) {
-                    Text("Compartir diagnóstico")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
+                    if let onShareDiagnostics, !link.isLive {
+                        Button(action: onShareDiagnostics) {
+                            Text("Compartir diagnóstico")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Theme.Color.accentText)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    }
                 }
-                .buttonStyle(PressScaleStyle())
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-
-            Spacer(minLength: 0)
+            .frame(maxHeight: .infinity)
 
             if link.isLive, let onStartConnected {
                 ExpertPrimaryButton(title: "▶ Empezar", height: 56, action: onStartConnected)
@@ -445,7 +468,7 @@ struct TreadmillConnectGuide: View {
     }
 
     private var compatibilityNote: some View {
-        Text("Por ahora, cintas Titanium y compatibles Bluetooth FTMS. Si la tuya no aparece, corre igual: registra la distancia a mano.")
+        Text("Por ahora, cintas Titanium y compatibles Bluetooth FTMS. Si la tuya no aparece, corre sin conectar: cuenta el reloj en indoor.")
             .font(Theme.Typography.caption)
             .foregroundStyle(Theme.Color.muted)
             .fixedSize(horizontal: false, vertical: true)

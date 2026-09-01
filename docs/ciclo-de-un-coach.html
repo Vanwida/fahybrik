@@ -1,0 +1,351 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El ciclo de un entrenador, entendido al 100%</title>
+<style>
+  :root{
+    --bg:#070707; --panel:#111111; --panel2:#161616; --line:#242424; --line2:#333;
+    --txt:#f3f3f3; --mut:#b0b0b0; --dim:#8d8d8d;
+    --naranja:#f06a2a; --rojo:#e0605f; --verde:#5bbf7a; --ambar:#e0a94a;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font:400 17px/1.62 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px; margin:0 auto; padding:56px 24px 120px}
+  header{border-bottom:1px solid var(--line); padding-bottom:32px; margin-bottom:48px}
+  .kicker{font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:var(--naranja); font-weight:700; margin:0 0 14px}
+  h1{font:800 italic 42px/1.1 -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif; margin:0 0 16px; letter-spacing:-.02em}
+  .sub{font-size:20px; line-height:1.5; color:var(--mut); margin:0; max-width:70ch}
+  h2{font:800 italic 28px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif; margin:64px 0 8px; letter-spacing:-.01em}
+  h2 .n{color:var(--naranja); font-style:normal; font-weight:700; font-size:20px; margin-right:12px; vertical-align:.12em}
+  h3{font:700 20px/1.35 inherit; margin:36px 0 10px}
+  p{margin:0 0 16px; max-width:74ch}
+  .lead{font-size:19px; color:var(--mut)}
+  strong{font-weight:700; color:#fff}
+  code{font:600 15px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; color:#e8e8e8}
+  a{color:var(--naranja)}
+
+  .cifras{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin:32px 0}
+  .cifra{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:20px}
+  .cifra b{display:block; font:800 34px/1 -apple-system,system-ui,sans-serif; letter-spacing:-.03em}
+  .cifra span{display:block; font-size:15px; color:var(--mut); margin-top:8px}
+
+  .caso{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin:26px 0}
+  .caso > .t{display:flex; gap:14px; align-items:baseline; padding:18px 22px; border-bottom:1px solid var(--line); background:var(--panel2)}
+  .caso > .t b{font-size:19px}
+  .caso > .t .badge{margin-left:auto; font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:999px; white-space:nowrap}
+  .b-falta{background:rgba(224,96,95,.16); color:var(--rojo); border:1px solid rgba(224,96,95,.35)}
+  .b-parcial{background:rgba(224,169,74,.15); color:var(--ambar); border:1px solid rgba(224,169,74,.35)}
+  .b-ok{background:rgba(91,191,122,.14); color:var(--verde); border:1px solid rgba(91,191,122,.34)}
+  .caso .body{padding:20px 22px}
+  .caso .body p:last-child{margin-bottom:0}
+
+  .dos{display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:18px 0}
+  .dos > div{padding:16px 18px}
+  .dos > div:first-child{border-right:1px solid var(--line); background:rgba(224,96,95,.05)}
+  .dos > div:last-child{background:rgba(91,191,122,.04)}
+  .dos h4{margin:0 0 10px; font-size:14px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700}
+  .dos ul{margin:0; padding-left:20px}
+  .dos li{margin:0 0 7px; font-size:16px; color:var(--mut)}
+  .dos li:last-child{margin-bottom:0}
+
+  table{width:100%; border-collapse:collapse; margin:22px 0; font-size:16px}
+  th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-size:13px; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); font-weight:700; border-bottom-color:var(--line2)}
+  td.si{color:var(--verde); font-weight:700; white-space:nowrap}
+  td.no{color:var(--rojo); font-weight:700; white-space:nowrap}
+  td.medio{color:var(--ambar); font-weight:700; white-space:nowrap}
+  .tabla-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+  ul.limpia{padding-left:22px; margin:0 0 18px; max-width:74ch}
+  ul.limpia li{margin-bottom:10px}
+
+  .nota{border-left:3px solid var(--naranja); background:var(--panel); padding:16px 20px; border-radius:0 10px 10px 0; margin:26px 0}
+  .nota p:last-child{margin-bottom:0}
+
+  footer{margin-top:80px; padding-top:28px; border-top:1px solid var(--line); color:var(--dim); font-size:15px}
+  @media (max-width:720px){
+    .wrap{padding:36px 18px 90px}
+    h1{font-size:32px} h2{font-size:24px} .sub{font-size:18px}
+    .dos{grid-template-columns:1fr}
+    .dos > div:first-child{border-right:0; border-bottom:1px solid var(--line)}
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="kicker">Auditoría · 21 agosto 2026 · card 128</p>
+  <h1>El ciclo de un entrenador, entendido al 100%</h1>
+  <p class="sub">Qué le falta al sistema para tragarse un macrociclo real de HYROX de 12 semanas
+  entero y tipado, sin una sola línea de texto suelto, y que el móvil y el reloj lo sepan ejecutar.</p>
+</header>
+
+<h2><span class="n">01</span>Lo que pide el ciclo</h2>
+<p class="lead">Antes de tocar nada he medido la fuente. No es un plan de ejemplo: es
+el ciclo completo, con sus cuatro fases, sus criterios de metodología y sus doce semanas día a día.</p>
+
+<div class="cifras">
+  <div class="cifra"><b>84</b><span>días con contenido</span></div>
+  <div class="cifra"><b>310</b><span>bloques</span></div>
+  <div class="cifra"><b>1.238</b><span>líneas de trabajo</span></div>
+  <div class="cifra"><b>392</b><span>formas de línea distintas</span></div>
+  <div class="cifra"><b>209</b><span>movimientos distintos</span></div>
+  <div class="cifra"><b>19</b><span>criterios de metodología</span></div>
+</div>
+
+<p>Los <strong>19 criterios no son programación</strong>: son la doctrina del entrenador
+(cómo se poda una semana cuando el atleta no llega a seis días, qué se reduce en una descarga,
+por qué no hay kilos concretos en las plantillas). No van al calendario. Van donde ya está la
+metodología del coach, que es lo que la app indexa para adaptar. Ahí no hay problema.</p>
+
+<p>El problema son las <strong>392 formas de línea</strong>. Ahí es donde se decide si esto
+entra tipado o entra como texto, y el texto no lo cronometra el reloj, no lo cuenta la app y
+no lo puede adaptar la IA.</p>
+
+<h2><span class="n">02</span>El diagnóstico, en una frase</h2>
+<p class="lead">El modelo sabe decir <strong>un número</strong>. El ciclo real casi nunca dice
+un número: dice <strong>«relativo a algo que este atleta ya tiene»</strong>. Y eso hoy sólo
+existe para un caso, el porcentaje del máximo en fuerza.</p>
+
+<p>Es literalmente uno de los 19 criterios del entrenador:
+<em>«Sin kilos concretos en las plantillas: porcentajes, RIR o referencia a peso de competición»</em>.
+Escribe así a propósito, porque es lo único que hace que una plantilla sirva para más de un
+atleta. Nuestro modelo le obliga justo a lo contrario, y por eso su ciclo no cabe.</p>
+
+<p>Esto no es un detalle de este JSON. Es el requisito central del producto multi-coach:
+<strong>una plantilla con kilos absolutos no es reutilizable</strong>, ni entre atletas ni
+entre temporadas.</p>
+
+<h2><span class="n">03</span>Los cuatro huecos, por orden de daño</h2>
+
+<div class="caso">
+  <div class="t"><b>1 · Objetivos relativos a una referencia del atleta</b><span class="badge b-falta">No existe</span></div>
+  <div class="body">
+    <p>Aparece en <strong>más de 130 líneas</strong>: «a ritmo HYROX» (60), «a peso de
+    competición» y sus variantes (65), «ritmo derivado del test del lunes», «carga media»,
+    «+5 kg por encima del peso de competición», «al 50 % del peso corporal».</p>
+    <div class="dos">
+      <div>
+        <h4>Lo que dice el ciclo</h4>
+        <ul>
+          <li>1.000 m Run a ritmo HYROX</li>
+          <li>50 m Sled push a peso de competición</li>
+          <li>15 m con 5-10 kg por encima del peso de competición</li>
+          <li>4 × 20 m Sled push a carga media</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Lo que puede decir el sistema</h4>
+        <ul>
+          <li>Un ritmo en segundos por kilómetro, y ya</li>
+          <li>Kilos, y ya</li>
+          <li>Porcentaje del máximo, sólo en fuerza</li>
+          <li>Nada para «media», «ligera», «sobrecargado»</li>
+        </ul>
+      </div>
+    </div>
+    <p><strong>Lo llamativo es que la mitad del mecanismo ya está construida y desconectada.</strong>
+    Hay un resolutor de objetivos derivados en la capa de metodología que ya entiende
+    «ritmo de carrera», umbral por modalidad y zonas de ritmo, y que los resuelve contra las
+    marcas del atleta. Y hay un modelo de carga de competición por estación, división y género
+    que devuelve «no lo sé» a propósito porque nadie le ha dado todavía los kilos reales.
+    Pero nada de eso puede aparecer en una prescripción: la plantilla no lo puede decir,
+    sólo lo puede decir la definición de zonas del coach.</p>
+    <p><strong>Propuesta:</strong> que un objetivo pueda ser una <em>referencia</em>, no sólo
+    una cifra: ritmo de carrera, ritmo de umbral, marca de un test concreto, peso de competición
+    de una estación, máximo de un levantamiento, peso corporal; con un porcentaje o un delta
+    encima. Resolver la referencia contra las marcas del atleta es mecanismo nuestro; qué es
+    el peso de competición de cada estación y qué test ancla cada ritmo es dato del entrenador,
+    con un valor por defecto editable. Cuando falte el test, la respuesta honesta es
+    «todavía no lo sabemos», que es la que ya da hoy el resto del sistema.</p>
+  </div>
+</div>
+
+<div class="caso">
+  <div class="t"><b>2 · Por lado</b><span class="badge b-falta">Se pierde</span></div>
+  <div class="body">
+    <p><strong>86 líneas</strong> dicen «por lado». Hoy no hay campo: el importador lo guarda
+    como texto dentro de la nota («8/lado»). El atleta lee el texto, pero la app registra 8
+    repeticiones en vez de 16, y la analítica de volumen miente a la mitad de los unilaterales
+    de todo el ciclo. Y el ciclo entero está construido sobre trabajo unilateral: es otro de
+    los 19 criterios.</p>
+    <p>El ejercicio del catálogo ya sabe si <em>puede</em> hacerse por lado. Lo que falta es que
+    la prescripción diga si <em>esta vez</em> se cuenta por lado o en total.</p>
+  </div>
+</div>
+
+<div class="caso">
+  <div class="t"><b>3 · De qué descanso estamos hablando</b><span class="badge b-parcial">A medias</span></div>
+  <div class="body">
+    <p>Hay <strong>124 líneas de descanso</strong>, y el ciclo distingue cinco ámbitos en la
+    misma frase: entre series, entre rondas, entre bloques, entre estaciones y entre vueltas.
+    «3 bloques de 4 rondas · 2' entre rondas, 5' entre bloques» es una sola línea con dos
+    descansos distintos.</p>
+    <p>Hoy hay un descanso en la serie y otro en el bloque, y ya. El de «entre rondas» y el de
+    «entre estaciones» existen en la base de datos y en el iOS pero <strong>no en el tipo
+    compartido</strong>, así que viajan por fuera del contrato: cableado directo de la base al
+    móvil sin pasar por el modelo. Eso se rompe solo, tarde o temprano.</p>
+    <p>Y falta el <strong>descanso activo</strong>: «1' de descanso activo en Air bike»,
+    «vuelta caminando como descanso», «2' de descanso entre rondas, soltando en bici».
+    Descansar parado y descansar rodando no son lo mismo, y el ciclo lo prescribe a propósito.</p>
+  </div>
+</div>
+
+<div class="caso">
+  <div class="t"><b>4 · Qué pasa cuando la semana no sale</b><span class="badge b-falta">No existe</span></div>
+  <div class="body">
+    <p>Cada día del ciclo trae dos datos que no tienen sitio en el sistema:</p>
+    <ul class="limpia">
+      <li><strong>Prioridad</strong> (47 días esenciales, 12 importantes, 9 complementarios).
+      Es lo que permite la poda que el propio entrenador describe como criterio: cuando el
+      atleta no llega a seis días, cae primero el de tren superior y después el aeróbico sin
+      impacto. Sin este campo, esa decisión la toma el atleta al azar.</li>
+      <li><strong>Sustitución</strong>: 31 de los 84 días declaran su alternativa
+      («Clase S&amp;C», «Clase HYROX · RPE 8»). Es la vida real de un atleta de box.
+      Hoy sólo existe un «este bloque es opcional», sí o no, y a nivel de bloque.</li>
+    </ul>
+    <p>No es cosmético: son las dos piezas que hacen que un plan sobreviva a una semana real.
+    Un plan que sólo funciona si se cumple entero no funciona.</p>
+  </div>
+</div>
+
+<h2><span class="n">04</span>Lo que sí cabe hoy</h2>
+<p>Para no inflar la lista: el modelo es bueno, y buena parte del ciclo entra sin tocar nada.</p>
+
+<div class="tabla-scroll">
+<table>
+  <tr><th>Lo que dice el ciclo</th><th></th><th>Cómo entra</th></tr>
+  <tr><td>«4 series:», «3 rondas:», «3 bloques de 8 series de:»</td><td class="si">Sí</td><td>Hay 15 formatos, incluidos rondas, series, superserie, escalera, EMOM y simulacro</td></tr>
+  <tr><td>«12-15 reps», «3-4 rondas», «65-70 %», «Zona 2-3»</td><td class="si">Sí</td><td>Todo objetivo y toda medida admiten banda, no sólo punto</td></tr>
+  <tr><td>«máximo 142 ppm»</td><td class="si">Sí</td><td>Techo de pulsaciones, ya reconocido por el importador</td></tr>
+  <tr><td>«andando a 3,5 km/h»</td><td class="medio">Casi</td><td>Se convierte a ritmo por kilómetro; el número en km/h se pierde por el camino</td></tr>
+  <tr><td>«3 series de 2' en cada máquina (ski · row · bike)»</td><td class="si">Sí</td><td>Cada serie puede llevar su propia modalidad</td></tr>
+  <tr><td>«6 por lado Bulgarian split squat 2DB»</td><td class="medio">A medias</td><td>Las dos mancuernas sí (carga por implemento); el «por lado» no</td></tr>
+  <tr><td>«10/8/8/6/4 reps al 65/70/75/80/85 %»</td><td class="si">Sí</td><td>El tipo lo soporta; falta que la gramática lo lea en notación libre</td></tr>
+  <tr><td>«Dominadas y push ups en escalera 10-8-6-4-2»</td><td class="medio">A medias</td><td>Sólo hay lector de escaleras de distancia, no de repeticiones</td></tr>
+  <tr><td>Calentamiento de carrera anidado con fases</td><td class="si">Sí</td><td>La carrera estructurada tiene su propio árbol de fases y repeticiones</td></tr>
+  <tr><td>«Min 1: Ski · Min 2: Shoulder taps · Min 3: …»</td><td class="no">No</td><td>El EMOM sólo rota uniforme; asignar contenido a un minuto concreto no tiene campo</td></tr>
+  <tr><td>«500 m Row a 26-28 paladas por minuto»</td><td class="no">No</td><td>La cadencia sólo existe para correr, no para remo ni ski</td></tr>
+  <tr><td>«Y directo a:», «sin descanso»</td><td class="no">No</td><td>Sin descanso y descanso desconocido se escriben igual: no hay forma de distinguirlos</td></tr>
+  <tr><td>«Alternativa: 60-75' de bici en Zona 2»</td><td class="no">No</td><td>Un bloque no puede llevar su sustituto</td></tr>
+</table>
+</div>
+
+<h2><span class="n">05</span>Lo que no se ejecuta aunque se tipe</h2>
+<p>Tipar no basta: el motor del entreno en vivo tiene que saber correrlo. Tres cosas
+que hoy se tragan en silencio y hay que arreglar caiga quien caiga:</p>
+<ul class="limpia">
+  <li><strong>Una medida que el móvil no reconoce desaparece de la pantalla sin decir nada.</strong>
+  No se pinta como texto, no se pinta como raya: no se pinta. Si el servidor manda algo nuevo,
+  el atleta simplemente no ve su dosis.</li>
+  <li><strong>Un formato que el móvil no reconoce se convierte en tabla de hierro</strong> y
+  tampoco avisa. Un EMOM desconocido se le presenta al atleta como una tabla de series.</li>
+  <li><strong>El calentamiento siempre es una lista de comprobación de bloque entero</strong>,
+  nunca movimiento a movimiento. Los 73 drills numerados del calentamiento de carrera de este
+  ciclo (2×8, 2×15 m…) pierden su dosis en vivo. Es una decisión de producto vieja, pero contra
+  este ciclo se nota mucho.</li>
+</ul>
+<p>Y en el reloj: el AMRAP cae a la pantalla genérica, el ritmo por 500 metros del remo no viaja
+desde el móvil, y la cinta no existe. Nada de eso bloquea este ciclo, pero conviene tenerlo escrito.</p>
+
+<h2><span class="n">06</span>El ciclo cabe sin inventar tablas</h2>
+<p class="lead">Buena noticia: la estructura de doce semanas con cuatro fases entra
+tal cual en lo que ya vive.</p>
+<p>No hay entidad «macrociclo», y no la hay a propósito: se eliminó una vez y se rechazó
+explícitamente volver a meterla. La decisión que hay escrita es que <strong>el orden de los
+microciclos ES la periodización</strong>: una fase es un tramo, y un tramo es un microciclo con
+el nombre que le pone el coach, su duración y su posición en la cadena.</p>
+<p>Este ciclo son exactamente cuatro tramos encadenados: Acumulación 5, Transformación 4,
+Realización 2, Competición 1. Cada semana admite siete días de forma nativa, y cada día varias
+sesiones con sus bloques tipados. No hace falta ni una tabla nueva para la estructura. Lo único
+que falta son los dos campos de día del hueco 4.</p>
+
+<h2><span class="n">07</span>El catálogo de ejercicios</h2>
+<p class="lead">Falta menos de lo que parece, pero lo que falla no es el tamaño:
+es el cableado.</p>
+<div class="cifras">
+  <div class="cifra"><b>126</b><span>ejercicios en el catálogo</span></div>
+  <div class="cifra"><b>209</b><span>movimientos que pide el ciclo</span></div>
+  <div class="cifra"><b>34</b><span>que faltan de verdad</span></div>
+  <div class="cifra"><b>35</b><span>que sólo necesitan un alias</span></div>
+  <div class="cifra"><b>0</b><span>ejercicios con vídeo</span></div>
+</div>
+<p>De los 209 movimientos reales del ciclo, <strong>112 ya existen</strong>. Otros 35 existen
+con otro nombre y sólo les falta el alias («Air bike» y «Assault Bike», «Dominada neutra» y
+«Pull-up», «Peso muerto unilateral con DB» y «Single-leg Romanian Deadlift»). Las ocho estaciones
+oficiales de HYROX están completas, y los drills del calentamiento de carrera también:
+caben en el cajón genérico que ya existe.</p>
+<p><strong>Faltan 34 movimientos de verdad</strong>, en 164 apariciones. Están muy concentrados:
+casi la mitad es pliometría (zancadas explosivas, lanzamientos dinámicos, skaters, zig-zag hops),
+y el resto son básicos sorprendentemente ausentes: encogimientos de hombros, curl de bíceps,
+remo invertido, mountain climbers, buenos días. La lista entera está en la card.</p>
+
+<h3>Y tres cosas de fontanería que pesan más que la lista</h3>
+<ul class="limpia">
+  <li><strong>Hay una tabla de alias con 197 entradas bilingües que el importador no lee nunca.</strong>
+  Alimenta la búsqueda de la biblioteca del entrenador, y es invisible para el que resuelve los
+  nombres al importar, que tira de un mapa escrito a mano en el código. Dos vocabularios que no
+  se hablan: conectarlos es cobertura gratis.</li>
+  <li><strong>No hay búsqueda por parecido, aunque el índice para hacerla ya está creado.</strong>
+  El importador compara exacto o por trozo de cadena. Un acento de más o una palabra cambiada
+  y falla.</li>
+  <li><strong>Un fallo silencioso peor que no encontrar nada:</strong> «Puente de glúteo unilateral»
+  resuelve con confianza al ejercicio <em>bilateral</em>, porque el alias no distingue el
+  calificador. El unilateral existe, y aun así el importador escoge el otro. Prefiero mil veces
+  un «no lo encuentro» que un ejercicio equivocado dado por bueno.</li>
+</ul>
+<p>Lo demás está bien pensado: la cascada de resolución aprende de cada corrección del entrenador
+para que el mismo término no falle dos veces. Está construida y no ha aprendido ni un sinónimo
+todavía, porque nunca se ha usado a esta escala.</p>
+
+<h2><span class="n">08</span>El importador que falta es un piso más del que ya existe</h2>
+<p>No hay ningún importador de ciclo. Lo único parecido es un script atado a mano a una cuenta
+y a un fichero concreto: un apaño para meter un caso real, no producto.</p>
+<p>Pero el camino bueno ya está construido un piso más abajo, para bloques y ejercicios:
+<strong>subir → propuesta tipada que el entrenador revisa → confirmar</strong>. Con una regla
+de honestidad que es exactamente la que hace falta aquí: <em>fiel o a revisión</em>. Una línea
+sólo se tipa si todo lo que lleva queda representado; lo que no se puede descomponer con
+confianza sale marcado para revisión con su texto intacto, y jamás se inventa un número.
+Primero la gramática determinista, la IA sólo para lo denso, y los defectos del coach sólo
+para lo que no se ve en el original.</p>
+<p>Ese esqueleto sirve tal cual para un ciclo entero. Lo que hay que hacer es subirlo un piso
+(de bloque a semana y a cadena de tramos) y enseñarle las formas nuevas.</p>
+
+<h2><span class="n">09</span>Cómo sabremos que está bien</h2>
+<p class="lead">Sin una cifra esto es una opinión.</p>
+<p>Las 1.238 líneas de este ciclo se quedan como <strong>corpus de prueba</strong>. La medida
+es una sola: qué porcentaje de líneas sale tipado y fiel, sin una sola caída a texto libre.
+Se corre en cada cambio y se ve subir. Hoy, sin tocar nada, la cifra la marcan los cuatro
+huecos de arriba: todo lo relativo al atleta, todo lo unilateral y todo lo de descanso con
+ámbito cae del lado equivocado.</p>
+<p>Y la prueba de fuego de cada campo sigue siendo la de siempre: el atleta lo entiende sin
+ambigüedad, la app calcula con él, y la IA lo puede adaptar. Si acaba en texto, falla los tres.</p>
+
+<h2><span class="n">10</span>El orden en que lo arreglaría</h2>
+<p>De más raíz a más hoja. Cada peldaño deja el siguiente más fácil, y ninguno obliga a
+rehacer el anterior.</p>
+<ol class="limpia">
+  <li><strong>Los objetivos relativos.</strong> Es la raíz: sin esto, ninguna plantilla es
+  reutilizable y este ciclo no cabe. Se conecta al resolutor que ya existe.</li>
+  <li><strong>Por lado, ámbito del descanso y descanso activo.</strong> Tres campos pequeños
+  que dejan de mentirle a la analítica. Y de paso, subir al contrato compartido los dos
+  descansos que hoy viajan por fuera.</li>
+  <li><strong>Prioridad y sustitución del día.</strong> Lo que hace que un plan sobreviva a
+  una semana real.</li>
+  <li><strong>El catálogo:</strong> conectar la tabla de alias al importador, arreglar el
+  falso positivo del unilateral, y dar de alta los 34 que faltan.</li>
+  <li><strong>La gramática</strong>, contra el corpus de 1.238 líneas, hasta que el número suba.</li>
+  <li><strong>El importador de ciclo</strong>, subiendo un piso el camino que ya existe:
+  por el asistente y desde el panel.</li>
+  <li><strong>El motor en vivo:</strong> que una medida o un formato desconocidos digan
+  «no lo sé» en vez de desaparecer.</li>
+</ol>
+
+<footer>
+  FAHYBRID · auditoría del 21 de agosto de 2026 · card 128 ·
+  fuente: macrociclo HYROX de 12 semanas (84 días, 310 bloques, 1.238 líneas)
+</footer>
+</div>

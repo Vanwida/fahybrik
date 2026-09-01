@@ -23,6 +23,7 @@ import {
   type ProgramWeekUpsert,
   type WeekDay,
 } from '@fahybrid/shared/schema/program-templates';
+import { resyncWeekTemplateAssignments } from '@/lib/dashboard/coach/instantiate-program';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,7 +82,22 @@ export async function PUT(
       id: weekId,
       payload,
     });
-    return jsonOk({ id: outId, day_of_week });
+
+    // 0158 — un día ya asignado a un atleta es una copia de un solo instante;
+    // sin esto, la edición se queda en la plantilla y nunca llega. Best-effort:
+    // un fallo aquí no debe deshacer un guardado que ya tuvo éxito.
+    let synced_athletes = 0;
+    try {
+      const resync = await resyncWeekTemplateAssignments({
+        coach_id: session.coach_id,
+        week_template_id: weekId,
+      });
+      synced_athletes = resync.microcycles_checked;
+    } catch {
+      // best-effort — ver comentario arriba.
+    }
+
+    return jsonOk({ id: outId, day_of_week, synced_athletes });
   } catch (err) {
     if (err instanceof InvalidAuthoringLineError) {
       return jsonError('invalid_line', err.message, 400);

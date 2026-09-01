@@ -23,6 +23,7 @@ enum TestMeasure {
     case calories
     case hrr       // pulse DROP — MEASURED by the app's recovery window, never typed
     case hr        // an absolute pulse (threshold FC) — typed by the athlete
+    case height    // jump height, cm — never typed on the happy path
     case other     // unknown future measure → plain number, no unit assumptions
 
     init(_ raw: String) {
@@ -34,6 +35,7 @@ enum TestMeasure {
         case "calories": self = .calories
         case "hrr":      self = .hrr
         case "hr":       self = .hr
+        case "height":   self = .height
         default:         self = .other
         }
     }
@@ -48,6 +50,7 @@ enum TestMeasure {
         case .calories: return 5
         case .hrr:      return 1     // ppm (display only — the row is read-only)
         case .hr:       return 1     // ppm
+        case .height:   return 0.5
         case .other:    return 1
         }
     }
@@ -62,11 +65,12 @@ enum TestMeasure {
         case .reps:     return "reps"
         case .calories: return "cal"
         case .hrr, .hr: return Vocab.ppm
+        case .height:   return "cm"
         case .time, .other: return ""
         }
     }
 
-    var usesDecimals: Bool { self == .load }
+    var usesDecimals: Bool { self == .load || self == .height }
 }
 
 // MARK: - Pre-fill from the live execution
@@ -119,6 +123,11 @@ enum TestBatteryPrefill {
             // last reading, the session mean) would put a number that is not the
             // threshold in the field that defines the athlete's zones. So: nil, and
             // the athlete copies the lap average their watch already shows.
+            return nil
+        case .height:
+            // Height is produced by the jump capture, never by a live workout
+            // session. An empty prefill here is honest: this sheet is the
+            // fallback when someone opens «Añadir resultado» without video.
             return nil
         case .other:
             return nil

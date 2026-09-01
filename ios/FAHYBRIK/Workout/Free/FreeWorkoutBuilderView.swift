@@ -138,8 +138,11 @@ struct FreeWorkoutBuilderView: View {
     }
 
     private var stepDots: some View {
-        HStack(spacing: 5) {
-            ForEach(Step.allCases, id: \.rawValue) { s in
+        // Correr tiene DOS pasos, no tres: se salta «Formato». Pintar tres puntos
+        // prometería una pantalla que no va a existir.
+        let pasos = draft.usaPlanDeCorrer ? [Step.modality, .bouts] : Step.allCases
+        return HStack(spacing: 5) {
+            ForEach(pasos, id: \.rawValue) { s in
                 Circle()
                     .fill(s.rawValue <= step.rawValue ? Theme.Color.accent : Theme.Color.hairlineStrong)
                     .frame(width: 6, height: 6)
@@ -151,7 +154,9 @@ struct FreeWorkoutBuilderView: View {
     private var stepBreadcrumb: String {
         var parts: [String] = []
         if let m = draft.modality { parts.append(m.labelES) }
-        if let f = draft.format { parts.append(f.labelES) }
+        // Corriendo, el «formato» lo dice el plan y no un paso del formulario:
+        // ponerlo aquí repetiría una etiqueta que el atleta nunca eligió.
+        if let f = draft.format, !draft.usaPlanDeCorrer { parts.append(f.labelES) }
         if parts.isEmpty { return "Elige una modalidad" }
         return parts.joined(separator: " · ")
     }
@@ -172,7 +177,12 @@ struct FreeWorkoutBuilderView: View {
                         disabledNote: nil
                     ) {
                         draft.selectModality(m)
-                        advance(to: .format)
+                        // CORRER NO PASA POR «FORMATO». Su plan ya dice si es un
+                        // rodaje, una serie o una pirámide — elegir antes una
+                        // etiqueta que luego el plan puede desmentir es una
+                        // pregunta sin respuesta correcta. El esquema lo deduce
+                        // `buildRunPrescription`.
+                        advance(to: draft.usaPlanDeCorrer ? .bouts : .format)
                     }
                 }
                 // Catalog-driven tracks: hand off to their own list builders (pick
@@ -216,6 +226,31 @@ struct FreeWorkoutBuilderView: View {
 
     @ViewBuilder
     private var boutsStep: some View {
+        if draft.usaPlanDeCorrer {
+            runStep
+        } else {
+            boutsForm
+        }
+    }
+
+    /// CORRER SE MONTA COMO ES: una lista de tramos, con su calentamiento, sus
+    /// repeticiones, sus recuperaciones (con medida, objetivo y modo propios) y
+    /// su vuelta a la calma. El formulario de bout de abajo no puede escribir
+    /// ninguna de esas cosas — ver `FreeRunPlan`.
+    private var runStep: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            stepHeader(title: "Monta tu entreno", subtitle: nil)
+            FreeRunBuilderView(plan: $draft.runPlan)
+            titleField
+            FreePreviewCard(line: draft.previewLine)
+            // #8 — dónde corres y la cinta viven en la secuencia de arranque a
+            // pantalla completa (al Empezar). Aquí sólo la banda de pulso.
+            DeviceConnectCard(devices: [.heartRate])
+        }
+    }
+
+    @ViewBuilder
+    private var boutsForm: some View {
         if let format = draft.format {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 stepHeader(title: "Configura", subtitle: nil)
@@ -417,7 +452,11 @@ struct FreeWorkoutBuilderView: View {
         switch step {
         case .modality: onClose()
         case .format:   withAnimation(.easeInOut(duration: 0.2)) { step = .modality }
-        case .bouts:    withAnimation(.easeInOut(duration: 0.2)) { step = .format }
+        // Correr se saltó «Formato» a la ida; atrás tiene que devolverle a la
+        // modalidad y no a un paso que nunca vio.
+        case .bouts:
+            let destino: Step = draft.usaPlanDeCorrer ? .modality : .format
+            withAnimation(.easeInOut(duration: 0.2)) { step = destino }
         }
     }
 }

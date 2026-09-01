@@ -264,24 +264,41 @@ final class FreeWorkoutEncodeTests: XCTestCase {
         XCTAssertEqual(ep.workS, 60)
         XCTAssertEqual(ep.sets?.count, 1)
 
-        let steady = FreeWorkoutDraft()
-        steady.selectModality(.run)
-        steady.format = .continuo
-        steady.measureKind = .time
-        steady.workSeconds = 1200
-        steady.targetKind = .hrZone
-        steady.hrZone = 2
-        let sp = try XCTUnwrap(steady.buildPrescription())
+        // CORRER YA NO SE ESCRIBE CON EL FORMULARIO DE BOUT (9-ago): un entreno de
+        // correr se monta con su propia gramática (`FreeRunPlan`), porque ni una
+        // recuperación con medida y zona propias ni una pirámide caben en «N ×
+        // la misma dosis». El esquema plano lo deduce el plan y sigue viajando
+        // por el cable — un solo tramo es un rodaje; varios, una serie.
+        let rodaje = FreeWorkoutDraft()
+        rodaje.selectModality(.run)
+        rodaje.runPlan = FreeRunPlan(
+            calentamiento: nil,
+            grupos: [FreeRunGrupo(pasos: [
+                FreeRunPaso(rol: .trabajo, medida: .tiempo, segundos: 1200, objetivo: .zona, zona: 2),
+            ])],
+            vuelta: nil
+        )
+        let sp = try XCTUnwrap(rodaje.buildPrescription())
         XCTAssertEqual(sp.scheme, .steady)
         XCTAssertEqual(sp.totalS, 1200)
+        XCTAssertNotNil(sp.structure, "la verdad completa viaja en la gramática")
         if case let .hrZone(v, _, _) = sp.target { XCTAssertEqual(v, 2) } else { XCTFail("expected hr_zone target") }
-        // Run target pace unit would be per_km (verify the convention is honoured).
+
+        // El ritmo de correr viaja en /km (la convención del cable).
         let runPace = FreeWorkoutDraft()
         runPace.selectModality(.run)
-        runPace.format = .series
-        runPace.targetKind = .pace
-        runPace.paceSeconds = 300
+        runPace.runPlan = FreeRunPlan(
+            calentamiento: nil,
+            grupos: [FreeRunGrupo(repeticiones: 4, pasos: [
+                FreeRunPaso(rol: .trabajo, medida: .distancia, metros: 1000,
+                            objetivo: .ritmo, ritmoSegPorKm: 300),
+                FreeRunPaso(rol: .recuperacion, medida: .tiempo, segundos: 90, modo: .trote),
+            ])],
+            vuelta: nil
+        )
         let rp = try XCTUnwrap(runPace.buildPrescription())
+        XCTAssertEqual(rp.scheme, .intervals)
+        XCTAssertEqual(rp.rounds, 4)
         if case let .pace(unit, v, _, _) = rp.target {
             XCTAssertEqual(unit, .perKm)
             XCTAssertEqual(v, 300)

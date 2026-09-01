@@ -575,7 +575,7 @@ export async function dissolvePairOnBaja(
     values (
       ${survivingUser}::bigint,
       'system'::notification_type,
-      ${JSON.stringify(payload)}::jsonb
+      ${tx.json(payload)}
     )
   `;
 }

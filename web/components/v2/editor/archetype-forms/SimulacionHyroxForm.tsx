@@ -17,7 +17,7 @@
 // Every item already carries a REAL exercise_id (from the factory), so the block
 // persists through the same serializer as any block — zero new persistence work.
 
-import type { Measure, Prescription, Target } from '@fahybrid/shared/domain/prescription';
+import type { Measure, Target } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import {
@@ -33,7 +33,6 @@ import {
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import {
-  ClockCell,
   DistanceCell,
   Field,
   InlineToggle,
@@ -139,7 +138,7 @@ export function SimulacionHyroxForm({
       {/* Race info strip */}
       <p className="text-label leading-snug text-[color:var(--v2-muted)]">
         Formato oficial: 8 × 1 km de carrera intercalados con las 8 estaciones en
-        orden. La secuencia es fija — editas la dosis de cada tramo, no el orden.
+        orden. La secuencia es fija: editas la dosis de cada tramo, no el orden.
         Cargas estándar {variant ? HYROX_VARIANTS.find((v) => v.value === variant)?.hint?.toLowerCase() : 'personalizadas'}.
       </p>
 
@@ -246,7 +245,7 @@ function LegRow({
         className={cn(
           'v2-focus mt-0.5 shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors',
           skipped
-            ? 'text-[color:var(--v2-accent)] hover:bg-[color:var(--v2-accent-soft)]'
+            ? 'text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]'
             : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]',
         )}
       >

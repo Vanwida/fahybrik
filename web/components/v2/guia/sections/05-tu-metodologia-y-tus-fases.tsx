@@ -62,7 +62,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque cada entrenador periodiza distinto. En vez de encerrarte en un modelo, te damos el
-            sitio donde escribir el tuyo — y que llegue intacto al atleta.
+            sitio donde escribir el tuyo, y que llegue intacto al atleta.
           </>
         }
       />
@@ -71,14 +71,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Un <b>nivel</b> es tu forma de clasificar: un código corto (lo que se ve como etiqueta),
         un nombre legible y la descripción del criterio que lo distingue. Por ejemplo{' '}
-        <code>N1 · Iniciación</code> o <code>Elite</code>. Son tuyos y editables — no conceptos del
+        <code>N1 · Iniciación</code> o <code>Elite</code>. Son tuyos y editables, no conceptos del
         sistema. Cada atleta lleva un nivel, y el nivel decide qué secuencia recibe.
       </p>
 
       <h3>2 · Tus secuencias: el orden ES la periodización</h3>
       <p>
         Para cada nivel y cada cadencia (3, 4, 5 o 6 días/semana) ordenas tus microciclos uno tras
-        otro. Ese <b>orden</b> es la periodización — no hay una entidad “fase” aparte. Cada microciclo
+        otro. Ese <b>orden</b> es la periodización, no hay una entidad “fase” aparte. Cada microciclo
         dura las semanas que tú le des, y la suma es la duración del plan.
       </p>
 
@@ -108,9 +108,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="Agnóstico de verdad">
         <p>
-          “Acumulación / Transformación / Realización” es solo un ejemplo. El panel no impone ningún
-          modelo: tus niveles, tus microciclos y tus nombres son datos tuyos. Cambia las palabras y
-          cambian en todo — empezando por la pantalla de tu atleta.
+          El panel no impone ningún modelo: tus niveles, tus microciclos y tus nombres son datos
+          tuyos. Cambia las palabras y cambian en todo, empezando por la pantalla de tu atleta.
         </p>
       </DocNote>
 

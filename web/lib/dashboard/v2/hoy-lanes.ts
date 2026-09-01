@@ -31,9 +31,20 @@ import { athleteLevel } from '@/lib/dashboard/v2/level';
 import { sql } from '@/lib/db';
 import {
   resolveSequenceForAthlete,
-  type ResolveFailureReason,
+  type ResolveSequenceResult,
 } from '@/lib/dashboard/coach/assign-sequence';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import {
+  SEQUENCE_DAYS_MAX,
+  SEQUENCE_DAYS_MIN,
+} from '@fahybrid/shared/schema/program-sequences';
+import {
+  estadoProgramaAtleta,
+  recetaDesdeFallo,
+  tieneHueco,
+  type EstadoProgramaAtleta,
+  type EstadoRecetaNivel,
+} from '@fahybrid/shared/domain/coach/hoy-asignacion';
 
 // ── Thresholds (single source: signal-config) ────────────────────────────────
 /** Compliance below this % counts as "falló sesiones". */
@@ -187,6 +198,7 @@ function hasPlanGap(a: AthleteRow): boolean {
   return (
     a.programming_status === 'no_month' ||
     a.programming_status === 'month_2_pending' ||
+    a.programming_status === 'block_ended' ||
     a.programming_status === 'empty_week'
   );
 }
@@ -205,7 +217,8 @@ function lowAdherence(a: AthleteRow): boolean {
 
 function fallaReason(a: AthleteRow, inactivityDays: number | null): string {
   if (a.programming_status === 'no_month') return 'Sin plan activo esta semana.';
-  if (a.programming_status === 'month_2_pending') return 'Falta el siguiente bloque del plan.';
+  if (a.programming_status === 'month_2_pending') return 'Hay una propuesta de mes por validar.';
+  if (a.programming_status === 'block_ended') return 'El bloque se acabó. Sin siguiente bloque.';
   if (a.programming_status === 'empty_week') return 'Semana sin sesiones programadas.';
   if (inactivityDays != null) return `${inactivityDays} días sin completar ni registrar nada.`;
   if (a.compliance_pct != null) return `Solo ${a.compliance_pct}% de la semana completado.`;
@@ -284,10 +297,23 @@ export async function fetchNivelSugeridoCards(
 // NivelSugeridoCard's job (confirm level first), so we don't double-surface them.
 
 /**
- * A one-click auto-assignment proposal for a classified, not-yet-enrolled athlete.
- * Two shapes, discriminated by `kind`:
- *   · 'ok'     → ready to assign; carries the first microciclo preview.
- *   · 'blocked'→ resolver returned a "why not"; carries an actionable fix.
+ * Lo que le falta a un atleta clasificado sin inscripción de secuencia. La tarjeta
+ * lleva LOS DOS EJES separados (shared/domain/coach/hoy-asignacion):
+ *
+ *   · `programa` — el hecho del atleta: nunca tuvo bloque, o el suyo terminó. Es
+ *     el TITULAR. No depende de lo que el coach tenga montado.
+ *   · `receta`   — lo que falta en su celda (nivel × días). Solo explica por qué
+ *     no cabe la propuesta de un clic, y su arreglo es del MÉTODO.
+ *
+ * Antes solo existía el segundo, y hablaba por el primero: Marc (bloque de
+ * biblioteca terminado el 26 de julio) y Guillem (que nunca tuvo ninguno) salían
+ * los dos con «No hay secuencia para N3·5d» y un único botón que llevaba a
+ * periodización. Ver docs/coach-ux-recorrido.html.
+ *
+ * Dos formas, discriminadas por `kind`:
+ *   · 'ok'     → la receta resuelve; se puede proponer el primer microciclo.
+ *   · 'blocked'→ no resuelve; el titular sigue siendo del atleta y las dos
+ *                salidas (atleta / método) van separadas.
  */
 export type V2AsignacionSugeridaCard =
   | {
@@ -300,6 +326,8 @@ export type V2AsignacionSugeridaCard =
       level_name: string;
       /** Training days per week resolved for the athlete. */
       days_per_week: number;
+      /** Eje A — qué le pasó a SU programa (titular de la tarjeta). */
+      programa: EstadoProgramaAtleta;
       /** Name of the FIRST microciclo to materialize on accept. */
       first_microciclo_name: string;
       /** Weeks defined in that first microciclo (via program_month_weeks). */
@@ -312,16 +340,42 @@ export type V2AsignacionSugeridaCard =
       athlete_name: string;
       /** Real level code (always present — these athletes are classified). */
       level_name: string;
-      /** The structured "why not" code from the resolver. */
-      reason: ResolveFailureReason;
-      /** Human one-liner from the resolver (e.g. "No hay secuencia para N4·5d."). */
-      message: string;
+      /** Eje A — qué le pasó a SU programa (titular de la tarjeta). */
+      programa: EstadoProgramaAtleta;
+      /**
+       * Eje B — qué falta en su celda, tipado. Única fuente del "why not" que se
+       * pinta: el `reason`/`message` crudos del resolver ya no viajan, porque
+       * eran una segunda copia del mismo hecho y la que hablaba por el atleta.
+       */
+      receta: EstadoRecetaNivel;
     };
 
 type EligibleAthleteRow = {
   athlete_id: string;
   athlete_name: string;
 };
+
+/** El recibo de microciclo más reciente por atleta (eje A). */
+type UltimoReciboRow = {
+  athlete_id: string;
+  end_date: string;
+  month_name: string | null;
+};
+
+function recetaDesdeResolver(
+  res: Extract<ResolveSequenceResult, { ok: false }>,
+): EstadoRecetaNivel {
+  const nivel = res.athlete?.level_name ?? 'su nivel';
+  const dias = res.athlete?.training_days_per_week;
+  const celda = dias != null ? `${nivel} · ${dias} días` : nivel;
+  return recetaDesdeFallo({
+    reason: res.reason,
+    celda,
+    dias: dias ?? null,
+    min: SEQUENCE_DAYS_MIN,
+    max: SEQUENCE_DAYS_MAX,
+  });
+}
 
 type FirstItemPreviewRow = {
   athlete_id: string;
@@ -330,9 +384,11 @@ type FirstItemPreviewRow = {
 };
 
 /**
- * Compute auto-assignment proposals for every classified athlete who has no
- * active sequence enrollment yet. Resolution uses `resolveSequenceForAthlete`
- * (the assign endpoint's contract) so the card and the action can never diverge.
+ * Compute auto-assignment proposals for every classified athlete who follows
+ * the shared periodization and has no active sequence enrollment yet.
+ * `plan_mode = personal` is out: that athlete is not waiting on the matrix.
+ * Resolution uses `resolveSequenceForAthlete` (the assign endpoint's contract)
+ * so the card and the action can never diverge.
  *
  * Degrades safely: any unexpected error on a single athlete drops that athlete
  * from the strip rather than failing the page (the page also catch-wraps us).
@@ -347,6 +403,7 @@ export async function fetchAsignacionSugeridaCards(
     FROM athletes a
     WHERE a.coach_id = ${coachId as number}
       AND a.level_id IS NOT NULL
+      AND a.plan_mode <> 'personal'
       AND NOT EXISTS (
         SELECT 1 FROM athlete_sequence_progress asp
         WHERE asp.athlete_id = a.id AND asp.status = 'active'
@@ -393,6 +450,11 @@ export async function fetchAsignacionSugeridaCards(
                WHERE pmw.month_template_id = pmt.id)::int AS week_count
       FROM program_month_templates pmt
       WHERE pmt.id = ANY(${monthIds}::bigint[])
+        -- Defensive (0164): a sequence item can never legally point at a personal
+        -- plan (saveCoachSequence rejects it at write time) — this is a second
+        -- backstop so a future write-path regression degrades to "no preview"
+        -- instead of showing one athlete's bespoke plan on another's card.
+        AND pmt.athlete_id IS NULL
     `;
     const byTemplate = new Map<string, { name: string; week_count: number }>();
     for (const p of previews) {
@@ -404,11 +466,34 @@ export async function fetchAsignacionSugeridaCards(
     }
   }
 
+  const athleteIds = eligible.map((e) => Number(e.athlete_id));
+  const recibos = await sql<UltimoReciboRow[]>`
+    SELECT DISTINCT ON (ama.athlete_id)
+      ama.athlete_id::text AS athlete_id,
+      to_char(ama.end_date, 'YYYY-MM-DD') AS end_date,
+      pmt.name AS month_name
+    FROM athlete_month_assignments ama
+    LEFT JOIN program_month_templates pmt ON pmt.id = ama.month_template_id
+    WHERE ama.athlete_id = ANY(${athleteIds}::bigint[])
+    ORDER BY ama.athlete_id, ama.start_date DESC
+  `;
+  const reciboByAthlete = new Map<string, UltimoReciboRow>();
+  for (const rec of recibos) reciboByAthlete.set(rec.athlete_id, rec);
+  const hoyIso = isoDateString(startOfDayInBox(new Date()));
+
   const cards: V2AsignacionSugeridaCard[] = [];
   for (const r of resolutions) {
     if (!r) continue;
     const { row, res } = r;
     const athleteId = Number(row.athlete_id);
+    const recibo = reciboByAthlete.get(row.athlete_id);
+    const programa = estadoProgramaAtleta(
+      recibo ? { end_date: recibo.end_date, month_name: recibo.month_name } : null,
+      hoyIso,
+    );
+    // Un bloque vigente no es caso de esta tira: el hueco es del atleta, no
+    // de que falte inscripción en secuencia.
+    if (!tieneHueco(programa)) continue;
 
     if (res.ok) {
       const preview = previewByAthlete.get(row.athlete_id);
@@ -421,8 +506,14 @@ export async function fetchAsignacionSugeridaCards(
           athlete_id: athleteId,
           athlete_name: row.athlete_name,
           level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
-          reason: 'empty_sequence',
-          message: 'El primer microciclo de la secuencia ya no existe.',
+          programa,
+          receta: recetaDesdeFallo({
+            reason: 'empty_sequence',
+            celda: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
+            dias: res.athlete.training_days_per_week,
+            min: SEQUENCE_DAYS_MIN,
+            max: SEQUENCE_DAYS_MAX,
+          }),
         });
         continue;
       }
@@ -433,6 +524,7 @@ export async function fetchAsignacionSugeridaCards(
         athlete_name: row.athlete_name,
         level_name: res.athlete.level_name ?? `Nivel ${res.athlete.level_id}`,
         days_per_week: res.athlete.training_days_per_week!,
+        programa,
         first_microciclo_name: preview.name,
         first_microciclo_weeks: preview.week_count,
       });
@@ -448,8 +540,8 @@ export async function fetchAsignacionSugeridaCards(
       athlete_id: athleteId,
       athlete_name: row.athlete_name,
       level_name: res.athlete?.level_name ?? 'Sin nivel',
-      reason: res.reason,
-      message: res.message,
+      programa,
+      receta: recetaDesdeResolver(res),
     });
   }
 
@@ -541,7 +633,8 @@ export async function fetchSiguienteMicrocicloCards(
            psi.month_template_id::text AS month_template_id,
            pmt.name AS month_name
     FROM program_sequence_items psi
-    LEFT JOIN program_month_templates pmt ON pmt.id = psi.month_template_id
+    -- Defensive (0164), same backstop as fetchAsignacionSugeridaCards above.
+    LEFT JOIN program_month_templates pmt ON pmt.id = psi.month_template_id AND pmt.athlete_id IS NULL
     WHERE psi.sequence_id = ANY(${seqIds}::bigint[])
     ORDER BY psi.sequence_id, psi.position
   `;

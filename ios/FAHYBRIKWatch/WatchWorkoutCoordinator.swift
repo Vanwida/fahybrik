@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
 // Glue between the wrist UI, the shared WorkoutSession engine, and the HealthKit
 // live-metric stream. It builds the runnable plan from the pushed assignment
@@ -41,8 +42,17 @@ final class WatchWorkoutCoordinator {
     /// and driven purely as a metric source; the engine is the UI clock authority.
     let live = LiveWorkoutSession()
 
+    /// Fase 1–3: push wrist pipeline conclusions into the local engine (standalone).
+    private var sensorTick: Timer?
+    private var sensorSeq: Int = 0
+
     /// Guards the finalize path so a natural finish + a Terminar can't double-send.
     private var didFinalize = false
+
+    /// Card 72 — same criterion as MirrorSessionController.start: a `guard … else
+    /// { return }` that silently blocks a start left the mirror bug undiagnosable for
+    /// weeks. Console-inspectable, never `print` (stripped from release builds).
+    private static let log = Logger(subsystem: Marca.subsistemaLog("standalone"), category: "watch-lifecycle")
     /// The assignment the running session logs against (captured at start — the
     /// engine itself is assignment-agnostic).
     private var assignmentId: String?
@@ -81,6 +91,17 @@ final class WatchWorkoutCoordinator {
     /// The current staged outbox bytes for this finish. Swapped by the toggle,
     /// transferred by "Listo".
     private var stagedEnvelopeData: Data?
+    /// «Listo» llegó ANTES de que el staging async terminara (un cierre de resumen
+    /// rápido mientras el save de HealthKit aún tardaba): el Task de finalize()
+    /// transfiere en cuanto el sobre exista. Sin esto, el resultado quedaba
+    /// persistido pero sin transferir hasta la PRÓXIMA activación de WCSession —
+    /// horas o días si el atleta no relanza la app del reloj.
+    private var transferWhenStaged = false
+    /// El cupón de la traza guardada para este final. Viaja DENTRO del sobre (y en la
+    /// metadata del fichero) para que el teléfono pueda volver a juntarlos, y
+    /// sobrevive a un re-staging del toggle de dobles: si cambiara con cada flip, el
+    /// sobre acabaría reclamando una traza que no existe.
+    private var stagedTraceLocalId: String?
 
     // MARK: - Plan preview (pre-start)
 
@@ -115,12 +136,32 @@ final class WatchWorkoutCoordinator {
         payload.athleteHrZones
     }
 
+    /// Card 72 — same self-heal criterion as MirrorSessionController.start(config:):
+    /// a blocked start must repair itself instead of failing forever. `phase` can't
+    /// wedge across a process relaunch on its own (it resets to `.idle` with the
+    /// app); the one gap possible WITHIN a running process is an engine that
+    /// reached `isFinished` but never got `finalize()` run — e.g. the RootView
+    /// `.onChange` that normally drives it didn't fire because its view wasn't
+    /// mounted at that instant. This closes exactly that gap without ever touching
+    /// a genuinely live `.active` session: `finalize()` itself no-ops unless the
+    /// engine already reports `isFinished`.
+    private func repairStuckPhaseIfNeeded() {
+        if phase == .active, session?.isFinished == true, !didFinalize {
+            Self.log.warning("found a finished engine still in .active phase — self-healing via finalize()")
+            finalize()
+        }
+    }
+
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
+        repairStuckPhaseIfNeeded()
         // Symmetric guard with MirrorSessionController.start (which yields to a live
         // standalone session): a mirror recording driven by the phone must equally
         // block a second, standalone engine here — the only path to a duplicate run.
         guard phase == .idle, MirrorSessionController.shared.state == .idle,
-              payload.dayKind == WatchDayKind.session else { return }
+              payload.dayKind == WatchDayKind.session else {
+            Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+            return
+        }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
             hrZones: Self.hrZones(from: payload)
@@ -134,9 +175,13 @@ final class WatchWorkoutCoordinator {
     /// block on start (as the phone does), so the athlete reconfirms with the clock at
     /// the recovered elapsed.
     func resume(from snapshot: PersistedWorkoutState, payload: WatchTodayPayload) {
+        repairStuckPhaseIfNeeded()
         // Same symmetric guard as start: never resume a standalone engine while the
         // phone is driving a mirror recording (the reverse of MirrorSessionController).
-        guard phase == .idle, MirrorSessionController.shared.state == .idle else { return }
+        guard phase == .idle, MirrorSessionController.shared.state == .idle else {
+            Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+            return
+        }
         let engine = WorkoutSession(
             plan: snapshot.plan,
             hrZones: Self.hrZones(from: payload),
@@ -167,7 +212,13 @@ final class WatchWorkoutCoordinator {
         // the recorded avg/max; covered distance feeds run pace. The engine is the
         // single owner of capture state.
         live.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
-        live.onDistanceDelta = { [weak engine] meters in engine?.sampleRunGPS(deltaMeters: meters) }
+        // La fuente va explícita: estos metros los pone `distanceWalkingRunning` de
+        // HealthKit (fusión de Apple), NO un fix de GPS — la muñeca no toca
+        // CoreLocation. Sellarlos como «gps» sería etiquetar el archivo con un aparato
+        // que no los midió.
+        live.onDistanceDelta = { [weak engine] meters in
+            engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
+        }
 
         engine.start()
         // #68 — the per-leg distance driver runs for the WHOLE session: it reads the
@@ -179,10 +230,51 @@ final class WatchWorkoutCoordinator {
         driver.start()
         WatchHaptics.start()
 
+        // Fase 0 — inertial capture rides with the HK workout. Live processing
+        // (fases 1–3) always runs; archive transfer is consent-gated later.
+        SensorCapture.shared.start(executionLocalId: payload.assignmentId)
+        startSensorTick()
+
         Task {
             await live.requestAuthorization()
-            live.start(activityType: payload.healthKitActivityType)
+            live.start(
+                activityType: payload.healthKitActivityType,
+                locationType: payload.healthKitLocationType
+            )
         }
+    }
+
+    private func startSensorTick() {
+        stopSensorTick()
+        sensorSeq = 0
+        let t = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickSensorIntoEngine() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        sensorTick = t
+    }
+
+    private func stopSensorTick() {
+        sensorTick?.invalidate()
+        sensorTick = nil
+    }
+
+    private func tickSensorIntoEngine() {
+        guard phase == .active, let engine = session, SensorCapture.shared.isRunning else { return }
+        let pipe = SensorCapture.shared.pipeline
+        // EL CONTEXTO primero: qué serie está abierta. Sin ventana el contador no
+        // cuenta, y así colocarse o descansar no entra como repeticiones.
+        let window = engine.sensorWindow
+        SensorCapture.shared.setActiveWindow(
+            key: window.key,
+            exerciseId: window.exerciseId,
+            modality: window.modality,
+            name: window.name,
+            resting: window.resting
+        )
+        guard pipe.sampleCount >= 12 else { return }
+        sensorSeq += 1
+        engine.applySensorConclusions(pipe.conclusions(seq: sensorSeq))
     }
 
     /// A resumable crash snapshot for today, or nil. Offered only when it is FRESH
@@ -238,6 +330,8 @@ final class WatchWorkoutCoordinator {
         shareWithPartner = ctx?.isShareable ?? false
         pendingResult = nil
         stagedEnvelopeData = nil
+        stagedTraceLocalId = nil
+        transferWhenStaged = false
 
         // End the HK session, get the saved HKWorkout's id, then assemble the execution
         // TAGGED with it (backend dedupes the HealthKit-synced copy). Then STAGE it to
@@ -246,7 +340,32 @@ final class WatchWorkoutCoordinator {
         let capturedAssignmentId = assignmentId
         Task { [weak self, engine] in
             let workoutRef = await self?.live.end()
+            // Fase 0 — stop the inertial stream and hand the archive to the phone
+            // (consent is enforced on the phone before upload; transfer itself is cheap).
+            SensorCapture.shared.stop()
+            if let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
+                let tmp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("sensor-\(capturedAssignmentId ?? "x").fhsc")
+                try? data.write(to: tmp, options: .atomic)
+                WatchConnectivityService.shared.transferSensorCapture(
+                    fileURL: tmp,
+                    metadata: [
+                        "execution_local_id": capturedAssignmentId as Any,
+                        "sample_hz": SensorFileFormat.targetHz,
+                        "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
+                        "byte_size": data.count,
+                    ]
+                )
+            }
             guard let self, let assignmentId = capturedAssignmentId, !assignmentId.isEmpty else { return }
+            // EL ARCHIVO DE LA MUÑECA. La serie medida se deja en disco AHORA, con su
+            // cupón, y no sale hasta «Listo» — igual que el sobre de la ejecución, para
+            // que fichero y ejecución no puedan separarse. En la muñeca la serie es
+            // pulso y distancia y nada más: aquí no hay CoreLocation, así que no hay
+            // velocidad ni altitud que archivar.
+            self.stagedTraceLocalId = WatchTraceOutbox.shared.stage(
+                traces: engine.trace.traces(startedAt: engine.startedAt)
+            )
             let payload = self.buildExecutionPayload(
                 assignmentId: assignmentId,
                 session: engine,
@@ -258,6 +377,44 @@ final class WatchWorkoutCoordinator {
             if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
                 self.stagedEnvelopeData = WatchConnectivityService.shared.stageExecutionResult(envelope)
             }
+            // «Listo» ya pasó por aquí sin sobre que mandar: se transfiere ahora,
+            // con el fichero de la traza detrás — sobre y traza viajan juntos.
+            if self.transferWhenStaged {
+                self.transferWhenStaged = false
+                if let data = self.stagedEnvelopeData {
+                    WatchConnectivityService.shared.transferStagedResult(data)
+                }
+                if let localId = self.stagedTraceLocalId {
+                    WatchTraceOutbox.shared.transfer(localId: localId)
+                }
+            }
+        }
+    }
+
+    /// EL TELÉFONO YA TERMINÓ ESTE ENTRENO. La muñeca cierra lo suyo y se aparta.
+    ///
+    /// Guarda su grabación en Salud —el pulso y las calorías de este entreno no se
+    /// tiran— y vuelve a reposo SIN pedir un segundo resumen y SIN mandar nada al
+    /// servidor: la ejecución la manda el teléfono, que es quien lleva el entreno.
+    /// Si la mandaran los dos, el mismo entreno llegaría dos veces.
+    ///
+    /// Antes de esto no existía ningún camino para enterarse: acabar en el móvil
+    /// dejaba el reloj grabando y con su propio final pendiente, así que el atleta
+    /// tenía que terminar y guardar otra vez en la muñeca.
+    ///
+    /// No toca nada si el atleta ya terminó en la muñeca y está en su resumen: ese
+    /// final es suyo y se cierra con «Listo».
+    func finishFromPhone() {
+        guard phase == .active else { return }
+        // Ata el `finalize()` que RootView dispara al ver el motor cerrado: aquí no
+        // hay resumen ni envío que hacer.
+        didFinalize = true
+        phase = .idle
+        WatchHaptics.success()
+        Task { await WorkoutStateStore.shared.clear() }
+        Task { [weak self] in
+            _ = await self?.live.end()   // cierra y guarda el HKWorkout
+            self?.reset()
         }
     }
 
@@ -271,7 +428,8 @@ final class WatchWorkoutCoordinator {
         return WatchExecutionEnvelope(
             assignmentId: assignmentId,
             payloadJson: data,
-            shareWithPartner: isDoublesResult ? shareWithPartner : nil
+            shareWithPartner: isDoublesResult ? shareWithPartner : nil,
+            traceLocalId: stagedTraceLocalId
         )
     }
 
@@ -299,6 +457,17 @@ final class WatchWorkoutCoordinator {
         restageIfPossible()
         if let data = stagedEnvelopeData {
             WatchConnectivityService.shared.transferStagedResult(data)
+            // La traza sale CON el sobre, no antes: así no puede quedarse un archivo
+            // colgando de una sesión que el atleta nunca confirmó. Si el teléfono no está
+            // a tiro, el fichero se queda en su buzón y sale al reencontrarse.
+            if let localId = stagedTraceLocalId {
+                WatchTraceOutbox.shared.transfer(localId: localId)
+            }
+        } else {
+            // El staging async de finalize() aún no terminó (save de HK lento +
+            // «Listo» rápido). Dejar dicho que transfiera al acabar: sin esto el
+            // resultado dormía en el buzón hasta la próxima activación.
+            transferWhenStaged = true
         }
         reset()
     }
@@ -317,6 +486,8 @@ final class WatchWorkoutCoordinator {
         session?.stop()
         runLegDriver?.stop()
         runLegDriver = nil
+        stopSensorTick()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         live.onHeartRate = nil
         live.onDistanceDelta = nil
         session = nil

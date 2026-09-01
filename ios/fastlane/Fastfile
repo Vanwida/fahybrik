@@ -4,7 +4,7 @@
 #   1. cd ios && bundle install   (after creating Gemfile — see Gemfile in this folder)
 #   2. fastlane init               (skip — this Fastfile is hand-authored)
 #   3. Set Apple ID:
-#        export FASTLANE_USER="vanwida@aistudios.pro"   # Apple ID for App Store Connect
+#        export FASTLANE_USER=""                        # Apple ID for App Store Connect (required)
 #        export FASTLANE_PASSWORD=""                    # leave empty if using app-specific password via FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD
 #        export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 #        export FASTLANE_TEAM_ID="TBD"                  # 10-char team ID, replace placeholder

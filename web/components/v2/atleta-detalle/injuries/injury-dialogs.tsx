@@ -44,9 +44,9 @@ interface MutationResult {
 
 // Adaptation kinds → coach-facing copy + the adherence consequence (the value of #16).
 const ADAPTATION_META: Record<InjuryAdaptation, { label: string; hint: string }> = {
-  substituted: { label: 'Sustituida', hint: 'Cambio a rehab — cuenta al hacerla' },
-  softened: { label: 'Suavizada', hint: 'Menos volumen o intensidad — cuenta' },
-  rest: { label: 'Reposo', hint: 'Día excluido — no cuenta como fallo' },
+  substituted: { label: 'Sustituida', hint: 'Cambio a rehab: cuenta al hacerla' },
+  softened: { label: 'Suavizada', hint: 'Menos volumen o intensidad: cuenta' },
+  rest: { label: 'Reposo', hint: 'Día excluido: no cuenta como fallo' },
 };
 
 const TEXT_INPUT_CLS =
@@ -78,9 +78,9 @@ function ChipGroup<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o)}
             className={cn(
-              'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
+              'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
               active
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                 : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
             )}
           >
@@ -331,7 +331,7 @@ function transitionHint(to: InjuryStatus): string {
     return 'Cierras el episodio y lo pasas al histórico. Una recaída se registra como una lesión nueva.';
   if (to === 'en_recuperacion')
     return 'Retorno progresivo con cargas reducidas. Adapta las sesiones para acompañarlo.';
-  return `Vuelves la lesión a ${statusMeta(to).label.toLowerCase()} — la molestia ha rebrotado.`;
+  return `Vuelves la lesión a ${statusMeta(to).label.toLowerCase()}: la molestia ha rebrotado.`;
 }
 
 // ══ Adapt scheduled sessions ═════════════════════════════════════════════════════
@@ -471,7 +471,7 @@ export function AdaptSessionsDialog({
                           onClick={() => setKind(s.assignment_id, a)}
                           title={ADAPTATION_META[a].hint}
                           className={cn(
-                            'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border px-2.5 text-label font-semibold transition-colors disabled:opacity-50',
+                            'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors disabled:opacity-50',
                             active
                               ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface)] text-[color:var(--v2-fg)]'
                               : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

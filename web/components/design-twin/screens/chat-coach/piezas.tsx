@@ -5,7 +5,138 @@
 // medir la composición.
 
 import { R, S } from '../../kit-composicion/tokens';
-import { COACH, type Mensaje } from './data';
+import { COACH, type Mensaje, type RefContexto } from './data';
+
+/**
+ * La cosa de la que va el mensaje, DENTRO de la burbuja.
+ *
+ * Va dentro y no como mensaje aparte por una razón de lectura: si fuese una
+ * burbuja previa, el hilo se llenaría de tarjetas huérfanas y el coach tendría
+ * que emparejarlas a ojo con la pregunta de al lado. Cosida a la burbuja, la
+ * pregunta y su sujeto son UNA cosa, y se puede tocar para abrir el entreno.
+ *
+ * Vive en las piezas comunes porque la burbuja es compartida: la propuesta que
+ * la estrena es `chat-contexto`.
+ *
+ * Lleva la línea de DATO de la cosa cuando el servidor la sabe: la mitad del
+ * valor está en contestar sin abrir nada. El galón aparece SOLO cuando hay a
+ * dónde ir (lo hecho se mira, lo pendiente se estudia); sin destino honesto la
+ * tarjeta no lo insinúa, porque un galón que no responde miente más de lo que
+ * informa. Estuvo dibujado sin toque durante unas horas y se retiró; vuelve
+ * ahora que el toque existe.
+ */
+export function TarjetaContexto({
+  contexto,
+  mio,
+  abrible = false,
+}: {
+  contexto: RefContexto;
+  mio: boolean;
+  abrible?: boolean;
+}) {
+  return (
+    <span
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: S.s,
+        marginBottom: S.s,
+        padding: '6px 8px 6px 9px',
+        borderRadius: R.m,
+        background: mio ? 'rgba(0, 0, 0, 0.13)' : 'var(--twin-surface-sunken)',
+        border: mio ? '1px solid rgba(0, 0, 0, 0.10)' : '1px solid var(--twin-hairline)',
+      }}
+    >
+      <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+        <span
+          style={{
+            font: '700 8.5px/1.2 var(--twin-font-sans)',
+            letterSpacing: '0.09em',
+            opacity: 0.65,
+          }}
+        >
+          SOBRE
+        </span>
+        <span
+          style={{
+            font: '600 12.5px/1.25 var(--twin-font-sans)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {contexto.label}
+        </span>
+        {contexto.preview ? (
+          <span style={{ font: '400 11px/1.3 var(--twin-font-sans)', opacity: 0.75, paddingTop: 1 }}>
+            {contexto.preview}
+          </span>
+        ) : null}
+      </span>
+      {abrible ? (
+        <span aria-hidden style={{ font: '600 13px/1 var(--twin-font-sans)', opacity: 0.5 }}>
+          ›
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * El contexto ya elegido, esperando en el compositor.
+ *
+ * Es la pieza que hace innecesario un icono nuevo en cada pantalla: el atleta
+ * VE de qué va a hablar antes de enviar, y lo quita con la ✕ si se equivocó. El
+ * filete naranja de la izquierda es lo que dice «esto va pegado a tu mensaje»
+ * sin gastar una palabra en explicarlo.
+ */
+export function ChipContexto({ etiqueta }: { etiqueta: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: S.s,
+        margin: `0 ${S.l}px`,
+        padding: '7px 8px 7px 10px',
+        borderRadius: R.m,
+        background: 'var(--twin-surface)',
+        border: '1px solid var(--twin-hairline)',
+        borderLeft: '2px solid var(--twin-accent)',
+      }}
+    >
+      <span style={{ font: '400 12.5px/1.25 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>Sobre</span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          font: '600 12.5px/1.25 var(--twin-font-sans)',
+          color: 'var(--twin-fg)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {etiqueta}
+      </span>
+      <span
+        aria-hidden
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          display: 'grid',
+          placeItems: 'center',
+          background: 'var(--twin-surface-elevated)',
+          color: 'var(--twin-muted)',
+          font: '600 11px/1 var(--twin-font-sans)',
+        }}
+      >
+        ✕
+      </span>
+    </div>
+  );
+}
 
 export function AvatarCoach({ tam = 36 }: { tam?: number }) {
   return (
@@ -54,8 +185,14 @@ export function CabeceraChat() {
   );
 }
 
-/** Banda 3: compositor. Ya vive anclado en la app; aquí no se toca. */
-export function Compositor({ borrador }: { borrador?: string }) {
+/**
+ * Banda 3: compositor. Ya vive anclado en la app; aquí no se toca.
+ *
+ * `sinBorde` existe para cuando algo se apila ENCIMA dentro de la misma banda
+ * (el chip de contexto): el filete y el aire superior pasan al contenedor, para
+ * que chip y fila de escritura se lean como una sola pieza y no como dos bandas.
+ */
+export function Compositor({ borrador, sinBorde = false }: { borrador?: string; sinBorde?: boolean }) {
   const puedeEnviar = Boolean(borrador && borrador.trim().length > 0);
   return (
     <div
@@ -63,9 +200,9 @@ export function Compositor({ borrador }: { borrador?: string }) {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: `12px ${S.l}px 14px`,
+        padding: `${sinBorde ? S.s : 12}px ${S.l}px 14px`,
         background: 'var(--twin-bg)',
-        borderTop: '1px solid var(--twin-hairline)',
+        borderTop: sinBorde ? 'none' : '1px solid var(--twin-hairline)',
       }}
     >
       <span
@@ -156,6 +293,9 @@ export function Burbuja({ m, onReintentar }: { m: Mensaje; onReintentar?: () => 
           opacity: fallido ? 0.55 : 1,
         }}
       >
+        {m.contexto ? (
+          <TarjetaContexto contexto={m.contexto} mio={mio} abrible={m.contexto.kind === 'session'} />
+        ) : null}
         {m.texto}
       </div>
       {fallido ? (

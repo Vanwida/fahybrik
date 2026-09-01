@@ -2,8 +2,8 @@
 
 // Local chrome for the Tests section — mirrors the Niveles/Periodización pattern
 // (PanelButton, DialogScrim, ErrorBanner) plus a themed <select>. Kept local (each
-// v2 section owns its dialog/button chrome; ReorderRow + SidePanel are the shared
-// primitives) so a change here never ripples into Periodización.
+// v2 section owns its dialog/button chrome; `ui/list-row` + SidePanel are the
+// shared primitives) so a change here never ripples into Periodización.
 
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
@@ -53,7 +53,7 @@ export function PanelButton({
   children: React.ReactNode;
 }) {
   const base =
-    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
   const cls = cn(
     base,
     variant === 'primary' &&

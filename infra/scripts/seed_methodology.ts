@@ -30,9 +30,9 @@ import { getSql } from './_db.ts';
 import { PABLO_DEFAULT_RULES } from './seed_methodology_rules.ts';
 
 const PABLO_COACH = {
-  email: 'pablo@fabrik.training',
-  full_name: 'Pablo (DEMO)',
-  bio: 'Fabrik Training Club Barcelona — HYROX methodology (DEMO seed).',
+  email: process.env.SEED_METHODOLOGY_COACH_EMAIL?.trim().toLowerCase() || 'coach@example.com',
+  full_name: 'Coach (DEMO)',
+  bio: 'Demo club — HYROX methodology (DEMO seed).',
 };
 
 type Sql = ReturnType<typeof getSql>;
@@ -178,24 +178,24 @@ async function seedTests(sql: Sql, coachId: string): Promise<void> {
 const WEEKLY = [
   {
     level: 1, sessions_per_week: 4, two_a_day_enabled: false,
-    modality_mix: { ACC: { z2: 40, strength: 35, ergo: 15, recovery: 10 }, TRANS: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, REAL: { race_sim: 35, race_pace: 25, strength_maint: 20, recovery: 20 } },
-    hard_easy: 'hard_easy_alt', key: { ACC: 'z2_long', TRANS: 'threshold', REAL: 'hyrox_sim' },
+    modality_mix: { volume: { z2: 40, strength: 35, ergo: 15, recovery: 10 }, threshold: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, race_prep: { race_sim: 35, race_pace: 25, strength_maint: 20, recovery: 20 } },
+    hard_easy: 'hard_easy_alt', key: { volume: 'z2_long', threshold: 'threshold', race_prep: 'hyrox_sim' },
     am_pm: [] as Array<{ am: string; pm: string; gap_min_h: number }>,
     forbidden: [['threshold', 'strength'], ['threshold', 'intervals']] as Array<[string, string]>,
     rest: 'post_hardest', gap: 6,
   },
   {
     level: 2, sessions_per_week: 6, two_a_day_enabled: false,
-    modality_mix: { ACC: { z2: 35, strength: 35, ergo: 20, recovery: 10 }, TRANS: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, REAL: { race_sim: 35, race_pace: 25, strength_maint: 20, recovery: 20 } },
-    hard_easy: 'hard_easy_alt', key: { ACC: 'z2_long', TRANS: 'threshold', REAL: 'hyrox_sim' },
+    modality_mix: { volume: { z2: 35, strength: 35, ergo: 20, recovery: 10 }, threshold: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, race_prep: { race_sim: 35, race_pace: 25, strength_maint: 20, recovery: 20 } },
+    hard_easy: 'hard_easy_alt', key: { volume: 'z2_long', threshold: 'threshold', race_prep: 'hyrox_sim' },
     am_pm: [{ am: 'strength_lower', pm: 'z2_long', gap_min_h: 6 }],
     forbidden: [['threshold', 'strength'], ['threshold', 'intervals']] as Array<[string, string]>,
     rest: 'post_hardest', gap: 6,
   },
   {
     level: 3, sessions_per_week: 9, two_a_day_enabled: true,
-    modality_mix: { ACC: { z2: 30, strength: 35, ergo: 25, recovery: 10 }, TRANS: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, REAL: { race_sim: 40, race_pace: 25, strength_maint: 20, recovery: 15 } },
-    hard_easy: 'hard_easy_alt', key: { ACC: 'z2_long', TRANS: 'threshold', REAL: 'hyrox_sim' },
+    modality_mix: { volume: { z2: 30, strength: 35, ergo: 25, recovery: 10 }, threshold: { threshold: 35, ergo: 25, stations: 25, recovery: 15 }, race_prep: { race_sim: 40, race_pace: 25, strength_maint: 20, recovery: 15 } },
+    hard_easy: 'hard_easy_alt', key: { volume: 'z2_long', threshold: 'threshold', race_prep: 'hyrox_sim' },
     am_pm: [{ am: 'strength_lower', pm: 'z2_long', gap_min_h: 6 }, { am: 'intervals_race_pace', pm: 'circuit_recovery', gap_min_h: 6 }],
     forbidden: [['threshold', 'strength'], ['threshold', 'intervals']] as Array<[string, string]>,
     rest: 'post_hardest', gap: 6,

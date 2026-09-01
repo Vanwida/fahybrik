@@ -9,8 +9,15 @@ import {
   type MicrocicloPublishState,
 } from '@/lib/coach/publish-microciclo';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
+import { loadSessionContentSummaries } from '@/lib/coach/session-content';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';
+import {
+  sessionModalityFromExercises,
+  type SessionModality,
+} from '@/lib/dashboard/v2/editor-axes';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
+import { canRevertToSequence } from './revert-personal-plan';
+import { weekStates } from '@/lib/mcp/shape-write';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
 
@@ -27,6 +34,17 @@ export interface PlanSession {
   format: string | null;
   /** RPE reportado por el atleta (workout_executions) — null si no hay ejecución. */
   rpe: number | null;
+  /** Modalidad REAL de la sesión, leída de las modalidades de sus ejercicios
+   *  (intrínsecas al ejercicio, mig 0053): 'mixta' cuando combina varias, null
+   *  cuando no hay ejercicios que leer. Aquí no se adivina nada — la heurística
+   *  por título/formato vive en la vista y es el último recurso. */
+  modality: SessionModality | null;
+  /** Las primeras líneas «Ejercicio + dosis» de la sesión (formateadores
+   *  canónicos de shared/domain/prescription, vía session-content). Vacío =
+   *  sin contenido que resumir; nunca se fabrica. */
+  dose_lines: string[];
+  /** Cuántas líneas prescritas quedaron fuera de dose_lines. */
+  dose_more: number;
 }
 
 export interface PlanDay {
@@ -41,6 +59,14 @@ export interface PlanWeekRow {
   week_start: string;
   week_end: string;
   days: PlanDay[];
+  /**
+   * El override de foco de ESTA semana (`weekly_plans.focus`, migración 0182),
+   * crudo — sin fundir con el defecto de la plantilla: es lo que edita el coach
+   * en la cabecera de la ficha, y editar un valor fundido escribiría por accidente
+   * el texto de la plantilla como si fuera propio de la semana. `null` = sin
+   * override (el atleta ve el foco heredado, si su plantilla declara uno).
+   */
+  focus: string | null;
 }
 
 export interface AthletePlanPayload {
@@ -53,6 +79,16 @@ export interface AthletePlanPayload {
   current_block: string | null;
   /** Same microciclo NAME — display label. null when none active. */
   current_block_label: string | null;
+  /** True when the CURRENT microciclo is a personal plan (0164) — built for just
+   *  this athlete, not the shared level×días periodización. Drives whether the
+   *  ficha offers "Personalizar plan" or shows the athlete is already on one. */
+  is_personal: boolean;
+  /** True when `is_personal` AND the personal plan came from forking the
+   *  periodización (a detached athlete_sequence_progress cursor exists to
+   *  resume) — drives whether the ficha offers "Volver a la periodización".
+   *  Always false when `is_personal` is false, or when the personal plan was
+   *  built from scratch (nothing to revert TO — see revert-personal-plan.ts). */
+  can_revert_to_sequence: boolean;
   weeks: PlanWeekRow[];
   macro: MacroProgressPayload;
   total_sessions: number;
@@ -60,6 +96,15 @@ export interface AthletePlanPayload {
    *  published) + the assignment id the Publicar action targets. null when the
    *  athlete has no upcoming microciclo. */
   microciclo: MicrocicloPublishState | null;
+  /** #4 — a plan scheduled to start AFTER today, queued up behind whatever is
+   *  showing above (which may itself be `current_block`, still live, or nothing
+   *  at all). null when nothing is scheduled ahead. */
+  upcoming_plan: { name: string; start_date: string } | null;
+  /** program_month_templates.id of the current (or covering) microciclo — the
+   *  editor `/microciclos/:id`. null when the athlete has no covering receipt. */
+  current_month_template_id: string | null;
+  /** Monday (or start_date) of that receipt — to open `?dia=` on the editor. */
+  current_assignment_start: string | null;
 }
 
 export class AthletePlanError extends Error {
@@ -99,19 +144,45 @@ function computeRange(
   return { start: addDays(mon, -84), end: addDays(mon, 27) };
 }
 
-async function resolveLatestMonthSpan(params: {
+/**
+ * Which assignment governs the ficha's week view. NOT simply "the one with the
+ * latest start_date" — since #4 (start date at assign/personalize) a coach can
+ * schedule a plan AHEAD while the athlete is still living out a current one, so
+ * "latest start_date" would jump the whole page to a plan that hasn't started
+ * yet and bury the one actually running today. Priority: the assignment whose
+ * window CONTAINS today; else the soonest upcoming one (a scheduled-but-not-
+ * yet-active plan — PlanTab's `planNotStarted`/`planStartLabel` already render
+ * this honestly once it's the one resolved here); else, defensively, the most
+ * recent past one (should not normally happen — every athlete with any history
+ * has either a current or an upcoming assignment).
+ */
+async function resolveRelevantMonthSpan(params: {
   athlete_id: number;
+  today_iso: string;
   client: Sql;
 }): Promise<MonthAssignmentSpan | null> {
   const rows = await params.client<
     Array<{ start_date: string; end_date: string }>
   >`
-    select
-      to_char(start_date, 'YYYY-MM-DD') as start_date,
-      to_char(end_date, 'YYYY-MM-DD') as end_date
-    from athlete_month_assignments
-    where athlete_id = ${params.athlete_id}
-    order by start_date desc
+    select start_date, end_date
+    from (
+      select
+        to_char(start_date, 'YYYY-MM-DD') as start_date,
+        to_char(end_date, 'YYYY-MM-DD') as end_date,
+        case
+          when start_date <= ${params.today_iso}::date and end_date >= ${params.today_iso}::date then 0
+          when start_date > ${params.today_iso}::date then 1
+          else 2
+        end as priority,
+        id
+      from athlete_month_assignments
+      where athlete_id = ${params.athlete_id}
+    ) ranked
+    order by
+      priority asc,
+      case when priority = 1 then start_date end asc,
+      case when priority = 2 then start_date end desc,
+      id desc
     limit 1
   `;
   const row = rows[0];
@@ -120,6 +191,27 @@ async function resolveLatestMonthSpan(params: {
     start: parseIsoDate(row.start_date),
     end: parseIsoDate(row.end_date),
   };
+}
+
+/** The soonest assignment scheduled to start AFTER today (#4) — a plan the coach
+ *  has queued up but that isn't live yet. null when there is none. Feeds the
+ *  ficha's "programado" notice so a plan scheduled ahead is never silently
+ *  invisible while a current one is still showing. */
+async function resolveUpcomingPlan(params: {
+  athlete_id: number;
+  today_iso: string;
+  client: Sql;
+}): Promise<{ name: string; start_date: string } | null> {
+  const rows = await params.client<Array<{ name: string; start_date: string }>>`
+    select m.name, to_char(ama.start_date, 'YYYY-MM-DD') as start_date
+    from athlete_month_assignments ama
+    join program_month_templates m on m.id = ama.month_template_id
+    where ama.athlete_id = ${params.athlete_id}
+      and ama.start_date > ${params.today_iso}::date
+    order by ama.start_date asc, ama.id asc
+    limit 1
+  `;
+  return rows[0] ?? null;
 }
 
 function resolvePlanAnchor(base: Date, monthSpan: MonthAssignmentSpan | null): Date {
@@ -160,7 +252,9 @@ export async function buildAthletePlan(params: {
   const todayIso = isoDateString(startOfDayUtc(new Date()));
 
   const monthSpan =
-    view === 'month' ? await resolveLatestMonthSpan({ athlete_id: params.athlete_id, client }) : null;
+    view === 'month'
+      ? await resolveRelevantMonthSpan({ athlete_id: params.athlete_id, today_iso: todayIso, client })
+      : null;
   const anchor = resolvePlanAnchor(baseAnchor, monthSpan);
   const range = computeRange(view, anchor, monthSpan);
 
@@ -187,6 +281,7 @@ export async function buildAthletePlan(params: {
       format: string | null;
       rpe: number | null;
       notes: string | null;
+      modalities: string[] | null;
     }>
   >`
     select
@@ -197,10 +292,22 @@ export async function buildAthletePlan(params: {
       we.total_duration_seconds as duration_seconds,
       t.format::text as format,
       we.perceived_exertion as rpe,
-      wa.notes as notes
+      wa.notes as notes,
+      segmods.modalities as modalities
     from workout_assignments wa
     left join templates t on t.id = wa.template_id
     left join workout_executions we on we.assignment_id = wa.id
+    -- La modalidad de la sesión sale de sus ejercicios, no del enum format de la
+    -- plantilla (un fartlek de carrera es intervals y salía «Circuito»). Gana la
+    -- modalidad PRESCRITA sobre la del catálogo, igual que en el brief del
+    -- atleta (assignment-detail.ts).
+    left join lateral (
+      select array_agg(distinct coalesce(ts.prescription_json->>'modality', e.modality))
+               as modalities
+      from template_segments ts
+      join exercises e on e.id = ts.exercise_id
+      where ts.template_id = wa.template_id
+    ) segmods on true
     where wa.athlete_id = ${params.athlete_id}
       and wa.scheduled_for >= ${startIso}::date
       and wa.scheduled_for <= ${endIso}::date
@@ -220,27 +327,80 @@ export async function buildAthletePlan(params: {
       duration_min: r.duration_seconds != null ? Math.round(r.duration_seconds / 60) : null,
       format: r.format,
       rpe: r.rpe,
+      modality: sessionModalityFromExercises(r.modalities ?? []),
+      dose_lines: [],
+      dose_more: 0,
     };
     const list = sessionsByDate.get(r.iso_date) ?? [];
     list.push(session);
     sessionsByDate.set(r.iso_date, list);
   }
 
-  const weeks: PlanWeekRow[] = [];
+  // La dosis por sesión (artboard «Semana»): las primeras líneas legibles de
+  // cada asignación, en UNA consulta batch con los formateadores canónicos.
+  const allSessions = [...sessionsByDate.values()].flat();
+  if (allSessions.length > 0) {
+    const summaries = await loadSessionContentSummaries({
+      sql: client,
+      coach_id: params.coach_id,
+      athlete_id: params.athlete_id,
+      assignment_ids: allSessions.map((s) => s.assignment_id),
+      max_lines: 2,
+    });
+    for (const s of allSessions) {
+      const sum = summaries.get(s.assignment_id);
+      if (sum) {
+        s.dose_lines = sum.lines;
+        s.dose_more = sum.more;
+      }
+    }
+  }
+
+  const weekStarts: string[] = [];
   let cursor = mondayOfWeek(range.start);
   const endMonday = mondayOfWeek(range.end);
   while (cursor <= endMonday) {
-    weeks.push({
-      week_start: isoDateString(cursor),
-      week_end: isoDateString(addDays(cursor, 6)),
-      days: buildDaysForWeek(cursor, sessionsByDate, todayIso),
-    });
+    weekStarts.push(isoDateString(cursor));
     cursor = addDays(cursor, 7);
   }
+
+  // El foco CRUDO de cada semana (`weekly_plans.focus`), de una sola consulta
+  // por lotes — el mismo lector que ya usa el portón de visibilidad del
+  // conector (`weekStates`, shape-write.ts). El panel es el propio coach: aquí
+  // NO se aplica el portón de borrador (a diferencia del lector del atleta,
+  // `lib/athlete/week-plan.ts`) porque el coach tiene que poder ver y editar el
+  // foco que dejó escrito mientras la semana seguía en borrador.
+  const focusByWeek = await weekStates({
+    athlete_id: params.athlete_id,
+    week_starts: weekStarts,
+    client,
+  });
+
+  const weeks: PlanWeekRow[] = weekStarts.map((weekStartIso) => {
+    const weekStartDate = parseIsoDate(weekStartIso);
+    return {
+      week_start: weekStartIso,
+      week_end: isoDateString(addDays(weekStartDate, 6)),
+      days: buildDaysForWeek(weekStartDate, sessionsByDate, todayIso),
+      focus: focusByWeek.get(weekStartIso)?.focus ?? null,
+    };
+  });
 
   const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
   const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
   const microciclo = await loadMicrocicloPublishState({ athlete_id: params.athlete_id, client });
+  const upcoming_plan = await resolveUpcomingPlan({
+    athlete_id: params.athlete_id,
+    today_iso: todayIso,
+    client,
+  });
+
+  const isPersonal = micro?.template_athlete_id != null;
+  // Only worth the extra query when the athlete IS on a personal plan — the
+  // common case (not personal) skips it entirely.
+  const canRevert = isPersonal
+    ? await canRevertToSequence({ athlete_id: params.athlete_id, client })
+    : false;
 
   // Current microciclo label = the coach's microciclo NAME (agnostic), null when
   // there's no active microciclo.
@@ -254,9 +414,14 @@ export async function buildAthletePlan(params: {
     range_end: endIso,
     current_block: micro?.name ?? null,
     current_block_label,
+    is_personal: isPersonal,
+    can_revert_to_sequence: canRevert,
     weeks,
     macro,
     total_sessions: rows.length,
     microciclo,
+    upcoming_plan,
+    current_month_template_id: micro?.month_template_id != null ? String(micro.month_template_id) : null,
+    current_assignment_start: micro?.assignment_start ?? null,
   };
 }

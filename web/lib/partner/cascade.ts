@@ -71,16 +71,18 @@ export async function handleSubscriptionCancellation(
 
   // Insert notifications. We use `system` type and discriminator in
   // payload_json to avoid extending the enum until W5.
-  const payload = JSON.stringify({
+  // sql.json y no JSON.stringify::jsonb — ver docs/DECISIONS.md 2026-08-09
+  // (payload de aviso como objeto).
+  const payload = {
     kind: 'subscription_cancelled',
     subscription_id: subscriptionId.toString(),
     reason,
     cascaded: row.partner_user_id != null,
-  });
+  };
   for (const uid of userIds) {
     await client`
       insert into notifications (user_id, type, payload_json)
-      values (${uid}, 'system', ${payload}::jsonb)
+      values (${uid}, 'system', ${client.json(payload)})
     `;
   }
 

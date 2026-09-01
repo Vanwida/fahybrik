@@ -16,6 +16,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
 import {
+  V2_NAV_CLUB,
   V2_NAV_GROUP_LABELS,
   V2_NAV_GUIDE,
   V2_NAV_ITEMS,
@@ -25,8 +26,9 @@ import {
 } from '@/components/v2/nav';
 import { cn } from '@/lib/utils';
 
-/** The four operational tabs that live directly in the bar (thumb reach). */
-const PRIMARY_TAB_HREFS = ['/hoy', '/atletas', '/mensajes', '/leads'] as const;
+/** The four operational tabs that live directly in the bar (thumb reach).
+ *  Atletas primero: es la casa del panel (rediseño FLEXR). */
+const PRIMARY_TAB_HREFS = ['/atletas', '/hoy', '/mensajes', '/leads'] as const;
 
 const primaryTabs: V2NavItem[] = PRIMARY_TAB_HREFS.map(
   (href) => V2_NAV_ITEMS.find((item) => item.href === href),
@@ -44,7 +46,7 @@ const sheetGroups: { label: string | null; items: V2NavItem[] }[] = [
     label: V2_NAV_GROUP_LABELS.metodo,
     items: V2_NAV_ITEMS.filter((item) => item.group === 'metodo'),
   },
-  { label: null, items: [V2_NAV_GUIDE, V2_NAV_SETTINGS] },
+  { label: null, items: [V2_NAV_GUIDE, V2_NAV_CLUB, V2_NAV_SETTINGS] },
 ];
 
 const sheetHrefs = sheetGroups.flatMap((g) => g.items.map((i) => i.href));
@@ -111,7 +113,7 @@ export function V2MobileNav({
     cn(
       'v2-focus relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--v2-r-s)] px-1 pb-1 pt-1.5',
       'text-eyebrow font-bold tracking-[0.02em] transition-colors',
-      active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]',
+      active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]',
     );
 
   return (
@@ -168,7 +170,7 @@ export function V2MobileNav({
                       name={item.icon}
                       size={19}
                       filled={active}
-                      className={active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-muted)]'}
+                      className={active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]'}
                     />
                     {item.label}
                   </Link>

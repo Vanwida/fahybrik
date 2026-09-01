@@ -5,8 +5,10 @@
 // and under the 500-line budget. All read v2 tokens only.
 
 import { Link } from '@/i18n/navigation';
+import { Card } from '@/components/ui/card';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
+import { modalityColor } from './modality';
 import { cn } from '@/lib/utils';
 
 /** Tracked uppercase section label with an optional right-aligned action slot. */
@@ -44,14 +46,9 @@ export function Panel({
   return (
     <section className={cn('flex flex-col gap-2.5', className)}>
       <SectionHeading action={action}>{title}</SectionHeading>
-      <div
-        className={cn(
-          'rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]',
-          bodyClassName,
-        )}
-      >
+      <Card variant="panel" className={cn('p-3.5', bodyClassName)}>
         {children}
-      </div>
+      </Card>
     </section>
   );
 }
@@ -200,6 +197,8 @@ export function ModalityDot({ modality, size = 8 }: { modality: V2Modality; size
  *  that day's editor. Used by the Plan "esta semana" row. */
 export interface WeekStripDay {
   label: string;
+  /** Color del día. null = hay sesión pero ningún color la representa (mixta):
+   *  se pinta neutra, NUNCA como descanso — quien manda sobre eso es `state`. */
   modality: V2Modality | null;
   state: 'done' | 'today' | 'scheduled' | 'rest';
   /** Session focus/title shown under the indicator (null on rest days). */
@@ -212,8 +211,8 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
   return (
     <div className="grid grid-cols-7 gap-1.5">
       {days.map((d, i) => {
-        const isRest = d.state === 'rest' || d.modality == null;
-        const color = d.modality ? `var(${MODALITY_META[d.modality].colorVar})` : undefined;
+        const isRest = d.state === 'rest';
+        const color = modalityColor(d.modality);
         const interactive = !!d.href;
         const cellClass = cn(
           'flex min-w-0 flex-col items-center gap-1 rounded-[var(--v2-r-s)] border px-1 py-1.5 text-center',

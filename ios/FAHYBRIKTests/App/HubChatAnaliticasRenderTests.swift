@@ -213,7 +213,8 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
             test(slug: "remo_2k", label: "Remo 2K", captured: true),
             test(slug: "sentadilla_1rm", label: "Sentadilla 1RM", captured: false, pending: true),
             test(slug: "cooper", label: "Cooper 12'", captured: false),
-        ]
+        ],
+        athleteWeightKg: nil
     )
 
     private static func test(slug: String, label: String,
@@ -226,7 +227,11 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
             sessionStatus: captured ? "completed" : "scheduled",
             resultCaptured: captured,
             resultPending: pending,
-            resultLabel: captured ? "22:14" : nil
+            resultLabel: captured ? "22:14" : nil,
+            capture: nil,
+            brief: nil,
+            jumpProfile: nil,
+            jumpReport: nil
         )
     }
 

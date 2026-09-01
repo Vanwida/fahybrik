@@ -7,6 +7,7 @@
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   recoveryActivitySchema,
+  type CircuitConfig,
   type RecoveryActivity,
   type RecoverySuggestion,
   type StructureGroup,
@@ -113,6 +114,32 @@ export interface EditorBlock {
    * pinta nada, que es lo honesto: la referencia es del pasado, no una promesa.
    */
   source_block_title?: string | null;
+  /**
+   * Texto verbatim que no encaja en la estructura del bloque — la prescripción
+   * en prosa de un bloque de biblioteca, o (import por foto) el texto de una
+   * tarjeta que la gramática no pudo tipar como ejercicio ni como dosis huérfana
+   * (ver web/lib/import/build-proposal.ts). Misma semántica que
+   * WeekDayPart.coach_note (shared/schema/program-templates.ts); el day editor
+   * hoy no tiene UI para editarlo, así que se preserva pero no se muestra.
+   */
+  coach_note?: string;
+  /**
+   * El bloque es un extra que el atleta puede saltarse (fase 2, ago-2026).
+   * Ausente/false = obligatorio, el comportamiento de siempre. Solo el day
+   * editor lo persiste; el resto de constructores de EditorBlock (biblioteca,
+   * IA, hyrox-template, quickline…) no lo tocan y queda implícitamente false.
+   */
+  optional?: boolean;
+  /**
+   * Circuito (docs/DECISIONS.md, 2026-08-07): rondas + pacing (por_tarea sin
+   * reloj | por_reloj con work_seconds) + descansos entre estaciones/rondas, a
+   * nivel de BLOQUE — no duplicado en cada estación (el bug real de `applyHead`
+   * que este campo reemplaza en ComponentsForm). Solo lo rellena el bloque
+   * Circuito/Core (`format === 'circuit'`); ausente = comportamiento legacy
+   * (estaciones sueltas sin rounds/pacing de bloque), incluido en cualquier
+   * otro archetype/formato del patrón `components`.
+   */
+  circuit?: CircuitConfig;
   items: EditorItem[];
 }
 
@@ -128,6 +155,14 @@ export interface EditorSession {
    * Editable in the day editor; empty/undefined = untitled.
    */
   focus?: string;
+  /**
+   * NOTA del entreno (`WeekSession.notes`): lo que el coach le dice al atleta
+   * sobre ESTA sesión ("hoy vamos a por el ritmo, no te pases en la primera
+   * serie"). Editable en el editor de día; al materializar viaja a
+   * `templates.coach_notes` y el atleta la lee en el brief previo del móvil.
+   * Vacía/undefined = sin nota.
+   */
+  notes?: string;
   blocks: EditorBlock[];
 }
 

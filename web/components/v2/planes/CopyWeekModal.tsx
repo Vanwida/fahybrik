@@ -130,7 +130,7 @@ export function CopyWeekModal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>
@@ -196,7 +196,7 @@ export function CopyWeekModal({
                     <MIcon
                       name={checked ? 'check_box' : 'check_box_outline_blank'}
                       size={18}
-                      className={checked ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]'}
+                      className={checked ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-faint)]'}
                     />
                     <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
                       S{w.index + 1}
@@ -239,7 +239,7 @@ export function CopyWeekModal({
               onClick={onSubmit}
               disabled={busy || selectedIds.length === 0}
               className={cn(
-                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
+                'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-4 text-sm font-bold transition-colors disabled:opacity-50',
                 confirming && conflictCount > 0
                   ? 'bg-[color:var(--v2-danger)] text-white'
                   : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',

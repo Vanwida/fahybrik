@@ -195,14 +195,20 @@ function MensajesBody({
           // Por debajo de lg la barra de pestañas fija tapa el final de la
           // pantalla: sin restarla, el compositor queda debajo y no se puede
           // escribir (visto en producción a 390).
-          'grid h-[calc(100dvh-3.5rem-var(--v2-tabbar-h))] grid-cols-1 overflow-hidden border-t border-[color:var(--v2-border)]',
+          'grid h-[calc(100dvh-3.5rem-var(--v2-tabbar-h))] grid-cols-1 overflow-hidden bg-[color:var(--v2-bg)]',
           'lg:h-[calc(100dvh-3.5rem)]',
-          'md:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_248px]',
+          // Por debajo de md la lista y el hilo se alternan a pantalla completa
+          // (como cualquier app de mensajería); a partir de ahí son tres paneles
+          // de contenido r-card sobre el lienzo perla, con el marco y el hueco
+          // entre ellos que marca el artboard.
+          'md:grid-cols-[300px_minmax(0,1fr)] md:gap-4 md:p-4',
+          'xl:grid-cols-[300px_minmax(0,1fr)_280px]',
         )}
       >
         <div
           className={cn(
-            'flex min-h-0 flex-col border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
+            'flex min-h-0 flex-col bg-[color:var(--v2-surface)]',
+            'md:overflow-hidden md:rounded-[var(--v2-r-card)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
             mobileOpen ? 'hidden md:flex' : 'flex',
           )}
         >
@@ -222,7 +228,11 @@ function MensajesBody({
         </div>
 
         <div
-          className={cn('min-h-0 bg-[color:var(--v2-bg)]', mobileOpen ? 'block' : 'hidden md:block')}
+          className={cn(
+            'min-h-0 bg-[color:var(--v2-surface)]',
+            'md:overflow-hidden md:rounded-[var(--v2-r-card)] md:border md:border-[color:var(--v2-border)] md:shadow-[var(--v2-shadow-card)]',
+            mobileOpen ? 'block' : 'hidden md:block',
+          )}
         >
           {active ? (
             <ThreadPanel
@@ -275,13 +285,13 @@ function ContextPanelMobile({
   onClose: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col [&>aside]:flex [&>aside]:border-l-0">
+    <div className="flex h-full flex-col [&>aside]:flex">
       <div className="flex shrink-0 items-center justify-end border-b border-[color:var(--v2-border)] px-2 py-2">
         <button
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="v2-focus flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+          className="v2-focus flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={18} />
         </button>

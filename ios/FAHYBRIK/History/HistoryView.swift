@@ -21,6 +21,12 @@ import SwiftUI
 struct HistoryView: View {
     let bearer: String?
     var onClose: () -> Void = {}
+    /// Preguntarle al coach por un entreno YA hecho. El historial es el sitio
+    /// natural para eso —es donde el atleta mira lo que pasó— y una pulsación
+    /// larga no ocupa alto. Lo resuelve quien presenta esta pantalla: cierra el
+    /// historial y abre el chat, porque dos presentaciones no se levantan a la
+    /// vez. Nil cuando el atleta no tiene coach: entonces la fila no existe.
+    var onPreguntar: ((AthleteHistorySession, String) -> Void)? = nil
 
     @State private var viewed: YearMonth = .current()
     @State private var month: AthleteHistoryMonth? = nil
@@ -325,7 +331,8 @@ struct HistoryView: View {
                     assignmentId: session.assignmentId,
                     title: session.title
                 )
-            }
+            },
+            onPreguntar: onPreguntar
         )
     }
 
@@ -369,6 +376,10 @@ struct HistorialDelMes: View {
     let onVerMesAnterior: () -> Void
     let onVerElMes: () -> Void
     let onAbrir: (AthleteHistorySession) -> Void
+    /// Preguntarle al coach por esta sesión. Nil = sin coach, y entonces la fila
+    /// del menú no existe. Con defecto para no obligar a las pruebas de render
+    /// —ni a ningún futuro llamador— a declarar algo que no les importa.
+    var onPreguntar: ((AthleteHistorySession, String) -> Void)? = nil
 
     var body: some View {
         if loading {
@@ -491,6 +502,22 @@ struct HistorialDelMes: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        // Pulsación larga sobre la fila. VA SOBRE EL BOTÓN, nunca dentro de su
+        // `label:`: ahí dentro el botón se queda el gesto y el menú no se abre.
+        .contextMenu {
+            Button {
+                onAbrir(s)
+            } label: {
+                Label("Ver el entreno", systemImage: "list.bullet.rectangle")
+            }
+            if let onPreguntar {
+                Button {
+                    onPreguntar(s, row.date)
+                } label: {
+                    Label("Preguntar al coach", systemImage: "message")
+                }
+            }
+        }
     }
 
     @ViewBuilder

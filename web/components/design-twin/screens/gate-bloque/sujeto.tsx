@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ItemReal } from '../../datos-reales';
 import { Card, Hairline, Label, Mono, SP } from '../../kit';
-import { dosisConSeries, FilaTrabajo, leyendaSeries, PuntoModalidad } from './piezas';
+import { dosisConSeries, FilaTrabajo, leyendaSeries, pastillasDeSerie, PuntoModalidad } from './piezas';
 
 /** Con cuánto peso se pinta cada ítem, según cuántos hay que pintar. */
 export function escala(n: number): 'hero' | 'grande' | 'media' | 'fila' {
@@ -25,6 +25,7 @@ export function escala(n: number): 'hero' | 'grande' | 'media' | 'fila' {
 export function SujetoHero({ item }: { item: ItemReal }) {
   const dosis = dosisConSeries(item);
   const leyenda = leyendaSeries(item);
+  const pastillas = pastillasDeSerie(item);
   return (
     // previsualiza degrada a centra: con UN ítem no hay «conjunto» que llenar,
     // así que el grupo entero se centra en su hueco en vez de fingir que hay
@@ -50,29 +51,34 @@ export function SujetoHero({ item }: { item: ItemReal }) {
           </div>
         )}
         {item.objetivo && <span className="tw-pill">{item.objetivo}</span>}
-        {item.series && item.descansoS && (
+        {/* Las pastillas y la leyenda son dos cosas, no una: una carrera
+            estructurada no numera pastillas (su cuenta está en el titular) pero SÍ
+            tiene algo que decir debajo — cómo se hace el OFF. */}
+        {(pastillas !== null || leyenda) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <div style={{ display: 'flex', gap: 6 }} aria-hidden>
-              {Array.from({ length: item.series }, (_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'var(--twin-surface-elevated)',
-                    border: '1px solid var(--twin-hairline-strong)',
-                    font: '700 12px/1 var(--twin-font-mono)',
-                    color: 'var(--twin-fg)',
-                  }}
-                >
-                  {i + 1}
-                </span>
-              ))}
-            </div>
+            {pastillas !== null && (
+              <div style={{ display: 'flex', gap: 6 }} aria-hidden>
+                {Array.from({ length: pastillas }, (_, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--twin-surface-elevated)',
+                      border: '1px solid var(--twin-hairline-strong)',
+                      font: '700 12px/1 var(--twin-font-mono)',
+                      color: 'var(--twin-fg)',
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                ))}
+              </div>
+            )}
             {leyenda && <Mono size={12} color="var(--twin-muted)">{leyenda}</Mono>}
           </div>
         )}

@@ -17,16 +17,28 @@
 // que el servidor deriva con la MISMA expresión que usa su propio filtro
 // (`exerciseOriginExpr` / `exerciseOriginFilter`): lo que dice la etiqueta y lo que
 // devolvería el filtro del servidor no pueden discrepar.
+//
+// DOS EJES, Y LOS DOS SON DE AQUÍ: el ORIGEN (de dónde viene la fila) y el
+// CONTENIDO (qué le falta para explicarse sola). El segundo se declara en
+// `biblioteca-axes.ts` junto al resto, y sus cuentas van sobre el catálogo ENTERO
+// y no sobre lo que se está viendo: dicen cuánto trabajo queda, no cuánto queda
+// en esta vista. Es la misma regla que el eje de estado de Bloques.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SegmentedControl } from '@/components/v2/SegmentedControl';
 import { ContextHint } from '@/components/v2/orientacion';
+import { FilterChip } from '@/components/v2/editor/exercise-catalog';
 import { EjercicioRow } from '@/components/v2/biblioteca/EjercicioRow';
 import { EjercicioEditor, type ExerciseSeed } from '@/components/v2/biblioteca/EjercicioEditor';
 import { BorrarEjercicioDialog } from '@/components/v2/biblioteca/BorrarEjercicioDialog';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
+import {
+  LIB_EXERCISE_GAPS,
+  exerciseHasGap,
+  type V2LibExerciseGap,
+} from '@/lib/dashboard/v2/biblioteca-axes';
 import {
   ORIGIN_FACET_OPTIONS,
   matchesExerciseQuery,
@@ -39,12 +51,13 @@ type EditorState =
   | null;
 
 const CTA_CLS =
-  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+  'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
 export function EjerciciosPanel({ query }: { query?: string }) {
   const [rows, setRows] = useState<CoachExerciseRow[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [facet, setFacet] = useState<OriginFacet>('todos');
+  const [gap, setGap] = useState<V2LibExerciseGap | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
   const [deleting, setDeleting] = useState<CoachExerciseRow | null>(null);
   const [reload, setReload] = useState(0);
@@ -81,9 +94,30 @@ export function EjerciciosPanel({ query }: { query?: string }) {
   const visible = useMemo(() => {
     if (!rows) return [];
     return rows.filter(
-      (ex) => (facet === 'todos' || ex.origin === facet) && matchesExerciseQuery(ex, q),
+      (ex) =>
+        (facet === 'todos' || ex.origin === facet) &&
+        (gap === null || exerciseHasGap(ex, gap)) &&
+        matchesExerciseQuery(ex, q),
     );
-  }, [rows, facet, q]);
+  }, [rows, facet, gap, q]);
+
+  // Lo que hay con SÓLO el origen puesto: es lo que el coach cree que debería estar
+  // viendo, y sin ese número un vacío por combinación de filtros se lee como «el
+  // filtro de Personalizados está roto».
+  const soloOrigen = useMemo(
+    () => (rows ?? []).filter((ex) => facet === 'todos' || ex.origin === facet).length,
+    [rows, facet],
+  );
+
+  // Sobre TODO el catálogo, no sobre lo filtrado: "62 sin vídeo" es cuánto trabajo
+  // hay, y ese número no puede cambiar según qué pestaña de origen esté puesta.
+  const gapCounts = useMemo(() => {
+    const acc: Partial<Record<V2LibExerciseGap, number>> = {};
+    for (const opt of LIB_EXERCISE_GAPS) {
+      acc[opt.id] = (rows ?? []).filter((ex) => exerciseHasGap(ex, opt.id)).length;
+    }
+    return acc;
+  }, [rows]);
 
   /** Una fila editada vuelve a su sitio con su origen NUEVO — si el filtro activo
    *  ya no la incluye, desaparecer es lo correcto: acaba de dejar de ser Base. */
@@ -96,8 +130,10 @@ export function EjerciciosPanel({ query }: { query?: string }) {
     setRows((prev) => (prev ? [row, ...prev] : [row]));
     // El recién creado es "Mío": si el filtro puesto lo escondería, se afloja el
     // filtro en vez de dejar al coach mirando una lista donde no está lo que acaba
-    // de crear.
+    // de crear. Vale igual para el eje de contenido: si lo ha creado con vídeo y
+    // estaba mirando "Sin vídeo", el que se afloja es ese.
     setFacet((f) => (f === 'todos' || f === 'own' ? f : 'todos'));
+    setGap((g) => (g === null || exerciseHasGap(row, g) ? g : null));
     setEditor(null);
   }, []);
 
@@ -139,6 +175,29 @@ export function EjerciciosPanel({ query }: { query?: string }) {
         </button>
       </div>
 
+      {/* ── Eje de contenido: dónde queda trabajo ──────────────────────────
+           En su propia línea y no pegado al origen: son dos preguntas distintas
+           (de dónde viene / qué le falta) y a 390 la barra ya iba justa. Se
+           conmutan: volver a pulsar el activo lo quita, igual que el carril. */}
+      {rows !== null ? (
+        <div
+          role="group"
+          aria-label="Filtrar por contenido"
+          className="mt-2.5 flex flex-wrap items-center gap-1.5"
+        >
+          <span className="v2-micro mr-0.5">Contenido</span>
+          {LIB_EXERCISE_GAPS.map((opt) => (
+            <FilterChip
+              key={opt.id}
+              label={opt.label}
+              count={gapCounts[opt.id]}
+              active={gap === opt.id}
+              onClick={() => setGap(gap === opt.id ? null : opt.id)}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {/* ── Lista ─────────────────────────────────────────────────────────── */}
       <div className="mt-3">
         {rows === null && !failed ? <SkeletonList /> : null}
@@ -157,7 +216,16 @@ export function EjerciciosPanel({ query }: { query?: string }) {
           />
         ) : null}
 
-        {rows !== null && visible.length === 0 ? <NoResults facet={facet} hasQuery={q !== ''} /> : null}
+        {rows !== null && visible.length === 0 ? (
+          <NoResults
+            facet={facet}
+            filtrado={q !== '' || gap !== null}
+            query={q}
+            gap={gap}
+            soloOrigen={soloOrigen}
+            onQuitarGap={() => setGap(null)}
+          />
+        ) : null}
 
         {visible.length > 0 ? (
           <ul className="flex flex-col gap-1.5">
@@ -181,7 +249,7 @@ export function EjerciciosPanel({ query }: { query?: string }) {
           className="mt-3"
           more={
             <>
-              Personalizar una <b>Base</b> no afecta a nadie más — tu versión es tuya. Lo que define
+              Personalizar una <b>Base</b> no afecta a nadie más: tu versión es tuya. Lo que define
               el movimiento (categoría, músculos, material) es igual para todos: si necesitas otro
               movimiento, crea uno <b>tuyo</b>.
             </>
@@ -217,11 +285,27 @@ export function EjerciciosPanel({ query }: { query?: string }) {
 }
 
 /** Nada que enseñar: o el filtro aprieta, o el coach aún no ha creado nada suyo. */
-function NoResults({ facet, hasQuery }: { facet: OriginFacet; hasQuery: boolean }) {
+function NoResults({
+  facet,
+  filtrado,
+  query,
+  gap,
+  soloOrigen,
+  onQuitarGap,
+}: {
+  facet: OriginFacet;
+  filtrado: boolean;
+  query: string;
+  gap: V2LibExerciseGap | null;
+  /** Cuántos hay con SÓLO el origen puesto: lo que el coach cree que debería ver. */
+  soloOrigen: number;
+  onQuitarGap: () => void;
+}) {
   // "Míos" vacío no es un filtro que no encuentra: es el estado normal de quien
   // aún no ha creado ninguno. Merece explicar para qué sirve, no un "sin
-  // resultados". Con búsqueda puesta, no: ahí sí es el filtro.
-  if (facet === 'own' && !hasQuery) {
+  // resultados". Con búsqueda o contenido puestos, no: ahí sí es el filtro, y
+  // decirle "aún no has creado ninguno" sería mentirle sobre lo que está mirando.
+  if (facet === 'own' && !filtrado) {
     return (
       <EmptyState
         icon="exercise"
@@ -230,7 +314,7 @@ function NoResults({ facet, hasQuery }: { facet: OriginFacet; hasQuery: boolean 
       />
     );
   }
-  if (facet === 'customized' && !hasQuery) {
+  if (facet === 'customized' && !filtrado) {
     return (
       <EmptyState
         icon="edit_note"
@@ -239,11 +323,38 @@ function NoResults({ facet, hasQuery }: { facet: OriginFacet; hasQuery: boolean 
       />
     );
   }
+  // Con varios filtros puestos, «ningún ejercicio» no dice cuál de ellos lo ha
+  // vaciado, y el coach concluye que el filtro está roto — sobre todo si SABE que
+  // tiene personalizados. Así que se dice qué hay con sólo el origen puesto y se
+  // ofrece quitar lo que sobra de uno en uno.
+  const etiquetaGap = gap ? LIB_EXERCISE_GAPS.find((g) => g.id === gap)?.label : null;
+  const etiquetaOrigen = ORIGIN_FACET_OPTIONS.find((f) => f.value === facet)?.label ?? 'este origen';
+  const sobra = [query ? `la búsqueda «${query}»` : null, etiquetaGap ? `«${etiquetaGap}»` : null]
+    .filter(Boolean)
+    .join(' y ');
+  const pista =
+    soloOrigen > 0
+      ? `En ${etiquetaOrigen} tienes ${soloOrigen}${sobra ? `, pero ${sobra} los deja fuera` : ''}.`
+      : 'Prueba con otra búsqueda o cambia el origen.';
   return (
     <EmptyState
       icon="filter_alt_off"
       title="Ningún ejercicio con estos filtros"
-      description="Prueba con otra búsqueda o cambia el origen."
+      description={pista}
+      action={
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {etiquetaGap ? (
+            <button
+              type="button"
+              onClick={onQuitarGap}
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--v2-border)] px-3 py-1 text-label text-[color:var(--v2-ink)] hover:bg-[color:var(--v2-surface)]"
+            >
+              <MIcon name="close" className="text-[14px]" />
+              {`Quitar «${etiquetaGap}»`}
+            </button>
+          ) : null}
+        </div>
+      }
     />
   );
 }

@@ -108,19 +108,13 @@ final class TreadmillHUDModel {
     private var pausedAccum: TimeInterval = 0
     private var pauseStartedAt: Date?
 
-    // Distance derivation + running averages for the measurement snapshot.
-    private var distanceBaselineM: Double?
-    // Odometer-health tracking: the last RAW machine odometer reading and how many
-    // consecutive samples it has sat flat while the belt was moving. Lets us fall back
-    // to speed integration when the machine's Total Distance is frozen/broken (see
-    // `odometerIsLive`).
-    private var lastOdometerRawM: Double?
-    private var odometerStalledSamples = 0
+    /// Belt odometer → covered-metre increments for THIS screen's leg ring. The same
+    /// type the session's own feeder uses, so the two can never derive different metres
+    /// from the same belt (`TreadmillDistanceTracker`).
+    private var beltTracker = TreadmillDistanceTracker()
     // Set on a cover REOPEN (see rehydrateContinuousLegFromSession): the meters this
-    // leg already covered, used to re-anchor the odometer baseline on the first sample
-    // (baseline = reading − alreadyCovered) so the ring resumes there, not at zero.
+    // leg already covered, so the ring resumes there rather than at zero.
     private var pendingRehydratedLegDistanceM: Double?
-    private var lastSampleAt: Date?
     private var speedSum = 0.0
     private var speedCount = 0
     private var inclineSum = 0.0
@@ -333,6 +327,11 @@ final class TreadmillHUDModel {
     /// machines at all). False today on every belt we've met, so the athlete sets the speed
     /// on the console and we read what he ran.
     var canControlSpeed: Bool { controlCapability.offersSpeedControl }
+    /// El escalón de velocidad que la consola admite de verdad, leído del Supported
+    /// Speed Range que la propia cinta publica (FTMS). 0,1 km/h cuando la máquina no
+    /// lo dice: es el incremento universal, y redondear a algo que la consola no
+    /// acepta convierte la ayuda en ruido («pon 13,33» no se puede marcar).
+    var escalonDeVelocidad: Double { controlCapability.speed?.step ?? 0.1 }
     /// The same judgment for INCLINE, judged separately: a belt that takes an incline and
     /// refuses a speed gets exactly one control, not zero and not two.
     var canControlIncline: Bool { controlCapability.offersInclineControl }
@@ -499,10 +498,33 @@ final class TreadmillHUDModel {
         guard let seg = currentSegment else {
             return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
         }
-        if isStructured {
-            return TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
-        }
-        return TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
+        let resolved = isStructured
+            ? TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
+            : TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
+        return withStationGoal(resolved)
+    }
+
+    /// EL OBJETIVO DE LA ESTACIÓN, CUANDO EL SEGMENTO NO LO SABE.
+    ///
+    /// «1.000 m corriendo · 500 m ski · 1.000 m corriendo · …» se pliega en UN
+    /// segmento sin distancia, porque mezcla modalidades. La pantalla de la cinta
+    /// sacaba su objetivo de ahí, así que durante el kilómetro no enseñaba ni la
+    /// dosis ni los metros que faltaban: sólo un cronómetro. El objetivo SÍ existía,
+    /// un piso más abajo — en el tramo, que es el que sabe que esta estación son
+    /// 1.000 m, y es el mismo número contra el que el motor cierra la estación.
+    ///
+    /// Sólo se RELLENA un objetivo ausente; nunca se pisa uno que el segmento ya
+    /// traía. Y no se toca `ownsAutoAdvance`: el cierre de una estación lo hace el
+    /// motor (`advanceRunStationIfGoalMet`), y dos dueños la cerrarían dos veces.
+    private func withStationGoal(_ leg: TreadmillLeg) -> TreadmillLeg {
+        guard leg.goal == .open,
+              session.currentTramo.isFixedStation,
+              let target = session.currentTramo.targetDistanceMeters, target > 0
+        else { return leg }
+        return TreadmillLeg(phase: leg.phase,
+                            goal: .distance(meters: target),
+                            target: leg.target,
+                            ownsAutoAdvance: false)
     }
 
     var isRecovery: Bool { currentLeg.isRecovery }
@@ -698,56 +720,29 @@ final class TreadmillHUDModel {
         }
     }
 
-    /// Whether the machine odometer can be trusted for THIS sample. It's trusted while
-    /// it advances; the instant the belt is clearly moving but the odometer sits flat
-    /// for `odometerStallGraceSamples`, we stop trusting it and let the caller integrate
-    /// speed instead — a broken/frozen/coarse FTMS Total Distance (common on OEM belts
-    /// like the Titanium/Exercycle) would otherwise freeze covered meters at zero even
-    /// though speed reads fine. The stall count resets the moment the odometer moves
-    /// again, so a healthy machine always wins.
-    private func odometerIsLive(total: Double, speedKmh: Double?) -> Bool {
-        defer { lastOdometerRawM = total }
-        guard let last = lastOdometerRawM else { odometerStalledSamples = 0; return true }
-        if total > last + TreadmillConstants.odometerAdvanceEpsilonM {
-            odometerStalledSamples = 0
-            return true
-        }
-        // Flat odometer. If the belt isn't really moving that's CORRECT (integration
-        // would add nothing anyway), so keep trusting it. Only a flat odometer while the
-        // belt runs is the failure we route around.
-        guard (speedKmh ?? 0) > TreadmillConstants.minMovingSpeedKmh else { return true }
-        odometerStalledSamples += 1
-        return odometerStalledSamples < TreadmillConstants.odometerStallGraceSamples
-    }
+    // The odometer-health logic that used to live here (trust the machine's Total
+    // Distance while it advances, integrate speed×time once it freezes with the band
+    // running) moved to `TreadmillDistanceTracker` when the session feed stopped being
+    // this screen's job — one implementation, used by both.
 
+    /// Accumulate THIS LEG's covered metres for the ring and the auto-advance.
+    ///
+    /// It does NOT feed the session any more. The belt → session feed is owned by
+    /// `ActiveWorkoutView.feedTreadmill()`, which runs for the whole workout whether or
+    /// not this cover is open — because the recording can't depend on a screen being
+    /// presented (a run leg inside any format never opens this HUD). Writing here too
+    /// would double-count every metre. The increment MATH is not duplicated either:
+    /// both sides drive the same `TreadmillDistanceTracker`.
     private func updateLegDistance(from sample: TreadmillSample) {
-        guard !paused else { lastSampleAt = sample.lastUpdate; return }
-        let before = legDistanceM
-        if let total = sample.totalDistanceM, odometerIsLive(total: total, speedKmh: sample.speedKmh) {
-            // Prefer the machine's odometer WHILE IT IS ACTUALLY ADVANCING, zeroed at
-            // this leg's first sample so any overshoot from a prior leg is discarded
-            // (each leg counts from the reading at which it opens). On a cover REOPEN the
-            // leg already covered `pendingRehydratedLegDistanceM`; anchor the baseline
-            // below that reading so the ring resumes there, not at zero.
-            if distanceBaselineM == nil {
-                distanceBaselineM = total - (pendingRehydratedLegDistanceM ?? 0)
-                pendingRehydratedLegDistanceM = nil
-            }
-            legDistanceM = max(legDistanceM, total - (distanceBaselineM ?? total))
-        } else if let kmh = sample.speedKmh {
-            // No odometer, OR the odometer is frozen while the belt runs → integrate
-            // speed×time so the covered-meters readout keeps climbing. `max()` above
-            // keeps the whole run monotonic if the odometer later resumes.
-            let dt = lastSampleAt.map { sample.lastUpdate.timeIntervalSince($0) } ?? 0
-            legDistanceM = TreadmillMath.advanceDistance(legDistanceM, speedKmh: kmh, dt: min(dt, 5))
+        guard !paused else { _ = beltTracker.increment(from: sample); return }
+        // On a cover REOPEN the leg already covered this much — seed the ring so it
+        // resumes there instead of at zero (the tracker is fresh, so its first sample
+        // contributes 0 and nothing is double-counted).
+        if let rehydrated = pendingRehydratedLegDistanceM {
+            legDistanceM = max(legDistanceM, rehydrated)
+            pendingRehydratedLegDistanceM = nil
         }
-        lastSampleAt = sample.lastUpdate
-        // Feed the SESSION the covered-meters INCREMENT — the segment total lives there
-        // (summed across all legs), which is what PERSISTS the distance and drives the
-        // wrist mirror's belt ring. A rehydrated first sample yields inc 0 (the leg was
-        // seeded to `before`), so a reopen never double-counts.
-        let inc = legDistanceM - before
-        if inc > 0 { session.sampleTreadmillDistance(deltaMeters: inc) }
+        legDistanceM += beltTracker.increment(from: sample)
     }
 
     /// On a REOPEN of the treadmill cover mid-run this model is fresh (legDistanceM 0)
@@ -768,12 +763,10 @@ final class TreadmillHUDModel {
     private func accumulateAverages(from sample: TreadmillSample) {
         guard !paused else { return }
         if let v = sample.speedKmh { speedSum += v; speedCount += 1 }
-        if let v = sample.inclinePct {
-            inclineSum += v; inclineCount += 1
-            // Feed the belt grade into the SESSION so it averages incline over the
-            // whole segment (across structured legs) into the ONE segment lap (#62).
-            session.sampleTreadmillIncline(v)
-        }
+        // Only THIS screen's own average. The session's incline average is fed by
+        // `ActiveWorkoutView.feedTreadmill()` for the whole workout — feeding it here
+        // too would count every reading twice.
+        if let v = sample.inclinePct { inclineSum += v; inclineCount += 1 }
         if let v = currentBpm { bpmSum += v; bpmCount += 1 }
     }
 
@@ -794,6 +787,13 @@ final class TreadmillHUDModel {
 
     private func legKey() -> String {
         let seg = session.currentSegmentIndex
+        // UNA ESTACIÓN ES SU PROPIA PIERNA. Las cuatro carreras de «1.000 m · ski ·
+        // 1.000 m · trineo · …» comparten UN solo segmento (el bloque mezcla
+        // modalidades y se pliega), así que sin esto las cuatro serían la misma
+        // pierna: los metros no se reiniciarían y el segundo kilómetro empezaría
+        // marcando 1.000. El motor ya reancla su cero por tramo; esta clave es lo que
+        // hace que la pantalla lo acompañe.
+        if session.currentTramo.isFixedStation { return "\(seg)#tramo#\(session.tramoKey)" }
         if isStructured { return "\(seg)#struct#\(session.runLegIndex)" }
         guard isSeries else { return "\(seg)#single" }
         return "\(seg)#\(session.rotRoundIndex)#\(isWorkPhase ? "w" : "r")"
@@ -823,10 +823,12 @@ final class TreadmillHUDModel {
         legStartedAt = Date()
         pausedAccum = 0
         pauseStartedAt = paused ? Date() : nil
-        distanceBaselineM = nil
-        lastOdometerRawM = nil
-        odometerStalledSamples = 0
-        lastSampleAt = nil
+        // EACH LEG COUNTS FROM ITS OWN OPENING READING. Resetting the tracker makes the
+        // leg's first sample establish a new zero, which is what DISCARDS the overshoot
+        // — in a 4×400 the belt keeps running through the recovery jog, and those metres
+        // belong to nobody's work bout. (The SESSION's feeder keeps its own, unreset
+        // tracker: the segment total must stay continuous. Two questions, two trackers.)
+        beltTracker.reset()
         speedSum = 0; speedCount = 0
         inclineSum = 0; inclineCount = 0
         bpmSum = 0; bpmCount = 0

@@ -5,16 +5,31 @@
 import { describe, expect, test } from 'vitest';
 import {
   PACE_POINT_TOLERANCE_S,
+  RECOVERY_COMPLIANCE_LABEL,
+  RECOVERY_COMPLIANCE_TIER,
+  RECOVERY_DURATION_LABEL,
+  RECOVERY_DURATION_TIER,
   RPE_POINT_TOLERANCE,
   RUN_COMPLIANCE_LABEL,
   RUN_COMPLIANCE_TIER,
+  WORK_DURATION_LABEL,
+  WORK_DURATION_TIER,
+  evaluateRecoveryDuration,
+  evaluateRecoverySegment,
   evaluateRunSegment,
+  evaluateWorkDuration,
   hrBandFromTarget,
   paceBandFromResolvedZone,
   paceBandFromTarget,
   rpeBandFromTarget,
+  summarizeRecoveryCompliance,
+  summarizeRecoveryDuration,
   summarizeRunCompliance,
+  summarizeWorkDuration,
+  type RecoveryComplianceVerdict,
+  type RecoveryDurationVerdict,
   type RunComplianceVerdict,
+  type WorkDurationVerdict,
 } from '@fahybrid/shared/domain/adherence';
 
 describe('evaluateRunSegment — pace axis', () => {
@@ -168,6 +183,231 @@ describe('verdict presentation maps', () => {
   test('every verdict has a label', () => {
     for (const v of ['dentro', 'fuera_rapido', 'fuera_lento', 'sin_dato'] as const) {
       expect(RUN_COMPLIANCE_LABEL[v]).toBeTruthy();
+    }
+  });
+});
+
+// ── Recuperación (#66, Alex 12-ago): la dirección que importa se invierte ─────
+describe('evaluateRecoverySegment — solo "demasiado rápida" es un fallo', () => {
+  const band = paceBandFromResolvedZone(330, 360); // Z1: 5:30–6:00/km
+
+  test('dentro de la banda → controlada', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: 345 })).toBe('controlada');
+  });
+
+  test('más rápido que la banda (más intenso) → demasiado_rapida — el único fallo real', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: 300 })).toBe('demasiado_rapida');
+  });
+
+  test('MÁS LENTO que la banda (recuperación de sobra, o directamente parado) → controlada, NUNCA un fallo', () => {
+    // Un ritmo mucho más lento del pedido — o un "parado" que registre un
+    // ritmo carísimo/nulo — sigue siendo controlada: nadie falla por
+    // descansar de más. Esta es la prueba que distingue este módulo del
+    // trabajo, donde el mismo desvío sería 'fuera_lento' (un aviso).
+    expect(evaluateRecoverySegment(band, { pace_s: 600 })).toBe('controlada');
+  });
+
+  test('sin muestra ejecutada → sin_dato', () => {
+    expect(evaluateRecoverySegment(band, { pace_s: null })).toBe('sin_dato');
+  });
+
+  test('sin banda (no debería llamarse así desde el wire, pero es honesto igual) → sin_dato', () => {
+    expect(evaluateRecoverySegment(null, { pace_s: 345 })).toBe('sin_dato');
+  });
+
+  test('funciona igual en el eje de FC y de RPE — la dirección "más intenso" es la misma señal en cualquier eje', () => {
+    const hrBand = hrBandFromTarget({ min: 120, max: 140 });
+    expect(evaluateRecoverySegment(hrBand, { hr_bpm: 160 })).toBe('demasiado_rapida'); // pulso alto = recuperación que no lo fue
+    expect(evaluateRecoverySegment(hrBand, { hr_bpm: 100 })).toBe('controlada'); // pulso bajo = de sobra, no es un fallo
+
+    const rpeBand = rpeBandFromTarget({ value: 3 });
+    expect(evaluateRecoverySegment(rpeBand, { rpe: 8 })).toBe('demasiado_rapida');
+    expect(evaluateRecoverySegment(rpeBand, { rpe: 1 })).toBe('controlada');
+  });
+});
+
+describe('summarizeRecoveryCompliance', () => {
+  test('pct_controlada cuenta demasiado_rapida como el único fallo — el resto son controladas', () => {
+    const verdicts: RecoveryComplianceVerdict[] = [
+      'controlada',
+      'controlada',
+      'controlada',
+      'demasiado_rapida',
+      'sin_dato',
+    ];
+    const s = summarizeRecoveryCompliance(verdicts);
+    expect(s).toEqual({
+      total: 5,
+      evaluable: 4,
+      controlada: 3,
+      demasiado_rapida: 1,
+      sin_dato: 1,
+      pct_controlada: 75, // 3 / 4
+    });
+  });
+
+  test('todo sin_dato → pct null, nunca 0 ni NaN', () => {
+    const s = summarizeRecoveryCompliance(['sin_dato', 'sin_dato']);
+    expect(s.evaluable).toBe(0);
+    expect(s.pct_controlada).toBeNull();
+  });
+
+  test('sesión vacía (ninguna recuperación con objetivo) → total 0, pct null', () => {
+    expect(summarizeRecoveryCompliance([])).toEqual({
+      total: 0,
+      evaluable: 0,
+      controlada: 0,
+      demasiado_rapida: 0,
+      sin_dato: 0,
+      pct_controlada: null,
+    });
+  });
+});
+
+describe('verdict presentation maps — recuperación', () => {
+  test('tier: controlada=success, demasiado_rapida=warning, sin_dato=neutral', () => {
+    expect(RECOVERY_COMPLIANCE_TIER.controlada).toBe('success');
+    expect(RECOVERY_COMPLIANCE_TIER.demasiado_rapida).toBe('warning');
+    expect(RECOVERY_COMPLIANCE_TIER.sin_dato).toBe('neutral');
+  });
+
+  test('every verdict has a label', () => {
+    for (const v of ['controlada', 'demasiado_rapida', 'sin_dato'] as const) {
+      expect(RECOVERY_COMPLIANCE_LABEL[v]).toBeTruthy();
+    }
+  });
+});
+
+// ── Duración (#66, el coach al verificar la recuperación, 12-ago) ─────────────
+// Tolerancia: 10% relativo, reutilizada de bands.ts (bandRuleFor({measure_kind:
+// 'duration'}).on_target_max) — así que 90 s prescritos dan una ventana de
+// [81, 99] s, y 600 s (10 min) dan [540, 660] s. Los números de estos tests
+// están elegidos para caer justo dentro/fuera de esas ventanas.
+describe('evaluateRecoveryDuration — el fallo es PASARSE de tiempo', () => {
+  test('dentro de la ventana de tolerancia (10%) → duracion_controlada', () => {
+    expect(evaluateRecoveryDuration(90, 90)).toBe('duracion_controlada');
+    expect(evaluateRecoveryDuration(90, 99)).toBe('duracion_controlada'); // borde inclusive
+    expect(evaluateRecoveryDuration(90, 81)).toBe('duracion_controlada'); // borde inclusive
+  });
+
+  test('se pasó de tiempo (más allá del 10%) → duracion_excedida — el único fallo', () => {
+    expect(evaluateRecoveryDuration(90, 100)).toBe('duracion_excedida');
+    // El caso del encargo: 90 s pedidos, 3 min (180 s) reales.
+    expect(evaluateRecoveryDuration(90, 180)).toBe('duracion_excedida');
+  });
+
+  test('se quedó corto (menos del 10%) → duracion_controlada, NUNCA un fallo — es un mérito si acaso', () => {
+    expect(evaluateRecoveryDuration(90, 80)).toBe('duracion_controlada');
+    expect(evaluateRecoveryDuration(90, 10)).toBe('duracion_controlada'); // incluso pararse casi de inmediato
+    expect(evaluateRecoveryDuration(90, 0)).toBe('duracion_controlada');
+  });
+
+  test('sin duración ejecutada capturada → sin_dato', () => {
+    expect(evaluateRecoveryDuration(90, null)).toBe('sin_dato');
+  });
+});
+
+describe('evaluateWorkDuration — el fallo es QUEDARSE CORTO, la imagen especular de recuperación', () => {
+  test('dentro de la ventana → duracion_completa', () => {
+    expect(evaluateWorkDuration(600, 600)).toBe('duracion_completa');
+    expect(evaluateWorkDuration(600, 660)).toBe('duracion_completa'); // borde inclusive
+    expect(evaluateWorkDuration(600, 540)).toBe('duracion_completa'); // borde inclusive
+  });
+
+  test('se quedó corto (menos del 10%) → duracion_incompleta — el único fallo', () => {
+    expect(evaluateWorkDuration(600, 400)).toBe('duracion_incompleta');
+  });
+
+  test('se pasó de tiempo (más del 10%) → duracion_completa, NUNCA un fallo — hizo al menos lo pedido', () => {
+    expect(evaluateWorkDuration(600, 800)).toBe('duracion_completa');
+    expect(evaluateWorkDuration(600, 1200)).toBe('duracion_completa');
+  });
+
+  test('sin duración ejecutada capturada → sin_dato', () => {
+    expect(evaluateWorkDuration(600, null)).toBe('sin_dato');
+  });
+});
+
+describe('summarizeRecoveryDuration', () => {
+  test('pct_controlada cuenta duracion_excedida como el único fallo', () => {
+    const verdicts: RecoveryDurationVerdict[] = [
+      'duracion_controlada',
+      'duracion_controlada',
+      'duracion_controlada',
+      'duracion_excedida',
+      'sin_dato',
+    ];
+    expect(summarizeRecoveryDuration(verdicts)).toEqual({
+      total: 5,
+      evaluable: 4,
+      controlada: 3,
+      excedida: 1,
+      sin_dato: 1,
+      pct_controlada: 75,
+    });
+  });
+
+  test('sesión sin recuperaciones con duración prescrita → total 0, pct null', () => {
+    expect(summarizeRecoveryDuration([])).toEqual({
+      total: 0,
+      evaluable: 0,
+      controlada: 0,
+      excedida: 0,
+      sin_dato: 0,
+      pct_controlada: null,
+    });
+  });
+});
+
+describe('summarizeWorkDuration', () => {
+  test('pct_completa cuenta duracion_incompleta como el único fallo', () => {
+    const verdicts: WorkDurationVerdict[] = [
+      'duracion_completa',
+      'duracion_completa',
+      'duracion_incompleta',
+      'sin_dato',
+    ];
+    expect(summarizeWorkDuration(verdicts)).toEqual({
+      total: 4,
+      evaluable: 3,
+      completa: 2,
+      incompleta: 1,
+      sin_dato: 1,
+      pct_completa: 67,
+    });
+  });
+
+  test('sin tramos de trabajo con duración prescrita → total 0, pct null', () => {
+    expect(summarizeWorkDuration([])).toEqual({
+      total: 0,
+      evaluable: 0,
+      completa: 0,
+      incompleta: 0,
+      sin_dato: 0,
+      pct_completa: null,
+    });
+  });
+});
+
+describe('verdict presentation maps — duración', () => {
+  test('tier de recuperación: duracion_controlada=success, duracion_excedida=warning, sin_dato=neutral', () => {
+    expect(RECOVERY_DURATION_TIER.duracion_controlada).toBe('success');
+    expect(RECOVERY_DURATION_TIER.duracion_excedida).toBe('warning');
+    expect(RECOVERY_DURATION_TIER.sin_dato).toBe('neutral');
+  });
+
+  test('tier de trabajo: duracion_completa=success, duracion_incompleta=warning, sin_dato=neutral', () => {
+    expect(WORK_DURATION_TIER.duracion_completa).toBe('success');
+    expect(WORK_DURATION_TIER.duracion_incompleta).toBe('warning');
+    expect(WORK_DURATION_TIER.sin_dato).toBe('neutral');
+  });
+
+  test('cada veredicto de duración (trabajo y recuperación) tiene etiqueta', () => {
+    for (const v of ['duracion_controlada', 'duracion_excedida', 'sin_dato'] as const) {
+      expect(RECOVERY_DURATION_LABEL[v]).toBeTruthy();
+    }
+    for (const v of ['duracion_completa', 'duracion_incompleta', 'sin_dato'] as const) {
+      expect(WORK_DURATION_LABEL[v]).toBeTruthy();
     }
   });
 });

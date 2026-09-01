@@ -1,15 +1,18 @@
 'use client';
 
-// Screen 7 · V2 microciclo editor — ONE editor, TWO zooms over the same real data:
+// Screen 7 · V2 microciclo editor — ONE editor, TWO zooms over the same real data
+// (rediseño ago-2026, contrato: docs/design/contrato-rediseno-editor-microciclos.md;
+// maqueta aprobada: docs/design/microciclos-editor-rediseno-mockup.html):
 //
-//   SEMANA (no `?dia`): compact week TABS (S1–S4 · N ses) + a full-width, always-
-//   visible FOCO row + the 7 day COLUMNS (Lun→Dom). Each day stacks its real block
-//   CHIPS (name + a content-summary line, modality accent). Rest → "Descanso";
-//   empty → a dashed add affordance. Clicking a day opens it.
+//   SEMANA (no `?dia`): week TABS (S1–S4 · N ses + puntitos de modalidad) + the
+//   full-width FOCO row + the WEEKSTRIP (sesiones/bloques/ejercicios + barra
+//   apilada + chip ámbar «sin dosis» + Copiar a…/Duplicar) + the 7-day board of
+//   SESSION cards (slot + título + bloques con dosis en mono). El tablero vive en
+//   SemanaBoard.tsx; las derivaciones puras en semana-model.ts.
 //
-//   DÍA (`?dia=N`): the SAME canvas swaps the 7-column grid for the focused day's
-//   editor (embedded DayEditor) — «← Semana» + ‹ › day nav live in the day header.
-//   The tabs + foco row stay visible above, so the two zooms feel like one surface.
+//   DÍA (`?dia=N`): the SAME canvas swaps the board for the focused day's editor
+//   (embedded DayEditor). The tabs + foco row stay visible above, so the two
+//   zooms feel like one surface.
 //
 // AGNOSTIC: a day is a flat, coach-named list of blocks — no imposed sections. The
 // week/day nav is a soft, in-place `?dia` navigation wrapped in a View Transition.
@@ -19,221 +22,26 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
-import {
-  DAY_LABELS_FULL,
-  dayCanvasHref,
-  duplicateWeekInMonth,
-  type DayBlockInfo,
-  type DayModalityInfo,
-} from '@/lib/dashboard/v2/planes-model';
+import { dayCanvasHref, duplicateWeekInMonth } from '@/lib/dashboard/v2/planes-model';
 import type { DayEditorModel } from '@/lib/dashboard/v2/editor-types';
-import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
-import type { MicroWeek } from '@/components/v2/planes/MicrocicloEditor';
+import { MODALITY_META } from '@/components/v2/constants';
+import type {
+  MicroWeek,
+  MicrocicloOwner,
+  MicrocicloDeliveredElsewhere,
+} from '@/components/v2/planes/MicrocicloEditor';
 import { CopyWeekModal } from '@/components/v2/planes/CopyWeekModal';
 import { AsignarAtletaModal } from '@/components/v2/planes/AsignarAtletaModal';
+import { ActivarPlanPersonalModal } from '@/components/v2/planes/ActivarPlanPersonalModal';
+import { DeleteMicrocicloModal } from '@/components/v2/planes/DeleteMicrocicloModal';
+import { SemanaBoard, vtEnabled } from '@/components/v2/planes/SemanaBoard';
+import { buildWeekOutline, weekModalities } from '@/components/v2/planes/semana-model';
 import { DayEditor } from '@/components/v2/editor/DayEditor';
 import { cn } from '@/lib/utils';
 
-// Shared view-transition-name (see v2-theme.css `.vt-day-editor`). The open-day
-// editor carries it via className; the day column it morphs from/to gets it
-// imperatively (forward) or via className (collapse), so the box interpolates.
-const VT_DAY_EDITOR = 'vt-day-editor';
-// Belt-and-braces guard around the API + reduced-motion (the CSS guards too).
-function vtEnabled(): boolean {
-  return (
-    typeof document !== 'undefined' &&
-    typeof document.startViewTransition === 'function' &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
-
-// Flatten the day's blocks (across AM/PM) in scheduled order for the column.
-function dayBlocks(day: DayModalityInfo): DayBlockInfo[] {
-  return day.sessions.flatMap((s) => s.blocks);
-}
-
-// Distinct modalities present across a full week (first-seen order) — the honest
-// "what does this week cover" summary, derived from real day content.
-function weekModalities(days: DayModalityInfo[]): V2Modality[] {
-  const seen = new Set<V2Modality>();
-  const out: V2Modality[] = [];
-  for (const d of days) {
-    for (const m of d.modalities) {
-      if (!seen.has(m)) {
-        seen.add(m);
-        out.push(m);
-      }
-    }
-  }
-  return out;
-}
-
-// One block CHIP on a day column: the coach's block NAME + a compact content
-// summary (first exercise · dose, honest — from the structured prescription), with
-// the block's modality as a left accent. No imposed section/group label.
-function BlockChip({ block }: { block: DayBlockInfo }) {
-  const first = block.lines[0];
-  const summary = first
-    ? `${first.name}${first.dose ? ` · ${first.dose}` : ''}`
-    : block.item_count > 0
-      ? `${block.item_count} ${block.item_count === 1 ? 'ejercicio' : 'ejercicios'}`
-      : null;
-  return (
-    <div
-      className="min-w-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-1.5 py-1"
-      style={
-        block.modality
-          ? { borderLeft: `3px solid var(${MODALITY_META[block.modality].colorVar})` }
-          : undefined
-      }
-    >
-      <div className="truncate text-label font-bold text-[color:var(--v2-fg)]">{block.title}</div>
-      {summary ? (
-        <div className="truncate text-eyebrow leading-snug text-[color:var(--v2-muted)]">
-          {summary}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-// One day COLUMN of the SEMANA grid. Workout → its real block chips; rest → the
-// "Descanso" card; empty → a dashed add affordance. The whole card is the link
-// that opens the day (View-Transition soft-nav on click). `carryMorphName` tags
-// this column with the shared morph name when the editor collapses back into it.
-function DayColumn({
-  day,
-  dayIndex,
-  href,
-  onNavigate,
-  carryMorphName = false,
-}: {
-  day: DayModalityInfo;
-  dayIndex: number;
-  href: string;
-  onNavigate: (href: string) => void;
-  carryMorphName?: boolean;
-}) {
-  const mod = day.dominant;
-  const isWorkout = day.session_count > 0 && !!mod;
-  const blocks = isWorkout ? dayBlocks(day) : [];
-  const morphClass = carryMorphName ? VT_DAY_EDITOR : undefined;
-
-  // Intercept the soft-nav: tag THIS column with the shared morph name (so the old
-  // snapshot maps it to the editor box) then hand off to the VT-wrapped push. Plain
-  // Link semantics (cmd/middle-click, no-JS) are preserved by the href.
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    if (!vtEnabled()) return; // let the Link soft-nav as today (instant)
-    e.preventDefault();
-    e.currentTarget.style.setProperty('view-transition-name', VT_DAY_EDITOR);
-    onNavigate(href);
-  };
-
-  const header = (
-    <div className="flex items-baseline justify-between gap-1 px-0.5">
-      <span className="truncate text-label font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-        {DAY_LABELS_FULL[dayIndex]}
-      </span>
-      {day.session_count > 1 ? (
-        <span className="v2-num shrink-0 text-eyebrow text-[color:var(--v2-faint)]">
-          {day.session_count} ses
-        </span>
-      ) : null}
-    </div>
-  );
-
-  const baseCard =
-    'v2-focus flex h-full min-h-[132px] flex-col gap-1.5 rounded-[var(--v2-r-m)] border p-2 transition-colors';
-
-  if (isWorkout) {
-    return (
-      <div className="flex h-full min-w-0 flex-col gap-1.5">
-        {header}
-        <Link
-          href={href}
-          scroll={false}
-          onClick={handleClick}
-          aria-label={`${DAY_LABELS_FULL[dayIndex]} · ${MODALITY_META[mod].label} · ${day.block_count} bloques`}
-          className={cn(
-            baseCard,
-            morphClass,
-            'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] hover:border-[color:var(--v2-border-strong)]',
-          )}
-          style={{ borderLeftWidth: '3px', borderLeftColor: `var(${MODALITY_META[mod].colorVar})` }}
-        >
-          <div className="flex flex-1 flex-col gap-1.5">
-            {blocks.map((b, i) => (
-              <BlockChip key={i} block={b} />
-            ))}
-          </div>
-          <span className="v2-num mt-auto pt-0.5 text-nano text-[color:var(--v2-faint)]">
-            {day.block_count} bl{day.item_count > 0 ? ` · ${day.item_count} ej` : ''}
-          </span>
-        </Link>
-      </div>
-    );
-  }
-
-  if (day.is_rest) {
-    return (
-      <div className="flex h-full min-w-0 flex-col gap-1.5">
-        {header}
-        <Link
-          href={href}
-          scroll={false}
-          onClick={handleClick}
-          aria-label={`${DAY_LABELS_FULL[dayIndex]} · descanso`}
-          className={cn(
-            baseCard,
-            morphClass,
-            'items-center justify-center border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]',
-          )}
-        >
-          <MIcon name="bedtime" size={20} />
-          <span className="text-label font-semibold">Descanso</span>
-          {day.focus ? (
-            <span className="px-2 text-center text-nano text-[color:var(--v2-faint)]">
-              {day.focus}
-            </span>
-          ) : null}
-          {day.has_recovery ? (
-            <span
-              className="mt-0.5 inline-flex items-center gap-1 text-nano font-semibold"
-              style={{ color: 'var(--v2-ok)' }}
-            >
-              <MIcon name="spa" size={11} />
-              Recuperación
-            </span>
-          ) : null}
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full min-w-0 flex-col gap-1.5">
-      {header}
-      <Link
-        href={href}
-        scroll={false}
-        onClick={handleClick}
-        aria-label={`${DAY_LABELS_FULL[dayIndex]} · añadir sesión`}
-        className={cn(
-          baseCard,
-          morphClass,
-          'items-center justify-center border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-        )}
-      >
-        <MIcon name="add" size={20} />
-        <span className="text-eyebrow font-medium">Añadir</span>
-      </Link>
-    </div>
-  );
-}
-
-// Compact week TABS (S1 · N ses …) — replaces the giant week-step cards. The active
-// tab lifts onto the surface with an accent session count.
+// Compact week TABS (S1 · N ses …) with the week's modality dots underneath (mock:
+// weektab.dots). Los puntos son señal secundaria: el conteo va en texto y las
+// modalidades también se leen (sr-only + weekstrip); el color nunca va solo.
 function WeekTabs({
   weeks,
   activeIndex,
@@ -251,6 +59,7 @@ function WeekTabs({
     >
       {weeks.map((w, i) => {
         const active = i === activeIndex;
+        const mods = weekModalities(w.days);
         return (
           <button
             key={w.id}
@@ -260,21 +69,38 @@ function WeekTabs({
             onClick={() => onSelect(i)}
             title={w.label}
             className={cn(
-              'v2-focus flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-2.5 py-1.5 text-xs font-bold transition-colors',
+              'v2-focus flex flex-col items-start gap-1 rounded-[var(--v2-r-s)] px-2.5 py-1.5 transition-colors',
               active
                 ? 'bg-[color:var(--v2-surface)] text-[color:var(--v2-fg)] shadow-[var(--v2-shadow-card)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
             )}
           >
-            <span className="v2-num">S{i + 1}</span>
-            <span
-              className={cn(
-                'text-eyebrow font-semibold',
-                active ? 'text-[color:var(--v2-accent)]' : 'text-[color:var(--v2-faint)]',
-              )}
-            >
-              {w.session_count} ses
+            <span className="flex items-center gap-1.5 text-xs font-bold">
+              <span className="v2-num">S{i + 1}</span>
+              <span
+                className={cn(
+                  'text-eyebrow font-semibold',
+                  active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-faint)]',
+                )}
+              >
+                {w.session_count} ses
+              </span>
             </span>
+            {/* Fila de puntos SIEMPRE presente (aunque vacía) para que las pestañas alineen. */}
+            <span aria-hidden className="flex h-1 items-center gap-1">
+              {mods.map((m) => (
+                <span
+                  key={m}
+                  className="h-1 w-1 rounded-full"
+                  style={{ background: `var(${MODALITY_META[m].colorVar})` }}
+                />
+              ))}
+            </span>
+            {mods.length > 0 ? (
+              <span className="sr-only">
+                {mods.map((m) => MODALITY_META[m].label).join(', ')}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -314,7 +140,7 @@ function WeekFocusRow({
 
   return (
     <div className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 py-2.5">
-      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
         <MIcon name="flag" size={14} />
         Foco {weekLabel}
       </span>
@@ -346,96 +172,31 @@ function WeekFocusRow({
   );
 }
 
-// Destructive confirm for "Borrar microciclo" — real DELETE, honest error, and on
-// success it leaves the (now-gone) canvas for the library. Escape / scrim close.
-function DeleteMicrocicloModal({
-  microcycleId,
-  name,
-  onClose,
-}: {
-  microcycleId: string;
-  name: string;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !busy) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, busy]);
-
-  const remove = async () => {
-    setBusy(true);
-    setError(false);
-    try {
-      const res = await fetch(`/api/coach/program-months/${microcycleId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        setError(true);
-        setBusy(false);
-        return;
-      }
-      router.push('/biblioteca');
-    } catch {
-      setError(true);
-      setBusy(false);
-    }
-  };
-
+// Plantilla vacía pero el atleta ya tiene semanas entregadas — franja HONESTA, tono
+// `info` (nunca rojo: no es un error, es un estado). Solo el llamador decide cuándo
+// pintarla (plantilla sin sesiones + entregado > 0); este componente no repite ese
+// cálculo, solo el copy + la salida al plan del atleta.
+function DeliveredElsewhereNotice({ notice }: { notice: MicrocicloDeliveredElsewhere }) {
+  const plural = notice.count !== 1;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
-      onClick={busy ? undefined : onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="Borrar microciclo"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]"
-      >
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-danger-soft)] text-[color:var(--v2-danger)]">
-            <MIcon name="delete" size={20} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl">Borrar microciclo</h2>
-            <p className="mt-1 text-sm text-[color:var(--v2-muted)]">
-              Vas a borrar «{name}» y todas sus semanas. Esta acción no se puede deshacer.
-            </p>
-          </div>
-        </div>
-        {error ? (
-          <p className="mt-3 text-body font-semibold text-[color:var(--v2-danger)]">
-            No se pudo borrar. Inténtalo de nuevo.
-          </p>
-        ) : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            <MIcon name={busy ? 'progress_activity' : 'delete'} size={16} />
-            {busy ? 'Borrando…' : 'Borrar microciclo'}
-          </button>
-        </div>
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-info)] bg-[color:var(--v2-info-soft)] p-3.5">
+      <MIcon name="info" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-info)]" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+          Esta plantilla está vacía, pero el atleta ya tiene sus semanas
+        </span>
+        <span className="text-xs text-[color:var(--v2-muted)]">
+          {plural ? 'Las' : 'La'} {notice.count} {plural ? 'sesiones' : 'sesión'} de{' '}
+          {notice.athlete_name} se {plural ? 'escribieron' : 'escribió'} día a día, no desde esta
+          plantilla. Aquí no verás su trabajo.
+        </span>
+        <Link
+          href={`/atletas/${notice.athlete_id}?tab=plan`}
+          className="v2-focus mt-1 inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-info)] px-3 py-1 text-xs font-semibold text-[color:var(--v2-info)] transition-colors hover:bg-[color:var(--v2-info)] hover:text-[color:var(--v2-bg)]"
+        >
+          Ver el plan de {notice.athlete_name}
+          <MIcon name="arrow_forward" size={14} />
+        </Link>
       </div>
     </div>
   );
@@ -446,6 +207,8 @@ export function MicrocicloV2({
   name,
   weeks,
   dayModel,
+  owner = null,
+  deliveredElsewhere = null,
 }: {
   microcycle_id: string;
   /** Microciclo template name (for "Asignar a atleta" + the delete confirm). */
@@ -453,6 +216,13 @@ export function MicrocicloV2({
   weeks: MicroWeek[];
   /** DÍA zoom level: the open day's editor model (`?dia=N`). null = full week. */
   dayModel?: DayEditorModel | null;
+  /** Whose PERSONAL plan this is (0164); null = a library microciclo. Swaps
+   *  "Asignar a atleta" (which implies picking ANY athlete — meaningless once a
+   *  plan already belongs to one) for the athlete context + an in-place activate. */
+  owner?: MicrocicloOwner | null;
+  /** Plantilla sin sesiones pero con trabajo ya entregado al atleta — null = nada
+   *  que avisar (el caso normal). */
+  deliveredElsewhere?: MicrocicloDeliveredElsewhere | null;
 }) {
   const router = useRouter();
   const [focusIndex, setFocusIndex] = useState(0);
@@ -463,7 +233,6 @@ export function MicrocicloV2({
     () => weeks[effectiveFocusIndex] ?? weeks[0] ?? null,
     [weeks, effectiveFocusIndex],
   );
-  const focusModalities = useMemo(() => (focus ? weekModalities(focus.days) : []), [focus]);
 
   // ── View-transition soft-nav ────────────────────────────────────────────
   // Wrap the `?dia` push in document.startViewTransition so the canvas morphs as
@@ -507,6 +276,16 @@ export function MicrocicloV2({
     if (activeDayIndex !== null) setCollapseDay(activeDayIndex);
     navigate(`/microciclos/${microcycle_id}`);
   }, [activeDayIndex, navigate, microcycle_id]);
+
+  // Frontera SEMANA↔DÍA (contrato): el outline de la semana en foco para el rail
+  // del editor de día, y el salto a otro día (1..7) por el MISMO soft-nav `?dia`.
+  // Estables (useMemo/useCallback) para no re-envolver el nav en cada render.
+  const weekOutline = useMemo(() => (focus ? buildWeekOutline(focus.days) : []), [focus]);
+  const selectDay = useCallback(
+    (dia: number) =>
+      navigate(dayCanvasHref(microcycle_id, effectiveFocusIndex * 7 + dia - 1)),
+    [navigate, microcycle_id, effectiveFocusIndex],
+  );
 
   // Duplicar la semana en foco: clon puro (sin progresión) enganchado justo
   // después de ésta. Al volver, deja al coach EN la copia (índice + 1).
@@ -568,7 +347,7 @@ export function MicrocicloV2({
             type="button"
             onClick={addWeek}
             disabled={addingWeek}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
           >
             <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={16} />
             {addingWeek ? 'Añadiendo…' : 'Añadir semana'}
@@ -595,6 +374,8 @@ export function MicrocicloV2({
 
   return (
     <div className="flex flex-col gap-3">
+      {deliveredElsewhere ? <DeliveredElsewhereNotice notice={deliveredElsewhere} /> : null}
+
       {/* Toolbar — week tabs + microciclo-level actions */}
       <div className="flex flex-wrap items-center gap-2">
         <WeekTabs weeks={weeks} activeIndex={effectiveFocusIndex} onSelect={selectWeek} />
@@ -603,7 +384,7 @@ export function MicrocicloV2({
           onClick={addWeek}
           disabled={addingWeek}
           title="Añade una semana vacía al final del microciclo"
-          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+          className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
         >
           <MIcon name={addingWeek ? 'progress_activity' : 'add'} size={15} />
           {addingWeek ? 'Añadiendo…' : 'Semana'}
@@ -614,19 +395,43 @@ export function MicrocicloV2({
             type="button"
             onClick={() => setDeleteOpen(true)}
             title="Borra este microciclo y todas sus semanas"
-            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
           >
             <MIcon name="delete" size={15} />
             Borrar
           </button>
-          <button
-            type="button"
-            onClick={() => setAssignOpen(true)}
-            title="Asigna este microciclo a un atleta (en borrador)"
-            className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="assignment_ind" size={15} /> Asignar a atleta
-          </button>
+          {owner ? (
+            <>
+              {/* La vuelta al atleta: era una etiqueta muerta y el coach se
+                  quedaba sin salida (solo el atrás del navegador). Misma voz
+                  que el editor de día. */}
+              <Link
+                href={`/atletas/${owner.athlete_id}?tab=plan`}
+                title={`Volver a la ficha de ${owner.athlete_name}`}
+                className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+              >
+                <MIcon name="arrow_back" size={15} />
+                Plan de {owner.athlete_name}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setAssignOpen(true)}
+                title="Elige desde qué lunes este atleta ve el plan"
+                className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+              >
+                <MIcon name="play_arrow" size={15} /> Poner en marcha
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAssignOpen(true)}
+              title="Asigna este microciclo a un atleta (en borrador)"
+              className="v2-focus inline-flex h-8 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            >
+              <MIcon name="assignment_ind" size={15} /> Asignar a atleta
+            </button>
+          )}
         </div>
       </div>
 
@@ -641,104 +446,47 @@ export function MicrocicloV2({
         />
       ) : null}
 
-      {/* Body — DÍA zoom (embedded editor) or SEMANA zoom (7 day columns). */}
+      {/* Body — DÍA zoom (embedded editor) or SEMANA zoom (weekstrip + board). */}
       {dayModel ? (
-        <section className="vt-day-editor rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 sm:p-4">
+        <section className="vt-day-editor rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 sm:p-4">
+          {/* key por identidad SEMANA+DÍA (mismo `dayKey` de arriba): sin ella
+              React reutiliza la instancia al cambiar de día — DayEditor guarda
+              sus sesiones en useState(initial) sin resincronizar, así que el
+              panel se quedaba mostrando el día anterior mientras cabecera y
+              carril ya marcaban el nuevo (bug real, no cosmético, cazado en
+              QA de producción; day_of_week solo no basta porque dos semanas
+              comparten el mismo 1..7). */}
           <DayEditor
+            key={dayKey}
             model={dayModel}
             embedded
             onBackToWeek={closeDay}
             onNavigateDay={navigate}
             prevDayHref={prevDayHref}
             nextDayHref={nextDayHref}
+            weekOutline={weekOutline}
+            onSelectDay={selectDay}
           />
         </section>
-      ) : (
-        <section className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-          {/* Week meta + week-level actions */}
-          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h2 className="text-sm font-bold text-[color:var(--v2-fg)]">
-              Semana {effectiveFocusIndex + 1}
-              {focus?.label ? (
-                <span className="ml-1.5 font-medium text-[color:var(--v2-muted)]">
-                  · {focus.label}
-                </span>
-              ) : null}
-            </h2>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="v2-num text-label font-semibold text-[color:var(--v2-muted)]">
-                {focus?.session_count ?? 0}{' '}
-                {(focus?.session_count ?? 0) === 1 ? 'sesión' : 'sesiones'}
-              </span>
-              {focusModalities.length > 0 ? (
-                <>
-                  <span className="text-[color:var(--v2-faint)]">·</span>
-                  <div className="flex flex-wrap gap-1">
-                    {focusModalities.map((m) => (
-                      <span
-                        key={m}
-                        className="rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-nano font-semibold"
-                        style={{
-                          background: `var(${MODALITY_META[m].softVar})`,
-                          color: `var(${MODALITY_META[m].colorVar})`,
-                        }}
-                      >
-                        {MODALITY_META[m].label}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-            </div>
-
-            <div className="ml-auto flex items-center gap-1.5">
-              {weeks.length > 1 && focus ? (
-                <button
-                  type="button"
-                  onClick={() => setCopyOpen(true)}
-                  title="Copia el contenido de esta semana sobre otras semanas del microciclo"
-                  className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-                >
-                  <MIcon name="library_add" size={14} />
-                  Copiar a…
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={duplicateWeek}
-                disabled={duplicating}
-                title="Crea una copia idéntica de esta semana justo después"
-                className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
-              >
-                <MIcon name={duplicating ? 'progress_activity' : 'content_copy'} size={14} />
-                {duplicating ? 'Duplicando…' : 'Duplicar semana'}
-              </button>
-            </div>
-
-            {duplicateError ? (
-              <p className="basis-full text-label font-semibold text-[color:var(--v2-danger)]">
-                No se pudo duplicar la semana. Inténtalo de nuevo.
-              </p>
-            ) : null}
-          </div>
-
-          {/* The 7 day columns — responsive: 2/3 up top on small, 7 equal columns
-              on desktop. Clicking a day opens the DÍA zoom (soft-nav + VT). */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-h-[58vh] lg:grid-cols-7 lg:[grid-template-rows:minmax(0,1fr)]">
-            {(focus?.days ?? []).map((day, i) => (
-              <DayColumn
-                key={day.day_of_week}
-                day={day}
-                dayIndex={i}
-                href={dayCanvasHref(microcycle_id, dayBase + i)}
-                onNavigate={navigate}
-                carryMorphName={i === collapseDay}
-              />
-            ))}
-          </div>
+      ) : focus ? (
+        <section className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+          <SemanaBoard
+            microcycleId={microcycle_id}
+            week={focus}
+            weekIndex={effectiveFocusIndex}
+            weeks={weeks}
+            dayBase={dayBase}
+            onNavigate={navigate}
+            collapseDay={collapseDay}
+            onChanged={() => router.refresh()}
+            canCopyWeek={weeks.length > 1}
+            onCopyWeek={() => setCopyOpen(true)}
+            onDuplicateWeek={() => void duplicateWeek()}
+            duplicating={duplicating}
+            duplicateError={duplicateError}
+          />
         </section>
-      )}
+      ) : null}
 
       {/* Copiar a… — estampa el contenido de la semana en foco sobre otras. */}
       {copyOpen && focus ? (
@@ -750,11 +498,22 @@ export function MicrocicloV2({
         />
       ) : null}
 
-      {/* Asignar a atleta — closes the library→athlete loop (assign in draft). */}
-      {assignOpen ? (
+      {/* Asignar a atleta — closes the library→athlete loop (assign in draft).
+          A PERSONAL plan skips the roster picker (it already belongs to one
+          athlete) and activates in place instead. */}
+      {assignOpen && owner ? (
+        <ActivarPlanPersonalModal
+          athleteId={owner.athlete_id}
+          athleteName={owner.athlete_name}
+          monthTemplateId={microcycle_id}
+          totalWeeks={weeks.length}
+          onClose={() => setAssignOpen(false)}
+        />
+      ) : assignOpen ? (
         <AsignarAtletaModal
           monthTemplateId={microcycle_id}
           monthName={name}
+          totalWeeks={weeks.length}
           onClose={() => setAssignOpen(false)}
         />
       ) : null}

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
+import { upcomingMondayIso } from '@/lib/dashboard/v2/upcoming-monday';
 
 interface RosterAthlete {
   athlete_id: string;
@@ -22,26 +23,17 @@ interface RosterAthlete {
   level_name: string | null;
 }
 
-/** This/next Monday (local) as YYYY-MM-DD — the materializer Monday-aligns the
- *  start anyway, so we default to a Monday for an honest preview. */
-function upcomingMondayIso(): string {
-  const d = new Date();
-  const dow = d.getDay(); // 0 Sun … 6 Sat
-  const daysUntilMonday = (1 - dow + 7) % 7;
-  d.setDate(d.getDate() + daysUntilMonday);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 export function AsignarAtletaModal({
   monthTemplateId,
   monthName,
+  totalWeeks,
   onClose,
 }: {
   monthTemplateId: string;
   monthName?: string;
+  /** Nº de semanas de la plantilla — habilita el selector de semana de entrada
+   *  cuando hay más de una. */
+  totalWeeks?: number;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -53,6 +45,7 @@ export function AsignarAtletaModal({
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>(upcomingMondayIso());
+  const [startWeek, setStartWeek] = useState<number>(1);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +93,11 @@ export function AsignarAtletaModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ month_template_id: monthTemplateId, start_date: startDate }),
+        body: JSON.stringify({
+          month_template_id: monthTemplateId,
+          start_date: startDate,
+          ...(startWeek > 1 ? { start_week_number: startWeek } : {}),
+        }),
       });
       const body = (await res.json().catch(() => null)) as
         | { assign_draft?: { assignment_count?: number }; error?: { message?: string } }
@@ -152,7 +149,7 @@ export function AsignarAtletaModal({
             type="button"
             aria-label="Cerrar"
             onClick={onClose}
-            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>
@@ -176,14 +173,14 @@ export function AsignarAtletaModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 Cerrar
               </button>
               <button
                 type="button"
                 onClick={goToPlan}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
               >
                 <MIcon name="arrow_forward" size={16} />
                 Abrir plan y publicar
@@ -244,7 +241,7 @@ export function AsignarAtletaModal({
                               </span>
                             ) : null}
                             {active ? (
-                              <MIcon name="check" size={16} className="text-[color:var(--v2-accent)]" />
+                              <MIcon name="check" size={16} className="text-[color:var(--v2-accent-text)]" />
                             ) : null}
                           </span>
                         </button>
@@ -265,6 +262,28 @@ export function AsignarAtletaModal({
               />
             </label>
 
+            {totalWeeks && totalWeeks > 1 ? (
+              <label className="flex flex-col gap-1.5">
+                <span className="v2-micro">Semana de entrada</span>
+                <select
+                  value={startWeek}
+                  onChange={(e) => setStartWeek(Number(e.target.value))}
+                  className={cn(inputCls, 'v2-num')}
+                >
+                  {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      Semana {w} de {totalWeeks}
+                    </option>
+                  ))}
+                </select>
+                {startWeek > 1 ? (
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Entra directamente en la semana {startWeek}; no ve las anteriores.
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
+
             {error ? (
               <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>
             ) : null}
@@ -273,7 +292,7 @@ export function AsignarAtletaModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+                className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
               >
                 Cancelar
               </button>
@@ -281,7 +300,7 @@ export function AsignarAtletaModal({
                 type="button"
                 onClick={handleAssign}
                 disabled={!canSubmit}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
               >
                 {submitting ? (
                   <>

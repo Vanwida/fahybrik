@@ -258,6 +258,75 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
     expect(exec[0]!.rpe).toBe(8);
   }, DB_TIMEOUT);
 
+  // CARD 120 — un entreno libre reenviado es el MISMO entreno.
+  //
+  // El 20-ago, al vaciarse la cola de reintentos del iPhone, un libre entró dos
+  // veces: dos sesiones de 11:28 con los mismos ocho tramos y los mismos metros
+  // para un trabajo que ocurrió una sola vez. Una sesión del plan no puede
+  // duplicarse (una ejecución por asignación); un libre no tenía esa red.
+  test('el mismo libre reenviado no crea una segunda sesión (card 120)', async () => {
+    const fx = await newFixture();
+    const empezoA = '2026-08-19T09:21:28.000Z';
+    const cuerpo = {
+      athleteId: fx.athleteId,
+      coachId: fx.coachId,
+      title: 'Cinta + fuerza',
+      scheme: 'emom' as const,
+      metrics: {
+        perceived_exertion: 9,
+        total_duration_seconds: 688,
+        completeness: 'full' as const,
+        started_at: empezoA,
+        ended_at: '2026-08-19T09:34:43.000Z',
+      },
+      kind: 'clock' as const,
+      prescription: p({ scheme: 'emom', modality: 'functional', rounds: 8, work_s: 60, rest_s: 0 }),
+      sql,
+    };
+
+    const primero = await createFreeWorkout(cuerpo);
+    const segundo = await createFreeWorkout(cuerpo);
+
+    // Mismo entreno, misma fila: el reenvío devuelve lo que ya había.
+    expect(segundo.assignment_id).toBe(primero.assignment_id);
+    expect(segundo.execution_id).toBe(primero.execution_id);
+
+    const cuantas = await sql<Array<{ n: string }>>`
+      select count(*)::text as n
+      from workout_assignments
+      where athlete_id = ${fx.athleteId} and origin = 'self'
+    `;
+    expect(Number(cuantas[0]!.n)).toBe(1);
+
+    // Y se archiva en el día en que se entrenó, no en el de la subida.
+    const asg = await readAssignment(Number(primero.assignment_id));
+    expect(asg.scheduled_for).toBe('2026-08-19');
+  }, DB_TIMEOUT);
+
+  // Dos entrenos DISTINTOS del mismo día siguen siendo dos: la llave es el
+  // instante de arranque, y un atleta no empieza dos cosas a la vez.
+  test('dos libres del mismo día con arranques distintos siguen siendo dos', async () => {
+    const fx = await newFixture();
+    const base = {
+      athleteId: fx.athleteId,
+      coachId: fx.coachId,
+      title: 'Cinta',
+      scheme: 'emom' as const,
+      kind: 'clock' as const,
+      prescription: p({ scheme: 'emom', modality: 'functional', rounds: 6, work_s: 60, rest_s: 0 }),
+      sql,
+    };
+    const manana = await createFreeWorkout({
+      ...base,
+      metrics: { total_duration_seconds: 363, started_at: '2026-08-19T08:29:45.000Z' },
+    });
+    const mediodia = await createFreeWorkout({
+      ...base,
+      metrics: { total_duration_seconds: 421, started_at: '2026-08-19T09:09:03.000Z' },
+    });
+    expect(mediodia.assignment_id).not.toBe(manana.assignment_id);
+  }, DB_TIMEOUT);
+
   test('FREE athlete (no coach) saves the libre — athlete-owned instance, zero coach surface', async () => {
     // Requires migration 0141 (templates_owner_chk) on the branch. Against a
     // pre-0141 branch this test is RED (templates.coach_id NOT NULL rejects the

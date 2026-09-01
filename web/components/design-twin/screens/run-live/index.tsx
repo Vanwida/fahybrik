@@ -13,13 +13,35 @@ import { HUDCalle } from './hud-calle';
 import { HUDCinta } from './hud-cinta';
 import { GuiaCinta, PasoDonde, type EnlaceCinta } from './prestart';
 
+// POR QUÉ ESTA PANTALLA VUELVE A «CONSTRUIDA» (10-ago-2026).
+//
+// Se sellaba `espejo` del 3-ago, y al re-verificarla contra el Swift de hoy salió
+// que ya mentía ANTES de ese sello: el sujeto del HUD de calle dejó de llevar la
+// sub-línea «Objetivo 4:35 · DENTRO» el 29-jul (commit b49684a2), y desde entonces
+// enseña una PASTILLA DE DESVÍO —«+7 s vs objetivo», `DeltaPastilla` de
+// `Theme/LenguajeVivoUI.swift`, que ni siquiera está en `fuentes`— y colorea el
+// numeral con la escala del §10 (dentro = ok, RÁPIDO = warning), no con el
+// dos-colores de aquí. Eso es una pasada de re-verificación propia, no un apaño de
+// paso, así que el estado dice la verdad: se construyó, no soy fiel.
+//
+// Lo que SÍ queda re-verificado hoy, línea a línea contra el Swift:
+//   · la línea de dosis del bloque, que ahora sale de la estructura (#61)
+//   · la cabecera de formato: `wodHeader` escribe «Series», no «Intervalos»
+//   · el ritmo objetivo con su unidad PEGADA («4:35/km»), en los dos HUD
+//   · «Objetivo 4:35/km · pon 13,1» en la cinta (`objetivoConMarca`, 9-ago)
+//   · las distancias con coma española, y la MEDIDA con sus dos decimales
+//   · el aspa: sale del ENTRENO, no «cierra la pantalla» (5-ago, murieron los covers)
+//
+// Lo que queda pendiente para volver a `espejo`: la pastilla de desvío + la escala
+// de color del sujeto de calle, y añadir `Theme/LenguajeVivoUI.swift` a `fuentes`.
 export const meta: TwinMeta = {
   id: 'run-live',
   titulo: 'Correr — calle y cinta',
   zona: 'Entreno en vivo',
-  estado: 'espejo',
+  estado: 'construida',
+  actualizado: '2026-08-10',
   descripcion:
-    '4×1000 @ 4:35: puerta de bloque, «¿Dónde corres hoy?», y el HUD de calle (GPS, mapa, autopausa) o el de cinta (velocidad manual honesta) — gira el marco en el HUD.',
+    '4 × 1 km @ 4:35 con 2 min al trote: puerta de bloque, «¿Dónde corres hoy?», y el HUD de calle (GPS, mapa, autopausa) o el de cinta (la velocidad la pones tú, y te decimos qué número marcar) — gira el marco en el HUD.',
   fuentes: [
     'ios/FAHYBRIK/Workout/BlockPreviewGate.swift',
     'ios/FAHYBRIK/Workout/RunPreStartFlow.swift',
@@ -27,6 +49,10 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Workout/Outdoor/RunRouteMapView.swift',
     'ios/FAHYBRIK/Workout/Outdoor/RunAutoPause.swift',
     'ios/FAHYBRIK/Devices/Treadmill/TreadmillHUDView.swift',
+    // La línea de dosis de la puerta la escribe el formateador, no la vista: sin
+    // estos dos, el espejo afirmaba una línea cuya fuente no declaraba.
+    'ios/FAHYBRIKCore/Plan/PrescriptionRenderer.swift',
+    'ios/FAHYBRIKCore/Workout/WorkoutModels.swift',
   ],
   dispositivo: 'iphone',
   soportaHorizontal: true,
@@ -107,7 +133,10 @@ export function Screen({ orientation, escenario, onLog }: TwinScreenProps) {
           setEnlace={setEnlaceCinta}
           onEmpezar={() => setFase('hud')}
           onSinConectar={() => {
-            onLog('Correr sin conectar → la distancia se apunta a mano');
+            // Ya no baja a un HUD genérico ni a apuntar la distancia a mano
+            // (`ManualEntryControl` murió con los covers el 5-ago): se queda en su
+            // pantalla, que sin cinta degrada sola a reloj del tramo, objetivo y pulso.
+            onLog('Correr sin conectar → se queda en la pantalla, sin lectura de la cinta');
             setFase('hud');
           }}
           onAtras={() => setFase('donde')}

@@ -31,6 +31,10 @@ vi.mock('resend', () => ({
   },
 }));
 
+vi.mock('@/lib/coach/club-notify', () => ({
+  resolveClubNotifyEmail: vi.fn(async () => null),
+}));
+
 // El remitente está guardado: sin API key las funciones ni renderizan. Le damos una.
 process.env.RESEND_API_KEY = 'test-key';
 

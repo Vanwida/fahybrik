@@ -1,7 +1,7 @@
 // GUÍA · 03 Tu catálogo de ejercicios — área "Tu biblioteca". BUILT.
 // Real flow: ExercisePicker command-sheet (buscar · crear · editar tu versión) +
-// el vídeo de YouTube y las indicaciones que el atleta ve en el detalle del
-// ejercicio en iOS. Modalidad intrínseca al ejercicio (mig 0053). Doc kit en
+// el vídeo (subido o de YouTube) y las indicaciones que el atleta ve en el detalle
+// del ejercicio. Modalidad intrínseca al ejercicio (mig 0053). Doc kit en
 // '../doc'; hues canónicos var(--v2-mod-*).
 
 import {
@@ -30,8 +30,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Cada ejercicio que pones en una sesión sale de tu <b>catálogo</b>: un movimiento con su
-          nombre, su tipo y, si quieres, tu <b>vídeo</b> y tus indicaciones. No escribes texto suelto
-          — eliges del catálogo, y eso es lo que tu atleta abre en el móvil para ver cómo se hace.
+          nombre, su tipo y, si quieres, tu <b>vídeo</b> y tus indicaciones. No escribes texto suelto:
+          eliges del catálogo, y eso es lo que tu atleta abre en el móvil para ver cómo se hace.
         </>
       }
     >
@@ -64,24 +64,26 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         filtras por tipo (<code>Fuerza</code>, <code>Cardio</code>, <code>HYROX</code>,{' '}
         <code>Core</code>, <code>Movilidad</code>…) y eliges. Arriba aparecen tus{' '}
         <em className="em">Recientes</em>, los que más usas. Cada movimiento ya trae su modalidad, y
-        al elegirlo la línea de la sesión queda enganchada a un ejercicio real — nada de nombres
+        al elegirlo la línea de la sesión queda enganchada a un ejercicio real: nada de nombres
         sueltos que se pierden al guardar.
       </p>
 
       <h3>2 · Si no existe, lo creas al vuelo</h3>
       <p>
         ¿No encuentras el ejercicio? La última opción del buscador es{' '}
-        <code>Crear “…” como ejercicio nuevo</code>: le pones nombre, eliges el tipo de movimiento y
-        — si quieres — pegas ya un vídeo de YouTube. Queda guardado en tu catálogo y disponible para
-        cualquier sesión futura.
+        <code>Crear “…” como ejercicio nuevo</code>: le pones nombre, eliges el tipo de movimiento y,
+        si quieres, le cuelgas ya el vídeo. Queda guardado en tu catálogo y disponible para cualquier
+        sesión futura.
       </p>
 
       <h3>3 · Tu vídeo y tus indicaciones</h3>
       <p>
-        En cualquier ejercicio puedes editar <b>tu versión</b>: pegar un <code>vídeo de YouTube</code>
-        , escribir tus <em className="em">indicaciones (cues)</em> y una descripción. El panel te lo
-        confirma — <code>El atleta verá el vídeo en el detalle del ejercicio en iOS.</code> Lo que
-        dejes en blanco hereda el contenido base; lo que escribas, lo verán <b>tus</b> atletas.
+        En cualquier ejercicio puedes editar <b>tu versión</b>: ponerle el vídeo, escribir tus{' '}
+        <em className="em">indicaciones (cues)</em> y una descripción. El vídeo tiene dos caminos y
+        vale cualquiera de los dos: <code>Subir vídeo</code>, con un fichero tuyo del ordenador o del
+        móvil, o pegar un <code>enlace de YouTube</code>. Se reproduce en el propio campo, así que
+        ves lo que has puesto sin abrir otra pestaña. Lo que dejes en blanco hereda el contenido
+        base; lo que escribas, lo verán <b>tus</b> atletas.
       </p>
 
       {/* Dashboard mockup: the exercise picker command-sheet */}
@@ -149,7 +151,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           El vídeo y las indicaciones que editas son <b>tuyos</b>: solo los ven tus atletas. El mismo
           ejercicio puede tener tu cue particular sin pisar el contenido base. Si lo dejas vacío, el
-          atleta ve el contenido base — nunca un hueco.
+          atleta ve el contenido base, nunca un hueco.
         </p>
       </DocNote>
 

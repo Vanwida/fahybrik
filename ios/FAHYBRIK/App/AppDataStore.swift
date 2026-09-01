@@ -66,8 +66,8 @@ struct Slice<Value: Codable>: Codable {
 // weekly plan, macro progress, today's readiness, the coach thread (unread
 // count), the Dobles partner envelope, and the subscription snapshot. The
 // CARRERAS tab is now folded in too — the unified races hub (upcoming objectives
-// + past results), the race-context overview, and the live training analytics —
-// so it opens instantly from the same store/SWR/disk machinery (and its imported
+// + past results) and the race-context overview — so it opens instantly from the
+// same store/SWR/disk machinery (and its imported
 // history lives here, not in a separate cache). The CHAT tab is folded in as well
 // — its message history is cached here (the thread envelope already was), so the
 // conversation renders instantly on open and the SSE stream layers live updates
@@ -80,21 +80,22 @@ final class AppDataStore {
     var identity = Slice<AthleteIdentity>()                 // /auth/me           — Inicio, Perfil
     var planWeek = Slice<AthletePlanWeekResponse>()         // /plan/week (offset 0) — Inicio, Plan, Perfil(coach)
     var macroProgress = Slice<AthleteMacroProgressResponse>() // /macro-progress  — Inicio week tile
+    var planCiclo = Slice<CicloDelPlanResponse>()            // /plan/ciclo        — Plan (la vista del ciclo)
     var readiness = Slice<DailyReadinessPayload>()          // /readiness/today   — Inicio
     var strengthMaxes = Slice<[StrengthMaxProfile]>()       // /benchmarks        — Inicio ("Tu progreso") + Perfil
     var runningAnalysis = Slice<RunningAnalysis>()          // /running-analysis  — Inicio ("Tu progreso · carrera") + Carreras
     var chatThread = Slice<ChatThreadDTO>()                 // /chat/threads      — Inicio (unread) + Chat (coach identity)
     var chatMessages = Slice<[ChatMessageDTO]>()            // /chat/threads/me/messages — Chat (message history)
+    var communications = Slice<ComunicadosInbox>()          // /athlete/communications — Inicio (globito) + Del coach
     var partner = Slice<PartnerEnvelope>()                  // /athlete/partner   — Inicio, Plan, Perfil
     var subscription = Slice<SubscriptionInfo>()            // /stripe/subscription — Perfil
 
     // Carreras-tab slices. The races hub is the single source of truth for both
     // the PRÓXIMAS (upcoming objectives) and PASADAS (imported history) lists —
     // and the single on-disk cache for that history. The overview powers the
-    // PASADAS race-derived analytics; analytics powers the RENDIMIENTO section.
+    // PASADAS race-derived analytics.
     var racesHub = Slice<RacesHubResponse>()                // /athlete/races        — Carreras (upcoming + past)
     var raceOverview = Slice<CarrerasOverview>()            // /athlete/race-context — Carreras (PASADAS analytics)
-    var analytics = Slice<AthleteAnalytics>()               // /athlete/analytics    — Carreras (RENDIMIENTO)
 
     // ANALÍTICAS-tab cache. One slice per (section × period) — keyed by
     // "section:periodKey:from-to" — so switching to a section/period you've
@@ -107,11 +108,23 @@ final class AppDataStore {
     /// surface (bell dot, coach-note row) agrees.
     var unreadCount: Int { max(0, chatThread.value?.unreadForAthlete ?? 0) }
 
-    /// FREE tier (athlete without coach): there is no coach thread, so the chat
-    /// slices are never fetched — the free surface shows no chat affordance and
-    /// a pointless request (or its error noise) never fires. Set by AppShell
-    /// from AuthState.hasCoach before the first warm.
-    var chatEnabled: Bool = true
+    /// La bandeja «Del coach», ya repartida en sus cajones. Vacía mientras no
+    /// haya cargado — la pantalla distingue «cargando» de «no hay nada» con
+    /// `communications.hasLoaded`, no con esto.
+    var bandejaComunicados: BandejaComunicados {
+        BandejaComunicados.agrupar(communications.value?.communications ?? [])
+    }
+
+    /// Lo que la bandeja sigue reclamando — el globito de la cabecera. Sale del
+    /// estado LOCAL (misma regla que el servidor) para que un paso marcado sin
+    /// cobertura descuente al momento en vez de esperar a la próxima carga.
+    var comunicadosPendientes: Int { bandejaComunicados.pendientes }
+
+    /// FREE tier (athlete without coach): sin coach no hay hilo ni comunicados,
+    /// así que esas porciones no se piden nunca — la superficie libre no enseña
+    /// ni el chat ni la bandeja, y no dispara peticiones inútiles (ni su ruido de
+    /// error). Set by AppShell from AuthState.hasCoach before the first warm.
+    var hasCoach: Bool = true
 
     /// The bearer this in-memory data belongs to. Slices are cleared / rescoped
     /// when it changes (sign-out, athlete switch) so one athlete never sees
@@ -152,16 +165,17 @@ final class AppDataStore {
             identity = snapshot.identity
             planWeek = snapshot.planWeek
             macroProgress = snapshot.macroProgress
+            planCiclo = snapshot.planCiclo
             readiness = snapshot.readiness
             strengthMaxes = snapshot.strengthMaxes
             runningAnalysis = snapshot.runningAnalysis
             chatThread = snapshot.chatThread
             chatMessages = snapshot.chatMessages
+            communications = snapshot.communications
             partner = snapshot.partner
             subscription = snapshot.subscription
             racesHub = snapshot.racesHub
             raceOverview = snapshot.raceOverview
-            analytics = snapshot.analytics
             analyticsSections = snapshot.analyticsSections
         } else {
             // Different (or no) prior session on disk — start clean.
@@ -174,16 +188,17 @@ final class AppDataStore {
         identity = .init()
         planWeek = .init()
         macroProgress = .init()
+        planCiclo = .init()
         readiness = .init()
         strengthMaxes = .init()
         runningAnalysis = .init()
         chatThread = .init()
         chatMessages = .init()
+        communications = .init()
         partner = .init()
         subscription = .init()
         racesHub = .init()
         raceOverview = .init()
-        analytics = .init()
         analyticsSections = [:]
     }
 
@@ -202,9 +217,10 @@ final class AppDataStore {
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
+        async let co: Void = refreshCommunications(force: force)
         async let pa: Void = refreshPartner(force: force)
         async let s: Void = refreshSubscription(force: force)
-        _ = await (i, p, m, r, sm, ra, c, pa, s)
+        _ = await (i, p, m, r, sm, ra, c, co, pa, s)
     }
 
     /// Inicio: identity, plan, macro progress, readiness, the running analysis +
@@ -217,8 +233,9 @@ final class AppDataStore {
         async let sm: Void = refreshStrengthMaxes(force: force)
         async let ra: Void = refreshRunningAnalysis(force: force)
         async let c: Void = refreshChatThread(force: force)
+        async let co: Void = refreshCommunications(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (i, p, m, r, sm, ra, c, pa)
+        _ = await (i, p, m, r, sm, ra, c, co, pa)
     }
 
     /// FREE home (no coach): identity + the week — the strip of their own built
@@ -240,11 +257,24 @@ final class AppDataStore {
         _ = await (i, p, r)
     }
 
-    /// Plan: the current week + the partner (for the "Con [X]" badges).
+    /// Plan: the current week, the macro progress, the cycle and the partner (for
+    /// the "Con [X]" badges).
+    ///
+    /// The macro slice joined this group on 6-ago, when the Plan tab became the
+    /// screen that answers "¿dónde estoy dentro del bloque?": its header reads
+    /// "Semana N de M" off /macro-progress. Without it here the position appeared
+    /// only after a detour through Inicio (the other screen that warms the slice).
+    ///
+    /// El ciclo (11-ago) entra por la MISMA razón: se abre desde el cromo de esta
+    /// pestaña, así que se calienta con ella y la pantalla abre pintada en vez de
+    /// girar. Ya no sale de /macro-progress — tiene su propio endpoint, que es el
+    /// que trae la estructura entera (tramos, hitos, política y carrera).
     func loadPlanScreen(force: Bool = false) async {
         async let p: Void = refreshPlanWeek(force: force)
+        async let m: Void = refreshMacroProgress(force: force)
+        async let c: Void = refreshPlanCiclo(force: force)
         async let pa: Void = refreshPartner(force: force)
-        _ = await (p, pa)
+        _ = await (p, m, c, pa)
     }
 
     /// Perfil: identity, partner, subscription, the week (for the coach name) and
@@ -260,13 +290,17 @@ final class AppDataStore {
         _ = await (i, p, pa, s, sm)
     }
 
-    /// Carreras: the unified races hub (upcoming + past), the race-context
-    /// overview (PASADAS analytics) and the live training analytics (RENDIMIENTO).
+    /// Carreras: the unified races hub (upcoming + past) y el race-context
+    /// overview (las analíticas de PASADAS).
+    ///
+    /// Aquí colgaba una tercera llamada, `refreshAnalytics` (GET
+    /// /athlete/analytics): una analítica completa disparada en cada apertura de
+    /// Carreras cuya porción NO leía ni una pantalla del repo. Era red y batería
+    /// del atleta a cambio de nada, y se ha ido con su modelo y su servicio.
     func loadCarreras(force: Bool = false) async {
         async let r: Void = refreshRacesHub(force: force)
         async let o: Void = refreshRaceOverview(force: force)
-        async let a: Void = refreshAnalytics(force: force)
-        _ = await (r, o, a)
+        _ = await (r, o)
     }
 
     /// Chat: the message history (cache-first render) + the thread envelope (coach
@@ -346,6 +380,12 @@ final class AppDataStore {
         }
     }
 
+    func refreshPlanCiclo(force: Bool = false) async {
+        await revalidate(get: { self.planCiclo }, set: { self.planCiclo = $0 }, force: force) {
+            try await PlanService.fetchCiclo(bearer: $0)
+        }
+    }
+
     func refreshReadiness(force: Bool = false) async {
         // ReadinessService returns nil for an honest empty state — recorded as a
         // successful load with no value (hasLoaded stays true).
@@ -370,7 +410,7 @@ final class AppDataStore {
     }
 
     func refreshChatThread(force: Bool = false) async {
-        guard chatEnabled else { return }
+        guard hasCoach else { return }
         await revalidate(get: { self.chatThread }, set: { self.chatThread = $0 }, force: force) {
             try await ChatService.fetchThread(bearer: $0)
         }
@@ -379,7 +419,7 @@ final class AppDataStore {
     func refreshChatMessages(force: Bool = false) async {
         // Throwing fetch so a failed revalidation keeps the last good history
         // (SWR / offline-first), instead of nil wiping the cached conversation.
-        guard chatEnabled else { return }
+        guard hasCoach else { return }
         await revalidate(get: { self.chatMessages }, set: { self.chatMessages = $0 }, force: force) {
             try await ChatService.fetchMessages(bearer: $0)
         }
@@ -415,6 +455,35 @@ final class AppDataStore {
         persist()
     }
 
+    /// La bandeja «Del coach». Sin coach no existe, así que no se pide.
+    func refreshCommunications(force: Bool = false) async {
+        guard hasCoach else { return }
+        await revalidate(get: { self.communications }, set: { self.communications = $0 }, force: force) {
+            try await ComunicadosService.fetchInbox(bearer: $0)
+        }
+    }
+
+    /// Guarda un comunicado ya modificado —por un acto del atleta o por la
+    /// respuesta del servidor a ese acto— en la bandeja cacheada, y persiste.
+    ///
+    /// El acto se pinta AL MOMENTO y sobrevive a un cierre de la app: el atleta
+    /// marca el paso de su calentamiento en el pasillo de boxes, sin cobertura, y
+    /// lo que ve tiene que seguir ahí cuando vuelva a abrir. El envío lo persigue
+    /// la cola (ver `ComunicadoActOutcome`).
+    func applyCommunication(_ comunicado: Comunicado) {
+        guard let inbox = communications.value else { return }
+        var lista = inbox.communications
+        guard let idx = lista.firstIndex(where: { $0.id == comunicado.id }) else { return }
+        lista[idx] = comunicado
+        // `pending` se vuelve a contar con la MISMA regla que usa el servidor: si
+        // se dejara el número que vino con la carga, el globito seguiría
+        // enseñando un pendiente que el atleta acaba de cerrar.
+        communications.setLoaded(
+            ComunicadosInbox(communications: lista, pending: lista.filter(\.reclama).count)
+        )
+        persist()
+    }
+
     func refreshPartner(force: Bool = false) async {
         await revalidate(get: { self.partner }, set: { self.partner = $0 }, force: force) {
             try await PartnerService.fetchEnvelope(bearer: $0)
@@ -438,15 +507,6 @@ final class AppDataStore {
     func refreshRaceOverview(force: Bool = false) async {
         await revalidate(get: { self.raceOverview }, set: { self.raceOverview = $0 }, force: force) {
             try await CarrerasService.fetchOverviewThrowing(bearer: $0)
-        }
-    }
-
-    func refreshAnalytics(force: Bool = false) async {
-        // StatsService.fetchAnalytics already throws on failure (and returns an
-        // honest-empty AthleteAnalytics when there's simply no data), so it slots
-        // straight into the SWR engine.
-        await revalidate(get: { self.analytics }, set: { self.analytics = $0 }, force: force) {
-            try await StatsService.fetchAnalytics(bearer: $0)
         }
     }
 
@@ -556,16 +616,17 @@ final class AppDataStore {
             identity: identity,
             planWeek: planWeek,
             macroProgress: macroProgress,
+            planCiclo: planCiclo,
             readiness: readiness,
             strengthMaxes: strengthMaxes,
             runningAnalysis: runningAnalysis,
             chatThread: chatThread,
             chatMessages: chatMessages,
+            communications: communications,
             partner: partner,
             subscription: subscription,
             racesHub: racesHub,
             raceOverview: raceOverview,
-            analytics: analytics,
             analyticsSections: analyticsSections
         )
         AppDataPersistence.save(snapshot)
@@ -587,16 +648,17 @@ enum AppDataPersistence {
         var identity: Slice<AthleteIdentity>
         var planWeek: Slice<AthletePlanWeekResponse>
         var macroProgress: Slice<AthleteMacroProgressResponse>
+        var planCiclo: Slice<CicloDelPlanResponse>
         var readiness: Slice<DailyReadinessPayload>
         var strengthMaxes: Slice<[StrengthMaxProfile]>
         var runningAnalysis: Slice<RunningAnalysis>
         var chatThread: Slice<ChatThreadDTO>
         var chatMessages: Slice<[ChatMessageDTO]>
+        var communications: Slice<ComunicadosInbox>
         var partner: Slice<PartnerEnvelope>
         var subscription: Slice<SubscriptionInfo>
         var racesHub: Slice<RacesHubResponse>
         var raceOverview: Slice<CarrerasOverview>
-        var analytics: Slice<AthleteAnalytics>
         var analyticsSections: [String: Slice<AnalyticsSection>]
     }
 
@@ -608,7 +670,11 @@ enum AppDataPersistence {
     // v6 adds the ANALÍTICAS section cache (one slice per section × period). An
     // older blob has a different shape, so its decode simply fails (→ start clean,
     // refetch on launch) — no migration code, no stale-shape risk.
-    private static let key = "fahybrik.appDataStore.v6"
+    // v7 adds the coach-communications inbox («Del coach»), cached so lo que el
+    // atleta marcó sin cobertura siga ahí al reabrir la app.
+    // v8 añade la porción del CICLO (/plan/ciclo), para que la vista del camino
+    // abra pintada —incluso sin cobertura— igual que el resto de la app.
+    private static let key = "fahybrik.appDataStore.v8"
 
     static func load() -> Snapshot? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }

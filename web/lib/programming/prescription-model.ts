@@ -18,7 +18,7 @@ import type {
   Target,
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, setMeasure } from '@fahybrid/shared/domain/prescription';
 
 // ── Modality vocab (coach-facing, ordered the way Pablo thinks) ──────────────
 export const MODALITY_OPTIONS: { value: Modality; label: string; icon: string }[] = [
@@ -63,6 +63,10 @@ export const TARGET_LABEL: Record<TargetKind, string> = {
   hr_bpm: 'FC (ppm)',
   calories: 'Calorías',
   watts: 'Vatios',
+  // No sale en STRENGTH_TARGETS/CARDIO_TARGETS/BODY_TARGETS (card 130): un
+  // objetivo relativo lo escribe la plantilla, no este selector de kind. Llega
+  // aquí solo por un dato ya guardado (import/AI); la etiqueta cubre ESE caso.
+  relative: 'Relativo',
 };
 
 const STRENGTH_TARGETS: TargetKind[] = ['percent_rm', 'kg', 'rpe', 'rir', 'bodyweight'];
@@ -173,14 +177,24 @@ export function emptyTargetOfKind(
     // the roxzone entry target — the case this kind exists for.
     case 'time_cap':
       return { kind: 'time_cap', max_s: carry ?? 8 };
+    // Un objetivo relativo (card 130) no nace de "cambiar de tipo arrastrando un
+    // número": no tiene value/min/max, lleva una REFERENCIA (a peso de
+    // competición, a ritmo, a peso corporal) que el coach elige explícitamente.
+    // Por eso ningún selector de kind lo ofrece — no está en STRENGTH_TARGETS,
+    // CARDIO_TARGETS, BODY_TARGETS ni en OBJECTIVE_OPTIONS del compositor de
+    // fuerza. Si esta rama se ejecuta, un selector nuevo lo añadió sin dar la
+    // referencia: avisa en vez de inventar una.
+    case 'relative':
+      throw new Error('emptyTargetOfKind: "relative" needs an explicit TargetReference, not a carried number');
   }
 }
 
 /** Pull a representative numeric value out of a target, for carry-on-kind-switch. */
 export function targetScalar(t: Target | undefined): number | undefined {
   if (!t) return undefined;
-  if (t.kind === 'bodyweight') return undefined;
   if (t.kind === 'pace' || t.kind === 'time_cap') return t.value_s ?? t.min_s ?? t.max_s;
+  // bodyweight y relative no llevan cifra propia que arrastrar.
+  if (!isScalarTarget(t)) return undefined;
   return t.value ?? t.min ?? t.max;
 }
 

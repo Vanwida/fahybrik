@@ -8,7 +8,9 @@ import SwiftUI
 // `live` and feeds power/SPM/distance/calories into the existing data grid.
 @Observable
 final class PM5ConnectionStore: NSObject {
-    static let shared = PM5ConnectionStore()
+    /// Legacy / profile / mono-erg entry point. Multi-machine sessions use
+    /// `PM5Pool.shared.store(for:)` so each role owns its own service.
+    static let shared = PM5ConnectionStore(service: PM5Service.shared)
 
     var bluetoothState: PM5BluetoothState = .unknown
     var connectionState: PM5ConnectionState = .idle
@@ -48,6 +50,14 @@ final class PM5ConnectionStore: NSObject {
     /// disconnect callback can tell "he asked for this" from "the erg vanished".
     private var expectingDisconnect = false
 
+    /// Peripheral IDs already claimed by OTHER stores in the pool — filtered out of
+    /// the pick list so one PM5 cannot be bound to Remo and Ski at once. Set by
+    /// the picker before presenting; empty when unused.
+    var excludePeripheralIds: Set<UUID> = []
+
+    /// Fan-out for `PM5Pool` / multi-store observers when live or connection changes.
+    var onDidUpdate: (() -> Void)?
+
     var rememberedDeviceName: String? {
         UserDefaults.standard.string(forKey: PM5Defaults.lastPairedName)
     }
@@ -62,14 +72,18 @@ final class PM5ConnectionStore: NSObject {
     var hasRememberedDevice: Bool { rememberedIdentifier != nil }
 
     /// The discovered ergs in the order the athlete should see them: the one he used
-    /// last on top (badged), then the rest as the scan ranked them.
+    /// last on top (badged), then the rest as the scan ranked them. Already-claimed
+    /// peripherals (other role in the pool) are hidden.
     var discoveredForDisplay: [PM5Discovered] {
         let remembered = rememberedIdentifier
-        return discovered.enumerated().sorted { a, b in
-            let aR = a.element.id == remembered, bR = b.element.id == remembered
-            if aR != bR { return aR }
-            return a.offset < b.offset
-        }.map(\.element)
+        let excluded = excludePeripheralIds
+        return discovered
+            .filter { !excluded.contains($0.id) }
+            .enumerated().sorted { a, b in
+                let aR = a.element.id == remembered, bR = b.element.id == remembered
+                if aR != bR { return aR }
+                return a.offset < b.offset
+            }.map(\.element)
     }
 
     var isConnected: Bool {
@@ -77,13 +91,17 @@ final class PM5ConnectionStore: NSObject {
         return false
     }
 
-    override init() {
-        self.service = PM5Service.shared
+    /// Inject a service so multi-PM5 sessions can hold one CBCentralManager per role.
+    /// Default `PM5Service.shared` keeps mono-erg / profile behaviour unchanged.
+    init(service: PM5Service = .shared) {
+        self.service = service
         super.init()
         self.service.delegate = self
         self.bluetoothState = service.bluetoothState
         self.connectionState = service.connectionState
     }
+
+    private func notifyUpdate() { onDidUpdate?() }
 
     // MARK: - intent
     func startScan() {
@@ -118,13 +136,21 @@ final class PM5ConnectionStore: NSObject {
 
     func disconnect() {
         expectingDisconnect = true      // he asked → the drop is not a "lost connection"
-        #if targetEnvironment(simulator)
-        stopMockStream()
+        // Optimistic UI settle BEFORE CoreBluetooth's didDisconnect (which can
+        // lag or never arrive if the erg is already off). The chip must leave
+        // "listo" the instant the session releases the machine — gym: next
+        // athlete / next session must not see a ghost "connected" PM5.
         connectionState = .idle
         connectedDeviceName = nil
         connectedIdentifier = nil
         programState = .idle
         programmedWindowKey = nil
+        live = PM5LiveSample()
+        splits = []
+        connectionLost = false
+        notifyUpdate()
+        #if targetEnvironment(simulator)
+        stopMockStream()
         #else
         service.disconnect()
         #endif
@@ -177,20 +203,33 @@ final class PM5ConnectionStore: NSObject {
     // MARK: - workout programming (ErgData parity)
 
     /// Send this erg piece to the monitor. `windowKey` is the WORK WINDOW the piece
-    /// belongs to — the segment when the piece stands alone, the tramo when a format
-    /// subdivides it. When the key changes, the piece is sent again, which is what
-    /// makes the monitor zero its counters and wait for the next first stroke: round
-    /// 3 of an EMOM on the ski starts from 0 m, exactly like round 1 did.
+    /// belongs to — the tramo key for per-bout series/EMOM/stations, or a stable
+    /// segment key for cumulative windows (AMRAP). When the key changes, the piece
+    /// is sent again, which is what makes the monitor zero its counters and wait
+    /// for the next first stroke: serie 3 of a 5×500 starts from 0 m.
     ///
-    /// It is deliberately NOT re-sent while the MONITOR is running the series
-    /// itself (native intervals): re-programming mid-piece would restart the whole
-    /// thing under the athlete. See `PM5WorkoutProgrammer.monitorRunsTheSeries`.
-    ///
+    /// Prefer the tramo+policy overload so each bout programs its own measure.
     /// Non-erg pieces and unmapped shapes are a no-op: the athlete can ALWAYS just
-    /// row, the monitor programming is never a gate.
+    /// row; monitor programming is never a gate.
     func programIfNeeded(for segment: WorkoutSegment, windowKey: String) {
-        guard isConnected else { return }
         guard let spec = PM5WorkoutProgrammer.spec(for: segment) else { return }
+        program(spec: spec, windowKey: windowKey)
+    }
+
+    /// Program the LIVE tramo under `ErgCounterPolicy`. No-op when the policy says
+    /// not to program (rest / count-in / non-erg) or the key is unchanged.
+    func programIfNeeded(for segment: WorkoutSegment,
+                         tramo: LiveTramo,
+                         policy: ErgCounterPolicy) {
+        guard let key = PM5WorkoutProgrammer.programWindowKey(policy: policy, tramo: tramo, segment: segment),
+              let spec = PM5WorkoutProgrammer.spec(for: tramo, segment: segment, policy: policy) else {
+            return
+        }
+        program(spec: spec, windowKey: key)
+    }
+
+    private func program(spec: PM5WorkoutSpec, windowKey: String) {
+        guard isConnected else { return }
         guard programmedWindowKey != windowKey else { return }
         programmedWindowKey = windowKey
         #if targetEnvironment(simulator)
@@ -308,21 +347,25 @@ final class PM5ConnectionStore: NSObject {
                 avgHeartRateBpm: live.heartRateBpm
             ))
         }
+        notifyUpdate()
     }
 }
 
 extension PM5ConnectionStore: PM5ServiceDelegate {
     func pm5Service(_ service: PM5Service, didChangeBluetoothState state: PM5BluetoothState) {
         self.bluetoothState = state
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didUpdateDiscovered devices: [PM5Discovered]) {
         self.discovered = devices
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didChangeConnection state: PM5ConnectionState) {
         self.connectionState = state
         if case .failed(let msg) = state { self.lastError = msg }
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didConnect deviceName: String, identifier: UUID) {
@@ -334,14 +377,17 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
         // A fresh link starts with a clean monitor — allow the current erg piece
         // to be (re)programmed onto it.
         self.programmedWindowKey = nil
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didReceiveSample sample: PM5LiveSample) {
         self.live = sample
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didUpdateSplits splits: [PM5Split]) {
         self.splits = splits
+        notifyUpdate()
     }
 
     /// The link is down. We do NOT go back for it — not here, not on the next screen,
@@ -356,10 +402,12 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
         self.connectedIdentifier = nil
         self.programState = .idle
         if let error { self.lastError = error.localizedDescription }
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didChangeProgramState state: PM5ProgramState) {
         self.programState = state
+        notifyUpdate()
     }
 
     func pm5Service(_ service: PM5Service, didUpdateCSAFELog lines: [String]) {

@@ -50,6 +50,26 @@ export interface BatchRow {
   last_1on1_at: Date | null;
   athlete_since: Date;
   has_upcoming_review: boolean;
+  // Comunicados del coach (docs/DECISIONS.md 2026-08-09) — lo que le publicó y
+  // este atleta no ha cerrado. `_n` es el total de ese tipo que le reclama; los
+  // demás campos citan al que MANDA: la pregunta más antigua, la tarea más
+  // atrasada, el protocolo cuyo evento cae antes. Los umbrales no se aplican
+  // aquí: eso es del evaluador, que es donde manda el método del coach.
+  comm_question_id: string | null;
+  comm_question_title: string | null;
+  comm_question_oldest_at: Date | null;
+  /** ¿Alguna de sus preguntas sin responder bloquea el plan? (del CONJUNTO). */
+  comm_question_blocks: boolean | null;
+  comm_question_n: number | null;
+  comm_task_id: string | null;
+  comm_task_title: string | null;
+  comm_task_due_iso: string | null;
+  comm_task_n: number | null;
+  comm_protocol_id: string | null;
+  comm_protocol_title: string | null;
+  comm_protocol_anchor: string | null;
+  comm_protocol_event_iso: string | null;
+  comm_protocol_n: number | null;
 }
 
 export async function loadBatch(
@@ -228,6 +248,106 @@ export async function loadBatch(
       where ap.athlete_id is not null and ap.kind = 'revision'
         and ap.status in ('pendiente', 'aceptada')
         and ap.requested_start >= ${nowIso}::timestamptz
+    ),
+    comm_question as (
+      -- Preguntas publicadas que este atleta NO ha respondido. Manda la más
+      -- antigua; el umbral de días lo aplica el evaluador. Que bloquee es del
+      -- CONJUNTO: si alguna deja el plan a medio cerrar, la señal sube de nivel
+      -- aunque la que se cite sea otra (el detalle lo dice con esas palabras).
+      -- Un comunicado archivado ya no reclama, y uno caducado tampoco.
+      select
+        r.athlete_id,
+        count(*)::int                                                    as n,
+        (array_agg(c.id::text order by c.published_at asc, c.id asc))[1] as id,
+        (array_agg(c.title   order by c.published_at asc, c.id asc))[1]  as title,
+        min(c.published_at)                                              as oldest_at,
+        bool_or(c.blocks)                                                as blocks
+      from coach_communications c
+      join coach_communication_recipients r on r.communication_id = c.id
+      where c.coach_id = ${coach_id as number}
+        and c.kind = 'question'
+        and c.status = 'published'
+        and r.answered_at is null
+        and (c.expires_at is null or c.expires_at > ${nowIso}::timestamptz)
+      group by r.athlete_id
+    ),
+    comm_task as (
+      -- Tareas vencidas sin hacer. Manda la de fecha límite más antigua: es la
+      -- que fija el retraso con el que el evaluador decide crítico o vigilar.
+      select
+        r.athlete_id,
+        count(*)::int                                                 as n,
+        (array_agg(c.id::text order by c.due_date asc, c.id asc))[1]  as id,
+        (array_agg(c.title   order by c.due_date asc, c.id asc))[1]   as title,
+        to_char(min(c.due_date), 'YYYY-MM-DD')                        as due_iso
+      from coach_communications c
+      join coach_communication_recipients r on r.communication_id = c.id
+      where c.coach_id = ${coach_id as number}
+        and c.kind = 'task'
+        and c.status = 'published'
+        and c.due_date < ${todayIso}::date
+        and r.done_at is null
+        and (c.expires_at is null or c.expires_at > ${nowIso}::timestamptz)
+      group by r.athlete_id
+    ),
+    comm_protocol_open as (
+      -- Protocolos publicados que el atleta AÚN NO HA ABIERTO y que cuelgan de
+      -- un evento con fecha propia (carrera o test). La fecha se resuelve contra
+      -- el evento del PROPIO atleta; si anchor_ref nombra uno concreto se exige
+      -- ese. Sin fecha resoluble no sale fila: una señal con fecha inventada sería
+      -- peor que no tenerla.
+      select
+        r.athlete_id,
+        c.id::text           as id,
+        c.title              as title,
+        c.anchor_kind        as anchor,
+        coalesce(rc.d, ts.d) as event_date
+      from coach_communications c
+      join coach_communication_recipients r on r.communication_id = c.id
+      left join lateral (
+        select min(ra.race_date) as d
+        from races ra
+        where c.anchor_kind = 'race'
+          and ra.athlete_id = r.athlete_id
+          and ra.race_date >= ${todayIso}::date
+          and ra.status in ('planned', 'registered')
+          and (
+            c.anchor_ref is null
+            or (c.anchor_ref ~ '^[0-9]+$' and ra.id = c.anchor_ref::bigint)
+          )
+      ) rc on true
+      left join lateral (
+        -- Un test con fecha es una sesión de test ya puesta en su plan: el
+        -- catálogo del coach no tiene fecha, la asignación sí.
+        select min(wa.scheduled_for) as d
+        from workout_assignments wa
+        where c.anchor_kind = 'test'
+          and wa.athlete_id = r.athlete_id
+          and wa.calibration_test_id is not null
+          and wa.scheduled_for >= ${todayIso}::date
+          and (
+            c.anchor_ref is null
+            or (c.anchor_ref ~ '^[0-9]+$' and wa.id = c.anchor_ref::bigint)
+          )
+      ) ts on true
+      where c.coach_id = ${coach_id as number}
+        and c.kind = 'protocol'
+        and c.status = 'published'
+        and c.anchor_kind in ('race', 'test')
+        and r.seen_at is null
+        and (c.expires_at is null or c.expires_at > ${nowIso}::timestamptz)
+    ),
+    comm_protocol as (
+      select distinct on (o.athlete_id)
+        o.athlete_id,
+        o.id                                            as id,
+        o.title                                         as title,
+        o.anchor                                        as anchor,
+        to_char(o.event_date, 'YYYY-MM-DD')             as event_iso,
+        count(*) over (partition by o.athlete_id)::int  as n
+      from comm_protocol_open o
+      where o.event_date is not null
+      order by o.athlete_id, o.event_date asc, o.id asc
     )
     select
       a.id::text                          as athlete_id,
@@ -273,7 +393,21 @@ export async function loadBatch(
       a.review_cadence                    as review_cadence,
       a.created_at                        as athlete_since,
       l1.ts                               as last_1on1_at,
-      (ur.athlete_id is not null)         as has_upcoming_review
+      (ur.athlete_id is not null)         as has_upcoming_review,
+      cq.id                               as comm_question_id,
+      cq.title                            as comm_question_title,
+      cq.oldest_at                        as comm_question_oldest_at,
+      cq.blocks                           as comm_question_blocks,
+      cq.n                                as comm_question_n,
+      ct.id                               as comm_task_id,
+      ct.title                            as comm_task_title,
+      ct.due_iso                          as comm_task_due_iso,
+      ct.n                                as comm_task_n,
+      cp.id                               as comm_protocol_id,
+      cp.title                            as comm_protocol_title,
+      cp.anchor                           as comm_protocol_anchor,
+      cp.event_iso                        as comm_protocol_event_iso,
+      cp.n                                as comm_protocol_n
     from athletes a
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
@@ -292,6 +426,9 @@ export async function loadBatch(
     left join recent_libre rl on rl.athlete_id = a.id
     left join last_1on1    l1 on l1.athlete_id = a.id
     left join upcoming_review ur on ur.athlete_id = a.id
+    left join comm_question cq on cq.athlete_id = a.id
+    left join comm_task     ct on ct.athlete_id = a.id
+    left join comm_protocol cp on cp.athlete_id = a.id
     where a.coach_id = ${coach_id as number}
       and (${athleteFilter}::bigint is null or a.id = ${athleteFilter}::bigint)
       -- #13: paused/baja athletes are frozen — a paused athlete is DELIBERATELY

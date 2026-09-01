@@ -98,6 +98,37 @@ struct LibreBadge: View {
     }
 }
 
+// MARK: - Test badge
+
+/// Amber pill marking a session whose purpose is to MEASURE (a test/benchmark
+/// that stores results into the athlete's profile), not to train. Mirrors
+/// `LibreBadge`'s compact shape but uses the amber `warning` role so a test reads
+/// as "do this fresh, it sets your numbers".
+///
+/// Lives here beside its siblings (`LibreBadge`, `SlotBadge`, `PartnerBadge`)
+/// since the 6-ago Plan rebuild: it used to be declared at the bottom of
+/// `PlanView.swift`, which is how a shared badge ends up looking like one
+/// screen's private business (contrato §0/§1).
+struct TestBadge: View {
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "stopwatch")
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+            Text("Test")
+                .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Theme.Color.warning)
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, compact ? 2 : 3)
+        .background(Theme.Color.warningTint)
+        .clipShape(Capsule())
+        .accessibilityLabel("Sesión de test")
+    }
+}
+
 // MARK: - Session hero card
 
 /// The Inicio hero: an elevated card with an orange top-edge accent, an AM/PM
@@ -383,6 +414,9 @@ struct CoachAvatar: View {
     let initials: String
     var size: CGFloat = 34
     var tint: Color = Theme.Color.accent
+    /// La foto de perfil, cuando la hay. Se pinta ENCIMA de las iniciales, así
+    /// que sin foto el avatar es exactamente el de siempre.
+    var photoURL: String? = nil
 
     /// The initials / person glyph are GLYPHS over the (white-in-light) elevated
     /// face, so a brand-orange tint must use the text-safe role split (orange
@@ -405,61 +439,42 @@ struct CoachAvatar: View {
             }
         }
         .frame(width: size, height: size)
+        .overlay(AvatarPhoto(url: photoURL))
         .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
         .accessibilityHidden(true)
     }
 }
 
-// MARK: - Technique video placeholder
+/// La foto de perfil, recortada al círculo del avatar.
+///
+/// Va SIEMPRE encima de las iniciales, nunca en su lugar: mientras la imagen
+/// viaja — y si no llega — lo que se ve es el avatar de toda la vida, no un
+/// hueco. Sin URL no dibuja nada, así que ponerla de overlay es gratis en las
+/// pantallas donde el atleta todavía no tiene foto.
+struct AvatarPhoto: View {
+    let url: String?
 
-/// Striped/hatched rounded rect with a play glyph for a technique video.
-/// Renders ONLY when a video is available; when none exists it renders NOTHING
-/// (no "coming soon" placeholder — App Store 2.1 forbids placeholder content).
-/// (No real player wired yet — BACKEND GAP: technique video URLs.)
-struct TechniqueVideoPlaceholder: View {
-    var title: String = "Técnica"
-    var available: Bool = false
+    /// La foto entra con un fundido corto en vez de dar un salto. Va en la
+    /// transacción de `AsyncImage` porque su transacción por defecto no lleva
+    /// animación: puesto como `.transition` suelto no haría nada.
+    private static let fundido: Animation = .easeOut(duration: 0.2)
 
     var body: some View {
-        if available {
-            ZStack {
-                // Diagonal hatch over a sunken face.
-                DiagonalHatch()
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                    .background(Theme.Color.surfaceSunken)
-                VStack(spacing: 8) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 34, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    Text(title)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
+        if let url, let resuelta = URL(string: url) {
+            AsyncImage(
+                url: resuelta,
+                transaction: Transaction(animation: Self.fundido)
+            ) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFill()
+                } else {
+                    // Cargando, o no llegó: se deja ver el avatar de debajo.
+                    Color.clear
                 }
             }
-            .frame(height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Vídeo de técnica: \(title)")
+            .clipShape(Circle())
+            .accessibilityHidden(true)
         }
-    }
-}
-
-/// Repeating 45° hatch lines used by the technique-video placeholder.
-private struct DiagonalHatch: Shape {
-    var spacing: CGFloat = 12
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        var x = -rect.height
-        while x < rect.width {
-            path.move(to: CGPoint(x: x, y: rect.height))
-            path.addLine(to: CGPoint(x: x + rect.height, y: 0))
-            x += spacing
-        }
-        return path
     }
 }
 

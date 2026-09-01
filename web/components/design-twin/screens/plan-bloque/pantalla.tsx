@@ -7,24 +7,28 @@
 // SEMANA (el carril de siete días) y HOY (la sesión, en grande). El hilo naranja
 // que baja del día de hoy hasta la tarjeta dice que son la misma cosa vista de
 // lejos y de cerca. La tercera distancia —hacia dónde va el bloque— NO se pinta
-// aquí: vive en `plan-ciclo`, y desde abajo se entra.
+// aquí: vive en `plan-ciclo`.
 //
 // Aquí había una rampa de volumen previsto por semana. Se retiró el 29-jul: sus
 // números no existían en producción y afirmaban cuánto iba a entrenar el atleta
 // dentro de tres semanas. Lo planificado se pinta con seguridad; lo medido del
 // futuro no existe (CONTRATO-UI §7).
 //
+// LA PUERTA AL CICLO vive en el cromo de arriba desde el 11-ago (Alex): antes
+// era un pie de dos líneas («El bloque» + «ver el ciclo entero») que se comía
+// alto del héroe para decir lo que la cabecera ya dice — el bloque y la semana.
+// Ahora es un botón más junto al historial y el chat, y el héroe se queda TODO
+// el sobrante que antes pagaba ese pie.
+//
 // Altura (§6.1), `llena`: el cromo de arriba y la acción de abajo son fijos, y
-// el sobrante se lo lleva el héroe, que es el sujeto de la pantalla. Cuando la
-// sesión no trae cifras que estirar, el pie del bloque absorbe lo que sobre en
-// vez de dejar un hueco muerto. Ninguna cola debajo de nada.
+// el sobrante se lo lleva el héroe, que es el sujeto de la pantalla.
 //
 // En el día de descanso el héroe degrada a `centra`: no hay contenido que
 // estirar, hay un hueco que explicar y del que salir.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Modalidad } from '../../datos-reales';
-import { CTA, Card, Display, Hairline, Label, SP } from '../../kit';
+import { CTA, Card, Display, Hairline, IconCalendar, IconMessage, IconStack, Label, SP } from '../../kit';
 import { useTimeline } from '../../sim';
 import { CarrilSemana, DatoClave, entradaStyle, ParteSesion, Pastilla, PuntoModalidad, TarjetaDia } from './atoms';
 import type { DiaPlan, DuracionPrevista, EstadoDia, SemanaPlan, SesionDelDia } from './data';
@@ -102,6 +106,13 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
         padding: '14px 16px 16px',
       }}
     >
+      <CromoDeNavegacion
+        visible={entrada}
+        onCiclo={() => onLog('Ver el ciclo entero → abriría el ciclo')}
+        onHistorial={() => onLog('Historial de entrenos → abriría tu historial')}
+        onChat={() => onLog('Chat con tu coach → abriría el chat')}
+      />
+
       <Cabecera nombre={bloque.nombre} semanaActual={semanaActual} total={bloque.totalSemanas} semana={semana} visible={entrada} />
 
       <CarrilSemana
@@ -116,14 +127,6 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
       ) : (
         <HeroeDescanso semana={semana} dia={hoy} visible={entrada} onAbrir={(que) => onLog(`${que} → abriría esa sesión`)} />
       )}
-
-      <EntradaAlCiclo
-        nombre={bloque.nombre}
-        semanaActual={semanaActual}
-        total={bloque.totalSemanas}
-        visible={entrada}
-        onAbrir={() => onLog('El bloque → abriría el ciclo entero')}
-      />
 
       <div style={{ flex: '0 0 auto', ...entradaStyle(entrada, 320) }}>
         <CTA
@@ -144,84 +147,86 @@ export function Pantalla({ escenario, onLog }: { escenario: string; onLog: (line
 }
 
 // ---------------------------------------------------------------------------
-// El pie — la puerta al ciclo
+// Cromo superior — la navegación
 // ---------------------------------------------------------------------------
 
 /**
- * Donde estaba la rampa. Dice lo ÚNICO que de verdad se sabe del bloque —cómo
- * lo llamó el coach y por qué semana vas— y ofrece la salida a `plan-ciclo`,
- * que es la pantalla que cuenta hacia dónde va el atleta con estructura
- * publicada en vez de con una curva inventada.
+ * La fila de iconos, a la derecha del todo: el ciclo, el historial y el chat.
+ * Vive ARRIBA del `Cabecera` de bloque/semana, no dentro — son dos preguntas
+ * distintas («¿a dónde puedo ir?» y «¿dónde caigo hoy?») y esta pantalla ya no
+ * las mezcla en el pie de dos líneas de antes del 11-ago.
  *
- * NO crece (`flex: 0 0 auto`): una puerta de dos líneas no se gana alto. El
- * sobrante se lo lleva entero el héroe, que es el sujeto de la pantalla. Cuando
- * esto compartía el sobrante con la tarjeta quedaba una franja muerta de ~140 pt
- * entre las dos, que es justo lo que prohíbe el §6.2.
+ * El ciclo va PRIMERO de los tres porque es el único que habla del plan que se
+ * está mirando; el historial y el chat son sitios a los que se va desde
+ * cualquier parte. Sin chip de Dobles: esta pantalla no modela esa modalidad
+ * todavía (ver `plan-semana`/`plan-ciclo`, que sí llevan pareja en su modelo).
  */
-function EntradaAlCiclo({
-  nombre,
-  semanaActual,
-  total,
+function CromoDeNavegacion({
   visible,
-  onAbrir,
+  onCiclo,
+  onHistorial,
+  onChat,
 }: {
-  nombre: string;
-  semanaActual: number;
-  total: number;
   visible: boolean;
-  onAbrir: () => void;
+  onCiclo: () => void;
+  onHistorial: () => void;
+  onChat: () => void;
 }) {
   return (
     <div
       style={{
         flex: '0 0 auto',
         display: 'flex',
-        flexDirection: 'column',
-        ...entradaStyle(visible, 200),
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 2,
+        minHeight: 36,
+        ...entradaStyle(visible, 0),
       }}
     >
-      <Hairline />
-      <button
-        type="button"
-        onClick={onAbrir}
-        style={{
-          appearance: 'none',
-          background: 'none',
-          border: 0,
-          padding: '11px 0 2px',
-          margin: 0,
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: SP.s,
-          cursor: 'pointer',
-          textAlign: 'left',
-          font: 'inherit',
-          color: 'inherit',
-        }}
-      >
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
-          <Label size={10}>El bloque</Label>
-          <span
-            style={{
-              font: '600 13px/1.25 var(--twin-font-sans)',
-              color: 'var(--twin-fg)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {nombre}
-          </span>
-          <span style={{ font: '500 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-            Semana {semanaActual} de {total} · ver el ciclo entero
-          </span>
-        </span>
-        <span aria-hidden style={{ font: '500 17px/1 var(--twin-font-sans)', color: 'var(--twin-accent-text)' }}>
-          ›
-        </span>
-      </button>
+      <BotonDeCromo etiqueta="Ver el ciclo entero" onClick={onCiclo}>
+        <IconStack size={17} />
+      </BotonDeCromo>
+      <BotonDeCromo etiqueta="Historial de entrenos" onClick={onHistorial}>
+        <IconCalendar size={17} />
+      </BotonDeCromo>
+      <BotonDeCromo etiqueta="Chat con tu coach" onClick={onChat}>
+        <IconMessage size={17} />
+      </BotonDeCromo>
     </div>
+  );
+}
+
+function BotonDeCromo({
+  etiqueta,
+  onClick,
+  children,
+}: {
+  etiqueta: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={etiqueta}
+      style={{
+        appearance: 'none',
+        background: 'none',
+        border: 0,
+        width: 40,
+        height: 36,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--twin-accent-text)',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -269,7 +274,7 @@ function Cabecera({
         <span aria-hidden style={{ width: 2, borderRadius: 1, background: 'var(--twin-accent)', flex: '0 0 auto' }} />
         <span
           style={{
-            font: '500 13px/1.35 var(--twin-font-sans)',
+            font: '500 17px/1.35 var(--twin-font-sans)',
             color: 'var(--twin-fg)',
             // Tres líneas de tope: si el coach se extiende, esta pantalla sigue
             // siendo la del día. El texto entero vive en la del plan.

@@ -25,7 +25,10 @@ import {
   CALIBRATION_META_KEY,
   type CalibrationContentSegment,
 } from '@fahybrid/shared/domain/coach/test-battery';
-import { prescriptionToParams } from '@fahybrid/shared/domain/prescription';
+import { prescriptionToParams, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
+import type { EditorBlockInput } from '@fahybrid/shared/schema/program-templates';
+import { visibleToCoach } from '@/lib/exercises/coach-override';
+import { insertTemplateBlockCircuit } from '@/lib/dashboard/coach/instantiate-program';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -206,6 +209,67 @@ async function writeCalibrationContentSegments(
   }
 }
 
+/** Write a test's session from COACH-AUTHORED content (docs/DECISIONS.md,
+ *  2026-08-08 "el editor de tests"): real blocks built with the same
+ *  exercise+Prescription vocabulary as a normal workout (`EditorBlockInput`,
+ *  shared with the day editor's write shape) — never a bare exercise anchor
+ *  with `prescription_json` null. Deletes any prior segments first, same as
+ *  the two content paths above. THE PRIORITY path once a coach has content
+ *  for a test: `writeContentSegments`/`writeCalibrationContentSegments` only
+ *  run for a test this editor hasn't touched yet. */
+async function writeAuthoredContentSegments(
+  tx: TransactionClient,
+  templateId: number,
+  coachId: number,
+  blocks: readonly EditorBlockInput[],
+): Promise<void> {
+  await tx`delete from template_segments where template_id = ${templateId}`;
+  await tx`delete from template_blocks where template_id = ${templateId}`;
+
+  // Server-side ownership check — never trust a client-supplied exercise_id.
+  // Same visibility every coach-facing write resolves through (base catalog ∪
+  // this coach's own forks), mirroring instantiate-program.ts's inline path.
+  const referencedIds = Array.from(
+    new Set(blocks.flatMap((b) => b.items.map((it) => Number(it.exercise_id)).filter(Number.isFinite))),
+  );
+  const existingRows =
+    referencedIds.length > 0
+      ? await tx<Array<{ id: string }>>`
+          select e.id::text from exercises e
+          where e.id = any(${referencedIds}::bigint[]) and ${visibleToCoach(tx, coachId)}
+        `
+      : [];
+  const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
+
+  let position = 0;
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const block = blocks[bi]!;
+    let itemsInBlock = 0;
+    for (const item of block.items) {
+      if (item.exercise_id == null || !existingExerciseIds.has(Number(item.exercise_id))) continue;
+      itemsInBlock++;
+      const parsed = safeParsePrescription(item.prescription);
+      if (!parsed.success) continue; // never persist a malformed dose
+      const paramsJson = prescriptionToParams(parsed.data) as Parameters<typeof tx.json>[0];
+      const prescriptionJson = parsed.data as unknown as Parameters<typeof tx.json>[0];
+      await tx`
+        insert into template_segments (
+          template_id, position, exercise_id, params_json, notes,
+          block_position, block_format, block_title, prescription_json
+        )
+        values (
+          ${templateId}, ${position}, ${Number(item.exercise_id)}::bigint, ${tx.json(paramsJson)},
+          ${item.notes ?? null}, ${bi}, ${block.format ?? null}, ${block.title}, ${tx.json(prescriptionJson)}
+        )
+      `;
+      position += 1;
+    }
+    if (block.circuit && itemsInBlock > 0) {
+      await insertTemplateBlockCircuit(tx, templateId, bi, block.circuit);
+    }
+  }
+}
+
 /**
  * Ensure a test's CONTENT template exists and matches the given contract, INSIDE a
  * transaction. If `existingTemplateId` is passed and still valid, it is reused
@@ -225,6 +289,11 @@ export async function materializeTestContent(
     /** Structured session blueprint (#61). When present, its segments are written
      *  instead of the generic one-per-result; else the generic path runs. */
     content?: readonly CalibrationContentSegment[];
+    /** COACH-AUTHORED content from the tests editor (docs/DECISIONS.md, 2026-08-08)
+     *  — the real blocks the coach built. Takes priority over both `content` and
+     *  the generic fallback: once a coach has touched the editor, that's the test's
+     *  content from then on. Empty/absent → the two paths below run as before. */
+    authoredContent?: readonly EditorBlockInput[];
   },
 ): Promise<number> {
   // Defensive: the specs are the exact shape the bridge parses. Parsing here
@@ -271,9 +340,12 @@ export async function materializeTestContent(
     `;
   }
 
-  // Structured session (default resistance tests) vs generic one-per-result (half-sim,
-  // 1RM, coach-authored). The store_results contract (meta_json) is identical either way.
-  if (params.content && params.content.length > 0) {
+  // Priority: coach-authored content (the editor) > structured blueprint (#61
+  // seeded defaults) > generic one-per-result fallback. The store_results
+  // contract (meta_json) is identical across all three.
+  if (params.authoredContent && params.authoredContent.length > 0) {
+    await writeAuthoredContentSegments(tx, templateId, params.coach_id, params.authoredContent);
+  } else if (params.content && params.content.length > 0) {
     await writeCalibrationContentSegments(tx, templateId, params.content);
   } else {
     await writeContentSegments(tx, templateId, params.name, specs);

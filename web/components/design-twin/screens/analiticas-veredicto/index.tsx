@@ -20,10 +20,11 @@ export const meta: TwinMeta = {
   id: 'analiticas-veredicto',
   titulo: 'Analíticas — un veredicto, no diez tarjetas',
   zona: 'Marcas y tests',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'El sujeto pasa a ser el veredicto de la sección — una cifra a tres metros —, las tarjetas llenan por debajo, y una sección sin nada es UN estado centrado con salida.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Analytics/AnalyticsView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

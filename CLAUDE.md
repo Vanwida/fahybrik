@@ -33,7 +33,7 @@ Este código se venderá como **FLEXR** a otros entrenadores — con suerte, mil
 
 **La pregunta que decide cada caso:** *«¿otro entrenador competente lo haría distinto?»* Si la respuesta es sí, **es método: nace como dato con un valor por defecto, nunca como `const`.**
 
-**En consecuencia:** cero nombres propios en el código (ni «Pablo», ni «Fabrik», ni «ATR» — la landing y lo legal son otra cosa); nuestros valores actuales son **defectos editables**, así que un coach que no toca nada se comporta igual que hoy; y **antes de escribir una constante que huela a metodología, hazte la pregunta**.
+**En consecuencia:** cero nombres propios en el código (ni «Pablo», ni «Fabrik» — la landing y lo legal son otra cosa); nuestros valores actuales son **defectos editables**, así que un coach que no toca nada se comporta igual que hoy; y **antes de escribir una constante que huela a metodología, hazte la pregunta**.
 
 ## HARD RULE — TODO SE COMMITEA. NADA SE PIERDE.
 
@@ -95,7 +95,7 @@ UX must be polished, never rough — even for early demos. Pablo is **very deman
 
 Reference: **Whoop app** for dark + dense + premium athletic vibe. Brand: black + Fabrik orange. Italic-bold display typography (derivative of Fabrik wordmark).
 
-**El doble** (`app.fahybrid.com/<locale>/design`, grupo `(design)` + `web/components/design-twin/`): réplica viva de la app del atleta para dirigir UX. REGLA: los mockups de UI de la app se construyen como pantallas `propuesta` del doble — nunca más artifacts/HTML sueltos; todo cambio de UX shipeado en Swift actualiza su pantalla `espejo` en el mismo lote; si Theme.swift cambia tokens, `twin.css` cambia en el mismo lote. Ver docs/DECISIONS.md (2026-07-27 «El doble»).
+**El doble** (`app.fahybrid.com/<locale>/design`, grupo `(design)` + `web/components/design-twin/`): réplica viva de la app del atleta para dirigir UX. REGLA: los mockups de UI de la app se construyen como pantallas `propuesta` del doble — nunca más artifacts/HTML sueltos; todo cambio de UX shipeado en Swift actualiza su pantalla `espejo` en el mismo lote; si Theme.swift cambia tokens, `twin.css` cambia en el mismo lote; todo cambio en una pantalla del doble estampa su `actualizado` (meta) en el mismo commit — el índice ordena por esa fecha; `cd web && pnpm run twin:desfase` delata los espejos cuyo Swift cambió después de su fecha (correr al tocar UI de iOS y al empezar sesión de diseño). Ver docs/DECISIONS.md (2026-07-27 «El doble»).
 
 ## Workflow
 
@@ -104,6 +104,7 @@ Reference: **Whoop app** for dark + dense + premium athletic vibe. Brand: black 
 - Mark tasks completed via TaskUpdate immediately on finish
 - Use SendMessage for inter-agent coordination
 - Cross-cutting changes: write a mini-map in chat before executing
+- **Worktrees de agente: `main` está PARADA hace meses.** Un worktree recién creado nace de la rama por defecto, no de la rama de trabajo — se arranca cientos de commits por detrás y se acaba midiendo y arreglando contra código viejo. Lo automatiza `worktree-al-dia.sh` en `SessionStart`, que adelanta el worktree a la rama del checkout principal con `--ff-only` y se niega si ya hay commits propios. **El registro que cuenta es el de nivel USUARIO** (`~/.claude/settings.json` + `~/.claude/hooks/`): registrarlo solo aquí no sirve, porque el worktree se crea desde un commit viejo que no contiene ni el script ni su registro. La copia de este repo es la fuente versionada, no el disparador. Si trabajas en `.claude/worktrees/agent-*` y sospechas que no corrió: `git rev-list --count HEAD..<rama-de-trabajo>` tiene que dar 0 antes de tocar nada.
 
 ## Verification protocol
 

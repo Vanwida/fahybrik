@@ -39,13 +39,12 @@
 import { useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
+import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import {
   CATEGORY_LABEL,
   ORIGIN_LABEL,
-  YouTubeField,
   extractApiErrorMessage,
   toCatalogRow,
-  videoFieldState,
   type ApiExercise,
   type CatalogRow,
 } from './exercise-catalog';
@@ -71,11 +70,14 @@ export function EditExerciseForm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guardar a media subida guardaría el vídeo ANTERIOR y tiraría el que se está
+  // subiendo, sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
-  const videoState = videoFieldState(video);
+  const videoInvalid = videoUrlDraftInvalid(video);
   // Own rows have no base to fall back to if name is blanked — required, like
   // the create form. Base/customized rows may leave name untouched (see header).
-  const canSave = videoState !== 'invalid' && !saving && (!isOwn || name.trim().length > 0);
+  const canSave = !videoInvalid && !videoUploading && !saving && (!isOwn || name.trim().length > 0);
 
   const submit = async () => {
     if (!canSave) return;
@@ -137,11 +139,11 @@ export function EditExerciseForm({
       </div>
 
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-        <MIcon name="person" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="person" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent-text)]" />
         <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
           {isOwn ? (
             <>
-              <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente — no hay una
+              <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente: no hay una
               versión base a la que volver.
             </>
           ) : (
@@ -196,7 +198,18 @@ export function EditExerciseForm({
         rows={3}
       />
 
-      <YouTubeField value={video} onChange={setVideo} state={videoState} forEdit />
+      {/* El vídeo de la base ya no es invisible aquí: hereda igual que las claves y
+          la descripción (mismo `base_*`), así que el campo lo enseña y lo reproduce
+          mientras el coach no ponga el suyo. */}
+      <VideoUrlField
+        id="editar-ej-video"
+        label="Vídeo"
+        value={video}
+        onChange={setVideo}
+        inheritedUrl={isOwn ? null : exercise.base_video_url}
+        exerciseId={exercise.id}
+        onUploadingChange={setVideoUploading}
+      />
 
       {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}
 
@@ -248,7 +261,7 @@ function OverrideTextField({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         maxLength={2000}
-        placeholder={base ?? 'Sin contenido — escribe el tuyo…'}
+        placeholder={base ?? 'Sin contenido: escribe el tuyo…'}
         className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
       />
       <p className="text-label text-[color:var(--v2-faint)]">

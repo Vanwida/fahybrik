@@ -30,12 +30,23 @@ import UIKit
 
 struct OutdoorRunHUDView: View {
     @State private var model: OutdoorRunHUDModel
-    @Environment(\.dismiss) private var dismiss
+    /// SALIR DEL ENTRENO, no «cerrar la pantalla».
+    ///
+    /// Esta vista fue un `fullScreenCover` hasta el 5-ago, así que su aspa llamaba
+    /// a `dismiss()` y debajo seguía montado otro HUD del mismo tramo. Ahora ES la
+    /// pantalla del entreno cuando corres fuera: no hay nada detrás que descubrir,
+    /// y un `dismiss()` desde aquí cerraría el cover del ENTRENO entero (que es
+    /// quien presenta a `WorkoutContainer`) sin cerrar la sesión ni soltar los
+    /// aparatos. Así que el aspa hace lo mismo que la del cromo de
+    /// `ActiveWorkoutView`: pedir la salida, con su confirmación si hay trabajo
+    /// registrado.
+    let alSalir: () -> Void
     /// "Avisos de voz" (#63) toggle — shares the key with ProfileView.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
-    init(session: WorkoutSession, hrZones: HRZoneProfile?) {
+    init(session: WorkoutSession, hrZones: HRZoneProfile?, alSalir: @escaping () -> Void) {
         _model = State(initialValue: OutdoorRunHUDModel(session: session, hrZones: hrZones))
+        self.alSalir = alSalir
     }
 
     var body: some View {
@@ -58,22 +69,16 @@ struct OutdoorRunHUDView: View {
         }
         .onAppear {
             model.start()
-            // Keep the screen awake for the whole run; ActiveWorkoutView restores it
-            // when the session ends (turning it off here would wake-lock off mid-run).
-            UIApplication.shared.isIdleTimerDisabled = true
+            // La pantalla despierta la lleva WorkoutContainer por fase (dueño
+            // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
         }
         .onDisappear { model.teardown() }
-        .onChange(of: model.session.currentSegmentIndex) { _, _ in dismissIfLeftRun() }
-        .onChange(of: model.session.isFinished) { _, finished in if finished { dismiss() } }
-        .onChange(of: model.session.isAwaitingBlockStart) { _, awaiting in if awaiting { dismiss() } }
-    }
-
-    private func dismissIfLeftRun() {
-        if model.session.currentSegment?.kind != .running
-            || model.session.isFinished
-            || model.session.isAwaitingBlockStart {
-            dismiss()
-        }
+        // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
+        // bloque). Existían sólo para bajar el cover cuando la sesión se iba de
+        // correr; ahora el reparto lo hace `ActiveWorkoutView.superficieViva`, que
+        // deja de resolver a esta vista en el mismo instante — y desmontarla ya
+        // llama a `teardown()`. Un `dismiss()` aquí, sin cover propio, se llevaría
+        // por delante la presentación del entreno entero.
     }
 
     // MARK: - Cromo — salir, callar, pausar
@@ -102,7 +107,7 @@ struct OutdoorRunHUDView: View {
                          etiqueta: model.session.isPaused ? "Reanudar" : "Pausa") {
                 model.togglePause()
             }
-            botonRedondo("xmark", tono: Theme.Color.muted, etiqueta: "Cerrar") { dismiss() }
+            botonRedondo("xmark", tono: Theme.Color.muted, etiqueta: "Salir del entreno") { alSalir() }
         }
     }
 
@@ -497,7 +502,7 @@ private func rodajeDePrueba() -> WorkoutSession {
     let plan = WorkoutPlan(id: UUID(), name: "Rodaje", format: .steady,
                            estimatedDurationSeconds: 2400, blockContext: "Carrera",
                            zoneTargets: [], equipment: [], segments: [tramo],
-                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                           coachNote: nil, warmupChecklist: [])
     return WorkoutSession(plan: plan)
 }
 
@@ -521,7 +526,7 @@ private func zonasDePrueba() -> HRZoneProfile {
 #Preview("Correr en vivo · con pulso") {
     let sesion = rodajeDePrueba()
     sesion.liveHRBpm = 145        // Z2 con el umbral de 170 → estás donde toca
-    return OutdoorRunHUDView(session: sesion, hrZones: zonasDePrueba())
+    return OutdoorRunHUDView(session: sesion, hrZones: zonasDePrueba(), alSalir: {})
 }
 
 /// SIN ANCLA DE FC — el servidor no mandó zonas y no hay reloj. NO hay tinte, no
@@ -529,34 +534,12 @@ private func zonasDePrueba() -> HRZoneProfile {
 /// ni una barra vacía (§7). Es el atleta recién dado de alta, que es el caso de
 /// diseño (§6.3) — no la versión rota de la de arriba.
 #Preview("Correr en vivo · sin ancla de FC") {
-    OutdoorRunHUDView(session: rodajeDePrueba(), hrZones: nil)
+    OutdoorRunHUDView(session: rodajeDePrueba(), hrZones: nil, alSalir: {})
 }
 #endif
 
-/// The "Correr fuera" entry — the GPS sibling of TreadmillEntryButton. Offered on any
-/// run leg; the outdoor screen handles a denied / weak GPS honestly (manual entry
-/// stays as the fallback under it).
-struct OutdoorEntryButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: { Haptics.medium(); action() }) {
-            HStack(spacing: 8) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 13, weight: .heavy))
-                Text("CORRER FUERA")
-                    .scaledFont(14, weight: .heavy, relativeTo: .subheadline, italic: true)
-                    .tracking(0.8)
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(Theme.Color.surfaceElevated)
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.accentText.opacity(0.5), lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Correr fuera con GPS")
-    }
-}
+// AQUÍ ESTABA `OutdoorEntryButton` («CORRER FUERA»), y su gemelo `TreadmillEntryButton`
+// en `Devices/Treadmill/TreadmillHUDComponents.swift`. Los dos abrían un cover encima
+// de la pantalla del entreno, y con los covers se van ellos: a la pantalla de correr
+// no se entra desde otra pantalla, ES la pantalla del tramo. Lo que se pregunta —dónde
+// corres— se contesta en la puerta del bloque y se cambia con «CAMBIAR DE SITIO».

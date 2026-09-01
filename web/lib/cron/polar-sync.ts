@@ -39,7 +39,22 @@ import {
 } from '@/lib/sync/ingest-polar';
 
 const POLAR = 'polar' as const;
-const BACKFILL_DAYS = 28; // fresh-connection backfill (bounds first-run cost)
+
+/**
+ * Backfill de una conexión nueva: TODO lo que la API deja, que son 90 días.
+ *
+ * Estaba en 28 por precaución nuestra, no por límite de Polar — y ese recorte le
+ * costaba al atleta dos meses de «antes» el día que conecta. El techo real es el de
+ * la lista de entrenamientos de v4 (`MAX_WINDOW_DAYS`), así que aquí no hay nada que
+ * pedirle a nadie: se sube y ya. Polar, a diferencia de Apple Salud, sólo entrega
+ * desde el momento de la autorización, así que 90 días es literalmente todo el
+ * pasado que existe.
+ *
+ * COSTE, dicho para que no sorprenda: entrenos y sueño se piden día a día (el
+ * parámetro `features` los limita a un día por petición), así que una conexión nueva
+ * son ~180 llamadas UNA vez. Las tiradas de régimen siguen siendo de 1–2 días.
+ */
+const BACKFILL_DAYS = 90;
 const MAX_WINDOW_DAYS = 90; // hard cap (v4 training list allows ≤90 days)
 const RECHARGE_MAX_DAYS = 28; // nightly-recharge (no features) allows ≤28 days per call
 const TRAINING_FEATURES = ['laps', 'statistics'];

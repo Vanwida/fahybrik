@@ -213,7 +213,7 @@ export function SessionEditor({
             type="button"
             onClick={() => setAiOpen(true)}
             title="Coach IA redacta bloques a partir de un foco"
-            className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-3 text-sm font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
+            className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/45 bg-[color:var(--v2-accent-soft)] px-3 text-sm font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/15"
           >
             <MIcon name="draw" size={16} />
             <span className="hidden sm:inline">Redactar con IA</span>
@@ -226,8 +226,8 @@ export function SessionEditor({
             title={gate.ok ? undefined : gate.reason ?? undefined}
             className={
               saveState === 'error'
-                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-4 text-sm font-bold text-white transition-colors'
-                : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
+                ? 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-danger)] px-4 text-sm font-bold text-[color:var(--v2-bg)] transition-colors'
+                : 'v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60'
             }
           >
             <MIcon name={SAVE_ICON[saveState]} size={17} />
@@ -238,7 +238,7 @@ export function SessionEditor({
 
       {/* Honest gate — never a fake "Guardado". Tells the coach exactly why. */}
       {!gate.ok ? (
-        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:rgba(242,80,79,.3)] bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
+        <div className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)]/30 bg-[color:var(--v2-danger-soft)] px-3 py-2.5 text-body text-[color:var(--v2-danger)]">
           <MIcon name="error" size={16} className="shrink-0" />
           <span>{gate.reason}</span>
         </div>
@@ -255,7 +255,7 @@ export function SessionEditor({
           />
         </aside>
 
-        <main className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)]">
+        <main className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-card)]">
           {selected ? (
             <BlockEditor
               block={selected}

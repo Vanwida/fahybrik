@@ -6,9 +6,31 @@ import WatchKit
 // therefore NOT compiled into the watch target. This provides the SAME API surface
 // backed by WatchKit's `WKInterfaceDevice`, so the engine runs unchanged on the
 // wrist. Same type name, disjoint target membership — never a duplicate symbol.
+//
+// WHY things were silent (4-ago, gym):
+// 1. Mirror mode: engine cues fired only on the phone — no wire → wrist never
+//    played 3-2-1 / GO / rest. Fixed by MirrorWire.MessageType.haptic.
+// 2. `play` off-main is dropped by WatchKit → always hop to main.
+// 3. `.click` is too light under effort → cues use start/stop/notification.
 enum Haptics {
     private static func play(_ type: WKHapticType) {
-        WKInterfaceDevice.current().play(type)
+        let fire = { WKInterfaceDevice.current().play(type) }
+        if Thread.isMainThread {
+            fire()
+        } else {
+            DispatchQueue.main.async(execute: fire)
+        }
+    }
+
+    private static func playSequence(_ types: [WKHapticType], gap: TimeInterval) {
+        guard !types.isEmpty else { return }
+        play(types[0])
+        for (i, type) in types.dropFirst().enumerated() {
+            let delay = gap * Double(i + 1)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                WKInterfaceDevice.current().play(type)
+            }
+        }
     }
 
     static func light()   { play(.click) }
@@ -17,11 +39,19 @@ enum Haptics {
     static func success() { play(.success) }
     static func error()   { play(.failure) }
 
-    // Workout cues — the shared engine's floor-readable vocabulary. On the wrist
-    // the device is already against the skin, so each maps to the WatchKit type
-    // that carries the same MEANING rather than to a synthesised pattern.
-    static func cueTick()   { play(.click) }
-    static func cueGo()     { play(.start) }
-    static func cueStop()   { play(.stop) }
-    static func cueFinish() { play(.success) }
+    // Workout cues — unmissable under fatigue. Prefer notification/start over click.
+    static func cueTick() { play(.notification) }
+
+    /// GO — two strong beats (matches the phone's double Core Haptics hit).
+    static func cueGo() { playSequence([.start, .start], gap: 0.10) }
+
+    /// CAMBIA DE MÁQUINA — the minute rolled onto a DIFFERENT movement. `directionUp`
+    /// then a firm start ("deja eso → ahora esto"), so it is unmistakable against GO's
+    /// equal double when the athlete is mid-effort and not looking.
+    static func cueChange() { playSequence([.directionUp, .start], gap: 0.12) }
+
+    /// STOP — fall-away pair, distinct from GO.
+    static func cueStop() { playSequence([.stop, .notification], gap: 0.14) }
+
+    static func cueFinish() { playSequence([.success, .success], gap: 0.14) }
 }

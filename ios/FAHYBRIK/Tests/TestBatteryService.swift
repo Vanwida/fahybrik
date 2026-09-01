@@ -19,6 +19,7 @@ struct BatteryStatus: Codable, Equatable {
     /// entered reads as `resultPending`, never as done.
     let completed: Int
     let tests: [CalibrationTestStatus]
+    let athleteWeightKg: Double?
 
     /// A coach HAS programmed tests for this athlete. When false the card shows
     /// the honest "Pablo prepara tu semana" state — never a broken "0/0".
@@ -35,7 +36,7 @@ struct BatteryStatus: Codable, Equatable {
 
     /// An empty/not-scheduled battery — the safe default when the endpoint is
     /// unavailable or the athlete has no tests, so callers never show 0/0.
-    static let empty = BatteryStatus(total: 0, completed: 0, tests: [])
+    static let empty = BatteryStatus(total: 0, completed: 0, tests: [], athleteWeightKg: nil)
 }
 
 struct CalibrationTestStatus: Codable, Equatable, Identifiable {
@@ -59,6 +60,16 @@ struct CalibrationTestStatus: Codable, Equatable, Identifiable {
     /// it. Optional — absent → the card shows the ✓ state with no number (honest,
     /// the results live in Rendimiento). Never fabricated on the client.
     let resultLabel: String?
+    /// "jump_video" → cámara. Ausente o "session" → el vivo de siempre.
+    let capture: String?
+    /// Qué preparar y en qué orden. Solo llega en un salto programado.
+    let brief: JumpBriefDTO?
+    let jumpProfile: JumpProfileDTO?
+    /// Informe de ESA ocurrencia. Ausente en un test que no es salto, o en un
+    /// backend que aún no lo sirve — entonces se usa `jumpProfile`.
+    let jumpReport: CmjReportDTO?
+
+    var isJumpVideo: Bool { capture == "jump_video" }
 
     /// The single visible state of a test row.
     enum DisplayState { case pending, resultPending, done }
@@ -237,6 +248,19 @@ enum TestBatteryService {
         return try await APIClient.shared.post(
             path: "api/athlete/assignments/\(assignmentId)/test-results",
             body: Body(results: entries),
+            bearer: bearer
+        )
+    }
+
+    @discardableResult
+    static func recordJumpResults(
+        assignmentId: String,
+        body: JumpResultsBody,
+        bearer: String
+    ) async throws -> RecordBatteryResult {
+        try await APIClient.shared.post(
+            path: "api/athlete/assignments/\(assignmentId)/test-results",
+            body: body,
             bearer: bearer
         )
     }

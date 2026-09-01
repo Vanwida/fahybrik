@@ -58,7 +58,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Cada visita que deja su email en tu web se vuelve un <b>lead tuyo</b> — aunque abandone a
+          Cada visita que deja su email en tu web se vuelve un <b>lead tuyo</b>, aunque abandone a
           mitad del onboarding. La sección <b>Leads</b> es tu embudo: la lista de todas esas
           personas con el <b>estado</b> de cada una y lo que buscan, para que sepas a quién llamar
           primero.
@@ -83,15 +83,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque un email dejado a medias sigue siendo una oportunidad. Si no lo capturas y lo
-            ordenas, se pierde. Aquí no se pierde ninguno — y ves de un golpe dónde está cada uno.
+            ordenas, se pierde. Aquí no se pierde ninguno, y ves de un golpe dónde está cada uno.
           </>
         }
       />
 
       <h3>1 · Cada email que entra es un lead tuyo</h3>
       <p>
-        El lead hace tu onboarding en la web. En cuanto deja su email —{' '}
-        <em className="em">aunque no termine el resto</em> — ya cuenta como lead y aparece en la
+        El lead hace tu onboarding en la web. En cuanto deja su email{' '}
+        (<em className="em">aunque no termine el resto</em>) ya cuenta como lead y aparece en la
         lista como <code>Sin terminar</code>. No se espera a que rellene todo: el email es la puerta
         de entrada, y esa puerta no se cierra.
       </p>
@@ -100,7 +100,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         El estado de un lead se mueve hacia adelante por el embudo. El sistema pone{' '}
         <code>Sin terminar</code> y <code>Nuevo</code> solos; tú marcas <code>Contactado</code>,{' '}
-        <code>Cita agendada</code> o <code>Descartado</code>. No hay marcha atrás — la única
+        <code>Cita agendada</code> o <code>Descartado</code>. No hay marcha atrás: la única
         excepción es reabrir un descartado por error (vuelve a <code>Nuevo</code>).
       </p>
       <div
@@ -210,7 +210,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      <DocNote variant="cue" title="Leads globales — todos tuyos">
+      <DocNote variant="cue" title="Leads globales: todos tuyos">
         <p>
           Al ser un único entrenador, no hay reparto de leads entre coaches: todos los que entran
           son tuyos. En el menú lateral, la entrada <b>Leads</b> lleva un contador con los{' '}
@@ -231,7 +231,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Onboarding web.</b> En cuanto deja su email ya es un lead en tu panel — aunque no
+              <b>Onboarding web.</b> En cuanto deja su email ya es un lead en tu panel, aunque no
               termine el resto. Ahí aparece como <b>«Sin terminar»</b>.
             </>
           }
@@ -339,7 +339,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p style={{ marginTop: '18px' }}>
         Ningún lead se pierde: cada email es una puerta que dejas abierta. Y los que se enfrían no
-        dependen de que te acuerdes de ellos — el sistema los reengancha solo, como verás en la
+        dependen de que te acuerdes de ellos: el sistema los reengancha solo, como verás en la
         sección siguiente.
       </p>
     </DocSection>

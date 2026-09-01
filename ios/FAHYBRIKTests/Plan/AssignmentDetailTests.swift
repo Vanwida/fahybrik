@@ -308,6 +308,63 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(rows.last?.rest, "3:00")
     }
 
+    /// UNA PIRÁMIDE NO SE COLAPSA A UNA MENTIRA — la regresión del formateador que
+    /// se borró el 11-ago.
+    ///
+    /// `Formato.dosisDeSeries` multiplicaba las series por las repeticiones de la
+    /// PRIMERA, así que el 6-6-4-4-3 real del bloque 392 salía «5×6». Vivía en la
+    /// línea del plan del hierro en vivo (ya quitada), pero la clase del bug es de
+    /// las TARJETAS: cualquier sitio que cuente series y multiplique por una medida
+    /// miente en el 49 % del corpus. Aquí se fija que las tres puertas del renderer
+    /// no lo hacen — y con el caso literal del coach, que además escribe la
+    /// secuencia igual en su `notes`: «5 rounds Back Squat 6/6/4/4/3 @75-85%».
+    func test_strengthPyramid_neverCollapsesIntoALie() throws {
+        func serie(_ reps: Int, _ restS: Int?) -> PrescriptionSet {
+            PrescriptionSet(measure: .reps(reps),
+                            target: .percentRM(value: nil, min: 75, max: 85),
+                            modality: .strength, restS: restS, tempo: nil, note: nil)
+        }
+        let p = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: [serie(6, 150), serie(6, 150), serie(4, 150), serie(4, 150), serie(3, nil)],
+            rounds: nil, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil)
+
+        // 1 · La tabla no se colapsa: las series no son uniformes.
+        XCTAssertFalse(PrescriptionRenderer.setsAreUniform(p))
+        // 2 · El multiplicador del titular no existe cuando las medidas difieren, así
+        //     que `summaryLine` no puede escribir «5 × 6».
+        XCTAssertNil(PrescriptionRenderer.repetitionCount(p))
+        XCTAssertNotEqual(PrescriptionRenderer.summaryLine(p).headline, "5 × 6")
+        // 3 · Y la dosis de una rotación escribe la SECUENCIA, con barra: el guion ya
+        //     significa banda («12-15») y darle dos sentidos al mismo signo es como
+        //     empiezan las tres grafías del ritmo.
+        let dose = PrescriptionRenderer.rotationDose(p)
+        XCTAssertEqual(dose.work, "6/6/4/4/3")
+        XCTAssertFalse(dose.work?.contains("5 × 6") ?? false)
+        XCTAssertFalse(dose.work?.contains("-") ?? false, "el guion es la banda, no la secuencia")
+        // La carga uniforme sí se dice una vez, y sigue siendo un porcentaje.
+        //
+        // OJO AL GUION, que es un hallazgo y no un detalle: aquí es un EN DASH
+        // (U+2013) porque `PrescriptionRenderer.range` escribe los rangos así,
+        // mientras `Formato` los escribe con guion normal («12-15» de `serie`,
+        // «75-85» de `rango`). Son DOS grafías del mismo rango y el atleta ve las
+        // dos —la tarjeta del plan y el numeral del vivo— así que hay que unificarlas
+        // en su propio lote: cambiarlas aquí movería el copy de todas las tarjetas
+        // del plan desde un porte del entreno en vivo.
+        XCTAssertEqual(dose.load, "75\u{2013}85% 1RM")
+
+        // Y el contraste: cuatro series IGUALES sí se colapsan, que es lo correcto.
+        let uniforme = Prescription(
+            scheme: .sets, modality: .strength,
+            sets: (0..<4).map { _ in serie(10, 90) },
+            rounds: nil, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil)
+        XCTAssertTrue(PrescriptionRenderer.setsAreUniform(uniforme))
+        XCTAssertEqual(PrescriptionRenderer.repetitionCount(uniforme), 4)
+        XCTAssertEqual(PrescriptionRenderer.rotationDose(uniforme).work, "4 × 10")
+    }
+
     // Uniform sets collapse to a single "N× …" line.
     func test_strengthUniform_collapses() throws {
         let json = """
@@ -373,11 +430,68 @@ final class AssignmentDetailTests: XCTestCase {
         let detail = try decode(json)
         let p = try XCTUnwrap(detail.workout?.blocks.first?.items.first?.prescription)
         let line = PrescriptionRenderer.summaryLine(p)
-        XCTAssertEqual(line.headline, "400 m")
+        // El multiplicador va PEGADO a la medida, en el titular: «4 × 400 m» es la
+        // dosis entera. Antes colgaba del detalle, en gris y detrás de la carga.
+        XCTAssertEqual(line.headline, "4 × 400 m")
         XCTAssertEqual(line.pace, "@ 3:40/km")
-        XCTAssertTrue(line.detail?.contains("4×") ?? false)
         // 90s rest reads as m:ss at/above a minute ("1:30"), "Ns" only under it.
         XCTAssertTrue(line.detail?.contains("descanso 1:30") ?? false)
+    }
+
+    // MARK: - Gym 4-ago · la previa dice la dosis entera, en TODOS los tipos
+
+    /// El caso reportado: un 4×10 corporal con 15 s llegaba a la pantalla de antes de
+    /// empezar como «10 · Corporal · descanso 15s» — sin las cuatro series.
+    func test_strengthSets_countReachesTheHeadline() throws {
+        let serie = PrescriptionSet(measure: .reps(10), target: .bodyweight, modality: nil,
+                                    restS: 15, tempo: nil, note: nil)
+        let p = Prescription(scheme: .sets, modality: .strength,
+                             sets: Array(repeating: serie, count: 4),
+                             rounds: nil, workS: nil, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        let line = PrescriptionRenderer.summaryLine(p)
+        XCTAssertEqual(line.headline, "4 × 10")
+        XCTAssertTrue(line.detail?.contains("descanso 15s") ?? false)
+    }
+
+    /// Y la contraparte que impide que la regla mienta: la ROTACIÓN de un bloque
+    /// plegado son movimientos distintos, no repeticiones. «3 ×» delante de
+    /// remo/ski/cinta diría que hay que hacer cada uno tres veces.
+    func test_foldedRotation_isNeverCollapsedIntoAMultiplier() throws {
+        func estacion(_ nombre: String) -> PrescriptionSet {
+            PrescriptionSet(measure: .calories(15), target: nil, modality: nil,
+                            restS: nil, tempo: nil, note: nombre)
+        }
+        let p = Prescription(scheme: .emom, modality: .functional,
+                             sets: [estacion("Remo"), estacion("SkiErg"), estacion("Cinta")],
+                             rounds: 12, workS: 60, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        XCTAssertNil(PrescriptionRenderer.repetitionCount(p))
+        XCTAssertEqual(PrescriptionRenderer.summaryLine(p).headline, "15 cal")
+    }
+
+    /// La cabecera de formato la conocen TODOS los esquemas con reloj, no solo
+    /// amrap/emom/for_time: un circuito llegaba a la previa sin cabecera y aparecía
+    /// con ella al arrancar, porque había dos formateadores distintos.
+    func test_wodHeader_coversEveryClockScheme() throws {
+        func rx(_ scheme: PrescriptionScheme, rounds: Int? = nil, workS: Int? = nil,
+                restS: Int? = nil, totalS: Int? = nil, start: Int? = nil, increment: Int? = nil) -> Prescription {
+            Prescription(scheme: scheme, modality: nil, sets: nil, rounds: rounds, workS: workS,
+                         restS: restS, totalS: totalS, target: nil, note: nil,
+                         start: start, increment: increment)
+        }
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.rounds, rounds: 5, restS: 60)),
+                       "5 rondas · descanso 1:00")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.tabata, rounds: 8, workS: 20, restS: 10)),
+                       "Tabata · 20/10 · 8 rondas")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.deathBy, start: 1, increment: 1)),
+                       "Death By · desde 1 · +1 por ronda")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.hyroxSim, rounds: 8, totalS: 5400)),
+                       "HYROX Sim · 8 rondas · cap 1:30:00")
+        XCTAssertEqual(PrescriptionRenderer.wodHeader(rx(.steady, totalS: 2400)), "Continuo · 40:00")
+        // Fuerza / calentamiento / vuelta a la calma no son formatos con reloj.
+        XCTAssertNil(PrescriptionRenderer.wodHeader(rx(.sets)))
+        XCTAssertNil(PrescriptionRenderer.wodHeader(rx(.warmup)))
     }
 
     // An erg pace stored per_km converts to /500m for the athlete's monitor.
@@ -647,6 +761,34 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(seg.targetZone, HRZone(rawValue: 2))
     }
 
+    func test_warmupBlock_neverFolds_evenAuthoredAsRounds() throws {
+        // Un calentamiento montado como "rondas" (un activation flow real: 3
+        // rondas de 9 movimientos) satisface el mismo `runsConditioningTimer`
+        // que un AMRAP — antes se plegaba en UN tramo opaco con el título
+        // concatenando los nombres de los ejercicios, y "hecho" saltaba
+        // directo al siguiente bloque sin pasar por ninguno (Alex, 7-ago).
+        // El contrato es "calentamiento y vuelta a la calma NUNCA se pliegan",
+        // sea cual sea su formato — `StructuralBlockChecklist` necesita un
+        // tramo POR MOVIMIENTO para pintar la checklist.
+        let json = """
+        {
+          "assignment": { "id": "asg_wu", "athlete_id": "ath_wu", "scheduled_for": "2026-06-25", "status": "scheduled" },
+          "workout": { "name": "Sesión", "blocks": [ { "uid": "b", "title": "Calentamiento - Activación general", "format": "rounds", "block_position": 0, "items": [
+            { "uid": "i1", "exercise_id": "e1", "exercise_name": "Assault Bike", "exercise_slug": "assault-bike", "exercise_category": "cardio",
+              "exercise_video_url": null, "cues": null, "params_json": { "duration_seconds": 120 },
+              "prescription_json": { "scheme": "rounds", "rounds": 3, "sets": [ { "measure": { "kind": "duration", "value": 120 } } ] }, "notes": null },
+            { "uid": "i2", "exercise_id": "e2", "exercise_name": "Foam roll lower body", "exercise_slug": "foam-roll", "exercise_category": "mobility",
+              "exercise_video_url": null, "cues": null, "params_json": { "duration_seconds": 120 },
+              "prescription_json": { "scheme": "rounds", "rounds": 3, "sets": [ { "measure": { "kind": "duration", "value": 120 } } ] }, "notes": null }
+          ] } ] } }
+        """
+        let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
+        XCTAssertEqual(plan.segments.count, 2, "Un tramo POR MOVIMIENTO — el calentamiento no se pliega aunque su formato lo permita.")
+        XCTAssertEqual(plan.segments[0].title, "Assault Bike", "El título de cada tramo es el del ejercicio, nunca una concatenación.")
+        XCTAssertEqual(plan.segments[1].title, "Foam roll lower body")
+        XCTAssertTrue(plan.segments.allSatisfy { $0.blockPhase == .warmup })
+    }
+
     // MARK: - Executed-session detail (`execution` block)
     //
     // Powers ExecutedWorkoutView (tap a DONE session → read-only what-you-logged).
@@ -857,5 +999,150 @@ final class AssignmentDetailTests: XCTestCase {
         XCTAssertEqual(exec.completeness, "completed")
         XCTAssertTrue(exec.segments.isEmpty, "Aggregate-only completion → no per-segment log, still loads.")
         XCTAssertEqual(exec.notes, "entreno libre de prueba")
+    }
+
+    func test_jumpTest_withoutBlocks_isJumpVideo_notARunnablePlan() throws {
+        let json = """
+        {
+          "assignment": {
+            "id": "477",
+            "athlete_id": "64",
+            "scheduled_for": "2026-08-13",
+            "status": "scheduled",
+            "slot": null,
+            "template_id": "1",
+            "template_version": 1,
+            "completed_at": null,
+            "perceived_exertion": null,
+            "station_assignment": null,
+            "my_role": null,
+            "store_results": [
+              {"slug":"cmj","label":"CMJ","measure":"height","unit":"cm","derives":"none","modality":null,"optional":false},
+              {"slug":"cmj_loaded","label":"CMJ con carga","measure":"height","unit":"cm","derives":"none","modality":null,"optional":true}
+            ]
+          },
+          "workout": {"name":"Perfil de salto (CMJ)","focus":null,"coach_note":null,"estimated_duration_minutes":null,"blocks":[]}
+        }
+        """
+        let detail = try decode(json)
+        XCTAssertTrue(detail.isJumpVideo)
+        XCTAssertNil(WorkoutPlan.from(detail: detail), "Un salto no es un entreno con bloques.")
+    }
+}
+
+// MARK: - El localizador del vídeo de técnica
+
+/// `exercise_video_url` (y su gemelo de estación `technique_video_url`) tiene DOS
+/// formas válidas y ninguna más: un enlace de YouTube o el vídeo propio del
+/// entrenador, alojado en Cloudflare Stream y servido como HLS. Aquí se pinta esa
+/// frontera, porque de ella depende que un vídeo perfectamente válido se vea o se
+/// quede invisible.
+final class VideoDeTecnicaTests: XCTestCase {
+    /// Un par (code, uid) con la forma EXACTA que emite Cloudflare, copiado de una
+    /// subida real: el code es el subdominio de la cuenta y el uid, 32 hexadecimales.
+    private static let code = "y1njxqklp26mzz8v"
+    private static let uid = "64d93f4fa041b608bff0de740f7ad28d"
+    private static var hls: String {
+        "https://customer-\(code).cloudflarestream.com/\(uid)/manifest/video.m3u8"
+    }
+
+    // MARK: Nada
+
+    func test_sinLocalizador_noHayVideo() {
+        XCTAssertNil(VideoDeTecnica(nil))
+        XCTAssertNil(VideoDeTecnica(""))
+        XCTAssertNil(VideoDeTecnica("   \n "))
+        XCTAssertFalse(VideoDeTecnica.hay(en: nil))
+    }
+
+    func test_localizadorQueNoEsNingunaDeLasDosFormas_noHayVideo() {
+        // Ni un enlace a otro sitio, ni texto suelto, ni un fichero absoluto ajeno.
+        XCTAssertNil(VideoDeTecnica("https://vimeo.com/123456789"))
+        XCTAssertNil(VideoDeTecnica("https://cdn.ajeno.com/tecnica.mp4"))
+        XCTAssertNil(VideoDeTecnica("sentadilla frontal"))
+        XCTAssertNil(VideoDeTecnica("https://www.youtube.com/watch?v=corto"))
+    }
+
+    // MARK: YouTube
+
+    func test_youtube_todasLasGrafias() {
+        // Las dos que vienen de prod (fixtures de arriba) + las formas restantes.
+        let casos: [(String, String)] = [
+            ("https://www.youtube.com/watch?v=brFHyOtTwH4", "brFHyOtTwH4"),
+            ("https://www.youtube.com/watch?v=QPvYrfyGHi8", "QPvYrfyGHi8"),
+            ("https://youtu.be/brFHyOtTwH4", "brFHyOtTwH4"),
+            ("https://www.youtube.com/embed/brFHyOtTwH4", "brFHyOtTwH4"),
+            ("youtube.com/watch?v=brFHyOtTwH4", "brFHyOtTwH4"),
+        ]
+        for (url, id) in casos {
+            guard case .youtube(let video)? = VideoDeTecnica(url) else {
+                return XCTFail("\(url) tenía que clasificarse como YouTube")
+            }
+            XCTAssertEqual(video.id, id)
+            XCTAssertEqual(video.orientation, .landscape, "\(url) es apaisado")
+        }
+    }
+
+    func test_youtubeShort_seSabeQueEsVertical() {
+        guard case .youtube(let video)? = VideoDeTecnica("https://www.youtube.com/shorts/brFHyOtTwH4") else {
+            return XCTFail("Un Short es un vídeo de YouTube")
+        }
+        XCTAssertEqual(video.orientation, .portrait)
+        XCTAssertEqual(video.orientation.ratio, 9.0 / 16.0)
+    }
+
+    // MARK: Vídeo propio del entrenador
+
+    func test_manifiestoDeStream_esElVideoPropio() {
+        guard case .stream(let url)? = VideoDeTecnica(Self.hls) else {
+            return XCTFail("El manifiesto HLS es el vídeo que sube el entrenador")
+        }
+        XCTAssertEqual(url.absoluteString, Self.hls)
+        XCTAssertTrue(VideoDeTecnica.hay(en: Self.hls))
+    }
+
+    /// Cloudflare reparte varias direcciones del MISMO vídeo y del panel se copia la
+    /// del reproductor o la de «watch». Todas tienen que acabar en el manifiesto, que
+    /// es lo único que AVPlayer sabe reproducir sin ayuda.
+    func test_lasOtrasDireccionesDelMismoVideo_acabanEnElManifiesto() {
+        let base = "https://customer-\(Self.code).cloudflarestream.com/\(Self.uid)"
+        for variante in ["\(base)/iframe", "\(base)/watch", "\(base)/manifest/video.mpd"] {
+            guard case .stream(let url)? = VideoDeTecnica(variante) else {
+                return XCTFail("\(variante) es el mismo vídeo")
+            }
+            XCTAssertEqual(url.absoluteString, Self.hls)
+        }
+    }
+
+    /// La frontera que impide que la app del atleta le pida bytes a un dominio ajeno
+    /// porque alguien escribió lo que quiso en la columna.
+    func test_loQueSoloSePareceAStream_noEsVideo() {
+        let casos = [
+            // El host tiene que TERMINAR en el dominio de Cloudflare, no contenerlo.
+            "https://customer-\(Self.code).cloudflarestream.com.ajeno.tld/\(Self.uid)/manifest/video.m3u8",
+            // Sin cifrar.
+            "http://customer-\(Self.code).cloudflarestream.com/\(Self.uid)/manifest/video.m3u8",
+            // Un id que no son 32 hexadecimales.
+            "https://customer-\(Self.code).cloudflarestream.com/abc123/manifest/video.m3u8",
+            // Un camino que no es el vídeo.
+            "https://customer-\(Self.code).cloudflarestream.com/\(Self.uid)/thumbnails/thumbnail.jpg",
+        ]
+        for caso in casos {
+            XCTAssertNil(VideoDeTecnica(caso), "\(caso) no puede pasar por vídeo")
+        }
+    }
+
+    /// El fichero alojado por nosotros y servido tras autenticación fue la segunda
+    /// forma durante unas horas del 11-ago y se retiró el mismo día: Stream lo
+    /// sustituye entero. Que siga sin colar es lo que impide que reaparezca un segundo
+    /// camino para lo mismo.
+    func test_rutaRelativaNuestra_yaNoEsVideo() {
+        XCTAssertNil(VideoDeTecnica("/api/exercises/video/abc123"))
+        XCTAssertFalse(VideoDeTecnica.hay(en: "/api/exercises/video/ejercicios/60/2026/08/x.mp4"))
+    }
+
+    func test_espaciosAlrededor_noRompenLaClasificacion() {
+        XCTAssertTrue(VideoDeTecnica.hay(en: "  \(Self.hls)  "))
+        XCTAssertTrue(VideoDeTecnica.hay(en: " https://youtu.be/brFHyOtTwH4\n"))
     }
 }

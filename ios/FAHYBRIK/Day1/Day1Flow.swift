@@ -221,12 +221,16 @@ struct Day1Flow: View {
 
     private var testsStep: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LabelText(text: "SEMANA 1 · CALIBRACIÓN", color: Theme.Color.accentText)
+            LabelText(text: "TUS TESTS", color: Theme.Color.accentText)
             Text("Tu punto\nde partida")
                 .font(Theme.Typography.headlineM)
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
-            Text("Tu coach te programará tus tests en la primera semana. Los harás como sesiones normales — marcan tus números reales y calibran tu plan.")
+            // AGNÓSTICO (docs/DECISIONS.md, 7-ago): no se afirma NI que habrá tests
+            // NI cuándo — eso es el método de cada coach. Antes decía «tu coach te
+            // programará tus tests en la primera semana», que es la metodología de
+            // UN coach escrita como si fuera un hecho del producto.
+            Text("Cuando tu coach te programe un test, lo harás como una sesión normal — marcan tus números reales y calibran tu plan.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.Color.muted)
                 .padding(.top, 10)
@@ -267,7 +271,9 @@ struct Day1Flow: View {
                 .foregroundStyle(Theme.Color.foreground)
                 .padding(.top, 8)
             VStack(alignment: .leading, spacing: 0) {
-                loopRow(1, "Tu coach publica tu semana", "Cada domingo tienes tu plan listo en la app.")
+                // AGNÓSTICO: el MECANISMO (tu coach publica → lo ves) sí es del
+                // producto; la CADENCIA («cada domingo») es método de un coach.
+                loopRow(1, "Tu coach publica tu semana", "En cuanto la publica, la tienes en la app.")
                 loopConnector
                 loopRow(2, "Entrenas con la app y tu reloj", "La app te guía sesión a sesión; el Apple Watch registra tu FC.")
                 loopConnector

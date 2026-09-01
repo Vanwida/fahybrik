@@ -63,6 +63,7 @@ export async function POST(req: Request, ctx: Ctx) {
     name: found.lead_nombre,
     summary,
     nextSteps,
+    coach_id: session.coach_id,
   });
 
   if (!result.sent) {

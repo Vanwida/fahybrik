@@ -133,9 +133,9 @@ export function AplicarTestSheet({
   }
 
   const chipOn =
-    'v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent)]';
+    'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent-text)]';
   const chipOff =
-    'v2-focus rounded-[var(--v2-r-m)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]';
+    'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]';
 
   return (
     <div
@@ -193,7 +193,7 @@ export function AplicarTestSheet({
                         {a.full_name}
                       </span>
                       {a.pending_by_test[test.id] ? (
-                        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-accent)]">
+                        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-accent-text)]">
                           programado · {scheduledLabel(a.pending_by_test[test.id]!)}
                         </span>
                       ) : (
@@ -216,7 +216,7 @@ export function AplicarTestSheet({
               <button
                 type="button"
                 onClick={() => setSelected(new Set(roster.map((a) => a.athlete_id)))}
-                className="v2-focus font-semibold text-[color:var(--v2-accent)]"
+                className="v2-focus font-semibold text-[color:var(--v2-accent-text)]"
               >
                 todos
               </button>
@@ -224,7 +224,7 @@ export function AplicarTestSheet({
               <button
                 type="button"
                 onClick={() => setSelected(new Set(neverDone))}
-                className="v2-focus font-semibold text-[color:var(--v2-accent)]"
+                className="v2-focus font-semibold text-[color:var(--v2-accent-text)]"
               >
                 los que no lo han hecho nunca
               </button>
@@ -273,7 +273,7 @@ export function AplicarTestSheet({
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
+            className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
           >
             Cancelar
           </button>
@@ -281,7 +281,7 @@ export function AplicarTestSheet({
             type="button"
             onClick={submit}
             disabled={busy || selected.size === 0}
-            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
+            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
           >
             {busy ? (
               <MIcon name="progress_activity" size={15} className="animate-spin" />

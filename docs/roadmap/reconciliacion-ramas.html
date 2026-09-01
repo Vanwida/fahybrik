@@ -74,7 +74,7 @@
 
   <div class="verdict">
     <h2>Veredicto</h2>
-    <p><b>La rama remota <code style="background:#1d1d1d;padding:1px 5px;border-radius:4px">origin/feat/landing</code> es una rama VIEJA (25 jun) que la línea de hoy YA SUPERÓ.</b> Casi todo lo que "le falta" a prod fue <b>borrado a propósito</b> por el pivote agnóstico (matar ATR + template-builder + planes por fases) y por la decisión de "landing sin precios". Prod ya tiene los reemplazos agnósticos.</p>
+    <p><b>La rama remota <code style="background:#1d1d1d;padding:1px 5px;border-radius:4px">origin/feat/landing</code> es una rama VIEJA (25 jun) que la línea de hoy YA SUPERÓ.</b> Casi todo lo que "le falta" a prod fue <b>borrado a propósito</b> por el pivote agnóstico (matar el motor de periodización + template-builder + planes por fases) y por la decisión de "landing sin precios". Prod ya tiene los reemplazos agnósticos.</p>
     <p><b>Si no recuperamos NADA: prod NO pierde nada que Pablo use hoy</b> — con 3-4 excepciones a confirmar (abajo, en naranja): la pestaña <b>Rendimiento</b> del atleta, la acción <b>Evaluar semana</b>, el <b>IA-compose</b> de Pablo, y la paridad del <b>intake-review V2</b>. El resto = muerto a propósito o rehecho mejor hoy.</p>
     <p><b>Recomendación:</b> local = rama canónica; archivar la remota (no borrarla); cherry-pick selectivo SOLO lo que Alex marque de las 3-4 naranjas.</p>
   </div>
@@ -82,7 +82,7 @@
   <section>
     <div class="sec-head"><h2 class="sh">Contexto en 20 segundos</h2></div>
     <div class="sec-note">
-      Ancestro común <code>eb38bed</code>, luego DIVERGIERON (sin fast-forward). · <b style="color:var(--ink)">LOCAL</b> (prod): 257 commits — funnel, dobles, watch, mirror, readiness, IA-captura, + el pivote agnóstico. · <b style="color:var(--ink)">REMOTA</b>: 11 commits — consolidación V2 + sistema ATR/plantillas pre-agnóstico. · 73 ficheros que la remota tiene y local no: <b style="color:#d99">51 los borró local a propósito</b>, <b style="color:#9bd">22 los añadió la remota</b> (la mayoría ya superados). Nada se pierde: hoy está en local + <code>feat/funnel-jul7</code>; la consolidación en la remota.
+      Ancestro común <code>eb38bed</code>, luego DIVERGIERON (sin fast-forward). · <b style="color:var(--ink)">LOCAL</b> (prod): 257 commits — funnel, dobles, watch, mirror, readiness, IA-captura, + el pivote agnóstico. · <b style="color:var(--ink)">REMOTA</b>: 11 commits — consolidación V2 + sistema de plantillas pre-agnóstico. · 73 ficheros que la remota tiene y local no: <b style="color:#d99">51 los borró local a propósito</b>, <b style="color:#9bd">22 los añadió la remota</b> (la mayoría ya superados). Nada se pierde: hoy está en local + <code>feat/funnel-jul7</code>; la consolidación en la remota.
     </div>
   </section>
 
@@ -91,16 +91,16 @@
     <div class="sec-note">Todos eliminados en commits explícitos del pivote agnóstico. Recomendación uniforme: <b style="color:var(--dim)">dejar muertos</b> — recuperarlos sería una regresión.</div>
 
     <div class="card dead"><span class="tag dead">Dejar muerto</span>
-      <h3>Sistema ATR (periodización por fases ACC/TRANS/REAL)</h3>
-      <div class="what"><b>Qué era:</b> el motor de periodización con fases ATR hardcodeadas — detector/dispatch de transiciones, roles de fase, constantes ATR, tests. <span style="color:var(--dim)">(lib/atr/*, atr-transition-*, phases, phase-roles, atr-phases, tests/atr/*)</span></div>
-      <div class="row"><span class="chip del">local borró</span><span class="chip">commit b478c94 «finish ATR removal — agnostic microciclo periodization (Task A)»</span></div>
-      <div class="rec dead"><b>Muerto a propósito.</b> Sustituido por la periodización AGNÓSTICA (Microciclo N, el orden = la periodización). Recuperar = resucitar el ATR que Alex mató. → dejar muerto.</div>
+      <h3>Motor de periodización por fases de catálogo</h3>
+      <div class="what"><b>Qué era:</b> el motor de periodización con fases hardcodeadas — detector/dispatch de transiciones, roles de fase, constantes, tests.</div>
+      <div class="row"><span class="chip del">local borró</span><span class="chip">commit b478c94 (periodización agnóstica por microciclo)</span></div>
+      <div class="rec dead"><b>Muerto a propósito.</b> Sustituido por la periodización AGNÓSTICA (Microciclo N, el orden = la periodización). Recuperar = resucitar el catálogo que Alex retiró. → dejar muerto.</div>
     </div>
 
     <div class="card dead"><span class="tag dead">Dejar muerto</span>
       <h3>Editor de plantillas (template-builder)</h3>
       <div class="what"><b>Qué era:</b> subsistema de construcción de plantillas de entreno — builder, editor de segmentos, paleta de ejercicios, panel de metadatos, validación. <span style="color:var(--dim)">(components/templates/*)</span></div>
-      <div class="row"><span class="chip del">local borró</span><span class="chip">commit 584c80e «delete dead template-builder subsystem + hardcoded ATR enum»</span></div>
+      <div class="row"><span class="chip del">local borró</span><span class="chip">commit 584c80e (template-builder + enum de fases)</span></div>
       <div class="rec dead"><b>Muerto a propósito</b> («dead subsystem»). El authoring de entrenos hoy va por el editor de microciclo agnóstico. → dejar muerto.</div>
     </div>
 
@@ -119,10 +119,10 @@
     </div>
 
     <div class="card dead"><span class="tag dead">Dejar muerto</span>
-      <h3>Endpoints de coach ligados al ATR</h3>
+      <h3>Endpoints de coach ligados al motor de fases</h3>
       <div class="what"><b>Qué era:</b> target-events, blocks/matrix, methodology/phases, assign-block — APIs del sistema de fases. </div>
       <div class="row"><span class="chip del">local borró</span></div>
-      <div class="rec dead"><b>Muerto a propósito</b> (parte del ATR). El nuevo modelo agnóstico no los usa. → dejar muerto.</div>
+      <div class="rec dead"><b>Muerto a propósito</b> (parte del motor de fases). El nuevo modelo agnóstico no los usa. → dejar muerto.</div>
     </div>
 
     <div class="card dead"><span class="tag dead">Dejar muerto</span>

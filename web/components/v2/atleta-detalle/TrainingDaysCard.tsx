@@ -42,7 +42,7 @@ export function TrainingDaysStrip({ data }: { data: TrainingDaysData }) {
               !has_availability
                 ? 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]'
                 : d.trains
-                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
+                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
                   : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
             )}
           >
@@ -59,8 +59,21 @@ export function TrainingDaysStrip({ data }: { data: TrainingDaysData }) {
   );
 }
 
-export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
+export function TrainingDaysCard({
+  data,
+  coachDaysPerWeek,
+}: {
+  data: TrainingDaysData;
+  /** Días/sem que el coach fijó en Clasificación (asignación). Si divergen del
+   *  conteo real del atleta, se avisa: programar sobre días que no entrena. */
+  coachDaysPerWeek?: number | null;
+}) {
   const { days, training_days_per_week, has_availability } = data;
+  const realCount = has_availability ? days.filter((d) => d.trains).length : null;
+  const daysConflict =
+    realCount != null &&
+    coachDaysPerWeek != null &&
+    realCount !== coachDaysPerWeek;
 
   return (
     <Panel
@@ -68,7 +81,7 @@ export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
       className="max-w-[560px]"
       action={
         training_days_per_week != null ? (
-          <Pill tone={has_availability ? 'accent' : 'neutral'} variant="soft">
+          <Pill tone={has_availability ? (daysConflict ? 'warn' : 'accent') : 'neutral'} variant="soft">
             {training_days_per_week} días/sem
           </Pill>
         ) : null
@@ -80,7 +93,7 @@ export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
             key={d.key}
             title={has_availability ? `${d.full_label} · ${d.trains ? 'entreno' : 'descanso'}` : d.full_label}
             className={cn(
-              'flex flex-col items-center gap-1.5 rounded-[var(--v2-r-s)] border py-2.5 text-center',
+              'flex flex-col items-center gap-1.5 rounded-[var(--v2-r-m)] border py-2.5 text-center',
               !has_availability
                 ? 'border-dashed border-[color:var(--v2-border)]'
                 : d.trains
@@ -106,6 +119,15 @@ export function TrainingDaysCard({ data }: { data: TrainingDaysData }) {
       {!has_availability ? (
         <p className="mt-2.5 text-label text-[color:var(--v2-faint)]">
           El atleta aún no ha marcado sus días reales en su app.
+        </p>
+      ) : daysConflict ? (
+        <p className="mt-2.5 flex items-start gap-1.5 text-label text-[color:var(--v2-warn)]">
+          <MIcon name="warning" size={14} className="mt-px shrink-0" />
+          <span>
+            El atleta entrena {realCount} días/sem y en Clasificación tienes {coachDaysPerWeek}.
+            La asignación usa el número de Clasificación: alinea ambos para no programar en
+            días que no entrena.
+          </span>
         </p>
       ) : null}
     </Panel>

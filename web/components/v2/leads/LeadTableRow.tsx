@@ -27,7 +27,7 @@ function ContactLink({ href, icon, label }: { href: string; icon: string; label:
       aria-label={label}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        'v2-focus pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)]',
+        'v2-focus pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full',
         'text-[color:var(--v2-faint)] transition-colors',
         'hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
       )}

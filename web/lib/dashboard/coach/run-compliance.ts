@@ -26,16 +26,28 @@
 // Client-safe: pure functions + type-only imports. No I/O.
 
 import {
+  evaluateRecoveryDuration,
+  evaluateRecoverySegment,
   evaluateRunSegment,
+  evaluateWorkDuration,
   hrBandFromTarget,
   paceBandFromResolvedZone,
   paceBandFromTarget,
   rpeBandFromTarget,
+  summarizeRecoveryCompliance,
+  summarizeRecoveryDuration,
   summarizeRunCompliance,
+  summarizeWorkDuration,
   type ComplianceBand,
   type ComplianceSample,
+  type RecoveryComplianceSummary,
+  type RecoveryComplianceVerdict,
+  type RecoveryDurationSummary,
+  type RecoveryDurationVerdict,
   type RunComplianceSummary,
   type RunComplianceVerdict,
+  type WorkDurationSummary,
+  type WorkDurationVerdict,
 } from '@fahybrid/shared/domain/adherence';
 import {
   flattenSegments,
@@ -61,11 +73,104 @@ export interface RunComplianceTramo {
    *  tramo with no execution (counts as 'sin_dato'). */
   position: number | null;
   verdict: RunComplianceVerdict;
+  /** ¿Cuánto DURÓ el tramo frente a lo prescrito? Pregunta independiente de
+   *  `verdict` (que juzga la intensidad) — las dos conviven en la misma fila,
+   *  nunca se mezclan en un número (Alex, 12-ago). Null cuando el tramo no se
+   *  prescribió por duración (se midió por distancia) o no hay un `Segment`
+   *  concreto contra el que comparar (alineación heredada sin estructura). */
+  duration_verdict: WorkDurationVerdict | null;
+  /**
+   * Ordinal 1-based de este tramo entre los de TRABAJO de su MISMO item: «la
+   * 3.ª repetición de este 6×800». Distinto de `position` (el turno del lap
+   * dentro de TODA la ejecución, recuperaciones incluidas) — la calibración
+   * del coach (#71, `shared/domain/running/calibration.ts`) pregunta «¿dónde
+   * se rompe DENTRO DE LA SERIE?», y para eso hace falta el segundo, no el
+   * primero. Null cuando no hay estructura prescrita que numerar (alineación
+   * heredada sin match, o tramo sin ejecutar).
+   */
+  rep_ordinal: number | null;
+  /**
+   * El eje que juzgó este tramo — el mismo `ComplianceBand['axis']` que
+   * resolvió `verdict`. Null cuando no hubo banda (sin objetivo, o zona sin
+   * snapshot). La calibración solo entra por tramos de RITMO: mezclar HR o
+   * RPE en «¿le estoy poniendo bien los ritmos?» respondería otra pregunta.
+   */
+  band_axis: ComplianceBand['axis'] | null;
+  /**
+   * La banda ENTERA contra la que se juzgó — lo que `segmentBand()` ya
+   * calcula y hasta ahora se descartaba. La UI la necesita para pintar la
+   * franja de lo pedido sobre la curva y para decir «se fue N s/km» sin
+   * volver a resolver la precedencia zona-resuelta-vs-objetivo-explícito en
+   * el cliente: esa precedencia vive AQUÍ, una vez, y exponer solo `axis`
+   * obligaba a repetirla del otro lado para tener los números.
+   */
+  band: ComplianceBand | null;
+  /**
+   * La pendiente que el COACH PIDIÓ para este tramo (`Segment.incline_pct`,
+   * 0-15, la gramática de #61) — no confundir con las otras dos pendientes
+   * del dominio: `SegmentActual.incline_pct` es lo que la CINTA declaró al
+   * ejecutar, y `avg_gradient_pct` es lo MEDIDO (cinta o altitud derivada,
+   * `shared/domain/running/gradient.ts`). Esta es la ÚNICA de las tres que
+   * no depende de haber medido nada — por eso el corrector puede retirar el
+   * veredicto de ritmo de una cuesta prescrita aunque la sesión no tenga
+   * traza. Null cuando el tramo no prescribió inclinación, o cuando no hay
+   * un `Segment` alineado del que leerla (mismos casos que `rep_ordinal`).
+   */
+  prescribed_incline_pct: number | null;
+}
+
+/** One RECOVERY tramo's verdict — same key shape as `RunComplianceTramo`, a
+ *  different verdict vocabulary (see `evaluateRecoverySegment`). */
+export interface RecoveryComplianceTramo {
+  item_uid: string;
+  position: number | null;
+  verdict: RecoveryComplianceVerdict;
+  /** Ver el campo homónimo de `RunComplianceTramo` — misma idea, vocabulario
+   *  de recuperación (`evaluateRecoveryDuration`: el fallo es PASARSE). */
+  duration_verdict: RecoveryDurationVerdict | null;
+  /** Ver `RunComplianceTramo.band` — misma banda, mismo motivo. */
+  band: ComplianceBand | null;
 }
 
 export interface RunComplianceResult {
   summary: RunComplianceSummary;
   tramos: RunComplianceTramo[];
+  /** Recuperaciones CON objetivo prescrito, juzgadas por separado (#66,
+   *  Alex 12-ago) — nunca mezcladas en `tramos`/`summary`, para que un "6 de 6
+   *  en el trabajo, 2 de 6 en la recuperación" no se resuma en un porcentaje
+   *  único que no distingue las dos preguntas. Una recuperación SIN objetivo
+   *  NI duración prescrita no aparece aquí: no se juzga, se omite. */
+  recovery_summary: RecoveryComplianceSummary;
+  recovery_tramos: RecoveryComplianceTramo[];
+  /** Agregado de `tramos[].duration_verdict` — cuántos tramos de trabajo
+   *  cumplieron su dosis de TIEMPO, de los que la tenían prescrita. Un
+   *  resumen DISTINTO de `summary` (que es de intensidad): un tramo puede
+   *  estar en banda de ritmo y aun así haberse quedado corto de tiempo. */
+  work_duration_summary: WorkDurationSummary;
+  /** Agregado de `recovery_tramos[].duration_verdict`. */
+  recovery_duration_summary: RecoveryDurationSummary;
+  /**
+   * LA PENDIENTE A PARTIR DE LA CUAL EL RITMO DEJA DE COMPARARSE, en % y en
+   * valor absoluto. Método del COACH — quien entrena trail no lo retira al 3 %.
+   *
+   * VIAJA AQUÍ Y NO POR OTRA RUTA a propósito (team-lead, 12-ago): este objeto
+   * ya es donde el servidor dice CÓMO se juzga una carrera —la banda llega
+   * resuelta, con su precedencia aplicada—, y un umbral de método es la misma
+   * clase de dato. Por el mismo camino no puede llegar desincronizado del
+   * veredicto que gobierna.
+   *
+   * NULO significa «usa tu suelo»: el cliente aplica su propio defecto, que es
+   * lo que hace hoy. Sale nulo cuando el llamador no resolvió el umbral del
+   * coach — nunca se rellena con un 3 inventado aquí, porque entonces un coach
+   * de trail vería su umbral en una pantalla y el nuestro en otra.
+   *
+   * EL SERVIDOR NO DECIDE CON ESTO. Sólo lo transporta: comparar contra él es
+   * del cliente, porque además de retirar el veredicto cambia el eje del
+   * troceado a tiempo y cambia el sujeto de la lectura, y eso es presentación.
+   * La precedencia de tres ramas (prescrito / declarado por la cinta / medido)
+   * vive UNA vez, allí. Ver `shared/domain/running/gradient.ts`.
+   */
+  gradient_retires_pace_pct: number | null;
 }
 
 // The representative intensity target for a line: block-level, else the first
@@ -133,16 +238,54 @@ function itemBand(item: AssignmentDetailItem): ComplianceBand | null {
   );
 }
 
-// The band for one flattened structure WORK segment (native multi-rep block): an
-// explicit pace/RPE target resolves standalone; a zone segment falls back to the
-// item's resolved snapshot band, pending native per-segment resolution once
-// structured execution lands.
+// The band for one flattened structure segment (work OR recovery): an explicit
+// pace/RPE target resolves standalone; a zone target prefers the band the wire
+// already resolved for THIS segment (`seg.resolved` — assignment-detail's
+// runWireStructure enriches every pace_zone segment individually, work and
+// recovery alike), falling back to the item's representative snapshot band
+// only when the segment itself has none.
+//
+// Using the item's band UNCONDITIONALLY was harmless while every segment in a
+// block shared the same zone (a 6×800 @ Z4 has `seg.resolved` ≡
+// `item.resolved_intensity` for every work rep) and recoveries were never
+// judged at all. It stops being harmless the moment a recovery targets a
+// DIFFERENT zone than the work (Z1 recovery inside a Z4 block) — judging it
+// against the item's Z4 band would fail every honest easy recovery.
 function segmentBand(seg: Segment, item: AssignmentDetailItem): ComplianceBand | null {
   const t = seg.target;
   if (!t) return null;
   if (t.type === 'pace') return paceBandFromTarget(t);
   if (t.type === 'rpe') return rpeBandFromTarget(t);
-  return bandFromResolvedIntensity(item.resolved_intensity); // pace_zone / hr_zone
+  // pace_zone / hr_zone.
+  if (seg.resolved) return bandFromResolvedIntensity(seg.resolved);
+  return bandFromResolvedIntensity(item.resolved_intensity);
+}
+
+// La duración PRESCRITA de un tramo, solo cuando su medida ES tiempo — un
+// tramo medido por distancia ("1000 m") no tiene duración que comparar, tiene
+// una distancia. `Segment.measure` ya distingue las dos (shared/domain/
+// prescription/run-structure.ts); esto solo lee la que aplica.
+function prescribedDurationS(seg: Segment | undefined): number | null {
+  return seg?.measure.type === 'duration' ? seg.measure.s : null;
+}
+
+// La pendiente PRESCRITA de un tramo (`Segment.incline_pct`, opcional en la
+// gramática) — `undefined` cuando el coach no la fijó se normaliza a `null`
+// para el wire, mismo trato que el resto de campos opcionales de este fichero.
+function prescribedInclinePct(seg: Segment | undefined): number | null {
+  return seg?.incline_pct ?? null;
+}
+
+// Cuántos segmentos 'work' hay en `all[0..=idx]` — el ordinal 1-based de ESTE
+// tramo entre los de trabajo de su mismo item. Puramente posicional: la
+// prescripción ya fija el orden, así que no hace falta arrastrar un contador
+// por el bucle que la recorre.
+function workOrdinal(all: readonly Segment[], idx: number): number {
+  let n = 0;
+  for (let i = 0; i <= idx; i += 1) {
+    if (all[i]?.kind === 'work') n += 1;
+  }
+  return n;
 }
 
 // Prescribed WORK segments of an item, structure-first (native `structure`, else
@@ -175,11 +318,22 @@ function isRunItem(item: AssignmentDetailItem, actuals: SegmentActual[]): boolea
  * session detail. Pure: give it the assembled workout blocks + the logged actuals
  * and it returns verdicts keyed by (item, lap) plus the % of evaluable tramos in
  * band. Non-run tramos are ignored; a prescribed run tramo with no execution is a
- * 'sin_dato' (counted, never in-band).
+ * 'sin_dato' (counted, never in-band). Recoveries with a prescribed objetivo are
+ * judged too, but into `recovery_tramos`/`recovery_summary` — never mixed into
+ * the work verdict (see the type doc on `RunComplianceResult`). Every tramo ALSO
+ * gets an independent `duration_verdict` when its measure was time — a second,
+ * separate question from intensity (Alex, 12-ago).
  */
 export function buildRunCompliance(
   workout: AssignmentDetailWorkout | null,
   actuals: readonly SegmentActual[],
+  /**
+   * El umbral de pendiente del coach, si el llamador lo resolvió. Opcional a
+   * propósito: los llamadores que sólo quieren los veredictos (la calibración
+   * del coach recorre docenas de sesiones) no pagan una consulta por algo que
+   * no van a mirar, y omitirlo deja `null`, que ya significa «usa tu suelo».
+   */
+  opts?: { gradient_retires_pace_pct?: number | null },
 ): RunComplianceResult {
   const byItem = new Map<string, SegmentActual[]>();
   for (const a of actuals) {
@@ -192,9 +346,43 @@ export function buildRunCompliance(
 
   const tramos: RunComplianceTramo[] = [];
   const verdicts: RunComplianceVerdict[] = [];
-  const push = (item_uid: string, position: number | null, verdict: RunComplianceVerdict) => {
-    tramos.push({ item_uid, position, verdict });
+  const workDurationVerdicts: WorkDurationVerdict[] = [];
+  const push = (
+    item_uid: string,
+    position: number | null,
+    verdict: RunComplianceVerdict,
+    duration_verdict: WorkDurationVerdict | null = null,
+    rep_ordinal: number | null = null,
+    band: ComplianceBand | null = null,
+    prescribed_incline_pct: number | null = null,
+  ) => {
+    tramos.push({
+      item_uid,
+      position,
+      verdict,
+      duration_verdict,
+      rep_ordinal,
+      band_axis: band?.axis ?? null,
+      band,
+      prescribed_incline_pct,
+    });
     verdicts.push(verdict);
+    if (duration_verdict != null) workDurationVerdicts.push(duration_verdict);
+  };
+
+  const recoveryTramos: RecoveryComplianceTramo[] = [];
+  const recoveryVerdicts: RecoveryComplianceVerdict[] = [];
+  const recoveryDurationVerdicts: RecoveryDurationVerdict[] = [];
+  const pushRecovery = (
+    item_uid: string,
+    position: number | null,
+    verdict: RecoveryComplianceVerdict,
+    duration_verdict: RecoveryDurationVerdict | null,
+    band: ComplianceBand | null,
+  ) => {
+    recoveryTramos.push({ item_uid, position, verdict, duration_verdict, band });
+    recoveryVerdicts.push(verdict);
+    if (duration_verdict != null) recoveryDurationVerdicts.push(duration_verdict);
   };
 
   for (const block of workout?.blocks ?? []) {
@@ -219,10 +407,25 @@ export function buildRunCompliance(
       // incluidos, contra la banda de las series. Media sesión salía «muy lento»
       // y el % de cumplimiento se hundía sin que nadie hubiera fallado nada.
       //
-      // Las RECUPERACIONES no se juzgan. El cumplimiento responde «¿pegaste las
-      // series?»; un trote de vuelta no tiene banda de trabajo contra la que
-      // medirse, y meterlo en el resumen solo diluiría la respuesta. Que el
-      // atleta respete o no la recuperación es otra pregunta, y hoy no se hace.
+      // Las RECUPERACIONES SE JUZGAN cuando traen objetivo (Alex, 12-ago): la
+      // gramática ya permite prescribir una —`rec(dur(60), 'trote', rpe(3))`,
+      // el arquetipo fartlek— y `segment_executions` ya la MIDE (mig 0146); lo
+      // único que faltaba era leerlo. Una recuperación SIN objetivo NI duración
+      // prescrita se sigue omitiendo — no hay nada contra qué medirla, y no se
+      // le inventa uno. Las que SÍ tienen algo van a `recoveryTramos`, nunca a
+      // `tramos`: el cumplimiento del trabajo responde «¿pegaste las series?»
+      // y tiene que seguir respondiendo exactamente eso, sin que una
+      // recuperación diluya el número. Que el atleta respete la recuperación
+      // es OTRA pregunta, con su propio veredicto de intensidad
+      // (`evaluateRecoverySegment`) Y uno de duración independiente
+      // (`evaluateRecoveryDuration`) — ver el porqué de las dos direcciones
+      // invertidas en shared/domain/adherence/run-compliance.
+      //
+      // LA DURACIÓN se juzga en las DOS ramas (trabajo y recuperación) cuando
+      // el tramo se prescribió por tiempo (`measure.type === 'duration'`) — un
+      // "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de
+      // trote ya no puede leerse "recuperación controlada": el veredicto de
+      // duración es una fila más, no un reemplazo del de intensidad.
       //
       // Se exige que los laps traigan TODOS su `leg_index`, no que lo traiga
       // alguno: un bloque estructurado los graba todos o ninguno, así que una
@@ -234,15 +437,28 @@ export function buildRunCompliance(
         const all = allSegmentsOf(item.prescription_json);
         for (const a of legActuals) {
           const seg = all[a.leg_index!];
-          // Un tramo marcado como recuperación —por la fila o por la prescripción
-          // que hay en ese índice— queda fuera del veredicto.
-          if (a.leg_role === 'recovery' || seg?.kind === 'recovery') continue;
+          const isRecovery = a.leg_role === 'recovery' || seg?.kind === 'recovery';
+          const prescribedS = prescribedDurationS(seg);
+          if (isRecovery) {
+            const band = seg ? segmentBand(seg, item) : null;
+            if (!band && prescribedS == null) continue; // nada que juzgar en ningún eje: se omite
+            const durationVerdict = prescribedS != null ? evaluateRecoveryDuration(prescribedS, a.duration_seconds) : null;
+            pushRecovery(item.uid, a.position, evaluateRecoverySegment(band, sampleFromActual(a)), durationVerdict, band);
+            continue;
+          }
           // Sin tramo prescrito en ese índice no hay banda: 'sin_dato' honesto,
-          // nunca la banda del bloque aplicada a ciegas.
+          // nunca la banda del bloque aplicada a ciegas. El trabajo SIEMPRE se
+          // empuja (a diferencia de la recuperación) — eso no cambia aquí.
+          const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
+          const band = seg ? segmentBand(seg, item) : null;
           push(
             item.uid,
             a.position,
-            evaluateRunSegment(seg ? segmentBand(seg, item) : null, sampleFromActual(a)),
+            evaluateRunSegment(band, sampleFromActual(a)),
+            durationVerdict,
+            seg && seg.kind === 'work' ? workOrdinal(all, a.leg_index!) : null,
+            band,
+            prescribedInclinePct(seg),
           );
         }
         continue;
@@ -251,22 +467,59 @@ export function buildRunCompliance(
       // ── Camino HEREDADO: laps sin `leg_index` ───────────────────────────────
       // Native multi-rep block executed as several laps → align work segments to
       // laps in order. Reduces to the single-tramo path when there is one lap.
+      //
+      // La recuperación NO se juzga aquí, y no es una laguna nueva: el CHECK
+      // de la 0146 exige `leg_index`/`leg_role`/`leg_phase` los tres juntos o
+      // ninguno, así que un lap sin `leg_index` tampoco trae `leg_role` — este
+      // camino no tiene forma de saber si un lap es trabajo o recuperación.
+      // Es la misma limitación que ya tenía para el trabajo (zipar por orden,
+      // "frágil por construcción" dice el comentario de arriba); no se agrava
+      // ni se arregla aquí. La DURACIÓN del trabajo sí se juzga (`seg` es un
+      // tramo real, con su propio `measure`) — el mismo trato que el nativo.
       const work = itemActuals.length > 1 ? workSegmentsOf(item.prescription_json) : [];
       if (work.length > 1 && work.length === itemActuals.length) {
         work.forEach((seg, i) => {
           const a = itemActuals[i]!;
-          push(item.uid, a.position, evaluateRunSegment(segmentBand(seg, item), sampleFromActual(a)));
+          const prescribedS = prescribedDurationS(seg);
+          const durationVerdict = prescribedS != null ? evaluateWorkDuration(prescribedS, a.duration_seconds) : null;
+          const band = segmentBand(seg, item);
+          // `i` YA es el ordinal 0-based dentro de `work` (todos los tramos de
+          // trabajo del item, en orden): +1 es su posición dentro de la serie,
+          // sin nada que detectar — mismo dato que `workOrdinal` da en el
+          // camino nativo, por otro camino.
+          push(
+            item.uid,
+            a.position,
+            evaluateRunSegment(band, sampleFromActual(a)),
+            durationVerdict,
+            i + 1,
+            band,
+            prescribedInclinePct(seg),
+          );
         });
       } else {
         // One lap, or a lap count that doesn't align to the structure → judge each
         // lap against the item's representative band (uniform set / honest fallback).
+        // Sin un `Segment` concreto no hay `measure` del que leer una duración
+        // prescrita — `duration_verdict` se queda null (default de `push`),
+        // nunca la duración del bloque aplicada a ciegas. Tampoco hay
+        // `rep_ordinal`: sin estructura alineada no se sabe qué posición
+        // ocupaba este lap dentro de la serie.
         const band = itemBand(item);
         for (const a of itemActuals) {
-          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)));
+          push(item.uid, a.position, evaluateRunSegment(band, sampleFromActual(a)), null, null, band);
         }
       }
     }
   }
 
-  return { summary: summarizeRunCompliance(verdicts), tramos };
+  return {
+    summary: summarizeRunCompliance(verdicts),
+    tramos,
+    recovery_summary: summarizeRecoveryCompliance(recoveryVerdicts),
+    recovery_tramos: recoveryTramos,
+    work_duration_summary: summarizeWorkDuration(workDurationVerdicts),
+    recovery_duration_summary: summarizeRecoveryDuration(recoveryDurationVerdicts),
+    gradient_retires_pace_pct: opts?.gradient_retires_pace_pct ?? null,
+  };
 }

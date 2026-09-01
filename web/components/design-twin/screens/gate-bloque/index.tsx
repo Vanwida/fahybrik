@@ -8,7 +8,7 @@
 // sujeto escale con lo que sobra (`propuesta.tsx`).
 
 import type { BloqueReal, ItemReal } from '../../datos-reales';
-import { BACK_SQUAT, HYROX, REMO_500 } from '../../datos-reales';
+import { BACK_SQUAT, FARTLEK_16X500, HYROX, REMO_500 } from '../../datos-reales';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { Hoy } from './hoy';
 import { Propuesta } from './propuesta';
@@ -17,10 +17,11 @@ export const meta: TwinMeta = {
   id: 'gate-bloque',
   titulo: 'La puerta del bloque — «empieza cuando estés listo»',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-08-10',
   descripcion:
     'La pantalla que ven las dos poblaciones: es el único briefing del entreno libre y la antesala de cada bloque del plan. Hoy reserva el mismo hueco para 1 ítem que para 16.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Workout/BlockPreviewGate.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {
@@ -59,6 +60,12 @@ export const escenarios: TwinEscenario[] = [
     titulo: 'Simulación HYROX · bloque 2 de 3',
     descripcion: 'Dieciséis ítems: el único caso que desborda y el único que se gana el scroll.',
   },
+  {
+    id: 'fartlek',
+    titulo: 'Fartlek 16 × 500 m en Z4',
+    descripcion:
+      'La carrera con estructura del 10-ago: un ítem que se cuenta por sus tramos («16 × 500 m») y dice cómo se hace el minuto de en medio, que se trota.',
+  },
 ];
 
 interface DatosBloque {
@@ -92,6 +99,8 @@ function datosDeEscenario(id: string): DatosBloque {
       return deBloque(HYROX, 0); // Calentamiento
     case 'hyrox':
       return deBloque(HYROX, 1); // Simulación HYROX — el bloque de 16
+    case 'fartlek':
+      return deBloque(FARTLEK_16X500, 0);
     case 'minimo':
     default:
       return deBloque(REMO_500, 0);

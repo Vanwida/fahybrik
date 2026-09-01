@@ -10,7 +10,7 @@
 //   • search  — keyboard-focused search + category chips + RECENTS (D2: recents
 //               yes, derived free; favoritos no). Picking selects the exercise.
 //   • create  — "crear ejercicio" (ExerciseCreateForm: name + category + modality
-//               + optional YouTube), POST /api/exercises, then selects the new
+//               + optional video), POST /api/exercises, then selects the new
 //               exercise (D3 scope = global single-coach). The coach DECLARES the
 //               modality — the server stopped deriving it from the name, which is
 //               what silently turned a Spanish "Remo 500m" into `other`.
@@ -21,7 +21,8 @@
 //
 // AGNOSTIC: modality is the exercise's intrinsic data; the coach picks a category
 // (the real enum), never a methodology/level/phase. Reuses GET /api/exercises and
-// the shared youtubeUrlSchema (no new schema).
+// `exerciseVideoSchema` (lib/exercises/video-source.ts) — THE one video validator,
+// shared with the server: a YouTube link or a file the coach uploaded. No new schema.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalPortal } from './ModalPortal';
@@ -182,7 +183,7 @@ export function ExercisePicker({
             type="button"
             onClick={onClose}
             aria-label="Cancelar"
-            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>
@@ -309,7 +310,7 @@ function SearchBody({
         onClick={onCreate}
         className="v2-focus flex items-center gap-2 border-t border-[color:var(--v2-border)] px-4 py-3 text-left text-sm text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)]"
       >
-        <MIcon name="add" size={16} className="text-[color:var(--v2-accent)]" />
+        <MIcon name="add" size={16} className="text-[color:var(--v2-accent-text)]" />
         <span>
           Crear{' '}
           {query.trim() ? (
@@ -378,12 +379,20 @@ function ExerciseRow({
       >
         {MODALITY_LABELS[ex.modality]}
       </span>
+      {/* SIEMPRE visible, nunca `opacity-0 group-hover:opacity-100`: en un móvil
+          no existe el hover, así que este botón era invisible — y el dashboard
+          se usa desde el móvil (§9.3 del contrato). Se apoya en el COLOR para no
+          competir con el nombre del ejercicio, no en desaparecer. El que ya
+          tiene vídeo va en tinta plena porque es un dato de la fila; el resto,
+          apagado. Nada de naranja de marca: no es un color de dato (§9.1). */}
       <button
         type="button"
         onClick={() => onEdit(ex)}
-        aria-label={`Editar ${ex.name}`}
-        className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-opacity hover:text-[color:var(--v2-fg)] focus:opacity-100 group-hover:opacity-100"
-        title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar — indicaciones y vídeo'}
+        aria-label={hasVideo ? `Editar ${ex.name} (tiene vídeo)` : `Editar ${ex.name}`}
+        className={`v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors hover:text-[color:var(--v2-fg)] ${
+          hasVideo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-faint)]'
+        }`}
+        title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar indicaciones y vídeo'}
       >
         <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
       </button>

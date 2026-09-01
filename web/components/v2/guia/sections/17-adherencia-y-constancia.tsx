@@ -33,7 +33,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           La <b>adherencia</b> es la respuesta a una sola pregunta: de lo que le programaste, ¿cuánto
           cumplió? Es un porcentaje que sale solo de las sesiones que tu atleta marca, sin que tú
-          lleves la cuenta. Y su <b>tendencia</b> —si sube o baja semana a semana— suele decir más
+          lleves la cuenta. Y su <b>tendencia</b> (si sube o baja semana a semana) suele decir más
           que cualquier dato puntual.
         </>
       }
@@ -55,7 +55,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque un plan perfecto que no se cumple no entrena a nadie. La adherencia te dice dónde
-            está el problema real —constancia, no programación— y a quién acompañar antes de que se
+            está el problema real (constancia, no programación) y a quién acompañar antes de que se
             descuelgue.
           </>
         }
@@ -65,7 +65,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Cada porcentaje lleva su color, igual en todas las pantallas: <span style={OK}>verde</span>{' '}
         de 75 para arriba, <span style={WARN}>ámbar</span> entre 60 y 74, y <span style={DNG}>rojo</span>{' '}
-        por debajo de 60. Junto al color siempre va el número — el color nunca es la única señal — así
+        por debajo de 60. Junto al color siempre va el número (el color nunca es la única señal) así
         que un barrido por tu lista de atletas basta para ver quién va sobrado y quién flojea.
       </p>
 
@@ -90,7 +90,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Él no ve un porcentaje frío: ve su <b>semana</b> y cuánto le queda. Cada sesión que marca
-            mueve su barra de progreso — y esa misma señal es tu adherencia.
+            mueve su barra de progreso, y esa misma señal es tu adherencia.
           </>
         }
       >

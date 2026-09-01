@@ -41,6 +41,11 @@
 //       the two 5k numbers stop reading as a contradiction. Until then the
 //       divergence is intentional and documented, not silent.
 
+// Riegel's endurance model — the SAME function the mark projections already use,
+// imported rather than restated so a 4 600 m run cannot become two different
+// 5 km estimates in two modules.
+import { riegelTime } from '../athlete/mark-projection';
+
 export const RUN_PR_KINDS = ['run_1k', 'run_3k', 'run_5k'] as const;
 export type RunPrKind = (typeof RUN_PR_KINDS)[number];
 
@@ -102,4 +107,100 @@ export function detectRunningPRs(session: RunningEffortSet, prior: RunningEffort
     }
   }
   return prs;
+}
+
+// ---------------------------------------------------------------------------
+// THE BEST-EFFORT CURVE — the same fact, read across the whole distance ladder
+// ---------------------------------------------------------------------------
+//
+// WHY IT LIVES HERE. The athlete's "¿estoy mejorando?" screen draws a CURVE of
+// best efforts from 400 m to 10 km, with the previous month behind it as a
+// shadow. Three loose records cannot draw a curve. But the hard question the
+// curve asks is the one this module already answers — "what distance window
+// counts as a 1 km effort?" — so the ladder belongs next to `RUN_PR_BANDS`
+// rather than in a second table that could drift from it.
+//
+// PR detection keeps its three slugs (they are `athlete_benchmarks` rows and a
+// record is a different claim from a curve point). What is shared, and shared
+// ONCE, is the distance windows.
+
+/** The distance ladder the curve is drawn on, ascending. */
+export const EFFORT_CURVE_METERS = [400, 800, 1000, 1600, 3000, 5000, 10000] as const;
+export type EffortCurveMeters = (typeof EFFORT_CURVE_METERS)[number];
+
+/**
+ * The window + measurement scope for every rung.
+ *
+ * 1 km / 3 km / 5 km REUSE `RUN_PR_BANDS` verbatim — not a copy of its numbers.
+ * If the curve narrowed 1 km to ±10 % while PR detection kept ±20 %, the same
+ * run would be "your best kilometre" on one screen and not exist on the other.
+ * The four new rungs follow the ±10 % rule (the majority rule of the existing
+ * three), and the short ones are measured per SEGMENT while 10 km is measured
+ * per EXECUTION — same split, same reason: a 400 m best is one rep, a 10 km
+ * best is a whole run.
+ */
+export const EFFORT_CURVE_BANDS: Record<EffortCurveMeters, RunPrBand> = {
+  400: { min_meters: 360, max_meters: 440, aggregation: 'segment' },
+  800: { min_meters: 720, max_meters: 880, aggregation: 'segment' },
+  1000: RUN_PR_BANDS.run_1k,
+  1600: { min_meters: 1440, max_meters: 1760, aggregation: 'segment' },
+  3000: RUN_PR_BANDS.run_3k,
+  5000: RUN_PR_BANDS.run_5k,
+  10000: { min_meters: 9000, max_meters: 11000, aggregation: 'execution' },
+};
+
+/** One measured effort offered to the curve. `scope` says what it is: a single
+ *  segment, or a whole execution's run total. A rung only looks at candidates
+ *  whose scope matches its band. */
+export interface EffortCandidate {
+  distance_m: number;
+  duration_s: number;
+  scope: RunPrAggregation;
+}
+
+/** A point of the curve: the best TIME at a canonical distance. */
+export interface CurveEffort {
+  metros: number;
+  segundos: number;
+}
+
+/**
+ * The athlete's best effort at each rung, from whatever they actually ran.
+ *
+ * NORMALISED WITH RIEGEL, not linearly. A run inside the window is rarely the
+ * exact distance, so it has to be projected onto it. Scaling a 4 600 m run to
+ * 5 km linearly assumes an athlete holds the same pace however far they go,
+ * which is exactly the thing that is not true — and the error grows with the
+ * rung, which is worst precisely at the long end where the curve is flattest
+ * and most readable. Riegel is the standard correction and is already in the
+ * codebase.
+ *
+ * A rung with no eligible effort is ABSENT from the result — never a zero and
+ * never an interpolation between its neighbours. A gap in the curve is a real
+ * statement: he has not raced that distance.
+ */
+export function buildEffortCurve(candidates: readonly EffortCandidate[]): CurveEffort[] {
+  const best = new Map<number, number>();
+
+  for (const c of candidates) {
+    if (!Number.isFinite(c.distance_m) || c.distance_m <= 0) continue;
+    if (!Number.isFinite(c.duration_s) || c.duration_s <= 0) continue;
+
+    for (const metros of EFFORT_CURVE_METERS) {
+      const band = EFFORT_CURVE_BANDS[metros];
+      if (band.aggregation !== c.scope) continue;
+      if (c.distance_m < band.min_meters || c.distance_m > band.max_meters) continue;
+
+      const proyectado = riegelTime(c.duration_s, c.distance_m, metros);
+      if (!Number.isFinite(proyectado) || proyectado <= 0) continue;
+
+      const previo = best.get(metros);
+      if (previo == null || proyectado < previo) best.set(metros, proyectado);
+    }
+  }
+
+  return EFFORT_CURVE_METERS.filter((m) => best.has(m)).map((metros) => ({
+    metros,
+    segundos: Math.round(best.get(metros)!),
+  }));
 }

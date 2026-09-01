@@ -78,6 +78,16 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         transfer(data)
     }
 
+    // MARK: - Sensor archive (fase 0)
+
+    /// Hand a finished sensor capture file to the phone for archive (only when the
+    /// athlete consented). Uses transferFile — never the live channel.
+    func transferSensorCapture(fileURL: URL, metadata: [String: Any]) {
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        session.transferFile(fileURL, metadata: metadata)
+    }
+
     private func transfer(_ data: Data) {
         let session = WCSession.default
         guard session.activationState == .activated else { return }   // drained on activation
@@ -144,6 +154,9 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
             Task { @MainActor in WatchPlanModel.shared.update(from: context) }
         }
         drainOutbox()
+        // La traza medida en la muñeca lleva su propio buzón de ficheros, y este es
+        // el momento en que el teléfono puede haber vuelto a estar a tiro.
+        WatchTraceOutbox.shared.drain()
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
@@ -160,8 +173,27 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
 
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         Task { @MainActor in
+            if Self.applyLiveEnd(message) { return }
             WatchPlanModel.shared.update(from: message)
         }
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any]) {
+        // La vía encolada del mismo aviso: si al pulsar Terminar en el móvil el
+        // reloj estaba fuera de alcance, llega por aquí en cuanto vuelve.
+        Task { @MainActor in
+            if Self.applyLiveEnd(userInfo) { return }
+            WatchPlanModel.shared.update(from: userInfo)
+        }
+    }
+
+    /// «El entreno ya terminó en el teléfono». Devuelve true si el aviso era este,
+    /// para que no siga su camino como si fuera un plan del día.
+    @MainActor
+    private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
+        guard body[WatchWireKeys.liveEnd] != nil else { return false }
+        WatchWorkoutCoordinator.shared.finishFromPhone()
+        return true
     }
 
     func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
@@ -171,5 +203,14 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         if error == nil {
             removeFromOutbox(data)
         }
+    }
+
+    /// Fin de una transferencia de FICHERO — hoy, la traza de la muñeca. Entregada se
+    /// borra del buzón; fallida se queda y sale en el siguiente drenado. Se vuelve a
+    /// drenar aquí porque una entrega buena significa que el teléfono está a tiro, y
+    /// puede haber más ficheros esperando detrás.
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        WatchTraceOutbox.shared.didFinish(fileTransfer, error: error)
+        if error == nil { WatchTraceOutbox.shared.drain() }
     }
 }

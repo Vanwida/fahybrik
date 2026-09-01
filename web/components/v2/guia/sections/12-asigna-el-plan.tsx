@@ -1,7 +1,7 @@
 // GUÍA · 12 Asigna el plan: borrador → publicado — área "Asignar y empezar". BUILT.
 // Real flow: AssignBar (gate "Listo para asignar": Evento/Nivel/Estructura/Avisos/
 // Bienvenida → "Asignar plan") materializa el primer microciclo en BORRADOR →
-// PlanTab muestra el estado (sin publicar / borrador / parcial / publicado) y el
+// PlanTab muestra el estado (sin publicar / N de M publicadas) y el
 // botón "Publicar microciclo" lo pone en el móvil del atleta. Strings reales.
 
 import {
@@ -30,7 +30,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Este es el paso que conecta tu trabajo con su teléfono. Primero <b>asignas</b> — y el plan
+          Este es el paso que conecta tu trabajo con su teléfono. Primero <b>asignas</b>, y el plan
           nace en <b>borrador</b>, solo para ti, para que lo revises con calma. Cuando estás conforme,
           lo <b>publicas</b> y, en ese instante, aparece en el móvil de tu atleta. Nada le llega hasta
           que tú lo decides.
@@ -72,7 +72,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · El gate: cinco puntos en verde</h3>
       <p>
         Asignar no se desbloquea hasta que todo cuadra. La barra <code>Listo para asignar</code> te
-        muestra los puntos: <b>Evento</b> (la carrera objetivo tiene que estar anclada — el plan se
+        muestra los puntos: <b>Evento</b> (la carrera objetivo tiene que estar anclada: el plan se
         construye hacia atrás desde esa fecha), <b>Nivel</b>, <b>Estructura</b>, <b>Avisos</b> por
         confirmar y <b>Bienvenida</b>. En rojo o pendiente, el botón sigue bloqueado y te dice cuántos
         puntos quedan. En verde, <code>Asignar plan</code> se enciende.
@@ -82,15 +82,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Al pulsar <code>Asignar plan</code>, el panel te lo dice tal cual:{' '}
         <em className="em">«Se creará el primer microciclo en borrador para que lo revises antes de
-        publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada — pero en borrador,
+        publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada, pero en borrador,
         invisible para él. Aquí ajustas lo que quieras sin que nadie lo vea.
       </p>
 
       <h3>3 · Publicar lo pone en su móvil</h3>
       <p>
         En la ficha del atleta, una etiqueta honesta te dice en qué estado está:{' '}
-        <span className="k">borrador</span>, <span className="k">parcial</span> (si solo quedan
-        algunas semanas por publicar) o <span className="k">publicado</span>. Mientras haya borrador,
+        <span className="k">N de M publicadas</span> y el carril
+        <span className="k">Visible</span> / <span className="k">Borrador</span> por semana. Mientras haya borrador,
         verás el botón <code>Publicar microciclo</code>. Lo pulsas y todas las semanas en borrador
         pasan a publicadas: tu atleta abre su app y ahí está su semana.
       </p>
@@ -130,8 +130,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             de esa semana. Puedes montar, deshacer y rehacer sin que se entere.
           </li>
           <li>
-            Publicar es el único acto que se lo enseña. Si está <span className="k">parcial</span>,
-            tienes semanas aún sin publicar — el botón sigue ahí hasta que todo esté publicado.
+            Publicar es el único acto que se lo enseña. Si el badge no llega a
+            <span className="k">M de M publicadas</span>, quedan semanas en
+            <span className="k">Borrador</span>: el botón sigue ahí.
           </li>
         </ul>
       </DocNote>

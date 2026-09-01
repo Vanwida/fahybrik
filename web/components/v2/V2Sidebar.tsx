@@ -1,13 +1,18 @@
 'use client';
 
-// V2Sidebar — the new IA rail. Collapsed icon rail (w-20) that expands on hover/
-// focus to reveal labels (w-64), mirroring the v1 sidebar interaction but fully
-// scoped to v2 tokens. Active state fills with the accent. Mensajes carries the
-// unread badge. Ajustes pins to the bottom.
+// V2Sidebar — el rail FLEXR: panel flotante SIEMPRE expandido (w-[236px]) con la
+// marca del tenant arriba, los tres grupos de la IA con sus cabeceras visibles,
+// Guía + Ajustes anclados abajo y el sello FLEXR al pie. El estado activo es la
+// pastilla de tinta (--v2-accent). Mensajes y Leads llevan badge. El antiguo
+// rail colapsado-que-expande-al-hover murió con el rediseño FLEXR: el coach ve
+// siempre dónde está y qué hay (día uno sin manual).
 
+import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { Link, usePathname } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
 import {
+  V2_NAV_CLUB,
   V2_NAV_GROUP_LABELS,
   V2_NAV_GROUP_ORDER,
   V2_NAV_GUIDE,
@@ -19,10 +24,8 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * FAHYBRID brand mark — the real FHP icon tile (orange on dark), self-contained so
- * it reads correctly on both the light and dark v2 surfaces. Sourced from the
- * standardized brand set in /public/brand. Not a generic icon, the actual logo.
- * Exported: the mobile top bar (V2Shell) shows the same mark when the sidebar is hidden.
+ * Marca por defecto del binario (FHP tile). El cromo pinta ClubLockup con los
+ * datos del club del coach (vacío = este src): la marca es DATO, no código.
  */
 export function HexMark({ className }: { className?: string }) {
   return (
@@ -36,21 +39,19 @@ export function HexMark({ className }: { className?: string }) {
 
 /** Shared classes — used by both the primary nav links and the pinned Ajustes. */
 const NAV_LINK_BASE =
-  'group/nav relative flex h-11 items-center gap-4 rounded-[var(--v2-r-s)] px-3 whitespace-nowrap transition-colors v2-focus';
-const NAV_LABEL_CLASS =
-  'font-bold text-xs uppercase tracking-wide opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100';
+  'group/nav relative flex h-10 items-center gap-3 rounded-[var(--v2-r-nav)] px-3 whitespace-nowrap text-sm font-medium transition-colors v2-focus';
 
 function navLinkClass(active: boolean): string {
   return cn(
     NAV_LINK_BASE,
     active
-      ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-      : 'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-elevated)] hover:text-[color:var(--v2-fg)]',
+      ? 'bg-[color:var(--v2-accent)] font-semibold text-[color:var(--v2-accent-fg)]'
+      : 'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-accent-soft)] hover:text-[color:var(--v2-fg)]',
   );
 }
 
-/** One nav row — icon (always visible in the collapsed rail) + label (fades in on
- *  expand) + optional count badge (Mensajes → unread, Leads → new leads). */
+/** One nav row — icon + label + optional count badge (Mensajes → unread,
+ *  Leads → new leads). El badge invierte color sobre la pastilla activa. */
 function NavLink({
   item,
   active,
@@ -68,26 +69,32 @@ function NavLink({
       aria-current={active ? 'page' : undefined}
       className={navLinkClass(active)}
     >
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-        <MIcon name={item.icon} filled={active} size={22} />
-        {showBadge ? (
-          <span
-            className="absolute -right-2 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-nano font-bold"
-            style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
-          >
-            {badgeCount > 9 ? '9+' : badgeCount}
-          </span>
-        ) : null}
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+        <MIcon name={item.icon} filled={active} size={20} />
       </span>
-      <span className={NAV_LABEL_CLASS}>{item.label}</span>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {showBadge ? (
+        <span
+          className={cn(
+            'flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-nano font-bold',
+            active
+              ? 'bg-[color:var(--v2-accent-fg)] text-[color:var(--v2-accent)]'
+              : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]',
+          )}
+        >
+          {badgeCount > 9 ? '9+' : badgeCount}
+        </span>
+      ) : null}
     </Link>
   );
 }
 
 export function V2Sidebar({
+  club,
   unread_messages = 0,
   leads_nuevo = 0,
 }: {
+  club: ClubSkin;
   unread_messages?: number;
   leads_nuevo?: number;
 }) {
@@ -102,45 +109,36 @@ export function V2Sidebar({
   return (
     <aside
       className={cn(
-        'group/v2sidebar fixed inset-y-0 left-0 z-20 hidden lg:flex',
-        'w-20 hover:w-64 focus-within:w-64',
-        'flex-col gap-4 overflow-hidden',
-        'border-r border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]',
-        'transition-[width] duration-300 ease-out',
+        'fixed bottom-4 left-4 top-4 z-20 hidden w-[236px] lg:flex',
+        'flex-col overflow-y-auto',
+        'rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)]',
+        'bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]',
+        'px-3 py-4',
       )}
     >
-      {/* Logo / brand — hexagon mark + italic-bold FAHYBRID wordmark */}
+      {/* Slot de marca del club — lockup con datos del coach; vacío = marca del binario. */}
       <Link
-        href="/hoy"
-        aria-label="FAHYBRID"
-        title="FAHYBRID"
-        className="flex h-16 shrink-0 items-center gap-3 border-b border-[color:var(--v2-border)] px-5 v2-focus"
+        href="/atletas"
+        aria-label={clubBrandLabel(club.name)}
+        title={clubBrandLabel(club.name)}
+        className="v2-focus flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-nav)] px-2 pb-4 pt-1"
       >
-        <HexMark className="h-9 w-9 shrink-0" />
-        <span className="v2-display whitespace-nowrap text-[1.6rem] tracking-[-0.02em] opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100">
-          <span className="text-[color:var(--v2-fg)]">FA</span>
-          <span className="text-[color:var(--v2-accent)]">HYBRID</span>
-        </span>
+        <ClubLockup
+          name={club.name}
+          logo_url={club.logo_url}
+          markClassName="h-8 w-8 shrink-0"
+          wordmarkClassName="min-w-0 truncate text-[1.05rem]"
+        />
       </Link>
 
-      {/* Primary nav — two groups: Operar / Construir el método. Each carries a
-          small uppercase header that fades in with the labels on expand. In the
-          collapsed rail the header collapses to a thin divider so groups stay
-          visually distinct without showing text. */}
-      <nav className="flex flex-1 flex-col gap-1 px-3">
+      {/* Primary nav — the three coach hats, headers always visible. */}
+      <nav className="flex flex-1 flex-col gap-1">
         {V2_NAV_GROUP_ORDER.map((group) => {
           const items = v2NavItemsForGroup(group);
           if (items.length === 0) return null;
           return (
-            <div key={group} className="flex flex-col gap-1 first:mt-0 [&:not(:first-child)]:mt-3">
-              <span
-                aria-hidden
-                className={cn(
-                  'px-3 pb-0.5 pt-1 text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]',
-                  // Hidden glyph in the collapsed rail; fades in on expand.
-                  'opacity-0 transition-opacity duration-300 group-hover/v2sidebar:opacity-100 group-focus-within/v2sidebar:opacity-100',
-                )}
-              >
+            <div key={group} className="flex flex-col gap-1 first:mt-0 [&:not(:first-child)]:mt-4">
+              <span aria-hidden className="v2-micro px-3 pb-1">
                 {V2_NAV_GROUP_LABELS[group]}
               </span>
               {items.map((item) => (
@@ -156,11 +154,16 @@ export function V2Sidebar({
         })}
       </nav>
 
-      {/* Guía + Ajustes — pinned bottom */}
-      <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] px-3 py-3">
+      {/* Guía + Club + Ajustes + sello FLEXR — pinned bottom */}
+      <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] pt-3">
         <NavLink
           item={V2_NAV_GUIDE}
           active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
+          badgeCount={0}
+        />
+        <NavLink
+          item={V2_NAV_CLUB}
+          active={isV2NavActive(pathname, V2_NAV_CLUB.href)}
           badgeCount={0}
         />
         <NavLink
@@ -168,6 +171,12 @@ export function V2Sidebar({
           active={isV2NavActive(pathname, V2_NAV_SETTINGS.href)}
           badgeCount={0}
         />
+        <span
+          aria-hidden
+          className="px-3 pt-3 text-[10.5px] font-bold tracking-[0.15em] text-[color:var(--v2-faint)]"
+        >
+          FLEXR
+        </span>
       </div>
     </aside>
   );

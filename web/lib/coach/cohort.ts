@@ -312,7 +312,7 @@ async function rollupAthlete(
   if (programming.status !== 'ok') {
     alerts.unshift({
       kind: 'block_phase',
-      severity: programming.status === 'month_2_pending' ? 'critical' : 'warning',
+      severity: programming.status === 'block_ended' ? 'critical' : 'warning',
       label: programming.label,
       detail: programming.detail ?? '',
     });

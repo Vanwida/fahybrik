@@ -19,6 +19,11 @@ struct SessionExercisesSheet: View {
     let assignmentId: String
     let sessionTitle: String
     let bearer: String?
+    /// Preguntarle al coach por UN ejercicio de la sesión. Lo resuelve quien
+    /// presenta esta hoja (PlanView): cierra el índice y abre el chat con el
+    /// ejercicio ya señalado, porque dos hojas no se levantan a la vez. Nil
+    /// cuando el atleta no tiene coach — entonces la fila del menú no existe.
+    var onPreguntar: ((EjercicioSeñalado) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var state: LoadState = .loading
@@ -130,6 +135,34 @@ struct SessionExercisesSheet: View {
             .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         }
         .buttonStyle(PressScaleStyle())
+        // Pulsación larga: la fila no tenía menú, y uno no ocupa alto. Es un
+        // ATAJO, nunca la vía principal — la puerta que se descubre es el «+» del
+        // chat. Ver docs/DECISIONS.md, 12-ago.
+        //
+        // VA SOBRE EL BOTÓN, no dentro de su `label:`. Ahí dentro no se abre
+        // nunca: el botón se queda la pulsación larga para su propio resaltado y
+        // el menú no llega a existir. Así estaba y así se quedó sin funcionar.
+        .contextMenu {
+            Button {
+                Haptics.light()
+                selected = item
+            } label: {
+                Label("Ver la técnica", systemImage: "play.rectangle")
+            }
+            if let onPreguntar {
+                Button {
+                    onPreguntar(EjercicioSeñalado(
+                        // El segmento prescrito de ESTA línea. Sin él (entreno
+                        // libre) se señala el entreno entero, no una línea
+                        // inventada.
+                        segmentoId: item.templateSegmentId.map(String.init),
+                        nombre: item.exerciseName
+                    ))
+                } label: {
+                    Label("Preguntar al coach", systemImage: "message")
+                }
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "\(item.exerciseName)\(hasVideo(item) ? ", con vídeo de técnica" : "")"
@@ -138,8 +171,7 @@ struct SessionExercisesSheet: View {
     }
 
     private func hasVideo(_ item: WorkoutItem) -> Bool {
-        guard let url = item.exerciseVideoUrl else { return false }
-        return YouTubeLinkParser.videoId(from: url) != nil
+        VideoDeTecnica.hay(en: item.exerciseVideoUrl)
     }
 
     // MARK: - Non-content states

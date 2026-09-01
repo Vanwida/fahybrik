@@ -22,7 +22,10 @@ export const templateSchema = z.object({
   warmup: z.string().max(2000).nullable(),
   cooldown: z.string().max(2000).nullable(),
   coach_notes: z.string().max(4000).nullable(),
-  demo_video_url: z.string().url().max(500).nullable(),
+  // NO hay `demo_video_url`. La columna existe (mig 0013) pero ninguna ruta del
+  // panel la escribe ni la lee: el vídeo de técnica cuelga del EJERCICIO
+  // (exercises.video_url + el override por coach de la 0132), que es donde el
+  // atleta lo busca. Declararla aquí sólo servía para que pareciera viva.
   meta_json: z.record(z.unknown()).default({}),
   archived_at: isoDateTime.nullable(),
   created_at: isoDateTime,
@@ -119,8 +122,10 @@ export const segmentParamsSchema = z.object({
   // Mobility intensity
   intensity: z.enum(['light', 'medium', 'hard']).optional(),
 
-  // Per-segment demo (YouTube) — overrides exercise catalog video when set
-  video_url: z.string().url().max(500).optional(),
+  // NO hay `video_url` por segmento. Se declaró como "pisa al vídeo del catálogo"
+  // y nunca llegó a escribirlo nadie, así que el vídeo de un movimiento tiene un
+  // solo sitio: el ejercicio. Dos sitios para el mismo dato es la forma de que el
+  // atleta acabe viendo el que no toca.
 
   // Élite advanced features
   week_variants: z.array(segmentWeekVariantSchema).max(20).optional(),
@@ -167,7 +172,6 @@ export const templateUpsertSchema = z.object({
   warmup: z.string().max(2000).nullable().optional(),
   cooldown: z.string().max(2000).nullable().optional(),
   coach_notes: z.string().max(4000).nullable().optional(),
-  demo_video_url: z.string().url().max(500).nullable().optional(),
   meta_json: z.record(z.unknown()).optional(),
   segments: z.array(templateSegmentInputSchema).max(60),
 });

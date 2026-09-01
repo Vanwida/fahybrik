@@ -17,7 +17,7 @@ struct Wordmark: View {
             .resizable()
             .scaledToFit()
             .frame(height: size)
-            .accessibilityLabel("FAHYBRID")
+            .accessibilityLabel(Marca.nombre)
     }
 }
 
@@ -340,6 +340,73 @@ struct PillChip: View {
         }
         .buttonStyle(PressScaleStyle())
         .disabled(action == nil)
+    }
+}
+
+// MARK: - Info pill (a fact, not a control)
+//
+// The static sibling of `PillChip`. `PillChip` is a CONTROL (it presses, it can
+// be selected, it fires a haptic); this is a piece of READING — the format of a
+// block, how long the plan says a session takes — that happens to be shaped like
+// a pill. Rendering a fact as a disabled button is how a screen grows a fake
+// affordance, and hand-rolling `Text + padding + background` on each screen is
+// how the app grew fourteen duration formatters (contrato §0/§1).
+//
+// `acento` marks the pill that carries the row's KEY fact — a real figure, or
+// "you are here". It is NOT for a pill that explains an ABSENCE: painting "Dura
+// lo que tardes" in the brand role dresses a missing measurement as a measured
+// one, which is exactly the §7 lie.
+struct InfoPill: View {
+    let text: String
+    /// Tint the pill in the brand role. See the note above on when it applies.
+    var acento: Bool = false
+
+    var body: some View {
+        Text(text)
+            .scaledFont(12, weight: .semibold, relativeTo: .caption)
+            .foregroundStyle(acento ? Theme.Color.accentText : Theme.Color.muted)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(acento ? Theme.Color.accent.opacity(0.12) : Theme.Color.surfaceSunken)
+            .overlay(
+                Capsule().stroke(
+                    acento ? Theme.Color.accent.opacity(0.35) : Theme.Color.hairlineStrong,
+                    lineWidth: 1
+                )
+            )
+            .clipShape(Capsule())
+    }
+}
+
+// MARK: - Skeleton bar
+//
+// A neutral, gently-pulsing placeholder for a COLD load — the §5 "cargando"
+// state made a piece, so a screen never has to choose between a spinner and a
+// lie. Purely decorative (the host carries the "Cargando" a11y label); the slow
+// opacity pulse says "loading" without inventing content.
+//
+// Lived `private` inside InicioView until the Plan screen needed the same thing
+// — which is the §0 rule ("nunca `private struct` si otro fichero podría
+// necesitarlo") catching a duplication one screen before it happened.
+struct SkeletonBar: View {
+    var width: CGFloat? = nil
+    var height: CGFloat = 14
+    var radius: CGFloat = Theme.Radius.s
+    @State private var pulse = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(Theme.Color.surfaceElevated)
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .opacity(pulse ? 0.5 : 1)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
 

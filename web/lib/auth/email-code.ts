@@ -2,6 +2,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { Resend } from 'resend';
 import { sql } from '../db';
 import { AUTH_CONFIG } from './config';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 // Passwordless athlete EMAIL-CODE login (iOS). The email sibling of magic-link.ts
 // (coach). A 6-digit one-time code is emailed; only its salted sha256 is stored
@@ -12,9 +13,18 @@ import { AUTH_CONFIG } from './config';
 const CODE_TTL_SECONDS = AUTH_CONFIG.emailLoginCodeTtlSeconds;
 const MAX_ATTEMPTS = AUTH_CONFIG.emailLoginCodeMaxAttempts;
 
-/** Brand-orange from lib/leads/email-shell.ts, inlined (mail clients strip CSS vars). */
+/** Brand-ink from lib/leads/email-shell.ts, inlined (mail clients strip CSS vars). */
 const BRAND_INK = '#0a0a0a';
-const BRAND_ORANGE = '#F06A2A';
+
+/** Minimal HTML escape for values interpolated into the template (mirrors lib/leads/email.ts). */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 /**
  * Salted hash of the code at rest: sha256(email || ':' || code). Binding the
@@ -151,6 +161,9 @@ export async function sendEmailLoginCode(input: {
   to: string;
   code: string;
   expires_at: Date;
+  /** El club de este atleta — pinta su piel en vez de la marca de este binario.
+   *  Ausente/nulo → marca de este binario, como hoy. */
+  coach_id?: bigint | number | null;
 }): Promise<SendEmailLoginCodeResult> {
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
@@ -158,19 +171,20 @@ export async function sendEmailLoginCode(input: {
     return { sent: false, skipped_reason: 'resend_not_configured' };
   }
 
+  const skin = await resolveClubEmailSkin(input.coach_id ?? null);
   const minutes = Math.max(1, Math.round((input.expires_at.getTime() - Date.now()) / 60_000));
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
     to: input.to,
-    subject: `${input.code} es tu código de acceso · FAHYBRID`,
+    subject: `${input.code} es tu código de acceso · ${skin.wordmark}`,
     text:
-      `Tu código para entrar en FAHYBRID es:\n\n${input.code}\n\n` +
+      `Tu código para entrar en ${skin.wordmark} es:\n\n${input.code}\n\n` +
       `Caduca en ${minutes} minutos y solo se puede usar una vez.\n\n` +
       `Si no lo has pedido, ignora este email.`,
     html:
       `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:${BRAND_INK};background:#fff;">` +
-      `<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${BRAND_ORANGE};">FAHYBRID</p>` +
+      `<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${skin.light.text};">${escapeHtml(skin.wordmark)}</p>` +
       `<h1 style="margin:8px 0 14px;font-size:22px;">Tu código de acceso</h1>` +
       `<p style="margin:0 0 16px;line-height:1.6;">Introduce este código en la app para entrar:</p>` +
       `<p style="margin:0 0 16px;font-size:34px;font-weight:800;letter-spacing:0.28em;color:${BRAND_INK};">${input.code}</p>` +

@@ -11,7 +11,7 @@ import Foundation
 // APIClient's decoder uses `convertFromSnakeCase`, so snake_case wire fields
 // (`modality_label`, `pace_unit_label`, `threshold_s`, `range_label`, …) map to
 // these camelCase properties automatically. `recordedAt` is decoded as a raw
-// String and parsed defensively (mirrors StatsService): the value is an ISO
+// String and parsed defensively (mirrors StatsDateParser): the value is an ISO
 // timestamp, but decoding it as `Date` would, on any unexpected shape, take the
 // whole payload down — a String never does.
 

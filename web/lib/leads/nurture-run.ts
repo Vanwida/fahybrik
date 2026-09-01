@@ -19,7 +19,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { selectNurtureCandidates, type NurtureCandidate } from './nurture';
 import { sendNurtureEmail, type NurtureEmailResult } from './nurture-email';
-import { coachNameForLead } from './funnel-coach';
+import { coachIdForLead, coachNameForLead } from './funnel-coach';
 
 export interface NurtureRunResult {
   dry_run: boolean;
@@ -116,5 +116,6 @@ async function defaultSend(candidate: NurtureCandidate): Promise<NurtureEmailRes
     // El coach de ESTE lead firma el correo. `coachNameForLead` no lanza nunca: si no
     // se puede resolver, la copia sale con el sujeto neutro en vez de perder el envío.
     coach_name: await coachNameForLead(defaultSql, BigInt(candidate.lead.id)),
+    coach_id: (await coachIdForLead(defaultSql, BigInt(candidate.lead.id)))?.toString() ?? null,
   });
 }

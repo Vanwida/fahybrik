@@ -40,6 +40,38 @@ import { invisibleExerciseIds } from '@/lib/exercises/coach-override';
 import { learnSynonym } from './exercise-resolve';
 import { ImportError } from './proposal-service';
 
+/** El tope de `WeekDay.notes` (shared/schema/program-templates.ts). Se repite aquí
+ *  para poder rechazar pronto, con el mismo número. */
+const WEEK_DAY_NOTES_MAX = 800;
+
+/**
+ * Junta la nota que traía la importación con la que el día YA tenía.
+ *
+ * LA REGLA, y su porqué: lo que escribió el coach no se pierde nunca. Una nota
+ * suya puede llevar meses ahí y el importador no tiene ninguna autoridad para
+ * machacarla, así que se AÑADE debajo en vez de sustituirla.
+ *
+ *   1. sin nota importada          → la existente, intacta.
+ *   2. sin nota existente          → la importada.
+ *   3. la existente YA la contiene → la existente, intacta. Reimportar la misma
+ *      semana dos veces no duplica el texto.
+ *   4. las dos, distintas          → existente + la importada debajo.
+ *   5. si eso pasa del tope        → la EXISTENTE, intacta. Lo que se cae es lo
+ *      importado, nunca lo suyo: es la regla de arriba llevada al caso límite.
+ */
+export function mergeDayNote(
+  existing: string | undefined,
+  imported: string | undefined,
+): string | undefined {
+  const mine = existing?.trim() ?? '';
+  const theirs = imported?.trim() ?? '';
+  if (!theirs) return existing;
+  if (!mine) return theirs.slice(0, WEEK_DAY_NOTES_MAX);
+  if (mine.includes(theirs)) return existing;
+  const merged = `${mine}\n\n${theirs}`;
+  return merged.length > WEEK_DAY_NOTES_MAX ? existing : merged;
+}
+
 export const importConfirmRequestSchema = z
   .object({
     microcycle_id: idSchema,
@@ -56,6 +88,13 @@ export const importConfirmRequestSchema = z
            * manda (eso es un descanso, y un descanso no se escribe).
            */
           sessions: z.array(editorSessionInputSchema).min(1).max(3),
+          /**
+           * Lo que la fuente traía y no era entreno («Semana 12», «Control test
+           * salto»). Va a `WeekDay.notes`, que es donde ese concepto ya vive. El
+           * tope es el del esquema del día: una nota más larga se rechaza aquí y
+           * no revienta la validación del slot a mitad de escritura.
+           */
+          notes: z.string().max(WEEK_DAY_NOTES_MAX).optional(),
         }),
       )
       .min(1)
@@ -226,6 +265,11 @@ export async function confirmImport(params: {
         sessions: entry.sessions as EditorSessionInput[],
         original,
       });
+      // `serializeDay` conserva la nota original (parte de `...original`); esto solo
+      // añade la que traía la fuente, sin machacar la del coach. Ver `mergeDayNote`.
+      const notes = mergeDayNote(original.notes, entry.notes);
+      if (notes) nextDay.notes = notes;
+      else delete nextDay.notes;
       days = mergeDayIntoDays(days, nextDay);
     }
     writes.push({

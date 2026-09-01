@@ -11,7 +11,14 @@
 // formateador por concepto, no uno por pantalla).
 
 import { CTA, Mono, SP } from '../../kit';
-import { COLOR_MODALIDAD, dosisConSeries, reloj, type ItemReal, type Modalidad } from '../../datos-reales';
+import {
+  COLOR_MODALIDAD,
+  dosisConSeries,
+  dosisDeCarrera,
+  reloj,
+  type ItemReal,
+  type Modalidad,
+} from '../../datos-reales';
 
 // `dosisConSeries` se re-exporta para que los hermanos de la carpeta la sigan
 // importando de './piezas'. La función VIVE en datos-reales.ts: las tres
@@ -26,8 +33,14 @@ export { dosisConSeries };
  * La dosis y el objetivo unidos por " · " — "500 m · 1:52/500m", "4×5 · 100 kg".
  * Sin dosis y sin objetivo, cadena vacía: la fila se queda con el nombre solo,
  * tal y como pide §7 — nunca un guión ni un placeholder.
+ *
+ * Una CARRERA CON ESTRUCTURA se cuenta por su estructura y trae su línea entera
+ * («16 × 500 m · Z4 · recuperación 1:00 suave en Z2»): el aplanado que hay al
+ * lado no se mira, igual que no lo mira `PrescriptionRenderer.summaryLine`.
  */
 export function lineaFila(item: ItemReal): string {
+  const carrera = dosisDeCarrera(item);
+  if (carrera) return carrera.linea;
   const partes: string[] = [];
   const dosis = dosisConSeries(item);
   if (dosis) partes.push(dosis);
@@ -36,16 +49,36 @@ export function lineaFila(item: ItemReal): string {
 }
 
 /**
- * La leyenda completa bajo las pastillas de serie del caso `hero`:
- * "5 reps · 100 kg · descanso 1:30". Null cuando la prescripción no trae
- * series+descanso (no hay pastillas que explicar).
+ * CUÁNTAS PASTILLAS DE SERIE se pintan en el caso `hero` — una por serie de la
+ * misma dosis. Null cuando no hay serie que numerar.
+ *
+ * Una carrera con estructura NO las lleva: su cuenta ya está en el titular («16 ×
+ * 500 m»), el aplanado dice `sets: 1` —o sea que pintaría UNA pastilla para
+ * dieciséis series— y dieciséis pastillas de 24 pt no caben en 402.
+ */
+export function pastillasDeSerie(item: ItemReal): number | null {
+  if (item.estructura) return null;
+  if (!item.series || !item.descansoS) return null;
+  return item.series;
+}
+
+/**
+ * La leyenda bajo el sujeto del caso `hero`: "5 reps · 100 kg · descanso 1:30".
+ *
+ * En una carrera con estructura lo que queda por decir es cómo se hace el OFF
+ * («recuperación 1:00 suave en Z2»), que es el detalle de la estructura; el
+ * objetivo ya viaja en su propia pastilla. Null cuando no hay nada que explicar.
  */
 export function leyendaSeries(item: ItemReal): string | null {
+  const carrera = dosisDeCarrera(item);
+  if (carrera) return carrera.detalle ?? null;
   if (!item.series || !item.descansoS) return null;
   const partes: string[] = [];
   if (item.dosis) partes.push(item.dosis);
   if (item.objetivo) partes.push(item.objetivo);
-  partes.push(`descanso ${reloj(item.descansoS)}`);
+  // `collapsedSetsLabel` escribe el descanso con la variante en segundos: «45s»
+  // por debajo del minuto, reloj a partir de ahí.
+  partes.push(`descanso ${reloj(item.descansoS, 'segundos')}`);
   return partes.join(' · ');
 }
 

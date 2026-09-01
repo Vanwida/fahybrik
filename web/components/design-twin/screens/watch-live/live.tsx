@@ -17,6 +17,7 @@ import {
   SetDots,
   StatusHeader,
   VStack,
+  WATCH_SIN_DATO,
   WatchCanvas,
   WatchLabel,
 } from './atoms';
@@ -47,7 +48,7 @@ export function ContinuousLive({ onLog }: { onLog: (l: string) => void }) {
             <GiantNumber text={pace(st.ritmoSecKm)} size={54} unit="/km" />
             <div style={{ display: 'flex', gap: 6, alignSelf: 'stretch' }}>
               <MetricTile label="Dist" value={distanceValue(st.distanciaM)} unit={st.distanciaM >= 1000 ? 'km' : 'm'} />
-              <MetricTile label="FC" value={`${st.bpm}`} />
+              <MetricTile label="FC" value={`${st.bpm}`} ausente={WATCH_SIN_DATO.pulso} />
             </div>
           </VStack>
         }
@@ -56,6 +57,7 @@ export function ContinuousLive({ onLog }: { onLog: (l: string) => void }) {
   }
 
   const enZona = st.zona === ZONA_OBJETIVO;
+  const veredicto = zoneVeredicto(ZONA_OBJETIVO, enZona, st.bpm);
   return (
     <LiveScaffold
       status={status}
@@ -66,23 +68,50 @@ export function ContinuousLive({ onLog }: { onLog: (l: string) => void }) {
             <GiantNumber text={clock(t)} size={54} />
           </VStack>
           <ZoneBar viva={st.zona} objetivo={ZONA_OBJETIVO} bpm={st.bpm} pct={st.pctEnZona} />
-          <span style={{ fontSize: 11, fontWeight: HEAVY, color: enZona ? W.zoneGreen : W.zoneAmber }}>
-            {enZona ? 'EN ZONA ✓' : 'FUERA DE ZONA'}
-          </span>
+          {veredicto ? (
+            <span style={{ fontSize: 11, fontWeight: HEAVY, color: enZona ? W.zoneGreen : W.zoneAmber }}>
+              {veredicto}
+            </span>
+          ) : null}
         </VStack>
       }
     />
   );
 }
 
+/**
+ * zoneStateText: el veredicto necesita SUS DOS MITADES — la zona que te
+ * pidieron y el pulso que la mide. Sin objetivo prescrito o sin pulso no hay
+ * veredicto que emitir, así que no hay «FUERA DE ZONA» que pintar sobre un
+ * dato que no existe.
+ */
+function zoneVeredicto(objetivo: number | null, enZona: boolean, bpm: number | null): string | null {
+  if (objetivo === null || bpm === null) return null;
+  return enZona ? 'EN ZONA ✓' : 'FUERA DE ZONA';
+}
+
 /** La barra de 5 zonas: la viva a plena luz, el resto apagado, y la muesca del objetivo. */
-function ZoneBar({ viva, objetivo, bpm, pct }: { viva: 1 | 2 | 3 | 4 | 5; objetivo: number; bpm: number; pct: number | null }) {
+function ZoneBar({
+  viva,
+  objetivo,
+  bpm,
+  pct,
+}: {
+  viva: 1 | 2 | 3 | 4 | 5;
+  objetivo: number;
+  bpm: number | null;
+  pct: number | null;
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignSelf: 'stretch' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <WatchLabel text={pct === null ? 'EN ZONA —' : `EN ZONA ${pct}%`} />
-        <WatchLabel text={`FC ${bpm}`} />
-      </div>
+      {bpm === null ? (
+        <WatchLabel text={WATCH_SIN_DATO.pulso} />
+      ) : (
+        <div style={{ display: 'flex', justifyContent: pct === null ? 'flex-end' : 'space-between' }}>
+          {pct !== null ? <WatchLabel text={`En zona ${pct}%`} /> : null}
+          <WatchLabel text={`FC ${bpm}`} />
+        </div>
+      )}
       <div style={{ position: 'relative', height: 12, borderRadius: 6, overflow: 'hidden', display: 'flex' }}>
         {([1, 2, 3, 4, 5] as const).map((z) => (
           <div key={z} style={{ flex: 1, background: zoneColor(z), opacity: z === viva ? 1 : 0.34 }} />

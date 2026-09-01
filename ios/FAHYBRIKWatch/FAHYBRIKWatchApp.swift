@@ -14,16 +14,31 @@ struct FAHYBRIKWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(planModel)
-                .environmentObject(connectivity)
-                .environment(coordinator)
-                .environment(MirrorSessionController.shared)
-                .onAppear {
-                    connectivity.activate()
-                    MirrorSessionController.shared.prepareToAdopt()
-                }
+            #if DEBUG
+            // El escaparate de guiones (`-guion <id>`): abre una pantalla de diseño
+            // concreta sin tener que crear un entreno y hacer la primera serie. Sólo
+            // en DEBUG y sólo con el argumento — la app de verdad no lo ve.
+            if let id = GuionEscaparate.casoPedido, let caso = GuionEscaparate.caso(id) {
+                GuionEscaparateView(caso: caso)
+            } else {
+                raiz
+            }
+            #else
+            raiz
+            #endif
         }
+    }
+
+    private var raiz: some View {
+        RootView()
+            .environmentObject(planModel)
+            .environmentObject(connectivity)
+            .environment(coordinator)
+            .environment(MirrorSessionController.shared)
+            .onAppear {
+                connectivity.activate()
+                MirrorSessionController.shared.prepareToAdopt()
+            }
     }
 }
 

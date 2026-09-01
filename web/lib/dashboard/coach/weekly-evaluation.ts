@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import {
   addDays,
   isoDateString,
@@ -64,17 +65,6 @@ export function evaluateAthleteWeek(params: {
     client: params.client ?? defaultSql,
     ...(params.week_start !== undefined ? { week_start: params.week_start } : {}),
   });
-}
-
-/**
- * `JSON.stringify` LANZA sobre BigInt. Los `slot_changes` de la propuesta llevan
- * `from_template_id`/`to_template_id` coercionados a BigInt por `idSchema`
- * (`z.coerce.bigint()`). Los serializamos como Number para que entren en jsonb
- * sin reventar (se re-parsean a BigInt al leer). Mismo replacer bigint-safe que
- * usa `program-months` y el gemelo `lib/coach/ai-propose-week-adjustment`.
- */
-function jsonSafeStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? Number(v) : v));
 }
 
 /**
@@ -146,11 +136,11 @@ export async function proposeWeekAdjustment(params: {
 
   // Serializamos ANTES de tocar la DB: si la propuesta trae BigInt en los
   // slot_changes, `JSON.stringify` reventaría — y antes lo hacía DESPUÉS del
-  // supersede, dejando al atleta con 0 propuestas pending. Con jsonSafeStringify
+  // supersede, dejando al atleta con 0 propuestas pending. Con toJsonValue
   // + transacción, supersede e insert son atómicos: si algo falla, NADA cambia.
   const status = evaluation.verdict === 'ok' ? 'approved' : 'pending';
-  const contextPackJson = jsonSafeStringify(evaluation.context_pack);
-  const proposalJson = jsonSafeStringify(proposal);
+  const contextPackJson = toJsonValue(evaluation.context_pack);
+  const proposalJson = toJsonValue(proposal);
 
   // Supersede + insert en UNA transacción: el supersede de la propuesta pending
   // previa NO se confirma hasta que la nueva se inserta con éxito. Un fallo en
@@ -172,8 +162,8 @@ export async function proposeWeekAdjustment(params: {
         ${nextWeekStart}::date,
         ${status},
         ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
-        ${contextPackJson}::jsonb,
-        ${proposalJson}::jsonb
+        ${tx.json(contextPackJson)},
+        ${tx.json(proposalJson)}
       )
       returning id::text
     `;

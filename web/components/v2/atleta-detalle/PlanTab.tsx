@@ -1,66 +1,42 @@
 'use client';
 
-// PLAN ACTUAL — the athlete's live microcycle at a glance. Header (microcycle
-// name + phase/week pill + published/draft status + open-in-editor); a microcycle
-// progress strip (mini week-cards w/ load bars); then two columns: LEFT today's
-// session + this-week 7-day cells, RIGHT a 4-tile snapshot + recent execution
-// (prescrito→hecho) + "a vigilar" + actions. All from the real AthletePlanPayload
-// (weeks/sessions) + AthleteResumen (compliance, readiness). Empty plan → a calm
-// EmptyState with a link to assign.
+// PLAN — «¿qué le mando y cómo lo cambio?»
+// La semana es el lienzo. Adherencia, check-in y readiness viven en Resumen.
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
 import { SessionDetailDrawer } from './SessionDetailDrawer';
-import { MODALITY_META } from '@/components/v2/constants';
-import { Pill } from '@/components/v2/Pill';
-import { StatTile } from '@/components/v2/StatTile';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { InlineSaveBadge, useInlineSave } from '@/components/v2/InlineSave';
 import { OrderAlteredNotice } from '@/components/v2/OrderAlteredSignal';
-import { ComoSeEncuentraPanel } from './ComoSeEncuentraPanel';
-import { Panel, WeekStrip, type WeekStripDay } from './parts';
-import { sessionModality } from './modality';
-import type { AthletePlanPayload, PlanSession, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
+import { PersonalizarPlanModal } from './PersonalizarPlanModal';
+import { VolverPeriodizacionModal } from './VolverPeriodizacionModal';
+import { CadenaPersonalPanel } from './CadenaPersonalPanel';
+import { PlanesPersonalesPanel } from './PlanesPersonalesPanel';
+import { FichaCard, FichaLabel, FilaVacia } from './resumen/piezas';
+import { SemanaCanvas } from './plan/semana';
+import { MicrocicloRail } from './plan/carril';
+import type { AthletePlanPayload, PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import {
+  executionStatusLabel,
+  publishBadgeLabel,
+} from '@fahybrid/shared/domain/coach/microciclo-rail';
+import {
+  honestWeekHeading,
+  initialPlanWeekIndex,
+  planRelationCopy,
+  planWeekRelation,
+} from '@fahybrid/shared/domain/coach/honest-week';
+import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
 
-function findTodaySession(plan: AthletePlanPayload): PlanSession | null {
-  for (const w of plan.weeks) {
-    const today = w.days.find((d) => d.is_today);
-    if (today) return today.sessions[0] ?? null;
-  }
-  return null;
-}
-
-// One week → the 7 day chips: modality color + state + the session FOCUS/title +
-// a link into that day's editor (only days WITH a session are clickable).
-function mapWeekToStripDays(week: PlanWeekRow, athleteId: string): WeekStripDay[] {
-  return week.days.map((d) => {
-    const s = d.sessions[0] ?? null;
-    const modality = s ? sessionModality({ format: s.format, title: s.title }) : null;
-    let state: WeekStripDay['state'] = 'rest';
-    if (!s) state = 'rest';
-    else if (d.is_today) state = 'today';
-    // 'partial' is performed-but-incomplete — the coarse week strip treats it as
-    // done (the precise ½ shows in the recent-sessions row + the session drawer).
-    else if (s.status === 'completed' || s.status === 'partial') state = 'done';
-    else state = 'scheduled';
-    return {
-      label: d.label,
-      modality,
-      state,
-      title: s?.title ?? null,
-      href: s ? `/atletas/${athleteId}/dia/${d.iso_date}` : null,
-    };
-  });
-}
-
+const SESSION_QUERY_PARAM = 'sesion';
 const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-/** "23–29 jun" (or "29 jun – 5 jul" across a month boundary) from ISO bounds. */
-function formatWeekRange(week: PlanWeekRow): string {
-  const s = week.week_start.split('-');
-  const e = week.week_end.split('-');
+function formatWeekRange(start: string, end: string): string {
+  const s = start.split('-');
+  const e = end.split('-');
   const sDay = Number(s[2]);
   const eDay = Number(e[2]);
   const sMonth = MONTHS_SHORT[Number(s[1]) - 1] ?? '';
@@ -68,481 +44,409 @@ function formatWeekRange(week: PlanWeekRow): string {
   return sMonth === eMonth ? `${sDay}–${eDay} ${eMonth}` : `${sDay} ${sMonth} – ${eDay} ${eMonth}`;
 }
 
-/** Compact load bar fill (0–100) for a microcycle progress mini-card. We use the
- *  week's compliance as the visible load proxy until a true planned-load metric
- *  is exposed. */
-function MiniWeekCard({
-  label,
-  pct,
-  status,
-}: {
-  label: string;
-  pct: number | null;
-  status: 'completed' | 'current' | 'upcoming' | 'missed';
-}) {
-  const fill = pct ?? 0;
-  const tone =
-    status === 'missed'
-      ? 'var(--v2-danger)'
-      : status === 'current'
-        ? 'var(--v2-accent)'
-        : status === 'completed'
-          ? 'var(--v2-ok)'
-          : 'var(--v2-faint)';
-  return (
-    <div
-      className={cn(
-        'flex min-w-[68px] flex-1 flex-col gap-1.5 rounded-[var(--v2-r-s)] border px-2.5 py-2',
-        status === 'current'
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
-          : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
-      )}
-    >
-      <span className="v2-micro text-nano">{label}</span>
-      <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--v2-surface)]">
-        <div className="h-full rounded-full" style={{ width: `${fill}%`, background: tone }} />
-      </div>
-      <span className="v2-num text-eyebrow font-semibold" style={{ color: tone }}>
-        {pct != null ? `${pct}%` : '—'}
-      </span>
-    </div>
-  );
-}
-
-function RecentRow({ s, onOpen }: { s: PlanSession; onOpen: (assignmentId: string) => void }) {
-  const modality = sessionModality({ format: s.format, title: s.title });
-  const ok = s.status === 'completed';
-  const partial = s.status === 'partial';
-  return (
-    <tr
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(s.assignment_id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen(s.assignment_id);
-        }
-      }}
-      className="v2-focus cursor-pointer border-b border-[color:var(--v2-border)] transition-colors last:border-0 hover:bg-[color:var(--v2-surface-2)]"
-    >
-      <td className="py-2 pr-2">
-        <span className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="h-3.5 w-0.5 shrink-0 rounded-full"
-            style={{ background: `var(${MODALITY_META[modality].colorVar})` }}
-          />
-          <span className="truncate text-xs font-medium text-[color:var(--v2-fg)]">{s.title}</span>
-        </span>
-      </td>
-      <td className="py-2 px-2 text-xs text-[color:var(--v2-muted)]">
-        {ok ? 'Hecho' : partial ? 'Parcial' : s.status === 'missed' ? 'Perdida' : 'Pendiente'}
-      </td>
-      <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
-        {s.rpe != null ? `RPE ${s.rpe}` : '—'}
-      </td>
-      <td className="py-2 pl-2 text-right">
-        <MIcon
-          name={
-            ok
-              ? 'check_circle'
-              : partial
-                ? 'contrast'
-                : s.status === 'missed'
-                  ? 'warning'
-                  : 'schedule'
-          }
-          size={16}
-          filled={ok}
-          className={cn(
-            ok
-              ? 'text-[color:var(--v2-ok)]'
-              : partial
-                ? 'text-[color:var(--v2-warn)]'
-                : s.status === 'missed'
-                  ? 'text-[color:var(--v2-danger)]'
-                  : 'text-[color:var(--v2-faint)]',
-          )}
-        />
-      </td>
-    </tr>
-  );
-}
-
 export function PlanTab({
   plan,
+  planMode,
   resumen,
   athlete_id,
+  initialSessionId,
+  intakePending,
+  weekChip,
 }: {
   plan: AthletePlanPayload | null;
+  planMode: 'shared' | 'personal';
   resumen: AthleteResumen | null;
   athlete_id: string;
+  initialSessionId?: string | null;
+  intakePending?: boolean;
+  weekChip: AthleteWeekChip;
 }) {
-  // The session whose prescrito→hecho detail is open in the drawer (assignment id).
-  const [openSession, setOpenSession] = useState<string | null>(null);
-  // Week navigation: index into plan.weeks for the "esta semana" strip. Defaults
-  // to the week containing today; prev/next move within the materialized weeks.
-  const initialWeekIdx = plan
-    ? Math.max(0, plan.weeks.findIndex((w) => w.days.some((d) => d.is_today)))
-    : 0;
+  const [openSession, setOpenSession] = useState<string | null>(initialSessionId ?? null);
+  const openSessionSynced = useCallback((id: string | null) => {
+    setOpenSession(id);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set(SESSION_QUERY_PARAM, id);
+    else url.searchParams.delete(SESSION_QUERY_PARAM);
+    window.history.replaceState(window.history.state, '', url);
+  }, []);
+
+  const todayBox = startOfDayInBox(new Date());
+  const today = isoDateString(todayBox);
+  const heading = honestWeekHeading({
+    chip: weekChip,
+    calendarMonday: isoDateString(mondayOfWeek(todayBox)),
+    calendarSunday: isoDateString(addDays(mondayOfWeek(todayBox), 6)),
+  });
+  const relation = plan
+    ? planWeekRelation({ chipKind: weekChip.kind, weeks: plan.weeks, today })
+    : 'none';
+  const initialWeekIdx = plan ? initialPlanWeekIndex(plan.weeks, relation) : 0;
   const [weekIdx, setWeekIdx] = useState(initialWeekIdx);
+  const [personalizeOpen, setPersonalizeOpen] = useState(false);
+  const [revertOpen, setRevertOpen] = useState(false);
 
   if (!plan || plan.total_sessions === 0) {
     return (
-      <EmptyState
-        icon="event_busy"
-        title="Sin plan asignado todavía"
-        description="Cuando el atleta esté clasificado, su secuencia se propone en Hoy para asignarla en un clic."
-        action={
-          <Link
-            href="/hoy"
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="play_arrow" size={17} />
-            Asignar secuencia en Hoy
-          </Link>
-        }
-      />
+      <div className="mx-auto flex w-full max-w-[1300px] flex-col gap-4">
+        {intakePending ? (
+          <FilaVacia
+            texto="Cierra el alta antes de asignar plan"
+            cta="Revisar intake"
+            href={`/atletas/${athlete_id}/intake`}
+          />
+        ) : planMode === 'personal' ? (
+          plan?.current_month_template_id ? (
+            <FilaVacia
+              texto="Este plan personal aún no tiene entrenos en la semana"
+              cta="Abrir el editor"
+              href={`/microciclos/${plan.current_month_template_id}`}
+            />
+          ) : (
+            <p className="text-[13px] text-[color:var(--v2-muted)]">
+              Plan personal: todavía no hay un microciclo en marcha. Añádelo abajo.
+            </p>
+          )
+        ) : (
+          <FilaVacia texto="Sin plan asignado todavía" cta="Asignar en Hoy" href="/hoy" />
+        )}
+        {planMode === 'personal' ? (
+          <CadenaPersonalPanel athleteId={athlete_id} allowEmpty />
+        ) : null}
+        <PlanesPersonalesPanel athleteId={athlete_id} />
+      </div>
     );
   }
 
-  // Microciclo name resolved server-side. Falls back to the raw microciclo name
-  // only if no label was resolved.
   const blockName = plan.current_block_label ?? plan.current_block ?? '—';
   const blockWeek = plan.macro.block_week;
-  const microName = plan.macro.phase_assignments.find(
-    (p) => p.microcycle_id === plan.macro.weeks.find((w) => w.status === 'current')?.microcycle_id,
-  )?.name;
+  const namedWeek =
+    plan.macro.weeks.find((w) => w.status === 'current') ??
+    plan.macro.weeks.find((w) => w.status === 'upcoming');
+  const microName = namedWeek
+    ? plan.macro.phase_assignments.find(
+        (p) => p.start_date <= namedWeek.week_start && p.end_date >= namedWeek.week_start,
+      )?.name
+    : undefined;
 
-  const todaySession = findTodaySession(plan);
-
-  // The today-week (snapshot tiles stay anchored to it) vs the navigable active
-  // week shown in the strip.
-  const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? plan.weeks[0];
-  const todayWeekDays = todayWeek ? mapWeekToStripDays(todayWeek, athlete_id) : [];
+  const todayWeek = plan.weeks.find((w) => w.days.some((d) => d.is_today)) ?? null;
   const clampedWeekIdx = Math.min(Math.max(weekIdx, 0), plan.weeks.length - 1);
   const activeWeek = plan.weeks[clampedWeekIdx] ?? todayWeek;
-  const activeWeekDays = activeWeek ? mapWeekToStripDays(activeWeek, athlete_id) : [];
-  const isTodayWeek = activeWeek === todayWeek;
-  const weekLabel = isTodayWeek || !activeWeek ? 'Esta semana' : formatWeekRange(activeWeek);
-  const canPrev = clampedWeekIdx > 0;
-  const canNext = clampedWeekIdx < plan.weeks.length - 1;
-
-  // "Abrir en editor de día" target: today's session if any, else the first
-  // session day of the today-week, else the first session day overall.
+  const isCalendarWeek = activeWeek?.week_start === heading.week_start;
+  const firstSessionDay = relation === 'not_started'
+    ? plan.weeks.flatMap((w) => w.days).find((d) => d.sessions.length > 0)
+    : null;
+  const planStartLabel = firstSessionDay
+    ? `${Number(firstSessionDay.iso_date.split('-')[2])} ${MONTHS_SHORT[Number(firstSessionDay.iso_date.split('-')[1]) - 1] ?? ''}`
+    : null;
+  const relationCopy = planRelationCopy(relation, planStartLabel);
+  const weekLabel = activeWeek
+    ? isCalendarWeek
+      ? heading.title
+      : formatWeekRange(activeWeek.week_start, activeWeek.week_end)
+    : 'Semana';
   const allDays = plan.weeks.flatMap((w) => w.days);
   const todayDay = allDays.find((d) => d.is_today) ?? null;
-  const editorTargetDate =
-    todayDay && todayDay.sessions.length > 0
-      ? todayDay.iso_date
-      : (todayWeek?.days.find((d) => d.sessions.length > 0)?.iso_date ??
-        allDays.find((d) => d.sessions.length > 0)?.iso_date ??
-        todayDay?.iso_date ??
-        null);
+  // «Editar día» respeta la SEMANA EN PANTALLA (Alex, QA 19-ago): hoy si cae
+  // dentro de la semana activa; si no, el primer día con sesiones de ESA semana;
+  // si no, su lunes. Nunca salta a otra semana por su cuenta.
+  const activeWeekToday = activeWeek?.days.find((d) => d.is_today) ?? null;
+  const editorTargetDate = activeWeek
+    ? (activeWeekToday?.iso_date ??
+      activeWeek.days.find((d) => d.sessions.length > 0)?.iso_date ??
+      activeWeek.days[0]?.iso_date ??
+      null)
+    : (todayDay?.iso_date ?? allDays.find((d) => d.sessions.length > 0)?.iso_date ?? null);
 
-  // Microcycle progress: the macro weeks of the active block.
-  const macroWeeks = plan.macro.weeks.slice(0, 6);
-
-  // Recent execution = the most recent sessions with an outcome.
   const recent: PlanSession[] = plan.weeks
     .flatMap((w) => w.days.flatMap((d) => d.sessions))
-    .filter((s) => s.status === 'completed' || s.status === 'missed')
+    .filter((s) => s.status === 'completed' || s.status === 'missed' || s.status === 'partial')
     .slice(-5)
     .reverse();
 
-  const adher = resumen?.adherence_pct_30d ?? null;
-  const adherTone = adher == null ? 'fg' : adher >= 75 ? 'ok' : adher >= 60 ? 'warn' : 'danger';
-  const currentWeek = plan.macro.weeks.find((w) => w.status === 'current');
-  const completedThisWeek = todayWeekDays.filter((d) => d.state === 'done').length;
-  const plannedThisWeek = todayWeekDays.filter((d) => d.state !== 'rest').length;
+  const span = plan.macro.block_spans.find((s) => s.block_type === plan.macro.block);
+  const fase =
+    plan.macro.block && blockWeek != null
+      ? `${plan.macro.block} · sem ${blockWeek}${span?.week_count ? ` de ${span.week_count}` : ''}`
+      : blockName;
+
+  const publish = plan.microciclo;
+  const publishLabel = publish
+    ? publishBadgeLabel(publish)
+    : null;
+  const railWeeks = publish?.weeks ?? [];
+  const viewedRail = activeWeek
+    ? (railWeeks.find((w) => w.week_start === activeWeek.week_start) ?? null)
+    : null;
 
   return (
     <>
-    <div className="flex flex-col gap-5">
-      {/* Header band */}
-      <div className="flex flex-col gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)] sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-bold text-[color:var(--v2-fg)]">
-            Microciclo «{microName ?? blockName}»
-          </span>
-          <Pill tone="neutral" variant="soft">
-            {blockName}
-            {blockWeek != null ? ` · sem ${blockWeek}` : ''}
-          </Pill>
-          {/* Honest publish badge — derived from the microciclo's real weekly_plans
-              state, never hardcoded. */}
-          {!plan.microciclo || plan.microciclo.session_count === 0 ? (
-            <Pill tone="neutral" variant="soft">
-              sin publicar
-            </Pill>
-          ) : plan.microciclo.publish_state === 'published' ? (
-            <Pill tone="ok" variant="soft">
-              publicado
-            </Pill>
-          ) : plan.microciclo.publish_state === 'partial' ? (
-            <Pill tone="warn" variant="soft">
-              {`parcial · ${plan.microciclo.draft_week_count} sem en borrador`}
-            </Pill>
-          ) : (
-            <Pill tone="warn" variant="soft">
-              borrador
-            </Pill>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Publicar microciclo — flips every draft week of the assigned microciclo
-              to published so the athlete sees it. Shown only when there's a real
-              draft to publish (a materialized microciclo with hidden weeks). */}
-          {plan.microciclo &&
-          plan.microciclo.session_count > 0 &&
-          plan.microciclo.publish_state !== 'published' ? (
-            <PublishMicrocicloButton
-              athleteId={athlete_id}
-              assignmentId={plan.microciclo.assignment_id}
-            />
-          ) : null}
-          {editorTargetDate ? (
-            <Link
-              href={`/atletas/${athlete_id}/dia/${editorTargetDate}`}
-              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-            >
-              Abrir en editor de día
-              <MIcon name="arrow_forward" size={15} />
-            </Link>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Microcycle progress strip */}
-      <section className="flex flex-col gap-2.5">
-        <h3 className="v2-micro">Progreso del microciclo</h3>
-        <div className="flex flex-wrap gap-2">
-          {macroWeeks.map((w, i) => (
-            <MiniWeekCard
-              key={w.week_start}
-              label={`S${i + 1}`}
-              pct={w.compliance_pct != null ? Math.round(w.compliance_pct) : null}
-              status={w.status}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* Two columns */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.1fr_1fr]">
-        {/* LEFT */}
-        <div className="flex flex-col gap-5">
-          <Panel title="Sesión de hoy" bodyClassName="flex flex-col gap-3">
-            {todaySession ? (
-              <TodaySessionCard session={todaySession} onOpen={setOpenSession} />
-            ) : (
-              <p className="py-4 text-center text-xs text-[color:var(--v2-muted)]">
-                Sin sesión programada hoy · día de descanso
-              </p>
-            )}
-          </Panel>
-
-          <Panel
-            title={weekLabel}
-            action={
-              plan.weeks.length > 1 ? (
-                <div className="flex items-center gap-1">
+      <div className="mx-auto grid w-full max-w-[1300px] grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_328px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <FichaCard>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <FichaLabel>Plan del atleta</FichaLabel>
+                <p className="mt-1 font-[family-name:var(--v2-font-display)] text-[22px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--v2-fg)]">
+                  {microName ?? blockName}
+                </p>
+                <p className="mt-1.5 text-[13px] text-[color:var(--v2-muted)]">
+                  {[fase, plan.is_personal ? 'personal' : null, publishLabel, plan.upcoming_plan ? `luego «${plan.upcoming_plan.name}»` : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                {relationCopy ? (
+                  <p className="mt-1 text-[12.5px] text-[color:var(--v2-muted)]">
+                    {relationCopy}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {publish && publish.session_count > 0 && publish.publish_state !== 'published' ? (
+                  <PublishMicrocicloButton
+                    athleteId={athlete_id}
+                    assignmentId={publish.assignment_id}
+                  />
+                ) : null}
+                {editorTargetDate ? (
+                  <Link
+                    // SIEMPRE al día del ATLETA (su copia real), también en plan
+                    // personal: la rama que mandaba a la plantilla del microciclo
+                    // asumía que el día vive allí, y la semana entregada puede
+                    // divergir de la plantilla (atleta 64: plantilla vacía,
+                    // semana llena). La plantilla se edita desde «Editar plan».
+                    href={`/atletas/${athlete_id}/dia/${editorTargetDate}`}
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
+                  >
+                    Editar día
+                  </Link>
+                ) : null}
+                {plan.is_personal && plan.current_month_template_id ? (
+                  <Link
+                    href={`/microciclos/${plan.current_month_template_id}`}
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[13px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)]"
+                  >
+                    Editar plan
+                  </Link>
+                ) : !plan.is_personal ? (
                   <button
                     type="button"
-                    disabled={!canPrev}
-                    onClick={() => setWeekIdx(clampedWeekIdx - 1)}
-                    aria-label="Semana anterior"
-                    className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setPersonalizeOpen(true)}
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
-                    <MIcon name="chevron_left" size={16} />
+                    Personalizar
                   </button>
-                  {!isTodayWeek ? (
-                    <button
-                      type="button"
-                      onClick={() => setWeekIdx(initialWeekIdx)}
-                      className="v2-focus inline-flex h-6 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-                    >
-                      Hoy
-                    </button>
-                  ) : null}
+                ) : null}
+                {plan.is_personal && plan.can_revert_to_sequence ? (
                   <button
                     type="button"
-                    disabled={!canNext}
-                    onClick={() => setWeekIdx(clampedWeekIdx + 1)}
-                    aria-label="Semana siguiente"
-                    className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setRevertOpen(true)}
+                    className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-[13px] text-[12.5px] font-semibold"
                   >
-                    <MIcon name="chevron_right" size={16} />
+                    Volver a periodización
                   </button>
-                </div>
-              ) : null
-            }
-          >
-            {activeWeekDays.length > 0 ? (
-              <WeekStrip days={activeWeekDays} />
-            ) : (
-              <p className="text-center text-xs text-[color:var(--v2-muted)]">Semana sin datos</p>
-            )}
-          </Panel>
-        </div>
-
-        {/* RIGHT */}
-        <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
-            <SnapshotTile label="Adherencia 30d" value={adher != null ? `${adher}%` : '—'} tone={adherTone} />
-            <SnapshotTile
-              label="Cumplidas"
-              value={`${completedThisWeek}/${plannedThisWeek || '—'}`}
-              tone="fg"
-            />
-            <SnapshotTile
-              label="Cumpl. semana"
-              value={currentWeek?.compliance_pct != null ? `${Math.round(currentWeek.compliance_pct)}%` : '—'}
-              tone="fg"
-            />
-            <SnapshotTile
-              label="Readiness"
-              value={resumen?.readiness_score != null ? `${resumen.readiness_score}` : '—'}
-              tone={
-                resumen?.readiness_score != null && resumen.readiness_score < 45
-                  ? 'danger'
-                  : resumen?.readiness_score != null && resumen.readiness_score < 55
-                    ? 'warn'
-                    : 'fg'
-              }
-            />
-          </div>
-
-          {/* «Cómo se encuentra» — the subjective WHY under the Readiness tile
-              above (mockup docs/design/como-se-encuentra-mockup.html). */}
-          <ComoSeEncuentraPanel checkin={resumen?.checkin ?? null} week={resumen?.checkin_week ?? []} />
-
-          <Panel title="Ejecución reciente" bodyClassName="p-0 overflow-hidden">
-            {recent.length > 0 ? (
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-[color:var(--v2-border)]">
-                    <th className="v2-micro py-2 pl-3.5 text-left">Sesión</th>
-                    <th className="v2-micro py-2 px-2 text-left">Estado</th>
-                    <th className="v2-micro py-2 px-2 text-right">RPE</th>
-                    <th className="v2-micro py-2 pr-3.5 text-right">✓</th>
-                  </tr>
-                </thead>
-                <tbody className="[&>tr>td:first-child]:pl-3.5 [&>tr>td:last-child]:pr-3.5">
-                  {recent.map((s) => (
-                    <RecentRow key={s.assignment_id} s={s} onOpen={setOpenSession} />
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="px-3.5 py-5 text-center text-xs text-[color:var(--v2-muted)]">
-                Sin ejecuciones registradas todavía
-              </p>
-            )}
-          </Panel>
-
-          {resumen?.readiness_score != null && resumen.readiness_score < 55 ? (
-            <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] p-3">
-              <MIcon name="visibility" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-[color:var(--v2-fg)]">A vigilar</span>
-                <span className="text-xs text-[color:var(--v2-muted)]">
-                  Readiness {resumen.readiness_score}% — considera descargar carga esta semana.
-                </span>
+                ) : null}
               </div>
             </div>
+          </FichaCard>
+
+          {railWeeks.length > 0 ? (
+            <FichaCard>
+              <FichaLabel>Semanas</FichaLabel>
+              <div className="mt-3">
+                <MicrocicloRail
+                  weeks={railWeeks}
+                  activeWeekStart={activeWeek?.week_start ?? null}
+                  onSelect={(weekStart) => {
+                    const idx = plan.weeks.findIndex((w) => w.week_start === weekStart);
+                    if (idx >= 0) setWeekIdx(idx);
+                  }}
+                />
+              </div>
+            </FichaCard>
           ) : null}
 
-          {/* Soft INFO — cumplió la semana pero en distinto orden/día (sin penalización) */}
-          {resumen?.order_altered ? <OrderAlteredNotice /> : null}
+          {activeWeek ? (
+            <SemanaCanvas
+              week={activeWeek}
+              todayIso={today}
+              label={weekLabel}
+              chip={weekChip}
+              viewedRailVisible={viewedRail ? viewedRail.visible : null}
+              paintDays={!isCalendarWeek || heading.paint_days}
+              emptyCopy={heading.empty_copy}
+              canPrev={clampedWeekIdx > 0}
+              canNext={clampedWeekIdx < plan.weeks.length - 1}
+              showHoy={todayWeek !== null && activeWeek !== todayWeek}
+              onPrev={() => setWeekIdx(clampedWeekIdx - 1)}
+              onNext={() => setWeekIdx(clampedWeekIdx + 1)}
+              onHoy={() => setWeekIdx(initialWeekIdx)}
+              onOpen={openSessionSynced}
+              activeSessionId={openSession}
+              athleteId={athlete_id}
+              // El «+N más» de un día abre el día del ATLETA (default de
+              // SemanaCanvas): la ruta a la plantilla asumía días que pueden
+              // no existir allí (recibos divergentes).
+              dayHref={undefined}
+              focus={
+                <AthleteWeekFocusRow
+                  key={activeWeek.week_start}
+                  athleteId={athlete_id}
+                  weekStart={activeWeek.week_start}
+                  weekLabel={weekLabel}
+                  initial={activeWeek.focus}
+                />
+              }
+            />
+          ) : (
+            <FilaVacia texto="Semana sin datos" cta="Asignar en Hoy" href="/hoy" />
+          )}
 
-          <div className="flex flex-wrap gap-2">
-            <PlanAction icon="forum" label="Mensaje" href="/mensajes" />
-          </div>
+          <FichaCard className="p-0">
+            <div className="px-4 pt-3.5">
+              <FichaLabel>Ejecución reciente</FichaLabel>
+            </div>
+            {recent.length > 0 ? (
+              <ul className="mt-2 divide-y divide-[color:var(--v2-border)]">
+                {recent.map((s) => (
+                  <li key={s.assignment_id}>
+                    <button
+                      type="button"
+                      onClick={() => openSessionSynced(s.assignment_id)}
+                      className="v2-focus flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-[color:var(--v2-surface-2)]"
+                    >
+                      <span className="truncate text-[13px] font-semibold text-[color:var(--v2-fg)]">
+                        {s.title}
+                      </span>
+                      <span className="v2-num shrink-0 text-[12px] text-[color:var(--v2-muted)]">
+                        {executionStatusLabel(s.status)}
+                        {s.rpe != null ? ` · RPE ${s.rpe}` : ''}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 py-4 text-[13px] text-[color:var(--v2-muted)]">
+                Sin ejecuciones todavía.
+              </p>
+            )}
+          </FichaCard>
+
+          {resumen?.order_altered ? <OrderAlteredNotice /> : null}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {!plan.is_personal && plan.macro.weeks.length > 0 ? (
+            <FichaCard>
+              <FichaLabel>Cumplimiento del microciclo</FichaLabel>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {plan.macro.weeks.slice(0, 6).map((w, i) => {
+                  const actual = w.status === 'current';
+                  const pct = w.compliance_pct != null ? Math.round(w.compliance_pct) : null;
+                  return (
+                    <div
+                      key={w.week_start}
+                      className={cn(
+                        'flex min-w-[56px] flex-1 flex-col gap-1 rounded-[var(--v2-r-m)] px-2 py-1.5',
+                        actual ? 'bg-[color:var(--v2-accent-soft)]' : 'bg-[color:var(--v2-surface-2)]',
+                      )}
+                    >
+                      <span className="v2-num text-[10px] text-[color:var(--v2-muted)]">S{i + 1}</span>
+                      <span className="v2-num text-[13px] font-semibold">
+                        {pct != null ? `${pct}%` : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </FichaCard>
+          ) : null}
+
+          <CadenaPersonalPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
+          <PlanesPersonalesPanel athleteId={athlete_id} athleteName={plan.athlete_name} />
         </div>
       </div>
-    </div>
-    {openSession ? (
-      <SessionDetailDrawer
-        key={openSession}
-        athleteId={athlete_id}
-        assignmentId={openSession}
-        onClose={() => setOpenSession(null)}
-      />
-    ) : null}
+
+      {openSession ? (
+        <SessionDetailDrawer
+          key={openSession}
+          athleteId={athlete_id}
+          assignmentId={openSession}
+          onClose={() => openSessionSynced(null)}
+          onInvalid={() => openSessionSynced(null)}
+        />
+      ) : null}
+      {personalizeOpen ? (
+        <PersonalizarPlanModal
+          athleteId={athlete_id}
+          athleteName={plan.athlete_name}
+          currentBlockName={microName ?? blockName}
+          currentWeek={blockWeek}
+          onClose={() => setPersonalizeOpen(false)}
+        />
+      ) : null}
+      {revertOpen ? (
+        <VolverPeriodizacionModal
+          athleteId={athlete_id}
+          athleteName={plan.athlete_name}
+          personalPlanName={microName ?? blockName}
+          onClose={() => setRevertOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
 
-function TodaySessionCard({
-  session,
-  onOpen,
+function AthleteWeekFocusRow({
+  athleteId,
+  weekStart,
+  weekLabel,
+  initial,
 }: {
-  session: PlanSession;
-  onOpen: (assignmentId: string) => void;
+  athleteId: string;
+  weekStart: string;
+  weekLabel: string;
+  initial: string | null;
 }) {
-  const modality = sessionModality({ format: session.format, title: session.title });
-  const meta = MODALITY_META[modality];
+  const [value, setValue] = useState(initial ?? '');
+  const baseline = (initial ?? '').trim();
+  const { status, setStatus, save } = useInlineSave(async (next) => {
+    const res = await fetch(`/api/coach/athletes/${athleteId}/weekly-plan`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ week_start: weekStart, focus: next.length > 0 ? next : null }),
+    });
+    return res.ok;
+  });
+
   return (
-    <div
-      className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
-      style={{ borderLeft: `3px solid var(${meta.colorVar})` }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <Pill tone="accent" variant="solid">
-          HOY
-        </Pill>
-        {session.status !== 'completed' ? (
-          <Pill tone="warn" variant="soft">
-            pendiente
-          </Pill>
-        ) : (
-          <Pill tone="ok" variant="soft">
-            completada
-          </Pill>
-        )}
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{session.title}</span>
-        <span className="v2-num text-xs text-[color:var(--v2-muted)]">
-          {meta.label}
-          {session.duration_min != null ? ` · ${session.duration_min} min` : ''}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => onOpen(session.assignment_id)}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="visibility" size={15} />
-          Ver detalle
-        </button>
-      </div>
+    <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
+      <span className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
+        Foco {weekLabel}
+      </span>
+      <input
+        id={`athlete-week-focus-${weekStart}`}
+        type="text"
+        value={value}
+        maxLength={200}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (status !== 'idle') setStatus('idle');
+        }}
+        onBlur={() => save(value.trim(), baseline)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        placeholder="Sin foco para esta semana"
+        className="v2-focus min-w-0 flex-1 border-0 bg-transparent text-[13px] font-semibold outline-none placeholder:font-normal placeholder:text-[color:var(--v2-faint)]"
+      />
+      <InlineSaveBadge status={status} />
     </div>
   );
 }
 
-function SnapshotTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: 'fg' | 'ok' | 'warn' | 'danger' | 'info';
-}) {
-  return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 shadow-[var(--v2-shadow-card)]">
-      <StatTile label={label} value={value} tone={tone} className="gap-0.5" />
-    </div>
-  );
-}
-
-/** Publishes the athlete's assigned microciclo (every draft week → published) via
- *  the coach publish endpoint, then refreshes so the badge + plan reflect it.
- *  Optimistic disabled state; honest inline error. */
 function PublishMicrocicloButton({
   athleteId,
   assignmentId,
@@ -565,50 +469,30 @@ function PublishMicrocicloButton({
         credentials: 'include',
         body: JSON.stringify({ month_assignment_id: assignmentId }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
+      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
       if (!res.ok) {
-        setError(body?.error?.message ?? 'No se pudo publicar el microciclo.');
+        setError(body?.error?.message ?? 'No se pudo publicar.');
         return;
       }
       router.refresh();
     } catch {
-      setError('No se pudo publicar el microciclo.');
+      setError('No se pudo publicar.');
     } finally {
       setPublishing(false);
     }
   }
 
   return (
-    <div className="flex flex-col items-start gap-1 sm:items-end">
+    <div className="flex flex-col items-end gap-1">
       <button
         type="button"
-        onClick={publish}
+        onClick={() => void publish()}
         disabled={publishing}
-        title="Publica el microciclo para que el atleta lo vea"
-        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
+        className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-[15px] text-[12.5px] font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-60"
       >
-        <MIcon name={publishing ? 'progress_activity' : 'send'} size={15} className={publishing ? 'animate-spin' : undefined} />
-        {publishing ? 'Publicando…' : 'Publicar microciclo'}
+        {publishing ? 'Publicando…' : 'Publicar'}
       </button>
-      {error ? (
-        <span className="text-label font-medium text-[color:var(--v2-danger)]">{error}</span>
-      ) : null}
+      {error ? <span className="text-[12px] text-[color:var(--v2-danger)]">{error}</span> : null}
     </div>
-  );
-}
-
-// A plan action is always a real navigation (it links somewhere) — there are no
-// placeholder/no-op actions here.
-function PlanAction({ icon, label, href }: { icon: string; label: string; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-    >
-      <MIcon name={icon} size={15} />
-      {label}
-    </Link>
   );
 }

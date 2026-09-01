@@ -188,8 +188,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Tu atleta lleva <b>todo su historial en el bolsillo</b>: un <b>calendario del mes</b> donde
-          cada día dice de un vistazo qué hizo, y donde <b>tocar un día abre la sesión entera</b> —con
-          sus tiempos reales, sus splits juzgados contra tu objetivo y la ruta si corrió fuera—. El
+          cada día dice de un vistazo qué hizo, y donde <b>tocar un día abre la sesión entera</b> (con
+          sus tiempos reales, sus splits juzgados contra tu objetivo y la ruta si corrió fuera). El
           mismo detalle se abre desde <b>Analíticas</b>. Cuando él puede revisar cómo fue, vuestra
           conversación arranca desde <b>lo que de verdad pasó</b>.
         </>
@@ -198,8 +198,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            El <b>historial</b> del atleta en su app: un <b>calendario mensual</b> —<b>punto naranja</b>{' '}
-            entreno hecho, <b>aro azul</b> con la pareja, <b>raya</b> descanso programado— y, tocando un
+            El <b>historial</b> del atleta en su app: un <b>calendario mensual</b> (<b>punto naranja</b>{' '}
+            entreno hecho, <b>aro azul</b> con la pareja, <b>raya</b> descanso programado) y, tocando un
             día, la <b>sesión completa</b>.
           </>
         }
@@ -213,7 +213,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque la <b>constancia</b> se lee mejor en un calendario que en una lista, y porque revisar
-            cómo fue <b>un martes</b> concreto —sin «¿qué hice?»— alinea su <b>memoria</b> con tu{' '}
+            cómo fue <b>un martes</b> concreto (sin «¿qué hice?») alinea su <b>memoria</b> con tu{' '}
             <b>feedback</b>.
           </>
         }
@@ -233,7 +233,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Tres marcas y nada más: <b>hecho</b>, <b>con la pareja</b> o <b>descanso</b>. Lo que no pasó,
-            no se pinta —el calendario no inventa actividad.
+            no se pinta: el calendario no inventa actividad.
           </>
         }
       >
@@ -316,7 +316,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Tres marcas, cero ruido">
         <p>
           <b>Punto naranja</b> = entrenó, <b>aro azul</b> = lo hizo <b>con su pareja</b>, <b>raya</b> =
-          tenía descanso programado. Un día vacío es un día sin nada previsto ni hecho —el calendario{' '}
+          tenía descanso programado. Un día vacío es un día sin nada previsto ni hecho: el calendario{' '}
           <b>no rellena</b> huecos con actividad que no existió.
         </p>
       </DocNote>
@@ -325,9 +325,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Al tocar un día con entreno, se abre la <b>sesión completa</b>: los <b>tiempos reales por
         bloque</b> (no el prescrito, lo que de verdad hizo), los <b>splits con su veredicto</b> contra
-        tu objetivo —<em className="em">en banda</em>, <em className="em">se pasó</em> o{' '}
+        tu objetivo, <em className="em">en banda</em>, <em className="em">se pasó</em> o{' '}
         <em className="em">se quedó corto</em>, con la misma lógica del cumplimiento por serie (sección
-        33)— y, si corrió <b>al aire libre</b>, el <b>mapa con la ruta</b> (sección 35). Es el detalle
+        33), y, si corrió <b>al aire libre</b>, el <b>mapa con la ruta</b> (sección 35). Es el detalle
         de una sesión, tal cual quedó registrada.
       </p>
 
@@ -514,7 +514,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Analíticas.</b> Cada fila de sesión abre el <b>mismo</b> detalle del día — tiempos,
+              <b>Analíticas.</b> Cada fila de sesión abre el <b>mismo</b> detalle del día: tiempos,
               splits y ruta.
             </>
           }
@@ -568,7 +568,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p style={{ marginTop: '18px' }}>
         El historial no es una lista más: es la <b>memoria</b> de tu atleta, ordenada por días y abierta
         hasta el último split. Cuando él revisa <b>cómo fue de verdad</b>, tú no empiezas la revisión
-        explicando qué pasó —empezáis los dos <b>mirando lo mismo</b>.
+        explicando qué pasó: empezáis los dos <b>mirando lo mismo</b>.
       </p>
     </DocSection>
   );

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import type { ProgramMonthUpdate, MonthRow } from '@fahybrid/shared/domain/coach/program-months';
 import {
@@ -14,6 +14,7 @@ import {
   duplicateMonthTemplate as _duplicateMonthTemplate,
   updateMonthTemplate as _updateMonthTemplate,
   deleteMonthTemplate as _deleteMonthTemplate,
+  removeWeekFromMonth as _removeWeekFromMonth,
   cloneWeekTemplateRow,
   type ProgramMonthCreate,
   type ProgramMonthScratch,
@@ -26,6 +27,7 @@ import {
   parseWeekSlotsFromDb,
 } from './program-week-slots';
 import { upsertWeekTemplate } from './program-weeks';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 
 // Re-exports — shared CRUD core + schemas/types. Slot-serializing functions
 // (createMonthTemplateWithEmptyWeeks / loadMonthTemplateWithWeeks) stay local
@@ -94,9 +96,35 @@ export async function updateMonthTemplate(params: {
 export async function deleteMonthTemplate(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client?: Sql;
+  // Acepta también un `tx`: el asistente borra y registra la auditoría dentro de
+  // UNA transacción, y las dos cosas caen juntas o no caen. El núcleo compartido
+  // sabe distinguir pool de transacción.
+  client?: Sql | TransactionClient;
 }): Promise<void> {
   return _deleteMonthTemplate({ ...params, client: params.client ?? defaultSql });
+}
+
+/**
+ * TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+ *
+ * Esta función abría SIEMPRE su propia transacción con `client.begin(...)`,
+ * pero `updatePersonalTramoMeta` la llama desde DENTRO de una transacción para
+ * alargar o acortar un tramo personal — y postgres.js no anida `begin`: un `tx`
+ * expone `savepoint`, no `begin`. O sea que **cambiar el número de semanas de un
+ * tramo personal reventaba siempre**, con un `client.begin is not a function`.
+ * Nadie lo había visto porque no había prueba que pasara por ahí.
+ *
+ * Se arregla con `withOwnOrAmbientTx`, que este mismo fichero ya usaba para
+ * exactamente este caso: si le llega el pool abre su transacción, y si le llega
+ * un `tx` se mete dentro del que ya hay.
+ */
+export async function removeWeekFromMonth(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  week_id: number | bigint;
+  client?: Sql | TransactionClient;
+}): Promise<void> {
+  return _removeWeekFromMonth({ ...params, client: params.client ?? defaultSql });
 }
 
 /** Empty 7-day rest week, serialized for jsonb (bigint → number). */
@@ -120,10 +148,26 @@ function emptyWeekSlotsJson(): any {
  *
  * Local (no shared): usa `normalizeWeekSlots` de este surface.
  */
+/**
+ * Corre `fn` en una transacción del pool, o DIRECTO si `client` ya es un `tx`
+ * (postgres.js no tiene `begin` anidado: el callback de `sql.begin` expone
+ * `savepoint`). Así el botón del panel sigue igual (pool → begin propio) y un
+ * compositor (MCP, importador) puede meter el cascarón en SU transacción.
+ */
+async function withOwnOrAmbientTx<T>(
+  client: Sql | TransactionClient,
+  fn: (tx: Sql | TransactionClient) => Promise<T>,
+): Promise<T> {
+  if (typeof (client as Sql).begin === 'function') {
+    return (client as Sql).begin((tx) => fn(tx)) as Promise<T>;
+  }
+  return fn(client);
+}
+
 export async function createMonthTemplateWithEmptyWeeks(params: {
   coach_id: number | bigint;
   payload: unknown;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; weeks: Array<{ id: string; week_index: number }> }> {
   const parsed = programMonthScratchSchema.safeParse(params.payload);
   if (!parsed.success) {
@@ -134,29 +178,53 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
   const coach_id = Number(params.coach_id);
   const slotsJson = emptyWeekSlotsJson();
 
-  let monthId = '';
-  const weeks: Array<{ id: string; week_index: number }> = [];
+  return withOwnOrAmbientTx(client, async (tx) => {
+    // El nivel es OPCIONAL (card 137): sólo se comprueba si lo han dado. Ver el
+    // porqué largo en `programMonthScratchSchema` — resumen: la columna siempre
+    // fue nullable, hay microciclos sin nivel desde antes de esto, y los niveles
+    // son la forma de organizarse de ALGUNOS entrenadores, no de todos.
+    if (body.level_id != null) {
+      const levels = await tx<Array<{ id: string; name: string }>>`
+        select id::text, name from athlete_levels
+        where coach_id = ${coach_id}
+        order by sort_order asc, id asc
+      `;
+      if (!levels.some((l) => l.id === String(body.level_id))) {
+        // El error ENSEÑA: dice cuáles son. Antes decía sólo «no pertenece a
+        // este coach», y como no hay ninguna herramienta que liste los niveles,
+        // quien se equivocaba no tenía forma de acertar al segundo intento.
+        const suyos = levels.map((l) => l.name).join(', ');
+        throw new ProgramMonthError(
+          'invalid_level',
+          levels.length > 0
+            ? `Ese nivel no es tuyo. Los tuyos son: ${suyos}. También puedes crear el bloque sin nivel.`
+            : 'No tienes niveles definidos, así que el bloque va sin nivel: quita el campo.',
+          400,
+        );
+      }
+    }
 
-  await client.begin(async (tx) => {
-    // Level must be one of THIS coach's athlete_levels (level_id is the value).
-    const levels = await tx<Array<{ id: string }>>`
-      select id::text from athlete_levels
-      where coach_id = ${coach_id}
-      order by sort_order asc, id asc
-    `;
-    const rank = levels.findIndex((l) => l.id === String(body.level_id));
-    if (rank < 0) {
-      throw new ProgramMonthError('invalid_level', 'El nivel no pertenece a este coach', 400);
+    // El zod de `programMonthScratchSchema` sólo aplica el techo ABSOLUTO del
+    // sistema (26) — aquí SÍ sabemos quién es el coach, así que se comprueba
+    // su tope real (`coaches.max_microcycle_weeks`, card 135).
+    const maxWeeks = await loadCoachMaxMicrocicloWeeks({ coach_id, client: tx });
+    if (body.week_count > maxWeeks) {
+      throw new ProgramMonthError(
+        'week_count_too_long',
+        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        400,
+      );
     }
 
     const monthRows = await tx<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name, level_id)
       values (
-        ${coach_id}, ${body.name}, ${body.level_id}
+        ${coach_id}, ${body.name}, ${body.level_id ?? null}
       )
       returning id::text
     `;
-    monthId = monthRows[0]!.id;
+    const monthId = monthRows[0]!.id;
+    const weeks: Array<{ id: string; week_index: number }> = [];
 
     for (let i = 0; i < body.week_count; i++) {
       const weekName = `${body.name} · Semana ${i + 1}`;
@@ -165,7 +233,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
           coach_id, name, level_id, focus, slots_json
         )
         values (
-          ${coach_id}, ${weekName}, ${body.level_id}, null, ${tx.json(slotsJson)}
+          ${coach_id}, ${weekName}, ${body.level_id ?? null}, null, ${tx.json(slotsJson)}
         )
         returning id::text
       `;
@@ -177,9 +245,9 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
         values (${Number(monthId)}, ${Number(weekId)}, ${i})
       `;
     }
-  });
 
-  return { id: monthId, weeks };
+    return { id: monthId, weeks };
+  });
 }
 
 /**
@@ -192,10 +260,24 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
  * Es la ruta "duplicar" SIN clonar contenido — comparte el patrón de inserción
  * en la junction (posición siguiente), sólo que con una semana en blanco.
  */
+/**
+ * TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+ *
+ * Esta función abría SIEMPRE su propia transacción con `client.begin(...)`,
+ * pero `updatePersonalTramoMeta` la llama desde DENTRO de una transacción para
+ * alargar o acortar un tramo personal — y postgres.js no anida `begin`: un `tx`
+ * expone `savepoint`, no `begin`. O sea que **cambiar el número de semanas de un
+ * tramo personal reventaba siempre**, con un `client.begin is not a function`.
+ * Nadie lo había visto porque no había prueba que pasara por ahí.
+ *
+ * Se arregla con `withOwnOrAmbientTx`, que este mismo fichero ya usaba para
+ * exactamente este caso: si le llega el pool abre su transacción, y si le llega
+ * un `tx` se mete dentro del que ya hay.
+ */
 export async function appendEmptyWeekToMonth(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<{ id: string; week_index: number }> {
   const client = params.client ?? defaultSql;
   const coach_id = Number(params.coach_id);
@@ -205,7 +287,7 @@ export async function appendEmptyWeekToMonth(params: {
   let newWeekId = '';
   let newPosition = 0;
 
-  await client.begin(async (tx) => {
+  await withOwnOrAmbientTx(client, async (tx) => {
     const monthRows = await tx<
       Array<{ name: string; level_id: string | null }>
     >`
@@ -430,6 +512,19 @@ export async function copyWeekContentInto(params: {
   return { copied_week_ids: targets.map((t) => t.id) };
 }
 
+/** Who a microciclo belongs to (0164): null/null = shared library. Set = a
+ *  personal plan for exactly that athlete — the editor reads this to hide
+ *  library-only actions ("Asignar a atleta" doesn't apply to a plan already
+ *  tied to one person) and show whose plan it is instead. */
+export type MonthTemplateOwner = {
+  athlete_id: string | null;
+  athlete_name: string | null;
+};
+
+export type MonthTemplateWithWeeksOwned = Omit<MonthTemplateWithWeeks, 'month'> & {
+  month: MonthTemplateWithWeeks['month'] & MonthTemplateOwner;
+};
+
 /**
  * Carga un microciclo (mes) + sus 4 (o N) semanas con `slots_json` parseado,
  * validando ownership por coach. Devuelve `null` si el mes no existe o no
@@ -440,26 +535,32 @@ export async function copyWeekContentInto(params: {
 export async function loadMonthTemplateWithWeeks(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client?: Sql;
-}): Promise<MonthTemplateWithWeeks | null> {
+  client?: Sql | TransactionClient;
+}): Promise<MonthTemplateWithWeeksOwned | null> {
   const client = params.client ?? defaultSql;
 
   // Level is AGNOSTIC: the coach's athlete_levels.name (via level_id), '' when no
   // level is set. There is no phase entity — the order of microciclos IS the
-  // periodization.
+  // periodization. athlete_id/athlete_name (0164) surface ownership so the editor
+  // can tell a personal plan apart from a library microciclo.
   const monthRows = await client<
     Array<{
       id: string;
       name: string;
       level: string;
+      athlete_id: string | null;
+      athlete_name: string | null;
     }>
   >`
     select
       m.id::text,
       m.name,
-      coalesce(al.name, '') as level
+      coalesce(al.name, '') as level,
+      m.athlete_id::text as athlete_id,
+      ath.full_name as athlete_name
     from program_month_templates m
     left join athlete_levels al on al.id = m.level_id
+    left join athletes ath on ath.id = m.athlete_id
     where m.id = ${Number(params.month_id)} and m.coach_id = ${Number(params.coach_id)}
     limit 1
   `;
@@ -504,4 +605,53 @@ export async function loadMonthTemplateWithWeeks(params: {
   }));
 
   return { month, weeks };
+}
+
+export type DeliveredWeekCounts = {
+  /** Total `workout_assignments` reales del atleta que caen bajo estas semanas. */
+  total_assignments: number;
+  /** De las semanas-plantilla dadas, cuántas tienen al menos una asignación real. */
+  weeks_with_content: number;
+};
+
+/**
+ * Cuenta lo ENTREGADO (workout_assignments reales, no plantilla) para un set de
+ * semanas de un microciclo PERSONAL. Un plan personal puede divergir: la
+ * plantilla (`program_week_templates.slots_json`) es lo que se ESCRIBIÓ para
+ * entregar, pero el atleta ejecuta `workout_assignments`, que pueden haber
+ * nacido sueltas en el editor de día sin volver nunca a tocar la plantilla.
+ * `microcycles.source_week_template_id` (0158) es el único hilo que conecta una
+ * semana ya entregada con la plantilla de la que salió — sin él no hay forma de
+ * saber que el atleta ya tiene trabajo aunque la plantilla esté vacía.
+ *
+ * UNA consulta batch. Scoped a coach_id + athlete_id explícitos (join contra
+ * `athletes.coach_id`) — nunca puede leer trabajo de otro atleta.
+ */
+export async function loadDeliveredCountsForWeeks(params: {
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  week_template_ids: Array<number | bigint>;
+  client?: Sql;
+}): Promise<DeliveredWeekCounts> {
+  if (params.week_template_ids.length === 0) {
+    return { total_assignments: 0, weeks_with_content: 0 };
+  }
+  const client = params.client ?? defaultSql;
+  const weekTemplateIds = params.week_template_ids.map((id) => Number(id));
+
+  const rows = await client<Array<{ source_week_template_id: string; n: number }>>`
+    select mc.source_week_template_id::text as source_week_template_id, count(*)::int as n
+    from microcycles mc
+    join workout_assignments wa on wa.microcycle_id = mc.id
+    join athletes a on a.id = mc.athlete_id
+    where a.coach_id = ${Number(params.coach_id)}
+      and mc.athlete_id = ${Number(params.athlete_id)}
+      and mc.source_week_template_id = any(${weekTemplateIds}::bigint[])
+    group by mc.source_week_template_id
+  `;
+
+  return {
+    total_assignments: rows.reduce((sum, r) => sum + r.n, 0),
+    weeks_with_content: rows.length,
+  };
 }

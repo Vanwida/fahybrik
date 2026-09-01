@@ -19,10 +19,10 @@
 import {
   BACK_SQUAT,
   CIRCUITO_PIERNA,
+  FARTLEK_16X500,
   HYROX,
   MEDIDO_CIRCUITO,
   MEDIDO_SQUAT,
-  reloj,
   type ItemReal,
 } from '../../datos-reales';
 
@@ -311,6 +311,11 @@ export const FICHAS: Record<string, FichaSesion> = {
       haceDias: HACE_DIAS.squat,
     },
   },
+  // El fartlek no trae ficha, y es un vacío DECIDIDO, no un olvido: el coach lo
+  // dictó por el conector MCP y su `coach_note` llegó null, igual que la duración
+  // y la última vez (nadie lo ha hecho todavía). Ponerle aquí una frase suya sería
+  // atribuirle algo que no ha dicho.
+  [FARTLEK_16X500.procedencia]: {},
 };
 
 export function fichaSesionDe(procedencia: string): FichaSesion {
@@ -357,18 +362,11 @@ export function ultimaVezDe(nombre: string): UltimaVez | null {
 // Formato
 // ---------------------------------------------------------------------------
 
-/**
- * El descanso entre series, con la variante `subMinuto` del §2: por debajo del
- * minuto va en segundos («45 s», no «0:45»); a partir de ahí, reloj.
- *
- * CANÓNICO PRESTADO: por el §2.1 esto tendría que nacer en
- * `kit-composicion/formato.ts`, que es donde vive un formateador por concepto.
- * Se queda aquí porque esta tanda solo puede escribir en su carpeta; queda
- * declarado para subirlo en el lote que toque el sitio compartido.
- */
-export function descansoTexto(segundos: number): string {
-  return segundos < 60 ? `${segundos} s` : reloj(segundos);
-}
+// AQUÍ VIVÍA `descansoTexto`, el «canónico prestado» que esta pantalla se escribió
+// para el descanso por debajo del minuto. Ya no hace falta y encima mentía: decía
+// «45 s» con espacio donde la app escribe «45s». La variante `subMinuto` es ahora
+// un parámetro de `reloj()` en `datos-reales.ts`, igual que en `Formato.clock`, así
+// que el descanso se escribe con `reloj(s, 'segundos')` y hay UNA grafía (§2).
 
 /**
  * «1 movimiento» / «23 movimientos». El singular también es un caso: la sesión

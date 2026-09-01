@@ -21,13 +21,12 @@ import { MIcon } from '@/components/ui/MIcon';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import { MODALITY_OPTIONS, resolveModality } from '@/lib/dashboard/exercises/catalog-ui';
+import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import {
   CATEGORY_OPTIONS,
   FilterChip,
-  YouTubeField,
   extractApiErrorMessage,
   toCatalogRow,
-  videoFieldState,
   type ApiExercise,
   type CatalogRow,
 } from './exercise-catalog';
@@ -52,9 +51,12 @@ export function CreateExerciseForm({
   const [video, setVideo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Crear a media subida crearía el ejercicio sin el vídeo que se está subiendo, y
+  // sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
-  const videoState = videoFieldState(video);
-  const canSave = name.trim().length > 0 && videoState !== 'invalid' && !saving;
+  const videoInvalid = videoUrlDraftInvalid(video);
+  const canSave = name.trim().length > 0 && !videoInvalid && !videoUploading && !saving;
   // Siempre hay valor, así que el campo requerido nunca apaga el botón sin decir por
   // qué: el trabajo del coach es mirar la modalidad, no rellenarla.
   const { value: modalityValue, suggested: modalitySuggested } = resolveModality(
@@ -144,12 +146,20 @@ export function CreateExerciseForm({
         ))}
       </ChipField>
 
-      <YouTubeField value={video} onChange={setVideo} state={videoState} />
+      {/* Sin `exerciseId`: el ejercicio todavía no existe. La subida se firma igual
+          (la carpeta sale de la sesión del coach) y el localizador viaja con el POST. */}
+      <VideoUrlField
+        id="nuevo-ej-video"
+        label="Vídeo (opcional)"
+        value={video}
+        onChange={setVideo}
+        onUploadingChange={setVideoUploading}
+      />
 
       <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-        <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent-text)]" />
         <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
-          Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo — sólo tú lo
+          Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo: sólo tú lo
           verás.
         </p>
       </div>

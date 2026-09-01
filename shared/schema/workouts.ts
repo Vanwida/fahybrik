@@ -84,7 +84,9 @@ export type WorkoutAssignment = z.infer<typeof workoutAssignmentSchema>;
 
 export const workoutExecutionSchema = z.object({
   id: idSchema,
-  assignment_id: idSchema,
+  // Null = sesión importada (HealthKit/Garmin/…) que nadie prescribió.
+  // El plan no la toca. Única por assignment cuando existe (índice parcial 0191).
+  assignment_id: idSchema.nullable(),
   athlete_id: idSchema,
   started_at: isoDateTime.nullable(),
   ended_at: isoDateTime.nullable(),
@@ -120,10 +122,108 @@ export const workoutExecutionSchema = z.object({
   // both with one column is what made live PM5 sessions read as "a mano".
   // Nullable ("no se sabe") for rows written before 0144 and for seed data.
   recorded_via: executionRecordingMethod.nullable().optional(),
+  // ── La cabecera MEDIDA de la sesión (migración 0154) ──────────────────────
+  //
+  // Hasta 0154 esta tabla guardaba duración, RPE, notas y marcador, y nada más.
+  // Eso es lo que mantenía el TSS atado al RPE: `training-load/tss.ts` tiene los
+  // modos por potencia/FTP y por FC/LTHR escritos y con tests, y su comentario
+  // explica que no disparan porque "there is no HR column, no power column".
+  // Estos campos son ESE dato. Son también lo que Polar ya nos manda (calorías,
+  // distancia) y se descartaba al no haber dónde ponerlo.
+  //
+  // Todos nullable y optional: "no se sabe" es null, jamás un 0 (§7 del contrato
+  // de UI), y optional para que un select parcial o un payload viejo siga
+  // parseando. NO hay campo de TSS ni de IF: dependen del umbral y del FTP del
+  // atleta, que cambian con cada test, así que se calculan al leer — guardarlos
+  // los dejaría mintiendo sobre todo el histórico.
+  avg_hr: z.number().int().min(30).max(260).nullable().optional(),
+  max_hr: z.number().int().min(30).max(260).nullable().optional(),
+  min_hr: z.number().int().min(30).max(260).nullable().optional(),
+  avg_power_w: z.number().nonnegative().nullable().optional(),
+  total_distance_m: z.number().nonnegative().nullable().optional(),
+  total_calories: z.number().nonnegative().nullable().optional(),
+  // Separados y no netos: subir 300 y bajar 300 no es un llano, y el neto lo
+  // borraría. Tres fuentes nos los dan hoy (altitud del GPS, el Elevation Gain
+  // del characteristic FTMS, el HKWorkoutRoute del propio reloj) y ninguna se lee.
+  elevation_gain_m: z.number().nonnegative().nullable().optional(),
+  elevation_loss_m: z.number().nonnegative().nullable().optional(),
+  // Tiempo EN MOVIMIENTO, distinto del total. Sin él, la media de un entreno con
+  // transiciones miente: es exactamente lo que produce un "42:25 min/km" en un
+  // brick — dividir el tiempo entero, paradas incluidas, por la distancia.
+  moving_seconds: z.number().int().nonnegative().nullable().optional(),
+  // Caída de pulso (lpm) 60 s tras el esfuerzo — una DELTA, no un pulso
+  // absoluto (por eso su rango no es 30-260 como avg_hr: mig 0181 corrigió el
+  // mismo bug en el CHECK de la base, copiado de la fila de arriba). 0-150:
+  // `HRRecoveryCapture` ya descarta una caída negativa antes de guardar nada.
+  // `computeHrRecovery60` (shared/domain/running) espeja su mismo criterio.
+  hr_recovery_60_bpm: z.number().int().min(0).max(150).nullable().optional(),
+  // Deriva cardíaca (Pa:HR), en %. Se GUARDA —y no se calcula al leer— porque
+  // exige recorrer la traza entera y la traza no cambia nunca. El coach ya tiene
+  // un `decoupling_target_pct` editable que hasta ahora no alimentaba nada.
+  decoupling_pct: z.number().nullable().optional(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
 export type WorkoutExecution = z.infer<typeof workoutExecutionSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La TRAZA de una sesión (tabla `workout_traces`, migración 0156).
+//
+// El eje del tiempo: la serie de una señal a lo largo de la sesión. Es lo que
+// convierte un puñado de medias en un entreno del que se puede preguntar
+// cualquier cosa — deriva, recuperación, la curva, los splits por kilómetro, el
+// reparto real de zonas contra el umbral de HOY del atleta.
+//
+// UNA FILA POR (ejecución, señal, fuente), con la serie entera dentro. No fila
+// por muestra: ese es el patrón que `workout_routes` ya estableció aquí y el que
+// usan los formatos del sector (FIT, TCX). Medido: 632 muestras de 51 minutos
+// ocupan 785 bytes comprimidas.
+//
+// EL EJE VA EXPLÍCITO en `offsets_s` porque la cadencia real no es fija: las
+// muestras que llegan hoy van a ~4,9 s de media con huecos de hasta 81 s. Asumir
+// un intervalo obligaría a rellenar esos huecos, y rellenarlos es fabricar dato.
+// Con el eje explícito el hueco SE VE y quien lee decide si hay cobertura.
+//
+// La FUENTE va en la clave a propósito: la FC de la correa y la del reloj son
+// dos medidas distintas del mismo fenómeno y conviven sin pisarse; quien lee
+// elige por fidelidad (`execution-merge/precedence.ts` ya tiene ese ranking).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const TRACE_SIGNALS = [
+  'hr', // bpm
+  'pace', // s/km
+  'speed', // m/s — unidad nativa de cinta y bici
+  'power', // W
+  'cadence', // pasos o paladas por minuto
+  'altitude', // m sobre el nivel del mar
+  'distance', // m acumulados
+] as const;
+export type TraceSignal = (typeof TRACE_SIGNALS)[number];
+
+/** Una traza tal y como la sube el cliente o la reconstruye el servidor. */
+export const workoutTraceSchema = z.object({
+  signal: z.enum(TRACE_SIGNALS),
+  source: biometricSource,
+  started_at: isoDateTime,
+  offsets_s: z.array(z.number().int().nonnegative()).min(1),
+  values: z.array(z.number().finite()).min(1),
+});
+export type WorkoutTrace = z.infer<typeof workoutTraceSchema>;
+
+/**
+ * La misma traza con la garantía de que los dos arrays describen los mismos
+ * puntos. Se valida aquí y no solo en la base para que el error salga con un
+ * mensaje útil en el borde, no como una violación de constraint 200 ms después.
+ */
+export const workoutTraceInputSchema = workoutTraceSchema.superRefine((t, ctx) => {
+  if (t.offsets_s.length !== t.values.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `traza desalineada: ${t.offsets_s.length} instantes y ${t.values.length} valores`,
+      path: ['values'],
+    });
+  }
+});
 
 // Raw lap-level data preserved for audit. Free-form by design — provider shape varies.
 export const rawLapDataSchema = z.object({
@@ -154,6 +254,16 @@ export type RepsStatus = (typeof REPS_STATUSES)[number];
 // Rx/Scaled toggle for metcon-family blocks (whole-block scaling).
 export const RX_SCALED_VALUES = ['rx', 'scaled'] as const;
 export type RxScaled = (typeof RX_SCALED_VALUES)[number];
+
+// Provenance of a segment's PULSE specifically (migration 0153) — distinct from
+// `biometricSource` (_primitives.ts), which is a whole-EXECUTION brand/apparatus
+// enum ('concept2', 'garmin'...). This is the narrower vocabulary the live
+// engine's HR-ownership latch (`WorkoutSession.HRSource` / `injectLiveHR`)
+// already resolves per instant: a generic BLE chest/arm strap, the Apple
+// Watch/iPhone via HealthKit, or a strap paired through the PM5. NULL on a
+// segment means no HR was measured, or the row predates this column.
+export const HR_SOURCES = ['strap', 'healthkit', 'pm5'] as const;
+export type HrSource = (typeof HR_SOURCES)[number];
 
 // One working set of a strength segment (table `set_executions`). The parent
 // segment keeps the back-compat aggregate (reps_completed = Σ reps_actual,
@@ -192,6 +302,10 @@ export const segmentExecutionSchema = z.object({
   calories: z.number().nonnegative().nullable(),
   avg_hr: z.number().int().min(30).max(260).nullable(),
   max_hr: z.number().int().min(30).max(260).nullable(),
+  // Provenance of avg_hr/max_hr specifically (migration 0153) — nullable AND
+  // optional so a SELECT against a DB where the migration hasn't run yet (the
+  // column simply absent from the row) still parses.
+  hr_source: z.enum(HR_SOURCES).nullable().optional(),
   // Per-segment modality + modality-native intensity (migration 0045). The DB
   // columns are all nullable (plain text / numeric, no CHECK). `modality` is free
   // text on the column (writes are normalized to run|row|ski|bike|strength|other);
@@ -214,6 +328,46 @@ export const segmentExecutionSchema = z.object({
   raw_lap_data_json: rawLapDataSchema.nullable(),
   reconciled_at: isoDateTime.nullable(),
   reconciled_by_user_id: idSchema.nullable(),
+  // ── La RONDA (migración 0155) ────────────────────────────────────────────
+  //
+  // Cuál de las repeticiones del bloque es esta fila. 0 significa "esto no se
+  // repite" (una serie de carrera, un ejercicio suelto, una pieza continua), NO
+  // "la primera": la primera ronda de un circuito de tres es 1. Así se distingue
+  // "no aplica" de "la primera de varias" sin ir a mirar la prescripción.
+  //
+  // Hasta 0155 el unique era (execution_id, position) y hacía FÍSICAMENTE
+  // imposible guardar un circuito por rondas. El motor ya calculaba el parcial de
+  // cada ronda y lo pintaba en vivo; se borraba al guardar por no tener sitio.
+  //
+  // OJO al leer: con esto la relación ejecución↔prescripción deja de ser 1:1 por
+  // posición y pasa a ser 1:N. Todo lo que empareja tramos con el plan tiene que
+  // agregar por ronda o enseñará el mismo ejercicio repetido.
+  round_index: z.number().int().nonnegative().default(0),
+  // ── Columnas que EXISTEN en la tabla y este contrato no reflejaba ────────
+  //
+  // Auditado el 6-ago-2026: la tabla tenía doce columnas que el zod no declaraba,
+  // así que quien diseñaba mirando el contrato en vez de la tabla se quedaba
+  // ciego a la mitad de lo que ya guardamos. Todas optional para no romper ningún
+  // payload ni select parcial existente.
+  //
+  // Contexto del tramo (migración 0120).
+  context_format: z.string().nullable().optional(),
+  context_source: z.enum(['block', 'session']).nullable().optional(),
+  exercise_id: idSchema.nullable().optional(),
+  prescription_snapshot: z.unknown().nullable().optional(),
+  /** Trabajo acumulado antes de este tramo, en segundos — el predictor lo usa. */
+  prior_work_s: z.number().int().nonnegative().nullable().optional(),
+  // Específicos de carrera y cinta (migración 0124).
+  incline_pct: z.number().min(0).max(30).nullable().optional(),
+  run_cadence_spm: z.number().min(100).max(250).nullable().optional(),
+  // EMOM (migración 0134).
+  emom_rounds_completed: z.number().int().nonnegative().nullable().optional(),
+  emom_rounds_prescribed: z.number().int().nonnegative().nullable().optional(),
+  // Atribución de una carrera estructurada (migración 0146). Van las tres juntas
+  // o ninguna — la tabla lo impone con un CHECK all-or-none.
+  leg_index: z.number().int().nonnegative().nullable().optional(),
+  leg_role: z.enum(['work', 'recovery']).nullable().optional(),
+  leg_phase: z.enum(['warmup', 'main', 'cooldown']).nullable().optional(),
   created_at: isoDateTime,
   updated_at: isoDateTime,
 });
@@ -298,6 +452,14 @@ export const assignmentDetailItemSchema = z.object({
   exercise_category: z.string(),
   exercise_video_url: z.string().nullable(),
   cues: z.string().nullable(),
+  // La DESCRIPCIÓN larga del ejercicio — el apunte del coach que explica el
+  // gesto y da el consejo. Como `cues` y el vídeo, sale del merge por coach
+  // (`coalesce(override, base)`), así que es la voz de ESE coach.
+  //
+  // Se editaba, se guardaba y NUNCA se servía: iOS la decodifica desde hace
+  // tiempo y `ExerciseDetailView` tiene su sección «DESCRIPCIÓN» construida,
+  // que salía siempre vacía porque el endpoint no la emitía (7-ago-2026).
+  exercise_description: z.string().nullable(),
   // Flat, iOS-ready targets. Derived from `prescription_json` (the unified
   // measure/target model) when present on the segment, else from the stored
   // scalar params. Carries the reps/load/zone/pace/distance/calories the thin

@@ -89,11 +89,15 @@ export function Celda({
   valor,
   unidad = '',
   color = 'var(--twin-fg)',
+  ausente,
 }: {
   etiqueta: string;
-  valor: string;
+  /** Nil = no hay medida. No se pinta el hueco: se pinta el porqué (ExpertCell). */
+  valor: string | null;
   unidad?: string;
   color?: string;
+  /** Lo que se dice cuando `valor` es null («sin reloj», «buscando la banda»…). */
+  ausente?: string;
 }) {
   return (
     <div
@@ -110,21 +114,25 @@ export function Celda({
       }}
     >
       <Etiqueta texto={etiqueta} />
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
-        <span
-          style={{
-            font: 'italic 800 30px/1 var(--twin-font-sans)',
-            fontVariantNumeric: 'tabular-nums',
-            color,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'clip',
-          }}
-        >
-          {valor}
-        </span>
-        {unidad !== '' && <span style={{ font: '400 11px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{unidad}</span>}
-      </div>
+      {valor !== null ? (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, minWidth: 0 }}>
+          <span
+            style={{
+              font: 'italic 800 30px/1 var(--twin-font-sans)',
+              fontVariantNumeric: 'tabular-nums',
+              color,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'clip',
+            }}
+          >
+            {valor}
+          </span>
+          {unidad !== '' && <span style={{ font: '400 11px/1 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{unidad}</span>}
+        </div>
+      ) : (
+        <span style={{ font: '600 12px/1.3 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{ausente ?? 'sin medir'}</span>
+      )}
     </div>
   );
 }
@@ -139,12 +147,16 @@ export function ProgresoObjetivo({
   secondary,
   fraction,
   complete,
+  elapsed,
 }: {
   caption: string;
   primary: string;
   secondary: string;
   fraction: number;
   complete: boolean;
+  /** El reloj del tramo, como segundo readout a la derecha (GoalProgress.elapsed)
+   *  — solo cuando el llamador no lo enseña ya como readout principal. */
+  elapsed?: string;
 }) {
   return (
     <div
@@ -158,22 +170,34 @@ export function ProgresoObjetivo({
         border: `1px solid ${complete ? 'color-mix(in srgb, var(--twin-ok) 60%, transparent)' : 'var(--twin-hairline)'}`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <Etiqueta texto={caption} size={10} />
-        {complete && (
-          <span style={{ font: 'italic 800 11px/1 var(--twin-font-sans)', letterSpacing: '0.06em', color: 'var(--twin-ok)' }}>
-            COMPLETADO
-          </span>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <Etiqueta texto={caption} size={10} />
+            {complete && (
+              <span style={{ font: 'italic 800 11px/1 var(--twin-font-sans)', letterSpacing: '0.06em', color: 'var(--twin-ok)' }}>
+                COMPLETADO
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span
+              className="t-readout-s"
+              style={{ color: complete ? 'var(--twin-ok)' : 'var(--twin-fg)' }}
+            >
+              {primary}
+            </span>
+            <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)' }}>/ {secondary}</span>
+          </div>
+        </div>
+        {elapsed !== undefined && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flex: '0 0 auto' }}>
+            <Etiqueta texto="Tiempo" size={10} />
+            <span className="t-readout-s" style={{ color: 'var(--twin-fg)' }}>
+              {elapsed}
+            </span>
+          </div>
         )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span
-          className="t-readout-s"
-          style={{ color: complete ? 'var(--twin-ok)' : 'var(--twin-fg)' }}
-        >
-          {primary}
-        </span>
-        <span style={{ font: '600 13px/1 var(--twin-font-mono)', color: 'var(--twin-muted)' }}>/ {secondary}</span>
       </div>
       <div style={{ height: 8, borderRadius: 9999, background: 'var(--twin-surface)', overflow: 'hidden' }}>
         <div

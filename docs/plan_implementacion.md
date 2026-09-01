@@ -15,7 +15,7 @@
 
 - **Producto:** app nativa iOS+Android de entrenamiento HYROX/DEKA/híbrido personalizado, supervisado por Pablo, con IA asistente. Mercado España, lanzamiento en ES+EN.
 - **3 modalidades de servicio:** Individual (~70€), **Dobles** (~115€, atletas vinculados, producto estrella), Pro/Elite (~95€).
-- **Estado real coach:** muy avanzado — microciclos, IA Compose/Adapt, dashboard, schema BD, notificaciones, intake, macro-progress runtime, editor templates atómicos, ribbon ATR clickable.
+- **Estado real coach:** muy avanzado — microciclos, IA Compose/Adapt, dashboard, schema BD, notificaciones, intake, macro-progress runtime, editor templates atómicos, ribbon de microciclo clickable.
 - **Estado real iOS:** ~65% real / 35% stub. Funciona: Apple Sign In, Onboarding 13 pasos, Today (check-in + readiness + nextWorkout real), Plan view, ActiveWorkout + RPE sync, HealthKit service cableado. **Gaps críticos iOS:** Chat local-only (no backend), detalle sesión ausente del DTO (no muestra series/reps/pesos/RPE), push notifications (APNS) sin implementar, RGPD (export/delete) ausente, Stats mock, Garmin solo checkbox.
 - **Estado real datos:** `biometric_streams` = 0 rows. HealthKit sync no verificado end-to-end aunque el código está montado.
 - **Bloqueantes para lanzamiento:** Dobles + Stripe + catálogo ampliado + Chat real iOS + detalle sesión iOS + push iOS + RGPD.
@@ -48,7 +48,7 @@ Auditoría real (2026-05-27) sobre `ios/FAHYBRIK/`:
 | **Today — Próximo workout** | ✓ funcional | `PlanService.nextWorkout()` deriva del plan semana, pasa `assignmentId` real a `WorkoutContainer`. |
 | **Plan — vista 7 días** | ✓ funcional | Consume `/api/athlete/plan/week`. |
 | **Plan — DETALLE sesión** | ✗ **CRÍTICO** | `PlanService.AthleteWeekDaySession` solo trae `{assignmentId, slot, title, modality, status}`. **NO series/reps/pesos/RPE/ritmos**. `PlanView` rellena con mock `warmup:[], zones:[], coachNote:nil`. El doc lo pide explícito. |
-| **Plan — Macro / fase ATR** | △ parcial | Muestra macroLabel + barra progreso. **No muestra tipo de bloque** (acumulación/intensificación/tapering) en lenguaje atleta. |
+| **Plan — Macro / fase** | △ parcial | Muestra macroLabel + barra progreso. **No muestra el nombre del microciclo** en lenguaje atleta. |
 | **Active Workout (cronómetro + flow)** | ✓ funcional | Session state, lap, pause modal, métricas tiempo real. |
 | **PostWorkoutSummary (RPE + notas)** | ✓ funcional | POST `/api/sync/workout-execution` con `perceived_exertion + notes + duraciones`. Offline-first via `RequestQueue`. |
 | **Stats — sub-tabs Running/Carga/HR/HYROX/PRs/Tendencias** | △ UI mock | Sub-tabs visibles pero datos vienen de `StatsView.mock`. No hay GET `/api/stats/history` real. |
@@ -112,7 +112,7 @@ Comparativa fina por capacidad del documento maestro.
 | C11 | Sistema alertas coach (sin actividad >2d, mensaje nuevo, renovación, pago fallido, propuesta IA pendiente) | ✓ Notificaciones in-app montadas | Añadir alertas pago fallido (depende de Stripe) | 1b |
 | C12 | Panel métricas negocio (MRR, churn, altas, renovaciones próximas) | ❌ No existe | Implementar dashboard métricas | 2 |
 | C13 | **Modalidad Dobles** (partner_id, plan shared, pago vinculado) | ❌ No existe | Refactor users + weekly_plans + subscriptions + UI atleta "plan compañero" | **1a** |
-| C14 | **Modalidad Pro/Elite** (volumen, periodización, splits Pro, planificación temporada) | ✓ Implementado vía ATR + level=elite | Mapear nomenclatura "acumulación/intensificación/tapering" | 2 |
+| C14 | **Modalidad Pro/Elite** (volumen, periodización, splits Pro, planificación temporada) | ✓ Implementado vía level=elite | El coach nombra el orden de microciclos | 2 |
 | C15 | Videollamada inicial como filtro pre-onboarding | ❌ No existe en flow | Calendly/embed + flag `intake_call_completed` | 3 |
 | C16 | Onboarding 7 campos (nivel, lesiones, carreras, splits previos, días, equipamiento, objetivos) | ✓ iOS onboarding 13 pasos | Verificar match exacto con campos del doc | 1a |
 | C17 | Plan creado 48-72h tras onboarding | ⚠ Flujo automático intake → propose first month existe; falta SLA | Documentar SLA + notificación atleta cuando listo | 2 |
@@ -142,7 +142,7 @@ Comparativa fina por capacidad del documento maestro.
 | # | Decisión | **CERRADO COMO** | Notas |
 |---|---|---|---|
 | D1 | Microciclo vs `weekly_plans` | **Microciclo + `weekly_plans` hijo** | Schema añade tabla weekly_plans + flag shared. Doc maestro v1.1 reflejar ambas. |
-| D2 | ATR vs vocabulario pedagógico | **ATR coach-internal + pedagógico atleta** | Mapeo: ACC→Acumulación, TRANS→Intensificación, REAL→Tapering. |
+| D2 | Nombre del microciclo vs copy atleta | **El atleta lee el nombre que puso el coach** | Sin catálogo de fases en producto. |
 | D3 | 10 grupos vs `format` técnico | **Coexisten: `methodology_group_id` + `format`** | Editor coach filtra por grupo, motor usa format. |
 | D4 | Dobles cuándo | **Antes — Fase 1a (5-7 sem)** | Producto estrella del doc, sin Dobles el lanzamiento pierde lógica comercial. |
 | D5 | Android stack | **Kotlin nativo, post-MVP iOS** | 12-16 sem real. Acepta desviación doc ("Android desde inicio"). |
@@ -202,10 +202,9 @@ Añadir tabla `methodology_groups` (id 1-10, name, description del doc) + column
 
 UI del editor templates añade chip seleccionable de los 10 grupos.
 
-### 4.3 ATR ↔ nomenclatura pedagógica (D2)
-- Coach UI interna: sigue mostrando ACC/TRANS/REAL (Pablo lo entiende).
-- Atleta UI iOS: mostrar "Acumulación", "Intensificación", "Tapering".
-- Helper `atrPhaseLabel(phase, locale)` ya existe o se añade.
+### 4.3 Nombre del microciclo (D2)
+- Coach UI: el título editable del microciclo.
+- Atleta UI iOS: ese mismo nombre, sin un catálogo de fases en producto.
 
 ### 4.4 Microciclos como contenedor del weekly_plan (D1)
 Mantener `program_month_templates` (microciclo, 4 semanas plantilla) + nuevo nivel `weekly_plans` (runtime, 1 semana asignada a atleta concreto). Hoy ya tenemos `workout_assignments` que vive ese rol — solo hay que añadir nivel intermedio "weekly_plan" para agrupar las 7 sesiones del atleta de esa semana (status `draft/published`, ia_propuesta flag, aprobado_por). Refactor menor.
@@ -237,7 +236,7 @@ El doc maestro propone unos nombres de entidad; el schema existente usa otros. A
 **Objetivo:** cerrar D1-D6 (decisiones P0), congelar nomenclatura, actualizar Documento Maestro con reconciliación arquitectónica.
 
 **Entregables:**
-- Documento Maestro v1.1 con sección "Reconciliación arquitectónica" añadida (microciclo, ATR↔pedagógico, 10 grupos)
+- Documento Maestro v1.1 con sección "Reconciliación arquitectónica" añadida (microciclo, 10 grupos)
 - Plan de implementación firmado por los tres socios
 - Stripe account creado, Garmin Partner application enviada
 
@@ -316,7 +315,7 @@ El doc maestro propone unos nombres de entidad; el schema existente usa otros. A
 - Endpoints `/api/stats/history`, `/api/stats/running`, `/api/stats/hr`, `/api/stats/hyrox` con datos reales agregados
 - Bilingüe ES+EN: traducir UI completa coach + planes en idioma del atleta (campo `notes` traducido por LLM en background)
 - Panel métricas negocio coach con MRR/churn/altas/cancelaciones/renovaciones
-- Trigger fase ATR → label atleta en respuesta (acumulación/intensificación/tapering)
+- Trigger de cambio de microciclo → el atleta ve el nombre que puso el coach
 - **C33 IA Q&A ejercicios:** endpoint `POST /api/athlete/ai/exercise-question` + guardrails (solo ejecución técnica, planificación/salud deriva al coach).
 - **C34 duplicar semana de otro atleta:** botón "Duplicar de…" en wizard + selector atleta + clona slots_json.
 - **C31 refinamiento calendario boxes:** mejor UI Profile para mantener calendario clase del box.
@@ -399,7 +398,7 @@ El doc maestro propone unos nombres de entidad; el schema existente usa otros. A
 ### Acciones de Pablo (paralelo, no técnico)
 - Empezar a documentar las **80+ sesiones adicionales** de su archivo. Estructura: nombre + grupo metodológico (1-10) + bloques + ejercicios + parámetros. Cualquier formato (Notion, Google Docs, plantilla) que después se importe.
 - Grabar primer batch de **vídeos ejercicios** (15-30s) con iPhone + iluminación. Empezar por los 30 ejercicios más usados.
-- Decidir nomenclatura definitiva atleta-facing (ACC→Acumulación, etc.) y validarla con 3-5 atletas reales del box.
+- Decidir nomenclatura definitiva atleta-facing (el nombre que pone el coach) y validarla con 3-5 atletas reales del box.
 
 ### Acciones del Fundador (paralelo, no técnico)
 - **Asesor legal/fiscal** para D10 (estructura del negocio).

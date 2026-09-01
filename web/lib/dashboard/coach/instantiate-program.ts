@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
@@ -15,6 +15,7 @@ import type {
   WeekDayPart,
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   applyProgression,
@@ -85,11 +86,23 @@ export class InstantiateProgramError extends Error {
   }
 }
 
+/** SQLSTATE 23P01 = exclusion_violation — the 0166 GiST constraint on
+ *  athlete_month_assignments firing. Same inline-check style as the codebase's
+ *  other Postgres-error translations (e.g. delete-exercise.ts's 23503 check). */
+function isExclusionViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === '23P01';
+}
+
 export async function instantiateMonthFromTemplate(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   month_template_id: number | bigint;
   start_date: string;
+  /** Semana del plan (1-based) por la que arranca este atleta. Por defecto 1
+   *  (desde el principio). Un atleta que se incorpora a mitad de mesociclo
+   *  puede entrar directamente en, p. ej., la semana 3 — solo se materializan
+   *  las semanas desde esa en adelante, alineado con el resto del grupo. */
+  start_week_number?: number;
   /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
   progression?: ProgressionSpec;
   client?: Sql;
@@ -128,54 +141,92 @@ export async function instantiateMonthFromTemplate(params: {
 
   const startMonday = mondayOfWeek(parseIsoDate(params.start_date));
   const startIso = isoDateString(startMonday);
-  const weekCount = month.weeks.length;
+  const totalWeeks = month.weeks.length;
+
+  // #114: semana de entrada — por defecto la 1 (desde el principio). Validada
+  // contra el nº real de semanas de la plantilla: no se puede entrar más allá
+  // del final del plan.
+  const entryWeekNumber = params.start_week_number ?? 1;
+  if (entryWeekNumber > totalWeeks) {
+    throw new InstantiateProgramError(
+      'invalid_start_week',
+      `Este plan tiene ${totalWeeks} semana${totalWeeks === 1 ? '' : 's'}; no se puede entrar en la semana ${entryWeekNumber}.`,
+      400,
+    );
+  }
+  const entryWeekIndex = entryWeekNumber - 1; // 0-based, índice en month.weeks
+  const remainingWeeks = month.weeks.slice(entryWeekIndex);
+  const weekCount = remainingWeeks.length;
   const endIso = isoDateString(addDays(startMonday, weekCount * 7 - 1));
 
   let assignmentCount = 0;
   const microcycleIds: string[] = [];
   let monthAssignmentId = '0';
 
-  await client.begin(async (tx) => {
-    for (let wi = 0; wi < month.weeks.length; wi++) {
-      const weekMeta = month.weeks[wi]!;
-      const weekStart = addDays(startMonday, wi * 7);
+  try {
+    await client.begin(async (tx) => {
+      for (let i = 0; i < remainingWeeks.length; i++) {
+        const weekMeta = remainingWeeks[i]!;
+        const weekStart = addDays(startMonday, i * 7);
 
-      const weekRes = await instantiateWeekIntoMicrocycle({
-        client: tx as unknown as Sql,
-        coach_id: params.coach_id,
-        athlete_id: params.athlete_id,
-        week_template_id: Number(weekMeta.week_template_id),
-        week_start: weekStart,
-        week_number: wi + 1,
-        progression: params.progression,
-      });
-      microcycleIds.push(weekRes.microcycle_id);
-      assignmentCount += weekRes.assignment_count;
+        const weekRes = await instantiateWeekIntoMicrocycle({
+          client: tx as unknown as Sql,
+          coach_id: params.coach_id,
+          athlete_id: params.athlete_id,
+          week_template_id: Number(weekMeta.week_template_id),
+          week_start: weekStart,
+          // week_number conserva la posición REAL dentro de la plantilla (p. ej.
+          // entrar en la semana 3 de 6 sigue etiquetándose "3", no "1") — así el
+          // atleta queda alineado con el resto del grupo que sí empezó en la 1.
+          week_number: entryWeekIndex + i + 1,
+          progression: params.progression,
+        });
+        microcycleIds.push(weekRes.microcycle_id);
+        assignmentCount += weekRes.assignment_count;
+      }
+
+      const assignRows = await tx<Array<{ id: string }>>`
+        insert into athlete_month_assignments (
+          athlete_id,
+          month_template_id,
+          start_date,
+          end_date,
+          microcycle_ids,
+          assignment_count,
+          created_by_coach_id
+        )
+        values (
+          ${params.athlete_id as number},
+          ${params.month_template_id as number},
+          ${startIso}::date,
+          ${endIso}::date,
+          ${microcycleIds.map(Number)}::bigint[],
+          ${assignmentCount},
+          ${params.coach_id as number}
+        )
+        returning id::text
+      `;
+      monthAssignmentId = assignRows[0]!.id;
+    });
+  } catch (err) {
+    // 0166: the database refuses two athlete_month_assignments with overlapping
+    // date windows for the same athlete (23P01 = exclusion_violation, the GiST
+    // constraint added in that migration). EVERY caller that can end up here
+    // (personalize, assign-month, assign-sequence initial/advance/loop/level-up)
+    // funnels through this one INSERT, so catching it ONCE, here, protects all of
+    // them uniformly — each already maps InstantiateProgramError through its own
+    // error type (see assign-sequence.ts's materializeItem, personalize-plan.ts),
+    // so this reaches the coach as a clean, readable message instead of a raw
+    // Postgres error / 500.
+    if (isExclusionViolation(err)) {
+      throw new InstantiateProgramError(
+        'overlapping_plan',
+        'Este atleta ya tiene un plan asignado que se solapa con estas fechas.',
+        409,
+      );
     }
-
-    const assignRows = await tx<Array<{ id: string }>>`
-      insert into athlete_month_assignments (
-        athlete_id,
-        month_template_id,
-        start_date,
-        end_date,
-        microcycle_ids,
-        assignment_count,
-        created_by_coach_id
-      )
-      values (
-        ${params.athlete_id as number},
-        ${params.month_template_id as number},
-        ${startIso}::date,
-        ${endIso}::date,
-        ${microcycleIds.map(Number)}::bigint[],
-        ${assignmentCount},
-        ${params.coach_id as number}
-      )
-      returning id::text
-    `;
-    monthAssignmentId = assignRows[0]!.id;
-  });
+    throw err;
+  }
 
   // #34: on the athlete's FIRST plan, auto-schedule the week-1 calibration battery
   // (Fork A: auto + coach override). Best-effort — a battery hiccup must never fail
@@ -235,6 +286,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
     week_start: weekStartIso,
     week_end: weekEndIso,
     week_number: params.week_number,
+    week_template_id: params.week_template_id,
   });
 
   const weekTpl = await getWeekTemplate({
@@ -272,9 +324,11 @@ export async function instantiateWeekIntoMicrocycle(params: {
   }).days;
 
   let assignmentCount = 0;
+  const wantedByDate = new Map<string, string[]>();
   for (const day of placedDays) {
     const dayDate = addDays(weekStart, day.day_of_week - 1);
     const dayIso = isoDateString(dayDate);
+    const wanted: string[] = [];
     for (let i = 0; i < day.sessions.length; i++) {
       const session = day.sessions[i]!;
       const slotLabel = slotLabelForSessionIndex(i);
@@ -289,10 +343,90 @@ export async function instantiateWeekIntoMicrocycle(params: {
         template_name_base: weekTpl.name,
         progression: params.progression,
       });
+      if (session.kind === 'workout') wanted.push(`slot:${slotLabel}`);
     }
+    wantedByDate.set(dayIso, wanted);
+  }
+
+  // Quitar un entreno de la plantilla tiene que quitarlo del atleta. Insertar
+  // y reemplazar no basta: el hueco que ya no existe dejaba la asignación
+  // scheduled colgada (el coach borraba, el atleta seguía viéndolo). Solo
+  // `scheduled` + `slot:…` de ESTE microciclo: lo hecho, lo libre y un test
+  // no se tocan.
+  for (let i = 0; i < 7; i++) {
+    const dayIso = isoDateString(addDays(weekStart, i));
+    await pruneRemovedSlotAssignments({
+      client: params.client,
+      athlete_id: params.athlete_id,
+      microcycle_id: microId,
+      scheduled_for: dayIso,
+      keep_notes: wantedByDate.get(dayIso) ?? [],
+    });
   }
 
   return { microcycle_id: microId, assignment_count: assignmentCount };
+}
+
+export type ResyncWeekTemplateResult = {
+  microcycles_checked: number;
+  assignments_resynced: number;
+};
+
+/**
+ * Resincroniza los microciclos YA ASIGNADOS que vinieron de esta plantilla de
+ * semana (linaje de 0158) — se llama tras cada guardado del editor de día para
+ * que una edición posterior de verdad llegue al atleta. Antes de esto, editar
+ * una semana ya asignada se guardaba bien en la plantilla y nunca salía de
+ * ahí: no había ni rastro de qué microciclos avisar (Alex, 7-ago: escribió una
+ * nota para un ejercicio ya asignado y no llegó nunca al atleta).
+ *
+ * Reusa el MISMO motor que la asignación inicial — `instantiateWeekIntoMicrocycle`
+ * vuelve a recorrer días/sesiones con el contenido fresco, y `insertSlotAssignment`
+ * decide por slot: 'scheduled' → reemplaza el contenido materializado; cualquier
+ * otro estado ('completed'/'partial'/'skipped'/'missed') → se deja intacto, el
+ * atleta ya actuó sobre esa fila. Un hueco que el coach quitó de la plantilla
+ * (sesión borrada o día pasado a descanso) sí se borra si sigue `scheduled`.
+ *
+ * Best-effort por microciclo, en su propia transacción: un atleta con un fallo
+ * no debe bloquear a los demás ni el guardado del día que disparó esto.
+ */
+export async function resyncWeekTemplateAssignments(params: {
+  coach_id: number | bigint;
+  week_template_id: number | bigint;
+  progression?: ProgressionSpec;
+  client?: Sql;
+}): Promise<ResyncWeekTemplateResult> {
+  const client = params.client ?? defaultSql;
+
+  const microcycles = await client<
+    Array<{ id: string; athlete_id: string; start_date: string; week_number: number }>
+  >`
+    select id::text, athlete_id::text, start_date::text, week_number
+    from microcycles
+    where source_week_template_id = ${Number(params.week_template_id)}
+  `;
+
+  let assignments_resynced = 0;
+  for (const mc of microcycles) {
+    try {
+      const result = await client.begin(async (tx) => {
+        return instantiateWeekIntoMicrocycle({
+          client: tx as unknown as Sql,
+          coach_id: params.coach_id,
+          athlete_id: Number(mc.athlete_id),
+          week_template_id: params.week_template_id,
+          week_start: parseIsoDate(mc.start_date),
+          week_number: mc.week_number,
+          progression: params.progression,
+        });
+      });
+      assignments_resynced += result.assignment_count;
+    } catch {
+      // best-effort — ver comentario de la función.
+    }
+  }
+
+  return { microcycles_checked: microcycles.length, assignments_resynced };
 }
 
 /**
@@ -326,6 +460,12 @@ async function loadAthleteSchedulePrefs(
  * `athlete_month_assignments`, no este número), así que un nuevo plan que reinicia en
  * 1 continúa pasado el máximo del atleta para evitar colisiones con el unique
  * `(athlete_id, week_number)`.
+ *
+ * `week_template_id` (0158) se escribe SIEMPRE que se conoce, tanto al crear como
+ * al reusar uno existente — es el linaje que la resincronización usa para
+ * encontrar qué microciclos avisar cuando el coach edita la plantilla después de
+ * asignarla. `undefined` (entreno libre/import legacy sin plantilla detrás) deja
+ * la columna como estaba, nunca la borra.
  */
 async function resolveOrCreateMicrocycle(params: {
   client: Sql;
@@ -333,6 +473,7 @@ async function resolveOrCreateMicrocycle(params: {
   week_start: string;
   week_end: string;
   week_number: number;
+  week_template_id?: number | bigint;
 }): Promise<string> {
   const db = params.client as Sql;
   const existing = await db<Array<{ id: string }>>`
@@ -344,7 +485,15 @@ async function resolveOrCreateMicrocycle(params: {
     order by mc.start_date asc
     limit 1
   `;
-  if (existing[0]) return existing[0].id;
+  if (existing[0]) {
+    if (params.week_template_id != null) {
+      await db`
+        update microcycles set source_week_template_id = ${Number(params.week_template_id)}
+        where id = ${Number(existing[0].id)}
+      `;
+    }
+    return existing[0].id;
+  }
 
   const taken = await db<Array<{ max_week: number | null }>>`
     select max(week_number)::int as max_week
@@ -355,12 +504,13 @@ async function resolveOrCreateMicrocycle(params: {
   const weekNumber = params.week_number > maxWeek ? params.week_number : maxWeek + 1;
 
   const ins = await db<Array<{ id: string }>>`
-    insert into microcycles (athlete_id, week_number, start_date, end_date)
+    insert into microcycles (athlete_id, week_number, start_date, end_date, source_week_template_id)
     values (
       ${params.athlete_id as number},
       ${weekNumber},
       ${params.week_start}::date,
-      ${params.week_end}::date
+      ${params.week_end}::date,
+      ${params.week_template_id != null ? Number(params.week_template_id) : null}
     )
     returning id::text
   `;
@@ -417,6 +567,47 @@ async function insertSlotAssignment(params: {
     if (templateId == null) return 0;
   }
 
+  // GUARDA DE DOBLE RESERVA. Materializar dos veces (dos clics del coach, o dos
+  // vías distintas sobre el mismo atleta) insertaba un SEGUNDO juego completo de
+  // sesiones en las mismas fechas, colgando del mismo microciclo y por tanto
+  // indistinguible del bueno. No había ni unique en la tabla ni comprobación
+  // aquí; las guardas existentes viven una capa por encima y ninguna mira la
+  // fecha (`assign-sequence.ts` lo documentaba: «instantiateMonthFromTemplate
+  // has NO dedup guard»).
+  //
+  // La identidad de una sesión materializada es (atleta, fecha, slot): el slot
+  // vive en `notes` como `slot:am` / `slot:pm` / `slot:3`… (ver
+  // `slotLabelForSessionIndex`), que es lo que este mismo insert escribe. Un
+  // entreno LIBRE del atleta (origin 'self') o un test de calibración no llevan
+  // ese `notes`, así que nunca bloquean — solo se deduplica contra otra
+  // materialización del mismo hueco.
+  //
+  // `on conflict` no sirve: la tabla no tiene índice único que lo soporte y
+  // añadirlo retroactivamente rompería los días con varias sesiones legítimas.
+  //
+  // El `status` decide qué hacer con el duplicado, no solo si lo hay. Mientras
+  // sigue 'scheduled' el atleta no ha tocado nada — es seguro REEMPLAZAR su
+  // contenido por el recién materializado (resincronizar una edición posterior
+  // del coach, 0158). En cualquier otro estado ('completed'/'partial'/'skipped'/
+  // 'missed') el atleta ya actuó sobre esa fila: se deja intacta, siempre — la
+  // misma guarda que usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts).
+  const dup = await params.client<Array<{ id: string; status: string }>>`
+    select id::text, status::text from workout_assignments
+    where athlete_id = ${params.athlete_id as number}
+      and scheduled_for = ${params.scheduled_for}::date
+      and notes = ${`slot:${params.slot}`}
+    limit 1
+  `;
+  if (dup.length > 0) {
+    if (dup[0]!.status !== 'scheduled') return 0;
+    await params.client`
+      update workout_assignments
+      set template_id = ${templateId}, template_version = ${version}, updated_at = now()
+      where id = ${Number(dup[0]!.id)}
+    `;
+    return 1;
+  }
+
   await params.client`
     insert into workout_assignments (
       athlete_id,
@@ -438,6 +629,25 @@ async function insertSlotAssignment(params: {
     )
   `;
   return 1;
+}
+
+async function pruneRemovedSlotAssignments(params: {
+  client: Sql;
+  athlete_id: number | bigint;
+  microcycle_id: string;
+  scheduled_for: string;
+  keep_notes: string[];
+}): Promise<void> {
+  await params.client`
+    delete from workout_assignments
+    where athlete_id = ${params.athlete_id as number}
+      and microcycle_id = ${Number(params.microcycle_id)}
+      and scheduled_for = ${params.scheduled_for}::date
+      and status = 'scheduled'
+      and notes like 'slot:%'
+      and coalesce(origin, 'coach') <> 'self'
+      and not (notes = any(${params.keep_notes}::text[]))
+  `;
 }
 
 /**
@@ -594,8 +804,10 @@ async function materializeInlineSessionTemplate(params: {
     const blockFormat = (TEMPLATE_FORMATS as readonly string[]).includes(block.format)
       ? block.format
       : null;
+    let itemsInBlock = 0;
     for (const item of block.items ?? []) {
       if (!existingExerciseIds.has(Number(item.exercise_id))) continue;
+      itemsInBlock++;
       const paramsJson = JSON.parse(
         JSON.stringify(item.params_json ?? {}, (_, v) =>
           typeof v === 'bigint' ? Number(v) : v,
@@ -629,7 +841,45 @@ async function materializeInlineSessionTemplate(params: {
       `;
       position++;
     }
+
+    // Circuito (docs/DECISIONS.md, 2026-08-08): copia la config del bloque a
+    // template_blocks — solo si sobrevivió al menos un item real (si el bloque
+    // se quedó sin ejercicios existentes, no hay a qué block_position apuntar).
+    if (block.circuit && itemsInBlock > 0) {
+      await insertTemplateBlockCircuit(params.client, templateId, bi, block.circuit);
+    }
   }
 
   return templateId;
+}
+
+// Circuito (docs/DECISIONS.md, 2026-08-08): una fila por (template_id,
+// block_position) — nunca duplicado por item, esa duplicación era el bug que la
+// decisión original corrigió del otro lado. Usada por cada materializador que
+// copia un WeekDayPart a template_segments (hoy solo el inline; el de la
+// Biblioteca de sesiones no pasa por bloques de día).
+export async function insertTemplateBlockCircuit(
+  client: Sql | TransactionClient,
+  templateId: number,
+  blockPosition: number,
+  circuit: CircuitConfig,
+): Promise<void> {
+  const workSeconds = circuit.pacing.kind === 'por_reloj' ? circuit.pacing.work_seconds : null;
+  await client`
+    insert into template_blocks (
+      template_id, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    )
+    values (
+      ${templateId}, ${blockPosition}, ${circuit.rounds}, ${circuit.pacing.kind}, ${workSeconds},
+      ${circuit.rest_between_stations_seconds ?? null}, ${circuit.rest_between_rounds_seconds ?? null}
+    )
+    on conflict (template_id, block_position) do update set
+      rounds = excluded.rounds,
+      pacing = excluded.pacing,
+      work_seconds = excluded.work_seconds,
+      rest_between_stations_seconds = excluded.rest_between_stations_seconds,
+      rest_between_rounds_seconds = excluded.rest_between_rounds_seconds,
+      updated_at = now()
+  `;
 }

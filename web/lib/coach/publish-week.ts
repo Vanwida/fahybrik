@@ -61,7 +61,9 @@ export interface PublishWeekResult {
   notified: boolean;
 }
 
-async function assertCoachOwnsAthlete(client: Sql, coachId: number, athleteId: number): Promise<void> {
+/** Exportado para que otros escritores de `weekly_plans` (p. ej. `week-focus.ts`)
+ *  reutilicen el MISMO guardia de tenancy en vez de repetir el WHERE a mano. */
+export async function assertCoachOwnsAthlete(client: Sql, coachId: number, athleteId: number): Promise<void> {
   const owned = await client<Array<{ id: string }>>`
     select id::text from athletes
     where id = ${athleteId} and coach_id = ${coachId} limit 1

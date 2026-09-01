@@ -79,7 +79,13 @@ export interface CohortRow {
     twice_daily_today: boolean;
     a_event_within_30d: boolean;
   };
-  programming_status: 'ok' | 'no_month' | 'pending_proposal' | 'empty_week' | 'month_2_pending';
+  programming_status:
+    | 'ok'
+    | 'no_month'
+    | 'pending_proposal'
+    | 'empty_week'
+    | 'month_2_pending'
+    | 'block_ended';
   programming_label: string | null;
   readiness_score: number | null;
 }

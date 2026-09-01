@@ -22,14 +22,15 @@ import { z } from 'zod';
  *  absolute rate (the threshold heart rate a 30-min test measures), `hrr` is a
  *  DROP between two rates. They share the `bpm` unit and nothing else — one
  *  anchors the zone model, the other is a fitness marker. */
-export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr', 'hr'] as const;
+export const STORE_RESULT_MEASURES = ['time', 'distance', 'reps', 'calories', 'load', 'hrr', 'hr', 'height'] as const;
 export type StoreResultMeasure = (typeof STORE_RESULT_MEASURES)[number];
 
 /** The unit the entered value is in. Pairs with `measure`
  *  (time→seconds, distance→meters, reps→reps, calories→calories, load→kg,
  *  hrr→bpm — bpm the HR dropped in the fixed recovery window,
- *  hr→bpm — an absolute heart rate). */
-export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm'] as const;
+ *  hr→bpm — an absolute heart rate,
+ *  height→cm — jump height from flight time; NEVER calibrates). */
+export const STORE_RESULT_UNITS = ['seconds', 'meters', 'reps', 'calories', 'kg', 'bpm', 'cm'] as const;
 export type StoreResultUnit = (typeof STORE_RESULT_UNITS)[number];
 
 /** The ACTIVE calibration each result drives (level is always re-derived after,
@@ -92,7 +93,20 @@ export const testResultEntrySchema = z.object({
 });
 export type TestResultEntry = z.infer<typeof testResultEntrySchema>;
 
+export const jumpAttemptInputSchema = z.object({
+  kind: z.enum(['cmj', 'cmj_free_arms', 'sj', 'dj', 'loaded_cmj']),
+  takeoff_frame: z.number().int().nonnegative(),
+  landing_frame: z.number().int().nonnegative(),
+  fps: z.number().positive().max(480),
+  quality: z.enum(['ok', 'staggered', 'low_fps', 'discarded']),
+  kept: z.boolean(),
+});
+export type JumpAttemptInput = z.infer<typeof jumpAttemptInputSchema>;
+
 export const recordTestResultsBodySchema = z.object({
   results: z.array(testResultEntrySchema).min(1).max(10),
+  body_mass_kg: z.number().positive().max(250).optional(),
+  load_kg: z.number().positive().max(400).nullable().optional(),
+  attempts: z.array(jumpAttemptInputSchema).max(20).optional(),
 });
 export type RecordTestResultsBody = z.infer<typeof recordTestResultsBodySchema>;

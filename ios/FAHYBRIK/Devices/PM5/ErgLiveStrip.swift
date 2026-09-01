@@ -11,7 +11,11 @@ import SwiftUI
 // so it lives here: one row, under the format, showing what the machine is actually
 // reporting. Rotating and per-round formats never use this — there the tramo knows
 // exactly what is being done and the full erg surface takes over.
+//
+// Metres/cal come from the SESSION tramo window (not the PM5 cumulative counter),
+// so they stay honest under the same policy as the full erg HUD.
 struct ErgLiveStrip: View {
+    let session: WorkoutSession
     let pm5: PM5ConnectionStore
 
     private var live: PM5LiveSample { pm5.live }
@@ -22,10 +26,23 @@ struct ErgLiveStrip: View {
             cell(valor: live.powerWatts.map { "\($0)" }, label: "vatios",
                  color: Theme.Color.accentText)
             cell(valor: live.strokeRate.map { "\($0)" }, label: "s/min")
-            cell(valor: live.distanceMeters.map { "\(Int($0))" }, label: "metros")
+            cell(valor: distanceLabel, label: "metros")
+            if let cal = session.tramoErgCalories, cal > 0 {
+                cell(valor: "\(cal)", label: "cal")
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Datos del monitor")
+    }
+
+    /// Covered metres in the active window (0-default counter), not the monitor's
+    /// piece-lifetime cumulative — that was the "sigue sumando" bug on the strip.
+    private var distanceLabel: String? {
+        let m = session.tramoErgDistanceMeters ?? 0
+        if m >= 1 { return "\(Int(m.rounded()))" }
+        // Connected but still at 0 is a real reading (§6.2 bis).
+        if pm5.isConnected { return "0" }
+        return nil
     }
 
     /// El split, cuando lo hay. nil = no lo hay — el monitor manda 0 y el decodificador

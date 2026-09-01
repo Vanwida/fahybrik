@@ -25,37 +25,11 @@ extension TargetStatus {
     }
 }
 
-// MARK: - Entry button
-
-/// The "Correr en cinta" entry, shared by the continuous-run HUD and the interval
-/// series so both read identically. Offered on any run leg; the treadmill screen
-/// itself handles "no compatible treadmill found" honestly.
-struct TreadmillEntryButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: { Haptics.medium(); action() }) {
-            HStack(spacing: 8) {
-                Image(systemName: "figure.run")
-                    .font(.system(size: 13, weight: .heavy))
-                Text("CORRER EN CINTA")
-                    .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                    .tracking(0.8)
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(Theme.Color.surfaceElevated)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.accentText.opacity(0.5), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Correr en cinta con Bluetooth")
-    }
-}
+// AQUÍ ESTABA `TreadmillEntryButton` («CORRER EN CINTA»), borrado el 5-ago junto con
+// su gemelo `OutdoorEntryButton`: abrían un `fullScreenCover` encima de la pantalla
+// del entreno. Correr en cinta ya no es una pantalla a la que se entra — es LA
+// pantalla del tramo cuando has dicho que corres en cinta (ver
+// `ActiveWorkoutView.superficieViva`).
 
 // MARK: - Connection chip
 
@@ -233,5 +207,30 @@ struct GoalProgress: View {
         if let elapsed { parts.append("tiempo \(elapsed)") }
         if complete { parts.append("completado") }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// «Me cambio de sitio» — la ÚNICA forma de rectificar dónde corres una vez
+/// empezado, y a propósito no compite con la entrada a tu HUD.
+///
+/// Antes había dos botones en paralelo («Correr en cinta» / «Correr fuera») que
+/// abrían cualquiera de las dos pantallas en cualquier momento: con eso, la
+/// pregunta del arranque no decidía nada y el atleta se encontraba dos pantallas
+/// distintas para el mismo tramo. Aquí lo que manda es lo que contestaste; esto
+/// es la puerta de atrás, secundaria y explícita.
+struct CambiarDeSitioButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: { Haptics.light(); action() }) {
+            Text("CAMBIAR DE SITIO")
+                .font(.system(size: 12, weight: .heavy).italic())
+                .tracking(0.8)
+                .foregroundStyle(Theme.Color.muted)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Cambiar entre cinta y calle")
     }
 }

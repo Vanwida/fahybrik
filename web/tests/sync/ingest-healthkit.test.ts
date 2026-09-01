@@ -11,10 +11,18 @@
 // INSERT is captured. We assert that:
 //   - a valid workout produces 3 biometric_streams INSERTs
 //     (training_load + hr + calories_active)
-//   - valid samples produce one INSERT each, mapped to the canonical metric
-//   - an unknown metric is dropped (no INSERT) without throwing
-//   - re-running with the table now "non-empty" dedupes (0 new INSERTs),
-//     proving dedupe is exact-match, not blanket-discard.
+//   - the batch's samples go out in ONE statement, not one per sample
+//   - an unknown metric is dropped before any SQL, without throwing
+//   - the double-transport guard suppresses the link without suppressing the
+//     biometric rows.
+//
+// LO QUE ESTE FICHERO YA NO PUEDE PROBAR, Y DÓNDE SE PRUEBA. El de-dupe de las
+// MUESTRAS dejó de vivir en TypeScript: desde que llegan lotes históricos de 500
+// muestras, va dentro de la propia sentencia (`not exists`, con el valor redondeado
+// a la precisión de la columna). Un `sql` de mentira no ejecuta SQL, así que no
+// puede demostrar nada sobre él — y afirmarlo aquí sería justo el teatro que la
+// regla del proyecto prohíbe. Ese contrato se prueba contra una rama de Neon de
+// verdad en `tests/sync/healthkit-historico.db.test.ts`.
 
 import { describe, expect, it } from 'vitest';
 import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
@@ -46,6 +54,8 @@ function makeFakeSql(opts?: { dedupeResult?: unknown[] }): {
     selects.push({ raw, values });
     return Promise.resolve(dedupeResult);
   };
+  // Como el driver real: sql.json(v) liga el objeto como parámetro jsonb.
+  (tag as unknown as { json: (v: unknown) => unknown }).json = (v: unknown) => v;
   return { sql: tag as unknown as Sql, inserts, selects };
 }
 
@@ -111,25 +121,30 @@ describe('ingestHealthkitBatch — empty table (first ever sync)', () => {
       batch: validBatch(),
     });
 
-    // Workout → 3 rows: training_load + hr + calories_active.
-    // 2 known samples → 1 row each. Unknown sample → 0 rows.
-    // No assignment match (lookup returns []), so no workout_executions insert.
+    // Workout → 3 rows: training_load + hr + calories_active. Los 2 samples
+    // conocidos salen en UNA sentencia (la del `unnest`), no en una cada uno: son 4
+    // sentencias, no 5. Sin assignment del día, el ingest nace una sesión
+    // importada (assignment_id NULL, mig 0191) y cuenta como executions_linked.
     const biometricInserts = inserts.filter((c) =>
       /insert\s+into\s+biometric_streams/i.test(c.raw),
     );
-    expect(biometricInserts.length).toBe(5);
+    expect(biometricInserts.length).toBe(4);
 
     // The workout marker row anchors on 'training_load' with the full payload.
     expect(biometricInserts.some((c) => c.raw.includes("'training_load'::biometric_metric"))).toBe(
       true,
     );
 
+    // La sentencia de las muestras lleva las DOS conocidas y ninguna desconocida:
+    // `walking_steadiness` se cae antes de tocar SQL.
+    const sampleInsert = biometricInserts.find((c) => /unnest\s*\(/i.test(c.raw));
+    expect(sampleInsert).toBeDefined();
+    expect(sampleInsert!.values).toContainEqual(['hr', 'hrv']);
+
     expect(result.workouts_inserted).toBe(1);
     expect(result.workouts_skipped_duplicate).toBe(0);
-    expect(result.samples_inserted).toBe(2);
     expect(result.samples_skipped_unknown_metric).toBe(1);
-    expect(result.samples_skipped_duplicate).toBe(0);
-    expect(result.executions_linked).toBe(0);
+    expect(result.executions_linked).toBe(1);
   });
 });
 
@@ -166,6 +181,8 @@ function makeRoutedFakeSql(routes: {
     }
     return Promise.resolve([]);
   };
+  // Como el driver real: sql.json(v) liga el objeto como parámetro jsonb.
+  (tag as unknown as { json: (v: unknown) => unknown }).json = (v: unknown) => v;
   return { sql: tag as unknown as Sql, calls };
 }
 
@@ -271,9 +288,9 @@ describe('ingestHealthkitBatch — double-transport guard (structured execution 
   });
 });
 
-describe('ingestHealthkitBatch — non-empty table (dedupe is exact-match)', () => {
-  it('skips everything when the dedupe SELECT finds a matching row', async () => {
-    // Every dedupe SELECT returns a hit → all workouts + samples are dupes.
+describe('ingestHealthkitBatch — non-empty table (el de-dupe del ENTRENO es exacto)', () => {
+  it('no escribe las filas del entreno cuando su SELECT de de-dupe encuentra una', async () => {
+    // Every dedupe SELECT returns a hit → el entreno ya estaba.
     const { sql, inserts } = makeFakeSql({ dedupeResult: [{ id: '1' }] });
     const result = await ingestHealthkitBatch({
       sql,
@@ -281,15 +298,16 @@ describe('ingestHealthkitBatch — non-empty table (dedupe is exact-match)', () 
       batch: validBatch(),
     });
 
-    const biometricInserts = inserts.filter((c) =>
-      /insert\s+into\s+biometric_streams/i.test(c.raw),
+    // Con una fila que casa, ninguna de las tres filas del entreno se escribe. Esto
+    // confirma que ver 0 filas en producción NO es un de-dupe demasiado agresivo:
+    // una tabla vacía no puede producir un acierto (lo prueba el test de arriba).
+    const workoutMarkerInserts = inserts.filter(
+      (c) =>
+        /insert\s+into\s+biometric_streams/i.test(c.raw) && !/unnest\s*\(/i.test(c.raw),
     );
-    // Dedupe is real: with a matching row present, no biometric_streams insert
-    // happens. This confirms 0-rows in prod is NOT over-aggressive dedupe —
-    // an empty table can never produce a dedupe hit (proven by the test above).
-    expect(biometricInserts.length).toBe(0);
+    expect(workoutMarkerInserts.length).toBe(0);
     expect(result.workouts_skipped_duplicate).toBe(1);
-    expect(result.samples_skipped_duplicate).toBe(2);
-    expect(result.samples_inserted).toBe(0);
+    // El de-dupe de las MUESTRAS ya no se decide aquí sino dentro del SQL, así que
+    // este doble no puede opinar: ver healthkit-historico.db.test.ts.
   });
 });

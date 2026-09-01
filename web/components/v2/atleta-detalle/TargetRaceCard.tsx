@@ -55,7 +55,7 @@ export function TargetRaceCard({ athleteId }: { athleteId: string }) {
     <button
       type="button"
       onClick={() => setModalOpen(true)}
-      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
     >
       <MIcon name={target ? 'edit' : 'add'} size={15} />
       {target ? 'Cambiar carrera objetivo' : 'Fijar carrera objetivo'}
@@ -77,7 +77,7 @@ export function TargetRaceCard({ athleteId }: { athleteId: string }) {
           <p className="text-xs font-medium text-[color:var(--v2-danger)]">{loadError}</p>
         ) : target ? (
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]">
               <MIcon name="sports_score" size={22} />
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">

@@ -17,14 +17,31 @@ import {
 import {
   resolvePaceBandFromZones,
   formatResolvedPaceBand,
+  athleteBenchmarksFromSlugRows,
   type ResolvedZone,
 } from '@fahybrid/shared/domain/methodology';
 import {
+  resolvePrescriptionReferences,
+  anchorsFromZoneProfiles,
+  racePaceAnchor,
+  type AthleteAnchors,
+  type ResolvedReference,
+} from '@fahybrid/shared/domain/prescription/resolve-relative';
+import {
   loadAthleteZoneProfilesForAthlete,
 } from '@/lib/dashboard/v2/zone-profile';
+import { getTargetRace } from '@/lib/races/next-race';
 import { loadOneRmMap, type OneRmEntry } from '@/lib/strength/strength-max';
 import { loadSegmentActuals, type SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import { loadSessionTrace, EMPTY_TRACE, type AssignmentDetailTrace } from '@/lib/execution/session-trace';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
+// El motor de cumplimiento (#66/#71) vive junto al resto de la lectura del
+// coach por dónde nació, pero la pregunta que responde («¿clavó la serie?»)
+// es del ATLETA primero — es el sujeto que Alex eligió para la pantalla de
+// después de correr. Se importa aquí en vez de portarlo o duplicar su
+// resolución de banda/precedencia (mismo patrón que `bestHrTrace`,
+// `execution-traces.ts`): un solo motor, quien lo necesite lo importa.
+import { buildRunCompliance, type RunComplianceResult } from '@/lib/dashboard/coach/run-compliance';
 import {
   resolveDoblesStationSplit,
   type DoblesStationSplit,
@@ -34,6 +51,7 @@ import {
   resolveRmLoad,
 } from '@fahybrid/shared/domain/strength';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 
 // A benchmark-slug → current-1RM lookup, built once per request from the
 // athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
@@ -72,6 +90,18 @@ export interface AssignmentDetailParams {
   // reparto is resolved (station_assignment stays null), which is correct: the
   // reparto is the READING athlete's half, and a coach view has no "self" side.
   self_user_id?: bigint;
+  /**
+   * El umbral de pendiente del COACH (%), ya resuelto por el llamador, para
+   * que viaje al cliente dentro de `run_compliance`.
+   *
+   * OPCIONAL Y RESUELTO FUERA a propósito: este cargador se llama una vez por
+   * sesión, y los agregados del coach lo recorren docenas de veces seguidas
+   * (`running-analytics.ts`). Resolverlo aquí dentro cobraría una consulta por
+   * sesión a cambio de un campo que esos llamadores ni miran. Quien lo
+   * necesita lo resuelve UNA vez (`resolveAthleteRunningThresholds`) y lo pasa;
+   * quien no, lo omite y sale `null`, que ya significa «usa tu suelo».
+   */
+  gradient_retires_pace_pct?: number | null;
 }
 
 export interface AssignmentDetailResponse {
@@ -112,6 +142,15 @@ export interface AssignmentDetailResponse {
   // session (closing the loop: they see what they logged — tiempo / score / RPE /
   // per-segment splits). Null while the session is still pending (no execution).
   execution: AssignmentDetailExecution | null;
+  // Veredicto de cumplimiento por tramo (banda prescrita vs ejecutado, #66) +
+  // recuperación (intensidad Y duración, #71) + `band` para dibujar la franja
+  // sobre la curva sin recalcularla. EL MISMO objeto que lee el coach
+  // (`CoachSessionDetail.session.run_compliance`) — se computa UNA vez aquí y
+  // las dos superficies lo leen, nunca lo recalculan cada una por su cuenta.
+  // Siempre presente, nunca null: una sesión sin nada que juzgar (sin tramos
+  // de carrera, o sin ejecutar) sale con sus resúmenes a cero y sus arrays
+  // vacíos — vacío y declarado, jamás un veredicto inventado.
+  run_compliance: RunComplianceResult;
 }
 
 // What the athlete ACTUALLY did — the executed reality for a finished session.
@@ -127,6 +166,14 @@ export interface AssignmentDetailExecution {
   score_label: string | null;
   notes: string | null;
   ended_at: string | null;
+  // El ancla temporal del eje — distinta de `ended_at`. `display_curve.
+  // offsets_s` (dentro de `trace`, más abajo) va en segundos DESDE ESTE
+  // instante; sin él no hay dónde colgar una sombra de tramo ni una franja
+  // de lo pedido sobre la curva. NO usar `total_duration_seconds` restado de
+  // `ended_at` como sustituto: un `prior_work_s`-style proxy suma duraciones
+  // y se equivoca en cuanto hay un hueco (pausa, cambio de bloque) entre
+  // `started_at` real y la suma de tramos.
+  started_at: string | null;
   // WHICH APPARATUS the numbers came from — 'concept2' | 'treadmill' | 'gps' |
   // 'healthkit' | … (the biometric_source enum). NOT how the session was logged:
   // read `recorded_via` for that. Saying "registrado a mano" off this field is
@@ -152,9 +199,32 @@ export interface AssignmentDetailExecution {
   // The outdoor run's GPS trace (#64) as an encoded polyline, or null when the
   // session was not outdoors — drives the athlete's executed-detail mini-map.
   route_polyline: string | null;
+  // Las tres columnas de la 0154 (measured-header.ts, calculadas al llegar la
+  // traza — nunca retroactivas). Null cuando la sesión no tiene traza o no
+  // cumple el mínimo de cada cálculo (ver shared/domain/running/*).
+  elevation_gain_m: number | null;
+  elevation_loss_m: number | null;
+  hr_recovery_60_bpm: number | null;
+  decoupling_pct: number | null;
+  // Los totales de cabecera (card 126, `session-totals.ts`) — FC media/máxima
+  // de la sesión (traza de pulso si existe, si no tramos ponderados por
+  // duración) y distancia/calorías totales. Null es un valor honesto: sin
+  // pulso registrado, o dos o más modalidades midiendo distancia a la vez
+  // (sumarlas no significaría nada), o ningún tramo con calorías.
+  avg_hr: number | null;
+  max_hr: number | null;
+  total_distance_m: number | null;
+  total_calories: number | null;
   // Per-exercise actuals (segment_executions) mapped to the prescribed item via
   // `item_uid`. Empty when the athlete logged only the aggregate — never fabricated.
   segments: SegmentActual[];
+  // El corte por kilómetro (fidelidad completa) + la curva de ritmo/pulso
+  // reducida solo para dibujar — derivados de `workout_traces` al leer, nunca
+  // persistidos (docs/DECISIONS.md, "La carrera guarda su NEGATIVO").
+  // `available: false` cuando la sesión no tiene traza guardada — honesto,
+  // nunca un error. Ver AssignmentDetailTrace para el porqué de la separación
+  // entre `splits` (la fuente) y `display_curve` (solo para pintar).
+  trace: AssignmentDetailTrace;
 }
 
 // #34 — one result a calibration-test session must capture. `measure`/`unit` are
@@ -171,6 +241,17 @@ export interface AssignmentDetailStoreResult {
   // #34 — an OPTIONAL result: iOS may auto-fill it (e.g. HRR from the HR stream) or let
   // the athlete skip it; it never blocks finishing the test. false = required.
   optional: boolean;
+}
+
+// Circuito (docs/DECISIONS.md, 2026-08-07): la config de bloque real de
+// `template_blocks`, ya resuelta a lo que un bloque necesita para saber si es
+// un circuito multi-estación. Ausente = sin config de circuito (comportamiento
+// legacy). Ver CircuitConfig en shared/schema/program-templates para el shape
+// que el day-editor (slots_json) escribe — esta es la MISMA forma para la ruta
+// Biblioteca/tests (template_segments).
+export interface AssignmentDetailCircuitBlock {
+  block_position: number;
+  config: CircuitConfig;
 }
 
 export interface AssignmentDetailWorkout {
@@ -204,6 +285,10 @@ export interface AssignmentDetailItem {
   exercise_category: string;
   exercise_video_url: string | null;
   cues: string | null;
+  // La descripción larga del ejercicio (merge por coach, igual que cues/vídeo):
+  // el apunte que explica el gesto. Se guardaba y no se servía — ver el schema
+  // compartido.
+  exercise_description: string | null;
   // Flat, iOS-ready targets. Derived from `prescription_json` (the unified
   // measure/target model) when present, else from the stored scalar params.
   params_json: AssignmentDetailParamsJson;
@@ -225,6 +310,15 @@ export interface AssignmentDetailItem {
   // lift, or the athlete has no 1RM for it (then the % stands alone — never a
   // fabricated kg).
   resolved_load: ResolvedLoad | null;
+  // Card 130/134 — el porqué de cada objetivo RELATIVO de esta línea («a peso de
+  // competición», «al 50% del peso corporal»), ya resuelto a ESTE atleta: una
+  // entrada por objetivo relativo que llevara el bloque o alguna de sus series,
+  // en el orden en que aparecen. `target` sale null cuando le falta la marca —
+  // la frase sigue viajando para que la pantalla pueda decir qué falta, pero el
+  // cable NUNCA lleva un `kind: 'relative'` (ver resolve-relative.ts: se
+  // sustituye por el número absoluto o se omite, jamás se manda crudo). Vacío
+  // cuando la línea no tenía ningún relativo, que es siempre hoy.
+  resolved_references: ResolvedReference[];
   notes: string | null;
 }
 
@@ -306,6 +400,10 @@ interface ExecutionRow {
   // Extended actuals for the read-only executed-session view. Optional so the
   // pure builder's existing tests (which only supply ended_at + RPE) keep typing.
   execution_id?: string | null;
+  // El ancla del eje de la traza (session-trace.ts) — distinto de `ended_at`
+  // arriba, que ya existe para otra cosa. Optional por la misma razón que el
+  // resto de este bloque: los fixtures del builder puro no lo necesitan.
+  started_at?: string | null;
   total_duration_seconds?: number | null;
   score_time_s?: number | null;
   score_rounds?: number | null;
@@ -321,6 +419,21 @@ interface ExecutionRow {
   pain_note?: string | null;
   // #64 — the outdoor GPS trace (encoded polyline), joined from workout_routes.
   route_polyline?: string | null;
+  // Las tres columnas de la 0154 (measured-header.ts las escribe al llegar la
+  // traza) — numeric(8,2)/numeric(5,2) llegan como string desde pg, hr_recovery
+  // es int y llega ya numérico. Optional por la misma razón que el resto del
+  // bloque: los fixtures del builder puro no las necesitan.
+  elevation_gain_m?: string | number | null;
+  elevation_loss_m?: string | number | null;
+  hr_recovery_60_bpm?: number | null;
+  decoupling_pct?: string | number | null;
+  // Los totales de cabecera (card 126) — avg_hr/max_hr son `int`, llegan ya
+  // numéricos; total_distance_m/total_calories son numeric(x,2) y llegan como
+  // string desde pg, igual que elevation_gain_m arriba.
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  total_distance_m?: string | number | null;
+  total_calories?: string | number | null;
 }
 
 interface TemplateRow {
@@ -348,6 +461,7 @@ interface SegmentRow {
   exercise_category: string;
   exercise_video_url: string | null;
   exercise_cues: string | null;
+  exercise_description: string | null;
 }
 
 // =============================================================================
@@ -424,6 +538,7 @@ export async function loadAssignmentDetail(
   const executionRows = await sql<ExecutionRow[]>`
     select
       we.id::text                as execution_id,
+      we.started_at::text        as started_at,
       we.ended_at::text          as ended_at,
       we.perceived_exertion      as perceived_exertion,
       we.total_duration_seconds  as total_duration_seconds,
@@ -437,7 +552,15 @@ export async function loadAssignmentDetail(
       we.perceived_difficulty::text   as perceived_difficulty,
       we.pain_area::text              as pain_area,
       we.pain_note                    as pain_note,
-      wr.polyline                as route_polyline
+      wr.polyline                as route_polyline,
+      we.elevation_gain_m        as elevation_gain_m,
+      we.elevation_loss_m        as elevation_loss_m,
+      we.hr_recovery_60_bpm      as hr_recovery_60_bpm,
+      we.decoupling_pct          as decoupling_pct,
+      we.avg_hr                  as avg_hr,
+      we.max_hr                  as max_hr,
+      we.total_distance_m        as total_distance_m,
+      we.total_calories          as total_calories
     from workout_executions we
     left join workout_routes wr on wr.execution_id = we.id
     where we.assignment_id = ${assignment_id as unknown as number}
@@ -452,10 +575,31 @@ export async function loadAssignmentDetail(
       ? await loadSegmentActuals(sql, Number(execution.execution_id))
       : [];
 
+  // El corte por kilómetro + la curva reducida — la traza ENTERA se deriva
+  // antes de reducir nada (ver session-trace.ts). `EMPTY_TRACE` sin ejecución
+  // o sin `started_at`: no hay eje del que colgar ninguna señal.
+  //
+  // El mapa (#71) cuelga de la MISMA llamada: la polilínea ya viene en
+  // `execution.route_polyline` (join con workout_routes, arriba) y las
+  // bandas de ritmo del atleta para correr salen de `zoneProfiles` — ya
+  // cargado (G1) — pasando por el MISMO `buildZoneLookup` que usa
+  // `buildAssignmentDetail` más abajo, nunca una segunda forma de resolverlas.
+  const executionTrace =
+    execution?.execution_id != null
+      ? await loadSessionTrace({
+          execution_id: Number(execution.execution_id),
+          started_at: execution.started_at ? new Date(execution.started_at) : null,
+          route_polyline: execution.route_polyline,
+          pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
+          client: sql,
+        })
+      : EMPTY_TRACE;
+
   // Template + segments. Archived templates still resolve — the athlete
   // already has the assignment, we don't strip it out.
   let template: TemplateRow | null = null;
   let segments: SegmentRow[] = [];
+  let circuitBlocks: AssignmentDetailCircuitBlock[] = [];
 
   if (assignment.template_id) {
     const tplRows = await sql<TemplateRow[]>`
@@ -497,7 +641,85 @@ export async function loadAssignmentDetail(
         where s.template_id = ${assignment.template_id}::bigint
         order by s.block_position asc, s.position asc, s.id asc
       `;
+
+      // Circuito (template_blocks, migración 0159): config real de rounds/pacing/
+      // descansos por block_position, cuando el coach la definió. Ausente para la
+      // mayoría de templates hoy — comportamiento legacy intacto.
+      const circuitRows = await sql<
+        Array<{
+          block_position: number;
+          rounds: number;
+          pacing: string;
+          work_seconds: number | null;
+          rest_between_stations_seconds: number | null;
+          rest_between_rounds_seconds: number | null;
+        }>
+      >`
+        select block_position, rounds, pacing, work_seconds,
+               rest_between_stations_seconds, rest_between_rounds_seconds
+        from template_blocks
+        where template_id = ${assignment.template_id}::bigint
+      `;
+      circuitBlocks = circuitRows.map((r) => ({
+        block_position: r.block_position,
+        config: {
+          rounds: r.rounds,
+          pacing:
+            r.pacing === 'por_reloj'
+              ? { kind: 'por_reloj' as const, work_seconds: r.work_seconds ?? 0 }
+              : { kind: 'por_tarea' as const },
+          ...(r.rest_between_stations_seconds != null
+            ? { rest_between_stations_seconds: r.rest_between_stations_seconds }
+            : {}),
+          ...(r.rest_between_rounds_seconds != null
+            ? { rest_between_rounds_seconds: r.rest_between_rounds_seconds }
+            : {}),
+        },
+      }));
     }
+  }
+
+  // Card 130/134 — objetivos RELATIVOS («a peso de competición», «al 50% del
+  // peso corporal»): se resuelven al leer, nunca al guardar (resolve-relative.ts).
+  // Construir las anclas del atleta cuesta consultas EXTRA (marcas crudas +
+  // carrera objetivo) que este cargador NO debe pagar en el camino normal — hoy
+  // NINGUNA plantilla lleva un relativo. Por eso se mira PRIMERO, sobre la
+  // prescripción ya parseada (la MISMA función que usa buildItem, para no
+  // duplicar la regla de qué cuenta como relativo): sólo si alguna línea del día
+  // lo lleva se completan las anclas; si no, `anchors` se queda undefined y el
+  // coste es CERO.
+  const needsAnchors = segments.some((s) => prescriptionHasRelativeTarget(parsePrescriptionJson(s.prescription_json)));
+  let anchors: AthleteAnchors | undefined;
+  if (needsAnchors) {
+    const [benchRows, athleteRows, targetRace] = await Promise.all([
+      sql<{ exercise_slug: string; value: number | null }[]>`
+        select exercise_slug, value::float8 as value
+        from athlete_benchmarks
+        where athlete_id = ${athlete_id as unknown as number}
+      `,
+      sql<{ weight_kg: string | null }[]>`
+        select weight_kg::text as weight_kg
+        from athletes
+        where id = ${athlete_id as unknown as number}
+        limit 1
+      `,
+      // La división/género de competición NO son atributos del atleta: salen de
+      // su carrera OBJETIVO (ver AthleteAnchors.competitionLoad). Sin carrera
+      // objetivo, ambos quedan null y el peso de competición contesta null a
+      // todo — la respuesta honesta, nunca un peso inventado.
+      getTargetRace(athlete_id, sql),
+    ]);
+    const benchmarks = athleteBenchmarksFromSlugRows(benchRows);
+    const bodyweightKg = athleteRows[0]?.weight_kg != null ? Number(athleteRows[0].weight_kg) : null;
+    anchors = anchorsFromZoneProfiles(zoneProfiles, {
+      // El umbral sale del snapshot de zonas (zoneProfiles, ya cargado arriba)
+      // — NUNCA recalculado de las marcas — pero el ritmo de carrera no vive en
+      // ese snapshot, así que se resuelve aparte de las mismas marcas crudas.
+      racePace: racePaceAnchor(benchmarks),
+      bodyweightKg,
+      division: targetRace?.division ?? null,
+      gender: targetRace?.gender_category ?? null,
+    });
   }
 
   // Dobles HYROX reparto — derived at read from the coach's dobles_simulations.
@@ -527,11 +749,15 @@ export async function loadAssignmentDetail(
     execution,
     template,
     segments,
+    gradientRetiresPacePct: params.gradient_retires_pace_pct ?? null,
     zoneProfiles,
     oneRms,
+    anchors,
     executionSegments,
+    executionTrace,
     stationSplit,
     storeResults,
+    circuitBlocks,
   });
 }
 
@@ -573,6 +799,7 @@ function buildExecutionBlock(
   status: AssignmentRow['status'],
   execution: ExecutionRow | null,
   segments: SegmentActual[],
+  trace: AssignmentDetailTrace,
 ): AssignmentDetailExecution | null {
   const isDone = status === 'completed' || status === 'partial';
   if (!execution && !isDone) return null;
@@ -590,6 +817,7 @@ function buildExecutionBlock(
       : null,
     notes: execution?.notes ?? null,
     ended_at: execution?.ended_at ?? null,
+    started_at: execution?.started_at ?? null,
     source: execution?.source ?? null,
     recorded_via: execution?.recorded_via ?? null,
     contributing_sources: execution?.contributing_sources ?? [],
@@ -598,8 +826,25 @@ function buildExecutionBlock(
     pain_note: execution?.pain_note ?? null,
     completeness: status === 'partial' ? 'partial' : 'completed',
     route_polyline: execution?.route_polyline ?? null,
+    elevation_gain_m: num(execution?.elevation_gain_m),
+    elevation_loss_m: num(execution?.elevation_loss_m),
+    hr_recovery_60_bpm: execution?.hr_recovery_60_bpm ?? null,
+    decoupling_pct: num(execution?.decoupling_pct),
+    avg_hr: execution?.avg_hr ?? null,
+    max_hr: execution?.max_hr ?? null,
+    total_distance_m: num(execution?.total_distance_m),
+    total_calories: num(execution?.total_calories),
     segments,
+    trace,
   };
+}
+
+// numeric(x,y) llega de pg como string; los enteros (hr_recovery_60_bpm) ya
+// llegan numéricos y no pasan por aquí. Mismo patrón que session-actuals.ts.
+function num(v: string | number | null | undefined): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 // =============================================================================
@@ -617,9 +862,20 @@ export function buildAssignmentDetail(input: {
   // The athlete's current 1RM per benchmark slug. Default empty keeps the pure
   // builder testable without 1RMs — %RM items then carry the % but no kg.
   oneRms?: OneRmLookup;
+  // Card 130/134 — las anclas para traducir un objetivo RELATIVO al número de
+  // ESTE atleta (resolve-relative.ts), pre-resueltas por loadAssignmentDetail
+  // SÓLO cuando el día lleva algún relativo (ver el porqué del gasto ahí).
+  // Default undefined mantiene el builder puro testable sin anclas — una línea
+  // con un relativo entonces sale sin objetivo, con su frase en
+  // `resolved_references`, nunca con un `kind: 'relative'` crudo.
+  anchors?: AthleteAnchors;
   // Per-exercise actuals for the executed view. Default [] keeps the pure builder
   // testable without a DB — a finished session then shows the aggregate alone.
   executionSegments?: SegmentActual[];
+  // Corte por kilómetro + curva reducida, pre-resuelto por loadAssignmentDetail
+  // (necesita DB — deriva de workout_traces). Default EMPTY_TRACE mantiene el
+  // builder puro testable sin traza.
+  executionTrace?: AssignmentDetailTrace;
   // Dobles HYROX reparto, pre-resolved by loadAssignmentDetail (needs a DB). The
   // pure builder just carries it onto the payload. Default null → individual /
   // non-simulation session with no per-station split.
@@ -627,13 +883,28 @@ export function buildAssignmentDetail(input: {
   // #34 — the calibration results to capture (from coach_test_results via the FK),
   // pre-resolved by loadAssignmentDetail. Default [] → a normal, non-test session.
   storeResults?: AssignmentDetailStoreResult[];
+  // Circuito (template_blocks), pre-resolved by loadAssignmentDetail. Default []
+  // → no block in this session has a circuit config (legacy behavior for all).
+  circuitBlocks?: AssignmentDetailCircuitBlock[];
+  // El umbral de pendiente del coach (%), pre-resuelto por loadAssignmentDetail
+  // (necesita DB). El constructor puro solo lo transporta hasta
+  // `run_compliance`. Default null → «usa tu suelo», el comportamiento de hoy.
+  gradientRetiresPacePct?: number | null;
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
+  const gradientOpts = { gradient_retires_pace_pct: input.gradientRetiresPacePct ?? null };
   const stationSplit = input.stationSplit ?? null;
   const zoneLookup = buildZoneLookup(input.zoneProfiles ?? []);
   const oneRms = input.oneRms ?? new Map();
 
   const slot = slotFromNotes(assignment.notes);
+
+  const executionBlock = buildExecutionBlock(
+    assignment.status,
+    execution,
+    input.executionSegments ?? [],
+    input.executionTrace ?? EMPTY_TRACE,
+  );
 
   const base: AssignmentDetailResponse = {
     assignment: {
@@ -652,7 +923,12 @@ export function buildAssignmentDetail(input: {
       store_results: input.storeResults ?? [],
     },
     workout: null,
-    execution: buildExecutionBlock(assignment.status, execution, input.executionSegments ?? []),
+    execution: executionBlock,
+    // Sin plantilla (rest day) o sin bloques (más abajo): se juzga contra
+    // `workout: null`, que `buildRunCompliance` resuelve honestamente a
+    // resúmenes vacíos — nunca un veredicto inventado sobre una sesión sin
+    // prescripción que enseñar.
+    run_compliance: buildRunCompliance(null, executionBlock?.segments ?? [], gradientOpts),
   };
 
   // The executed block is independent of the template (a "marcar como hecha" log
@@ -660,7 +936,7 @@ export function buildAssignmentDetail(input: {
   // survives the rest-day early return.
   if (!template) return base;
 
-  const blocks = buildBlocks(template, segments, zoneLookup, oneRms);
+  const blocks = buildBlocks(template, segments, zoneLookup, oneRms, input.circuitBlocks ?? [], input.anchors);
 
   // A template that resolves to ZERO renderable blocks (no segments) is NOT a
   // previewable / runnable / listable workout — it is the rest/empty state. We
@@ -679,8 +955,32 @@ export function buildAssignmentDetail(input: {
     estimated_duration_minutes: null,
     blocks,
   };
+  // Recalculado contra el `workout` real (arriba se juzgó contra null): un
+  // 6×800 real puede tener tramos de carrera que juzgar donde antes no
+  // había ninguno.
+  base.run_compliance = buildRunCompliance(base.workout, executionBlock?.segments ?? [], gradientOpts);
 
   return base;
+}
+
+// Circuito → config_json plano. Claves nuevas para iOS (Task #10, docs/DECISIONS.md
+// 2026-08-07): `rounds` reutiliza la clave que el fold YA lee vía fallback
+// (`configJson?.int("rounds")`); `pacing`/`rest_between_stations_seconds`/
+// `rest_between_rounds_seconds` son nuevas. `work_seconds` solo se emite bajo
+// `por_reloj` — nunca se pide un tope de reloj a un formato sin reloj.
+function circuitToConfigJson(config: CircuitConfig | undefined): Record<string, unknown> {
+  if (!config) return {};
+  return {
+    rounds: config.rounds,
+    pacing: config.pacing.kind,
+    ...(config.pacing.kind === 'por_reloj' ? { work_seconds: config.pacing.work_seconds } : {}),
+    ...(config.rest_between_stations_seconds != null
+      ? { rest_between_stations_seconds: config.rest_between_stations_seconds }
+      : {}),
+    ...(config.rest_between_rounds_seconds != null
+      ? { rest_between_rounds_seconds: config.rest_between_rounds_seconds }
+      : {}),
+  };
 }
 
 // Assemble the workout into LOGICAL blocks.
@@ -700,8 +1000,14 @@ function buildBlocks(
   segments: SegmentRow[],
   zoneLookup: ZoneLookup,
   oneRms: OneRmLookup,
+  circuitBlocks: AssignmentDetailCircuitBlock[],
+  anchors: AthleteAnchors | undefined,
 ): AssignmentDetailBlock[] {
   if (segments.length === 0) return [];
+
+  // Circuito, keyed by the AUTHORED block_position (never a post-merge index —
+  // see the note at config_json below for why that's always safe).
+  const circuitByPosition = new Map(circuitBlocks.map((c) => [c.block_position, c.config]));
 
   // 1. Group by authored block_position, preserving order.
   const groups = new Map<number, SegmentRow[]>();
@@ -761,11 +1067,13 @@ function buildBlocks(
       block_position: m.pos,
       // No per-block coach note column yet; iOS treats null as absent.
       coach_note: null,
-      // Reserved for AMRAP rounds / time_cap_seconds / EMOM work/rest etc.
-      // Coach studio doesn't persist per-block config separately today, so
-      // this is an empty object until the studio adds it.
-      config_json: {},
-      items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms)),
+      // Circuito (template_blocks): real rounds/pacing/descansos cuando el coach
+      // los definió. Un bloque circuito SIEMPRE tiene >1 segmento, así que nunca
+      // entra en la fusión de fragmentos de arriba (esa solo junta bloques de UN
+      // segmento) — `m.pos` es siempre el `block_position` autorado original, el
+      // mismo que escribió el editor. Ausente en el mapa → `{}`, igual que hoy.
+      config_json: circuitToConfigJson(circuitByPosition.get(m.pos)),
+      items: m.segs.map((seg) => buildItem(seg, zoneLookup, oneRms, anchors)),
     };
   });
 }
@@ -808,7 +1116,20 @@ function displayCategoryForModality(modality: string | null | undefined): string
   }
 }
 
-function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup): AssignmentDetailItem {
+// Card 130/134 — las anclas «vacías»: sin ritmo ni umbral ni peso ni carga de
+// competición conocidos. Es lo que usa `buildItem` cuando el llamador no pasó
+// `anchors` (el camino de hoy, siempre) — un objetivo relativo contra esto
+// nunca encuentra marca, así que se comporta EXACTAMENTE como «este atleta
+// todavía no lo sabe», nunca como un crudo `kind: 'relative'` escapando al
+// cable por descuido.
+const EMPTY_ANCHORS: AthleteAnchors = { racePace: {}, thresholdPace: {} };
+
+function buildItem(
+  seg: SegmentRow,
+  zoneLookup: ZoneLookup,
+  oneRms: OneRmLookup,
+  anchors: AthleteAnchors | undefined,
+): AssignmentDetailItem {
   // ROOT-CAUSE FIX: the rich targets (reps/load/zone/pace/distance/calories)
   // live in `prescription_json` (the unified measure/target model), not in the
   // thin `params_json` (which can be as bare as `{sets:4}`). When a valid
@@ -816,7 +1137,24 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
   // the shared `prescriptionToParams` helper (single source of truth — no
   // re-derivation here) and feed that through normalization. Legacy segments
   // with no prescription fall back to the stored scalar params.
-  const prescription = parsePrescriptionJson(seg.prescription_json);
+  const parsedPrescription = parsePrescriptionJson(seg.prescription_json);
+
+  // Card 130/134 — un objetivo RELATIVO («a peso de competición», «al 50% del
+  // peso corporal») se SUSTITUYE por el número de ESTE atleta AQUÍ, antes de
+  // derivar nada más: los params escalares y la estructura de carrera de abajo
+  // tienen que salir de la prescripción YA resuelta, o el atleta vería un ritmo
+  // en el badge de zona y otro distinto (o ninguno) en el resto de la línea.
+  //
+  // Se llama SIEMPRE, con o sin `anchors` — nunca gateado en si el llamador se
+  // acordó de pasarlas. `resolvePrescriptionReferences` es idempotente y barata
+  // cuando no hay nada que traducir (devuelve la MISMA referencia y `[]`, el
+  // camino de HOY, siempre), y sin anclas reales (`EMPTY_ANCHORS`) un relativo
+  // simplemente no encuentra marca — la respuesta honesta, nunca el `kind:
+  // 'relative'` crudo escapando al cable porque alguien olvidó cargarlas.
+  const { prescription, references: resolvedReferences } = parsedPrescription
+    ? resolvePrescriptionReferences(parsedPrescription, anchors ?? EMPTY_ANCHORS)
+    : { prescription: null, references: [] as ResolvedReference[] };
+
   const source: Record<string, unknown> = prescription
     ? (prescriptionToParams(prescription) as Record<string, unknown>)
     : (seg.params_json ?? {});
@@ -845,10 +1183,12 @@ function buildItem(seg: SegmentRow, zoneLookup: ZoneLookup, oneRms: OneRmLookup)
     exercise_category: category,
     exercise_video_url: seg.exercise_video_url,
     cues: seg.exercise_cues,
+    exercise_description: seg.exercise_description,
     params_json: normalizeParams(source),
     prescription_json: emittedPrescription,
     resolved_intensity: resolveIntensityForItem(prescription, modality, zoneLookup),
     resolved_load: resolveLoadForItem(prescription, seg.exercise_slug, oneRms),
+    resolved_references: resolvedReferences,
     notes: seg.notes,
   };
 }
@@ -1025,6 +1365,18 @@ function parsePrescriptionJson(raw: unknown): Prescription | null {
   if (raw == null) return null;
   const parsed = safeParsePrescription(raw);
   return parsed.success ? (parsed.data as Prescription) : null;
+}
+
+// Card 130/134 — ¿lleva esta línea algún objetivo RELATIVO (bloque o alguna de
+// sus series)? Es la misma pregunta que `resolvePrescriptionReferences` se hace
+// por dentro para decidir si hay algo que traducir; se repite aquí, suelta,
+// porque `loadAssignmentDetail` la necesita ANTES de construir nada (para saber
+// si vale la pena pagar las consultas de las anclas) y esa función sólo
+// responde cuando ya le has dado las anclas.
+function prescriptionHasRelativeTarget(p: Prescription | null): boolean {
+  if (!p) return false;
+  if (p.target?.kind === 'relative') return true;
+  return p.sets?.some((s) => s.target?.kind === 'relative') ?? false;
 }
 
 // Map a scalar param bag → spec-normalized shape. The source is either the

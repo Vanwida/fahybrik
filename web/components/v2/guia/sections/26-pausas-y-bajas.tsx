@@ -32,7 +32,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           La vida real interrumpe: un viaje, una lesión, un parón. Una <b>pausa</b> congela el plan{' '}
-          <b>sin castigar la adherencia</b> — esos días se excluyen del cálculo, no cuentan como 0% —
+          <b>sin castigar la adherencia</b> (esos días se excluyen del cálculo, no cuentan como 0%)
           y lo retoma limpio el próximo lunes. Una <b>baja</b> cierra la relación{' '}
           <b>conservando todo el historial</b> y liberando una plaza de tu cupo. Ambas reversibles.
         </>
@@ -51,21 +51,21 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             El <b>ciclo de vida</b> del atleta: <code>Activo</code>, <code>Pausado</code> o{' '}
-            <code>Baja</code>. Un estado único que dice si lo estás entrenando ahora mismo —
+            <code>Baja</code>. Un estado único que dice si lo estás entrenando ahora mismo,
             independiente de lo que haga la facturación.
           </>
         }
         como={
           <>
             Desde su ficha: <b>Pausar</b> (motivo + fecha de vuelta opcional) o <b>Dar de baja</b>.
-            La pausa también puede pedirla el atleta y tú la <b>confirmas</b> — nunca es automática.{' '}
+            La pausa también puede pedirla el atleta y tú la <b>confirmas</b>: nunca es automática.{' '}
             <b>Reactivar</b> lo devuelve a activo; <b>Re-alta</b> recupera a uno de baja.
           </>
         }
         porque={
           <>
             Porque parar no puede significar “fallaste”. Una pausa protege sus métricas y su plaza; una
-            baja no borra su historia — si vuelve, lo recuperas entero. Nada se pierde por hacer una
+            baja no borra su historia: si vuelve, lo recuperas entero. Nada se pierde por hacer una
             pausa a tiempo.
           </>
         }
@@ -74,7 +74,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · La pausa: congela el plan y no penaliza</h3>
       <p>
         La pausa la inicias tú desde la ficha, o la <b>pide el atleta desde su app</b> y te llega como
-        una solicitud que <b>confirmas o rechazas</b> — el sistema nunca pausa a nadie solo. Al
+        una solicitud que <b>confirmas o rechazas</b>: el sistema nunca pausa a nadie solo. Al
         confirmarla, su plan se <b>congela</b> y esos días quedan <b>fuera del cálculo de adherencia</b>{' '}
         (se excluyen del denominador; no cuentan como semanas falladas). Además se{' '}
         <b>pausa el cobro</b> mientras dure.
@@ -192,7 +192,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="log" title="La pausa no penaliza">
         <ul>
           <li>
-            El rango pausado se <span className="k">excluye del cálculo</span> de adherencia — no
+            El rango pausado se <span className="k">excluye del cálculo</span> de adherencia: no
             genera semanas falladas ni cae al 0%. Si toda una ventana está pausada, la adherencia se
             muestra como <code>—</code>, no como cero.
           </li>
@@ -206,7 +206,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Reactivar retoma el próximo lunes">
         <p>
           Al reactivar, el plan se re-ancla en el <span className="k">próximo lunes</span> desde la
-          posición exacta de la secuencia — sin días muertos por medio. Vuelve limpio, como si no
+          posición exacta de la secuencia, sin días muertos por medio. Vuelve limpio, como si no
           hubiera parado.
         </p>
       </DocNote>
@@ -231,7 +231,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Cuando pausas a tu atleta, su app no se rompe ni se vacía a lo bruto: muestra una tarjeta
-            calmada en <b>Plan</b> y en <b>Hoy</b>. Nada que registrar, nada que se pierda — su
+            calmada en <b>Plan</b> y en <b>Hoy</b>. Nada que registrar, nada que se pierda: su
             progreso está guardado.
           </>
         }
@@ -296,7 +296,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               Tu plan está en pausa
             </div>
             <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 auto' }}>
-              Pablo lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo — tu progreso
+              Pablo lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo. Tu progreso
               está guardado.
             </p>
             <div

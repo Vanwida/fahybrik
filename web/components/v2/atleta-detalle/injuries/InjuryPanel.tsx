@@ -141,7 +141,7 @@ function CardButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-2.5 text-xs font-semibold transition-colors',
+        'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 text-xs font-semibold transition-colors',
         variant === 'accent'
           ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]'
           : variant === 'toned'
@@ -240,7 +240,7 @@ function OpenInjuryCard({
         </p>
         <Link
           href={`/atletas/${athleteId}?tab=sesiones`}
-          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent)]"
+          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent-text)]"
         >
           <MIcon name="north_east" size={13} /> Ver 1:1
         </Link>
@@ -298,7 +298,7 @@ export function InjuryPanel({
         <button
           type="button"
           onClick={() => setDialog({ kind: 'register' })}
-          className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+          className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
         >
           <MIcon name="add" size={14} /> Registrar
         </button>
@@ -315,7 +315,7 @@ export function InjuryPanel({
           <button
             type="button"
             onClick={() => reload()}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
+            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
           >
             <MIcon name="refresh" size={15} /> Reintentar
           </button>

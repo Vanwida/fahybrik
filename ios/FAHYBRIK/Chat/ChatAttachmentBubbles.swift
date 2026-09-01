@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import AVFoundation
 
 // Attachment bubbles rendered inside MessageRow, in BOTH directions (athlete =
 // Fabrik-orange fill, coach = card). Voice + image live here; video + file live
@@ -55,153 +54,42 @@ extension View {
     }
 }
 
-/// Deterministic per-message waveform bars. There's no server-side waveform, so
-/// we derive a STABLE bar pattern from the attachment's identity (URL) — same
-/// note always draws the same bars, never a reshuffle on redraw.
-enum ChatWaveform {
-    static func bars(seed: String, count: Int = 30) -> [CGFloat] {
-        var rng = SeededRNG(seedString: seed)
-        return (0..<count).map { _ in CGFloat.random(in: 0.30...1.0, using: &rng) }
-    }
-}
-
-/// Tiny SplitMix64 RNG so waveform bars are deterministic per attachment.
-struct SeededRNG: RandomNumberGenerator {
-    private var state: UInt64
-    init(seedString: String) {
-        var h: UInt64 = 1469598103934665603
-        for b in seedString.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
-        state = h == 0 ? 0x9E3779B97F4A7C15 : h
-    }
-    mutating func next() -> UInt64 {
-        state &+= 0x9E3779B97F4A7C15
-        var z = state
-        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
-        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
-        return z ^ (z >> 31)
-    }
-}
-
 // MARK: - Voice bubble (real playback)
 
-/// Coordinates single-note playback: starting one voice note pauses whichever
-/// was playing.
-@MainActor
-final class ChatAudioCoordinator {
-    static let shared = ChatAudioCoordinator()
-    private weak var active: ChatVoicePlayer?
-    func becameActive(_ player: ChatVoicePlayer) {
-        if active !== player { active?.pause() }
-        active = player
-    }
-    func resigned(_ player: ChatVoicePlayer) { if active === player { active = nil } }
+extension ChatAttachmentSource {
+    /// The same bytes, said in the words the shared player speaks. The chat
+    /// knows how to become a voice source; the player must not know about
+    /// attachments.
+    var fuenteDeVoz: FuenteDeVoz { FuenteDeVoz(local: localURL, remota: remoteURL) }
 }
 
-@MainActor
-final class ChatVoicePlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
-    @Published var isPlaying = false
-    @Published var progress: Double = 0
-    @Published var resolvedDuration: Double?
-    @Published var isLoading = false
-    @Published var failed = false
-
-    private var player: AVAudioPlayer?
-    private var timer: Timer?
-
-    func toggle(source: ChatAttachmentSource, bearer: String?) {
-        if isPlaying { pause(); return }
-        if let player {
-            resume(player); return
-        }
-        Task { await loadAndPlay(source: source, bearer: bearer) }
-    }
-
-    private func loadAndPlay(source: ChatAttachmentSource, bearer: String?) async {
-        isLoading = true; failed = false
-        do {
-            let localURL: URL
-            if let l = source.localURL {
-                localURL = l
-            } else if let remote = source.remoteURL, let bearer {
-                localURL = try await ChatMediaLoader.shared.localFile(remoteURL: remote, bearer: bearer)
-            } else {
-                throw ChatMediaError.noBearer
-            }
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-            let p = try AVAudioPlayer(contentsOf: localURL)
-            p.delegate = self
-            p.prepareToPlay()
-            player = p
-            resolvedDuration = p.duration
-            isLoading = false
-            resume(p)
-        } catch {
-            isLoading = false; failed = true
-        }
-    }
-
-    private func resume(_ p: AVAudioPlayer) {
-        ChatAudioCoordinator.shared.becameActive(self)
-        p.play()
-        isPlaying = true
-        startTimer()
-        Haptics.light()
-    }
-
-    func pause() {
-        player?.pause()
-        isPlaying = false
-        timer?.invalidate(); timer = nil
-    }
-
-    private func startTimer() {
-        timer?.invalidate()
-        let t = Timer(timeInterval: 0.03, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let p = self.player else { return }
-                self.progress = p.duration > 0 ? p.currentTime / p.duration : 0
-            }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        timer = t
-    }
-
-    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in
-            self.isPlaying = false
-            self.progress = 0
-            self.timer?.invalidate(); self.timer = nil
-            ChatAudioCoordinator.shared.resigned(self)
-        }
-    }
-}
-
+/// The bubble is the chat's; the engine underneath (`ReproductorDeVoz`,
+/// `OndaDeVoz`, `OndaConProgreso`) is shared with any other surface that carries
+/// the coach's voice — today the published communication.
 struct ChatVoiceBubble: View {
     let isMe: Bool
     let source: ChatAttachmentSource
     let metaDuration: Double?
     let bearer: String?
-    @StateObject private var player = ChatVoicePlayer()
+    @StateObject private var player = ReproductorDeVoz()
 
     private var glyphColor: Color { isMe ? Theme.Color.accentOn : Theme.Color.accentText }
     private var barColor: Color { isMe ? Theme.Color.accentOn : Theme.Color.foreground }
     private var mutedBar: Color { (isMe ? Theme.Color.accentOn : Theme.Color.muted).opacity(0.45) }
 
     private var durationLabel: String {
-        Formato.clock(player.resolvedDuration ?? metaDuration ?? 0)
+        Formato.clock(player.duracionReal ?? metaDuration ?? 0)
     }
-    private var seed: String { source.remoteURL ?? source.localURL?.absoluteString ?? "voice" }
 
     var body: some View {
         HStack(spacing: 9) {
-            Button { player.toggle(source: source, bearer: bearer) } label: {
+            Button { player.alternar(fuente: source.fuenteDeVoz, bearer: bearer) } label: {
                 Group {
-                    if player.isLoading {
+                    if player.cargando {
                         ProgressView().tint(glyphColor).scaleEffect(0.8)
                     } else {
-                        Image(systemName: player.failed ? "exclamationmark.triangle.fill"
-                                          : (player.isPlaying ? "pause.fill" : "play.fill"))
+                        Image(systemName: player.fallo ? "exclamationmark.triangle.fill"
+                                          : (player.sonando ? "pause.fill" : "play.fill"))
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(glyphColor)
                     }
@@ -209,11 +97,11 @@ struct ChatVoiceBubble: View {
                 .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(player.isPlaying ? "Pausar nota de voz" : "Reproducir nota de voz")
+            .accessibilityLabel(player.sonando ? "Pausar nota de voz" : "Reproducir nota de voz")
 
-            ProgressWaveform(bars: ChatWaveform.bars(seed: seed),
-                             progress: player.progress,
-                             played: barColor, unplayed: mutedBar)
+            OndaConProgreso(barras: OndaDeVoz.barras(semilla: source.fuenteDeVoz.semilla),
+                            avance: player.avance,
+                            sonada: barColor, porSonar: mutedBar)
                 .frame(width: 108, height: 20)
 
             Text(durationLabel)
@@ -226,29 +114,6 @@ struct ChatVoiceBubble: View {
         .chatBubbleSurface(isMe: isMe)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Nota de voz, \(durationLabel)")
-    }
-}
-
-/// A voice-bubble waveform whose bars fill with playback progress.
-struct ProgressWaveform: View {
-    let bars: [CGFloat]
-    let progress: Double
-    let played: Color
-    let unplayed: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            HStack(alignment: .center, spacing: 2) {
-                ForEach(Array(bars.enumerated()), id: \.offset) { idx, h in
-                    let frac = bars.isEmpty ? 0 : Double(idx) / Double(bars.count)
-                    Capsule()
-                        .fill(frac <= progress ? played : unplayed)
-                        .frame(width: 2)
-                        .frame(height: max(2, h * geo.size.height))
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        }
     }
 }
 

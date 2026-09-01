@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { exerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema } from '@fahybrid/shared/domain/prescription';
-import { youtubeUrlSchema } from '@fahybrid/shared/youtube';
-import { sql, type Sql } from '@/lib/db';
+import { exerciseVideoSchema } from '@/lib/exercises/video-source';
+import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
 import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exercise';
 
@@ -29,14 +29,15 @@ import { EXERCISE_SELECT_COLUMNS } from '@/lib/dashboard/exercises/update-exerci
 
 // Category drives the catalog ordering; modality is the intrinsic discipline the
 // analytics group by. Both are required — a movement whose kind we don't know is a
-// movement we can't reason about. `video_url` reuses the shared YouTube schema
-// (validate + canonicalize to a watch URL, or null).
+// movement we can't reason about. `video_url` reuses `exerciseVideoSchema`, THE one
+// validator for the field: a YouTube link (canonicalized) or the locator of a file
+// the coach uploaded, and nothing else (lib/exercises/video-source.ts).
 export const createExerciseSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     category: exerciseCategory,
     modality: modalitySchema,
-    video_url: youtubeUrlSchema.optional(),
+    video_url: exerciseVideoSchema.optional(),
   })
   .strict();
 
@@ -74,7 +75,7 @@ function slugify(name: string): string {
     .slice(0, 80);
 }
 
-async function uniqueSlug(base: string, client: Sql): Promise<string> {
+async function uniqueSlug(base: string, client: Sql | TransactionClient): Promise<string> {
   const root = base || 'ejercicio';
   // One query for all existing slugs sharing the root, then pick the first free.
   const taken = await client<{ slug: string }[]>`
@@ -93,7 +94,10 @@ async function uniqueSlug(base: string, client: Sql): Promise<string> {
 export async function createExercise(
   input: CreateExerciseInput,
   coachId: bigint,
-  client: Sql = sql,
+  // Acepta también una TRANSACCIÓN, para que el alta EN BLOQUE del importador
+  // pueda crear treinta ejercicios todos-o-ninguno sin duplicar este insert. Es
+  // el mismo ensanche que ya hacen `coach/blocks.ts` y `coach/templates.ts`.
+  client: Sql | TransactionClient = sql,
 ): Promise<CatalogExercise> {
   const slug = await uniqueSlug(slugify(input.name), client);
   const videoUrl = input.video_url ?? null;
@@ -103,10 +107,19 @@ export async function createExercise(
   // can't read the just-set category in the same INSERT). Now that the coach
   // declares the modality there is nothing to derive, so the placeholder — and
   // the window where the row existed with a wrong modality — is simply gone.
+  // `name_es` NO es decoración: desde la migración 0172 la tabla exige
+  // `name_es is not null or name_en is not null`, y este insert no escribía
+  // ninguno de los dos — crear un ejercicio desde el panel reventaba con un 500.
+  // El nombre que teclea el coach va a `name_es` porque su panel es español; y
+  // `name_en` se queda NULL a propósito, que es la verdad («no hay nombre inglés
+  // curado todavía») en vez de duplicar el mismo texto en las dos columnas y
+  // afirmar una traducción que nadie ha hecho. `name` sigue siendo el nombre
+  // base, el que resuelve cualquier lectura que aún no distingue idioma.
   const rows = await client<CatalogExercise[]>`
-    insert into exercises (slug, name, category, modality, video_url, source, coach_id)
+    insert into exercises (slug, name, name_es, category, modality, video_url, source, coach_id)
     values (
       ${slug},
+      ${input.name},
       ${input.name},
       ${input.category}::exercise_category,
       ${input.modality},

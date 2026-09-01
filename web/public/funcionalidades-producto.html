@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID — Funcionalidades del producto (auditoría)</title>
+<style>
+:root{
+  --bg:#f7f5f1; --paper:#fff; --ink:#201f1b; --muted:#6b6760; --dim:#9a958d;
+  --line:#e6e2db; --line2:#d4cfc6;
+  --accent:#f06a2a; --accent-soft:rgba(240,106,42,.12);
+  --green:#1a7f4b; --green-soft:rgba(26,127,75,.1);
+  --amber:#9a6700; --amber-soft:rgba(154,103,0,.1);
+  --blue:#1d5f9a; --blue-soft:rgba(29,95,154,.1);
+  --red:#b42318; --red-soft:rgba(180,35,24,.08);
+  --sans:"Figtree","SF Pro Text",system-ui,sans-serif;
+  --disp:"Bricolage Grotesque","SF Pro Display",system-ui,sans-serif;
+  --mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:920px;margin:0 auto;padding:0 24px 80px}
+
+/* Header */
+.hero{background:var(--paper);border-bottom:1px solid var(--line);padding:32px 0 28px;margin-bottom:28px}
+.hero-inner{max-width:920px;margin:0 auto;padding:0 24px}
+.eyebrow{font:600 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+h1{font:800 34px/1.08 var(--disp);letter-spacing:-.03em;margin-bottom:8px}
+.lead{font-size:16px;color:var(--muted);max-width:68ch}
+.meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;font-size:12px;color:var(--dim)}
+.meta-row span{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+
+/* Nav */
+.toc{position:sticky;top:0;z-index:10;background:rgba(247,245,241,.94);backdrop-filter:blur(10px);
+     border-bottom:1px solid var(--line);padding:10px 0;margin:0 -24px 28px}
+.toc-inner{max-width:920px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.toc a{font-size:12.5px;font-weight:600;color:var(--muted);padding:4px 0}
+.toc a:hover{color:var(--ink);text-decoration:none}
+
+/* Sections */
+section{margin-bottom:36px}
+h2{font:750 22px/1.2 var(--disp);letter-spacing:-.02em;margin-bottom:6px;padding-top:8px}
+h2 .num{color:var(--dim);font-weight:600;font-size:14px;margin-right:6px}
+.section-intro{color:var(--muted);margin-bottom:16px;max-width:72ch}
+
+/* Legend */
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:16px 0 24px}
+.legend-item{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+.legend-item p{color:var(--muted);margin-top:4px;font-size:12.5px;line-height:1.4}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font:650 10.5px/1.4 var(--sans);letter-spacing:.02em;white-space:nowrap;vertical-align:middle;margin-left:6px}
+.b-prod{background:var(--green-soft);color:var(--green)}
+.b-repo{background:var(--blue-soft);color:var(--blue)}
+.b-part{background:var(--amber-soft);color:var(--amber)}
+.b-park{background:var(--line);color:var(--muted)}
+.b-none{background:var(--red-soft);color:var(--red)}
+
+/* Cards */
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:10px}
+.card h3{font:650 16px/1.3 var(--sans);margin-bottom:6px;display:flex;align-items:flex-start;flex-wrap:wrap;gap:4px}
+.card p,.card li{font-size:14px;color:var(--muted)}
+.card ul{margin:8px 0 0 18px}
+.card li{margin-bottom:4px}
+.card li strong{color:var(--ink);font-weight:600}
+.evidence{font:500 11.5px/1.4 var(--mono);color:var(--dim);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.note{background:var(--amber-soft);border:1px solid rgba(154,103,0,.18);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--ink);margin:14px 0}
+.note strong{color:var(--amber)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr} h1{font-size:26px}}
+
+/* Table-lite */
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:1.1fr 1.4fr .8fr;gap:12px;padding:10px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;font-size:13.5px;align-items:start}
+.row.head{font:650 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:transparent;border:none;padding:0 12px 4px}
+.row .what{font-weight:600;color:var(--ink)}
+.row .where{font-family:var(--mono);font-size:11.5px;color:var(--dim);word-break:break-all}
+@media(max-width:720px){.row{grid-template-columns:1fr;gap:4px}}
+
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--dim)}
+footer code{font-family:var(--mono);font-size:11.5px;background:var(--paper);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Auditoría de producto · solo lectura · 21 ago 2026</div>
+    <h1>Qué tiene FAHYBRID hoy</h1>
+    <p class="lead">Inventario verificado en código de <strong>web/</strong>, <strong>shared/</strong> e <strong>ios/</strong>. Pensado para marketing y comunicación: qué puede hacer un atleta, qué puede hacer un coach, qué integraciones existen de verdad, y qué sigue fijo vs configurable por club. Sin aspiraciones ni roadmap.</p>
+    <div class="meta-row">
+      <span>Producción: <strong>app.fahybrid.com</strong> · <strong>fahybrid.com</strong></span>
+      <span>Fuentes: código + FOCUS.md + DECISIONS.md</span>
+      <span>Ruta local: file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/funcionalidades-producto.html</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#leyenda">Leyenda</a>
+    <a href="#resumen">Resumen</a>
+    <a href="#atleta">Atleta iOS</a>
+    <a href="#reloj">Apple Watch</a>
+    <a href="#coach">Coach (web)</a>
+    <a href="#integraciones">Integraciones</a>
+    <a href="#marca">Marca / multi-club</a>
+    <a href="#no-hecho">No construido</a>
+    <a href="#fuentes">Fuentes</a>
+  </div>
+</nav>
+
+<section id="leyenda">
+  <h2><span class="num">0.</span> Cómo leer los estados</h2>
+  <p class="section-intro">Cada funcionalidad lleva una etiqueta. Si algo tiene bugs conocidos o está a medias, no aparece como «hecho» sin matiz.</p>
+  <div class="legend">
+    <div class="legend-item"><span class="badge b-prod">En producción</span><p>Desplegado y usable hoy en app.fahybrid.com / la app iOS que apunta a prod. El atleta o coach lo puede tocar sin instalar una build especial.</p></div>
+    <div class="legend-item"><span class="badge b-repo">En repo, pendiente instalar</span><p>Código mergeado en el repositorio pero Alex aún no ha instalado la build iOS correspondiente, o está en rama no desplegada al servidor.</p></div>
+    <div class="legend-item"><span class="badge b-part">Parcial</span><p>Existe flujo real pero incompleto, limitado, en alpha, o con huecos documentados (FOCUS / DECISIONS).</p></div>
+    <div class="legend-item"><span class="badge b-park">Aparcado</span><p>Código presente pero desconectado de la UI o explícitamente parado.</p></div>
+    <div class="legend-item"><span class="badge b-none">No construido</span><p>No hay implementación usable; solo diseño, API sin pantalla, o idea documentada.</p></div>
+  </div>
+  <div class="note"><strong>Contexto reciente (FOCUS 21-ago):</strong> del 13 al 20-ago el guardado de entrenos estuvo roto en producción (migración 0191); corregido con la 0203. Varias mejoras de entreno en vivo y lectura post-sesión están en repo pero pendientes de instalar en el iPhone de Alex (cards 118–119, 121 fin, 123, 126 pieza 2).</div>
+</section>
+
+<section id="resumen">
+  <h2><span class="num">1.</span> Resumen ejecutivo</h2>
+  <p class="section-intro">FAHYBRID es una plataforma premium de entrenamiento híbrido (HYROX / fuerza / running / ergómetros). Dos superficies principales: app nativa iOS + watchOS para el atleta, y panel web para el coach. Un solo backend (Next.js en <code>web/</code>, puerto 3456 en dev).</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Atleta — lo que sí existe</h3>
+      <ul>
+        <li>Alta, onboarding de 19 pasos, plan semanal, entreno en vivo (fuerza, running, erg, HYROX sim, formatos WOD)</li>
+        <li>Chat 1:1, bandeja «Del coach», tests/marcas, analíticas, carreras HYROX</li>
+        <li>Apple Health, PM5 Concept2, cinta FTMS, Apple Watch (standalone + espejo), Garmin (vinculación + app Connect IQ)</li>
+        <li>Sign in with Apple + código por email; invitaciones de coach y parejas Dobles</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Coach — lo que sí existe</h3>
+      <ul>
+        <li>Roster, ficha de atleta (5 pestañas), planificación (microciclos, bloques, periodización)</li>
+        <li>Leads → alta → cobro Stripe; citas/videollamadas con Google Meet; cupo y lista de espera</li>
+        <li>Chat, comunicados estructurados, biblioteca de ejercicios/bloques/sesiones</li>
+        <li>Piel del club (nombre, logo, color, correo de avisos); conector MCP para asistentes IA (18 herramientas)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <h3>Huecos principales (no vender como hecho)</h3>
+    <ul>
+      <li><strong>Importador de macrociclos</strong> desde plan real del coach: no existe (solo importador HTML atado a un fichero)</li>
+      <li><strong>Objetivos relativos</strong> en prescripciones (ritmo HYROX, % competición): modelo incompleto — auditoría card 128</li>
+      <li><strong>Revisión semanal de cohorte</strong> y <strong>ajustes masivos</strong>: backend sí, pantalla coach no</li>
+      <li><strong>Nombre y logo del club</strong> llegan al móvil pero aún no se pintan en la app</li>
+      <li><strong>Nutrición</strong>: API + pantalla iOS compilables, pero sin entrada en la app (aparcado)</li>
+      <li><strong>29 rutas API coach</strong> sin pantalla asociada (FOCUS, parqueado)</li>
+    </ul>
+  </div>
+</section>
+
+<section id="atleta">
+  <h2><span class="num">2.</span> App del atleta (iPhone)</h2>
+  <p class="section-intro">Target <code>FAHYBRIK</code> · iOS 18+ · dominio compartido en <code>ios/FAHYBRIKCore/</code>.</p>
+
+  <div class="card">
+    <h3>Entrada, cuenta y onboarding <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li><strong>Sign in with Apple</strong> — acceso principal en release</li>
+      <li><strong>Email + código OTP</strong> — cuando el Apple ID no coincide con el email de alta</li>
+      <li><strong>Invitación del coach</strong> — enlace <code>fahybrid://invite</code> activa la cuenta</li>
+      <li><strong>Invitación Dobles</strong> — pareja HYROX compartida (<code>fahybrid://partner/redeem</code>)</li>
+      <li><strong>Onboarding 19 pasos</strong> — datos personales, lesiones, disponibilidad, 1RM, benchmarks, estaciones HYROX, importar historial, conexiones HealthKit, objetivo carrera. Cada paso es skippable; borrador persiste</li>
+      <li><strong>Day-1</strong> — orientación post-alta: HealthKit, preview de tests, bucle semanal del coach</li>
+      <li><strong>Atleta FREE</strong> — sin coach asignado: plan autogestionado, sin chat ni bandeja del coach</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Auth/ · Onboarding/Steps/ · OnboardingFlow.swift · AppRoot.swift · AppShell.swift</div>
+  </div>
+
+  <div class="card">
+    <h3>Plan, calendario e inicio <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li><strong>Inicio</strong> — veredicto de carrera + entreno de hoy</li>
+      <li><strong>Plan</strong> — rail de 7 días, mover sesión, ver estado (hecho / pendiente), ciclo del bloque</li>
+      <li><strong>Historial</strong> — calendario mensual de sesiones completadas con detalle</li>
+      <li><strong>Check-in matinal</strong> — sueño, estrés, disposición (alimenta readiness)</li>
+      <li>No hay calendario forward multi-mes; la navegación temporal es semana ±1 en Plan e historial hacia atrás</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Plan/PlanView.swift · History/HistoryView.swift · Today/InicioView.swift · Today/Checkin/</div>
+  </div>
+
+  <div class="card">
+    <h3>Tipos de entreno soportados <span class="badge b-prod">En producción</span></h3>
+    <p style="margin-bottom:8px">Esquemas de prescripción en código: For Time, AMRAP, EMOM, Tabata, Death By, intervalos, steady, chipper, ladder, rondas, <strong>HYROX sim</strong>, series, superseries, calentamiento, enfriamiento.</p>
+    <ul>
+      <li><strong>Fuerza</strong> — series, superseries, editor carga/reps/RPE/RIR, confirmación manual por serie</li>
+      <li><strong>Running calle</strong> — GPS, barómetro, podómetro, intervalos estructurados, voz del coach, Live Activity en Dynamic Island</li>
+      <li><strong>Running cinta</strong> — FTMS (telemetría + control) o cinta «tonta» (manual / HealthKit)</li>
+      <li><strong>Ergómetros Concept2 PM5</strong> — remo, ski, bike vía BLE; telemetría en vivo y HUD</li>
+      <li><strong>HYROX / funcional</strong> — simulacros HYROX, Dobles con reparto de estaciones, WOD libre</li>
+      <li><strong>Entreno libre</strong> — run/erg medido, fuerza o funcional sin prescripción del coach</li>
+      <li><strong>Salto CMJ</strong> — test con cámara + AR</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIKCore/Plan/Prescription.swift · Workout/Vivo/ · Workout/Free/ · Devices/PM5/ · Devices/Treadmill/</div>
+  </div>
+
+  <div class="card">
+    <h3>Entreno en vivo <span class="badge b-prod">En producción</span> <span class="badge b-repo">Mejoras pendientes instalar</span></h3>
+    <ul>
+      <li>Brief pre-entreno → sesión activa (pantalla bloqueada) → descansos → resumen → sincronización al servidor</li>
+      <li>Gates obligatorios antes de correr o erg: elegir entorno (calle / cinta / PM5)</li>
+      <li>Fases de bloque: calentamiento / principal / enfriamiento</li>
+      <li>EMOM, conditioning, fuerza serie a serie, recuperación FC post-test</li>
+      <li><strong>«Ya lo hice»</strong> — registro manual sin cronómetro</li>
+      <li><strong>Captura de pantalla</strong> de otra app (p. ej. Garmin) para importar datos</li>
+      <li><strong>Recuperación tras corte</strong> — reanudar sesión interrumpida</li>
+      <li><strong>Espejo a Apple Watch</strong> — el iPhone manda frames al reloj durante la sesión</li>
+    </ul>
+    <p style="margin-top:8px"><strong>Pendiente instalar (repo, cards 118–123, 126-2):</strong> lectura post-sesión por formato (no elegir carrera por 6 min de calentamiento); cierre automático de estación de correr al llegar a metros; recoger metros del reloj en cinta; sellar hora de fin al terminar, no al guardar; 7 capas de lectura de sesión en Swift.</p>
+    <p style="margin-top:6px"><strong>Limitaciones conocidas:</strong> PM5 no programa intervalos nativos en formatos complejos (la app manda el conteo); conteo de reps en reloj está en alpha; modalidad erg en sync puede colapsar ski/bike a «row».</p>
+    <div class="evidence">ios/FAHYBRIK/Workout/ActiveWorkoutView.swift · WorkoutContainer.swift · FAHYBRIKCore/Workout/WorkoutSession+*.swift · FOCUS.md cards 118–126</div>
+  </div>
+
+  <div class="card">
+    <h3>Chat y comunicados del coach <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li><strong>Chat 1:1</strong> — texto, notas de voz, foto, vídeo, documento; tiempo real (SSE + respaldo poll cada 3 s); cola offline</li>
+      <li><strong>Contexto en chat</strong> — adjuntar sesión sí; carrera/ejercicio del catálogo aún sin deep link</li>
+      <li><strong>Bandeja «Del coach»</strong> — protocolos, preguntas, tareas, notas, foco; marcar visto/hecho</li>
+      <li>Acceso desde header global, Plan e Historial (solo atletas con coach)</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Chat/ · Comunicados/ · PushManager.swift</div>
+  </div>
+
+  <div class="card">
+    <h3>Tests, marcas y analíticas <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li><strong>Hub de tests</strong> — batería publicada por el coach; lanzar test → flujo de entreno → captura de resultado</li>
+      <li><strong>Biblioteca de marcas</strong> — correr, erg, carreras registrables; «Probarme» sin coach en benchmarks</li>
+      <li><strong>Celebración de PR</strong> cuando se supera marca</li>
+      <li><strong>Analíticas</strong> — 5 secciones: carrera (pantalla propia), erg, fuerza, HYROX, recuperación</li>
+      <li>Sin batería publicada → hub vacío con enlace a marcas</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Tests/ · Marks/ · Analytics/ · Jump/</div>
+  </div>
+
+  <div class="card">
+    <h3>Carreras HYROX y Dobles <span class="badge b-prod">En producción</span> <span class="badge b-part">DEKA parcial</span></h3>
+    <ul>
+      <li>Objetivo de carrera, gap analysis, estaciones, import desde HyResult</li>
+      <li><strong>Dobles</strong> — plan compartido, entrenar juntos, presencia en vivo, reparto de estaciones</li>
+      <li><strong>DEKA</strong> — modelado en calendario e importación; la UX está centrada en HYROX</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Carreras/ · Dobles/ · Events/EventsModels.swift</div>
+  </div>
+
+  <div class="card">
+    <h3>Dispositivos conectados <span class="badge b-part">Parcial según dispositivo</span></h3>
+    <ul>
+      <li><strong>Apple Health</strong> — lectura (workouts, FC, HRV, sueño, peso…) + escritura de sesiones propias + import histórico con consentimiento</li>
+      <li><strong>Apple Watch</strong> — app standalone, espejo iPhone, WorkoutKit para carreras en app Entrenamiento nativa (solo RUN)</li>
+      <li><strong>Garmin</strong> — pantalla de vinculación en iPhone; sync real vía app Connect IQ en el reloj + webhook servidor; Health API pausada para altas nuevas</li>
+      <li><strong>Concept2 PM5</strong> — BLE local en iPhone; scan manual, multi-monitor, telemetría en vivo</li>
+      <li><strong>Cinta FTMS</strong> — lectura + control (velocidad, inclinación, start/stop); auto-avance de tramo por distancia</li>
+      <li><strong>Banda FC BLE</strong> — durante entreno vía DeviceHub</li>
+      <li><strong>Amazfit/Zepp</strong> — solo texto instructivo en Perfil (sin integración directa)</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/HealthKit/ · Wearables/ · Devices/DeviceHub.swift · Devices/PM5/ · Devices/Treadmill/</div>
+  </div>
+
+  <div class="card">
+    <h3>Notificaciones push <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Plan publicado, ajustes de semana/mes → abre Plan</li>
+      <li>Mensaje de chat → abre chat</li>
+      <li>Comunicado del coach → bandeja Del coach</li>
+      <li>Renovación / pago fallido → Perfil</li>
+      <li>Registro APNS tras login (no en cold launch)</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Notifications/PushManager.swift · project.yml (entitlements APNS)</div>
+  </div>
+
+  <div class="card">
+    <h3>Perfil, suscripción y legal <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Foto, lesiones, export GDPR, borrar cuenta</li>
+      <li>Estado de suscripción Stripe (lectura + portal web; sin compra in-app)</li>
+      <li>Toggles: voz del coach en carrera, velocidad de barra (alpha), sensor de reps en reloj (alpha)</li>
+      <li>Piel del club: <strong>el acento de color sí llega y pinta</strong>; nombre y logo decodifican pero no se muestran aún en pantallas</li>
+    </ul>
+    <div class="evidence">ios/FAHYBRIK/Profile/ProfileView.swift · Theme/ClubTheme.swift · SubscriptionService.swift · FOCUS 19-ago</div>
+  </div>
+
+  <div class="card">
+    <h3>Nutrición <span class="badge b-park">Aparcado</span></h3>
+    <p>Pantalla completa con registro manual, código de barras y foto-IA, conectada al backend (<code>/api/athlete/nutrition</code>). <strong>Intencionalmente desconectada</strong> del tab bar — el atleta no puede llegar. Código compilable conservado para post-lanzamiento.</p>
+    <div class="evidence">ios/FAHYBRIK/Nutrition/NutritionView.swift (comentario PARKED) · web/app/api/athlete/nutrition/</div>
+  </div>
+</section>
+
+<section id="reloj">
+  <h2><span class="num">3.</span> Apple Watch (watchOS)</h2>
+  <p class="section-intro">Target <code>FAHYBRIKWatch</code> · watchOS 11+ · comparte todo <code>FAHYBRIKCore/</code> con el iPhone.</p>
+
+  <div class="card">
+    <h3>Entreno en la muñeca <span class="badge b-prod">En producción</span> <span class="badge b-repo">Rediseño legibilidad pendiente OK</span></h3>
+    <ul>
+      <li>Sesión standalone: brief del día → HUD live (EMOM, reloj, series, checklist, carrera estructurada, Dobles) → pausa/terminar → resumen + splits</li>
+      <li>Espejo del iPhone cuando el teléfono manda la sesión (preempta standalone)</li>
+      <li>HealthKit session propia; trazas de sensor suben al iPhone</li>
+      <li>Recuperación tras corte; gate de bloques; overlay de descanso</li>
+      <li>Muestra metros y ritmo en estación de correr (card 105, en trunk)</li>
+    </ul>
+    <p style="margin-top:8px"><strong>No en el reloj:</strong> BLE PM5/FTMS (solo iPhone). Plan mínimo si el push WCS no cabe el detalle completo.</p>
+    <p style="margin-top:6px"><strong>Propuesta de rediseño</strong> (suelo 16 pt, crono legible, corona, bloqueo agua) en el doble — pendiente visto bueno de Alex, no shipeado.</p>
+    <div class="evidence">ios/FAHYBRIKWatch/ · WatchWorkoutCoordinator.swift · LiveFlowView.swift · FOCUS cards 105, 119, 123</div>
+  </div>
+</section>
+
+<section id="coach">
+  <h2><span class="num">4.</span> Panel del coach (web)</h2>
+  <p class="section-intro">Dashboard en <strong>app.fahybrid.com</strong> · Next.js · auth Clerk · rediseño FLEXR en producción desde 19-ago. Rutas bajo <code>/es/…</code>.</p>
+
+  <div class="card">
+    <h3>Navegación principal <span class="badge b-prod">En producción</span></h3>
+    <div class="rows" style="margin-top:10px">
+      <div class="row head"><span>Sección</span><span>Qué hace</span><span>Ruta</span></div>
+      <div class="row"><span class="what">Atletas</span><span>Roster, filtros, triage del día, alta manual</span><span class="where">/atletas</span></div>
+      <div class="row"><span class="what">Hoy</span><span>Tablero de decisiones (4 carriles)</span><span class="where">/hoy</span></div>
+      <div class="row"><span class="what">Mensajes</span><span>Chat 1:1 en 3 columnas</span><span class="where">/mensajes</span></div>
+      <div class="row"><span class="what">Leads</span><span>Embudo, detalle, alta a atleta</span><span class="where">/leads</span></div>
+      <div class="row"><span class="what">Pagos</span><span>MRR, vencidos, precio por atleta</span><span class="where">/pagos</span></div>
+      <div class="row"><span class="what">Métricas</span><span>Analytics del funnel</span><span class="where">/metricas</span></div>
+      <div class="row"><span class="what">Disponibilidad</span><span>Citas, franjas, cupo máximo</span><span class="where">/disponibilidad</span></div>
+      <div class="row"><span class="what">Cómo entrenas</span><span>Entrevista metodológica (7 capítulos)</span><span class="where">/como-entrenas</span></div>
+      <div class="row"><span class="what">Periodización</span><span>Niveles + secuencias de microciclos</span><span class="where">/periodizacion</span></div>
+      <div class="row"><span class="what">Biblioteca</span><span>Ejercicios, bloques, sesiones, microciclos, comunicados</span><span class="where">/biblioteca</span></div>
+      <div class="row"><span class="what">Tests</span><span>Batería de calibración del club</span><span class="where">/tests</span></div>
+      <div class="row"><span class="what">Cuestionarios</span><span>Forms de alta personalizables</span><span class="where">/cuestionarios</span></div>
+      <div class="row"><span class="what">Tu club</span><span>Marca: nombre, logo, color, correo avisos</span><span class="where">/club</span></div>
+      <div class="row"><span class="what">Ajustes</span><span>Perfil, umbrales señales, push</span><span class="where">/ajustes</span></div>
+      <div class="row"><span class="what">Guía</span><span>Documentación in-app (40+ secciones)</span><span class="where">/guia</span></div>
+    </div>
+    <div class="evidence">web/components/v2/nav.ts · web/app/[locale]/(v2)/</div>
+  </div>
+
+  <div class="card">
+    <h3>Gestión de atletas <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Ficha con 5 pestañas: Resumen, Plan, Rendimiento, Del coach, Atleta</li>
+      <li>Intake review, clasificación (nivel, modalidad, días/semana, carrera objetivo, lesiones)</li>
+      <li>Ciclo de vida: pausar, reactivar, baja, re-alta</li>
+      <li>Invitar / re-invitar; parejas Dobles</li>
+      <li>Notas internas, zonas, tests de fuerza, analytics running</li>
+      <li>Chip de estado: Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan</li>
+      <li>Cola de altas pendientes en <code>/altas</code> (no en sidebar)</li>
+    </ul>
+    <div class="evidence">web/components/v2/atleta-detalle/ · web/app/api/coach/athletes/** · web/lib/coach/athlete-lifecycle.ts</div>
+  </div>
+
+  <div class="card">
+    <h3>Planificación y biblioteca <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Crear/editar microciclos plantilla; editor de día y semana</li>
+      <li>CRUD bloques y sesiones; catálogo de ejercicios con vídeo</li>
+      <li>Asignar secuencia/mes/borrador; publicar semana al atleta</li>
+      <li>Carril del microciclo: badge «N de M publicadas», semanas Visible/Borrador</li>
+      <li>Importar entrenos (xlsx, texto, foto, asistencia IA) — propuesta → confirmar</li>
+      <li>Sugerencias IA para título de semana, workout, texto</li>
+      <li>Receta vs entregado separados: MCP y editor escriben plantilla; publicar es segundo acto</li>
+    </ul>
+    <p style="margin-top:8px"><strong>No existe:</strong> importador de macrociclo completo desde plan real del coach (card 128). Solo <code>import_plan_html.ts</code> atado a un coach y un fichero.</p>
+    <div class="evidence">web/components/v2/planes/ · web/components/v2/editor/ · web/lib/import/ · FOCUS 128</div>
+  </div>
+
+  <div class="card">
+    <h3>Periodización <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Niveles de atleta con conteos en vivo</li>
+      <li>Secuencias por nivel + días/semana; política de fin; duplicar celdas</li>
+      <li>Asignar secuencia a atleta desde periodización o ficha</li>
+    </ul>
+    <div class="evidence">web/app/[locale]/(v2)/periodizacion/ · web/lib/dashboard/v2/periodizacion.ts</div>
+  </div>
+
+  <div class="card">
+    <h3>Leads, funnel y captación <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Embudo público <code>/empieza</code> — captura lead sin login coach</li>
+      <li>Detalle lead, conversión a atleta (comp / fundador / cobro Stripe)</li>
+      <li>Métricas de funnel; emails nurture automáticos (cron)</li>
+      <li>Cupo máximo de atletas; lista de espera FIFO; liberar plaza manualmente</li>
+      <li>Correo de avisos del club (leads, citas, bajas) — configurable en Tu club</li>
+    </ul>
+    <div class="evidence">web/app/[locale]/(v2)/leads/ · web/lib/leads/ · web/lib/coach/capacity.ts</div>
+  </div>
+
+  <div class="card">
+    <h3>Citas y videollamadas <span class="badge b-prod">En producción</span> <span class="badge b-part">Google Calendar single-tenant</span></h3>
+    <ul>
+      <li>Configurar disponibilidad (videollamada + presencial), excepciones, dirección</li>
+      <li>Aceptar/rechazar/cancelar citas de intro</li>
+      <li>Google Meet auto si el coach conectó Google Calendar; si no, enlace manual</li>
+      <li>Emails + archivo .ics al aceptar</li>
+      <li><strong>Limitación:</strong> un solo token Google OAuth global — no uno por coach (DECISIONS pendiente multi-tenant)</li>
+    </ul>
+    <div class="evidence">web/components/v2/citas/ · web/lib/citas/ · web/app/api/citas/</div>
+  </div>
+
+  <div class="card">
+    <h3>Revisiones 1:1 <span class="badge b-part">Parcial</span></h3>
+    <ul>
+      <li><strong>Hecho:</strong> cadencia mensual/trimestral por atleta; proponer revisión → atleta reserva slot; historial de session reports post-llamada</li>
+      <li><strong>Sin pantalla:</strong> revisión semanal de cohorte (API <code>/api/coach/weekly-review/*</code> existe, UI no)</li>
+    </ul>
+    <div class="evidence">web/components/v2/atleta-detalle/reviews/ReviewPanel.tsx · web/lib/coach/weekly-review.ts</div>
+  </div>
+
+  <div class="card">
+    <h3>Comunicaciones <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Chat 1:1 con adjuntos, read receipts, broadcast a cohorte</li>
+      <li>Comunicados estructurados: protocolos, preguntas, tareas, notas, audio, gráficas</li>
+      <li>Biblioteca de comunicados reutilizables</li>
+    </ul>
+    <div class="evidence">web/components/v2/mensajes/ · web/components/v2/del-coach/ · web/lib/chat/</div>
+  </div>
+
+  <div class="card">
+    <h3>Pagos Stripe <span class="badge b-prod">En producción</span></h3>
+    <ul>
+      <li>Ver MRR, vencidos, renovaciones; estado por atleta</li>
+      <li>Editar precio acordado → sincroniza suscripción Stripe</li>
+      <li>Alta con checkout Stripe desde lead; cupón fundador 100%</li>
+      <li>Portal de gestión es del atleta (no hay botón «abrir Stripe» en panel coach)</li>
+    </ul>
+    <div class="evidence">web/app/[locale]/(v2)/pagos/ · web/lib/stripe/ · web/lib/coach/billing.ts</div>
+  </div>
+
+  <div class="card">
+    <h3>Conector MCP (asistentes IA) <span class="badge b-prod">En producción</span></h3>
+    <p>OAuth Clerk · endpoint <code>POST /api/mcp</code> · 18 herramientas:</p>
+    <ul>
+      <li><strong>Lectura:</strong> briefing del día, listar/atleta, plan, sesión, carreras, biblioteca, metodología (RAG), comunicados</li>
+      <li><strong>Escritura:</strong> crear/editar sesión, mover sesión, crear/actualizar microciclo (siempre en receta, nunca entregado directo), publicar semana, publicar comunicado, enviar mensaje, añadir nota</li>
+    </ul>
+    <p style="margin-top:8px">Completitud blocking al escribir; publicar sigue siendo acción separada del coach.</p>
+    <div class="evidence">web/lib/mcp/tools*.ts · docs/mcp-conector-coach.html · DECISIONS 20-ago</div>
+  </div>
+
+  <div class="card">
+    <h3>Tema claro/oscuro del panel <span class="badge b-prod">En producción</span></h3>
+    <p>El coach puede alternar claro u oscuro (botón en barra). El acento lo pone la piel del club, no el naranja de sistema. Landing e iOS no cambian.</p>
+    <div class="evidence">DECISIONS 20-ago · web/components/v2/ (ThemeToggle)</div>
+  </div>
+</section>
+
+<section id="integraciones">
+  <h2><span class="num">5.</span> Integraciones reales</h2>
+  <p class="section-intro">Solo las que tienen código de producción verificable. Dirección = quién empuja datos a quién.</p>
+
+  <div class="rows">
+    <div class="row head"><span>Integración</span><span>Qué hace hoy</span><span>Estado</span></div>
+
+    <div class="row">
+      <span class="what">Apple HealthKit</span>
+      <span>iOS lee workouts, FC, HRV, sueño, peso… → <code>POST /api/sync/healthkit</code>. Escribe sesiones propias de vuelta a Salud. Dedupe con Garmin.</span>
+      <span><span class="badge b-prod">Producción</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Garmin</span>
+      <span>OAuth connect + webhook ingest (actividades, sueño, HRV…). App Connect IQ descarga FIT del entreno de carrera. Health API pausada para nuevos partners.</span>
+      <span><span class="badge b-part">Parcial</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Concept2 PM5</span>
+      <span>BLE local iPhone: telemetría, programación simplificada, datos suben con la sesión de entreno.</span>
+      <span><span class="badge b-prod">Producción</span> <span class="badge b-part">dispositivo real</span></span>
+    </div>
+    <div class="row">
+      <span class="what">FTMS (cintas)</span>
+      <span>BLE local iPhone: lectura distancia/velocidad/inclinación + control. Auto-avance de tramo.</span>
+      <span><span class="badge b-prod">Producción</span> <span class="badge b-part">dispositivo real</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Google Calendar + Meet</span>
+      <span>OAuth coach → crea evento con Meet al aceptar cita; cancelación borra evento.</span>
+      <span><span class="badge b-part">Parcial</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Stripe</span>
+      <span>Checkout suscripción, webhooks lifecycle, portal atleta, sync precio acordado.</span>
+      <span><span class="badge b-prod">Producción</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Resend (email)</span>
+      <span>Transaccional: códigos atleta, leads, citas, alta, lifecycle, waitlist, comunicados. Emails al atleta usan piel del club.</span>
+      <span><span class="badge b-prod">Producción</span></span>
+    </div>
+    <div class="row">
+      <span class="what">Clerk</span>
+      <span>Auth dashboard coach/admin + webhook sync usuarios + OAuth MCP. Atletas usan Bearer propio (Apple / email), no Clerk.</span>
+      <span><span class="badge b-prod">Producción</span></span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Otras integraciones wearables (backend, fuera del listado principal)</h3>
+    <p>Pipelines de ingest para COROS (webhook stub), Polar (poll), WHOOP, Suunto, Amazfit — presentes en <code>web/lib/sync/</code>. No equivalen a flujo completo verificado en app del atleta como HealthKit/Garmin.</p>
+    <div class="evidence">web/lib/sync/ingest-*.ts · web/lib/wearables/token-store.ts</div>
+  </div>
+</section>
+
+<section id="marca">
+  <h2><span class="num">6.</span> Multi-club y personalización de marca</h2>
+  <p class="section-intro">Un deploy, muchos coaches. Aislamiento lógico por <code>coach_id</code>. FAHYBRID es el primer tenant de FLEXR.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Configurable por club (dato editable) <span class="badge b-prod">En producción</span></h3>
+      <ul>
+        <li><strong>Nombre del club</strong> — panel sidebar + emails al atleta</li>
+        <li><strong>Logo</strong> — panel (upload Vercel Blob)</li>
+        <li><strong>Color acento</strong> — panel claro/oscuro + app iOS/reloj (hex derivado en servidor) + emails</li>
+        <li><strong>Correo de avisos</strong> — destino de leads, citas, bajas del club</li>
+      </ul>
+      <p style="margin-top:8px">Edición en <code>/es/club</code>. El servidor deriva la familia de colores con contraste AA (<code>shared/domain/coach/club-accent.ts</code>). Los dispositivos reciben hexes ya resueltos — no recalculan.</p>
+      <div class="evidence">shared/domain/coach/club-skin.ts · web/app/api/coach/club/ · GET /api/auth/me → club</div>
+    </div>
+    <div class="card">
+      <h3>Sigue fijo (no configurable hoy)</h3>
+      <ul>
+        <li>Un binario App Store (nivel estándar)</li>
+        <li>Cromo FLEXR del panel (Bricolage + Figtree, perla/casi negro)</li>
+        <li>App atleta y landing: tema oscuro; fallback naranja FAHYBRID si el club no pone color</li>
+        <li>Tipografía Archivo itálica (voz de la app, no del panel)</li>
+        <li>Landing pública con copy del primer club</li>
+        <li>Claves internas <code>fahybrik.*</code> en almacenamiento iOS (mecanismo, no marca)</li>
+        <li><strong>Nivel premium documentado:</strong> app propia con icono y nombre en tienda — requiere build por cliente; no implementado</li>
+      </ul>
+      <div class="evidence">DECISIONS 19-ago «DOS niveles» · ios/settings.base en project.yml</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Superficies donde pinta la piel del club</h3>
+    <div class="rows" style="margin-top:8px">
+      <div class="row head"><span>Superficie</span><span>Qué personaliza</span><span>Estado</span></div>
+      <div class="row"><span class="what">Panel coach</span><span>Nombre, logo, acento en sidebar y UI</span><span class="badge b-prod">Producción</span></div>
+      <div class="row"><span class="what">Emails al atleta</span><span>Acento, nombre club (alta, citas, waitlist, pago…)</span><span class="badge b-prod">Producción</span></div>
+      <div class="row"><span class="what">App iOS</span><span>Acento sí; nombre/logo recibidos pero no pintados en UI</span><span class="badge b-part">Parcial</span></div>
+      <div class="row"><span class="what">Apple Watch</span><span>Acento vía payload del teléfono</span><span class="badge b-prod">Producción</span></div>
+      <div class="row"><span class="what">Embudo comercial FAHYBRID</span><span>Marca del producto, no del club</span><span>Fijo</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="no-hecho">
+  <h2><span class="num">7.</span> Explícitamente no construido o aparcado</h2>
+  <p class="section-intro">Lista para que marketing no prometa lo que no existe. Fuentes: FOCUS «Parqueado», auditoría card 128, grep de rutas sin UI.</p>
+
+  <div class="card">
+    <ul>
+      <li><strong>Importador de macrociclo</strong> desde plan Excel/HTML del coach — <span class="badge b-none">No construido</span></li>
+      <li><strong>Objetivos relativos</strong> en prescripción (ritmo HYROX, peso competición, % RM relativo a marca) — <span class="badge b-none">Hueco de modelo</span></li>
+      <li><strong>Ciclos elásticos</strong> (secuencia anclada a carrera del atleta) — <span class="badge b-none">En debate, sin código</span></li>
+      <li><strong>Revisión semanal cohorte</strong> en panel — <span class="badge b-none">API sin pantalla</span></li>
+      <li><strong>Ajustes masivos</strong> de plan — <span class="badge b-none">API sin pantalla</span></li>
+      <li><strong>Subida documentos metodología RAG</strong> desde UI v2 — <span class="badge b-none">API sin pantalla</span></li>
+      <li><strong>Nutrición</strong> en app atleta — <span class="badge b-park">Aparcado</span></li>
+      <li><strong>29 rutas API coach</strong> sin pantalla — <span class="badge b-park">Parqueado</span></li>
+      <li><strong>Onboarding</strong> — 15 agujeros documentados — <span class="badge b-part">Parcial</span></li>
+      <li><strong>22 bloques de prescripción</strong> incompletos en biblioteca — <span class="badge b-part">Datos</span></li>
+      <li><strong>Vídeos de técnica</strong> — 0 de 126 ejercicios con vídeo — <span class="badge b-none">No hecho</span></li>
+      <li><strong>App propia por club</strong> (icono/nombre en App Store) — <span class="badge b-none">Solo encargo documentado</span></li>
+      <li><strong>Demo coach</strong> <code>/es/acceso-demo</code> — 404 en producción (FOCUS)</li>
+    </ul>
+    <div class="evidence">FOCUS.md §Parqueado · docs/ciclo-de-un-coach.html · docs/ciclos-elasticos.html</div>
+  </div>
+</section>
+
+<section id="fuentes">
+  <h2><span class="num">8.</span> Fuentes de esta auditoría</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Código iOS:</strong> <code>ios/FAHYBRIK/</code>, <code>ios/FAHYBRIKCore/</code>, <code>ios/FAHYBRIKWatch/</code>, <code>ios/project.yml</code></li>
+      <li><strong>Código web coach:</strong> <code>web/app/[locale]/(v2)/</code>, <code>web/app/api/coach/</code> (166 rutas), <code>web/components/v2/</code></li>
+      <li><strong>API atleta:</strong> <code>web/app/api/athlete/</code>, <code>web/app/api/sync/</code></li>
+      <li><strong>Dominio compartido:</strong> <code>shared/domain/</code>, <code>shared/schema/</code></li>
+      <li><strong>Estado vivo:</strong> <code>FOCUS.md</code> (actualizado 21-ago-2026)</li>
+      <li><strong>Decisiones:</strong> <code>docs/DECISIONS.md</code> (piel club, MCP, FLEXR, Garmin, lectura sesión…)</li>
+      <li><strong>Garmin Connect IQ:</strong> <code>garmin-ciq/</code> (fuera del workspace npm, pero desplegado como app de reloj Garmin)</li>
+    </ul>
+    <p style="margin-top:12px;color:var(--muted)">Auditoría en modo solo lectura · 21 agosto 2026 · No sustituye al tablero operativo (<code>docs/tablero.html</code>) ni al plan de marketing (<code>docs/plan_marketing_fahybrid.html</code>).</p>
+  </div>
+</section>
+
+<footer>
+  <p>FAHYBRID · Documento para marketing/comunicación · Generado desde el repositorio</p>
+  <p style="margin-top:6px">Abrir en Mac: <code>file:///Users/alexsolecarretero/Public/projects/FAHYBRIK/docs/funcionalidades-producto.html</code></p>
+</footer>
+
+</div>
+</body>
+</html>

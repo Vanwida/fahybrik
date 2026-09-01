@@ -31,10 +31,20 @@ struct RunAutoPause {
     static let engageDwellSeconds: TimeInterval = 3
     /// Seconds of sustained over-threshold speed before it RELEASES (resume quickly).
     static let releaseDwellSeconds: TimeInterval = 1.5
+    /// LA SALIDA A CIEGAS. Soltar la autopausa exige una velocidad fiable, y la
+    /// velocidad se degrada justo donde uno se para: pegado a un edificio, bajo un
+    /// puente. Sin esto, una pausa automática podía quedarse enganchada
+    /// indefinidamente con el atleta ya corriendo. Pasado este rato sin ninguna
+    /// lectura de confianza se suelta: equivocarse soltando sólo cuesta unos segundos
+    /// de crono corriendo, y el atleta siempre puede pausar a mano; equivocarse
+    /// quedándose congela la sesión entera sin que nadie lo pida.
+    static let blindReleaseSeconds: TimeInterval = 20
 
     private(set) var isEngaged = false
     private var belowSince: TimeInterval?
     private var aboveSince: TimeInterval?
+    /// Desde cuándo llevamos sin una velocidad de confianza estando enganchados.
+    private var blindSince: TimeInterval?
 
     /// One evaluation tick.
     /// - Parameters:
@@ -53,8 +63,18 @@ struct RunAutoPause {
             // A leg that no longer supports auto-pause (e.g. advanced to a TIME leg)
             // must not stay frozen — release immediately.
             guard eligible else { reset(); return .release }
-            // No trustworthy speed → can't confirm movement → stay paused.
-            guard let v = speedMps else { aboveSince = nil; return .none }
+            // No trustworthy speed → can't confirm movement → stay paused… pero no
+            // para siempre: pasado `blindReleaseSeconds` a ciegas, se suelta.
+            guard let v = speedMps else {
+                aboveSince = nil
+                if blindSince == nil { blindSince = now }
+                if now - (blindSince ?? now) >= Self.blindReleaseSeconds {
+                    reset()
+                    return .release
+                }
+                return .none
+            }
+            blindSince = nil
             if v >= Self.releaseSpeedMps {
                 if aboveSince == nil { aboveSince = now }
                 if now - (aboveSince ?? now) >= Self.releaseDwellSeconds {
@@ -87,5 +107,6 @@ struct RunAutoPause {
         isEngaged = false
         belowSince = nil
         aboveSince = nil
+        blindSince = nil
     }
 }

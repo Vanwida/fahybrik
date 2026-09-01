@@ -71,6 +71,7 @@ interface AthleteReviewRow {
   full_name: string;
   review_cadence: ReviewCadence;
   created_at: Date;
+  coach_id: string | null;
 }
 
 /** Carga el atleta + su usuario. Ownership-gated cuando se pasa coach_id. */
@@ -80,7 +81,7 @@ async function loadAthlete(
 ): Promise<AthleteReviewRow | null> {
   const rows = await sql<AthleteReviewRow[]>`
     select a.id::text as athlete_id, u.id::text as user_id, u.email, a.full_name,
-           a.review_cadence, a.created_at
+           a.review_cadence, a.created_at, a.coach_id::text as coach_id
     from athletes a
     join users u on u.id = a.user_id
     where a.id = ${Number(athlete_id)}
@@ -166,14 +167,18 @@ export async function proposeReview(args: {
   `;
   if (recent[0]) return { proposed: false, reason: 'recent_proposal' };
 
-  const payload = JSON.stringify({
-    kind: REVIEW_PROPOSED_NOTIFICATION_KIND,
-    athlete_id: String(athlete.athlete_id),
-    coach_id: String(args.coach_id),
-  });
+  // `sql.json(...)` y NO `JSON.stringify(...)::jsonb`: con la segunda forma
+  // postgres.js vuelve a serializar la cadena y la columna guarda un jsonb de
+  // tipo *string*, con lo que el `payload_json->>'kind'` de aquí arriba (el
+  // anti-spam) y el de getAthleteReviewState no encuentran NUNCA la propuesta
+  // que acaban de escribir — y el atleta recibe la misma propuesta una y otra vez.
   await sql`
     insert into notifications (user_id, type, payload_json)
-    values (${Number(athlete.user_id)}, 'system', ${payload}::jsonb)
+    values (${Number(athlete.user_id)}, 'system', ${sql.json({
+      kind: REVIEW_PROPOSED_NOTIFICATION_KIND,
+      athlete_id: String(athlete.athlete_id),
+      coach_id: String(args.coach_id),
+    })})
   `;
   return { proposed: true };
 }
@@ -276,6 +281,7 @@ export async function bookAthleteReview(args: {
     durationMinutes: appointment.duration_minutes,
     athleteEmail: athlete.email,
     athleteName: athlete.full_name,
+    coach_id: athlete.coach_id != null ? BigInt(athlete.coach_id) : null,
   });
   if (meeting.meet_link) {
     await sql`

@@ -26,6 +26,11 @@ import {
   BENCH_HRR_60,
   BENCH_LTHR,
 } from './benchmark-slugs';
+import {
+  CMJ_PROFILE_PROTOCOL,
+  CMJ_PROFILE_RESULTS,
+  CMJ_PROFILE_SLUG,
+} from '../jump/protocol';
 import { STRENGTH_LIFTS } from '../strength/exercises';
 import type { Prescription } from '../prescription/types';
 import type { RunStructure } from '../prescription/run-structure';
@@ -251,6 +256,17 @@ export const DEFAULT_CALIBRATION_BATTERY: readonly CalibrationTestProtocol[] = [
     ],
     content: LTHR_30MIN_CONTENT,
   },
+  {
+    slug: CMJ_PROFILE_SLUG,
+    label: 'Perfil de salto (CMJ)',
+    format: 'test',
+    primary_modality: 'strength',
+    protocol: CMJ_PROFILE_PROTOCOL,
+    // Solo a request del coach: en el catálogo, nunca en semana 1.
+    week_offset: null,
+    day_of_week: null,
+    store_results: [...CMJ_PROFILE_RESULTS],
+  },
 ] as const;
 
 /** Every store_results spec flattened, keyed by slug (the bridge's routing table). */
@@ -367,6 +383,7 @@ export const BASELINE_MEASURE_UNITS: ReadonlyArray<{
   { measure: 'distance', unit: 'meters', label: 'Distancia' },
   { measure: 'reps', unit: 'reps', label: 'Repeticiones' },
   { measure: 'calories', unit: 'calories', label: 'Calorías' },
+  { measure: 'height', unit: 'cm', label: 'Altura de salto' },
 ];
 
 /**

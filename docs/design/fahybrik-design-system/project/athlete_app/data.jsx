@@ -1,4 +1,4 @@
-// Demo persona — Marc Vidal · HYROX BCN 2026 · 42 days out · REAL block w2d4
+// Demo persona — Marc Vidal · HYROX BCN 2026 · 42 days out · race-prep w2d4
 // Mirrors WorkoutPlan.demo and TodayView.swift demo data, expanded for prototype.
 
 const PERSONA = {
@@ -7,7 +7,7 @@ const PERSONA = {
   raceName: 'HYROX BCN',
   raceDate: new Date('2026-06-18'),
   daysToRace: 42,
-  block: 'REAL', week: 2, day: 4,
+  block: 'MC3', week: 2, day: 4,
   recoveryPct: 72,
   hrv: { value: 58, delta: '▲', unit: 'ms' },
   sleep: '7h 12m', rhr: 48,
@@ -33,7 +33,7 @@ const PLAN = {
   name: 'Sled Push + Wall Ball Circuit',
   format: 'For Time',
   durationEst: 52 * 60,
-  blockContext: 'REAL · sem 2 · día 4',
+  blockContext: 'MC3 · sem 2 · día 4',
   zoneTargets: [
     { z: 'Z3', pct: 60 }, { z: 'Z4', pct: 30 }, { z: 'Z5', pct: 10 },
   ],
@@ -60,10 +60,10 @@ const PLAN = {
 
 // Plan tab — 4 weeks of sessions (mes view)
 const WEEK_PLAN = [
-  { wk: 'W18', label: 'ACC w4',  days: ['AM Strength · Z2 long', 'AM Threshold · Skill', 'AM Hyrox · Recovery', 'AM Strength · Mob', 'AM VO2 · Sled', 'AM Long', 'Rest'] },
-  { wk: 'W19', label: 'TRANS w1', days: ['AM Strength', 'AM Threshold', 'AM Hyrox sim', 'AM Strength', 'Test 5K', 'Race-pace dress', 'Rest'] },
-  { wk: 'W20', label: 'REAL w1', days: ['AM Strength', 'AM Z3 Sharpen', 'PM Tempo', 'AM Strength', 'AM Race-pace', 'Dress rehearsal', 'Rest'] },
-  { wk: 'W21', label: 'REAL w2 (HOY)', current: true, days: ['Strength upper', 'Threshold 4×1k', 'Sled+WB ★', 'Mob', 'AM Z3 ·  PM Z2', 'Long', 'Rest'] },
+  { wk: 'W18', label: 'MC1 w4',  days: ['AM Strength · Z2 long', 'AM Threshold · Skill', 'AM Hyrox · Recovery', 'AM Strength · Mob', 'AM VO2 · Sled', 'AM Long', 'Rest'] },
+  { wk: 'W19', label: 'MC2 w1', days: ['AM Strength', 'AM Threshold', 'AM Hyrox sim', 'AM Strength', 'Test 5K', 'Race-pace dress', 'Rest'] },
+  { wk: 'W20', label: 'MC3 w1', days: ['AM Strength', 'AM Z3 Sharpen', 'PM Tempo', 'AM Strength', 'AM Race-pace', 'Dress rehearsal', 'Rest'] },
+  { wk: 'W21', label: 'MC3 w2 (HOY)', current: true, days: ['Strength upper', 'Threshold 4×1k', 'Sled+WB ★', 'Mob', 'AM Z3 ·  PM Z2', 'Long', 'Rest'] },
 ];
 
 // Day-by-day session list (Plan · semana view)

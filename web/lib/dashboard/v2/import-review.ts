@@ -15,6 +15,16 @@ import {
   isExecutable,
   blockingReasons,
 } from '@fahybrid/shared/domain/prescription';
+import {
+  hiddenEntryCount,
+  findTruncation,
+  pendingProposedFields,
+  proposedPathsByItem,
+  readProposedFields,
+  readTruncations,
+  type BlockTruncation,
+  type ProposedField,
+} from '@/lib/dashboard/v2/import-provenance';
 import type { EditorSession, EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import type { ProposalFlag, ProposalDay, ProposalWeek, ImportProposal } from '@/lib/import/build-proposal';
 
@@ -26,6 +36,10 @@ export interface MicroWeekRef {
   session_count: number;
 }
 
+// LEÍDO frente a PROPUESTO, y lo que la fuente cortó: los tipos y la lógica pura
+// viven en `./import-provenance`. Aquí solo se cuelgan del día y se le pregunta
+// por él, que es como los usa la pantalla.
+
 export interface ReviewDay {
   day_of_week: number;
   dow: string;
@@ -36,6 +50,16 @@ export interface ReviewDay {
    */
   sessions: EditorSession[];
   flags: ProposalFlag[];
+  /** Lo que el importador rellenó por el coach. Vacío = la fuente lo traía todo. */
+  proposed: ProposedField[];
+  /** Las tarjetas que la fuente cortó. Vacío = no se cortó nada. */
+  truncations: BlockTruncation[];
+  /**
+   * Lo que la fuente traía y NO era entreno: un «Semana 12», un «Control test
+   * salto». Es información del coach, así que no se tira — va a la nota del día
+   * (`WeekDay.notes`) al confirmar. Ausente = la fuente no traía ninguna.
+   */
+  notes?: string;
   /** Coach's selection — false = leave this day out of the import (not written,
    *  not counted, its unresolved lines stop blocking confirm). Rest days ignore it. */
   included: boolean;
@@ -56,13 +80,23 @@ export interface ReviewWeek {
 /** A day's honest tone for the grid. */
 export type DayTone = 'rest' | 'skipped' | 'ok' | 'review' | 'incomplete' | 'unresolved';
 
+// ── Lo que añade la rama de FOTO ──────────────────────────────────────────────
+// El servidor los declara en `ProposalDay` (build-proposal.ts), pero llegan por la
+// red dentro de un `as ImportProposal`, así que se validan igual al leerlos. El
+// Excel y el texto pegado no los traen: una propuesta sin ellos se revisa
+// exactamente igual que siempre.
+
 function fromProposalDay(d: ProposalDay): ReviewDay {
+  const sessions = d.sessions.map((s) => structuredClone(s));
   return {
     day_of_week: d.day_of_week,
     dow: d.dow,
     stimulus: d.stimulus,
-    sessions: d.sessions.map((s) => structuredClone(s)),
+    sessions,
     flags: d.flags,
+    proposed: readProposedFields(sessions, d.filled),
+    truncations: readTruncations(d.truncations),
+    ...(typeof d.notes === 'string' && d.notes.trim() ? { notes: d.notes.trim() } : {}),
     included: true,
   };
 }
@@ -169,6 +203,36 @@ export function dayIncompleteLines(day: ReviewDay): IncompleteLine[] {
   return day.sessions.flatMap((s) => sessionIncompleteLines(s));
 }
 
+// ── Lo propuesto y lo cortado, colgados del día ───────────────────────────────
+// La lógica es de `./import-provenance`; aquí solo se le pregunta por un día, que
+// es la forma en que lo usa la pantalla.
+
+/** Las propuestas que SIGUEN siendo propuestas: editar una la da por confirmada. */
+export function dayProposedFields(day: ReviewDay): ProposedField[] {
+  return pendingProposedFields(day.sessions, day.proposed);
+}
+
+/** Las rutas todavía propuestas por línea, para que el editor marque el campo. */
+export function dayProposedPaths(day: ReviewDay): Map<string, ReadonlyMap<string, string>> {
+  return proposedPathsByItem(day.sessions, day.proposed);
+}
+
+/** Da por buenas TODAS las propuestas del día de una vez. No cambia ni un valor:
+ *  lo que cambia es de quién son. */
+export function acceptDayProposals(day: ReviewDay): ReviewDay {
+  return day.proposed.length === 0 ? day : { ...day, proposed: [] };
+}
+
+/** Cuántas entradas dijo la fuente que escondía, sumando el día. */
+export function dayHiddenCount(day: ReviewDay): number {
+  return hiddenEntryCount(day.truncations);
+}
+
+/** El corte de UN bloque del día (0 o 1 en la práctica). */
+export function blockTruncation(day: ReviewDay, blockUid: string): BlockTruncation | null {
+  return findTruncation(day.truncations, blockUid);
+}
+
 function dayUnresolvedCount(day: ReviewDay): number {
   return day.sessions.reduce((n, s) => n + sessionUnresolvedCount(s), 0);
 }
@@ -186,14 +250,42 @@ function dayWrites(week: ReviewWeek, day: ReviewDay): boolean {
  *  unresolved exercise → red, any line with no dose → red, any review-confidence
  *  line → amber, else green. Ordered by what the coach must fix FIRST: pick the
  *  exercise, then prescribe it. Recomputed from the LIVE session so fixing a line
- *  turns a day green in place. */
+ *  turns a day green in place.
+ *
+ *  Lo cortado por la fuente y lo propuesto por el importador también son ámbar: no
+ *  impiden guardar (el coach puede querer la semana tal cual), pero un día con
+ *  trabajo sin ver o con valores que él no escribió no se puede pintar de verde.
+ *
+ *  ── OJO CON `confidence`, que tiene TRES valores ────────────────────────────
+ *  La comparación de abajo es `=== 'review'` a propósito, y NO `!== 'detected'`.
+ *  `incomplete` significa que la gramática supo el ejercicio pero no su dosis, y
+ *  ese es el estado NORMAL de una foto: una tarjeta lista «Band Pull Apart» sin
+ *  decir series ni reps. No es un error y casi siempre lo tapa el relleno por
+ *  defecto, que además lo deja marcado como propuesto. Si esto se relajara a
+ *  `!== 'detected'`, cada importación por foto saldría en ámbar por definición y
+ *  el aviso dejaría de significar nada.
+ *
+ *  Lo que SÍ atrapa una `incomplete` que nadie pudo tapar es el gate del dominio
+ *  (`dayIncompleteCount`, dos líneas más arriba): mira la prescripción de verdad,
+ *  no lo que dijo la gramática, así que una línea que sigue sin trabajo sale roja
+ *  y bloquea el confirmar. Los dos caminos no se pisan: uno juzga la lectura, el
+ *  otro el resultado. */
 export function dayTone(day: ReviewDay, weekIncluded = true): DayTone {
   if (day.sessions.length === 0) return 'rest';
   if (!weekIncluded || !day.included) return 'skipped';
   if (dayUnresolvedCount(day) > 0) return 'unresolved';
   if (dayIncompleteCount(day) > 0) return 'incomplete';
+  if (day.truncations.length > 0) return 'review';
+  if (dayProposedFields(day).length > 0) return 'review';
   if (day.flags.some((f) => f.confidence === 'review')) return 'review';
   return 'ok';
+}
+
+/** Líneas que la gramática NO pudo tipar en absoluto: se conservó su texto y hay
+ *  que mirarlas. Es lo único que pide OJOS del coach entre lo ámbar — un hueco
+ *  rellenado solo pide un visto bueno. */
+export function dayReviewLineCount(day: ReviewDay): number {
+  return day.flags.filter((f) => f.confidence === 'review').length;
 }
 
 /** Total unresolved-exercise lines across the INCLUDED days (the confirm gate).
@@ -249,12 +341,25 @@ interface WireItem {
   notes?: string;
 }
 
+// `group` and `coach_note` travel too. The serializer's contract is "input wins,
+// otherwise the ORIGINAL is preserved" — which is safe for the day editor, where
+// an original exists. On an IMPORT there is no original: the block is being born
+// here, so anything this function omits is not preserved, it is LOST.
+//
+// `coach_note` carries the prose the grammar could not type — and for a card like
+// "Bici Libre Z2", whose entire prescription is one sentence, that IS the workout.
+// Dropping it here would have read the coach's line, shown it in the review, and
+// then deleted it the moment they pressed confirm.
 function blockToWire(block: EditorBlock) {
   return {
     uid: block.uid,
     title: block.title,
     format: block.format,
     methodology_group_id: block.methodology_group_id ?? null,
+    ...(block.group ? { group: block.group } : {}),
+    ...(block.coach_note && block.coach_note.trim()
+      ? { coach_note: block.coach_note.trim() }
+      : {}),
     source_block_id: block.source_block_id ?? null,
     items: block.items.map(
       (it): WireItem => ({
@@ -284,6 +389,9 @@ export interface ConfirmBody {
     day_of_week: number;
     /** N sesiones del día. Posicional: [0]=am, [1]=pm. */
     sessions: Array<ReturnType<typeof sessionToWire>>;
+    /** La nota que traía la fuente, si traía alguna. El servidor decide cómo se
+     *  junta con la que el día ya tuviera: nunca machaca la del coach. */
+    notes?: string;
   }>;
   synonyms: Array<{ term: string; exercise_id: number }>;
 }
@@ -310,6 +418,7 @@ export function buildConfirmBody(microcycleId: string, weeks: ReviewWeek[]): Con
         target_week_template_id: target,
         day_of_week: d.day_of_week,
         sessions: d.sessions.map(sessionToWire),
+        ...(d.notes ? { notes: d.notes } : {}),
       });
 
       const flagByUid = new Map(d.flags.map((f) => [f.uid, f]));

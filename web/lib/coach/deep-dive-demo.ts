@@ -37,8 +37,7 @@ const DEMO_LOAD_COVERAGE = readLoadCoverage(
   ),
 );
 
-// Demo microciclo names — plausible coach DATA (agnostic strings, NOT a fixed
-// ACC/TRANS/REAL phase enum). Any string is valid here.
+// Demo microciclo names — coach DATA, any string is valid.
 const DEMO_MICROCICLOS = ['Base', 'Construcción', 'Pico'] as const;
 
 // ---------------------------------------------------------------------------

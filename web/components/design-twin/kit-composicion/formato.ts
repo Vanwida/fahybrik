@@ -30,6 +30,11 @@ export function ppm(v: number): string {
   return `${Math.round(v)} ppm`;
 }
 
+/** Volumen movido, en toneladas: `4740` (kg) → `4,74`. La unidad la pone quien llama. */
+export function toneladas(kilos: number): string {
+  return esDecimal(kilos / 1000, 2);
+}
+
 /** Ritmo de correr: segundos por km → `4:15/km`, sin espacio (§2). */
 export function ritmoKm(segundosPorKm: number): string {
   return `${reloj(segundosPorKm)}/km`;
@@ -64,4 +69,67 @@ export function haceCuanto(dias: number): string {
 export function delta(v: number, decimales = 1): string {
   const signo = v > 0 ? '+' : v < 0 ? '−' : '';
   return `${signo}${esDecimal(Math.abs(v), decimales)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Fecha corta y agregados — promovidos el 13-ago desde la tanda del hogar del
+// running (§2.1 del contrato): tres pantallas escribieron su copia local el
+// mismo día porque este fichero estaba bloqueado a agentes en paralelo, y una
+// cuarta escribió el tiempo agregado con OTRA grafía (`8:10`). Este es el
+// canónico; si ves una copia local de estos, es un duplicado: bórrala.
+//
+// La aritmética va sobre el string ISO (`YYYY-MM-DD`) en UTC a propósito: el
+// huso horario del navegador no decide en qué día cae una carrera.
+// ---------------------------------------------------------------------------
+
+const DIAS_ABREV = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const MESES_ABREV = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+function partesISO(iso: string): { y: number; m: number; d: number } {
+  const [y, m, d] = iso.split('-').map(Number);
+  return { y: y!, m: m!, d: d! };
+}
+
+/** 1=lunes … 7=domingo. */
+function diaSemanaISO(iso: string): number {
+  const { y, m, d } = partesISO(iso);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return dow === 0 ? 7 : dow;
+}
+
+/** «mar 11» — el día de una fila de listado. Sin mes: lo da su contexto. */
+export function diaCorto(iso: string): string {
+  const { d } = partesISO(iso);
+  return `${DIAS_ABREV[diaSemanaISO(iso) - 1]} ${d}`;
+}
+
+/** «4 ago» — la voz de `FechaES.corta` de iOS (§2). */
+export function fechaCorta(iso: string): string {
+  const { m, d } = partesISO(iso);
+  return `${d} ${MESES_ABREV[m - 1]}`;
+}
+
+/** «abr» — la marca de mes de un eje temporal. */
+export function mesCorto(iso: string): string {
+  const { m } = partesISO(iso);
+  return MESES_ABREV[m - 1]!;
+}
+
+/**
+ * Tiempo AGREGADO (el total de un periodo): `8h 10min` · `42 min`. Distinto de
+ * `reloj()`, que es la duración de UN esfuerzo — un total de mes en formato
+ * cronómetro (`40:12:33`) se lee como una carrera imposible, no como un mes.
+ */
+export function horasYMin(segundos: number): string {
+  const totalMin = Math.round(segundos / 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m} min`;
+}
+
+/** Millar con punto español: `1234` → `1.234`. Para km y desnivel acumulados. */
+export function conMillar(n: number): string {
+  const v = Math.round(Math.max(0, n));
+  if (v < 1000) return String(v);
+  return `${Math.floor(v / 1000)}.${String(v % 1000).padStart(3, '0')}`;
 }

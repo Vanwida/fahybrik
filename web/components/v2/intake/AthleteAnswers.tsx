@@ -200,9 +200,9 @@ function AvailCell({
     <span
       title={AVAIL_TITLES[value ?? 'rest']}
       className={cn(
-        'flex h-[26px] w-[26px] items-center justify-center rounded-[var(--v2-r-s)] border text-eyebrow font-bold',
+        'flex h-[26px] w-[26px] items-center justify-center rounded-[var(--v2-r-m)] border text-eyebrow font-bold',
         isProgram &&
-          'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]',
+          'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]',
         isOther &&
           'border-[color:var(--v2-border)] bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)]',
         !isProgram &&

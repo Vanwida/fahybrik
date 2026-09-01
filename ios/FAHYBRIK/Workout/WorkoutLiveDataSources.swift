@@ -25,9 +25,12 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     enum Status { case unknown, denied, authorized, active }
     var status: Status = .unknown
 
-    /// Called on the main actor with the incremental meters covered since the
-    /// previous fix. The session sums these into the current run segment.
-    var onDistanceDelta: ((Double) -> Void)?
+    // LA DISTANCIA YA NO SALE DE AQUÍ. La cuenta Apple (`RunPedometer`), que funde
+    // podómetro y GPS y sigue contando en un túnel. Aquí vivía nuestro acumulador con
+    // sus tres puertas, y ahí vivía el bug de los metros: el tope de 60 m tiraba
+    // cualquier hueco de señal de más de quince segundos. CoreLocation se queda sólo
+    // con lo que Apple no da: las COORDENADAS del recorrido y la VELOCIDAD instantánea
+    // que se pinta en pantalla.
 
     /// Called on every ACCURACY-GATED fix with CoreLocation's instantaneous speed
     /// (m/s) and its speed-accuracy (m/s; negative = invalid) — the source the
@@ -41,6 +44,12 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     /// route trace (#64) is well-spaced and free of standstill jitter.
     var onCoordinate: ((CLLocationCoordinate2D) -> Void)?
 
+    /// La altura sobre el nivel del mar del fix, con su precisión vertical (negativa
+    /// = no la sabe). No es para medir desnivel —la vertical del GPS es su peor
+    /// medida— sino para ponerle el cero al barómetro, que sí lo mide bien pero no
+    /// sabe desde dónde. Ver `RunAltimeter`. Fired per gated fix, como `onSpeed`.
+    var onAltitude: ((_ meters: Double, _ verticalAccuracy: Double) -> Void)?
+
     /// Latest fix's horizontal accuracy (m; negative = none yet) — the outdoor HUD
     /// classifies it into the honest "GPS fuerte / débil / buscando" badge.
     private(set) var latestHorizontalAccuracyM: Double = -1
@@ -49,13 +58,10 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
     private var lastLocation: CLLocation?
     private var isRunning = false
 
-    /// Horizontal-accuracy gate (meters). Fixes worse than this are dropped so a
-    /// poor GPS lock can't inject phantom distance. 25 m ≈ a usable urban fix.
-    private static let accuracyGateMeters: CLLocationAccuracy = 25
-    /// Minimum plausible step between fixes (meters). Below this is GPS jitter at
-    /// standstill; above ~40 m/s (≈144 km/h) is a spurious jump — both ignored.
+    /// Paso mínimo entre dos puntos del DIBUJO del recorrido (m). No cuenta metros —
+    /// eso es de Apple— sólo evita que la polilínea acumule el temblor de estar
+    /// parado. Es el mismo número que usa el filtro del sistema.
     private static let minStepMeters: CLLocationDistance = 2
-    private static let maxStepMeters: CLLocationDistance = 60
 
     override init() {
         super.init()
@@ -121,22 +127,25 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
         guard isRunning else { return }
         for loc in locations {
             latestHorizontalAccuracyM = loc.horizontalAccuracy
-            guard loc.horizontalAccuracy >= 0,
-                  loc.horizontalAccuracy <= Self.accuracyGateMeters else { continue }
+            // Un fix flojo no se mira: ni pinta recorrido ni da velocidad de fiar.
+            guard GPSSignalQuality.isFixUsable(horizontalAccuracyM: loc.horizontalAccuracy) else { continue }
             status = .active
             // Speed fires for EVERY good fix (auto-pause needs the standstill reading
             // that the min-step distance gate below would swallow).
             onSpeed?(loc.speed, loc.speedAccuracy)
-            if let prev = lastLocation {
-                let d = loc.distance(from: prev)
-                if d >= Self.minStepMeters && d <= Self.maxStepMeters {
-                    onDistanceDelta?(d)
-                    onCoordinate?(loc.coordinate)   // trace point on real movement
-                }
-            } else {
+            onAltitude?(loc.altitude, loc.verticalAccuracy)
+
+            // El RECORRIDO, que es lo único que se sigue derivando de los fixes: un
+            // punto por cada avance real, para que la polilínea no acumule jitter.
+            guard let prev = lastLocation else {
                 onCoordinate?(loc.coordinate)       // seed the trace at the first fix
+                lastLocation = loc
+                continue
             }
-            lastLocation = loc
+            if loc.distance(from: prev) >= Self.minStepMeters {
+                onCoordinate?(loc.coordinate)
+                lastLocation = loc
+            }
         }
     }
 

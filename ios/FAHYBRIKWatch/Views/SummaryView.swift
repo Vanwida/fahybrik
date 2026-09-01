@@ -1,103 +1,103 @@
 import SwiftUI
 
-// Finish summary — the honest close: a check, total time, two headline tiles
-// (rondas / bloques + FC media) and the "saved on the phone" note. A partial
-// finish reads as such (never a fake 'completed'). The detail (graphs, zones) is
-// the phone's job. "Listo" returns to the day's done state. Mockup 8 / 9.
+// AL TERMINAR, EN LA MUÑECA — un sujeto por página.
+//
+// Diseño (`watch-resumen`): la primera página es el número que cuenta (rondas
+// o tiempo), no un mosaico de celdas iguales. El pulso va en su página. Dobles
+// mantiene el toggle de compartir. "Listo" cierra.
 struct SummaryView: View {
     let session: WorkoutSession
-    /// #23 — owns the dobles share state (badge + "Compartir con {nombre}" toggle).
     let coordinator: WatchWorkoutCoordinator
     let onDone: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                header
-                HStack(spacing: 7) {
-                    MetricTile(label: leftTileLabel, value: leftTileValue)
-                    // El entreno ya ha terminado: si no hubo pulso, no hay nada que el
-                    // atleta pueda hacer al respecto, así que la celda SE CALLA en vez
-                    // de declarar el hueco (§6.2 bis). Un guion aquí solo ocupaba el
-                    // sitio de lo que sí se midió.
-                    if let avg = avgHR {
-                        MetricTile(label: Vocab.fcMedia, value: "\(avg)")
-                    }
-                }
-                // #23 — dobles: badge + the share decision. The toggle appears ONLY
-                // for a shareable (shared) dobles session; a self_only/individual
-                // session shows neither and logs solo (never shared silently — #22).
-                if coordinator.isDoublesResult {
-                    DoublesBadge(text: "DOBLES · con \(partnerName)")
-                }
-                if coordinator.isDoublesShareable {
-                    shareToggle
-                }
-                Text(saveNote)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                    .multilineTextAlignment(.center)
-                Button("Listo") { onDone() }
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundStyle(WatchTheme.orangeSoft)
-                    .buttonStyle(.plain)
-                    .padding(.top, 2)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-        }
-        .background(WatchTheme.bg.ignoresSafeArea())
+        WatchReloj(
+            paginas: paginas,
+            tinte: isPartial ? WatchTheme.zoneAmber : WatchTheme.zoneGreen
+        )
     }
 
-    private var partnerName: String { coordinator.partnerFirstNameResult ?? "tu compañero" }
+    // MARK: - Páginas
 
-    // The share decision, respecting self_only (this toggle only renders when the
-    // session is shareable). ON → the result links + shares with the partner; OFF →
-    // logs solo. Bound through the coordinator so it swaps the staged envelope.
-    private var shareToggle: some View {
-        Toggle(isOn: Binding(
-            get: { coordinator.shareWithPartner },
-            set: { coordinator.setShareWithPartner($0) }
-        )) {
-            Text("Compartir con \(partnerName)")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(WatchTheme.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+    private var paginas: [WatchPagina] {
+        var list: [WatchPagina] = []
+
+        // 1. El veredicto: completado / parcial + el reloj total.
+        list.append(WatchPagina(
+            id: "total",
+            contexto: isPartial ? "Parcial" : "Completado",
+            modo: .mando,
+            sujeto: WatchFormat.clock(session.elapsedSeconds),
+            segundoEtiqueta: leftTileLabel,
+            segundoValor: leftTileValue,
+            accion: "Toca · listo",
+            onToca: onDone,
+            nota: saveNote
+        ))
+
+        // 2. Rondas/bloques como sujeto propio si son el score.
+        if session.capturedScoreRounds != nil {
+            list.append(WatchPagina(
+                id: "score",
+                contexto: "Rondas",
+                modo: .mando,
+                sujeto: leftTileValue,
+                segundoEtiqueta: "Tiempo",
+                segundoValor: WatchFormat.clock(session.elapsedSeconds),
+                accion: "Toca · listo",
+                onToca: onDone
+            ))
         }
-        .tint(WatchTheme.orange)
-        .padding(.horizontal, 2)
-    }
 
-    // "Guardado en el iPhone", plus the share outcome so the athlete sees what will
-    // reach the partner (only for a shareable dobles session).
-    private var saveNote: String {
-        guard coordinator.isDoublesShareable else { return "Guardado en el iPhone" }
-        return coordinator.shareWithPartner
-            ? "Se guarda y se comparte con \(partnerName)"
-            : "Se guarda solo para ti"
-    }
-
-    private var header: some View {
-        VStack(spacing: 5) {
-            ZStack {
-                Circle().fill(accentColor).frame(width: 34, height: 34)
-                Image(systemName: isPartial ? "flag.checkered" : "checkmark")
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(WatchTheme.greenOn)
-            }
-            WatchLabel(text: isPartial ? "Parcial" : "Completado", accent: true)
-            GiantNumber(text: WatchFormat.clock(session.elapsedSeconds), size: 44)
+        // 3. Pulso medio, si lo hubo.
+        if let avg = avgHR {
+            list.append(WatchPagina(
+                id: "fc",
+                contexto: Vocab.fcMedia,
+                modo: .mando,
+                sujeto: "\(avg)",
+                segundoValor: "ppm",
+                accion: "Toca · listo",
+                onToca: onDone
+            ))
         }
+
+        // 4. Dobles: decisión de compartir (sólo si aplica).
+        if coordinator.isDoublesShareable {
+            list.append(WatchPagina(
+                id: "dobles",
+                contexto: "Dobles · \(partnerName)",
+                modo: .mando,
+                sujeto: coordinator.shareWithPartner ? "Sí" : "No",
+                segundoValor: "Compartir resultado",
+                accion: coordinator.shareWithPartner
+                    ? "Toca · solo para ti"
+                    : "Toca · compartir",
+                onToca: {
+                    coordinator.setShareWithPartner(!coordinator.shareWithPartner)
+                },
+                nota: saveNote
+            ))
+        } else if coordinator.isDoublesResult {
+            list.append(WatchPagina(
+                id: "dobles-badge",
+                contexto: "Dobles",
+                modo: .mando,
+                sujeto: partnerName,
+                segundoValor: "con tu pareja",
+                accion: "Toca · listo",
+                onToca: onDone
+            ))
+        }
+
+        return list
     }
 
     // MARK: - Derived
 
+    private var partnerName: String { coordinator.partnerFirstNameResult ?? "pareja" }
     private var isPartial: Bool { session.completeness == .partial }
-    private var accentColor: Color { isPartial ? WatchTheme.zoneAmber : WatchTheme.zoneGreen }
 
-    // Rondas when the format is round-scored; otherwise the honest count of blocks
-    // the athlete moved through.
     private var leftTileLabel: String { session.capturedScoreRounds != nil ? "Rondas" : "Bloques" }
     private var leftTileValue: String {
         if let rounds = session.capturedScoreRounds { return "\(rounds)" }
@@ -108,5 +108,12 @@ struct SummaryView: View {
         let avgs = session.laps.compactMap(\.avgHRBpm)
         guard !avgs.isEmpty else { return nil }
         return avgs.reduce(0, +) / avgs.count
+    }
+
+    private var saveNote: String {
+        guard coordinator.isDoublesShareable else { return "Guardado en el iPhone" }
+        return coordinator.shareWithPartner
+            ? "Se comparte con \(partnerName)"
+            : "Solo para ti"
     }
 }

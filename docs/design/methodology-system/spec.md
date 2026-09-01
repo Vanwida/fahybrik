@@ -53,7 +53,7 @@ type Rule = {
 ### Resolución de conflictos (global)
 1. **Prioridad:** `critical > high > medium > low`. Seguridad (overtraining, skip) anula progresión.
 2. **Severidad dentro de igual prioridad:** se aplica la más conservadora — `skip > reschedule > swap_session > swap_modality > downgrade_intensity > keep`. Intra-sesión: `cut_reps`/`cut_sets`/`walk_jog` ganan a `scale_load`.
-3. **Coherencia de dirección:** si dos reglas empujan opuesto (subir vs bajar), gana la que **baja** (criterio conservador). Excepción: en `REAL`/taper, `days_to_race` manda.
+3. **Coherencia de dirección:** si dos reglas empujan opuesto (subir vs bajar), gana la que **baja** (criterio conservador). Excepción: en taper, `days_to_race` manda.
 4. **Scope:** la regla de scope más específico gana a igual prioridad.
 5. **Agregación temporal:** no se actúa por evento aislado — `*_consecutive`/`window` exigidos por diseño (anti-overreacción).
 6. **Una propuesta por semana:** acciones cross-session de la misma `week_start` se consolidan en UN `week_adjustment_proposal` (la tabla ya impone `pending uniq (athlete_id, week_start)`).
@@ -65,7 +65,7 @@ type Rule = {
 ## 3. Vocabulario exhaustivo (condiciones / acciones)
 
 ### Condiciones (`ConditionMetric` | operador típico | unidad | fuente)
-`hrv_delta_vs_baseline` `<`/`between`/`trend_down` pct wearable · `hrv_ms` `<` ms wearable · `resting_hr` `>`/`trend_up` bpm wearable · `resting_hr_delta_vs_baseline` `>` bpm wearable · `sleep_hours` `<` h wearable · `sleep_quality` `<=` 1-5 checkin · `soreness` `>=` 1-5 checkin · `fatigue` `>=` 1-5 checkin · `mood` `<=` 1-5 checkin · `motivation` `<=` 1-5 checkin · `stress_level` `>=` 1-10 checkin · `sub_score` `<` 0-100 checkin · `readiness_score` `<` 0-100 derived · `perceived_effort_presession` `>` 0-10 checkin · `rpe_live` `>=` 0-10 logged_set · `rir_live` `<=` reps logged_set · `pace_drift_intra` `>` s/km|s/500m live · `pace_consistency` `>`/`<` s/km live · `pace_vs_target` `>` s/km|pct live · `hr_zone_current` `=`/`>=` 1-5 live · `hr_above_ceiling_duration` `>` s live · `time_in_zone_pct` `<` pct derived · `decoupling` `>` pct derived · `hrr60` `<` bpm derived · `sessions_missed` `>=` count plan · `sessions_missed_consecutive` `>=` count plan · `days_behind_plan` `>=` days plan · `pct_plan_completed` `<` pct plan · `perceived_difficulty` `in` {too_easy,ok,too_hard} checkin · `rpe_vs_target_delta` `>` points derived · `pace_pr_trend` flat (plateau) derived · `load_progression_stalled` =true derived · `overtraining_composite` `>=` score derived · `days_to_race` `<` days plan · `block_phase` `in` {ACC,TRANS,REAL} plan · `is_taper_window` =true plan · `injury_flag`/`injury_active(area)` =true checkin · `missing_equipment(item)` =true plan · `modality_score(m)` `<=`/`>=` 1-5 derived · `level` 1-4 · `goal_type`/`division`/`age`/`sex`.
+`hrv_delta_vs_baseline` `<`/`between`/`trend_down` pct wearable · `hrv_ms` `<` ms wearable · `resting_hr` `>`/`trend_up` bpm wearable · `resting_hr_delta_vs_baseline` `>` bpm wearable · `sleep_hours` `<` h wearable · `sleep_quality` `<=` 1-5 checkin · `soreness` `>=` 1-5 checkin · `fatigue` `>=` 1-5 checkin · `mood` `<=` 1-5 checkin · `motivation` `<=` 1-5 checkin · `stress_level` `>=` 1-10 checkin · `sub_score` `<` 0-100 checkin · `readiness_score` `<` 0-100 derived · `perceived_effort_presession` `>` 0-10 checkin · `rpe_live` `>=` 0-10 logged_set · `rir_live` `<=` reps logged_set · `pace_drift_intra` `>` s/km|s/500m live · `pace_consistency` `>`/`<` s/km live · `pace_vs_target` `>` s/km|pct live · `hr_zone_current` `=`/`>=` 1-5 live · `hr_above_ceiling_duration` `>` s live · `time_in_zone_pct` `<` pct derived · `decoupling` `>` pct derived · `hrr60` `<` bpm derived · `sessions_missed` `>=` count plan · `sessions_missed_consecutive` `>=` count plan · `days_behind_plan` `>=` days plan · `pct_plan_completed` `<` pct plan · `perceived_difficulty` `in` {too_easy,ok,too_hard} checkin · `rpe_vs_target_delta` `>` points derived · `pace_pr_trend` flat (plateau) derived · `load_progression_stalled` =true derived · `overtraining_composite` `>=` score derived · `days_to_race` `<` days plan · `block_phase` `in` {coach-named microciclos} plan · `is_taper_window` =true plan · `injury_flag`/`injury_active(area)` =true checkin · `missing_equipment(item)` =true plan · `modality_score(m)` `<=`/`>=` 1-5 derived · `level` 1-4 · `goal_type`/`division`/`age`/`sex`.
 
 ### Acciones (`ActionVerb` | params)
 `keep` · `skip{session,reason}` · `swap_session{from,to_template|to_modality}` · `swap_modality{exercise,to_modality}` · `scale_load{pct:±N,scope}` · `set_load_pct_rm{to_pct}` · `cut_reps{to|by,scope}` · `add_reps{by}` · `cut_sets{to}` · `reduce_volume{pct,scope}` · `increase_volume{pct}` · `downgrade_intensity{to_zone|to_rpe|to_pace_offset}` · `upgrade_intensity{to_zone|to_rpe}` · `walk_jog{duration_s,until}` · `walk_break{duration_s}` · `cap_pace{ceiling}` · `cap_hr{ceiling_bpm|zone}` · `extend_recovery{between_reps_s|rest_hours}` · `reschedule{to_day,reason}` · `insert_session{type,duration_min}` · `remove_session{id}` · `redistribute_week{strategy}` · `deload_week{pct,keep_intensity}` · `lower_next_week{pct,dimension}` · `progress_next_week{pct}` · `repeat_block{phase}` · `advance_block{to_phase}` · `forbid_selection` · `require_swap(modality)` · `cap_intensity(zone)` · `set_emphasis{group_id,×mult}` · `set_station_loads{M|W}` · `select_level_variant{N}` · `flag_coach{severity,message}` · `notify_athlete{message,tone}` · `request_feedback{question}` · `set_adaptive_flag{flag}` · `no_op_log_only`.
@@ -81,48 +81,48 @@ type Rule = {
 Capa de validación global: toda salida de la IA pasa por estos no-negociables antes de entregarse; si los viola → descarta y reintenta, o escala a Pablo.
 - `hard_rules` | rule-builder | reglas CUANDO→ENTONCES con scope (global|block|group 1-10) | default: 14 reglas pre-cargadas (abajo) | sí
 - `philosophy_narrative` | nl+ai | texto indexado a RAG, lo escribe el coach | default: vacío | sí
-- `keystone_session_by_block` | matrix | {ACC,TRANS,REAL} × keystone_group_id (FK 1-10) + protect_rule(never_skip|swap_if_fatigued|reduce_volume) | default: ACC→g5 Zona2 `never_skip`; TRANS→g4 Series Running `swap_if_fatigued`; REAL→g7 Simulaciones `reduce_volume` (seed #7 "SESIÓN MÁS IMPORTANTE EN ACC", #8 threshold) | sí
+- `keystone_session_by_block` | matrix | {coach-named microciclos} × keystone_group_id (FK 1-10) + protect_rule(never_skip|swap_if_fatigued|reduce_volume) | default: volume→g5 Zona2 `never_skip`; threshold→g4 Series Running `swap_if_fatigued`; race-prep→g7 Simulaciones `reduce_volume` (seed #7 "SESIÓN MÁS IMPORTANTE EN VOLUME", #8 threshold) | sí
 - `deload_policy` | matrix | every_n_weeks + volume_drop_pct(0-50) + keep_intensity | default: cada 4ª sem, −40% vol, intensidad mantenida | sí
 - `intensity_spacing_min_hours` | number+unit | h | default: 6 (example-templates §5; seed #1 "PM en 6+ horas") | sí
 - `max_consecutive_high_intensity_days` | number | 1-7 | default: 1 | sí
 - `decoupling_target_pct` | number+unit | % | default: <5% Z2; >8%→−15% vol siguiente (seed #2,#7) | sí
 
-**14 no-negociables pre-cargados** (resumen; viven en el store): máx 1 día alta intensidad seguido · ACC no glycolítico (flag) · Z2 long keystone never_skip (swap a row si HRV<-15%) · 6h entre fuerza pesada y otra sesión · deload semana%4 −40% vol · decoupling>8%→−15% vol · HRV<-10% o sleep<6h→reschedule benchmark · HRV<-15% o soreness≥4→skip PM protegida · REAL día≤7 forbid Z5 sharpeners (taper) · REAL día≤10 fuerza→−30% carga+vol · intervals: última rep=primera ±tol, si drift>umbral→corta reps · full-sim máx 1× en REAL · **completitud de prescripción**: fuerza sin {reps,carga,RIR/RPE,tempo,descanso}→forbid; run/ergo sin (medida+objetivo)→forbid.
+**14 no-negociables pre-cargados** (resumen; viven en el store): máx 1 día alta intensidad seguido · volume no glycolítico (flag) · Z2 long keystone never_skip (swap a row si HRV<-15%) · 6h entre fuerza pesada y otra sesión · deload semana%4 −40% vol · decoupling>8%→−15% vol · HRV<-10% o sleep<6h→reschedule benchmark · HRV<-15% o soreness≥4→skip PM protegida · race-prep día≤7 forbid Z5 sharpeners (taper) · race-prep día≤10 fuerza→−30% carga+vol · intervals: última rep=primera ±tol, si drift>umbral→corta reps · full-sim máx 1× en race-prep · **completitud de prescripción**: fuerza sin {reps,carga,RIR/RPE,tempo,descanso}→forbid; run/ergo sin (medida+objetivo)→forbid.
 
 ### Área 2 — Periodización (del coach) `[selection]`
 El atleta no la toca; ve su resultado (bloque actual, semanas a carrera) con vocabulario athlete-facing.
-- `block_type` | select | ACC|TRANS|REAL (enum `atrBlockType`, `_primitives.ts:58`) | fijos | sí
+- `block_type` | select | coach-named keys (string keys the coach names) | fijos | sí
 - `block_label_athlete` | text (1/bloque) | — | lo nombra el coach; el producto no trae catálogo | sí
-- `block_duration_weeks` | number+unit | 1-8 | ACC=5, TRANS=4, REAL=3 (ground-truth `assignment_microciclo`; coherente con day_position w3/w2/w1) | sí
-- `block_objective` | multiselect | volumen_aerobico|densidad_muscular|umbral_anaerobico|lactate_clearance|pace_consistency|especificidad_carrera|peaking_freshness|mantenimiento_fuerza | ACC=[volumen_aerobico,densidad_muscular]; TRANS=[umbral_anaerobico,lactate_clearance,pace_consistency]; REAL=[especificidad_carrera,peaking_freshness,mantenimiento_fuerza] (coach_notes) | sí
-- `block_intensity_ceiling` | select | Z2|Z3|Z4|Z5 | ACC=Z2, TRANS=Z4, REAL=Z5 | sí
-- `block_sequence_order` | number | 1..n | ACC=1→TRANS=2→REAL=3 | sí
+- `block_duration_weeks` | number+unit | 1-8 | defaults 5 / 4 / 3 weeks (ground-truth `assignment_microciclo`; coherente con day_position w3/w2/w1) | sí
+- `block_objective` | multiselect | volumen_aerobico|densidad_muscular|umbral_anaerobico|lactate_clearance|pace_consistency|especificidad_carrera|peaking_freshness|mantenimiento_fuerza | defaults by microciclo (volume / threshold / race-prep intents) (coach_notes) | sí
+- `block_intensity_ceiling` | select | Z2|Z3|Z4|Z5 | defaults Z2 / Z4 / Z5 | sí
+- `block_sequence_order` | number | 1..n | order = the coach's sequence | sí
 - `assignment_unit` | toggle (read-only) | block | `block` (no week/month — las semanas salen solas) | sí
-- `block_count_to_race` | matrix expandible | int/celda | macrociclo único ACC(5)+TRANS(4)+REAL(3)=12 sem; si <12 sem, recortar desde inicio de ACC (REAL siempre completo) | sí — **[confirmar con Pablo: multi-macrociclo para carreras lejanas]**
+- `block_count_to_race` | matrix expandible | int/celda | macrociclo único 12 sem in the coach's sequence; si <12 sem, recortar desde el primer microciclo (el último siempre completo) | sí — **[confirmar con Pablo: multi-macrociclo para carreras lejanas]**
 
-Reglas: `weeks_to_race==3→set_block(REAL)`; `REAL & weeks_to_race<=1→taper profundo`; `weeks_to_race<12→truncate_block(ACC)`.
+Reglas: `weeks_to_race==3→set last microciclo`; `last microciclo & weeks_to_race<=1→taper profundo`; `weeks_to_race<12→truncate first microciclo`.
 
 ### Área 3 — Progresión intra-bloque `[selection]`
 Misma plantilla sube carga/volumen sola semana a semana; deload marcado como "semana de descarga".
-- `progression_shape_volume` | select | lineal|escalon|onda | ACC=lineal | sí
-- `progression_shape_intensity` | select | lineal|escalon|onda | ACC=escalon (75%→78%/sem), REAL=onda (mantiene) | sí
-- `weekly_volume_delta` | number+unit | % | ACC +5-10%/sem hasta deload | sí
-- `intensity_ramp_strength` | number+unit | % 1RM | ACC 60-80%, REAL 80-87% ("MANTENER fuerza, no PR") | sí
-- `target_rpe_by_block` | matrix | bloque × tipo trabajo, RPE 1-10 | ACC fuerza 7/circuit 6; TRANS 8; REAL strength 8/race-sim 9 | sí
+- `progression_shape_volume` | select | lineal|escalon|onda | volume=lineal | sí
+- `progression_shape_intensity` | select | lineal|escalon|onda | volume=escalon (75%→78%/sem), race-prep=onda (mantiene) | sí
+- `weekly_volume_delta` | number+unit | % | volume +5-10%/sem hasta deload | sí
+- `intensity_ramp_strength` | number+unit | % 1RM | volume 60-80%, race-prep 80-87% ("MANTENER fuerza, no PR") | sí
+- `target_rpe_by_block` | matrix | bloque × tipo trabajo, RPE 1-10 | volume fuerza 7/circuit 6; threshold 8; race-prep strength 8/race-sim 9 | sí
 - `deload_trigger` | select | every_n_weeks|last_week_of_block|readiness_based|none | last_week_of_block + readiness overlay | sí
 - `deload_volume_reduction_pct` | slider | 10-50% | −15% (seed "bajar volumen 15%"); −30% pre-race | sí
-- `deload_intensity_reduction_pct` | slider | 0-40% | REAL pre-race −15-18% (85%→70%); deload normal solo baja volumen | sí
+- `deload_intensity_reduction_pct` | slider | 0-40% | race-prep pre-race −15-18% (85%→70%); deload normal solo baja volumen | sí
 
-Reglas: `decoupling>8→reduce_volume(15) next week`; `pace_drift>5s/km→cut a 4 reps`; `ACC week++→increase_load(3%)`; `weeks_to_race<10 strength→reduce a 70%+vol −30%`; `REAL→hold_load(85%×3)`.
+Reglas: `decoupling>8→reduce_volume(15) next week`; `pace_drift>5s/km→cut a 4 reps`; `volume week++→increase_load(3%)`; `weeks_to_race<10 strength→reduce a 70%+vol −30%`; `race-prep→hold_load(85%×3)`.
 
 ### Área 4 — Estructura semanal `[selection]`
 - `sessions_per_week_by_level` | matrix | nivel × disponibilidad, int 3-14 | L1=4, L2=6, L3=8-10 (élite 2x/día 4-5 días) | sí
 - `two_a_day_enabled_by_level` | matrix | toggle | L1=no, L2=parcial, L3=sí | sí
-- `modality_mix_pct` | matrix | bloque × modalidad (run/erg/strength/hyrox-sim/recovery), %=100 | ACC=Z2+strength dominante; TRANS=threshold+erg+estaciones; REAL=race-sim+race-pace+strength-mant+recovery | sí
+- `modality_mix_pct` | matrix | bloque × modalidad (run/erg/strength/hyrox-sim/recovery), %=100 | volume=Z2+strength; threshold=threshold+erg+estaciones; race-prep=race-sim+race-pace+strength-mant+recovery | sí
 - `hard_easy_pattern` | select | hard_easy_alt|2hard_1easy|block_undulating | hard_easy_alt | sí
 - `am_pm_pairing_rules` | rule-builder | pares modalidad | strength(lower)→Z2 long; intervals(race-pace)→circuit recovery; gap≥6h | sí (si 2x/día)
 - `non_adjacent_session_types` | multiselect-pairs | — | {threshold,strength}, {threshold,intervals} no pegados | sí
-- `key_session_per_week` | select/bloque | format | ACC=Z2 long; TRANS=threshold; REAL=hyrox_sim | sí
+- `key_session_per_week` | select/bloque | format | volume=Z2 long; threshold=threshold; race-prep=hyrox_sim | sí
 - `min_separation_strength_cardio_hours` | number+unit | 0-12 | 6 | sí
 - `rest_day_placement` | select | post_hardest|mid_week|pre_race_sim|fixed | post_hardest_session | sí
 
@@ -132,7 +132,7 @@ Traduce "Z2/@RPE7/race pace/split 2:00" → número concreto por atleta usando l
 - **Pace run:** ancla `5K` (`time_5k_seconds`→pace5K; fallbacks 10K/1milla/threshold). Offsets s/km sobre pace5K: Z1 +95..125 · Z2 +75..95 · Z3 +35..50 · Z4 +5..15 · Z5 −20..−10 · HYROX race +50..60. Salida `Target{pace,per_km}`.
 - **Ergo:** ancla row `2K` (split2K), ski `1K`. Offsets s/500m sobre split2K: Z1 +20..25 · Z2 +12..18 · Z3 +5..9 · Z4 +0..4 · Z5 −8..−3. Bike %FTP Coggan (Z2 56-75%…). Salida `Target{pace,per_500m}` / watts.
 - **Ajustes de máquina** (damper/stroke) = params del segmento, NO intensidad (no caben en Target): SkiErg damper 6-8/stroke 28-32; Row recovery 3-5/18-20; Row work 5-7/26-30.
-- **RPE/RIR:** escala `RPE_0_10_CR10` (RPE_MAX=10). RIR por bloque: ACC 2-3, TRANS 1-2, REAL 1-2. Tabla `rpe_to_pct1rm_table` (RTS) para resolver kg cuando hay RPE+reps sin %RM.
+- **RPE/RIR:** escala `RPE_0_10_CR10` (RPE_MAX=10). RIR por microciclo: volume 2-3, threshold 1-2, race-prep 1-2. Tabla `rpe_to_pct1rm_table` (RTS) para resolver kg cuando hay RPE+reps sin %RM.
 
 Reglas: `lthr presente→anchor LTHR`; `lthr ausente→LTHR≈0.88·HRmax`; `sin HR→Tanaka, marcar zona "estimada, testear w1"`; `label="race pace" & a_event→pace=goal_time/8000m`; ver Área 7 para HR>techo Z2.
 
@@ -147,11 +147,11 @@ Cada test → un campo del onboarding → un ancla → las zonas/cargas. Re-test
 - `recalc_propagation` | matrix | nuevo 1RM_squat→%RM squat+accesorios; lthr→todas zonas HR; tt_5k→zonas pace; tt_2k/1k_ski→zonas erg; ftp→zonas bike | sí
 - `progression_caps` | matrix | 1RM≤+7.5%/re-test, pace5K≤−3%/bloque; si excede→flag "verificar dato", no auto-aplicar | sí
 
-Reglas: `onboarding vacío→test en w1 ACC`; `inicio bloque→re-test anclas`; `nuevo 1RM & Δ≤7.5%→propagar tras aprobación`; `sin 1RM>12sem→prescribir por RPE`; `HRV<-10% o sleep<6h día de test→reprogramar`; `race<10d→no tests 1RM/all-out`.
+Reglas: `onboarding vacío→test en w1 volume`; `inicio bloque→re-test anclas`; `nuevo 1RM & Δ≤7.5%→propagar tras aprobación`; `sin 1RM>12sem→prescribir por RPE`; `HRV<-10% o sleep<6h día de test→reprogramar`; `race<10d→no tests 1RM/all-out`.
 
 ### Área 6 — Gates de readiness `[pre_session]`
 - `hrv_skip_threshold_pct`=−15 · `hrv_modify_threshold_pct`=−10 · `sleep_min_hours`=6 · `soreness_skip_threshold`=4 · `presession_rpe_skip_threshold`=5 · `gate_logic`=ANY_triggers · `session_criticality`=key|complementary|optional · `default_modify_action`=swap_modality(run→row Z2 30min) · `coach_gate_note` (nl+ai).
-- Reglas reales: `HRV<-15% O sleep<6h O soreness≥4→skip` (critical, seed #6); `HRV<-10% O sleep<6h (threshold)→reschedule d2` (high, seed #3); `HRV<-15% (post-fuerza ACC)→swap PM run a row Z2 30min` (high, seed #1); `RPE_pre>5 (complementaria)→skip` (medium, seed #6); `HRV trend_down & sub_score<40 & planned_rpe≥8→set_adaptive_flag+flag_coach` (high, 0010).
+- Reglas reales: `HRV<-15% O sleep<6h O soreness≥4→skip` (critical, seed #6); `HRV<-10% O sleep<6h (threshold)→reschedule d2` (high, seed #3); `HRV<-15% (post-fuerza volume)→swap PM run a row Z2 30min` (high, seed #1); `RPE_pre>5 (complementaria)→skip` (medium, seed #6); `HRV trend_down & sub_score<40 & planned_rpe≥8→set_adaptive_flag+flag_coach` (high, 0010).
 - `session_criticality` modula: si `key`, un skip de gate se degrada a `flag_coach+reschedule` (no se tira la sesión clave sin avisar a Pablo).
 
 ### Área 7 — Autorregulación intra-sesión `[intra_session]`
@@ -251,7 +251,7 @@ Gobierna CADA mensaje IA→atleta; se inyecta como system-context en toda genera
 ## 7. Items pre-cargados a confirmar con Pablo (no bloquean el diseño)
 
 Son defaults que Pablo confirma/edita EN el formulario (es su propósito). No son huecos del modelo:
-1. Multi-macrociclo: `block_count_to_race` asume 1 ciclo de 12 sem; si encadena varios ACC→TRANS→REAL para carreras lejanas, la matriz necesita fila "nº repeticiones".
+1. Multi-macrociclo: `block_count_to_race` asume 1 ciclo de 12 sem; si encadena varios microciclos encadenados para carreras lejanas, la matriz necesita fila "nº repeticiones".
 2. Sled Pull pesos (M+78/W+52) = estándar HYROX Open, no del seed.
 3. `race_morning` e `intra_race` (nutrición) = estándar de mercado, no del seed.
 4. 2 reglas de desviación (deload por 3 missed; thresholds too_easy/plateau) = `system_default`, no cita literal.

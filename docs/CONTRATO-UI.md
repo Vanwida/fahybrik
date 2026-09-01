@@ -26,6 +26,7 @@ necesitarlo (así nacieron las duplicaciones del kit de HUD).
 |---|---|---|
 | Acción principal anclada abajo | `.anchoredAction { }` | `Theme/ScreenScaffold.swift` |
 | Repartir la altura / centrar | `CenteredScreen` | `Theme/ScreenScaffold.swift` |
+| Que el contenido LLENE el alto y scrollee si desborda | `FillingScreen` | `Theme/ScreenScaffold.swift` |
 | Estado vacío o de error | `RedesignEmptyState` (la salida es **obligatoria por tipo**) | `Theme/ScreenScaffold.swift` |
 | Hoja de 1-3 campos | `.compactSheet()` | `Theme/ScreenScaffold.swift` |
 | Botón primario | `ExpertPrimaryButton` | `Theme/` |
@@ -33,8 +34,17 @@ necesitarlo (así nacieron las duplicaciones del kit de HUD).
 | Número grande | `HeroNumber` | `Theme/Atoms.swift` |
 | Etiqueta en mayúsculas | `LabelText` · `SectionLabel` | `Theme/` |
 | Cifra monoespaciada | `MonoText` | `Theme/` |
+| Pastilla que enseña un DATO (no un control) | `InfoPill` | `Theme/Atoms.swift` |
+| Marcador de carga en frío | `SkeletonBar` | `Theme/Atoms.swift` |
 | Separador | `Hairline` | `Theme/` |
 | Punto de modalidad | `ModalityDot` | `Theme/RedesignComponents.swift` |
+| Insignias de sesión | `LibreBadge` · `TestBadge` · `SlotBadge` | `Theme/RedesignComponents.swift` |
+
+`FillingScreen` es la estrategia `llena` del §6.1 hecha pieza, y es la que faltaba: un
+`ScrollView` a secas solo resuelve el desbordamiento y deja el caso corto apilado arriba; un
+`VStack` a secas solo resuelve el caso corto y recorta a tamaño accesible. `FillingScreen` propone
+el alto visible al contenido, así que el hijo que declare `.frame(maxHeight: .infinity)` se queda
+el sobrante y, cuando el contenido crece, scrollea.
 
 **Prohibido**: pintar a mano un botón con `Text` + `frame` + `background`, escribir un estado
 vacío con un `CardSurface` y una frase, o dibujar un `Circle()` donde va un `ModalityDot`.
@@ -54,6 +64,8 @@ no puedan escribir el mismo dato de dos maneras.
 | Decimales | `Formato.esDecimal(_:)` | `42,4` — **jamás** `String(format:"%.1f")` en texto de cara al atleta |
 | Carga | `Formato.kg(_:)` | `82,5 kg` |
 | Unidad de ritmo | `Formato.UnidadRitmo` | `/km` · `/500m` · `/mi` |
+| Porcentaje | `Formato.porcentaje(fraccion:)` | `67 %` — entra una **fracción 0…1**, que es como lo sirve el servidor pese a llamarlo `pct` |
+| Fecha | `FechaES.larga(_:)` · `.corta(_:)` | `3 de julio` · `3 jul` — entra un ISO `YYYY-MM-DD` |
 
 **Las variantes se piden POR PARÁMETRO, nunca escribiendo una segunda función** — la
 segunda función es exactamente como nació este problema:
@@ -112,6 +124,39 @@ Las palabras viven en **`Vocab`** (mismo fichero, `Theme/Formato.swift`): `Vocab
   valor categórico gana a su etiqueta **por peso y un escalón de tamaño en la tipografía de
   texto**, no convirtiéndose en un instrumento de medida.
 - Nada de medios puntos ni de dos niveles separados por 1 pt: eso no es jerarquía, es ruido.
+
+### 4.1 · El suelo tipográfico — en el iPhone, nada por debajo de 15 pt
+
+Se lee de pie, sudando, con el móvil a un brazo y a veces con la vista cansada de un entreno.
+Una etiqueta a 9 pt no es discreta: es texto que el atleta no lee, y entonces el dato que hay
+al lado no significa nada porque nadie sabe qué es.
+
+| Papel | Suelo |
+|---|---|
+| Etiqueta, apoyo, unidad, cabecera de columna, pie de gráfica | **15 pt** |
+| Cuerpo y texto de lista | **17 pt** |
+| Título de sección | **24 pt**, peso fuerte |
+| Un dato de la sesión | **28 pt** |
+| El sujeto de la pantalla | manda él, y muy por encima del resto |
+
+**No hay excepción por «es que no cabe».** Si a 15 pt no cabe, sobra texto o es otra pantalla:
+el tamaño no es la variable de ajuste, el contenido sí. En el reloj el suelo es **16 pt** (su
+rediseño lo fijó ahí y por la misma razón, ver card 103).
+
+### 4.2 · Contraste — se mide, no se estima
+
+Todo texto cumple **WCAG AA** sobre el fondo REAL que le toca, que en una tarjeta no es el
+fondo de la pantalla: **4,5:1** el texto normal, **3:1** el texto grande (≥ 24 pt, o ≥ 19 pt en
+negrita) y lo no textual que porta significado (el trazo de una gráfica, el borde de un
+control).
+
+Y se comprueba con número. La función ya existe (`contrastRatio`, en el acento del club) y una
+comprobación cuesta una línea; «se ve bien» no es una comprobación.
+
+Dato útil, medido: sobre el casi negro de la app (`#0B0B0C`) y sobre la tarjeta elevada
+(`#1C1C1F`), el gris de apoyo (`#9A938B`) da **6,5:1** y **5,6:1** — pasa AA de sobra. Cuando
+un texto de apoyo no se lee casi nunca es el color: **es que está pintado a 9 pt**. Por eso
+esta regla y la 4.1 son la misma regla partida en dos, y se aplican juntas.
 
 ## 5 · Toda pantalla resuelve sus cuatro estados
 

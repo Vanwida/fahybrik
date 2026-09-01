@@ -280,3 +280,15 @@ export function isPersonalBest(
     ? comparable.every((h) => value < h.value)
     : comparable.every((h) => value > h.value);
 }
+
+/**
+ * Las marcas de las que se puede leer un VDOT, sacadas del catálogo cerrado.
+ *
+ * Vive aquí y no en cada lector porque ya la derivaban DOS sitios por su cuenta
+ * (`athlete/analytics/running.ts` y la lectura de progreso), y dos filtros
+ * distintos sobre el mismo catálogo son dos VDOT distintos para el mismo
+ * atleta: el nivel que enseña una pantalla dejaría de ser el que usa la otra.
+ */
+export const RUN_MARK_SLUGS: readonly string[] = MARKS.filter(
+  (m) => m.group === 'run' || m.group === 'race',
+).map((m) => m.slug);

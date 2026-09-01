@@ -22,6 +22,17 @@ export const MARCA = {
  */
 export const OBJETIVO_S_500 = Math.round((MARCA.prSegundos * 500) / MARCA.distanciaM);
 
+/**
+ * LiveTramo del benchmark: "Remo" es el gesto (label), "500 m" es lo que mide
+ * (workLine) — el mismo par que ErgHUDContent enseña en su cabecera, su cuenta
+ * atrás y su cuerpo sin monitor. No es MARCA.label ("Remo 500 m"): esa cadena es
+ * la ficha de la marca, no la voz del tramo en vivo.
+ */
+export const TRAMO_LABEL = 'Remo';
+export const TRAMO_WORK_LINE = `${MARCA.distanciaM} m`;
+/** `sinLecturaMotivo` de ErgHUDContent — por qué un raíl no tiene número aún. */
+export const SIN_LECTURA_MOTIVO = 'esperando la primera palada';
+
 /** Historial de la marca, del más reciente al más antiguo (MarkView.history). */
 export interface FilaHistorial {
   relativo: string;
@@ -32,15 +43,14 @@ export interface FilaHistorial {
 
 export const HISTORIAL: readonly FilaHistorial[] = [
   { relativo: 'hace 3 semanas', tag: 'te probaste', segundos: 112.4 },
-  { relativo: 'hace 2 meses', tag: 'test con tu coach', segundos: 115.1 },
-  { relativo: 'hace 5 meses', tag: 'de cuando entraste', segundos: 121.0 },
+  { relativo: 'hace 2 meses', tag: 'test del coach', segundos: 115.1 },
+  { relativo: 'hace 5 meses', tag: 'lo dijiste tú', segundos: 121.0 },
 ];
 
 /** El monitor que aparece al escanear. La app muestra el ID del serial. */
 export const PM5 = {
   nombre: 'PM5 430512345',
   serial: '430512345',
-  dragFactor: 118,
 } as const;
 
 /** Umbral (LTHR) del atleta de ejemplo — de él salen las zonas, como en la app. */
@@ -142,18 +152,13 @@ export function vatiosDesdeRitmo(ritmoS500: number): number {
   return Math.round(2.8 / porMetro ** 3);
 }
 
-/** Calorías/hora del PM5 desde los vatios (relación del monitor). */
+/**
+ * Cal/h desde vatios, con la fórmula publicada por Concept2. El HUD de esta
+ * pantalla ya no la pinta (rail de 3 tiles), pero la consumen los guiones de
+ * `vivo-amrap` y `vivo-emom` — no es código muerto.
+ */
 export function calPorHoraDesdeVatios(vatios: number): number {
   return Math.round(vatios * 4 * 0.8604 + 300);
-}
-
-/** Calorías acumuladas: la integral de cal/h segundo a segundo. */
-export function caloriasEn(segundo: number): number {
-  let acc = 0;
-  for (let i = 0; i < Math.floor(segundo); i += 1) {
-    acc += calPorHoraDesdeVatios(vatiosDesdeRitmo(ritmoEn(i))) / 3600;
-  }
-  return Math.round(acc);
 }
 
 /** Pulso: sube de reposo alto a casi máximo hacia el final de la pieza. */

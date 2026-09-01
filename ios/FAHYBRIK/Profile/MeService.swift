@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // Athlete identity from GET /api/auth/me. This is the canonical source for
 // the athlete's name, body metrics and training context — the screens that
@@ -44,6 +45,19 @@ struct AthleteIdentity: Codable {
     /// that is precisely the bug this field replaced.
     let hrZones: HRZoneProfile?
 
+    /// La foto de perfil del atleta (`avatar_url`), tal y como la devuelve el
+    /// servidor. Nil = todavía no hay foto, y el avatar sigue pintando iniciales
+    /// (o la silueta si tampoco hay nombre) — exactamente como hasta ahora.
+    ///
+    /// Opcional a propósito: las respuestas de /auth/me anteriores a la foto, y
+    /// el caché en disco de esas respuestas, tienen que seguir decodificando.
+    let avatarUrl: String?
+
+    /// La foto ya resuelta contra la base de la API. El servidor puede servirla
+    /// como ruta o ya absoluta (`APIBase.absoluta`), y quien la pinta no puede
+    /// tener que saber cuál le tocó. Nil también cuando llega vacía.
+    var avatarURLResuelta: String? { APIBase.absoluta(avatarUrl) }
+
     /// Las iniciales del avatar. VACÍA cuando todavía no hay nombre: no hay
     /// iniciales que enseñar, y un guion dentro de un círculo no es un dato del
     /// atleta (§7). Es el estado que `CoachAvatar` ya resuelve con la silueta.
@@ -72,11 +86,16 @@ struct AthleteIdentity: Codable {
 
 struct MeResponse: Decodable {
     let athlete: AthleteIdentity
+    /// La piel del club del coach (nombre/logo/acento), o nil sin coach o sin
+    /// piel puesta. Persistida en `ClubThemeStore` en cuanto llega — ver
+    /// ClubTheme.swift. Optional so an older cached response still decodes.
+    let club: ClubTheme?
 }
 
 enum MeService {
     static func fetch(bearer: String) async throws -> AthleteIdentity {
         let resp: MeResponse = try await APIClient.shared.get(path: "api/auth/me", bearer: bearer)
+        ClubThemeStore.update(resp.club)
         return resp.athlete
     }
 }
@@ -109,6 +128,261 @@ enum ProfileService {
             body: body,
             bearer: bearer
         )
+        ClubThemeStore.update(resp.club)
         return resp.athlete
+    }
+}
+
+// MARK: - Foto de perfil
+//
+// El atleta se pone su cara donde hoy hay iniciales. Los bytes NO viajan por
+// nuestra API: el servidor firma un destino de un solo uso, el móvil sube la
+// imagen DIRECTO ahí, y después le pide al servidor que la verifique y la
+// guarde en el perfil. Tres pasos, y cada uno con su estado en la pantalla:
+//
+//   1. POST   api/perfil/foto/subida     → { upload_url, image_id, expires_at }
+//   2. POST   multipart (campo `file`)   → upload_url        (directo al almacén)
+//   3. POST   api/perfil/foto/confirmar  → { image_id }
+//   ·  DELETE api/perfil/foto            → la quita
+//
+// El destino se pide en el momento de GUARDAR, nunca al elegir la foto: la URL
+// es efímera, y así no puede caducar mientras el atleta mira la previsualización.
+// Por eso `expires_at` no se lee — la ventana entre firmarla y usarla es de
+// segundos, no de minutos.
+//
+// Ningún paso vale como "guardada" por sí solo: subir bytes es una cosa y que el
+// servidor los dé por buenos es otra. La UI cuenta las dos por separado
+// (`AthletePhotoStep`) y solo canta "hecho" cuando vuelve el perfil ya con la
+// foto dentro.
+
+/// Cómo se prepara la foto ANTES de salir del móvil.
+enum AthletePhotoImage {
+    /// Lado mayor, en píxeles, al que se reduce la foto antes de subirla.
+    ///
+    /// Una foto de iPhone son 3-5 MB y unos 4000 px de lado, y acaba pintada en
+    /// un círculo: mandarla entera es gastar los megas del atleta para nada.
+    ///
+    /// El número no es redondo por gusto, lo fija el servidor. La variante más
+    /// grande que sirve es un recorte CUADRADO de 480×480 (`avatar480`), así que
+    /// lo que subamos no puede traer el lado CORTO por debajo de 480: el recorte
+    /// tendría que agrandar y el retrato saldría blando. Con 1024 en el lado
+    /// largo, el corto se queda en 480 o más para cualquier proporción de cámara
+    /// de móvil (4:3 deja 768, 16:9 deja 576). Y sigue siendo unas veinte veces
+    /// menos de lo que pesaba el original.
+    ///
+    /// De propina, recomprimir borra el EXIF: las coordenadas de dónde se hizo
+    /// la foto no salen del teléfono.
+    static let maxDimensionPx: CGFloat = 1024
+
+    /// Calidad del JPEG recomprimido. 0,85 es donde el JPEG deja de notarse
+    /// comprimido; a este tamaño el fichero se queda en un par de cientos de KB.
+    static let jpegQuality: CGFloat = 0.85
+
+    /// Reduce y recomprime. Nil solo si el recomprimido falla.
+    ///
+    /// Redibuja SIEMPRE, aunque la foto ya quepa: es lo que hornea la
+    /// orientación EXIF en los píxeles. Sin ese paso, una foto hecha girando el
+    /// teléfono llega tumbada al servidor. (El chat hace lo mismo con su propio
+    /// límite, mucho más alto porque allí la foto se mira entera.)
+    static func jpegParaSubir(_ image: UIImage) -> Data? {
+        redibujadaDentroDelLimite(image).jpegData(compressionQuality: jpegQuality)
+    }
+
+    /// Igual, partiendo de los bytes que entrega el selector de fotos. Pensada
+    /// para llamarse FUERA del hilo principal: decodificar una foto de 12 MP y
+    /// redibujarla cuesta lo suyo, y `Data` sí se puede cruzar de contexto.
+    static func jpegParaSubir(desde data: Data) -> Data? {
+        UIImage(data: data).flatMap(jpegParaSubir)
+    }
+
+    private static func redibujadaDentroDelLimite(_ image: UIImage) -> UIImage {
+        // El tamaño real en PÍXELES: `size` viene en puntos, y una imagen con
+        // escala 2 o 3 tiene el doble o el triple de píxeles de lo que declara.
+        let pixeles = CGSize(width: image.size.width * image.scale,
+                             height: image.size.height * image.scale)
+        let ladoMayor = max(pixeles.width, pixeles.height)
+        let factor = ladoMayor > maxDimensionPx ? maxDimensionPx / ladoMayor : 1
+        let destino = CGSize(width: max(1, (pixeles.width * factor).rounded()),
+                             height: max(1, (pixeles.height * factor).rounded()))
+
+        let formato = UIGraphicsImageRendererFormat.default()
+        formato.scale = 1     // el tamaño que pedimos ES el tamaño en píxeles
+        formato.opaque = true // un avatar no necesita canal alfa
+        return UIGraphicsImageRenderer(size: destino, format: formato).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: destino))
+        }
+    }
+}
+
+/// Los pasos que la pantalla tiene que poder contar por separado.
+enum AthletePhotoStep: Equatable {
+    /// Bytes en camino al almacén, de 0 a 1.
+    case subiendo(Double)
+    /// Bytes entregados; el servidor está verificando y guardando.
+    case guardando
+}
+
+enum AthletePhotoError: Error {
+    case noSePudoPreparar
+    case destinoInvalido
+
+    /// Lo que ve el atleta. Sin jerga y con salida: qué ha pasado y qué hacer.
+    var mensaje: String {
+        switch self {
+        case .noSePudoPreparar: return "No pudimos preparar esa foto. Prueba con otra."
+        case .destinoInvalido:  return "No pudimos preparar la subida. Inténtalo de nuevo."
+        }
+    }
+}
+
+/// Destino de un solo uso que firma el servidor.
+private struct AthletePhotoUploadTarget: Decodable {
+    let uploadUrl: String
+    let imageId: String
+}
+
+/// Cuerpo de la reserva. `subida` pide `{ filename }` y NADA más (su esquema es
+/// estricto), porque el nombre da el formato y el tamaño real no se puede
+/// comprobar desde el servidor: eso lo mira quien ve los bytes.
+private struct AthletePhotoReserveBody: Encodable {
+    let filename: String
+}
+
+/// Cuerpo del confirmar. El encoder de APIClient lo pasa a `image_id`.
+private struct AthletePhotoConfirmBody: Encodable {
+    let imageId: String
+}
+
+enum AthletePhotoService {
+    private static let subidaPath = "api/perfil/foto/subida"
+    private static let confirmarPath = "api/perfil/foto/confirmar"
+    private static let fotoPath = "api/perfil/foto"
+
+    /// Nombre del fichero que anunciamos. Es lo ÚNICO que pide `subida`, y lo
+    /// pide porque da el formato: así una foto que no vale se rechaza en el acto
+    /// en vez de tras subirla entera. No viaja el nombre original del carrete del
+    /// atleta: no aporta nada y es un dato suyo. Lo que mandamos siempre es un
+    /// JPEG, porque es lo que produce `AthletePhotoImage`.
+    private static let nombreDeFichero = "foto-perfil.jpg"
+
+    /// Sube la foto y la deja guardada en el perfil.
+    ///
+    /// Devuelve la identidad RECIÉN LEÍDA del servidor, no lo que respondiera el
+    /// confirmar: lo que pinta la app tiene que ser siempre lo que el servidor
+    /// tiene guardado, y así el contrato de esta llamada no depende de la forma
+    /// exacta de esa respuesta.
+    /// El avance llega SIEMPRE en el hilo principal: quien lo pinta no tiene por
+    /// qué saber que el contador de bytes vive en la cola de URLSession.
+    static func subir(
+        bearer: String,
+        jpeg: Data,
+        onStep: @escaping @MainActor (AthletePhotoStep) -> Void
+    ) async throws -> AthleteIdentity {
+        let destino: AthletePhotoUploadTarget = try await APIClient.shared.post(
+            path: subidaPath,
+            body: AthletePhotoReserveBody(filename: nombreDeFichero),
+            bearer: bearer
+        )
+        guard let url = URL(string: destino.uploadUrl) else {
+            throw AthletePhotoError.destinoInvalido
+        }
+
+        await onStep(.subiendo(0))
+        try await subirBytes(a: url, jpeg: jpeg) { avance in
+            Task { @MainActor in onStep(.subiendo(avance)) }
+        }
+
+        await onStep(.guardando)
+        let _: Empty = try await APIClient.shared.post(
+            path: confirmarPath,
+            body: AthletePhotoConfirmBody(imageId: destino.imageId),
+            bearer: bearer
+        )
+        return try await MeService.fetch(bearer: bearer)
+    }
+
+    /// Quita la foto. Devuelve la identidad ya sin ella.
+    static func quitar(bearer: String) async throws -> AthleteIdentity {
+        let _: Empty = try await APIClient.shared.delete(
+            path: fotoPath,
+            body: Optional<Empty>.none,
+            bearer: bearer
+        )
+        return try await MeService.fetch(bearer: bearer)
+    }
+
+    /// El motivo, en castellano, de por qué no se pudo. La pantalla nunca enseña
+    /// un error crudo, y tampoco uno genérico: el atleta tiene que saber si es su
+    /// conexión, su foto o nosotros.
+    static func motivo(_ error: Error) -> String {
+        if let propio = error as? AthletePhotoError { return propio.mensaje }
+        guard let api = error as? APIError else {
+            return "No pudimos guardar la foto. Inténtalo de nuevo."
+        }
+        switch api {
+        case .offline:
+            return "Sin conexión. Vuelve a intentarlo cuando tengas red."
+        case .http(let status, _) where status == 413:
+            return "Esa foto pesa demasiado. Prueba con otra."
+        case .http(let status, _) where status == 415:
+            return "Ese formato de imagen no vale. Prueba con otra foto."
+        case .http(let status, _) where (400..<500).contains(status):
+            return "No pudimos guardar esa foto. Prueba con otra."
+        case .http:
+            return "No pudimos guardar la foto ahora mismo. Inténtalo en un momento."
+        case .invalidResponse, .decoding:
+            return "No pudimos guardar la foto. Inténtalo de nuevo."
+        }
+    }
+
+    /// El POST va DIRECTO al almacén: sin nuestro bearer (la URL ya viene
+    /// firmada y es de un solo uso) y con el campo `file`, que es el que espera.
+    private static func subirBytes(
+        a url: URL,
+        jpeg: Data,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        let cuerpo = APIClient.multipartBody(
+            boundary: boundary,
+            fieldName: "file",
+            filename: nombreDeFichero,
+            mimeType: "image/jpeg",
+            fileData: jpeg
+        )
+        let (data, resp) = try await URLSession.shared.upload(
+            for: req,
+            from: cuerpo,
+            delegate: AthletePhotoUploadProgress(onProgress: onProgress)
+        )
+        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(http.statusCode, data)
+        }
+    }
+}
+
+/// Cuenta los bytes que salen. Sin este delegado la barra sería decorativa:
+/// `upload(for:from:)` no informa del avance por sí solo.
+private final class AthletePhotoUploadProgress: NSObject, URLSessionTaskDelegate {
+    private let onProgress: @Sendable (Double) -> Void
+
+    init(onProgress: @escaping @Sendable (Double) -> Void) {
+        self.onProgress = onProgress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        onProgress(min(1, Double(totalBytesSent) / Double(totalBytesExpectedToSend)))
     }
 }

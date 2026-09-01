@@ -45,7 +45,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Cobro serio, por <b>Stripe</b>. El precio no lo inventa el sistema: <b>nace en el alta</b>,
-          con el importe que acordaste con cada atleta en la llamada — mensual y distinto por persona.
+          con el importe que acordaste con cada atleta en la llamada, mensual y distinto por persona.
           Y algo clave: <b>el pago activa el acceso</b>. Nadie entra en la app sin pagar, salvo que lo
           marques como <em className="em">cortesía</em>.
         </>
@@ -87,8 +87,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="bad" title="Se activa próximamente">
         <p>
           Mientras las claves de Stripe no estén configuradas en este entorno, el alta de pago te
-          avisa —<span className="k"> «El cobro por Stripe está pendiente de configurar. De momento
-          el alta se hace como cortesía; el cobro se activará cuando esté listo.»</span>— y solo deja
+          avisa (<span className="k"> «El cobro por Stripe está pendiente de configurar. De momento
+          el alta se hace como cortesía; el cobro se activará cuando esté listo.»</span>) y solo deja
           dar de alta como <b>cortesía</b>. Nunca lanza un error ni crea un atleta a medias: en cuanto
           las claves estén puestas, el cobro funciona sin tocar nada más.
         </p>
@@ -97,7 +97,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · El precio nace en el alta</h3>
       <p>
         En el modal de alta (desde la ficha del lead) hay un bloque <code>Cobro</code>: escribes el{' '}
-        <b>precio acordado €/mes</b> —pre-rellenado <em className="em">del parte de la llamada</em>—
+        <b>precio acordado €/mes</b> (pre-rellenado <em className="em">del parte de la llamada</em>)
         o marcas <b>Cortesía (sin cobro)</b>. Ese número es la cuota real de ese atleta; no hay tarifas
         fijas ni planes cerrados.
       </p>
@@ -113,8 +113,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · Los estados, con los vencidos primero</h3>
       <p>
         La sección <b>Pagos</b> ordena tu roster por urgencia: <b>vencidos arriba</b>, luego
-        pendientes, al día, cortesía y cancelados. Arriba, tus KPIs —<b>MRR</b>, al día, vencidos,
-        pendientes— salen de datos reales de Stripe. Un impago además se cuela en <b>Hoy</b> como{' '}
+        pendientes, al día, cortesía y cancelados. Arriba, tus KPIs (<b>MRR</b>, al día, vencidos,
+        pendientes) salen de datos reales de Stripe. Un impago además se cuela en <b>Hoy</b> como{' '}
         <em className="em">«Cobro en riesgo»</em>, para que no se te pase.
       </p>
 
@@ -255,7 +255,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Recibe un email de aceptación con <b>su precio</b> y un botón de pago. Paga con tarjeta por
-            Stripe, la renovación es mensual y automática — y en cuanto el pago se confirma, se activa
+            Stripe, la renovación es mensual y automática, y en cuanto el pago se confirma, se activa
             su acceso a la app.
           </>
         }
@@ -309,7 +309,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p style={{ marginTop: '18px' }}>
         Así el dinero deja de ser un cabo suelto: el precio que acordaste viaja del alta al cobro sin
         re-teclear, el acceso premia al que paga, y tú ves de un vistazo quién está al día y quién se
-        te escapa — con los vencidos siempre delante.
+        te escapa, con los vencidos siempre delante.
       </p>
     </DocSection>
   );

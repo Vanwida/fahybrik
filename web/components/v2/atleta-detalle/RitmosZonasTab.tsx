@@ -39,7 +39,7 @@ export function RitmosZonasTab({
                 <button
                   type="button"
                   onClick={() => setRecording(true)}
-                  className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+                  className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
                 >
                   <MIcon name="add" size={14} />
                   Nuevo resultado
@@ -58,7 +58,7 @@ export function RitmosZonasTab({
       ) : (
         <>
           {/* Empty state — sin test aún */}
-          <div className="flex flex-col items-center gap-3 rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-6 py-10 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-6 py-10 text-center">
             <span
               aria-hidden
               className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]"

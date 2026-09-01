@@ -243,7 +243,10 @@ export function legacyToStructure(p: Prescription): RunStructure | null {
 }
 
 // ── SegmentTarget → legacy Target (the flatten target) ───────────────────────
-function segmentTargetToLegacy(t: SegmentTarget | null): Target | undefined {
+// Exported because `to-text` narrates a structure with the SAME vocabulary as the
+// flat dose (`formatTarget`): one mapping SegmentTarget→Target, so the zone the
+// coach reads inside "16×(500m @ Z4 …)" is written exactly like the plain one.
+export function segmentTargetToLegacy(t: SegmentTarget | null): Target | undefined {
   if (!t) return undefined;
   switch (t.type) {
     case 'pace': {
@@ -341,6 +344,25 @@ export function prescriptionFromStructure(
   };
   if (extras?.note) p.note = extras.note;
   return p;
+}
+
+/**
+ * Enforce the additive wire contract on an already-authored prescription: a
+ * prescription that carries `structure` must ALSO carry the flat fields (iOS
+ * `Prescription.swift` decodes the flat; summary surfaces and `params_json`
+ * derive from it). If the author already stated any flat dose, theirs wins and
+ * nothing is touched. Discovered the hard way (10-ago-2026): a structure-only
+ * fartlek rendered as a bare title everywhere except the live engine.
+ */
+export function withFlatFromStructure(p: Prescription): Prescription {
+  if (!p.structure) return p;
+  const hasFlat =
+    (p.sets && p.sets.length > 0) ||
+    p.rounds != null ||
+    p.work_s != null ||
+    p.total_s != null;
+  if (hasFlat) return p;
+  return { ...structureToLegacy(p.structure), ...p };
 }
 
 // Re-export for callers that only import the convert module.

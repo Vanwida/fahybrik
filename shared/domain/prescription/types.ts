@@ -34,6 +34,7 @@
 
 import { z } from 'zod';
 import { normalizeFormat, WORKOUT_FORMAT_KEYS, type WorkoutFormat } from './format';
+import { referenceIsPace, targetReferenceSchema, type TargetReference } from './reference';
 import { runStructureSchema, type RunStructure } from './run-structure';
 
 // ── Bounds (named, not magic) ───────────────────────────────────────────────
@@ -50,6 +51,7 @@ const PACE_MAX_S = 36000; // 10h per unit — a sanity ceiling, not a real pace
 const TIME_CAP_MAX_S = 7200;
 const CAL_MAX = 100000; // sanity ceiling for a single line's calories
 const WATTS_MAX = 2000; // erg power ceiling (a single line never exceeds this)
+const MAX_IMPLEMENTS = 20; // sanity ceiling for Target.kg.implement_count — nobody carries 20 kettlebells
 
 // ── Modality ────────────────────────────────────────────────────────────────
 // What discipline the line trains. Drives sensible defaults (an erg line targets
@@ -95,7 +97,13 @@ export const paceUnitSchema = z.enum(['per_km', 'per_500m', 'per_mile']);
 
 export type Target =
   | { kind: 'percent_rm'; value?: number; min?: number; max?: number } // %1RM, 0-200
-  | { kind: 'kg'; value?: number; min?: number; max?: number }
+  // `implement_count` (import #: carga por implemento) — "2×32 kg" (two 32 kg
+  // kettlebells/dumbbells, farmers-carry-style) is NEITHER "64 kg" (nobody
+  // carries the summed load in one hand) NOR a bare "32 kg" (that drops the
+  // fact there are TWO loaded implements). `value`/`min`/`max` stay the
+  // PER-IMPLEMENT weight; `implement_count` names how many. Omitted (or 1)
+  // behaves exactly like today: a single total load.
+  | { kind: 'kg'; value?: number; min?: number; max?: number; implement_count?: number }
   | { kind: 'rpe'; value?: number; min?: number; max?: number } // 0-10
   | { kind: 'rir'; value?: number; min?: number; max?: number } // >= 0
   | { kind: 'bodyweight' }
@@ -121,9 +129,64 @@ export type Target =
   //
   // `max_s` is the ceiling to beat, `value_s` a flat target, `min_s`/`max_s` a
   // band (the roxzone progression tightens a band, not a single number).
-  | { kind: 'time_cap'; value_s?: number; min_s?: number; max_s?: number }; // seconds
+  | { kind: 'time_cap'; value_s?: number; min_s?: number; max_s?: number } // seconds
+  // RELATIVO A UNA REFERENCIA DEL ATLETA (card 130). Todos los kinds de arriba
+  // dicen un número; un entrenador casi nunca escribe un número: escribe «a
+  // ritmo HYROX», «a peso de competición», «5 kg por encima del peso de
+  // competición», «al 50 % del peso corporal». Sin esto una plantilla con kilos
+  // concretos no sirve para el atleta siguiente, que es exactamente lo que hace
+  // que un ciclo haya que reescribirlo entero por persona.
+  //
+  // `percent_rm` YA ERA esto para un caso (el % del máximo) y se queda como
+  // está: no se añade una segunda forma de decir lo mismo. Las referencias que
+  // faltaban viven en `./reference.ts` con el porqué de cada una.
+  //
+  // SE RESUELVE AL LEER, NUNCA AL GUARDAR. La plantilla guarda la FRASE para
+  // siempre y cada atleta recibe su número al abrir el día
+  // (`./resolve-relative.ts`); convertirla a kilos al guardar la congelaría
+  // para un atleta y volveríamos al principio.
+  //
+  // Bandas con la misma convención que el resto del modelo: el campo base es el
+  // SUELO y `_max` el techo. Un porcentaje o un delta sobre una referencia de
+  // RITMO no está permitido y no es un olvido: «al 90 % del ritmo» es ambiguo
+  // (¿90 % de la velocidad, más lento; o del tiempo, más rápido?) y correr un
+  // poco más lento que el umbral ya tiene su sitio, que son las zonas.
+  | {
+      kind: 'relative';
+      ref: TargetReference;
+      percent?: number; // suelo de la banda, o el punto si no hay `percent_max`
+      percent_max?: number;
+      delta_kg?: number; // suelo de la banda («5-10 kg por encima» → 5)
+      delta_kg_max?: number;
+    };
 
 export type TargetKind = Target['kind'];
+
+// LOS OBJETIVOS QUE LLEVAN value/min/max, en un solo sitio.
+//
+// Antes del objetivo relativo, casi todos los kinds tenían esos tres campos y
+// medio código los leía sin preguntar por el kind. `pace` y `time_cap` ya eran
+// la excepción (llevan `_s`), y cada lector se la sabía de memoria — una
+// excepción memorizada en ocho ficheros es una que alguien olvidará al añadir
+// el noveno kind. Este guard es esa pregunta hecha una vez.
+const SCALAR_TARGET_KINDS = [
+  'percent_rm',
+  'kg',
+  'rpe',
+  'rir',
+  'hr_zone',
+  'hr_bpm',
+  'calories',
+  'watts',
+] as const;
+
+export type ScalarTargetKind = (typeof SCALAR_TARGET_KINDS)[number];
+export type ScalarTarget = Extract<Target, { kind: ScalarTargetKind }>;
+
+/** true cuando el objetivo se lee con value/min/max. */
+export function isScalarTarget(t: Target): t is ScalarTarget {
+  return (SCALAR_TARGET_KINDS as readonly string[]).includes(t.kind);
+}
 
 // A secondary PACE constraint on a line whose PRIMARY target is something else
 // (#28, Fork E: "corre en Z2 pero no más lento de 6'/km" = target hr_zone 2 + a
@@ -169,6 +232,21 @@ function scalarTargetObject(kind: string) {
     .strict();
 }
 
+// `kg` carries one extra optional field the other scalar targets do not —
+// see Target's `implement_count` doc comment above. A dedicated object
+// (rather than reusing scalarTargetObject) because `implement_count` on, say,
+// an `rpe` target would be nonsense; z.discriminatedUnion members must stay
+// plain ZodObjects, so this mirrors scalarTargetObject's shape by hand.
+const kgTargetObject = z
+  .object({
+    kind: z.literal('kg'),
+    value: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    min: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    max: z.number().min(SCALAR_BOUNDS.kg!.min).max(SCALAR_BOUNDS.kg!.max).optional(),
+    implement_count: z.number().int().min(1).max(MAX_IMPLEMENTS).optional(),
+  })
+  .strict();
+
 const bodyweightTargetObject = z.object({ kind: z.literal('bodyweight') }).strict();
 
 const paceTargetObject = z
@@ -192,9 +270,24 @@ const timeCapTargetObject = z
   })
   .strict();
 
+// El objetivo RELATIVO (card 130). El porcentaje llega al 200 % igual que
+// `percent_rm` (un trineo sobrecargado al 150 % del peso de competición es una
+// prescripción real); el delta en kilos admite negativo porque «5 kg por debajo
+// del peso de competición» es tan válido como por encima.
+const relativeTargetObject = z
+  .object({
+    kind: z.literal('relative'),
+    ref: targetReferenceSchema,
+    percent: z.number().min(0).max(PERCENT_MAX).optional(),
+    percent_max: z.number().min(0).max(PERCENT_MAX).optional(),
+    delta_kg: z.number().min(-1000).max(1000).optional(),
+    delta_kg_max: z.number().min(-1000).max(1000).optional(),
+  })
+  .strict();
+
 const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('percent_rm'),
-  scalarTargetObject('kg'),
+  kgTargetObject,
   scalarTargetObject('rpe'),
   scalarTargetObject('rir'),
   bodyweightTargetObject,
@@ -204,11 +297,58 @@ const targetUnion = z.discriminatedUnion('kind', [
   scalarTargetObject('calories'),
   scalarTargetObject('watts'),
   timeCapTargetObject,
+  relativeTargetObject,
 ]);
 
 export const targetSchema: z.ZodType<Target> = targetUnion.superRefine((raw, ctx) => {
   const t = raw as Target;
   if (t.kind === 'bodyweight') return;
+  if (t.kind === 'relative') {
+    const hasPercent = t.percent !== undefined || t.percent_max !== undefined;
+    const hasDelta = t.delta_kg !== undefined || t.delta_kg_max !== undefined;
+    // Una referencia de RITMO es el ritmo, sin más: ver el comentario del tipo.
+    if (referenceIsPace(t.ref) && (hasPercent || hasDelta)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a pace reference takes no percent and no delta_kg',
+      });
+    }
+    // «Peso corporal» a secas ya existe como `{kind:'bodyweight'}` y significa
+    // otra cosa (tu peso como resistencia). Aquí el porcentaje es lo que hace
+    // la frase — sin él serían dos maneras de decir lo mismo.
+    if (t.ref.of === 'bodyweight' && !hasPercent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a bodyweight reference must carry a percent (use {kind:"bodyweight"} for plain bodyweight)',
+      });
+    }
+    // Un techo por debajo de su suelo es una errata, no una banda. Y un techo
+    // suelto sin suelo no dice nada: la convención del modelo es que el campo
+    // base ES el suelo.
+    if (t.percent_max !== undefined && t.percent === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'percent_max needs percent (the floor)' });
+    }
+    if (t.delta_kg_max !== undefined && t.delta_kg === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'delta_kg_max needs delta_kg (the floor)' });
+    }
+    if (t.percent !== undefined && t.percent_max !== undefined && t.percent_max < t.percent) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'percent_max must be at or above percent' });
+    }
+    if (t.delta_kg !== undefined && t.delta_kg_max !== undefined && t.delta_kg_max < t.delta_kg) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'delta_kg_max must be at or above delta_kg' });
+    }
+    // Porcentaje Y delta a la vez no lo escribe nadie («al 50 % del peso de
+    // competición y además +5 kg»), y el orden en que se aplicarían cambiaría
+    // el resultado. Una prescripción que depende de en qué orden la leas no es
+    // una prescripción.
+    if (hasPercent && hasDelta) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a relative target carries a percent OR a delta_kg, never both',
+      });
+    }
+    return;
+  }
   if (t.kind === 'pace' || t.kind === 'time_cap') {
     if (t.value_s === undefined && t.min_s === undefined && t.max_s === undefined) {
       ctx.addIssue({
@@ -314,20 +454,81 @@ export function targetToLoad(target: Target): Load | null {
 // The unit of WORK DONE in a set — "how much". Discriminated by kind so a run
 // segment (distance), a plank (duration), a squat (reps) and a cal-row
 // (calories) all carry their work in a typed, analytics-readable field.
+//
+// RANGES (`max`). A coach who writes "4 series de 12-15" is prescribing a BAND,
+// not two sets: the athlete autoregulates inside it. Without this the importer
+// flattened it into one set of 12 and another of 15 — a different workout. The
+// base field is always the LOWER bound and stays REQUIRED, so every existing
+// reader (the live engine's rep prefill, prescriptionToParams, iOS) keeps
+// working unchanged and simply shows the floor; `max` is additive.
+// One name for all four kinds: the `kind` already says the unit.
 export type Measure =
-  | { kind: 'reps'; value: number }
-  | { kind: 'distance'; meters: number }
-  | { kind: 'duration'; seconds: number }
-  | { kind: 'calories'; value: number };
+  | { kind: 'reps'; value: number; max?: number }
+  | { kind: 'distance'; meters: number; max?: number }
+  | { kind: 'duration'; seconds: number; max?: number }
+  | { kind: 'calories'; value: number; max?: number }
+  // "4×máx" / "máximo unbroken" / "AMRAP de reps" — the athlete goes until
+  // failure; the honesty contract forbids inventing a rep count, so this is
+  // its own kind (never a `{kind:'reps'}` with a fabricated `value`, and
+  // never a 0 — 0 reps is not what "max reps" means). Its own discriminant
+  // rather than an optional flag on `reps` so `reps.value` STAYS required —
+  // every reader that already assumes a real number there keeps that
+  // guarantee unchanged.
+  | { kind: 'reps_to_failure' };
 
 export type MeasureKind = Measure['kind'];
 
-export const measureSchema: z.ZodType<Measure> = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('reps'), value: z.number().int().nonnegative() }).strict(),
-  z.object({ kind: z.literal('distance'), meters: z.number().nonnegative() }).strict(),
-  z.object({ kind: z.literal('duration'), seconds: z.number().nonnegative() }).strict(),
-  z.object({ kind: z.literal('calories'), value: z.number().nonnegative().max(CAL_MAX) }).strict(),
-]) as unknown as z.ZodType<Measure>;
+/** The lower bound of a measure, or `undefined` for `reps_to_failure` — it
+ *  deliberately states no number (the count is unknown until performed). */
+export function measureFloor(m: Measure): number | undefined {
+  if (m.kind === 'distance') return m.meters;
+  if (m.kind === 'duration') return m.seconds;
+  if (m.kind === 'reps_to_failure') return undefined;
+  return m.value; // reps | calories
+}
+
+/** True when the measure prescribes a band ("12-15 reps") rather than a point. */
+export function measureIsRange(m: Measure): boolean {
+  if (m.kind === 'reps_to_failure') return false;
+  return m.max !== undefined && m.max > (measureFloor(m) ?? 0);
+}
+
+const maxReps = z.number().int().nonnegative().optional();
+const maxAmount = z.number().nonnegative().optional();
+
+// `max` must sit at or above the floor — a "15-12" band is a typo, not a range.
+export const measureSchema: z.ZodType<Measure> = z
+  .discriminatedUnion('kind', [
+    z
+      .object({ kind: z.literal('reps'), value: z.number().int().nonnegative(), max: maxReps })
+      .strict(),
+    z
+      .object({ kind: z.literal('distance'), meters: z.number().nonnegative(), max: maxAmount })
+      .strict(),
+    z
+      .object({ kind: z.literal('duration'), seconds: z.number().nonnegative(), max: maxAmount })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('calories'),
+        value: z.number().nonnegative().max(CAL_MAX),
+        max: maxAmount.and(z.number().max(CAL_MAX).optional()),
+      })
+      .strict(),
+    z.object({ kind: z.literal('reps_to_failure') }).strict(),
+  ])
+  .superRefine((m, ctx) => {
+    const measure = m as Measure;
+    if (measure.kind === 'reps_to_failure') return; // no floor to compare — nothing to refine
+    const floor = measureFloor(measure);
+    if (measure.max !== undefined && floor !== undefined && measure.max < floor) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'measure.max must be at or above the measure floor',
+        path: ['max'],
+      });
+    }
+  }) as unknown as z.ZodType<Measure>;
 
 // ── Scheme ──────────────────────────────────────────────────────────────────
 // A prescription's scheme IS its block's FORMAT — the same axis (a block has one
@@ -364,6 +565,23 @@ export const prescriptionSchemeInputSchema = z.preprocess(
 export interface PrescriptionSet {
   measure?: Measure; // canonical: the work done
   target?: Target; // canonical: the intensity objective
+  /**
+   * SERIE DE APROXIMACIÓN — subir hasta el peso de trabajo (card 151).
+   *
+   * Aproximarse lo hace todo el mundo y no existía en el modelo, así que ese
+   * trabajo se colaba dentro del de verdad y lo ensuciaba: el volumen contaba
+   * kilos que no eran de trabajo y la primera serie de cada bloque salía siempre
+   * más lenta que las demás sin que nadie supiera por qué.
+   *
+   * Es del SET y no del ejercicio porque en un mismo ejercicio conviven las dos
+   * cosas: dos aproximaciones y luego cuatro de trabajo. Ausente = serie de
+   * trabajo, que es lo que era todo hasta ahora — ningún dato viejo cambia de
+   * significado.
+   *
+   * Lo que hace: se ejecuta y se registra igual, pero la analítica la separa del
+   * trabajo real en vez de sumarla.
+   */
+  is_approach?: boolean;
   modality?: Modality; // per-set modality (a block item is one modality; rarely overridden per set)
   rest_s?: number;
   tempo?: string; // e.g. "3-1-1-0"
@@ -408,6 +626,7 @@ const prescriptionSetObjectSchema = z
   .object({
     measure: measureSchema.optional(),
     target: targetSchema.optional(),
+    is_approach: z.boolean().optional(),
     modality: modalitySchema.optional(),
     rest_s: z.number().nonnegative().optional(),
     tempo: z.string().max(20).optional(),
@@ -432,7 +651,13 @@ export interface Prescription {
   scheme: PrescriptionScheme;
   modality?: Modality; // block/default modality for the line
   sets?: PrescriptionSet[]; // explicit per-set (strength pyramids / waves / interval bouts)
-  rounds?: number; // circuits / minutes (rounds, emom, intervals, tabata)
+  rounds?: number; // circuits / minutes (rounds, emom, intervals, tabata) — the FLOOR of the range
+  // RANGE (fase 2, ago-2026 — same shape as Measure.max): a coach who writes
+  // "3-4 rondas" is prescribing a BAND the athlete closes inside, same as a
+  // rep range. `rounds` stays the required floor so every existing reader
+  // (the live engine's round count, prescriptionToText, iOS) keeps working
+  // unchanged and simply runs the floor; `rounds_max` is additive.
+  rounds_max?: number;
   work_s?: number; // emom/interval/tabata work window
   rest_s?: number; // round/interval/tabata rest
   total_s?: number; // amrap/steady total, or for_time/chipper/ladder time CAP
@@ -458,12 +683,18 @@ function normalizePrescription(raw: Prescription): Prescription {
   return out;
 }
 
+/** True when the prescription's rounds prescribe a band ("3-4 rondas") rather than a fixed count. */
+export function roundsIsRange(p: Pick<Prescription, 'rounds' | 'rounds_max'>): boolean {
+  return p.rounds_max !== undefined && p.rounds !== undefined && p.rounds_max > p.rounds;
+}
+
 const prescriptionObjectSchema = z
   .object({
     scheme: prescriptionSchemeInputSchema,
     modality: modalitySchema.optional(),
     sets: z.array(prescriptionSetSchema).max(MAX_SETS).optional(),
     rounds: z.number().int().positive().optional(),
+    rounds_max: z.number().int().positive().optional(),
     work_s: z.number().nonnegative().optional(),
     rest_s: z.number().nonnegative().optional(),
     total_s: z.number().nonnegative().optional(),
@@ -475,7 +706,17 @@ const prescriptionObjectSchema = z
     structure: runStructureSchema.optional(), // #61 — structured running workout
     note: z.string().max(2000).optional(),
   })
-  .strict();
+  .strict()
+  // `rounds_max` must sit at or above `rounds` — a "4-3" band is a typo, not a range.
+  .superRefine((p, ctx) => {
+    if (p.rounds_max !== undefined && p.rounds !== undefined && p.rounds_max < p.rounds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'rounds_max must be at or above rounds',
+        path: ['rounds_max'],
+      });
+    }
+  });
 
 export const prescriptionSchema = prescriptionObjectSchema.transform((p) =>
   normalizePrescription(p as Prescription),

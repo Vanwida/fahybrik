@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 import {
   TemplateError,
   templateSegmentInputSchema,
@@ -54,13 +55,13 @@ export async function cloneTemplateAsInstance(params: {
     insert into templates (
       coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
-      coach_notes, meta_json, demo_video_url, methodology_group_id,
+      coach_notes, meta_json, methodology_group_id,
       instance_athlete_id, instance_of_template_id
     )
     select
       coach_id, name, description, format, target_level,
       version, day_position, is_draft, is_partner_workout, warmup, cooldown,
-      coach_notes, meta_json, demo_video_url, methodology_group_id,
+      coach_notes, meta_json, methodology_group_id,
       ${ath}, coalesce(instance_of_template_id, id)
     from templates
     where id = ${src}
@@ -82,7 +83,67 @@ export async function cloneTemplateAsInstance(params: {
     order by position
   `;
 
+  // Circuito (`template_blocks`, migración 0159): la config de BLOQUE — rondas,
+  // pacing, los dos descansos — vive en su propia tabla, no en las filas de
+  // `template_segments`. Sin copiarla aquí el fork quedaba a medias: el atleta
+  // recibía las estaciones pero SIN sus rondas (un "4 rondas de sled+lunge"
+  // llegaba como una pasada suelta). Mismo `block_position`, que es la clave con
+  // la que `assignment-detail` las vuelve a casar con sus segmentos.
+  await params.client`
+    insert into template_blocks (
+      template_id, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    )
+    select
+      ${newId}, block_position, rounds, pacing, work_seconds,
+      rest_between_stations_seconds, rest_between_rounds_seconds
+    from template_blocks
+    where template_id = ${src}
+  `;
+
   return { template_id: newId, version: tplRows[0].version };
+}
+
+/**
+ * La OTRA forma de nacer de una instancia: AUTORADA, no forkeada.
+ *
+ * `cloneTemplateAsInstance` copia un entreno que ya existe. Pero una sesión que el
+ * coach dicta de cero («añádele el martes un rodaje de 90' en Z2») no sale de
+ * ninguna plantilla: no hay origen que copiar. Forkear una cualquiera para tener
+ * dónde escribir arrastra lo que ESA traía —su formato, su calentamiento, su nota
+ * al atleta, su config de circuito— dentro de un entreno que no tiene nada que ver,
+ * y el atleta lo lee en su móvil. Por eso la instancia autorada es una PRIMITIVA
+ * hermana y vive aquí, junto al fork: son las dos maneras de que un
+ * `workout_assignments` tenga su copia privada, y la ley «toda asignación posee una
+ * instancia 1:1» se sigue cumpliendo por construcción.
+ *
+ * `instance_of_template_id` queda NULL, que es exactamente lo que 0083 definió
+ * para una instancia autorada en línea (no hay linaje que registrar).
+ *
+ * Devuelve `{ template_id, version }` con la misma forma que el fork, para que el
+ * que llama no tenga que saber por qué camino vino.
+ */
+export async function createAuthoredInstance(params: {
+  client: Sql;
+  coach_id: number | bigint;
+  athlete_id: number | bigint;
+  /** El nombre que lee el atleta (`templates.name`). */
+  name: string;
+  /** `templates.format` — el formato de la sesión, no del bloque. */
+  format: string;
+}): Promise<{ template_id: number; version: number }> {
+  const rows = await params.client<Array<{ id: string; version: number }>>`
+    insert into templates (coach_id, name, format, version, instance_athlete_id)
+    values (
+      ${Number(params.coach_id)},
+      ${params.name},
+      ${params.format}::template_format,
+      1,
+      ${Number(params.athlete_id)}
+    )
+    returning id::text as id, version
+  `;
+  return { template_id: Number(rows[0]!.id), version: rows[0]!.version };
 }
 
 // ── Per-athlete day edit (Fase 2) ─────────────────────────────────────────────
@@ -118,6 +179,11 @@ export async function updateAthleteInstanceDay(params: {
   athlete_id: number | bigint;
   iso_date: string;
   payload: unknown;
+  /** Quién guarda. Obligatorio: sin actor no hay rastro, y este es el ÚNICO
+   *  camino por el que se reescribe el contenido de un día del atleta. */
+  actor: Actor;
+  /** Por dónde entró. Omitido = el panel del coach. */
+  channel?: AuditChannel;
   client?: Sql;
 }): Promise<{ template_id: number }> {
   const parsed = athleteDayContentSchema.safeParse(params.payload);
@@ -163,6 +229,26 @@ export async function updateAthleteInstanceDay(params: {
       segments,
     },
     client,
+  });
+
+  // Reescribir un día BORRA los segmentos y los vuelve a insertar: es la
+  // escritura más destructiva del panel y era la única sin rastro, mientras el
+  // conector sí lo dejaba. Esa asimetría costó una investigación entera el
+  // 11-ago para contestar «¿quién cambió este entreno?». Va después del write:
+  // si el write falla no hay entrada, y nunca al revés (rastro de algo que no
+  // pasó). Aquí pasan LAS DOS superficies, así que ninguna puede escaparse.
+  await recordAudit(client, {
+    entity_type: 'templates',
+    entity_id: BigInt(body.template_id),
+    action: 'update',
+    actor: params.actor,
+    channel: params.channel,
+    diff: {
+      athlete_id: ath,
+      iso_date: params.iso_date,
+      segments: segments.length,
+      ...(body.name !== undefined ? { name: body.name } : {}),
+    },
   });
 
   return { template_id: body.template_id };

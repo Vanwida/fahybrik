@@ -147,6 +147,7 @@ async function altaComp(params: {
   const email = await sendAltaEmail({
     to: tx.email,
     name: input.full_name,
+    coach_id,
   });
 
   return {
@@ -227,6 +228,7 @@ async function altaStripe(params: {
     amount_cents,
     currency: ALTA_CURRENCY,
     checkoutUrl: checkout.url,
+    coach_id,
   });
 
   return {

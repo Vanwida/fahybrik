@@ -70,9 +70,36 @@ struct LiveFlowView: View {
             // (.intervals / .steady). Falls through to the scalar presentation only if
             // the driver is somehow absent (never during an active session).
             StructuredRunLiveView(session: session, driver: driver)
+        } else if session.currentSegment?.kind == .running {
+            // CORRIENDO MANDA LO QUE EL RELOJ MIDE, NO CÓMO SE LLAME EL FORMATO.
+            //
+            // Las fuentes no escriben el mismo esquema para la misma cosa: el
+            // constructor libre escribe una serie de correr como `intervals`, el
+            // coach como `sets` (plantilla 314, «3x1000m»), y la gramática nativa
+            // como `structure`. Repartiendo por presentación, el mismo entreno caía
+            // en tres pantallas distintas según quién lo hubiera escrito — y una de
+            // las tres era el RELOJ DE PARED, el guion de burpees y planchas
+            // («sin GPS que valga, estás en el sitio»): sin metros, sin ritmo y en
+            // modo ciego mientras el atleta corría por la calle (8-ago).
+            //
+            // Por eso la rama de correr se resuelve ENTERA aquí y no deja caer nada
+            // al reparto de abajo: con tramos manda la pantalla de tramos (la rama
+            // de arriba), y sin ellos el rodaje. Las dos miden GPS, que es lo único
+            // que corriendo contesta la pregunta.
+            ContinuousLiveView(session: session)
         } else if let presentation {
             switch presentation {
-            case .rotating:   RotatingLiveView(session: session)
+            // EMOM lleva su plan y su fase propia (`EmomLiveView`); el resto
+            // de la familia rotativa —intervals, tabata, death by, steady
+            // funcional— tiene el sujeto que le toca en `RelojDeParedLiveView`
+            // (`GuionRelojDePared`). Ver el comentario de cada vista para el
+            // porqué del reparto.
+            case .rotating:
+                if session.currentSegment?.isEMOM == true {
+                    EmomLiveView(session: session)
+                } else {
+                    RelojDeParedLiveView(session: session)
+                }
             case .fixed:      FixedLiveView(session: session)
             case .continuous: ContinuousLiveView(session: session)
             case .setTable:   SetTableLiveView(session: session)
@@ -114,35 +141,33 @@ private struct RelayLiveView: View {
     }
 
     var body: some View {
-        LiveScaffold(status: "RELEVO", statusColor: WatchTheme.orangeSoft) {
-            VStack(spacing: 4) {
-                Text("\(partner) hace")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                Text(station)
-                    .font(.system(size: 19, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-                Text("Recupera")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(WatchTheme.orangeSoft)
-                    .padding(.top, 1)
-                GiantNumber(text: WatchFormat.clock(session.lapElapsedSeconds), size: 40)
-                HRPill(bpm: session.liveHRBpm, zoneColor: WatchTheme.zoneGreen)
-                if let next = session.nextSegment?.title {
-                    Text("Luego entras tú · \(next)")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .padding(.top, 1)
+        // Diseño (`watch-dobles`): mientras rema la pareja, el sujeto es TU salida
+        // (recuperas / sales en …). Mando — puedes tocar para el relevo.
+        WatchReloj(
+            paginas: {
+                var list: [WatchPagina] = [
+                    WatchPagina(
+                        id: "relevo",
+                        contexto: "\(partner) · \(station)",
+                        modo: .mando,
+                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
+                        segundoEtiqueta: "Recupera",
+                        segundoValor: session.nextSegment.map { "Luego entras · \($0.title)" } ?? "Relevo",
+                        accion: "Toca · relevo",
+                        onToca: { session.advanceRelay() }
+                    ),
+                ]
+                if let pulso = WatchPaginasComunes.pulso(
+                    bpm: session.liveHRBpm,
+                    zone: session.liveZone,
+                    modo: .mando
+                ) {
+                    list.append(pulso)
                 }
-            }
-        } bottom: {
-            BigTapButton(title: "Relevo ▸") { session.advanceRelay() }
-        }
+                return list
+            }(),
+            tinte: WatchTheme.orange
+        )
     }
 }
 
@@ -155,20 +180,29 @@ private struct GenericLiveView: View {
     let session: WorkoutSession
 
     var body: some View {
-        LiveScaffold(status: session.currentSegment?.title ?? "Entreno", statusColor: WatchTheme.dim) {
-            VStack(spacing: 5) {
-                WatchLabel(text: "Tiempo")
-                GiantNumber(text: WatchFormat.clock(session.lapElapsedSeconds), size: 54)
-                if let line = session.currentSegment?.previewWorkLine {
-                    Text(line)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.7)
+        WatchReloj(
+            paginas: {
+                var list: [WatchPagina] = [
+                    WatchPagina(
+                        id: "gen",
+                        contexto: session.currentSegment?.title ?? "Entreno",
+                        modo: .mando,
+                        sujeto: WatchFormat.clock(session.lapElapsedSeconds),
+                        segundoValor: session.currentSegment?.previewWorkLine,
+                        accion: "Toca · hecho",
+                        onToca: { session.primaryAdvance() }
+                    ),
+                ]
+                if let pulso = WatchPaginasComunes.pulso(
+                    bpm: session.liveHRBpm,
+                    zone: session.liveZone,
+                    modo: .mando
+                ) {
+                    list.append(pulso)
                 }
-            }
-        } bottom: {
-            BigTapButton(title: "Hecho ▸") { session.primaryAdvance() }
-        }
+                return list
+            }(),
+            tinte: WatchTinte.color(for: session.liveZone)
+        )
     }
 }

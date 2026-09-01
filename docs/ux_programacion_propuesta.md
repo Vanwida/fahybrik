@@ -19,7 +19,7 @@ Unidades (jerarquía real):
 - **Sesión** (día, AM/PM) = varios bloques.
 - **Semana** = lo que se publica al atleta (lunes-domingo).
 - **Microciclo** = varias semanas (con su deload) — herramienta de planificación a medio plazo.
-- **Fase ATR** (Acumulación/Intensificación/Tapering) clasifica semanas y guía qué bloques tocan.
+- **Fase** = el nombre que el coach da al microciclo. Clasifica semanas y guía qué bloques tocan.
 
 **Implicación de diseño #1:** el centro de la UX no es un "studio de plantillas" abstracto. Es **el atleta y su semana**, con la IA y la biblioteca de bloques como herramientas del loop revisar→ajustar→publicar.
 
@@ -42,7 +42,7 @@ Unidades (jerarquía real):
 
 Un solo verbo para construir: **añadir bloque**. Los ejercicios viven *dentro* del bloque (no sueltos). "Añadir bloque" abre **una sola puerta con tres fuentes**:
 
-- **Biblioteca de Pablo** — los ~97 bloques, por grupo + fase ATR. La vía normal.
+- **Biblioteca de Pablo** — los ~97 bloques, por grupo + fase del microciclo. La vía normal.
 - **Pablo IA propone** — compone el día/semana desde bloques según fase + atleta. El doc lo pone como protagonista.
 - **A medida** — bloque nuevo con ejercicios del catálogo (absorbe el antiguo "arrastrar ejercicios sueltos").
 
@@ -53,10 +53,10 @@ Esto mata la confusión de los 3 caminos: pasan a ser tres fuentes de **lo mismo
 ## 4. La experiencia rediseñada — pantalla por pantalla
 
 ### 4.1 Home: el atleta y su semana (no un studio aparte)
-Desde la ficha del atleta → pestaña **Plan**, el coach ve la **semana del atleta** directamente editable (no una plantilla desacoplada). Arriba: estado (fase ATR, semana N del microciclo, % completado, última actividad), y si la **IA tiene una propuesta pendiente** → banner destacado "Pablo IA propone la semana del [fecha] · Revisar".
+Desde la ficha del atleta → pestaña **Plan**, el coach ve la **semana del atleta** directamente editable (no una plantilla desacoplada). Arriba: estado (nombre del microciclo, semana N, % completado, última actividad), y si la **IA tiene una propuesta pendiente** → banner destacado "Pablo IA propone la semana del [fecha] · Revisar".
 
 ```
-Marc Vidal · Pro · ACC · Semana 2/4        [Publicar semana ▸]
+Marc Vidal · Pro · Semana 2/4        [Publicar semana ▸]
 ┌ ✦ Pablo IA propone la semana del 2-jun ──────────── [Revisar] ┐
 └───────────────────────────────────────────────────────────────┘
  LUN     MAR     MIÉ     JUE     VIE     SÁB     DOM
@@ -65,7 +65,7 @@ Marc Vidal · Pro · ACC · Semana 2/4        [Publicar semana ▸]
 
 ### 4.2 Construir/editar la semana (el board)
 Board de 7 días (denso, se conserva — bueno para coach élite). Cada día:
-- Lista de **bloques** (tarjetas) con: grupo (chip de color), título, resumen estructurado (ej. "Front squat 5×10-8-8-8-6 @75%"), y badge si encaja con la fase ATR.
+- Lista de **bloques** (tarjetas) con: grupo (chip de color), título, resumen estructurado (ej. "Front squat 5×10-8-8-8-6 @75%"), y badge si encaja con el microciclo.
 - Sesión AM/PM cuando aplica.
 - **[+ Añadir bloque ▾]** → las 3 fuentes.
 - Arrastrar para reordenar bloques dentro del día y mover entre días (cumple §08 "arrastrar y soltar").
@@ -78,12 +78,12 @@ Al tocar un bloque → panel de edición **por-uso** (no muta la biblioteca, §0
 - La descripción verbatim de Pablo como referencia.
 
 ### 4.4 Pablo IA — protagonista del loop
-- **Proponer semana**: la IA compone desde bloques por fase ATR + grupos + feedback/resultados del atleta → preview editable → el coach acepta/ajusta/regenera. No inventa: referencia bloques reales.
+- **Proponer semana**: la IA compone desde bloques por microciclo + grupos + feedback/resultados del atleta → preview editable → el coach acepta/ajusta/regenera. No inventa: referencia bloques reales.
 - **Por día**: "Que Pablo IA proponga este día".
 - Tras carrera HYROX: la IA sugiere priorizar grupos débiles en el siguiente bloque (§07.3).
 
 ### 4.5 Microciclo (multi-semana) — vista de planificación
-El microciclo sigue existiendo como **planificación a medio plazo**: pestañas Semana 1-4 (+deload), cada una con su fase ATR. Pero se trabaja como semanas del atleta, no como plantilla abstracta. Sirve para ver el arco ACC→INT→Tapering y progresión entre semanas.
+El microciclo sigue existiendo como **planificación a medio plazo**: pestañas Semana 1-4 (+deload), cada una con el nombre que el coach le dio. Pero se trabaja como semanas del atleta, no como plantilla abstracta. Sirve para ver el arco y la progresión entre semanas.
 
 ### 4.6 Publicar (no "asignar mes" confuso)
 Acción clara **"Publicar semana"** con:
@@ -109,7 +109,7 @@ Trabajo: parsear los 97 verbatim → estructura (semi-automático + revisión de
 
 ## 6. Qué se conserva / qué cambia
 
-**Se conserva:** board denso de 7 días, microciclo con pestañas de semana, vocabulario ATR nativo, drag&drop, el catálogo limpio (62) y la biblioteca (97).
+**Se conserva:** board denso de 7 días, microciclo con pestañas de semana, drag&drop, el catálogo limpio (62) y la biblioteca (97).
 
 **Cambia:** un solo verbo "añadir bloque" (3 fuentes) en vez de 3 caminos; trabajar la semana del atleta en vez de plantilla desacoplada; IA como arranque del loop; publicar con preview en vez de "asignar mes"; bloques estructurados.
 
@@ -140,11 +140,11 @@ Auditoría independiente del flujo actual (15 fricciones, con fichero:línea). L
 | F11 | **Sin undo/redo** (borrados irreversibles) ALTA | `ProgrammingWeekStudio` | Undo (Cmd+Z) + papelera de sesión. Fase 6. |
 | F13 | **No se reordenan bloques entre días** (dnd solo vertical) | `ProgrammingWeekCanvas:56-190` | Drag&drop entre días (§08 doc "arrastrar y soltar"). Fase 2. |
 | F8 | **Preview IA no ajustable** antes de aceptar | `PabloIAComposeModal:220+` | §4.4 — preview editable (ajustar modificadores antes de aceptar). Fase 4. |
-| F9/F7/F1 | **"Bloque" ambiguo (3 sentidos)**; toggles IA crípticos; wizard sin glosario | varios | §3 nomenclatura unificada (bloque = unidad); IA sin toggles confusos (una sola "Proponer"); glosario ATR inline. Fases 2/4. |
-| F10/F14 | **ATR jerga sin explicar** + scroll 7 días sin referencia de fecha real | `ProgrammingMicrocyclesHub`, `Canvas` | Glosario ATR (tooltip) + cabecera de día con fecha real + "hoy". Fases 2/6. |
+| F9/F7/F1 | **"Bloque" ambiguo (3 sentidos)**; toggles IA crípticos; wizard sin glosario | varios | §3 nomenclatura unificada (bloque = unidad); IA sin toggles confusos (una sola "Proponer"). Fases 2/4. |
+| F10/F14 | **Jerga de fases sin explicar** + scroll 7 días sin referencia de fecha real | `ProgrammingMicrocyclesHub`, `Canvas` | Cabecera de día con fecha real + "hoy". Fases 2/6. |
 | F5/F6 | PARTE editable vs BIBLIOTECA sin distinción visual; panel 320px saturado | `StudioDetailPanel` | §4.3 panel de edición unificado y claro por tipo. Fase 3. |
 | F12 | Sin duplicar semana/día/bloque | — | §4.7 duplicar (§08 doc). Fase 6. |
 
-**Conservar (validado por la auditoría):** drag&drop fluido, PabloIAInput discreto, autosave con dot de estado, badges ATR+nivel color-coded, pills de navegación de semanas, librería con chips de filtro, panel contextual inline, AssignDropdown simple, separación PARTE/ITEM.
+**Conservar (validado por la auditoría):** drag&drop fluido, PabloIAInput discreto, autosave con dot de estado, badges de nivel color-coded, pills de navegación de semanas, librería con chips de filtro, panel contextual inline, AssignDropdown simple, separación PARTE/ITEM.
 
 Conclusión: la auditoría **confirma** el rediseño (especialmente §3 "un solo verbo" para F4, el centro en el atleta, e IA como arranque) y aporta los bugs/fricciones concretos que las fases recogen.

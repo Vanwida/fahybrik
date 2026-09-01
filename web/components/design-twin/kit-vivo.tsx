@@ -22,10 +22,10 @@
 // propio `font:` de sujeto o su propio degradado de zona está rompiendo el §10,
 // no «adaptándolo a su caso».
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { TwinAppearance } from './types';
 import { hrZone } from './sim';
-import { UMBRAL } from './datos-reales';
+import { UMBRAL, reloj } from './datos-reales';
 
 export type Zona = 1 | 2 | 3 | 4 | 5;
 
@@ -39,6 +39,52 @@ export function zonaDe(pulso: number | null | undefined): Zona | null {
 /** El color de una zona. Sin zona, la tinta normal — nunca el naranja de marca. */
 export function colorZona(z: Zona | null): string {
   return z == null ? 'var(--twin-fg)' : `var(--twin-z${z})`;
+}
+
+// ---------------------------------------------------------------------------
+// BandaAnclada — el sujeto cae SIEMPRE en el mismo punto óptico (§10.3), fuera
+// de `MarcoVivo`
+// ---------------------------------------------------------------------------
+
+/**
+ * Ancla el CENTRO del sujeto a la misma altura que las diez vistas en vivo,
+ * para las pantallas de «al terminar» que ya no usan `MarcoVivo` (porque
+ * scrollean con contenido de verdad debajo) pero quieren el mismo punto óptico.
+ *
+ * Reservar los 340 pt enteros de `BANDA.sujeto` clava el centro en su sitio,
+ * sí, pero deja aire entre el número y lo de debajo cuando el sujeto es corto.
+ * Aquí abajo hay contenido de sobra, así que lo correcto es anclar el CENTRO y
+ * dejar que lo de debajo empiece justo donde acaba el bloque.
+ *
+ * Se mide en vivo porque el sujeto no mide lo mismo en cada lectura: «5 de 6»
+ * con dos líneas de apoyo y «44:15» con una no ocupan igual, y un número
+ * escrito a mano se quedaría obsoleto a la primera línea de copy que cambie.
+ * Nació en `lectura-carrera` (12-ago) y sube al kit el 20-ago, la primera vez
+ * que una segunda familia («lectura-sesion») lo necesita igual.
+ */
+export function BandaAnclada({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [alto, setAlto] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAlto(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Media banda por encima, menos lo que el propio bloque sube: el centro cae
+  // en los mismos 345 pt del lienzo que en las diez vistas en vivo.
+  const encima = Math.max(0, BANDA.sujeto / 2 - alto / 2);
+
+  return (
+    <div style={{ paddingTop: encima, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div ref={ref} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center', width: '100%' }}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -176,11 +222,21 @@ const ESCALA: Record<'sujeto' | 'segundo', Record<'portrait' | 'landscape', stri
  */
 const AVANCE_MONO = 0.6;
 
-function techoDeAncho(texto: ReactNode): string | null {
+/** Lo que ocupa la unidad: va en `t-readout-label` (11 px) más su hueco de 8. */
+const AVANCE_UNIDAD_PT = 7;
+
+function techoDeAncho(texto: ReactNode, unidad?: string): string | null {
   if (typeof texto !== 'string' && typeof texto !== 'number') return null;
   const glifos = String(texto).length;
   if (glifos <= 4) return null;
-  return `calc(94cqw / ${(AVANCE_MONO * glifos).toFixed(2)})`;
+  // LA UNIDAD CUENTA. Vive en la MISMA línea que la cifra, así que el ancho
+  // disponible es el del lienzo MENOS ella. Sin descontarla, «10 × 82,5» pide sus
+  // 355 pt, la unidad no cabe en los 23 que quedan y el `flexWrap` la manda a la
+  // línea de abajo — donde se lee como un pie de foto y no como los kilos de la
+  // cifra. Se vio en la propuesta del hierro el 11-ago, y es del numeral, no de
+  // la pantalla: cualquier sujeto con unidad y cifra larga lo hacía.
+  const unidadPt = unidad ? unidad.length * AVANCE_UNIDAD_PT + 8 : 0;
+  return `calc((94cqw - ${unidadPt}px) / ${(AVANCE_MONO * glifos).toFixed(2)})`;
 }
 
 /**
@@ -210,7 +266,7 @@ export function Numeral({
   style?: CSSProperties;
 }) {
   const alto = ESCALA[escala][horizontal ? 'landscape' : 'portrait'];
-  const ancho = techoDeAncho(children);
+  const ancho = techoDeAncho(children, unidad);
   return (
     // `wrap` porque la ranura de unidad no siempre recibe una unidad: el erg le
     // pasa «sin lecturas», que es una nota de honestidad (§7) y no cabe en la
@@ -291,6 +347,26 @@ export const BANDA = {
   hueco: 12,
 } as const;
 
+/** El lienzo del iPhone 17 Pro son 874 pt y los safe areas se llevan 59 + 34. */
+const LIENZO_UTIL_PT = 874 - 59 - 34;
+
+/** Y de ancho, 402 menos el relleno del marco por los dos lados. */
+export const ANCHO_UTIL_PT = 402 - 2 * BANDA.hueco;
+
+/**
+ * EL HUECO REAL DE LOS APOYOS — lo que queda del lienzo cuando el marco ya ha
+ * repartido cromo, contexto, sujeto y acción, con sus cuatro huecos y su relleno.
+ *
+ * Vive aquí y no en una pantalla porque es una propiedad del MARCO, no de quien
+ * lo monta: `vivo-rondas` derivó de él su umbral de contador el 10-ago y
+ * `vivo-fuerza` deriva de él su cascada de apoyos. Escrito dos veces se
+ * desincroniza en cuanto alguien toque `BANDA` — que es exactamente el bug que
+ * el §0 del kit vino a cortar.
+ */
+export const APOYOS_PT =
+  LIENZO_UTIL_PT -
+  (BANDA.cromo + BANDA.contexto + BANDA.sujeto + BANDA.accion + 4 * BANDA.hueco + 2 * BANDA.hueco);
+
 /**
  * El marco de toda vista en vivo. Cinco filas, y el sujeto siempre en la tercera.
  *
@@ -330,6 +406,15 @@ export function MarcoVivo({
         height: '100%',
         display: 'grid',
         gridTemplateRows: filas,
+        // UNA columna, y del ANCHO DEL TELÉFONO. La columna implícita que sale
+        // sola es `auto`, y `auto` crece hasta el max-content de lo que caiga
+        // dentro: basta una línea larga con `nowrap` (la clave de un ejercicio)
+        // para que la rejilla mida 901 pt sobre un lienzo de 402 y se salgan
+        // TODAS las filas a la vez, el sujeto y la acción incluidos. Es el mismo
+        // fallo que el numeral ya tenía resuelto con su presupuesto de ancho
+        // (§10.2), un piso más arriba. `minmax(0, 1fr)` deja que lo que no cabe
+        // se recorte dentro, que es lo que cada fila sabe hacer.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         gap: BANDA.hueco,
         padding: BANDA.hueco,
         boxSizing: 'border-box',
@@ -399,8 +484,13 @@ export function BandaSujeto({
       }
     : {};
 
+  // Misma regla que el marco: una columna del ancho del lienzo, no del ancho de
+  // lo más largo que caiga dentro. Sin esto, una línea de texto sin corte dentro
+  // del sujeto arrastra la banda entera fuera del teléfono.
+  const columna = 'minmax(0, 1fr)';
+
   const cuerpo = (
-    <div style={{ minHeight: 0, display: 'grid', placeItems: 'center', ...piel }}>
+    <div style={{ minHeight: 0, display: 'grid', gridTemplateColumns: columna, placeItems: 'center', ...piel }}>
       {dominante && (
         <div
           aria-hidden
@@ -420,6 +510,7 @@ export function BandaSujeto({
       style={{
         minHeight: 0,
         display: 'grid',
+        gridTemplateColumns: columna,
         placeItems: 'center',
         border: 0,
         padding: 0,
@@ -631,6 +722,191 @@ export function FranjaAccion({
 }
 
 // ---------------------------------------------------------------------------
+// El cromo y la franja de contexto — lo que envuelve al sujeto y no se va nunca
+// ---------------------------------------------------------------------------
+//
+// Nacieron privados en `screens/vivo-fortime/atoms.tsx` y subieron aquí el
+// 10-ago, la primera vez que una SEGUNDA familia (el contador de muchas
+// rondas) los necesitó: es la regla del kit, y es la que evitó que la app
+// acabara con seis relojes y tres grafías del ritmo. Al subir, el rótulo del
+// formato dejó de estar cableado a «FOR TIME» — un metcon por rondas y una
+// simulación de carrera no se llaman igual, y el cromo no es quién para
+// decidirlo.
+
+function IconPausa({ reanudar }: { reanudar: boolean }) {
+  return (
+    <svg width={13} height={13} viewBox="0 0 16 16" aria-hidden>
+      {reanudar ? (
+        <path d="M4.5 3 13 8l-8.5 5V3Z" fill="currentColor" />
+      ) : (
+        <g fill="currentColor">
+          <rect x="4" y="3" width="2.6" height="10" rx="1" />
+          <rect x="9.4" y="3" width="2.6" height="10" rx="1" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/**
+ * La fila de cromo: pausar, de qué formato es esto y en qué tramo vas. Todo en
+ * una línea de 34 pt (`BANDA.cromo`), con el mismo botón redondo en todas las
+ * vistas, para que dos formatos del mismo entreno no tengan dos cromos.
+ */
+export function CromoFormato({
+  formato,
+  posicion,
+  pausado,
+  onPausa,
+}: {
+  /** El rótulo del formato, en versales: «FOR TIME» · «POR RONDAS». */
+  formato: string;
+  posicion: string;
+  pausado: boolean;
+  onPausa: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
+      <button
+        type="button"
+        onClick={onPausa}
+        aria-label={pausado ? 'Reanudar el entreno' : 'Pausar el entreno'}
+        style={{
+          width: BANDA.cromo,
+          height: BANDA.cromo,
+          borderRadius: '50%',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--twin-surface)',
+          border: '1px solid var(--twin-hairline)',
+          color: 'var(--twin-muted)',
+          cursor: 'pointer',
+          padding: 0,
+          flex: '0 0 auto',
+        }}
+      >
+        <IconPausa reanudar={pausado} />
+      </button>
+      <span
+        style={{
+          font: 'italic 800 10px/1 var(--twin-font-sans)',
+          letterSpacing: '0.12em',
+          color: 'var(--twin-accent-text)',
+          flex: '0 0 auto',
+        }}
+      >
+        {formato}
+      </span>
+      <span
+        style={{
+          font: '600 12px/1 var(--twin-font-sans)',
+          color: 'var(--twin-muted)',
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {pausado ? 'En pausa' : posicion}
+      </span>
+      <span style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+/**
+ * UN TIEMPO QUE DRENA, en la franja de contexto. El tope de un metcon es el caso
+ * que lo estrenó; el descanso prescrito de una serie es el segundo, y es el
+ * MISMO objeto: un total, lo que queda y si urge. Por eso no nace una segunda
+ * barra —serían tres en la tanda contando la del rodaje— sino que esta admite
+ * cómo se llama lo que drena.
+ */
+export interface CapEstado {
+  totalS: number;
+  restanteS: number;
+  /** Último minuto: el contexto se pone naranja y lo dice. */
+  urgente: boolean;
+  /**
+   * Qué es lo que drena, para el pie de la cifra. «de cap» por defecto, que es
+   * de donde viene.
+   *
+   * `null` = la barra va SIN cifra, y es el caso del descanso de una serie: ahí
+   * lo que queda ya gobierna la banda en el numeral, y escribir el mismo número
+   * dos veces en la misma pantalla es como empiezan las tres grafías del ritmo
+   * (§2). La barra sigue haciendo falta porque dice la FORMA —cuánto de lo
+   * prescrito llevas— y eso el numeral no lo dice.
+   */
+  pie?: string | null;
+}
+
+/**
+ * La franja que no desaparece jamás. El crono va en `t-readout-s` (22 pt): la
+ * misma voz de instrumento que el sujeto, un escalón por debajo.
+ *
+ * El aviso del último minuto NO se escribe en una línea aparte — se dice en la
+ * etiqueta del propio crono. Una sola redacción para las dos caras: la misma
+ * frase escrita dos veces es como empiezan las tres grafías del ritmo (§2).
+ */
+export function ContextoFormato({ scoreS, cap }: { scoreS: number; cap?: CapEstado }) {
+  const urgente = cap?.urgente ?? false;
+  // «Último minuto» solo mientras QUEDA cap. Con el cap agotado el crono ya no
+  // avisa de nada: es lo que tardaste, y la barra de al lado dice el resto.
+  const avisa = urgente && (cap?.restanteS ?? 0) > 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', minWidth: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, flex: '0 0 auto' }}>
+        <span className="t-readout-s" style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}>
+          {reloj(scoreS)}
+        </span>
+        <span
+          className="t-readout-label"
+          style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-muted)', letterSpacing: '0.1em' }}
+        >
+          {avisa ? 'último minuto' : 'tu tiempo'}
+        </span>
+      </span>
+      {cap ? <BarraCap {...cap} /> : <span style={{ flex: 1 }} />}
+    </div>
+  );
+}
+
+/**
+ * El cap es lo único que se pinta como progreso, y puede: es tiempo, y el
+ * tiempo se mide. Las repeticiones no llevan barra por la misma razón.
+ */
+function BarraCap({ totalS, restanteS, urgente, pie = 'de cap' }: CapEstado) {
+  const usado = Math.min(1, Math.max(0, (totalS - restanteS) / totalS));
+  const tinte = urgente ? 'var(--twin-accent)' : 'var(--twin-muted)';
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        role="img"
+        aria-label={`${pie == null ? 'Descanso' : 'Cap'} de ${reloj(totalS)}. Quedan ${reloj(restanteS)}.`}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: 4,
+          borderRadius: 6,
+          background: 'var(--twin-surface-sunken)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ width: `${usado * 100}%`, height: '100%', background: tinte, transition: 'width 500ms linear' }} />
+      </div>
+      {pie != null && (
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, flex: '0 0 auto' }}>
+          <span className="t-readout-s" style={{ color: urgente ? 'var(--twin-accent-text)' : 'var(--twin-fg)' }}>
+            {reloj(restanteS)}
+          </span>
+          <span style={{ font: '500 11px var(--twin-font-sans)', color: 'var(--twin-muted)' }}>{pie}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Apoyos — el tercer nivel, y el último
 // ---------------------------------------------------------------------------
 
@@ -642,11 +918,20 @@ export function FranjaAccion({
 export function Apoyo({
   etiqueta,
   valor,
+  ausente,
   tono = 'var(--twin-fg)',
   pie,
 }: {
   etiqueta: string;
-  valor: string;
+  /** Nulo = el dato no se sabe todavía, y entonces manda `ausente` (§7). */
+  valor: string | null;
+  /**
+   * Qué se lee cuando no hay dato: «sin reloj» · «aún no». Va en la voz de TEXTO
+   * y no en la de instrumento — monoespacear lo que no se ha medido lo disfraza
+   * de medida (§4). Es lo que `ApoyoVivo` ya hacía en Swift y al kit del doble le
+   * faltaba: la fila del hierro tiene tres celdas y dos pueden llegar vacías.
+   */
+  ausente?: string;
   tono?: string;
   pie?: string;
 }) {
@@ -667,16 +952,25 @@ export function Apoyo({
         border: '1px solid var(--twin-hairline)',
       }}
     >
-      <span className="t-readout-s" style={{ color: tono, transition: 'color 600ms linear' }}>
-        {valor}
-      </span>
+      {valor != null ? (
+        <span className="t-readout-s" style={{ color: tono, transition: 'color 600ms linear' }}>
+          {valor}
+        </span>
+      ) : (
+        <span style={{ font: '600 13px/1.2 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
+          {ausente ?? 'no se sabe'}
+        </span>
+      )}
       <span
         className="t-readout-label"
         style={{ color: 'var(--twin-muted)', textAlign: 'center', letterSpacing: '0.1em' }}
       >
         {etiqueta}
       </span>
-      {pie && <span style={{ font: '500 10px/1 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{pie}</span>}
+      {/* El pie solo cuando hay dato: «ppm» debajo de «sin reloj» no dice nada. */}
+      {pie && valor != null && (
+        <span style={{ font: '500 10px/1 var(--twin-font-sans)', color: 'var(--twin-faint)' }}>{pie}</span>
+      )}
     </div>
   );
 }

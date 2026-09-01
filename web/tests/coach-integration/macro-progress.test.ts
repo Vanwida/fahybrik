@@ -106,16 +106,65 @@ describeWithDb('buildMacroProgress (real DB)', () => {
   test('past week below 50% completion is marked missed', async () => {
     const fx = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
+    const { microcycleId: microId } = await makeMicrocycle({
+      sql,
+      athleteId: fx.athleteId,
+      startIso: '2026-03-02',
+      endIso: '2026-03-08',
+      weekNumber: 1,
+    });
     const tplId = await makeTemplate({ fx, name: 's' });
     // Past week with 0/2 completed → missed (completed < scheduled*0.5).
     for (const d of WK1) {
-      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'missed' });
+      await makeAssignment({
+        fx,
+        templateId: tplId,
+        scheduledForIso: d,
+        status: 'missed',
+        microcycleId: microId,
+      });
     }
 
     const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
     const w1 = p.weeks.find((w) => w.week_start === '2026-03-02');
     expect(w1?.status).toBe('missed');
     expect(w1?.compliance_pct).toBe(0);
+  });
+
+  test('lo que NO es del plan no crea semanas de progreso', async () => {
+    // El bug real (7-ago): el atleta tenía entrenos libres y tests sueltos de
+    // semanas anteriores, y el «progreso del microciclo» los contaba como sus
+    // semanas — marcaba como ACTUAL una semana de entrenos propios y empujaba
+    // el microciclo recién asignado a la S4. El coach leía que su atleta iba
+    // por la semana 3 de un plan que no había empezado.
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'libre' });
+    // Entrenos SIN microciclo: libres del atleta, calibración ad-hoc, semana cero.
+    for (const d of WK1) {
+      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'completed' });
+    }
+    // Y una semana que SÍ es del plan.
+    const { microcycleId: microId } = await makeMicrocycle({
+      sql,
+      athleteId: fx.athleteId,
+      startIso: '2026-03-09',
+      endIso: '2026-03-15',
+      weekNumber: 1,
+    });
+    for (const d of WK2) {
+      await makeAssignment({
+        fx,
+        templateId: tplId,
+        scheduledForIso: d,
+        status: 'scheduled',
+        microcycleId: microId,
+      });
+    }
+
+    const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    // Solo la semana del plan. La de entrenos sueltos no existe para el progreso.
+    expect(p.weeks.map((w) => w.week_start)).toEqual(['2026-03-09']);
   });
 
   test('athlete with no macrocycle returns empty progress (no crash)', async () => {
@@ -154,5 +203,48 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     expect(s.current_week_start).toBe('2026-03-09'); // Monday of ON_DATE's week
     expect(s.current_week_end).toBe('2026-03-15');
     expect(s.week_label).toBe('Microciclo Base · semana 2 de 3');
+  });
+
+  // ── El fallback del plan directo (Alex, 12-ago) ────────────────────────────
+  // Sin cadena, «en qué semana vas» sigue siendo un hecho del calendario:
+  // semanas SEGUIDAS con trabajo programado hasta la semana mirada. Sin «de M».
+
+  test('sin cadena, la posición sale del calendario real: «semana N» a secas', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'dictada' });
+    // Dos semanas seguidas con trabajo (la del ancla y la anterior), SIN
+    // microciclo ni recibo — el caso real de una semana dictada por el conector.
+    for (const d of [...WK1, ...WK2]) {
+      await makeAssignment({ fx, templateId: tplId, scheduledForIso: d, status: 'scheduled' });
+    }
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBe('semana 2');
+  });
+
+  test('un agujero corta la cuenta: la semana vacía separa dos planes', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'suelta' });
+    // Trabajo hace tres semanas y trabajo en la semana del ancla; la de en
+    // medio, vacía. El plan de hoy empieza donde empieza, no en enero.
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: '2026-02-23', status: 'completed' });
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: WK2[0]!, status: 'scheduled' });
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBe('semana 1');
+  });
+
+  test('la semana mirada sin nada programado no inventa posición', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const tplId = await makeTemplate({ fx, name: 'pasada' });
+    // Trabajo solo la semana pasada: la mirada está vacía → null (ese estado ya
+    // lo cuenta la pantalla del plan con sus palabras, no con un número).
+    await makeAssignment({ fx, templateId: tplId, scheduledForIso: WK1[0]!, status: 'completed' });
+
+    const s = await buildAthleteMacroSummary({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
+    expect(s.week_label).toBeNull();
   });
 });

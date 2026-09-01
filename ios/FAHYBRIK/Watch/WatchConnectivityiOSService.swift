@@ -115,9 +115,18 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: isDoubles,
             partnerFirstName: isDoubles ? partnerFirstName : nil,
             partnerVisibility: isDoubles ? partnerVisibility : nil,
-            detailJson: detail.flatMap(Self.encodeDetail)
+            detailJson: detail.flatMap(Self.encodeDetail),
+            clubAccent: Self.watchClubAccent()
         )
         send(payload)
+    }
+
+    /// El acento del club activo en el teléfono (`ClubThemeStore`, ver
+    /// ClubTheme.swift), mapeado a la forma que viaja al reloj. `nil` = sin
+    /// coach, coach sin acento propio — el reloj pinta su naranja de fábrica.
+    private static func watchClubAccent() -> WatchClubAccentPayload? {
+        guard let accent = ClubThemeStore.current?.accent else { return nil }
+        return WatchClubAccentPayload(fill: accent.fill, press: accent.press, text: accent.text)
     }
 
     /// A rest-day payload: no assignment fields, readiness only.
@@ -139,7 +148,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: false,
             partnerFirstName: nil,
             partnerVisibility: nil,
-            detailJson: nil
+            detailJson: nil,
+            clubAccent: Self.watchClubAccent()
         )
     }
 
@@ -184,8 +194,36 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         }
     }
 
+    /// ACABAR EN UN SITIO ES ACABAR: decirle al reloj que este entreno ya terminó
+    /// en el teléfono, para que cierre su grabación y no pida un segundo final.
+    ///
+    /// Se manda por mensaje directo (el reloj está despierto, está entrenando) y,
+    /// si no hay alcance en ese instante, se encola: el aviso no puede depender de
+    /// que el bluetooth esté fino justo al pulsar Terminar.
+    @MainActor
+    func endLiveWorkout() {
+        guard WCSession.isSupported() else { return }
+        activate()
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired, session.isWatchAppInstalled else { return }
+        let body: [String: Any] = [WatchWireKeys.liveEnd: true]
+        if session.isReachable {
+            session.sendMessage(body, replyHandler: nil) { _ in
+                Task { @MainActor in session.transferUserInfo(body) }
+            }
+        } else {
+            session.transferUserInfo(body)
+        }
+    }
+
     @MainActor
     func clearToday() {
+        // Igual que pushToday: si esta es la PRIMERA llamada a WCSession del
+        // proceso (atleta sin plan al primer render), sin activate() la sesión no
+        // tenía delegate ni activación — el `.clear` pendiente no se vaciaba nunca
+        // y todo lo que llegara de la muñeca se perdía en silencio.
+        activate()
         let session = WCSession.default
         guard session.activationState == .activated else {
             pendingContext = .clear
@@ -244,11 +282,28 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // had a toggle, so `false` just confirms the solo path; the server stays the
         // final net (409 session_private on a joint log of a private session).
         let shareWithPartner = envelope.shareWithPartner ?? true
+        let submission: ExecutionSubmission
         if resolveIsDoubles(assignmentId: envelope.assignmentId) && shareWithPartner {
             // sessionId == this athlete's own assignment id == payload.assignment_id.
-            await DoblesExecutionAPI.submit(sessionId: payload.assignment_id, payload, bearer: bearer)
+            submission = await DoblesExecutionAPI.submitReturning(
+                sessionId: payload.assignment_id, payload, bearer: bearer
+            )
         } else {
-            await WorkoutExecutionAPI.submit(payload, bearer: bearer)
+            submission = await WorkoutExecutionAPI.submitReturning(payload, bearer: bearer)
+        }
+
+        // EL ARCHIVO DE LA MUÑECA encuentra aquí su ejecución. La respuesta se
+        // descartaba, y con ella el `execution_id` del que cuelga la traza que el reloj
+        // manda por su propia cola. Se llama SIEMPRE que el sobre trae cupón, traiga id
+        // o se haya encolado: así el resguardo existe antes que el fichero y ninguna de
+        // las dos mitades llega a un sitio vacío.
+        if let localId = envelope.traceLocalId {
+            await WorkoutTraceUploader.watchExecutionResolved(
+                localId: localId,
+                executionId: submission.executionId,
+                queuedRequestId: submission.queuedRequestId,
+                bearer: bearer
+            )
         }
 
         // Optimistic local completion so Today/Plan paint it immediately (mirrors
@@ -326,7 +381,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             isDoubles: false,
             partnerFirstName: nil,
             partnerVisibility: nil,
-            detailJson: nil
+            detailJson: nil,
+            clubAccent: Self.watchClubAccent()
         )
     }
 
@@ -418,6 +474,28 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
         guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
         Task { @MainActor in await self.handleIncomingExecution(data) }
+    }
+
+    /// Un fichero de la muñeca. HOY cruzan dos, y se distinguen por la metadata, no por
+    /// la extensión: la TRAZA de la sesión y el archivo inercial de sensores.
+    ///
+    /// SE LEE AQUÍ, SÍNCRONO, ANTES DE VOLVER. WatchConnectivity deja el fichero en un
+    /// buzón temporal y lo BORRA en cuanto este método retorna, así que leerlo desde un
+    /// `Task` es leerlo cuando ya no está — el fallo que tenía el camino de sensores.
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        if let localId = file.metadata?[WatchWireKeys.traceLocalId] as? String {
+            guard let traces = WorkoutTraceUploader.readWatchTraceFile(at: file.fileURL, localId: localId)
+            else { return }
+            Task {
+                await WorkoutTraceUploader.watchTracesArrived(
+                    localId: localId, traces: traces, bearer: KeychainTokenStore.shared.read()
+                )
+            }
+            return
+        }
+        // Sensor archive from the wrist (fase 0). Only the metadata+path land here;
+        // upload runs when consent is present and an execution_id is known.
+        SensorFileReceiver.shared.didReceive(file: file)
     }
 }
 

@@ -43,6 +43,11 @@ import {
   testDueEvaluator,
 } from './progression';
 import { reviewDueEvaluator } from './reviews';
+import {
+  communicationQuestionUnansweredEvaluator,
+  communicationTaskOverdueEvaluator,
+  communicationProtocolUnopenedEvaluator,
+} from './communications';
 import { FLAGGED_OFF_EVALUATORS } from './flagged-off';
 
 const BACKED_EVALUATORS: SignalEvaluator[] = [
@@ -67,6 +72,9 @@ const BACKED_EVALUATORS: SignalEvaluator[] = [
   workoutLibreEvaluator,
   testDueEvaluator,
   reviewDueEvaluator,
+  communicationQuestionUnansweredEvaluator,
+  communicationTaskOverdueEvaluator,
+  communicationProtocolUnopenedEvaluator,
 ];
 
 /**

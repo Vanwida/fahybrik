@@ -2,6 +2,8 @@ import { sql } from '@/lib/db';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { loadAthleteProfileByUserId } from '@/lib/athlete/profile';
+import { getClubSkin } from '@/lib/coach/club-skin';
+import { deviceClubTheme } from '@fahybrid/shared/domain/coach/club-skin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +43,10 @@ export async function GET(req: Request) {
     return jsonError('not_found', 'Athlete profile not found', 404);
   }
 
+  // La piel del club de su coach: el atleta ve la marca de quien le entrena, no
+  // la nuestra. Sin coach o sin piel, todo va a null y la app pinta lo suyo.
+  const skin = athlete.coach_id ? await getClubSkin(BigInt(athlete.coach_id), sql) : null;
+
   return jsonOk({
     user: {
       id: userRow.user_id,
@@ -49,5 +55,6 @@ export async function GET(req: Request) {
       role: 'athlete' as const,
     },
     athlete,
+    club: deviceClubTheme(skin),
   });
 }

@@ -179,15 +179,15 @@ function RepeatBlock({
   // CLOSED — the whole repeat folds to one sentence: "6 × 1000 m @ 4:30 · rec 2'".
   if (!expanded) {
     return (
-      <div className="group flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent-soft)] bg-[color:var(--v2-accent-soft)]/30 px-3 py-2.5">
-        <MIcon name="repeat" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
+      <div className="group flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent-soft)] bg-[color:var(--v2-accent-soft)]/30 px-3 py-2.5">
+        <MIcon name="repeat" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         <button
           type="button"
           onClick={() => setOpenKey(key)}
           className="v2-focus min-w-0 flex-1 truncate text-left font-mono text-body text-[color:var(--v2-fg)]"
           aria-label={`Editar repetición: ${elementSentence(repeat)}`}
         >
-          <b className="font-bold text-[color:var(--v2-accent)]">{repeat.times} ×</b>{' '}
+          <b className="font-bold text-[color:var(--v2-accent-text)]">{repeat.times} ×</b>{' '}
           {repeat.elements.map(elementSentence).join(' · ')}
         </button>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
@@ -201,9 +201,9 @@ function RepeatBlock({
   }
 
   return (
-    <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)]/30 p-2">
+    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)]/30 p-2">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-xs font-bold text-[color:var(--v2-accent)]">
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-[color:var(--v2-accent-text)]">
           <MIcon name="repeat" size={14} />
           Repetir
         </span>
@@ -251,7 +251,7 @@ function AddButton({ icon, label, onClick }: { icon: string; label: string; onCl
     <button
       type="button"
       onClick={onClick}
-      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
     >
       <MIcon name={icon} size={14} />
       {label}

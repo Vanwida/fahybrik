@@ -5,6 +5,21 @@ import { prescriptionSchema } from '../domain/prescription';
 export const weekSlotKindSchema = z.enum(['rest', 'workout']);
 
 /**
+ * Topes de las DOS notas en prosa que el coach escribe para el atleta y que este
+ * lee en el móvil. Son constantes exportadas (y no un `800`/`500` suelto en cada
+ * `max()`) porque el mismo número lo necesita el input del dashboard para su
+ * `maxLength`: sin una sola fuente, el cliente puede componer un payload que el
+ * servidor rechaza y el coach pierde lo escrito.
+ *
+ * - SESSION: la nota del ENTRENO (`WeekSession.notes` → `templates.coach_notes`
+ *   al materializar) — el brief previo que el atleta lee antes de empezar.
+ * - ITEM: la nota de UNA línea prescrita (`WeekDayPartItem.notes` →
+ *   `template_segments.notes`) — el ajuste de ese ejercicio para ese día.
+ */
+export const SESSION_NOTES_MAX = 800;
+export const ITEM_NOTES_MAX = 500;
+
+/**
  * KIND de un DÍA de la semana (día TIPADO). Un día es `workout` (lleva ≥1 sesión
  * de entreno) o `rest` (DESCANSO deliberado: sin sesiones, pero INTENCIONAL —
  * distinto de un día vacío aún sin autorizar). Vive en `slots_json` → aditivo,
@@ -86,12 +101,46 @@ export const structureGroupSchema = z.enum(['calentamiento', 'principal', 'vuelt
 export type StructureGroup = z.infer<typeof structureGroupSchema>;
 
 /**
- * Configuración de timing/formato a nivel BLOQUE (AMRAP, EMOM, circuito…) y los
+ * CIRCUITO (docs/DECISIONS.md, 2026-08-07): un bloque de N rondas × M estaciones
+ * deja de representarse como estaciones sueltas que copian los mismos números
+ * (`rounds`/`work_s`/`rest_s` por ítem — el bug real de `applyHead` en
+ * `ComponentsForm.tsx`, que ya divergió en producción). `rounds` y los descansos
+ * viven UNA vez, a nivel de bloque; las estaciones solo llevan su ejercicio y su
+ * objetivo. `pacing` es el fork objetivo: `por_tarea` = la ronda dura lo que
+ * tarde el atleta, sin reloj (el caso HYROX real); `por_reloj` = cada estación
+ * tiene un tope duro (`work_seconds`), como un EMOM con varios movimientos.
+ * `work_seconds` solo existe bajo `por_reloj` — pedirlo siempre, aunque el
+ * formato no tenga reloj, era la confusión de "ventana trabajo" que Alex reportó.
+ */
+export const circuitPacingSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('por_tarea') }),
+  z.object({ kind: z.literal('por_reloj'), work_seconds: z.number().int().positive().max(3600) }),
+]);
+export type CircuitPacing = z.infer<typeof circuitPacingSchema>;
+
+export const circuitConfigSchema = z.object({
+  rounds: z.number().int().positive().max(60),
+  pacing: circuitPacingSchema,
+  // Descanso DENTRO de una ronda, entre una estación y la siguiente. Ausente =
+  // sin pausa entre estaciones (van seguidas).
+  rest_between_stations_seconds: z.number().int().nonnegative().max(3600).optional(),
+  // Descanso ENTRE rondas completas. Ausente = sin pausa (la siguiente ronda
+  // arranca al terminar la estación anterior).
+  rest_between_rounds_seconds: z.number().int().nonnegative().max(3600).optional(),
+});
+export type CircuitConfig = z.infer<typeof circuitConfigSchema>;
+
+/**
+ * Configuración de timing/formato a nivel BLOQUE (AMRAP, EMOM…) y los
  * parámetros del bloque según su grupo metodológico de Pablo (Running, Zona 2,
  * Ergómetros, Fuerza…). Todos opcionales: cada tipo de bloque rellena los suyos.
  * Aditivo y retro-compatible: los parts existentes solo usan el primer bloque de
  * campos; los nuevos campos (distancia/ritmo/zona/series) los consume el editor
  * de params por grupo metodológico. El materializador ignora este config.
+ *
+ * `rounds`/`work_seconds`/`rest_seconds` siguen aquí para EMOM/Tabata/intervalos
+ * (formatos que rotan un único movimiento, sin estaciones) — Circuito (arriba)
+ * es el tipo aparte para el caso multi-estación, no una fusión con este blob.
  */
 export const weekDayPartConfigSchema = z.object({
   // Timing / estructura WOD-Metcon y circuitos.
@@ -128,7 +177,7 @@ export const weekDayPartItemSchema = z.object({
   // editor lo DERIVA on-the-fly desde params_json+notes (legacyItemToPrescription)
   // sin mutar el almacenamiento.
   prescription_json: prescriptionSchema.optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(ITEM_NOTES_MAX).optional(),
 });
 export type WeekDayPartItem = z.infer<typeof weekDayPartItemSchema>;
 
@@ -160,6 +209,10 @@ export const weekDayPartSchema = z.object({
   // materializador y el atleta lo ignoran — solo consumen el ORDEN del array.
   group: structureGroupSchema.optional(),
   config_json: weekDayPartConfigSchema.optional(),
+  // Circuito (rounds/pacing/descansos) — ver circuitConfigSchema arriba. Separado
+  // de config_json a propósito: es un tipo cerrado y objetivamente correcto, no
+  // otro cajón del blob genérico.
+  circuit: circuitConfigSchema.optional(),
   coach_note: z.string().max(2000).optional(),
   items: z.array(weekDayPartItemSchema).max(24).default([]),
   // Procedencia opcional: cuando el bloque se insertó desde la Biblioteca de
@@ -174,6 +227,13 @@ export const weekDayPartSchema = z.object({
   // en `coach_note` para los bloques de biblioteca. Aditivo y opcional: el
   // materializador y el PUT de program-weeks la ignoran.
   athlete_note: z.string().max(800).optional(),
+  // «Opcional» — el bloque es un extra que el atleta puede saltarse (fase 2,
+  // ago-2026). Antes de esto solo existía como texto ("OPCIONAL: ...") al
+  // principio del título — ver los bloques reales del microciclo 76. Atributo
+  // del BLOQUE (no de la sesión): las dos instancias reales encontradas son
+  // bloques sueltos, nunca una sesión entera. Aditivo; ausente = obligatorio,
+  // que es el comportamiento de siempre.
+  optional: z.boolean().optional(),
 });
 export type WeekDayPart = z.infer<typeof weekDayPartSchema>;
 
@@ -207,7 +267,7 @@ export const weekSessionSchema = z.object({
   /** Bloques dentro de la sesión (lo que antes era `parts` / `pm_parts`). */
   blocks: z.array(weekDayPartSchema).max(16).optional(),
   focus: z.string().max(120).optional(),
-  notes: z.string().max(800).optional(),
+  notes: z.string().max(SESSION_NOTES_MAX).optional(),
 });
 export type WeekSession = z.infer<typeof weekSessionSchema>;
 
@@ -358,7 +418,11 @@ export const editorItemInputSchema = z.object({
   exercise_id: idSchema.nullable(),
   exercise_name: z.string().max(200).default(''),
   prescription: prescriptionSchema,
-  notes: z.string().max(500).optional(),
+  // Nota de ESTA línea para el atleta (`WeekDayPartItem.notes`): el ajuste del día
+  // ("baja la carga, vienes de la tirada del domingo"). Distinta de la descripción
+  // /claves PERMANENTES del ejercicio, que viven en la Biblioteca. Autoritativa
+  // desde el input: enviarla la fija, omitirla la borra (ver serializeItem).
+  notes: z.string().max(ITEM_NOTES_MAX).optional(),
 });
 export type EditorItemInput = z.infer<typeof editorItemInputSchema>;
 
@@ -371,6 +435,21 @@ export const editorBlockInputSchema = z.object({
   // serializer lo persiste en slots_json; opcional para callers que no lo envían.
   group: structureGroupSchema.optional(),
   source_block_id: z.number().int().positive().nullable().optional(),
+  // Texto verbatim que no encaja en la estructura (misma semántica que
+  // WeekDayPart.coach_note arriba — la prescripción/nota en prosa de un
+  // bloque). Opcional: los callers que no lo envían (el editor de día hoy no
+  // tiene UI para tocarlo) preservan el original vía el serializer, nunca lo
+  // borran por omisión.
+  coach_note: z.string().max(2000).optional(),
+  // Autoritativo desde el input cuando se envía, como `group`: el day editor
+  // manda siempre su valor actual una vez tiene UI para esto. Un caller que
+  // aún no lo conoce (copiar día, tests) simplemente lo omite → ausente/false
+  // en serializePart, nunca rompe.
+  optional: z.boolean().optional(),
+  // Circuito — autoritativo desde el input igual que `group`/`optional` una vez
+  // el editor tiene UI para esto (Task #9). Ausente = sin circuito (comportamiento
+  // legacy: estaciones sueltas sin rounds/pacing de bloque).
+  circuit: circuitConfigSchema.optional(),
   items: z.array(editorItemInputSchema).max(24).default([]),
 });
 export type EditorBlockInput = z.infer<typeof editorBlockInputSchema>;
@@ -382,6 +461,12 @@ export const editorSessionInputSchema = z.object({
   // for the session ("Entreno de pierna", "Series"). Optional/agnostic; empty or
   // absent leaves the session untitled (athlete falls back to template name).
   focus: z.string().max(120).optional(),
+  // Nota del ENTRENO (`WeekSession.notes`): lo que el coach le dice al atleta
+  // sobre ESTA sesión ("hoy vamos a por el ritmo, no te pases en la primera
+  // serie"). Viaja al brief previo del móvil vía `templates.coach_notes`.
+  // Autoritativa desde el input, igual que `focus` y que la nota de una línea:
+  // enviarla la fija, omitirla (o vaciarla) la borra. Ver serializeSession.
+  notes: z.string().max(SESSION_NOTES_MAX).optional(),
   blocks: z.array(editorBlockInputSchema).max(16).default([]),
 });
 export type EditorSessionInput = z.infer<typeof editorSessionInputSchema>;

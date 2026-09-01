@@ -30,7 +30,7 @@ export interface MicroWeek {
   index: number;
   name: string;
   focus: string | null;
-  /** Short etiqueta (atr hint / focus / "Semana k"). */
+  /** Short etiqueta (focus / "Semana k"). */
   label: string;
   session_count: number;
   /** Always 7 entries, Mon→Sun. */
@@ -189,12 +189,29 @@ function MicrocicloNameEditor({
   );
 }
 
+/** Whose personal plan this is (0164). null = a library microciclo. */
+export interface MicrocicloOwner {
+  athlete_id: string;
+  athlete_name: string;
+}
+
+/** Plantilla vacía pero el atleta ya tiene semanas entregadas (workout_assignments
+ *  nacidas sueltas en el editor de día) — ver loadDeliveredCountsForWeeks. Solo
+ *  aplica a un plan PERSONAL (owner != null); null = no hay nada que avisar. */
+export interface MicrocicloDeliveredElsewhere {
+  athlete_id: string;
+  athlete_name: string;
+  count: number;
+}
+
 export function MicrocicloEditor({
   microcycle_id,
   name,
   level,
   weeks,
   dayModel,
+  owner = null,
+  deliveredElsewhere = null,
 }: {
   microcycle_id: string;
   name: string;
@@ -202,6 +219,8 @@ export function MicrocicloEditor({
   weeks: MicroWeek[];
   /** DÍA zoom level: present iff `?dia=N` resolved to a real day server-side. */
   dayModel?: DayEditorModel | null;
+  owner?: MicrocicloOwner | null;
+  deliveredElsewhere?: MicrocicloDeliveredElsewhere | null;
 }) {
   const [view, setView] = useState<ViewMode>('foco');
   const [importOpen, setImportOpen] = useState(false);
@@ -226,7 +245,7 @@ export function MicrocicloEditor({
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
             >
               <MIcon name="upload_file" size={16} />
               Importar del Excel
@@ -248,6 +267,8 @@ export function MicrocicloEditor({
             name={name}
             weeks={weeks}
             dayModel={dayModel}
+            owner={owner}
+            deliveredElsewhere={deliveredElsewhere}
           />
         ) : (
           <MicrocicloV1 microcycle_id={microcycle_id} weeks={weeks} />

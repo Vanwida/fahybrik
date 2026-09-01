@@ -239,7 +239,7 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     func testBeltDistanceBeatsGpsOnClose() {
         let s = continuousSession([800])
         let (m, src) = makeModel(s)
-        s.sampleRunGPS(deltaMeters: 300)                 // a stray phone-GPS reading
+        s.sampleRunDistance(deltaMeters: 300, source: .healthkit)                 // a stray phone-GPS reading
         src.emit(100); src.emit(950)                     // belt covered 850 ≥ 800 → close
         let lap = s.laps.first
         XCTAssertEqual(lap?.distanceCoveredMeters ?? 0, 850, accuracy: 0.5)   // belt, not the 300 GPS
@@ -274,10 +274,13 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         let (m2, src2) = makeModel(s)
         XCTAssertEqual(m2.legDistanceM, 500, accuracy: 0.001)   // resumed, not dropped to 0
 
-        src2.emit(9000)                                  // odometer jumps → baseline anchors below 500
-        XCTAssertEqual(m2.legDistanceM, 500, accuracy: 0.001)   // first sample adds nothing (no double count)
+        // The REOPENED cover re-anchors its own ring on the next reading, so the leg
+        // does not double-count what it already showed. The SESSION is untouched by any
+        // of this — its feeder never stopped — so the reopen adds nothing by itself.
+        src2.emit(600)                                   // the belt has not moved since
+        XCTAssertEqual(m2.legDistanceM, 500, accuracy: 0.001)   // first sample adds nothing
         XCTAssertEqual(s.lapBeltDistanceMeters, 500, accuracy: 0.001)
-        src2.emit(9200)                                  // +200 covered
+        src2.emit(800)                                   // +200 covered
         XCTAssertEqual(m2.legDistanceM, 700, accuracy: 0.001)
         XCTAssertEqual(s.lapBeltDistanceMeters, 700, accuracy: 0.001)
         m2.teardown()
@@ -301,10 +304,27 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
 
     // MARK: - Fixtures
 
+    /// THE session's belt feeder — one per session, alive for the whole test, exactly
+    /// as `ActiveWorkoutView` owns one for the whole workout. It is deliberately NOT
+    /// recreated per cover open: the recording does not belong to the screen.
+    private var feeder: TreadmillSessionFeeder?
+
+    /// Build the HUD over `session` and wire the fake belt to BOTH consumers, the way
+    /// `DeviceHub` fans out in production: the HUD model (leg ring + auto-advance) and
+    /// the session feeder (the recording).
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
         let src = FakeTreadmill()
         let model = TreadmillHUDModel(session: session, hrZones: nil, treadmill: src, hr: FakeHR())
         model.start()
+        if feeder == nil { feeder = TreadmillSessionFeeder(session: session) }
+        // SAME ORDER AS `DeviceHub`: the recording first, the HUD second. The HUD's
+        // auto-advance closes the segment lap on the very sample that completes a leg,
+        // so a feeder running second would file that sample's metres under the NEXT lap.
+        let toModel = src.onSample
+        src.onSample = { [feeder] sample in
+            feeder?.ingest(sample)
+            toModel?(sample)
+        }
         src.onLink?(.connected(name: "Test"))
         return (model, src)
     }
@@ -359,6 +379,6 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
     private func plan(_ segments: [WorkoutSegment], format: PrescriptionScheme) -> WorkoutPlan {
         WorkoutPlan(id: UUID(), name: "Test", format: format, estimatedDurationSeconds: 900,
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
-                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                    coachNote: nil, warmupChecklist: [])
     }
 }

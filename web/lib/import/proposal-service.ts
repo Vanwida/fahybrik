@@ -28,18 +28,14 @@ import {
   suggestWeekFromBlocks,
 } from '@/lib/dashboard/coach/ai/suggest-week-from-blocks';
 import { weekDaysToProposal } from './generate-proposal';
+import { ImportError, assertMicrocycleOwned } from './import-shared';
+import { isPhotoRequest, buildPhotoProposal } from './photo-proposal';
 
-export class ImportError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status: number,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = 'ImportError';
-  }
-}
+// `ImportError` is re-exported (unchanged) so existing consumers —
+// app/api/coach/import/proposal/route.ts among them — keep importing it from
+// here; only its DEFINITION moved, to `./import-shared`, so a branch module
+// like `./photo-proposal` can use it without importing back into this file.
+export { ImportError };
 
 export const importVariantSchema = z.enum(['estandar', 'fuerza', 'resistencia']);
 export type ImportVariant = z.infer<typeof importVariantSchema>;
@@ -98,24 +94,13 @@ export const importGenerateRequestSchema = z
 
 export type ImportGenerateRequest = z.infer<typeof importGenerateRequestSchema>;
 
+// The PHOTO branch (request schema, upload constants, the Blob→base64
+// bridge, `buildPhotoProposal`) lives in ./photo-proposal — imported above.
+// `assertMicrocycleOwned` moved to ./import-shared for the same reason.
+
 // Display name for a 1..7 day index (only needed for the pasted-text path, where
 // the day may be unknown). Kept local — the reader owns the xlsx mapping.
 const DAY_DISPLAY = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
-async function assertMicrocycleOwned(
-  coach_id: number | bigint,
-  microcycle_id: number | bigint,
-  client: Sql,
-): Promise<void> {
-  const rows = await client<Array<{ id: string }>>`
-    select id::text from program_month_templates
-    where id = ${Number(microcycle_id)} and coach_id = ${Number(coach_id)}
-    limit 1
-  `;
-  if (!rows[0]) {
-    throw new ImportError('not_found', 'Este microciclo no existe o no es tuyo.', 404);
-  }
-}
 
 /**
  * Read the WEEK-RANGE source into `ImportedWeek[]` (whole weeks). The ONLY source
@@ -289,13 +274,21 @@ export async function buildImportProposalFromRequest(params: {
   /** Explicit override; default = the real env-configured assist (or none). */
   llmAssist?: LlmAssist | null;
 }): Promise<ImportProposal> {
-  // The GENERATE branch is a distinct request; route it before the file/paste
-  // schema (which requires `variant`, absent here).
+  // The GENERATE and PHOTO branches are distinct requests; route them before
+  // the file/paste schema (which requires `variant`, absent from either).
   if (isGenerateRequest(params.body)) {
     return buildGeneratedProposal({
       coach_id: params.coach_id,
       body: params.body,
       client: params.client,
+    });
+  }
+  if (isPhotoRequest(params.body)) {
+    return buildPhotoProposal({
+      coach_id: params.coach_id,
+      body: params.body,
+      client: params.client,
+      llmAssist: params.llmAssist,
     });
   }
 

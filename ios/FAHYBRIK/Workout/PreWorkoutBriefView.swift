@@ -50,8 +50,17 @@ struct PreWorkoutBriefView: View {
     var isBenchmark: Bool = false
     let onClose: () -> Void
 
-    // Per-exercise technique video opened in-app from a series row, when present.
-    @State private var segmentVideoUrl: String? = nil
+    // Ficha del ejercicio (vídeo + consejos + descripción + nota del día), abierta
+    // desde el botón "Ver técnica" de una fila. Antes esto solo guardaba la URL y
+    // abría un reproductor a solas: la descripción y los consejos del catálogo —
+    // que SÍ están cableados en `ExerciseDetailView` — quedaban sin ningún sitio
+    // desde donde llegar a ellos (Alex, 7-ago: «puse una descripción y no hay
+    // manera de verla en iOS»). Ahora es la MISMA ficha que `SessionExercisesSheet`
+    // ya usa — un solo lugar para toda la info del ejercicio, no dos.
+    @State private var techniqueItem: WorkoutItem? = nil
+
+    /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
+    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
     // #8 — a session with running work starts through the full-screen pre-start
     // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
@@ -102,11 +111,22 @@ struct PreWorkoutBriefView: View {
 
     private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
 
-    /// Devices the SMALL bottom card still offers: the HR strap only. The PM5 has
-    /// its first-class connect card at the top and the treadmill lives in the
-    /// full-screen pre-start run sequence — ONE journey each, no duplicates.
+    /// Mono pure-erg session (one PM5 slot, no cinta): keep the large ErgConnectCard
+    /// at the top. Multi-machine functional (Remo + Ski + Cinta…) uses the shared
+    /// DeviceConnectCard with every slot so the athlete can bind all three before GO.
+    private var showsMonoErgCard: Bool {
+        let machines = eligibleDevices.filter { $0 != .heartRate }
+        let ergs = machines.filter(\.isPM5)
+        return ergs.count == 1 && machines.count == 1
+    }
+
+    /// Devices for the Dispositivos card. Mono-erg leaves only HR here (PM5 has its
+    /// own card). Multi-machine / run-in-functional / mixed → every slot.
     private var bottomDevices: [PreWorkoutDevice] {
-        eligibleDevices.filter { $0 == .heartRate }
+        if showsMonoErgCard {
+            return eligibleDevices.filter { $0 == .heartRate }
+        }
+        return eligibleDevices
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -152,10 +172,10 @@ struct PreWorkoutBriefView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header
                     coachNote
-                    // ErgData pattern: erg work puts the CONNECT card first-class at
-                    // the top, above the blocks — the one PM5 entry, never a small
-                    // chip below the fold.
-                    if eligibleDevices.contains(.pm5) {
+                    // ErgData pattern: pure single-erg work puts the CONNECT card
+                    // first-class at the top. Multi-machine functional uses the
+                    // Dispositivos card with Remo / Ski / Cinta slots instead.
+                    if showsMonoErgCard {
                         ErgConnectCard()
                     }
                     if let blocks = structuredBlocks, !blocks.isEmpty {
@@ -201,13 +221,11 @@ struct PreWorkoutBriefView: View {
                 onCancel: { showRunPreStart = false }
             )
         }
-        .sheet(isPresented: Binding(
-            get: { segmentVideoUrl != nil },
-            set: { if !$0 { segmentVideoUrl = nil } }
-        )) {
-            if let url = segmentVideoUrl {
-                YouTubeSheet(url: url, title: "Técnica")
-            }
+        .sheet(item: $techniqueItem) { item in
+            ExerciseDetailView(item: item)
+        }
+        .sheet(item: $tarjetaParaCompartir) { tarjeta in
+            CompartirSheet(tarjeta: tarjeta)
         }
     }
 
@@ -233,6 +251,22 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
+
+            // Compartir lo que toca (card 132). Solo cuando el plan tiene
+            // contenido de verdad: una tarjeta de un título pelado no enseña
+            // nada y quedaría como un fallo.
+            if !plan.segments.isEmpty {
+                Button {
+                    Haptics.light()
+                    tarjetaParaCompartir = .entreno(TarjetaCompartibleBuilder.antes(plan: plan))
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(width: 34, height: 34)
+                }
+                .accessibilityLabel("Compartir sesión")
+            }
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.l)
@@ -386,7 +420,31 @@ struct PreWorkoutBriefView: View {
         }
     }
 
+    /// Una fila del calentamiento / la vuelta a la calma. Movilizar la cadera o
+    /// soltar los isquios se hace TAN mal como una sentadilla si nadie enseña
+    /// cómo: cuando el ejercicio trae ficha (vídeo, consejos, descripción o nota
+    /// del coach) la fila entera abre la misma ficha que el resto del entreno.
+    /// Sin ficha se queda como estaba, en texto: nada que tocar, nada que
+    /// prometa algo que no hay.
+    @ViewBuilder
     private func checklistRow(_ item: WorkoutItem) -> some View {
+        if hasTechnique(item) {
+            Button {
+                Haptics.light()
+                techniqueItem = item
+            } label: {
+                checklistRowContent(item)
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(hasTechniqueVideo(item) ? "Abre el vídeo de técnica" : "Abre la técnica")
+        } else {
+            checklistRowContent(item)
+        }
+    }
+
+    private func checklistRowContent(_ item: WorkoutItem) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "circle")
                 .font(.system(size: 12, weight: .regular))
@@ -400,9 +458,16 @@ struct PreWorkoutBriefView: View {
             if let summary = compactSummary(item) {
                 MonoText(text: summary, size: 12, weight: .medium, color: Theme.Color.muted)
             }
+            if hasTechnique(item) {
+                Image(systemName: hasTechniqueVideo(item) ? "play.circle.fill" : "info.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 
     // A one-line target for a collapsed row: the dominant measure + pace/zone.
@@ -456,6 +521,14 @@ struct PreWorkoutBriefView: View {
             // timer can never present the EMOM differently.
             if let merged = block.alternatingEmom {
                 alternatingEmomCard(block, merged)
+            } else if let (folded, _) = block.supersetFold {
+                // UNA SUPERSERIE SE ALTERNA, y hasta ahora la previa la enseñaba como
+                // ejercicios sueltos: el atleta llegaba al entreno sin saber la forma
+                // de lo que iba a hacer y se la encontraba dentro. Misma puerta que
+                // usa el motor (`block.supersetFold`), así que las dos pantallas no
+                // pueden discrepar: si el bloque degrada a series rectas, degrada en
+                // las dos, y la previa no promete una rotación que no va a pasar.
+                supersetCard(block, folded)
             } else {
                 ForEach(block.items) { item in
                     itemView(item)
@@ -501,9 +574,11 @@ struct PreWorkoutBriefView: View {
                         fallbackIsErg: set.modality?.isErg ?? false
                     )
                     let item = idx < block.items.count ? block.items[idx] : nil
-                    emomRotationRow(
+                    rotationRow(
                         label: minuteLabel(idx, of: sets.count),
-                        interval: interval,
+                        movement: interval.movement,
+                        work: interval.work,
+                        detail: interval.detail,
                         item: item
                     )
                 }
@@ -511,7 +586,71 @@ struct PreWorkoutBriefView: View {
         }
     }
 
-    private func emomRotationRow(label: String, interval: EmomInterval, item: WorkoutItem?) -> some View {
+    // MARK: Superserie — los ejercicios se alternan, ronda a ronda
+    //
+    // Lo que el atleta necesita saber ANTES de empezar es la FORMA: que estos
+    // ejercicios se alternan, en qué orden entran y cuántas rondas hay. La dosis de
+    // cada uno va a su derecha, con la misma retícula que la rotación del EMOM
+    // (misma familia de bloque plegado, misma lectura).
+    //
+    // SERIES DESIGUALES: no se redondea nada. La cabecera dice las rondas del
+    // bloque y cada fila dice las series de SU ejercicio, así que un «4 × 8» junto a
+    // un «2 × 10» enseña por sí solo que el segundo se retira antes. Un número por
+    // ejercicio y ninguno inventado.
+    @ViewBuilder
+    private func supersetCard(_ block: WorkoutBlock, _ merged: Prescription) -> some View {
+        CardSurface(padding: 0, leftAccent: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    Text("SE ALTERNAN")
+                        .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.Color.accentText)
+                    Spacer(minLength: 8)
+                    if let rondas = merged.rounds, rondas > 0 {
+                        MonoText(text: "\(rondas) \(Vocab.ronda.lowercased())\(rondas == 1 ? "" : "s")",
+                                 size: 12, weight: .semibold, color: Theme.Color.muted)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Theme.Color.surfaceSunken)
+                .overlay(alignment: .bottom) { Hairline() }
+
+                ForEach(Array(block.items.enumerated()), id: \.offset) { idx, item in
+                    if idx > 0 { Hairline() }
+                    // El orden en que entran, que es lo que hay que saber para
+                    // encadenarlos. La letra del coach (A1/A2) no llega hasta aquí:
+                    // se consume al importar y muere ahí.
+                    let dose = supersetDose(item)
+                    rotationRow(
+                        label: "\(idx + 1)º",
+                        movement: item.exerciseName,
+                        work: dose.work,
+                        detail: dose.load,
+                        item: item
+                    )
+                }
+            }
+        }
+    }
+
+    /// La dosis de un ejercicio de la superserie. Lee la prescripción escrita y, si
+    /// no la trae, la que se materializa de sus escalares — las MISMAS series que va
+    /// a ejecutar el motor, para que la previa no cuente unas y el entreno otras.
+    private func supersetDose(_ item: WorkoutItem) -> (work: String?, load: String?) {
+        guard let p = item.prescription ?? item.scalarStrengthPrescription else { return (nil, nil) }
+        return PrescriptionRenderer.rotationDose(p)
+    }
+
+    // UNA fila de rotación, la misma para el EMOM que alterna minutos y para la
+    // superserie que alterna ejercicios: turno a la izquierda, movimiento en medio,
+    // dosis a la derecha. Son la misma lectura, así que se pintan igual.
+    private func rotationRow(label: String, movement: String, work: String?,
+                             detail: String?, item: WorkoutItem?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .heavy))
@@ -519,7 +658,7 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.faint)
                 .frame(width: 66, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
-                Text(interval.movement)
+                Text(movement)
                     .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(2)
@@ -528,13 +667,15 @@ struct PreWorkoutBriefView: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                // Un minuto sin dosis declarada no pinta nada a la derecha: el
+                // Un turno sin dosis declarada no pinta nada a la derecha: el
                 // movimiento ya está dicho a la izquierda (§7).
-                if let work = interval.work {
+                if let work {
                     MonoText(text: work, size: 15, weight: .semibold, color: Theme.Color.foreground)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
-                if let detail = interval.detail {
+                if let detail {
                     MonoText(text: detail, size: 12, weight: .medium, color: Theme.Color.accentText)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
             }
         }
@@ -549,13 +690,17 @@ struct PreWorkoutBriefView: View {
         return "Min \(index + 1)"
     }
 
-    // Render ONE item by its modality. Strength → per-set table; run/ergo →
-    // distance/duration × pace/zone card; functional/core/mobility → reps/dist ×
-    // load/bodyweight card.
+    // Render ONE item. Lo que decide la TABLA POR SERIES es que la prescripción sea
+    // una tabla de series (`scheme == .sets` con sets escritos), no la modalidad: un
+    // core de 3×20 o una movilidad de 3×30 s tienen exactamente la misma forma que un
+    // 4×10 de banca, y filtrar por `modality == .strength` los mandaba a la tarjeta de
+    // una línea, que se come el conteo de series. Todo lo demás —correr, ergo,
+    // funcional, un movimiento suelto de un WOD— sigue siendo tarjeta de una línea.
     @ViewBuilder
     private func itemView(_ item: WorkoutItem) -> some View {
         let modality = itemModality(item)
-        if modality == .strength, item.prescription?.sets?.isEmpty == false {
+        let sets = item.prescription?.scheme == .sets ? (item.prescription?.sets?.count ?? 0) : 0
+        if sets > 0, modality == .strength || sets > 1 {
             strengthItemTable(item)
         } else {
             modalityCard(item, modality: modality)
@@ -774,15 +919,32 @@ struct PreWorkoutBriefView: View {
         )
     }
 
+    /// ¿Hay ficha que enseñar de este ejercicio? La ficha pinta CUATRO cosas —
+    /// vídeo, consejos, descripción del catálogo y la nota que el coach escribió
+    /// para hoy — así que cualquiera de las cuatro basta para ofrecer el acceso.
+    /// La nota faltaba en esta cuenta: un ejercicio con solo nota del coach se
+    /// quedaba sin botón aunque la ficha sí la pintaba.
+    private func hasTechnique(_ item: WorkoutItem) -> Bool {
+        hasTechniqueVideo(item)
+            || [item.exerciseDescription, item.cues, item.notes].contains { $0?.isEmpty == false }
+    }
+
+    /// Sólo cuando hay vídeo REPRODUCIBLE — es lo que decide si el acceso se
+    /// anuncia con el play o con la «i» de información. Da igual que el coach haya
+    /// pegado un enlace o subido el fichero: eso lo resuelve `VideoDeTecnica`.
+    private func hasTechniqueVideo(_ item: WorkoutItem) -> Bool {
+        VideoDeTecnica.hay(en: item.exerciseVideoUrl)
+    }
+
     @ViewBuilder
     private func techniqueButton(_ item: WorkoutItem) -> some View {
-        if let url = item.exerciseVideoUrl, YouTubeLinkParser.videoId(from: url) != nil {
+        if hasTechnique(item) {
             Button {
                 Haptics.light()
-                segmentVideoUrl = url
+                techniqueItem = item
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "play.circle.fill")
+                    Image(systemName: hasTechniqueVideo(item) ? "play.circle.fill" : "info.circle.fill")
                         .font(.system(size: 14, weight: .semibold))
                     Text("Ver técnica")
                         .scaledFont(12, weight: .semibold, relativeTo: .caption)
@@ -790,8 +952,17 @@ struct PreWorkoutBriefView: View {
                 .foregroundStyle(Theme.Color.accentText)
             }
             .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Ver vídeo de técnica de \(item.exerciseName)")
+            .accessibilityLabel(techniqueA11y(item))
         }
+    }
+
+    /// Lo que anuncia el acceso a la ficha. Sin vídeo NO se dice «vídeo»: el
+    /// botón lleva a los consejos y la nota, y prometer un vídeo que no está es
+    /// la misma mentira leída en voz alta.
+    private func techniqueA11y(_ item: WorkoutItem) -> String {
+        hasTechniqueVideo(item)
+            ? "Ver vídeo de técnica de \(item.exerciseName)"
+            : "Ver la técnica de \(item.exerciseName)"
     }
 
     // MARK: Modality / WOD classification
@@ -816,18 +987,29 @@ struct PreWorkoutBriefView: View {
         return itemModality(first).rawValue
     }
 
-    /// The WOD format/cap chip for a conditioning block — derived from the first
-    /// item's prescription scheme (amrap/emom/for_time), else from the block
-    /// format. Nil for a plain strength/cardio block.
+    /// La cabecera de formato del bloque. Sale del formateador compartido, que ya
+    /// conoce TODOS los esquemas con reloj — antes se filtraba por `scheme.isWOD`
+    /// (solo amrap/emom/for_time), así que un circuito, un Tabata o una sim de HYROX
+    /// llegaban a la previa sin cabecera aunque dentro del entreno sí la tuvieran.
+    /// Nil para fuerza / calentamiento / vuelta a la calma, donde el título basta.
     private func wodHeader(for block: WorkoutBlock) -> String? {
-        if let p = block.items.first?.prescription, p.scheme.isWOD {
-            return PrescriptionRenderer.wodHeader(p)
+        if let p = block.items.first?.prescription,
+           let header = PrescriptionRenderer.wodHeader(p) {
+            return header
         }
-        switch block.format.lowercased() {
-        case "amrap":    return "AMRAP"
-        case "emom":     return "EMOM"
-        case "for_time": return "FOR TIME"
-        default:         return nil
+        // Sin prescripción estructurada solo se sabe el formato del bloque: se dice
+        // el nombre y nada más, que es lo único cierto.
+        guard let scheme = PrescriptionScheme(canonicalizing: block.format.lowercased()) else { return nil }
+        switch scheme {
+        case .sets, .warmup, .cooldown: return nil
+        case .superset:
+            // La superserie NO lleva chapa, y por dos razones distintas. Si la
+            // rotación se pliega, quien la anuncia es la tarjeta, con sus rondas y
+            // sus ejercicios: repetir «Superserie» arriba es decir dos veces lo
+            // mismo. Y si el bloque degradó a series rectas, la chapa sería lo peor
+            // de todo — prometería una rotación que el entreno no va a hacer.
+            return nil
+        default:                        return scheme.displayName
         }
     }
 

@@ -168,7 +168,7 @@ export function attachmentProxyUrl(pathname: string): string {
  * when the configured value has no scheme, and strip any trailing slash so the
  * prefix concatenation never doubles it. Dev falls back to localhost.
  */
-function attachmentBaseUrl(): string {
+export function attachmentBaseUrl(): string {
   const configured = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? '').trim();
   if (!configured) return 'http://localhost:3000';
   const withScheme = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;

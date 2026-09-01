@@ -15,7 +15,7 @@
 import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { coerceJson } from '@/lib/json-column';
+import { coerceJson, toJsonValue } from '@/lib/json-column';
 import { buildCohort } from './cohort';
 import type { CohortRow } from '@fahybrid/shared/domain/coach/types';
 import {
@@ -128,13 +128,13 @@ export async function saveReview(
   const cohort = await buildCohort({ coach_id: params.coach_id, now, client });
   const snapshot = computeSnapshot(cohort, now);
 
-  const decisionsJson = JSON.stringify(
+  const decisionsJson = toJsonValue(
     z.array(weeklyReviewDecisionSchema).parse(params.decisions ?? []),
   );
-  const notesJson = JSON.stringify(
+  const notesJson = toJsonValue(
     z.array(weeklyReviewNoteSchema).parse(params.notes ?? []),
   );
-  const planEditsJson = JSON.stringify(
+  const planEditsJson = toJsonValue(
     z.array(weeklyReviewPlanEditSchema).parse(params.plan_edits ?? []),
   );
 
@@ -152,16 +152,16 @@ export async function saveReview(
     // froze it on first open); if we're saving a draft, refresh the snapshot
     // so Pablo sees current numbers if cohort changed since he opened.
     const snapshotJson = status === 'approved'
-      ? JSON.stringify(weeklyReviewSnapshotSchema.parse(existing.snapshot))
-      : JSON.stringify(snapshot);
+      ? toJsonValue(weeklyReviewSnapshotSchema.parse(existing.snapshot))
+      : toJsonValue(snapshot);
 
     const rows = await client<DbRow[]>`
       update coach_weekly_reviews
       set status         = ${status}::coach_weekly_review_status,
-          snapshot_json  = ${snapshotJson}::jsonb,
-          decisions_json = ${decisionsJson}::jsonb,
-          notes_json     = ${notesJson}::jsonb,
-          plan_edits_json= ${planEditsJson}::jsonb,
+          snapshot_json  = ${client.json(snapshotJson)},
+          decisions_json = ${client.json(decisionsJson)},
+          notes_json     = ${client.json(notesJson)},
+          plan_edits_json= ${client.json(planEditsJson)},
           duration_ms    = ${params.duration_ms ?? existing.duration_ms ?? null},
           approved_at    = ${approvedAt}::timestamptz,
           deferred_until = ${deferredUntil}::date
@@ -185,7 +185,7 @@ export async function saveReview(
   }
 
   // Insert path.
-  const snapshotJson = JSON.stringify(snapshot);
+  const snapshotJson = toJsonValue(snapshot);
   const rows = await client<DbRow[]>`
     insert into coach_weekly_reviews (
       coach_id, iso_week_start, status, snapshot_json,
@@ -196,10 +196,10 @@ export async function saveReview(
       ${params.coach_id as number},
       ${params.iso_week_start}::date,
       ${status}::coach_weekly_review_status,
-      ${snapshotJson}::jsonb,
-      ${decisionsJson}::jsonb,
-      ${notesJson}::jsonb,
-      ${planEditsJson}::jsonb,
+      ${client.json(snapshotJson)},
+      ${client.json(decisionsJson)},
+      ${client.json(notesJson)},
+      ${client.json(planEditsJson)},
       ${params.duration_ms ?? null},
       ${approvedAt}::timestamptz,
       ${deferredUntil}::date

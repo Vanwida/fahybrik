@@ -17,10 +17,12 @@ import {
   CHAT_BODY_MAX,
   inferAttachmentKind,
   type ChatAttachmentKind,
+  type ChatContext,
+  type ChatContextInput,
   type MessageDTO,
 } from './schema';
 
-export type { MessageDTO, ChatAttachmentKind };
+export type { MessageDTO, ChatAttachmentKind, ChatContext, ChatContextInput };
 // Se reexporta para que las pantallas tengan UNA sola puerta al chat y no tengan
 // que saber que el tope de caracteres vive en el módulo de schemas.
 export { CHAT_BODY_MAX };
@@ -86,6 +88,9 @@ export async function sendMessage(
     attachment_url?: string;
     attachment_kind?: ChatAttachmentKind;
     attachment_meta?: ChatAttachmentMeta;
+    // Sobre qué va el mensaje — SIN `label`, la deriva el servidor (ver
+    // docs/DECISIONS.md 2026-08-12). Ausente = sin contexto, igual que hoy.
+    context?: ChatContextInput;
   },
 ): Promise<MessageDTO> {
   const res = await fetch(`${basePath(athleteId)}/messages`, {

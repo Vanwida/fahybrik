@@ -151,19 +151,33 @@ struct EmomVivoView<Cromo: View>: View {
         "\(Vocab.ronda) \(session.emomIntervalIndex + 1) de \(plan?.intervalCount ?? 0)"
     }
 
-    /// EL TRABAJO DE ESTE MINUTO. En un EMOM no hay quien cuente burpees, así que
-    /// lo que se sabe es LA DOSIS («12 cal»), no un contador — y esa se dice, que
-    /// para eso el atleta la tiene delante. Fingir «0 de 12» cuando nadie está
-    /// contando sería peor que no decir nada: parece un dato medido (§7).
-    ///
-    /// Cuando la tarea la cuenta una máquina, el tramo ya no llega aquí: el erg se
-    /// queda con la pantalla (`ErgHUDContent`) y el minuto viaja encima.
+    /// EL TRABAJO DE ESTE MINUTO. Sin máquina, la dosis («12 cal»). Con máquina
+    /// (cinta en un EMOM cuyo sitio aún no se eligió, o un remo que no robó la
+    /// pantalla) se ve 0 → objetivo, nunca un «0 de 12» inventado.
     private func trabajo(_ itv: EmomInterval) -> Trabajo {
-        Trabajo(nombre: itv.movement,
-                hecho: nil,
-                objetivo: nil,
-                unidad: nil,
-                dosis: itv.work)
+        let tramo = session.currentTramo
+        if let target = tramo.targetDistanceMeters {
+            let hecho = session.tramoIsRun
+                ? (session.tramoRunCoveredMeters ?? session.tramoBeltDistanceMeters)
+                : session.tramoErgDistanceMeters
+            return Trabajo(nombre: itv.movement,
+                           hecho: hecho.map { Int($0.rounded()) },
+                           objetivo: Int(target.rounded()),
+                           unidad: "m",
+                           dosis: nil)
+        }
+        if let target = tramo.targetCalories {
+            return Trabajo(nombre: itv.movement,
+                           hecho: session.tramoErgCalories,
+                           objetivo: target,
+                           unidad: "cal",
+                           dosis: nil)
+        }
+        return Trabajo(nombre: itv.movement,
+                       hecho: nil,
+                       objetivo: nil,
+                       unidad: nil,
+                       dosis: itv.work)
     }
 
     // MARK: - Los apoyos — la traza de rondas, y lo que viene
@@ -314,7 +328,7 @@ private func emomDePrueba(zonas: HRZoneProfile? = nil, bpm: Int? = nil) -> Worko
     let plan = WorkoutPlan(id: UUID(), name: "EMOM 12", format: .emom,
                            estimatedDurationSeconds: 720, blockContext: "Principal",
                            zoneTargets: [], equipment: [], segments: [tramo],
-                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                           coachNote: nil, warmupChecklist: [])
     let sesion = WorkoutSession(plan: plan, hrZones: zonas)
     sesion.emomPhaseRemaining = 41
     sesion.emomIntervalIndex = 3

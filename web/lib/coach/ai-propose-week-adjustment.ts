@@ -8,12 +8,13 @@ import { evaluateAthleteWeek } from './weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { chatCompletion, isChatConfigured } from './ai-chat';
 import { retrieveRelevant } from '@/lib/rag/retrieve';
-import { coerceJson } from '@/lib/json-column';
+import { coerceJson, toJsonValue } from '@/lib/json-column';
 import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
 import {
   weekAdjustmentProposalJsonSchema,
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
+import { loadCoachMethodMirror } from '@/lib/coach/method-interview';
 
 export type WeekAdjustmentProposalRecord = {
   id: string;
@@ -172,6 +173,7 @@ type LlmCallArgs = {
   /** Cost-telemetry context (A7). */
   coach_id: number | bigint;
   athlete_id: number | bigint;
+  method_mirror?: string;
 };
 
 function buildSystemPrompt(): string {
@@ -193,9 +195,10 @@ function buildSystemPrompt(): string {
   ].join('\n');
 }
 
-function buildUserPrompt(args: LlmCallArgs): string {
+function buildUserPrompt(args: LlmCallArgs & { method_mirror?: string }): string {
   return JSON.stringify(
     {
+      how_coach_trains: args.method_mirror || null,
       context_pack: args.context_pack,
       methodology_snippets: args.rag_snippets,
       planned_week: args.base_week,
@@ -249,17 +252,6 @@ function validateProposalJson(raw: unknown): WeekAdjustmentProposalJson {
   return weekAdjustmentProposalJsonSchema.parse(raw);
 }
 
-/**
- * `JSON.stringify` throws on BigInt. The proposal's slot_changes carry
- * `from_template_id`/`to_template_id` coerced to BigInt by `idSchema`
- * (`z.coerce.bigint()`). Serialize them as Numbers so they round-trip cleanly
- * through jsonb (re-parsed back to BigInt on read). Mirrors the bigint-safe
- * replacer used by `program-months` when persisting slots_json.
- */
-function jsonSafeStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? Number(v) : v));
-}
-
 // --------------------------------------------------------------------------
 // Public entrypoint
 // --------------------------------------------------------------------------
@@ -299,7 +291,7 @@ export async function proposeWeekAdjustment(params: {
   } else if (isCoachIaLlmConfigured()) {
     // Va mal + LLM disponible → intento LLM, fallback heurístico si falla.
     try {
-      const [ragSnippets, baseWeek, alternatives] = await Promise.all([
+      const [ragSnippets, baseWeek, alternatives, methodMirror] = await Promise.all([
         retrieveMethodologySnippets({
           coach_id: params.coach_id,
           context_pack: evaluation.context_pack,
@@ -311,6 +303,7 @@ export async function proposeWeekAdjustment(params: {
           client,
         }),
         loadAlternativeTemplates({ coach_id: params.coach_id, client, limit: 10 }),
+        loadCoachMethodMirror(params.coach_id, client).catch(() => ''),
       ]);
       proposal = await callCoachIaLlm({
         context_pack: evaluation.context_pack,
@@ -319,6 +312,7 @@ export async function proposeWeekAdjustment(params: {
         alternatives,
         coach_id: params.coach_id,
         athlete_id: params.athlete_id,
+        method_mirror: methodMirror,
       });
     } catch (err) {
       console.warn(
@@ -346,10 +340,10 @@ export async function proposeWeekAdjustment(params: {
 
   // Serializamos ANTES de tocar la DB: si la propuesta trae BigInt en los
   // slot_changes, `JSON.stringify` reventaría — y antes lo hacía DESPUÉS del
-  // supersede, dejando al atleta con 0 propuestas pending. Con jsonSafeStringify
+  // supersede, dejando al atleta con 0 propuestas pending. Con toJsonValue
   // + transacción, supersede e insert son atómicos: si algo falla, NADA cambia.
-  const contextPackJson = jsonSafeStringify(evaluation.context_pack);
-  const proposalJson = jsonSafeStringify(proposal);
+  const contextPackJson = toJsonValue(evaluation.context_pack);
+  const proposalJson = toJsonValue(proposal);
 
   // Supersede + insert en UNA transacción: el supersede de la propuesta pending
   // previa NO se confirma hasta que la nueva se inserta con éxito. Un fallo en
@@ -371,8 +365,8 @@ export async function proposeWeekAdjustment(params: {
         ${nextWeekStart}::date,
         'pending',
         ${evaluation.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
-        ${contextPackJson}::jsonb,
-        ${proposalJson}::jsonb
+        ${tx.json(contextPackJson)},
+        ${tx.json(proposalJson)}
       )
       returning id::text
     `;

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Resend } from 'resend';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 // Post-call summary email (#11) — sent to the lead after the videollamada, from the
 // coach's session report (notes + next steps). The coach previews/edits the text at
@@ -16,6 +17,9 @@ export interface SendSessionSummaryInput {
   summary: string;
   /** Optional next steps line. */
   nextSteps?: string | null;
+  /** El coach que envía este resumen — pinta su piel (nombre + acento) en vez de la
+   *  marca de este binario. Ausente/nulo → marca de este binario, como hoy. */
+  coach_id?: bigint | number | null;
 }
 
 export interface SendSessionSummaryResult {
@@ -42,6 +46,7 @@ export async function sendSessionSummaryEmail(input: SendSessionSummaryInput): P
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) return { sent: false, skipped_reason: 'resend_not_configured' };
 
+  const skin = await resolveClubEmailSkin(input.coach_id ?? null);
   const firstName = input.name?.trim().split(/\s+/)[0] || '';
   const greeting = firstName ? `Hola ${esc(firstName)},` : 'Hola,';
   const next = input.nextSteps?.trim();
@@ -49,14 +54,14 @@ export async function sendSessionSummaryEmail(input: SendSessionSummaryInput): P
   const html = `<!doctype html>
 <html lang="es"><body style="margin:0;background:#0a0a0a;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;padding:40px 24px;color:#f4f4f4;">
-    <div style="font-style:italic;font-weight:800;letter-spacing:0.14em;font-size:13px;color:#F06A2A;text-transform:uppercase;">FAHYBRID</div>
+    <div style="font-style:italic;font-weight:800;letter-spacing:0.14em;font-size:13px;color:${skin.dark.text};text-transform:uppercase;">${esc(skin.wordmark)}</div>
     <h1 style="font-style:italic;font-weight:900;font-size:24px;line-height:1.15;margin:14px 0 12px;">${greeting}</h1>
     <p style="font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 14px;">Un resumen de lo que hablamos:</p>
     ${toHtmlParagraphs(summary)}
     ${
       next
         ? `<div style="margin:18px 0 0;padding:14px 16px;background:#141414;border-radius:12px;border:1px solid #262626;">
-             <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;color:#F06A2A;text-transform:uppercase;margin-bottom:6px;">Próximos pasos</div>
+             <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;color:${skin.dark.text};text-transform:uppercase;margin-bottom:6px;">Próximos pasos</div>
              <div style="font-size:15px;line-height:1.55;color:#f4f4f4;">${esc(next).replace(/\n/g, '<br>')}</div>
            </div>`
         : ''
@@ -78,7 +83,7 @@ Cualquier duda, respóndeme a este email.`;
     const { error } = await resend.emails.send({
       from: AUTH_CONFIG.resendFromEmail(),
       to: input.to,
-      subject: 'Resumen de tu llamada con FAHYBRID',
+      subject: `Resumen de tu llamada con ${skin.wordmark}`,
       html,
       text,
     });

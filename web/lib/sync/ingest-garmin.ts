@@ -16,11 +16,26 @@
 // Idempotency: every insert is guarded by an existence check on
 // (athlete_id, source='garmin', external_id). external_id is summaryId or
 // activityId, falling back to startTimeInSeconds when missing.
+//
+// LAS VUELTAS NO BORRAN NADA. Esto borraba los tramos de la ejecución antes de
+// reescribir los suyos, y se llevaba por delante lo que el reloj no sabe medir:
+// los `zone_seconds` que congela el móvil, las filas de `segment_zone_seconds` y
+// `set_executions` (cuelgan con `on delete cascade`), la atribución de la serie y
+// el enlace a la prescripción. Ahora se FUSIONA por precedencia de campo —
+// `planSegmentFusion` decide y `fuseDeviceLaps` escribe— con las tres reglas del
+// modelo: la identidad no se destruye, el troceado lo manda quien midió los
+// tramos, y las vueltas casan por tiempo, nunca por ordinal.
 
 import type { Sql } from '@/lib/db';
+import { coerceJson, toJsonValue } from '@/lib/json-column';
 import { markAssignmentDoneFromDevice } from '@/lib/sync/assignment-status';
-import { existsOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
+import { findOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
+import { fuseDeviceLaps, type DeviceLapRow } from '@/lib/sync/fuse-device-laps';
 import { deriveLapIntensity, garminActivityToModality } from '@/lib/garmin/lap-mapping';
+
+// Con qué firma Garmin sus filas de tramo. Es también la llave con la que la
+// fusión distingue lo que midió la app de lo que trajo el reloj.
+const GARMIN_SEGMENT_SOURCE = 'garmin';
 
 export type GarminSummary = {
   userId?: string;
@@ -250,6 +265,27 @@ async function ingestGarminActivity(args: {
     externalId, raw: rawBody, source_workout_id: externalId,
   });
 
+  // Las vueltas del reloj, normalizadas a nuestro vocabulario UNA vez: los tres
+  // caminos de abajo funden exactamente lo mismo.
+  const laps = buildGarminLaps(summary, startedAt);
+
+  // ¿Esta actividad YA está archivada? Entonces la ejecución es suya: no se
+  // archiva otra ni se toca el assignment, solo se funden sus vueltas. Sustituye
+  // al viejo corte seco por (source='garmin' + ref igual), que devolvía sin mirar
+  // los tramos — y por eso el `activityDetails` que llega DESPUÉS del `activities`
+  // (que es como manda Garmin: el resumen primero, el detalle con las vueltas
+  // después) perdía todas sus vueltas por el camino.
+  const filed = await sql<{ id: string }[]>`
+    select id::text from workout_executions
+    where athlete_id = ${athlete_id as unknown as number}
+      and source_workout_ref = ${externalId}
+    limit 1
+  `;
+  if (filed[0]) {
+    const fused = await fuseGarminLaps(sql, filed[0].id, laps, true);
+    return { executionInserted: false, lapsInserted: fused, streamsInserted };
+  }
+
   // TIME-WINDOW DE-DUPE (core data-integrity guard, shared helper — mirrors
   // HealthKit). If the athlete already has ANY execution whose window intersects
   // this activity's [started_at, ended_at], the session is already accounted for
@@ -257,20 +293,26 @@ async function ingestGarminActivity(args: {
   // AND the assignment-complete flip so a passive Garmin import never files a
   // phantom second execution (or flips a second same-day assignment). The hr
   // stream above still ingests (deduped independently by external_id).
-  if (await existsOverlappingExecution(sql, athlete_id, startedAt, endedAt)) {
-    return { executionInserted: false, lapsInserted: 0, streamsInserted };
+  //
+  // Lo que SÍ cambia: hasta ahora aquí se tiraba también todo el detalle por
+  // vuelta. «Ya está contada» significa que no se archiva una segunda ejecución,
+  // no que el reloj no tenga nada que aportar: sus vueltas rellenan los huecos de
+  // los tramos que la app midió (la FC de un tramo corrido sin pulsómetro, por
+  // ejemplo). No puede crear filas ahí — la ejecución no es suya —, así que no hay
+  // forma de que esto duplique volumen.
+  const overlapping = await findOverlappingExecution(sql, athlete_id, startedAt, endedAt);
+  if (overlapping) {
+    const fused = await fuseGarminLaps(sql, overlapping.id, laps, false);
+    return { executionInserted: false, lapsInserted: fused, streamsInserted };
   }
 
   // Try to map to an assignment for the day; create or override execution.
   // Tiebreak on id desc so the pick is deterministic on days with >=2
   // assignments (stable + testable), not order-of-insertion dependent.
   const day = startedAt.slice(0, 10);
-  const rows = await sql<{ id: string; existing_source: string | null; existing_ref: string | null }[]>`
-    select wa.id::text as id,
-           we.source::text as existing_source,
-           we.source_workout_ref as existing_ref
+  const rows = await sql<{ id: string }[]>`
+    select wa.id::text as id
     from workout_assignments wa
-    left join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = ${athlete_id as unknown as number}
       and wa.scheduled_for = ${day}::date
     order by wa.scheduled_for desc, wa.id desc
@@ -280,10 +322,6 @@ async function ingestGarminActivity(args: {
   let lapsInserted = 0;
 
   if (rows[0]) {
-    // Idempotency: if Garmin already filed this exact externalId, skip.
-    if (rows[0].existing_source === 'garmin' && rows[0].existing_ref === externalId) {
-      return { executionInserted: false, lapsInserted: 0, streamsInserted };
-    }
     await sql`
       insert into workout_executions (
         assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
@@ -307,25 +345,43 @@ async function ingestGarminActivity(args: {
         -- recordWorkoutExecution and never reaches this insert.
         'imported'::execution_recording_method
       )
+      -- QUIEN SE QUEDA CON LA CABECERA. La condicion se repite en los cinco
+      -- campos porque van juntos: o se conserva la ejecucion que ya estaba, o se
+      -- toma entera la de Garmin. Mezclar la mitad de cada una daria una sesion
+      -- que no ocurrio.
+      --
+      -- La comprobacion de recorded_via es la mitad que faltaba, y es la misma
+      -- mina que arreglan los tramos de abajo, un piso mas arriba. La columna
+      -- source responde QUE APARATO midio (mig 0144), asi que una sesion corrida
+      -- en la app con un PM5 o una cinta lleva source concept2 o treadmill --
+      -- ninguno de los dos entra en esta lista, y sin esta linea un entreno de
+      -- Garmin del mismo dia le sobrescribia la ventana, la duracion y la
+      -- procedencia a la sesion que el atleta habia hecho de verdad en la app.
+      -- QUIEN REGISTRO el entreno lo dice recorded_via, no source.
       on conflict (assignment_id) do update
         set started_at = case
-              when workout_executions.source in ('garmin', 'manual') then workout_executions.started_at
+              when workout_executions.source in ('garmin', 'manual')
+                or workout_executions.recorded_via = 'live' then workout_executions.started_at
               else excluded.started_at
             end,
             ended_at = case
-              when workout_executions.source in ('garmin', 'manual') then workout_executions.ended_at
+              when workout_executions.source in ('garmin', 'manual')
+                or workout_executions.recorded_via = 'live' then workout_executions.ended_at
               else excluded.ended_at
             end,
             total_duration_seconds = case
-              when workout_executions.source in ('garmin', 'manual') then workout_executions.total_duration_seconds
+              when workout_executions.source in ('garmin', 'manual')
+                or workout_executions.recorded_via = 'live' then workout_executions.total_duration_seconds
               else excluded.total_duration_seconds
             end,
             source = case
-              when workout_executions.source in ('garmin', 'manual') then workout_executions.source
+              when workout_executions.source in ('garmin', 'manual')
+                or workout_executions.recorded_via = 'live' then workout_executions.source
               else excluded.source
             end,
             source_workout_ref = case
-              when workout_executions.source in ('garmin', 'manual') then workout_executions.source_workout_ref
+              when workout_executions.source in ('garmin', 'manual')
+                or workout_executions.recorded_via = 'live' then workout_executions.source_workout_ref
               else excluded.source_workout_ref
             end,
             -- Existing wins: an ingest can only ADD what nobody knew. A session
@@ -341,76 +397,90 @@ async function ingestGarminActivity(args: {
     // clobber an explicit manual 'partial'/'completed' or coach 'skipped'/'missed'.
     await markAssignmentDoneFromDevice(sql, rows[0].id, athlete_id);
 
-    if (summary.laps && summary.laps.length > 0) {
-      const exec = await sql<{ id: string }[]>`
-        select id::text from workout_executions
-        where assignment_id = ${rows[0].id}::bigint
-        limit 1
-      `;
-      const exec_id = exec[0]?.id;
-      if (exec_id) {
-        // Wipe any existing laps for this execution before re-inserting from
-        // Garmin. Garmin is the new source-of-truth for laps.
-        await sql`
-          delete from segment_executions where execution_id = ${exec_id}::bigint
-        `;
-        // Activity-level modality (per-lap activityType overrides on multisport).
-        const activityModality = garminActivityToModality(summary.activityType);
-        let pos = 0;
-        for (const lap of summary.laps) {
-          const lapStart = secondsToIso(lap.startTimeInSeconds) ?? startedAt;
-          const lapEnd = lap.timerDurationInSeconds
-            ? new Date(((lap.startTimeInSeconds ?? 0) + lap.timerDurationInSeconds) * 1000).toISOString()
-            : lapStart;
-          const modality = garminActivityToModality(lap.activityType) ?? activityModality;
-          // Route the two SPM-style signals to their OWN columns (mig 0124): erg
-          // stroke rate / bike rpm → stroke_rate_spm; running cadence (steps/min)
-          // → run_cadence_spm. A step is not a stroke, so they must not share a
-          // column (the old code funnelled run cadence into stroke_rate_spm, where
-          // the running analytics never saw it).
-          const ergStrokeRate =
-            lap.averageStrokeRateInStrokesPerMinute ?? lap.averageBikeCadenceInRoundsPerMinute;
-          const intensity = deriveLapIntensity({
-            modality,
-            distance_meters: lap.totalDistanceInMeters,
-            duration_seconds: lap.timerDurationInSeconds,
-            power_w: lap.averagePowerInWatts,
-            stroke_rate_spm: modality === 'run' ? null : ergStrokeRate,
-            run_cadence_spm: lap.averageRunCadenceInStepsPerMinute,
-          });
-          await sql`
-            insert into segment_executions (
-              execution_id, position, started_at, ended_at,
-              distance_meters, avg_hr, max_hr,
-              modality, avg_pace_s_per_km, avg_pace_s_per_500m,
-              avg_power_w, stroke_rate_spm, run_cadence_spm, source,
-              raw_lap_data_json
-            ) values (
-              ${exec_id}::bigint,
-              ${pos},
-              ${lapStart},
-              ${lapEnd},
-              ${lap.totalDistanceInMeters ?? null},
-              ${lap.averageHeartRateInBeatsPerMinute ?? null},
-              ${lap.maxHeartRateInBeatsPerMinute ?? null},
-              ${modality ?? null},
-              ${intensity.avg_pace_s_per_km},
-              ${intensity.avg_pace_s_per_500m},
-              ${intensity.avg_power_w},
-              ${intensity.stroke_rate_spm},
-              ${intensity.run_cadence_spm},
-              'garmin',
-              ${JSON.stringify(lap)}::jsonb
-            )
-          `;
-          pos += 1;
-          lapsInserted += 1;
-        }
-      }
+    const exec = await sql<{ id: string; ref: string | null }[]>`
+      select id::text, source_workout_ref as ref
+      from workout_executions
+      where assignment_id = ${rows[0].id}::bigint
+      limit 1
+    `;
+    if (exec[0]) {
+      // La ejecución es de esta actividad solo si se quedó con SU referencia. Si
+      // el `on conflict` de arriba conservó un registro a mano o una sesión en
+      // vivo, la referencia sigue siendo la de aquélla: entonces Garmin no manda
+      // en el troceado y sus vueltas se limitan a rellenar huecos.
+      lapsInserted = await fuseGarminLaps(sql, exec[0].id, laps, exec[0].ref === externalId);
     }
   }
 
   return { executionInserted, lapsInserted, streamsInserted };
+}
+
+/**
+ * Las vueltas de un resumen de Garmin, traducidas a nuestro vocabulario de tramo.
+ * Una sola vez por actividad: los tres caminos de `ingestGarminActivity` funden
+ * exactamente la misma lista.
+ */
+function buildGarminLaps(summary: GarminSummary, fallbackStart: string): DeviceLapRow[] {
+  if (!summary.laps || summary.laps.length === 0) return [];
+  // Modalidad de la actividad (el `activityType` de la vuelta manda en multisport).
+  const activityModality = garminActivityToModality(summary.activityType);
+  return summary.laps.map((lap, index) => {
+    const started_at = secondsToIso(lap.startTimeInSeconds) ?? fallbackStart;
+    const ended_at = lap.timerDurationInSeconds
+      ? new Date(((lap.startTimeInSeconds ?? 0) + lap.timerDurationInSeconds) * 1000).toISOString()
+      : started_at;
+    const modality = garminActivityToModality(lap.activityType) ?? activityModality;
+    // Route the two SPM-style signals to their OWN columns (mig 0124): erg
+    // stroke rate / bike rpm → stroke_rate_spm; running cadence (steps/min)
+    // → run_cadence_spm. A step is not a stroke, so they must not share a
+    // column (the old code funnelled run cadence into stroke_rate_spm, where
+    // the running analytics never saw it).
+    const ergStrokeRate =
+      lap.averageStrokeRateInStrokesPerMinute ?? lap.averageBikeCadenceInRoundsPerMinute;
+    const intensity = deriveLapIntensity({
+      modality,
+      distance_meters: lap.totalDistanceInMeters,
+      duration_seconds: lap.timerDurationInSeconds,
+      power_w: lap.averagePowerInWatts,
+      stroke_rate_spm: modality === 'run' ? null : ergStrokeRate,
+      run_cadence_spm: lap.averageRunCadenceInStepsPerMinute,
+    });
+    return {
+      index,
+      started_at,
+      ended_at,
+      measured: {
+        distance_meters: lap.totalDistanceInMeters ?? null,
+        avg_hr: lap.averageHeartRateInBeatsPerMinute ?? null,
+        max_hr: lap.maxHeartRateInBeatsPerMinute ?? null,
+        modality: modality ?? null,
+        avg_pace_s_per_km: intensity.avg_pace_s_per_km,
+        avg_pace_s_per_500m: intensity.avg_pace_s_per_500m,
+        avg_power_w: intensity.avg_power_w,
+        stroke_rate_spm: intensity.stroke_rate_spm,
+        run_cadence_spm: intensity.run_cadence_spm,
+      },
+      raw: toJsonValue(lap),
+    };
+  });
+}
+
+/** Devuelve cuántas filas de tramo tocó la fusión (nuevas + enriquecidas). */
+async function fuseGarminLaps(
+  sql: Sql,
+  executionId: string,
+  laps: readonly DeviceLapRow[],
+  deviceOwnsExecution: boolean,
+): Promise<number> {
+  if (laps.length === 0) return 0;
+  const fused = await fuseDeviceLaps({
+    sql,
+    executionId,
+    deviceSource: GARMIN_SEGMENT_SOURCE,
+    deviceOwnsExecution,
+    laps,
+  });
+  return fused.written + fused.merged;
 }
 
 async function insertStream(args: {
@@ -421,6 +491,7 @@ async function insertStream(args: {
   value: number | null | undefined;
   unit: string;
   externalId: string | undefined;
+  /** Cuerpo tal cual lo mandó Garmin (texto JSON): se guarda como OBJETO. */
   raw: string;
   source_workout_id?: string;
 }): Promise<number> {
@@ -464,7 +535,7 @@ async function insertStream(args: {
       ${ts},
       ${value},
       ${unit},
-      ${raw}::jsonb
+      ${sql.json(toJsonValue(coerceJson(raw)))}
     )
   `;
   return 1;

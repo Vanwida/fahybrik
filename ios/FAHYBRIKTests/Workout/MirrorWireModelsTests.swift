@@ -76,6 +76,43 @@ final class MirrorWireModelsTests: XCTestCase {
         XCTAssertEqual(back.beltPaceSecPerKm, 278)
     }
 
+    // MARK: - Haptic cue message (phone engine → wrist)
+
+    func testHapticCueRoundTripsThroughEnvelope() throws {
+        let h = MirrorHaptic(cue: MirrorWire.HapticCue.go, seq: 7)
+        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.haptic, h))
+        let env = try XCTUnwrap(MirrorEnvelope.decoding(data))
+        XCTAssertEqual(env.type, MirrorWire.MessageType.haptic)
+        let back = try XCTUnwrap(env.body(as: MirrorHaptic.self))
+        XCTAssertEqual(back.cue, MirrorWire.HapticCue.go)
+        XCTAssertEqual(back.seq, 7)
+    }
+
+    func testFrameEmbeddedHapticRoundTrips() throws {
+        var f = sampleFrame(phase: MirrorWire.Phase.active, countdown: nil)
+        f.hapticCue = MirrorWire.HapticCue.tick
+        f.hapticSeq = 3
+        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.frame, f))
+        let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorStateFrame.self))
+        XCTAssertEqual(back.hapticCue, MirrorWire.HapticCue.tick)
+        XCTAssertEqual(back.hapticSeq, 3)
+    }
+
+    func testAllHapticCueNamesRoundTrip() throws {
+        let cues = [
+            MirrorWire.HapticCue.tick,
+            MirrorWire.HapticCue.go,
+            MirrorWire.HapticCue.stop,
+            MirrorWire.HapticCue.finish,
+        ]
+        for cue in cues {
+            let h = MirrorHaptic(cue: cue)
+            let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.haptic, h))
+            let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorHaptic.self))
+            XCTAssertEqual(back.cue, cue)
+        }
+    }
+
     func testOldFrameWithoutBeltFieldsDecodesToNil() throws {
         // A phone that predates the belt fields sends a frame without them → nil, so an
         // older watch just renders the standard active glance (no ring). Additive, safe.

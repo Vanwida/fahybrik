@@ -24,7 +24,7 @@ export function LogoutButton() {
           window.location.href = '/sign-in';
         }
       }}
-      className="v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-danger)] transition-colors hover:border-[color:var(--v2-danger)] disabled:opacity-60"
+      className="v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-danger)] transition-colors hover:border-[color:var(--v2-danger)] disabled:opacity-60"
       aria-label="Cerrar sesión"
     >
       <MIcon name="logout" size={18} />

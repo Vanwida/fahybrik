@@ -1,38 +1,41 @@
 'use client';
 
 // ComponentsForm — the COMPONENTS base pattern (WOD/Metcon · Circuito/Core ·
-// Fuerza-potencia/EMOM · Simulación HYROX routed here). A conditioning block is
-// NOT one nested prescription: per the domain model a "compromised" block is
-// MULTIPLE block items, each its OWN exercise + dosis (measure ± target) sharing
-// one block. So this form edits the EditorBlock's ITEM LIST:
-//   - Formato — the block-level scheme drawn from the shared metcon catalog
-//     (For Time | AMRAP | EMOM | Tabata | Death By | Series | Chipper | Escalera |
-//     Rondas), applied to every component (one block = one format).
-//   - Rondas / Time cap / Ventana de trabajo — the scheme's structural fields,
-//     stored on EVERY item's prescription so the persisted shape stays coherent.
-//   - Componentes — the reorderable list: movimiento (exercise_name) + dosis
-//     (reps | distancia | tiempo) ± carga.
-// Edits the same EditorItem[] the serializer persists; zero free text.
+// Fuerza-potencia/EMOM routed here; Simulación HYROX has its own dedicated
+// form). A conditioning block is NOT one nested prescription: per the domain
+// model a "compromised" block is MULTIPLE block items, each its OWN exercise +
+// dosis (measure ± target) sharing one block. So this form edits the
+// EditorBlock's ITEM LIST, branching on whether the block IS Circuito
+// (`format === 'circuit'`, docs/DECISIONS.md 2026-08-07):
+//   - Circuito (`isCircuit`) — CircuitConfigFields (component-stations.tsx)
+//     edits `EditorBlock.circuit` DIRECTLY: rondas + pacing (por_tarea sin
+//     reloj | por_reloj con work_seconds) + los dos descansos, a nivel de
+//     BLOQUE. Stations carry ONLY their own exercise + measure/target — no
+//     Formato picker, nothing copied onto items.
+//   - Every other format (WOD/EMOM/Tabata/…) — Formato — the block-level
+//     scheme drawn from the shared metcon catalog (For Time | AMRAP | EMOM |
+//     Tabata | Death By | Series | Chipper | Escalera | Rondas), applied to
+//     every component via `applyHead`: Rondas (Stepper) / Time cap / Ventana /
+//     Descanso (chips con el «—» honesto) stored on EVERY item's prescription
+//     so the persisted shape stays coherent. UNCHANGED — this convention is
+//     only wrong for the multi-station Circuito case that `circuit` replaces.
+//   - Estaciones — filas limpias en orden (component-stations): asa, movimiento,
+//     medida en mono y objetivo. Shared by both branches.
+// Edits the same EditorItem[] (+ `circuit` for Circuito) the serializer
+// persists; zero free text.
 
 import type {
   FormatParam,
-  Measure,
   Prescription,
   PrescriptionScheme,
 } from '@fahybrid/shared/domain/prescription';
-import { formatMeta, formatsByFamily, setMeasure } from '@fahybrid/shared/domain/prescription';
+import { formatMeta, formatsByFamily } from '@fahybrid/shared/domain/prescription';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
-import { ExercisePickerField } from '../ExercisePickerField';
-import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
-import {
-  ClockCell,
-  DistanceCell,
-  Field,
-  InlineToggle,
-  NumberCell,
-} from './form-controls';
+import { CircuitConfigFields } from './circuit-config-fields';
+import { ComponentStationRow, FormatParamField } from './component-stations';
+import { Field, InlineToggle } from './form-controls';
 
 // The conditioning formats this WOD/components form offers: the full metcon
 // family (minus the dedicated HYROX-sim template, which has its own archetype +
@@ -75,8 +78,6 @@ const FORMAT_OPTIONS: { value: Format; label: string }[] = OFFERED_FORMATS.map((
   value: f,
   label: FORMAT_LABEL_ES[f],
 }));
-
-type DoseMode = 'reps' | 'distance' | 'duration';
 
 // Per-format structural defaults. The existing four (for_time/amrap/emom/rounds)
 // keep their exact prior values; the rest seed the catalog's new formats.
@@ -125,10 +126,21 @@ export function ComponentsForm({
 }) {
   const format = blockFormat(block);
   const head = blockHead(block);
+  // Circuito (docs/DECISIONS.md, 2026-08-07) is a type of its own: no Formato
+  // picker, no applyHead — its structural fields live in `block.circuit`,
+  // edited directly by CircuitConfigFields below. `format` is the STORED,
+  // authoritative classifier (set once at archetype creation and never
+  // touched by the inner Formato toggle, which only exists for the other
+  // branch), so it survives reload the same way `archetypeForFormat` does.
+  const isCircuit = block.format === 'circuit';
+
+  const setCircuit = (next: CircuitConfig) => onChange({ ...block, circuit: next });
 
   // Apply a block-level field (scheme / rounds / total_s / work_s / rest_s) to
   // EVERY item's prescription so the persisted shape stays coherent across the
-  // block (all components share the format + cap).
+  // block (all components share the format + cap). Only the non-Circuito
+  // branch calls this — Circuito's structural fields never touch item
+  // prescriptions (that duplication was the real bug this form replaces).
   const applyHead = (p: Partial<Prescription>) => {
     onChange({
       ...block,
@@ -197,15 +209,21 @@ export function ComponentsForm({
     });
 
   const addComponent = () => {
+    // Circuito: a new station carries ONLY its scheme + modality — never the
+    // head's rounds/work_s/rest_s/total_s. Spreading `head` here (like the
+    // non-Circuito branch does) is exactly how the old `applyHead` convention
+    // re-leaked block-level fields onto stations one at a time; the block's
+    // rounds/pacing/descansos live solely in `block.circuit` now.
+    const seed = isCircuit
+      ? { scheme: head?.scheme ?? ('rounds' as const), modality: head?.modality ?? 'functional' }
+      : { ...(head ?? { scheme: format }), modality: head?.modality ?? 'functional' };
     const next: EditorItem = {
       uid: `comp-${Date.now()}`,
       exercise_id: null,
       exercise_name: '',
       prescription: cleanScheme({
-        ...(head ?? { scheme: format }),
-        modality: head?.modality ?? 'functional',
+        ...seed,
         sets: [{ measure: { kind: 'reps', value: 10 } }],
-        // structural fields are inherited from the head via the spread above.
       }),
     };
     onChange({ ...block, items: [...block.items, next] });
@@ -225,38 +243,45 @@ export function ComponentsForm({
 
   return (
     <div className="space-y-4">
-      {/* Formato + per-format structural fields (driven by the catalog params) */}
-      <div className="space-y-3">
-        <Field label="Formato">
-          <InlineToggle
-            ariaLabel="Formato del bloque"
-            value={format}
-            options={FORMAT_OPTIONS}
-            onChange={setFormat}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {(formatMeta(format)?.params ?? []).map((param) => (
-            <FormatParamField
-              key={param}
-              param={param}
-              format={format}
-              head={head}
-              onPatch={applyHead}
+      {isCircuit ? (
+        // Circuito: rounds/pacing/descansos a nivel de bloque — sin Formato
+        // picker (Circuito no es una de las 9 variantes del catálogo metcon).
+        <CircuitConfigFields config={block.circuit} onChange={setCircuit} />
+      ) : (
+        /* Formato + per-format structural fields (driven by the catalog params) */
+        <div className="space-y-3">
+          <Field label="Formato">
+            <InlineToggle
+              ariaLabel="Formato del bloque"
+              value={format}
+              options={FORMAT_OPTIONS}
+              onChange={setFormat}
             />
-          ))}
-        </div>
-      </div>
+          </Field>
 
-      {/* Componentes */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(formatMeta(format)?.params ?? []).map((param) => (
+              <FormatParamField
+                key={param}
+                param={param}
+                format={format}
+                head={head}
+                onPatch={applyHead}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Estaciones, en el orden en que se hacen */}
       <div className="space-y-1.5">
         <span className="v2-micro">
-          Componentes {format === 'amrap' || format === 'rounds' ? '(cada ronda)' : ''}
+          Estaciones · en orden{' '}
+          {isCircuit || format === 'amrap' || format === 'rounds' ? '(cada ronda)' : ''}
         </span>
         <div className="space-y-2">
           {block.items.map((it, i) => (
-            <ComponentRow
+            <ComponentStationRow
               key={it.uid}
               index={i}
               item={it}
@@ -268,7 +293,7 @@ export function ComponentsForm({
           ))}
           {block.items.length === 0 ? (
             <p className="px-1 py-2 text-xs text-[color:var(--v2-muted)]">
-              Sin componentes — añade el primer movimiento.
+              Sin estaciones: añade el primer movimiento.
             </p>
           ) : null}
         </div>
@@ -278,225 +303,11 @@ export function ComponentsForm({
           className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
         >
           <MIcon name="add" size={13} />
-          Añadir movimiento
+          Añadir estación
         </button>
       </div>
     </div>
   );
-}
-
-// One component row: orden · movimiento · dosis (reps|distancia|tiempo) ± carga.
-function ComponentRow({
-  index,
-  item,
-  count,
-  onChange,
-  onRemove,
-  onMove,
-}: {
-  index: number;
-  item: EditorItem;
-  count: number;
-  onChange: (patch: Partial<EditorItem>) => void;
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
-}) {
-  const measure = item.prescription.sets?.[0]
-    ? setMeasure(item.prescription.sets[0])
-    : undefined;
-  const doseMode: DoseMode =
-    measure?.kind === 'distance' ? 'distance' : measure?.kind === 'duration' ? 'duration' : 'reps';
-
-  const setMeasureOnItem = (m: Measure) =>
-    onChange({ prescription: { ...item.prescription, sets: [{ measure: m }] } });
-
-  const setDoseMode = (next: DoseMode) => {
-    if (next === doseMode) return;
-    const m: Measure =
-      next === 'distance'
-        ? { kind: 'distance', meters: 200 }
-        : next === 'duration'
-          ? { kind: 'duration', seconds: 30 }
-          : { kind: 'reps', value: 10 };
-    setMeasureOnItem(m);
-  };
-
-  return (
-    <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2">
-      <div className="flex items-center gap-2">
-        <div className="flex shrink-0 flex-col">
-          <button
-            type="button"
-            aria-label={`Subir componente ${index + 1}`}
-            disabled={index === 0}
-            onClick={() => onMove(-1)}
-            className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_up" size={15} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Bajar componente ${index + 1}`}
-            disabled={index === count - 1}
-            onClick={() => onMove(1)}
-            className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_down" size={15} />
-          </button>
-        </div>
-        <span className="v2-num w-5 shrink-0 text-center text-xs font-bold text-[color:var(--v2-faint)]">
-          {index + 1}
-        </span>
-        <div className="min-w-0 flex-1">
-          <ExercisePickerField
-            item={item}
-            destinationLabel={`Componente ${index + 1}`}
-            defaultCategory={defaultCategoryForModality(item.prescription.modality)}
-            onChange={onChange}
-            compact
-          />
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Quitar componente ${index + 1}`}
-          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-danger)]"
-        >
-          <MIcon name="close" size={14} />
-        </button>
-      </div>
-
-      <div className="mt-2 flex items-center gap-2 pl-9">
-        <InlineToggle
-          ariaLabel={`Dosis del componente ${index + 1}`}
-          value={doseMode}
-          options={[
-            { value: 'reps', label: 'Reps' },
-            { value: 'distance', label: 'Dist' },
-            { value: 'duration', label: 'Tiempo' },
-          ]}
-          onChange={setDoseMode}
-        />
-        <div className={cn('min-w-0 flex-1')}>
-          {doseMode === 'reps' ? (
-            <NumberCell
-              value={measure?.kind === 'reps' ? measure.value : null}
-              ariaLabel={`Reps del componente ${index + 1}`}
-              min={0}
-              max={1000}
-              suffix="reps"
-              onChange={(v) => setMeasureOnItem({ kind: 'reps', value: v ?? 0 })}
-            />
-          ) : doseMode === 'distance' ? (
-            <DistanceCell
-              meters={measure?.kind === 'distance' ? measure.meters : null}
-              ariaPrefix={`Componente ${index + 1}`}
-              onChange={(m) => setMeasureOnItem({ kind: 'distance', meters: m ?? 0 })}
-            />
-          ) : (
-            <ClockCell
-              seconds={measure?.kind === 'duration' ? measure.seconds : null}
-              ariaLabel={`Tiempo del componente ${index + 1} (m:ss)`}
-              onChange={(s) => setMeasureOnItem({ kind: 'duration', seconds: s ?? 0 })}
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// One structural input for a metcon format, chosen by the catalog param key. The
-// labels localize per format (e.g. `rounds` reads "Minutos" for an EMOM); Death By
-// adds the reps-based `start`/`increment` NumberCells.
-function FormatParamField({
-  param,
-  format,
-  head,
-  onPatch,
-}: {
-  param: FormatParam;
-  format: Format;
-  head: Prescription | undefined;
-  onPatch: (p: Partial<Prescription>) => void;
-}) {
-  switch (param) {
-    case 'rounds':
-      return (
-        <Field label={format === 'emom' ? 'Minutos' : 'Rondas'}>
-          <NumberCell
-            value={head?.rounds ?? null}
-            ariaLabel={format === 'emom' ? 'Minutos del EMOM' : 'Número de rondas'}
-            min={1}
-            max={60}
-            suffix={format === 'emom' ? 'min' : 'rondas'}
-            onChange={(v) => onPatch({ rounds: v ?? undefined })}
-          />
-        </Field>
-      );
-    case 'total_s': {
-      const label = format === 'amrap' ? 'Duración total' : 'Time cap';
-      return (
-        <Field label={label}>
-          <ClockCell
-            seconds={head?.total_s ?? null}
-            ariaLabel={`${label} (m:ss)`}
-            onChange={(s) => onPatch({ total_s: s ?? undefined })}
-          />
-        </Field>
-      );
-    }
-    case 'work_s': {
-      const label = format === 'tabata' ? 'Trabajo' : 'Ventana trabajo';
-      return (
-        <Field label={label}>
-          <ClockCell
-            seconds={head?.work_s ?? null}
-            ariaLabel={`${label} (m:ss)`}
-            onChange={(s) => onPatch({ work_s: s ?? undefined })}
-          />
-        </Field>
-      );
-    }
-    case 'rest_s':
-      return (
-        <Field label="Descanso">
-          <ClockCell
-            seconds={head?.rest_s ?? null}
-            ariaLabel="Descanso (m:ss)"
-            onChange={(s) => onPatch({ rest_s: s ?? undefined })}
-          />
-        </Field>
-      );
-    case 'start':
-      return (
-        <Field label="Inicio">
-          <NumberCell
-            value={head?.start ?? null}
-            ariaLabel="Reps en la primera ronda"
-            min={1}
-            max={1000}
-            suffix="reps"
-            onChange={(v) => onPatch({ start: v ?? undefined })}
-          />
-        </Field>
-      );
-    case 'increment':
-      return (
-        <Field label="Incremento">
-          <NumberCell
-            value={head?.increment ?? null}
-            ariaLabel="Reps añadidas cada ronda"
-            min={1}
-            max={1000}
-            suffix="reps"
-            onChange={(v) => onPatch({ increment: v ?? undefined })}
-          />
-        </Field>
-      );
-    default:
-      return null;
-  }
 }
 
 // Strip the structural fields a scheme doesn't use, so the persisted prescription
@@ -509,5 +320,12 @@ function cleanScheme(p: Prescription): Prescription {
   for (const param of STRUCTURAL_PARAMS) {
     if (!keep.has(param)) delete out[param];
   }
+  // `rounds_max` (fase 2, ago-2026) es un companion de `rounds` — no es un
+  // FormatParam propio del catálogo, así que no lo cubre el bucle de arriba.
+  // Sin este borrado, cambiar de un formato con rango activo a uno sin
+  // `rounds` (p.ej. rounds→amrap) dejaba un `rounds_max` huérfano sin su
+  // `rounds` — hallazgo del agente de fase 2 stream A, no reproducible antes
+  // porque no existía UI para escribir `rounds_max`.
+  if (out.rounds === undefined) delete out.rounds_max;
   return out;
 }

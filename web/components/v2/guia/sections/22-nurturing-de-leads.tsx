@@ -74,7 +74,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           No todos los que dejan su email llegan hasta la llamada: uno se queda a mitad del
           cuestionario, otro lo termina pero no reserva, otro no se presenta. En vez de perseguirlos
-          a mano, el sistema los <b>reengancha solos por email</b> — con un toque suave, en el momento
+          a mano, el sistema los <b>reengancha solos por email</b>, con un toque suave, en el momento
           justo, y sin que tú toques nada.
         </>
       }
@@ -105,7 +105,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque con muchos leads no puedes acordarte de cada uno que se quedó a medias. Recuperas
-            los fríos <b>sin trabajo</b> y <b>sin saturar</b> a nadie — como mucho dos toques por
+            los fríos <b>sin trabajo</b> y <b>sin saturar</b> a nadie: como mucho dos toques por
             secuencia.
           </>
         }
@@ -118,19 +118,19 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       </p>
       <ul>
         <li>
-          <b>Email a medias</b> — dejó el email pero no terminó el cuestionario. Toque a{' '}
+          <b>Email a medias</b>: dejó el email pero no terminó el cuestionario. Toque a{' '}
           <code>+1 día</code> y otro a <code>+3 días</code>: «termina tu solicitud».
         </li>
         <li>
-          <b>Sin cita</b> — completó el cuestionario pero no reservó la llamada. Toque a{' '}
+          <b>Sin cita</b>: completó el cuestionario pero no reservó la llamada. Toque a{' '}
           <code>+1 día</code> y otro a <code>+4 días</code>: «reserva tu llamada».
         </li>
         <li>
-          <b>No-show</b> — no se presentó a la videollamada. Un toque de <b>re-reserva</b> en cuanto
+          <b>No-show</b>: no se presentó a la videollamada. Un toque de <b>re-reserva</b> en cuanto
           pasa el hueco.
         </li>
         <li>
-          <b>Se lo piensa</b> — hubo llamada pero sigue decidiendo. Un toque a <code>+3 días</code>{' '}
+          <b>Se lo piensa</b>: hubo llamada pero sigue decidiendo. Un toque a <code>+3 días</code>{' '}
           para resolver dudas.
         </li>
       </ul>
@@ -143,7 +143,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · Lo que ve el sistema por debajo</h3>
       <p>
         Tú no operas el nurturing: ocurre solo. Pero para que veas la mecánica, así se lee la ficha de
-        un lead que completó el cuestionario y se quedó <em className="em">sin reservar</em> — el
+        un lead que completó el cuestionario y se quedó <em className="em">sin reservar</em>: el
         sistema le ha mandado el primer toque y tiene el segundo en cola.
       </p>
 
@@ -166,7 +166,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Máximo 2 toques, con ventana">
         <ul>
           <li>
-            Como mucho <span className="k">2 toques por secuencia</span> — nunca se satura a un lead.
+            Como mucho <span className="k">2 toques por secuencia</span>: nunca se satura a un lead.
           </li>
           <li>
             Solo entra un lead con un <span className="k">evento reciente</span>: no perseguimos a
@@ -181,7 +181,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <li>
             Queda fuera todo lead <span className="k">descartado</span>, ya{' '}
             <span className="k">convertido</span>, quien pidió <span className="k">baja</span> de emails
-            (<code>no_contactar</code>) y quien está <span className="k">en lista de espera</span> —
+            (<code>no_contactar</code>) y quien está <span className="k">en lista de espera</span>:
             ese aún no puede reservar, así que no se le empuja a hacerlo.
           </li>
         </ul>
@@ -370,7 +370,7 @@ function EmailCard() {
           >
             Reservar mi llamada
           </span>
-          <p style={{ fontSize: '12px', color: '#6a6a6a', margin: '18px 0 0' }}>— Pablo · FAHYBRID</p>
+          <p style={{ fontSize: '12px', color: '#6a6a6a', margin: '18px 0 0' }}>Pablo · FAHYBRID</p>
           <p style={{ fontSize: '11px', color: MAIL.faint, margin: '14px 0 0' }}>
             Si no quieres más recordatorios,{' '}
             <span style={{ textDecoration: 'underline' }}>cancela aquí</span>.

@@ -80,7 +80,7 @@ function MiniFlow({ highlight }: { highlight: PipelineStepKey }) {
         const on = s.key === highlight;
         return (
           <span key={s.key} className="inline-flex items-center gap-1.5">
-            <span className={on ? 'font-bold text-[color:var(--v2-accent)]' : undefined}>
+            <span className={on ? 'font-bold text-[color:var(--v2-accent-text)]' : undefined}>
               {s.name}
             </span>
             {i < PIPELINE_STEP_META.length - 1 ? (

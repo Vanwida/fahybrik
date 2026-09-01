@@ -23,20 +23,59 @@ export const programMonthCreateSchema = z.object({
 });
 export type ProgramMonthCreate = z.infer<typeof programMonthCreateSchema>;
 
-/** Sane bounds for a microciclo created from scratch (coach picks 1..8 weeks). */
 export const MICROCICLO_MIN_WEEKS = 1;
-export const MICROCICLO_MAX_WEEKS = 8;
+
+/**
+ * Cuánto dura un microciclo es METODOLOGÍA DEL ENTRENADOR, no del sistema —
+ * otro coach competente trabaja perfectamente en bloques de 10 (card 135,
+ * migración 0206: `coaches.max_microcycle_weeks`). Por eso hay DOS números,
+ * nunca uno:
+ *
+ *   · `MICROCICLO_DEFAULT_MAX_WEEKS` — el DEFECTO de la columna. Un coach que
+ *     no toca nada se comporta exactamente igual que antes de esta migración.
+ *   · `MICROCICLO_ABSOLUTE_MAX_WEEKS` — la barrera de cordura DEL SISTEMA (medio
+ *     año no es un bloque). Es la única que puede vivir en un zod estático como
+ *     éste: un esquema no sabe quién es el entrenador, así que no puede
+ *     conocer SU tope real. El tope real de cada coach se comprueba donde SÍ
+ *     se sabe quién es (`loadCoachMaxMicrocicloWeeks`, `web/lib/coach/microcycle-limits.ts`),
+ *     justo antes de crear o alargar un tramo.
+ */
+export const MICROCICLO_DEFAULT_MAX_WEEKS = 8;
+export const MICROCICLO_ABSOLUTE_MAX_WEEKS = 26;
 
 /**
  * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
  * "create from scratch" flow. A microciclo's identity = name + level
  * (athlete_levels, level_id) + nº weeks. There is no phase entity — the ORDER of
  * microciclos in a sequence IS the periodization.
+ *
+ * El `.max()` aquí es el techo ABSOLUTO del sistema, no el del coach — ver el
+ * comentario de `MICROCICLO_ABSOLUTE_MAX_WEEKS`. El tope real se comprueba en
+ * el servicio que conoce al coach (`createMonthTemplateWithEmptyWeeks`).
  */
 export const programMonthScratchSchema = z.object({
   name: z.string().min(1).max(200),
-  level_id: z.coerce.number().int().positive(),
-  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_MAX_WEEKS),
+  // EL NIVEL ES UNA ETIQUETA OPCIONAL, NO LA IDENTIDAD DEL MICROCICLO (card 137).
+  //
+  // Esto era obligatorio y no debía serlo. La columna `level_id` es NULLABLE
+  // desde siempre, y 3 de los 11 microciclos que existen no tienen nivel: la
+  // base ya decía que era opcional y el código lo exigía igual. Ese desacuerdo
+  // fue lo que tumbó la primera importación de un ciclo real por el asistente —
+  // no la programación, que pasó entera: el papeleo.
+  //
+  // Y de fondo hay algo peor: los niveles son una forma de organizarse que
+  // usan ALGUNOS entrenadores. Cinco de los seis que hay tienen los mismos
+  // `N1..N5` que les pusimos nosotros al darlos de alta; sólo uno los ha
+  // tocado. Obligar a colgar cada bloque de un nivel es imponerle nuestra
+  // manera a quien no la usa, que es justo lo que este producto no hace.
+  //
+  // Quien SÍ organiza por niveles lo sigue haciendo igual, y la matriz
+  // nivel × días los sigue exigiendo: para estar en la matriz hace falta un
+  // nivel (`program_sequences.level_id` es NOT NULL, y está bien que lo sea).
+  // Un bloque sin nivel simplemente vive en la biblioteca y en las cadenas
+  // personales, que es donde vive la mayoría.
+  level_id: z.coerce.number().int().positive().nullish(),
+  week_count: z.coerce.number().int().min(MICROCICLO_MIN_WEEKS).max(MICROCICLO_ABSOLUTE_MAX_WEEKS),
 });
 export type ProgramMonthScratch = z.infer<typeof programMonthScratchSchema>;
 
@@ -83,6 +122,18 @@ export type MonthTemplateWithWeeks = {
   weeks: MonthTemplateWeekFull[];
 };
 
+/**
+ * The coach's LIBRARY microciclos — reusable, matched by level, the picker
+ * source for Biblioteca and the Secuencias (nivel×días) matrix.
+ *
+ * `athlete_id is null` (0164) is load-bearing, not defensive: without it a
+ * personal plan forked for one athlete would appear as a pickable microciclo
+ * for every OTHER athlete of the coach — inside the shared library AND
+ * addable to the level×días periodization. Every caller of this function
+ * (biblioteca, secuencias, the generic `/api/coach/program-months` list) wants
+ * ONLY the reusable set; a personal plan is read through its own athlete-scoped
+ * path (`listPersonalPlansForAthlete`), never through here.
+ */
 export async function listMonthTemplates(params: {
   coach_id: number | bigint;
   client: Sql;
@@ -122,6 +173,7 @@ export async function listMonthTemplates(params: {
       limit 1
     ) fw on true
     where m.coach_id = ${params.coach_id as number}
+      and m.athlete_id is null
     order by m.updated_at desc
   `;
 }
@@ -245,45 +297,81 @@ export async function upsertMonthTemplate(params: {
  * Canonical clone of ONE `program_week_templates` row into a NEW row of the same
  * coach, inside transaction `tx`. SINGLE SOURCE of the week-clone column list for
  * EVERY duplication path (duplicate a week inside a microciclo, deep-clone a whole
- * microciclo, copy a matrix cell) so no path silently drops a column.
+ * microciclo, copy a matrix cell, fork a personal plan) so no path silently drops
+ * a column.
  *
  * Pure clone: `slots_json` copied VERBATIM via insert…select (an independent jsonb
  * document, never a shared ref); `exercise_id`, `level_id`, `athlete_profile` and
  * `week_number` preserved; NO dates, NO load/%RM adjustment. `nameSuffix` is
  * concatenated to the name ('' = identical name).
  *
+ * `athleteIdOverride` (0164) decides who owns the clone:
+ *   · undefined (default) → PRESERVE the source row's `athlete_id`. This is the
+ *     correct default for every existing "duplicate" path — a library week clones
+ *     into another library week (athlete_id stays null), a personal week clones
+ *     into another week for the SAME athlete. Without this the clone would
+ *     silently drop athlete_id (not in a bare column list) and a "Duplicar" on a
+ *     personal plan would leak its content into the shared library.
+ *   · a value (including `null`) → RETARGET explicitly. Personalizing a plan uses
+ *     this to fork a LIBRARY week (athlete_id null) onto one athlete.
+ *
  * Content columns = every column that is NOT the identity `id` / `created_at` /
  * `updated_at`, per the live schema (infra/migrations 0014 → 0015 → 0044 → 0063 →
- * 0064): coach_id, name, level_id, focus, coach_notes, athlete_profile,
- * week_number, slots_json.
+ * 0064 → 0164): coach_id, name, level_id, focus, coach_notes, athlete_profile,
+ * week_number, slots_json, athlete_id.
  */
 export async function cloneWeekTemplateRow(params: {
   tx: TransactionSql;
   coach_id: number | bigint;
   week_id: number | bigint;
   nameSuffix?: string;
+  athleteIdOverride?: number | bigint | null;
 }): Promise<string> {
   const { tx } = params;
   const coach_id = Number(params.coach_id);
   const week_id = Number(params.week_id);
   const suffix = params.nameSuffix ?? '';
-  const cloned = await tx<Array<{ id: string }>>`
-    insert into program_week_templates (
-      coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json
-    )
-    select
-      coach_id,
-      name || ${suffix},
-      level_id,
-      focus,
-      coach_notes,
-      athlete_profile,
-      week_number,
-      slots_json
-    from program_week_templates
-    where id = ${week_id} and coach_id = ${coach_id}
-    returning id::text
-  `;
+  const overrideGiven = params.athleteIdOverride !== undefined;
+  const overrideValue =
+    params.athleteIdOverride == null ? null : Number(params.athleteIdOverride);
+
+  const cloned = overrideGiven
+    ? await tx<Array<{ id: string }>>`
+        insert into program_week_templates (
+          coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json, athlete_id
+        )
+        select
+          coach_id,
+          name || ${suffix},
+          level_id,
+          focus,
+          coach_notes,
+          athlete_profile,
+          week_number,
+          slots_json,
+          ${overrideValue}
+        from program_week_templates
+        where id = ${week_id} and coach_id = ${coach_id}
+        returning id::text
+      `
+    : await tx<Array<{ id: string }>>`
+        insert into program_week_templates (
+          coach_id, name, level_id, focus, coach_notes, athlete_profile, week_number, slots_json, athlete_id
+        )
+        select
+          coach_id,
+          name || ${suffix},
+          level_id,
+          focus,
+          coach_notes,
+          athlete_profile,
+          week_number,
+          slots_json,
+          athlete_id
+        from program_week_templates
+        where id = ${week_id} and coach_id = ${coach_id}
+        returning id::text
+      `;
   if (!cloned[0]) {
     throw new ProgramMonthError('not_found', 'Semana no encontrada', 404);
   }
@@ -313,8 +401,10 @@ export async function cloneMonthTemplateDeep(params: {
   const source_month_id = Number(params.source_month_id);
   const suffix = params.nameSuffix ?? '';
 
-  const srcRows = await tx<Array<{ name: string; level_id: string | null }>>`
-    select name, level_id::text
+  const srcRows = await tx<
+    Array<{ name: string; level_id: string | null; athlete_id: string | null }>
+  >`
+    select name, level_id::text, athlete_id::text
     from program_month_templates
     where id = ${source_month_id} and coach_id = ${coach_id}
     limit 1
@@ -338,9 +428,14 @@ export async function cloneMonthTemplateDeep(params: {
     order by mw.position
   `;
 
+  // athlete_id is PRESERVED from the source (0164): duplicating a library
+  // microciclo (athlete_id null) stays library; duplicating a personal plan
+  // (unreachable from the UI today, but never leaked if it ever is) stays
+  // personal to the SAME athlete — it never becomes a library row by accident.
+  const sourceAthleteId = src.athlete_id !== null ? Number(src.athlete_id) : null;
   const monthRows = await tx<Array<{ id: string }>>`
-    insert into program_month_templates (coach_id, name, level_id)
-    values (${coach_id}, ${`${src.name}${suffix}`}, ${targetLevelId})
+    insert into program_month_templates (coach_id, name, level_id, athlete_id)
+    values (${coach_id}, ${`${src.name}${suffix}`}, ${targetLevelId}, ${sourceAthleteId})
     returning id::text
   `;
   const newMonthId = monthRows[0]!.id;
@@ -476,14 +571,106 @@ export async function updateMonthTemplate(params: {
  * referencia entrenos individuales (`templates`), no `program_week_templates`.
  * Al hacer `assign-month` el plan se materializa en assignments con template_id
  * de entrenos, por lo que borrar plantillas semana no rompe historial alguno.
+ *
+ * NO seguro si el microciclo es un ITEM de una secuencia (matriz nivel×días):
+ * `program_sequence_items.month_template_id` lleva `ON DELETE RESTRICT` a
+ * propósito — nunca se debe poder tirar en silencio un microciclo que una
+ * secuencia activa sigue usando. El DELETE de más abajo viola esa FK y
+ * postgres lo rechaza con SQLSTATE 23503; se traduce aquí a un error que el
+ * coach puede entender y accionar, en vez del genérico "no se pudo borrar".
  */
 export async function deleteMonthTemplate(params: {
   coach_id: number | bigint;
   month_id: number | bigint;
-  client: Sql;
+  client: Sql | TransactionSql;
 }): Promise<void> {
   const { coach_id, month_id, client } = params;
-  await client.begin(async (tx) => {
+  try {
+    // Transacción propia o ajena, igual que `removeWeekFromMonth`: el botón del
+    // panel llega con el pool y abre la suya; el asistente llega ya dentro de una
+    // (borrado + registro de auditoría tienen que caer juntos o no caer), y
+    // postgres.js no anida `begin`.
+    const run = async (tx: Sql | TransactionSql) => {
+      const owned = await tx<Array<{ id: string }>>`
+        select id::text from program_month_templates
+        where id = ${month_id as number} and coach_id = ${coach_id as number}
+        limit 1
+      `;
+      if (!owned[0]) {
+        throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
+      }
+      const weekIds = await tx<Array<{ week_template_id: string }>>`
+        select week_template_id::text from program_month_weeks
+        where month_template_id = ${month_id as number}
+      `;
+      await tx`delete from program_month_weeks where month_template_id = ${month_id as number}`;
+      if (weekIds.length > 0) {
+        const ids = weekIds.map((r: { week_template_id: string }) => Number(r.week_template_id));
+        await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
+      }
+      await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
+    };
+
+    if (typeof (client as Sql).begin === 'function') {
+      await (client as Sql).begin((tx) => run(tx));
+    } else {
+      await run(client);
+    }
+  } catch (err) {
+    if (err instanceof ProgramMonthError) throw err;
+    if (isForeignKeyViolation(err, 'program_sequence_items_month_template_id_fkey')) {
+      throw new ProgramMonthError(
+        'in_sequence',
+        'Este microciclo forma parte de una secuencia (nivel × días). Quítalo de la secuencia antes de borrarlo.',
+        409,
+      );
+    }
+    throw err;
+  }
+}
+
+/** SQLSTATE 23503 = foreign_key_violation; opcionalmente por constraint concreta. */
+function isForeignKeyViolation(err: unknown, constraintName?: string): boolean {
+  const e = err as { code?: string; constraint_name?: string } | null;
+  if (!e || e.code !== '23503') return false;
+  return constraintName === undefined || e.constraint_name === constraintName;
+}
+
+/**
+ * Quita UNA semana de un microciclo: desengancha la junction
+ * `program_month_weeks` y compacta las posiciones siguientes (sin huecos), y
+ * borra la `program_week_templates` que quedó huérfana — dentro de la
+ * relación mes↔semanas cada fila de semana pertenece a UN único microciclo
+ * (nunca se comparte entre dos: `appendEmptyWeekToMonth` y
+ * `duplicateWeekIntoMonth`/`cloneWeekTemplateRow` siempre crean una fila
+ * nueva), así que no hay riesgo de borrar una semana que otro microciclo
+ * todavía usa — verificado igualmente antes de borrar, nunca asumido.
+ *
+ * Reordena por POSICIÓN ASCENDENTE (al revés que `duplicateWeekIntoMonth`,
+ * que inserta y desplaza en descendente): al COMPACTAR un hueco hay que
+ * mover primero la posición más baja que queda por encima del hueco, o dos
+ * filas colisionarían en la misma posición a mitad de la operación.
+ */
+export async function removeWeekFromMonth(params: {
+  coach_id: number | bigint;
+  month_id: number | bigint;
+  week_id: number | bigint;
+  client: Sql | TransactionSql;
+}): Promise<void> {
+  const { coach_id, month_id, week_id, client } = params;
+  // TRANSACCIÓN PROPIA O AJENA (bug encontrado con la prueba de la card 135).
+  //
+  // Esto abría SIEMPRE su propia transacción, pero `updatePersonalTramoMeta` la
+  // llama desde DENTRO de una para acortar un tramo personal — y postgres.js no
+  // anida `begin`: un `tx` expone `savepoint`, no `begin`. O sea que **cambiar
+  // el número de semanas de un tramo personal reventaba siempre**, con un
+  // `client.begin is not a function`. Nadie lo había visto porque ninguna prueba
+  // pasaba por ahí.
+  //
+  // Con el pool abre su transacción, como siempre; con un `tx` se mete dentro
+  // del que ya hay. Es el mismo patrón que `withOwnOrAmbientTx` en el surface
+  // del panel — mismo problema, misma respuesta.
+  const run = async (tx: Sql | TransactionSql) => {
     const owned = await tx<Array<{ id: string }>>`
       select id::text from program_month_templates
       where id = ${month_id as number} and coach_id = ${coach_id as number}
@@ -492,17 +679,58 @@ export async function deleteMonthTemplate(params: {
     if (!owned[0]) {
       throw new ProgramMonthError('not_found', 'Microciclo no encontrado', 404);
     }
-    const weekIds = await tx<Array<{ week_template_id: string }>>`
-      select week_template_id::text from program_month_weeks
-      where month_template_id = ${month_id as number}
+
+    const junction = await tx<Array<{ position: number }>>`
+      select mw.position
+      from program_month_weeks mw
+      join program_week_templates w on w.id = mw.week_template_id
+      where mw.month_template_id = ${month_id as number}
+        and mw.week_template_id = ${week_id as number}
+        and w.coach_id = ${coach_id as number}
+      limit 1
     `;
-    await tx`delete from program_month_weeks where month_template_id = ${month_id as number}`;
-    if (weekIds.length > 0) {
-      const ids = weekIds.map((r: { week_template_id: string }) => Number(r.week_template_id));
-      await tx`delete from program_week_templates where id = any(${ids}::bigint[]) and coach_id = ${coach_id as number}`;
+    const removedPosition = junction[0]?.position;
+    if (removedPosition === undefined) {
+      throw new ProgramMonthError('not_found', 'Semana no encontrada en este microciclo', 404);
     }
-    await tx`delete from program_month_templates where id = ${month_id as number} and coach_id = ${coach_id as number}`;
-  });
+
+    await tx`
+      delete from program_month_weeks
+      where month_template_id = ${month_id as number} and week_template_id = ${week_id as number}
+    `;
+
+    const toShift = await tx<Array<{ position: number }>>`
+      select position from program_month_weeks
+      where month_template_id = ${month_id as number} and position > ${removedPosition}
+      order by position asc
+    `;
+    for (const { position } of toShift) {
+      await tx`
+        update program_month_weeks
+        set position = ${position - 1}
+        where month_template_id = ${month_id as number} and position = ${position}
+      `;
+    }
+
+    // Defensivo, no asumido: comprobar que ninguna OTRA junction sigue
+    // apuntando a esta semana antes de borrar la fila de verdad.
+    const stillReferenced = await tx<Array<{ n: string }>>`
+      select count(*)::text as n from program_month_weeks where week_template_id = ${week_id as number}
+    `;
+    if (Number(stillReferenced[0]?.n ?? '0') === 0) {
+      await tx`
+        delete from program_week_templates
+        where id = ${week_id as number} and coach_id = ${coach_id as number}
+      `;
+    }
+  };
+
+  // postgres.js: el pool tiene `begin`; un `tx` no. Esa es toda la diferencia.
+  if (typeof (client as Sql).begin === 'function') {
+    await (client as Sql).begin((tx) => run(tx));
+  } else {
+    await run(client);
+  }
 }
 
 export class ProgramMonthError extends Error {

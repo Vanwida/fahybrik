@@ -98,7 +98,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           El <b>camino al objetivo</b>: fijas un tiempo meta para la carrera objetivo y la app lo
-          reparte en los <b>10 tramos</b> de HYROX —correr, las 8 estaciones y la roxzone— como un{' '}
+          reparte en los <b>10 tramos</b> de HYROX (correr, las 8 estaciones y la roxzone) como un{' '}
           <b>presupuesto</b>. Enfrente, la <b>predicción</b> de lo que costará cada tramo con el
           historial real del atleta. La diferencia es el <b>hueco</b>: dónde se gana o se pierde el
           objetivo, tramo a tramo.
@@ -108,9 +108,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            Un <b>gap board</b>: el objetivo descompuesto en 10 tramos con dos cifras por tramo —{' '}
+            Un <b>gap board</b>: el objetivo descompuesto en 10 tramos con dos cifras por tramo:{' '}
             <b>presupuesto</b> (lo que debe costar para llegar) y <b>predicho</b> (lo que costará
-            según su historial)— y el <b>desvío</b> entre ambas. Arriba, el hueco total contra la
+            según su historial), y el <b>desvío</b> entre ambas. Arriba, el hueco total contra la
             meta.
           </>
         }
@@ -125,7 +125,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque «bajar de 60» es abstracto: <b>dónde</b> sacas esos minutos, no. Repartir la meta
-            en tramos convierte un número lejano en un plan concreto —y enseña si el objetivo es
+            en tramos convierte un número lejano en un plan concreto, y enseña si el objetivo es
             realista con lo que hoy entrena.
           </>
         }
@@ -137,7 +137,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         ojo ni dividiendo entre diez. Si hay al menos <b>cinco</b> carreras singles cerca de la meta
         (±10 %) con tu división y género, se usa la <b>fracción media</b> de cada tramo; si no llega,
         se cae a la <b>última carrera del propio atleta</b>, escalada al objetivo. Los diez tramos{' '}
-        <b>suman exactamente la meta</b> —correr + 8 estaciones + roxzone—: el presupuesto cierra
+        <b>suman exactamente la meta</b> (correr + 8 estaciones + roxzone): el presupuesto cierra
         siempre.
       </p>
 
@@ -147,16 +147,16 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       </p>
       <ul>
         <li>
-          <b>Observado</b> — el split de su <b>última carrera reciente</b> (menos de 6 meses). Es la
+          <b>Observado</b>: el split de su <b>última carrera reciente</b> (menos de 6 meses). Es la
           prueba más fuerte: ya ocurrió.
         </li>
         <li>
-          <b>Estimado</b> — sin carrera reciente, se parte de su <b>nivel entrenado</b> (del cruce
+          <b>Estimado</b>: sin carrera reciente, se parte de su <b>nivel entrenado</b> (del cruce
           entrenamiento × carrera) llevado a split completo y ajustado por su{' '}
-          <b>factor de transferencia personal</b> —cuánto más lento compite que entrena—.
+          <b>factor de transferencia personal</b> (cuánto más lento compite que entrena).
         </li>
         <li>
-          <b>Sin datos</b> — ni carrera ni entreno para ese tramo: se muestra la <b>puerta abierta</b>{' '}
+          <b>Sin datos</b>: ni carrera ni entreno para ese tramo, se muestra la <b>puerta abierta</b>{' '}
           (como en el mockup), no un cero inventado. Para el total, ese tramo se mantiene en su
           presupuesto.
         </li>
@@ -165,8 +165,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="log" title="Nunca un número sin su tier">
         <p>
           El motor jamás fabrica una cifra: un tramo del que no sabemos nada muestra su estado
-          honesto, no un dato de relleno. El hueco total lo dice en claro —{' '}
-          <span className="k">predicho vs meta</span>— sin esconder la incertidumbre.
+          honesto, no un dato de relleno. El hueco total lo dice en claro (
+          <span className="k">predicho vs meta</span>), sin esconder la incertidumbre.
         </p>
       </DocNote>
 
@@ -234,8 +234,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · Predicho vs real: la predicción se congela</h3>
       <p>
         Para que el <b>predicho vs real</b> sea honesto, la predicción se{' '}
-        <b>guarda antes de la carrera</b> —una foto del día, no un recálculo con el resultado ya
-        sabido—. Cuando el atleta importa el resultado (o hace una simulación), la app compara esa
+        <b>guarda antes de la carrera</b> (una foto del día, no un recálculo con el resultado ya
+        sabido). Cuando el atleta importa el resultado (o hace una simulación), la app compara esa
         foto contra los <b>splits reales</b>, tramo a tramo, con una <b>precisión</b> y una frase
         directa desde el mayor desvío (<em className="em">«El sled push perdió 0:20 más de lo
         previsto»</em>). Sin resultado previo o sin foto anterior, lo dice en claro: no compara al
@@ -245,7 +245,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Una foto por día, congelada">
         <p>
           Cada vez que el atleta abre su camino al objetivo se guarda la predicción del día (una por
-          día). Esa es la que, ya pasada la carrera, se enfrenta al resultado real — así el «predicho»
+          día). Esa es la que, ya pasada la carrera, se enfrenta al resultado real: así el «predicho»
           es de verdad un pronóstico, no una revancha con las cartas vistas.
         </p>
       </DocNote>

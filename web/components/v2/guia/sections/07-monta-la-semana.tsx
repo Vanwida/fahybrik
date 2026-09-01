@@ -40,7 +40,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             Una semana = 7 días. Cada día tiene una o dos sesiones (mañana / tarde). La semana vive
-            dentro de un <b>microciclo</b>, al que tú le das un nombre — y ese nombre es la{' '}
+            dentro de un <b>microciclo</b>, al que tú le das un nombre, y ese nombre es la{' '}
             <b>fase</b> que ve tu atleta.
           </>
         }
@@ -62,9 +62,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · El nombre del microciclo es la fase que ve tu atleta</h3>
       <p>
         Al abrir un microciclo, su título es editable: haz clic y escribe. El propio panel te lo
-        recuerda — <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni
-        jerga impuesta: si tu método se organiza en “Acumulación / Transformación / Realización”,
-        escribes eso; si usas otro lenguaje, escribes el tuyo.{' '}
+        recuerda: <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni
+        jerga impuesta: escribes el nombre que usa tu método.{' '}
         <em className="em">La metodología es tuya; nosotros solo te damos dónde escribirla.</em>
       </p>
 
@@ -229,8 +228,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>4 · Dentro de la sesión: título, bloques, ejercicios y carga</h3>
       <p>
-        Cada sesión tiene un <code>Título del entreno</code> editable — por ejemplo{' '}
-        <em className="em">Tirada larga Z2</em> — que también ve tu atleta. Si te quedas en blanco,
+        Cada sesión tiene un <code>Título del entreno</code> editable (por ejemplo{' '}
+        <em className="em">Tirada larga Z2</em>) que también ve tu atleta. Si te quedas en blanco,
         el botón <code>Sugerir título</code> te propone uno a partir del contenido (lo puedes editar
         antes de guardar). Luego añades <b>bloques</b> (eliges el tipo de trabajo: carrera, series,
         fuerza, HYROX, circuito, metcon, test, activación…), y dentro de cada bloque añades{' '}
@@ -245,8 +244,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             cualquier sesión.
           </li>
           <li>
-            Puedes pegar un <span className="k">vídeo de YouTube</span> en tu versión del ejercicio.
-            El panel te confirma: <code>El atleta verá el vídeo en el detalle del ejercicio en iOS.</code>
+            En tu versión del ejercicio puedes <span className="k">subir un vídeo</span> tuyo o pegar
+            un <span className="k">enlace de YouTube</span>. Se reproduce ahí mismo, en el campo.
           </li>
         </ul>
       </DocNote>
@@ -260,7 +259,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </li>
           <li>
             Esto evita el viejo fallo de “Guardado” mentiroso que tiraba líneas a medias en silencio.
-            Lo que se guarda es lo que tu atleta verá — sin sorpresas.
+            Lo que se guarda es lo que tu atleta verá, sin sorpresas.
           </li>
         </ul>
       </DocNote>

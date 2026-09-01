@@ -2,9 +2,11 @@
 
 // NuevoMicrocicloModal — "crear microciclo desde cero". AGNOSTIC: el nivel se
 // elige del catálogo del coach (athlete_levels), cargado en vivo — nunca texto
-// libre, nunca enums hardcodeados. El coach define nombre + nivel + nº de semanas
-// (1..8). La identidad del microciclo = nombre + nivel + nº semanas (el orden en
-// una secuencia ES la periodización; no hay entidad fase). Al guardar se crea el
+// libre, nunca enums hardcodeados. El coach define nombre + nivel + nº de semanas,
+// topado por SU `max_microcycle_weeks` (card 135 — metodología suya, no un
+// número fijo del sistema; llega del mismo `/api/coach/levels`). La identidad
+// del microciclo es nombre + nivel + nº semanas (el orden en una secuencia ES
+// la periodización; no hay entidad fase). Al guardar se crea el
 // program_month_template con N semanas vacías y se entra al editor.
 //
 // Dos modos de uso:
@@ -21,9 +23,9 @@ import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { cn } from '@/lib/utils';
+import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/program-months';
 
 const MIN_WEEKS = 1;
-const MAX_WEEKS = 8;
 const DEFAULT_WEEKS = 4;
 
 interface LevelOption {
@@ -54,24 +56,37 @@ export function NuevoMicrocicloModal({
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [levels, setLevels] = useState<LevelOption[]>([]);
-  // With a locked level there's no catalog to fetch — nothing to wait for.
+  // Con nivel fijado no hay catálogo que esperar (el select ya no aparece) —
+  // pero el tope de semanas SÍ se sigue pidiendo, así que loadingData ya no
+  // controla eso: ver el segundo estado, `maxWeeks`, abajo.
   const [loadingData, setLoadingData] = useState(!lockedLevel);
 
   const [name, setName] = useState('');
   const [levelId, setLevelId] = useState(lockedLevel?.id ?? '');
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
+  // Tope de semanas de ESTE coach (card 135, `coaches.max_microcycle_weeks`).
+  // Mientras no ha llegado del endpoint se usa el DEFECTO del sistema — nunca
+  // un número suelto — para que el input tenga un máximo razonable desde el
+  // primer render.
+  const [maxWeeks, setMaxWeeks] = useState(MICROCICLO_DEFAULT_MAX_WEEKS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the coach's level catalog (agnostic data source) — only when the level
-  // isn't fixed by the calling cell.
+  // `/api/coach/levels` sirve el catálogo de niveles Y el tope de semanas del
+  // coach en la MISMA llamada (el endpoint que este modal ya pedía) — se pide
+  // SIEMPRE, incluso con nivel fijado, porque el tope aplica igual desde una
+  // celda de Periodización.
   useEffect(() => {
-    if (lockedLevel) return;
     let alive = true;
     fetch('/api/coach/levels', { credentials: 'include' })
       .then((r) => r.json())
-      .then((lv: { levels?: LevelOption[] }) => {
+      .then((lv: { levels?: LevelOption[]; max_microcycle_weeks?: number }) => {
         if (!alive) return;
+        if (typeof lv.max_microcycle_weeks === 'number') {
+          setMaxWeeks(lv.max_microcycle_weeks);
+          setWeeks((w) => Math.min(w, lv.max_microcycle_weeks!));
+        }
+        if (lockedLevel) return;
         const lvls = lv.levels ?? [];
         setLevels(lvls);
         if (lvls[0]) setLevelId(lvls[0].id);
@@ -97,7 +112,10 @@ export function NuevoMicrocicloModal({
   }, [onClose]);
 
   const canSubmit =
-    name.trim().length > 0 && levelId !== '' && weeks >= MIN_WEEKS && weeks <= MAX_WEEKS && !submitting;
+    // El nivel NO entra aquí (card 137): es opcional. Era obligatorio y ni la
+    // base lo exigía; obligarlo es imponer al entrenador una forma de
+    // organizarse que puede que no use.
+    name.trim().length > 0 && weeks >= MIN_WEEKS && weeks <= maxWeeks && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -110,7 +128,7 @@ export function NuevoMicrocicloModal({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          level_id: Number(levelId),
+          level_id: levelId === '' ? null : Number(levelId),
           week_count: weeks,
         }),
       });
@@ -230,6 +248,7 @@ export function NuevoMicrocicloModal({
                     onChange={(e) => setLevelId(e.target.value)}
                     className={selectClass}
                   >
+                    <option value="">Sin nivel</option>
                     {levels.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name} · {l.label}
@@ -246,11 +265,11 @@ export function NuevoMicrocicloModal({
                   id="micro-weeks"
                   type="number"
                   min={MIN_WEEKS}
-                  max={MAX_WEEKS}
+                  max={maxWeeks}
                   value={weeks}
                   onChange={(e) => {
                     const n = Number(e.target.value);
-                    if (Number.isFinite(n)) setWeeks(Math.min(MAX_WEEKS, Math.max(MIN_WEEKS, Math.round(n))));
+                    if (Number.isFinite(n)) setWeeks(Math.min(maxWeeks, Math.max(MIN_WEEKS, Math.round(n))));
                   }}
                   className="h-[38px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)] focus:outline-none focus:border-[color:var(--v2-accent)]"
                 />
@@ -274,7 +293,7 @@ export function NuevoMicrocicloModal({
                 onClick={submit}
                 disabled={!canSubmit}
                 className={cn(
-                  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
+                  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
               >

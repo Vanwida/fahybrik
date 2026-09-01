@@ -1,7 +1,7 @@
 // GUÍA · 04 Tus tipos de trabajo — área "Tu biblioteca". BUILT.
-// Real flow: ArchetypePicker ("¿Qué tipo de trabajo es?") → 9 arquetipos (carrera
-// continua, series, fuerza, simulación HYROX, circuito, WOD/metcon, EMOM, test,
-// activación). Cada tipo FIJA modalidad × cómo se mide × contra qué objetivo y
+// Real flow: ArchetypePicker ("¿Qué tipo de trabajo es?") → arquetipos (calentamiento,
+// carrera continua, series, fuerza, simulación HYROX, circuito, WOD/metcon, EMOM, test,
+// activación, vuelta). Cada tipo FIJA modalidad × cómo se mide × contra qué objetivo y
 // abre un formulario ya hecho (no toggles vacíos). 4 colores de modalidad.
 // Doc kit en '../doc'; hues canónicos var(--v2-mod-*).
 
@@ -33,7 +33,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Una sesión se monta con <b>bloques</b>, y cada bloque es de un <b>tipo de trabajo</b>: una
           carrera continua, unas series, una tabla de fuerza, un metcon, una simulación de carrera, un
-          test… Eliges el tipo y el panel te abre el formulario ya hecho para ese tipo — no toggles
+          test… Eliges el tipo y el panel te abre el formulario ya hecho para ese tipo: no toggles
           vacíos que rellenar.
         </>
       }
@@ -72,20 +72,24 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>2 · Cada tipo viene con su color y su forma</h3>
       <p>
         Los tipos se agrupan por <b>modalidad</b>, y cada modalidad tiene un color que verás en todo
-        el plan — tuyo y de tu atleta:
+        el plan, tuyo y de tu atleta:
       </p>
       <ul className="clean">
         <li>
-          <b style={{ color: MOD.carrera }}>Carrera</b> — rodajes, tempos, series e intervalos.
+          <b style={{ color: MOD.carrera }}>Carrera</b>: rodajes, tempos, series e intervalos.
         </li>
         <li>
-          <b style={{ color: MOD.ergo }}>Ergómetro</b> — remo, SkiErg, bici.
+          <b style={{ color: MOD.ergo }}>Ergómetro</b>: remo, SkiErg, bici.
         </li>
         <li>
-          <b style={{ color: MOD.fuerza }}>Fuerza</b> — tablas de series, fuerza-potencia, EMOM.
+          <b style={{ color: MOD.fuerza }}>Fuerza</b>: tablas de series, fuerza-potencia, EMOM.
         </li>
         <li>
-          <b style={{ color: MOD.circuito }}>Circuito</b> — WOD, metcon, core y la simulación HYROX.
+          <b style={{ color: MOD.circuito }}>Circuito</b>: WOD, metcon, core y la simulación HYROX.
+        </li>
+        <li>
+          <b style={{ color: MOD.calent }}>Calentamiento</b>: lista de movimientos al entrar o al
+          cerrar, sin reloj.
         </li>
       </ul>
 
@@ -98,6 +102,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           Elige el formato. El formulario llega ya hecho para ese tipo.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '9px' }}>
+          <TypeTile color={MOD.calent} icon="◎" name="Calentamiento" />
           <TypeTile color={MOD.carrera} icon="🏃" name="Carrera continua / Z2" />
           <TypeTile color={MOD.carrera} icon="↻" name="Series / Intervalos" />
           <TypeTile color={MOD.fuerza} icon="⌗" name="Fuerza" />
@@ -107,13 +112,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <TypeTile color={MOD.fuerza} icon="⚡" name="Fuerza-potencia / EMOM" />
           <TypeTile color={MOD.ergo} icon="⏲" name="Test" />
           <TypeTile color={MOD.calent} icon="❋" name="Activación / Tapering" />
+          <TypeTile color={MOD.calent} icon="○" name="Vuelta a la calma" />
         </div>
       </DashboardMockup>
 
       <DocNote variant="cue" title="El tipo decide cómo se mide y contra qué">
         <ul>
           <li>
-            Una <span className="k">Fuerza</span> se mide en reps y va contra un %máx, kg o RIR — y
+            Una <span className="k">Fuerza</span> se mide en reps y va contra un %máx, kg o RIR, y
             trae su tabla de series.
           </li>
           <li>
@@ -122,7 +128,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </li>
           <li>
             Un <span className="k">Test</span> guarda el resultado y alimenta los ritmos y zonas del
-            atleta — el plan se ajusta a su nivel real.
+            atleta: el plan se ajusta a su nivel real.
           </li>
         </ul>
       </DocNote>

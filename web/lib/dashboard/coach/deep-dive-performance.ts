@@ -19,11 +19,16 @@ import { sql as defaultSql } from '@/lib/db';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
+import { resolveCoachHrMethod } from '@/lib/coach/hr-method';
 import { loadDailyAssignmentCounts } from '@/lib/coach/compliance-window';
 import { getDailyTssSeries } from '@/lib/training-load';
+import { loadPolarizationHistory, loadPolarizationWindow } from '@/lib/zones/polarization';
+import {
+  defaultCoachHrMethod,
+  type CoachHrMethod,
+} from '@fahybrid/shared/domain/coach/hr-method';
 import {
   hrBandFor,
-  zoneForBpm,
   type AthleteHrZones,
 } from '@fahybrid/shared/domain/methodology';
 import {
@@ -39,6 +44,10 @@ import {
   type RaceReadinessSample,
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { AthleteAnalyticsError } from './deep-dive-body';
+import {
+  loadDataCoverage,
+  type DataCoverage,
+} from '@/lib/coach/data-coverage';
 
 export const POLARIZATION_WINDOWS = ['7d', '14d', '28d', '90d'] as const;
 export type PolarizationWindow = (typeof POLARIZATION_WINDOWS)[number];
@@ -145,9 +154,20 @@ export interface PerformancePayload {
   race_readiness_history: RaceReadinessPoint[];
   /** Why the NEWEST point has no reading, with a way out. Null when it has one. */
   race_readiness_gap: RaceReadinessGap | null;
+  /**
+   * Qué fuentes tienen dato y desde cuándo — el «antes» de la comparativa.
+   * Null solo si el loader falló; vacío de verdad es `sources: []`.
+   */
+  data_coverage: DataCoverage | null;
 }
 
-const POLARIZATION_TARGET: PolarizationPct = { low: 80, mid: 0, high: 20 };
+/** How far back each named window reaches. */
+const POLARIZATION_WINDOW_DAYS: Record<PolarizationWindow, number> = {
+  '7d': 7,
+  '14d': 14,
+  '28d': 28,
+  '90d': 90,
+};
 
 /** Trend span, and the cadence it is sampled at — 30 points over 90 days. */
 const READINESS_TREND_DAYS = 90;
@@ -155,7 +175,6 @@ const READINESS_TREND_STEP_DAYS = 3;
 
 /** The aerobic-base sparkline: one point per week, twelve weeks back. */
 const POLARIZATION_HISTORY_WEEKS = 12;
-const DAYS_PER_WEEK = 7;
 
 export async function buildAthletePerformance(params: {
   coach_id: number | bigint;
@@ -191,14 +210,28 @@ export async function buildAthletePerformance(params: {
     () => loadAthleteHrZones(params.athlete_id, client),
     null as AthleteHrZones | null,
   );
+  // Dónde cortan las tres bandas y qué reparto se persigue son MÉTODO del coach
+  // (mig 0168). Se resuelve UNA vez por payload: cinco lecturas de polarización
+  // preguntando cada una por su cuenta podrían llegar a discrepar.
+  const hrMethod = await safeCall(
+    () => resolveCoachHrMethod(params.coach_id, client),
+    defaultCoachHrMethod(),
+  );
   const polarization_by_window = await Promise.all(
     POLARIZATION_WINDOWS.map((w) =>
-      safeCall(() => loadPolarization(client, params.athlete_id, now, w, hrZones), noPolarization(w)),
+      safeCall(() => loadPolarization(client, params.athlete_id, now, w, hrMethod), noPolarization(w)),
     ),
   );
   const polarization_history = await safeCall(
-    () => loadPolarizationHistory(client, params.athlete_id, now, hrZones),
-    [] as Array<{ iso_date: string; pct: PolarizationPct }>,
+    () =>
+      loadPolarizationHistory({
+        athlete_id: params.athlete_id,
+        weeks: POLARIZATION_HISTORY_WEEKS,
+        method: hrMethod,
+        now,
+        client,
+      }),
+    [] as Array<{ iso_date: string; pct: PolarizationPct | null }>,
   );
   const running_economy = await safeCall(
     () => loadRunningEconomy(client, params.athlete_id, now, hrZones),
@@ -218,12 +251,17 @@ export async function buildAthletePerformance(params: {
     [] as RaceReadinessPoint[],
   );
   const latestReadiness = race_readiness_history[race_readiness_history.length - 1];
+  const data_coverage = await safeCall(
+    () => loadDataCoverage({ athlete_id: params.athlete_id, client }),
+    null as DataCoverage | null,
+  );
 
   const has_any_data =
     exercises.length > 0 ||
     polarization_by_window.some((p) => p.pct != null) ||
     anaerobic_capacity.length > 0 ||
-    race_readiness_history.some((r) => r.reading != null);
+    race_readiness_history.some((r) => r.reading != null) ||
+    (data_coverage != null && data_coverage.sources.length > 0);
 
   return {
     generated_at_iso: now.toISOString(),
@@ -239,6 +277,7 @@ export async function buildAthletePerformance(params: {
     hyrox_prediction,
     race_readiness_history,
     race_readiness_gap: latestReadiness?.gap ?? null,
+    data_coverage,
   };
 }
 
@@ -368,102 +407,49 @@ function mapCategory(c: string): ExerciseTimeSeries['category'] {
 // ---------------------------------------------------------------------------
 
 /**
- * The three-band polarization split, derived from the athlete's OWN five zones.
+ * The three-band polarization split — now read from `segment_zone_seconds`, the
+ * table the zone engine writes (mig 0168).
  *
- *   low  = Z1 + Z2   (below the first threshold — the easy volume)
- *   mid  = Z3 + Z4   (the "grey zone" between thresholds)
- *   high = Z5        (above threshold)
+ * WHAT THIS REPLACED, and why every line of it had to go:
  *
- * These are the classic three polarization bands expressed in the one zone model
- * the whole app uses, so the boundaries can never drift from it. They used to be
- * `hr < 0.7 * 200` and `hr < 0.85 * 200` written into the SQL, which put the
- * dividing lines at 140 and 170 bpm for every athlete regardless of age or
- * fitness.
+ *  · It asked `biometric_streams` for EVERY heart-rate reading of the last N
+ *    days with nothing tying them to a workout. Measured on 10-ago-2026: of the
+ *    106.880 stored readings, 105.894 fall outside any executed segment — 99 %.
+ *    The coach's "aerobic base" was the athlete's pulse while asleep, and since
+ *    a resting pulse lands in Z1, the more they rested the more polarized their
+ *    training looked.
+ *  · It COUNTED ROWS. A row is not a second: the same table holds 106.880
+ *    readings at only 46.366 distinct instants, so a re-synced stretch weighed
+ *    twice as much as a live one.
+ *  · It brought every row into the process and the history repeated the query
+ *    twelve times, once per week.
+ *
+ * WHERE the three bands cut, and the target they are compared against, are the
+ * COACH's (mig 0168) — resolved once per payload and passed down.
  */
-function polarizationFrom(samples: readonly number[], zones: AthleteHrZones): PolarizationPct | null {
-  let low = 0;
-  let mid = 0;
-  let high = 0;
-  for (const hr of samples) {
-    const z = zoneForBpm(hr, zones);
-    if (z == null) continue;
-    if (z <= 2) low += 1;
-    else if (z <= 4) mid += 1;
-    else high += 1;
-  }
-  const total = low + mid + high;
-  if (total === 0) return null;
-  return {
-    low: Math.round((low / total) * 100),
-    mid: Math.round((mid / total) * 100),
-    high: Math.round((high / total) * 100),
-  };
-}
-
 async function loadPolarization(
   client: Sql,
   athlete_id: number,
   now: Date,
   window: PolarizationWindow,
-  zones: AthleteHrZones | null,
+  method: CoachHrMethod,
 ): Promise<PolarizationByWindow> {
-  // No anchor → no zones → no split, and no drift either. It used to return a
-  // 0/0/0 split carrying `drift_vs_target: 100` — a fabricated "maximum
-  // deviation" for an athlete nobody had measured.
-  if (!zones) return noPolarization(window);
-
-  const days = window === '7d' ? 7 : window === '14d' ? 14 : window === '28d' ? 28 : 90;
-  const since = addDays(now, -days).toISOString();
-  const rows = await client<Array<{ hr: number }>>`
-    select value_numeric::float as hr
-    from biometric_streams
-    where athlete_id = ${athlete_id}
-      and metric_type::text = 'hr'
-      and recorded_at >= ${since}::timestamptz
-      and value_numeric is not null
-  `;
-  const pct = polarizationFrom(rows.map((r) => r.hr), zones);
-  if (!pct) return noPolarization(window);
-
-  const drift =
-    Math.abs(pct.low - POLARIZATION_TARGET.low) +
-    Math.abs(pct.mid - POLARIZATION_TARGET.mid) +
-    Math.abs(pct.high - POLARIZATION_TARGET.high);
-  return { window, pct, drift_vs_target: drift };
+  const days = POLARIZATION_WINDOW_DAYS[window];
+  const { pct, drift_vs_target } = await loadPolarizationWindow({
+    athlete_id,
+    days,
+    method,
+    now,
+    client,
+  });
+  // No anchor → no zones → no classified second → no split, and no drift either.
+  // It used to return a 0/0/0 split carrying `drift_vs_target: 100` — a
+  // fabricated "maximum deviation" for an athlete nobody had measured.
+  return { window, pct, drift_vs_target };
 }
 
 function noPolarization(window: PolarizationWindow): PolarizationByWindow {
   return { window, pct: null, drift_vs_target: null };
-}
-
-async function loadPolarizationHistory(
-  client: Sql,
-  athlete_id: number,
-  now: Date,
-  zones: AthleteHrZones | null,
-): Promise<Array<{ iso_date: string; pct: PolarizationPct | null }>> {
-  if (!zones) return [];
-  const out: Array<{ iso_date: string; pct: PolarizationPct | null }> = [];
-  for (let i = POLARIZATION_HISTORY_WEEKS - 1; i >= 0; i--) {
-    const end = addDays(now, -i * DAYS_PER_WEEK);
-    const start = addDays(end, -DAYS_PER_WEEK);
-    const rows = await client<Array<{ hr: number }>>`
-      select value_numeric::float as hr
-      from biometric_streams
-      where athlete_id = ${athlete_id}
-        and metric_type::text = 'hr'
-        and recorded_at >= ${start.toISOString()}::timestamptz
-        and recorded_at <  ${end.toISOString()}::timestamptz
-        and value_numeric is not null
-    `;
-    // A week with no beats recorded is a HOLE in the line, not a week the
-    // athlete spent at 0 % easy — the sparkline must break, not dip to zero.
-    out.push({
-      iso_date: end.toISOString().slice(0, 10),
-      pct: polarizationFrom(rows.map((r) => r.hr), zones),
-    });
-  }
-  return out;
 }
 
 // ---------------------------------------------------------------------------

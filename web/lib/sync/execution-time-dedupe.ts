@@ -37,6 +37,30 @@ export async function existsOverlappingExecution(
   endedAt: Date | string | null,
   windowMinutes: number = DEDUP_WINDOW_MINUTES,
 ): Promise<boolean> {
+  return (await findOverlappingExecution(client, athleteId, startedAt, endedAt, windowMinutes)) !== null;
+}
+
+/**
+ * La misma regla de solape, pero devolviendo QUÉ ejecución la cumple.
+ *
+ * Por qué existe además del booleano: «ya está contada» y «no me interesa» son
+ * cosas distintas. Una ingesta de aparato que se topa con una sesión ya contada
+ * no debe archivar una segunda —eso es lo que el booleano protege—, pero sus
+ * vueltas sí pueden ENRIQUECER la que ya está: rellenar la FC de un tramo que la
+ * app midió sin pulsómetro no duplica nada. Con solo el booleano, todo el detalle
+ * por vuelta de un entreno que el atleta grabó en la app se tiraba a la basura.
+ *
+ * Se queda con la de arranque MÁS CERCANO al del entreno entrante, para que un
+ * día con dos sesiones solapadas resuelva a la que de verdad es, y de forma
+ * determinista.
+ */
+export async function findOverlappingExecution(
+  client: Sql,
+  athleteId: bigint,
+  startedAt: Date | string,
+  endedAt: Date | string | null,
+  windowMinutes: number = DEDUP_WINDOW_MINUTES,
+): Promise<{ id: string } | null> {
   const windowMs = windowMinutes * MS_PER_MINUTE;
   const incomingStartMs = new Date(startedAt).getTime();
   const incomingEndMs = endedAt ? new Date(endedAt).getTime() : incomingStartMs;
@@ -58,7 +82,8 @@ export async function existsOverlappingExecution(
           and we.started_at >= ${padStartIso}::timestamptz
           and we.started_at <= ${padEndIso}::timestamptz)
       )
+    order by abs(extract(epoch from (we.started_at - ${incomingStartIso}::timestamptz))), we.id
     limit 1
   `;
-  return overlapping.length > 0;
+  return overlapping[0] ?? null;
 }

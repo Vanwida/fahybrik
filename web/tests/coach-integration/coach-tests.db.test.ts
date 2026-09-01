@@ -12,14 +12,20 @@
 import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 import { createCoachTest, updateCoachTest, CoachTestError } from '@/lib/coach/write-coach-test';
-import { listCoachTests } from '@/lib/coach/coach-tests';
+import { listCoachTests, loadCoachTestContent } from '@/lib/coach/coach-tests';
+import { applyTestToAthletes } from '@/lib/coach/apply-test';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
 import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { addDays, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
-import { makeCoachAndAthlete, makeMicrocycle, type Fixture } from '../utils/db-fixtures';
+import {
+  makeCoachAndAthlete,
+  makeMicrocycle,
+  makeExercise,
+  type Fixture,
+} from '../utils/db-fixtures';
 
 describeWithDb('#34 coach calibration tests (real DB)', () => {
   const sql = getTestSql();
@@ -40,8 +46,10 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     fixtures.push(fx);
 
     const res = await restoreDefaultTests(fx.coachId, sql);
-    expect(res.created + res.restored).toBe(4);
-    expect(res.tests).toHaveLength(4);
+    // DEFAULT_CALIBRATION_BATTERY: 4 week-1 + umbral de pulso + perfil de salto
+    // (los dos últimos, unscheduled — el coach los programa, no aterrizan solos).
+    expect(res.created + res.restored).toBe(6);
+    expect(res.tests).toHaveLength(6);
 
     const tests = await listCoachTests(fx.coachId, {}, sql);
     const bySlug = new Map(tests.map((t) => [t.slug, t]));
@@ -81,8 +89,9 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         protocol: null,
         format: 'test',
         enabled: true,
+        content: [],
         results: [{ kind: 'calibration', target: 'row_zones' }],
-        schedule: [{ week_offset: 1, day_of_week: 5, enabled: true }],
+        schedule: [{ week_offset: 1, day_of_week: 5, enabled: true, rest_days_after: 0 }],
       },
       sql,
     );
@@ -99,6 +108,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         protocol: null,
         format: 'test',
         enabled: true,
+        content: [],
         results: [{ kind: 'baseline', measure: 'reps', unit: 'reps', label: 'Dominadas máx' }],
         schedule: [],
       },
@@ -116,6 +126,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
           protocol: null,
           format: 'test',
           enabled: true,
+          content: [],
           results: [{ kind: 'calibration', target: 'not_a_target' }],
           schedule: [],
         },
@@ -274,5 +285,353 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
         }),
       ]),
     );
+  }, 60000);
+
+  test('createCoachTest with authored content: real blocks survive materialization + reload, including circuit config', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const sled = await makeExercise({ fx, name: 'Sled Push' });
+    const lunge = await makeExercise({ fx, name: 'Lunge' });
+
+    const created = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'HYROX half-sim propio',
+        protocol: 'Calienta 10 min antes de arrancar.',
+        format: 'hyrox_sim',
+        enabled: true,
+        content: [
+          {
+            uid: 'blk-1',
+            title: 'B · Estaciones (4 rounds)',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-1',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+              {
+                uid: 'it-2',
+                exercise_id: lunge,
+                exercise_name: 'Lunge',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'reps', value: 20 } }] },
+              },
+            ],
+            circuit: {
+              rounds: 4,
+              pacing: { kind: 'por_tarea' },
+              rest_between_stations_seconds: 15,
+              rest_between_rounds_seconds: 90,
+            },
+          },
+        ],
+        results: [
+          {
+            kind: 'baseline',
+            measure: 'time',
+            unit: 'seconds',
+            label: 'Tiempo half-sim',
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(created.template_id).toBeTruthy();
+
+    // template_segments carries the REAL prescription (not the generic
+    // no-dose anchor writeContentSegments would have produced).
+    const segs = await sql<Array<{ exercise_id: string; prescription_json: unknown }>>`
+      select exercise_id::text, prescription_json
+      from template_segments where template_id = ${Number(created.template_id)}
+      order by position
+    `;
+    expect(segs.map((s) => Number(s.exercise_id))).toEqual([sled, lunge]);
+    expect(segs.every((s) => s.prescription_json != null)).toBe(true);
+
+    // template_blocks carries the circuit config, at the right block_position.
+    const blocks = await sql<Array<{ rounds: number; pacing: string }>>`
+      select rounds, pacing::text as pacing from template_blocks
+      where template_id = ${Number(created.template_id)}
+    `;
+    expect(blocks).toEqual([{ rounds: 4, pacing: 'por_tarea' }]);
+
+    // loadCoachTestContent (the editor's GET-side reload) round-trips both the
+    // items AND the circuit config — this is what the "Editar" panel loads back.
+    const reloaded = await loadCoachTestContent(fx.coachId, Number(created.template_id!), sql);
+    expect(reloaded).toHaveLength(1);
+    expect(reloaded[0]!.items.map((it) => it.exercise_id)).toEqual([sled, lunge]);
+    expect(reloaded[0]!.circuit).toEqual({
+      rounds: 4,
+      pacing: { kind: 'por_tarea' },
+      rest_between_stations_seconds: 15,
+      rest_between_rounds_seconds: 90,
+    });
+
+    // Editing content REPLACES it (delete-then-rewrite) — never leaves the old
+    // station's row behind.
+    const updated = await updateCoachTest(
+      fx.coachId,
+      Number(created.id),
+      {
+        content: [
+          {
+            uid: 'blk-1',
+            title: 'Solo sled',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-1',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+            ],
+            circuit: { rounds: 6, pacing: { kind: 'por_tarea' } },
+          },
+        ],
+      },
+      sql,
+    );
+    const segsAfter = await sql<Array<{ exercise_id: string }>>`
+      select exercise_id::text from template_segments where template_id = ${Number(updated!.template_id)}
+    `;
+    expect(segsAfter.map((s) => Number(s.exercise_id))).toEqual([sled]);
+    const blocksAfter = await sql<Array<{ rounds: number }>>`
+      select rounds from template_blocks where template_id = ${Number(updated!.template_id)}
+    `;
+    expect(blocksAfter).toEqual([{ rounds: 6 }]);
+  }, 60000);
+
+  // LA CADENA ENTERA — lo que decide si esto sirve para algo (8-ago). El coach
+  // crea un test suyo con contenido REAL (40 cal de remo + un circuito de 4
+  // rondas), se lo aplica a un atleta el día que quiere, y lo que llega al móvil
+  // es un entreno normal: mismos items tipados con su Prescription (de ahí saca
+  // el motor en vivo qué mandarle al PM5: `fixedCalories(40)`), la config de
+  // circuito intacta, y ADEMÁS el contrato de resultados que hace que al acabar
+  // se capture la marca. Sin este test, cada eslabón estaba probado por separado
+  // y el fork perdía `template_blocks` por el camino sin que nadie se enterara.
+  test('la cadena entera: el coach crea un test suyo, se lo aplica a un atleta, y al móvil llega un entreno normal', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const row = await makeExercise({ fx, name: 'Row', modality: 'row' });
+    const sled = await makeExercise({ fx, name: 'Sled Push' });
+    const wallball = await makeExercise({ fx, name: 'Wall Ball' });
+
+    const test = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'Mi test de calorías',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'blk-erg',
+            title: '40 cal remo',
+            format: 'test',
+            items: [
+              {
+                uid: 'it-erg',
+                exercise_id: row,
+                exercise_name: 'Row',
+                prescription: {
+                  scheme: 'steady',
+                  modality: 'row',
+                  sets: [{ measure: { kind: 'calories', value: 40 } }],
+                  target: { kind: 'rpe', value: 10 },
+                },
+              },
+            ],
+          },
+          {
+            uid: 'blk-circuito',
+            title: 'Circuito 4 rondas',
+            format: 'circuit',
+            items: [
+              {
+                uid: 'it-sled',
+                exercise_id: sled,
+                exercise_name: 'Sled Push',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'distance', meters: 25 } }] },
+              },
+              {
+                uid: 'it-wb',
+                exercise_id: wallball,
+                exercise_name: 'Wall Ball',
+                prescription: { scheme: 'rounds', modality: 'functional', sets: [{ measure: { kind: 'reps', value: 20 } }] },
+              },
+            ],
+            circuit: { rounds: 4, pacing: { kind: 'por_tarea' }, rest_between_rounds_seconds: 90 },
+          },
+        ],
+        results: [{ kind: 'baseline', measure: 'time', unit: 'seconds', label: 'Tiempo total' }],
+        // Sin agenda: el coach lo pone cuando quiere, no en la semana 1 por defecto.
+        schedule: [],
+      },
+      sql,
+    );
+
+    // El coach se lo aplica al atleta el día que le da la gana (no semana 1).
+    const applied = await applyTestToAthletes({
+      coach_id: Number(fx.coachId),
+      test_id: Number(test.id),
+      athlete_ids: [Number(fx.athleteId)],
+      date: '2026-09-15',
+      client: sql,
+    });
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    expect(applied.data.applied[0]!.scheduled_for).toEqual(['2026-09-15']);
+
+    const [assignment] = await sql<{ id: string }[]>`
+      select id::text as id from workout_assignments
+      where athlete_id = ${fx.athleteId} and scheduled_for = '2026-09-15'::date
+    `;
+    expect(assignment).toBeTruthy();
+
+    // Lo que ve el móvil: un entreno normal, con sus dos bloques.
+    const detail = await loadAssignmentDetail({
+      sql,
+      athlete_id: BigInt(fx.athleteId),
+      assignment_id: BigInt(Number(assignment!.id)),
+    });
+    expect(detail?.workout).toBeTruthy();
+    expect(detail!.workout!.blocks).toHaveLength(2);
+
+    // Bloque 1 — el remo por calorías, tipado. Esto es lo que el motor traduce a
+    // `.fixedCalories(40)` para el PM5 (PM5WorkoutProgrammer.boutFixedSpec).
+    const erg = detail!.workout!.blocks[0]!;
+    const ergItem = erg.items[0]!;
+    expect(ergItem.exercise_name).toBe('Row');
+    expect(ergItem.prescription_json?.modality).toBe('row');
+    expect(ergItem.prescription_json?.sets?.[0]?.measure).toEqual({ kind: 'calories', value: 40 });
+
+    // Bloque 2 — el circuito conserva sus rondas al cruzar el fork per-atleta.
+    const circuito = detail!.workout!.blocks[1]!;
+    expect(circuito.items.map((i) => i.exercise_name)).toEqual(['Sled Push', 'Wall Ball']);
+    expect(circuito.config_json).toMatchObject({
+      rounds: 4,
+      pacing: 'por_tarea',
+      rest_between_rounds_seconds: 90,
+    });
+
+    // Y sigue siendo un TEST: el contrato de resultados viaja, que es lo que hace
+    // que iOS abra la captura de la marca al terminar (WorkoutContainer.testResult).
+    expect(detail!.assignment.store_results).toHaveLength(1);
+    expect(detail!.assignment.store_results[0]).toMatchObject({ measure: 'time', unit: 'seconds' });
+  }, 60000);
+
+  // LO QUE MIDE SE DEDUCE (8-ago). El coach NO declara nada: monta el entreno con
+  // el editor de siempre y el sistema saca el contrato de ahí — en un esfuerzo
+  // máximo se mide la variable que no fijas.
+  test('el contrato de resultados se deduce del contenido: fijas metros → mides tiempo, fijas tiempo → mides metros', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const row = await makeExercise({ fx, name: 'Row', modality: 'row' });
+
+    // 1000 m de remo — distancia FIJA, así que lo que se mide es el TIEMPO. Y no
+    // calibra zonas: la fórmula de remo está anclada en 2K, no en 1000 m.
+    const mil = await createCoachTest(
+      fx.coachId,
+      {
+        name: '1000 m remo',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '1000 m', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'distance', meters: 1000 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(mil.results).toHaveLength(1);
+    expect(mil.results[0]).toMatchObject({ measure: 'time', unit: 'seconds', derives: 'none' });
+
+    // 10 min de remo — el reloj es el dato, así que se mide la DISTANCIA.
+    const diez = await createCoachTest(
+      fx.coachId,
+      {
+        name: '10 min remo',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '10 min', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'duration', seconds: 600 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(diez.results[0]).toMatchObject({ measure: 'distance', unit: 'meters', derives: 'none' });
+
+    // 2000 m de remo — ESE es el protocolo anclado, así que sí calibra zonas.
+    const dosK = await createCoachTest(
+      fx.coachId,
+      {
+        name: '2K remo propio',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [
+          {
+            uid: 'b1', title: '2K', format: 'test',
+            items: [{
+              uid: 'i1', exercise_id: row, exercise_name: 'Row',
+              prescription: { scheme: 'steady', modality: 'row', sets: [{ measure: { kind: 'distance', meters: 2000 } }] },
+            }],
+          },
+        ],
+        schedule: [],
+      },
+      sql,
+    );
+    expect(dosK.results[0]).toMatchObject({
+      slug: 'row_2k', measure: 'time', unit: 'seconds', derives: 'row_zones', modality: 'row',
+    });
+  }, 60000);
+
+  test('createCoachTest without content: falls back to the automatic no-dose mechanism, unchanged', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+
+    const created = await createCoachTest(
+      fx.coachId,
+      {
+        name: 'Dominadas máx sin contenido',
+        protocol: null,
+        format: 'test',
+        enabled: true,
+        content: [],
+        results: [{ kind: 'baseline', measure: 'reps', unit: 'reps', label: 'Dominadas máx' }],
+        schedule: [],
+      },
+      sql,
+    );
+    // No anchor exercise for a custom baseline with no modality → the generic
+    // fallback creates the template with ZERO segments (honest, per
+    // calibration-content.ts) rather than fabricating content.
+    const segs = await sql<Array<{ id: string }>>`
+      select id::text from template_segments where template_id = ${Number(created.template_id)}
+    `;
+    expect(segs).toHaveLength(0);
+
+    const reloaded = await loadCoachTestContent(fx.coachId, Number(created.template_id!), sql);
+    expect(reloaded).toEqual([]);
   }, 60000);
 });

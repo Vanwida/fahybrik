@@ -16,7 +16,7 @@ export function LeadOnboardingSummary({ summary }: { summary: LeadSummaryGroup[]
     <div className="grid gap-4 md:grid-cols-2">
       {summary.map((group) => (
         <Card key={group.block} className="p-4 lg:p-5">
-          <h3 className="v2-micro mb-3 text-[color:var(--v2-accent)]">{group.label}</h3>
+          <h3 className="v2-micro mb-3 text-[color:var(--v2-accent-text)]">{group.label}</h3>
           <dl className="flex flex-col gap-2.5">
             {group.rows.map((row, i) => (
               <div

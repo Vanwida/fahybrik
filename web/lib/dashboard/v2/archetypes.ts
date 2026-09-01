@@ -6,17 +6,18 @@
 // `Prescription` with sensible defaults, so the coach gets a ready tailored form
 // instead of empty toggles.
 //
-// AGNOSTIC: the 9 archetypes are the sport's session vocabulary (HYROX / hybrid),
+// AGNOSTIC: the archetypes are the sport's session vocabulary (HYROX / hybrid),
 // identical for every coach. They carry NO methodology — the phase/group is the
 // coach's OPTIONAL tag, applied separately.
 //
 // DRY: this file invents NO schema. Every seed resolves to fields already on
 // `Prescription`, produced by REUSING the editor-axes setters + the shared
 // prescription-model defaults (one source of truth for "what shape does a
-// run/erg/strength line default to"). The 9 archetypes collapse to 4 underlying
-// FORM PATTERNS (STEADY · INTERVALS · SETS-TABLE · COMPONENTS) — true DRY.
+// run/erg/strength line default to"). The archetypes collapse to a handful of
+// FORM PATTERNS (STEADY · INTERVALS · SETS-TABLE · LIST · COMPONENTS) — true DRY.
 
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
+import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { V2Modality } from '@/components/v2/constants';
 import type { EditorBlock, EditorItem, StructureGroup } from '@/lib/dashboard/v2/editor-types';
 import {
@@ -35,23 +36,41 @@ import { createTestBlock, TEST_BLOCK_FORMAT } from '@/lib/dashboard/v2/test-temp
 // STEADY      — one line: duración|distancia + zona|RPE|ritmo  (Z2 / tempo / activación / test)
 // INTERVALS   — N × (distancia|tiempo work) @ ritmo|RPE + descanso  (series / intervalos)
 // SETS_TABLE  — the per-set table: reps × %RM|kg × descanso × tempo  (fuerza)
+// SUPERSET    — the SAME per-set table, once PER EXERCISE, plus the rotation rest:
+//               the block alternates its exercises (A1→A2→A1→A2) instead of running
+//               them in straight sets. That rotation is the ONLY difference from
+//               SETS_TABLE (docs/DECISIONS.md 2026-08-05), so the table is reused
+//               verbatim and this pattern adds exactly two things: the second
+//               exercise and the descanso de la vuelta.
+// LIST        — checklist of movements, no clock  (calentamiento / vuelta a la calma)
 // COMPONENTS  — formato (For Time|AMRAP|EMOM|Rondas) + lista de componentes + cap  (WOD / metcon / circuito)
 // HYROX_SIM   — the dedicated ORDERED race template: 16 fixed legs (8 runs + 8
 //               stations in official order) + Open/Pro standard loads  (Simulación HYROX)
 // TEST        — the dedicated light resolver form: pick a test TYPE (modality +
 //               measure auto, RPE 10) whose result calculates the athlete's zones
-export type FormPattern = 'steady' | 'intervals' | 'sets_table' | 'components' | 'hyrox_sim' | 'test';
+export type FormPattern =
+  | 'steady'
+  | 'intervals'
+  | 'sets_table'
+  | 'superset'
+  | 'list'
+  | 'components'
+  | 'hyrox_sim'
+  | 'test';
 
 export type ArchetypeId =
   | 'steady_run'
   | 'intervals'
   | 'strength'
+  | 'superset'
   | 'power_emom'
   | 'wod_metcon'
   | 'circuit_core'
   | 'hyrox_sim'
   | 'test'
-  | 'activation';
+  | 'activation'
+  | 'warmup'
+  | 'cooldown';
 
 export interface Archetype {
   id: ArchetypeId;
@@ -65,7 +84,7 @@ export interface Archetype {
   icon: string;
   /** v2 modality color the archetype's icon tile carries (derived hue). */
   modalitySlug: V2Modality;
-  /** Which of the 4 base forms renders for this archetype. */
+  /** Which form pattern renders for this archetype. */
   pattern: FormPattern;
   /** Honest frequency badge from Pablo's real plan ("104×", "clave", "raro"…). */
   frequency: string;
@@ -73,6 +92,12 @@ export interface Archetype {
   format: string;
   /** Default block title pre-filled when the coach picks this type. */
   defaultTitle: string;
+  /**
+   * Cuántos ejercicios se siembran al crear el bloque. Por defecto 1: casi todos
+   * los arquetipos arrancan con uno. La superserie arranca con DOS porque un solo
+   * ejercicio no es una superserie: lo que la define es que se alternan.
+   */
+  seedItems?: number;
   /**
    * DEFERRED this chunk (HYROX-sim template + Test "almacena ritmo" specifics).
    * The archetype is NOT a dead tile: it routes to its closest base form so it
@@ -83,6 +108,30 @@ export interface Archetype {
 
 // Ordered by real-plan frequency (most used first), per the UX pase evidence bar.
 export const ARCHETYPES: Archetype[] = [
+  {
+    id: 'warmup',
+    name: 'Calentamiento',
+    shortName: 'Calentamiento',
+    purpose: 'Lista de movimientos para entrar en calor. Sin reloj, sin marca.',
+    icon: 'exercise',
+    modalitySlug: 'calentamiento',
+    pattern: 'list',
+    frequency: 'cada día',
+    format: 'warmup',
+    defaultTitle: 'Calentamiento',
+  },
+  {
+    id: 'cooldown',
+    name: 'Vuelta a la calma',
+    shortName: 'Vuelta',
+    purpose: 'Movilidad, estiramientos o trote suave al cerrar. Lista, sin reloj.',
+    icon: 'spa',
+    modalitySlug: 'calentamiento',
+    pattern: 'list',
+    frequency: 'ciclo',
+    format: 'cooldown',
+    defaultTitle: 'Vuelta a la calma',
+  },
   {
     id: 'steady_run',
     name: 'Carrera continua / Z2',
@@ -118,6 +167,19 @@ export const ARCHETYPES: Archetype[] = [
     frequency: '47×',
     format: 'strength_block',
     defaultTitle: 'Fuerza',
+  },
+  {
+    id: 'superset',
+    name: 'Superserie',
+    shortName: 'Superserie',
+    purpose: 'Dos o tres ejercicios que se alternan. Una serie de cada y descansas al cerrar la vuelta.',
+    icon: 'swap_horiz',
+    modalitySlug: 'fuerza',
+    pattern: 'superset',
+    frequency: 'nuevo',
+    format: 'superset',
+    defaultTitle: 'Superserie',
+    seedItems: 2,
   },
   {
     id: 'hyrox_sim',
@@ -171,7 +233,7 @@ export const ARCHETYPES: Archetype[] = [
     id: 'test',
     name: 'Test',
     shortName: 'Test',
-    purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′) @ RPE 10. Almacena ritmo → alimenta el plan.',
+    purpose: 'Elige el tipo (remo/ski 2k · carrera 3′/9′/30′/5 km) @ RPE 10. Almacena ritmo → alimenta el plan.',
     icon: 'speed',
     modalitySlug: 'ergo',
     pattern: 'test',
@@ -213,6 +275,7 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
   steady_run: 'carrera',
   intervals: 'carrera',
   strength: 'fuerza',
+  superset: 'fuerza',
   power_emom: 'circuito',
   wod_metcon: 'circuito',
   circuit_core: 'circuito',
@@ -221,6 +284,8 @@ const ARCHETYPE_AXIS: Record<ArchetypeId, AxisModalidad> = {
   // the real seed, so this axis is only the picker-tile hue fallback.
   test: 'ergo',
   activation: 'carrera',
+  warmup: 'circuito',
+  cooldown: 'circuito',
 };
 
 /** The scheme each archetype's seed lands on (drives which fields are meaningful). */
@@ -228,17 +293,39 @@ const ARCHETYPE_SCHEME: Record<ArchetypeId, Prescription['scheme']> = {
   steady_run: 'steady',
   intervals: 'intervals',
   strength: 'sets',
+  superset: 'superset',
   power_emom: 'emom',
   wod_metcon: 'for_time',
   circuit_core: 'rounds',
   hyrox_sim: 'for_time',
   test: 'steady',
   activation: 'steady',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
 };
 
 // Activación defaults to a low, easy effort (RPE 3) — the one place the archetype
 // overrides the modality's natural target with its own sensible default.
 const ACTIVATION_TARGET: Prescription['target'] = { kind: 'rpe', value: 3 };
+
+// Descanso por defecto al CERRAR una vuelta de superserie (A1 → A2 → descanso).
+// Semilla editable en el formulario, nunca una regla: es el mismo valor que un
+// coach pone de oficio entre series de fuerza submáxima.
+const SUPERSET_ROTATION_REST_S = 90;
+
+// Semilla del Circuito (docs/DECISIONS.md, 2026-08-07): rondas + pacing a nivel
+// de BLOQUE, editable desde ComponentsForm. 3 rondas / por tarea (sin reloj) es
+// el patrón HYROX real más frecuente del audit — nunca se inventa un `work_seconds`
+// sin que el coach elija «por reloj» primero.
+export const DEFAULT_CIRCUIT_CONFIG: CircuitConfig = {
+  rounds: 3,
+  pacing: { kind: 'por_tarea' },
+};
+
+/** Scheme the items of a block of this type should carry (same axis as format). */
+export function schemeOfArchetype(id: ArchetypeId): Prescription['scheme'] {
+  return ARCHETYPE_SCHEME[id];
+}
 
 /**
  * Build a valid starting Prescription for a fresh block of the chosen archetype.
@@ -246,6 +333,18 @@ const ACTIVATION_TARGET: Prescription['target'] = { kind: 'rpe', value: 3 };
  * archetype's scheme — no duplicated seeding rules.
  */
 export function seedArchetype(id: ArchetypeId): Prescription {
+  // Calentamiento / vuelta: lista de movimientos, sin reloj. La dosis de cada
+  // línea (reps o tiempo) la pone el coach; la semilla deja una medida para que
+  // el bloque no nazca vacío. No pasa por applyModalidad: esa vía siembra fuerza
+  // o un rodaje, y este tipo no es ninguno de los dos.
+  if (id === 'warmup' || id === 'cooldown') {
+    return {
+      scheme: id,
+      modality: 'mobility',
+      sets: [{ measure: { kind: 'reps', value: 8 } }],
+    };
+  }
+
   const axis = ARCHETYPE_AXIS[id];
   const scheme = ARCHETYPE_SCHEME[id];
 
@@ -255,6 +354,20 @@ export function seedArchetype(id: ArchetypeId): Prescription {
   if (scheme === 'sets') {
     // Strength keeps the seeded per-set table from applyModalidad as-is.
     return base;
+  }
+
+  if (scheme === 'superset') {
+    // La MISMA tabla de series que la fuerza (su pareja): lo único que cambia es
+    // que el bloque rota sus ejercicios. El descanso sube a nivel de bloque porque
+    // es el de la VUELTA (A1 → A2 → descanso), así que el que trae la semilla de
+    // fuerza por serie se retira: dos descansos con significados distintos en la
+    // misma tarjeta es justo lo que confunde al coach.
+    const sets = (base.sets ?? []).map((set) => {
+      const next = { ...set };
+      delete next.rest_s;
+      return next;
+    });
+    return { ...base, scheme: 'superset', sets, rest_s: SUPERSET_ROTATION_REST_S };
   }
 
   const modality: Modality = base.modality ?? 'other';
@@ -294,9 +407,12 @@ export function seedArchetype(id: ArchetypeId): Prescription {
       next.sets = [{ measure: { kind: 'reps', value: 15 } }];
       break;
     case 'rounds':
-      // Circuito / core — N rounds, components by reps|time.
-      next.rounds = 3;
-      next.rest_s = 60;
+      // Circuito / core — N rounds, components by reps|time. `rounds`/`rest_s`
+      // YA NO se siembran aquí: viven en `EditorBlock.circuit` (DEFAULT_CIRCUIT_CONFIG,
+      // createBlockFromArchetype abajo), no duplicados en la prescripción de la
+      // estación — ese doblado era el bug real de `applyHead`. Esta rama solo
+      // sirve a `circuit_core` (el único archetype con scheme 'rounds'), así que
+      // el retiro no afecta a ningún otro.
       next.sets = [{ measure: { kind: 'reps', value: 12 } }];
       break;
     default:
@@ -321,12 +437,18 @@ const FORMAT_TO_ARCHETYPE: Record<string, ArchetypeId> = {
   tempo: 'steady_run',
   intervals: 'intervals',
   strength_block: 'strength',
+  // Sin esta entrada, una superserie recargada (o importada de una foto) caía a
+  // "sin arquetipo" y perdía su formulario: el formato existía en el catálogo pero
+  // no tenía dónde editarse.
+  superset: 'superset',
   emom: 'power_emom',
   for_time: 'wod_metcon',
   amrap: 'wod_metcon',
   circuit: 'circuit_core',
   hyrox_sim: 'hyrox_sim',
   test: 'test',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
 };
 
 /** Best-effort archetype for a reloaded block from its format (null = unknown). */
@@ -365,15 +487,18 @@ export function createBlockFromArchetype(
   if (id === 'test') return createTestBlock(group);
 
   const archetype = getArchetype(id);
-  const prescription = seedArchetype(id);
   const now = Date.now();
 
-  const item: EditorItem = {
-    uid: `arch-item-${now}`,
+  // `seedItems` ejercicios (1 salvo la superserie, que nace con dos). Se llama a
+  // seedArchetype UNA VEZ POR ITEM a propósito: devuelve un objeto nuevo cada vez,
+  // así dos ejercicios del mismo bloque nunca comparten la misma prescripción por
+  // referencia (editar uno cambiaría el otro).
+  const items: EditorItem[] = Array.from({ length: archetype.seedItems ?? 1 }, (_, i) => ({
+    uid: `arch-item-${now}-${i}`,
     exercise_id: null,
     exercise_name: '',
-    prescription,
-  };
+    prescription: seedArchetype(id),
+  }));
 
   return {
     uid: `arch-${id}-${now}`,
@@ -381,6 +506,10 @@ export function createBlockFromArchetype(
     format: archetype.format,
     archetype_id: id,
     ...(group ? { group } : {}),
-    items: [item],
+    // Circuito nace con una config de bloque válida (rounds + pacing son
+    // obligatorios en el schema) — el resto de archetypes no necesitan una
+    // porque su estructura vive en la Prescription sembrada arriba.
+    ...(id === 'circuit_core' ? { circuit: DEFAULT_CIRCUIT_CONFIG } : {}),
+    items,
   };
 }

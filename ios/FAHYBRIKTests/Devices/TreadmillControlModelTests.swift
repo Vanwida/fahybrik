@@ -71,7 +71,7 @@ final class TreadmillControlModelTests: XCTestCase {
                                  targetDistanceMeters: 100_000, blockTitle: "Carrera", blockPosition: 1)
         let plan = WorkoutPlan(id: UUID(), name: "Test", format: .steady, estimatedDurationSeconds: 900,
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let src = FakeControllableTreadmill()
         let model = TreadmillHUDModel(session: WorkoutSession(plan: plan), hrZones: nil,
                                       treadmill: src, hr: FakeHR())

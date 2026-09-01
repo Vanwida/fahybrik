@@ -38,7 +38,7 @@ function PendingRequestBanner({
   const { resolveRequest, busy, error } = useLifecycleMutation(athleteId);
 
   return (
-    <div className="flex flex-col gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-warn)]/35 bg-[color:var(--v2-warn-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-warn)]/35 bg-[color:var(--v2-warn-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2.5">
         <MIcon name="pan_tool" size={20} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
         <div className="flex min-w-0 flex-col gap-0.5">
@@ -105,7 +105,7 @@ function BajaProgramadaBanner({
         : 'Se aplica hoy: ya no le queda periodo pagado por delante.';
 
   return (
-    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)]/35 bg-[color:var(--v2-danger)]/8 px-4 py-3">
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)]/35 bg-[color:var(--v2-danger)]/8 px-4 py-3">
       <MIcon name="logout" size={20} className="mt-0.5 shrink-0 text-[color:var(--v2-danger)]" />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
@@ -147,7 +147,7 @@ function PausedBanner({
     until ? `vuelve el ${formatEsDate(until)}` : null,
   ]);
   return (
-    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-warn)]/30 bg-[color:var(--v2-warn-soft)] px-4 py-3">
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-warn)]/30 bg-[color:var(--v2-warn-soft)] px-4 py-3">
       <MIcon name="pause_circle" size={20} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{headline}</span>
@@ -175,7 +175,7 @@ function BajaBanner({
     reason ? PAUSE_REASON_LABELS[reason] : null,
   ]);
   return (
-    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
+    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
       <MIcon name="person_off" size={20} className="mt-0.5 shrink-0 text-[color:var(--v2-faint)]" />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{headline}</span>

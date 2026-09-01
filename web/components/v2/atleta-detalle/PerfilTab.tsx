@@ -3,10 +3,10 @@
 // PERFIL & OBJETIVOS — the test→objetivos resolver surface. Two columns joined by
 // an accent "→": LEFT the athlete's reference tests (from the app), RIGHT the
 // derived training targets the resolver produces from them. A test with no result
-// reads "pendiente"; a derived target with no value reads "—" + a tinted row when
-// the coach has adjusted it by hand. The SHAPE is the real resolver contract, so
-// the engine drops in without touching this view.
+// reads "pendiente". Zones here are READ-ONLY: write lives in Ritmos / Zonas
+// (register test + calculator). Never ship adjust/version buttons that don't wire.
 
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
@@ -57,12 +57,10 @@ function TestCard({
 
 function ObjectiveRow({
   label,
-  aria_label,
   target,
   adjusted,
 }: {
   label: string;
-  aria_label: string;
   target: string | null;
   adjusted: boolean;
 }) {
@@ -83,17 +81,8 @@ function ObjectiveRow({
           ) : null}
         </span>
       </td>
-      <td className="v2-num py-2 px-2 text-right text-xs text-[color:var(--v2-muted)]">
+      <td className="v2-num py-2 pl-2 pr-1 text-right text-xs text-[color:var(--v2-muted)]">
         {target ?? '—'}
-      </td>
-      <td className="py-2 pl-2 pr-1 text-right">
-        <button
-          type="button"
-          aria-label={aria_label}
-          className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          <MIcon name="edit" size={15} />
-        </button>
       </td>
     </tr>
   );
@@ -192,18 +181,19 @@ export function PerfilTab({
 
       {/* Accent join → */}
       <div className="hidden items-center justify-center self-center lg:flex" aria-hidden>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]">
           <MIcon name="arrow_forward" size={20} />
         </span>
       </div>
 
-      {/* RIGHT · zonas de entrenamiento — the resolver output, grouped by modality */}
+      {/* RIGHT · zonas — espejo de solo lectura del resolver. Escribir = Ritmos. */}
       <Panel
         title="Zonas de entrenamiento"
         action={
           hasObjectives ? (
             <Pill tone="info" variant="soft">
               Calculadas con sus tests
+              {data.profile_version != null ? ` · v${data.profile_version}` : ''}
             </Pill>
           ) : undefined
         }
@@ -213,8 +203,17 @@ export function PerfilTab({
           <EmptyState
             icon="speed"
             title="Aún sin zonas"
-            description="Las zonas y ritmos se calculan automáticamente al registrar los tests de referencia."
+            description="Las zonas y ritmos se calculan al registrar un test de referencia en Ritmos / Zonas."
             className="border-none py-6"
+            action={
+              <Link
+                href={`/atletas/${athleteId}?tab=ritmos`}
+                className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+              >
+                <MIcon name="speed" size={15} />
+                Registrar test
+              </Link>
+            }
           />
         ) : (
           <div className="flex flex-col gap-4">
@@ -239,7 +238,6 @@ export function PerfilTab({
                       <ObjectiveRow
                         key={z.code}
                         label={z.code}
-                        aria_label={`Ajustar ${group.modality_label} ${z.code}`}
                         target={z.target}
                         adjusted={z.adjusted}
                       />
@@ -250,22 +248,14 @@ export function PerfilTab({
             ))}
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-          >
-            <MIcon name="tune" size={15} />
-            Ajustar a mano
-          </button>
-          <button
-            type="button"
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="history" size={15} />
-            Ver versiones{data.profile_version != null ? ` (${data.profile_version})` : ''}
-          </button>
-        </div>
+        {/* Un solo camino de escritura: la pestaña que tiene el form y la calculadora. */}
+        <Link
+          href={`/atletas/${athleteId}?tab=ritmos`}
+          className="v2-focus inline-flex h-8 w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
+        >
+          <MIcon name="open_in_new" size={15} />
+          {hasObjectives ? 'Ver calculadora y registrar test' : 'Ir a Ritmos / Zonas'}
+        </Link>
       </Panel>
       </div>
 

@@ -2,11 +2,17 @@ import Foundation
 import Observation
 import HealthKit
 
-// PHONE side of MIRROR MODE. The iPhone owns the PRIMARY HKWorkoutSession
-// (`PhoneWorkoutRun`). Frames go over `sendToRemoteWorkoutSession` when Apple
-// has paired a remote session. The Watch ADOPTS — we do not startWatchApp
-// (Apple: that creates a new Watch session). If the wrist never joins, the
-// phone runs alone.
+// PHONE side of MIRROR MODE — the 90% session. The athlete drives the workout from
+// the iPhone (this app's rich UI runs the ONE engine, WorkoutSession) while the
+// Apple Watch RECORDS it (HKWorkoutSession → live HR/kcal, one HKWorkout) and shows
+// a glanceable HUD in step. The wrist never runs a second engine that could drift:
+// it relays control taps and streams HR, and this service pushes 1 Hz state frames.
+//
+// Transport is the HealthKit mirrored-session app-data channel, NOT WatchConnectivity
+// (see MirrorWireModels). We register the mirroring start handler EARLY, remote-start
+// the watch app with an HKWorkoutConfiguration, adopt the mirrored HKWorkoutSession
+// when it arrives, and speak MirrorEnvelope both ways. Non-blocking throughout: if the
+// wrist never joins, the phone runs the workout alone.
 @MainActor
 @Observable
 final class PhoneMirrorService {
@@ -28,6 +34,17 @@ final class PhoneMirrorService {
     /// write a second copy.
     private(set) var wristRecordedWorkout: Bool = false
 
+    /// EL ATLETA TERMINÓ DESDE LA MUÑECA. Acabar en un sitio es acabar: la
+    /// pantalla del entreno lo lee y pasa al resumen sola, sin pedir un segundo
+    /// final en el móvil.
+    ///
+    /// Solo lo enciende un final PEDIDO POR UNA PERSONA (`EndReason.athlete`).
+    /// La muñeca también cierra su grabación cuando se queda sin señal cinco
+    /// minutos, y eso pasa cada vez que el atleta suelta el móvil para descansar
+    /// entre bloques: darlo por terminado ahí le costaría el entreno entero. Una
+    /// muñeca con binario viejo no manda motivo y cae del lado prudente.
+    private(set) var wristFinishedByAthlete: Bool = false
+
     // Weak so a finished/abandoned WorkoutContainer can deallocate its engine even
     // if a mirrored session lingers until its `ended` reply / grace timeout.
     @ObservationIgnored private weak var session: WorkoutSession?
@@ -35,6 +52,18 @@ final class PhoneMirrorService {
     @ObservationIgnored private lazy var delegateShim = MirrorSessionDelegate(owner: self)
     @ObservationIgnored private var frameTimer: Timer?
     @ObservationIgnored private var endTimeout: Timer?
+    // Card 72/102 — the end handshake used to be ONE fire-and-forget packet: lost in
+    // flight (routine on a run — phone in a pocket, arm swinging) it left the wrist
+    // recording forever, wedging every session after it. These re-arm the SAME intent
+    // until the wrist's `ended` reply cancels it (see `teardown`) or the retry budget
+    // runs out — `endTimeout` below is then a true last resort, not the only attempt.
+    @ObservationIgnored private var endRetryTimer: Timer?
+    @ObservationIgnored private var endRetryCount = 0
+    /// Test seam: when set, intercepts every `send()` instead of the real mirrored
+    /// HKWorkoutSession channel — an opaque system type FAHYBRIKTests can't fake — so
+    /// the retry cadence can be verified against a REAL Timer without a live wrist
+    /// pairing. Nil in production.
+    @ObservationIgnored var sendOverride: ((_ type: String) -> Void)?
     // The last frame's STRUCTURAL signature (phase / titles / progress / zone /
     // presence of a countdown or rest) — the free-running clocks are excluded so a
     // 1 Hz elapsed tick alone never forces a resend (the wrist ticks them locally).
@@ -60,15 +89,48 @@ final class PhoneMirrorService {
     // How long we hold the mirrored session waiting for the wrist's `ended` reply
     // before clearing it — the recording save happens on the wrist, asynchronously.
     private static let endGraceSeconds: TimeInterval = 10
+    // Retry spacing for the end handshake, and the number of RETRIES on top of the
+    // first immediate send (5 sends total: t=0,2,4,6,8) — comfortably inside
+    // `endGraceSeconds` so the hard teardown at t=10 is reached only after every
+    // retry has had a real chance, never as the sole attempt.
+    private static let endRetryInterval: TimeInterval = 2
+    private static let endRetryMaxAttempts = 4
+    // startWatchApp can fail SILENTLY on the first try (watch waking / app cold) —
+    // the athlete then trains without wrist HR and never knows why. Retry a couple
+    // of times, a few seconds apart, before giving up quietly.
+    private static let watchLaunchAttempts = 3
+    private static let watchLaunchRetrySeconds: TimeInterval = 3
+    // Bumped by begin()/end() so a stale retry loop from a previous session can't
+    // launch the watch app after the workout it belonged to is gone.
+    @ObservationIgnored private var watchLaunchGeneration = 0
+    /// Monotonic cue id — rides on frames + dedicated haptic packets so the wrist
+    /// de-dupes when both land.
+    @ObservationIgnored private var hapticSeq: Int = 0
+    /// Last cue waiting to ride on the next forced frame (cleared after one send).
+    @ObservationIgnored private var pendingHapticCue: String?
+    @ObservationIgnored private var pendingHapticSeq: Int?
+    /// End intent stored when the phone finishes BEFORE the wrist joins (common on
+    /// free workouts: short sessions + cold watch launch). The next `adopt` sends
+    /// this immediately so the wrist never records forever with no owner.
+    @ObservationIgnored private var pendingEndSave: Bool? = nil
 
     private init() {}
 
     // MARK: - Lifecycle
 
-    /// Register the mirrored-session start handler ONCE. A Watch-started session
-    /// is adopted ONLY when the iPhone does not already own the primary — two
-    /// HKWorkoutSession primaries desync the wrist.
+    /// Register the mirrored-session start handler ONCE, as early as possible so a
+    /// session started on the wrist is never missed. Idempotent.
     func prepare() {
+        // Always (re)install the cue relay — hop to main WITHOUT an unstructured
+        // Task so a 0.25s timer tick that is already on MainActor still fires the
+        // send in the same turn (Task enqueue used to delay / drop under load).
+        Haptics.relayWorkoutCue = { [weak self] cue in
+            if Thread.isMainThread {
+                self?.sendHapticCue(cue)
+            } else {
+                DispatchQueue.main.async { self?.sendHapticCue(cue) }
+            }
+        }
         guard !didRegisterHandler, HKHealthStore.isHealthDataAvailable() else { return }
         didRegisterHandler = true
         healthStore.workoutSessionMirroringStartHandler = { [weak self] incoming in
@@ -80,16 +142,41 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Bind the engine. The Watch ADOPTS if Apple delivers a mirrored session.
-    /// We do not `startWatchApp` (Apple: that creates a new Watch session).
-    /// `startMirroringToCompanionDevice` is watchOS 10 (Watch → iPhone) — a no-op here.
+    /// Push a workout-cue haptic to the wrist immediately. Dual path: dedicated
+    /// `haptic` packet AND a forced frame carrying the same cue+seq. No-op when
+    /// the mirrored session is not up. Best-effort — never blocks the engine.
+    func sendHapticCue(_ cue: String) {
+        guard mirrored != nil else { return }
+        hapticSeq += 1
+        let seq = hapticSeq
+        pendingHapticCue = cue
+        pendingHapticSeq = seq
+        // Path A — dedicated packet (low latency when the channel is healthy).
+        send(MirrorWire.MessageType.haptic, MirrorHaptic(cue: cue, seq: seq))
+        // Path B — force a frame so a dropped dedicated packet still lands.
+        if let session {
+            var frame = buildFrame(from: session)
+            frame.hapticCue = cue
+            frame.hapticSeq = seq
+            send(MirrorWire.MessageType.frame, frame)
+            lastSentKey = structuralKey(frame)
+            lastSentAt = Date()
+            // Consume so the next heartbeat doesn't re-play the same cue.
+            pendingHapticCue = nil
+            pendingHapticSeq = nil
+        }
+    }
+
+    /// Remote-start the wrist recording for `session`. Non-blocking and silent on
+    /// failure: if the watch app never joins, the phone runs the workout alone.
     /// `activityKind` is the watch vocabulary ("running" | "strength" | "hyrox" |
     /// "mixed") — the same string WatchConnectivityiOSService.activityKind emits.
     func begin(session: WorkoutSession, activityKind: String) {
         self.session = session
         endedWorkoutUuid = nil
-        wristRecordedWorkout = false
-        _ = activityKind
+        wristRecordedWorkout = false   // one flag per session; the previous one is over
+        wristFinishedByAthlete = false // idem: el final de la sesión anterior no cuenta aquí
+        pendingEndSave = nil           // a new session cancels any orphaned end intent
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()
         PhoneWorkoutRun.shared.startMirroring()
@@ -97,25 +184,71 @@ final class PhoneMirrorService {
         tickFrame()
     }
 
+    /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
+    /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
+    /// so without this kick the wrist can sit on "Conectando…" until the 1 Hz timer.
+    func kickFrame() {
+        guard mirrored != nil, session != nil else { return }
+        tickFrame()
+    }
+
     /// Close the wrist recording: `save == true` finishes it (→ one HKWorkout),
     /// false discards it. We send the intent and keep the mirrored session until the
     /// wrist confirms with `ended` (carrying the workout UUID) or a grace timeout —
     /// the save is asynchronous on the wrist. Called with save=true when the session
-    /// enters the summary, save=false on discard/exit. A no-op when no wrist joined.
+    /// enters the summary, save=false on discard/exit.
+    ///
+    /// If the wrist has not joined yet, the end intent is STAGED (`pendingEndSave`)
+    /// so a late `adopt` (cold watch after a short free session) still stops the
+    /// wrist instead of leaving it recording until reboot.
     func end(save: Bool) {
-        guard PhoneWorkoutRun.shared.hasPrimarySession || mirrored != nil else { return }
+        watchLaunchGeneration += 1   // cancel any in-flight launch retries
+        // EL AVISO SALE SIEMPRE, HAYA ESPEJO O NO. El canal del espejo solo existe
+        // mientras el reloj refleja al teléfono; si el reloj llevaba el entreno por
+        // su cuenta, este `end` no llegaba a ninguna parte y el atleta se
+        // encontraba el entreno todavía abierto en la muñeca, con su propio final
+        // y su propio guardado que hacer otra vez.
+        WatchConnectivityiOSService.shared.endLiveWorkout()
+        guard PhoneWorkoutRun.shared.hasPrimarySession || mirrored != nil else {
+            pendingEndSave = save
+            return
+        }
+        pendingEndSave = nil
+        deliverEnd(save: save)
+    }
+
+    // Internal (not private) so the retry cadence is unit-tested from FAHYBRIKTests
+    // via `sendOverride` — see its doc comment. Same rationale as `buildFrame`.
+    func deliverEnd(save: Bool) {
         // A wrist WAS recording and we just told it to keep the recording: from here
         // on, this session's HKWorkout is the wrist's to write. Latched before the
         // reply so the phone never races it (see `wristRecordedWorkout`).
         if save { wristRecordedWorkout = true }
-        send(MirrorWire.MessageType.end, MirrorEnd(save: save))
         stopFrameLoop()
+        endRetryCount = 0
+        sendEndAttempt(save: save)
         endTimeout?.invalidate()
         let t = Timer(timeInterval: Self.endGraceSeconds, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.teardown() }
         }
         RunLoop.main.add(t, forMode: .common)
         endTimeout = t
+    }
+
+    /// One attempt of the end handshake, re-armed until `endRetryMaxAttempts` or the
+    /// wrist's `ended` reply cancels it via `teardown()` (which invalidates
+    /// `endRetryTimer`). `send()` no-ops once `mirrored` is nil, so a retry firing
+    /// after teardown already ran is always harmless — no extra guard needed here.
+    private func sendEndAttempt(save: Bool) {
+        send(MirrorWire.MessageType.end, MirrorEnd(save: save))
+        endRetryTimer?.invalidate()
+        guard endRetryCount < Self.endRetryMaxAttempts else { return }
+        endRetryCount += 1
+        let t = Timer(timeInterval: Self.endRetryInterval, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.sendEndAttempt(save: save) }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        endRetryTimer = t
     }
 
     /// Returns and clears the finished HKWorkout's UUID reported by the wrist (nil
@@ -130,9 +263,26 @@ final class PhoneMirrorService {
     // MARK: - Mirrored session adoption
 
     private func adopt(_ mirrored: HKWorkoutSession) {
-        self.mirrored = mirrored
+        // Delegate FIRST — logs showed "Received data from remote session but the
+        // session delegate is not setup" when packets arrived before this assignment.
         mirrored.delegate = delegateShim
+        self.mirrored = mirrored
         wristJoined = true
+
+        // Late join after the phone already finished (or orphaned session with no
+        // live engine): stop the wrist immediately. Free workouts are the usual
+        // hit — begin() races the watch launch against a short session.
+        if let pending = pendingEndSave {
+            pendingEndSave = nil
+            deliverEnd(save: pending)
+            return
+        }
+        if session == nil || session?.isFinished == true {
+            // No active engine to mirror — discard the wrist recording.
+            deliverEnd(save: false)
+            return
+        }
+
         startFrameLoop()
         tickFrame()   // push initial state at once, don't wait a whole interval
     }
@@ -155,10 +305,13 @@ final class PhoneMirrorService {
 
     /// Clear all mirrored state (wrist gone / session ended / grace timeout). Keeps
     /// `endedWorkoutUuid` — the summary consumes it after the session finishes.
-    private func teardown() {
+    // Internal (not private) so a test can drive it directly — see `deliverEnd`.
+    func teardown() {
         stopFrameLoop()
         endTimeout?.invalidate()
         endTimeout = nil
+        endRetryTimer?.invalidate()
+        endRetryTimer = nil
         mirrored = nil
         wristJoined = false
     }
@@ -166,10 +319,15 @@ final class PhoneMirrorService {
     private func tickFrame() {
         guard let session else { return }
         guard PhoneWorkoutRun.shared.hasPrimarySession || mirrored != nil else { return }
+        // Always send at least the first frame of a session (lastSentKey empty),
+        // and re-send when structure changes or the heartbeat elapses. Free
+        // strength used to sit black on the wrist until something structural
+        // changed because the first tick could race before adopt.
         let frame = buildFrame(from: session)
         let key = structuralKey(frame)
         let now = Date()
-        if key != lastSentKey || now.timeIntervalSince(lastSentAt) >= Self.heartbeatInterval {
+        let first = lastSentKey.isEmpty
+        if first || key != lastSentKey || now.timeIntervalSince(lastSentAt) >= Self.heartbeatInterval {
             send(MirrorWire.MessageType.frame, frame)
             lastSentKey = key
             lastSentAt = now
@@ -190,14 +348,43 @@ final class PhoneMirrorService {
             switch env.type {
             case MirrorWire.MessageType.hr:
                 if let hr = env.body(as: MirrorHRSample.self) {
-                    wristJoined = true
                     session?.injectLiveHR(hr.bpm, source: .healthkit)
+                }
+            case MirrorWire.MessageType.distance:
+                // LOS METROS DE LA MUÑECA. El reloj los saca de su
+                // `HKLiveWorkoutBuilder` (`distanceWalkingRunning`) y los manda
+                // desde que existe el canal — pero aquí no los leía NADIE, así que
+                // una carrera en cinta tonta (donde el podómetro del teléfono está
+                // apagado a propósito: el móvil no va en el cuerpo) se guardaba sin
+                // un solo metro y sin ritmo. Card 119.
+                //
+                // Se sellan `.healthkit` porque es el motor de Apple, el mismo que
+                // firma la distancia de Salud; `RunDistanceAuthority` decide dentro
+                // del motor si esta ventana los acepta. El podómetro del teléfono
+                // se aparta mientras la muñeca emite (`RunPhoneSensorPlan`), así que
+                // nunca hay dos fuentes sumando a la vez.
+                if let d = env.body(as: MirrorDistanceSample.self) {
+                    session?.sampleRunDistance(deltaMeters: d.deltaMeters, source: .healthkit)
                 }
             case MirrorWire.MessageType.command:
                 if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind) }
             case MirrorWire.MessageType.ended:
-                endedWorkoutUuid = env.body(as: MirrorEnded.self)?.workoutUuid
+                let ended = env.body(as: MirrorEnded.self)
+                endedWorkoutUuid = ended?.workoutUuid
+                // ACABAR EN UN SITIO ES ACABAR. Antes esto solo desmontaba la
+                // conexión y el entreno del móvil seguía vivo: había que volver a
+                // terminarlo a mano, con su resumen y su guardado, dos veces el
+                // mismo trabajo. Ahora un final humano en la muñeca termina aquí
+                // también — y SOLO un final humano (ver `wristFinishedByAthlete`).
+                if ended?.reason == MirrorWire.EndReason.athlete {
+                    wristRecordedWorkout = true   // su HKWorkout es el de esta sesión
+                    wristFinishedByAthlete = true
+                }
                 teardown()
+            case MirrorWire.MessageType.sensor:
+                if let c = env.body(as: MirrorSensorConclusions.self) {
+                    session?.applySensorConclusions(c)
+                }
             default:
                 break
             }
@@ -219,7 +406,8 @@ final class PhoneMirrorService {
             // record the partner's station as the athlete's work and corrupt volume.
             else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
             else if session.currentBlockIsStructural { session.completeStructuralBlock() }
-            else { session.primaryAdvance() }
+            // Un dedo en la muñeca rebota igual que uno en el móvil (card 113).
+            else { session.primaryAdvance(fromAthleteTap: true) }
         case MirrorWire.CommandKind.sync:
             // La muñeca pide re-base (arranque en frío / reconexión). Forzar el
             // envío saltándose la clave estructural — el heartbeat de 5 s no corre
@@ -232,6 +420,8 @@ final class PhoneMirrorService {
             if !session.isPaused { session.togglePause() }
         case MirrorWire.CommandKind.resume:
             if session.isPaused { session.togglePause() }
+        case MirrorWire.CommandKind.deathByFail:
+            session.deathByFail()
         default:
             break
         }
@@ -346,15 +536,197 @@ final class PhoneMirrorService {
             lapElapsed: session.lapElapsedSeconds,
             countdownRemaining: countdown(session),
             targetZone: seg?.targetZone?.rawValue,
-            // The advance ends everything when there is no block after this one and
-            // we are not parked on a block gate (a gate's advance only STARTS it).
-            isFinalStep: !session.isAwaitingBlockStart && !session.hasBlockAfterCurrent,
+            // El avance ACABA la sesión solo cuando este toque la acaba de verdad: no
+            // hay bloque después, no estamos en la puerta de un bloque (ahí el avance
+            // solo lo EMPIEZA), no queda tramo por delante dentro del bloque y no
+            // queda serie por cerrar. Un entreno de fuerza libre mete todos los
+            // ejercicios en UN bloque, así que con la regla vieja («no hay bloque
+            // después») la muñeca rotulaba TERMINAR desde la primera serie del primer
+            // ejercicio — y ese botón pide confirmación de fin de sesión.
+            isFinalStep: !session.isAwaitingBlockStart
+                && !session.hasBlockAfterCurrent
+                && session.isLastSegment
+                && session.pendingSetIndex == nil,
             restRemaining: session.restRemainingSeconds > 0 ? session.restRemainingSeconds : nil,
             dobles: dobles,
             beltDistanceM: beltDistanceM,
             beltTargetM: beltTargetM,
-            beltPaceSecPerKm: beltPaceSecPerKm
+            beltPaceSecPerKm: beltPaceSecPerKm,
+            hapticCue: pendingHapticCue,
+            hapticSeq: pendingHapticSeq,
+            tramo: buildTramo(session),
+            // La serie abierta, del MISMO accesor del motor que lee el reloj en
+            // solitario: contar no puede depender de por qué vía llegó el entreno.
+            sensorWindow: {
+                let w = session.sensorWindow
+                return MirrorSensorWindow(key: w.key, modality: w.modality,
+                                          name: w.name, resting: w.resting)
+            }()
         )
+    }
+
+    /// EL TRAMO en dato — lo que deja a la muñeca elegir guion y pintar el sujeto
+    /// del formato en vez de las tres frases ya redactadas de arriba.
+    ///
+    /// Todo sale de accesores que el motor YA resuelve; aquí no se decide nada
+    /// nuevo, sólo se proyecta. Lo que no se sabe viaja nil: un cero mandado como
+    /// si fuera medida es la clase de mentira que el §7 vino a matar.
+    private func buildTramo(_ session: WorkoutSession) -> MirrorTramo {
+        let tramo = session.currentTramo
+        let seg = session.currentSegment
+        let descansando = session.isTramoResting
+
+        // El ritmo del TRAMO, no la media del segmento: en una serie la media
+        // atraviesa recuperaciones y describe un esfuerzo que no existió.
+        let ritmo: Int? = session.liveCoveredPaceSecPerKm
+        let objetivo = session.currentRunLeg.flatMap {
+            RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo)
+        }
+        // FUERA DE UNA PIERNA DE CORRER, `objetivo` (arriba) SIEMPRE ES NIL — no
+        // es una carencia, es que esa lógica es de ritmo y sólo tiene sentido
+        // corriendo. Un intervalo funcional (el trineo, la plancha) tiene su
+        // propio objetivo — RPE, no ritmo — y sin esto la muñeca nunca lo veía:
+        // el segundo nivel de `GuionRelojDePared.intervals` (que ES el objetivo
+        // cuando el coach escribió uno) se quedaba vacío siempre.
+        let objetivoFuncional = PrescriptionRenderer.targetLoad(seg?.prescription?.target)
+
+        // La forma de la parte que se corre, para el aro de la muñeca. Se calcula
+        // con la MISMA función que usa el reloj en solitario: dos vías que dibujan
+        // el mismo entreno no pueden tener dos reglas de reparto.
+        let forma = FormaDelAro.fase(legs: session.currentRunLegs ?? [], indice: session.runLegIndex)
+
+        // En una serie de correr se cuentan SERIES, no piernas: un 3×1000 con sus
+        // dos recuperaciones son cinco tramos y tres series, y «tramo 4 de 5» no
+        // le dice nada a nadie. La regla vive en RunLegDisplay para que el móvil y
+        // las dos vías del reloj cuenten igual.
+        let ronda: (n: Int, total: Int)? = {
+            if let legs = session.currentRunLegs, !legs.isEmpty {
+                return RunLegDisplay.serie(legs: legs, indice: session.runLegIndex)
+            }
+            guard session.tramoRoundTotal > 0 else { return nil }
+            return (n: session.tramoRoundIndex + 1, total: session.tramoRoundTotal)
+        }()
+
+        // La serie EN CURSO, no la primera. `previewWorkLine` congela la primera
+        // los cinco sets, que es justo lo que la muñeca lleva enseñando.
+        let set = session.pendingSetIndex.flatMap { i in
+            session.setRecords.indices.contains(i) ? session.setRecords[i] : nil
+        }
+
+        // LO CUBIERTO EN ESTA VENTANA — y OBJETIVO Y MEDIDA VIAJAN EMPAREJADOS.
+        //
+        // Aquí había dos fallos que la muñeca no podía detectar, porque los dos
+        // números llegaban bien formados:
+        //
+        // 1. Se leía el acumulador de la CINTA para todo lo que no fuera ergo. Al
+        //    aire libre eso es nil, así que una serie de 1.000 m en la calle
+        //    pintaba «te faltan 1000» los cuatro minutos enteros, sin moverse. El
+        //    dato bueno estaba dos accesores más abajo, en el mismo fichero del
+        //    motor: los metros de la pierna salen del GPS cuando no hay cinta.
+        //
+        // 2. Objetivo y medida se resolvían por separado con dos `??`, así que un
+        //    tramo de «12 cal» de ski cogía el objetivo en calorías y la medida en
+        //    METROS — el PM5 reporta distancia haya o no objetivo de distancia. La
+        //    muñeca pintaba «te faltan 0 m» desde la primera palada y el aro salía
+        //    lleno. El motor ya los empareja bien en `tramoProgress`; era el cable
+        //    el que divergía de él, y ahora usa la misma pareja.
+        let objetivoMedida: Double?
+        let hecho: Double?
+        let objetivoEsCalorias: Bool
+        if tramo.isErg, let cal = tramo.targetCalories, cal > 0 {
+            // La unidad la manda el OBJETIVO: si la pieza se mide en calorías, lo
+            // hecho son calorías. Nunca los metros que el monitor reporta igual.
+            objetivoMedida = Double(cal)
+            hecho = session.tramoErgCalories.map { Double($0) }
+            objetivoEsCalorias = true
+        } else if tramo.isErg {
+            objetivoMedida = tramo.targetDistanceMeters
+            hecho = session.tramoErgDistanceMeters
+            objetivoEsCalorias = false
+        } else if let metros = tramo.targetDistanceMeters {
+            objetivoMedida = metros
+            // Correr: la cinta si la hay, el GPS si no. Es la MISMA regla que usa
+            // el motor para el ritmo de la pierna, así que ritmo y metros no
+            // pueden contar cosas distintas.
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = false
+        } else if let cal = tramo.targetCalories {
+            objetivoMedida = Double(cal)
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = true
+        } else {
+            objetivoMedida = nil
+            hecho = session.tramoBeltDistanceMeters ?? session.tramoRunCoveredMeters
+            objetivoEsCalorias = false
+        }
+
+        return MirrorTramo(
+            formato: seg?.formatScheme?.rawValue,
+            modalidad: tramo.modality.rawValue,
+            etiqueta: tramo.label,
+            dosis: tramo.workLine,
+            rondaN: ronda?.n,
+            rondaTotal: ronda?.total,
+            enDescanso: descansando,
+            cierre: cierreDelTramo(tramo, descansando: descansando),
+            objetivoMedida: objetivoMedida,
+            hechoMedida: hecho,
+            objetivoEsCalorias: objetivoEsCalorias,
+            // En descanso el reloj que corre es el del descanso; en trabajo, el de
+            // la ventana — y `tramoWorkRemaining` ya viene nil cuando no la cierra
+            // un reloj, así que la muñeca no inventa cuenta atrás.
+            ventanaQueda: descansando ? session.tramoRestRemaining : session.tramoWorkRemaining,
+            ventanaTotal: tramo.boxedSeconds.map { Double($0) },
+            enTramoS: session.tramoElapsedSeconds,
+            ritmoSecPorKm: ritmo,
+            objetivoLabel: objetivo?.label ?? objetivoFuncional,
+            objetivoEstado: objetivo.map { estadoWire($0.status) },
+            zonaViva: session.liveZone?.rawValue,
+            siguiente: session.nextTramoLine,
+            cargaKg: set.flatMap { $0.loadActualKg ?? $0.loadPrescribedKg },
+            // `reps` es fuerza cuando hay serie en curso, y las repeticiones DEL
+            // MINUTO en un death by cuando no la hay — los dos formatos son
+            // mutuamente excluyentes, así que un solo campo basta para los dos.
+            reps: set != nil
+                ? set.flatMap { $0.repsActual ?? $0.repsPrescribed }
+                : (seg?.formatScheme == .deathBy ? session.deathByTarget : nil),
+            // EMOM: la ronda de AHORA, no si el móvil reporta metros — así una
+            // ronda de ski sin cinta/PM5 conectado sigue siendo `.ojeada`.
+            tareaEsErgo: seg?.emomPlan?.interval(session.tramoRoundIndex)?.isErg ?? false,
+            recuperacionEnMovimiento: session.isTramoRecuperandoEnMovimiento,
+            forma: forma?.arcos.map { MirrorArco(trabajo: $0.trabajo, peso: $0.peso) },
+            formaIndice: forma?.enCurso,
+            parte: session.currentRunLeg?.phaseRole.rawValue
+        )
+    }
+
+    /// QUIÉN CIERRA esta ventana, sea de la modalidad que sea.
+    ///
+    /// NO sale de `ErgCounterPolicy`: esa tabla resuelve el contador del PM5 y
+    /// devuelve `athleteTap` para todo lo que no sea un ergo (`resolve` sale por
+    /// arriba si `!tramo.isErg`). Mandar eso por el cable hacía que una serie de
+    /// 500 m corriendo — con su hito de distancia, que lo cierra el GPS — viajara
+    /// como «la cierras tú», y la muñeca cambiaba el sujeto: en vez de los metros
+    /// que faltan pintaba los que llevas, y ofrecía un toque que no hace falta.
+    ///
+    /// La regla verdadera es la del tramo y es la misma de `LiveTramo`: metros o
+    /// calorías → lo sabe la medida; segundos → lo sabe el reloj; nada de eso →
+    /// no lo sabe nadie y lo dice el atleta.
+    private func cierreDelTramo(_ tramo: LiveTramo, descansando: Bool) -> String {
+        // En descanso manda siempre el reloj del descanso: no hay medida que cruzar.
+        if descansando { return "sessionClock" }
+        if tramo.targetDistanceMeters != nil || tramo.targetCalories != nil { return "machineGoal" }
+        if tramo.boxedSeconds != nil || tramo.targetDurationSeconds != nil { return "sessionClock" }
+        return "athleteTap"
+    }
+
+    private func estadoWire(_ status: TargetStatus) -> String {
+        switch status {
+        case .inTarget: return "inTarget"
+        case .tooFast:  return "tooFast"
+        case .tooSlow:  return "tooSlow"
+        case .unknown:  return "unknown"
+        }
     }
 
     // A structured-run leg → the wrist's work line + objetivo line, from the SAME leg
@@ -384,10 +756,67 @@ final class PhoneMirrorService {
         let doblesKey = f.dobles.map { "\($0.role):\($0.station)" } ?? ""
         // The belt target is structural; the covered distance must UPDATE the ring as it
         // fills (the wrist can't tick distance locally — it doesn't know the belt speed),
-        // so a COARSE 10 m bucket rides in the key: it resends as meters accrue, at most
-        // once per frame, never per centimetre. Pace rides along on the resend.
+        // so the covered metres ride in the key AL METRO: it resends as meters accrue,
+        // at most once per frame (`frameInterval` ya lo capa a una por segundo), never
+        // per centimetre. Pace rides along on the resend. Iban en cubos de 10 m y a
+        // ritmo de carrera eso es un refresco cada tres segundos — el numeral se
+        // clavaba y luego saltaba de diez en diez.
         let beltTargetKey = f.beltTargetM.map { String(Int($0)) } ?? ""
-        let beltBucketKey = f.beltDistanceM.map { String(Int($0 / 10)) } ?? ""
+        let beltBucketKey = f.beltDistanceM.map { String(Int($0)) } ?? ""
+        // Every whole second of a countdown / rest forces a frame so the wrist
+        // can fire local 3-2-1 ticks even if a dedicated haptic packet is lost,
+        // and so the re-based clock never drifts more than ~1 s.
+        let countdownSec = f.countdownRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
+        let restSec = f.restRemaining.map { String(max(0, Int(ceil($0)))) } ?? ""
+        let hapticKey = f.hapticSeq.map(String.init) ?? ""
+        // Del TRAMO sólo entra lo que cambia de FORMA, nunca lo que corre solo: la
+        // ronda, si estás en descanso, qué tarea toca, quién cierra la ventana y la
+        // dosis. El ritmo, los metros y los relojes se quedan fuera — si entraran,
+        // cada segundo forzaría una trama y el canal se inunda. Los metros ya tienen
+        // su cubo grueso arriba (la cinta), y el resto la muñeca lo tickea local.
+        // El veredicto del ritmo SÍ es estructural: pasar de «en objetivo» a «lento»
+        // cambia lo que se pinta, y son cuatro valores, no un número continuo.
+        let tramoKey: String = {
+            guard let t = f.tramo else { return "" }
+            var campos: [String] = []
+            campos.append(t.formato ?? "")
+            campos.append(t.etiqueta ?? "")
+            campos.append(t.dosis ?? "")
+            campos.append(t.rondaN.map(String.init) ?? "")
+            campos.append(t.rondaTotal.map(String.init) ?? "")
+            campos.append(t.enDescanso ? (t.recuperacionEnMovimiento ? "trote" : "rest") : "work")
+            campos.append(t.cierre ?? "")
+            campos.append(t.objetivoLabel ?? "")
+            campos.append(t.objetivoEstado ?? "")
+            campos.append(t.zonaViva.map(String.init) ?? "")
+            campos.append(t.cargaKg.map { String(Int($0 * 10)) } ?? "")
+            campos.append(t.reps.map(String.init) ?? "")
+            // Lo medido en la ventana, AL METRO. Iba en cubos de 10 m, y corriendo
+            // eso es un refresco cada tres segundos: el numeral de «te faltan» se
+            // quedaba clavado y luego pegaba un salto de diez, que es exactamente
+            // la sensación de «no está contando» que dio la serie del 8-ago. Al
+            // metro no inunda nada, porque el emisor ya está capado a una trama por
+            // segundo (`frameInterval`) — el cubo grueso nunca ahorró tramas por
+            // debajo de ese techo, sólo las quitaba donde hacían falta.
+            campos.append(t.hechoMedida.map { String(Int($0)) } ?? "")
+            // El RELOJ de la ventana, al segundo. La muñeca NO lo tickea local — pinta
+            // `ventanaQueda` tal cual llega (GuionDelEspejo) — así que dejándolo fuera
+            // de la clave solo se refrescaba con el latido de 5 s: la cuenta atrás se
+            // congelaba y saltaba de cinco en cinco, y el reloj se veía desincronizado
+            // del móvil en CUALQUIER entreno con ventana (el minuto del EMOM, el
+            // descanso de intervalos, el del circuito). Al segundo, como ya hacían
+            // `countdownSec` y `restSec` arriba: una trama por segundo como mucho, que
+            // es exactamente lo que esos dos ya aceptaban.
+            campos.append(t.ventanaQueda.map { String(max(0, Int(ceil($0)))) } ?? "")
+            // La FORMA del aro y dónde estás dentro de ella: cambia una vez por
+            // tramo, y es lo único que mueve el on/off del bisel. Del reparto
+            // basta el número de arcos —los pesos no cambian dentro de una parte—
+            // y la parte en curso, que decide cómo se llama la pantalla.
+            campos.append(t.forma.map { String($0.count) } ?? "")
+            campos.append(t.formaIndice.map(String.init) ?? "")
+            campos.append(t.parte ?? "")
+            return campos.joined(separator: ",")
+        }()
         let parts: [String] = [
             f.phase,
             f.blockTitle ?? "",
@@ -396,10 +825,14 @@ final class PhoneMirrorService {
             f.progressText ?? "",
             f.targetZone.map(String.init) ?? "",
             f.countdownRemaining != nil ? "cd" : "",
+            countdownSec,
             f.restRemaining != nil ? "rest" : "",
+            restSec,
             doblesKey,
             beltTargetKey,
             beltBucketKey,
+            hapticKey,
+            tramoKey,
         ]
         return parts.joined(separator: "|")
     }
@@ -438,6 +871,7 @@ final class PhoneMirrorService {
     // MARK: - Sending
 
     private func send<P: Encodable>(_ type: String, _ payload: P) {
+        if let sendOverride { sendOverride(type); return }
         guard let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         if PhoneWorkoutRun.shared.hasPrimarySession {
             PhoneWorkoutRun.shared.sendToWatch(data)
@@ -447,6 +881,19 @@ final class PhoneMirrorService {
         Task { try? await mirrored.sendToRemoteWorkoutSession(data: data) }
     }
 
+    // MARK: - Activity mapping
+    //
+    // MUST match WatchTodayPayload.healthKitActivityType (the watch's standalone map)
+    // so a mirrored session produces the SAME HKWorkout type the wrist would alone.
+    private static func activityType(for activityKind: String) -> HKWorkoutActivityType {
+        switch activityKind {
+        case "running":  return .running
+        case "strength": return .functionalStrengthTraining
+        case "hyrox":    return .functionalStrengthTraining
+        case "mixed":    return .mixedCardio
+        default:         return .other
+        }
+    }
 }
 
 // NSObject delegate shim — HKWorkoutSessionDelegate is an NSObjectProtocol, so the

@@ -24,8 +24,6 @@ import { SectionHeading } from './parts';
 import { SetTargetRaceModal } from './SetTargetRaceModal';
 import {
   RACE_FORMAT_LABEL,
-  RACE_DIVISION_LABEL,
-  RACE_GENDER_LABEL,
   RACE_PRIORITY_LABEL,
   raceCategoryLineEs,
   formatRaceDate,
@@ -84,6 +82,9 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
   }, [athleteId]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
 
@@ -179,7 +180,7 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
           <EmptyState
             icon="flag"
             title="Aún no hay carreras pasadas"
-            description="Cuando el atleta importe su historial de HYROX —individuales y dobles— verás aquí sus resultados, percentil y splits."
+            description="Cuando el atleta importe su historial de HYROX (individuales y dobles) verás aquí sus resultados, percentil y splits."
           />
         ) : (
           <ul className="flex flex-col gap-3">
@@ -228,7 +229,7 @@ function UpcomingCard({
   const goal = formatRaceTime(race.goal_time_seconds);
 
   return (
-    <li className="relative flex flex-col gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+    <li className="relative flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
       {/* top accent rule */}
       <span
         aria-hidden
@@ -236,7 +237,7 @@ function UpcomingCard({
         style={{ background: 'var(--v2-accent)' }}
       />
       <div className="flex items-center gap-2">
-        <span className="v2-micro text-[color:var(--v2-accent)]">Próxima carrera</span>
+        <span className="v2-micro text-[color:var(--v2-accent-text)]">Próxima carrera</span>
         <Pill tone={badge.tone} variant="soft">
           {badge.label}
         </Pill>
@@ -245,14 +246,14 @@ function UpcomingCard({
           type="button"
           aria-label={`Quitar objetivo ${race.name}`}
           onClick={onRequestRemove}
-          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)]"
+          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)]"
         >
           <MIcon name="close" size={16} />
         </button>
       </div>
 
       <div className="flex items-baseline gap-1.5">
-        <span className="v2-num text-3xl font-bold leading-none text-[color:var(--v2-accent)]">
+        <span className="v2-num text-3xl font-bold leading-none text-[color:var(--v2-accent-text)]">
           {days}
         </span>
         <span className="text-xs text-[color:var(--v2-muted)]">
@@ -268,7 +269,7 @@ function UpcomingCard({
         ) : null}
         {goal ? (
           <span className="mt-0.5 inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)]">
-            <MIcon name="target" size={13} className="text-[color:var(--v2-accent)]" />
+            <MIcon name="target" size={13} className="text-[color:var(--v2-accent-text)]" />
             <span className="v2-num">Objetivo {goal}</span>
           </span>
         ) : null}
@@ -334,7 +335,7 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
   const hasSplits = race.run_splits.length > 0 || race.station_splits.length > 0;
 
   return (
-    <li className="flex flex-col gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+    <li className="flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -360,7 +361,7 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             {result ?? 'Sin resultado'}
           </span>
           {topPct != null ? (
-            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent)]">
+            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent-text)]">
               Top {topPct}%
             </span>
           ) : null}
@@ -446,7 +447,7 @@ function SummaryTile({ label, value, accent }: { label: string; value: string; a
       <span
         className={
           accent
-            ? 'v2-num text-sm font-bold text-[color:var(--v2-accent)]'
+            ? 'v2-num text-sm font-bold text-[color:var(--v2-accent-text)]'
             : 'v2-num text-sm font-bold text-[color:var(--v2-fg)]'
         }
       >
@@ -469,7 +470,7 @@ function SplitCell({ label, value }: { label: string; value: string | null }) {
 
 function LoadingRow() {
   return (
-    <div className="flex items-center gap-2 rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
+    <div className="flex items-center gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 text-xs text-[color:var(--v2-faint)]">
       <MIcon name="progress_activity" size={16} className="animate-spin" />
       Cargando…
     </div>
@@ -478,7 +479,7 @@ function LoadingRow() {
 
 function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-l)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
+    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
       <span className="text-xs font-medium text-[color:var(--v2-danger)]">{message}</span>
       <button
         type="button"

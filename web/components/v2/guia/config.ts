@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 // GUÍA DEL ENTRENADOR — single source of truth for the docs index.
 //
-// The whole guide is registered ONCE here: the 12 áreas and the 40 secciones — el
+// The whole guide is registered ONCE here: the 12 áreas and the 41 secciones — el
 // método, el negocio, el ciclo de vida del atleta, los dobles, la carrera y los
 // aparatos con los que entrena (todo lo que se construyó en producción estos días).
 // Both the sidebar
@@ -65,7 +65,7 @@ export const GUIA_AREAS: readonly GuiaArea[] = [
   { id: 'aparatos', label: 'Aparatos y sensores' },
 ] as const;
 
-/** The 40 sections, in order. `built` ones have real content today. */
+/** The 41 sections, in order. `built` ones have real content today. */
 export const GUIA_SECTIONS: readonly GuiaSection[] = [
   // ── Empezar ───────────────────────────────────────────────────────────────
   {
@@ -339,6 +339,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     slug: 'objetivo-y-prediccion',
     title: 'Objetivo y predicción',
     blurb: 'El tiempo meta repartido en los 10 tramos de HYROX: presupuesto, predicho y el hueco.',
+    built: true,
+  },
+  {
+    num: 41,
+    area: 'herramientas',
+    slug: 'el-conector-con-tu-asistente',
+    title: 'El conector con tu asistente',
+    blurb:
+      'Pregúntale a tu asistente cómo va un atleta, tócale el plan y publica, desde el móvil y en tu idioma.',
     built: true,
   },
   // ── Carrera ──────────────────────────────────────────────────────────────────

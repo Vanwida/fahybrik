@@ -96,7 +96,7 @@ export function EndPolicyPanel({
       )}
     >
       <div className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.07em] text-[color:var(--v2-muted)]">
-        <MIcon name="repeat" size={16} className="text-[color:var(--v2-accent)]" />
+        <MIcon name="repeat" size={16} className="text-[color:var(--v2-accent-text)]" />
         Al terminar la secuencia
       </div>
 

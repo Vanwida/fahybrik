@@ -1,12 +1,11 @@
 // Lead funnel emails (Resend). Two sends on full submit:
-//   • sendLeadNotification  — internal alert to the coach team (LEADS_NOTIFY_EMAIL,
-//     default hello@fahybrid.com) with the full answers formatted for the call.
+//   • sendLeadNotification  — aviso interno al correo del club (coaches.club_notify_email).
+//     Vacío = no se envía. Nunca hello@ ni LEADS_NOTIFY_EMAIL.
 //   • sendLeadConfirmation  — short receipt to the lead, naming THAT lead's coach.
 //
 // SENDER: reuses AUTH_CONFIG.resendFromEmail() — the ALREADY-VERIFIED Resend domain
 // (aistudios.pro). fahybrid.com is NOT a verified Resend sender yet, so we do not send
-// FROM it (would bounce). Internal notification still goes TO hello@fahybrid.com
-// (recipients need no verification). Switch the from-address by setting RESEND_FROM_EMAIL
+// FROM it (would bounce). Switch the from-address by setting RESEND_FROM_EMAIL
 // once fahybrid.com is verified in Resend — no code change needed.
 //
 // Both sends are GUARDED: if RESEND_API_KEY is unset they log + return {sent:false}
@@ -18,10 +17,11 @@ import type { LeadSubmitInput } from '@fahybrid/shared/schema';
 import { leadFirstName } from '@fahybrid/shared/domain/leads/questions';
 import { groupLeadSummary, summarizeLead } from '@fahybrid/shared/domain/leads/summary';
 import { coachVoice } from '@/lib/coach/voice';
+import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
 
 export interface LeadEmailResult {
   sent: boolean;
-  skipped_reason?: 'resend_not_configured' | 'resend_send_failed';
+  skipped_reason?: 'resend_not_configured' | 'resend_send_failed' | 'no_inbox';
 }
 
 // Local HTML escaper (kept small + local; mirrors lib/partner/email.ts).
@@ -34,8 +34,16 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Internal notification to the coach team with the full lead summary. */
-export async function sendLeadNotification(input: LeadSubmitInput): Promise<LeadEmailResult> {
+/** Internal notification to the coach of THIS lead. Vacío = no se envía. */
+export async function sendLeadNotification(
+  input: LeadSubmitInput,
+  coachId?: bigint | number | null,
+): Promise<LeadEmailResult> {
+  const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
+  const to = await resolveClubNotifyEmail(coachId ?? null);
+  if (!to) {
+    return { sent: false, skipped_reason: 'no_inbox' };
+  }
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
     console.warn('[leads/email] RESEND_API_KEY not configured — skipping lead notification', {
@@ -43,7 +51,6 @@ export async function sendLeadNotification(input: LeadSubmitInput): Promise<Lead
     });
     return { sent: false, skipped_reason: 'resend_not_configured' };
   }
-  const to = process.env.LEADS_NOTIFY_EMAIL ?? 'hello@fahybrid.com';
   const nombre = leadFirstName(input.nombre) || 'Sin nombre';
   const grouped = groupLeadSummary(summarizeLead(input as Record<string, unknown>));
 
@@ -111,11 +118,16 @@ export async function sendLeadNotification(input: LeadSubmitInput): Promise<Lead
  *
  * `coachName` es el nombre del coach de ESTE lead. Ausente/vacío → la plantilla se
  * queda sin la coletilla «con X» y sigue leyéndose bien.
+ *
+ * `coachId` resuelve la PIEL del correo (nombre de marca + acento) vía
+ * `resolveClubEmailSkin`. Ausente/nulo, o coach sin piel puesta → la marca de este
+ * binario, igual que hasta ahora.
  */
 export async function sendLeadConfirmation(
   input: LeadSubmitInput,
   bookingToken?: string,
   coachName?: string | null,
+  coachId?: bigint | number | null,
 ): Promise<LeadEmailResult> {
   const apiKey = AUTH_CONFIG.resendApiKey();
   if (!apiKey) {
@@ -124,6 +136,7 @@ export async function sendLeadConfirmation(
     });
     return { sent: false, skipped_reason: 'resend_not_configured' };
   }
+  const skin = await resolveClubEmailSkin(coachId ?? null);
   const nombre = leadFirstName(input.nombre);
   const hi = nombre ? `Hola ${escapeHtml(nombre)},` : 'Hola,';
   const bookingUrl = bookingToken
@@ -141,26 +154,26 @@ export async function sendLeadConfirmation(
     : `${voice.subject} revisará tus respuestas y te escribimos en breve para agendar tu llamada — 30 minutos, sin coste.`;
   const ctaHtml = bookingUrl
     ? `<p style="margin:0 0 12px;line-height:1.6;">Elige el hueco que mejor te venga para tu <strong>videollamada${withCoachHtml}</strong> — 30 minutos, sin coste.</p>
-       <p style="margin:0 0 12px;"><a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:12px 20px;background:#F06A2A;color:#0a0a0a;text-decoration:none;border-radius:8px;font-weight:600;">Reservar mi llamada</a></p>`
+       <p style="margin:0 0 12px;"><a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:12px 20px;background:${skin.light.fill};color:${skin.light.on_fill};text-decoration:none;border-radius:8px;font-weight:600;">Reservar mi llamada</a></p>`
     : `<p style="margin:0 0 12px;line-height:1.6;">${escapeHtml(voice.subject)} revisará tus respuestas y te escribimos en breve para <strong>agendar tu llamada</strong> — 30 minutos, sin coste.</p>`;
 
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
     to: input.email,
-    subject: 'Hemos recibido tu solicitud · FAHYBRID',
+    subject: `Hemos recibido tu solicitud · ${skin.wordmark}`,
     text:
       `${nombre ? `Hola ${nombre},` : 'Hola,'}\n\n` +
       `Hemos recibido tu solicitud. ${ctaText}\n\n` +
-      `Si tienes cualquier duda, responde a este email.\n\nEl equipo de FAHYBRID`,
+      `Si tienes cualquier duda, responde a este email.\n\nEl equipo de ${skin.wordmark}`,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
-        <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#F06A2A;">FAHYBRID</p>
+        <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${skin.light.text};">${escapeHtml(skin.wordmark)}</p>
         <h1 style="margin:0 0 14px;font-size:22px;letter-spacing:-0.01em;">Solicitud recibida</h1>
         <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
         ${ctaHtml}
         <p style="margin:0 0 12px;line-height:1.6;color:#444;">Si tienes cualquier duda, responde a este email.</p>
-        <p style="margin:24px 0 0;line-height:1.6;color:#666;">El equipo de FAHYBRID</p>
+        <p style="margin:24px 0 0;line-height:1.6;color:#666;">El equipo de ${escapeHtml(skin.wordmark)}</p>
       </div>`,
   });
   if (error) {

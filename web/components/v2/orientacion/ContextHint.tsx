@@ -29,7 +29,7 @@ export function ContextHint({
   return (
     <div className={cn('text-label leading-snug text-[color:var(--v2-faint)]', className)}>
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-[color:var(--v2-accent)] opacity-80" aria-hidden>
+        <span className="shrink-0 text-[color:var(--v2-accent-text)] opacity-80" aria-hidden>
           <MIcon name="info" size={13} />
         </span>
         <span className="[&_b]:font-bold [&_b]:text-[color:var(--v2-muted)]">{children}</span>
@@ -39,7 +39,7 @@ export function ContextHint({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label={open ? 'Ocultar detalle' : 'Más detalle'}
-            className="v2-focus inline-flex shrink-0 rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent)]"
+            className="v2-focus inline-flex shrink-0 rounded-[var(--v2-r-xs)] text-[color:var(--v2-faint)] hover:text-[color:var(--v2-accent-text)]"
           >
             <MIcon name={open ? 'expand_less' : 'expand_more'} size={14} />
           </button>

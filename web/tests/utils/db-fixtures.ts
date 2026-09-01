@@ -320,7 +320,16 @@ export async function makeMonthTemplate(params: {
  *  `coachId` (migration 0132, ownership) is OPTIONAL and defaults to omitted →
  *  `coach_id` stays NULL, a BASE catalog exercise — every existing caller keeps
  *  seeding BASE rows unchanged. Pass a fixture's `coachId` to seed a PROPIO
- *  exercise owned by that coach (invisible to every other coach). */
+ *  exercise owned by that coach (invisible to every other coach).
+ *
+ *  BUG FIX (found while building the chat-context migration, #0186): since
+ *  0172 `exercises` carries `exercises_name_lang_chk` (`name_es is not null or
+ *  name_en is not null`) with NO column default — every caller of this helper
+ *  was silently broken against any schema ≥0172 (21 test files at the time of
+ *  this fix). `name_en` now mirrors `name` by default, exactly like 0172's own
+ *  one-time backfill (`update exercises set name_en = name where name_en is
+ *  null` — "lo que hay hoy es el nombre inglés"), so a test that doesn't care
+ *  about bilingual content still satisfies the constraint truthfully. */
 export async function makeExercise(params: {
   /** Only the client + the teardown registry are needed, so a coachless
    *  FreeAthleteFixture can seed BASE exercises too. */
@@ -332,10 +341,11 @@ export async function makeExercise(params: {
   coachId?: number;
 }): Promise<number> {
   const slug = params.slug ?? uniq('ex');
+  const name = params.name ?? slug;
   const rows = await params.fx.sql<Array<{ id: string }>>`
-    insert into exercises (slug, name, category, modality, coach_id)
+    insert into exercises (slug, name, name_en, category, modality, coach_id)
     values (
-      ${slug}, ${params.name ?? slug},
+      ${slug}, ${name}, ${name},
       ${params.category ?? 'strength'}::exercise_category, ${params.modality ?? 'strength'},
       ${params.coachId ?? null}
     )
@@ -408,6 +418,14 @@ export async function makeInlineMonthTemplate(params: {
       // Procedencia Biblioteca de Bloques (0037/0038) — el materializador
       // hidrata los items desde block_exercises del bloque referenciado.
       source_block_id?: number;
+      // Circuito (docs/DECISIONS.md, 2026-08-08) — cuando se da, el materializador
+      // debe escribir una fila en template_blocks para este block_position.
+      circuit?: {
+        rounds: number;
+        pacing: { kind: 'por_tarea' } | { kind: 'por_reloj'; work_seconds: number };
+        rest_between_stations_seconds?: number;
+        rest_between_rounds_seconds?: number;
+      };
     }>;
   }>;
   level?: string;
@@ -440,6 +458,7 @@ export async function makeInlineMonthTemplate(params: {
               params_json: it.params_json ?? {},
             })),
             ...(b.source_block_id != null ? { source_block_id: b.source_block_id } : {}),
+            ...(b.circuit ? { circuit: b.circuit } : {}),
           })),
         },
       ],

@@ -24,7 +24,7 @@ Justification: HYROX is a sport. Pablo's athletes are competitors. Sports as a s
 
 - **Lifestyle** — too broad, dilutes the élite-athlete signal.
 - **Medical** — would trigger additional review (FDA-style) requirements we don't need; we don't claim diagnosis.
-- **Education** — even though there's an ATR/methodology layer, the primary surface is execution, not learning.
+- **Education** — even though there's a methodology layer, the primary surface is execution, not learning.
 
 ## Subcategory note
 

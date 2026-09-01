@@ -65,7 +65,6 @@
 .guia-sb-brand .nm {
   font-family: var(--v2-font-display);
   font-weight: 900;
-  font-style: italic;
   font-size: 15px;
   letter-spacing: -0.02em;
   color: var(--v2-fg);
@@ -157,7 +156,6 @@
   font-family: var(--v2-font-display);
   font-size: 32px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   line-height: 1.05;
   margin-bottom: 6px;
@@ -172,7 +170,6 @@
   font-family: var(--v2-font-display);
   font-size: 24px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   margin: 10px 0 8px;
   scroll-margin-top: 24px;
@@ -256,24 +253,30 @@
   color: var(--v2-accent);
 }
 
-/* north-star principle (inverted, always dark) */
+/* north-star principle (inverted, always dark: ink bg + pearl text — the accent
+   IS ink in FLEXR, so a "b" tint would vanish against this bg; weight carries the
+   emphasis instead). */
 .guia-doc .principle {
-  background: #101010;
-  color: #f4f4f0;
-  border-radius: var(--v2-r-l);
+  background: var(--v2-fg);
+  color: var(--v2-accent-fg);
+  border-radius: var(--v2-r-card);
   padding: 22px 26px;
   margin: 18px 0 6px;
 }
 .guia-doc .principle p {
-  color: #e0e0db;
+  color: color-mix(in srgb, var(--v2-accent-fg) 85%, transparent);
   margin: 0 0 10px;
   font-size: 14.5px;
 }
 .guia-doc .principle p:last-child {
   margin: 0;
 }
-.guia-doc .principle b {
-  color: var(--v2-accent);
+/* Dentro del bloque invertido (fondo = tinta), el `.guia-doc b { color: fg }`
+   global dejaría la negrita tinta-sobre-tinta (invisible; pasó con la frase
+   clave de la sección 01). Aquí la negrita y el énfasis hablan en perla. */
+.guia-doc .principle b,
+.guia-doc .principle .em {
+  color: var(--v2-accent-fg);
 }
 
 /* qué/cómo/por qué triad */
@@ -286,7 +289,7 @@
 .guia-doc .qc {
   background: var(--v2-surface);
   border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-m);
+  border-radius: var(--v2-r-card);
   padding: 15px 17px;
   box-shadow: var(--v2-shadow-card);
 }
@@ -303,7 +306,7 @@
 .guia-doc .qc .h .ic {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
+  border-radius: var(--v2-r-xs);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -338,7 +341,7 @@
 .guia-doc .note {
   background: var(--v2-surface);
   border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-m);
+  border-radius: var(--v2-r-card);
   padding: 14px 18px;
   margin: 14px 0;
   box-shadow: var(--v2-shadow-card);
@@ -355,7 +358,7 @@
 .guia-doc .note .h .ic {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--v2-r-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -416,7 +419,7 @@
   flex-wrap: wrap;
   background: var(--v2-surface);
   border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-m);
+  border-radius: var(--v2-r-card);
   padding: 15px 16px;
   margin: 18px 0;
   font-size: 12.5px;
@@ -449,7 +452,7 @@
   margin: 18px 0 4px;
 }
 .guia-doc .lg {
-  border-radius: var(--v2-r-l);
+  border-radius: var(--v2-r-card);
   padding: 18px 20px;
   border: 1px solid var(--v2-border);
   background: var(--v2-surface);
@@ -468,7 +471,6 @@
   font-family: var(--v2-font-display);
   font-size: 17px;
   font-weight: 900;
-  font-style: italic;
   letter-spacing: -0.02em;
   margin-bottom: 4px;
   color: var(--v2-fg);
@@ -479,17 +481,17 @@
   margin: 0;
 }
 .guia-doc .lg.ath {
-  border-color: #2a2a2a;
-  background: linear-gradient(180deg, #161616, #0d0d0d);
+  border-color: var(--v2-fg);
+  background: var(--v2-fg);
 }
 .guia-doc .lg.ath .ico {
-  color: #9a938b;
+  color: color-mix(in srgb, var(--v2-accent-fg) 70%, transparent);
 }
 .guia-doc .lg.ath .lt {
-  color: var(--v2-accent);
+  color: var(--v2-accent-fg);
 }
 .guia-doc .lg.ath p {
-  color: #c8c8c2;
+  color: color-mix(in srgb, var(--v2-accent-fg) 80%, transparent);
 }
 
 /* TOC grid (index cards) */
@@ -505,7 +507,7 @@
   color: inherit;
   background: var(--v2-surface);
   border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-m);
+  border-radius: var(--v2-r-card);
   padding: 14px 16px;
   transition: border-color 0.15s;
   box-shadow: var(--v2-shadow-card);
@@ -581,7 +583,7 @@
   gap: 8px;
   text-align: center;
   border: 1px dashed var(--v2-border);
-  border-radius: var(--v2-r-l);
+  border-radius: var(--v2-r-card);
   background: var(--v2-surface-2);
   padding: 40px 24px;
   margin: 18px 0;
@@ -618,7 +620,7 @@
     var(--v2-surface-2)
   );
   border: 1px solid var(--v2-border);
-  border-radius: 18px;
+  border-radius: var(--v2-r-card);
   padding: 24px 24px 28px;
   margin: 20px 0 8px;
 }

@@ -2,8 +2,8 @@
 // Token-gated (no auth), rate-limited, honeypot-guarded. AUTO-ACCEPT: the reservation IS
 // the confirmed cita (no coach approval step) — bookAppointment creates it `aceptada` +
 // advances the lead to `agendado`, we auto-create the Meet, and email the lead the
-// confirmation with .ics + Meet link AT ONCE. Internal notify to hello@ stays (aviso, not
-// approval). Race-safety lives in the store (per-slot advisory lock + one-active index).
+// confirmation with .ics + Meet link AT ONCE. Internal notify va al correo del club
+// (vacío = no se envía). Race-safety lives in the store (per-slot advisory lock + one-active index).
 
 import { bookingInput } from '@fahybrid/shared/schema';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
@@ -18,7 +18,7 @@ import {
 import { createMeeting } from '@/lib/citas/meeting';
 import { sendBookingInternal, sendAppointmentAccepted } from '@/lib/citas/email';
 import { sql } from '@/lib/db';
-import { coachNameForLead } from '@/lib/leads/funnel-coach';
+import { coachIdForLead, coachNameForLead } from '@/lib/leads/funnel-coach';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
   try {
     const res = await bookAppointment({ token, startIso: start, modality });
     let meetLink = res.appointment.meet_link;
+    const coach_id = await coachIdForLead(sql, BigInt(res.lead.id));
 
     // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
     const studio = modality === 'presencial' ? await getStudioLocation() : null;
@@ -64,10 +65,14 @@ export async function POST(req: Request) {
         leadName: res.lead.nombre,
         modality,
         location: locationStr,
+        coach_id,
       });
       if (m.meet_link) {
         await setAppointmentMeetLink({
           id: BigInt(res.appointment.id),
+          // Ruta pública sin sesión de coach: sella el link de la cita que ESTA request
+          // acaba de crear (id de bookAppointment, no del cliente) → scope de confianza.
+          coach_id: null,
           meet_link: m.meet_link,
           google_event_id: m.event_id ?? null,
         });
@@ -91,6 +96,7 @@ export async function POST(req: Request) {
       // Ruta pública (sin sesión): el coach sale del lead, que lo lleva grabado desde su
       // captura (`leads.coach_id`, migración 0147).
       coach_name: await coachNameForLead(sql, BigInt(res.lead.id)),
+      coach_id,
     };
     // Confirmation email (the accepted one: fecha + .ics + Meet/address) + internal notify. Guarded.
     await Promise.allSettled([sendAppointmentAccepted(appt), sendBookingInternal(appt)]);

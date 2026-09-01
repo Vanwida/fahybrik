@@ -86,6 +86,12 @@ final class VivoHUDRenderTests: XCTestCase {
     // Los tres estados que hasta hoy se pintaban con una raya o, peor, con la
     // PRESCRIPCIÓN metida en el hueco de la medida. El caso es el mismo en los
     // tres: el atleta acaba de darle a empezar y todavía no hay nada medido.
+    //
+    // EL RODAJE Y LA SERIE CAMBIARON DE PANTALLA EL 5-AGO, no de caso. Los pintaban
+    // `SteadyLiveHUD` e `IntervalsLiveHUD`, dos de las seis superficies que podían
+    // pintar un tramo de correr; ahora los dos son la MISMA vista —la de correr,
+    // aquí en su versión de calle— y la garantía que estas dos pruebas fijan es la
+    // misma: sin medida no se inventa ni un ritmo ni un objetivo disfrazado de ritmo.
 
     @MainActor
     func testRitmoSostenidoSinRecorridoNoInventaNiRitmoNiPulso() {
@@ -94,7 +100,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // qué está vacía, que es lo único accionable (§7).
         let sesion = sesionDeRodaje()
         let imagen = render(lienzo(sesion) {
-            VStack { SteadyLiveHUD(session: sesion); Spacer() }
+            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {})
         }, nombre: "formato-sostenido-sin-medida")
         XCTAssertNil(sesion.liveCoveredPaceSecPerKm, "El caso de diseño es SIN ritmo medido")
         XCTAssertNotNil(imagen, "El sostenido tiene que sostenerse sin ninguna medida")
@@ -108,7 +114,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // no se lee. Ahora el sujeto degrada al RELOJ y la etiqueta lo dice.
         let sesion = sesionDeSeries()
         let imagen = render(lienzo(sesion) {
-            VStack { IntervalsLiveHUD(session: sesion); Spacer() }
+            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {})
         }, nombre: "formato-series-sin-ritmo-medido")
         XCTAssertNil(sesion.liveCoveredPaceSecPerKm, "El caso de diseño es SIN ritmo medido")
         XCTAssertEqual(sesion.currentSegment?.targetPaceSecondsPerKm, 270,
@@ -160,7 +166,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "EMOM 12", format: .emom,
                                estimatedDurationSeconds: 720, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let sesion = WorkoutSession(plan: plan, hrZones: zonas)
         // Se avanza por el MOTOR, no colocando el índice a mano: `emomCompletedIntervals`
         // es `private(set)` y ponerlo a pelo daría una captura que dice «ronda 4» y
@@ -192,7 +198,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza", format: .sets,
                                estimatedDurationSeconds: 1200, blockContext: "Fuerza",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         let sesion = WorkoutSession(plan: plan, hrZones: zonas)
         sesion.primeSetsIfNeeded()
         // La serie 1 cerrada; el descanso se salta para que el sujeto sea la SERIE
@@ -271,7 +277,7 @@ final class VivoHUDRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: nombre, format: formato,
                                estimatedDurationSeconds: duracion, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                               coachNote: nil, warmupChecklist: [])
         return WorkoutSession(plan: plan, hrZones: nil)
     }
 

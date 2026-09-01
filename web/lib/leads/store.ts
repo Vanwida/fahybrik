@@ -17,7 +17,7 @@
 //
 // Explicit columns (repo convention). Arrays → text[]; codes validated upstream by Zod.
 
-import { sql, type TransactionClient } from '@/lib/db';
+import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { recordAudit, type Actor } from '@/lib/audit/record-edit';
 import { funnelCoachId } from './funnel-coach';
 import type { LeadDraftInput, LeadSubmitInput } from '@fahybrid/shared/schema';
@@ -183,6 +183,38 @@ export async function upsertLeadComplete(
   return rows[0];
 }
 
+// ── Ownership (multi-tenancy) ────────────────────────────────────────────────────
+/**
+ * True when `coachId` may act on `leadId` — the coach-side authorization guard
+ * (mirror of `coachOwnsAthlete`, lib/injuries). THE ownership rule for leads:
+ *
+ *   • `leads.coach_id = coachId` — el lead se atribuyó a este club en la captura
+ *     (migración 0147: el enlace del embudo tiene dueño).
+ *   • `leads.coach_id IS NULL` — «sin asignar» (entró sin enlace atribuible).
+ *     Deliberadamente accionable por CUALQUIER club autenticado: alguien tiene que
+ *     triarlo, y la captura es el negocio (misma lectura fail-open que el cupo en
+ *     lib/leads/funnel-coach.ts). Hoy hay un solo club, así que esto ES el
+ *     comportamiento actual; cuando llegue el multi-club, lo sin-asignar pasa a una
+ *     superficie de asignación explícita en vez de este fallback.
+ *
+ * Un lead ASIGNADO a otro club es invisible: los callers mapean `false` a 404
+ * (nunca 403 — la existencia no se filtra). Toda consulta coach-facing sobre un
+ * lead concreto usa este mismo predicado inline (getLeadDetail, transition/reopen,
+ * appointmentWithLead) — esta función es la regla escrita una vez.
+ */
+export async function coachOwnsLead(
+  coachId: bigint | number,
+  leadId: bigint,
+  client: Sql = sql,
+): Promise<boolean> {
+  const rows = await client<{ id: string }[]>`
+    select id::text as id from leads
+    where id = ${Number(leadId)} and (coach_id = ${Number(coachId)} or coach_id is null)
+    limit 1
+  `;
+  return rows.length > 0;
+}
+
 // ── Coach pipeline transition ────────────────────────────────────────────────────
 export class LeadTransitionError extends Error {
   constructor(
@@ -201,10 +233,15 @@ export class LeadTransitionError extends Error {
  * discarded; it never regresses and never leaves a terminal state (convertido/descartado).
  * `convertido` is set by the alta flow (task #5), never here — the seam is noted below.
  * Same "never backwards" invariant as the upserts above; one source of truth.
+ *
+ * Scoped to the acting coach (the `coachOwnsLead` rule): another club's lead reads as
+ * nonexistent → not_found 404.
  */
 export async function transitionLeadStatus(args: {
   id: bigint;
   to: string;
+  /** The acting coach (session.coach_id) — the lead must be theirs or unassigned. */
+  coach_id: bigint;
   /** Who moved it (#43) — recorded on the transition event + audit trail. */
   actor: Actor;
 }): Promise<{ id: string; status: LeadStatus }> {
@@ -217,8 +254,14 @@ export async function transitionLeadStatus(args: {
   // timeline event + last_edited stamp + audit) so the status change and its
   // provenance commit together.
   return await sql.begin(async (tx) => {
+    // Ownership predicate inline (same rule as coachOwnsLead) so the guard and the
+    // read are ONE roundtrip inside the tx; an alien lead is indistinguishable from
+    // a missing one.
     const current = await tx<{ status: LeadStatus }[]>`
-      select status::text as status from leads where id = ${Number(args.id)} limit 1
+      select status::text as status from leads
+      where id = ${Number(args.id)}
+        and (coach_id = ${Number(args.coach_id)} or coach_id is null)
+      limit 1
     `;
     const row = current[0];
     if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);
@@ -282,15 +325,21 @@ async function recordLeadTransition(
  * Reopen a mis-discarded lead (descartado → nuevo). HUMAN CORRECTION only — separate from
  * the no-retreat pipeline above (which forbids every backwards move). Guarded to only ever
  * act on a `descartado` lead so it can't be used to regress a live or converted one.
+ * Scoped to the acting coach (coachOwnsLead rule) — another club's lead → 404.
  */
 export async function reopenLead(args: {
   id: bigint;
+  /** The acting coach (session.coach_id) — the lead must be theirs or unassigned. */
+  coach_id: bigint;
   /** Who reopened it (#43). */
   actor: Actor;
 }): Promise<{ id: string; status: LeadStatus }> {
   return await sql.begin(async (tx) => {
     const current = await tx<{ status: LeadStatus }[]>`
-      select status::text as status from leads where id = ${Number(args.id)} limit 1
+      select status::text as status from leads
+      where id = ${Number(args.id)}
+        and (coach_id = ${Number(args.coach_id)} or coach_id is null)
+      limit 1
     `;
     const row = current[0];
     if (!row) throw new LeadTransitionError('not_found', 'Lead no encontrado', 404);

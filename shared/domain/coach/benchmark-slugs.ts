@@ -142,6 +142,10 @@ export const BENCHMARK_UNIT_SECONDS = 'seconds';
 export const BENCHMARK_UNIT_BPM = 'bpm';
 export const BENCHMARK_UNIT_METERS = 'meters';
 export const BENCHMARK_UNIT_WATTS = 'watts';
+export const BENCHMARK_UNIT_CM = 'cm';
+
+export const BENCH_CMJ = 'cmj';
+export const BENCH_CMJ_LOADED = 'cmj_loaded';
 
 /** Direction of improvement for a benchmark, from its stored unit. Only a TIME
  *  benchmark (seconds) improves DOWNWARD (faster = better); every other unit
@@ -191,6 +195,8 @@ export const BENCHMARK_LABEL: Readonly<Record<string, string>> = {
   [BENCH_HRR_60]: 'Recuperación FC 60s',
   [BENCH_LTHR]: 'Umbral de pulso',
   [BENCH_FTP]: 'Umbral de potencia',
+  [BENCH_CMJ]: 'CMJ',
+  [BENCH_CMJ_LOADED]: 'CMJ con carga',
 };
 
 /** Human label for a benchmark slug; falls back to a humanized slug. */
@@ -213,12 +219,13 @@ export function benchmarkLabel(slug: string): string {
  *    and a pulse of 156 rendered as "2:36" with "lower is better".
  *  · 'power' (watts)      → "250 W" (FTP), HIGHER is better.
  */
-export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance' | 'rate' | 'power';
+export type BenchmarkMetric = 'time' | 'reps' | 'load' | 'distance' | 'rate' | 'power' | 'height';
 export function benchmarkMetric(unit: string): BenchmarkMetric {
   if (unit === BENCHMARK_UNIT_KG) return 'load';
   if (unit === BENCHMARK_UNIT_REPS) return 'reps';
   if (unit === BENCHMARK_UNIT_METERS) return 'distance';
   if (unit === BENCHMARK_UNIT_BPM) return 'rate';
   if (unit === BENCHMARK_UNIT_WATTS) return 'power';
+  if (unit === BENCHMARK_UNIT_CM) return 'height';
   return 'time';
 }

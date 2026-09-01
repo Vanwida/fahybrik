@@ -37,22 +37,52 @@ enum Haptics {
 
     // MARK: - Workout cues (felt from the floor, mid-effort)
 
+    /// Optional fan-out: when the wrist is mirroring, the phone's engine cues must
+    /// also reach the watch (the engine only runs here). `PhoneMirrorService`
+    /// installs this in `prepare()`. Cue names = `MirrorWire.HapticCue`.
+    static var relayWorkoutCue: ((String) -> Void)?
+
     /// One second of a count-in. Short and sharp, but at full intensity — the
     /// athlete has to count it without looking.
-    static func cueTick() { engine.transient(intensity: 1.0, sharpness: 0.9) }
+    static func cueTick() {
+        engine.transient(intensity: 1.0, sharpness: 0.9)
+        relayWorkoutCue?(MirrorWire.HapticCue.tick)
+    }
 
     /// GO — the work starts now. A single firm hit.
-    static func cueGo() { engine.pattern([(0.00, 1.0, 0.7), (0.06, 1.0, 0.9)]) }
+    static func cueGo() {
+        engine.pattern([(0.00, 1.0, 0.7), (0.06, 1.0, 0.9)])
+        relayWorkoutCue?(MirrorWire.HapticCue.go)
+    }
+
+    /// The window rolled AND the movement changed — "cambia de máquina". A soft beat
+    /// followed by a sharp one ("deja eso → ahora esto"), deliberately unlike `cueGo`'s
+    /// tight equal pair so the wrist can tell "empieza" from "empieza OTRA COSA".
+    ///
+    /// WHY IT IS A CUE AND NOT `heavy()`: it used to be, and that is exactly why the
+    /// watch was silent through a whole multi-station EMOM (4-ago). `heavy()` is UI
+    /// vocabulary — it buzzes the hand holding the phone and never touches
+    /// `relayWorkoutCue`. In a remo → ski → cinta EMOM the movement changes EVERY
+    /// minute, so every single boundary took that branch and nothing reached the wrist;
+    /// a uniform EMOM (which relays `cueGo`) worked, which is what hid it.
+    static func cueChange() {
+        engine.pattern([(0.00, 1.0, 0.4), (0.10, 1.0, 0.9)])
+        relayWorkoutCue?(MirrorWire.HapticCue.change)
+    }
 
     /// STOP — the work window just ended (a change window, a rest). Deliberately
     /// unlike `cueGo`: two beats falling away, so the two are never confused under
     /// effort.
-    static func cueStop() { engine.pattern([(0.00, 1.0, 0.4), (0.13, 0.8, 0.3)]) }
+    static func cueStop() {
+        engine.pattern([(0.00, 1.0, 0.4), (0.13, 0.8, 0.3)])
+        relayWorkoutCue?(MirrorWire.HapticCue.stop)
+    }
 
     /// The whole thing is done. Three rising beats — the only cue that is allowed
     /// to feel celebratory.
     static func cueFinish() {
         engine.pattern([(0.00, 0.8, 0.5), (0.12, 0.9, 0.7), (0.24, 1.0, 0.9)])
+        relayWorkoutCue?(MirrorWire.HapticCue.finish)
     }
 
     private static let engine = HapticEngine()

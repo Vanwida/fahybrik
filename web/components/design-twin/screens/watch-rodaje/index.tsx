@@ -16,10 +16,13 @@ export const meta: TwinMeta = {
   id: 'watch-rodaje',
   titulo: 'Muñeca · rodaje',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'La modalidad donde el reloj mide todo lo suyo (pulso, ritmo y distancia) y la única sin una sola decisión dentro: se mira y no se toca de principio a fin.',
   fuentes: [],
+  enApp:
+    'En la app es el arquetipo genérico ContinuousLiveView, no una pantalla dedicada.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

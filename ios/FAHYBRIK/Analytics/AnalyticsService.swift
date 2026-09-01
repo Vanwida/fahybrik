@@ -26,6 +26,41 @@ enum AnalyticsService {
         return try await APIClient.shared.get(path: path, bearer: bearer)
     }
 
+    /// ¿ESTOY MEJORANDO? — la pantalla entera de carrera en UNA llamada.
+    ///
+    /// No es una sección más: aquélla enumera métricas en tarjetas y ésta da UN
+    /// veredicto con la evidencia que lo sostiene. Y viene junta a propósito —
+    /// veredicto, cobertura y los umbrales con los que se decidió salen del mismo
+    /// instante; pedirlos por separado dejaría que dos respuestas se contradijeran
+    /// en pantalla.
+    static func fetchRunningProgress(
+        weeks: Int? = nil,
+        bearer: String
+    ) async throws -> RunningProgressPayload {
+        var path = "api/athlete/analytics/running/progress"
+        if let weeks { path += "?weeks=\(weeks)" }
+        return try await APIClient.shared.get(path: path, bearer: bearer)
+    }
+
+    /// LAS ANALÍTICAS DEL ATLETA, COMPLETAS — carga, capacidad y recuperación en
+    /// UNA llamada, como una LISTA de lecturas con su cobertura y su procedencia.
+    ///
+    /// Viene junta a propósito: la coherencia entre las tres familias la decide el
+    /// servidor, y pedirlas por separado permitiría que dos respuestas de
+    /// instantes distintos se contradijeran en la misma pantalla.
+    ///
+    /// No sustituye a `fetchRunningProgress`: aquélla contesta «¿estoy mejorando?»
+    /// sobre correr y ésta contesta cuánto llevas encima y cómo lo estás
+    /// asimilando. Son dos preguntas, y cada una tiene su motor.
+    static func fetchLecturas(
+        weeks: Int? = nil,
+        bearer: String
+    ) async throws -> AnaliticasAtleta {
+        var path = "api/athlete/analytics/lecturas"
+        if let weeks { path += "?weeks=\(weeks)" }
+        return try await APIClient.shared.get(path: path, bearer: bearer)
+    }
+
     /// The source rows behind a tapped aggregate. Re-sends the card's DrillRef
     /// (kind + params) with the SAME period. Param KEYS are snake-cased back (the
     /// snake-case-converting decoder may have camelCased `race_id` → `raceId`); the

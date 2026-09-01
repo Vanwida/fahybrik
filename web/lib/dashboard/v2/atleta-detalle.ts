@@ -1,7 +1,7 @@
 import 'server-only';
 
 // v2 · ATLETA · DETALLE — server data orchestrator for the athlete detail screen
-// (5 sub-tabs: perfil · plan · histórico · biometría · mensajes). One safe load
+// (5 pestañas: resumen · plan · rendimiento · del-coach · atleta). One safe load
 // fans out all existing per-athlete loaders in parallel; any single failure
 // degrades that section (null) without 500-ing the page, mirroring the Hoy
 // screen's resilience contract. The client component renders from this payload.
@@ -40,6 +40,10 @@ import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
 import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { listCoachTests } from '@/lib/coach/coach-tests';
+import { listCommunicationsForAthlete } from '@/lib/coach/communications';
+import { EMPTY_FICHA, loadFichaResumenExtras } from '@/lib/dashboard/v2/ficha-resumen-load';
+import { loadAthleteWeekChipMap } from '@/lib/dashboard/coach/load-athlete-week-chip';
+import { SIN_PLAN_CHIP } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
@@ -102,6 +106,7 @@ export {
   ATLETA_TABS,
   DEFAULT_ATLETA_TAB,
   normalizeAtletaTab,
+  resolveAtletaUrl,
   buildPerfilTab,
   selectPerfilTab,
   buildTestProgression,
@@ -329,6 +334,9 @@ export async function loadAthleteDetalle(params: {
     review,
     battery,
     testLibrary,
+    communications,
+    ficha,
+    weekChipMap,
   ] = await Promise.all([
     buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
     buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
@@ -356,6 +364,14 @@ export async function loadAthleteDetalle(params: {
     // Degrades to empty — a test hiccup never 500s the ficha.
     loadBatteryStatus(athlete_id, client).catch(() => ({ total: 0, completed: 0, tests: [] })),
     listCoachTests(Number(coach_id), { onlyEnabled: true }, client).catch(() => []),
+    // Del coach: lo publicado a ESTE atleta con su estado. Se lee con la ficha
+    // (y no al abrir la pestaña) porque la insignia de «te reclama algo» tiene
+    // que verse estando en cualquier otra pestaña. Degrada a vacío como el resto.
+    listCommunicationsForAthlete({ coach_id, athlete_id, sql: client }).catch(() => []),
+    loadFichaResumenExtras({ coach_id, athlete_id, client }).catch(() => EMPTY_FICHA),
+    loadAthleteWeekChipMap({ athlete_ids: [athlete_id], client }).catch(
+      () => new Map(),
+    ),
   ]);
 
   const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
@@ -370,6 +386,9 @@ export async function loadAthleteDetalle(params: {
     version: m.version,
     recorded_at: m.recorded_at,
     source: m.source,
+    assignment_id: m.assignment_id != null ? String(m.assignment_id) : null,
+    test_weight_kg: m.test_weight_kg,
+    test_reps: m.test_reps,
     history: strengthHistory
       .filter((h) => h.exercise_slug === m.exercise_slug)
       .map((h) => ({ one_rm_kg: h.one_rm_kg, version: h.version, recorded_at: h.recorded_at })),
@@ -392,6 +411,7 @@ export async function loadAthleteDetalle(params: {
       edited_by_name: shell.edited_by_name,
       edited_at: shell.edited_at,
     },
+    week_chip: weekChipMap.get(String(athlete_id)) ?? SIN_PLAN_CHIP,
   };
 
   // Degrade safely: a failed classification load renders the picker in its empty
@@ -430,6 +450,7 @@ export async function loadAthleteDetalle(params: {
     training_days: trainingDays,
     resumen,
     plan,
+    plan_mode: shell.plan_mode,
     body,
     subscription,
     billing,
@@ -441,6 +462,8 @@ export async function loadAthleteDetalle(params: {
     joint_sessions: shell.joint_sessions,
     sessions,
     review,
+    communications,
+    ficha: ficha ?? EMPTY_FICHA,
   };
 }
 

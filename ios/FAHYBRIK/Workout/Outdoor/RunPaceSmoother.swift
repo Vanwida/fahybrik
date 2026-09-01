@@ -74,7 +74,17 @@ enum GPSSignalQuality: Equatable {
     /// At/under this horizontal accuracy (m) the lock is strong.
     static let strongThresholdM: Double = 15
     /// At/under this (m) it is weak; above it (or invalid) we're still searching.
-    static let weakThresholdM: Double = 40
+    ///
+    /// Por encima de esto un fix no se mira: ni pinta recorrido ni da una velocidad de
+    /// fiar, así que anunciarlo como «débil» —va flojo pero va— sería prometer algo que
+    /// no se está usando. Bajó de 40 a 25 el 12-ago por eso.
+    static let weakThresholdM: Double = 25
+
+    /// Si un fix con esta precisión merece mirarse (negativa = inválida). Lo consulta
+    /// `RunLocationProvider` para no tener dos números que puedan divergir.
+    static func isFixUsable(horizontalAccuracyM: Double) -> Bool {
+        horizontalAccuracyM >= 0 && horizontalAccuracyM <= weakThresholdM
+    }
 
     /// Classify from CoreLocation's horizontal accuracy (m; negative = invalid).
     static func from(horizontalAccuracyM: Double) -> GPSSignalQuality {

@@ -129,6 +129,84 @@ describeWithDb('instantiateMonthFromTemplate — inline blocks (real DB)', () =>
     expect(Number(wa[0]!.n)).toBe(0);
   });
 
+  test('a block with circuit config materializes a template_blocks row; a block without it does not', async () => {
+    const fx = await baseFixture();
+    const sled = await makeExercise({ fx, name: 'Sled Push' });
+    const lunge = await makeExercise({ fx, name: 'Lunge' });
+    const squat = await makeExercise({ fx, name: 'Back Squat' });
+
+    const month = await makeInlineMonthTemplate({
+      fx,
+      weekCount: 1,
+      dayPlans: [
+        {
+          day_of_week: 1,
+          blocks: [
+            {
+              title: 'B · Estaciones (4 rounds)',
+              format: 'circuit',
+              items: [
+                { exercise_id: sled, exercise_name: 'Sled Push' },
+                { exercise_id: lunge, exercise_name: 'Lunge' },
+              ],
+              circuit: {
+                rounds: 4,
+                pacing: { kind: 'por_tarea' },
+                rest_between_stations_seconds: 15,
+                rest_between_rounds_seconds: 90,
+              },
+            },
+            {
+              title: 'Fuerza',
+              format: 'strength_block',
+              items: [{ exercise_id: squat, exercise_name: 'Back Squat', params_json: { sets: 3, reps: 8 } }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await instantiateMonthFromTemplate({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      month_template_id: month.monthId,
+      start_date: '2026-01-05',
+      client: sql,
+    });
+    expect(result.assignment_count).toBe(1);
+
+    const templateRows = await sql<Array<{ template_id: string }>>`
+      select wa.template_id::text from workout_assignments wa where wa.athlete_id = ${fx.athleteId}
+    `;
+    const templateId = Number(templateRows[0]!.template_id);
+
+    const blocks = await sql<
+      Array<{
+        block_position: number;
+        rounds: number;
+        pacing: string;
+        work_seconds: number | null;
+        rest_between_stations_seconds: number | null;
+        rest_between_rounds_seconds: number | null;
+      }>
+    >`
+      select block_position, rounds, pacing::text as pacing, work_seconds,
+             rest_between_stations_seconds, rest_between_rounds_seconds
+      from template_blocks where template_id = ${templateId}
+      order by block_position
+    `;
+    // Solo el bloque 0 (circuito) tiene fila — el bloque 1 (fuerza, sin circuit) no.
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      block_position: 0,
+      rounds: 4,
+      pacing: 'por_tarea',
+      work_seconds: null,
+      rest_between_stations_seconds: 15,
+      rest_between_rounds_seconds: 90,
+    });
+  });
+
   test('skips phantom exercise ids without aborting the whole assignment', async () => {
     const fx = await baseFixture();
     const real = await makeExercise({ fx, name: 'Run' });

@@ -12,6 +12,13 @@ struct MirrorHUDView: View {
     // 0 = live (default) · 1 = controls (one swipe away).
     @State private var page = 0
     @State private var lastZoneHapticAt: Date = .distantPast
+    /// Local 3-2-1 ceil last felt — the count-in re-bases between frames, so
+    /// ticks must fire here when the displayed second changes, not only when a
+    /// phone frame lands (phone timers die in background).
+    @State private var lastCountInCeil: Int? = nil
+    /// La muñeca bajada. El lienzo lo resuelve para el vivo; aquí se aplica a las
+    /// dos capas que lo tapan (pausa y descanso), que no pasan por él.
+    @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
         TabView(selection: $page) {
@@ -25,28 +32,51 @@ struct MirrorHUDView: View {
 
     private var livePage: some View {
         ZStack {
-            if controller.state == .ending || phase == MirrorWire.Phase.finished {
+            // Fondo siempre — si no hay frame el `activeContent` devolvía
+            // EmptyView y el TabView pintaba NEGRO puro (el caso del libre de
+            // fuerza: el reloj ya está en espejo y el iPhone aún no ha empujado
+            // la primera trama, o la perdió).
+            WatchTheme.bg.ignoresSafeArea()
+
+            // SOLO el estado del controller enseña «Guardando…»: `.ending` es el
+            // único momento en que de verdad se está guardando (y su timeout de 8s
+            // garantiza salida). La fase `finished` del frame venía del MÓVIL y
+            // podía quedarse sin su `end` detrás (p.ej. la ventana de recuperación
+            // de un test retrasa el cierre 90 s): el reloj mostraba un spinner
+            // infinito que mentía, sin guardar nada y sin escape — los frames
+            // seguían llegando y el watchdog nunca ofrecía la salida local. Con la
+            // fase final y sin cierre, se sigue enseñando el último estado real.
+            if controller.state == .ending {
                 savingOverlay
+            } else if frame == nil {
+                // Espejo activo sin trama: nunca dejar la pantalla en negro.
+                waitingForPhoneOverlay
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
             } else if phase == MirrorWire.Phase.countIn {
                 countInContent
             } else {
-                // #56 — a HYROX dobles station renders the TURN hero (whose station +
-                // the rep reparto) in place of the generic work line; a live treadmill
-                // distance run renders the belt ring (covered/target + pace); individual
-                // work keeps the standard active glance.
+                // LA CINTA YA NO TIENE PANTALLA APARTE. El tramo del cable trae
+                // sus metros y su objetivo como los de cualquier carrera, así que
+                // la pinta el mismo guion — con la marca «del móvil», que es lo
+                // único que la distingue de correr fuera. Tener una rama propia
+                // la dejaba fuera del lienzo y, con él, fuera del estado atenuado:
+                // justo la pantalla que se mira con el brazo colgando en la cinta.
+                //
+                // Dobles conserva la suya hasta que su guion esté portado: quitarla
+                // ahora dejaría al relevo sin pantalla, que es peor.
                 if let dobles = frame?.dobles {
                     doblesContent(dobles)
-                } else if let f = frame, let covered = f.beltDistanceM {
-                    treadmillContent(f, covered: covered, target: f.beltTargetM)
                 } else {
                     activeContent
                 }
+                // Los dos tapan la pantalla entera, así que en atenuado bajan el
+                // brillo en vez de quedarse encendidos a plena luz: el descanso es
+                // POR DEFINICIÓN el momento en que la muñeca está abajo.
                 if phase == MirrorWire.Phase.paused {
-                    pausedOverlay
+                    pausedOverlay.opacity(atenuado ? 0.65 : 1)
                 } else if let rest = frame?.restRemaining {
-                    restOverlay(base: rest)
+                    restOverlay(base: rest).opacity(atenuado ? 0.7 : 1)
                 }
             }
         }
@@ -91,10 +121,12 @@ struct MirrorHUDView: View {
     // the count-in isn't skippable from the mirrored wrist (matches standalone).
     private var countInContent: some View {
         LiveScaffold(status: frame?.blockTitle) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            TimelineView(.periodic(from: .now, by: 0.25)) { context in
+                let remaining = countInRemaining(context.date)
+                let ceil = max(0, Int(ceil(remaining)))
                 VStack(spacing: 6) {
                     WatchLabel(text: "Prepárate")
-                    GiantNumber(text: countInText(context.date), size: 84, color: WatchTheme.orange)
+                    GiantNumber(text: CountdownFormat.standalone(remaining), size: 84, color: WatchTheme.orange)
                     if let next = frame?.lineTitle {
                         Text(next)
                             .font(.system(size: 12, weight: .semibold))
@@ -102,40 +134,99 @@ struct MirrorHUDView: View {
                             .padding(.top, 1)
                     }
                 }
+                // Local tick: fire when the CEIL second drops (3→2→1→0).
+                .onChange(of: ceil) { _, n in
+                    guard phase == MirrorWire.Phase.countIn else { return }
+                    if n > 0, lastCountInCeil == nil || n < (lastCountInCeil ?? n + 1) {
+                        Haptics.cueTick()
+                    } else if n == 0, (lastCountInCeil ?? 1) > 0 {
+                        Haptics.cueGo()
+                    }
+                    lastCountInCeil = n
+                }
+                .onAppear {
+                    if ceil > 0 { lastCountInCeil = ceil }
+                }
+            }
+        }
+        .onDisappear { lastCountInCeil = nil }
+    }
+
+    private func countInRemaining(_ now: Date) -> Double {
+        guard let cd = frame?.countdownRemaining else { return 0 }
+        return max(0, cd - sinceFrame(now))
+    }
+
+    /// EL VIVO DEL ESPEJO — ahora es el MISMO lienzo y los MISMOS guiones que sin
+    /// móvil (`GuionDelEspejo`). Antes esta pantalla tenía lenguaje propio (título
+    /// + un crono de 56 pt + dos líneas + un botón de 52 pt), y como el reloj corre
+    /// en espejo casi siempre, eso convertía en genérico todo el diseño por formato:
+    /// el atleta veía la pantalla buena en el 10 % de sus entrenos.
+    ///
+    /// El botón de abajo desaparece con él: en este lenguaje **la pantalla ES el
+    /// botón**, y el rótulo lo pone el guion según lo que de verdad cierre este
+    /// toque — no un booleano precocinado que en la ronda 1 de 5 decía «Terminar».
+    @ViewBuilder
+    private var activeContent: some View {
+        // `frame == nil` se filtra en `livePage` (waiting overlay). Aquí siempre hay trama.
+        if let f = frame {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                WatchReloj(
+                    paginas: GuionDelEspejo.paginas(
+                        f,
+                        bpm: controller.liveHR,
+                        elapsed: heroElapsed(context.date),
+                        avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) },
+                        // Death by: «al fallar» no es un avance cualquiera —
+                        // ver el comentario de `deathByFail` en MirrorWireModels.
+                        rendirse: { controller.sendCommand(MirrorWire.CommandKind.deathByFail) }
+                    ),
+                    tinte: WatchTinte.color(for: controller.liveZone),
+                    bisel: bisel
+                )
             }
         }
     }
 
-    private var activeContent: some View {
-        LiveScaffold(status: frame?.blockTitle) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                VStack(spacing: 6) {
-                    if let line = frame?.lineTitle {
-                        Text(line)
-                            .font(.system(size: 15, weight: .heavy))
-                            .foregroundStyle(WatchTheme.ink)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                    }
-                    GiantNumber(text: heroClock(context.date), size: 56)
-                    if let detail = frame?.detailLine {
-                        Text(detail)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(WatchTheme.dim)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                    }
-                    if let progress = frame?.progressText {
-                        WatchLabel(text: progress)
-                    }
-                    hrZoneRow
-                }
-            }
-        } bottom: {
-            advanceButton
+    /// Espejo grabando / unido, todavía sin trama del iPhone. Antes era EmptyView
+    /// → pantalla negra (muy visible en libre de fuerza: el reloj arranca al
+    /// Empezar y el teléfono tarda un momento en mandar el primer frame).
+    private var waitingForPhoneOverlay: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .tint(WatchTheme.orange)
+            WatchLabel(text: "Conectando…", accent: true)
+            Text("El entreno se controla\ndesde el iPhone")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WatchTheme.dim)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
+    /// segmentado en series/fuerza/ergo — el on/off alrededor del cuadrado —,
+    /// continuo para una sola cosa en marcha, y nada cuando nadie sabe el total.
+    private var bisel: AnyView? {
+        guard let f = frame else { return nil }
+        switch GuionDelEspejo.aro(f) {
+        case .ninguno:
+            return nil
+        case let .continuo(queda):
+            return WatchAroContinuo(remaining: queda).watchBisel()
+        case let .segmentado(total, hechas, fraccion):
+            return WatchAroSegmentado(total: total, hechas: hechas, fraccion: fraccion).watchBisel()
+        case let .estructura(arcos, enCurso, fraccion):
+            return WatchAroEstructura(arcos: arcos, enCurso: enCurso, fraccion: fraccion).watchBisel()
+        }
+    }
+
+    /// Los segundos DENTRO de la ventana, re-basados en local entre tramas (los
+    /// timers del iPhone mueren en segundo plano).
+    private func heroElapsed(_ now: Date) -> Double {
+        guard let f = frame else { return 0 }
+        let base = f.tramo?.enTramoS ?? f.lapElapsed
+        return phase == MirrorWire.Phase.active ? base + sinceFrame(now) : base
     }
 
     // MARK: - Dobles turn (#56)
@@ -514,14 +605,6 @@ struct MirrorHUDView: View {
         guard let at = controller.frameReceivedAt,
               phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
         return max(0, now.timeIntervalSince(at))
-    }
-
-    /// The count-in 3-2-1, re-based locally between frames. CEIL (the wrist's OWN
-    /// count-in style, in lock-step with the engine's audio ticks) — NOT the mirrored
-    /// round the live clock uses, because this is the pre-roll, not a duplicated clock.
-    private func countInText(_ now: Date) -> String {
-        guard let cd = frame?.countdownRemaining else { return WatchFormat.countdown(0) }
-        return CountdownFormat.standalone(max(0, cd - sinceFrame(now)))
     }
 
     /// The hero clock: a re-based countdown when the phone shows one, else a re-based

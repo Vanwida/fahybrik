@@ -69,7 +69,7 @@ export const coachMethodologySchema = z.object({
 });
 export type CoachMethodology = z.infer<typeof coachMethodologySchema>;
 
-// ── methodology_blocks (ACC/TRANS/REAL per coach) — Áreas 2 & 3 ──────────────
+// ── methodology_blocks (per coach) — Áreas 2 & 3 ─────────────────────────────
 export const methodologyBlockObjective = z.enum([
   'volumen_aerobico',
   'densidad_muscular',
@@ -204,9 +204,9 @@ export const methodologyWeeklyStructureSchema = z.object({
   level: z.number().int().min(1).max(4),
   sessions_per_week: z.number().int().min(1).max(14),
   two_a_day_enabled: z.boolean(),
-  modality_mix_json: z.record(z.string(), z.number()), // {ACC:{run:..,strength:..}} by block
+  modality_mix_json: z.record(z.string(), z.number()), // keyed by the coach's microciclo name
   hard_easy_pattern: z.enum(['hard_easy_alt', '2hard_1easy', 'block_undulating']),
-  key_session_by_block_json: z.record(z.string(), z.string()), // {ACC:'z2_long',...}
+  key_session_by_block_json: z.record(z.string(), z.string()), // keyed by the coach's microciclo name
   am_pm_pairs_json: z.array(z.object({ am: z.string(), pm: z.string(), gap_min_h: z.number() })).default([]),
   forbidden_adjacent_json: z.array(z.tuple([z.string(), z.string()])).default([]),
   rest_day_placement: z.enum(['post_hardest', 'mid_week', 'pre_race_sim', 'fixed']),

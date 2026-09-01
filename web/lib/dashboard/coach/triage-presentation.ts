@@ -36,8 +36,13 @@ export interface SignalPresentation {
 // Deep-link builders (SPEC §4 per-type targets). Intake's target lives in the
 // inbox-path adapter (decisions don't route through this signal map).
 const toPlanReview: SignalDeepLink = (id) => `/atletas/${id}/plan?focus=review`;
-const toBody: SignalDeepLink = (id) => `/atletas/${id}?section=cuerpo`;
+// La ficha manda su sub-vista con `?tab=` (ver DetalleTabBar): `?section=` no lo
+// lee nadie, así que estas señales aterrizaban en la pestaña por defecto en vez
+// de en el cuerpo del atleta.
+const toBody: SignalDeepLink = (id) => `/atletas/${id}?tab=biometria`;
 const toFicha: SignalDeepLink = (id) => `/atletas/${id}`;
+/** Lo que el coach le publicó y el atleta no ha cerrado vive en «Del coach». */
+const toDelCoach: SignalDeepLink = (id) => `/atletas/${id}?tab=del-coach`;
 
 /**
  * Per signal_kind presentation. Decision kinds (intake/week_adjustment/
@@ -135,6 +140,29 @@ const SIGNAL_PRESENTATION: Partial<Record<SignalKind, SignalPresentation>> = {
     icon: 'fitness_center',
     label: 'Entreno libre',
     deepLink: toFicha,
+    lens: null,
+  },
+  // Comunicados del coach: los tres abren la pestaña donde está el seguimiento
+  // de ese atleta, que es desde donde se le insiste o se le cambia el plan.
+  communication_question_unanswered: {
+    tier: 'warning',
+    icon: 'help',
+    label: 'Pregunta sin responder',
+    deepLink: toDelCoach,
+    lens: 'unanswered',
+  },
+  communication_task_overdue: {
+    tier: 'warning',
+    icon: 'assignment_late',
+    label: 'Tarea vencida',
+    deepLink: toDelCoach,
+    lens: null,
+  },
+  communication_protocol_unopened: {
+    tier: 'warning',
+    icon: 'checklist',
+    label: 'Protocolo sin abrir',
+    deepLink: toDelCoach,
     lens: null,
   },
 };

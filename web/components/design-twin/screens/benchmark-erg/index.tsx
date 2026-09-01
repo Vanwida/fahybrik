@@ -18,6 +18,7 @@ export const meta: TwinMeta = {
   titulo: 'Benchmark del remo — de la marca al HUD',
   zona: 'Entreno en vivo',
   estado: 'espejo',
+  actualizado: '2026-08-03',
   descripcion:
     'El flujo entero de «Probarme ahora»: detalle de marca, puerta de bloque, conexión obligatoria del monitor y la pieza en vivo — gira el marco para ver la cara horizontal.',
   fuentes: [
@@ -72,11 +73,17 @@ export function Screen({ orientation, escenario, onLog }: TwinScreenProps) {
           />
         );
       case 'gate':
+        // El título ES el «a batir» (FreeWorkoutDraft.BenchmarkFraming.blockTitle):
+        // un benchmark es esfuerzo a tope, y lo único honesto que se le prescribe
+        // al atleta es su propio récord. El tag de fase es el de la región
+        // (Principal por defecto) — nunca "BENCHMARK", que ya vive en el título.
+        // Una pieza continua no tiene formato de ronda que enseñar
+        // (blockFormatLabel = nil).
         return (
           <BlockGate
-            titulo={MARCA.label}
-            fase="BENCHMARK"
-            formato={`Benchmark · a batir ${fmtMarca(MARCA.prSegundos)}`}
+            titulo={`Benchmark · a batir ${fmtMarca(MARCA.prSegundos)}`}
+            fase="PRINCIPAL"
+            formato={null}
             trabajo={[{ nombre: MARCA.label, linea: `${MARCA.distanciaM} m ${objetivo}` }]}
             onEmpezar={() => {
               // La puerta del motor: pieza de erg sin monitor → conexión OBLIGADA.

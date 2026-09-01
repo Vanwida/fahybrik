@@ -17,6 +17,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
+import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import { ContextHint } from '@/components/v2/orientacion';
 import type { V2SecuenciasData, V2Sequence } from '@/lib/dashboard/v2/secuencias';
@@ -97,15 +98,19 @@ export function LevelDetailPanel({
     setDupDays(null);
   }, [refetch]);
 
-  // Preview for a filled cell: count + total weeks + per-item sparkline.
+  // Preview for a filled cell: count + total weeks + the ordered microciclos, by
+  // NAME. The name travels because the preview draws the espina, and a path
+  // without the coach's own labels is the grey bar we replaced. `null` = the
+  // microciclo is no longer in the library, and the node says so.
   const previewFor = useCallback(
     (seq: V2Sequence | undefined): SequenceCellPreview | null => {
       if (!seq) return null;
       let totalWeeks = 0;
       const segments = seq.items.map((it) => {
-        const weeks = microById.get(it.month_template_id)?.week_count ?? 0;
+        const micro = microById.get(it.month_template_id);
+        const weeks = micro?.week_count ?? 0;
         totalWeeks += weeks;
-        return { weeks };
+        return { name: micro?.name ?? null, weeks };
       });
       return {
         microciclo_count: seq.items.length,
@@ -154,7 +159,7 @@ export function LevelDetailPanel({
           <button
             type="button"
             onClick={onBack}
-            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="v2-focus mb-2 inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="arrow_back" size={15} /> Niveles
           </button>
@@ -173,18 +178,12 @@ export function LevelDetailPanel({
             </p>
           ) : null}
         </div>
-        <span
-          className="inline-flex shrink-0 items-center gap-1 self-start rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-semibold"
-          style={{
-            background: filledVariants === totalVariants ? 'var(--v2-ok-soft)' : 'var(--v2-surface-2)',
-            color: filledVariants === totalVariants ? 'var(--v2-ok)' : 'var(--v2-muted)',
-          }}
-        >
+        <Badge tone={filledVariants === totalVariants ? 'ok' : 'neutral'} className="self-start px-2.5 py-1">
           <b className="v2-num">
             {filledVariants}/{totalVariants}
           </b>{' '}
           variantes con plan
-        </span>
+        </Badge>
       </div>
 
       {reloadError ? (
@@ -205,7 +204,7 @@ export function LevelDetailPanel({
               setReloadError(null);
               void refetch();
             }}
-            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2 text-label font-bold text-[color:var(--v2-danger)]"
+            className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-danger)] px-2.5 text-label font-bold text-[color:var(--v2-danger)]"
           >
             Reintentar
           </button>
@@ -249,7 +248,7 @@ export function LevelDetailPanel({
 
       {/* purpose strip */}
       <div className="mt-4 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-        <span className="shrink-0 text-[color:var(--v2-accent)]">
+        <span className="shrink-0 text-[color:var(--v2-accent-text)]">
           <MIcon name="my_location" size={18} />
         </span>
         <span className="flex-1">
@@ -304,7 +303,7 @@ function DaysVariantCard({
               onClick={onDuplicate}
               aria-label={`Duplicar la secuencia de ${days} días a otra celda`}
               title="Duplica esta secuencia entera a otro nivel o nº de días"
-              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="content_copy" size={13} />
               Duplicar a…
@@ -313,7 +312,7 @@ function DaysVariantCard({
           <button
             type="button"
             onClick={onClick}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
+            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
           >
             {filled ? 'Editar' : 'Montar'}
             <MIcon name="arrow_forward" size={13} />

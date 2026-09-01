@@ -26,13 +26,14 @@
 import { useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { ModalPortal } from '@/components/v2/editor/ModalPortal';
-import { isValidYouTubeUrl } from '@fahybrid/shared/youtube';
+import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
 import {
   EXERCISE_CATEGORY_OPTIONS,
   EXERCISE_ORIGIN_META,
+  OVERRIDE_FIELD_LABEL,
   resolveModality,
 } from '@/lib/dashboard/exercises/catalog-ui';
 import {
@@ -117,15 +118,18 @@ export function EjercicioEditor({
   // deshabilitado y NADA dice por qué. El error aparece en cuanto el campo se ha
   // tocado, no antes (regañar por un campo que aún no has visitado es peor).
   const [nameTouched, setNameTouched] = useState(false);
+  // Guardar a media subida guardaría el vídeo ANTERIOR y tiraría el que se está
+  // subiendo, sin decir nada. El campo avisa; aquí se apaga el botón.
+  const [videoUploading, setVideoUploading] = useState(false);
 
-  const videoInvalid = video.trim() !== '' && !isValidYouTubeUrl(video.trim());
+  const videoInvalid = videoUrlDraftInvalid(video);
   // El largo lo corta ya el `maxLength` del input (mismo tope que el servidor), así
   // que aquí sólo queda el vacío — y el vacío significa cosas DISTINTAS según el
   // origen: en un BASE es RESTAURAR (vuelve el nombre de la base), o sea legal; en
   // uno PROPIO no hay base a la que volver y `exercises.name` es NOT NULL, así que
   // el servidor responde `invalid_name`. Se dice lo mismo aquí, y antes de mandar.
   const nameError = !shared && name.trim() === '' ? 'Tu ejercicio necesita un nombre.' : null;
-  const canSave = !nameError && !videoInvalid && !saving;
+  const canSave = !nameError && !videoInvalid && !videoUploading && !saving;
 
   // El valor que se va a mandar y si sigue siendo sugerencia. Siempre hay valor, así
   // que "modalidad requerida" nunca es un botón apagado sin explicación — el trabajo
@@ -252,7 +256,7 @@ export function EjercicioEditor({
                 </span>
               ) : (
                 <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
-                  Será tuyo — sólo tú lo verás.
+                  Será tuyo: sólo tú lo verás.
                 </p>
               )}
             </div>
@@ -260,7 +264,7 @@ export function EjercicioEditor({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="v2-focus -mr-1 -mt-1 shrink-0 rounded-[var(--v2-r-s)] p-1.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
+              className="v2-focus -mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="close" size={18} />
             </button>
@@ -336,45 +340,20 @@ export function EjercicioEditor({
               placeholder="Cómo se ejecuta."
             />
 
-            <div>
-              <label className={labelCls} htmlFor="ej-video">
-                <span>Vídeo (YouTube)</span>
-                {shared && video.trim() !== '' && ex.base_video_url ? (
-                  <RestoreButton onClick={() => setVideo('')} />
-                ) : null}
-              </label>
-              <input
-                id="ej-video"
-                type="url"
-                inputMode="url"
-                value={video}
-                onChange={(e) => setVideo(e.target.value)}
-                placeholder={shared && ex.base_video_url ? ex.base_video_url : 'https://youtube.com/watch?v=…'}
-                className={cn(inputCls, videoInvalid && 'border-[color:var(--v2-danger)]')}
-                aria-invalid={videoInvalid ? true : undefined}
-                aria-describedby={videoInvalid ? 'ej-video-err' : undefined}
-              />
-              {videoInvalid ? (
-                <p id="ej-video-err" className="mt-1 text-label text-[color:var(--v2-danger)]">
-                  Eso no es un enlace de YouTube.
-                </p>
-              ) : shared && ex.base_video_url && video.trim() !== '' ? (
-                <p className={hintCls}>
-                  La base trae{' '}
-                  <a
-                    href={ex.base_video_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="v2-focus underline hover:text-[color:var(--v2-fg)]"
-                  >
-                    este vídeo
-                  </a>
-                  . Restaurar = volver a él.
-                </p>
-              ) : shared && ex.base_video_url ? (
-                <p className={hintCls}>Vacío = usas el vídeo de la base.</p>
-              ) : null}
-            </div>
+            {/* El vídeo SE VE aquí. Antes esto era un `input` y un enlace que abría
+                otra pestaña: para comprobar que había pegado lo que creía, el coach
+                tenía que salirse del panel. Cuando hereda, lo que se reproduce es el
+                de la base, que es exactamente lo que verá el atleta — y el propio
+                campo pone el verbo (Restaurar / Quitar) según haya base o no. */}
+            <VideoUrlField
+              id="ej-video"
+              label={OVERRIDE_FIELD_LABEL.video_url}
+              value={video}
+              onChange={setVideo}
+              inheritedUrl={shared ? ex.base_video_url : null}
+              exerciseId={ex?.id ?? null}
+              onUploadingChange={setVideoUploading}
+            />
 
             {/* ── La identidad: compartida y bloqueada, o del coach ────────── */}
             {shared ? (
@@ -422,7 +401,7 @@ export function EjercicioEditor({
               type="button"
               onClick={submit}
               disabled={!canSave}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
             >
               {saving ? <MIcon name="progress_activity" size={16} /> : null}
               {saving ? 'Guardando…' : creating ? 'Crear ejercicio' : 'Guardar'}

@@ -40,14 +40,6 @@ struct InicioView: View {
     // Presents the target-race picker from the empty race anchor.
     @State private var showBuscarCarrera: Bool = false
 
-    // Which of today's sessions "Empezar" launches (the hero's session). One
-    // non-optional payload → presented via `.fullScreenCover(item:)` so the id is
-    // never nil when WorkoutContainer builds (root fix for "Sesión / Sin detalle").
-    @State private var workoutLaunch: WorkoutLaunch? = nil
-
-    // A FINISHED session tapped from the "Hecho hoy" confirmation — drives the
-    // read-only executed detail cover (what was logged), not the active brief.
-    @State private var executedLaunch: WorkoutLaunch? = nil
     // #56 — the training partner's live presence (one fetch on appear, only for a
     // doubles pair) → the "únete en vivo" banner.
     @State private var partnerLive: PartnerLiveStatus? = nil
@@ -58,6 +50,9 @@ struct InicioView: View {
     // #34 — bumped to force the calibration battery card to reload (pull-to-refresh
     // and after a completed session, which may flip a test's state / result).
     @State private var testBatteryNonce: Int = 0
+    /// Bumped when a session is just marked done locally so "Hecho hoy" re-paints
+    /// from CompletedAssignmentsStore without waiting for /plan/week.
+    @State private var marksRevision: Int = 0
     // Tests guiados — the Tests hub (benchmarks + zonas + «Probarme»), raised by
     // the battery card. Full-screen cover, like every launch from Inicio.
     @State private var showTestsHub: Bool = false
@@ -89,6 +84,8 @@ struct InicioView: View {
     // "Hecho hoy" confirmation so the loop closes on the home screen and the athlete
     // can reopen what they logged. Reads the same state machine as the plan marks.
     private var completedTodaySessions: [AthleteWeekDaySession] {
+        // Touch marksRevision so a just-completed mark re-filters without a network round-trip.
+        _ = marksRevision
         guard let resp = planWeek else { return [] }
         let todayIso = resp.week.todayIso
         guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
@@ -96,12 +93,6 @@ struct InicioView: View {
             .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
             .sorted { slotRank($0.slot) < slotRank($1.slot) }
     }
-    // Fallback when today has no sessions: the next future session in the week.
-    private var nextWorkout: NextWorkout? {
-        planWeek.flatMap(PlanService.nextWorkout)
-    }
-    private var hasPlan: Bool { planWeek.map(planExists) ?? false }
-    private var todayIsRest: Bool { planWeek.map(isTodayRest) ?? false }
     /// True when the coach has PAUSED the athlete's plan — the Today hero shows a
     /// calm "en pausa" state instead of an empty/failed today, and the PM row is
     /// suppressed so no stale to-do session leaks through.
@@ -166,36 +157,22 @@ struct InicioView: View {
                     .staggerReveal(revealed, index: 2)
                 readinessCard
                     .staggerReveal(revealed, index: 3)
-                // TODAY cluster — the day's action sits right after readiness (the
-                // natural "am I recovered → here's today's session" flow), ABOVE the
-                // secondary progress analytics. Hero (to do) → PM → "Hecho hoy" (done).
-                heroSection
+                // AUDIT-B5 — a fresh install whose first plan load failed with NO
+                // cache. It used to hang off the hero; the hero moved to the Plan
+                // tab (6-ago) but the guarantee has to stay, or the race anchor
+                // above spins on its skeleton forever with no way to retry.
+                planLoadErrorCard
                     .staggerReveal(revealed, index: 4)
                 // #56 — "únete en vivo": the training partner is working out right now.
-                // CTA opens the athlete's own session (same as the hero) when they have
-                // one today; informational otherwise. Hidden when no partner is live.
+                // It STAYS here: it is the partner's PRESENCE, next to PartnerTodayPanel,
+                // not a second rendering of "qué toca hoy". Its CTA routes to the Plan
+                // tab, which since 6-ago is the ONE place a session starts — two doors
+                // into the same launch is the duplication this removed.
                 DoblesLiveBanner(
                     state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: canStartToday),
-                    onJoin: canStartToday ? {
-                        if let hero = heroSession {
-                            workoutLaunch = WorkoutLaunch(assignmentId: hero.assignmentId, title: hero.title)
-                        }
-                    } : nil
+                    onJoin: canStartToday ? { onOpenTab?(.plan) } : nil
                 )
                 .staggerReveal(revealed, index: 4)
-                if let pm = pmSession, !isPaused {
-                    SessionCompactRow(
-                        slot: slotFor(pm),
-                        title: pm.title,
-                        meta: compactMeta(for: pm),
-                        modality: pm.modality,
-                        isFree: pm.isSelfOrigin,
-                        onTap: { onOpenTab?(.plan) }
-                    )
-                    .staggerReveal(revealed, index: 5)
-                }
-                hechoHoySection
-                    .staggerReveal(revealed, index: 6)
                 // #34 — the coach's calibration battery (X/N). Self-loading; renders
                 // nothing unless a battery is actually scheduled. The card summarizes
                 // and opens the Tests hub (benchmarks + zonas + «Probarme»).
@@ -234,36 +211,13 @@ struct InicioView: View {
             await store.loadHome(force: true)
             stepsReading = await HealthKitStepsReader.todaySteps()
             testBatteryNonce += 1
+            marksRevision += 1
         }
-        .fullScreenCover(item: $workoutLaunch) { launch in
-            // EMPEZAR runs the real prescribed workout via WorkoutContainer.
-            WorkoutContainer(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: effectiveBearer,
-                hrZones: store.identity.value?.hrZones,
-                onClose: { workoutLaunch = nil },
-                onCompleted: { _ in
-                    // A finished session can flip a calibration test's state / land
-                    // its result — reload the battery card alongside the plan.
-                    testBatteryNonce += 1
-                    Task { await store.planMutated() }
-                }
-            )
-        }
-        .fullScreenCover(item: $executedLaunch) { launch in
-            // Read-only detail of a session already DONE today — what the athlete
-            // logged (tiempo / score / RPE / splits), not the active brief.
-            ExecutedWorkoutView(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: effectiveBearer,
-                onClose: { executedLaunch = nil },
-                // Stale id (404) → re-sync to the authoritative plan so today's
-                // "Hecho hoy" rows reflect their current wa.id on re-open.
-                onStale: { Task { await store.planMutated() } }
-            )
-        }
+        // RETIRADOS el 6-ago con la portada de «hoy»: los covers de
+        // `WorkoutContainer` y `ExecutedWorkoutView`. Empezar un entreno y abrir lo
+        // que registraste son la MISMA acción que ya vive en la pestaña Plan, con
+        // los mismos destinos; tenerlos aquí era la segunda puerta a la misma
+        // habitación. El constructor de entreno libre se queda: es de Inicio.
         .fullScreenCover(isPresented: $showFreeBuilder) {
             // P1 → builder → existing engine → free save. On finish the plan is
             // refreshed so the new self-origin session appears as a "Libre" row.
@@ -271,7 +225,10 @@ struct InicioView: View {
                 bearer: effectiveBearer,
                 hrZones: store.identity.value?.hrZones,
                 onClose: { showFreeBuilder = false },
-                onCompleted: { Task { await store.planMutated() } }
+                onCompleted: {
+                    marksRevision += 1
+                    Task { await store.loadHome(force: true) }
+                }
             )
         }
         .fullScreenCover(isPresented: $showTestsHub, onDismiss: {
@@ -370,6 +327,11 @@ struct InicioView: View {
         ZStack {
             Wordmark(size: 26)
             HStack(spacing: 12) {
+                // «Del coach»: la bandeja de comunicados, con el globito de lo
+                // que te reclama. Va a la IZQUIERDA y no junto al chat porque un
+                // tercer control a la derecha se come el logotipo centrado en
+                // cuanto la pantalla es la de un iPhone pequeño.
+                CoachInboxHeaderButton()
                 Spacer(minLength: 8)
                 // Persistent chat affordance (icon + unread badge) → coach thread.
                 ChatHeaderButton()
@@ -378,8 +340,13 @@ struct InicioView: View {
                     Haptics.light()
                     onOpenTab?(.perfil)
                 } label: {
-                    CoachAvatar(initials: identity?.initials ?? "", size: 34, tint: Theme.Color.muted)
-                        .contentShape(Circle())
+                    CoachAvatar(
+                        initials: identity?.initials ?? "",
+                        size: 34,
+                        tint: Theme.Color.muted,
+                        photoURL: identity?.avatarURLResuelta
+                    )
+                    .contentShape(Circle())
                 }
                 .accessibilityLabel("Tu perfil")
             }
@@ -1022,53 +989,28 @@ struct InicioView: View {
             .minimumScaleFactor(0.6)
     }
 
-    // MARK: - 4 · Entreno de hoy (one action)
+    // MARK: - Fallo de carga del plan
+    //
+    // RETIRADO el 6-ago: `heroSection` — la portada de «qué toca hoy» (héroe de la
+    // sesión, tarjeta de descanso, «¿te pruebas?», tarjeta de pausa) — y con ella
+    // `restCard`, `nextGlance`, `marksSuggestionCard`, `pausedTodayCard`,
+    // `hechoHoySection` y `hechoHoyRow`.
+    //
+    // No se perdió nada: esa pregunta la responde ahora la pestaña Plan, UNA vez y
+    // con el porqué al lado (docs/DECISIONS.md, 6-ago-2026). Inicio se queda con lo
+    // que NO es plan: cómo llegas, hacia qué carrera, qué has mejorado, el entreno
+    // libre, la pareja y los pasos. La biblioteca de marcas («¿te pruebas?») sigue
+    // viva desde el hub de tests, Perfil → Rendimiento y las superficies free — la
+    // que se retiró era su cuarta puerta, y la única que dependía de leer el plan.
+    //
+    // Lo que SÍ se queda es esto: el fallo de carga con la caché en frío. Colgaba
+    // del héroe, y sin él el ancla de carrera de arriba se quedaría girando en su
+    // esqueleto sin salida.
 
     @ViewBuilder
-    private var heroSection: some View {
-        if isPaused {
-            pausedTodayCard
-        } else if let hero = heroSession {
-            SessionHeroCard(
-                slot: slotFor(hero),
-                kicker: heroKicker(for: hero),
-                title: hero.title,
-                meta: heroMeta(for: hero),
-                modality: hero.modality,
-                ctaTitle: "▶ Empezar",
-                isFree: hero.isSelfOrigin,
-                onStart: {
-                    workoutLaunch = WorkoutLaunch(assignmentId: hero.assignmentId, title: hero.title)
-                }
-            )
-        } else if hasPlan {
-            restCard
-            // #Marcas — the hole becomes a data point. ONLY on a day with nothing
-            // left to do (rest / already done): it must never compete with the
-            // session of the day — testing yourself instead of training would
-            // cannibalise the plan.
-            marksSuggestionCard
-        } else if store.planWeek.hasLoaded {
-            // Week loaded and there is genuinely no published plan — honest empty.
-            CardSurface(padding: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    LabelText(text: "Hoy")
-                    Text("Tu coach aún no ha publicado tu plan")
-                        .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Cuando tu coach asigne tus sesiones aparecerán aquí, día a día.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-        } else if store.planWeek.loadFailed {
-            // AUDIT-B5 — a fresh install that couldn't load (offline / server) with NO
-            // cache: an honest error + retry, never a skeleton that spins forever.
+    private var planLoadErrorCard: some View {
+        if store.planWeek.loadFailed, !store.planWeek.hasLoaded {
             homeLoadErrorCard
-        } else {
-            // Cold start, week not loaded yet — skeleton instead of the
-            // "plan no publicado" empty state (which would be a lie mid-load).
-            loadingCard(label: "Hoy", titleWidth: 150)
         }
     }
 
@@ -1076,8 +1018,8 @@ struct InicioView: View {
     private var homeLoadErrorCard: some View {
         CardSurface(padding: 18) {
             VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "Hoy")
-                Text("No pudimos cargar tu día")
+                LabelText(text: "Tu plan")
+                Text("No pudimos cargar tu plan")
                     .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
                     .foregroundStyle(Theme.Color.foreground)
                 Text("Revisa tu conexión e inténtalo de nuevo.")
@@ -1100,95 +1042,7 @@ struct InicioView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("No pudimos cargar tu día. Reintentar.")
-    }
-
-    // Calm "en pausa" card — the Today hero when the coach paused the athlete's
-    // plan. Mirrors restCard's shape; no session to start, no error tone: the
-    // day's message is simply to rest and recover.
-    private var pausedTodayCard: some View {
-        CardSurface(padding: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "pause.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    VStack(alignment: .leading, spacing: 3) {
-                        LabelText(text: "Hoy")
-                        Text("Estás en pausa")
-                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    Spacer(minLength: 0)
-                }
-                Text("Tu plan está en pausa. Descansa y recupérate — lo retomamos en cuanto estés listo.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - "Hecho hoy" — closed-loop confirmation of today's finished sessions
-    //
-    // When a session is done (prescribed via timer/manual/device sync, OR a free
-    // workout), it leaves the "to do" hero and lands here as a HECHA confirmation.
-    // Each row reopens the read-only executed detail (what was logged). This is the
-    // home-screen half of closing the athlete loop — the plan tab carries the full
-    // week, but the day's win is acknowledged right here.
-    @ViewBuilder
-    private var hechoHoySection: some View {
-        let done = completedTodaySessions
-        if !done.isEmpty {
-            CardSurface(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Theme.Color.ok)
-                        LabelText(text: "Hecho hoy", color: Theme.Color.ok, size: 12)
-                    }
-                    VStack(spacing: 8) {
-                        ForEach(done) { session in
-                            hechoHoyRow(session)
-                            if session.id != done.last?.id { Hairline().opacity(0.5) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func hechoHoyRow(_ session: AthleteWeekDaySession) -> some View {
-        let partial = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId) == .partial
-        return Button {
-            Haptics.light()
-            executedLaunch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
-        } label: {
-            HStack(spacing: Theme.Spacing.s) {
-                Circle()
-                    .fill(Theme.Modality.color(session.modality))
-                    .frame(width: 7, height: 7)
-                Text(session.title)
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                if session.isSelfOrigin {
-                    LibreBadge(compact: true)
-                }
-                Spacer(minLength: Theme.Spacing.s)
-                Image(systemName: partial ? "circle.lefthalf.filled" : "checkmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(partial ? Theme.Color.warning : Theme.Color.ok)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("\(session.title), \(partial ? "parcial" : "completada"). Ver detalle.")
+        .accessibilityLabel("No pudimos cargar tu plan. Reintentar.")
     }
 
     // P1 — "¿Hoy lo tuyo?" Banner inviting the athlete to build their own session.
@@ -1229,93 +1083,6 @@ struct InicioView: View {
                     .foregroundStyle(Theme.Color.faint)
             }
         }
-    }
-
-    // #Marcas — one quiet card, not a carousel: an invitation to grab a benchmark
-    // on a day the plan asks nothing. The library decides what to suggest.
-    private var marksSuggestionCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                MarksLibraryView(bearer: effectiveBearer, hrZones: store.identity.value?.hrZones)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "stopwatch")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("¿Te pruebas?")
-                            .scaledFont(15, weight: .heavy, relativeTo: .body, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Un 1 km, un remo 500… y sabes si has mejorado.")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                .padding(14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var restCard: some View {
-        CardSurface(padding: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: todayIsRest ? "moon.stars.fill" : "checkmark.seal.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(todayIsRest ? Theme.Color.accentText : Theme.Color.ok)
-                    VStack(alignment: .leading, spacing: 3) {
-                        LabelText(text: "Hoy")
-                        Text(todayIsRest ? "Hoy descansas" : "Listo por hoy")
-                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    Spacer(minLength: 0)
-                }
-                Text(todayIsRest
-                     ? "Sin sesión programada. Recupera, hidrata y duerme."
-                     : "Has completado tu sesión de hoy. Bien hecho.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let next = nextWorkout {
-                    Hairline()
-                    nextGlance(next)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    /// A tappable "Próximo · {weekday}" glance at the next session in the week.
-    private func nextGlance(_ next: NextWorkout) -> some View {
-        Button {
-            Haptics.light()
-            onOpenTab?(.plan)
-        } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    LabelText(text: "Próximo · \(dayLabel(forIso: next.isoDate))",
-                              color: Theme.Color.accentText, size: 10)
-                    Text(next.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Próxima sesión, \(dayLabel(forIso: next.isoDate)), \(next.title). Ver el plan")
     }
 
     // MARK: - 5 · Pasos (all-day movement)
@@ -1600,19 +1367,6 @@ struct InicioView: View {
 
     // MARK: - Derivations (pure projections over the store's slices)
 
-    private func planExists(_ resp: AthletePlanWeekResponse) -> Bool {
-        resp.week.days.contains { day in
-            day.sessions.contains { !$0.assignmentId.isEmpty }
-        }
-    }
-
-    private func isTodayRest(_ resp: AthletePlanWeekResponse) -> Bool {
-        guard let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso }) else {
-            return true
-        }
-        return today.sessions.allSatisfy { $0.assignmentId.isEmpty }
-    }
-
     private func sessionsForToday(_ resp: AthletePlanWeekResponse) -> [AthleteWeekDaySession] {
         let todayIso = resp.week.todayIso
         guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
@@ -1743,92 +1497,19 @@ struct InicioView: View {
         return "rest|\(readinessSig)"
     }
 
-    // MARK: - Hero / PM resolution
+    // MARK: - Hoy, para el reloj
+    //
+    // Lo que queda de la portada retirada: la app SIGUE empujando el entreno de hoy
+    // a la muñeca, y para eso necesita saber cuál es. Se queda la derivación, se fue
+    // la pantalla — el reloj no navega a una pestaña.
+    //
+    // Con ella se fueron `pmSession`, `slotFor`, `heroKicker`, `heroMeta`,
+    // `compactMeta`, `sessionDetailMeta`, `modalityLabel` y `dayLabel`: eran la
+    // RETÓRICA de la portada («Mañana · desde 45 min · 3 bloques», «Carrera · sesión
+    // principal»), y esa frase la escribe ahora el héroe del Plan con el desglose
+    // REAL de la sesión, no con un resumen de fila.
 
     private var heroSession: AthleteWeekDaySession? { todaySessions.first }
-    private var pmSession: AthleteWeekDaySession? {
-        todaySessions.count > 1 ? todaySessions[1] : nil
-    }
-
-    private func slotFor(_ session: AthleteWeekDaySession) -> SessionSlot {
-        slotFor(session.slot)
-    }
-
-    private func slotFor(_ raw: String) -> SessionSlot {
-        raw.lowercased() == "pm" ? .pm : .am
-    }
-
-    private func heroKicker(for session: AthleteWeekDaySession) -> String {
-        let mod = modalityLabel(session.modality)
-        if pmSession != nil {
-            return mod.isEmpty ? "Sesión principal" : "\(mod) · sesión principal"
-        }
-        return mod.isEmpty ? "Sesión de hoy" : "\(mod) · sesión de hoy"
-    }
-
-    private func heroMeta(for session: AthleteWeekDaySession) -> String {
-        let slot = slotFor(session) == .pm ? "Tarde" : "Mañana"
-        let detail = sessionDetailMeta(for: session)
-        if detail.isEmpty {
-            let mod = modalityLabel(session.modality)
-            return mod.isEmpty ? slot : "\(slot) · \(mod)"
-        }
-        return "\(slot) · \(detail)"
-    }
-
-    private func compactMeta(for session: AthleteWeekDaySession) -> String {
-        let detail = sessionDetailMeta(for: session)
-        if detail.isEmpty {
-            let mod = modalityLabel(session.modality)
-            return mod.isEmpty ? "Más tarde hoy" : "\(mod) · más tarde hoy"
-        }
-        return "\(detail) · más tarde hoy"
-    }
-
-    private func sessionDetailMeta(for session: AthleteWeekDaySession) -> String {
-        var parts: [String] = []
-        // El reloj escrito es un SUELO («desde 45 min»), no una estimación centrada.
-        // Y cuando el plan no escribe ninguno, la sesión no se queda muda: dice por
-        // qué no se puede saber, que es justo lo que el atleta viene a preguntar.
-        if let suelo = Formato.duracionPrevista(session.estDurationMinutes) {
-            parts.append(suelo)
-        } else if let razon = session.durationUnknownReason {
-            parts.append(razon.frase)
-        }
-        if let blocks = session.blocksCount, blocks > 0 {
-            parts.append("\(blocks) \(blocks == 1 ? "bloque" : "bloques")")
-        }
-        if parts.isEmpty, let summary = session.shortPrescription, !summary.isEmpty {
-            parts.append(summary)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private func modalityLabel(_ raw: String?) -> String {
-        let s = (raw ?? "").lowercased()
-        if s.isEmpty { return "" }
-        if s.contains("run") || s.contains("corr") || s.contains("carrera") { return "Carrera" }
-        if s.contains("erg") || s.contains("row") || s.contains("remo")
-            || s.contains("ski") || s.contains("bike") || s.contains("bici")
-            || s.contains("assault") { return "Ergómetro" }
-        if s.contains("str") || s.contains("fuer") || s.contains("lift") || s.contains("squat") {
-            return "Fuerza"
-        }
-        if s.contains("wod") || s.contains("circ") || s.contains("metcon") { return "Circuito" }
-        return ""
-    }
-
-    private func dayLabel(forIso iso: String) -> String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.dateFormat = "yyyy-MM-dd"
-        guard let date = fmt.date(from: iso) else { return "próxima sesión" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "es_ES")
-        out.dateFormat = "EEEE"
-        let raw = out.string(from: date)
-        return raw.prefix(1).uppercased() + raw.dropFirst()
-    }
 }
 
 // MARK: - Signal chip
@@ -1862,31 +1543,6 @@ private struct SignalChip: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(active ? "\(text), activo" : "\(text), sin datos")
-    }
-}
-
-// MARK: - Skeleton bar
-//
-// A neutral, gently-pulsing placeholder bar for the cold-start loading cards.
-// Purely decorative (the host card carries the "Cargando" a11y label); the
-// slow opacity pulse signals "loading" without a spinner or fake content.
-private struct SkeletonBar: View {
-    var width: CGFloat? = nil
-    var height: CGFloat = 14
-    @State private var pulse = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-            .fill(Theme.Color.surfaceElevated)
-            .frame(width: width, height: height)
-            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
-            .opacity(pulse ? 0.5 : 1)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    pulse = true
-                }
-            }
-            .accessibilityHidden(true)
     }
 }
 

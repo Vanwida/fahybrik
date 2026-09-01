@@ -35,8 +35,9 @@ export const programmingStatusEvaluator: SignalEvaluator = {
   enabled: true,
   evaluate(facts): SignalResult {
     const fires = facts.programming_status !== 'ok';
-    // month_2_pending is the hard escalation (athlete about to run dry).
-    const severity = facts.programming_status === 'month_2_pending' ? 'critical' : 'warning';
+    // block_ended is the hard escalation (athlete already ran dry).
+    // month_2_pending is a proposal to validate, not the empty block.
+    const severity = facts.programming_status === 'block_ended' ? 'critical' : 'warning';
     return {
       kind: 'programming_status',
       fires,

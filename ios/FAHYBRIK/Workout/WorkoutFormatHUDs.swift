@@ -10,19 +10,28 @@ import SwiftUI
 //   FIXED   — the whole round is shown and REPEATED; the screen never advances.
 //     · AmrapLiveHUD     count-DOWN window + big "+ Ronda" + rep tally + round list
 //     · ForTimeLiveHUD   count-UP (cap flips to count-down) + round/station splits
-//   ROTATING — the clock drives the screen forward (work/rest auto-roll).
-//     · TabataLiveHUD    work↔rest colour flip, round X/N, per-round rep tally
-//     · IntervalsLiveHUD work↔rest, live pace vs target on a run bout
-//     · DeathByLiveHUD   per-minute rising target, "Logré / Fallé"
-//   CONTINUOUS — one unbroken bout.
-//     · SteadyLiveHUD    count-DOWN duration, pace / zone + % in zone
+//
+// AQUÍ VIVÍAN CINCO PANTALLAS MÁS, Y SE FUERON EL 5-AGO (ver
+// docs/entreno-vista-por-vista.html, «Lo que sobra»): `TabataLiveHUD`,
+// `IntervalsLiveHUD`, `DeathByLiveHUD`, `SteadyLiveHUD` y `StructuredRunLiveHUD`.
+// Ninguna tenía diseño detrás, y entre ellas y los dos HUD de correr había SEIS
+// superficies capaces de pintar el mismo tramo de carrera —dos de ellas vivas a la
+// vez, una debajo del `fullScreenCover` de la otra—, así que el atleta veía datos
+// distintos según por dónde entrase.
+//
+// La regla que lo hace imposible: UNA VISTA POR LO QUE ESTÁS HACIENDO. Correr lo
+// pintan `OutdoorRunHUDView` y `TreadmillHUDView`, y ahora son superficies vivas
+// (`ActiveWorkoutView.superficieViva`), no covers: la serie, el rodaje y el tramo
+// estructurado son la MISMA pantalla, elegida por dónde contestaste que corres.
+// El descanso de cualquier motor sigue siendo `RestSurface`, y el ergo
+// `ErgHUDContent`.
 
 // MARK: - Shared building blocks
 
 /// The hero clock card — a big mono readout in an elevated well with the accent
 /// rail, a tracked micro-label above and an optional sub-line. Mirrors the EMOM
 /// clock face so every format reads with the same instrument voice.
-private struct FormatClockHero: View {
+struct FormatClockHero: View {
     let caption: String
     var captionColor: Color = Theme.Color.muted
     let value: String
@@ -57,105 +66,14 @@ private struct FormatClockHero: View {
     }
 }
 
-/// The phase banner shown by every two-phase format — a full-width tinted bar that
-/// flips colour with the phase so it reads under effort from across a box.
-///
-/// The STRUCTURED-RUN surface still shows both faces (its recovery legs render in
-/// place, with their own pace guidance). Every other format's rest has moved to a
-/// screen of its own — see RestSurface — so those pass `.work` and only ever wear
-/// the work face.
-struct WorkRestBanner: View {
-    let phase: WorkoutSession.RotatingPhase
-    /// What the off-phase is called for this format.
-    var restLabel: String = "DESCANSO"
-    var body: some View {
-        Text(phase == .work ? "TRABAJO" : restLabel)
-            .font(.system(size: 14, weight: .heavy, design: .default).italic())
-            .tracking(2.0)
-            // `background` token = the high-contrast counterpart of `info` in BOTH
-            // themes (white on the deep light-blue, near-black on the bright dark-
-            // blue), so the REST label stays WCAG-AA either way; WORK rides on the
-            // accent's designed `accentOn`.
-            .foregroundStyle(phase == .work ? Theme.Color.accentOn : Theme.Color.background)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(phase == .work ? Theme.Color.accent : Theme.Color.info)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-            .accessibilityLabel(phase == .work ? "Trabajo" : restLabel.capitalized)
-    }
-}
-
-/// The "this work" card — a movement label + optional work + "Luego …" line, the
-/// rotating formats' central piece. Mirrors the EMOM work card.
-private struct RotatingWorkCard: View {
-    let label: String
-    let movement: String
-    var work: String? = nil
-    var detail: String? = nil
-    var next: String? = nil
-
-    var body: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: label, color: Theme.Color.accentText, size: 10)
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    if let work {
-                        Text(work)
-                            .font(Theme.Typography.readoutS)
-                            .monospacedDigit()
-                            .foregroundStyle(Theme.Color.foreground)
-                            .fixedSize()
-                    }
-                    Text(movement)
-                        .scaledFont(16, weight: .heavy, relativeTo: .body, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(2)
-                    Spacer(minLength: 0)
-                }
-                if let detail {
-                    Text(detail).font(Theme.Typography.small).foregroundStyle(Theme.Color.muted)
-                }
-                if let next {
-                    Hairline()
-                    HStack(spacing: 6) {
-                        LabelText(text: "Luego", size: 9)
-                        Text(next)
-                            .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
-/// A live pace-vs-target chip pair for run bouts (Intervals / Steady): the zone
-/// badge + the prescribed target band, so the value above is never ambiguous.
-private struct PaceTargetBar: View {
-    let session: WorkoutSession
-    var body: some View {
-        let seg = session.currentSegment
-        HStack(spacing: 8) {
-            if let z = seg?.targetZone { ZBadge(zone: z) }
-            if let p = seg?.targetPaceSecondsPerKm {
-                HStack(spacing: 4) {
-                    Text("objetivo").font(.system(size: 10)).foregroundStyle(Theme.Color.faint)
-                    Text(seg?.kind.isErg == true
-                         ? Formato.ritmo(Double(p) / 2, .por500m)
-                         : Formato.ritmo(Double(p), .porKm))
-                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
+// Con las cinco pantallas se fueron sus piezas: `WorkRestBanner` (la banda
+// trabajo/descanso), `RotatingWorkCard` (la tarjeta «esta serie · luego…») y
+// `PaceTargetBar` (el ritmo objetivo). Eran atajos de los formatos rotativos, y
+// los dos que quedan —AMRAP y la ruta— no los usan: su descanso ya es
+// `RestSurface` y su objetivo lo pinta la superficie que mide.
 
 /// A 3-cell metric row matching the EMOM HUD's grid (total / progress / HR).
-private struct MetricRow3: View {
+struct MetricRow3: View {
     /// Una celda de la fila. Era una tupla de cuatro `String` no opcionales, y por
     /// eso cada llamante colaba un `?? "—"` para poder rellenarla: el hueco no
     /// cabía en el tipo. `value` nil = no hay medida, y `ausente` dice por qué (§7).
@@ -180,7 +98,7 @@ private struct MetricRow3: View {
 
 /// El pulso en vivo. Sin reloj emparejado no llega ninguna muestra, así que la
 /// celda dice eso — que es accionable — en vez de una raya que no dice nada.
-private func hrCell(_ session: WorkoutSession) -> MetricRow3.Cell {
+func hrCell(_ session: WorkoutSession) -> MetricRow3.Cell {
     MetricRow3.Cell(label: Vocab.fc,
                     value: session.liveHRBpm.map { "\($0)" },
                     unit: Vocab.ppm,
@@ -382,14 +300,7 @@ struct ForTimeLiveHUD: View {
     let session: WorkoutSession
 
     private var seg: WorkoutSegment? { session.currentSegment }
-    private var cap: Int? { seg?.formatTotalSeconds }
     private var isCountIn: Bool { session.isCondCountIn }
-    // A capped For Time flips to count-DOWN in the FINAL minute of the cap.
-    private var capFlip: Bool {
-        guard let cap, !isCountIn else { return false }
-        let remaining = Double(cap) - session.condElapsed
-        return remaining <= 60 && remaining > 0
-    }
 
     /// A ROUTE (the list is the stations, not repeated rounds) and the athlete is on
     /// a station nothing else measures. Then the subject is the work in front of him
@@ -410,45 +321,20 @@ struct ForTimeLiveHUD: View {
                     hrCell(session)
                 ])
             } else {
-                clock
-                StrikeList(session: session)
-                MetricRow3(cells: [
-                    .init(label: "Split", value: lastSplit, ausente: "aún sin vueltas"),
-                    .init(label: listUnitLabel, value: "\(session.fixedRoundsDone)/\(session.fixedListTotal)"),
-                    hrCell(session)
-                ])
+                // Lo POR RONDAS ya no pinta reloj grande + lista de dos líneas:
+                // esa pareja es la que el 10-ago dejó un EMPEZAR fuera de
+                // pantalla. La cara por rondas vive en `RoundsLiveHUD` — la
+                // lista mientras quepa, el contador cuando no (DECISIONS
+                // 2026-08-10/11 «Rondas ≠ estaciones»).
+                RoundsLiveHUD(session: session)
             }
         }
     }
 
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else if capFlip, let cap {
-            FormatClockHero(caption: "Cierre del cap",
-                            value: Formato.clock(max(0, Double(cap) - session.condElapsed), anchoFijo: true),
-                            sub: "cap \(Formato.clock(Double(cap)))",
-                            color: Theme.Color.danger, urgent: true)
-        } else {
-            FormatClockHero(caption: "Tiempo",
-                            value: Formato.clock(session.condElapsed, anchoFijo: true),
-                            sub: cap.map { "cap \(Formato.clock(Double($0)))" },
-                            color: Theme.Color.foreground)
-        }
-    }
-
-    private var listUnitLabel: String { seg?.formatScheme == .chipper ? "Estación" : "Ronda" }
-    /// The block clock at the last strike — the classic For Time split. Nil until
-    /// the FIRST strike: antes de la primera vuelta no hay parcial, y una raya ahí
-    /// se lee como un parcial de cero (§7).
-    private var lastSplit: String? {
-        session.fixedRoundSplits.last.map { Formato.clock($0.elapsed) }
-    }
     /// How long the LAST STATION took. On a route that is the useful number: the
-    /// cumulative stamp is already the clock in the context strip. Nil como arriba.
+    /// cumulative stamp is already the clock in the context strip. Nil until the
+    /// first strike: antes de la primera vuelta no hay parcial, y una raya ahí se
+    /// lee como un parcial de cero (§7).
     private var lastSplitSeconds: String? {
         session.fixedRoundSplits.last.map { Formato.clock($0.seconds) }
     }
@@ -530,58 +416,36 @@ private struct StationSubject: View {
     }
 }
 
-/// The recorrer-once / per-round STRIKE list of the count-up formats: a Chipper
-/// strikes each station; For Time / Ladder strike each round. The active line is
-/// highlighted; tapping it records the split and advances. Reuses the round-strike
-/// session actions so a mis-tap is reversible (long-press the active line to undo).
+/// The recorrer-once STRIKE list of a ROUTE: a Chipper / HYROX sim strikes each
+/// station. The active line is highlighted; tapping it records the split and
+/// advances. Reuses the round-strike session actions so a mis-tap is reversible
+/// (long-press the active line to undo).
+///
+/// Per-ROUND lists no longer live here: a homogeneous round list collapses onto
+/// its cursor past the frame budget, and that face is `RoundsLiveHUD`.
 private struct StrikeList: View {
     let session: WorkoutSession
 
     private var seg: WorkoutSegment? { session.currentSegment }
-    /// The list walks the MOVEMENTS once (a chipper, a route) rather than repeating
-    /// rounds. One predicate, on the segment, shared with the engine — the rows and
-    /// the tramo cursor can never disagree about what a line is.
-    private var isStations: Bool { seg?.fixedListIsStations == true }
 
-    // List rows: the movements of a one-pass route, else "Ronda k" with the round's
-    // work as detail (the same movement list each round).
+    // List rows: the movements of a one-pass route.
     private struct Row: Identifiable { let id: Int; let label: String; let detail: String? }
     private var rows: [Row] {
         guard let seg else { return [] }
-        if isStations {
-            return seg.declaredComponents.map { c in
-                Row(id: c.id,
-                    label: c.work.map { "\($0)  \(c.name)" } ?? c.name,
-                    detail: c.detail)
-            }
+        return seg.declaredComponents.map { c in
+            Row(id: c.id,
+                label: c.work.map { "\($0)  \(c.name)" } ?? c.name,
+                detail: c.detail)
         }
-        // Per-round rows. A SINGLE-movement For Time shows its work each round
-        // ("10 Burpees"); a multi-movement one shows only the movement NAMES — the
-        // per-round rep scheme (21-15-9) isn't carried per round, so we never print
-        // a rep count that would be wrong for rounds 2+.
-        // A bare box clock has no movements to caption the rounds with — the rounds
-        // themselves are still the point, so they stay strike-able, just unlabelled.
-        let total = session.fixedListTotal
-        let declared = seg.declaredComponents
-        let detail: String? = {
-            if declared.count == 1, let c = declared.first {
-                return c.work.map { "\($0) \(c.name)" } ?? c.name
-            }
-            let names = declared.map(\.name).joined(separator: " · ")
-            return names.isEmpty ? nil : names
-        }()
-        return (0..<total).map { Row(id: $0, label: "Ronda \($0 + 1)", detail: detail) }
     }
 
     var body: some View {
         CardSurface(padding: 0, topAccent: true) {
             VStack(spacing: 0) {
                 HStack {
-                    LabelText(text: isStations ? "El entreno" : "Recorre las rondas", size: 10)
+                    LabelText(text: "El entreno", size: 10)
                     Spacer()
-                    Text((isStations
-                          ? "\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)"
-                          : "marca cada ronda").uppercased())
+                    Text("\(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)")
                         .font(.system(size: 9, weight: .heavy)).tracking(0.6)
                         .foregroundStyle(Theme.Color.muted)
                 }
@@ -651,445 +515,5 @@ private struct StrikeList: View {
         }
         guard active, session.isStationTramo else { return nil }
         return Formato.clock(session.tramoElapsedSeconds)
-    }
-}
-
-// MARK: - Tabata
-
-struct TabataLiveHUD: View {
-    let session: WorkoutSession
-
-    private var seg: WorkoutSegment? { session.currentSegment }
-    private var isCountIn: Bool { session.isCondCountIn }
-    private var urgent: Bool { !isCountIn && session.rotPhaseRemaining <= WorkoutSession.emomUrgentThreshold }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if !isCountIn { WorkRestBanner(phase: .work) }   // rest has its own screen
-            clock
-            RotatingWorkCard(
-                label: "Trabajo",
-                // Sin segmento no hay nombre de movimiento — pero sí sabemos que es
-                // la fase de trabajo, que es lo que dice la banda de arriba.
-                movement: seg?.primaryMovement ?? "Trabajo",
-                next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
-            )
-            if !isCountIn {
-                RepTallyRow(label: "Reps · ronda \(session.rotRoundIndex + 1)",
-                            value: session.rotRepsThisRound,
-                            onMinus: { session.tabataAddRep(-1) }, onPlus: { session.tabataAddRep(1) })
-            }
-            MetricRow3(cells: [
-                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
-                .init(label: "Reps", value: "\(session.rotRepsThisRound)"),
-                hrCell(session)
-            ])
-        }
-    }
-
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else {
-            FormatClockHero(
-                caption: "Ronda \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))",
-                captionColor: Theme.Color.accentText,
-                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
-                sub: cadence,
-                color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
-                urgent: urgent
-            )
-        }
-    }
-
-    private var cadence: String {
-        let w = seg?.formatWorkSeconds.map { "\($0)s work" }
-        let r = seg?.formatRestSeconds.map { "\($0)s rest" }
-        return [w, r].compactMap { $0 }.joined(separator: " · ")
-    }
-}
-
-// MARK: - Intervals / Series
-
-struct IntervalsLiveHUD: View {
-    let session: WorkoutSession
-
-    private var seg: WorkoutSegment? { session.currentSegment }
-    private var isCountIn: Bool { session.isCondCountIn }
-    private var urgent: Bool {
-        !isCountIn && session.rotPhaseRemaining > 0 && session.rotPhaseRemaining <= WorkoutSession.emomUrgentThreshold
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if !isCountIn { WorkRestBanner(phase: .work) }   // rest has its own screen
-            clock
-            RotatingWorkCard(
-                label: "Esta serie",
-                // Sin segmento no hay nombre de movimiento — pero sí sabemos que es
-                // la fase de trabajo, que es lo que dice la banda de arriba.
-                movement: seg?.primaryMovement ?? "Trabajo",
-                work: seg?.targetDistanceMeters.flatMap { Formato.distancia($0) },
-                next: seg?.formatRestSeconds.map { "Descanso \(Formato.clock(Double($0)))" }
-            )
-            MetricRow3(cells: [
-                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
-                .init(label: "Series", value: "\(session.rotRoundIndex + 1)/\(max(1, session.rotTotalRounds))"),
-                hrCell(session)
-            ])
-        }
-    }
-
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else if seg?.kind == .running && session.rotPhaseRemaining <= 0 {
-            // Distance-based run bout (no fixed duration): show live pace vs target.
-            VStack(spacing: 8) {
-                let lectura = lecturaDeRitmo
-                FormatClockHero(
-                    caption: lectura.caption,
-                    captionColor: Theme.Color.accentText,
-                    value: lectura.value, sub: lectura.unidad,
-                    color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
-                )
-                PaceTargetBar(session: session)
-            }
-        } else {
-            FormatClockHero(
-                caption: serieCaption,
-                captionColor: Theme.Color.accentText,
-                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
-                color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
-                urgent: urgent
-            )
-        }
-    }
-
-    private var serieCaption: String {
-        "Serie \(session.rotRoundIndex + 1) / \(max(1, session.rotTotalRounds))"
-    }
-
-    /// LA SIGUIENTE VERDAD DISPONIBLE: el ritmo si ya se ha medido, y si no el reloj
-    /// de la serie, que es lo único que la app sabe con certeza.
-    ///
-    /// Etiqueta, cifra y unidad viajan JUNTAS a propósito. Antes esto caía al ritmo
-    /// OBJETIVO: la prescripción se pintaba en el hueco del ritmo en vivo, con el
-    /// «/km» debajo, y lo único que las separaba era el color. Corriendo, el color
-    /// no se lee — y el número que salía era justo el que esperabas ver, así que el
-    /// error era invisible (§7). Mismo criterio que `OutdoorRunHUDView.lecturaViva`.
-    private var lecturaDeRitmo: (caption: String, value: String, unidad: String?) {
-        guard let p = session.liveCoveredPaceSecPerKm else {
-            return ("\(serieCaption) · \(Vocab.tiempo.lowercased())",
-                    Formato.clock(session.tramoElapsedSeconds, anchoFijo: true), nil)
-        }
-        return (serieCaption, Formato.ritmoCifras(Double(p)), Formato.UnidadRitmo.porKm.rawValue)
-    }
-}
-
-// MARK: - Death By
-
-struct DeathByLiveHUD: View {
-    let session: WorkoutSession
-
-    private var seg: WorkoutSegment? { session.currentSegment }
-    private var isCountIn: Bool { session.isCondCountIn }
-    private var urgent: Bool { !isCountIn && session.rotPhaseRemaining <= WorkoutSession.emomUrgentThreshold }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            clock
-            targetCard
-            MetricRow3(cells: [
-                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
-                .init(label: "Ronda", value: "\(session.rotRoundIndex + 1)"),
-                hrCell(session)
-            ])
-        }
-    }
-
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else {
-            FormatClockHero(
-                caption: "Minuto \(session.rotRoundIndex + 1)",
-                captionColor: Theme.Color.accentText,
-                value: Formato.clock(max(0, session.rotPhaseRemaining), anchoFijo: true),
-                sub: "cada \(Formato.clock(seg?.formatWorkSeconds ?? 60, subMinuto: .segundos)) · objetivo +\(seg?.deathByIncrement ?? 1)/min",
-                color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
-                urgent: urgent
-            )
-        }
-    }
-
-    private var targetCard: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(spacing: 5) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(session.deathByTarget)")
-                        .font(.system(size: 46, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(Theme.Color.accentText)
-                        .contentTransition(.numericText())
-                    Text(seg?.primaryMovement ?? "reps")
-                        .scaledFont(15, weight: .heavy, relativeTo: .body, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                }
-                LabelText(text: "Objetivo de este minuto", size: 10)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .accessibilityLabel("Objetivo de este minuto, \(session.deathByTarget) \(seg?.primaryMovement ?? "repeticiones")")
-    }
-}
-
-// MARK: - Steady
-
-struct SteadyLiveHUD: View {
-    let session: WorkoutSession
-
-    private var seg: WorkoutSegment? { session.currentSegment }
-    private var total: Int? { seg?.formatTotalSeconds }
-    private var isCountIn: Bool { session.isCondCountIn }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            clock
-            paceCard
-            MetricRow3(cells: [
-                .init(label: "Media", value: avgPace, unit: Formato.UnidadRitmo.porKm.rawValue,
-                      ausente: "aún sin recorrido"),
-                .init(label: "% zona", value: session.liveZonePctInTarget.map { "\($0)" }, unit: "%",
-                      ausente: "sin reloj"),
-                hrCell(session)
-            ])
-        }
-    }
-
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else {
-            VStack(spacing: 8) {
-                FormatClockHero(
-                    caption: total != nil ? "Restante" : "Tiempo",
-                    value: total != nil
-                        ? Formato.clock(max(0, session.condRemaining), anchoFijo: true)
-                        : Formato.clock(session.condElapsed, anchoFijo: true),
-                    sub: total.map { "de \(Formato.clock(Double($0)))" },
-                    color: Theme.Color.foreground
-                )
-                PaceTargetBar(session: session)
-            }
-        }
-    }
-
-    private var paceCard: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "Ritmo en vivo", color: Theme.Color.accentText, size: 10)
-                HStack(alignment: .firstTextBaseline, spacing: 9) {
-                    if let livePace {
-                        Text(livePace)
-                            .font(Theme.Typography.readoutS).monospacedDigit()
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text(Formato.UnidadRitmo.porKm.rawValue).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.Color.muted)
-                    } else {
-                        // La unidad se va con el número: un «/km» solo, al lado de
-                        // nada, sigue prometiendo un ritmo que no tenemos (§7).
-                        Text("aún sin recorrido")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Spacer(minLength: 0)
-                    if let d = session.liveRunDistanceMeters, d > 0,
-                       let recorrido = Formato.distanciaCubierta(d) {
-                        Text(recorrido)
-                            .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    /// El ritmo MEDIDO, o nil. Nunca «—:—»: quien pinta dice por qué no lo hay.
-    private var livePace: String? {
-        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
-    }
-
-    /// La media REAL del tramo (lo recorrido entre lo que llevas).
-    ///
-    /// Antes caía al ritmo OBJETIVO cuando no había medida: pintaba la prescripción
-    /// en el hueco de la media, con su misma etiqueta y su misma unidad. Eso es
-    /// fabricar un dato del atleta (§7) — y encima es invisible, porque el número
-    /// que sale es exactamente el que esperabas ver. El objetivo ya se pinta aparte.
-    private var avgPace: String? {
-        session.liveCoveredPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
-    }
-}
-
-// MARK: - Structured run (#61)
-
-/// The live face of a folded run block that carries a `structure`: the flat leg
-/// cursor rendered one work/recovery bout at a time, each with its OWN measure,
-/// objetivo (the server-resolved pace band) and prescribed inclinación / cadencia.
-/// A TIME leg counts DOWN and auto-rolls; a DISTANCE leg shows live covered pace vs
-/// target and is closed by the belt (auto) or "TRAMO HECHO" (manual — there is no
-/// live phone GPS yet, so a distance leg without a belt is never left waiting).
-/// Reuses the shared FORMAT atoms so it reads with the same instrument voice as the
-/// other timers; the LEGACY rotating HUDs stay untouched.
-struct StructuredRunLiveHUD: View {
-    let session: WorkoutSession
-
-    private var leg: RunLeg? { session.currentRunLeg }
-    private var isCountIn: Bool { session.isRunCountIn }
-    private var isWork: Bool { session.isRunLegWork }
-    private var isTimed: Bool { leg?.isTimed ?? false }
-    private var urgent: Bool {
-        !isCountIn && isTimed && session.runLegRemaining > 0
-            && session.runLegRemaining <= WorkoutSession.emomUrgentThreshold
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if !isCountIn { WorkRestBanner(phase: isWork ? .work : .rest) }
-            clock
-            workCard
-            if let guide = guideLine {
-                Text(guide)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(maxWidth: .infinity)
-            }
-            MetricRow3(cells: [
-                .init(label: "Total", value: Formato.clock(session.elapsedSeconds, anchoFijo: true)),
-                .init(label: "Tramo", value: "\(session.runLegNumber)/\(session.runLegTotal)"),
-                hrCell(session)
-            ])
-        }
-    }
-
-    @ViewBuilder
-    private var clock: some View {
-        if isCountIn {
-            FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.runCountInRemaining.rounded(.up)))",
-                            color: Theme.Color.accentText)
-        } else if isTimed {
-            // TIME leg — count DOWN; the session's clock auto-rolls it at zero.
-            FormatClockHero(
-                caption: legCaption,
-                captionColor: Theme.Color.accentText,
-                value: Formato.clock(max(0, session.runLegRemaining), anchoFijo: true),
-                color: urgent ? Theme.Color.accentText : Theme.Color.foreground,
-                urgent: urgent
-            )
-        } else {
-            // DISTANCE / open leg — live covered pace vs the objetivo band; closed by
-            // the belt or a manual "TRAMO HECHO".
-            VStack(spacing: 8) {
-                let lectura = lecturaDeRitmo
-                FormatClockHero(
-                    caption: lectura.caption,
-                    captionColor: Theme.Color.accentText,
-                    value: lectura.value, sub: lectura.unidad,
-                    color: session.liveCoveredPaceSecPerKm != nil ? Theme.Color.accentText : Theme.Color.foreground
-                )
-                if isWork, let objetivo = leg?.objetivoLabel {
-                    HStack(spacing: 4) {
-                        Text("objetivo").font(.system(size: 10)).foregroundStyle(Theme.Color.faint)
-                        Text(objetivo)
-                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-    }
-
-    private var workCard: some View {
-        RotatingWorkCard(
-            label: isWork ? "Este tramo" : "Recuperación",
-            movement: session.currentSegment?.primaryMovement ?? "Correr",
-            work: legWork,
-            detail: isWork ? leg?.objetivoLabel : recoveryModeLabel,
-            next: nextLegLabel
-        )
-    }
-
-    private var legCaption: String {
-        isWork ? "Tramo \(session.runLegNumber) / \(session.runLegTotal)"
-               : "Descanso · tramo \(session.runLegNumber) / \(session.runLegTotal)"
-    }
-
-    /// El ritmo medido del tramo, y si aún no lo hay el RELOJ del tramo.
-    ///
-    /// Antes caía al ritmo objetivo del leg — que ya se pinta justo debajo, con su
-    /// etiqueta «objetivo». O sea que el mismo número salía dos veces y el de arriba
-    /// se leía como lo que estabas corriendo (§7). El reloj no miente y siempre está.
-    private var lecturaDeRitmo: (caption: String, value: String, unidad: String?) {
-        guard let p = session.liveCoveredPaceSecPerKm else {
-            return ("\(legCaption) · \(Vocab.tiempo.lowercased())",
-                    Formato.clock(session.runLegElapsed, anchoFijo: true), nil)
-        }
-        return (legCaption, Formato.ritmoCifras(Double(p)), Formato.UnidadRitmo.porKm.rawValue)
-    }
-
-    /// The leg's OWN measure ("800 m" / "3:00"), the per-bout value the scalar path
-    /// could not carry for a heterogeneous pyramid.
-    private var legWork: String? {
-        guard let leg else { return nil }
-        if let m = leg.distanceMeters { return Formato.distancia(Double(m)) }
-        if let s = leg.durationSeconds { return Formato.clock(Double(s)) }
-        return nil
-    }
-
-    /// PRESCRIBED inclinación / cadencia — a sober reference line, shown only when
-    /// the coach set them.
-    private var guideLine: String? {
-        guard let leg else { return nil }
-        var parts: [String] = []
-        if let inc = leg.inclinePct, inc > 0 {
-            parts.append("Inclinación \(Formato.esDecimal(inc))%")
-        }
-        if let cad = leg.cadenceSpm { parts.append("Cadencia \(cad) \(Vocab.cadencia)") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var recoveryModeLabel: String? {
-        switch leg?.recoveryMode {
-        case .trote:   return "trote suave"
-        case .caminar: return "caminando"
-        case .parado:  return "parado"
-        case .none:    return nil
-        }
-    }
-
-    private var nextLegLabel: String? {
-        guard let legs = session.currentRunLegs else { return nil }
-        let i = session.runLegIndex + 1
-        guard i < legs.count else { return session.isLastSegment ? nil : "Siguiente bloque" }
-        let n = legs[i]
-        let measure: String = n.distanceMeters.flatMap { Formato.distancia(Double($0)) }
-            ?? n.durationSeconds.map { Formato.clock(Double($0)) }
-            ?? ""
-        return n.isWork ? "Serie \(measure)".trimmingCharacters(in: .whitespaces)
-                        : "Descanso \(measure)".trimmingCharacters(in: .whitespaces)
     }
 }

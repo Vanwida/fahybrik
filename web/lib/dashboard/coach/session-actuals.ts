@@ -21,6 +21,7 @@
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
+import { groupRunSplits, type RunLegSplitItem } from '@/lib/execution/run-splits';
 import { parseZoneSeconds, type ZoneSeconds } from '@/lib/execution/zone-seconds';
 import {
   SEGMENT_LEG_PHASES,
@@ -36,6 +37,12 @@ export interface SegmentActual {
   /** uid of the prescribed item this maps to (`segment-{id}`); null when unmatched. */
   item_uid: string | null;
   modality: SegmentModality;
+  /** Cuándo empezó ESTE tramo. Es lo que permite situarlo en el eje de la curva:
+   *  `execution.started_at` da el cero de la señal, pero sin este no se sabe dónde
+   *  cae cada serie dentro de ella — y sin eso no hay sombra de tramo, ni banda
+   *  dibujada encima, ni número de repetición. El SQL siempre lo trajo; se
+   *  consumía para derivar la duración y se tiraba antes de salir. */
+  started_at: string | null;
   /** Derived from ended_at − started_at; null when either timestamp is missing. */
   duration_seconds: number | null;
   reps_completed: number | null;
@@ -55,6 +62,16 @@ export interface SegmentActual {
   /** AVERAGE running metrics over the segment (#62, mig 0124). Null when the
    * source (treadmill / wearable) reported none — never fabricated. */
   incline_pct: number | null;
+  /** Pendiente media del tramo (#71, mig 0185) — CAMBIO NETO de altitud sobre
+   *  la distancia, nunca desnivel acumulado. La cinta (`incline_pct`) manda
+   *  cuando la hay; si no, se deriva de la traza de altitud. Es la que decide
+   *  si el veredicto de ritmo significa algo (≥3% lo retira, mockup
+   *  carrera-en-el-panel.html §07/§08) — `incline_pct` sigue existiendo aparte
+   *  porque "lo que declaró la cinta" es una pregunta más estrecha y sigue
+   *  siendo información real por sí misma. Null = no se sabe, nunca cero
+   *  (cero es "llano medido"). Se escribe una vez al llegar la traza
+   *  (`measured-header.ts`), nunca al vuelo. */
+  avg_gradient_pct: number | null;
   run_cadence_spm: number | null;
   /** Concept2 PM5 erg detail (#33), folded out of `raw_lap_data_json` — the
    * monitor's segment-level aggregates + per-interval splits. Null for non-erg /
@@ -65,6 +82,16 @@ export interface SegmentActual {
   peak_drive_force_lbs: number | null;
   avg_drive_force_lbs: number | null;
   erg_splits: ErgSplitItem[] | null;
+  /** El equivalente de `erg_splits` para una carrera estructurada (#66) — mismo
+   *  patrón, mismo nivel, misma forma, ver `run-splits.ts`. La diferencia es DE
+   *  DÓNDE sale: el PM5 anida sus intervalos en UNA fila; una carrera de series
+   *  graba CADA tramo como su propia fila (leg_index/leg_role/leg_phase, mig
+   *  0146). Por eso esto no sale de `raw_lap_data_json` sino de agrupar las
+   *  filas hermanas por `item_uid` — y por eso solo la fila `leg_index === 0`
+   *  de cada grupo lo lleva (la "portadora"): las demás siguen siendo su propio
+   *  `SegmentActual` de siempre, sin tocar. Null fuera de una carrera
+   *  estructurada, o en cualquier fila que no sea la portadora de su grupo. */
+  run_splits: RunLegSplitItem[] | null;
   /** WHICH APPARATUS measured THIS tramo — the raw `segment_executions.source`
    * token ('pm5', 'treadmill', 'gps', 'healthkit', 'manual', …). The execution's
    * own `source` is only the principal one, so a mixed session (erg + treadmill)
@@ -117,6 +144,7 @@ export interface SegmentActualRow {
   emom_rounds_completed: number | null;   // integer
   emom_rounds_prescribed: number | null;  // integer
   incline_pct: string | number | null;   // numeric(4,1) → string from pg
+  avg_gradient_pct: string | number | null; // numeric(5,2) → string from pg
   run_cadence_spm: number | null;         // integer
   source: string | null;                  // free-text apparatus token
   leg_index: number | null;               // integer
@@ -163,10 +191,11 @@ function durationSeconds(started: string | null, ended: string | null): number |
 
 /** Pure mapper: DB rows → coach-facing actuals (testable without a DB). */
 export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
-  return rows.map((r) => ({
+  const mapped: SegmentActual[] = rows.map((r) => ({
     position: r.position,
     item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
     modality: toModality(r.modality),
+    started_at: r.started_at,
     duration_seconds: durationSeconds(r.started_at, r.ended_at),
     reps_completed: r.reps_completed ?? null,
     weight_used_kg: num(r.weight_used_kg),
@@ -181,6 +210,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     emom_rounds_completed: r.emom_rounds_completed ?? null,
     emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
     incline_pct: num(r.incline_pct),
+    avg_gradient_pct: num(r.avg_gradient_pct),
     run_cadence_spm: r.run_cadence_spm ?? null,
     source: r.source ?? null,
     zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
@@ -188,8 +218,19 @@ export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
     leg_role: toLegRole(r.leg_role),
     leg_phase: toLegPhase(r.leg_phase),
     is_structural: r.is_structural ?? false,
+    run_splits: null,
     ...ergFields(r.raw_lap_data_json),
   }));
+
+  // Segunda pasada, en memoria (sin consulta extra: las columnas ya están
+  // todas en `mapped`) — agrupa los tramos de cada carrera estructurada y los
+  // cuelga de su fila portadora (leg_index === 0). Ver run-splits.ts.
+  const runSplitsByCarrierPosition = groupRunSplits(mapped);
+  if (runSplitsByCarrierPosition.size === 0) return mapped;
+  return mapped.map((m) => {
+    const splits = runSplitsByCarrierPosition.get(m.position);
+    return splits ? { ...m, run_splits: splits } : m;
+  });
 }
 
 /** Fold the erg detail out of raw_lap_data_json into the flat SegmentActual erg
@@ -230,6 +271,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       emom_rounds_completed     as emom_rounds_completed,
       emom_rounds_prescribed    as emom_rounds_prescribed,
       incline_pct               as incline_pct,
+      avg_gradient_pct          as avg_gradient_pct,
       run_cadence_spm           as run_cadence_spm,
       source                    as source,
       leg_index                 as leg_index,

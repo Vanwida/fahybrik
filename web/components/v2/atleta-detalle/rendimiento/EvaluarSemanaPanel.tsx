@@ -141,6 +141,9 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
   }, [loadPending]);
 
   useEffect(() => {
+    // Carga inicial real desde red (no hay forma de saberla en el primer
+    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadPending();
   }, [reloadPending]);
 
@@ -211,7 +214,7 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
   return (
     <section className="flex flex-col gap-2.5">
       <SectionHeading>Evaluar semana</SectionHeading>
-      <div className="rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+      <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
         {loading ? (
           <LoadingRow />
         ) : loadError ? (
@@ -246,7 +249,7 @@ function EvaluateCta({
   return (
     <div className="flex flex-col items-start gap-3">
       <div className="flex items-start gap-2.5">
-        <MIcon name="tune" size={20} className="mt-0.5 text-[color:var(--v2-accent)]" />
+        <MIcon name="tune" size={20} className="mt-0.5 text-[color:var(--v2-accent-text)]" />
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
             Sin ajuste pendiente
@@ -299,7 +302,7 @@ function ProposalView({
       {/* Verdict + recommendation + evaluated week */}
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-bold"
+          className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold"
           style={{ background: `var(--v2-${verdict.tone}-soft)`, color: `var(${TONE_VAR[verdict.tone]})` }}
         >
           <MIcon name={p.verdict === 'ok' ? 'check_circle' : 'warning'} size={14} filled />
@@ -398,7 +401,7 @@ function ProposalView({
       ) : (
         <div className="flex items-center justify-between gap-2">
           <span className="text-label text-[color:var(--v2-muted)]">
-            Semana correcta — el plan sigue sin cambios.
+            Semana correcta, el plan sigue sin cambios.
           </span>
           <button
             type="button"

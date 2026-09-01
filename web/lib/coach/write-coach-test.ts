@@ -24,12 +24,20 @@ import {
   specForCalibrationTarget,
   calibrationCoherenceError,
 } from '@fahybrid/shared/domain/coach/test-battery';
-import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
+import {
+  storeResultsSchema,
+  type StoreResultSpec,
+  type StoreResultMeasure,
+  type StoreResultUnit,
+  type StoreResultDerives,
+} from '@fahybrid/shared/schema/test-battery';
 import type {
   CoachTestCreate,
   CoachTestUpdate,
   CoachTestResultInput,
 } from '@fahybrid/shared/schema/coach-tests';
+import type { EditorBlockInput } from '@fahybrid/shared/schema/program-templates';
+import { deriveStoreResults } from '@fahybrid/shared/domain/coach/test-derive';
 import { materializeTestContent } from '@/lib/coach/calibration-content';
 import { listCoachTests, type CoachCalibrationTest } from '@/lib/coach/coach-tests';
 
@@ -76,6 +84,42 @@ function resolveResultSpec(input: CoachTestResultInput, testSlug: string): Store
     label: input.label,
     ...optional,
   };
+}
+
+/**
+ * El contrato de resultados DEDUCIDO del contenido que el coach construyó
+ * (test-derive.ts): fijas 1000 m → se mide el tiempo; fijas 10 min → la
+ * distancia; un levantamiento a tope → la carga. Necesita los slugs reales de
+ * los ejercicios (el 1RM se ancla en ellos), así que resuelve contra la DB.
+ * Devuelve [] cuando el contenido no fija nada medible — honesto: ese test no
+ * promete ningún número.
+ */
+async function deriveSpecsFromContent(
+  client: AnySql,
+  testSlug: string,
+  content: readonly EditorBlockInput[],
+): Promise<StoreResultSpec[]> {
+  const items = content.flatMap((b) => b.items);
+  if (items.length === 0) return [];
+
+  const ids = Array.from(
+    new Set(items.map((it) => Number(it.exercise_id)).filter((n) => Number.isFinite(n))),
+  );
+  const rows = ids.length
+    ? await client<Array<{ id: string; slug: string }>>`
+        select id::text as id, slug from exercises where id = any(${ids}::bigint[])
+      `
+    : [];
+  const slugById = new Map(rows.map((r) => [Number(r.id), r.slug]));
+
+  return deriveStoreResults(
+    testSlug,
+    items.map((it) => ({
+      exercise_name: it.exercise_name,
+      exercise_slug: it.exercise_id != null ? slugById.get(Number(it.exercise_id)) ?? null : null,
+      prescription: it.prescription,
+    })),
+  );
 }
 
 /** Resolve + validate all result inputs into coherent, unique specs. */
@@ -164,16 +208,53 @@ async function insertResults(
   }
 }
 
+/** The test's CURRENT result contract, in the StoreResultSpec shape
+ *  `materializeTestContent` needs — used when an edit touches content but not
+ *  results, so the meta_json rebuild still has the full, unchanged contract. */
+async function currentSpecs(tx: AnySql, testId: number): Promise<StoreResultSpec[]> {
+  const rows = await tx<
+    Array<{
+      slug: string;
+      label: string;
+      measure: StoreResultMeasure;
+      unit: StoreResultUnit;
+      derives: StoreResultDerives;
+      modality: string | null;
+      optional: boolean;
+    }>
+  >`
+    select slug, label, measure::text as measure, unit::text as unit, derives::text as derives,
+           modality, optional
+    from coach_test_results
+    where test_id = ${testId}
+    order by sort_order asc, id asc
+  `;
+  return rows.map((r) => ({
+    slug: r.slug,
+    label: r.label,
+    measure: r.measure,
+    unit: r.unit,
+    derives: r.derives,
+    ...(r.modality ? { modality: r.modality as StoreResultSpec['modality'] } : {}),
+    ...(r.optional ? { optional: true as const } : {}),
+  }));
+}
+
 async function insertSchedule(
   tx: AnySql,
   testId: number,
   schedule: CoachTestCreate['schedule'],
 ): Promise<void> {
   for (const occ of schedule) {
+    // `rest_days_after` solo lo usa la semana cero al repartir la ventana; en las
+    // semanas del plan el día es fijo y no hay nada que deslizar. Se persiste
+    // igual para no perder lo que el coach declaró si mueve la pieza a la 0.
     await tx`
-      insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled)
-      values (${testId}, ${occ.week_offset}, ${occ.day_of_week}, ${occ.enabled})
-      on conflict (test_id, week_offset, day_of_week) do update set enabled = excluded.enabled
+      insert into coach_test_schedule (test_id, week_offset, day_of_week, enabled, rest_days_after)
+      values (${testId}, ${occ.week_offset}, ${occ.day_of_week}, ${occ.enabled}, ${occ.rest_days_after ?? 0})
+      on conflict (test_id, week_offset, day_of_week) do update set
+        enabled = excluded.enabled,
+        rest_days_after = excluded.rest_days_after
     `;
   }
 }
@@ -186,7 +267,11 @@ export async function createCoachTest(
 ): Promise<CoachCalibrationTest> {
   const cid = Number(coach_id);
   const slug = await uniqueTestSlug(client, cid, input.name);
-  const specs = resolveSpecs(input.results, slug);
+  // El contenido manda: si el coach construyó el entreno, lo que mide se deduce
+  // de él. `results` explícito sigue ganando (tests sembrados, callers viejos).
+  const specs = input.results?.length
+    ? resolveSpecs(input.results, slug)
+    : await deriveSpecsFromContent(client, slug, input.content ?? []);
   const primary_modality = primaryModalityOf(specs);
   const protocol = input.protocol?.trim() || null;
 
@@ -200,6 +285,7 @@ export async function createCoachTest(
       protocol,
       testSlug: slug,
       specs,
+      authoredContent: input.content,
     });
     const rows = await tx<{ id: string }[]>`
       insert into coach_calibration_tests
@@ -258,9 +344,21 @@ export async function updateCoachTest(
     input.protocol !== undefined ? (input.protocol?.trim() || null) : current.protocol;
   const enabled = input.enabled ?? current.enabled;
 
-  const specs = input.results ? resolveSpecs(input.results, current.slug) : null;
+  // Igual que al crear: si esta edición trae contenido, el contrato se re-deduce
+  // de él — así cambiar «1000 m» por «10 min» cambia solo lo que se mide, sin
+  // que el coach tenga que acordarse de tocar nada más.
+  const specs = input.results?.length
+    ? resolveSpecs(input.results, current.slug)
+    : input.content?.length
+      ? await deriveSpecsFromContent(client, current.slug, input.content)
+      : null;
   // primary_modality is re-derived only when the results change; otherwise kept.
   const primary_modality = specs ? primaryModalityOf(specs) : current.primary_modality;
+  // Content changed IFF the caller sent the field at all — [] means "clear my
+  // authored content, fall back to the automatic mechanism", distinct from
+  // omitting the field, which means "leave content untouched" (write-coach-test's
+  // usual convention, same as `results`/`schedule` above).
+  const contentChanged = input.content !== undefined;
 
   await client.begin(async (tx) => {
     // Identity fields — always fully set (defaults kept from `current`).
@@ -276,25 +374,32 @@ export async function updateCoachTest(
     `;
 
     // Content template: keep name/format/protocol in sync; rebuild segments +
-    // meta_json only when results changed.
+    // meta_json when results OR content changed (materializeTestContent always
+    // needs the FULL current specs, even when only content changed — fetch them
+    // when results themselves weren't part of this edit).
     let templateId = current.template_id ? Number(current.template_id) : null;
-    if (specs) {
+    if (specs || contentChanged) {
+      const effectiveSpecs = specs ?? (await currentSpecs(tx, tid));
       templateId = await materializeTestContent(tx, {
         coach_id: cid,
         name,
         format,
         protocol,
         testSlug: current.slug,
-        specs,
+        specs: effectiveSpecs,
         existingTemplateId: templateId,
+        authoredContent: input.content,
       });
       await tx`
         update coach_calibration_tests set template_id = ${templateId}
         where id = ${tid} and coach_id = ${cid}
       `;
-      // Replace the normalized result rows (source of truth).
-      await tx`delete from coach_test_results where test_id = ${tid}`;
-      await insertResults(tx, tid, specs);
+      if (specs) {
+        // Replace the normalized result rows (source of truth) only when the
+        // coach actually edited results — content-only edits leave them as-is.
+        await tx`delete from coach_test_results where test_id = ${tid}`;
+        await insertResults(tx, tid, specs);
+      }
     } else if (templateId != null) {
       // Results unchanged but name/format/protocol may have; keep the template's
       // display fields aligned (meta_json contract is unchanged).

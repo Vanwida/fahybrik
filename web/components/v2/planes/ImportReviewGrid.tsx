@@ -15,6 +15,10 @@ import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { WeekNotice } from '@/lib/dashboard/coach/ai/week-notices';
 import { ImportNotices } from './ImportNotices';
 import {
+  acceptDayProposals,
+  dayHiddenCount,
+  dayProposedFields,
+  dayReviewLineCount,
   dayTone,
   totalExcludedDays,
   totalIncomplete,
@@ -23,11 +27,25 @@ import {
   unmappedWeekCount,
   type DayTone,
   type MicroWeekRef,
+  type ReviewDay,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { ImportDayReviewDrawer } from './ImportDayReviewDrawer';
+import { ImportMissingExercisesPanel } from './ImportMissingExercisesPanel';
+import {
+  applyMissingExerciseDecisions,
+  collectMissingExercises,
+  realMissingCount,
+} from '@/lib/dashboard/v2/import-missing';
+import {
+  applyGapPlan,
+  completeWeeksDoses,
+  hasCompletableGaps,
+  planGapResolution,
+} from '@/lib/dashboard/v2/import-complete-gaps';
+import type { ScoredCandidate } from '@/lib/dashboard/exercises/near-match';
 
 // `incomplete` shares the danger hue with `unresolved` because it shares the
 // consequence — both block Confirmar. Amber would promise the coach he can ship
@@ -88,6 +106,7 @@ export function ImportReviewGrid({
   confirming,
   error,
   onBack,
+  onAddPhoto,
 }: {
   reviewWeeks: ReviewWeek[];
   microWeeks: MicroWeekRef[];
@@ -98,8 +117,158 @@ export function ImportReviewGrid({
   confirming: boolean;
   error: string | null;
   onBack: () => void;
+  /** Vuelve al paso de las fotos, para la captura de una tarjeta que salió cortada.
+   *  Solo existe cuando la propuesta vino de una foto. */
+  onAddPhoto?: () => void;
 }) {
   const [editing, setEditing] = useState<{ weekIdx: number; dayIdx: number } | null>(null);
+  const [creatingMissing, setCreatingMissing] = useState(false);
+  const [completingGaps, setCompletingGaps] = useState(false);
+  const [gapError, setGapError] = useState<string | null>(null);
+  // Cuántos NOMBRES distintos faltan, no cuántas líneas: 51 líneas de una semana
+  // real son 30 nombres, y es por nombre por lo que se decide.
+  const missingCount = realMissingCount(collectMissingExercises(reviewWeeks));
+  const canCompleteGaps = hasCompletableGaps(reviewWeeks);
+
+  /**
+   * Un clic: resuelve ejercicios (match / crear / descartar basura) y siembra
+   * dosis genéricas. El coach refina después en el microciclo.
+   */
+  const completeGaps = async () => {
+    if (completingGaps || !canCompleteGaps) return;
+    setCompletingGaps(true);
+    setGapError(null);
+    try {
+      const missing = collectMissingExercises(reviewWeeks);
+      const matchesByToken = new Map<string, ScoredCandidate[]>();
+      const tokens = missing.filter((m) => !m.notAnExercise).map((m) => m.token);
+      if (tokens.length > 0) {
+        const res = await fetch('/api/coach/exercises/missing', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tokens }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            matches?: Array<{ token: string; candidates: ScoredCandidate[] }>;
+          };
+          for (const m of data.matches ?? []) {
+            matchesByToken.set(m.token, m.candidates);
+          }
+        }
+      }
+
+      const planned = planGapResolution(missing, matchesByToken);
+      const plan = {
+        merge: [...planned.merge],
+        create: [...planned.create],
+        discardKeys: [...planned.discardKeys],
+      };
+      let created: Array<{ id: string; name: string }> = [];
+
+      if (plan.create.length > 0) {
+        const res = await fetch('/api/coach/exercises/bulk', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            exercises: plan.create.map((c) => ({
+              name: c.name,
+              category: c.category,
+              modality: c.modality,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            error?: {
+              code?: string;
+              message?: string;
+              details?: { collisions?: Array<{ name: string; existing: string }> };
+            };
+          } | null;
+          // Ya existen: fusionar con el match más cercano y reintentar el resto.
+          if (res.status === 409 && data?.error?.details?.collisions) {
+            const collisionNames = new Set(
+              data.error.details.collisions.map((c) => c.name.toLowerCase()),
+            );
+            const stillCreate = [];
+            for (const spec of plan.create) {
+              if (!collisionNames.has(spec.name.toLowerCase())) {
+                stillCreate.push(spec);
+                continue;
+              }
+              const cands = matchesByToken.get(spec.name) ?? [];
+              const best = cands[0];
+              if (best) {
+                plan.merge.push({
+                  key: spec.key,
+                  exercise_id: best.id,
+                  exercise_name: best.name,
+                });
+              } else {
+                setGapError(
+                  data.error?.message ??
+                    `«${spec.name}» ya está en tu catálogo. Ábrelo el día y únelo a mano.`,
+                );
+                return;
+              }
+            }
+            plan.create = stillCreate;
+            if (plan.create.length > 0) {
+              const retry = await fetch('/api/coach/exercises/bulk', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  exercises: plan.create.map((c) => ({
+                    name: c.name,
+                    category: c.category,
+                    modality: c.modality,
+                  })),
+                }),
+              });
+              if (!retry.ok) {
+                const err = (await retry.json().catch(() => null)) as {
+                  error?: { message?: string };
+                } | null;
+                setGapError(err?.error?.message ?? 'No se pudieron crear los ejercicios.');
+                return;
+              }
+              const body = (await retry.json()) as {
+                created: Array<{ id: string; name: string }>;
+              };
+              created = body.created;
+            }
+          } else {
+            setGapError(data?.error?.message ?? 'No se pudieron crear los ejercicios.');
+            return;
+          }
+        } else {
+          const body = (await res.json()) as {
+            created: Array<{ id: string; name: string }>;
+          };
+          created = body.created;
+        }
+      }
+
+      // Solo dosis (ejercicios ya resueltos) o plan completo.
+      if (
+        plan.create.length === 0 &&
+        plan.merge.length === 0 &&
+        plan.discardKeys.length === 0
+      ) {
+        onChange(completeWeeksDoses(reviewWeeks));
+      } else {
+        onChange(applyGapPlan(reviewWeeks, plan, created));
+      }
+    } catch {
+      setGapError('No se pudo completar. Inténtalo de nuevo.');
+    } finally {
+      setCompletingGaps(false);
+    }
+  };
 
   const setTarget = (weekIdx: number, target: string | null) => {
     onChange(reviewWeeks.map((w, i) => (i === weekIdx ? { ...w, target_week_id: target } : w)));
@@ -138,6 +307,14 @@ export function ImportReviewGrid({
         i !== weekIdx
           ? w
           : { ...w, days: w.days.map((d, j) => (j === dayIdx ? { ...d, included } : d)) },
+      ),
+    );
+  };
+
+  const patchDay = (weekIdx: number, dayIdx: number, next: (day: ReviewDay) => ReviewDay) => {
+    onChange(
+      reviewWeeks.map((w, i) =>
+        i !== weekIdx ? w : { ...w, days: w.days.map((d, j) => (j === dayIdx ? next(d) : d)) },
       ),
     );
   };
@@ -190,7 +367,7 @@ export function ImportReviewGrid({
                     'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors',
                     week.included
                       ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
-                      : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]',
+                      : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent-text)] hover:border-[color:var(--v2-accent)]',
                   )}
                 >
                   <MIcon name={week.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
@@ -199,7 +376,7 @@ export function ImportReviewGrid({
 
                 {/* Fork B — explicit mapping (an excluded week needs no destination). */}
                 <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-                  <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent)]" />
+                  <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent-text)]" />
                   <span>Meter en</span>
                   <select
                     value={week.target_week_id ?? ''}
@@ -207,7 +384,7 @@ export function ImportReviewGrid({
                     disabled={!week.included}
                     className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-50"
                   >
-                    <option value="">— elige semana —</option>
+                    <option value="">(elige semana)</option>
                     {microWeeks.map((mw) => (
                       <option key={mw.id} value={mw.id}>
                         S{mw.index + 1}
@@ -239,11 +416,34 @@ export function ImportReviewGrid({
                 // week-level control governs → cells are display-only too.
                 const clickable = tone !== 'rest' && week.included;
                 const cellLabel = `${day.dow} de la semana ${week.week}`;
+                // Un día ámbar puede serlo por tres motivos MUY distintos y la
+                // píldora dice cuál, ordenados por lo que le toca hacer al coach:
+                //   1. «N sin ver» — hay trabajo que la foto no enseñó: o lo escribe
+                //      a mano o vuelve a fotografiar. Es lo único que falta de verdad.
+                //   2. «revisar»   — hay texto que no se pudo tipar: pide sus OJOS.
+                //   3. «N huecos»  — valores ya rellenados con sus defaults: solo
+                //      pide un visto bueno, así que va el último.
+                // El orden importa: con «huecos» arriba, un día con diez huecos ya
+                // tapados y dos líneas sin tipar se leía como si no quedara nada que
+                // mirar, que es justo lo contrario de la verdad.
+                const hidden = tone === 'review' ? dayHiddenCount(day) : 0;
+                const toReview = tone === 'review' ? dayReviewLineCount(day) : 0;
+                const proposed = tone === 'review' ? dayProposedFields(day).length : 0;
+                const tagLabel =
+                  hidden > 0
+                    ? `${hidden} sin ver`
+                    : toReview > 0
+                      ? TONE_TAG.review.label
+                      : proposed > 0
+                        ? `${proposed} hueco${proposed === 1 ? '' : 's'}`
+                        : tone === 'rest'
+                          ? ''
+                          : TONE_TAG[tone].label;
                 return (
                   <div
                     key={day.day_of_week}
                     className={cn(
-                      'relative flex min-h-[68px] flex-col rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] transition-colors',
+                      'relative flex min-h-[68px] flex-col rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] transition-colors',
                       TONE_CELL[tone],
                     )}
                   >
@@ -288,7 +488,7 @@ export function ImportReviewGrid({
                             TONE_TAG[tone].className,
                           )}
                         >
-                          {TONE_TAG[tone].label}
+                          {tagLabel}
                         </span>
                       ) : null}
                     </CellBody>
@@ -301,25 +501,61 @@ export function ImportReviewGrid({
       </div>
 
       <footer className="space-y-2 border-t border-[color:var(--v2-border)] px-5 py-3">
-        {error ? (
+        {error || gapError ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
             <MIcon name="error" size={14} />
-            {error}
+            {error ?? gapError}
           </p>
-        ) : unresolved > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} />
-            {unresolved === 1
-              ? '1 línea sin ejercicio del catálogo. Resuélvela para poder guardar.'
-              : `${unresolved} líneas sin ejercicio del catálogo. Resuélvelas para poder guardar.`}
-          </p>
-        ) : incomplete > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} />
-            {incomplete === 1
-              ? '1 línea dice el ejercicio pero no cuánto trabajo. Ábrela y prescríbela.'
-              : `${incomplete} líneas dicen el ejercicio pero no cuánto trabajo. Ábrelas y prescríbelas.`}
-          </p>
+        ) : unresolved > 0 || incomplete > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
+              <MIcon name="error" size={14} />
+              {unresolved > 0
+                ? unresolved === 1
+                  ? '1 línea sin ejercicio del catálogo.'
+                  : `${unresolved} líneas sin ejercicio del catálogo.`
+                : incomplete === 1
+                  ? '1 línea sin dosis ejecutable.'
+                  : `${incomplete} líneas sin dosis ejecutable.`}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {canCompleteGaps ? (
+                <button
+                  type="button"
+                  onClick={() => void completeGaps()}
+                  disabled={completingGaps || confirming}
+                  title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el microciclo."
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+                >
+                  <MIcon
+                    name={completingGaps ? 'progress_activity' : 'auto_fix'}
+                    size={14}
+                    className={completingGaps ? 'animate-spin' : undefined}
+                  />
+                  {completingGaps ? 'Completando…' : 'Completar huecos'}
+                </button>
+              ) : null}
+              {missingCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCreatingMissing(true)}
+                  disabled={completingGaps}
+                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/50 px-3 py-1 text-label font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
+                >
+                  <MIcon name="library_add" size={14} />
+                  {missingCount === 1
+                    ? 'Elegir a mano'
+                    : `Elegir a mano (${missingCount})`}
+                </button>
+              ) : null}
+            </div>
+            {canCompleteGaps ? (
+              <p className="w-full text-nano text-[color:var(--v2-muted)]">
+                Rellena ejercicios y dosis de forma genérica. Entran marcados como
+                propuestos, los ajustas en el microciclo cuando quieras.
+              </p>
+            ) : null}
+          </div>
         ) : unmapped > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
@@ -328,7 +564,7 @@ export function ImportReviewGrid({
         ) : writable === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
             <MIcon name="info" size={14} />
-            No queda ningún día seleccionado — incluye al menos uno para poder confirmar.
+            No queda ningún día seleccionado. Incluye al menos uno para poder confirmar.
           </p>
         ) : null}
 
@@ -336,8 +572,8 @@ export function ImportReviewGrid({
           <button
             type="button"
             onClick={onBack}
-            disabled={confirming}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
+            disabled={confirming || completingGaps}
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
           >
             <MIcon name="arrow_back" size={16} />
             Atrás
@@ -353,8 +589,8 @@ export function ImportReviewGrid({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!canConfirm}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+            disabled={!canConfirm || completingGaps}
+            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
           >
             <MIcon name={confirming ? 'progress_activity' : 'download_done'} size={17} />
             {confirming
@@ -366,6 +602,17 @@ export function ImportReviewGrid({
         </div>
       </footer>
 
+      {creatingMissing ? (
+        <ImportMissingExercisesPanel
+          weeks={reviewWeeks}
+          onResolved={(decisions) => {
+            onChange(applyMissingExerciseDecisions(reviewWeeks, decisions));
+            setCreatingMissing(false);
+          }}
+          onClose={() => setCreatingMissing(false)}
+        />
+      ) : null}
+
       {editing && editingDay ? (
         <ImportDayReviewDrawer
           day={editingDay}
@@ -374,6 +621,10 @@ export function ImportReviewGrid({
             setSession(editing.weekIdx, editing.dayIdx, sessionIdx, session)
           }
           onChangeIncluded={(included) => setDayIncluded(editing.weekIdx, editing.dayIdx, included)}
+          onAcceptProposals={() =>
+            patchDay(editing.weekIdx, editing.dayIdx, acceptDayProposals)
+          }
+          onAddPhoto={onAddPhoto}
           onClose={() => setEditing(null)}
         />
       ) : null}

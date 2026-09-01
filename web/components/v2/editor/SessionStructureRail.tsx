@@ -73,10 +73,10 @@ function BlockRow({
       onClick={onSelect}
       aria-current={selected}
       className={cn(
-        'v2-focus relative block w-full overflow-hidden rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] py-2 pl-3 pr-2.5 text-left transition-colors',
+        'v2-focus relative block w-full overflow-hidden rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface)] py-2 pl-3 pr-2.5 text-left transition-colors',
         selected
-          ? 'border-[color:var(--v2-accent)] ring-1 ring-[color:var(--v2-accent)]'
-          : 'border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
+          ? 'border-[1.5px] border-[color:var(--v2-accent)]'
+          : 'border border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
       )}
     >
       <span

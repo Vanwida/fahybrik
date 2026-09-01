@@ -1,31 +1,49 @@
 #!/usr/bin/env bash
-# Set production env vars for fahybrik-web on Vercel (vanwida team).
+# Template: set production env vars on a Vercel project.
 # Idempotent: skips vars that already exist (Vercel API returns 409 conflict).
-# Run only when authorized; secrets are read from ~/.openclaw/credentials/vanwida-tokens.env.
+#
+# Required env (no project/team IDs live in this repo):
+#   VERCEL_TOKEN
+#   VERCEL_PROJECT_ID
+#   VERCEL_TEAM_ID
+# Optional:
+#   VERCEL_CRED_FILE   — sourced if VERCEL_TOKEN is unset
+#   PROD_AUTH_SECRET / PROD_ENCRYPTION_KEY
+#   DATABASE_URL / FAHYBRIK_DATABASE_URL
+#   RESEND_API_KEY / RESEND_FROM_EMAIL / APP_URL
+#   NEON_PROJECT_ID / NEON_REGION / COACH_ALLOWLIST
+#
+# Run only when authorized. Do not commit values.
 set -euo pipefail
 
-CRED_FILE="${HOME}/.openclaw/credentials/vanwida-tokens.env"
-PROJECT_ID="prj_9Fj582l8dFSGZ2MeC8K1xlGYFVde"
-TEAM_ID="team_B5ilRNlseMDltM1w7xPq13aB"
+CRED_FILE="${VERCEL_CRED_FILE:-${HOME}/.openclaw/credentials/vanwida-tokens.env}"
 
-if [ ! -r "$CRED_FILE" ]; then
-  echo "missing credentials at $CRED_FILE" >&2
+if [ -z "${VERCEL_TOKEN:-}" ] && [ -r "$CRED_FILE" ]; then
+  # shellcheck disable=SC1090
+  source "$CRED_FILE"
+fi
+
+if [ -z "${VERCEL_TOKEN:-}" ]; then
+  echo "VERCEL_TOKEN is required (env or VERCEL_CRED_FILE)" >&2
   exit 1
 fi
 
-# shellcheck disable=SC1090
-source "$CRED_FILE"
-
-if [ -z "${VERCEL_TOKEN:-}" ]; then
-  echo "VERCEL_TOKEN not loaded from credentials" >&2
+PROJECT_ID="${VERCEL_PROJECT_ID:-}"
+TEAM_ID="${VERCEL_TEAM_ID:-}"
+if [ -z "$PROJECT_ID" ] || [ -z "$TEAM_ID" ]; then
+  echo "VERCEL_PROJECT_ID and VERCEL_TEAM_ID are required" >&2
   exit 1
 fi
 
 API="https://api.vercel.com/v10/projects/${PROJECT_ID}/env?teamId=${TEAM_ID}"
 
-# Generated fresh per run unless overridden.
 PROD_AUTH_SECRET="${PROD_AUTH_SECRET:-$(openssl rand -base64 32)}"
 PROD_ENCRYPTION_KEY="${PROD_ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
+PROD_DATABASE_URL="${DATABASE_URL:-${FAHYBRIK_DATABASE_URL:-}}"
+RESEND_FROM_EMAIL="${RESEND_FROM_EMAIL:-Coach <noreply@example.com>}"
+APP_URL="${APP_URL:-https://example.com}"
+COACH_ALLOWLIST="${COACH_ALLOWLIST:-coach@example.com}"
+NEON_REGION="${NEON_REGION:-}"
 
 set_env() {
   local key="$1"
@@ -64,31 +82,36 @@ print(json.dumps({
   esac
 }
 
-# --- Real values ---
-set_env DATABASE_URL "${FAHYBRIK_DATABASE_URL}" sensitive
+if [ -n "$PROD_DATABASE_URL" ]; then
+  set_env DATABASE_URL "${PROD_DATABASE_URL}" sensitive
+fi
 set_env AUTH_SECRET "${PROD_AUTH_SECRET}" sensitive
-set_env RESEND_API_KEY "${RESEND_API_KEY}" sensitive
+if [ -n "${RESEND_API_KEY:-}" ]; then
+  set_env RESEND_API_KEY "${RESEND_API_KEY}" sensitive
+fi
 set_env ENCRYPTION_KEY "${PROD_ENCRYPTION_KEY}" sensitive
 
-# --- Plain config (non-secret) ---
-set_env NEON_PROJECT_ID "fancy-glitter-28293061" plain
-set_env NEON_REGION "aws-eu-central-1" plain
-set_env RESEND_FROM_EMAIL "Fahybrik <noreply@fahybrik.com>" plain
-set_env APP_URL "https://fahybrik.com" plain
-set_env COACH_ALLOWLIST "pablo@fabrik.training" plain
-set_env LLM_PROVIDER "" plain
-set_env LLM_EMBEDDING_MODEL "" plain
+if [ -n "${NEON_PROJECT_ID:-}" ]; then
+  set_env NEON_PROJECT_ID "${NEON_PROJECT_ID}" plain
+fi
+if [ -n "$NEON_REGION" ]; then
+  set_env NEON_REGION "${NEON_REGION}" plain
+fi
+set_env RESEND_FROM_EMAIL "${RESEND_FROM_EMAIL}" plain
+set_env APP_URL "${APP_URL}" plain
+set_env COACH_ALLOWLIST "${COACH_ALLOWLIST}" plain
+set_env LLM_PROVIDER "${LLM_PROVIDER:-}" plain
+set_env LLM_EMBEDDING_MODEL "${LLM_EMBEDDING_MODEL:-}" plain
 
-# --- Placeholders pending external setup (empty strings allowed) ---
-set_env APPLE_CLIENT_ID "" plain
-set_env LLM_API_KEY "" sensitive
-set_env GARMIN_CONSUMER_KEY "" sensitive
-set_env GARMIN_CONSUMER_SECRET "" sensitive
-set_env GARMIN_CALLBACK_URL "" plain
-set_env APNS_TEAM_ID "" plain
-set_env APNS_KEY_ID "" plain
-set_env APNS_PRIVATE_KEY "" sensitive
-set_env APNS_BUNDLE_ID "" plain
+set_env APPLE_CLIENT_ID "${APPLE_CLIENT_ID:-}" plain
+set_env LLM_API_KEY "${LLM_API_KEY:-}" sensitive
+set_env GARMIN_CONSUMER_KEY "${GARMIN_CONSUMER_KEY:-}" sensitive
+set_env GARMIN_CONSUMER_SECRET "${GARMIN_CONSUMER_SECRET:-}" sensitive
+set_env GARMIN_CALLBACK_URL "${GARMIN_CALLBACK_URL:-}" plain
+set_env APNS_TEAM_ID "${APNS_TEAM_ID:-}" plain
+set_env APNS_KEY_ID "${APNS_KEY_ID:-}" plain
+set_env APNS_PRIVATE_KEY "${APNS_PRIVATE_KEY:-}" sensitive
+set_env APNS_BUNDLE_ID "${APNS_BUNDLE_ID:-}" plain
 
 echo
 echo "Done. Listing keys actually present in production:"

@@ -26,6 +26,15 @@ import UIKit
 struct ErgHUDContent: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
+    /// The workout's manual close, LANDSCAPE ONLY (portrait keeps its own bottom
+    /// button outside this view). It used to live in a 132 pt column of its own,
+    /// which squeezed this HUD sideways — the hero split sat off-centre and the
+    /// column truncated its own label. The normal close is the machine crossing
+    /// the goal, so the manual one is an emergency exit: it ends the rail column
+    /// instead of presiding over a column of its own, and that width goes back
+    /// to the numbers. Ver el doble (vivo-erg/regata.tsx, «NO hay columna de
+    /// acción»).
+    var salida: AnyView? = nil
     @Environment(\.verticalSizeClass) private var vSizeClass
     private var isLandscape: Bool { vSizeClass == .compact }
 
@@ -67,23 +76,28 @@ struct ErgHUDContent: View {
     private var countInBody: some View {
         VStack(spacing: 6) {
             Spacer(minLength: 0)
-            Text("\(Int(session.tramoCountInRemaining.rounded(.up)))")
-                .font(.system(size: isLandscape ? 150 : 190, weight: .heavy, design: .monospaced)
-                    .monospacedDigit())
-                .foregroundStyle(Theme.Color.accentText)
-                .lineLimit(1).minimumScaleFactor(0.4)
-                .contentTransition(.numericText())
-            if let work = tramo.workLine {
-                Text(work.uppercased())
-                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                    .tracking(1)
-                    .foregroundStyle(Theme.Color.foreground)
+            // The count and its work line read as ONE thing to VoiceOver; the skip
+            // button stays outside the ignored group or it stops existing for it.
+            VStack(spacing: 6) {
+                Text("\(Int(session.tramoCountInRemaining.rounded(.up)))")
+                    .font(.system(size: isLandscape ? 150 : 190, weight: .heavy, design: .monospaced)
+                        .monospacedDigit())
+                    .foregroundStyle(Theme.Color.accentText)
+                    .lineLimit(1).minimumScaleFactor(0.4)
+                    .contentTransition(.numericText())
+                if let work = tramo.workLine {
+                    Text(work.uppercased())
+                        .font(.system(size: 20, weight: .heavy, design: .default).italic())
+                        .tracking(1)
+                        .foregroundStyle(Theme.Color.foreground)
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Empieza en \(Int(session.tramoCountInRemaining.rounded(.up)))")
             Spacer(minLength: 0)
+            if let salida { salida.frame(width: 200) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Empieza en \(Int(session.tramoCountInRemaining.rounded(.up)))")
     }
 
     // MARK: - No monitor
@@ -110,6 +124,10 @@ struct ErgHUDContent: View {
                 Text("\(Int(covered)) m antes de perder el monitor")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.Color.muted)
+            } else if let cals = session.tramoErgCalories, cals >= 1 {
+                Text("\(cals) cal antes de perder el monitor")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.muted)
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
@@ -124,6 +142,15 @@ struct ErgHUDContent: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.Color.warningTint)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            // Sin monitor el toque es el ÚNICO cierre posible, así que aquí la
+            // salida no es el plan B — pero sigue abajo a la derecha, donde vive
+            // la acción en las dos orientaciones.
+            if let salida {
+                HStack {
+                    Spacer(minLength: 0)
+                    salida.frame(width: 220)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -218,6 +245,9 @@ struct ErgHUDContent: View {
             VStack(spacing: 8) {
                 workRail
                 Spacer(minLength: 0)
+                // The manual close ends the column, it does not preside over it:
+                // the normal path is the machine crossing the goal.
+                if let salida { salida }
             }
             .frame(width: 128)
         }
@@ -312,7 +342,10 @@ struct ErgHUDContent: View {
                     "\(Int(covered)) / \(Int(target)) m",
                     min(1, covered / target), left <= 0)
         }
-        if let target = tramo.targetCalories, let covered = session.tramoErgCalories {
+        if let target = tramo.targetCalories {
+            // Default 0 until the first sample — same as metres. Requiring a non-nil
+            // reading hid the whole goal bar on cal pieces (0x33 is slower than distance).
+            let covered = session.tramoErgCalories ?? 0
             let left = max(0, target - covered)
             return ("\(left)", "cal", "\(covered) / \(target) cal",
                     min(1, Double(covered) / Double(target)), left <= 0)

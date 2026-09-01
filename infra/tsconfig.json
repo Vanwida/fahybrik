@@ -22,8 +22,13 @@
     "types": ["node"]
   },
   "include": ["scripts/**/*.ts"],
-  // seed_demo_coaches.ts deliberately reuses the real WEB services via the web
-  // `@/` alias (resolved by web/tsconfig.json at runtime, not infra's). It is
-  // run with `--tsconfig ../web/tsconfig.json`, so exclude it from infra's tsc.
-  "exclude": ["scripts/seed_demo_coaches.ts"]
+  // Estos scripts reutilizan a propósito los SERVICIOS de web por el alias `@/`
+  // (lo resuelve web/tsconfig.json en tiempo de ejecución, no el de infra). Se
+  // lanzan con `--tsconfig ../web/tsconfig.json`, así que quedan fuera del tsc
+  // de infra y los comprueba el de web.
+  "exclude": [
+    "scripts/seed_demo_coaches.ts",
+    "scripts/seed_demo_draft_week.ts",
+    "scripts/backfill_zone_seconds.ts"
+  ]
 }

@@ -23,6 +23,13 @@ final class OutdoorRunHUDModel {
     // Live values the view renders (observed).
     private(set) var coordinates: [CLLocationCoordinate2D] = []
     private(set) var gpsQuality: GPSSignalQuality = .searching
+    // NO UNIFICADO A PROPÓSITO (card 101, ago-2026): esto es una media móvil de 10 s
+    // sobre la velocidad instantánea del GPS (`RunPaceSmoother`, abajo). La muñeca
+    // (y `WorkoutSession.liveCoveredPaceSecPerKm`) enseñan otra cosa: un ritmo MEDIO
+    // del tramo — metros del tramo / segundos del tramo. Son dos ritmos legítimos
+    // calculados distinto; reloj y móvil pueden discrepar en el mismo segundo sin
+    // que ninguno esté mal. Si algún día se decide unificarlos, el otro sitio a
+    // tocar es `WorkoutSession+Accessors.swift`.
     private(set) var livePaceSecPerKm: Int?
     /// The CURRENT leg's covered distance (m), for the "1,4 / 2,0 km" readout.
     private(set) var legCoveredMeters: Double = 0
@@ -59,10 +66,21 @@ final class OutdoorRunHUDModel {
             routePoints = PolylineCodec.decode(existing)
             coordinates = routePoints.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         }
-        gps.onDistanceDelta = { [weak self] meters in self?.session.sampleRunGPS(deltaMeters: meters) }
+        // Sin `onDistanceDelta`: los metros los cuenta Apple (`RunPedometer`, montado
+        // en la vista activa y vivo toda la sesión). Esta pantalla usa el GPS para el
+        // RECORRIDO y para la velocidad que suaviza el ritmo en vivo, nada más.
         gps.onSpeed = { [weak self] speed, acc in
             guard let self else { return }
             self.smoother.ingest(speedMps: speed, speedAccuracyMps: acc, now: self.now)
+            // Al suavizador va lo que se PINTA (una media móvil de 10 s); a la traza,
+            // lo que se MIDIÓ. Guardar el ritmo suavizado sería archivar nuestra
+            // interpretación, y quien lea la serie ya no podría suavizar a su manera.
+            self.session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: acc)
+        }
+        // El barómetro necesita que alguien le diga dónde está el cero, y el único que
+        // lo sabe es el GPS. Mientras esta pantalla mande, lo dice ella.
+        gps.onAltitude = { meters, accuracy in
+            RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
         }
         gps.onCoordinate = { [weak self] coord in
             self?.coordinates.append(coord)
@@ -74,9 +92,15 @@ final class OutdoorRunHUDModel {
         displayTimer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        // Mientras esta pantalla mire la velocidad, ELLA es quien puede auto-pausar.
+        // La sesión lleva la cuenta y libera sola cuando el último se va.
+        session.beginAutoPauseEvaluation()
     }
 
     func teardown() {
+        // Antes que nada: dejar de vigilar. Si el atleta cerró esto parado en un
+        // semáforo, la sesión no puede quedarse pausada sin nadie que la despierte.
+        session.endAutoPauseEvaluation()
         displayTimer?.invalidate(); displayTimer = nil
         gps.setBackgroundUpdates(false)   // stop background GPS the moment the run closes (battery)
         gps.stop()
@@ -178,9 +202,18 @@ final class OutdoorRunHUDModel {
     }
 
     /// The CURRENT leg's covered distance: baseline-adjusted per structured leg
-    /// (RunLegProgress discards a prior leg's overshoot), else the whole segment.
+    /// (RunLegProgress discards a prior leg's overshoot). UN-structured is NOT
+    /// always "the whole segment" any more: a mixed block (Run 1.000 · SkiErg 500 ·
+    /// Run 1.000 · …) folds to one segment, so `coveredMeters` (the raw GPS total)
+    /// would show the third run station arriving at 2.000-y-pico instead of 0.
+    /// `session.tramoRunCoveredMeters` is the tramo-anchored twin — same anchor
+    /// `tramoErgStartDistance`/`tramoBeltStartDistance` already use — so it starts
+    /// each running station at zero on its own. On a plain single-tramo run
+    /// segment the anchor is zero and the number is identical to `coveredMeters`.
     private func coveredLegMeters() -> Double {
-        isStructured ? legProgress.covered(segmentCoveredMeters: coveredMeters) : coveredMeters
+        isStructured
+            ? legProgress.covered(segmentCoveredMeters: coveredMeters)
+            : (session.tramoRunCoveredMeters ?? 0)
     }
 
     // MARK: Auto-pause
@@ -251,10 +284,12 @@ final class OutdoorRunHUDModel {
 
     private func contentState() -> RunActivityAttributes.ContentState {
         RunActivityAttributes.ContentState(
-            // Sin ritmo medido, la pantalla bloqueada dice POR QUÉ no lo hay — la
-            // misma razón que ya da el HUD debajo del sujeto. Un guion en la isla
-            // dinámica es la misma mentira que un guion en la app (§7).
-            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? gpsQuality.label,
+            // Sin ritmo medido este campo va VACÍO y el widget cambia de sujeto al
+            // tiempo. Antes se colaba aquí `gpsQuality.label` y salía «RITMO · GPS
+            // fuerte /km». Y además de estar en el sitio equivocado, no le sirve de
+            // nada al atleta: que el GPS vaya bien es el estado normal, y un estado
+            // normal no se anuncia — sólo se avisa cuando FALTA algo.
+            paceLabel: livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) } ?? "",
             legLabel: isStructured ? "Tramo \(legNumber)/\(legTotal)" : "",
             distanceLabel: Formato.distanciaCubierta(coveredMeters) ?? "0 m",
             timeLabel: Formato.clock(session.elapsedSeconds, anchoFijo: true),

@@ -77,6 +77,14 @@ export const SIGNAL_KINDS = [
   // Operational (extracted from inbox.ts listInboxAlerts)
   'billing_at_risk',
   'test_due',
+  // Comunicados del coach (docs/DECISIONS.md, 2026-08-09). Lo que el coach
+  // publicó y el atleta no ha cerrado: una pregunta sin responder deja el plan a
+  // medio cerrar, una tarea vencida es trabajo que no se hizo, y un protocolo sin
+  // abrir con la carrera encima es un protocolo que no va a servir. El comunicado
+  // ya sabe si sigue reclamando (claimsAttention); esto lo sube a /hoy.
+  'communication_question_unanswered',
+  'communication_task_overdue',
+  'communication_protocol_unopened',
   // Revisión 1:1 recurrente vencida (#21): el atleta lleva más días que su cadencia
   // (mensual/trimestral) sin una 1:1 y no tiene una revisión próxima reservada. Silenciada
   // para atletas pausados/baja (#13) — el batch de recompute filtra lifecycle_status='activo'.
@@ -153,7 +161,13 @@ export interface SignalFacts {
 
   // Programming
   /** Programming health from getAthleteProgrammingStatus. */
-  programming_status: 'ok' | 'no_month' | 'pending_proposal' | 'empty_week' | 'month_2_pending';
+  programming_status:
+    | 'ok'
+    | 'no_month'
+    | 'pending_proposal'
+    | 'empty_week'
+    | 'month_2_pending'
+    | 'block_ended';
   programming_label: string | null;
   programming_detail: string | null;
   /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */
@@ -217,7 +231,37 @@ export interface SignalFacts {
   days_since_last_1on1: number | null;
   /** Ya hay una revisión próxima reservada (cita futura pendiente|aceptada) → no vence. */
   has_upcoming_review: boolean;
+
+  // Comunicados del coach (docs/DECISIONS.md, 2026-08-09).
+  //
+  // ANIDADOS Y NO PLANOS, a propósito: las tres señales comparten UNA forma
+  // (cuál manda · qué dice · cuántos días · cuántos más igual), así que
+  // aplanarlas serían los mismos cuatro campos escritos tres veces. `null` = ese
+  // tipo no le reclama nada, que es el caso común.
+  /** La pregunta publicada sin responder más antigua. */
+  communication_question: CommunicationClaim<{ blocks: boolean }> | null;
+  /** La tarea vencida sin hacer con más retraso. */
+  communication_task: CommunicationClaim | null;
+  /** El protocolo sin abrir cuyo evento anclado cae antes. */
+  communication_protocol: CommunicationClaim<{ anchor: 'race' | 'test' }> | null;
 }
+
+/**
+ * Un comunicado que le reclama algo al atleta, resumido para la señal.
+ *
+ * `days` significa lo que la señal mide: días publicada sin responder, días de
+ * retraso de una tarea, o días QUE FALTAN hasta el evento de un protocolo. Cada
+ * evaluador dice cuál en su detalle; el signo lo fija quien monta los hechos.
+ */
+export type CommunicationClaim<Extra = unknown> = {
+  /** Id del comunicado que manda la señal — su identidad para el dedupe. */
+  id: string;
+  /** Título tal y como lo escribió el coach. */
+  title: string;
+  days: number;
+  /** Cuántos comunicados más del mismo tipo le reclaman lo mismo. */
+  others: number;
+} & Extra;
 
 // ── Result (the per-fired-signal output) ──────────────────────────────────────
 

@@ -22,7 +22,7 @@ import type {
   Target,
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
-import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
+import { isScalarTarget, setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import {
   blockMeasureOf,
   defaultMeasureForModality,
@@ -91,6 +91,33 @@ export function axisToDomainModality(
   return AXIS_TO_DOMAIN_DEFAULT[axis];
 }
 
+/**
+ * La modalidad de una SESIÓN entera, leída de las modalidades de sus ejercicios.
+ *
+ * La modalidad es intrínseca al ejercicio (mig 0053), así que una sesión no hay
+ * que adivinarla: se lee. Reglas, sin un solo umbral — un umbral sería método
+ * del coach y esto es mecanismo:
+ *   · las 9 del dominio colapsan al eje de color con `modalityColorSlug`, así
+ *     que remo + ski no son dos cosas: son «Ergómetro».
+ *   · el trabajo accesorio (core / movilidad) no define la sesión — un rodaje
+ *     con movilidad al final sigue siendo Carrera. Solo manda cuando es lo único.
+ *   · si queda una sola → esa. Si quedan varias → 'mixta': una simulación HYROX
+ *     es carrera Y estaciones, y elegir una de las dos sería mentir.
+ *   · sin ejercicios que leer → null, y quien llama decide qué hacer con eso.
+ */
+export type SessionModality = V2Modality | 'mixta';
+
+export function sessionModalityFromExercises(
+  modalities: readonly (Modality | string | null | undefined)[],
+): SessionModality | null {
+  const slugs = new Set<V2Modality>();
+  for (const m of modalities) if (m) slugs.add(modalityColorSlug(m as Modality));
+  if (slugs.size === 0) return null;
+  if (slugs.size > 1) slugs.delete('calentamiento');
+  const [only] = slugs;
+  return slugs.size === 1 && only ? only : 'mixta';
+}
+
 /** Map a domain modality to the v2 modality color axis (left-border / dot). */
 export function modalityColorSlug(m: Modality | undefined): V2Modality {
   switch (m) {
@@ -147,6 +174,10 @@ export const OBJETIVO_LABEL: Record<TargetKind, string> = {
   hr_bpm: 'FC',
   calories: 'Cal',
   watts: 'Vatios',
+  // No es un pestaña propia (card 130): un objetivo relativo lo escribe la
+  // plantilla, no este selector de tres ejes — llega solo por dato ya guardado
+  // (import/AI), y esta etiqueta es lo que se lee ahí, nunca una opción del tab.
+  relative: 'Relativo',
 };
 
 /** Objective kinds per coach tab — order = default-first (sketch ① ② ③ axes). */
@@ -263,8 +294,10 @@ export function applyObjetivo(p: Prescription, kind: TargetKind): Prescription {
 
 function currentScalar(p: Prescription): number | undefined {
   const t = p.scheme === 'sets' ? firstSetTarget(p) : prescriptionBlockTarget(p);
-  if (!t || t.kind === 'bodyweight') return undefined;
+  if (!t) return undefined;
   if (t.kind === 'pace' || t.kind === 'time_cap') return t.value_s ?? t.min_s ?? t.max_s;
+  // bodyweight y relative no llevan cifra que arrastrar al cambiar de eje.
+  if (!isScalarTarget(t)) return undefined;
   return t.value ?? t.min ?? t.max;
 }
 
@@ -278,6 +311,11 @@ function defaultMeasureOfKind(kind: MeasureKind): Measure {
       return { kind: 'duration', seconds: 600 };
     case 'calories':
       return { kind: 'calories', value: 15 };
+    // Not offered by MEDIDA_OPTIONS below (a coach composing from scratch
+    // always states a number) — reachable only as an IMPORTED set's existing
+    // kind, which carries no fields to default.
+    case 'reps_to_failure':
+      return { kind: 'reps_to_failure' };
   }
 }
 

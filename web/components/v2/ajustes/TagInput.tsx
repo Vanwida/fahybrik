@@ -63,7 +63,7 @@ export function TagInput({
         {values.map((tag, i) => (
           <span
             key={`${tag}-${i}`}
-            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2 py-0.5 text-xs font-semibold text-[color:var(--v2-accent)]"
+            className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2 py-0.5 text-xs font-semibold text-[color:var(--v2-accent-text)]"
           >
             {tag}
             <button
@@ -99,7 +99,7 @@ export function TagInput({
               className={cn(
                 'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)]',
                 'px-2 py-0.5 text-xs font-medium text-[color:var(--v2-muted)]',
-                'hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]',
+                'hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]',
               )}
             >
               <MIcon name="add" size={13} />

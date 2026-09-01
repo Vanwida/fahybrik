@@ -8,8 +8,8 @@
 // from the "alta sin revisar" lane, and materialises the first microciclo in DRAFT.
 //
 // AGNOSTIC: the LEVEL decision reuses ClasificacionCard (coach-owned athlete_levels,
-// the same control as PerfilTab); block structure uses the coach's suggested
-// microciclo names. Nothing here hardcodes a method (no phase catalogue, no fixed level labels).
+// the same control as PerfilTab). The plan-mode step only asks shared vs personal —
+// it does not invent a microciclo skeleton. Nothing here hardcodes a method.
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -22,15 +22,15 @@ import { IntakeRaces } from '@/components/v2/intake/IntakeRaces';
 import {
   AssignBar,
   BaselineTestsStep,
-  BlockStructureStep,
   EventAnchorStep,
   StepShell,
   WarningsStep,
   WelcomeNotesStep,
   type GateCheck,
 } from '@/components/v2/intake/IntakeSteps';
+import { BlockStructureStep } from '@/components/v2/intake/IntakeBlockStructure';
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
-import type { IntakeBlockSpec } from '@fahybrid/shared/schema/coach-intake';
+import { INTAKE_PLAN_MODE_DEFAULT, type IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
 
 const EVENT_WARNING_KINDS = new Set(['a_event_invalid', 'a_event_close']);
@@ -58,9 +58,9 @@ export function IntakeReview({
   const alreadyReviewed = athlete.intake_completed_at != null;
 
   // ── Form state (defaults seeded from the auto-suggestions) ────────────────────
-  const [blockSpecs, setBlockSpecs] = useState<IntakeBlockSpec[]>(() =>
-    suggestions.block_specs.map((b) => ({ ...b })),
-  );
+  // De qué nace el plan: la periodización que el coach ya tiene montada (defecto,
+  // el comportamiento de siempre) o una cadena de microciclos solo para él.
+  const [planMode, setPlanMode] = useState<IntakePlanMode>(INTAKE_PLAN_MODE_DEFAULT);
   const [includedTests, setIncludedTests] = useState<Set<string>>(
     () => new Set(suggestions.baseline_tests.map((t) => t.slug)),
   );
@@ -86,7 +86,6 @@ export function IntakeReview({
   const checks: GateCheck[] = [
     { key: 'evento', label: 'Evento', state: eventOk ? 'ok' : 'blocked' },
     { key: 'nivel', label: 'Nivel', state: nivelOk ? 'ok' : 'pending' },
-    { key: 'estructura', label: 'Estructura', state: 'ok' },
     {
       key: 'avisos',
       label: `Avisos ${manualWarnings.filter((w) => acknowledged.has(w.kind)).length}/${manualWarnings.length}`,
@@ -95,9 +94,6 @@ export function IntakeReview({
     { key: 'bienvenida', label: 'Bienvenida', state: 'ok' },
   ];
 
-  function changeWeeks(index: number, weeks: number) {
-    setBlockSpecs((prev) => prev.map((b, i) => (i === index ? { ...b, weeks } : b)));
-  }
   function toggleTest(slug: string) {
     setIncludedTests((prev) => {
       const next = new Set(prev);
@@ -116,7 +112,7 @@ export function IntakeReview({
     setError(null);
     const body = {
       target_event_id: target_event.event_id,
-      block_specs: blockSpecs,
+      plan_mode: planMode,
       // Numeric snapshot level (1-4) — the algorithm's reading; the functional,
       // agnostic level is the catalog level set via ClasificacionCard above.
       level: suggestions.level,
@@ -163,14 +159,14 @@ export function IntakeReview({
         <div className="flex items-center gap-2">
           <Link
             href={`/atletas/${athleteId}?tab=plan`}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
             Ver plan del atleta
             <MIcon name="arrow_forward" size={15} />
           </Link>
           <Link
             href="/altas"
-            className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
           >
             Volver a altas
           </Link>
@@ -203,7 +199,7 @@ export function IntakeReview({
       <header className="flex flex-wrap items-center gap-3">
         <AthleteAvatar name={athlete.full_name} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="v2-micro text-[color:var(--v2-accent)]">Intake pendiente de revisión</span>
+          <span className="v2-micro text-[color:var(--v2-accent-text)]">Intake pendiente de revisión</span>
           <h1 className="v2-display text-2xl text-[color:var(--v2-fg)] sm:text-3xl">
             {athlete.full_name}
           </h1>
@@ -234,7 +230,7 @@ export function IntakeReview({
           <StepShell n={2}>
             <div className="flex flex-col gap-2">
               <ClasificacionCard athleteId={athleteId} data={classification} />
-              {month_proposal ? (
+              {planMode === 'shared' && month_proposal ? (
                 <p className="flex items-start gap-1.5 px-0.5 text-label text-[color:var(--v2-faint)]">
                   <MIcon name="auto_awesome" size={13} className="mt-px" />
                   <span>
@@ -246,12 +242,7 @@ export function IntakeReview({
           </StepShell>
 
           <StepShell n={3}>
-            <BlockStructureStep
-              specs={blockSpecs}
-              emphasis={suggestions.block_emphasis}
-              endDateIso={target_event?.iso_date ?? null}
-              onChangeWeeks={changeWeeks}
-            />
+            <BlockStructureStep mode={planMode} onChangeMode={setPlanMode} />
           </StepShell>
 
           <StepShell n={4}>
@@ -298,6 +289,11 @@ export function IntakeReview({
         canAssign={canAssign}
         submitting={submitting}
         error={error}
+        readyHint={
+          planMode === 'personal'
+            ? 'No se crea ningún microciclo todavía. Los escribes tú desde su plan.'
+            : 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
+        }
         onAssign={assign}
       />
     </div>

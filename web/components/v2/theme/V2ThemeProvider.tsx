@@ -10,24 +10,28 @@
 // client snapshot reflects the stored value, and a storage subscription keeps the
 // theme in sync across tabs. The inline V2ThemeScript additionally sets the
 // attribute pre-paint so there is no flash before hydration.
+//
+// El acento es la piel del club (familia clara u oscura según el tema), no el
+// naranja de sistema. Vacío = el cromo FLEXR neutro del CSS.
 
 import {
   createContext,
   useCallback,
   useContext,
   useSyncExternalStore,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
+import { clubAccentCssVars } from '@fahybrid/shared/domain/coach/club-skin';
+import { cn } from '@/lib/utils';
 import {
   V2_THEME_STORAGE_KEY,
   V2_THEME_DEFAULT,
+  resolveV2Theme,
   type V2Theme,
 } from './theme-config';
 
-// Re-export the theme config so existing importers (components/v2/index.ts) keep
-// working. The plain values live in ./theme-config so the server V2ThemeScript
-// can import the real strings (this module is 'use client').
-export { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT } from './theme-config';
+export { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT, resolveV2Theme } from './theme-config';
 export type { V2Theme } from './theme-config';
 
 interface V2ThemeContextValue {
@@ -38,38 +42,36 @@ interface V2ThemeContextValue {
 
 const V2ThemeContext = createContext<V2ThemeContextValue | null>(null);
 
-// ── External store (localStorage + prefers-color-scheme) ──────────────────────
-
-/** Subscribe to cross-tab storage changes so the theme stays in sync. */
 function subscribe(onChange: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
   window.addEventListener('storage', onChange);
   return () => window.removeEventListener('storage', onChange);
 }
 
-/** Client snapshot: stored value → system preference → default. */
 function getClientTheme(): V2Theme {
   const stored = window.localStorage.getItem(V2_THEME_STORAGE_KEY);
-  if (stored === 'dark' || stored === 'light') return stored;
-  if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
-  return V2_THEME_DEFAULT;
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  return resolveV2Theme(stored, prefersDark);
 }
 
-/** Server snapshot: always the default (deterministic SSR, no mismatch). */
 function getServerTheme(): V2Theme {
   return V2_THEME_DEFAULT;
 }
 
-export function V2ThemeProvider({ children }: { children: ReactNode }) {
-  // The store is read-only here; writes (setTheme/toggle) persist to localStorage
-  // and dispatch a storage-like update so useSyncExternalStore re-reads.
+export function V2ThemeProvider({
+  children,
+  className,
+  accentHex,
+}: {
+  children: ReactNode;
+  className?: string;
+  accentHex?: string | null;
+}) {
   const theme = useSyncExternalStore(subscribe, getClientTheme, getServerTheme);
 
   const persist = useCallback((next: V2Theme) => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(V2_THEME_STORAGE_KEY, next);
-    // The native 'storage' event only fires in OTHER tabs, so dispatch one here
-    // to notify this tab's subscribers and force a snapshot re-read.
     window.dispatchEvent(new StorageEvent('storage', { key: V2_THEME_STORAGE_KEY, newValue: next }));
   }, []);
 
@@ -79,22 +81,23 @@ export function V2ThemeProvider({ children }: { children: ReactNode }) {
     [persist, theme],
   );
 
+  // La piel del club sirve las DOS familias (clara y oscura) y es `v2-theme.css`
+  // quien elige según `data-theme`. Así el acento correcto está pintado ya en el
+  // primer fotograma, sin depender de que React sepa el tema: en servidor el tema
+  // aún no se conoce, y elegirlo aquí dejaba un parpadeo al hidratar.
+  const accentStyle = clubAccentCssVars(accentHex) as CSSProperties;
+
   return (
     <V2ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      {/* The single scoped root — data-theme drives every v2 token. */}
-      <div className="v2-root" data-theme={theme}>
+      <div className={cn('v2-root', className)} data-theme={theme} style={accentStyle}>
         {children}
       </div>
     </V2ThemeContext.Provider>
   );
 }
 
-/** Access the v2 theme. Throws if used outside the provider (caller error). */
 export function useV2Theme(): V2ThemeContextValue {
   const ctx = useContext(V2ThemeContext);
   if (!ctx) throw new Error('useV2Theme must be used within <V2ThemeProvider>');
   return ctx;
 }
-
-// V2ThemeScript moved to ./V2ThemeScript.tsx (must be a server component so the
-// inline pre-paint <script> actually executes; a 'use client' module can't run it).

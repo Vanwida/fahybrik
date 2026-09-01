@@ -17,6 +17,11 @@ struct ExecutedWorkoutView: View {
     let assignmentId: String
     let fallbackTitle: String?
     let bearer: String?
+    /// Las zonas de pulso del atleta. Solo las usa la lectura de una carrera, para
+    /// teñir el lienzo con el pulso medio y para nombrar una banda de pulso. Nil =
+    /// el atleta no tiene zonas medidas, y entonces no se pinta color ninguno: el
+    /// color es dato y no se inventa.
+    var hrZones: HRZoneProfile? = nil
     let onClose: () -> Void
     /// Fired when the detail fetch reports the assignment no longer resolves
     /// (HTTP 404): the id the app held is STALE — the plan changed server-side —
@@ -26,6 +31,9 @@ struct ExecutedWorkoutView: View {
     var onStale: (() -> Void)? = nil
 
     @State private var detail: AssignmentDetail?
+    /// Índice de técnica de la sesión (el mismo que abre el plan): vídeo,
+    /// consejos, descripción y nota del coach, ejercicio a ejercicio.
+    @State private var showTechnique = false
     @State private var loadFailed = false
     /// The CONCRETE cause behind `loadFailed` (HTTP status / decode error / network),
     /// shown under the headline and logged — so a real failure is never anonymous.
@@ -43,19 +51,62 @@ struct ExecutedWorkoutView: View {
     private static let maxFetchAttempts = 3
     private static let retryBackoff: [Duration] = [.milliseconds(400), .milliseconds(900)]
 
+    /// LA CARRERA QUE HAY EN ESTE DETALLE, si la hay.
+    ///
+    /// Una carrera terminada no se lee como se lee una sesión de hierro, y por eso
+    /// tiene pantalla propia (`LecturaDeCarreraView`): la pregunta que trae el
+    /// atleta no es «¿qué números salieron?» sino «¿hice lo que me pidieron?», y
+    /// esa la contesta el veredicto que el servidor ya juzgó. Nil = esto no es una
+    /// carrera, y entonces manda la lectura genérica de siempre.
+    ///
+    /// Se guarda en estado y no se recalcula en cada `body`: decodificarla recorre
+    /// los tramos, los kilómetros y hasta 600 puntos de cada señal, y SwiftUI
+    /// reevalúa el cuerpo muchas más veces de las que cambia el detalle.
+    @State private var lecturaDeCarrera: Carrera?
+
+    /// LA SESIÓN QUE HAY EN ESTE DETALLE, cuando NO es una carrera (card 124).
+    ///
+    /// Sustituye a `generico` en cuanto hay un detalle cargado: la cabecera con
+    /// su icono de tipo, los totales, la gráfica de pulso, el mapa y el
+    /// desglose bloque a bloque son justo lo que `generico` iba construyendo a
+    /// mano, sección a sección — esto es la versión con contrato firmado
+    /// (`docs/CONTRATO-UI.md`, card 124). Nil mientras no hay ejecución que leer
+    /// (cargando, o falló): en esos dos casos `generico` sigue mostrando su
+    /// estado de siempre.
+    @State private var lecturaDeSesion: SesionEjecutada?
+
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-            if let detail {
-                content(detail)
-            } else if loadFailed {
-                failed
+        Group {
+            if let carrera = lecturaDeCarrera {
+                // La lectura trae su propio cromo (título y día) y su propia
+                // salida anclada, así que ocupa la pantalla entera: dos barras
+                // superiores y dos formas de cerrar competirían entre ellas.
+                LecturaDeCarreraView(carrera: carrera, zonas: hrZones, onCerrar: onClose)
+            } else if let sesion = lecturaDeSesion {
+                LecturaDeSesionView(sesion: sesion, zonas: hrZones, onCerrar: onClose)
             } else {
-                loading
+                generico
             }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        .onChange(of: detail, initial: true) { _, nuevo in
+            lecturaDeCarrera = nuevo.flatMap {
+                LecturaDeCarreraDesdeDetalle.carrera(
+                    de: $0, zonas: hrZones, tituloAlternativo: fallbackTitle
+                )
+            }
+            lecturaDeSesion = lecturaDeCarrera != nil ? nil : nuevo.flatMap {
+                LecturaDeSesionDesdeDetalle.sesion(de: $0, tituloAlternativo: fallbackTitle)
+            }
+        }
         .task { await load() }
+        .sheet(isPresented: $showTechnique) {
+            SessionExercisesSheet(
+                assignmentId: assignmentId,
+                sessionTitle: detail?.workout?.name ?? fallbackTitle ?? "Entreno",
+                bearer: bearer
+            )
+        }
         .fullScreenCover(isPresented: $showCapture) {
             WorkoutCaptureView(
                 assignmentId: assignmentId,
@@ -69,6 +120,21 @@ struct ExecutedWorkoutView: View {
                     Task { await reload() }
                 }
             )
+        }
+    }
+
+    /// La lectura de siempre, para todo lo que no es correr: barra superior con el
+    /// título y la salida, y debajo el detalle por modalidad. No se ha tocado.
+    private var generico: some View {
+        VStack(spacing: 0) {
+            topBar
+            if let detail {
+                content(detail)
+            } else if loadFailed {
+                failed
+            } else {
+                loading
+            }
         }
     }
 
@@ -144,6 +210,10 @@ struct ExecutedWorkoutView: View {
                     notesCard(notes)
                 }
                 provenanceCard
+                // Un entreno hecho es justo cuando el atleta se pregunta si lo
+                // hizo bien: la técnica de cada ejercicio se abre desde aquí, con
+                // la misma ficha del plan, en vez de obligarle a volver al día.
+                if hasExercises { techniqueEntry }
                 // Only offered when there's something it could actually add. On a
                 // session a PM5 already fed, inviting a screenshot of another app
                 // is noise next to better data we already hold.
@@ -418,9 +488,19 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    // "Remo · 2000 m" / "Ski" — modality label plus the covered distance when known.
+    // "Remo · 2000 m" / "SkiErg" — the SPECIFIC machine, not `Theme.Modality.label`'s
+    // day-dot bucket. That bucket deliberately merges row/ski/bike into one
+    // "ergómetro" hue for the plan legend (see Theme.swift) — reused here it made a
+    // remo minute and a ski minute in the same EMOM read identically, so the athlete
+    // could no longer tell which round was which (26-jul: "aquí el 4 no sé qué era").
+    // The wire modality ("row"/"ski"/"bike") is preserved end to end; only the LABEL
+    // was collapsing it.
+    private static func machineLabel(_ modality: String) -> String {
+        ErgMachineRole(wire: modality)?.titleES ?? Theme.Modality.label(modality)
+    }
+
     private func ergTitle(_ seg: SegmentActualDTO) -> String {
-        let label = Theme.Modality.label(seg.modality)
+        let label = Self.machineLabel(seg.modality)
         if let d = seg.distanceMeters, d > 0 { return "\(label) · \(Int(d)) m" }
         return label
     }
@@ -444,6 +524,49 @@ struct ExecutedWorkoutView: View {
                     .foregroundStyle(Theme.Color.foreground)
             }
         }
+    }
+
+    // MARK: - Technique index entry point
+    //
+    // El detalle ya trae los ejercicios de la sesión (bloques → ítems con vídeo,
+    // consejos, descripción y nota del coach) pero no había NINGUNA manera de
+    // llegar a ellos desde un entreno hecho: el atleta que quería repasar cómo se
+    // hacía un movimiento tenía que volver al plan. Abre el mismo índice de
+    // técnica que el plan (`SessionExercisesSheet`), no una pantalla nueva.
+
+    /// ¿Tiene esta sesión ejercicios que enseñar? Sin ellos (día de descanso,
+    /// sesión sin detalle) no se ofrece la entrada: llevaría a una ficha vacía.
+    private var hasExercises: Bool {
+        (detail?.workout?.blocks ?? []).contains { !$0.items.isEmpty }
+    }
+
+    private var techniqueEntry: some View {
+        Button {
+            Haptics.light()
+            showTechnique = true
+        } label: {
+            CardSurface(padding: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.rectangle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ver la técnica de los ejercicios")
+                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                            .foregroundStyle(Theme.Color.foreground)
+                        Text("Vídeo, consejos y la nota de tu coach.")
+                            .scaledFont(11, relativeTo: .caption2)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.Color.faint)
+                }
+            }
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityHint("Abre los ejercicios de la sesión para repasar cómo se hacen")
     }
 
     // MARK: - Screenshot entry point (LIVE — Idea 1)
@@ -1033,7 +1156,7 @@ struct ExecutedWorkoutView: View {
             rows.append(
                 SegmentRowVM(
                     id: "seg-\(seg.position)",
-                    name: Theme.Modality.label(seg.modality),
+                    name: Self.machineLabel(seg.modality),
                     result: tokens.joined(separator: " · "),
                     device: seg.source.flatMap(Self.deviceName)
                 )

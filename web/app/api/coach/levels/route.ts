@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,14 +32,21 @@ export async function GET() {
 
   const coach_id = Number(session.coach_id);
 
-  const rows = await sql<LevelRow[]>`
-    select id::text, coach_id::text, name, label, description, sort_order
-    from athlete_levels
-    where coach_id = ${coach_id}
-    order by sort_order asc, id asc
-  `;
+  // Los niveles y el tope de semanas de un microciclo (card 135) viajan en el
+  // MISMO endpoint: es el que el modal "Nuevo microciclo" ya pide al abrirse
+  // (NuevoMicrocicloModal.tsx), así que no hace falta ni un endpoint nuevo ni
+  // pasar el valor por dos árboles de componentes.
+  const [rows, maxMicrocicloWeeks] = await Promise.all([
+    sql<LevelRow[]>`
+      select id::text, coach_id::text, name, label, description, sort_order
+      from athlete_levels
+      where coach_id = ${coach_id}
+      order by sort_order asc, id asc
+    `,
+    loadCoachMaxMicrocicloWeeks({ coach_id }),
+  ]);
 
-  return jsonOk({ levels: rows });
+  return jsonOk({ levels: rows, max_microcycle_weeks: maxMicrocicloWeeks });
 }
 
 // POST /api/coach/levels

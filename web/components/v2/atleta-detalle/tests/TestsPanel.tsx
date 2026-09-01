@@ -1,26 +1,19 @@
 'use client';
 
-// The athlete's tests, in the coach's ficha (#34). This is where Pablo went looking
-// and found nothing: the ficha said plenty about zones and 1RMs but never about the
-// tests that PRODUCE them, so a battery that had reached nobody looked identical to
-// one that was working.
-//
-// Three states, and the middle one is the point:
-//   • Programado  — it is in their plan, not done yet
-//   • Hecho · sin resultado — it RAN and nobody wrote the number down. That test
-//     recalculated nothing: no zones, no 1RM, no progression. It is the only row
-//     here that asks the coach for something, so it is the only one in amber.
-//   • Hecho — with the captured number
-//
-// The status comes straight from loadBatteryStatus, the same read the athlete's app
-// uses, so the two sides can never disagree about whether a test counted.
+// Tests del atleta, en Rendimiento → Fuerza. Un solo sitio: programar, ver
+// el número y abrir el informe (si el test lo tiene). El estado sale de
+// loadBatteryStatus, el mismo read que la app del atleta.
 
 import { useMemo, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { EmptyState } from '@/components/v2/EmptyState';
 import { Pill } from '@/components/v2/Pill';
-import { Panel } from '../parts';
+import { FichaCard, FichaLabel } from '../resumen/piezas';
 import { ProgramarTestSheet } from './ProgramarTestSheet';
+import { CmjInforme } from './CmjInforme';
+import { Compositor } from '../del-coach/Compositor';
+import { notaDeTest } from '@/lib/dashboard/v2/zonas-feedback';
+import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
@@ -35,52 +28,107 @@ function isFuture(iso: string): boolean {
   return iso > new Date().toISOString().slice(0, 10);
 }
 
-function TestRow({ test }: { test: CalibrationTestStatus }) {
+function TestRow({
+  test,
+  athleteId,
+  onFeedback,
+}: {
+  test: CalibrationTestStatus;
+  athleteId: string;
+  onFeedback?: (test: CalibrationTestStatus) => void;
+}) {
   const pending = test.result_pending;
   const done = test.result_captured;
+  const [open, setOpen] = useState(false);
+  const report = test.jump_report;
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[color:var(--v2-border)] py-2.5 last:border-b-0">
+    <li className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{test.label}</span>
-        <span className="text-xs text-[color:var(--v2-faint)]">{formatDay(test.scheduled_for)}</span>
+        <span className="truncate text-[13px] font-semibold">{test.label}</span>
+        <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">{formatDay(test.scheduled_for)}</span>
+        {test.jump_profile?.lri != null ? (
+          <span className="text-[12px] text-[color:var(--v2-muted)]">
+            LRI {test.jump_profile.lri.toFixed(2).replace('.', ',')}
+            {test.jump_profile.lri_label ? ` · ${test.jump_profile.lri_label}` : ''}
+          </span>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
         {done ? (
-          <span className="font-mono text-sm font-semibold text-[color:var(--v2-fg)]">
-            {test.result_label}
-          </span>
+          report ? (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="v2-focus v2-num text-[13px] font-semibold underline-offset-2 hover:underline"
+            >
+              {test.result_label}
+            </button>
+          ) : (
+            <span className="v2-num text-[13px] font-semibold">{test.result_label}</span>
+          )
         ) : null}
         {done ? (
-          <Pill tone="ok" variant="soft">Hecho</Pill>
+          <Pill tone="ok" variant="soft">
+            Hecho
+          </Pill>
         ) : pending ? (
-          <Pill tone="warn" variant="soft">Falta el resultado</Pill>
+          <>
+            <Pill tone="warn" variant="soft">
+              Falta el resultado
+            </Pill>
+            <Link
+              href={`/atletas/${athleteId}?tab=rendimiento&vista=zonas`}
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+            >
+              Registrar
+            </Link>
+          </>
         ) : isFuture(test.scheduled_for) ? (
-          <Pill tone="info" variant="soft">Programado</Pill>
+          <Pill tone="info" variant="soft">
+            Programado
+          </Pill>
         ) : (
-          <Pill tone="neutral" variant="soft">Sin hacer</Pill>
+          <Pill tone="neutral" variant="soft">
+            Sin hacer
+          </Pill>
         )}
       </div>
-    </div>
+      {open && report ? (
+        <CmjInforme
+          report={report}
+          onClose={() => setOpen(false)}
+          onFeedback={
+            onFeedback
+              ? () => {
+                  setOpen(false);
+                  onFeedback(test);
+                }
+              : undefined
+          }
+        />
+      ) : null}
+    </li>
   );
 }
 
 export function TestsPanel({
   athleteId,
   athleteName,
+  coachName,
   tests,
   library,
 }: {
   athleteId: string;
   athleteName: string;
+  coachName?: string;
   tests: CalibrationTestStatus[];
-  /** The coach's test library, for the "Programar test" sheet. */
+  /** La batería del coach, para el sheet de «Programar test». */
   library: { id: string; name: string; last_done: string | null }[];
 }) {
   const [open, setOpen] = useState(false);
+  const [componiendo, setComponiendo] = useState<Borrador | null>(null);
 
-  // Newest first: what he just scheduled and what just happened are the two things
-  // worth seeing, and old tests only matter as history.
   const ordered = useMemo(
     () => [...tests].sort((a, b) => b.scheduled_for.localeCompare(a.scheduled_for)),
     [tests],
@@ -89,9 +137,9 @@ export function TestsPanel({
 
   return (
     <>
-      <Panel
-        title="Tests"
-        action={
+      <FichaCard>
+        <div className="flex items-baseline justify-between gap-2">
+          <FichaLabel>Tests</FichaLabel>
           <div className="flex items-center gap-2">
             {missingResult > 0 ? (
               <Pill tone="warn" variant="soft">
@@ -102,30 +150,51 @@ export function TestsPanel({
               type="button"
               onClick={() => setOpen(true)}
               disabled={library.length === 0}
-              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-xs font-semibold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               <MIcon name="add" size={15} />
               Programar test
             </button>
           </div>
-        }
-        bodyClassName="flex flex-col"
-      >
+        </div>
+
         {ordered.length === 0 ? (
-          <EmptyState
-            icon="timer"
-            title="Todavía no tiene ningún test"
-            description={
-              library.length === 0
-                ? 'Crea tu batería en Método › Tests y podrás programárselos desde aquí.'
-                : 'Prográmale uno y aparecerá en su plan y en su app ese día.'
-            }
-            className="border-none py-6"
-          />
+          <p className="mt-3 text-[13px] text-[color:var(--v2-muted)]">
+            {library.length === 0 ? (
+              'Crea tu batería en Método › Tests y podrás programárselos desde aquí.'
+            ) : (
+              <>
+                No hay tests programados.{' '}
+                <button
+                  type="button"
+                  onClick={() => setOpen(true)}
+                  className="font-semibold text-[color:var(--v2-accent-text)]"
+                >
+                  Programar →
+                </button>
+              </>
+            )}
+          </p>
         ) : (
-          ordered.map((t) => <TestRow key={t.assignment_id} test={t} />)
+          <ul className="mt-3 divide-y divide-[color:var(--v2-border)]">
+            {ordered.map((t) => (
+              <TestRow
+                key={t.assignment_id}
+                test={t}
+                athleteId={athleteId}
+                onFeedback={
+                  coachName
+                    ? (test) =>
+                        setComponiendo(
+                          notaDeTest({ assignment_id: test.assignment_id, title: test.label }),
+                        )
+                    : undefined
+                }
+              />
+            ))}
+          </ul>
         )}
-      </Panel>
+      </FichaCard>
 
       {open ? (
         <ProgramarTestSheet
@@ -133,6 +202,17 @@ export function TestsPanel({
           athleteName={athleteName}
           library={library}
           onClose={() => setOpen(false)}
+        />
+      ) : null}
+
+      {componiendo && coachName ? (
+        <Compositor
+          modo="publicar"
+          destinatarios={[{ athlete_id: athleteId, full_name: athleteName }]}
+          coachName={coachName}
+          partida={{ b: componiendo, id: null }}
+          onCerrar={() => setComponiendo(null)}
+          onHecho={() => setComponiendo(null)}
         />
       ) : null}
     </>

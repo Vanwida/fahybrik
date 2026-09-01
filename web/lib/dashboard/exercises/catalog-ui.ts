@@ -1,5 +1,6 @@
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalitySchema, type Modality } from '@fahybrid/shared/domain/prescription';
+import { detectCardioModality } from '@fahybrid/shared/domain/exercises/classify';
 import {
   COACH_OVERRIDE_FIELDS,
   type CoachExerciseRow,
@@ -75,25 +76,6 @@ export const MODALITY_LABELS: Record<Modality, string> = {
 export const MODALITY_OPTIONS: ReadonlyArray<{ value: Modality; label: string }> =
   modalitySchema.options.map((value) => ({ value, label: MODALITY_LABELS[value] }));
 
-/** Sin acentos y en minúsculas: "Bici", "bici" y "BICI" son la misma palabra. */
-const fold = (s: string): string =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
-
-/**
- * QUÉ máquina de cardio nombra el texto. Español y inglés porque el catálogo Base
- * está en inglés y el coach escribe en español — ése era justo el agujero de la regla
- * vieja, que sólo miraba inglés (`like '%row%'`).
- */
-const CARDIO_NAME_HINTS: ReadonlyArray<readonly [RegExp, Modality]> = [
-  [/\bski|skierg/, 'ski'],
-  [/\bbike|\bbici|airbike|assault/, 'bike'],
-  [/\brow|\bremo/, 'row'],
-  [/\brun|\bcorr|carrera|cinta|sprint|rodaje|tirada/, 'run'],
-];
-
 /** Cuando el nombre no dice nada, lo dice la categoría. */
 const CATEGORY_MODALITY: Record<ExerciseCategory, Modality> = {
   cardio: 'run',
@@ -125,12 +107,20 @@ const CATEGORY_IS_THE_DISCIPLINE: ReadonlySet<ExerciseCategory> = new Set<Exerci
  * la regla vieja). Todo lo demás lo dice la categoría. Deliberadamente corta: una
  * heurística que acierta el 90% y se ve es útil; una que acierta el 99% y no se ve es
  * la que nos trajo hasta aquí.
+ *
+ * QUÉ sabe el nombre lo dice `detectCardioModality` (shared/domain/exercises/
+ * classify.ts) — la MISMA tabla que usa `guessMovement` para el alta en bloque
+ * desde una foto. Antes vivía duplicada aquí con su propia lista de palabras,
+ * ligeramente distinta; una sola tabla es la que este módulo lleva todo el día
+ * defendiendo. Lo que NO se comparte es el fallback: cuando el nombre no dice
+ * nada, `guessMovement` prefiere `null` (mejor preguntar que adivinar mal), pero
+ * este formulario SIEMPRE tiene que ofrecer algo — por eso cae a la categoría
+ * (`CATEGORY_MODALITY`), nunca a `null`. Comportamiento observable sin cambios.
  */
 export function suggestModality(name: string, category: ExerciseCategory): Modality {
   const fallback = CATEGORY_MODALITY[category];
   if (CATEGORY_IS_THE_DISCIPLINE.has(category)) return fallback;
-  const text = fold(name);
-  return CARDIO_NAME_HINTS.find(([re]) => re.test(text))?.[1] ?? fallback;
+  return detectCardioModality(name) ?? fallback;
 }
 
 /**
@@ -207,7 +197,7 @@ export const OVERRIDE_FIELD_LABEL: Record<CoachOverrideField, string> = {
   name: 'Nombre',
   cues: 'Claves',
   description: 'Descripción',
-  video_url: 'Vídeo (YouTube)',
+  video_url: 'Vídeo',
 };
 
 /** Los campos que este coach ha forkeado de verdad, en el orden del contrato. */
@@ -332,7 +322,43 @@ export function exerciseSubtitle(ex: CoachExerciseRow): string {
  * en memoria — pero la semántica tiene que ser la MISMA que la de la API, o buscar
  * daría un resultado distinto según por dónde entre la búsqueda.
  */
+/**
+ * Normaliza como lo hace Postgres en `fahybrid_normalize_term` (0172): minúsculas,
+ * sin tildes, espacios colapsados. Tiene que ser LA MISMA regla que la del índice —
+ * `search_terms` llega ya normalizado del servidor, y dos normalizadores distintos
+ * son dos resultados distintos para la misma letra.
+ */
+export function normalizeExerciseTerm(input: string): string {
+  return input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * ¿Esta fila responde a lo que el coach ha escrito? Busca en todo lo que un humano
+ * escribe para nombrar el movimiento: el nombre que él ve, los DOS idiomas (0172),
+ * el slug, y su vocabulario (alias base + los sinónimos que enseñó, que el servidor
+ * manda ya normalizados en `search_terms`).
+ *
+ * POR PALABRA CONTENIDA: «gluteo» encuentra «Puente de glúteo» y «row» devuelve el
+ * ergómetro y el remo con barra — un prefijo dejaba fuera los dos casos. Misma regla
+ * que el predicado del servidor (`exerciseSearchFilter`), para que buscar en la
+ * pantalla y buscar por la API no den cosas distintas.
+ */
 export function matchesExerciseQuery(ex: CoachExerciseRow, q: string): boolean {
-  if (!q) return true;
-  return ex.name.toLowerCase().includes(q) || ex.slug.toLowerCase().includes(q);
+  const needle = normalizeExerciseTerm(q);
+  if (!needle) return true;
+  const haystack = [
+    ex.name,
+    ex.name_es ?? '',
+    ex.name_en ?? '',
+    ex.slug,
+  ]
+    .map(normalizeExerciseTerm)
+    .concat(ex.search_terms ?? '')
+    .join(' ');
+  return haystack.includes(needle);
 }

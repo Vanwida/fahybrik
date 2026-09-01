@@ -3,6 +3,7 @@ import 'server-only';
 import type { AthleteContextPack } from './coach-ia-context';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
   type WeeklyEvaluationResult,
@@ -43,8 +44,8 @@ export async function persistWeeklyEvaluationSummary(params: {
       ${params.week_start}::date,
       ${params.verdict === 'ok' ? 'approved' : 'pending'},
       ${params.verdict === 'ok' ? 'ok' : 'needs_adjustment'},
-      ${JSON.stringify(params.context_pack)}::jsonb,
-      ${JSON.stringify({ recommendation: 'keep', rationale: 'Semana OK — sin cambios', slot_changes: [], coach_summary: params.context_pack.summary })}::jsonb
+      ${client.json(toJsonValue(params.context_pack))},
+      ${client.json(toJsonValue({ recommendation: 'keep', rationale: 'Semana OK — sin cambios', slot_changes: [], coach_summary: params.context_pack.summary }))}
     )
     on conflict (athlete_id, week_start) where status = 'pending'
     do update set

@@ -15,6 +15,7 @@ import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
+import { resolveAthleteRunningThresholds } from '@/lib/coach/running-thresholds';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,11 @@ export async function GET(
     return jsonError('invalid_request', 'Invalid assignment id', 400);
   }
 
+  // El umbral de pendiente del coach, resuelto UNA vez aquí y no dentro del
+  // cargador: viaja en `run_compliance` para que la app deje de tener su propia
+  // constante del 3 %. Ver `shared/domain/running/gradient.ts`.
+  const thresholds = await resolveAthleteRunningThresholds(auth.athlete_id, sql);
+
   const detail = await loadAssignmentDetail({
     sql,
     athlete_id: auth.athlete_id,
@@ -43,6 +49,7 @@ export async function GET(
     // Enables deriving the Dobles station split (reparto) from the reading
     // athlete's perspective for HYROX-simulation sessions.
     self_user_id: auth.user_id,
+    gradient_retires_pace_pct: thresholds.gradient_retires_pace_pct,
   });
 
   if (!detail) {

@@ -3,8 +3,10 @@ import SwiftUI
 // MARK: - Exercise detail sheet
 //
 // Opened from a tapped `WorkoutItemRow` inside the session detail. Shows the
-// exercise's in-app YouTube demo (never Safari), its prescribed params for
-// this block, cues and long-form description.
+// exercise's in-app demo (never Safari) — el enlace de YouTube del coach o el
+// fichero que ha subido él, indistintamente: quien lo decide es `VideoDeTecnica`,
+// aquí sólo se monta. Además, sus params prescritos para este bloque, consejos y
+// descripción larga.
 //
 // Honest empties: no video → no player (no fake placeholder); no
 // cues/description → that section is simply absent. The exercise description
@@ -16,10 +18,7 @@ struct ExerciseDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private var video: YouTubeLinkParser.Video? {
-        guard let url = item.exerciseVideoUrl else { return nil }
-        return YouTubeLinkParser.parse(from: url)
-    }
+    private var video: VideoDeTecnica? { VideoDeTecnica(item.exerciseVideoUrl) }
 
     // Legacy single-line summary, used only when the item carries no structured
     // prescription (or a structured prescription with no usable detail).
@@ -78,7 +77,7 @@ struct ExerciseDetailView: View {
                         header
 
                         if let video {
-                            YouTubePlayer(video: video)
+                            VideoDeTecnicaPlayer(video: video)
                                 .accessibilityLabel("Vídeo demostración de \(item.exerciseName)")
                         }
 

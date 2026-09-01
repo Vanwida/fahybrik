@@ -125,6 +125,24 @@ struct AppRoot: View {
         }
         .onAppear {
             auth.bootstrap()
+            #if DEBUG
+            // SIEMBRA DE VERIFICACIÓN — solo DEBUG, y solo si el lanzamiento trae
+            // el bearer por entorno. Va DESPUÉS de bootstrap (que restaura la
+            // sesión de disco) para que la siembra gane. Reutiliza el MISMO
+            // `acceptDemoSession` del atleta demo, así que la app se comporta
+            // igual que con un login real; no toca producción ni enciende ningún
+            // flag. Es lo que deja fotografiar la pestaña sin depender del asiento
+            // demo (apagado en prod). Fuera de DEBUG este bloque no existe.
+            if let b = ProcessInfo.processInfo.environment["UITEST_BEARER"],
+               let a = ProcessInfo.processInfo.environment["UITEST_ATHLETE"],
+               !b.isEmpty {
+                auth.acceptDemoSession(bearer: b, athleteId: a)
+                // Saltar el day-1 (varias páginas de bienvenida) para aterrizar
+                // directo en las pestañas: la verificación es de Analíticas, no
+                // del onboarding.
+                auth.finishOnboarding()
+            }
+            #endif
             // Register the mirrored-session handler early (idempotent) so a wrist
             // recording started during a workout is never missed. Cheap, no prompt.
             PhoneMirrorService.shared.prepare()
@@ -143,14 +161,14 @@ struct AppRoot: View {
             Button("Emparejar") { Task { await acceptPendingPartnerAuthenticated() } }
             Button("Ahora no", role: .cancel) { pendingPartnerToken = nil }
         } message: {
-            Text("Tu compañero/a te ha invitado a entrenar Dobles. ¿Emparejar tu cuenta actual de FAHYBRID?")
+            Text("Tu compañero/a te ha invitado a entrenar Dobles. ¿Emparejar tu cuenta actual de \(Marca.nombre)?")
         }
         // Authenticated user tapping a coach→athlete account-claim link (that flow
         // creates a NEW account) — explain clearly instead of a silent no-op.
-        .alert("Ya tienes cuenta en FAHYBRID", isPresented: authedInviteTokenBinding) {
+        .alert("Ya tienes cuenta en \(Marca.nombre)", isPresented: authedInviteTokenBinding) {
             Button("Entendido", role: .cancel) { pendingInviteToken = nil }
         } message: {
-            Text("Este enlace de invitación crea una cuenta nueva y tú ya tienes cuenta en FAHYBRID.")
+            Text("Este enlace de invitación crea una cuenta nueva y tú ya tienes cuenta en \(Marca.nombre).")
         }
         // Outcome of the partner-accept attempt.
         .alert("Dobles", isPresented: partnerAcceptResultBinding) {

@@ -116,6 +116,80 @@ export type ChatSenderRole = z.infer<typeof chatSenderRoleSchema>;
  *  del contador de la caja de texto. */
 export const CHAT_BODY_MAX = 8000;
 
+// -----------------------------------------------------------------------------
+// Contexto de mensaje (migración 0186) — ver docs/DECISIONS.md 2026-08-12
+// "El chat aprende SOBRE QUÉ va el mensaje".
+// -----------------------------------------------------------------------------
+//
+// session = el entreno (workout_assignments.id), con `sub` opcional = el
+// ejercicio DENTRO de ese entreno (template_segments.id). exercise = el
+// ejercicio del catálogo en abstracto (exercises.id), `sub` siempre ausente.
+// race = la carrera (races.id).
+
+export const chatContextKindSchema = z.enum(['session', 'exercise', 'race']);
+export type ChatContextKind = z.infer<typeof chatContextKindSchema>;
+
+/** Lo que el CLIENTE manda: kind + ref (+ sub solo con session). Nunca lleva
+ *  `label` — lo deriva el servidor (`web/lib/chat/context.ts`), que ya carga
+ *  la entidad para validar la propiedad; si el cliente lo escribiera habría
+ *  dos redactores del mismo texto. */
+export const chatContextInputSchema = z
+  .object({
+    kind: chatContextKindSchema,
+    ref: z.string().min(1).max(200),
+    sub: z.string().min(1).max(200).optional(),
+  })
+  .refine((c) => !c.sub || c.kind === 'session', {
+    message: 'context.sub is only allowed when kind is "session"',
+  });
+export type ChatContextInput = z.infer<typeof chatContextInputSchema>;
+
+/** Lo que viaja en la burbuja: la misma terna más la etiqueta congelada. */
+export const chatContextSchema = z.object({
+  kind: chatContextKindSchema,
+  ref: z.string(),
+  sub: z.string().nullable(),
+  label: z.string(),
+});
+export type ChatContext = z.infer<typeof chatContextSchema>;
+
+// -----------------------------------------------------------------------------
+// Previsualización del contexto — VIVA, resuelta al LEER (nunca guardada). Ver
+// `web/lib/chat/context-preview.ts` y docs/DECISIONS.md 12-ago "El chat
+// aprende SOBRE QUÉ va el mensaje" (ampliación de previsualización).
+// -----------------------------------------------------------------------------
+
+/** Qué vista abre el móvil para un `kind:'session'`: la ficha de lo hecho o la
+ *  ficha previa. Null en `exercise`/`race` (no aplica) y cuando `exists` es
+ *  `false` (nada que abrir). Mismo binario que ya decide
+ *  `web/lib/athlete/assignment-detail.ts` para su bloque de ejecución
+ *  (`status === 'completed' || status === 'partial'` → hecho). */
+export const chatContextStateSchema = z.enum(['done', 'pending']);
+export type ChatContextState = z.infer<typeof chatContextStateSchema>;
+
+/**
+ * Lo que viaja en la burbuja: la terna CONGELADA (`chatContextSchema`) más la
+ * previsualización VIVA. `preview`/`exists`/`state` van SIEMPRE presentes
+ * (null cuando no aplican) — igual que `context` en el DTO ya era siempre
+ * presente y null en vez de ausente.
+ *
+ * Deliberadamente un schema DISTINTO de `chatContextSchema`: ese sigue siendo
+ * el tipo interno que persiste `sendMessage` y resuelve `resolveMessageContext`
+ * (solo la terna congelada, sin datos vivos) — mezclar los dos habría obligado
+ * al camino de ESCRITURA a fingir una previsualización que todavía no existe.
+ */
+export const messageContextDtoSchema = chatContextSchema.extend({
+  /** La respuesta a la pregunta, AHORA — no la de cuando se envió el mensaje.
+   *  Null cuando no se sabe (sin dosis, plantilla sin resumen) o la entidad
+   *  referenciada ya no existe. */
+  preview: z.string().nullable(),
+  /** Si `kind`+`ref`(+`sub`) sigue resolviendo a algo real. `false` = la
+   *  tarjeta no promete abrir nada; la etiqueta congelada sobrevive igual. */
+  exists: z.boolean(),
+  state: chatContextStateSchema.nullable(),
+});
+export type MessageContextDTO = z.infer<typeof messageContextDtoSchema>;
+
 export const sendMessageSchema = z
   .object({
     body: z.string().max(CHAT_BODY_MAX).optional(),
@@ -130,8 +204,12 @@ export const sendMessageSchema = z
         height: z.number().int().nonnegative().optional(),
       })
       .optional(),
+    context: chatContextInputSchema.optional(),
   })
   .refine(
+    // Una referencia sin pregunta es ruido: esto YA exigía body/adjunto para
+    // TODO mensaje, así que un mensaje con `context` lo hereda gratis — no
+    // hace falta una segunda regla.
     (m) => (m.body && m.body.trim().length > 0) || !!m.attachment_url,
     'Message must have body text or an attachment',
   )
@@ -154,6 +232,10 @@ export const messageDtoSchema = z.object({
   attachment_url: z.string().nullable(),
   attachment_kind: chatAttachmentKindSchema.nullable(),
   attachment_meta: z.unknown().nullable(),
+  // Presente y null cuando el mensaje no lleva contexto — nunca ausente, para
+  // que un cliente que compara "tiene contexto?" no tenga que distinguir
+  // undefined de null. Incluye la previsualización viva (preview/exists/state).
+  context: messageContextDtoSchema.nullable(),
   created_at: isoDateTime,
   read_at: isoDateTime.nullable(),
   edited_at: isoDateTime.nullable(),

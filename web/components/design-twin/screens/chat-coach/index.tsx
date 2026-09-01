@@ -20,10 +20,11 @@ export const meta: TwinMeta = {
   id: 'chat-coach',
   titulo: 'Chat — tres bandas explícitas',
   zona: 'Perfil y ajustes',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-07-29',
   descripcion:
     'Encabezado fijo · conversación que llena (y centra cuando está vacía) · compositor anclado. Con la conversación real de producción y el error que por fin ofrece reintentar.',
-  fuentes: [],
+  fuentes: ['ios/FAHYBRIK/Chat/ChatView.swift'],
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

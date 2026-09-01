@@ -351,7 +351,18 @@ struct PostWorkoutSummaryView: View {
                 let outcome = await FreeWorkoutAPI.submit(sent, bearer: bearer)
                 guard !didFinish else { return }
                 switch outcome {
-                case .saved(_):
+                case .saved(let response):
+                    Task {
+                        let parkId = await WorkoutTraceUploader.park(
+                            await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                        )
+                        await WorkoutTraceUploader.resolve(
+                            parkId: parkId,
+                            executionId: response?.executionId.flatMap(Int.init),
+                            queuedRequestId: nil,
+                            bearer: bearer
+                        )
+                    }
                     // #Marcas — only after the session POST is 2xx. A FULL finish
                     // writes the mark; an abandoned attempt never writes a half number.
                     if let tag = free.benchmark, payload.completeness == "full",
@@ -403,6 +414,17 @@ struct PostWorkoutSummaryView: View {
             guard !didFinish else { return }
             switch outcome {
             case .saved(let response):
+                Task {
+                    let parkId = await WorkoutTraceUploader.park(
+                        await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                    )
+                    await WorkoutTraceUploader.resolve(
+                        parkId: parkId,
+                        executionId: response?.executionId.flatMap(Int.init),
+                        queuedRequestId: nil,
+                        bearer: bearer
+                    )
+                }
                 let records = response?.personalRecords ?? []
                 // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
                 if target == .doublesJoint {
@@ -457,6 +479,19 @@ struct PostWorkoutSummaryView: View {
         let records = celebrationRecords
         celebrationRecords = []
         finishAfterSave(records: records)
+    }
+
+    private static func closedTraces(
+        recorder: WorkoutTraceRecorder,
+        startedAt: Date
+    ) async -> [WorkoutTraceDTO] {
+        if !recorder.points(of: .distance, source: .gps).isEmpty {
+            let reference = await HealthKitDistanceProbe.cumulativeSeries(
+                startedAt: startedAt, endedAt: Date()
+            )
+            recorder.adopt(reference, as: .distance, source: .healthkit)
+        }
+        return recorder.traces(startedAt: startedAt)
     }
 
     private func maybeRequestReview(afterGenuinePR: Bool) {

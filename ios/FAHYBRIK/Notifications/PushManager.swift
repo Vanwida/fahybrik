@@ -14,17 +14,25 @@ enum PushNotificationKind: String {
     case chatMessage = "chat_message"
     case weekAdjustmentPending = "week_adjustment_pending"
     case monthlyBlockPending = "monthly_block_pending"
+    case coachCommunication = "coach_communication"
     case renewal
     case paymentFailed = "payment_failed"
 
-    /// Tab the deep link should land on. Chat is presented as a sheet over the
-    /// Today tab, so chat routes to `.today` + a sheet flag (see PushRouter).
-    var destination: PushRouter.Destination {
+    /// Where the tap lands. Chat and the coach inbox are covers raised over the
+    /// tabs, not tabs themselves (see AppShell).
+    ///
+    /// `userInfo` comes in because a coach communication carries WHICH one it is
+    /// (`communication_id`, spread into the payload alongside `type`): abrir la
+    /// bandeja y dejar que el atleta lo busque desperdicia justo lo que el aviso
+    /// ya sabía.
+    func destination(userInfo: [AnyHashable: Any] = [:]) -> PushRouter.Destination {
         switch self {
         case .planPublished, .weekAdjustmentPending, .monthlyBlockPending:
             return .plan
         case .chatMessage:
             return .chat
+        case .coachCommunication:
+            return .coachInbox(communicationId: userInfo["communication_id"] as? String)
         case .renewal, .paymentFailed:
             return .profile
         }
@@ -46,6 +54,8 @@ final class PushRouter {
         case plan
         case chat
         case profile
+        /// La bandeja «Del coach». Con id, abre ESE comunicado.
+        case coachInbox(communicationId: String?)
     }
 
     /// Set when a notification is tapped. TodayView consumes + clears it.
@@ -211,7 +221,7 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         if let typeRaw = userInfo["type"] as? String,
            let kind = PushNotificationKind(rawValue: typeRaw) {
             Task { @MainActor in
-                PushRouter.shared.route(to: kind.destination)
+                PushRouter.shared.route(to: kind.destination(userInfo: userInfo))
             }
         }
         completionHandler()

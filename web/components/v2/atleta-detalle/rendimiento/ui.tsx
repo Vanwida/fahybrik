@@ -93,7 +93,7 @@ export function MiniTrend({
 export function Chip({ label, value, tone }: { label: string; value?: string; tone: Tone }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-semibold"
       style={{ background: `var(${TONE_SOFT_VAR[tone]})`, color: `var(${TONE_VAR[tone]})` }}
     >
       <span>{label}</span>

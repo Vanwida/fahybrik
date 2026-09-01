@@ -50,7 +50,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Hoy no es una lista de tareas: es tu <b>cola de decisiones del día</b>. El sistema entrega
           el plan a cada atleta solo, siguiendo tu método. A esta pantalla solo sube lo que se{' '}
-          <b>sale del molde</b> — quien falló, quien va sobrado, quien manda una señal o un mensaje.
+          <b>sale del molde</b>: quien falló, quien va sobrado, quien manda una señal o un mensaje.
           Lo demás no te molesta: va según lo previsto.
         </>
       }
@@ -82,7 +82,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque con muchos atletas no puedes mirarlos uno a uno cada mañana. Hoy te enseña{' '}
-            <b>solo lo que necesita tu cabeza</b> — y deja en paz a quien va bien.
+            <b>solo lo que necesita tu cabeza</b>, y deja en paz a quien va bien.
           </>
         }
       />
@@ -94,19 +94,19 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       </p>
       <ul>
         <li>
-          <b style={{ color: LANE.fallo }}>Falló sesiones</b> — adherencia baja o días sin completar
+          <b style={{ color: LANE.fallo }}>Falló sesiones</b>: adherencia baja o días sin completar
           nada. A quién empujar.
         </li>
         <li>
-          <b style={{ color: LANE.listo }}>Listo para progresar</b> — semana limpia y constante, sin
+          <b style={{ color: LANE.listo }}>Listo para progresar</b>: semana limpia y constante, sin
           incidencias. A quién subir carga.
         </li>
         <li>
-          <b style={{ color: LANE.vigilar }}>Vigilar fisiología</b> — readiness en rojo o una señal
+          <b style={{ color: LANE.vigilar }}>Vigilar fisiología</b>: readiness en rojo o una señal
           de fatiga. A quién dar margen.
         </li>
         <li>
-          <b style={{ color: LANE.espera }}>Espera respuesta</b> — te escribió y sigue esperando. El
+          <b style={{ color: LANE.espera }}>Espera respuesta</b>: te escribió y sigue esperando. El
           más antiguo, primero.
         </li>
       </ul>
@@ -224,7 +224,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Tu atleta no ve “colas”: ve su día normal. Pero cada pieza de su inicio es, si se tuerce,
-            una de tus colas de Hoy. Por eso no tienes que perseguir a nadie — su día te habla solo.
+            una de tus colas de Hoy. Por eso no tienes que perseguir a nadie: su día te habla solo.
           </>
         }
       >
@@ -281,7 +281,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 48<small> /100</small>
               </div>
               <div className="read" style={{ color: 'var(--warn)' }}>
-                Fatiga — baja el ritmo
+                Fatiga: baja el ritmo
               </div>
             </div>
             <div className="tile">
@@ -346,8 +346,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <p style={{ marginTop: '18px' }}>
         Hoy es donde <b>vigilas, no donde montas</b>. Cuando un atleta sube a una cola, un clic te
-        lleva a su ficha o a su chat para resolverlo. El resto del seguimiento —{' '}
-        <em className="em">cómo</em> lee cada señal — lo ves en las secciones siguientes.
+        lleva a su ficha o a su chat para resolverlo. El resto del seguimiento{' '}
+        (<em className="em">cómo</em> lee cada señal) lo ves en las secciones siguientes.
       </p>
     </DocSection>
   );

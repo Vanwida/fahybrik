@@ -1,29 +1,49 @@
 import SwiftUI
 import UIKit
 
-// Full-screen live HUD for running on a Bluetooth (FTMS) treadmill. Presented as
-// a cover from a run leg (continuous OR an interval series). Traverses the leg
-// structure with AUTOMATIC advancement — a distance work bout closes itself when
-// the belt reaches the target and chains into the recovery/next bout; the manual
-// button is only an override. Reuses the workout's own progression via the model.
+// LA PANTALLA DEL ENTRENO CUANDO CORRES EN CINTA (Bluetooth/FTMS). Hasta el 5-ago
+// era un `fullScreenCover` que se abría encima de otro HUD del mismo tramo; ahora es
+// una superficie viva más (`ActiveWorkoutView.superficieViva`) y es la ÚNICA que
+// pinta ese tramo. Recorre la estructura de tramos con avance AUTOMÁTICO — un tramo
+// por distancia se cierra solo cuando la cinta llega al objetivo y encadena con la
+// recuperación / el siguiente; el botón manual sólo se adelanta. Reutiliza la
+// progresión del propio entreno a través del modelo.
 struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
+    #if DEBUG
     /// "Modo de control" — the field-diagnosis sheet (long-press the cinta chip).
+    /// SÓLO EN DEBUG: es un volcado FTMS crudo (dialecto S1…S5, velocidades sin
+    /// interpretar) y se abría con una pulsación larga EN LA APP DEL ATLETA.
     @State private var showControlDebug = false
-    @Environment(\.dismiss) private var dismiss
+    #endif
     /// Compact height == the phone is in landscape → switch to the big-number layout.
     @Environment(\.verticalSizeClass) private var vSizeClass
     private var isLandscape: Bool { vSizeClass == .compact }
+    /// «CORRER SIN CONECTAR»: el atleta ha dicho que sigue en la cinta aunque la app
+    /// no la lea. Cuando esto era un cover, ese botón bajaba el cover y devolvía al
+    /// HUD genérico de correr — que ya no existe, y no debería haber existido nunca
+    /// (dos pantallas para el mismo tramo). Aquí no hay a dónde volver: se pasa al
+    /// HUD en vivo, que sin cinta degrada solo (reloj del tramo + objetivo + pulso,
+    /// controles manuales) en vez de dejar al atleta atrapado en la guía de conexión.
+    @State private var sinCinta = false
     /// Quick "Avisos de voz" (#63) toggle — shares the key with ProfileView, so the
     /// athlete can mute/unmute the coach without leaving the run.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
-
-    init(session: WorkoutSession, hrZones: HRZoneProfile?) {
+    /// SALIR DEL ENTRENO, no «cerrar la pantalla» — misma razón que en
+    /// `OutdoorRunHUDView`: sin cover propio, un `dismiss()` desde aquí se llevaría
+    /// la presentación del entreno entero sin cerrar la sesión.
+    let alSalir: () -> Void
+    /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
+    /// HUD vivo (reloj indoor), no a la guía de conectar.
+    init(session: WorkoutSession, hrZones: HRZoneProfile?,
+         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void) {
         // The SHARED hub — so a belt connected in the brief is already live here (no
-        // re-scan), and the connection outlives this cover being opened/closed.
+        // re-scan), and the connection outlives this surface going away and coming back.
         _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
                                                        hub: .shared))
+        _sinCinta = State(initialValue: empiezaSinCinta)
+        self.alSalir = alSalir
     }
 
     var body: some View {
@@ -42,7 +62,7 @@ struct TreadmillHUDView: View {
                         if model.telemetrySilent { treadmillNoDataHint }
                     }
                 }
-                if !model.treadmillLink.isLive {
+                if !model.treadmillLink.isLive && !sinCinta {
                     connectingState
                 } else if model.isCountIn {
                     countInState
@@ -63,32 +83,23 @@ struct TreadmillHUDView: View {
         .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
         .onAppear {
             model.start()
-            // The workout screen underneath already holds the display awake for the
-            // whole session; ensure it here and let ActiveWorkoutView restore it when
-            // the workout ends (turning it off now would wake-lock off mid-run).
-            UIApplication.shared.isIdleTimerDisabled = true
+            // La pantalla despierta la lleva WorkoutContainer por fase (dueño
+            // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
         }
         .onDisappear { model.teardown() }
-        .onChange(of: model.session.currentSegmentIndex) { _, _ in dismissIfLeftRun() }
-        .onChange(of: model.session.isFinished) { _, finished in if finished { dismiss() } }
-        .onChange(of: model.session.isAwaitingBlockStart) { _, awaiting in if awaiting { dismiss() } }
+        // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
+        // bloque). Sólo servían para bajar el cover cuando la sesión salía de correr;
+        // ahora el reparto lo hace `ActiveWorkoutView.superficieViva`, que deja de
+        // resolver a esta vista en ese mismo instante y su desmontaje ya llama a
+        // `teardown()`.
         .sheet(isPresented: $showDiagnostics) {
             if let text = model.diagnosticsText { ShareSheet(items: [text]) }
         }
+        #if DEBUG
         .sheet(isPresented: $showControlDebug) {
             TreadmillControlDebugSheet(model: model)
         }
-    }
-
-    private func dismissIfLeftRun() {
-        // The session left the run work (a non-run block, block preview, or the end)
-        // → hand back to the standard HUD. A series stays on ONE segment index, and
-        // a chain of run legs keeps the belt connected, so those don't dismiss.
-        if model.session.currentSegment?.kind != .running
-            || model.session.isFinished
-            || model.session.isAwaitingBlockStart {
-            dismiss()
-        }
+        #endif
     }
 
     // MARK: - Header (chips + close)
@@ -98,10 +109,10 @@ struct TreadmillHUDView: View {
             headerChip(icon: "figure.run", text: cintaChipText,
                        link: model.treadmillLink, channel: model.treadmillChannel,
                        // MANTENIDO PULSADO en el chip de la cinta = "Modo de control",
-                       // el diagnóstico de campo. Fuera del camino del atleta, pero
-                       // siempre a un gesto cuando la cinta no obedece.
-                       onLongPress: model.controlCapability.hasControlPoint
-                           ? { showControlDebug = true } : nil)
+                       // el diagnóstico de campo. SÓLO EN DEBUG: en la app del atleta
+                       // una pulsación larga de 0,6 s abría un volcado FTMS crudo, que
+                       // no es una pantalla de producto (5-ago).
+                       onLongPress: gestoDeDiagnostico)
             headerChip(icon: "heart.fill", text: pulseChipText,
                        link: model.effectiveHRLink, channel: model.hrChannel)
             Spacer(minLength: 0)
@@ -115,7 +126,7 @@ struct TreadmillHUDView: View {
             }
             .buttonStyle(PressScaleStyle())
             .accessibilityLabel(voiceCoachEnabled ? "Silenciar avisos de voz" : "Activar avisos de voz")
-            Button(action: { dismiss() }) {
+            Button(action: { alSalir() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundStyle(Theme.Color.muted)
@@ -124,8 +135,18 @@ struct TreadmillHUDView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Cerrar")
+            .accessibilityLabel("Salir del entreno")
         }
+    }
+
+    /// El gesto de diagnóstico, o nada. En Release devuelve nil y el chip se queda
+    /// sin pulsación larga: la hoja de depuración no se compila.
+    private var gestoDeDiagnostico: (() -> Void)? {
+        #if DEBUG
+        return model.controlCapability.hasControlPoint ? { showControlDebug = true } : nil
+        #else
+        return nil
+        #endif
     }
 
     /// A header device chip that opens the picker on tap — so mid-run the athlete can
@@ -297,7 +318,11 @@ struct TreadmillHUDView: View {
 
     private var landscapeLegLine: String {
         var line = "Tramo \(model.legNumber) de \(model.legTotal)"
-        if let objetivo = model.runTarget.objetivoLabel { line += " · objetivo \(objetivo)" }
+        if let remaining = model.session.tramoWorkRemaining, remaining > 0 {
+            line += " · quedan \(Formato.clock(remaining, anchoFijo: true))"
+        } else if let objetivo = model.runTarget.objetivoLabel {
+            line += " · objetivo \(objetivo)"
+        }
         return line
     }
 
@@ -519,6 +544,23 @@ struct TreadmillHUDView: View {
     /// EL SUJETO de la tarjeta. Con ritmo medido, el ritmo y su veredicto; sin él, la
     /// siguiente verdad disponible y el PORQUÉ de que no haya ritmo.
     ///
+    /// El objetivo, y al lado la velocidad que hay que MARCAR en la consola.
+    ///
+    /// El coach prescribe en ritmo, que es su idioma; la cinta se marca en km/h, que
+    /// es el de la máquina. Mientras la cinta no acepte que la app le fije la
+    /// velocidad —hoy no lo hace ninguna de las que hemos encontrado— la cuenta la
+    /// hace el atleta a mano y sudando, y equivocarla es correr otra sesión. Se la
+    /// damos hecha, redondeada al escalón que su consola admite de verdad.
+    ///
+    /// Sólo cuando le toca marcarla a él: si la app pudiera fijar la velocidad,
+    /// darle un número que teclear sería ruido.
+    private func objetivoConMarca(_ objetivo: String) -> String {
+        guard !model.canControlSpeed,
+              let marca = model.runTarget.velocidadDeCinta(step: model.escalonDeVelocidad)
+        else { return "Objetivo \(objetivo)" }
+        return "Objetivo \(objetivo) · pon \(marca)"
+    }
+
     /// Rótulo y cifra viajan JUNTOS a propósito: poner «Ritmo» encima de un cronómetro
     /// es mentir igual (§7), y es el error más difícil de ver porque cada mitad, por su
     /// cuenta, es correcta. Y sin medida no hay veredicto: el borde de color y el «vas
@@ -546,7 +588,13 @@ struct TreadmillHUDView: View {
                 }
                 if ritmo != nil, let objetivo = model.runTarget.objetivoLabel {
                     HStack(spacing: 8) {
-                        Text("Objetivo \(objetivo)")
+                        // El objetivo va en RITMO, que es el idioma del coach; la consola
+                        // se marca en km/h, que es el idioma de la máquina. Mientras la
+                        // cinta no acepte que la app le fije la velocidad —hoy, ninguna—
+                        // el atleta hace la cuenta a mano y sudando. Se la damos hecha, y
+                        // sólo cuando le toca marcarla a él: si la app pudiera fijarla,
+                        // decirle un número sería ruido.
+                        Text(objetivoConMarca(objetivo))
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
                             .foregroundStyle(Theme.Color.foreground)
                         if let cue = status.cue {
@@ -679,17 +727,20 @@ struct TreadmillHUDView: View {
             if let notice = model.controlNotice {
                 // The machine refused something → this is EXACTLY the moment the control
                 // dialect is in question, so the way into the diagnosis is right here
-                // instead of only behind the long-press.
+                // instead of only behind the long-press. En Release el atleta lee el
+                // aviso y nada más: el volcado FTMS es una herramienta de campo nuestra.
                 HStack(spacing: 8) {
                     Text(notice)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.Color.danger)
+                    #if DEBUG
                     Button(action: { Haptics.light(); showControlDebug = true }) {
                         Text("Modo de control")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.Color.accentText)
                     }
                     .buttonStyle(PressScaleStyle())
+                    #endif
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -819,7 +870,13 @@ struct TreadmillHUDView: View {
         TreadmillConnectGuide(
             link: model.treadmillLink,
             onSearch: { searchBelt() },
-            onSkip: { dismiss() },
+            // «Correr sin conectar» — ver `sinCinta`: se sigue en ESTA pantalla, que
+            // sin cinta enseña lo que sí se sabe. No hay otro HUD al que volver.
+            onSkip: {
+                Haptics.light()
+                model.session.runEnvironment = .indoor
+                sinCinta = true
+            },
             onShareDiagnostics: model.diagnosticsText != nil ? { showDiagnostics = true } : nil
         )
     }

@@ -105,7 +105,9 @@ function scalePaceTarget(t: Target, pf: number): Target {
   return o;
 }
 
-/** volume: scale the work measure of a set (reps/distance/duration/calories). */
+/** volume: scale the work measure of a set (reps/distance/duration/calories).
+ *  `reps_to_failure` carries no number — there is nothing to scale, so a
+ *  progression leaves "go until you fail" exactly as written. */
 function scaleMeasure(m: Measure, f: number): Measure {
   switch (m.kind) {
     case 'reps':
@@ -116,6 +118,8 @@ function scaleMeasure(m: Measure, f: number): Measure {
       return { kind: 'duration', seconds: scaleDuration(m.seconds, f) };
     case 'calories':
       return { kind: 'calories', value: scaleCalories(m.value, f) };
+    case 'reps_to_failure':
+      return m;
   }
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { EXERCISE_TO_1RM_BENCHMARK } from '@fahybrid/shared/domain/strength';
 import { flattenSegments } from '@fahybrid/shared/domain/prescription';
+import type { AthleteAnchors } from '@fahybrid/shared/domain/prescription/resolve-relative';
 
 const SQ_1RM = EXERCISE_TO_1RM_BENCHMARK['back-squat']!; // 'back_squat_1rm'
 
@@ -119,6 +120,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'hyrox_station',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
         {
           id: '11',
@@ -135,6 +137,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: 'https://yt/back-squat',
           exercise_cues: 'Pecho arriba',
+          exercise_description: null,
         },
       ],
     });
@@ -179,6 +182,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -220,6 +224,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -275,6 +280,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'strength',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -314,6 +320,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
         // 8×400m intervals — distance only in prescription set measures.
         {
@@ -338,6 +345,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -373,6 +381,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
           exercise_category: 'cardio',
           exercise_video_url: null,
           exercise_cues: null,
+          exercise_description: null,
         },
       ],
     });
@@ -440,6 +449,69 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(e.perceived_difficulty).toBe('too_hard');
     expect(e.pain_area).toBe('rodilla');
     expect(e.pain_note).toBe('molestia al bajar');
+  });
+
+  // started_at + las tres columnas de la 0154 (measured-header.ts) tenían el
+  // MISMO problema que la provenance de arriba: la fila las lleva, la
+  // consulta las selecciona (started_at, para anclar la traza) o no las
+  // selecciona en absoluto (las tres de la 0154), y ninguna llegaba al
+  // execution block. `started_at` es el ancla temporal que necesita
+  // `display_curve.offsets_s` para situar un tramo en el eje — sin ella no
+  // hay sombra de serie ni franja de lo pedido que pintar.
+  it('surfaces started_at (el ancla de la curva) y las tres columnas de la 0154, presentes o ausentes', () => {
+    const withAll = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-05-27T18:30:00+00:00',
+        started_at: '2026-05-27T18:00:00+00:00',
+        perceived_exertion: 7,
+        elevation_gain_m: 42.5,
+        elevation_loss_m: 38.1,
+        hr_recovery_60_bpm: 23,
+        decoupling_pct: 4.7,
+      },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = withAll.execution!;
+    expect(e.started_at).toBe('2026-05-27T18:00:00+00:00');
+    expect(e.elevation_gain_m).toBe(42.5);
+    expect(e.elevation_loss_m).toBe(38.1);
+    expect(e.hr_recovery_60_bpm).toBe(23);
+    expect(e.decoupling_pct).toBe(4.7);
+
+    const withNone = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00+00:00', perceived_exertion: 7 },
+      template: baseTemplate,
+      segments: [],
+    });
+    const n = withNone.execution!;
+    expect(n.started_at).toBeNull();
+    expect(n.elevation_gain_m).toBeNull();
+    expect(n.elevation_loss_m).toBeNull();
+    expect(n.hr_recovery_60_bpm).toBeNull();
+    expect(n.decoupling_pct).toBeNull();
+  });
+
+  // numeric(x,y) llega de Postgres como STRING (pg preserva la precisión
+  // decimal) — la coerción tiene que sobrevivir eso o rompe en producción
+  // aunque el fixture con números JS ya diera verde.
+  it('coacciona numeric(x,y) desde string — como llega realmente de Postgres', () => {
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: {
+        ended_at: '2026-05-27T18:30:00+00:00',
+        perceived_exertion: 7,
+        elevation_gain_m: '42.50' as unknown as number,
+        decoupling_pct: '4.70' as unknown as number,
+      },
+      template: baseTemplate,
+      segments: [],
+    });
+    const e = result.execution!;
+    expect(e.elevation_gain_m).toBe(42.5);
+    expect(e.decoupling_pct).toBe(4.7);
   });
 
   it('leaves provenance unknown for pre-0144 rows, and never returns a null roster', () => {
@@ -510,6 +582,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: 'cardio',
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('resolves a @Z4 run target to the absolute pace band from the profile', () => {
@@ -528,6 +601,85 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(item.resolved_intensity!.fast_s).toBe(240);
     expect(item.resolved_intensity!.slow_s).toBe(254);
     expect(item.resolved_intensity!.pace_unit).toBe('per_km');
+  });
+
+  // #71 — el veredicto de cumplimiento (band vs ejecutado) lo lee el ATLETA
+  // primero: es el sujeto que Alex eligió para la pantalla de después de
+  // correr. Se computa DENTRO de buildAssignmentDetail (un solo motor,
+  // shared/domain/adherence vía web/lib/dashboard/coach/run-compliance) —
+  // este test fija que el atleta lo recibe, no sólo el coach.
+  it('surfaces run_compliance (#71) — el atleta ve si clavó el objetivo, no sólo el coach', () => {
+    const actual = {
+      position: 0,
+      item_uid: 'segment-60',
+      modality: 'run' as const,
+      started_at: '2026-05-27T18:00:00Z',
+      duration_seconds: 245,
+      reps_completed: null,
+      weight_used_kg: null,
+      distance_meters: 1000,
+      avg_pace_s_per_500m: null,
+      avg_pace_s_per_km: 245, // dentro de la banda 240-254 resuelta abajo
+      avg_power_w: null,
+      stroke_rate_spm: null,
+      avg_hr: null,
+      max_hr: null,
+      calories: null,
+      emom_rounds_completed: null,
+      emom_rounds_prescribed: null,
+      incline_pct: null,
+      avg_gradient_pct: null,
+      run_cadence_spm: null,
+      drag_factor: null,
+      avg_calories_per_hour: null,
+      peak_drive_force_lbs: null,
+      avg_drive_force_lbs: null,
+      erg_splits: null,
+      run_splits: null,
+      source: null,
+      zone_seconds: null,
+      leg_index: null,
+      leg_role: null,
+      leg_phase: null,
+      is_structural: false,
+    };
+    const result = buildAssignmentDetail({
+      assignment: { ...baseAssignment, status: 'completed' as const },
+      execution: { ended_at: '2026-05-27T18:30:00Z', perceived_exertion: 6 },
+      template: baseTemplate,
+      segments: [runSeg({ kind: 'hr_zone', value: 4 })],
+      zoneProfiles: [runProfile(240)],
+      executionSegments: [actual],
+    });
+    expect(result.run_compliance.summary).toMatchObject({ total: 1, evaluable: 1, dentro: 1, pct_dentro: 100 });
+    expect(result.run_compliance.tramos[0]).toMatchObject({
+      item_uid: 'segment-60',
+      verdict: 'dentro',
+      band_axis: 'pace',
+      band: { axis: 'pace', fast_s: 240, slow_s: 254 },
+    });
+  });
+
+  it('sesión sin nada que juzgar: run_compliance vacío y declarado, nunca un veredicto inventado', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [], // sin plantilla con contenido → workout: null
+    });
+    expect(result.workout).toBeNull();
+    expect(result.run_compliance).toEqual({
+      summary: { total: 0, evaluable: 0, dentro: 0, fuera_rapido: 0, fuera_lento: 0, sin_dato: 0, pct_dentro: null },
+      tramos: [],
+      recovery_summary: { total: 0, evaluable: 0, controlada: 0, demasiado_rapida: 0, sin_dato: 0, pct_controlada: null },
+      recovery_tramos: [],
+      work_duration_summary: { total: 0, evaluable: 0, completa: 0, incompleta: 0, sin_dato: 0, pct_completa: null },
+      recovery_duration_summary: { total: 0, evaluable: 0, controlada: 0, excedida: 0, sin_dato: 0, pct_controlada: null },
+      // Sin umbral resuelto por el llamador: NULL, «usa tu suelo». Nunca un 3
+      // inventado aquí — un coach de trail vería el suyo en una pantalla y el
+      // nuestro en otra.
+      gradient_retires_pace_pct: null,
+    });
   });
 
   it('resolves a @Z1 open band to "> fast/km"', () => {
@@ -602,6 +754,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: 'strength',
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('resolves a %RM range to a kg range using the athlete 1RM', () => {
@@ -676,6 +829,100 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     expect(rl.needs_review).toBe(true);
   });
 
+  // ── Card 130/134 — objetivos RELATIVOS resueltos al leer el día ───────────
+  // La plantilla guarda «al 50% del peso corporal» para siempre; aquí se
+  // comprueba que el camino del día lo convierte en el número de ESTE atleta
+  // (o en la verdad, cuando falta la marca) — nunca en el `kind: 'relative'`
+  // crudo. El resolutor en sí (resolveRelativeTarget/resolvePrescriptionReferences)
+  // ya está probado a fondo en tests/domain/relative-target.test.ts; esto sólo
+  // fija que assignment-detail lo ENCHUFA en el sitio y orden correctos.
+  const relativeSeg = (target: unknown) => ({
+    id: '75',
+    position: 0,
+    block_position: 0,
+    block_format: null,
+    block_title: null,
+    params_json: {},
+    prescription_json: { scheme: 'sets', modality: 'strength', target },
+    notes: null,
+    exercise_id: '970',
+    exercise_name: 'Sled Push',
+    exercise_slug: 'sled-push',
+    exercise_category: 'strength',
+    exercise_video_url: null,
+    exercise_cues: null,
+    exercise_description: null,
+  });
+
+  const anchorsConPeso: AthleteAnchors = {
+    racePace: {},
+    thresholdPace: {},
+    bodyweightKg: 80,
+  };
+
+  it('resuelve un objetivo relativo al número de ESTE atleta y manda la frase aparte', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      anchors: anchorsConPeso,
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toEqual({ kind: 'kg', value: 40 });
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: { kind: 'kg', value: 40 }, source: 'bodyweight', estimated: false },
+    ]);
+  });
+
+  it('sin la marca que le falta, la línea sale SIN objetivo pero con la frase — nunca un relativo crudo', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      // Anclas SIN peso: la marca que le falta a ESTE atleta.
+      anchors: { racePace: {}, thresholdPace: {}, bodyweightKg: null },
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target).toBeUndefined();
+    expect(item.prescription_json?.target?.kind).not.toBe('relative');
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: null, source: null, estimated: false },
+    ]);
+  });
+
+  it('al cable NUNCA viaja un kind: "relative", con o sin anclas', () => {
+    const sinAnclas = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [relativeSeg({ kind: 'relative', ref: { of: 'bodyweight' }, percent: 50 })],
+      // Sin pasar `anchors` en absoluto — el llamador que se olvida no debe
+      // colar un relativo crudo: resuelve contra anclas vacías, que es la
+      // verdad honesta («no sabemos nada de este atleta»).
+    });
+    const item = sinAnclas.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.target?.kind).not.toBe('relative');
+    expect(item.resolved_references).toEqual([
+      { phrase: 'al 50 % del peso corporal', target: null, source: null, estimated: false },
+    ]);
+  });
+
+  it('sin ningún objetivo relativo, la prescripción no cambia (idempotente, coste cero)', () => {
+    const result = buildAssignmentDetail({
+      assignment: baseAssignment,
+      execution: null,
+      template: baseTemplate,
+      segments: [strengthSeg('back-squat', { kind: 'percent_rm', value: 75 })],
+      anchors: anchorsConPeso,
+      oneRms: new Map([[SQ_1RM, { one_rm_kg: 100, needs_review: false }]]),
+    });
+    const item = result.workout!.blocks[0]!.items[0]!;
+    expect(item.prescription_json?.sets?.[0]?.target).toEqual({ kind: 'percent_rm', value: 75 });
+    expect(item.resolved_references).toEqual([]);
+  });
+
   // ===========================================================================
   // ENTRENO LIBRE with content (regression: "No pudimos cargar tu entreno")
   //
@@ -712,6 +959,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     exercise_category: category,
     exercise_video_url: null,
     exercise_cues: null,
+    exercise_description: null,
   });
 
   it('loads a free RUN workout (12×400m) — workout non-null, params derived from prescription', () => {
@@ -794,7 +1042,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
     id, position: 0, block_position: 0, block_format: null, block_title: null,
     params_json: {}, prescription_json, notes: null,
     exercise_id: '960', exercise_name: 'Run', exercise_slug: 'run',
-    exercise_category: 'cardio', exercise_video_url: null, exercise_cues: null,
+    exercise_category: 'cardio', exercise_video_url: null, exercise_cues: null, exercise_description: null,
   });
   const emittedStructure = (segRow: unknown, zoneProfiles?: unknown[]) =>
     buildAssignmentDetail({
@@ -894,7 +1142,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
         params_json: {}, notes: null,
         prescription_json: { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 5 }, target: { kind: 'kg', value: 100 } }] },
         exercise_id: '962', exercise_name: 'Back Squat', exercise_slug: 'back-squat',
-        exercise_category: 'strength', exercise_video_url: null, exercise_cues: null,
+        exercise_category: 'strength', exercise_video_url: null, exercise_cues: null, exercise_description: null,
       }],
     });
     expect(result.workout!.blocks[0]!.items[0]!.prescription_json!.structure).toBeUndefined();

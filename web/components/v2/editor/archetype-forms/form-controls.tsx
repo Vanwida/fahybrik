@@ -59,7 +59,7 @@ export function InlineToggle<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-0.5"
+      className="inline-flex max-w-full shrink-0 flex-wrap items-center gap-0.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-0.5"
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -70,7 +70,7 @@ export function InlineToggle<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              'v2-focus rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide transition-colors',
+              'v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide transition-colors',
               active
                 ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
                 : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',

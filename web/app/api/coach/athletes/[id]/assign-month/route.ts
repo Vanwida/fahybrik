@@ -44,6 +44,7 @@ export async function POST(
       athlete_id: Number(parsedId.data.id),
       month_template_id: parsed.data.month_template_id,
       start_date: parsed.data.start_date,
+      start_week_number: parsed.data.start_week_number,
     });
 
     // STAGGERED DELIVERY: leave the first week published (delivered now) and mark

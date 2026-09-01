@@ -31,3 +31,4 @@ export * from './leads';
 export * from './citas';
 export * from './session-reports';
 export * from './reviews';
+export * from './coach-method-interview';

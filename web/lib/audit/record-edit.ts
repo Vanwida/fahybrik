@@ -1,4 +1,5 @@
 import type { Sql, TransactionClient } from '../db';
+import { toJsonValue } from '../json-column';
 
 // Authorship registry — write side (see migration 0114). Two layers:
 //   COLD  recordAudit()  → one append-only audit_log row (permanent history).
@@ -11,6 +12,19 @@ import type { Sql, TransactionClient } from '../db';
 
 export type AuditAction = 'create' | 'update' | 'delete' | 'restore';
 export type ActorKind = 'coach' | 'athlete' | 'ai' | 'system' | 'lead';
+
+/**
+ * POR DÓNDE entró la escritura (migración 0165). El actor dice QUIÉN; el canal
+ * dice desde qué superficie, que es otra pregunta: el mismo coach toca el plan
+ * desde el panel o dictándoselo a su asistente, y «¿esto lo cambié yo desde el
+ * chat o desde el dashboard?» tiene que poder contestarse. Esta unión ES el
+ * portón (la columna no lleva check a propósito), así que una superficie nueva se
+ * estrena añadiéndose aquí.
+ */
+export type AuditChannel = 'dashboard' | 'mcp';
+
+/** El canal de todo lo que no declara uno: el panel del coach. */
+export const DEFAULT_AUDIT_CHANNEL: AuditChannel = 'dashboard';
 
 export interface Actor {
   kind: ActorKind;
@@ -33,6 +47,8 @@ export interface AuditEntry {
   actor: Actor;
   /** JSON-serialisable context/diff. Small — this is a trail, not event sourcing. */
   diff?: unknown;
+  /** Superficie de origen. Omitido = el panel del coach (el defecto de la columna). */
+  channel?: AuditChannel;
 }
 
 /**
@@ -41,14 +57,17 @@ export interface AuditEntry {
  */
 export async function recordAudit(client: DbClient, entry: AuditEntry): Promise<void> {
   await client`
-    insert into audit_log (actor_user_id, actor_kind, entity_type, entity_id, action, diff_json)
+    insert into audit_log (
+      actor_user_id, actor_kind, entity_type, entity_id, action, diff_json, channel
+    )
     values (
       ${entry.actor.user_id},
       ${entry.actor.kind},
       ${entry.entity_type},
       ${entry.entity_id},
       ${entry.action},
-      ${JSON.stringify(entry.diff ?? {})}::jsonb
+      ${client.json(toJsonValue(entry.diff ?? {}))},
+      ${entry.channel ?? DEFAULT_AUDIT_CHANNEL}
     )
   `;
 }
@@ -65,7 +84,13 @@ export async function recordAudit(client: DbClient, entry: AuditEntry): Promise<
  */
 export async function recordEdit(
   client: DbClient,
-  params: { table: string; id: bigint; actor: Actor; diff?: unknown },
+  params: {
+    table: string;
+    id: bigint;
+    actor: Actor;
+    diff?: unknown;
+    channel?: AuditChannel;
+  },
 ): Promise<void> {
   const { table, id, actor } = params;
   await client`
@@ -80,5 +105,6 @@ export async function recordEdit(
     action: 'update',
     actor,
     diff: params.diff,
+    ...(params.channel ? { channel: params.channel } : {}),
   });
 }

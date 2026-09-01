@@ -25,7 +25,6 @@ export interface HubProps {
   pm5Remembered: string | null;
   onWatchToggle: (next: boolean) => void;
   onHealthToggle: (next: boolean) => void;
-  onOpenHealthApp: () => void;
   onGarmin: () => void;
   onPolar: () => void;
   onPM5: () => void;
@@ -89,10 +88,13 @@ export function Hub(props: HubProps) {
             title="Concept2 PM5"
             subtitle={props.pm5Remembered ?? 'Sin emparejar'}
             trailing={
-              <PillAndChevron
-                text={props.pm5Remembered == null ? '—' : 'pareado'}
-                color={props.pm5Remembered == null ? 'var(--twin-muted)' : 'var(--twin-ok)'}
-              />
+              // Sin remo emparejado no hay estado que enseñar: la píldora
+              // desaparece y solo queda el chevron (ProfileView.swift:~767).
+              props.pm5Remembered == null ? (
+                <Glyph name="chevron.right" size={11} color="var(--twin-faint)" weight={2.6} />
+              ) : (
+                <PillAndChevron text="pareado" color="var(--twin-ok)" />
+              )
             }
             onTap={props.onPM5}
             ariaLabel={`Concept2 PM5, ${props.pm5Remembered ?? 'Sin emparejar'}`}
@@ -145,54 +147,20 @@ function AppleHealthRow({
   healthRequesting,
   healthShowRevokeHint,
   onHealthToggle,
-  onOpenHealthApp,
 }: HubProps) {
   const subtitle = (() => {
     if (healthConnected) return 'Sincroniza en segundo plano';
     if (healthRequesting) return 'Pidiendo permiso…';
     if (healthShowRevokeHint) return 'Desconectado. Para revocar el acceso por completo, ábrelo en la app Salud.';
-    return 'Conecta para sincronizar HR, HRV, sueño y peso';
+    return 'HR, sueño, peso y tu histórico de entrenos';
   })();
-
-  // iOS solo enseña los permisos por categoría DENTRO de la app Salud y no hay
-  // enlace directo a nuestra ficha, así que se deletrean los toques.
-  const showLink = healthConnected || healthShowRevokeHint;
 
   return (
     <DeviceRow
       icon="heart.text.square"
       title="Apple Health"
       subtitleColor={healthConnected ? 'var(--twin-ok)' : 'var(--twin-muted)'}
-      subtitle={
-        <>
-          {subtitle}
-          {showLink && (
-            <>
-              <button
-                type="button"
-                onClick={onOpenHealthApp}
-                aria-label="Abrir la app Salud"
-                style={{
-                  all: 'unset',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  marginTop: 2,
-                  color: 'var(--twin-accent-text)',
-                  font: '600 11px/1.3 var(--twin-font-sans)',
-                }}
-              >
-                Abrir Salud
-                <Glyph name="arrow.up.right" size={9} weight={2.6} />
-              </button>
-              <div style={{ font: '400 10px/1.35 var(--twin-font-sans)', color: 'var(--twin-muted)' }}>
-                En Salud: tu foto → Apps → FAHYBRID → Activar todo
-              </div>
-            </>
-          )}
-        </>
-      }
+      subtitle={subtitle}
       trailing={
         healthRequesting ? <Spinner /> : <IOSSwitch on={healthConnected} onChange={onHealthToggle} label="Apple Health" />
       }

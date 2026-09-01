@@ -63,8 +63,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Antes de montar nada, deja claro <b>quién eres</b>. Tu perfil de entrenador —tu nombre, tu
-          foto, tu box— es lo que tu atleta ve como la persona que está detrás de su plan. No es
+          Antes de montar nada, deja claro <b>quién eres</b>. Tu perfil de entrenador (tu nombre, tu
+          foto, tu box) es lo que tu atleta ve como la persona que está detrás de su plan. No es
           relleno: tu <b>nombre</b> es la firma que aparece en su móvil, en cada mensaje y en cada
           semana que publicas.
         </>
@@ -80,14 +80,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         como={
           <>
             Arriba a la derecha, tu <b>avatar</b> abre tu cuenta; desde ahí entras a{' '}
-            <b>Ajustes y perfil</b>. Rellenas los campos y pulsas <b>Guardar cambios</b> una vez —se
+            <b>Ajustes y perfil</b>. Rellenas los campos y pulsas <b>Guardar cambios</b> una vez: se
             guarda todo junto.
           </>
         }
         porque={
           <>
             Porque tu atleta no entrena con una app anónima: entrena <em className="em">contigo</em>.
-            Ver tu nombre y tu cara convierte un plan en algo personal — y la confianza es la mitad
+            Ver tu nombre y tu cara convierte un plan en algo personal, y la confianza es la mitad
             de la adherencia.
           </>
         }
@@ -98,7 +98,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         En <code>Ajustes</code> tienes un único formulario con todo tu perfil: <b>foto</b>,{' '}
         <b>nombre</b>, <b>box o estudio</b>, <b>ubicación</b>, una <b>bio</b> corta, y tus{' '}
         <b>especialidades</b> y <b>certificaciones</b> como etiquetas. Editas lo que quieras y un solo
-        botón <code>Guardar cambios</code> lo persiste todo de golpe —no hay que guardar campo a
+        botón <code>Guardar cambios</code> lo persiste todo de golpe: no hay que guardar campo a
         campo.
       </p>
 

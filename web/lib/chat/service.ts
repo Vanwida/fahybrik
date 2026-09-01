@@ -13,9 +13,17 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { attachmentPreview } from './schema';
-import type { ChatAttachmentKind, ChatSenderRole, MessageDTO, SendMessageInput } from './schema';
+import type {
+  ChatAttachmentKind,
+  ChatContext,
+  ChatContextKind,
+  ChatSenderRole,
+  MessageDTO,
+  SendMessageInput,
+} from './schema';
 import { notifyOpposite } from './notify';
 import { publishMessage, type ChatScope } from './pubsub';
+import { resolveContextPreviews, previewKey } from './context-preview';
 
 // Postgres `timestamptz::text` renders `2026-05-29 11:06:13.234292+00` — a space
 // instead of `T` and a `+00` offset. That is NOT valid ISO 8601, so the iOS
@@ -53,6 +61,13 @@ type MessageRow = {
   attachment_url: string | null;
   attachment_kind: string | null;
   attachment_meta: unknown;
+  // Contexto (migración 0186) — las 4 columnas planas, o las 4 null cuando el
+  // mensaje no lleva contexto (el check `context_all_or_none` de la DB lo
+  // garantiza: nunca llegan 2 de 4).
+  context_kind: string | null;
+  context_ref: string | null;
+  context_sub: string | null;
+  context_label: string | null;
   created_at: string;
   read_at: string | null;
   edited_at: string | null;
@@ -69,10 +84,27 @@ type MessageRow = {
 const messageColumns = (client: Sql) => client`
   m.id::text, m.thread_id::text, m.sender_user_id::text, m.sender_role, m.body,
   m.attachment_url, m.attachment_kind, m.attachment_meta::jsonb as attachment_meta,
+  m.context_kind, m.context_ref, m.context_sub, m.context_label,
   m.created_at::text, m.read_at::text, m.edited_at::text
 `;
 
-function rowToMessageDto(r: MessageRow): MessageDTO {
+function rowToContext(r: MessageRow): ChatContext | null {
+  if (!r.context_kind || !r.context_ref || !r.context_label) return null;
+  return {
+    kind: r.context_kind as ChatContextKind,
+    ref: r.context_ref,
+    sub: r.context_sub,
+    label: r.context_label,
+  };
+}
+
+// La terna CONGELADA, sin la previsualización viva todavía — `withPreviews`
+// (más abajo) es quien la completa hasta `MessageDTO`. Existe como paso
+// intermedio porque resolver la previsualización es async y por LOTE: no se
+// puede hacer fila a fila dentro de este mapeo síncrono sin caer en un N+1.
+type MessageDtoFrozen = Omit<MessageDTO, 'context'> & { context: ChatContext | null };
+
+function rowToMessageDto(r: MessageRow): MessageDtoFrozen {
   return {
     id: r.id,
     thread_id: r.thread_id,
@@ -82,10 +114,29 @@ function rowToMessageDto(r: MessageRow): MessageDTO {
     attachment_url: r.attachment_url,
     attachment_kind: (r.attachment_kind as ChatAttachmentKind | null) ?? null,
     attachment_meta: (r.attachment_meta as Record<string, unknown> | null) ?? null,
+    context: rowToContext(r),
     created_at: toWireIso(r.created_at)!,
     read_at: toWireIso(r.read_at),
     edited_at: toWireIso(r.edited_at),
   };
+}
+
+/**
+ * Completa una página de mensajes con la previsualización VIVA de su
+ * contexto. UNA llamada a `resolveContextPreviews` por página (agrupada por
+ * `kind` dentro), nunca una por mensaje — es el paso que hace que
+ * `listMessages`/`listNewMessagesForScope`/`sendMessage`/`getMessageById`
+ * cumplan la regla de lote sin repetirla cada uno por su cuenta.
+ */
+async function withPreviews(client: Sql, rows: MessageDtoFrozen[]): Promise<MessageDTO[]> {
+  const contexts = rows.map((r) => r.context).filter((c): c is ChatContext => c !== null);
+  const previews = await resolveContextPreviews(client, contexts);
+  return rows.map((r) => ({
+    ...r,
+    context: r.context
+      ? { ...r.context, ...(previews.get(previewKey(r.context)) ?? { preview: null, exists: false, state: null }) }
+      : null,
+  }));
 }
 
 // -----------------------------------------------------------------------------
@@ -288,7 +339,8 @@ export async function listMessages(args: {
   const hasMore = rows.length > limit;
   const sliced = hasMore ? rows.slice(0, limit) : rows;
   const next_cursor = hasMore ? sliced[sliced.length - 1]!.id : null;
-  return { messages: sliced.map(rowToMessageDto), next_cursor };
+  const messages = await withPreviews(client, sliced.map(rowToMessageDto));
+  return { messages, next_cursor };
 }
 
 // Un mensaje por id — lo usa el stream SSE para recomponer el DTO completo tras
@@ -304,7 +356,9 @@ export async function getMessageById(
       and m.deleted_at is null
     limit 1
   `;
-  return rows[0] ? rowToMessageDto(rows[0]) : null;
+  if (!rows[0]) return null;
+  const [message] = await withPreviews(client, [rowToMessageDto(rows[0])]);
+  return message!;
 }
 
 // Author-scoped soft delete. Sets `deleted_at` ONLY when the message belongs to
@@ -376,7 +430,8 @@ export async function listNewMessagesForScope(args: {
     limit ${limit}
   `;
   const cursor = rows.length > 0 ? rows[rows.length - 1]!.id : null;
-  return { messages: rows.map(rowToMessageDto), cursor };
+  const messages = await withPreviews(client, rows.map(rowToMessageDto));
+  return { messages, cursor };
 }
 
 export async function sendMessage(args: {
@@ -385,12 +440,20 @@ export async function sendMessage(args: {
   sender_user_id: bigint;
   sender_role: ChatSenderRole;
   input: SendMessageInput;
+  // Ya RESUELTO (propiedad validada + etiqueta derivada) por
+  // `resolveMessageContext` — este módulo nunca deriva una etiqueta, solo la
+  // persiste. Opcional (no `| null` obligatorio) para que un caller que no
+  // conoce el concepto de contexto (todo el código anterior a la 0186) siga
+  // compilando sin cambios: se comporta como "sin contexto", igual que hoy.
+  context?: ChatContext | null;
 }): Promise<MessageDTO> {
   const client = args.sql ?? defaultSql;
   const { thread_id, sender_user_id, sender_role, input } = args;
+  const context = args.context ?? null;
   const inserted = await client<MessageRow[]>`
     insert into chat_messages as m (
-      thread_id, sender_user_id, sender_role, body, attachment_url, attachment_kind, attachment_meta
+      thread_id, sender_user_id, sender_role, body, attachment_url, attachment_kind, attachment_meta,
+      context_kind, context_ref, context_sub, context_label
     ) values (
       ${thread_id as unknown as string}::bigint,
       ${sender_user_id as unknown as number},
@@ -398,7 +461,11 @@ export async function sendMessage(args: {
       ${input.body ?? null},
       ${input.attachment_url ?? null},
       ${input.attachment_kind ?? null},
-      ${input.attachment_meta ? client.json(input.attachment_meta) : null}
+      ${input.attachment_meta ? client.json(input.attachment_meta) : null},
+      ${context?.kind ?? null},
+      ${context?.ref ?? null},
+      ${context?.sub ?? null},
+      ${context?.label ?? null}
     )
     returning ${messageColumns(client)}
   `;
@@ -425,15 +492,20 @@ export async function sendMessage(args: {
   `;
 
   // Reparto: aviso en la app + push al destinatario. Best-effort.
+  //
+  // La etiqueta se antepone cuando hay contexto — "Fuerza A · mar 12: ¿cuántas
+  // series?" lee natural en los dos idiomas de adjunto (texto o vista previa
+  // de adjunto). notify.ts no conoce el contexto; recibe el preview ya hecho.
+  const basePreview =
+    input.body && input.body.trim().length > 0
+      ? input.body
+      : attachmentPreview(input.attachment_kind ?? null);
   notifyOpposite({
     sql: client,
     thread_id: BigInt(row.thread_id),
     sender_user_id,
     sender_role,
-    preview:
-      input.body && input.body.trim().length > 0
-        ? input.body
-        : attachmentPreview(input.attachment_kind ?? null),
+    preview: context ? `${context.label}: ${basePreview}` : basePreview,
   }).catch(() => undefined);
 
   // Publica a los streams SSE de todas las instancias (Postgres NOTIFY). El aviso
@@ -449,7 +521,8 @@ export async function sendMessage(args: {
     }).catch(() => undefined);
   }
 
-  return rowToMessageDto(row);
+  const [message] = await withPreviews(client, [rowToMessageDto(row)]);
+  return message!;
 }
 
 /**

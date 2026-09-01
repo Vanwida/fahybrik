@@ -65,3 +65,16 @@ __pycache__/
 
 # playwright-mcp session artifacts
 .playwright-mcp/
+
+# Local media (raw video, not source)
+/media/
+# Material de firma de Apple. docs/app-store/testflight-checklist.md ya prometía que
+# estaba ignorado y no lo estaba: un `git add` de una carpeta de certificados metía la
+# clave privada de distribución en un repo que se clona para vender. Un .p12 o un .p8
+# filtrado deja firmar en nombre del equipo, y el remedio es revocar y resellar.
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8

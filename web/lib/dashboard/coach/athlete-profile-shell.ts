@@ -3,6 +3,10 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
+import {
+  INTAKE_PLAN_MODE_DEFAULT,
+  type IntakePlanMode,
+} from '@fahybrid/shared/schema/coach-intake';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { getLatestReadiness } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
@@ -72,6 +76,9 @@ export type AthleteProfileShell = {
   /** JOINT "Entrenar juntos" sessions this athlete logged with a partner — both
    *  athletes' REAL results side by side, newest first. Empty when none. */
   joint_sessions: JointSession[];
+  /** De qué nace el plan: periodización compartida o plan solo suyo. Vive en
+   *  columna porque existe ANTES de que haya microciclos (0188). */
+  plan_mode: IntakePlanMode;
 };
 
 function readinessLabel(score: number | null): ReadinessLabel | null {
@@ -106,11 +113,13 @@ export async function fetchAthleteProfileShell(params: {
       max_hr_bpm: number | null;
       partner_athlete_id: string | null;
       partner_full_name: string | null;
+      plan_mode: string;
     }>
   >`
     select
       a.id::text,
       a.full_name,
+      a.plan_mode,
       a.max_hr_bpm,
       al.name as level_name,
       coalesce(al.sort_order, 0)::int as level_sort,
@@ -213,6 +222,7 @@ export async function fetchAthleteProfileShell(params: {
         ? { athlete_id: row.partner_athlete_id, full_name: row.partner_full_name }
         : null,
     joint_sessions: jointSessions,
+    plan_mode: row.plan_mode === 'personal' ? 'personal' : INTAKE_PLAN_MODE_DEFAULT,
   };
 }
 

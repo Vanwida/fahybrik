@@ -56,7 +56,7 @@ const TERMINAL_NOTE: Record<'rechazada' | 'cancelada' | 'completada' | 'no_show'
 };
 
 const LINK_CLS =
-  'v2-focus break-all text-sm font-medium text-[color:var(--v2-fg)] underline-offset-2 transition-colors hover:text-[color:var(--v2-accent)] hover:underline';
+  'v2-focus break-all text-sm font-medium text-[color:var(--v2-fg)] underline-offset-2 transition-colors hover:text-[color:var(--v2-accent-text)] hover:underline';
 
 function isHttpUrl(value: string): boolean {
   try {
@@ -214,7 +214,7 @@ export function LeadCitaBlock({
                 ) : null}
               </div>
               <p className="text-xs text-[color:var(--v2-muted)]">
-                Pega el enlace de Meet o Zoom — se lo reenviamos al lead por email.
+                Pega el enlace de Meet o Zoom: se lo reenviamos al lead por email.
               </p>
             </div>
           )}

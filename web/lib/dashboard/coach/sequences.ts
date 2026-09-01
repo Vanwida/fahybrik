@@ -202,19 +202,23 @@ export async function saveCoachSequence(
   }
 
   // Ownership guard: every microciclo (month_template) referenced must belong to
-  // this coach. De-dupe before checking.
+  // this coach AND be a LIBRARY microciclo (athlete_id is null, 0164). A sequence
+  // is the shared level×días matrix — wiring a personal plan into it would leak
+  // one athlete's bespoke content into the periodization every athlete on that
+  // cell receives, which is exactly the failure mode this system exists to avoid.
+  // De-dupe before checking.
   const monthIds = [...new Set(payload.items.map((it) => String(it.month_template_id)))];
   if (monthIds.length > 0) {
     const ownedMonths = await client<{ id: string }[]>`
       select id::text from program_month_templates
-      where coach_id = ${coach} and id = any(${monthIds}::bigint[])
+      where coach_id = ${coach} and athlete_id is null and id = any(${monthIds}::bigint[])
     `;
     const ownedSet = new Set(ownedMonths.map((r) => r.id));
     const missing = monthIds.filter((id) => !ownedSet.has(id));
     if (missing.length > 0) {
       throw new SaveSequenceError(
         'invalid_month_template',
-        `Microciclo(s) no encontrados o no pertenecen al coach: ${missing.join(', ')}.`,
+        `Microciclo(s) no encontrados, no pertenecen al coach, o son un plan personal: ${missing.join(', ')}.`,
       );
     }
   }

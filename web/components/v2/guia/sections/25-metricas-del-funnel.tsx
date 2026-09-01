@@ -94,7 +94,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          De la <b>visita</b> al <b>alta</b>: cuánta gente entra en cada escalón y —lo importante—{' '}
+          De la <b>visita</b> al <b>alta</b>: cuánta gente entra en cada escalón y, lo importante,{' '}
           <b>dónde se cae</b>. Con el % de conversión en cada salto sabes qué parte del embudo
           arreglar: la web, el onboarding o la oferta. Todo sale de <b>datos reales</b>, nada
           inventado.
@@ -104,7 +104,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            Un <b>embudo</b> de cuatro escalones —visitas → leads → citas → altas— con su tasa de
+            Un <b>embudo</b> de cuatro escalones (visitas → leads → citas → altas) con su tasa de
             conversión, una <b>tendencia semanal</b> y el desglose <b>por objetivo</b> (a qué vienen
             tus atletas).
           </>
@@ -118,7 +118,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         porque={
           <>
             Porque con un número global (“12 altas”) no sabes qué mejorar. Ver <b>dónde</b> se pierde
-            la gente te dice si el problema es tráfico, formulario o cierre — y por dónde empezar.
+            la gente te dice si el problema es tráfico, formulario o cierre, y por dónde empezar.
           </>
         }
       />
@@ -127,15 +127,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Cada escalón es una condición sobre el lead: ¿dejó su email?, ¿reservó cita?, ¿se dio de alta?
         El % que ves es la <b>conversión desde la etapa anterior</b>. Un salto que se desploma es tu
-        siguiente palanca — mucho más útil que el total del final.
+        siguiente palanca, mucho más útil que el total del final.
       </p>
 
       <h3>2 · Visitas sin cookies ni rastreo</h3>
       <p>
-        El primer escalón —las <b>visitas</b>— se cuenta en el servidor, <b>sin cookies ni PII</b>:
+        El primer escalón (las <b>visitas</b>) se cuenta en el servidor, <b>sin cookies ni PII</b>:
         nunca se guarda la IP, solo un hash con una sal que <b>cambia cada día</b> (así no se puede
         rastrear a nadie entre días), agregado a una tabla diaria. Cumple RGPD sin banner. Empezó a
-        contar el <b>8 jul</b>, el día que se instrumentó — antes no hay histórico, y lo decimos claro.
+        contar el <b>8 jul</b>, el día que se instrumentó. Antes no hay histórico, y lo decimos claro.
       </p>
 
       {/* Dashboard mockup: Métricas — embudo + tendencia + por objetivo */}
@@ -251,7 +251,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="log" title="Métrica honesta: convertido solo al reclamar">
         <p>
           Un lead cuenta como <b>alta</b> únicamente cuando <b>reclama su invitación</b> y entra en la
-          app — no cuando le envías el alta. Así el número del final es real, no optimista: mide gente
+          app, no cuando le envías el alta. Así el número del final es real, no optimista: mide gente
           dentro, no correos enviados.
         </p>
       </DocNote>

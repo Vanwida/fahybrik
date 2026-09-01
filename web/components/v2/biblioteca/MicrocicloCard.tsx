@@ -52,26 +52,22 @@ export function MicrocicloCard({
   return (
     <div
       className={cn(
-        'v2-stagger group relative flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
+        'v2-stagger group relative flex flex-col rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',
       )}
-      style={{
-        ['--v2-stagger-i' as string]: index,
-        borderLeftWidth: '3px',
-        borderLeftColor: 'var(--v2-accent)',
-      }}
+      style={{ ['--v2-stagger-i' as string]: index }}
     >
       {/* Stretched link — the whole card opens the editor. */}
       <Link
         href={`/microciclos/${microciclo.id}`}
         aria-label={`Editar microciclo ${microciclo.name}`}
-        className="v2-focus absolute inset-0 z-0 rounded-[var(--v2-r-l)]"
+        className="v2-focus absolute inset-0 z-0 rounded-[var(--v2-r-card)]"
       />
 
       {/* Title + actions. The row ignores pointer events so clicks fall through to
           the stretched link; only the Duplicar button re-enables them. */}
       <div className="pointer-events-none relative z-10 flex items-start justify-between gap-2">
-        <h3 className="min-w-0 text-sm font-semibold leading-snug text-[color:var(--v2-fg)]">
+        <h3 className="v2-display min-w-0 text-[15.5px] text-[color:var(--v2-fg)]">
           {microciclo.name}
         </h3>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -81,7 +77,7 @@ export function MicrocicloCard({
             disabled={duplicating}
             aria-label={`Duplicar ${microciclo.name}`}
             title="Crea una copia independiente de este microciclo"
-            className="pointer-events-auto v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+            className="pointer-events-auto v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
           >
             <MIcon
               name={duplicating ? 'progress_activity' : 'content_copy'}

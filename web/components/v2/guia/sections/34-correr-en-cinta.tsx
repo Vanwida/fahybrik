@@ -155,8 +155,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Cuando tu atleta entrena en cinta, no tiene por qué ir a ciegas. <b>Antes de empezar</b>{' '}
-          enlaza la app a su <b>cinta compatible</b> por Bluetooth —eligiéndola <b>por su nombre</b> de
-          una lista, no la primera que pilla— y corre el tramo con el <b>ritmo en vivo contra tu
+          enlaza la app a su <b>cinta compatible</b> por Bluetooth (eligiéndola <b>por su nombre</b> de
+          una lista, no la primera que pilla) y corre el tramo con el <b>ritmo en vivo contra tu
           objetivo</b>, su pulso e inclinación a la vista, y los tramos que <b>avanzan solos</b>. Tú no
           tienes que hacer nada distinto: prescribes la carrera como siempre.
         </>
@@ -179,7 +179,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         porque={
           <>
-            Porque la cinta es donde más fácil se pierde el objetivo de vista —y, en un gimnasio con
+            Porque la cinta es donde más fácil se pierde el objetivo de vista, y en un gimnasio con
             varias máquinas, engancharse a la de al lado. Eligiendo la suya y con el ritmo delante, tu
             atleta <b>clava la banda</b>, y a ti te vuelve una ejecución <b>real</b>.
           </>
@@ -190,18 +190,18 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         En la pantalla <b>previa</b> al entreno (y también al montar un <b>entreno libre</b>) aparece
         una tarjeta <b>«Dispositivos»</b> con un lema honesto: <em className="em">«Conecta antes de
-        empezar — opcional»</em>. Al tocar la cinta, la app <b>busca las que hay cerca y las lista por
+        empezar, opcional»</em>. Al tocar la cinta, la app <b>busca las que hay cerca y las lista por
         nombre</b> con su intensidad de señal; tu atleta <b>toca la suya</b>. No se engancha sola a la
-        primera que aparece —clave en un gimnasio con seis cintas en fila—: solo se autoconecta si
+        primera que aparece (clave en un gimnasio con seis cintas en fila): solo se autoconecta si
         reconoce <b>exactamente la que usó la última vez</b>. Y el botón <b>«Desconectar»</b> está
         siempre a mano, tanto en la lista como en la cabecera del entreno, por si latió con la de al
         lado.
       </p>
       <p>
         El pulso va aparte, porque no es una máquina del gimnasio sino un dispositivo <b>personal</b>.
-        Si tu atleta lleva <b>Apple Watch</b>, la tarjeta ya lo dice — <em className="em">«Pulso ·
-        Apple Watch»</em> — y no hay nada que conectar: al darle a empezar, el pulso de la muñeca
-        llega solo. La <b>banda de pecho</b> queda como opción para quien la prefiera — y en ese
+        Si tu atleta lleva <b>Apple Watch</b>, la tarjeta ya lo dice: <em className="em">«Pulso ·
+        Apple Watch»</em>, y no hay nada que conectar: al darle a empezar, el pulso de la muñeca
+        llega solo. La <b>banda de pecho</b> queda como opción para quien la prefiera, y en ese
         mismo selector vale también un <b>reloj emitiendo pulso</b> por Bluetooth (Garmin, Polar,
         Amazfit… casi todos traen el modo «difundir frecuencia cardiaca»). Si usó banda o reloj una
         vez, la app <b>lo reconecta solo</b> (el suyo exacto, nunca el de otro) cada vez que abre un
@@ -213,7 +213,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             La tarjeta <b>Dispositivos</b> en la pantalla previa: las cintas cercanas <b>por nombre</b>,
-            se toca la propia y queda conectada — con <b>desconectar</b> siempre visible.
+            se toca la propia y queda conectada, con <b>desconectar</b> siempre visible.
           </>
         }
       >
@@ -244,7 +244,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           >
             <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--fg)' }}>Dispositivos</div>
             <div style={{ fontSize: '10.5px', color: 'var(--muted)', marginBottom: '12px' }}>
-              Conecta antes de empezar — opcional
+              Conecta antes de empezar, opcional
             </div>
 
             <DeviceRow name="Technogym · Run 03" strength={3} connected />
@@ -253,7 +253,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </div>
 
           <div style={{ fontSize: '9.5px', color: 'var(--faint)', textAlign: 'center', marginTop: '9px' }}>
-            Puedes empezar sin conectar nada — la cinta solo suma.
+            Puedes empezar sin conectar nada, la cinta solo suma.
           </div>
         </PhoneMockup>
       </MovilBand>
@@ -271,7 +271,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         subtitle={
           <>
             Ritmo en vivo contra objetivo, pulso, velocidad e inclinación, y la barra del tramo que
-            se llena sola — cuando termina, <b>salta al siguiente</b>.
+            se llena sola; cuando termina, <b>salta al siguiente</b>.
           </>
         }
       >
@@ -279,7 +279,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           caption={
             <>
               <b>El HUD de cinta.</b> «Tramo 2 de 8», ritmo en vivo junto al objetivo y el progreso de
-              la distancia — sin tocar el móvil mientras corre.
+              la distancia, sin tocar el móvil mientras corre.
             </>
           }
         >
@@ -374,8 +374,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Los metros que va marcando la <b>cinta</b> ya no se quedan en la pantalla: entran en el{' '}
         <b>registro de la sesión</b> como la distancia real del tramo y viajan a tu panel con el resto
-        de la ejecución. De ahí alimentan su <b>historial</b> y sus <b>analíticas de carrera</b> —
-        volumen, ritmos, evolución— igual que una salida al aire libre. Correr en cinta cuenta{' '}
+        de la ejecución. De ahí alimentan su <b>historial</b> y sus <b>analíticas de carrera</b>{' '}
+        (volumen, ritmos, evolución) igual que una salida al aire libre. Correr en cinta cuenta{' '}
         <b>tanto como correr fuera</b>: no es un entreno «de segunda» que se pierde.
       </p>
 
@@ -391,7 +391,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>4 · Y en la muñeca, lo mismo que en el móvil</h3>
       <p>
         Si tu atleta lleva <b>Apple Watch</b>, no ve una versión pobre: la muñeca pinta <b>lo mismo que
-        el móvil</b> para el tramo de cinta — el <b>ritmo</b> grande, la <b>barra de metros</b> que se
+        el móvil</b> para el tramo de cinta: el <b>ritmo</b> grande, la <b>barra de metros</b> que se
         llena y los <b>metros cubiertos</b> sobre el objetivo. El teléfono es quien lleva la conexión
         Bluetooth con la cinta y se lo <b>espeja</b> al reloj, para que el atleta pueda mirar la muñeca
         sin sacar el móvil.
@@ -466,7 +466,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="cue" title="Tú no marcas nada">
         <p>
           El modo cinta es cosa del atleta: tú <b>prescribes la carrera como siempre</b> en el editor.
-          Correr en cinta o al aire libre no cambia tu trabajo — la ejecución vuelve a tu panel del
+          Correr en cinta o al aire libre no cambia tu trabajo: la ejecución vuelve a tu panel del
           mismo modo, lista para el <b>cumplimiento por tramo</b>.
         </p>
       </DocNote>

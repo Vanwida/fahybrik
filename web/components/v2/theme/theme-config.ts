@@ -11,5 +11,18 @@ export type V2Theme = 'dark' | 'light';
 /** localStorage key for the persisted v2 theme — single source of truth. */
 export const V2_THEME_STORAGE_KEY = 'fahybrid:v2-theme';
 
-/** Default when nothing is stored and no system preference resolves. */
-export const V2_THEME_DEFAULT: V2Theme = 'dark';
+/** Default when nothing is stored and the system is not asking for dark. */
+export const V2_THEME_DEFAULT: V2Theme = 'light';
+
+/**
+ * Qué tema pinta el panel: lo guardado gana; si no hay nada, el sistema;
+ * si el sistema tampoco dice, el claro FLEXR.
+ */
+export function resolveV2Theme(
+  stored: string | null | undefined,
+  prefersDark: boolean,
+): V2Theme {
+  if (stored === 'dark' || stored === 'light') return stored;
+  if (prefersDark) return 'dark';
+  return V2_THEME_DEFAULT;
+}

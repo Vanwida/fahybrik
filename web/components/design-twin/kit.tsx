@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { COLOR_MODALIDAD, type Modalidad } from './datos-reales';
+import type { TwinAppearance } from './types';
 
 /** Theme.Spacing. */
 export const SP = { xs: 4, s: 8, m: 12, l: 16, xl: 24, xxl: 32 } as const;
@@ -46,6 +47,140 @@ export function PuntoModalidad({ modalidad, size = 8 }: { modalidad: Modalidad; 
         flex: '0 0 auto',
       }}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// IconoTipoEntreno — de un vistazo, qué FUE la sesión (card 124)
+// ---------------------------------------------------------------------------
+//
+// `PuntoModalidad` dice de qué modalidad es UN bloque; esto dice qué fue LA
+// SESIÓN entera — el equivalente al monigote de Apple Fitness en su círculo de
+// color. Vive aquí y no en `lectura-sesion` porque el vocabulario (el tipo, su
+// tinte, su glifo) es de la app entera: el historial y cualquier lista de
+// sesiones lo va a necesitar en cuanto exista, y repetirlo ahí sería la misma
+// vía por la que nacieron los seis relojes del 28-jul.
+//
+// La CLASIFICACIÓN (qué Sesión produce qué tipo) es dominio y vive en
+// `screens/lectura-sesion/modelo.ts` (`tipoDeSesion`); aquí solo el vocabulario
+// y el dibujo.
+
+export type TipoEntreno = 'correr' | 'fuerza' | 'hyrox' | 'mixto' | 'funcional';
+
+/**
+ * El tinte por tipo. `correr` y `hyrox` comparten color a propósito: es el
+ * mismo que `COLOR_MODALIDAD.run` ya usa en toda la app (el rosa es «HYROX»,
+ * y correr es la mitad de HYROX — memoria del proyecto). Lo que los distingue
+ * es el glifo, no el color.
+ */
+const TINTE_TIPO: Record<TipoEntreno, string> = {
+  correr: 'var(--twin-modality-hyrox)',
+  hyrox: 'var(--twin-modality-hyrox)',
+  fuerza: 'var(--twin-modality-strength)',
+  mixto: 'var(--twin-modality-functional)',
+  funcional: 'var(--twin-modality-functional)',
+};
+
+/**
+ * La tinta del glifo — MEDIDA, no estimada (§4.2 del CONTRATO-UI).
+ *
+ * Sobre las cuatro combinaciones de tinte×tema el negro casi puro contrasta
+ * 7,8:1–10,3:1 en oscuro y el blanco 4,8:1–6,7:1 en claro (contra los hex
+ * reales de `twin.css`, con `contrastRatio` de `club-accent.ts`) — los dos
+ * MUY por encima del 3:1 que exige un glifo. La combinación cruzada (negro en
+ * claro, blanco en oscuro) cae hasta 2,9:1 y no vale: por eso la tinta se
+ * decide por TEMA y no por tinte, siempre la misma regla para los cuatro.
+ */
+function tintaDelGlifo(appearance: TwinAppearance): string {
+  return appearance === 'dark' ? '#0b0b0c' : '#ffffff';
+}
+
+function GlifoTipo({ tipo, color, size }: { tipo: TipoEntreno; color: string; size: number }) {
+  switch (tipo) {
+    case 'fuerza':
+      // Una barra con sus discos: la lectura inmediata de «fuerza» en todo el
+      // sector — el mismo lenguaje que ya usa el punto de modalidad.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+          <g fill={color}>
+            <rect x="1.5" y="10.2" width="2.6" height="3.6" rx="0.8" />
+            <rect x="4.6" y="8.4" width="2.2" height="7.2" rx="0.8" />
+            <rect x="7.2" y="10.8" width="9.6" height="2.4" />
+            <rect x="17.2" y="8.4" width="2.2" height="7.2" rx="0.8" />
+            <rect x="19.9" y="10.2" width="2.6" height="3.6" rx="0.8" />
+          </g>
+        </svg>
+      );
+    case 'correr':
+      // Una figura a media zancada — el mismo lenguaje que el monigote de
+      // Apple, en nuestra voz de trazo lleno.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+          <g fill={color}>
+            <circle cx="15.1" cy="4.6" r="2.1" />
+            <path d="M13.4 7.3c1.7-.5 3 .1 3.9 1.4l2.3 3.4-1.8 1.3-2-2.9-1.3.9.9 2.3c.2.6.1 1.2-.4 1.6l-4.5 3.9-1.4-1.6 3.8-3.4-1-2.6c-.5-1.3-.1-2.8 1.1-3.8Z" />
+            <path d="M9.9 15.9 5.6 18.7l1.1 1.9 4.9-3.1Z" />
+            <path d="M12.7 9.6 8.9 11l.6 2 3.9-1.4Z" />
+          </g>
+        </svg>
+      );
+    case 'hyrox':
+      // El rayo: intensidad cronometrada, la voz que ya usa el sector para lo
+      // que se corre contrarreloj y por estaciones.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+          <path d="M13.4 1.8 4.6 13.6h5.4L8.8 22.2l10.6-12.6h-5.9l1.9-7.8Z" fill={color} />
+        </svg>
+      );
+    case 'mixto':
+    case 'funcional':
+      // El kettlebell: el objeto que representa «funcional» en cualquier box,
+      // y el que mejor dice «esto mezcló disciplinas» sin ser ni la barra ni
+      // la figura de correr.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+          <path
+            d="M8.6 8.4a3.4 3.4 0 0 1 6.8 0"
+            fill="none"
+            stroke={color}
+            strokeWidth="2.3"
+            strokeLinecap="round"
+          />
+          <rect x="6.2" y="8.6" width="11.6" height="11.6" rx="4.6" fill={color} />
+        </svg>
+      );
+  }
+}
+
+/**
+ * El círculo teñido con su glifo — el sujeto de la cabecera de una lectura de
+ * sesión. `size` es el diámetro del círculo; el glifo escala con él.
+ */
+export function IconoTipoEntreno({
+  tipo,
+  appearance,
+  size = 44,
+}: {
+  tipo: TipoEntreno;
+  appearance: TwinAppearance;
+  size?: number;
+}) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: TINTE_TIPO[tipo],
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: '0 0 auto',
+      }}
+    >
+      <GlifoTipo tipo={tipo} color={tintaDelGlifo(appearance)} size={Math.round(size * 0.54)} />
+    </span>
   );
 }
 
@@ -580,6 +715,43 @@ export function IconHeart({ size = 12 }: { size?: number }) {
         d="M8 14S1.6 10.2 1.6 5.9A3.6 3.6 0 0 1 8 3.7a3.6 3.6 0 0 1 6.4 2.2C14.4 10.2 8 14 8 14Z"
         fill="currentColor"
       />
+    </svg>
+  );
+}
+
+/** `square.stack.3d.up` — el ciclo entero: tres paradas apiladas, una encima
+ *  de otra, igual que las etapas de la espina. */
+export function IconStack({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <path
+        d="M8 2.2 13.6 4.6 8 7 2.4 4.6Z M8 6.9 13.6 9.3 8 11.7 2.4 9.3Z M8 10.9 13.6 13.3 8 15.7 2.4 13.3Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** `calendar` — el historial de entrenos. */
+export function IconCalendar({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <rect x="2" y="3.4" width="12" height="10.8" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 6.6h12" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5.4 1.7v2.6M10.6 1.7v2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** `message` — el chat con el coach. */
+export function IconMessage({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <rect x="1.8" y="2.6" width="12.4" height="8.6" rx="3.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5 11.2v2.6l3.2-2.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

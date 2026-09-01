@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconocer el movimiento — el reloj deja de preguntar qué estás haciendo</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171; --info:#60a5fa;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5.4vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 10px}
+  .sub{color:var(--muted);font-size:17.5px;max-width:680px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:23px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px;scroll-margin-top:20px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800;flex:0 0 auto}
+  h3{font-size:15.5px;font-weight:800;margin:var(--sp-3) 0 var(--sp-1)}
+  h4{font-size:13.5px;font-weight:800;margin:var(--sp-2) 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:9px} li::marker{color:var(--accent)}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.3)}
+  a:hover{border-bottom-color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  /* anywhere y no break-word: una ruta como FAHYBRIKWatch/LiveWorkoutSession.swift:69 no tiene
+     ningún punto de corte legal, así que sin esto estira la caja y desborda la página en móvil */
+  code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);overflow-wrap:anywhere}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tS table{margin:0}
+  .num{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .pill.info{color:var(--info);border-color:rgba(96,165,250,.35)}
+  .break{border-left:3px solid var(--bad);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-3)}
+  .break h3{margin:0 0 4px;color:var(--fg)}
+  .break p{margin:0 0 8px;font-size:14.5px;color:var(--muted)}
+  .break p:last-child{margin-bottom:0}
+  .keep{border-left:3px solid var(--ok);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-2)}
+  .keep h3{margin:0 0 4px} .keep p{margin:0;font-size:14.5px;color:var(--muted)}
+  .law{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .law h3{margin:0 0 6px;color:var(--accent)}
+  .law p{margin:0;font-size:15px;color:var(--fg)}
+  .law p + p{margin-top:8px;color:var(--muted);font-size:14px}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;font:13.5px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);margin-bottom:var(--sp-2);overflow-x:auto}
+  .formula .c{color:var(--faint)}
+  .formula .k{color:var(--accent)}
+  .layer{display:flex;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
+  .layer:last-child{border-bottom:0}
+  .layer .n{flex:0 0 40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic}
+  /* sin esto un hijo flex no encoge por debajo de su contenido y las tablas de dentro desbordan la página */
+  .layer > div:last-child{min-width:0}
+  .layer h3{margin:0 0 3px} .layer p{margin:0 0 6px;font-size:14px;color:var(--muted)}
+  .layer p:last-child{margin-bottom:0}
+  .src{font-size:12.5px;color:var(--faint);display:block;margin-top:4px}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-2) var(--sp-3);margin:var(--sp-4) 0 0}
+  .toc ol{margin:0 0 0 20px;columns:2;column-gap:var(--sp-3)}
+  .toc li{margin-bottom:5px;font-size:14px;break-inside:avoid}
+  .toc a{border:0;color:var(--muted)} .toc a:hover{color:var(--accent)}
+  .big{font-size:clamp(26px,4vw,34px);font-weight:800;font-style:italic;color:var(--accent);line-height:1.15;letter-spacing:-.01em}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-2)}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--sp-2)}
+  .stat .v{font-size:26px;font-weight:800;font-style:italic;color:var(--fg);line-height:1.1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--faint);margin-top:5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .stat .d{font-size:13.5px;color:var(--muted);margin-top:8px}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  .footer p{margin-bottom:8px}
+  @media (max-width:600px){ .wrap{padding:var(--sp-4) var(--sp-2)} .toc ol{columns:1} h2{gap:8px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Reconocimiento de movimiento en el reloj · Propuesta para decisión</p>
+  <h1>El reloj deja de preguntar qué estás haciendo</h1>
+  <p class="sub">Hoy cada repetición del entreno la suma el atleta con el dedo. La propuesta no es «que la app adivine»: es que mida lo que hoy se teclea, sepa cuándo no lo sabe, y convierta cada corrección en dato. Dos de las cuatro capacidades que hacen falta no necesitan aprender nada, y esas son justo las que más valen.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 6 ago 2026</span>
+    <span><b>Hermana de</b> · <code>docs/prediccion-hyrox-v2.html</code> (4-ago) — el mismo bucle de datos, otra pieza</span>
+    <span><b>Estado</b> · propuesta · cero código escrito</span>
+  </div>
+
+  <div class="toc">
+    <ol>
+      <li><a href="#s1">El veredicto</a></li>
+      <li><a href="#s2">No es una capacidad, son cuatro</a></li>
+      <li><a href="#s3">La ley: la estructura sustituye al dato</a></li>
+      <li><a href="#s4">Las nueve estaciones, una por una</a></li>
+      <li><a href="#s5">Fuerza: lo que vale es la velocidad</a></li>
+      <li><a href="#s6">La arquitectura — siete capas</a></li>
+      <li><a href="#s7">Dónde corre y cuánto pesa</a></li>
+      <li><a href="#s8">El dato: el activo y lo irrecuperable</a></li>
+      <li><a href="#s9">Mecanismo vs método</a></li>
+      <li><a href="#s10">No fingir certeza</a></li>
+      <li><a href="#s11">Garmin, y por qué esto es Apple</a></li>
+      <li><a href="#s12">Riesgos, dichos antes</a></li>
+      <li><a href="#s13">Orden de construcción</a></li>
+      <li><a href="#s14">Lo que hace falta decidir</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s1"><span class="n">01</span>El veredicto</h2>
+
+  <p class="lede">Se puede. Pero no como se plantea de entrada. «Reconocer el movimiento» suena a un problema, y son cuatro con dificultades que se diferencian en órdenes de magnitud. Ordenarlas al revés de como se piensa es lo que hace este proyecto construible este trimestre en vez de dentro de dos años.</p>
+
+  <div class="grid2">
+    <div class="stat"><div class="v">2 de 4</div><div class="l">capacidades sin dataset</div><div class="d">Detectar si trabaja o descansa, y contar repeticiones, se resuelven con procesado de señal. Sin modelo, sin datos etiquetados, sin esperar. Y son las que más valor dan.</div></div>
+    <div class="stat"><div class="v">98,9 %</div><div class="l">clasificando desde la muñeca sola</div><div class="d">54 sujetos, 10 movimientos de CrossFit que incluyen <strong>burpee, box jump y wall ball</strong>, con un smartwatch en la muñeca. No es una promesa: está publicado y es cross-subject.</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">papers sobre trineo y farmer's carry</div><div class="d">Las dos estaciones donde la muñeca va agarrada a algo no las ha medido nadie con un reloj. Es un hueco real de la literatura, no un descuido de la búsqueda.</div></div>
+  </div>
+
+  <div class="law">
+    <h3>El titular</h3>
+    <p>De las ocho estaciones de HYROX, <strong>dos ya están resueltas por hardware</strong> (el PM5 emite ski y remo, y eso es medida, no inferencia), <strong>cuatro tienen evidencia publicada</strong> de que se reconocen desde la muñeca, y <strong>dos no las ha estudiado nadie</strong>. Y esas dos no hace falta clasificarlas: en una carrera van siempre en el mismo sitio del orden.</p>
+    <p>En fuerza la muñeca sigue a la barra, así que además de contar se puede medir <strong>a qué velocidad se movió cada repetición</strong> — con una salvedad que la evidencia obliga a poner por delante: eso <em>no</em> sustituye al RIR que teclea el atleta. Lo calibra.</p>
+  </div>
+
+  <h2 id="s2"><span class="n">02</span>No es una capacidad, son cuatro</h2>
+
+  <p>La pregunta «¿puede el reloj saber que estoy remando o haciendo press de banca?» esconde cuatro preguntas distintas. Tratarlas como una sola es el error que hace que estos proyectos se atasquen: se empieza por la más difícil, que además es la que menos falta hace.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>La pregunta</th><th>Cómo se responde</th><th>¿Necesita dataset?</th><th>Qué cabe esperar</th><th>Con qué evidencia</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>¿Está trabajando o parado?</td>
+        <td>Energía y picos sobre la norma de la aceleración. Procesado de señal, sin modelo.</td>
+        <td><span class="pill ok">No</span></td>
+        <td class="num">90-97 %</td>
+        <td>RecoFit: precisión y exhaustividad &gt;95 %. ExerSense: 95 % incluyendo el error de segmentar, y sin ML.</td>
+      </tr>
+      <tr>
+        <td>¿Cuántas repeticiones lleva?</td>
+        <td>Autocorrelación y detección de picos sobre la componente principal del movimiento. No hace falta saber qué ejercicio es: se apoya en que es periódico.</td>
+        <td><span class="pill ok">No</span></td>
+        <td class="num">96 % dentro de ±1</td>
+        <td>MM-Fit, línea base <strong>sin entrenar nada</strong>: error medio 0,34 rep/serie, 96,3 % de series dentro de ±1, sobre 616 series y 10 ejercicios.</td>
+      </tr>
+      <tr>
+        <td>¿Qué movimiento es?</td>
+        <td>Clasificador CoreML sobre ventanas de señal, restringido a los candidatos que el programa declara.</td>
+        <td><span class="pill warn">Sí</span></td>
+        <td class="num">80-93 % <span class="mut">en atleta nuevo</span></td>
+        <td>Soro et al. 98,91 % con muñeca sola en 10 clases; MM-Fit pierde entre 5 y 10 puntos al evaluar en sujetos no vistos.</td>
+      </tr>
+      <tr>
+        <td>¿A qué velocidad movió la barra?</td>
+        <td>Doble integración de la aceleración con corrección de deriva en las fases estáticas de la repetición.</td>
+        <td><span class="pill ok">No</span><span class="src">validar sí, entrenar no</span></td>
+        <td class="num">r = 0,95 · error 10 %<span class="src">y se degrada al acercarse al 1RM</span></td>
+        <td>Apple Watch 7 contra captura óptica, 22 levantadores, 599 sentadillas. Revisado por pares — pero solo en sentadilla y a cargas ligeras y medias.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="keep">
+    <h3>Lo que esto reordena</h3>
+    <p>El instinto dice empezar por clasificar. Pero clasificar es la única de las cuatro que necesita datos que no tenemos, y es la que menos falta hace <strong>porque el programa ya dice qué toca</strong>. Las otras tres se pueden construir mañana con procesado de señal y publicar con una banda de error honesta.</p>
+  </div>
+
+  <h2 id="s3"><span class="n">03</span>La ley: la estructura sustituye al dato</h2>
+
+  <p>Es la misma ley que ordena el predictor de carrera, aplicada a otra pieza. Un reconocedor genérico necesita millones de ejemplos porque no sabe nada del mundo. Nosotros sabemos muchísimo del mundo antes de encender el sensor, y cada cosa que sabemos es dato que no hay que aprender.</p>
+
+  <div class="law">
+    <h3>Tres formas de que la estructura pague dato</h3>
+    <p><strong>1. El programa declara los candidatos.</strong> Nunca hay que decidir entre 121 ejercicios: hay que decidir entre los tres o cuatro que la sesión de hoy manda, más «descanso» y más «no lo sé». La literatura mide exactamente esta ganancia: agrupar 37 ejercicios individuales en 10 familias de movimiento sube la precisión de 81 % a 96 %. <strong>Quince puntos, gratis, por reducir el espacio.</strong></p>
+    <p><strong>2. Se reconocen familias, no ejercicios.</strong> Distinguir <em>back squat</em> de <em>front squat</em> por la muñeca es carísimo y es inútil: el programa ya sabe cuál es. Lo que el modelo tiene que saber es que eso es «una sentadilla con barra» y no un press, para contar bien. Y la diferencia de coste es brutal: pasar de 96 % a 99 % reconociendo familias pide unos 132 sujetos más; pasar de 81 % a 95 % reconociendo ejercicios uno a uno pediría unos 2.322. <strong>El reconocimiento fino no satura nunca. El de familia sí.</strong></p>
+    <p><strong>3. El orden de HYROX es fijo.</strong> Ocho estaciones siempre en la misma secuencia, intercaladas con ocho kilómetros. Eso convierte «clasificar ocho clases» en «encontrar las transiciones de una secuencia conocida», que es alineamiento y no clasificación libre. Un problema de otra magnitud, y con la plantilla canónica ya escrita en <code>web/lib/dashboard/v2/hyrox-template.ts</code>.</p>
+  </div>
+
+  <h2 id="s4"><span class="n">04</span>Las nueve estaciones, una por una</h2>
+
+  <p>El análisis que decide el alcance. Para cada estación, qué señal deja en la muñeca y por qué vía se sabe. Las ocho estaciones ya están modeladas en la base con <code>exercises.hyrox_station_position</code> del 1 al 8, así que no hay que inventar el catálogo.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>#</th><th>Estación</th><th>Qué deja en la muñeca</th><th>Cómo se sabe</th><th>Evidencia</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>SkiErg 1000 m</td><td>Ciclos verticales amplios y muy limpios</td><td><span class="pill ok">PM5</span> Medido, no inferido</td><td>En producción desde el multi-máquina del 4-ago</td></tr>
+      <tr><td class="num">2</td><td>Sled Push 50 m</td><td><strong>Manos fijas al poste.</strong> Casi nada: marcha corta y potente, sin braceo</td><td><span class="pill bad">Hueco</span> Por posición en la secuencia</td><td>Cero estudios con muñeca sola</td></tr>
+      <tr><td class="num">3</td><td>Sled Pull 50 m</td><td>Tirones cíclicos brazo hacia torso, y reposicionar. Señal rica</td><td><span class="pill on">Modelo</span> + contar tirones</td><td>Sin paper propio; patrón análogo al remo, que sí está estudiado</td></tr>
+      <tr><td class="num">4</td><td>Burpee Broad Jump 80 m</td><td>Bajada, impacto de suelo, <strong>fase aérea cerca de 0 g</strong>, aterrizaje. Firma casi inequívoca</td><td><span class="pill on">Modelo</span> + contar</td><td>Soro et al.: el burpee es una de sus 10 clases, 98,91 % con muñeca sola</td></tr>
+      <tr><td class="num">5</td><td>Rowing 1000 m</td><td>Ciclos horizontales</td><td><span class="pill ok">PM5</span> Medido</td><td>En producción</td></tr>
+      <tr><td class="num">6</td><td>Farmers Carry 200 m</td><td><strong>Manos fijas al asa.</strong> Marcha con el brazo rígido: se parece a caminar sin braceo</td><td><span class="pill bad">Hueco</span> Por posición en la secuencia</td><td>Lo más cercano publicado usa 17 sensores de cuerpo entero, no una muñeca</td></tr>
+      <tr><td class="num">7</td><td>Sandbag Lunges 100 m</td><td>Zancadas con impacto vertical grande y cadencia muy baja; saco al hombro</td><td><span class="pill on">Modelo</span> + contar zancadas</td><td>El <em>lunge</em> aparece en MM-Fit y en WEAR</td></tr>
+      <tr><td class="num">8</td><td>Wall Balls</td><td>Sentadilla y lanzamiento sobre la cabeza. Recorrido enorme y vertical</td><td><span class="pill on">Modelo</span> + contar</td><td>Soro et al.: el wall ball es una de sus 10 clases</td></tr>
+      <tr><td class="num">—</td><td>Correr 8 × 1 km</td><td>Braceo cíclico</td><td><span class="pill ok">GPS / HealthKit</span></td><td>En producción</td></tr>
+      <tr><td class="num">—</td><td>Roxzone (transición)</td><td>Caminar o trotar</td><td>Se define por descarte</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="break">
+    <h3>Los dos huecos, y por qué no bloquean</h3>
+    <p>Sled push y farmer's carry comparten la misma razón física: <strong>la muñeca va agarrada a algo y deja de moverse.</strong> Un reloj en esa muñeca ve poco más que la marcha. Nadie ha publicado si eso se distingue de caminar normal con un solo sensor de muñeca — lo más cercano que existe distingue «cargando peso» de «sin carga» al 100 %, pero con un arnés de diecisiete sensores por todo el cuerpo, que no dice nada de lo que puede hacer un reloj.</p>
+    <p>La salida no es forzar el clasificador. Es que <strong>en esas dos estaciones no hace falta clasificar</strong>: son de distancia fija, no se cuentan repeticiones, y van siempre en la misma posición del orden. Basta con saber que no es correr y no es ergo, que la secuencia diga cuál toca, y cronometrarla. Si el modelo acaba distinguiéndolas, es una mejora; no es un requisito.</p>
+  </div>
+
+  <h2 id="s5"><span class="n">05</span>Fuerza: lo que vale es la velocidad</h2>
+
+  <p>En fuerza el problema parece peor porque hay cientos de ejercicios posibles. Pero es al revés, por dos razones. La primera es que <strong>en fuerza no hay nada que clasificar</strong>: el atleta ya eligió el ejercicio en la app, el programa lo prescribió, y el catálogo real de uso está muy concentrado — de 121 ejercicios, la carga de la biblioteca se la llevan una veintena, y de la parte de hierro casi todo es barra: sentadilla, banca, press militar, peso muerto, dominada, cargada.</p>
+
+  <p>La segunda es que <strong>en barra la muñeca es la barra.</strong> Se mueven juntas. Así que el sensor no está viendo un gesto parecido al ejercicio: está trazando la trayectoria del propio implemento. Y eso abre algo que no estaba en el encargo y es el mayor valor de toda esta propuesta.</p>
+
+  <p>La validez está publicada y es específica de este hardware: Apple Watch 7 contra captura óptica de laboratorio, 22 levantadores, 599 sentadillas. Con el reloj <strong>en la muñeca</strong>, correlación de 0,952 a 0,965 y error típico del 10 %; montándolo en la barra sube a 0,971-0,979, porque el brazo no es del todo solidario a la barra. El aparato de referencia del sector cuesta 2.200 dólares.</p>
+
+  <div class="break">
+    <h3>Y aquí hay que frenar, porque la narrativa cómoda no se sostiene</h3>
+    <p>El discurso habitual del sector es que la velocidad es objetiva y el RIR es subjetivo, y que por tanto la velocidad debería sustituirlo. <strong>La evidencia no respalda eso.</strong> Un atleta entrenado estima su RIR cerca del fallo con un error medio de 0,65 a 1 repetición. Los modelos <em>generales</em> que traducen velocidad a RIR se equivocan en más de dos repeticiones al 70 % del 1RM. Solo los modelos <strong>individualizados</strong> por persona bajan de dos. Los autores de la revisión más reciente lo dicen tal cual: son perspectivas complementarias, no intercambiables.</p>
+    <p>Peor todavía para el caso fácil: la validez de los acelerómetros de muñeca <strong>se hunde justo con cargas pesadas</strong>, que es donde más apetece usar esto. El wearable de VBT más estudiado cae a una correlación de 0,33 cerca del 1RM, mientras los encoders de cable mantienen la precisión en todo el rango.</p>
+    <p>Esto también rompe un argumento que yo mismo di antes de mirar los números: que la pérdida de velocidad se salva por ser un cociente que cancela sesgos. <strong>No se salva.</strong> El error no es un factor constante: crece cuando la barra va lenta. Y dentro de una serie llevada al fallo, las últimas repeticiones son precisamente las lentas — las que definen la pérdida. El cociente se lleva el error de la peor medida, no lo cancela.</p>
+  </div>
+
+  <div class="law">
+    <h3>Entonces qué sí, y es mejor que lo que creía</h3>
+    <p><strong>Dos campos dejan de teclearse, no tres.</strong> Las repeticiones se cuentan y el tempo se mide. El RIR se queda donde está — y eso está bien, porque el atleta acierta.</p>
+    <p>Lo que la velocidad da de verdad es <strong>comparación consigo mismo</strong>: la misma carga, el mismo ejercicio, otro día. Que hoy la barra vaya más lenta que hace tres semanas con noventa kilos es un dato objetivo, repetible y libre de opinión, y no necesita correlacionar con nada para ser útil. Eso es monitorización longitudinal, y es lo que el producto puede enseñar sin mentir.</p>
+    <p>Y lo que abre es el bucle: el modelo velocidad-a-RIR <strong>individualizado sí funciona</strong>. Nosotros vamos a tener, en la misma serie y durante meses, el RIR que el atleta teclea <em>y</em> la velocidad que el reloj mide. <strong>El RIR tecleado no es el rival de la velocidad: es su etiqueta de entrenamiento.</strong> Con suficientes series de una persona se puede ajustar su curva propia — que es exactamente lo que la literatura dice que hace falta y que nadie tiene, porque nadie recoge las dos cosas a la vez durante meses.</p>
+  </div>
+
+  <div class="keep">
+    <h3>Una ventaja de arquitectura que sí se sostiene</h3>
+    <p>En ese estudio, el modo muñeca <strong>perdió 49 de 599 repeticiones</strong>, buena parte por caídas de la conexión mientras transmitía. Las tres apps que hoy hacen esto solo con reloj transmiten igual. Nosotros medimos y calculamos <strong>dentro del reloj</strong>: el teléfono recibe conclusiones. Esa parte del fallo desaparece porque no existe el enlace. La otra parte — que la muñeca captura peor que la barra por física — no la arregla ninguna arquitectura.</p>
+  </div>
+
+  <p class="mut">Y el <strong>%1RM estimado desde la velocidad no se presenta</strong>. El meta-análisis sobre 641 participantes dice que sobreestima el 1RM en 4,5 kg de media, un 3,7 %, con un error típico cercano al 10 % — y eso <strong>con encoders de laboratorio</strong>, no con un reloj. Los propios autores recomiendan el test directo cuando sea viable. Ese número puede alimentar el modelo con banda ancha, pero no se le enseña a nadie como si fuera una marca.</p>
+
+  <h2 id="s6"><span class="n">06</span>La arquitectura — siete capas</h2>
+
+  <p>Cuatro de las siete no llevan modelo. Eso es lo que permite empezar sin dataset y que cada capa dé valor por separado.</p>
+
+  <div class="card">
+    <div class="layer"><div class="n">1</div><div>
+      <h3>Captación</h3>
+      <p><code>CMBatchedSensorManager</code> arrancando junto a la <code>HKWorkoutSession</code> que el reloj ya crea. Acelerómetro hasta 800 Hz y movimiento del dispositivo hasta 200 Hz, entregados en lotes de un segundo. Apple lo condiciona a que haya una sesión de entreno activa: sin ella no entrega nada. <strong>Esa condición ya la cumplimos</strong> — el reloj mantiene la sesión viva con <code>workout-processing</code>. En relojes que no lo soporten, <code>CMMotionManager</code> a 100 Hz, que es la frecuencia con la que trabaja la literatura.</p>
+      <span class="src">Enganche: <code>FAHYBRIKWatch/LiveWorkoutSession.swift:69</code> (modo solo-reloj) y <code>MirrorSessionController.swift:108</code> (modo espejo). Falta añadir <code>CoreMotion.framework</code> al target del reloj en <code>ios/project.yml</code>.</span>
+    </div></div>
+    <div class="layer"><div class="n">2</div><div>
+      <h3>Características</h3>
+      <p>Del lote crudo salen un puñado de descriptores por ventana de un segundo con solape: energía, varianza, cruces por cero, componentes de frecuencia dominante, orientación. <strong>Aquí se decide el resto del sistema</strong>: lo que viaja y lo que se guarda son estos descriptores, no la señal en bruto. Resuelve almacenamiento y privacidad de una vez.</p>
+    </div></div>
+    <div class="layer"><div class="n">3</div><div>
+      <h3>Trabajo o descanso <span class="pill ok">sin modelo</span></h3>
+      <p>Umbral sobre la energía suavizada, con la mitigación que la literatura ya documenta: exigir tres ventanas consecutivas de acuerdo antes de cambiar de estado, porque el fallo típico está en los bordes de la serie. Da valor el primer día y no depende de ningún dato: cronometra cada estación y cada serie sin que nadie toque nada.</p>
+    </div></div>
+    <div class="layer"><div class="n">4</div><div>
+      <h3>Contador de repeticiones <span class="pill ok">sin modelo</span></h3>
+      <p>Autocorrelación y picos sobre la proyección principal del movimiento. Funciona <strong>aunque el ejercicio esté mal clasificado</strong>, porque solo se apoya en que el gesto es periódico. Con un fallo conocido que hay que tratar explícitamente: los patrones que alternan brazo cuentan doble, y ahí el sistema debe declarar baja confianza en vez de entregar el número.</p>
+    </div></div>
+    <div class="layer"><div class="n">5</div><div>
+      <h3>Clasificador de familia <span class="pill warn">con modelo</span></h3>
+      <p>CoreML sobre las características, con el conjunto de candidatos restringido a lo que el programa declara y una clase explícita de «no lo sé». Corre en el propio reloj: Core ML funciona en watchOS desde la versión 4 y los chips S9 y S10 llevan motor neuronal de cuatro núcleos. La única capa que espera a tener datos.</p>
+    </div></div>
+    <div class="layer"><div class="n">6</div><div>
+      <h3>Alineador de secuencia <span class="pill ok">sin modelo</span></h3>
+      <p>Solo en simulación y carrera de HYROX. Toma la secuencia canónica de dieciséis tramos y busca la partición del tiempo que mejor explica la señal, con la restricción de que el orden no se puede alterar. Es lo que rescata las dos estaciones sin literatura, y lo que impide que un fallo puntual del clasificador desordene la carrera entera.</p>
+    </div></div>
+    <div class="layer"><div class="n">7</div><div>
+      <h3>Fusión por procedencia <span class="pill ok">sin modelo</span></h3>
+      <p>La regla que decide quién gana, y reutiliza la jerarquía de evidencia que el producto ya tiene escrita: <strong>la máquina manda sobre el modelo, el modelo se condiciona al programa, y el atleta gana siempre.</strong> El PM5 emitiendo remo no se discute. El modelo diciendo «wall ball» cuando el programa dice wall ball confirma; cuando dice otra cosa, pregunta. Un toque del atleta cierra el asunto y se guarda como etiqueta.</p>
+    </div></div>
+  </div>
+
+  <h2 id="s7"><span class="n">07</span>Dónde corre y cuánto pesa</h2>
+
+  <p>Dos decisiones de ingeniería que conviene tomar ahora porque condicionan todo lo demás.</p>
+
+  <h3>Todo corre en el reloj</h3>
+  <p>No solo por elegancia. El motor de entreno tiene <strong>dos modos</strong>: el reloj solo, y el reloj como espejo del teléfono. Si el procesado viviera en el teléfono, la mitad de las sesiones se quedarían sin él y habría dos caminos que mantener — exactamente el fallo del que este repo ya salió una vez cuando el payload de tramo se construía por duplicado. Con todo en la muñeca hay un solo camino, y de paso desaparece la dependencia del enlace que hizo perder el 8 % de las repeticiones en el estudio publicado.</p>
+  <p class="mut">Efecto lateral que hay que anotar: el reloj no tiene Bluetooth propio en este proyecto, así que en modo solo-reloj no hay PM5. En una simulación de HYROX hecha únicamente con el reloj, ski y remo <strong>sí</strong> dependerían del modelo. Es el único caso en que hay que reconocerlos.</p>
+
+  <h3>Se muestrea alto y se guarda bajo</h3>
+  <p>La aritmética manda. A 800 Hz por seis canales son unos 19 KB por segundo: <strong>69 MB por hora de entreno</strong>, que no se mueve ni se archiva a diario. Pero la literatura entera trabaja entre 20 y 100 Hz, así que 800 Hz no aporta nada para este problema. Decimando a 50 Hz quedan 4,3 MB por hora, y comprimido baja al orden de 1 MB. Eso sí se archiva de por vida.</p>
+
+  <div class="formula">
+<span class="c">// lo que se guarda de una sesión, y dónde</span>
+<span class="k">Postgres</span>   conclusiones     reps, movimiento, confianza, velocidad por rep, quién lo dijo
+<span class="k">Objeto</span>     señal decimada   50 Hz × 6 canales, comprimida  <span class="c">~1 MB/h</span>
+<span class="k">Nada</span>       señal a 800 Hz   se usa en vivo y se descarta   <span class="c">salvo en captura dirigida</span>
+  </div>
+
+  <p>Para el archivo ya hay tubería: los ficheros de este producto no viajan por la API por el límite de cuerpo de 4,5 MB, sino por subida prefirmada. Y para las series temporales el repo ya fijó el patrón la semana pasada en <code>workout_traces</code> — una fila por señal con el eje de tiempo explícito, nunca una fila por muestra. Ese patrón vale de precedente pero no de almacén: su eje está en segundos enteros y aquí hablamos de cincuenta muestras por segundo.</p>
+
+  <h2 id="s8"><span class="n">08</span>El dato: el activo y lo irrecuperable</h2>
+
+  <p>Aquí está la parte que decide si esto llega a funcionar de verdad, y es la misma conclusión a la que llegó el documento del predictor por otro camino.</p>
+
+  <h3>No podemos pre-entrenar con datos de otros</h3>
+  <p>Se revisaron los cinco datasets públicos de reconocimiento de ejercicio con sensores de muñeca. El resultado es incómodo: <strong>solo uno permite uso comercial con certeza</strong> — RecGym, bajo CC BY 4.0 — y es justo el menos útil, porque muestrea a 20 Hz y cubre máquinas de sala. El que más se parece a lo nuestro, WEAR, es explícitamente no comercial. Y de RecoFit, MM-Fit y MyoGym no hay licencia clara, lo que en la práctica significa tratarlos como investigación y no tocarlos.</p>
+  <p>Además ninguno contiene una sola estación de HYROX con trineo o carry. <strong>El corpus hay que generarlo.</strong> No es una elección estratégica: es la única opción.</p>
+
+  <div class="law">
+    <h3>Y por eso la fase cero es grabar, no clasificar</h3>
+    <p>Cuando un atleta ejecuta un entreno prescrito y lo termina, <strong>la app ya sabe qué hizo y cuándo</strong>: el tramo, el ejercicio, las series, las repeticiones que confirmó. Eso es una etiqueta. No perfecta — no sabe el instante exacto de cada repetición — pero es gratis, se genera sola cada vez que alguien entrena, y a escala de lanzamiento son decenas de miles de sesiones al año.</p>
+    <p>Para calibrar la ambición: los datasets académicos que hoy son el estado del arte están construidos con <strong>entre 10 y 54 sujetos</strong> y unos cientos de minutos. Un producto con cien atletas entrenando cinco días por semana genera más horas etiquetadas en un mes que cualquiera de ellos en total. Ese es el activo, y es exactamente el mismo mecanismo que el predictor: el dato aparece como subproducto de que el producto se use.</p>
+    <p><strong>Y es irrecuperable.</strong> Cada sesión que pasa sin grabar el sensor es una sesión que no vuelve. Empezar a grabar cuesta poco y no requiere tener ningún modelo; esperar a tenerlo significa empezar el corpus desde cero el día del lanzamiento.</p>
+  </div>
+
+  <p class="mut">Escala declarada con honestidad: hoy no hay ningún atleta usando esto — las cuentas de la base son nuestras, de prueba. Las cifras de arriba son de diseño para la escala de lanzamiento, no una descripción de lo que hay.</p>
+
+  <h2 id="s9"><span class="n">09</span>Mecanismo vs método</h2>
+
+  <p>La línea de siempre, aplicada a esta pieza. Todo lo que otro entrenador competente haría distinto nace como dato editable con un valor por defecto, nunca como constante.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Nuestro, va en código</th><th>Del coach, va en dato</th></tr></thead>
+    <tbody>
+      <tr><td>Cómo se calculan las características de la señal</td><td>Qué confianza basta para dar una cuenta por buena sin preguntar</td></tr>
+      <tr><td>Cómo se detecta un pico y se cuenta una repetición</td><td>Si en sus ejercicios se cuenta solo o siempre confirma el atleta</td></tr>
+      <tr><td>El alineador de la secuencia de carrera</td><td><strong>Qué pérdida de velocidad da una serie por terminada</strong> — hay escuelas que cortan al 10 %, al 20 % y al 30 %</td></tr>
+      <tr><td>La jerarquía de procedencia y cómo se compone</td><td>Qué recorrido mínimo cuenta como repetición válida, por ejercicio y por atleta</td></tr>
+      <tr><td>La integración de la aceleración y su corrección de deriva</td><td>Qué ejercicios de su biblioteca quiere que se cuenten solos</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="mut">El penúltimo no es teórico: el líder del sector en velocidad de barra expone exactamente ese filtro de recorrido como ajuste por atleta y por ejercicio, y cuando faltan repeticiones su soporte responde «baja el filtro». No adivinan el umbral. Se lo entregan al coach.</p>
+
+  <h2 id="s10"><span class="n">10</span>No fingir certeza</h2>
+
+  <p>Se miró qué hacen los que ya han pasado por aquí, y el patrón es unánime. <strong>Nadie entrega un número automático como verdad final.</strong></p>
+
+  <ul>
+    <li><strong>Garmin</strong> detecta y luego muestra una pantalla de confirmar o editar repeticiones y peso antes de avanzar. Nunca acepta en silencio.</li>
+    <li><strong>Peloton</strong>, cuando el movimiento es complejo y la confianza cae, <strong>degrada a «actividad cronometrada»</strong> en vez de forzar una etiqueta equivocada.</li>
+    <li><strong>Metric</strong> oculta las repeticiones que sospecha falsas, pero no las borra: se recuperan con un toque.</li>
+    <li><strong>Whoop</strong> renunció del todo al conteo de repeticiones y mide carga muscular. Es una respuesta legítima al mismo problema.</li>
+  </ul>
+
+  <div class="break">
+    <h3>El fallo que mata no es equivocarse. Es equivocarse con seguridad.</h3>
+    <p>La queja repetida de los usuarios de estas funciones no es «falla a veces»: es que cuando falla con aplomo, <strong>el atleta deja de fiarse del sistema entero</strong> y vuelve a meterlo todo a mano. Hay un caso documentado en Garmin en el que corregir un ejercicio mal detectado borra el peso que el atleta había introducido: la automatización destruyendo dato real.</p>
+    <p>Esto encaja con la doctrina que este producto ya tiene escrita y no hay que relajarla: donde no hay medida, se omite o se explica con palabras, nunca se inventa. Y lo que hoy dicen las decisiones sobre repeticiones — «no lo sabe nadie, ahí se toca» — deja de ser cierto solo cuando el sensor lo sepa, y solo hasta donde lo sepa.</p>
+  </div>
+
+  <p>La consecuencia de diseño es concreta: el conteo automático <strong>no sustituye el botón</strong>, lo precarga. El número aparece contado, el atleta lo ve subir, y el mismo gesto que hoy suma una repetición sirve para corregir. Quien contó siempre está dicho. Y esa corrección es la etiqueta que entrena la versión siguiente.</p>
+
+  <h2 id="s11"><span class="n">11</span>Garmin, y por qué esto es Apple</h2>
+
+  <p>La pregunta incluía Garmin, y la respuesta es que no se puede, por una razón que no es nuestra.</p>
+
+  <div class="break">
+    <h3>Connect IQ no da acceso al sensor</h3>
+    <p>Lo que una app de terceros recibe en un reloj Garmin no es un flujo del acelerómetro: es un valor cacheado que se actualiza <strong>entre 1 y 25 Hz</strong> según el modelo. Y las tareas en segundo plano están limitadas a unos 30 segundos de ejecución cada cinco minutos. Con eso no se cuenta una repetición ni se detecta una transición.</p>
+    <p>Garmin sí cuenta repeticiones en su firmware nativo, y funciona razonablemente en movimientos aislados y mal en compuestos. Pero <strong>ese acceso privilegiado no lo expone</strong>. Por eso no existe ninguna app de Connect IQ de terceros con conteo reputado: no es que nadie lo haya intentado.</p>
+  </div>
+
+  <p>Así que el reparto queda: <strong>en Apple Watch se mide</strong>, en Garmin se sigue empujando el entreno por Connect IQ y se confirma a toque, que es lo que ya hace la app compilada. Y conviene saber que en Apple no hay atajo tampoco: HealthKit <strong>no tiene ningún tipo de dato para repeticiones ni series</strong>, y el modo nativo de fuerza no las cuenta. Todo el que hace esto se lo construye entero. Eso es exactamente el reparto que este proyecto ya asume: el mecanismo es nuestro.</p>
+
+  <div class="keep">
+    <h3>Alguien viene por aquí, y hay que mirarlo</h3>
+    <p>En junio de 2026 — hace siete semanas — Amazfit anunció el <strong>Helio Strap Pro</strong> diciendo que cubre los ocho movimientos de HYROX. No publica ni una cifra de precisión ni hay paper detrás, así que no se sabe si funciona. Pero es el primero que se posiciona explícitamente en este hueco, y este proyecto ya tiene una app para el ecosistema Zepp. Merece una mirada antes de fijar el alcance.</p>
+  </div>
+
+  <h2 id="s12"><span class="n">12</span>Riesgos, dichos antes</h2>
+
+  <div class="tS"><table>
+    <thead><tr><th>Riesgo</th><th>Qué tan grave</th><th>Qué hacemos</th></tr></thead>
+    <tbody>
+      <tr><td>Trineo y carry pueden no resolverse nunca desde la muñeca</td><td><span class="pill warn">Medio</span></td><td>No dependemos de ello: el orden canónico las sitúa. Si sale, es mejora.</td></tr>
+      <tr><td>Batería sin presupuesto conocido</td><td><span class="pill warn">Medio</span></td><td>Apple no publica ninguna cifra para muestreo continuo de inercial. Hay que medirlo empíricamente en la primera tanda, antes de comprometer nada.</td></tr>
+      <tr><td>El modelo funcionará para quien lo entrenó y fallará con el cuarto atleta</td><td><span class="pill bad">Alto</span></td><td>Es lo que dice la literatura: entre 5 y 10 puntos de caída en sujetos no vistos. Por eso la clasificación va la última y las capas sin modelo van primero.</td></tr>
+      <tr><td>La señal inercial de muñeca es biométrica: la forma de andar identifica</td><td><span class="pill bad">Alto</span></td><td>Consentimiento y propiedad resueltos <strong>antes</strong> de grabar el primer byte. Es la misma arista que quedó abierta en el documento del predictor y ahora se vuelve más aguda.</td></tr>
+      <tr><td>Los 800 Hz piden hardware reciente</td><td><span class="pill ok">Bajo</span></td><td>Se comprueba en ejecución y se cae a 100 Hz, que es la frecuencia de la literatura. No cambia el diseño.</td></tr>
+      <tr><td>Los movimientos que alternan brazo se cuentan doble</td><td><span class="pill warn">Medio</span></td><td>Documentado en la literatura. Se detecta por la firma del patrón y se declara baja confianza en vez de entregar el número.</td></tr>
+      <tr><td>Amazfit puede llegar antes al posicionamiento</td><td><span class="pill warn">Medio</span></td><td>Nuestra ventaja no es la detección: es el flujo alrededor de una detección imperfecta, y que el movimiento detectado alimenta un plan y un predictor. Eso una pulsera suelta no lo tiene.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="s13"><span class="n">13</span>Orden de construcción</h2>
+
+  <p>Ordenado por valor entregado sobre riesgo asumido, no por orden lógico. Los tres primeros pasos no necesitan ni un dato etiquetado.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>#</th><th>Qué</th><th>Por qué ahí</th><th>¿Dataset?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="num">0 <span class="pill on">urge</span></td>
+        <td><strong>Grabar.</strong> Encender el sensor con la sesión de entreno, decimar, archivar, y sellar la etiqueta débil que el programa ya conoce. Sin nada en pantalla.</td>
+        <td>Es lo único irrecuperable de todo el plan. Y es barato: no hay modelo, no hay UI, no hay decisión de producto que tomar.</td>
+        <td><span class="pill ok">No</span></td>
+      </tr>
+      <tr>
+        <td class="num">1</td>
+        <td><strong>Trabajo y descanso.</strong> Cronometrar cada serie y cada estación sin que nadie toque.</td>
+        <td>Da valor inmediato, y si falla no se ve: afecta a un dato de fondo, no a un número en la cara del atleta.</td>
+        <td><span class="pill ok">No</span></td>
+      </tr>
+      <tr>
+        <td class="num">2</td>
+        <td><strong>Contador de repeticiones</strong> en wall balls, burpees y fuerza, precargando el botón que ya existe.</td>
+        <td>El primer momento en que el atleta lo nota. Un solo punto de inyección en el código: <code>FuerzaVivoView.swift:318</code>.</td>
+        <td><span class="pill ok">No</span></td>
+      </tr>
+      <tr>
+        <td class="num">3</td>
+        <td><strong>Velocidad de la barra</strong>: comparación consigo mismo a igual carga, y la curva individual velocidad-RIR que solo se puede ajustar recogiendo las dos cosas a la vez.</td>
+        <td>Es el mayor salto de producto de la lista. No sustituye al RIR — lo calibra, y de paso alimenta el parámetro de fuerza del predictor sin gastar una sesión en tests.</td>
+        <td><span class="pill ok">No</span><span class="src">validar contra algo, sí</span></td>
+      </tr>
+      <tr>
+        <td class="num">4</td>
+        <td><strong>Clasificador de familia</strong> restringido al programa, con «no lo sé».</td>
+        <td>Cuando haya corpus. Empieza por las cuatro estaciones con evidencia y las familias de barra.</td>
+        <td><span class="pill warn">Sí</span></td>
+      </tr>
+      <tr>
+        <td class="num">5</td>
+        <td><strong>Alineador de la secuencia</strong> de HYROX en simulación y carrera.</td>
+        <td>Rescata las dos estaciones sin literatura y da los diez splits sin un solo toque.</td>
+        <td><span class="pill ok">No</span></td>
+      </tr>
+      <tr>
+        <td class="num">6</td>
+        <td><strong>El bucle.</strong> Cada corrección del atleta se guarda como etiqueta fuerte y reentrena.</td>
+        <td>Lo que convierte el sistema en algo que mejora solo, y el corpus en el activo.</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <p class="mut">Los pasos 2 y 3 tocan pantalla, así que pasan por el doble antes de escribirse en Swift: se construyen como pantallas <em>propuesta</em> y se sellan como espejo cuando se shipeen. Los pasos 0, 1 y 5 no tienen superficie visible y no lo necesitan.</p>
+
+  <h2 id="s14"><span class="n">14</span>Lo que hace falta decidir</h2>
+
+  <p class="lede">Lo técnico está resuelto arriba y no necesita validación. Lo que queda es de alcance y de calendario, y eso no es mío.</p>
+
+  <div class="grid2">
+    <div class="stat"><div class="v">1</div><div class="l">hasta dónde llega la primera tanda</div><div class="d">El paso 0 solo, o el 0 al 3 de un tirón. El 0 es barato y urgente. Del 1 al 3 es una tanda de trabajo real, y el 3 abre una línea de producto nueva (velocidad de barra) que no estaba en el encargo.</div></div>
+    <div class="stat"><div class="v">2</div><div class="l">consentimiento, antes del primer byte</div><div class="d">Grabar señal inercial de muñeca es dato personal y además identificativo. Con cero usuarios es un párrafo; después es un problema. Es la misma decisión que quedó abierta el 4 de agosto, y ahora tiene fecha límite: el día que se encienda el sensor.</div></div>
+  </div>
+
+  <div class="footer">
+    <p><strong>Fuentes principales.</strong> Soro, Brunner, Tanner &amp; Wattenhofer (2019), <em>Sensors</em> — 54 sujetos, muñeca, 10 movimientos de CrossFit. Strömbäck, Huang &amp; Radu (2020), MM-Fit. Morris, Saponas, Guillory &amp; Kelner (2014), RecoFit, CHI. Ishii et al. (2020), ExerSense. «Seven Things to Know about Exercise Classification with Inertial Sensing Wearables» (2024), <em>Sensors</em>. Validez del Apple Watch para velocidad de barra (2023), <em>Sports</em> — 22 levantadores, 599 repeticiones contra captura óptica. Revisión sistemática de dispositivos comerciales de monitorización de fuerza (2021). Modelado de la relación RIR-velocidad (2024) y umbral de pérdida de velocidad frente a RIR percibido (2025). Meta-análisis de datos individuales sobre validez predictiva del perfil carga-velocidad para el 1RM — 641 participantes. Documentación de Apple sobre <code>CMBatchedSensorManager</code> y WWDC23 §10179. Documentación del SDK de Connect IQ sobre acceso al acelerómetro.</p>
+    <p><strong>Lo que no se verificó.</strong> Apple no publica presupuesto de batería para muestreo inercial continuo: hay que medirlo. No hay ninguna cifra publicada sobre trineo ni carry con un solo sensor de muñeca. El anuncio de Amazfit no trae datos de precisión. Y las licencias de RecoFit, MM-Fit y MyoGym no están claras: se asumen de investigación hasta que alguien las confirme por escrito.</p>
+    <p>FAHYBRID · 6 de agosto de 2026 · propuesta, cero código escrito</p>
+  </div>
+
+</div>
+</body>
+</html>

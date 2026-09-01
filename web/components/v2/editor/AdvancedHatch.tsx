@@ -36,7 +36,7 @@ export function AdvancedHatch({
         />
         <span className="text-xs font-bold text-[color:var(--v2-muted)]">Ajuste avanzado</span>
         <span className="ml-auto hidden text-label text-[color:var(--v2-faint)] sm:inline">
-          modalidad · medida · objetivo · esquema — para el caso que el tipo no cubre
+          modalidad · medida · objetivo · esquema, para el caso que el tipo no cubre
         </span>
       </button>
       {open ? (

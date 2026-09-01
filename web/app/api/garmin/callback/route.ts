@@ -96,10 +96,28 @@ export async function GET(request: Request): Promise<Response> {
     return jsonError(502, 'garmin_invalid_response', 'access_token response missing token fields');
   }
 
+  const tokens = { access_token, token_secret };
   await saveGarminTokens({
     athlete_id,
-    tokens: { access_token, token_secret },
+    tokens,
   });
+
+  // El pasado no llega solo: hay que pedirlo. No bloquea el callback — si Garmin
+  // tarda o devuelve 4xx, la conexión sigue viva y el push en vivo funciona.
+  // Los datos del backfill aterrizan por el mismo webhook de siempre.
+  void import('@/lib/garmin/backfill')
+    .then(({ runGarminBackfill }) => runGarminBackfill({ tokens }))
+    .then((r) => {
+      if (r.failed > 0) {
+        console.warn(
+          `[garmin/backfill] athlete=${athlete_id} accepted=${r.accepted} failed=${r.failed}`,
+          r.requested.filter((x) => !x.ok).map((x) => `${x.type}:${x.status ?? x.detail}`),
+        );
+      }
+    })
+    .catch((e) => {
+      console.warn(`[garmin/backfill] athlete=${athlete_id} error`, (e as Error).message);
+    });
 
   // Burn the transient request-token cookie now that the exchange succeeded.
   return new Response(JSON.stringify({ ok: true, athlete_id: athlete_id.toString() }), {

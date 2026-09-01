@@ -18,7 +18,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { SEG_IS_WORK_EFFORT, isWorkEffort } from '@/lib/execution/segment-work';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
-import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
   type AnalyticsCard,
@@ -38,11 +38,6 @@ import {
 } from './core';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-/** The running marks a VDOT can be read off, straight from the closed catalogue. */
-const RUN_MARK_SLUGS: readonly string[] = MARKS.filter(
-  (m) => m.group === 'run' || m.group === 'race',
-).map((m) => m.slug);
-
 const ONE_KM_MIN_METERS = 800;
 const ONE_KM_MAX_METERS = 1200;
 const THREE_KM_MIN_METERS = 2700;
@@ -62,6 +57,7 @@ const SCHEME_LABEL_ES: Record<string, string> = {
   rounds: 'Rondas',
   hyrox_sim: 'Simulación HYROX',
   sets: 'Fuerza',
+  superset: 'Fuerza',
 };
 
 // ── DB row shapes ────────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ function item(uid: string, structure?: RunStructure): AssignmentDetailItem {
     exercise_category: 'running',
     exercise_video_url: null,
     cues: null,
+    exercise_description: null,
     params_json: {},
     prescription_json: structure ? { scheme: 'intervals', modality: 'run', structure } : null,
     resolved_intensity: null,

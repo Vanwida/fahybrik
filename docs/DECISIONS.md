@@ -10,87 +10,3063 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-09-01 · Un live, un diseño: MarcoVivo para todo el trabajo (FH-55)
+## 2026-08-24 · Un entreno tiene UN dueño y UN final. Y quién lo termina, importa.
 
-**Decidido (Doc Plan + addenda, Owner 1-sep-2026):** el live tiene UN casco. Quien gana el árbol de prioridad de `ActiveWorkoutView` pinta la LECTURA (ergo / ritmo / ronda / serie). El cromo y la acción son siempre `MarcoVivo` + `BotonVivo` (`LenguajeVivoUI`). `SuperficieViva.de` no puede devolver nil.
+**Qué pasó (card 157):** al acabar un entreno en el móvil había que acabarlo otra vez en el Apple Watch — otro Terminar, otro resumen, otro guardado — y al revés igual. Sin saber cuál de los dos contaba.
 
-**Se elimina el cromo C.** Era el default cuando `superficieViva` devolvía nil: `phaseRail` PRINCIPAL naranja + `ExpertActionButton` TERMINAR 40 pt. BikeErg vivía ahí. Dejar ese árbol «por si acaso» es un parche. `ExpertActionButton` no existe. `phaseRail` no existe.
+**La raíz no era la pantalla.** En el reloj vivía una app de entreno COMPLETA (`WatchWorkoutCoordinator`): su propio cronómetro, su propia grabación de HealthKit, su propio resumen y **su propio envío de la ejecución al servidor**. Dos programas se creían dueños del mismo entreno y ninguno mandaba sobre el otro. De ahí salían los entrenos duplicados, los «completado» sobre trabajo que nadie grabó y los datos que se pisan entre reloj y móvil. Los arranques SÍ estaban protegidos entre sí (los dos `start()` se declinan mutuamente); lo que no existía era propagación del FINAL, en ninguno de los dos sentidos.
 
-**Tres familias era el bug, no dos.** Owner fotografió A (tapa cinta: cards, REANUDAR / TERMINAR TRAMO) contra C (cromo naranja). B (`MarcoVivo`: EMOM sin máquina, fuerza, tapa outdoor) ya estaba en el camino. Unificar = un casco (B, y A alineada a B con `BotonVivo`). Dejar A para run, B para hierro y C para ergo ES el fallo.
+**Lo que se decide:**
 
-**El tramo decide la lectura, no el cromo.** `tramoIsErg` no abre otro árbol: `ErgHUDContent` es el sujeto dentro de `MarcoVivo`. El minuto de ski/bici de un EMOM es `.ergo`, no `EmomVivoView`. Un For Time / AMRAP elige el sujeto (`formatScheme`), no un cromo. Cerrar la X de la tapa de cinta hace `dismiss()`; `maybeAutoOpenRunCover` no reabre el mismo tramo; `de()` sigue `.run` y el atleta queda en el mismo casco, no en C.
+1. **El entreno tiene un dueño, y por defecto es la sesión del móvil.** Es quien manda la ejecución al servidor. El reloj graba y enriquece; nunca crea una ejecución paralela, nunca la reclama.
+2. **Acabar en un sitio es acabar.** El final se propaga en los dos sentidos. Nunca se le pide al atleta un segundo final.
+3. **QUIÉN termina forma parte del mensaje.** `MirrorEnded` lleva `reason` (`MirrorWire.EndReason`: `phone` / `athlete` / `watchdog` / `discarded`). **Solo `athlete` propaga.**
 
-**Verify KO (main `241efde2`):** `de()` devolvía `.conditioning` en el rodaje porque `.steady` es `presentation.continuous` y `runsConditioningTimer` es true. Ese flag mueve el **motor**, no la familia. Un `kind == .running` continuo es `.run` (ritmo, misma familia que la tapa). rotating/fixed en una carrera (serie de intervalos, `TreadmillLegResolver.isRunSeries`) siguen siendo el sujeto de formato. No se borra el test; no se revive `ExpertActionButton`.
+**El punto 3 es el que evita repetir un desastre ya vivido.** El reloj se autocierra cuando lleva cinco minutos sin señal del móvil, y eso pasa CADA VEZ que el atleta suelta el teléfono para descansar entre bloques. Tratar ese cierre como «ha terminado» le cuesta el entreno entero — es exactamente el fallo que en la card 154 dejaba al atleta encontrándose el calentamiento otra vez al volver. «La muñeca dejó de grabar» y «el atleta terminó» NO son el mismo suceso, y el cable tiene que poder distinguirlos.
 
-**Naranja sólido solo `unicaSalida`** (fuerza, estructural, relevo). Pintar `BotonVivo` naranja siempre es FH-9 — no se hace aquí. No se inventan pestañas (FH-44). El acento de marca no se toca.
+**Qué NO hacer en consecuencia:**
 
-**En consecuencia, no hacer:** no revivir `ExpertActionButton`; no un tercer HUD «para ergo»; no devolver nil en `SuperficieViva.de`; no mezclar FH-48 / FH-56 / PR 94; no implementar FH-44 ni FH-9 en este lote; no tocar el HUD del Watch ni el flujo de conexión PM5 (`ErgPreStartFlow`) salvo que el live lo pinte.
+- No añadir un segundo motor de entreno en ningún aparato nuevo (reloj, tablet, web). Un aparato que no es el dueño **graba y enriquece**, no crea ni da por terminado.
+- No propagar un final que no haya pedido una persona. Ningún vigilante, tiempo de espera ni pérdida de señal puede terminar un entreno.
+- No dejar que un aparato que no es el dueño mande la ejecución: llegaría dos veces.
+- No borrar desde la muñeca lo que hay en el teléfono. Un descarte en el reloj tira su grabación y nada más.
+- No dar un motivo desconocido por bueno: un binario viejo no manda `reason`, y eso cae siempre del lado prudente (cerrar la conexión, no el entreno).
 
----
 
-## 2026-09-01 · El live es un HKWorkoutSession en el iPhone; el plan del coach vive en disco (FH-48)
+## 2026-08-24 · El nombre del entreno y el del bloque son dos campos. `warmup` es un tipo de verdad.
 
-**Decidido (Plan reescrito, Owner 1-sep-2026):** un solo `HKWorkoutSession` en el iPhone (Apple, iOS 17+, deploy 18). FAHYBRID solo persiste el plan del coach (bloque/serie/tramo) colgado de ese UUID. Cero segundo reloj. Cero keep-alives como dueño. Cero `UIBackgroundModes` extra.
+**Qué pasó (card 156):** al abrir el martes de un microciclo importado por el asistente, el primer bloque se leía como fuerza: se llamaba «Fuerza tren superior + core · Warm up», el lomo era naranja de fuerza y no había chip de Calentamiento. El entrenador buscó cómo cambiar el tipo. El tipo YA era `warmup`.
 
-**Reloj:** `HKWorkoutSession.startDate` + pause/resume de ESA sesión (`WorkoutRunClock`). Una fórmula. Crear / recover / Live builder / `associatedWorkoutBuilder` son iOS 26. Apple docs + SDK 26.5: `init(healthStore:configuration:)` es iOS 26; `init(configuration:)` es watchOS 3 y `API_UNAVAILABLE(ios)`. **No hay inicializador iOS bajo 26.** En 18 no se construye sesión (el plan del coach vive en disco). En 26 se crea y se recupera detrás de `#available`. No es un parche: es la disponibilidad de Apple. No se usa `HKWorkoutBuilder.elapsedTime(at:)` — eso era el split de PR 100. PR 107 compiló `init(configuration:)` en el else de `#available` y Verify KO (Swift type-checka el else contra el SDK iOS).
+**Dos agujeros, no uno:**
 
-**Muerte del proceso en 18:** Apple no recupera la sesión. Se reabre el plan del coach DESDE DISCO (cold launch Y `scenePhase.active`), con o sin bearer, free incluido, sin `armBlock()`. En 26: recover de Apple + el mismo disco.
+1. **`create_microcycle` no tenía título de sesión.** `create_session` sí (`title`). Un día del microciclo era `{ weekday, blocks }`. El asistente, para no perder el nombre del entreno, lo pegó al título del primer bloque. Y `blocksToEditorSession` copiaba `blocks[0].title` a `session.focus`, así que barra lateral y bloque decían lo mismo. El botón «Título» del editor no estaba vacío: estaba relleno con el apaño.
 
-**Watch:** un primary en el iPhone. El Watch ADOPTA si Apple entrega una sesión espejada (`workoutSessionMirroringStartHandler`). No `startWatchApp` — Apple: *«Launches or wakes the companion watchOS app to create a new workout session»*. `startMirroringToCompanionDevice` es **watchOS 10** (Watch → iPhone); no hay símbolo iOS que espeje un primary de iPhone al Watch. Si la muñeca no se une, el teléfono sigue siendo el dueño.
+2. **El editor no reconocía `warmup` / `cooldown`.** El catálogo canónico y iOS sí (`presentation: list`, familia estructural). `FORMAT_TO_ARCHETYPE` no los tenía, así que no había chip, y el color salía de la modalidad del primer ejercicio (unas bandas = fuerza). Tampoco se podían añadir desde «Añadir bloque».
 
-**Causa raíz:** el live de prod era un `Timer` en `@State` (`WorkoutSession` + `fullScreenCover`). iOS no lo trata como workout. No fue un HealthKit mal instalado. PR 100 no se mergea.
+**Decidido:**
 
-**En consecuencia, no hacer:** no llamar `init(configuration:)` en iOS (no es símbolo iOS); no llamar `init(healthStore:configuration:)` fuera de `#available(iOS 26)`; no subir el deploy a 26 para ocultarlo; no partir el reloj por builder 18/26; no inventar un Timer como dueño; no inventar un init; no mezclar FH-53; no tocar HUD / PM5 / metros Watch / writer de Salud.
+- Cada día de `create_microcycle` / `update_microcycle` lleva `title` (el nombre del ENTRENO, máx. 120, el mismo tope que `WeekSession.focus`). El título de cada bloque es de ESE bloque. Nunca se copia el uno al otro.
+- Calentamiento y vuelta a la calma son arquetipos del selector (`format: warmup` / `cooldown`, patrón `list`). El compositor no usa la tabla de un solo ejercicio: escondería el resto de la lista.
+- El color del bloque lo manda el format estructural, no el primer ejercicio.
 
----
-
-## 2026-09-01 · Guardar el entreno: el unique de 0001 es el árbitro; no hay segundo motor (FH-53)
-
-**Decidido (Doc Plan, Owner 1-sep-2026):** el POST que ya existe (`URLSession.shared` + `RequestQueue` en disco) es el único motor. Esta sesión se perdió porque Postgres en prod no tiene el unique que `0001_init.sql` ya nombra (`segment_executions_position_unique` sobre `(execution_id, position)`). El ingest hace `ON CONFLICT (execution_id, position)`; sin ese árbitro Postgres lanza 42P10, `createFreeWorkout` (una transacción) hace rollback, el retry es otro 500, y el JSON en RAM muere si iOS mata la app.
-
-**Por qué no un retry patch ni un background session:** Owner: la causa raíz es el unique en API y el fondo es otro ticket (FH-48). `URLSession.shared` es lo que usa `APIClient`. No se añade `URLSessionConfiguration.background`. HealthKitWorkoutWriter no es el historial.
-
-**Cliente:** no cerrar el resumen como éxito si el POST no fue 2xx. Un 5xx/offline ya entra en `RequestQueue` (`isRetriable`); REINTENTAR drena esa cola, no abre un segundo POST (un segundo POST libre crearía otra sesión). Un 4xx no se encola. El overlay «Has acabado / todo está guardado» mentía: el trabajo aún no está persistido. Un solo log de fallo: `Logger` + `OSLogPrivacy.public` en `APIClient.requireSuccess` (status + body).
-
-**En consecuencia, no hacer:** no inventar un segundo motor de guardado; no reescribir el ingest; no mezclar FH-48; no tocar HUD / Watch outbox / HKWorkoutSession; no subir versión iOS por este lote. Si al aplicar 0149 el unique de 0001 YA está y 42P10 sigue, el ON CONFLICT no casa con el índice real — parar y verificar en DB, no parchear el ingest.
+**NO hacer:** no reescribir títulos ya persistidos (el ciclo importado se corrige a mano o se vuelve a importar). No inferir el tipo por el texto del título («Warmpu» no se convierte en warmup: el format es la lista cerrada). No hacer del título del bloque un enum: «Bloque A · Tracción» es nombre libre.
 
 ---
 
-## 2026-08-31 · El kg de fuerza se declara al cerrar el EJERCICIO (FH-46)
+## 2026-08-24 · El tipo de un bloque se puede cambiar después de crearlo
 
-**Decidido (Doc Plan, owner 👍):** un kg por ejercicio, no por bloque y no copiado a los otros del mismo bloque. Semilla al armar el vivo = `ResolvedLoad.minKg` (`value ?? min`) cuando `params.loadKg` es nil. El picker nuevo es al cerrar el ejercicio (`FuerzaVivoView.ejecutarAccion` cuando no queda serie pendiente). `confirmSet` no cambia: SERIE HECHA sigue declarando kg por serie. HECHO sin girar guarda el propuesto. Si todas las series están saltadas, no se abre el picker (cruce con FH-47; el skip no se implementa aquí).
+**Qué pasó (card 158):** el tipo (calentamiento, fuerza, circuito, carrera…) se elegía solo al añadir el bloque. El chip del tipo no se tocaba. Un calentamiento mal etiquetado como fuerza no tenía corrección.
 
-**Por qué:** `resolved_load` se ve en el brief y se tiraba al armar (`segment(from:)` solo leía `params_json.load_kg`; un %RM se aplana a `load_pct`). La rueda ya existía (`KgWheel` = `SwiftUI.Picker` + `.pickerStyle(.wheel)`). `Foundation.UnitMass.kilograms` es magnitud, no un control. WorkoutKit / `HKWorkoutSession` no registran la carga del coach.
+**Decidido:** el chip es un selector con la misma lista que «Añadir bloque». Cambia el format y el scheme de las líneas; no borra el nombre, los ejercicios ni la dosis. Pasar a/desde superserie sigue el camino ya existente (el descanso de la vuelta).
 
-**En consecuencia, no hacer:** no clonar la rueda; no usar `Measurement<UnitMass>` como UI; no llamar `setSetLoadCascade` hacia otros tramos (`resetSegmentManualAndGPS` ya aísla); no tocar `endBlockEarly`, skip (FH-47), Watch, HUD, %RM de `shared/domain/strength/resolve.ts`, PM5 ni el fondo en vivo.
-
----
-
-## 2026-08-31 · N × distancia + descanso en PM5: bout fijo, no type 7
-
-**Decidido (FH-41):** un plan uniforme N × distancia | tiempo | calorías + descanso no se programa como intervalos nativos del PM5 (CSAFE type 7). El monitor recibe solo el bout (`fixedDistance` / `fixedTime` / `fixedCalories`). La app marca serie y descanso. Al cambiar de serie: terminate + reprogramar ese bout. Ski y remo usan el mismo driver (`SegmentKind.rowOrSki`).
-
-**Por qué:** type 7 deja el odómetro de la sesión (813 m en un 400). Type 7 + rest nativo + rest de la app = dos relojes. Reprogramar type 7 por serie reinicia «row to begin» y otra serie infinita.
-
-**Descartado:** un workout nativo de intervalos PM5 en paralelo al motor de la app.
-
-**En consecuencia, no hacer:** no inventar un motor de sesión/HUD; no ramificar por máquina en programmer/codec/service; no tocar Watch, resumen, UI live ni el codec (terminate + program ya existen). `monitorRunsTheSeries` sigue siendo el mecanismo: true solo si el spec es type 7; para este shape es false, y la clave de tramo (`sN-rK`) no cambia en el descanso.
+**NO hacer:** no vaciar el bloque al cambiar de tipo. No inferir el tipo por el título.
 
 ---
 
-## 2026-07-29 · ATR sale del repo — y la lección es que se buscó por el nombre, no por el significado
+## 2026-08-23 · El «nivel» no es un nivel: es un eje del entrenador, y es opcional
 
-**Decidido (Alex, orden directa):** desaparece del repo toda traza de la periodización ATR (Acumulación / Transformación / Realización). Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor `atr_transition_suggested` de `notification_type`, y los enums huérfanos `block_status` / `macrocycle_status` que el motor ATR dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
+**Qué pasó (card 137):** al meter por el asistente un macrociclo real de 12 semanas, **el contenido pasó la validación entera** — 114 bloques, ~320 líneas tipadas con medida, objetivo y descanso, incluidas las series y los fartlek con su estructura anidada. Lo que tumbó la importación fue **el `level_id`**: un campo obligatorio que **ninguna herramienta de lectura sabía entregar** (`get_plan` devuelve `level: ""` incluso para un microciclo que sí tiene nivel; ni la lista de atletas ni la ficha completa lo exponen). El asistente sólo podía adivinar, y adivinó mal.
 
-**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron `atr_blocks`, `atr_macrocycles` y el enum `atr_block_type`, y dejaron aquí escrito el porqué. Pero **la columna viva no se llamaba `atr_` sino `target_block`**, así que aquella limpieza —que buscó por la cadena «atr»— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (acumulación, transformación, realización, ACC/TRANS/REAL, «fase», «bloque», periodización), nunca por el nombre de la escuela.** Un catálogo de fases puede llamarse cualquier cosa.
+**Lo que se encontró al mirarlo:**
 
-**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con valor ATR (ACC 64 · TRANS 4 · REAL 1) eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase ATR.
+- `program_month_templates.level_id` es **NULLABLE desde siempre**, y **3 de los 11** microciclos que existen no tienen nivel. **La base decía opcional y el código exigía obligatorio.** Ese desacuerdo era el bug.
+- Los niveles son la forma de organizarse de ALGUNOS entrenadores. **Cinco de los seis** que hay tienen los mismos `N1..N5` que les pusimos nosotros al darlos de alta; sólo uno los ha tocado.
+- Y el que los tocó los dejó en **«N2, N3, N4, Hyrox»** — el cuarto no es un nivel, es un objetivo. **El dato ya demuestra que el eje no es «nivel».**
+
+**Decidido:**
+
+- **El nivel es OPCIONAL** en toda la ruta de escritura (zod, servicio, herramienta del asistente y formulario). Si se da, se comprueba que es suyo; si no, el bloque nace sin nivel.
+- **El error enseña:** cuando el nivel no es suyo, la respuesta lista los que SÍ tiene y recuerda que puede ir sin nivel. Antes decía «no pertenece a este coach» y no había forma de acertar al segundo intento.
+- **Los niveles se buscan** como los ejercicios, los bloques y las plantillas (`search_library`, kind `level`), y se devuelven ENTEROS sin filtrar por el texto: son cinco como mucho y quien pregunta quiere saber cuáles hay, no encontrar uno.
+- **La matriz sigue exigiendo nivel** (`program_sequences.level_id` es NOT NULL) y está bien: la matriz ESTÁ organizada por ese eje. Un bloque sin nivel vive en la biblioteca y en las cadenas personales.
+
+**Lo que queda abierto, y es la raíz:** el eje se llama «nivel» **porque lo llamamos nosotros**. El entrenador puede renombrar los VALORES pero no el EJE, y en pantalla pone «Nivel» aunque él agrupe por objetivo, por grupo de la mañana o por lo que sea. El mecanismo (un eje con el que clasifica atletas y bloques) es nuestro; **cómo se llame es suyo**. Card aparte: el eje necesita una etiqueta editable con «Nivel» por defecto, y las pantallas leerla.
+
+**NO hacer:** no volver a exigir el nivel «porque el formulario siempre lo pidió». No renombrar la tabla `athlete_levels` a la ligera: el identificador técnico puede quedarse estable mientras la ETIQUETA sea del entrenador — lo que no puede quedarse es la palabra «Nivel» cableada en la interfaz.
+
+---
+
+## 2026-08-23 · Un objetivo puede ser relativo a una marca del atleta, y se resuelve AL LEER
+
+**Qué pasó (card 128 → 130):** al cruzar el modelo contra un macrociclo HYROX real de 12 semanas (84 días, 1.238 líneas) salió que más de 130 de esas líneas no dicen un número: dicen «a ritmo HYROX», «a peso de competición», «5-10 kg por encima del peso de competición», «al 50 % del peso corporal». `Target` sólo sabía decir cifras absolutas más un caso relativo (`percent_rm`). Consecuencia: **una plantilla con kilos concretos no sirve para el atleta siguiente**, así que un ciclo hay que reescribirlo entero por persona — lo contrario de lo que necesita un producto multi-coach. Y es un criterio EXPLÍCITO de ese entrenador: «sin kilos concretos en las plantillas».
+
+Media máquina ya existía y estaba desconectada: `methodology/zones.ts` resolvía «race pace» y el umbral por modalidad contra las marcas del atleta, y `hyrox/stations.ts` modelaba la carga de competición por división y género — pero una prescripción no podía DECIR ninguna de las dos cosas.
+
+**Decidido:**
+
+- Nuevo kind `Target.relative` con una `ref` de cuatro referencias, todas cosas que el atleta posee de verdad: `race_pace`, `threshold_pace`, `competition_load` (por estación) y `bodyweight`. Sobre una referencia de CARGA se puede poner un porcentaje o un delta en kilos, con banda.
+- **Se resuelve AL LEER, jamás al guardar.** La plantilla guarda la frase para siempre; cada atleta recibe su número al abrir el día (`resolve-relative.ts`). Congelarla al guardar la volvería a atar a un atleta y no habríamos arreglado nada.
+- **El servidor manda el número ya resuelto en el campo `target` de siempre** más la frase aparte. El iOS instalado degrada un kind desconocido a `.unknown` y pinta el objetivo EN BLANCO: sin esto, un atleta con la app vieja vería el entreno sin objetivo y sin enterarse.
+- **Los kilos de competición son método del coach**, inyectables (`stationLoad`); el catálogo de estaciones es el defecto y hoy contesta `null` a todo, a propósito, porque sus cargas se retiraron por falta de fuente fiable.
+- `null` es respuesta de primera clase: sin test no hay ritmo, y se dice.
+
+**NO hacer:**
+
+- **No añadir `value`/`min`/`max` al kind relativo.** No los tiene y es a propósito. Para leer esos campos de un `Target` está `isScalarTarget()`.
+- **No crear una carga cualitativa** («media», «ligera», «pesada»). No es un objetivo, es una palabra de UN entrenador; tiparla deja el dato ambiguo para siempre. Va a su diccionario: se le pregunta una vez y se traduce a esta referencia con su porcentaje.
+- **No permitir porcentaje ni delta sobre una referencia de RITMO**: «al 90 % del ritmo» es ambiguo (¿de la velocidad o del tiempo?) y correr algo más lento que el umbral ya tiene su sitio, que son las zonas.
+- **No duplicar `percent_rm`** con una referencia `one_rm`, ni `{kind:'bodyweight'}` con una referencia sin porcentaje: ya dicen lo que dicen.
+- No anunciar referencias que el resolutor no sabe traducir. Por eso quedaron FUERA la marca de un test cualquiera del catálogo del coach (habría que saber qué métrica produce cada test) y el «% del esfuerzo máximo» (sale una vez en 1.238 líneas).
+
+**Estado y riesgo abierto:** el tipo y el resolutor existen y están probados; **nadie los resuelve todavía al servir el día**. Hasta que eso exista, un objetivo relativo escrito a mano por MCP llegaría crudo al móvil y se pintaría en blanco. No hay UI ni gramática que lo produzca, así que la exposición es sólo una llamada deliberada — pero resolver al leer es la pieza inmediatamente siguiente, no una mejora opcional.
+
+**Dónde vive:** `shared/domain/prescription/reference.ts` (las referencias y su frase), `resolve-relative.ts` (la traducción a número), el kind en `types.ts`, pruebas en `web/tests/domain/relative-target.test.ts` contra líneas literales del macrociclo.
+
+---
+
+## 2026-08-23 · Importar un ciclo tiene contrato de ENTREGA, nunca de contenido
+
+**Qué se decidió (card 133):** al traer el ciclo de un entrenador se pone límite a la FORMA en que nos lo entrega, nunca a lo que puede prescribir. Recortarle el contenido es recortarle su producto y se va con otro.
+
+Cinco parámetros: (1) la unidad de importación es el TRAMO de 4-6 semanas, no el ciclo entero — doce semanas de golpe no las revisa nadie y se confirman a ciegas, y además el orden de los tramos ya ES la periodización; (2) techo duro por importación, por revisabilidad; (3) nada se guarda sin que el coach vea la propuesta; (4) **si menos de un umbral de líneas entra tipada y fiel, no se ofrece «confirmar todo»**, sólo «revisa estas N»; (5) lo que no se tipa entra como nota declarada del bloque, jamás como prescripción a medias.
+
+**El criterio que decide qué entra al vocabulario tipado:** una forma entra si aparece en **más de un entrenador** o **muchas veces en uno**. Si sale una sola vez en 1.238 líneas, es dialecto: va al diccionario del coach o sale a revisión. El macrociclo de 12 semanas es la **regla de medir, no el objetivo** — perseguir su 100 % sería sobreajustar a un entrenador.
+
+**La otra cara:** damos una plantilla de cómo entregar un plan, y **no es una restricción sino un atajo con incentivo** (en nuestro formato entra al 100 % sin preguntas; en el suyo entra igual, con preguntas). Su contenido no se inventa: lo dicta el número de cobertura, porque lo que más cae a revisión es lo que la guía tiene que enseñar a escribir.
+
+**NO hacer:** no fijar el umbral del punto 4 antes de tener número de cobertura real contra el corpus — sería inventárselo. No cerrar ninguna de las dos puertas de entrada.
+
+---
+
+## 2026-08-20 · El MCP del microciclo escribe la receta, nunca lo entregado
+
+**Qué se decidió (card 93, aplicada en 111):** la receta (`program_month_templates` / `program_week_templates`) sigue existiendo aparte, siempre. Las tools `create_microcycle` y `update_microcycle` escriben SIEMPRE ahí. Lo entregado (`workout_assignments`) es un segundo acto: materializar, y al reeditar, `resyncWeekTemplateAssignments` (solo `scheduled`).
+
+**Por qué:** un JSON que escribiera días directo en el atleta (como `create_session`) agrandaría el hueco receta/entregado. El destino final es que el atleta lo ejecute, así que las tres puertas del día MCP (Zod → catálogo → completitud blocking) mandan, más estrictas que el editor de receta de hoy.
+
+**NO hacer:** no escribir en `workout_assignments` desde estas tools; no publicar al crear; no construir alcance personal (`athlete_id` set) en esta vuelta; no llamar `confirmImport` tal cual (sus puertas no llevan completitud blocking).
+
+**Dónde vive:** `web/lib/mcp/tools-microcycle.ts` + `microcycle-write.ts`.
+
+---
+
+## 2026-08-20 · La lectura de un entreno la elige su FORMATO, y correr manda por tiempo
+
+**Qué pasó:** al acabar una sesión de fuerza y trineos de 47 minutos, la app enseñó a pantalla completa «RITMO MEDIO · 0:00 /km · corriste a una sola intensidad», y ni una palabra del peso muerto, el remo ni los trineos. La lectura de carrera se elegía preguntando «¿hay algún tramo de correr?», y seis minutos de calentamiento bastaban.
+
+**Decidido:**
+
+1. **Qué historia se cuenta la decide el formato de la sesión**, no la presencia de una modalidad. Correr manda cuando se lleva **más de la mitad del tiempo medido** (el tiempo es la vara honesta: es lo que el atleta pasó haciendo cada cosa, y no depende de que un aparato midiera metros). Empatar no es mandar. Sin ninguna duración, se cuenta por número de tramos.
+2. **Sin metros medidos no hay lectura de carrera.** Toda ella habla de ritmo, y el ritmo son metros entre segundos: el 0:00 salía de dividir entre cero. Un cero afirma algo falso; un hueco dice la verdad.
+3. **Se lee lo que se HIZO, no lo que se pidió.** La plantilla no entra en la decisión: quien se salta media sesión no debe recibir la lectura de la sesión que no hizo.
+4. **La lectura de una sesión son cuatro capas**, en este orden: cabecera (qué, cuándo, entera o a medias) · un **sujeto elegido por el formato** (tiempo total en For Time, rondas en AMRAP, rondas completadas en EMOM, volumen movido en fuerza, duración en un cronómetro) · el **desglose bloque a bloque en el orden en que pasó, cada uno en su propio idioma** (correr en metros y ritmo, ergo en ritmo por 500, fuerza en series × reps × carga, funcional en repeticiones) · y al final, separado, **lo que dijo el atleta** (esfuerzo, si fue como esperaba, molestia), que es lo único que no es una medida. Las zonas de pulso, si se midieron, entre el desglose y lo que dijo.
+
+**NO hacer:** no pintar un número que no se midió, en ninguna de las capas — ni cero, ni guion, ni «0:00». No contar una sesión mixta con el vocabulario de una sola de sus modalidades. No elegir la lectura por la plantilla.
+
+**Dónde vive:** la regla de enrutado en `LecturaDeCarreraDesdeDetalle`; la lectura de las cuatro capas, propuesta en el doble (`/es/design`, pantalla `lectura-sesion`) antes de tocar Swift.
+
+---
+
+## 2026-08-20 · El índice de «una ejecución por asignación» es LLANO; un índice parcial rompe el guardado entero
+
+**Qué pasó:** la 0191 (13-ago, «un entreno de Apple Salud es una sesión aunque nadie lo prescribiera») hizo `workout_executions.assignment_id` nulable y, de paso, cambió `workout_executions_assignment_unique` por un índice **parcial** (`where assignment_id is not null`). Postgres no infiere un índice parcial desde un `on conflict (assignment_id)` que no repita su predicado: falla al PLANIFICAR con 42P10, con cualquier payload. Los cuatro escritores de la tabla — cierre de entreno de la app (que es también dobles y entreno libre), Apple Salud, Garmin y Polar — quedaron rotos ese mismo minuto. Desde el 13-ago 07:11 hasta el 20-ago no se guardó ni un entreno. El atleta solo veía «No se ha guardado. Reintenta.», y el reintento fallaba igual.
+
+**Decidido (migración 0203):** el índice vuelve a ser **llano**. El predicado no aportaba nada: en Postgres los NULL son distintos entre sí, así que un índice único normal sobre una columna nulable ya admite todas las ejecuciones sin asignación que haga falta. La invariante es la misma de siempre: **una ejecución por asignación; sin asignación, las que sean**. Se arregla en el índice y no repitiendo el predicado en cuatro sitios, porque así el quinto escritor que alguien añada tampoco puede caer en la trampa.
+
+**NO hacer:** no volver a hacer parcial ese índice «para permitir importados» — ese era justo el malentendido de la 0191, y el índice llano ya los permite. Si algún día hiciera falta un índice único parcial en cualquier tabla, el `on conflict` que lo use tiene que repetir su predicado palabra por palabra (así lo hacen ya `users.clerk_user_id`, `races.source_idp`, `athlete_sequence_progress`, `week_adjustment_proposals` y `events`).
+
+**Lo que faltaba y por eso vivió siete días:** no existía ninguna prueba del guardado de ejecuciones. Se añade una contra base real (`web/tests/sync/workout-execution.db.test.ts`).
+
+---
+
+## 2026-08-20 · El panel vuelve a ser claro u oscuro; el acento es la piel del club
+
+**El hueco:** el rediseño FLEXR (19-ago) dejó el panel en claro perla único y mató el botón. Alex solo veía claro. El bloque `[data-theme="dark"]` seguía en CSS, pero solo lo usaban los mockups de la guía (app del atleta), con naranja de sistema y Archivo itálica.
+
+**Decidido:** el panel del coach vuelve a poder ser claro u oscuro. El botón es el de siempre (`ThemeToggle` en la barra, junto a la cuenta). Lo elegido se guarda en `fahybrid:v2-theme`; si no hay nada, sigue el sistema; si el sistema tampoco dice, el claro FLEXR. El acento lo pone la piel del club (`clubAccentCssVars` con la familia de esa superficie). Vacío = tinta FLEXR, nunca naranja de sistema. El cromo sigue siendo FLEXR (Bricolage + Figtree, perla / casi negro ya existente). Landing, app iOS y reloj no cambian: siguen oscuros.
+
+**NO hacer:** no inventar una paleta. no tocar iOS, watch ni landing. no meter el toggle en un menú extra. no devolver el naranja al cromo del panel (solo como piel del club). no pintar Archivo itálica en el panel oscuro (eso es la voz de la app, y se queda en `.guia-phone` / `.guia-win`).
+
+---
+
+## 2026-08-19 · El correo de avisos es del club; hello@ no es el buzón de nadie
+
+**El hueco:** leads, citas y bajas del club salían a `LEADS_NOTIFY_EMAIL` o, si faltaba, a `hello@fahybrid.com`. Un club nuevo recibía avisos en nuestro buzón o, peor, no sabía dónde iban.
+
+**Decidido:** el destino es dato del club (`coaches.club_notify_email`, se edita en `/es/club` como «Correo que recibe avisos»). Vacío = no se envía. El `.ics` de una cita usa ese correo como ORGANIZER; si el club no lo ha puesto, el From de Resend. En el evento de Google, sin correo del club, solo entra el atleta/lead.
+
+**NO hacer:** no volver a leer `LEADS_NOTIFY_EMAIL` ni caer a `hello@fahybrid.com` en un envío al coach. hello@ sigue siendo el contacto público del producto (landing, legal, feedback de la app), no el inbox de un club. El correo de avisos no es la piel (0199) ni el destino del cuestionario de alta (0201).
+
+---
+
+## 2026-08-19 · La personalización del club tiene DOS niveles: piel viva para todos, app propia solo por encargo
+
+**El contexto (Alex, 19 ago):** el panel «Tu club» se quedaba corto — dejaba cambiar nombre, logo y color, pero solo repintaba el dashboard. La app del atleta seguía naranja fija, así que un club con su color veía su marca en el panel del entrenador y la nuestra en el móvil de sus atletas, que es donde de verdad se mira.
+
+**Decidido — dos niveles, y NO se mezclan:**
+
+- **Estándar, para todos, sin coste ni build:** el club elige **un** color, un nombre y un logo desde el panel, y eso repinta en caliente el panel, la app del atleta, el reloj y los correos que reciben sus atletas. Un solo binario en la App Store; la piel es dato, viaja por API y se pinta en tiempo de ejecución.
+- **Por encargo, precio muy superior, solo para unos pocos clientes:** app propia publicada a su nombre — icono, nombre en la tienda y ficha de App Store suyos. Eso NO es dato: es un build por cliente (`BRAND_DISPLAY_NAME` en `ios/project.yml`) y una publicación aparte. No se promete en el panel ni se insinúa en el copy del nivel estándar.
+
+**El mecanismo (nuestro, en código):** el coach elige UNA semilla de color; el servidor deriva la familia completa (`shared/domain/coach/club-accent.ts`) para las DOS superficies —panel perla y app casi negra— con los cuatro papeles que juega un acento: relleno, texto encima del relleno, texto suelto y tinte. Los papeles que llevan significado se garantizan a 4,5:1 (AA); el relleno conserva el color elegido salvo que se confunda con el fondo, porque exigirle el 3:1 de AA movía el color de todos los clubes, incluido el nuestro, y a un coach al que le cambias el color recién elegido se le pierde la confianza. Cada ajuste vuelve **explicado en castellano** y el panel lo dice.
+
+**La derivación vive SOLO en el servidor.** Los dispositivos reciben hexes ya resueltos (`club` en `GET /api/auth/me`). iOS no repite la matemática: si la repitiera, panel y app podrían divergir sin que nadie lo notara.
+
+**NO hacer:** no volver a cablear el naranja como si fuera del sistema (es la piel del primer tenant); no recalcular color en el cliente; no personalizar los correos de nuestro embudo comercial con la marca de un club; no vender en el nivel estándar nada que exija un build por cliente.
+
+## 2026-08-19 · El panel del coach adopta el sistema FLEXR: claro perla único, cromo neutro, marca = dato del tenant
+
+**El contexto (Alex, 18-19 ago):** FLEXR es el paraguas multi-coach y FAHYBRID pasa a ser el primer tenant. El rediseño del panel (canvas aprobado, dirección C «Tarjetas»; contrato en `projects/FLEXR/DESIGN.md`) se aplica DIRECTAMENTE en este repo: no hay repo FLEXR todavía, y cuando llegue la feature «personalizar», el branding se cambiará desde el dashboard como dato del coach, no en código.
+
+**Decidido:**
+- El panel del coach pasa a **tema claro único** (perla `#F1EFEB` + tinta `#201F1B`, Bricolage Grotesque + Figtree). **Muere el tema oscuro del panel y muere el toggle** (`ThemeToggle`, `V2ThemeProvider`, `V2ThemeScript`, `theme-config` eliminados). El bloque `[data-theme="dark"]` de `v2-theme.css` sobrevive SOLO para los mockups embebidos de la app del atleta (guía), que sigue siendo oscura.
+- `--v2-accent` pasa de naranja a **tinta**: el naranja era marca del tenant, no del sistema. El cromo neutro es lo que permite que cada coach ponga su marca encima.
+- El slot de marca del sidebar muestra la marca del TENANT (hoy FAHYBRID); «FLEXR» firma abajo en pequeño. Con «personalizar», logo y nombre vendrán de datos del coach.
+- La app iOS del atleta, el doble y la landing NO cambian: siguen negro + naranja Fabrik.
+
+**NO hacer:** no reintroducir un toggle de tema en el panel; no devolver el naranja al cromo (solo puede volver como acento configurable del coach); no borrar el bloque dark de `v2-theme.css` mientras la guía monte mockups del atleta.
+## 2026-08-18 · Parcial son tres nombres; el carril dice Visible / Borrador
+
+**El hueco:** `docs/coach-ux-grok.html`. «Parcial» era una palabra para tres cosas: el microciclo a medias de publicar (badge `parcial · N sem en borrador`), la sesión que el atleta guardó a medias (`assignment_status='partial'`), y el MCP `get_plan` («publicado a medias»). En el lienzo, al cambiar de semana, no se veía cuál ve el atleta. Marc (Preview): 17–23 ago en `draft`, 24–30 `published`.
+
+**Decidido:** tres frases de coach, una puerta. Badge = `N de M publicadas` (`publishBadgeLabel`). Carril del microciclo = cada semana `Visible` / `Borrador` (misma puerta que `athleteSeesItFromWeeklyStatus`: solo `draft` esconde). Ejecución cortada = `a medias` (el token DB no cambia). `get_plan` usa el mismo recuento, no «publicado a medias». El enum interno `publish_state: 'partial'` se queda — es mecanismo. Publicar sigue siendo el botón / MCP; cargar el estado no escribe.
+
+**NO hacer:** no auto-publicar. no llamar «parcial» al badge, al carril ni a la ejecución. no mezclar este carril con el chip de la semana calendario (Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan). no exigir fila `published` para pintar Visible.
+
+---
+
+## 2026-08-18 · Hoy del club no pinta salud si nadie ve la semana; el alta no dice «antes de arrancar» con rastro
+
+**El hueco:** recorrido 18-ago, Coach Demo 1 (`docs/coach-ux-recorrido.html`). `/es/hoy`: «3 decisiones» y cuatro checks verdes. Marc (bloque 13–26 jul) + Guillem (sin plan) = 0 semanas vivas. Los verdes decían que el club está sano. Altas: «Esperan tu revisión antes de arrancar» sobre Marc a 32 días, que ya entrenó, chateó y tiene el bloque vencido. El alta no es un portón de existencia del plan: puede quedar abierta encima de alguien que ya vive en el club.
+
+**Decidido:** semana viva = chip `Visible` (el atleta ve sesiones de esta semana calendario). Draft (`No lo ve`) no cuenta: él no la ve. Funciones puras `clubWeekCensus` / `hoyEmptyLane` / `hoyHeadlineKind` / `clubWeekPill`: sin semana viva el vacío de lane es neutro (no check verde, no «Fisiología en verde» ni «Nadie ha fallado»), el tablero vacío no dice que siguen su plan, el pill avisa «Nadie ve esta semana». El alta (`altaStartStance`): la frase «antes de arrancar» solo si NADIE de la cola entrenó, escribió, ni tiene semana Visible / No lo ve / Bloque terminado. Si falta la evidencia, no se afirma. La fila nombra el rastro (`Ya entrenó` / `Ya escribió` / `Bloque terminado`). El alta sigue abierta.
+
+**NO hacer:** no auto-publicar. no auto-asignar el mes siguiente. no mezclar cerrar el alta con asignar el siguiente mes. no pintar check de salud sobre un vacío de entrega.
+
+---
+
+## 2026-08-18 · Resumen y Plan titulan la semana calendario, no un bloque viejo
+
+**El hueco:** el chip del 18-ago dice la verdad (Marc: Bloque terminado; Guillem: Semana vacía / Sin plan) y Resumen/Plan seguían mintiendo al lado. Resumen titulaba «Esta semana» y pintaba `weeks[0]` si el lunes de caja no estaba en el plan anclado — Marc veía 13–19 jul en agosto. Un día sin sesión se pintaba «Descanso», así que una semana vacía eran 7 descansos y la frescura se leía sobre 0 km.
+
+**Decidido:** la semana que se titula es la del chip, siempre el lunes–domingo de caja. Función pura `honestWeekHeading` + `pickCalendarWeek` (nunca `weeks[0]`). Si no hay sesiones esta semana no se pintan los 7 días: se dice Bloque terminado / Semana vacía / Sin plan. En Plan, un payload de julio con chip `bloque_terminado` es `ended` (aterriza en la última semana), no «aún no ha arrancado». Un veredicto de frescura exige sesiones esta semana (`allowsFreshnessVerdict`). No se publica solo.
+
+**NO hacer:** no rellenar una semana vacía con Descanso. No titular un bloque cerrado «Esta semana». No leer TSB como «fresco» cuando el chip es Semana vacía / Bloque terminado / Sin plan.
+
+---
+
+## 2026-08-18 · Chip de estado del atleta: una frase en lista, ficha y semana
+
+**El hueco:** `programming_status` cuenta `workout_assignments` de la semana calendario sin filtrar `weekly_plans.status='draft'`. Un borrador lleno salía «Plan OK» / `week_ok`. El roster metía `no_month`, `empty_week` y el bloque vencido en el mismo «Sin plan». El panel enseñaba la semana sin decir si el atleta la ve. El MCP ya lo dice (`athlete_sees_it`).
+
+**Decidido:** una capa de presentación, no un tercer status de publicación. Función pura `athleteWeekChip` (existencia × visibilidad). Visibilidad = la misma puerta que el móvil y el MCP: solo `draft` esconde; sin fila se ve (10-ago). Cinco frases: Visible · No lo ve · Semana vacía · Bloque terminado · Sin plan. El mismo chip en roster, cabecera de ficha, Resumen y SemanaCanvas. `week_ok` = Visible y sin alerta — un draft lleno no es entregado.
+
+**NO hacer:** no auto-publicar tras MCP ni al pintar el chip. No exigir fila `published` para que se vea (rompe `sin_marcar`). No mezclar este chip con el badge de microciclo (`partial` = semanas en borrador) ni con `assignment_status='partial'` (sesión cortada).
+
+---
+
+## 2026-08-17 · La marca de la app iOS se cambia en un ajuste, no en treinta literales
+
+**El hueco:** este código se vende como FLEXR, así que antes o después hay una segunda app iOS con otro nombre y otro dominio. Hasta hoy eso eran ~30 literales repartidos por sitios que no se buscan juntos: el nombre visible en tres `Info.plist` **y dentro de las diez descripciones de permisos**, el bundle id en cinco targets más `WKCompanionAppBundleIdentifier`, el esquema de URL en dos, el dominio en los dos entitlements y en cuatro ficheros Swift (dos pantallas legales que llevaban cada una su literal, la web de cuenta que se anunciaba como «fuente única» sin serlo, y el origen que valida el reproductor incrustado), y `DEVELOPMENT_TEAM` escrito cuatro veces. **Olvidar uno no rompe la build:** sale a la cara del atleta —una hoja de permisos nombrando otra marca— o, en el caso de `WKCompanionAppBundleIdentifier`, watchOS deja de reconocer la pareja teléfono↔reloj y el teléfono tira cada push a la muñeca sin avisar.
+
+**Decidido:** cinco ajustes en `settings.base` de `ios/project.yml` (`BRAND_DISPLAY_NAME`, `BRAND_BUNDLE_ID`, `BRAND_WEB_DOMAIN`, `BRAND_URL_SCHEME`, `DEVELOPMENT_TEAM`) y todo lo demás los **expande**: los tres `Info.plist` y los dos entitlements por el procesador de plist de Xcode; el Swift a través de `ios/FAHYBRIKCore/Marca.swift`, que lee `CFBundleDisplayName` y una clave nueva `BrandWebDomain` **del propio bundle**. Vive en Core, así que la muñeca dice el mismo nombre sin repetirlo. La consecuencia que importa: el nombre que el sistema pone en su hoja de permisos y el que la app pone en sus alertas ya no pueden discrepar, porque son la misma clave. `FAHYBRIK_API_BASE` se deriva de `app.$(BRAND_WEB_DOMAIN)` pero **sigue siendo ajuste por configuración**: mover de entorno sin cambiar de marca tenía que seguir siendo posible.
+
+**`TBD` en `DEVELOPMENT_TEAM` es deliberado y se queda:** es lo que permite compilar contra el simulador sin cuenta de Apple. Lo que cambia es que ahora está **una vez** y los tres targets firmables lo heredan; divergir era un fallo que solo aparecía al archivar, con la hora de build ya gastada.
+
+**Corrección al 18-ago — el team id SÍ viaja en el repo.** La entrada del 16-ago daba por hecho que no, y esa frase es la razón de que nadie volviera a buscarlo. Está en claro en `web/public/.well-known/apple-app-site-association` (`"appID": "<TEAM_ID>.com.fahybrid.app"`). Sobrevivió a la limpieza del 16-ago porque `.well-known` empieza por punto y `rg` no entra en directorios ocultos sin `--hidden` — la limpieza se hizo con greps que no lo veían. **No se ha quitado:** ese fichero es lo que hace funcionar los enlaces universales de `/invite/*` y `/partner/redeem*` en **producción**, y el valor tiene que estar ahí porque Apple lo exige en el fichero servido (es un identificador público por diseño, no un secreto borrable). Decisión pendiente de Alex: dejarlo asumiendo que es público, o emitirlo en despliegue desde variable de entorno para que el repo no lleve el identificador de ningún operador. Lo que no es defendible es el estado en que el documento afirmaba una cosa y el repo hacía otra. Detalle: `docs/ios-clonabilidad.md` §6.1.
+
+**Añadido el 18-ago, del mismo barrido:** el material de firma de Apple (`*.p12`, `*.cer`, `*.mobileprovision`, `AuthKey_*.p8`) **no estaba en `.gitignore`** mientras `docs/app-store/testflight-checklist.md` afirmaba que sí — una promesa de seguridad falsa en un repo que se clona para vender; ya están los patrones. Los subsistemas de `os.Logger` estaban escritos a mano como `com.fahybrik.*` (con K) mientras el bundle es `com.fahybrid.app`, así que **ningún filtro por bundle encontraba esas trazas**; ahora se derivan de `Bundle.main.bundleIdentifier`. Y las URLs de soporte, marketing y privacidad de la ficha de App Store apuntaban a `fahybrik.com`, un dominio que **no resuelve**: corregidas al dominio real, pero la página de soporte **no existe en ningún idioma** (404) y eso bloquea la revisión de Apple (guía 1.5) — marcado en `metadata-es.md` sin inventar una URL.
+
+**Lo que NO se toca, y es la mitad importante de la decisión:** las **32 claves de almacenamiento con prefijo `fahybrik.`** (`UserDefaults` + Keychain, teléfono y reloj), el sello de HealthKit `FAHYBRIDWrittenByApp` y la firma de `FahybrikWorkoutPlanID`. Llevan la marca dentro y así se quedan: renombrarlas no migra nada y el atleta que ya tiene la app se encuentra sin sesión, sin onboarding y con los entrenos ya programados en la muñeca huérfanos. El prefijo `fahybrik.` además es **mecanismo, no marca**: `AccountService.wipeLocalState()` borra al eliminar cuenta exactamente las claves con ese prefijo, así que una clave sin él sobreviviría al borrado. Y para un clon no hace falta cambiarlas: cada app tiene su sandbox de `UserDefaults`.
+
+**Hueco que queda abierto y necesita decisión:** `FahybrikWorkoutPlanID` marca los entrenos que ponemos en la app Entrenamiento del Apple Watch con cuatro bytes fijos (`0xFA 0x48 0x1B 0x1D`) para reconocer «los nuestros» dentro de una cola compartida con las demás apps. Dos marcas nacidas de este código con la **misma** firma podrían verse y retirarse los entrenos la una a la otra en un reloj con las dos instaladas. La firma tendría que ser distinta por marca, pero no puede derivarse sin más de `BRAND_*` porque cambiarla en FAHYBRID huerfana lo ya programado. Sin resolver a propósito.
+
+**NO hacer:** no escribir el nombre de la marca, el bundle id, el dominio ni el team id en un literal nuevo — se expande el ajuste. No renombrar ninguna clave `fahybrik.*`, ni `FAHYBRIDWrittenByApp`, ni la firma de WorkoutKit. No renombrar `FahybrikApiBase` / `FahybrikDemoEntry`: un clon no gana nada y hay que mover los lectores. No dar por verificada la expansión leyendo el fuente: se lee en el bundle **construido**, y los `applinks:` en el `.xcent` **`-Simulated`** (el otro sale vacío en simulador, sin perfil de aprovisionamiento). Inventario completo, incluido lo que está fuera del grafo de Xcode (Fastlane, docs de App Store, Garmin, Zepp): `docs/ios-clonabilidad.md`.
+---
+
+## 2026-08-17 · El motor de la sesión se reparte por responsabilidad; el estado se queda entero en un fichero
+
+**El hueco:** `WorkoutSession.swift` había llegado a 3.531 líneas con siete cosas distintas dentro del mismo cuerpo de clase: el estado, la máquina de la sesión (arrancar / pausar / avanzar / terminar), el reloj de 0,25 s, tres motores de formato independientes (EMOM, conditioning, carrera estructurada), la construcción del `LapRecord`, la entrada de los aparatos, el hierro por series, el contador de la muñeca y la recuperación tras un corte. Ninguna de las siete se leía sin recorrer las otras seis, y tocar una obligaba a releer el fichero entero para saber si había efectos cruzados. El propio código ya nombraba sus costuras («autocontenido y paralelo al motor EMOM, al que no toca», «el gemelo de erg de `recordRunLegLap`»): estaban dibujadas, sin trazar.
+
+**Decidido:** trece ficheros por responsabilidad — `WorkoutSession.swift` (el estado y los tipos) más `+Lifecycle`, `+Clock`, `+EMOM`, `+Conditioning`, `+RunStructure`, `+BoutRecords`, `+Laps`, `+StructuralBlocks`, `+Strength`, `+Signals`, `+RepCounter`, `+Persistence`, junto a los `+Tramo` y `+Trace` que ya existían. Los tres `record*Bout/Lap` van JUNTOS en `+BoutRecords` precisamente porque el código llevaba escrito que son la misma cosa (una ventana de trabajo cerrada = una fila): separarlos por motor era lo que permitía que fueran divergiendo. Reparto puro: cero cambios de lógica, cero cambios de firma, cero pantallas tocadas. Verificado línea a línea — las 3.294 líneas no vacías del original están las 3.294 en el reparto, cada una una sola vez.
+
+**El precio, explícito:** Swift limita `private` a UN fichero y **no deja declarar una propiedad almacenada en una extensión**. Así que el estado entero (67 propiedades) se queda en `WorkoutSession.swift` y pasa de `private` / `private(set)` a interno, y 27 de los 57 métodos privados se hacen internos porque cruzan el reparto. Los otros 30 siguen privados en su fichero, que es la mitad del punto: `resetSegmentAccumulators`, `mean`, `tickFixed`, `rollRotatingPhase`, `markRunLegStart`, `armBlock`… ya no son alcanzables desde fuera de su motor. No es una invitación a escribir el estado desde fuera del motor que lo posee — es el mismo criterio, y por la misma razón, que ya llevaban `lapErgLastDistance` y los acumuladores del tramo cuando nació `+Tramo`.
+
+**NO hacer:** no meter lógica nueva en `WorkoutSession.swift` — ahí van el estado, los tipos anidados y el `init`, y nada más; no ampliar la superficie interna sin necesidad (si un método nuevo no cruza el reparto, nace `private` en su fichero); no volver a mezclar dos motores en el mismo fichero, ni cablear uno contra otro (siguen siendo paralelos y ninguno toca a los demás); no separar los tres `record*Bout/Lap`; no confundir `+Laps` (el agregado que se GUARDA al cerrar un segmento) con `+BoutRecords` (una fila por ventana de trabajo) ni con `+Tramo` (la ventana que el atleta VE) — son tres cosas y el fichero lo dice.
+
+---
+
+## 2026-08-17 · Lo que comparten teléfono y muñeca lo dice la carpeta, no una lista
+
+**El hueco:** el dominio que corre igual en el iPhone y en el reloj (el motor de la sesión, los modelos de cable, la grafía de los números, los guiones de la muñeca, la señal del sensor) se compartía por una **lista escrita a mano** dentro del target watchOS de `ios/project.yml` — unos 50 `- path:`. La asimetría era el fallo: el teléfono los recibía gratis por incluir su árbol entero (`- path: FAHYBRIK`) y **sólo la muñeca los nombraba uno a uno**. Consecuencias medidas, no hipotéticas: «esto es compartido» no se veía en el fichero sino en un YAML lejano; cada fichero nuevo del dominio dependía de que alguien recordara su línea; y olvidarla no siempre rompía la build — a veces la muñeca se quedaba con **su propia copia**, que es de donde salieron los `position` de una carrera estructurada colapsando en UNA fila al llegar al servidor, las rondas de EMOM, la pendiente y el detalle del erg.
+
+**Decidido:** existe `ios/FAHYBRIKCore/` — la raíz del dominio compartido. Los dos targets la incluyen **entera** (`FAHYBRIK` → `[FAHYBRIK, FAHYBRIKCore]`, `FAHYBRIKWatch` → `[FAHYBRIKWatch, FAHYBRIKCore]`). La pertenencia pasa a ser **dónde vive el fichero**: uno nuevo del dominio entra en ambos sin tocar `project.yml`. Se movieron 52 ficheros conservando su subruta (`FAHYBRIK/Workout/WorkoutSession.swift` → `FAHYBRIKCore/Workout/WorkoutSession.swift`), así que quien conocía una ruta la sigue encontrando.
+
+**NO es un módulo Swift aparte, y se descartó con motivo — no por comodidad:** `Workout/WorkoutModels.swift` lleva `WorkoutExecutionAPI` / `DoblesExecutionAPI` bajo `#if !os(watchOS)`, y esos alcanzan `APIClient` / `RequestQueue`, que viven en la app. **Un framework no puede depender de su host**, así que un módulo real exige partir ese fichero — y partir el motor de ejecución no entra. Además el módulo obligaría a `public` en todas las declaraciones que cruzan y a un `import` en cada pantalla, y `FAHYBRIKTests` (iOS) dejaría de llegar al dominio como llega hoy. Mismo módulo = cero de eso.
+
+**Lo que lo mantiene honesto es la build de todos los días:** la app **embute** la app del reloj, así que cualquier cosa que entre en `FAHYBRIKCore` y no sea portable a watchOS (UIKit, un tipo de la app, ActivityKit) revienta el `xcodebuild -scheme FAHYBRIK` normal. No hay que acordarse de nada ni correr una build especial.
+
+**Fuera a propósito** (siguen en la app o en la muñeca): el PINTADO (`Theme/Theme.swift`, `Theme/LenguajeVivoUI.swift`, `Theme/Haptics.swift` → en la muñeca `FAHYBRIKWatch/WatchHaptics.swift` + su `WatchTheme`), el cable (`Watch/WatchConnectivityiOSService.swift`), el BLE (`Devices/PM5/PM5Service.swift`), la captura CoreMotion (`FAHYBRIKWatch/Sensor/SensorCapture.swift`), la SUBIDA (`Workout/Trace/WorkoutTraceUploader.swift`) y `GuionEscaparate`, el único guion que instancia vistas del reloj.
+
+**NO hacer:** no volver a añadir un `- path: FAHYBRIK/<algo>.swift` al target del reloj — si es compartido, se **mueve** a `FAHYBRIKCore/`; no meter en `FAHYBRIKCore` nada que no compile en watchOS; no confundirlo con el eje **app↔widget** (`Workout/Outdoor/RunActivityAttributes.swift` sigue siendo una línea a mano en `FAHYBRIKWidgets` porque es ActivityKit, no reloj); no dar por buena una ruta `ios/FAHYBRIK/...` de una entrada anterior a esta fecha si el fichero es de los 52 — se resuelve cambiando `FAHYBRIK/` por `FAHYBRIKCore/`. `docs/archivo/**`, `docs/plan-reconocer-movimiento.html` y la migración `0155` conservan las rutas viejas a propósito: son artefactos fechados y una migración aplicada es inmutable.
+
+---
+
+## 2026-08-17 · La piel del club es dato del coach, no marca del binario
+
+**El hueco:** FLEXR es una app y muchos coaches. El dashboard pintaba FAHYBRID y el naranja del token aunque el club tuviera nombre, logo y color propios. `coaches.full_name` es el nombre del workspace (sesión `club_name`); `avatar_url` es la cara de la persona. Ninguno es el lockup.
+
+**Decidido:**
+- Tres columnas en `coaches` (0199): `club_skin_name`, `club_logo_url`, `club_accent_hex`. NULL = marca de ESTE binario (`FAHYBRID`, `/brand/fh-icon-300.png`, `--v2-accent`).
+- Nombre y color los escribe `PATCH /api/coach/club`. El logo solo lo escriben `POST /api/coach/club/logo/confirmar` y `DELETE /api/coach/club/logo`. Aceptar `logo_url` en el PATCH daría dos escritores y una URL inventada.
+- El acento se clava en `.v2-root` (`--v2-accent*`). El dashboard ya lee esas variables; no se pinta club a club en cada botón.
+- Esta tanda solo pinta el dashboard del coach. El atleta (iOS / FLEXR) lee la misma fila cuando exista esa superficie.
+
+**NO hacer:** no reutilizar `coaches.full_name` ni `avatar_url` como wordmark/logo; no hardcodear un naranja de un club; no aceptar `#rgb` ni `rgb()`; no crear tabla nueva para tres nullables.
+
+---
+
+## 2026-08-17 · Cómo entrenas es la entrevista, no el recuadro
+
+**El hueco:** un recuadro vacío («escribe tu método») no sirve. Cinco urgencias tampoco: eso es el borde, no el oficio. La IA no puede escribir sesiones si solo sabe qué hace un martes malo.
+
+**Decidido:**
+- El instrumento son **siete capítulos** (spec `docs/metodologia-coach.html`). Las preguntas y las casillas son mecanismo (código). Las respuestas son método (dato por `coach_id`).
+- Al tocar, el producto **devuelve un párrafo determinista** (`generateMirror`). El coach lo tacha. Plan, chat y MCP leen `mirror_text` (o el generado si no lo ha tocado). Vacío = no imitan.
+- Persistencia: tabla `coach_method_interview` (0197). Columnas explícitas, sin JSON. No se reutiliza `coach_methodology` (0048, muerta) ni el recuadro de #23 (`coach_how_i_work`). #25 (estudio / papers) se queda aparte.
+- Pantalla `/es/como-entrenas`. API `GET/PUT /api/coach/method-interview`.
+
+**NO hacer:** no volver al ensayo vacío. No guardar las casillas en un blob. No mezclar papers en este espejo. No cablear una escuela en las cláusulas del párrafo.
+
+---
+
+## 2026-08-16 · El tip de FLEXR no nace con IDs del club 1
+
+**El hueco:** antes del tag FLEXR, el tip de `integration/trunk` llevaba emails de operador, Apple Team ID, prefijos Neon de rama y IDs de proyecto Vercel del club 1. No son secretos; son datos de un tenant. No deben viajar en el producto.
+
+**Decidido:**
+- Docs/scripts de Vercel prod se plantillan: IDs salen del env del operador, no del repo.
+- Prefijos Neon de demo/main son `DEMO_NEON_HOST_PREFIX` / `MAIN_NEON_HOST_PREFIX`.
+- Emails de allowlist (mig 0040), bypass de coach, default Resend, seeds y docs App Store usan `coach@example.com` (u override por env). La mig 0040 ya aplicada no se reescribe: el INSERT queda funcional con emails ficticios (`ON CONFLICT DO NOTHING`).
+- `DEVELOPMENT_TEAM` vuelve a `TBD`. Fastlane no trae Apple ID por defecto.
+
+**NO hacer:** no reescribir history (`git filter-repo`). No tocar `DEMO_ACCESS`, Clerk keys, ni marca/bundle salvo que el hit sea un email o un team id. No mergear este lote a `main`.
+
+---
+
+## 2026-08-15 · El selector de tipo de test no finge: null degrada, y la carrera por distancia existe
+
+**El hueco (QA visual del Preview):** editar el «5K control» de la batería (carrera, 5000 m en estructura por fases) pintaba «Tipo de test: Remo 2 km · Remo · /500m»; el HYROX half-sim, igual. `TEST_TYPES` no tenía carrera por distancia y `testTypeFromPrescription` era total: toda prescripción que no casaba caía en cascada al default `row_2k`. La guarda del 11-ago en `ArchetypeBlockForm` («un formulario que no puede representar el contenido degrada al editor de items, nunca ceguera») esperaba un null que nunca llegaba. El dato guardado no estaba corrupto — pero si el coach tocaba el selector falso y guardaba, la prescripción real se machacaba con un Remo 2K.
+
+**Decidido:**
+- **`run_5k` entra en el vocabulario cerrado** («Carrera 5 km», run × distance × 5000 m, /km) — el mismo slug que el benchmark que ancla la derivación de zonas de carrera (`BENCH_RUN_5K`, test-battery.ts). Un solo nombre para el mismo esfuerzo, nunca dos.
+- **`testTypeFromPrescription` pasa a ser PARCIAL:** devuelve null cuando la prescripción no es un spec de test de catálogo — sin prescripción (`prescription_json` NULL del half-sim genérico), modalidad que ningún test mide, `structure` por fases (contenido de sesión), scheme no steady, o no fija ni distancia ni tiempo. El null activa la degradación del 11-ago: el coach ve el contenido real, jamás un selector inventado.
+- El «más cercano» dentro de la misma modalidad+medida se conserva (un remo afinado a 2500 m sigue resolviendo a Remo 2 km).
+
+**NO hacer:** no devolver jamás un default cross-modalidad desde el matcher; no montar TestForm sobre contenido con `structure` (tocar el selector + Guardar machacaría las fases); no meter el half-sim en `TEST_TYPES` (deriva nada — no es un resolver de zonas; su forma es el arquetipo `hyrox_sim`).
+
+---
+
+## 2026-08-13 · El primer tramo personal desde la ficha arranca el lunes de esta semana
+
+**El hueco:** un atleta en `plan_mode=personal` sin filas en `athlete_month_assignments` (sesiones sueltas, nombre «—») no podía crear plan. «Personalizar» llamaba al fork y devolvía 409 (no hay microciclo). «Añadir microciclo» devolvía 409 `no_chain_yet` y mandaba a Personalizar. Las dos puertas se apuntaban.
+
+**Decidido:**
+- **Personalizar = solo fork de secuencia.** Se ofrece si hay recibo (`current_month_template_id`) y no es ya personal. Sin recibo, no hay fork.
+- **Sin recibo, la puerta es «Añadir microciclo».** La cadena vacía se enseña aunque la semana tenga sesiones sueltas (`allowEmpty`).
+- El primer tramo nace el **lunes de esta semana** (`start_date_when_empty`, normalizado con `mondayOfWeek`). Es el mismo ancla que el alta personal.
+
+**NO hacer:** no reabrir el cruce de puertas. No tratar `plan_mode` como si fuera el recibo. No re-forkear un personal.
+
+---
+
+## 2026-08-13 · Secuencia y plan personal son dos recibos, no dos editores
+
+**El hueco (Alex, ficha en la mano):** un atleta en plan personal no podía «personalizar» (el botón desaparecía), no podía borrar el entreno de un día (se quitaba de la plantilla y el atleta lo seguía viendo) y «Ver plan» caía en un vacío si no había secuencia. El modelo no estaba roto: faltaban las salidas.
+
+**Los dos mundos (mecanismo, no método):**
+
+| | Secuencia (periodización) | Plan personal |
+|---|---|---|
+| Quién es dueño de la plantilla | el club (`program_month_templates.athlete_id` null) | este atleta |
+| Cómo entra | `assignSequenceToAthlete` / intake `shared` | fork (`personalizePlanForAthlete`) o intake `personal` + cadena |
+| Cursor | `athlete_sequence_progress` active | se detach-ea; se conserva para revertir |
+| Recibo | `athlete_month_assignments` sobre la plantilla de biblioteca | recibo propio sobre la copia |
+| Editar entrenos | editor del microciclo de biblioteca (pega a todos los de esa celda, salvo instancias ya hechas) | `/microciclos/:id` de SU copia |
+
+**Transiciones que existen:**
+- Secuencia → personal: fork desde la semana en curso o la siguiente. El pasado no se reescribe. La plantilla de biblioteca no se toca.
+- Personal → secuencia: «Volver a periodización» solo si hay cursor detached. Un alta que nació personal no tiene a dónde volver.
+- Encadenar personales: `plan-chain` añade al día siguiente del último recibo, sin hueco ni solape (0166).
+
+**Lo que fallaba (y se cierra aquí):**
+1. Tras personalizar, «Personalizar» se escondía y «Editar» de la cadena solo cambiaba nombre/semanas. El editor de entrenos quedaba inalcanzable. Ahora: **Editar plan** / **Abrir** → `/microciclos/:id`.
+2. Quitar una sesión de la plantilla (o pasar el día a descanso) no borraba la `workout_assignment` scheduled. El resync insertaba/reemplazaba, nunca podaba. Ahora `instantiateWeekIntoMicrocycle` borra el hueco `scheduled` + `slot:…` de ese microciclo. Lo hecho, lo libre (`origin=self`) y un test no se tocan.
+3. «Ver plan» sí navegaba a `?tab=plan`. Si no había sesiones (alta personal sin cadena, o mes vacío) la pestaña parecía rota. Ahora el vacío dice qué falta y lleva al editor o a «Añadir microciclo».
+
+**Huecos que quedan (no son bugs de este lote, se declaran):**
+- `athletes.plan_mode` y `is_personal` (template con `athlete_id`) pueden divergir: un `plan_mode=personal` que luego recibe un mes de biblioteca se lee como secuencia en la ficha. La fuente de verdad de «¿esto es personal AHORA?» es el recibo corriente, no el flag.
+- Empezar en secuencia, personalizar a mitad, y más tarde asignar otro mes de biblioteca detrás: 0166 impide solape de fechas; el segundo mes tiene que empezar el día después. No hay UI que encadene un mes de biblioteca detrás de un personal.
+- Editar la plantilla de biblioteca DESPUÉS de que un atleta ya personalizó no le llega: él tiene copia. Es correcto. El resto de la celda sí recibe el resync.
+- Un atleta personal sin `current_month_template_id` (cero recibos) no tiene «Editar plan»: el camino es añadir el primer microciclo a la cadena.
+
+**NO hacer:** no re-forkear un personal encima de otro (already_personal). No borrar asignaciones completed/partial/missed/self al podar. No devolver Mensajes al rail. No tratar `plan_mode` como si fuera el recibo.
+
+---
+
+## 2026-08-13 · Un test es un loop, no un número en una lista
+
+**El hueco.** El coach programa, el atleta hace, y al otro lado hay una cifra (o un diálogo de tres números). No hay informe de ESA vez, no hay archivo («todos los CMJ», «todos los umbral»), no hay comparativa de homólogos, y Del coach no puede publicar la evolución — así que el loop se cae a chat. Eso es TrainingPeaks. Si no es loop, es mediocre.
+
+**Decidido:**
+
+- La unidad es la **ocurrencia** (assignment de un protocolo en un día). `athlete_benchmarks.assignment_id` la ancla. El último slug del atleta no es el informe de una fila.
+- Informe = una pantalla, la misma para atleta y coach. Contrato: identidad · héroe · contexto · método · lectura compuesta · snapshot. El CMJ es el primer renderer completo (fuente: informe de salto ago-2026). El resto entra en la misma cáscara sin inventar pósters.
+- Archivo por familia del catálogo. Comparativa = dos homólogos del mismo `calibration_slug`. Se guarda la config, se resuelve al leer.
+- Publicar la evolución es una **nota** con forma nueva `test_compare`. No hay sexto `kind`. No se reutiliza `comparativa` (eso son minutos por zona en meses). iOS pinta la forma: si el atleta no la ve, el loop está roto.
+- Prioridades distintas, el mismo dato. Coach: pedir / leer / comparar / decir. Atleta: preparar / hacer / recordar / recibir.
+
+**NO hacer:** sexta pestaña. Sexto tipo de comunicado. Clonar el póster WCSE ni su marca. Informe distinto para cada cara. Comparar protocolos distintos. Chat como canal. Hardcodear bandas en Swift. Enseñar 47,33 como platillo.
+
+Spec: `docs/superpowers/specs/2026-08-13-tests-son-un-loop.md`.
+
+---
+
+## 2026-08-13 (noche) · El hub de Carrera SHIPEADO en Swift — y las decisiones que salieron de construirlo
+
+**La obra:** la pastilla Carrera de iOS es ya el hub navegable del mapa v2 (NavigationStack propio, patrón de la tab Carreras): Estado + puertas → Historial (semanas con subtotal, filtros plegados, filas a la ficha real vía `ExecutedWorkoutView`), Tendencias (por métrica y ventana, con los grupos de volumen y terreno), Capacidad (umbral+zonas shipeados de `DetalleDeCarrera`, VC del grupo de lecturas, récords calle/cinta, predictor VDOT, y el test de zonas SOLO sin ancla lanzando SU test por el `/start` de la batería), Por tipo (chips reales), Forma / Lo que te piden / Correr cansado (los bloques de la tira, mudados). Plan: `docs/superpowers/plans/2026-08-13-carrera-hub-ios.md`.
+
+**Decisiones tomadas construyendo:**
+- **El Estado va ETIQUETADO, no en frase gigante.** Alex, con la app en la mano: «¿qué es "Vas mejor"? ¿eso es un estándar?». El concepto es nuestro Training Status; la presentación pasa a etiqueta «Estado» + frase compacta + LA EVIDENCIA en una línea debajo (el peldaño). Mismo motor servido, cero cálculo nuevo.
+- **Nace `shared/domain/running/session-type.ts`:** el clasificador de tipo de sesión (series/fartlek/cuestas/progresivo/continuo) derivado de la ESTRUCTURA prescrita — el eje que ninguna tabla tenía. Reglas por forma+objetivo+medida; roto contra 12 casos reales de `to-text-structure.test.ts`. Sin estructura → null (libres e importadas no llevan chip inventado).
+- **Un récord viaja como `valor`+`unidad`, no como `segundos`:** el Cooper de 12 min vive en METROS (la única marca run de «más alto mejor»). Servir metros bajo una clave `segundos` era un dato falso agazapado.
+- **La VC tiene UN pintor:** el grupo `capacidad` de `/analytics/lecturas` (cobertura+procedencia). El endpoint de capacidad NO la sirve — dos números para el mismo hecho es como coach y atleta acaban leyendo cifras distintas.
+- **`historial.veredicto` va null-honesto en toda fila:** recomputar compliance sesión a sesión son 2 viajes a Neon por fila — inasumible en `window=all`. El punto de veredicto del historial espera a un almacén barato por sesión (anotado como remate).
+- **`prev` de tendencias sale null entero si la ventana anterior no tiene NI UNA sesión:** un «+400 %» contra un cero que en realidad es «no corría» es una comparación fabricada.
+
+**Qué NO está (declarado):** comparativa «vs tu último 6×800» + historial del mismo entreno en la ficha (T2); vista Por zona (T3); una importada sin assignment lista sus km pero no navega aún; los volcados de composición siguen fotografiando la tira vieja (`AnaliticasCorrerView` vive SOLO para ellos — migrarlos al hub y borrarla es remate).
+
+**NO hacer en consecuencia:** no devolver el CTA de tests a ningún arranque; no añadir un segundo pintor de VC; no «arreglar» el veredicto de fila recomputando compliance al vuelo; no darle chip de tipo a una sesión sin estructura.
+
+---
+
+## 2026-08-13 (tarde) · La pastilla Carrera es EL HOGAR del running del atleta, no «una analítica»
+
+**El hueco (Alex, con la app en la mano y después de dos días de sesión fallida):** la pastilla Carrera de Analíticas se construyó como UNA pantalla con scroll — sin NavigationStack, sin push, sin histórico — y con un CTA nada más entrar que abría `TestsHubView`, la batería ENTERA del coach (1RM de squat incluido) en la pestaña de running. El mapa firmado por la mañana (`docs/analiticas-running-mapa.md` v1) ya decía «cada bloque es una PUERTA a su propia vista» y la ejecución lo ignoró. Y la v1 mandaba el histórico navegable a Plan/Historial, que Alex revoca: *«si el usuario ha corrido 160 km ese mes, que pueda ver su histórico, su análisis, ir en profundidad. No es solo una analítica: es su tab de running, todo el running tiene que ir ahí dentro».* El listón dicho por su nombre: **que ningún atleta abra Garmin** — todo lo que un corredor (pro o no) mira en Garmin Connect, aquí dentro; TrainingPeaks es el competidor.
+
+**Decidido (mapa v2, mismo fichero):**
+- **La tab gana NavigationStack** y el hub es corto: veredicto + puertas que se ENTRAN (Este mes→Tendencias, Tus carreras→Historial, Forma, Capacidad, Por tipo, Lo que te piden, Correr cansado, Mi carrera→enlace a la tab Carreras).
+- **El historial de running vive DENTRO de la pastilla** (agregados del periodo + filas por semana + filtros), y cada fila abre la ficha de la sesión (nivel 2) por push. Plan/Historial conserva el calendario general multimodalidad.
+- **Tendencias** (informes por métrica y periodo, el Reports de Garmin) es vista propia nueva.
+- **El CTA de tests desaparece del arranque.** Vive en Capacidad, solo en el estado sin ancla, y aterriza en el camino de zonas de correr — jamás en la batería entera (regla de memoria: cada CTA aterriza en SU arreglo).
+- Récords (catálogo cerrado, calle/cinta separados) y predictor 5k/10k/21k/42k pasan de «remates» a estructura de Capacidad.
+- Benchmarks: inventario Garmin Connect + TrainingPeaks atleta levantados el 13-ago (sesión fresh). Lo que NO entra queda declarado en el mapa: dinámica de carrera sin sensor, Training Status/carga general (→ Recup, las pastillas mandan), potencia/stamina sin fuente, clima/gear (otra tanda), social.
+
+**Qué se elimina:** el CTA de tests del arranque de la pastilla (`AnaliticasCorrerView.salidaDeLaPantalla` → `TestsHubView`); la exclusión v1 del historial navegable.
+
+**NO hacer en consecuencia:** no volver a colgar `TestsHubView` de ninguna pantalla de Analíticas. No meter sueño/HRV/carga general en Carrera (Recup existe para eso). No duplicar «Mi carrera» dentro de la pastilla — se enlaza a la tab Carreras. No pintar métricas sin fuente conectada (dinámica, potencia) porque Garmin las tenga: honestidad del dato (§7 del contrato).
+
+---
+
+## 2026-08-13 · La ficha del atleta son 5 pestañas, no 12
+
+**El hueco.** La ficha del dashboard del coach tenía 12 pestañas (`perfil · plan · ritmos · carreras · historico · sesiones · biometria · rendimiento · correr · pagos · mensajes · del-coach`). El coach se perdía. Una auditoría (11-ago) y la spec 1a lo confirman: el menú era un almacén, no una herramienta.
+
+**Decidido (Alex, 13-ago, sobre spec 1a + mock):**
+
+Cinco pestañas, cada una una pregunta:
+
+| Pestaña | Pregunta |
+|---|---|
+| Resumen | ¿Cómo va y qué toca esta semana? |
+| Plan | ¿Qué le mando y cómo lo cambio? |
+| Rendimiento | ¿El entrenamiento está aterrizando? |
+| Del coach | ¿Qué le he publicado y qué hizo con ello? |
+| Atleta | ¿Quién es y qué le debo? |
+
+La quinta (Del coach) se queda porque el 9-ago ya se firmó que el comunicado vive en la ficha del atleta (publicar ≠ chat; el coach piensa en EL atleta, no en la feature). No se entierra en Atleta.
+
+**Mensajes deja de ser pestaña.** Es el botón de cabecera y abre el hilo de *este* atleta.
+
+**Default:** Resumen, no Perfil.
+
+**Las `?tab=` viejas redirigen** (aliases en `normalizeAtletaTab` / `resolveAtletaUrl`). No se borra superficie: se reubica.
+
+**Rendimiento no se vuelca.** Hasta su propio pase de diseño, un raíl temporal reusa las pestañas viejas (diagnóstico / correr / zonas / carreras / histórico / cuerpo). El destino son tres anclas: Carrera · Fuerza · Cuerpo.
+
+**Cabecera:** dos filas, nunca tres. Lo pendiente es una línea de enlaces, no un banner. VO₂ / FC reposo / VFC salen de la cabecera (viven en Rendimiento). El rojo se reserva para lo que bloquea.
+
+**Plan (mismo día, lote 2):** la pestaña responde «¿qué le mando y cómo lo cambio?». La semana es el lienzo (todas las sesiones del día, «sin hacer» se ve, tope de 3 + «+N más» al editor del día). Adherencia, check-in y readiness NO se repiten: ya están en Resumen. «A vigilar» sin CTA se elimina (el check-in de Resumen es el sitio).
+
+**Rendimiento (mismo día, lote 3):** tres anclas — Carrera · Fuerza · Cuerpo. Carrera tiene capas (cómo aterriza · zonas · carreras), no pestañas hermanas. Diagnóstico viejo se parte: fisiología/cuerpo a Cuerpo, running a Carrera, 1RM/tests a Fuerza. Default = Carrera.
+
+**Corrección (mismo día, noche):** al partir Rendimiento se escondió lo más nuevo — la gráfica de tiempo en zonas y «Dar feedback» que publica a Del coach (`ZonasPanel`). No era Ritmos/Zonas (calculadora). Vuelve como capa **Tiempo en zonas**. El diagnóstico (polarización, economía, umbral, predicción) vuelve en Cuerpo. El histórico (micros cerrados, dobles) vuelve en Fuerza. `?vista=zonas` abre el feedback; `?vista=ritmos` abre la calculadora.
+
+**Del coach y Atleta (mismo día, lote 4):** Del coach no cambia de oficio (publicar ≠ chat). Atleta es Datos · 1:1 · Pagos. 1RM, tests y zonas salen de Atleta: viven en Rendimiento. La carrera objetivo se edita aquí; el countdown se lee en Resumen.
+
+**NO hacer:** no añadir una sexta pestaña. No devolver Mensajes al rail. No pintar un dato en dos sitios. No inventar proyección HYROX (el loader sigue devolviendo null). No restylear Hoy ni el roster en este lote.
+
+Spec: `docs/superpowers/specs/2026-08-13-ficha-atleta-ia.md`. Visual: spec 1a.
+
+---
+
+## 2026-08-13 · El materializador FIT usa `source='garmin'`, no `'fit_import'` — y `leg_role` sigue sin sitio
+
+**El hueco.** Al construir `web/lib/import/fit/materialize.ts` (el materializador que cierra la entrada «El histórico rico entra por FICHERO FIT», más arriba en este mismo fichero) aparecieron dos choques reales entre el diseño hablado y el esquema:
+
+1. `workout_executions.source` y `biometric_streams.source` son el enum CERRADO `biometric_source` (0001 + 0135/0143/0180) — no admite un valor libre como `'fit_import'`. La migración 0144 ya había fijado el significado de esa columna: QUÉ APARATO midió, no CÓMO llegó el registro (eso es `recorded_via`). `'garmin'` ya existe con ese significado exacto y es el mismo valor que escribe hoy `ingest-garmin.ts` para un reloj Garmin por la API — un FIT de Garmin y una actividad de la API de Garmin son el MISMO aparato por dos tuberías distintas.
+2. `segment_executions.leg_role` (0146, work/recovery — la distinción que separa una serie de su trote de vuelta) solo se puede escribir junto con `leg_index` y `leg_phase`: el CHECK exige el trío o ninguno. `leg_phase` (warmup/main/cooldown) es información que el contrato canónico del FIT (`canonical.ts`) YA NO LLEVA — el parser colapsa el vocabulario FIT a un `role` binario work/recovery, y el materializador tiene prohibido reinterpretar. No hay forma honesta de rellenar `leg_phase` desde un FIT importado.
+
+**Decidido:**
+- Las tres columnas de procedencia de un import FIT (`workout_executions.source`, `segment_executions.source`, `biometric_streams.source`) usan `'garmin'`. Lo que distingue un FIT importado de una actividad llegada por la API es `source_workout_ref` (prefijo `fit:`), no `source`.
+- `segment_executions.hr_source` (CHECK cerrado a `strap`/`healthkit`/`pm5`, mig 0153) se deja NULL en los tramos de un FIT: ninguno de los tres describe honestamente "el sensor propio de un reloj Garmin, no se sabe si óptico o correa emparejada".
+- `leg_index`/`leg_role`/`leg_phase` se dejan NULL en los tramos de un FIT importado. Un lap de recuperación cuenta, hoy, como trabajo — igual que CUALQUIER tramo anterior a la 0146 (no es una regresión), pero es la capacidad que se pierde al importar en vez de vivir la sesión en la app. Se descartó marcar esos laps `is_structural=true` como sustituto: esa columna TAMBIÉN los saca del volumen (0146: la recuperación sí cuenta ahí), así que habría borrado kilómetros reales del total semanal — peor que no distinguir el rol.
+- `CanonicalLap.elevation_gain_m` no se persiste: `segment_executions` no tiene una columna de desnivel POR TRAMO (`elevation_gain_m` solo existe a nivel de ejecución, mig 0154), y forzarlo a `avg_gradient_pct` (0185, cambio NETO de altitud) sería escribir una magnitud en la columna de otra.
+
+**NO hacer en consecuencia:** no reutilizar `is_structural` como sustituto de `leg_role='recovery'` (le borra el volumen). No inventar un quinto valor de `hr_source` sin pasar por una migración razonada. No escribir `elevation_gain_m` de un lap en `avg_gradient_pct`.
+
+**Seguimiento propuesto, no ejecutado aquí:** separar `leg_role` del trío de la 0146 en su propia migración (o darle al parser una señal de fase que hoy no tiene) para que un FIT importado con series pueda distinguir trabajo de recuperación como lo hace una sesión vivida en la app.
+
+---
+
+## 2026-08-13 · El perfil de salto es un TEST que solo existe si el coach lo programa
+
+**El hueco:** un coach (informe CMJ + CMJ con carga + LRI) mide el salto con My Jump Lab. Eso no es un entreno ni un dispositivo. El atleta tiene que saber ANTES qué va a pasar (trípode, carga, secuencia), no encontrarse una cámara.
+
+**Decidido:**
+- Es un test del hub (`cmj_profile`). Lo programa el coach desde el plan / panel de tests. No aparece en Marcas. No entra en el 0/4 de semana 1 (`week_offset` null).
+- La medida nueva es `height` / `cm`. No calibra zonas ni 1RM. El puente tiene un event `jump`; si cayera al else de hoy, 47 cm se guardaría como 47 segundos.
+- La altura se calcula por tiempo de vuelo (`h = g t² / 8`). El servidor recalcula y firma los cm contra los fotogramas.
+- LRI y los baremos son método del coach (`coach_jump_method`), defecto = los cortes del informe que originó la feature. El par crudo (h0, hL, load, bw) se guarda siempre.
+- El atleta ve en la tarjeta del día qué preparar, y al tocar Probarme un briefing entero (necesitas / cómo va a ir / cómo se salta / el teléfono). No entra en `WorkoutContainer`.
+- App aparte (Flexr Jump) descartada: el valor es el loop coach→ficha, no el centímetro suelto.
+
+**NO hacer:** no meterlo en Dispositivos. No segundo CTA de Salud. No auto-test desde Marcas. No enseñar 47,33 como si hubiera platillo. No reutilizar `time`/`seconds` para el vuelo. No clonar el póster WCSE. No hardcodear los cortes.
+
+**Migración:** 0193 (`height`/`cm` en CHECKs, `jump_attempts`, `coach_jump_method`).
+
+---
+
+## 2026-08-13 · El histórico rico entra por FICHERO FIT, no por la API de Garmin — y andar no es correr
+
+**El hueco:** el criterio de empresa es que ningún atleta abra Garmin. Un atleta que llega con un año de reloj Garmin hoy importa su pasado vía Apple Salud como sesiones PLANAS (1 tramo, totales, sin laps/ruta/cadencia/desnivel — verificado en producción: 667 «carreras» importadas, 1,0 tramos/sesión, 0 con ruta). Entrar en una sesión vieja no enseña nada, y las vistas por tipo no pueden detectar series en el histórico. La Health API de Garmin, que sí daría todo, está **pausada para altas nuevas sin fecha** (email de Garmin a Alex jul-2026; verificado vigente ago-2026).
+
+**Decidido:** importador de archivos FIT. El atleta pide su export a Garmin (GDPR, gratis, oficial) o descarga actividades sueltas y las sube a la app; el ZIP/FIT se sube PREFIRMADO a Vercel Blob (patrón de chat/import-fotos, la API nunca toca los bytes) y un job por lotes lo materializa en las MISMAS tablas que una sesión viva: ejecución + tramos por lap (splits reales por km), `workout_routes` (polyline existente), muestras de pulso a `biometric_streams`, zonas con el motor de siempre. Parser: `@garmin/fitsdk` oficial (npm) — no se escribe un parser propio. FIT vale también para Suunto/COROS/Wahoo; el pipeline es parser→actividad canónica→materializador, así que TCX/GPX (Polar) son parsers futuros, no otro sistema.
+
+**Reglas de fidelidad (supersede):** clave de dedupe `source_workout_ref` propia del FIT. Si la ventana solapa con una ejecución importada de Apple Salud (el blob plano) → la rica REEMPLAZA a la plana. Si solapa con una sesión viva/asignada → la viva gana y el FIT se salta. Las muestras de pulso no se duplican: si la ventana ya tiene muestras, no se insertan otras.
+
+**Además, bug reparado en el mismo barrido (mig 0192):** el mapeo de HealthKit metía walking (52) y hiking (24) en `modality='run'` — 431 de las 667 «carreras» del histórico real eran caminatas a ~17 min/km (1.091 km falsos). Ahora walking/hiking → `other`, y el FIT importer aplica el MISMO criterio con los sports FIT.
+
+**NO hacer en consecuencia:** no scrapear la API privada de Garmin (ToS, ya descartado jul-2026). No recibir ficheros por el body de la API (límite ~4,5 MB verificado — siempre prefirmado). No crear tablas paralelas «de importado»: una sesión importada ES una sesión, en las tablas de siempre — la lección de la 0191. No auto-conectar nada: la subida la inicia el atleta.
+
+---
+
+## 2026-08-13 · Un entreno de Apple Salud es una sesión aunque nadie lo prescribiera
+
+**El hueco:** conectar Apple Salud subía el pasado a `biometric_streams` (1.996 entrenos de Alex desde 2019, 94k pulsos desde 2022) y las comparativas no lo veían. `workout_executions.assignment_id` era NOT NULL + UNIQUE: el ingest solo rellenaba actuals si había un hueco del plan ese día. Sin plan, el histórico era un marcador muerto. La carga, las zonas y el antes/después leen ejecuciones.
+
+**Decidido:** una sesión importada no necesita assignment. `assignment_id` pasa a nullable (migración **0191**); el 1:1 del plan se conserva con un índice parcial. El ingest de HealthKit, si no hay assignment del día ni solape con una sesión ya registrada, nace la ejecución (`recorded_via='imported'`) y un tramo resumen. El plan no se toca. El histórico que ya estaba en `training_load` se materializa con la misma función. No hay unique en `source_workout_ref`: en producción ya hay UUIDs de Salud repetidos en varias ejecuciones live (el mismo HKWorkout aterrizó en dos assignments).
+
+**Qué se elimina:** cualquier segundo control de Apple Salud en Perfil. El toggle es el único. Ni «Abrir Salud», ni «Importar histórico», ni «Continuar importación», ni «Detener». El barrido del pasado corre en silencio al conectar. El techo es 10 años; un import ya cerrado con el techo viejo se reabre solo, sin pintar un CTA.
+
+**NO hacer en consecuencia:** no inventar assignments para el pasado. No volver a poner un segundo botón de Salud. No tratar `biometric_streams.training_load` como si las comparativas lo leyeran.
+
+---
+
+## 2026-08-13 · Cuatro tarjetas de analíticas que no podían enseñar dato nunca: tres se conectan, una se retira
+
+**El hueco:** en `web/lib/athlete/analytics/` había cuatro tarjetas con `availability` fija y sin ninguna consulta detrás — placeholders que el atleta leía como «esto no lo tenéis» aunque el dato ya existiera. Dos comentarios eran directamente falsos: `sleep` decía que iOS no observaba `sleepAnalysis` (sí lo hace desde `HealthKitSyncService.swift`, y ese dato ya alimentaba la disposición diaria y `biometric-trend.ts`) y `hr_zones` decía que hacía falta una API de socio (el reparto ya se computa en `segment_zone_seconds`, el mismo motor que pinta la ficha del coach).
+
+**Decidido — se conectan tres:**
+- `sleep` (recovery.ts): entra en el mismo motor de tendencia que HRV/FC reposo/VO₂máx (`buildMetricTrendCard`), leyendo `metric_type='sleep_duration'` de `biometric_streams` (segundos → horas). Verificado: 202 muestras / 3 atletas en producción; 2 atletas superan el mínimo de 4 días.
+- `hr_zones` (recovery.ts): reutiliza `loadZoneWindow` (`lib/zones/weekly.ts`) sin filtro de modalidad, sumando z1..z5 (nunca `no_hr_s`, que no es una zona). Un ancla ESTIMADA (FCmáx/edad) se muestra igualmente, etiquetada con su `source_label` — a diferencia de `running-progress.ts`, que exige ancla medida/declarada porque cruza FC con ritmo (un umbral adivinado desalinearía el ritmo-al-mismo-pulso). Aquí solo se describe el reparto, no se compara contra nada, así que la misma honestidad de "Mis zonas" en iOS (`HRZoneProfile.sourceLabel`) es suficiente.
+- `finish_projection` (hyrox.ts): reutiliza `buildGoalGap` (`web/lib/athlete/goal-gap.ts`), el motor que ya sirve `/api/athlete/goal-gap` («Camino al objetivo») y que `running-progress.ts` ya reutilizaba (`loadPredictedSeconds`). El comentario anterior («el modelo no existe aún») era falso.
+
+**Qué se elimina:** `weak_link` («Tu eslabón débil», hyrox.ts). Su modelo documentado —percentil por estación + decay de fatiga + fuerza— necesita el dataset HYROX licenciado (mikatiming) que no tenemos, igual que `field_percentile`; no existe ningún motor de "decay" de percentil en el repo (grep en `shared/domain` y `web/lib` solo encuentra el decay de evidencia por antigüedad de `shared/domain/evidence.ts`, un concepto distinto). Su titular real — la estación donde el atleta pierde más tiempo vs lo entrenado — ya lo enseña la tarjeta `race_transfer` («Entreno → carrera») como `primary`: mantener las dos habría sido un duplicado sin dato nuevo.
+
+**NO hacer en consecuencia:** no reintroducir «Tu eslabón débil» hasta tener el dataset del campo licenciado. No copiar el filtro estricto de ancla medida/declarada de `running-progress.ts` a `hr_zones` sin la misma razón — esa tarjeta cruza FC con ritmo, esta solo reparte tiempo entrenado.
+
+---
+
+## 2026-08-12 · El esqueleto del plan nace al planificar, no se inventa en el alta
+
+**El hueco:** el paso «Estructura del bloque» del alta pedía marcar microciclos en los
+dos modos. En periodización los tramos no mandaban nada (el alta materializa el primer
+microciclo de la biblioteca) y ajustar semanas era mentir. En personalizado se exigía
+un esqueleto —«Microciclo 1 / 2 / 3» con semanas inventadas— aunque el coach aún no
+hubiera planificado.
+
+**Decidido:** el alta solo pregunta de qué nace el plan (`shared` | `personal`). El
+esqueleto es consecuencia de planificar, no un input del alta.
+- `shared`: igual que siempre — primer microciclo de la biblioteca, en borrador.
+- `personal`: no se crea ningún contenedor. El atleta queda marcado y el coach
+  escribe los microciclos desde su ficha. Si el cliente manda tramos de verdad
+  (los escribió él), se materializan; vacío no se rellena con placeholders.
+- `athletes.plan_mode` es columna viva (migración **0188**), no solo snapshot JSON:
+  existe ANTES de que haya microciclos. Hoy no le propone asignar secuencia a
+  quien eligió personal. Personalizar / volver a la periodización / asignar
+  secuencia actualizan la columna.
+
+**Qué se elimina:** la lista de microciclos del alta y la obligación de `block_specs`.
+Eso no era un esqueleto: era una mentira previa a planificar.
+
+**NO hacer en consecuencia:** no volver a proponer «Microciclo N» en el alta. No
+tratar el JSON del intake como bandera viva del modo.
+
+---
+
+## 2026-08-12 · El nombre que teclea el coach vive en `name_es`, y `name_en` se queda vacío
+
+**El hecho que lo forzó.** La migración 0172 puso `check (name_es is not null or name_en is not null)` en `exercises`, y `createExercise` (`web/lib/dashboard/exercises/create-exercise.ts`) no escribía ninguna de las dos: **crear un ejercicio desde el panel del coach llevaba roto en producción desde entonces**, con un 500 contra la constraint. Salió al descubierto de rebote, porque tres tests de `web/tests/exercises/ownership.db.test.ts` fallaban contra una rama recién migrada — nadie lo había reportado, y el camino no tenía cobertura contra el esquema real.
+
+**Decidido:** lo que el coach teclea va a `name_es` (su panel es español) y `name_en` se queda **NULL**. Es la verdad —«no hay nombre inglés curado todavía»— en vez de escribir el mismo texto en las dos columnas y afirmar una traducción que nadie ha hecho. `name` sigue siendo el nombre base, el que resuelve cualquier lectura que aún no distingue idioma, que hoy son todas (`name_es` de `exercises` no lo lee nadie en `web/lib`).
+
+**Qué NO hacer en consecuencia:** no rellenar `name_en` copiando `name_es` para «tener las dos». No dar por hecho que un `name_es` no nulo significa que alguien escribió español a conciencia: hoy significa «lo que el coach escribió, en el idioma en que lo escribiera». Cuando el panel deje de ser solo español —FLEXR, otros entrenadores— la lengua del texto pasa a ser DATO del coach (una preferencia suya), no una suposición del insert; ese es el momento de tocar esto, y no antes.
+
+**Sigue pendiente y es lo que hace que esto importe:** iOS todavía no resuelve nombres por `athletes.preferred_language`, así que el atleta ve `name` pase lo que pase.
+
+---
+
+## 2026-08-12 · El chat aprende SOBRE QUÉ va el mensaje — y no gasta un icono en cada cosa
+
+**El encargo, con su restricción dentro.** Que el atleta pueda escribir sobre algo (el entreno de hoy, tal ejercicio) con un clic. Y textual de Alex: *«la parte difícil que te pongo no es el código en sí, sino que no haya un iconito extra que moleste en cada cosa que se pueda contextualizar. Si es así, prefiero no ensuciar la UI y no hacerlo.»* Eso convierte el coste en pantalla en el criterio de aceptación, no en un detalle de acabado.
+
+**El estado de partida (leído, no supuesto).** El chat es UN hilo por atleta, con adjunto tipado de pleno derecho (`attachment_url`/`kind`/`meta`) y CERO noción de sujeto: ni `about`, ni `reply_to`, ni `subject` en `ChatMessageDTO` (`ios/FAHYBRIK/Chat/ChatService.swift:33`) ni en `sendMessageSchema` (`web/lib/chat/schema.ts`). Y no hay ninguna puerta al chat desde dentro del detalle de un entreno, de un ejercicio, de un test ni de una carrera: el chat vive en cuatro cromos de raíz y en dos estados vacíos. El coste real de eso es un turno entero de conversación gastado en «¿de qué bloque me hablas?».
+
+**Decidido — el contexto es un ADJUNTO, no un control nuevo.** Alex eligió (selector) la variante de **cero pixeles nuevos**, así que:
+- **Puerta descubrible: el «+» del compositor**, que ya era la única entrada a «qué le añado a este mensaje» (voz, foto, vídeo, archivo). Gana una fila, **al final** para no mover la memoria muscular, y el título del diálogo pasa de «Adjuntar» a «Añadir al mensaje», que es lo que ahora cubre.
+- **Atajo: los menús de pulsación larga que YA existen** — la sesión del día (`PlanView.swift:315`), el carril de días (`PlanHoyAtoms.swift:98`) y la tarjeta de carrera (`CarrerasView.swift:475`). Una fila más, «Preguntar al coach», cero alto.
+- **Las filas de ejercicio de la ficha previa** estrenan `contextMenu` (hoy no tienen ninguno): un menú de pulsación larga no ocupa pantalla. Es ATAJO, nunca la vía principal, porque una pulsación larga a secas no se descubre — el propio código de carreras ya documenta por qué hace falta doble discoverability.
+- **La única superficie nueva** es la hoja «¿sobre qué entreno?», y solo se ve si el atleta la pide.
+
+**Decidido — la referencia es TIPADA y la etiqueta la escribe el servidor.** En `chat_messages`, columnas planas y nullables (migración **0186**): `context_kind` ∈ ('session','exercise','race') + `context_ref` (el ancla navegable) + `context_sub` (solo con kind='session': el ejercicio DENTRO de ese entreno) + `context_label` (sello legible congelado). Semántica sin ambigüedad: `session` = assignment (con `sub`, «el back squat DE ese entreno»; sin `sub`, el entreno entero), `exercise` = el ejercicio del catálogo en abstracto, `race` = la carrera. Reglas que son mecanismo, no gusto: **la etiqueta la deriva el servidor** (que ya carga la entidad para validar la propiedad) con UN solo rotulador para la burbuja de iOS, la del dashboard y el push; **la propiedad se valida siempre** y lo inexistente y lo ajeno devuelven la MISMA respuesta; y **una referencia sin pregunta es ruido** — un mensaje con contexto exige body o adjunto. La tarjeta viaja DENTRO de la burbuja, no como mensaje aparte: suelta, el hilo se llena de tarjetas huérfanas que el coach tiene que emparejar a ojo con la pregunta de al lado.
+
+**Por qué no texto libre en el `body`.** Falla los tres filtros de un campo bien puesto: el coach no puede abrir la cosa desde la burbuja, la IA no sabe de qué se habla, y las analíticas no pueden contar qué entrenos generan preguntas. Y por qué el servidor y no el cliente: si la etiqueta la manda el móvil, hay dos redactores del mismo texto y divergen el día que uno se toca.
+
+**En consecuencia, no hacer:** no añadir un icono de «preguntar» por elemento contextualizable — es exactamente lo que se descartó, y a plena vista. No crear un segundo hilo, ni sub-hilos, ni un filtro «solo lo de este entreno»: sigue habiendo UN chat (2026-07-26, «El chat es UNO»). No dejar que el cliente escriba `context_label`. No permitir `context_sub` con kind ≠ 'session'. No abrir una segunda vía de respuesta para un comunicado tipo *pregunta*: ese ya se responde en su sitio (`ComunicadoPreguntaView`), y dos caminos para la misma respuesta es peor que uno.
+
+**AMPLIACIÓN (mismo día, tras verlo funcionando): la tarjeta trae el dato y se abre.** Directiva de Alex: *«el coach recibe ese chat, pero al hacer click desde el chat debe viajar a eso y también previsualizar»*.
+
+- **La etiqueta sigue CONGELADA (columna); la previsualización va VIVA (se resuelve al LEER, nunca se guarda).** Es la decisión que sostiene el resto: la etiqueta es IDENTIDAD («Fuerza A · mar 12» no cambia de significado nunca) y la previsualización es el ESTADO de la cosa ahora. Quien lee está a punto de contestar o de corregirla; una previsualización congelada haría que un coach que ya cambió el descanso contestara sobre un fantasma. Por eso no hay columna nueva ni migración.
+- **La línea es la RESPUESTA, no un resumen.** Con `sub`, la prescripción de esa línea (`4×5 · 80% · descanso 90 s`) — literalmente lo que se discute. Sin `sub`, la prescripción corta de la sesión y su reloj. Una carrera, su fecha, la cuenta atrás y el objetivo.
+- **En LOTE, cinco consultas por página de mensajes** sea cual sea N (`web/lib/chat/context-preview.ts`). Un N+1 aquí es inaceptable: el hilo pagina de 30 en 30. Probado contando viajes reales con el hook `debug` de postgres, no llamadas de la etiqueta —que sobrecontarían fragmentos anidados.
+- **Cero formateadores nuevos.** Reutiliza `loadTemplateSummaries` (`web/lib/athlete/week-plan.ts`, el mismo cálculo que sirve `/api/athlete/plan/week`), `prescriptionToText` (`shared/domain/prescription/to-text.ts`), `raceDayLabel` y los rótulos de categoría del catálogo. Duplicar la clasificación de bloques habría creado la segunda gramática de dosis del repo.
+- **El destino, y por qué cada uno:** en el panel, `?tab=plan&sesion=<assignment_id>` (nuevo, y de paso hace la sesión enlazable para cualquiera). En iOS, lo **hecho se mira** (la lectura de lo que pasó) y lo **pendiente se estudia** (el índice de técnica): abrir el contenedor de entreno desde una conversación invitaría a empezar a entrenar por accidente, que no es lo que pide quien está preguntando algo.
+- **`exists` y `state` existen para no mentir.** Sin `exists` confirmado por el servidor (fila optimista, mensaje anterior a esto) y sin `state` (no sabríamos en qué modo abrirlo) no se ofrece toque, ni galón, ni cursor de mano. Una carrera y un ejercicio de catálogo enseñan su dato y no navegan. La etiqueta congelada sobrevive siempre, aunque la cosa se borre.
+- **Hallazgo del camino, que vale más que la feature:** `loadTemplateSummaries` se escapaba al pool de producción ignorando el cliente que se le pasara. Se detectó porque un test contra una rama de Neon intentó conectar a producción y falló. Ahora acepta el cliente por parámetro (con defecto, cero cambio para su llamador de siempre). **Cualquier función que consulte y no acepte su cliente es un test que miente o una escritura en la base equivocada.**
+- **En el panel, la URL no se toca con `router.replace`** sino con `history.replaceState`: la ruta es dinámica y lee `searchParams` en servidor, así que un replace disparaba un fetch RSC y recargaba la ficha entera solo por abrir un cajón.
+
+**Lo que se acepta como coste, declarado:** el resumen post-entreno, el detalle de carrera, el detalle de ejercicio y un comunicado no tienen menú ni puerta al chat, así que desde ahí son TRES toques (salir → «+» → elegir) en vez de uno. Con cero controles nuevos no hay arreglo posible. Si algún día se ve que ahí duele, el arreglo correcto es llevar la puerta del chat al cromo de esas pantallas (una vez por pantalla, el mismo icono que ya vive en cuatro cromos) y NO un icono por cosa.
+
+**Dónde vive:** propuesta en el doble `web/components/design-twin/screens/chat-contexto/` (7 guiones), con el chip y la tarjeta en las piezas COMUNES del chat (`screens/chat-coach/piezas.tsx`) porque la burbuja es compartida. Dato y validación: `infra/migrations/0186_*`, `web/lib/chat/`. iOS (aprobado y construido el mismo día): `ios/FAHYBRIK/Chat/{ChatContext,ChatContextViews}.swift` (modelo, chip, tarjeta y selector), con las puertas en `Chat/ChatHeaderButton.swift` (`\.openChat` con carga), `Plan/PlanAcciones.swift`, `Plan/SessionExercisesSheet.swift` y `Carreras/CarrerasView.swift`.
+
+**Un detalle de iOS que no es de acabado:** `ChatContextRef.kind` se decodifica como String y no como enum. Los mensajes llegan dentro de un `@LossyArray`, así que un `kind` nuevo servido a un binario viejo no daría un icono raro — haría DESAPARECER ese mensaje del historial del atleta. Se pinta con su etiqueta, que es lo único que la pantalla necesita, y no se reenvía a ciegas si hay que reintentar.
+
+---
+
+## 2026-08-12 (madrugada) · El mapa de la ruta SÍ sale limpio — el puente tiempo↔posición es la distancia, no un reloj
+
+**Declarado fuera de alcance dos veces antes de esta.** Primero por un campo que faltaba (`route_polyline` no llegaba a `CoachSessionDetail`, ya resuelto esta misma noche). Después por dos huecos reales que parecían más serios: (a) no existía decodificador de polilínea en el repo, solo un contador de puntos (`polylinePointCount`); (b) el mapa del mockup (`carrera-en-el-panel.html` §09) colorea por la zona de ritmo del atleta, y esas bandas no viajaban en ningún payload. La instrucción explícita, la tercera vez: si al mirarlo de verdad no salía limpio, decirlo y cerrarlo con Alex — nunca construir un mapa que enseñe menos que el que el atleta ya tiene en el móvil.
+
+**Sale limpio. La razón por la que se puede afirmar sin datos reales que lo validen** (`workout_routes`/`workout_traces` están a 0 filas en producción hoy): la polilínea no lleva marcas de tiempo, pero en iOS (`WorkoutLiveDataSources.swift`, `RunLocationProvider.locationManager(_:didUpdateLocations:)`) `onCoordinate` (alimenta la polilínea) y `onDistanceDelta` (alimenta la traza de `distance`) disparan desde el MISMO `.accept(let meters)`, con la MISMA llamada `loc.distance(from: prev)`. No son dos aproximaciones de lo mismo — son dos lecturas del mismo cálculo. Eso hace que "cuánto se ha andado según la polilínea" y "cuánto marca la traza de distancia" sean la misma magnitud, y una sirve para localizar la otra en el tiempo. Verificado por construcción (lectura de fuente), no por dato empírico — si algún día `RunLocationProvider` deja de derivar los dos callbacks del mismo fix, esta garantía hay que releerla.
+
+**CORRECCIÓN (misma madrugada, antes de commitear).** La primera versión de esta pieza traía un decodificador de polilínea Y un haversine escritos a mano — puerto fiel del `PolylineCodec` de iOS, matemáticamente verificado, pero rueda reinventada de todos modos: un formato de codificación público y fijo, y una fórmula geodésica cerrada, no son código nuestro. team-lead lo paró antes de commitear y fijó la regla para lo que queda de sesión: **antes de escribir código de bajo nivel (parsear, medir, formatear, protocolos, geo, unidades) se busca de verdad si ya existe — no de memoria — y si existe, se usa.** Investigado (no de memoria): `@mapbox/polyline` — licencia BSD-3-Clause real (el "Proprietary" de `npm view` es solo un `package.json` sin campo SPDX, verificado contra el LICENSE del repo), algoritmo matemáticamente equivalente al propio pero con aritmética normal en vez de bitwise de 32 bits (sin techo de magnitud). `haversine-distance` — MIT, cero dependencias, tipos propios con la MISMA forma `{lat, lon}`, fórmula con `atan2` (evita el caso límite que el propio código defendía a mano con un `Math.min`). Los dos sustituyen al código propio.
+
+**Decidido — la arquitectura:**
+- **El decode vive en `web/lib/sync/polyline.ts`**, junto a `polylinePointCount`, no en `shared/domain/`: es un formato de codificación fijo (Google Encoded Polyline, precisión 5), sin variación posible por metodología de coach — infraestructura, no dominio. Envuelve `@mapbox/polyline` (`decode`), con UN guardia propio: el paquete no descarta una cola truncada (un sync interrumpido) — reconstruye un punto final con datos parciales en vez de omitirlo, verificado empíricamente contra el vector de referencia de Google sin su último carácter. `polylinePointCount` (que sigue sin depender de ningún paquete — no hay uno que cuente sin decodificar) ya sabe cuántos puntos están de verdad completos, así que `decodePolyline` recorta la salida del paquete a esa longitud. El servidor nunca codifica — solo decodifica lo que el dispositivo ya codificó — así que no existe `encodePolyline` de producción; el espejo de test también pasó a envolver el mismo paquete (`encode`), no un segundo codificador a mano.
+- **La clasificación por zona vive en `shared/domain/running/route-zones.ts`**: `paceZoneForSecPerKm` es el espejo exacto de `zoneForBpm` (`hr-zones.ts`) con el eje invertido (menos segundos = más duro, no más pulso). El puente en sí (`buildRouteZonePoints`) recorre la polilínea decodificada, acumula distancia geodésica real vía `haversine-distance` (gran círculo, nunca una aproximación plana — aunque SIN afirmar que coincide bit a bit con la fórmula interna de CoreLocation, que Apple no publica; solo que las dos miden distancia esférica real), localiza el instante de cada punto invirtiendo la traza de distancia, y clasifica la velocidad en ese instante contra las bandas YA RESUELTAS del atleta — nunca las recalcula.
+- **Honestidad en TRES capas, no una.** `route.available` (¿hay polilínea decodificable de al menos 2 puntos?) es independiente de si hay traza punto a punto — una ruta puede existir sin trazar velocidad (se sirve sin colorear) y una traza puede existir sin ruta (cinta). `route.pace_zones` es `null` cuando el atleta no tiene test de zonas — un mapa sin color es honesto, uno con color inventado no. Y cada `RouteZonePoint.zone_code` puede caer a `null` POR SU CUENTA cuando esa fracción concreta del recorrido no tiene cobertura de velocidad (hueco de GPS), aunque el resto del mapa sí esté coloreado.
+- **`shared/domain/running/timed-series.ts` (nuevo).** Tercera aparición del mismo cálculo — "serie (t,v) ordenada + valor en un instante" — tras la copia privada de `km-splits.ts` y la que `gradient.ts` escribió esta misma noche. Se extrajo (más `timeAtValue`, la dirección inversa: en qué instante una señal acumulativa cruza un valor, que `route-zones.ts` necesita para el puente) y `gradient.ts` se retroalimentó de ella — sus 15 tests re-verificados sin cambio de comportamiento. `km-splits.ts` se deja SIN retocar a propósito: es más antiguo, con más dependientes, y el beneficio marginal de tocarlo hoy no compensa ensanchar el frente.
+
+**El primer punto de la ruta es un caso especial, y hay que saberlo.** `onDistanceDelta` no dispara para el primer fix GPS (no hay punto anterior del que medir un delta) — así que la traza de distancia no tiene, ni puede tener, una muestra "en el punto 0" de la que interpolar. Su instante es 0 por definición (es el ancla del recorrido), nunca una búsqueda en la traza.
+
+**Qué NO hacer en consecuencia:** no derivar el color de la ruta en el cliente (segundo motor sobre la misma traza — el mismo pecado ya evitado con el veredicto de cumplimiento y la pendiente del tramo). No escribir un segundo decodificador de polilínea, ni un segundo haversine, en ningún sitio del repo — los únicos viven envolviendo `@mapbox/polyline` y `haversine-distance`. No añadir una dependencia para un problema de bajo nivel (parsear, medir, formatear, protocolos, geo, unidades) sin buscar antes de verdad si ya existe una — y si se concluye que ninguna sirve, la razón concreta (licencia/tamaño/tipos/diferencia de comportamiento real) va en el commit, no la inercia de escribirlo. No inventar un color de zona cuando `pace_zones` es `null`. No dar por definitivamente verificado el puente tiempo↔posición contra datos reales hasta que existan filas reales en `workout_routes`/`workout_traces` — hoy está verificado por construcción del código fuente de iOS, que es distinto (y sigue siendo válido, pero conviene releerlo si `RunLocationProvider` cambia).
+
+**Dónde vive:** `web/lib/sync/polyline.ts` (`decodePolyline`, sobre `@mapbox/polyline`), `shared/domain/running/{route-zones,timed-series}.ts` (`haversineDistanceM` sobre `haversine-distance`), `web/lib/execution/session-trace.ts` (`AssignmentDetailRoute`, wiring), `web/lib/athlete/assignment-detail.ts` (resuelve `pace_zones` vía el mismo `buildZoneLookup` que el resto del detalle). Dependencias nuevas: `@mapbox/polyline` + `@types/mapbox__polyline` (`web/package.json`), `haversine-distance` (`shared/package.json`).
+
+---
+
+## 2026-08-12 (madrugada) · Deuda declarada: la precedencia de la banda vive en dos sitios, y debería vivir en uno
+
+**El hecho.** `segmentBand()` (`web/lib/dashboard/coach/run-compliance.ts`) resuelve, para un tramo, CONTRA QUÉ banda se juzga: un objetivo explícito (ritmo/RPE) gana en solitario; si no, la zona ya resuelta PARA ESE TRAMO (`seg.resolved`); si no, la zona resuelta del bloque (`item.resolved_intensity`). Es la misma precedencia que ya cazó un bug real esta noche (`segmentBand()` ignoraba `seg.resolved` — entrada de arriba, "El veredicto de carrera empieza a juzgar la recuperación"). "El doble" (la lectura de carrera del atleta, `web/components/design-twin/`) necesita la MISMA respuesta para pintar su franja, y hoy la resuelve por su cuenta, del lado del cliente.
+
+**Por qué es un problema, no una curiosidad.** Es la MISMA clase de divergencia que ya ha costado dos modelos de zonas y un fork de `SEG_MODALITY_SQL` (ver cabecera de `segment-work.ts`): dos sitios que prometen calcular lo mismo acaban divergiendo el día que uno se toca y el otro no. Ahora que `RunComplianceTramo.band` expone el resultado YA resuelto por el servidor (esta misma tarde, a petición del panel), la pregunta correcta ya no es "¿cómo resuelvo la banda aquí también?" sino "¿por qué la resuelvo dos veces?".
+
+**Decidido:** NO se colapsa esta tarde. Con tres agentes en vuelo sobre el mismo dominio (servidor, panel, doble), mover la lógica de `segmentBand()` a un módulo neutro de `shared/domain/running/` — con un tipo de entrada que no dependa de `AssignmentDetailItem`/`Segment` tal cual los conoce el servidor — es un refactor real, no una extracción de cinco minutos, y ensancha el frente en el peor momento.
+
+**Qué NO hacer en consecuencia:** no añadir una TERCERA copia de esta precedencia en ningún sitio nuevo — cualquier superficie que necesite "¿contra qué banda se juzga esto?" debe leer `RunComplianceTramo.band`/`RecoveryComplianceTramo.band` (ya expuestos) en vez de re-derivarla. Cuando se aborde el colapso: el módulo neutro vive en `shared/domain/running/`, lo importan `run-compliance.ts` (servidor) y "el doble" (cliente) por igual, y el primer indicio de que hace falta es el día que alguien tenga que arreglar la precedencia en un sitio y se le olvide el otro.
+
+---
+
+## 2026-08-12 (madrugada) · "Carrera comprometida" SE CONSTRUYE — pendiente de validar contra carreras reales
+
+**Decisión anterior, y por qué estaba mal razonada.** La primera versión de esta entrada decía "no se construye: sólo hay 1 ejecución con trabajo previo a una serie de carrera, y esa fila ni tiene ritmo medio". El hecho era cierto; la conclusión no se seguía de él. La base de hoy es de **demostración** — no hay atletas reales, no hay historial real — así que "cuántas parejas hay hoy" mide el tamaño del seed, no si la métrica es posible ni si valdrá. El filtro correcto para cualquier conclusión de este tipo: **«si el seed fuera otro, ¿cambiaría mi conclusión?»**. Aquí sí, radicalmente: en HYROX casi ningún kilómetro se corre fresco, así que con atletas reales entrenando esta comparación va a ser de las más frecuentes que existan. La pregunta que había que hacerse no era "¿hay parejas hoy?" sino "¿el esquema permite responder si este kilómetro fue después de una estación?" — y esa se contesta sola.
+
+**El mecanismo YA EXISTÍA.** `shared/domain/race-transfer/compute.ts` (el cruce carrera×entreno, ya en producción) resuelve exactamente "fresco vs fatigado" desde `segment_executions.context_format`/`prior_work_s` (migración 0120) con `classifyEffort` — pura, exportada, ya probada. "Carrera comprometida" reutiliza esa función tal cual (nunca una segunda clasificación que pudiera divergir de la que ya usan las 8 estaciones + la carrera del cruce) y añade lo que race-transfer no necesita: **emparejar por la MISMA banda prescrita** (no agregar todo el histórico a un único fresco/fatigado) y **trocear por semana** (una curva, no un snapshot).
+
+**Construido:** `shared/domain/running/compromised-pace.ts` — `buildCompromisedPaceTrend`, puro. Por cada semana, para cada banda de ritmo con al menos una observación fatigada ESA semana y al menos una fresca HASTA esa semana (nunca del futuro — un punto de la curva no puede explicarse con un dato que todavía no había pasado), el coste es `media(fatigado) − media(fresco)`, **en s/km** (no en % — a diferencia de `decoupling_pct`, aquí las dos partes ya son ritmos en la misma unidad: restarlas no inventa nada). El punto semanal es la media entre bandas activas esa semana. `min_pairs_for_compromised_trend` (defecto 4, migración `0184`, columna nueva sobre `coach_running_thresholds` porque la `0183` ya estaba aplicada) gatea cuándo la tarjeta se atreve a decir que la curva es de fiar — los puntos siguen ahí por debajo del mínimo, sólo se retira la promesa, misma ley que el resto de este encargo.
+
+**Los casos de prueba están FABRICADOS, no esperan al seed** (11 tests, `web/tests/running/compromised-pace.test.ts`): una serie de carrera dentro de un bloque multiestación (fatigado) contra la misma serie en fresco, objetivos distintos que no se emparejan, ausencia de referencia fresca, el fresco del futuro que no puede explicar una semana pasada, una simulación completa que siempre es fatigada aunque el trabajo previo sea poco, un tramo sin clasificar que se descarta en vez de adivinarse, y la reproducción exacta de la curva "de 9 a 4 s/km en seis semanas" del mockup.
+
+**SIN VALIDAR TODAVÍA CONTRA CARRERAS REALES.** Verificado contra la ejecución del cargador real (`buildRunningAnalytics`, rama Neon efímera): no rompe con los datos escasos de hoy, declara el hueco honestamente (`has_enough_data: false`, puntos igual de completos). Eso es lo único que hoy se puede afirmar. Cuando existan atletas reales entrenando HYROX, hay que releer esta lectura contra sus carreras antes de darla por buena — puede que el emparejar por banda EXACTA sea demasiado estricto en la práctica (¿debería tolerar una banda "parecida"?), o que la ventana de 12 semanas no sea la que hace falta. Es una hipótesis de diseño bien fundada, no un hecho verificado contra atletas reales — y las dos cosas son distintas.
+
+**Qué NO hacer en consecuencia:** no reintroducir una segunda clasificación fresco/fatigado en ningún sitio — todo lo que necesite esa pregunta importa `classifyEffort` de `shared/domain/race-transfer`. No tratar la falta de parejas en una base de demostración como evidencia de que una métrica no vale — el filtro es si el ESQUEMA permite responder la pregunta, no si el SEED ya trae la respuesta. No dar esta lectura por definitivamente calibrada hasta releerla contra carreras reales.
+
+**Dónde vive:** `shared/domain/running/compromised-pace.ts`, `web/lib/coach/running-analytics.ts` (`loadCompromisedPaceObservations`), `infra/migrations/0184_coach_running_thresholds_compromised.sql`.
+
+---
+
+## 2026-08-12 (madrugada) · Los agregados del entrenador: calibración, huella, volumen y carga — el veredicto delante, los umbrales del coach detrás
+
+**Decidido:** cuatro lecturas nuevas para el panel de carrera del coach (mockup `carrera-en-el-panel.html` §05/§06), todas server-side, todas honestas sobre su propio hueco:
+
+- **Calibración** (`shared/domain/running/calibration.ts`) — hacia dónde falla (`rapido`/`dentro`/`lento`) + dónde se rompe DENTRO de la serie (desglose por posición 1ª, 2ª, 3ª…). Entra por **tramos de RITMO únicamente** (`RunComplianceTramo.band_axis === 'pace'`, campo nuevo) de sesiones de series con objetivo explícito — nunca rodajes ni RPE, porque mezclarlos taparía justo lo que se está midiendo. Los veredictos de recuperación y de duración (los dos encargos anteriores de este mismo bloque) **no entran aquí a propósito**: son preguntas distintas («¿aguantó el descanso?», «¿corrió el tiempo entero?») y meterlas en el mismo porcentaje repetiría el error que ese bloque acababa de arreglar.
+- **Huella** (`shared/domain/running/pacing-shape.ts`) — «cómo reparte el esfuerzo», agregado de sesiones. Es un **port fiel** de `aguanteDe`/`ritmoDe` (`web/components/design-twin/tramos.ts`, la misma aritmética que ya corre en `FormaDeCarrera.swift` en el reloj del atleta). Sus dos constantes (mínimo 4 tramos, margen 2%) **NO se hacen editables por el coach** — deliberado, no un olvido: tienen que leer exactamente igual que lo que el atleta ya ve al terminar ("son las mismas tres palabras que la app le enseña a él"), y divergir aquí abriría la misma clase de bug de "dos números que no cuadran" que este proyecto ya ha pagado más de una vez.
+- **Volumen semanal en km** (`web/lib/coach/running-volume.ts`) — funciona hacia atrás (la distancia siempre se guardó), zero-fill por semana (una semana sin carrera es un cero real, no un hueco — a diferencia del tiempo en zonas), semana en curso marcada y excluida de la tendencia. Usa `SEG_COUNTS_AS_VOLUME` (recuperación incluida), el MISMO predicado que ya usa `athlete-deep-dive.ts#loadModality` — dos lectores preguntando lo mismo con el mismo predicado, a propósito.
+- **Carga con el veredicto delante** (`shared/domain/training-load/load-verdict.ts`) — fondo/reciente/frescura de `banister.ts`, con un veredicto ("está apretando") gateado por DOS puertas independientes: cobertura (`readLoadCoverage`, ya existente) y un arranque en frío nuevo (`checkColdStart` — días de historial reales contra la ventana crónica). Los números NUNCA se esconden, sólo el veredicto — misma ley que ya regía `readLoadCoverage`.
+
+**Método del coach, nueva tabla** (`coach_running_thresholds`, migración 0183, mismo patrón que `coach_signal_thresholds`/0161 — una fila por coach, reemplazo entero, defectos en `shared/domain/`, nunca `default` de columna): `min_reps_per_position` (3), `min_series_for_calibration` (20), `freshness_alert_tsb` (−8).
+
+**Deuda declarada, no colada — dos piezas que el mockup pide método pero NO se tocan este lote:**
+- Los días de fondo/reciente de la carga (42/7, los τ de la EWMA de `banister.ts`) — hacerlos editables movería el NÚMERO (no sólo su etiqueta) en cada pantalla que ya lee CTL/ATL/TSB (forma del atleta, ficha general del coach, race-readiness). Cambiarlo sólo para este panel divergiría del resto; cambiarlo en todas partes es un refactor de mucho más alcance que este encargo.
+- La cobertura mínima para dar veredicto (90%, `LOAD_COVERAGE_MIN` en `coverage.ts`) — mismo argumento: la usan "progress readiness, roster, deep-dive" por su propio comentario.
+
+**Qué NO hacer en consecuencia:** no tocar `MIN_LEGS_FOR_PACING_SHAPE`/`PACING_SHAPE_MARGIN` sin tocar `FormaDeCarrera.swift` a la vez. No mezclar los veredictos de recuperación/duración en el porcentaje de calibración. No hacer editables `ctl_window_days`/`atl_window_days`/`LOAD_COVERAGE_MIN` sin antes localizar y actualizar TODOS sus consumidores existentes — hacerlo sólo para este panel crearía el número divergiendo entre pantallas para el mismo atleta, que es peor que no ofrecer la edición.
+
+**Dónde vive:** `shared/domain/running/{calibration,pacing-shape,weekly-volume}.ts`, `shared/domain/training-load/load-verdict.ts`, `shared/domain/coach/running-thresholds.ts`, `web/lib/coach/{running-analytics,running-volume,running-thresholds}.ts`, `infra/migrations/0183_coach_running_thresholds.sql`. `RunComplianceTramo` gana `rep_ordinal`/`band_axis` (`web/lib/dashboard/coach/run-compliance.ts`).
+
+---
+
+## 2026-08-12 (noche) · La duración es la SEGUNDA pregunta de un tramo — el agujero que el colapso de recuperación dejaba abierto
+
+**El agujero.** El motor de cumplimiento juzga tres ejes — ritmo, pulso, RPE — y ninguno es duración. Combinado con el colapso de recuperación de esta misma tarde (donde ir lento nunca es un fallo), un "6×1000 con 60 s de trote" corrido al ritmo pedido pero con 3 min de descanso leía "6 de 6 dentro · recuperación controlada": el sistema no tenía forma de decir que esa NO fue la sesión prescrita. No es un caso de laboratorio — en series a umbral la recuperación INCOMPLETA es el estímulo; doblar el descanso cambia la sesión entera.
+
+**No es un cuarto axis.** `ComplianceBand`/`evaluateRunSegment` comparan INTENSIDAD; esto compara CUÁNTO DURÓ un tramo contra `Segment.measure`, cuando esa medida es tiempo. Son dos preguntas independientes sobre el MISMO tramo — un `rec(dur(90),'trote',paceZone(1))` tiene target de ritmo Y duración prescrita a la vez — así que cada tramo lleva `verdict` (intensidad) y `duration_verdict` (duración) en la misma fila, nunca colapsados en un número. Solo se juzga cuando `measure.type === 'duration'`: medido por distancia, no hay nada contra qué comparar.
+
+**La dirección se invierte otra vez, y al revés que en recuperación-intensidad:**
+- Recuperación: el fallo es PASARSE de tiempo (más descanso cambia el estímulo). Quedarse corto es, si acaso, un mérito.
+- Trabajo: el fallo es QUEDARSE CORTO (menos dosis de la pedida). Pasarse de tiempo no reduce el estímulo — es la imagen especular exacta.
+
+Por eso hay dos vocabularios (`WorkDurationVerdict`/`RecoveryDurationVerdict`), no un veredicto con un parámetro de rol: que cada uno sea autoexplicativo evita leer "corta"/"larga" sueltos sin saber a qué tramo tocaban.
+
+**La tolerancia no se inventó — se reusó.** `shared/domain/adherence/bands.ts` ya declaraba `duration` en `MEASURE_BAND_OVERRIDES` desde antes (comentario propio: "declared empty so future edits land here"), con el 10% relativo de `DEFAULT_BAND_RULE`. Este lote es su primer consumidor real. Sigue siendo MÉTODO del coach — cuánto margen se da a un descanso no es un hecho físico — así que vive en ese default centralizado, no en una constante muda aquí, y hoy no hay UI que la edite: deuda declarada, igual que el default de recuperación de los arquetipos (entrada de esta tarde).
+
+**El trabajo también estaba sin juzgar en tiempo, en las dos rutas.** Comprobado al hacer el encargo: ni el camino nativo (leg_index) ni el heredado (zip posicional) comparaban duración de trabajo contra lo prescrito. Las dos rutas lo hacen ahora.
+
+**Qué NO hacer en consecuencia:** no colapsar `duration_verdict` dentro de `verdict` — son preguntas distintas y conviven; no tratar "se pasó de tiempo" como un fallo en el trabajo, ni "se quedó corto" como un fallo en la recuperación — es la imagen especular exacta, invertirla revienta la lectura; no inventar una duración prescrita para un tramo medido por distancia.
+
+---
+
+## 2026-08-12 · El veredicto de carrera empieza a juzgar la recuperación — y con dirección invertida
+
+**El bug.** El motor de cumplimiento (`web/lib/dashboard/coach/run-compliance.ts`) saltaba TODO tramo de recuperación (`leg_role==='recovery' || seg.kind==='recovery'`), pero la gramática ya permite prescribirle un objetivo (`rec(dur(60),'trote',rpe(3))`, arquetipo fartlek) y `segment_executions` ya lo mide desde la 0146. Un coach podía escribir "recupera a RPE 3" o "en Z1" y el sistema nunca lo comprobaba — la decisión del 9-ago ("una recuperación de correr no es un descanso… se MIDE") estaba bien tomada; lo que se construyó encima no la siguió.
+
+**La regla:** una recuperación SIN objetivo no se juzga (se omite, igual que antes — no se le inventa uno). Una recuperación CON objetivo se juzga, pero con veredicto propio: `evaluateRecoverySegment` (shared/domain/adherence) colapsa el eje de 4 vías del trabajo (`dentro`/`fuera_rapido`/`fuera_lento`/`sin_dato`) a 3 (`controlada`/`demasiado_rapida`/`sin_dato`) porque **solo irse RÁPIDO en recuperación es un fallo real** — es la fatiga acumulada la que explica que la serie 5 se caiga. Irse lento, o pararse cuando se pidió trotar, es `controlada`: nadie falla por descansar de más.
+
+**Separación estructural, no un campo `kind`.** `RunComplianceResult` gana `recovery_summary`/`recovery_tramos`, arrays y tipos DISTINTOS de `summary`/`tramos` — nunca un discriminador dentro del mismo array. Un "6 de 6 en el trabajo, 2 de 6 en la recuperación" tiene que dar DOS números, no un porcentaje mezclado que no dice nada.
+
+**Bug lateral encontrado al arreglar esto: `segmentBand()` ignoraba `seg.resolved`.** Cada tramo con objetivo de zona ya lleva su propia banda resuelta por atleta (`assignment-detail.ts`, `runWireStructure`/`enrichSeg`), pero `segmentBand()` usaba SIEMPRE `item.resolved_intensity` (la banda del bloque). Era inofensivo mientras todo el trabajo de un bloque compartía zona y la recuperación nunca se juzgaba; en cuanto una recuperación en Z1 conviva con trabajo en Z4, juzgarla contra la banda del bloque falla cualquier recuperación honesta. Arreglado: `segmentBand()` prefiere `seg.resolved` y solo cae al del ítem cuando el tramo no trae el suyo — cero cambio observable para el trabajo (mismo test de regresión lo prueba).
+
+**Los arquetipos traían el caso raro por defecto.** `series` y `pirámide` sembraban `rec(dur(90),'parado')` sin objetivo; solo fartlek traía trote. Cambiado a trote en Z1 (coherente con que su trabajo ya hable en zonas) para `series`/`pirámide`. `cuestas` se queda en `caminar` sin objetivo — reps cortas y casi máximas (200-400 m) es donde parar/andar sigue siendo honesto, y así lo dijo Alex explícitamente.
+
+**Deuda declarada, no colada (regla Nº0):** qué recuperación trae un arquetipo por defecto es MÉTODO del coach, no mecanismo nuestro — candidato a dato editable. No se implementó así en esta tanda: exigiría esquema nuevo + UI de ajustes, un refactor real y no una extracción limpia de cinco minutos. El default vive en código (`archetype-prefills.ts`) a propósito, con el caso habitual como valor por defecto, hasta que alguien decida construir esa pieza.
+
+**Qué NO hacer en consecuencia:** no juzgar una recuperación sin objetivo con la banda del bloque "por si acaso"; no mezclar `recovery_tramos` en `tramos` ni sus dos summaries en uno; no tratar `fuera_lento`/parar-cuando-tocaba-trotar como un aviso en recuperación — es la lectura correcta para el trabajo, no para esto.
+
+---
+
+## 2026-08-12 · El foco de la semana vive en la SEMANA DEL ATLETA; la plantilla solo pone el defecto
+
+**Contexto:** «Foco de la semana» solo existía en `program_week_templates.focus`.
+Una semana sin cadena —creada directa por el coach en la ficha, o dictada por el
+conector MCP (`weekly_plans.microcycle_id` NULL, el caso real de Alex)— no venía de
+ninguna plantilla y NO PODÍA llevar foco. La cabecera del atleta salía vacía y no
+había dónde escribirla.
+
+**Decidido (migración 0182):** `weekly_plans.focus`, anulable, sin default. Al
+servir: `weekly_plans.focus ?? focoDePlantilla` — la semana real del atleta manda,
+la plantilla es el defecto heredado. Un coach que no toca nada se comporta igual
+que ayer.
+
+- **UN solo escritor** (`web/lib/coach/week-focus.ts`), usado por el PATCH del
+  panel y por la tool MCP **`set_week_focus`**. Ni un segundo camino de escritura.
+- **El gotcha que ese escritor evita y no hay que reintroducir:** `weekly_plans.status`
+  nace `'draft'` por DEFAULT (0021). Un upsert ingenuo de foco sobre una semana SIN
+  fila la habría convertido en OCULTA («sin fila SE VE», 10-ago). El INSERT fija
+  `status='published'` explícito (el equivalente exacto de «sin fila»); el UPDATE
+  toca `focus` en solitario. **Escribir el foco jamás publica ni esconde nada.**
+- **Un borrador no adelanta su foco:** el portón que esconde las sesiones de una
+  semana `draft` esconde también su foco propio, aplicado en el lector del atleta
+  (`resolveAthleteFacingFocus`). El coach sí ve su borrador en panel y conector.
+
+**Qué NO hacer:** no escribir `weekly_plans` desde otro sitio para el foco; no
+«arreglar» el INSERT quitándole el status explícito; no fundir foco de semana y de
+plantilla en la DB (el merge es de LECTURA — borrar el override debe devolver el
+defecto de plantilla, y eso solo funciona si son columnas distintas).
+
+---
+
+## 2026-08-12 · Al terminar de correr manda el VEREDICTO, no el ritmo medio
+
+**Decidido (Alex, viendo las dos montadas):** cuando una carrera tenía objetivo
+medible, el sujeto de la lectura al terminar es **si el atleta clavó lo que le
+pidieron** («5 de 6 dentro»), con el matiz de hacia dónde falló lo que se salió.
+El ritmo medio baja a apoyo.
+
+**La alternativa descartada** (se conserva montada en el doble, escenario ① B,
+para que la decisión no haya que volver a tomarla a ciegas): el número grande era
+el ritmo medio de las series y el veredicto iba debajo — enseñar sin juzgar.
+
+**Por qué:** el ritmo medio de unas series lo da cualquier reloj de 200 euros. El
+veredicto contra la banda del entrenador **no lo puede dar nadie más**, porque
+ningún reloj sabe qué te pidieron. Poner de sujeto lo que cualquiera tiene y
+esconder lo único propio era regalar la ventaja. Y es además la pregunta que el
+atleta trae en la cabeza cuando para el reloj: no «a cuánto he ido», sino «¿las
+he hecho?».
+
+**La jerarquía completa del sujeto**, por precedencia, que es lo que hay que
+respetar al portarlo a Swift:
+
+1. Hubo objetivo medible → el veredicto.
+2. Hubo contraste sin objetivo (fartlek por sensaciones) → el contraste, fuerte
+   contra suave.
+3. Uniforme con objetivo de zona → el tiempo dentro de esa zona.
+4. Uniforme sin objetivo → el ritmo medio.
+5. Sin cobertura → los totales, **declarando por qué** no hay más.
+
+**Consecuencias que no son negociables al construir:**
+
+- **El troceado depende de la forma: por repetición O por kilómetro, nunca los
+  dos.** Los kilómetros de un 6×800 no dicen nada y las repeticiones de un rodaje
+  no existen.
+- **En pendiente el veredicto de ritmo se retira** y el troceado se lee en tiempo:
+  un ritmo bruto al 8% no significa nada.
+- **Con un solo tramo no hay veredicto que dar.** «1 de 1 dentro» no es una
+  lectura: ahí manda la media.
+- **La banda del coach se DIBUJA sobre la curva**, para que se vea entrar y salir
+  de ella en vez de tener que creerse un número. Y con una regla que hay que
+  respetar al portarlo: **la franja va sobre el eje donde vive su objetivo, y solo
+  donde ese objetivo aplicaba.** Un objetivo de ritmo se dibuja sobre el ritmo y
+  **solo dentro de los tramos de trabajo** — una franja continua por encima de los
+  trotes diría que el coach pidió ese ritmo también en la recuperación, y no lo
+  pidió. Un objetivo de zona se dibuja sobre el **pulso**, que es la señal que lo
+  mide; dibujarle una banda de ritmo sería enseñar una comparación que nadie hizo.
+  En un esfuerzo continuo sí abarca todo el ancho, porque todo el rato aplicaba.
+- **El eje de la curva lo fija LO QUE SE CORRIÓ. Andar y parar no es correr.**
+  Parado no tiene ritmo y ya era un hueco. Andar es otra forma de moverse: 11:40
+  al lado de subidas a 4:30 no es un ritmo lento, es otra actividad — se dibuja
+  igual, a puntos y pegada al suelo, con la leyenda diciendo que se sale de
+  escala, pero no ensancha el eje. Trotar **sí** es correr: un trote a 6:10 entre
+  series a 3:30 entra en el eje, con su franja y su veredicto, porque además suele
+  ser LA explicación de que la quinta repetición se caiga. Suelo: si no se corrió
+  nada, el eje lo fija lo que haya.
+  Sale de `modo`, que ya está en el modelo, así que **no hay ningún umbral que
+  ajustar nunca**.
+
+  **Esta regla se afinó tres veces y las dos primeras versiones suenan
+  razonables, así que alguien las reintroducirá. Quedan anotadas como erróneas:**
+  1. «El eje se escala al rango del trabajo» — mal: en una serie el calentamiento
+     va mucho más lento que las repeticiones, así que ceñirlo al trabajo convierte
+     «seis picos que nacen de un rodaje» en «seis mesetas flotando». Rompía las
+     gráficas buenas para arreglar la mala.
+  2. «El trabajo y lo continuo; la recuperación entra solo si cabe» — mejor, pero
+     apuntaba al PAPEL del tramo, que era una correlación, no la causa. Medido: el
+     escenario estrella se salvaba **por dos segundos** y el de cinta ya salía
+     roto, con el trote punteado en el suelo. Cualquier atleta que trote un poco
+     más suave lo tiraba fuera.
+- **Ninguna casilla vacía y ningún guion de relleno.** Si falta cobertura se dice
+  por qué. Una sesión anterior al archivo enseña sus totales y una frase que lo
+  explica, no una pantalla con huecos.
+- **La otra mitad de esa regla: un hueco se declara cuando el atleta podría hacer
+  algo al respecto; cuando en esa superficie sencillamente no existe, la app se
+  calla.** Una sesión sin traza declara que no la tiene, porque las nuevas sí la
+  tendrán. Una sesión en cinta NO declara que le falta el mapa: no hay nada que
+  hacer para tenerlo, y anunciarlo convierte una propiedad de la superficie en una
+  carencia. Igual con el desnivel de una cinta sin inclinación: no es un dato que
+  falte, es uno que no existe.
+- **La escala es propiedad del DATO; el suavizado, solo del DIBUJO.** El eje se
+  calcula sobre la señal cruda, nunca sobre la suavizada. La media móvil cruza la
+  frontera del tramo, así que la última muestra de una subida ya lleva dentro el
+  ritmo del paseo siguiente: filtrando sobre la suavizada, la recuperación se cuela
+  por la puerta de atrás y el eje sigue estirado. Medido: 4:02-8:32 en vez de
+  4:16-5:54.
+- **El color es dato.** Una sesión sin zonas no se pinta de ningún color.
+- **LA TRAZA NO MANDA SOBRE LOS TRAMOS.** El archivo sirve la curva y los
+  kilómetros; los tramos y sus veredictos salen de `segment_executions` y existen
+  desde MUCHO ANTES de que existiera el archivo. Atar el troceado a
+  `trace.available` hace que toda sesión ya guardada esconda la mitad de su
+  lectura y enseñe «sin archivo» teniendo seis series medidas y juzgadas.
+  El error nació de portar la regla desde la app del atleta, donde SÍ es cierta
+  (si el móvil no archivó, el atleta no tiene nada). **La suposición que sostiene
+  una regla no viaja con la regla cuando se porta a otra superficie**, y el sitio
+  donde eso se ve es la forma de los datos reales, no la del mockup: unos tests
+  escritos con la misma suposición que el código no lo cazan nunca.
+
+**Y las dos superficies nacen a la vez.** El panel del coach se diseña antes de
+portar nada a Swift, para que atleta y entrenador no acaben con dos idiomas del
+mismo entreno — que es exactamente lo que arrastrábamos: el coach tenía veredicto
+por repetición y el atleta no; el atleta tenía lectura honesta y el coach no.
+
+---
+
+## 2026-08-12 · Las tres columnas huérfanas de la 0154 encuentran su motor — y un CHECK que llevaba desde entonces mintiendo sobre qué es una delta
+
+**Contexto:** `workout_executions.decoupling_pct` / `elevation_gain_m` / `elevation_loss_m` / `hr_recovery_60_bpm` existían desde la 0154 y nadie las llenaba. Las cuatro exigen recorrer la traza entera (la regla que la 0156 ya dejó escrita: se guarda lo que exige recorrer la traza, se calcula lo que depende del atleta), así que se enganchan en el mismo sitio que el reparto de zonas — `ingest-workout-traces.ts` — vía un módulo nuevo, `web/lib/execution/measured-header.ts`, que llama a tres funciones puras en `shared/domain/running/`.
+
+**Bug encontrado y arreglado en el camino (mig 0181):** `workout_executions_hr_chk` (0154) exigía `hr_recovery_60_bpm between 30 and 260` — el rango de un PULSO ABSOLUTO, copiado a la fila de una columna que en realidad es una DELTA (cuánto cayó el pulso, no cuánto marca). Verificado contra producción: una recuperación de 18 lpm —buena y corriente— no pasaba el CHECK. Nadie lo había notado porque la columna llevaba vacía desde que existe; esta tanda es la primera que la escribe de verdad. Corregido a `0-150` (0 de suelo porque el motor que la alimenta ya descarta una caída negativa antes de guardar; 150 de techo generoso, red de seguridad y no un límite fisiológico). El Zod de `shared/schema/workouts.ts` tenía el mismo bug copiado y se corrigió igual.
+
+**Decisiones de dominio, con su porqué:**
+
+- **Deriva aeróbica (Pa:HR/Friel):** EF = velocidad / pulso; deriva = caída de EF de la primera a la segunda mitad, en %. Elegible SOLO con exactamente UN tramo de fase `main` (mig 0146) — cero tramos main es "nada que medir"; DOS o más es una sesión de series (alternando trabajo/recuperación) O progresiva (tramos distintos a propósito), y en los dos casos el supuesto de esfuerzo constante del método ya no se sostiene. Sin tramos etiquetados (carrera sin estructura), se excluyen los primeros 10 min (`WARMUP_SKIP_S`, la convención estándar del método) antes de partir en mitades. Mínimo 20 min de esfuerzo sostenido (`MIN_SUSTAINED_DURATION_S`) y cobertura real (≥4 muestras, ningún hueco > 180 s) en cada mitad, para pulso Y velocidad. NO lee `decoupling_target_pct`/`decoupling_regress_threshold_pct` (methodology-system.ts): esos son el veredicto del coach; este módulo solo da el número (regla Nº0, mecanismo vs método).
+- **Desnivel:** histéresis contra una línea base con umbral de 3 m (`ELEVATION_NOISE_THRESHOLD_M`), no una media móvil ni sumar deltas a pelo — una traza llana con jitter de GPS da 0, no 200 (el test que acepta la pieza). Ganancia y pérdida se guardan por separado, nunca netas.
+- **Recuperación de pulso:** espeja `HRRecoveryCapture` (iOS) 1:1 — mismos umbrales (cola de 10 s, marca a 60 s, tolerancia ±5 s, cobertura exigida a los 58 s), mismo criterio (caída negativa → null, nunca un artefacto). El ancla del "fin del esfuerzo" es el final del ÚLTIMO tramo de TRABAJO (no el final de la grabación) — una vuelta a la calma grabada después no debe adelantar la ventana de recuperación.
+
+**Qué NO hacer en consecuencia:**
+
+- No calcular deriva sobre una sesión de series ni sobre un progresivo, aunque "total esfuerzo trabajado" tiente a dar un número. Es ruido con forma de dato.
+- No sumar deltas de altitud sin histéresis ni umbral: infla el desnivel de una tirada llana, y encima en la dirección que más halaga.
+- No inventar un segundo criterio de recuperación de pulso: si `HRRecoveryCapture` cambia sus umbrales, este módulo cambia con él.
+- No meter el veredicto de deriva (bueno/regresión) en el motor: eso vive en el dato editable del coach, no en código.
+- No rellenar retroactivamente sesiones sin traza: las cuatro columnas se quedan `null` si no hay traza que recorrer.
+
+---
+
+## 2026-08-12 · La vista del ciclo es un CAMINO, no un boletín. Y el pie del 6-ago se retira
+
+**Decidido (directiva de Alex, 11-ago):** la pestaña Plan mueve la entrada al ciclo
+del PIE al CROMO SUPERIOR (icono `square.stack.3d.up`, el mismo símbolo del bloque,
+antes de calendario y chat), y `PlanCicloView` se reconstruye espina-first portando
+la propuesta que ya existía en el doble (`web/components/design-twin/screens/plan-ciclo/`).
+
+**Esto REVIERTE a propósito la decisión del 6-ago** («el botón de pie “El bloque”
+necesita un destino real»). Lo que se retira, y por qué:
+
+- **`EntradaAlCiclo`** (`Plan/PlanHoyAtoms.swift`): una tarjeta de tres líneas
+  anclada al pie que repetía lo que `CabeceraDelBloque` ya dice —nombre del bloque y
+  «Semana N de M»— y le quitaba alto al héroe, que es el sujeto de la pantalla. Un
+  icono en el cromo no le quita alto a nada. **Borrada**, no dejada muerta: solo la
+  usaba `PlanView`.
+- **El cumplimiento «Semana a semana»** de la v1 del ciclo, con `FilaSemanaDelCiclo`
+  y su barra de porcentaje. Dos razones: es PASADO y esta pantalla responde adónde
+  vas; y obligaba a pintar una barra sin listón, cuando dónde está el listón de una
+  semana buena es MÉTODO del coach (HARD RULE Nº0). **Borrado**, junto con
+  `RangoDeSemana`, que se quedaba huérfano.
+- **La sección «La próxima semana»** (`FilaDiaProximo`). Esa pregunta ya la responde
+  el carril del Plan deslizando a la izquierda — era el duplicado exacto que se
+  arregló el 6-ago, reintroducido en otra pantalla. **Borrado.**
+
+**El cable nuevo:** `GET /api/athlete/plan/ciclo` →
+`{ camino: PlanPathDTO + por tramo { level, events[] } | null, al_acabar: "repeat" | null,
+carrera: { name, date, goal_time_s } | null }`. El ciclo deja de leerse de
+`/macro-progress` (que solo sabe de cumplimiento semanal) y pasa a su propia porción
+cache-first en el store, calentada con la pestaña Plan.
+
+- `level` y `events` son **aditivos** en `TramoDelPlan`: el mismo camino viaja dentro
+  de una nota del coach y ese payload no los trae. En Swift van como `var` con
+  defecto — un `let` con valor inicial se queda FUERA del decode sintetizado y nunca
+  llegaría del cable.
+- `al_acabar` se guarda **cruda** y se interpreta aparte. Hoy solo existe `repeat` en
+  producción; cualquier otro valor se lee como «no se sabe» y el camino dibuja su
+  hueco. **No hacer:** no inventar frases para valores del enum que aún no existen.
+
+**La ley de la pantalla, que es la del doble:** la ESTRUCTURA está decidida y se
+pinta con seguridad (qué etapas hay, cuánto duran, cómo las llamó el coach, dónde
+cae hoy, qué está en el calendario, cuándo es la carrera); el RESULTADO MEDIDO del
+futuro no se sabe. **No hacer:** ni una barra de carga, de volumen o de intensidad
+prevista — las marcas de semana son POSICIÓN, no cantidad (todas miden lo mismo y
+solo cambia la de hoy), y el objetivo de la carrera solo se escribe si el atleta se
+lo puso.
+
+**La espina sigue siendo UNA** (`Plan/Espina/EspinaDelPlan.swift`): se extiende de
+forma aditiva (`forma` tramo/meta/hueco, `pasado`, `crece`, `contenido`, `etiqueta`)
+en vez de que el ciclo se dibuje su propio raíl. **No hacer:** no volver a dibujar
+una espina local por pantalla (misma regla que el 9-ago).
+
+**Divergencia consciente respecto al doble:** el texto de una parada pasada baja a
+`muted` y no al 45 % de su tono. El doble solo se ha mirado en oscuro; sobre lienzo
+claro ese 45 % se queda muy por debajo de 4,5:1 y el rótulo de semanas deja de
+leerse. Y el reparto vertical del sobrante es EQUITATIVO entre las paradas que
+crecen, no 3:2:1:1 — SwiftUI no reparte por peso, y una implementación con
+`GeometryReader` medía mal con contenido dinámico.
+
+---
+
+## 2026-08-11 (noche) · La carrera guarda su NEGATIVO: se persiste lo medido, se deriva lo demás
+
+**Contexto:** análisis completo en `docs/correr-analitica.html`. Una carrera son
+señal + troceado + intención. Teníamos la intención al nivel más alto del mercado
+(veredicto por repetición contra la banda del coach) y la señal se descartaba al
+terminar. `workout_traces`, su Zod y `POST /api/sync/workout-traces` existían y
+funcionaban desde la 0156; **iOS nunca emitió una sola serie**. Decidido construir
+el circuito entero (T0 archivo → T4 métricas propias); esta entrada fija el
+contrato de T0. Los atletas corren **con nuestra app**, así que el emisor de iOS
+es la pieza crítica y no la ingesta de terceros.
+
+**Qué emite iOS**, tras recibir el `execution_id` del POST de ejecución:
+
+| señal | fuente | se muestrea | unidad |
+|---|---|---|---|
+| `hr` | la del origen de pulso que ganó la precedencia | cada muestra del origen | bpm |
+| `speed` | `gps` en calle, `treadmill` en cinta | cada fix válido / cada lectura FTMS | m/s |
+| `distance` | ídem | ídem, acumulada | m |
+| `altitude` | `gps` | ~1 Hz | m |
+
+**NO se emite `pace`.** Se guarda lo medido —la velocidad— y el ritmo se deriva al
+leer. El ritmo que se pinta en vivo es una media móvil de 10 s: guardarlo sería
+guardar una interpretación y perder el negativo. Quien lee suaviza como necesite.
+
+**NO se emite `cadence` ni `power` en carrera:** no hay fuente en el dispositivo
+(el campo de cadencia lleva `nil` desde siempre y está documentado). El día que la
+haya se añade una señal más y nada más cambia.
+
+**El eje va en segundos enteros desde el inicio**, con cadencia variable a
+propósito: un hueco es un hueco y tiene que verse. Jamás se rellena, porque
+rellenarlo es fabricar dato — la regla que la 0156 ya dejó escrita.
+
+**Tope de 20.000 puntos por señal.** Por encima se diezma uniformemente y se
+declara; nunca se recorta el final, que es como se pierden los últimos kilómetros
+de una tirada larga.
+
+**La traza sobrevive al modo avión.** El buffer se persiste en disco con el estado
+de la sesión. Si el POST de ejecución se encola por falta de red, la traza espera
+y sube cuando el encolado consigue su `execution_id`. Una carrera terminada sin
+cobertura no pierde su archivo.
+
+**Los kilómetros NO se guardan: se derivan.** Una fuente, N proyecciones. El corte
+por kilómetro, la curva, el reparto de zonas y los mejores esfuerzos salen todos
+del mismo hilo. Persistirlos sería denormalizar algo que la señal ya contiene, y
+obligaría a rehacer filas cada vez que mejore el algoritmo. Además, así una sesión
+antigua sin traza **no tiene** splits en vez de tener splits inventados.
+
+**Lo que sí se guarda ya calculado:** deriva aeróbica y desnivel acumulado, porque
+exigen recorrer la traza entera y la traza no cambia nunca. Es la misma regla que
+el esquema de la 0154 ya había escrito para `decoupling_pct`.
+
+**Qué NO hacer en consecuencia:**
+
+- No añadir una tabla de splits por kilómetro. Si aparece una, es que alguien no
+  leyó esto.
+- No emitir `pace` desde el cliente ni «por si acaso»: dos fuentes para el mismo
+  hecho es cómo coach y atleta acaban leyendo números distintos.
+- No rellenar huecos del eje para tener cadencia fija.
+- No inventar traza para sesiones anteriores a esta tanda. Degradan diciendo la
+  verdad, que es la cultura que este código ya tiene.
+
+**Y una asimetría que se cierra aquí:** `SegmentActualDTO` tenía `ergSplits` y nada
+equivalente para correr, así que un 6×800 se abría en seis filas al terminar y
+volvía a ser UNA en el historial, mientras el remo conservaba su tabla. Los datos
+ya estaban en `segment_executions` con su `leg_index`/`leg_role`/`leg_phase`; lo
+único que faltaba era el contrato.
+
+---
+
+## 2026-08-11 (noche) · Una repetición es una excursión de ida y vuelta, no un pico periódico — y contar exige CONTEXTO, no solo señal
+
+**Decidido:** el conteo de repeticiones en vivo y la velocidad por repetición se
+rehacen sobre `ios/FAHYBRIKCore/Sensor/RepTracker.swift`. Se **borran**
+`RepCounter.swift` (conteo por autocorrelación + picos) y
+`BarVelocityEstimator.swift` (velocidad por semiciclos de una ventana móvil). El
+archivo de captura sube a **formato v2** para llevar la **gravedad** en cada
+muestra (9 canales: aceleración, giro, gravedad).
+
+**Por qué — medido, no opinado.** Con señal sintética de tres ejes (trayectoria de
+la muñeca + orientación del reloj → aceleración y gravedad en el marco del
+dispositivo, que es lo que da CoreMotion), el mecanismo anterior daba:
+
+| caso | verdad | mecanismo anterior |
+|---|---|---|
+| andar 20 s hacia la barra | 0 reps | **8 reps, confianza 0,90, nivel «contado»** |
+| back squat 6× a 4,5 s | 6 reps | **3** (el tope de periodo era 3,5 s) |
+| velocidad de ese squat | 0,22 m/s · 0,50 m | 0,14 m/s · 0,35 m y **13 velocidades para 6 reps** |
+| wall balls 10× a 1,2 s | 10 reps | 10 ✓ |
+
+Estaba afinado para wall balls y solo para eso. Y el fallo de fondo no era el
+umbral: era el **método**. Cualquier movimiento rítmico de muñeca es periódico, así
+que un detector por periodicidad no puede distinguir una serie de andar. Lo que
+distingue una repetición es la **geometría** (sale y vuelve, con amplitud, y en
+vertical) y el **contexto** (hay una serie abierta).
+
+**El modelo, una vez y para todas las familias:**
+
+- **Excursión de ida y vuelta**, con dos observables de la misma forma:
+  **traslación** (metros sobre el eje vertical del mundo) para todo lo que viaja
+  con la carga — squat, banca, peso muerto, press, jalón, curl, swing, wall ball,
+  thruster, zancada — y **orientación** (grados que gira el antebrazo) para lo que
+  NO viaja porque las manos están fijas y lo que se mueve es el cuerpo: dominadas,
+  fondos, flexiones. Puerta que las separa: si la muñeca viajó durante el giro,
+  manda la traslación (un curl gira 70° *y* viaja 35 cm, y solo la traslación trae
+  velocidad).
+- **La gravedad es obligatoria.** Sin ella no hay eje vertical y el «eje dominante»
+  de una muñeca andando es el balanceo del brazo. Una muestra sin gravedad
+  (archivos v1) **no cuenta**: se declara «no lo sé».
+- **Las amplitudes salen de la curva de posición del ciclo entero**, no del punto
+  exacto donde cruzó el cero. Los cruces *proponen* el ciclo; la curva decide dónde
+  están el fondo y el bloqueo (mayor bajada y mayor subida). La velocidad se fuerza
+  a cero en los dos extremos de cada tramo (tendencia quitada) — los dos anclajes
+  por repetición que pedía el plan.
+- **Cada repetición se emite UNA vez, al cerrarse, y no se revisa.** De ahí sale
+  «una velocidad por repetición»: si el número cambia es porque hay otra
+  repetición, no porque el estimador se lo repensó a mitad de recorrido.
+
+**Lo que NO se entrega:** excursiones **horizontales** (remo sentado, aperturas,
+empuje horizontal). A esa altura la señal de un remo sentado y la de un brazo
+balanceándose son la misma, y entregar un número con aplomo ahí es el único error
+que el plan declara inaceptable. Eso lo resolverá el clasificador (fase 4, necesita
+corpus). Isométricos y carries dan cero, que es la respuesta correcta.
+
+**El contexto, que era el agujero grande:** `openWindow`/`closeWindow` existían y
+**no tenían ni un llamante** — el contador corría durante todo el entreno, también
+mientras el atleta andaba, se colocaba o descansaba. Ahora la serie abierta la
+define UNA función del motor (`WorkoutSession.sensorWindow`), que el reloj lee
+directamente en solitario y recibe en el frame (`MirrorSensorWindow`) en espejo. Al
+cambiar de serie el contador vuelve a cero. Efecto colateral bueno: el archivo de
+la fase 0 por fin se sella con sus ventanas etiquetadas.
+
+**Qué NO hacer en consecuencia:**
+
+- **No** volver a defenderse de un contador malo en el teléfono. Se retiran el
+  «+1 por paquete» (dejaba la cuenta por detrás para siempre si se perdía un
+  paquete) y el **techo del plan** (congelaba la serie entera en cuanto un número
+  inflado lo pasaba: eso era el «no me cuenta las reps»). El número de la muñeca es
+  absoluto para la serie abierta; lo único que se respeta es que si el atleta ha
+  tocado la cuenta, el sensor no la pisa.
+- **No** sembrar el sesgo del acelerómetro con la primera muestra: si cae en un pico
+  mete varios m/s de velocidad falsa que no se van, el signo se queda fijo y no hay
+  ni un cruce por cero (síntoma: cero repeticiones). El sesgo se aprende **despacio
+  y solo con la muñeca quieta**, y la velocidad integrada se centra con un filtro.
+- **No** aprender el sesgo rápido: el punto de giro de una repetición lenta también
+  parece reposo, y se come el gesto.
+- **No** contar repeticiones de muñeca en correr ni en ergo (`run/row/ski/bike`): en
+  ergo la verdad la da el PM5. Modalidad desconocida SÍ cuenta — la ventana ya
+  restringe a una serie abierta, y callarse ahí dejaría el entreno libre sin contador.
+- Los umbrales del contador son **método con defecto** (`RepTracker.Tuning`), no
+  constantes: `coach_movement_policy` (mig. 0177) los pisa por movimiento.
+
+**Pendiente y declarado:** todo esto está validado contra señal sintética con
+física, no contra vídeo. La aceptación del plan (±1 rep en el 90 % de las series;
+correlación >0,90 en velocidad hasta el 80 % del 1RM) sigue exigiendo medir en el
+gimnasio. Y una muñeca dando vueltas DENTRO de una serie abierta sigue pudiendo
+sumar: la defensa es que el atleta corrige, y esa corrección es la etiqueta de oro
+de la fase 6.
+
+---
+
+## 2026-08-11 (noche) · La foto de una persona vive en Cloudflare Images, y lo que se guarda es la BASE, no un tamaño
+
+**Decidido:** `coaches.avatar_url` y el nuevo `athletes.avatar_url` (migración 0179)
+guardan UN texto: la base de entrega de Cloudflare Images,
+`https://imagedelivery.net/<cuenta>/<imagen>`, **sin variante**. El tamaño lo pide quien
+pinta, por NOMBRE de variante.
+
+**Por qué mudarse de Vercel Blob, que no es el disco:** son las variantes. Con Blob se
+servía el ORIGINAL —hasta 4 MB— dentro de un círculo de 32 px; con cien atletas en un
+listado eso son cien originales por carga. Images entrega el tamaño pedido en el formato
+que soporte ese navegador, desde su red, y sin pasar por nuestro cómputo.
+
+**Por qué la base y no la URL final,** que es la decisión de verdad: la MISMA foto se
+pinta en un círculo de 28 px del roster y en el retrato de una ficha. Si la columna
+guardara ya el tamaño, cada vista tendría que reescribir la URL de otro, que es la clase
+de número suelto repartido por los componentes que hace imposible cambiar de idea
+después. Las variantes son **dos y tienen nombre** (`avatar160` para listados,
+`avatar480` para retratos), viven en `web/lib/profile/photo-source.ts` y las crea en
+Cloudflare `infra/scripts/cloudflare-image-variants.ts` **leyendo esas mismas
+constantes**: el nombre que usa el código y el que existe en la cuenta no pueden
+separarse porque salen del mismo sitio. Las dos recortan a cuadrado (`cover`) y tiran los
+metadatos (`metadata: none`) — una foto de gimnasio sale del móvil con GPS dentro.
+
+**Quién sube qué, y no es una regla de permisos:** el entrenador sube LA SUYA desde el
+panel con su sesión; el atleta sube LA SUYA desde iOS con su bearer. **Un entrenador
+nunca sube la foto de un atleta**, porque la foto la elige quien sale en ella. Por eso el
+principal no viaja en el cuerpo de ninguna petición: se resuelve de la credencial
+(`web/lib/profile/photo-principal.ts`), y el bearer manda sobre la cookie del panel
+cuando viene, para que una credencial explícita inválida sea un «no» y no una caída
+silenciosa a otra identidad.
+
+**Tres rutas finas sobre un módulo, misma forma que Stream:**
+
+- `POST /api/perfil/foto/subida` → `{ upload_url, image_id, expires_at }`. Valida el
+  formato ANTES de dar dirección (un PDF recibe la negativa en el acto) y anota el dueño
+  EN la imagen (`meta.owner = coach:<id> | athlete:<id>`), que es el censo sin tabla
+  nuestra. Los bytes van DIRECTOS a Cloudflare.
+- `POST /api/perfil/foto/confirmar` con `{ image_id }` → le PREGUNTA a Cloudflare si esa
+  imagen existe y si la subió quien la reclama, lee la base de entrega **de la respuesta
+  de Cloudflare** (nunca se construye aquí) y sólo entonces escribe la columna. Después
+  borra la foto anterior. **Jamás se guarda la URL antes de que el fichero exista**: entre
+  reservar y subir se puede cerrar la app, y una fila apuntando a una imagen que nadie
+  subió no se distingue luego de una foto rota.
+- `DELETE /api/perfil/foto` → primero deja de referenciarla, después la borra en
+  Cloudflare. En ese orden: si el borrado remoto falla, sobra una imagen suelta, no queda
+  una fila apuntando a algo que ya no está.
+
+**A diferencia del vídeo NO hay ruta de estado**: una imagen subida se entrega ya, no hay
+transcodificación que esperar. Por eso son dos pasos y no tres.
+
+**Lo común a Cloudflare sube a `web/lib/cloudflare/api.ts`** (cuenta, credencial, el sobre
+`{success,result,errors}`, el 503 honesto sin credenciales, el 502 cuando falla) y **Stream
+lo usa también**: `video-stream.ts` se queda sólo con el camino `/stream`, y
+`ExerciseVideoError` desaparece en favor de `CloudflareMediaError`. Su API responde
+SIEMPRE 200 con el fallo dentro del cuerpo, así que desenvolverlo en un sitio evita que la
+próxima integración se olvide de mirar `success`.
+
+**Eliminado** (medido antes: **0 de 6 entrenadores tenían foto**, así que no se pierde
+nada):
+
+- `POST /api/coach/profile/avatar` — la subida multipart contra nuestra API y a Vercel
+  Blob. Recibía los bytes en una función nuestra, justo lo que la decisión del 27-jul
+  dice que no se hace;
+- `avatar_url` del `coachProfileSchema` y su `update` en `updateCoachProfile`: la columna
+  pasa a tener **un solo escritor**. Aceptarla también por el PATCH del perfil daría dos,
+  y el de ese lado se creería cualquier URL que le mandaran;
+- el `remotePatterns` de `*.public.blob.vercel-storage.com` en `next.config.ts`, que ya no
+  tenía usuario. `@vercel/blob` SIGUE en uso para chat, comunicados, importaciones y
+  capturas de sensor: lo que se va es el camino de la foto, no la dependencia.
+
+**Qué NO hacer en consecuencia:**
+
+- **No pedir el original desde una vista.** Si un sitio necesita otro tamaño, se añade una
+  variante en `PROFILE_PHOTO_VARIANT_SPECS` y se corre el script — no se inventa una URL.
+- **No pasar estas fotos por el optimizador de la plataforma.** Cloudflare ya entrega el
+  tamaño y el formato buenos; `AthleteAvatar` las pinta `unoptimized` a propósito, y por
+  eso `next.config.ts` se quedó sin `remotePatterns`.
+- **No guardar el ancho, el alto ni el formato en una columna.** Eso lo resuelve la
+  variante al entregar; guardarlo sería un dato que envejece solo.
+- **No dejar que el cliente mande la URL.** Manda el `image_id`; el localizador se lee de
+  Cloudflare. Si viajara desde fuera, la columna guardaría lo que alguien quisiera.
+- **No comparar el dominio con «contiene».** `imagedelivery.net.ejemplo.com` no es
+  Cloudflare: el host se compara ENTERO, igual que con el localizador del vídeo.
+
+**En el DTO del atleta la foto sale YA LISTA PARA PINTAR** (`avatar_url` de
+`/api/auth/me` y del PATCH del perfil lleva la variante `avatar480` pegada). La app la
+mete en un círculo tal cual llega: darle la base sería darle una URL que no carga. Es la
+asunción que la sesión de iOS dejó abierta el mismo día, y queda cerrada aquí.
+
+**Hueco conocido, declarado:** si alguien reserva una subida y no confirma, la imagen
+queda en Cloudflare sin que ninguna fila la referencie. No hay recolector de huérfanos y
+hoy no hace falta; el `meta.owner` que se anota en cada imagen es por dónde se barre. Es
+el mismo hueco, y el mismo remedio, que el del vídeo.
+
+---
+
+## 2026-08-11 (tarde) · El vídeo propio del entrenador vive en Cloudflare Stream, y el fichero nuestro se retira el mismo día
+
+**Decidido:** la segunda forma del localizador deja de ser una ruta nuestra y pasa a
+ser el **manifiesto HLS que devuelve Cloudflare Stream**:
+`https://customer-<code>.cloudflarestream.com/<uid>/manifest/video.m3u8`. Absoluto y
+autodescriptivo. **Una sola columna**, sin tabla nueva, sin migración y sin esquemas
+inventados tipo `stream:` — entra por la rama de URL absoluta que ya existía.
+
+**Por qué:**
+
+- Stream **transcodifica** lo que se le eche, así que un `.mov` en HEVC salido de un
+  iPhone deja de ser una lotería de compatibilidad en el móvil del atleta.
+- Sirve **calidad adaptativa por HLS**, que es lo que hace falta cuando el atleta mira
+  la técnica en medio del gimnasio con la cobertura que haya.
+- Los **bytes no pasan por nuestro cómputo** ni al subir ni al reproducir. Ese era el
+  cuello de botella real para escalar a muchos entrenadores: con el proxy autenticado,
+  cada reproducción de cada atleta se pagaba en función nuestra.
+
+**Cómo, en concreto:**
+
+- **Subida directa, igual que antes**: `POST /api/coach/exercises/video/subida` valida
+  la intención (coach, ejercicio suyo o forkeable, formato) y pide a Stream una URL de
+  subida de un solo uso; el navegador hace `POST` del fichero DIRECTO a Cloudflare.
+  `maxDurationSeconds` = 5 min (`EXERCISE_VIDEO_MAX_DURATION_SECONDS`), que es la
+  regla que manda sobre el tamaño porque va firmada en la reserva y la aplica
+  Cloudflare. El tope de bytes sigue siendo el del vídeo del chat y es sólo un corte
+  amable en el navegador: los bytes no pasan por nosotros, así que «validarlos» en
+  servidor sería teatro.
+- **Hay que ESPERAR**: `GET /api/coach/exercises/video/estado?uid=` sondea hasta
+  `readyToStream`. Un vídeo recién subido NO se reproduce, y dar por bueno el
+  localizador al terminar el `PUT` sería prometer un vídeo que el atleta vería en
+  negro. El panel lo cuenta con cuatro estados honestos: subiendo, procesando, listo,
+  error con motivo. **Sólo cuando está listo se escribe el localizador en el campo.**
+- **`requireSignedURLs: false`** por ahora, y dicho en el código: el uid son 32
+  hexadecimales que no se adivinan, o sea la MISMA exposición que un vídeo de YouTube
+  no listado, que es lo que los entrenadores usan hoy. La reproducción firmada es un
+  interruptor **por vídeo** que se voltea por API sin tocar el localizador ni migrar
+  nada: no es una puerta que estemos cerrando.
+- **Reproducción**: en web, el iframe de Stream (`.../<uid>/iframe`) con la misma forma
+  que el embed de YouTube; en iOS, `AVPlayer` sobre el HLS, que lo hace de forma
+  NATIVA y **sin bearer** (la URL es absoluta y pública).
+
+**Eliminado el mismo día en que nació** (medido antes de borrar: `propios = 0` en
+`exercises` y en `coach_exercise_overrides`; los 3 `video_url` que había son enlaces de
+YouTube):
+
+- `web/lib/exercises/video-upload.ts` (la prefirma contra Vercel Blob),
+- `POST /api/coach/exercises/video-url`,
+- `GET /api/exercises/video/[...key]` (el proxy autenticado de lectura),
+- y en iOS, `VideoDeTecnica.propio` + `VideoPropioPlayer`, que bajaban el fichero
+  entero con el bearer reutilizando el cargador del chat.
+
+Dejar los dos caminos vivos habría sido exactamente lo que no queremos: dos maneras de
+hacer lo mismo, divergiendo. Lo que había servido durante horas y no lo usaba nadie.
+
+**Los FORMATOS aceptados cambian de criterio, y no por capricho.** Eran los del vídeo
+del chat (mp4/mov/m4v) porque la regla era «lo que decodifica el móvil del atleta» —
+cierto cuando le servíamos el fichero tal cual. Con Stream transcodificando eso dejó de
+ser verdad, así que la lista pasa a ser **la que Stream ingiere** y vive en
+`video-source.ts`. Mantener la lista corta habría sido dejar puesta una validación cuya
+razón de ser ya no existe, rechazándole al entrenador ficheros que Stream acepta sin
+problema.
+
+**Qué NO hacer en consecuencia:**
+
+- **No volver a recibir los bytes de un vídeo en una ruta nuestra**, ni al subir ni al
+  leer. Sigue valiendo la decisión del 27-jul, y ahora también para la lectura.
+- **No atar la validación al customer code de NUESTRA cuenta.** `video-source.ts` es
+  isomórfico y corre en el navegador: meter ahí configuración de servidor la rompería
+  el día que cambie la cuenta. Lo que hay que cerrar —que no apunte a un dominio
+  ajeno— se cierra comparando el host ENTERO (prefijo + sufijo), nunca con `contains`.
+- **No guardar la orientación ni el tipo en una columna.** El tipo se deriva de la
+  forma del localizador, como siempre. La verticalidad no viaja en una URL de Stream
+  (a diferencia del `/shorts/` de YouTube): en web el marco es 16:9 y el reproductor de
+  Cloudflare centra, y en iOS se lee la relación REAL del `presentationSize` del propio
+  reproductor.
+
+**Hueco conocido, declarado:** si el entrenador sube un vídeo y cierra el panel sin
+guardar, el vídeo queda en Stream sin que ninguna fila lo referencie. No hay recolector
+de huérfanos y hoy no hace falta; el día que moleste, el `creator` (`coach:<id>`) que ya
+se anota en cada vídeo es por dónde se barre.
+
+---
+
+## 2026-08-11 · El vídeo de un ejercicio: dos formas de localizador, una sola pieza que clasifica
+
+> **SUPERADA EN PARTE ESA MISMA TARDE** (ver la entrada de arriba): sigue siendo verdad
+> que hay **dos formas y una sola pieza que clasifica**, pero la segunda ya no es una
+> ruta nuestra servida tras autenticación, sino el vídeo alojado en Cloudflare Stream.
+> Todo lo que dice esta entrada sobre el fichero propio en Vercel Blob (la prefirma, el
+> proxy de lectura, la carpeta por coach) está **eliminado**.
+
+**Decidido:** `exercise_video_url` (y sus gemelos `technique_video_url` y
+`WorkoutSegment.videoUrl`) tiene **exactamente dos formas válidas**:
+
+1. una **URL de YouTube** — se reproduce con el embed que ya existe;
+2. una **ruta relativa nuestra**, `/api/exercises/video/<key>` — el fichero que
+   sube el propio entrenador, servido tras autenticación, y que iOS reproduce
+   con `AVPlayer` nativo pidiéndolo con el bearer de la sesión.
+
+Cualquier otra cosa (un enlace a otro alojamiento, texto suelto, vacío) **no es
+vídeo**: no se pinta nada, ni botón ni reproductor.
+
+**Por qué:** el mecanismo es nuestro, el contenido es del coach (HARD RULE Nº0).
+Obligar a que la técnica viva en YouTube es imponerle a cada entrenador dónde
+alojar SU material — y muchos no quieren su biblioteca en abierto. Que pueda
+subir el fichero es producto, no capricho.
+
+**Qué NO hacer en consecuencia:**
+
+- **No volver a preguntar «¿esto tiene vídeo?» mirando la URL en una vista.** La
+  pregunta la responde `VideoDeTecnica` (`ios/FAHYBRIK/Media/YouTubeEmbedView.swift`)
+  y nadie más. Ese fue el fallo original: `YouTubeLinkParser.videoId(from:) != nil`
+  repetido en cinco vistas, así que añadir una segunda forma de vídeo las rompía
+  todas a la vez y en silencio.
+- **No cablear la ruta concreta** `/api/exercises/video/`. El criterio es «es una
+  ruta relativa», que solo puede apuntar a nuestro propio servidor; así el día que
+  el backend sirva el fichero por otro camino esto sigue siendo verdad.
+- **No usar `AVPlayer(url:)` a pelo** contra un endpoint nuestro: va sin cabecera
+  de autorización y vuelve 401. Se resuelve a fichero local con el bearer.
+
+**Eliminado:** `YouTubeLinkParser.videoId(from:)` y `Video.isShort`, que se
+quedaron sin llamantes. `YouTubeSheet` pasa a ser `VideoDeTecnicaSheet` y sirve
+las dos formas con la misma chapa (título, «Cerrar», y en el entreno en vivo la
+misma pausa del cronómetro).
+
+**El lado servidor, cerrado el mismo día** (ya no queda pendiente):
+
+- **UNA validación para las dos formas:** `exerciseVideoSchema`
+  (`web/lib/exercises/video-source.ts`). La aplican `POST /api/exercises`,
+  `PATCH /api/exercises/[id]` y el campo del panel, así que «lo puedo guardar» y «el
+  campo está en rojo» no pueden decir cosas distintas. **Eliminado:**
+  `youtubeUrlSchema` de `shared/youtube.ts` — rechazaba todo lo que no fuera YouTube
+  y dejarlo vivo sería dejar puesta la validación equivocada esperando a que alguien
+  la volviera a enchufar. `shared/youtube.ts` sigue siendo sobre YouTube y es la
+  mitad de la nueva.
+- **Los bytes no pasan por una ruta nuestra** (decisión del 27-jul): se valida la
+  intención en `POST /api/coach/exercises/video-url` (coach, ejercicio suyo o
+  forkeable por él, formato y tamaño) y el cliente hace `PUT` contra la URL
+  prefirmada. Formatos y tope NO son números nuevos: son los del vídeo del chat
+  (`CHAT_ATTACHMENT_EXTENSIONS.video` = mp4/mov/m4v, `CHAT_ATTACHMENT_MAX_BYTES.video`
+  = 200 MB), porque la regla es la misma —lo que reproduce el móvil del atleta— y dos
+  listas acabarían divergiendo.
+- **El dueño del fichero es el COACH** (`ejercicios/<coach_id>/<yyyy>/<mm>/<uuid>.<ext>`),
+  como el audio de un comunicado y no como un adjunto del chat: un vídeo de técnica es
+  catálogo, se lo ven todos sus atletas y existe antes de tener destinatario.
+- **La lectura autoriza por CARPETA, no por «hay un ejercicio que apunte aquí»:**
+  `GET /api/exercises/video/[...key]` sirve al coach dueño y a los atletas de ese
+  coach. Preguntar a la base rompería justo el caso del alta, donde el vídeo se sube
+  ANTES de que el ejercicio exista y el coach tiene que ver lo que acaba de subir.
+
+---
+
+## 2026-08-11 · Biometría de la ficha = Whoop/Oura para el coach (no dump de reloj)
+
+**Decidido:** la pestaña **Biometría** de la ficha del atleta se diseña y se mide
+contra el estándar de experiencia de **Whoop Recovery / Oura Readiness**,
+adaptado a **vista coach** (no a app del atleta):
+
+1. **Veredicto primero** (puede cargar / mantener / descargar / sin señales) —
+   no una parrilla de tiles sueltos.
+2. **Cada métrica se lee contra la baseline del propio atleta** (VFC 28d, RHR
+   30d), nunca como número absoluto huérfano.
+3. **Agudo (anoche / hoy) → crónico (28d) → fitness lento (VO₂, peso)** —
+   jerarquía de atención.
+4. **Objetivo + subjetivo juntos** (señales de reloj + check-in «cómo se
+   encuentra»): si divergen, el coach lo ve en el mismo sitio.
+5. **Circular:** un estado malo ofrece camino al Plan / ajustar carga; no un
+   muro de «considera…».
+
+**Qué NO es:** copiar la UI de Whoop píxel a píxel, ni inventar scores de
+marca (stress SpO₂ temperature) multi-reloj. El *comportamiento* de producto
+(estado → tendencia → acción) es el listón; los datos salen de `BodyPayload` +
+check-in ya existentes.
+
+**En consecuencia:** no añadir tiles de vanity (RMSSD/SDNN sueltos) sin
+contexto de baseline; no pintar carga A:C aquí hasta que el load del plan sea
+el mismo motor que Rendimiento.
+
+---
+
+## 2026-08-11 · El vídeo de un movimiento tiene UN solo sitio (el ejercicio), y se ve dentro del panel
+
+**Lo que había:** el coach podía pegar la URL de un vídeo de técnica, pero no podía verlo en
+ninguna parte del panel — se abría en otra pestaña. Y el reproductor ya estaba construido
+(`components/media/YouTubeEmbed` + `VideoUrlField`, de mayo/junio): CERO importadores en todo el
+repo. Código escrito, correcto y nunca montado.
+
+Encima había DOS campos de vídeo distintos para lo mismo, cada uno con su validación y su copy:
+`YouTubeField` + `videoFieldState` en `components/v2/editor/exercise-catalog.tsx` (hojas del
+ExercisePicker) y un `input type=url` a mano en `biblioteca/EjercicioEditor.tsx`.
+
+**Decidido:**
+
+- **UN campo de vídeo en todo el panel**: `components/media/VideoUrlField`, montado en las tres
+  superficies (editor de la Biblioteca, crear desde el picker, editar desde el picker). Valida con
+  `shared/youtube.ts`, que es lo mismo que aplica el servidor al guardar (`youtubeUrlSchema` en
+  create/update-exercise), así que "puedo guardar" y "el campo está en rojo" no pueden discrepar.
+- **Heredar es parte del campo, no del que lo llama.** Un ejercicio de la base trae su vídeo; el
+  campo enseña y REPRODUCE el heredado mientras el coach no ponga el suyo, y pone el verbo solo
+  (Restaurar si hay base a la que volver, Quitar si no). Antes el vídeo de la base era un enlace a
+  otra pestaña en una superficie e invisible en la otra.
+- **La forma del vídeo la dice el enlace**: un Short se pinta 9:16 y un vídeo normal 16:9
+  (`parseYouTubeLink.isShort`), igual que ya hacía el reproductor de iOS.
+
+**Eliminado (lo que importa que quede escrito):**
+
+- **`templates.demo_video_url`** (columna de la mig 0013) sale de `templateSchema` y de
+  `templateUpsertSchema` (`shared/schema/templates.ts`) y de `TemplateBuilderInitialState`
+  (`web/components/templates/template-types.ts`). Ninguna ruta del panel la escribía ni la leía.
+- **`video_url` dentro de `template_segments.params_json`** sale de `segmentParamsSchema`. Se
+  declaró como "pisa al vídeo del catálogo" y nunca tuvo un solo escritor.
+- **`YouTubeField` / `videoFieldState` / `VideoState`** salen de `exercise-catalog.tsx`.
+
+**La columna SIGUE EN LA BASE.** No se ha escrito ninguna migración: soltarla es decisión de Alex.
+Lo único que la sigue nombrando es la copia de columnas del fork por atleta
+(`web/lib/dashboard/coach/template-instance.ts`, espejo de la mig 0083); si se decide soltarla, esa
+lista cambia en el mismo commit que la migración.
+
+**NO hacer en consecuencia:** no volver a declarar un vídeo por plantilla ni por segmento. Un
+movimiento tiene su vídeo en `exercises.video_url` más el override por coach de la 0132, y ya está:
+dos sitios para el mismo dato es la forma de que el atleta acabe viendo el que no toca.
+
+---
+
+## 2026-08-11 · Los ejercicios tienen su propio eje de CONTENIDO; el de estado sigue siendo solo de Bloques
+
+**El hueco:** en la Biblioteca no había forma de ver a qué ejercicios les falta contenido. La única
+señal de "tiene vídeo" vivía en el `ExercisePicker` (icono `play_circle`), o sea en el sitio donde
+el coach está montando una sesión y no en el sitio donde arregla su catálogo.
+
+**Decidido:** un eje NUEVO y SUYO, declarado como dato en `lib/dashboard/v2/biblioteca-axes.ts`
+junto al resto (`LIB_EXERCISE_GAPS`, `EXERCISE_CONTENT_SLOTS`, `exerciseHasGap`), no un
+ensanchamiento del eje de estado de Bloques (`sin_tipar` / `sin_dosis` / `listo`): un movimiento no
+se tipa ni lleva dosis, y un bloque no tiene vídeo.
+
+El contenido de un ejercicio son **tres casillas** (claves, descripción, vídeo: los campos
+forkeables de la 0132 menos el nombre, que nunca falta porque es NOT NULL), y de ahí salen los tres
+huecos por los que se filtra: **sin vídeo** (lo que mira), **sin explicación** (lo que lee, o sea
+ni claves ni descripción) y **sin nada**. Son PREDICADOS y no una partición — "sin nada" es el
+subconjunto de los otros dos — así que sus cuentas se solapan a propósito y no suman el total.
+
+Las cuentas van sobre el catálogo ENTERO y no sobre lo filtrado, misma regla que el eje de estado
+de Bloques: dicen cuánto trabajo queda, no cuánto queda en esta vista.
+
+**NO hacer en consecuencia:** no meter estados de ejercicio en `V2LibReadiness` ni al revés, y no
+declarar el siguiente eje dentro de su componente — todos los de la Biblioteca viven en
+`biblioteca-axes.ts` para que el siguiente los encuentre.
+
+---
+
+## 2026-08-11 · El alta no impone la periodización: `plan_mode` es dato del coach
+
+**El hueco:** dar de alta a un atleta obligaba a pasar por la matriz nivel×días. El paso
+«Estructura del bloque» pintaba una secuencia propuesta sin poder renombrarla, ampliarla ni
+recortarla, y el commit del alta nunca mandaba plantilla concreta, así que siempre caía en
+«primer microciclo desde la biblioteca del coach». Para llevar a alguien en plan propio había que
+darlo de alta en la periodización y desengancharlo después desde su ficha.
+
+**Lo que ya estaba bien:** el servidor era agnóstico desde la 0064 — su propio comentario dice que
+el alta no auto-planifica un macrociclo y que la forma de periodización se guarda como DATO. Quien
+imponía la matriz era la pantalla, no el modelo.
+
+**Decidido:** el alta lleva un `plan_mode` (`shared` | `personal`) que es **dato del coach**, no
+una constante nuestra.
+- `shared`: idéntico a antes.
+- `personal`: se crean N contenedores del atleta, encadenados sin hueco desde el lunes de la
+  semana en curso, en borrador privado, y **no se asigna nada de la biblioteca**. Los nombres de
+  los tramos los escribe el coach; el sistema no propone ninguna escuela de periodización.
+- La clasificación nivel×días se guarda en los DOS modos: describe al atleta, no es un insumo de
+  la matriz.
+
+**Cómo, sin maquinaria nueva:** cada tramo entra por `addPersonalTramoToChain`, la misma función
+que usa la ficha (materializa con fecha, desengancha la secuencia y audita dentro de la
+transacción). Lo único añadido fue permitirle arrancar cuando todavía no hay cadena — un atleta
+recién dado de alta no tiene ninguna, y antes respondía 409.
+
+**NO hacer en consecuencia:** no volver a tratar «plan personal» como un fork posterior obligado;
+nace en el alta si el coach quiere. Y no cablear nombres de fases en ningún camino de creación.
+
+---
+
+## 2026-08-11 · Un toque nunca borra trabajo escrito, y toda reescritura de un día deja rastro
+
+**El fallo que lo obligó:** el fartlek de la asignación 411 —16 × (500 m Z4 / 1' trote Z2), escrito
+correctamente por el conector— apareció convertido en 13 × (2' RPE 8 / 1' trote RPE 3). Contestar
+«¿quién cambió esto?» costó una investigación entera entre dos sesiones, y la respuesta no estaba
+en el registro porque no había registro: la escritura no dejaba ninguno.
+
+**Las dos raíces, y las dos son de mecanismo:**
+
+1. **Los chips de «Plantilla del principal» del editor de carrera SUSTITUYEN la fase principal**, y
+   lo hacían de un toque, sin preguntar y sin vuelta atrás. El contenido guardado era literalmente
+   el prefill del arquetipo «Fartlek» (`archetype-prefills.ts`). La línea rápida de al lado ya
+   tenía el instinto correcto —solo pisa cuando el principal sigue en blanco—; los chips no lo
+   seguían.
+2. **Guardar un día del atleta borra los segmentos y los vuelve a insertar** —la escritura más
+   destructiva del sistema— y era la única sin auditar, mientras el conector sí auditaba lo que
+   tenía al lado. Esa asimetría es lo que alargó la investigación: había rastro de crear la sesión
+   y ninguno de reescribirla.
+
+**Decidido:**
+
+- **Nada que destruya trabajo del coach ocurre con un solo toque.** Con el principal todavía en
+  blanco la plantilla entra directa (no cuesta nada); si ya hay algo escrito, se pregunta antes.
+  Misma regla para la × que quita una fase. Un único sitio decide qué cuenta como «escrito»
+  (¿sigue siendo el cuerpo que sembramos nosotros?), así que las dos acciones no pueden divergir.
+- **El rastro se pone donde pasan TODAS las superficies**, no en cada ruta: `updateAthleteInstanceDay`
+  es por donde entran el editor del panel y `edit_day`/`create_session` del conector. El actor es
+  **obligatorio**: un parámetro opcional habría dejado volver a la asimetría que se estaba cerrando.
+  La entrada guarda atleta, fecha y cuántos segmentos quedaron.
+
+**NO hacer en consecuencia:** no añadir otra ruta que escriba `template_segments` por su cuenta —
+si aparece una superficie nueva, entra por el mismo escritor. Y no volver a poner un botón de un
+toque que sustituya contenido autorado sin confirmación, aquí ni en los otros constructores.
+
+**Nota de atribución:** la hipótesis inicial (que lo hubiera reescrito un servidor de desarrollo
+apuntando a producción por el symlink de `.env.local`) resultó falsa — fue Alex probando el editor.
+El footgun del symlink sigue siendo real y sigue en la lista; simplemente no fue esta vez.
+
+---
+
+## 2026-08-11 · La modalidad de una sesión se LEE de sus ejercicios; adivinarla del formato es mentir en texto
+
+**El fallo:** la ficha del atleta rotulaba «Circuito» a un fartlek de carrera. La modalidad se
+inferí­a de `templates.format` (`intervals` → circuito) y de expresiones regulares sobre el título,
+con un comentario que decía que era «solo para el color» — pero ese rótulo se pinta como TEXTO en
+la tarjeta de hoy. Contra el dato real de una semana: 3 de 7 sesiones mal rotuladas.
+
+**Decidido:** la modalidad es intrínseca al ejercicio (mig 0053), así que la sesión no se adivina,
+se lee — con la modalidad PRESCRITA ganando a la del catálogo, la misma precedencia que ya usaba el
+brief del atleta. El colapso al eje de color de cinco valores va por reglas sin un solo umbral,
+porque un umbral sería método del coach y esto es mecanismo: remo y ski son la misma cosa
+(«Ergómetro»); el trabajo accesorio (core/movilidad) no define la sesión, solo manda cuando es lo
+único que hay; y varias a la vez son **«Mixta»**, porque elegir una en una simulación HYROX sería
+mentir. La heurística sigue viva únicamente para sesiones sin ejercicios que leer.
+
+**NO hacer en consecuencia:** no volver a derivar modalidad de `templates.format` en una superficie
+nueva, y no tratar «sin color» como «día de descanso» (la tira de la semana lo hacía; ahora eso lo
+decide el estado del día).
+
+---
+
+## 2026-08-10 · Quién CONDUCE un tramo se decide una vez, y las pantallas leen eso — no el esquema
+
+**El fallo que lo obligó:** el fartlek dictado por MCP (16 × 500 m Z4 + 1' suave en Z2,
+asignación 411) pintaba bien la ficha y, al tocar EMPEZAR, dejaba la pantalla EN BLANCO:
+una franja de «LO QUE VIENE», sin título y **sin botón de EMPEZAR**. El entreno no se
+podía arrancar.
+
+**La raíz:** el motor tiene la precedencia clara desde el #61 —estructura de carrera >
+EMOM > rotativo (`WorkoutSession.onEnterSegment`)— pero la propiedad que leen las
+PANTALLAS, `WorkoutSegment.isConditioningTimer`, sólo excluía el EMOM. Una serie de
+correr con `structure` (cuyo esquema plano ES `intervals`/`steady`) seguía declarándose
+«reloj de acondicionamiento», así que `ActiveWorkoutView` le montaba debajo un
+`ForTimeLiveHUD` con sus 16 filas de ronda sin recortar: ~2.600 pt en una pantalla de
+874. El `ZStack` del entreno creció con él y la puerta del bloque —hermana suya en ese
+mismo `ZStack`— quedó centrada en un alto imposible: título fuera por arriba, EMPEZAR
+fuera por abajo.
+
+**Decidido:** la precedencia de motores se escribe UNA vez y es la que leen las
+pantallas. `isConditioningTimer` excluye la carrera con estructura igual que ya excluía
+el EMOM, y `superficieViva` resuelve un tramo de correr DENTRO de su propia rama (o una
+de las dos pantallas de correr, o ninguna superficie) en vez de dejarlo caer por la
+cadena hasta el formato de otro.
+
+**En consecuencia, no hacer:** no arreglarlo en la vista de turno (la puerta del bloque
+era el síntoma, no la causa: el mismo agujero pintaba un For Time debajo de cualquier
+carrera estructurada); no dar por sentado que una lista de rondas cabe en la pantalla
+—sigue abierto que un metcon REAL de 16 rondas que nadie mide revienta igual el alto
+(`StrikeList` no recorta ni scrollea, y la ranura del vivo no scrollea en vertical por
+el ancla del sujeto del §10.3): es decisión de UX, no de código.
+
+---
+
+## 2026-08-10 · Una recuperación que se CORRE no se llama «descanso»
+
+**Decidido:** cuando hay `structure`, la línea de dosis se cuenta desde la estructura y
+la recuperación se dice como se hace: «recuperación 1:00 suave en Z2» (`suave` /
+`caminando` salen de `RunLegDisplay.recoveryModeWord`, la misma palabra que dicen el
+vivo y la muñeca). Se dice «descanso» exactamente en dos casos: modo `parado`, y modo
+NO DECLARADO — que es lo que llega de una prescripción plana, donde el número nació de
+un `rest_s` y «descanso» es literalmente lo que el coach escribió.
+
+**Por qué:** el aplanado (un set + un `rest_s`) miente dos veces sobre un fartlek —
+pierde el ×16 (un 16×500 se leía «500 m») y llama «descanso» a un minuto que se corre.
+Un atleta que lee «descanso» se queda parado, y el fartlek pierde el sentido. La
+estructura sabe las dos cosas.
+
+**En consecuencia, no hacer:** no escribir la dosis dos veces (el titular sale de UN
+formateador, `PrescriptionRenderer.summaryLine`, que es el que ya leen la previa, la
+puerta, la ficha del ejercicio, el espejo del reloj y el resumen de carrera); no
+resumir lo que no es uniforme (objetivos o recuperaciones distintas entre tramos NO se
+colapsan a la primera — §7); no colapsar una pirámide a su primer tramo, y escribir su
+secuencia en METROS con la unidad una vez («1200/1000/800 m»), porque
+`Formato.distancia` pasa a km a partir de 1.000 y «1,2 km/1 km/800 m» no se compara.
+
+---
+
+## 2026-08-11 · La biblioteca de ejercicios: dos idiomas por PERSONA, el vocabulario como DATO, y los ejes que faltaban
+
+**El estado medido antes de tocar nada:** 126 ejercicios (121 base + 5 propios), **121
+con el nombre solo en inglés** y 5 en castellano, **0 vídeos**, 16 con cues, 68 con
+descripción, **56 que nadie ha usado nunca** y 0 sinónimos aprendidos. (Corrección a
+una lectura previa: las 8 posiciones de HYROX **sí** están completas — ski y remo
+llevan la suya desde `cardio`, que es correcto porque son ergómetros. Lo que estaba
+mal era otra cosa: un ejercicio metido en `category='hyrox_station'` **sin** posición,
+y una bici con `modality='run'`. Los dos arreglados en 0178.)
+
+**Decidido (mig 0172 aplicada):**
+
+- **El idioma se resuelve por PERSONA, no por catálogo.** `exercises.name_es` +
+  `name_en` (dos columnas explícitas, no un blob i18n), y quien mira decide: el coach
+  con `users.idioma`, el atleta con `athletes.preferred_language` — las dos columnas
+  ya existían. `name` NO se toca: sigue siendo el nombre de siempre y el último
+  recurso del resolutor, así que ninguna lectura de hoy se rompe. El fork de voz del
+  coach (`coach_exercise_overrides`, 0132) también gana los dos idiomas: puede
+  rellenar uno o ambos, y lo que no diga cae al base.
+- **El vocabulario base es DATO, no código:** tabla `exercise_aliases` (término +
+  normalizado + idioma). Hoy ese conocimiento vive cableado en TypeScript
+  (`GLOBAL_ALIASES`, 101 entradas en `web/lib/import/exercise-resolve.ts`, espejo de
+  `infra/scripts/parse_blocks_lib.ts`): **lo usa el importador y no lo usa el
+  buscador**, el mismo saber sirviendo a una superficie y no a la otra. Con la tabla,
+  una sola fuente alimenta las dos.
+- **Dos capas de alias con precedencia clara:** `coach_exercise_synonyms` (0109, por
+  coach, aprendida de sus correcciones) **manda** sobre `exercise_aliases` (nuestra,
+  base). Al revés le quitaríamos al coach lo que ya le enseñamos a la app.
+- **Un término AMBIGUO es dato, no error.** «row» es el ergómetro y el remo con barra;
+  la unicidad del alias es por `(ejercicio, término)` y NO global — al contrario que el
+  mapa de TS, que siendo `Record<term, slug>` hacía imposible expresar la ambigüedad y
+  se comía una de las dos. Cuando un término resuelve a varios: desempata la modalidad
+  del bloque, y si no cierra es un fallo honesto que va al coach, cuya elección se
+  aprende como sinónimo suyo y no vuelve a preguntar.
+- **`movement_pattern` es MECANISMO, no método** (CHECK cerrado, como `modality` en
+  0053): que una búlgara sea una zancada unilateral es biomecánica, no criterio de
+  escuela — la pregunta de la HARD RULE Nº0 («¿otro entrenador competente lo haría
+  distinto?») responde no. Es además el eje por el que un entrenador pide de verdad un
+  ejercicio («una bisagra de cadera»), y el que hace navegable una lista de 500.
+- **`is_unilateral` e `implement_count` cambian la DOSIS**, no son adorno de ficha: un
+  unilateral se prescribe por lado y un farmers son 2×32 kg, no 32. El `Target` ya
+  sabía contar implementos; el ejercicio no declaraba venir en par.
+- **`archived_at`:** retirar sin borrar. Hoy solo se puede borrar, y solo lo nunca
+  usado (con razón: `segment_executions` es ON DELETE SET NULL y un borrado silencioso
+  desnuda trabajo ya hecho). Un catálogo que crece necesita la tercera vía.
+- **Búsqueda:** `pg_trgm` + `fahybrid_normalize_term()` (minúsculas, sin acentos,
+  espacios colapsados) con función Y diccionario **cualificados a `public`** — sin eso
+  la resolución depende del `search_path` de quien ejecute, y un índice no puede
+  depender de eso (los dos primeros intentos de la migración murieron ahí).
+
+**En consecuencia, no hacer:** no meter contenido masivo antes del cimiento (500
+ejercicios sobre dos ejes empeoran la lista, no la mejoran); no convertir
+`movement_pattern` en dato editable del coach; no dar por hecho el trigram sin
+comprobar la extensión; no dejar que el alias base pise el sinónimo del coach; y no
+volver a duplicar vocabulario en código cuando ya vive en la tabla.
+
+---
+
+## 2026-08-11 · `MarcoVivo` no tiene NI UNA llamada: el régimen §10 del vivo no tiene host
+
+**Constatado** verificando el porte del contador de rondas: `MarcoVivo(` no aparece
+invocado en ningún sitio del repo. Es el componente que inyecta `\.lienzoVivo`, del que
+depende `Numeral` para escalar al tamaño del §10.2 — así que **toda pantalla del vivo
+está fuera del régimen que la doctrina describe**: los numerales caen a su tamaño por
+defecto (~54 pt en vez de ~125) y cualquier presupuesto de alto derivado del marco es
+teórico, no el que se pinta. Por eso el contador acabó con un `.system(size:96)` a mano
+y por eso su cascada no tenía cota real hasta que se le dio una con `GeometryReader`.
+
+**En consecuencia, no hacer:** no citar §10 como si estuviera vigente en pantallas que
+no montan `MarcoVivo`; no cambiar un tamaño «al del §10» sin comprobar quién inyecta el
+lienzo; y al tocar el vivo, decidir explícitamente si esa pantalla adopta el marco o
+declara su propio presupuesto — pero no las dos a medias.
+
+---
+
+## 2026-08-11 · El vivo tiene UN lenguaje — el de `vivo-rondas` — y le falta su HOST real
+
+**Decidido (directiva de Alex, 11-ago: «tener diseños perdidos por la app es horrible;
+traslada este vivo-rondas a otros»):** el lenguaje de `vivo-rondas` (cromo strip
+formato·posición·reloj → banda del SUJETO gobernando → APOYOS de alto fijo →
+franja de acción; cascada por prioridad; nada scrollea; el deshacer nunca se
+recorta) deja de ser una pantalla y pasa a ser **el lenguaje de TODAS las
+superficies del vivo**.
+
+**CORRECCIÓN (11-ago noche, verificada contra el repo):** la primera versión de
+esta entrada decía que `MarcoVivo` «tiene cero llamadas en Swift». **FALSO** —
+era un artefacto de grep (`MarcoVivo(` no caza trailing closures): el host
+existe (`ios/FAHYBRIK/Theme/LenguajeVivoUI.swift:194`, con su `MarcoVivoLayout`
+que mide el sujeto, ancla su centro e inyecta `\.lienzoVivo`) y lo montan
+FuerzaVivoView, EmomVivoView, OutdoorRunHUDView y ResumenCarreraView. **El hueco
+REAL es otro:** el Layout mide el hueco de apoyos pero NO LO PUBLICA, así que
+ninguna pantalla puede cascadear contra él — por eso `RoundsLiveHUD` (que además
+vive FUERA del marco) se montó su propio GeometryReader + presupuesto estimado a
+mano. Moraleja de método: una afirmación «cero llamadas» se verifica con el
+símbolo A SECAS antes de escribirla aquí.
+
+**El arreglo, en orden:** (1) el host EXISTENTE gana lo que le falta —
+`PresupuestoApoyos` (asignador puro por prioridad con suelo, espejo de la
+cascada del doble) + `CascadaApoyos` (mide su ranura y pasa el presupuesto) +
+`TiraFormatoVivo` (el strip formato·posición·reloj, hoy `private` en rondas) —
+en `Theme/`, junto al host, jamás en carpetas de pantalla; (2) piloto FUERZA
+(propuesta en el doble → OK de Alex → Swift); (3) el resto en tandas: EMOM,
+AMRAP, estaciones/For Time, ergo, descanso y RONDAS adoptando el host — cada
+superficie migrada con su espejo del doble en el mismo lote.
+
+**En consecuencia, no hacer:** ninguna superficie nueva del vivo fuera del marco;
+no migrar dos superficies «de paso» en un lote ajeno (una por lote, con su
+espejo); no re-decidir la jerarquía del sujeto por pantalla sin declararla (el
+criterio es SIEMPRE «¿qué se le cae de la cabeza al atleta sudando?»).
+
+---
+
+## 2026-08-10 · Rondas ≠ estaciones: la lista del vivo con muchas rondas se colapsa a CURSOR, no a otra pantalla
+
+**Decidido (cierra la pregunta que dejó abierta la entrada del blanco de EMPEZAR):** una
+lista de N **estaciones** es heterogénea y colapsarla destruye información (eso ya lo
+resuelve la ventana de tres + hoja de `vivo-fortime`); una lista de N **rondas** es
+homogénea — la fila 12 repite la 11 — así que a partir del umbral la lista NO se
+sustituye por otra metáfora: se queda **la misma lista con el cursor abierto** (cerrada
+arriba tachada con su parcial, la actual en el numeral grande «RONDA 4/8», la siguiente
+insinuada), trabajo escrito UNA vez en la banda (§10.6), hilo fino de progreso, sin
+scroll (ancla del sujeto §10.3). Con pocas rondas manda el trabajo y la cuenta baja al
+cromo; con muchas se invierte. **El umbral no es una constante de gusto: sale de la
+aritmética del marco** (213 pt de apoyos, fila de 35 pt con el trabajo fuera → 5 rondas
+listadas, cursor desde la 6ª) y vive calculado en `data.ts` de la pantalla.
+
+**Dato que lo ancla:** el corpus real no tiene ningún metcon de 16 rondas (escalera
+real: 4/6/8/10/12) y **el de 4 rondas ya desborda hoy** (fila actual de 54 pt × 2
+líneas). Los escenarios de la propuesta son verbatim de `blocks.description`.
+
+**Dónde vive:** pantalla del doble `web/components/design-twin/screens/vivo-rondas/`
+(+ átomos en `kit-vivo`), **portada a Swift el 11-ago** (`583ab005`, Alex aprobó la
+propuesta): `ios/FAHYBRIK/Workout/RoundsLiveHUD.swift` + rewires en la raíz. Tres
+refinamientos que el porte fijó como doctrina: (a) **la banda del trabajo es FIJA**
+(como la banda del sujeto de `MarcoVivo`) — es lo que hace al umbral PURO en rondas:
+dos WODs de 8 rondas rinden la misma cara pese lo que pese su texto; el umbral se
+deriva del hueco REAL medido (`RoundsListBudget`), no de un frame supuesto. (b) **el
+botón del host cierra RONDA a ronda** (`conditioningPrimary`): una lista de rondas
+tiene algo más pequeño que ella misma que cerrar — antes el botón grande se saltaba el
+WOD entero. (c) **los parciales de una lista de rondas son DELTAS del reloj del
+bloque** (`markRoundDone`): su ventana de tramo no re-ancla (`cursor .segment`), así
+que leerla daba acumulados; las lecturas de máquina ahí van a nil, no un acumulado
+disfrazado de ronda. Y la muñeca (`liveProgressText`) dice el MISMO número que la
+pantalla («RONDA 4/8»). Los ROTATIVOS (tabata/interválico/death-by/steady) no entran:
+su cursor es `rotRoundIndex` y conservan su suelo honesto (`RotatingClockHUD`).
+
+**En consecuencia, no hacer:** no meter scroll vertical en la ranura del vivo; no
+inventar una metáfora nueva para rondas; no fijar el umbral como constante suelta (se
+deriva del marco); no portar a Swift sin el OK sobre la propuesta.
+
+---
+
+## 2026-08-10 · La `structure` de carrera es ADITIVA al plano — y lo garantiza el ESCRITOR, no la buena fe
+
+**Decidido (tras el primer fartlek dictado por MCP):** una prescripción que lleva
+`structure` (#61) DEBE llevar también la dosis plana (sets/rounds/rest_s…). El contrato
+ya estaba declarado en el wire de iOS (`Prescription.swift`: «a block that carries
+structure ALSO carries the flat») y el dominio traía el conversor
+(`structureToLegacy` / `prescriptionFromStructure`, run-structure-convert.ts) **sin un
+solo caller**. Ahora lo garantiza el escritor: `withFlatFromStructure()` aplicado en
+`serializeSessionSegments` y `serializeBlockExercises` — si el autor declaró plano, el
+suyo manda; si no, se deriva del flatten. Sin esto, una prescripción solo-estructura es
+canónica y válida pero **muda**: `params_json` queda `{}`, `to-text` no habla structure,
+y la dosis solo vive en el título si el cliente tuvo la ocurrencia de escribirla ahí.
+
+**Lo que este caso enseñó del conector:** el cliente LLM lo hizo BIEN (convirtió
+«fartlek 16x500 Z3 / 1' Z2» a estructura tipada perfecta, sin que «fartlek» exista como
+formato); el hueco era nuestro. De propina, las descripciones de `create_session`
+dejan dicho que el título es SOLO el nombre — la dosis jamás va escrita en él.
+
+**En consecuencia, no hacer:** no enseñar a `to-text`/lectores a «tolerar» estructura
+sola en vez de arreglar el escritor (parche en N sitios vs raíz en 1); no confiar en
+que el cliente rellene el plano; no borrar `structure` al derivar (la estructura sigue
+siendo la verdad para vivo/cumplimiento; el plano es el resumen lossy).
+
+---
+
+## 2026-08-10 · Los add-ons se venden por club: `coach_entitlements` (0167), y el portón concede por LISTA BLANCA
+
+**Decidido:** el conector MCP (y todo add-on futuro) se gatea con la tabla genérica
+`coach_entitlements` (mig **0167 aplicada**: `coach_id × feature` únicos, `status`,
+`source`, FK con `on delete cascade` — un entitlement sin su club no nombra nada).
+El portón (`web/lib/coach/entitlements.ts::hasEntitlement`, consumido en
+`web/lib/mcp/runtime.ts::withCoach` ANTES del cuerpo de toda tool) concede **solo** con
+`status='active'`: cuando Stripe traiga `past_due`/`canceled`/`trialing`, cierra por
+defecto y abrir un estado nuevo exige tocar el resolutor a mano — jamás conceder por
+`status <> 'inactive'`. Sin entitlement → frase propia (`NO_CONNECTOR_MESSAGE`),
+DISTINTA de «esta cuenta no es de ningún coach»: allí sobra reconectar con otra cuenta,
+aquí falta el add-on. Sin CHECK de enum en `feature` (mismo criterio que
+`audit_log.channel`): el portón es el tipo `EntitlementFeature`. Alta fundadora: club 60
+(`source='founder'`), única fila en main. El precio del add-on NO está decidido — es de
+Alex; el mecanismo no lo necesita.
+
+**En consecuencia, no hacer:** no gatear features comerciales con flags sueltos en
+`coaches`; no conceder por exclusión de estados; no cargar el SELECT de membresía
+(compartido con el dashboard) con la pregunta comercial.
+
+---
+
+## 2026-08-10 · La visibilidad de una semana la decide su fila de `weekly_plans` — y SIN fila, SE VE
+
+**Decidido (constatado en F3 del conector y elevado a doctrina):** el portón que decide si
+el atleta ve una semana es `not exists (weekly_plans … status='draft')`
+(`web/lib/athlete/week-plan.ts:185`, repetido en :337 y :471). Solo un `draft` explícito
+esconde; `published`, `archived` y **la ausencia de fila** se ven. Ni la creación de sesión
+del panel ni el PATCH de día tocan `weekly_plans`. En consecuencia, cualquier superficie de
+escritura (dashboard, MCP, futuras) **no inventa estados de borrador propios**: lee la fila
+real (`weekVisibility`, `web/lib/mcp/shape-write.ts`) y declara el efecto en su respuesta
+(«publicado: lo ve ya» / «borrador: no lo ve hasta publicar»). El plan del conector decía
+«borrador primero» — corregido en `docs/mcp-conector-coach.html` §04.
+
+**Derivadas de F3:**
+- **Sesión AUTORADA, no solo fork:** `createDaySession` solo sabía copiar una plantilla
+  (sin `template_id`, la más reciente — arrastrando formato/calentamiento/notas de OTRO
+  entreno al móvil del atleta). Nueva primitiva `createAuthoredInstance`
+  (`template-instance.ts`, la «instancia autorada» que la mig 0083 ya nombraba,
+  `instance_of_template_id` NULL), seleccionable con `content_source`; el panel sigue en
+  `'fork'` por defecto y se comporta idéntico. Una sesión dictada por MCP nace autorada.
+- **Canal de auditoría:** mig **0165 aplicada** — `audit_log.channel` (`'dashboard'`
+  default, `'mcp'` en el conector; sin CHECK a propósito, el portón es el tipo
+  `AuditChannel` en `record-edit.ts`). Responde «¿esto lo cambié desde el chat o desde
+  el panel?».
+- **Dato corrupto arreglado en prod:** `template_segments` 2594/2685 llevaban
+  `target.kind='pace_500m'` (no existe en la unión canónica) → corregidos a
+  `{kind:'pace', unit:'per_500m', value_s}`. Si aparece otro, el canon es `Target` de
+  `shared/domain/prescription/types.ts`, no inventar kinds.
+
+**En consecuencia, no hacer:** no añadir capas de borrador nuevas sobre `weekly_plans`;
+no crear sesiones vía fork «por defecto» desde superficies conversacionales; no escribir
+en `audit_log` sin canal.
+
+---
+
+## 2026-08-10 · El conector MCP es una CARA más de la app, no un servicio nuevo
+
+**Decidido:** el coach mira y edita su club desde su asistente (Claude hoy, Grok después)
+vía un **servidor MCP remoto dentro de fahybrik-web**: ruta `app/api/[transport]/route.ts`
+(→ `/api/mcp`, Streamable HTTP) con `mcp-handler` **1.x** + OAuth de Clerk
+(`@clerk/mcp-tools`: `withMcpAuth` + `verifyClerkToken`, metadata en `/.well-known/*`).
+Las tools llaman a las **mismas funciones de `lib/` que el dashboard** con la firma
+canónica `fn({coach_id, ...})` — cero lógica duplicada, cero HTTP contra la propia API.
+La identidad entra por token OAuth → `getCoachSessionForClerkUser()` (mismo SELECT de
+membresía que la sesión web, refactorizado para compartirse). Rate limit: perfil `mcp`
+(120/min) keyed por **usuario** de Clerk, no por coach — un bucket por coach no puede
+proteger la query que produce su propia clave, y throttlea al humano, no al club entero.
+Plan completo y fases: `docs/mcp-conector-coach.html`.
+
+**Por qué 1.x y no 2.x:** `mcp-handler` 2.x exige `@modelcontextprotocol/server` 2.x;
+la 1.x (SDK 1.26.0 fijado) habla el protocolo que Claude/Grok/ChatGPT consumen hoy y
+convive con el zod del monorepo. Migrar es otra obra. **SSE apagado** (`disableSse`):
+el SSE de mcp-handler 1.x exige Redis, que no está en el stack a propósito.
+
+**Gotcha cazado (no repetir):** `protectedResourceHandlerClerk` cablea el identificador
+del recurso al ORIGEN de la petición — para un servidor bajo `/api/mcp` publica un
+`resource` que no cuadra y el cliente OAuth aborta sin decir por qué (el síntoma del
+issue Claude↔Clerk de abr-2026). Se usa `generateClerkProtectedResourceMetadata` con el
+identificador correcto; los paths viven derivados unos de otros en `web/lib/mcp/paths.ts`.
+
+**En consecuencia, no hacer:** no montar el MCP como servicio/deploy aparte; no escribir
+tools que acepten prescripción en texto libre (hablan `shared/domain/prescription`, y las
+escrituras — F3 — nacen borrador-primero con audit canal `mcp`); no exponer escrituras sin
+read-back inequívoco; no usar los helpers `protectedResourceHandler*` de Clerk tal cual
+bajo un path anidado.
+
+**Dónde vive:** `web/app/api/[transport]/route.ts`, `web/lib/mcp/*`,
+`web/app/.well-known/*`, tests en `web/tests/mcp/`.
+
+---
+
+## 2026-08-10 · Tenancy del embudo: un lead responde a su dueño; «sin asignar» responde a cualquiera
+
+**Decidido:** las superficies coach del embudo que actúan sobre UN lead concreto (ficha,
+transición de pipeline, reabrir, liberar plaza) y sobre sus citas (actuar, sellar Meet link)
+se filtran por dueño con **una sola regla**, `coachOwnsLead` (`web/lib/leads/store.ts`):
+`leads.coach_id = coach` **o** `coach_id IS NULL`. Un lead asignado a otro club responde
+**404** (not_found — la existencia no se filtra, nunca 403). Un lead «sin asignar» (NULL,
+mig. 0147) sigue siendo accionable por cualquier club autenticado: alguien tiene que
+triarlo y la captura es el negocio (misma lectura fail-open que el cupo). Las citas no
+tienen `coach_id` propio (0093): su dueño ES el dueño de su lead, y el scope entra por
+`appointmentWithLead`; la ruta pública de reserva sella el link con scope de confianza
+(`coach_id: null`) porque opera sobre la fila que ella misma acaba de crear.
+
+**Qué NO se tocó y por qué:** `coach_availability_exceptions` (y todo el sistema de
+disponibilidad/huecos) **no tiene dueño posible** — 0093 lo dejó club-global a propósito
+(unique global en `fecha`, `setAvailability` reemplaza la tabla entera). Filtrar su DELETE
+exigiría rediseñar el sistema de citas entero (obra multi-coach), no un filtro. El listado
+de leads (`listLeadsForCoach`) y la waitlist siguen club-global por el mismo motivo.
+
+**En consecuencia, no hacer:** no rellenar `coach_id` NULL con un dueño por descarte para
+"simplificar" el predicado (es el fallo que la 0147 cerró); no convertir el 404 de recurso
+ajeno en 403; no añadir `coach_id` a `appointments` mientras el dueño derive del lead.
+
+**Dónde vive:** `web/lib/leads/store.ts` (`coachOwnsLead` + transición/reabrir),
+`web/lib/dashboard/coach/leads.ts` (`getLeadDetail`), `web/lib/citas/store.ts`
+(`actOnAppointment`, `setAppointmentMeetLink`), tests en `web/tests/leads/tenancy.db.test.ts`.
+
+---
+
+## 2026-08-09 · El umbral de una señal es MÉTODO — `coach_signal_thresholds` es su sitio
+
+**Decidido:** lo que el coach le publicó y el atleta no ha cerrado sube a **/hoy
+como señal** (`coach_attention_items`), con tres tipos nuevos —
+`communication_question_unanswered`, `communication_task_overdue`,
+`communication_protocol_unopened`— y **los días que deciden cuándo saltan son
+dato editable del coach**, no constantes. Nace la tabla
+`coach_signal_thresholds` (mig 0161, una fila por coach, columnas explícitas) y
+los defectos viven en `shared/domain/coach/signal-thresholds.ts`, **nunca como
+`default` de columna**. El barrido resuelve los vigentes UNA vez por coach
+(`web/lib/coach/signal-thresholds.ts → resolveEffectiveThresholds`) y se los pasa
+a los evaluadores: para eso el tipo se llamaba ya `EffectiveThresholds`.
+
+**Por qué:** que una pregunta sin responder reclame lo dice el modelo del
+comunicado (se cierra respondiendo) y eso es mecanismo. Cuántos días de silencio
+hacen falta antes de molestar al coach lo hace distinto cualquier otro entrenador
+competente, así que es método (HARD RULE Nº0). Y sin la señal, un comunicado
+publicado y nunca cerrado se queda esperando en la ficha de un atleta entre cien
+— exactamente el «push perdido» que la entidad venía a resolver.
+
+**Decisiones de modelo que tomó esta tanda:**
+- **La severidad se deriva del modelo, no de otro umbral.** Una pregunta que
+  `blocks` es crítica (deja el plan a medio cerrar); un protocolo cuyo evento es
+  HOY es crítico (o lo abre hoy o no lo abre); una tarea vencida sube a crítica
+  con el retraso que fija el coach. Ningún número mágico extra.
+- **Una tarea vencida dispara sin umbral**: vencer ya es la señal. Lo editable es
+  cuándo el retraso deja de ser un despiste.
+- **Sin fecha resoluble, el protocolo no dispara.** La fecha del ancla se busca
+  contra el evento del PROPIO atleta (su carrera planificada o su sesión de test
+  ya puesta en el plan) y, si `anchor_ref` nombra uno concreto, se exige ese. Un
+  ancla que no resuelve no es una señal con fecha aproximada: es no-señal.
+- **Pasado el evento, la señal se resuelve sola:** un protocolo de día de carrera
+  con la carrera detrás ya no puede hacerse.
+- **Agregan por atleta** (la tarjeta de /hoy es una por atleta y señal): se cita
+  al que manda —la pregunta más antigua, la tarea más atrasada, el evento más
+  próximo— y se dice cuántos más hay. El `dedupe_key` lleva el id de ese
+  comunicado, así que uno nuevo tras silenciar el anterior no queda tapado.
+
+**En consecuencia, no hacer:** no volver a escribir un umbral de señal como
+`const` — el sitio ya existe, se le añade columna. Y no leer las tres claves
+desde `SIGNAL_THRESHOLDS` en una superficie: los vigentes se piden a
+`resolveEffectiveThresholds`, o el /hoy del coach y su editor discreparán.
+
+**Estado:** el resto de umbrales de `signal-config.ts` siguen siendo constantes
+del sistema y se moverán columna a columna cuando dejen de ser aceptables.
+**Falta la pantalla de ajustes**: hoy los umbrales se editan por
+`GET|PUT /api/coach/signal-thresholds` y nada más — el mismo estado en que quedó
+`coach_import_defaults` (0149), que tampoco tiene UI. La migración 0161 **no está
+aplicada**; sin ella el resolutor sirve los defectos y nada se rompe.
+
+---
+
+## 2026-08-09 · La biblioteca de comunicados vive dentro de Biblioteca
+
+**Decidido:** las plantillas y los borradores de comunicado son una pestaña más
+de **Biblioteca** (`/biblioteca?tab=comunicados`), junto a ejercicios, bloques,
+sesiones y microciclos — no una sección de raíl propia. Y el **compositor es uno
+solo**: deja de recibir un atleta fijo para recibir `destinatarios[]` y un `modo`
+(`publicar` | `plantilla`), así que la ficha del atleta (un destinatario) y la
+Biblioteca (N destinatarios elegidos, o ninguno cuando se escribe un molde) usan
+el MISMO componente.
+
+**Por qué:** duplicar el compositor era garantizar que las dos copias se
+separasen a la primera regla nueva de un tipo. Y una plantilla es contenido
+reutilizable del coach, que es literalmente la definición de lo que vive en
+Biblioteca.
+
+**En consecuencia, no hacer:** no publicar nunca una plantilla. Publicar desde
+una plantilla escribe una COPIA (`is_template:false`) y publica esa; un borrador
+sí reusa su id. Lo impone además el CHECK `coach_communications_template_chk`, y
+la UI no puede ser la que lo descubra.
+
+---
+
+## 2026-08-09 · El comunicado del coach: la comunicación estructurada es una entidad, no chat
+
+**Decidido:** todo lo que el coach entrega al atleta fuera de una sesión se
+modela como UNA entidad, el **comunicado**: **tipo** (protocolo con pasos
+marcables | pregunta con opciones que bloquea | tarea con fecha límite |
+nota-briefing por secciones | foco persistente) × **ancla** (plan | semana |
+sesión | test | carrera | check-in | general; el ancla decide dónde aflora en
+la app) × **ciclo de vida** (publicado → visto → hecho/respondido, no solo
+`read_at`). La frontera con el chat: **el chat conversa; el comunicado se
+publica y se rastrea.**
+
+**Por qué:** hoy todo lo no-sesión viaja por `chat_messages.body` (texto plano,
+sin tipo, sin estado, sin cumplimiento) y el repo acumula piezas a medio nacer
+que son este mismo concepto sin nombre: `race_plans` (0008, tabla muerta sin un
+solo lector), `WorkoutPlan.warmupChecklist` en iOS (renderer hecho, llega
+siempre vacío), `coach_guidance` (consejos de primera clase pero solo 2
+contextos de dobles), el `coach_note` por bloque que el coach escribe y
+`assignment-detail` descarta, `recovery_suggestions` que el servidor emite y
+iOS no decodifica — y ninguna bandeja del atleta: un push perdido es un mensaje
+perdido.
+
+**En consecuencia, no hacer:** no construir cinco features paralelas (una por
+tipo) ni un segundo chat. Cuando se construya la entidad, **absorbe en vez de
+sumar**: `race_plans` = nota+protocolo anclados a carrera (y la tabla muerta se
+elimina); el protocolo de un test deja de viajar como texto copiado a
+`templates.coach_notes`; `warmupChecklist` se alimenta de un protocolo; la
+respuesta estructurada a un check-in o a un dolor es un comunicado anclado a
+ese evento; `coach_guidance` se generaliza dentro del modelo o se absorbe.
+
+**Dónde vive en el dashboard (corrección de Alex, mismo día):** NO hay pestaña
+global de comunicados. Con 100 atletas, el coach piensa en EL atleta, no en la
+feature: el seguimiento (qué le comunicó y qué hizo con ello) vive en la
+**ficha del atleta**, el compositor se abre desde ahí (personalizando desde
+plantilla o en blanco), la **biblioteca** de plantillas vive dentro de
+Biblioteca como el resto de contenido reutilizable, y lo que reclama atención
+(pregunta sin responder, tarea vencida, protocolo sin abrir) entra en **/hoy
+como señal** de `coach_attention_items`, con umbrales como dato del coach.
+**No hacer:** no añadir una sección de raíl que obligue a buscar un nombre
+entre cincuenta; la vista global del mockup original queda descartada.
+
+**Estado:** dirección validada por Alex sobre el doble (9-ago). **Cimiento
+construido el mismo día** — migración `0160_coach_communications` aplicada
+(cuatro tablas: comunicado · items · destinatarios · marcas de paso), vocabulario
+y validadores en `shared/domain/coach-communications.ts`, servicios en
+`web/lib/coach|athlete/communications.ts` y los endpoints de coach y atleta. La
+página del dashboard (ficha del atleta + compositor de formulario puro, SIN
+IA-redacta por decisión de Alex) y la app iOS siguen **por construir**.
+
+**Decisiones que tomó el cimiento (mecanismo, no método):**
+- **Una sola tabla hija** para pasos de protocolo, opciones de pregunta y
+  secciones de nota: las tres son una lista ORDENADA de contenido del coach, y
+  partirlas en tres sería el mismo modelo escrito tres veces.
+- **`done_at` de un protocolo se DERIVA de sus pasos marcados** (hecho cuando no
+  queda ninguno sin marcar; desmarcar uno lo reabre) y el «hecho» explícito marca
+  todos los pasos. Un hecho declarado por un lado y unos pasos a medias por otro
+  serían dos verdades del mismo hecho.
+- **Una pregunta se cierra respondiendo**, nunca con «hecho»; una nota y un foco
+  no se cierran (leerlos ERA el acto). Pedir «hecho» sobre ellos es un 409.
+- **`blocks` es columna** (solo en preguntas): la pregunta que bloquea el plan ya
+  la dibuja el doble y no puede vivir fuera del modelo.
+- **Un comunicado del que no eres destinatario responde 404, no 403:** un 403
+  confirmaría que ese id es de alguien.
+- **Editar solo borradores y plantillas**, y siempre el comunicado entero:
+  cambiarle el suelo a quien ya marcó tres pasos es corromper su historial.
+  Borrar un borrador lo borra; borrar lo publicado lo ARCHIVA.
+- **Publicar valida el roster entero o falla entero:** publicar «a casi todos» en
+  silencio es peor que fallar.
+- **La lectura de la FICHA es `GET /api/coach/communications?athlete_id=NN`** —
+  lo comunicado a ESE atleta con su estado y los pasos que lleva marcados,
+  archivados incluidos (la ficha es historial, no bandeja). Un atleta que no es
+  del coach responde 404: una lista vacía diría «no le has comunicado nada».
+
+**Dónde vive:** la tanda «Del coach» del doble — `web/components/design-twin/coach-com/`
++ `screens/coach-bandeja|coach-pregunta|coach-protocolo|coach-nota` — con el
+caso real del plan rehecho a Singles Pro como escenario.
+
+**Nada se obliga (corrección de Alex, mismo día):** el check es del **PASO**, no
+del tipo. El cimiento dio por hecho que un protocolo ES una lista de casillas
+(exigía ≥1 paso y todos marcables) y eso deja fuera lo que un entrenador escribe
+de verdad el día antes de una carrera: cuándo calentar, cuánta agua, cómo comer.
+Es texto para LEER, y ponerle una casilla a «desayuna 3 h antes» no mide si
+comió, mide si tocó un círculo. En consecuencia: `coach_communication_items`
+gana `checkable` (migración **0162**, default `true`, sólo significa algo en un
+protocolo — una opción se elige y una sección se lee, ahí es inerte); un
+protocolo puede ser **todo casillas, todo lectura o mezcla**; lo que el servidor
+exige pasa de «≥1 paso» a **«título + (texto O ≥1 paso)»** — lo único que no
+puede ser un protocolo es estar vacío; el `done_at` derivado cuenta **sólo los
+pasos con casilla** (marcar la última cierra, desmarcar reabre) y un protocolo
+**sin ninguna deja de derivarse**: su hecho, si lo hay, es declarado por el
+mismo camino que el de una tarea y no se le retira. Marcar un paso de lectura es
+un 409 (`not_checkable`): no es un paso a medias, es un paso que no se marca. La
+derivación vive en un solo sitio, `stampDone` en `web/lib/athlete/communications.ts`.
+
+**No hacer:** no volver a atar «lo que un tipo pide» al tipo. Si mañana una nota
+necesita una casilla, la lleva el ítem, no la tabla padre.
+
+---
+
+## 2026-08-09 · El camino se DERIVA del plan, no se teclea — y la nota tiene formas
+
+**Decidido:** las secciones de una nota declaran su FORMA (`display`: texto |
+cifra | reparto | camino) y el contrato la transporta tipada — aplanarla a
+texto fue la pérdida que Alex cazó («a veces haces un mock y luego no ponemos
+cosas que estaban en el mock»). El reparto guarda sus segmentos en tabla
+propia (`coach_communication_item_segments`), y los comunicados pueden
+enlazarse (`linked_communication_id`: la nota lleva al pie su pregunta).
+Migración 0163.
+
+**El camino (la espina que encantó a Alex) se deriva, no se teclea:** un item
+`camino` no tiene contenido — al servir la nota, el servidor resuelve la
+espina del plan REAL del atleta. Sus reglas, atadas a la 0064:
+- **Nodo = TRAMO de microciclo** (las semanas seguidas de un
+  `program_month_template` en `athlete_month_assignments`): el orden de los
+  microciclos ES la periodización; no existe entidad fase.
+- **La etiqueta del tramo es el NOMBRE del microciclo** — vocabulario del
+  coach, sin interpretar: si él lo llama «Descarga», se lee «Descarga».
+  **No hacer:** no emitir una bandera `descarga` deducida del nombre ni del
+  recuento de sesiones — sería cablear el método o inventarse un dato.
+- **Hitos solo demostrables:** simulación (`format = 'hyrox_sim'`) o test de
+  calibración asignado, con su fecha.
+- **Color por POSICIÓN del tramo** con paleta estable (añadir un tramo no
+  recolorea los previos). El día que un coach pueda nombrar y colorear sus
+  ciclos, la función de color lee esa columna (está señalado en el código).
+- Sin plan activo → `camino: null` y el cliente no lo pinta.
+
+**La espina es una pieza compartida** (`web/components/plan-espina/`):
+la consumen la previa del compositor y el doble coach-nota, y es la forma
+canónica de pintar un ciclo para las superficies de fases/ciclos que vienen
+(vista de ciclo del atleta, Periodización). **No hacer:** no volver a dibujar
+una espina local por pantalla.
+
+---
+
+## 2026-08-09 · El payload de un aviso se guarda como OBJETO, no como cadena
+
+**Decidido:** todo `notifications.payload_json` se escribe con `sql.json(objeto)`.
+Nunca con `${JSON.stringify(objeto)}::jsonb`.
+
+**Por qué:** con la segunda forma postgres.js tipa el parámetro como jsonb por el
+cast y vuelve a serializar la cadena, así que la columna acaba guardando un jsonb
+de **tipo string** (`"{\"kind\":…}"`). Consecuencia: `payload_json->>'clave'`
+devuelve **NULL siempre**. Se descubrió construyendo el comunicado (el aviso se
+escribía bien pero no se podía consultar por su `communication_id`) y dejaba
+muertos dos anti-spam reales: `lib/citas/reviews.ts` reproponía la misma revisión
+1:1 indefinidamente (su propio test estaba en rojo) y el de
+`lib/notifications/triggers.ts` no deduplicaba el aviso de check-in saltado.
+Además la bandeja del dashboard (`lib/dashboard/notifications/inbox.ts`) tipa
+`payload_json` como objeto y recibía una cadena. Es la misma trampa ya anotada
+para los adjuntos del chat.
+
+**Hecho:** corregidos el embudo (`lib/notifications/dispatch.ts`, por donde pasa
+todo aviso con push) y `lib/citas/reviews.ts`. Test de regresión en
+`web/tests/notifications/payload-shape.db.test.ts`.
+
+**Hecho también (mismo día):** los siete sitios restantes con la misma trampa
+sobre `notifications.payload_json` — `lib/coach/intake.ts`,
+`lib/coach/mass-adjustments.ts`, `lib/partner/cascade.ts`,
+`lib/dashboard/coach/doubles-pairs.ts`,
+`lib/dashboard/coach/monthly-block-proposal.ts`,
+`lib/athlete/account-deletion.ts`, `lib/stripe/notifications.ts`. Las filas
+ANTIGUAS siguen guardadas como cadena: ningún lector las recuperaba ya, así que
+no hay backfill que hacer.
+
+**Pendiente (auditoría aparte, lectores propios):** las DEMÁS columnas jsonb
+escritas con `JSON.stringify(...)::jsonb` fuera de `notifications` —
+`intake_notes_json` (lib/coach/intake.ts), `audit_log.diff_json` y las columnas
+propias de `coach_mass_adjustments` (scope/payload/targets/prior). Ahí el
+lector puede estar contando con la forma doblada: hay que verificar lectura y
+escritura JUNTAS antes de tocar, o se repite el bug de los adjuntos al revés.
+
+---
+
+## 2026-08-09 · El bisel dibuja la ESTRUCTURA, y la fase manda sobre el rol
+
+**Decidido (1) — el aro del reloj es la parte entera que se corre, no la cuenta
+de series.** Un arco por tramo, en orden, con dos ejes y ninguna excepción: el
+**hue** dice QUÉ ES el tramo (trabajo naranja, recuperación gris) y el **brillo**
+dice DÓNDE ESTÁS (hecho / en curso / por venir). Hasta hoy el aro contaba sólo
+las piernas de trabajo y, al entrar la recuperación, se cambiaba por un aro que
+drena: la mitad del entreno no existía en el bisel y la referencia de por dónde
+ibas desaparecía justo en el tramo en el que hay tiempo para mirarla.
+
+**El ancho de cada arco, por orden de evidencia** (`FormaDelAro.pesos`): si se
+saben los segundos de TODOS los tramos —escritos, o los metros a un ritmo
+escrito, incluida la banda que el servidor ya resolvió contra el benchmark del
+atleta— pesa por segundos; si no, y todos van por distancia, pesa por metros; si
+no, todos pesan igual. **NO hacer:** inventar un ritmo para poder estimar. Un
+arco promete «esto es esta parte de lo que queda» y estimarlo con un número que
+nadie escribió es la pantalla que se inventa los datos.
+
+**Por FASE y no por bloque:** un calentamiento de 10' junto a cinco de 800 m es
+una sola cosa en marcha pegada a una estructura; mezclarlos en el mismo aro se
+come la resolución de la serie, que es lo que de verdad se mira corriendo. Una
+fase de un solo tramo no es una estructura: ahí sigue mandando el aro continuo.
+
+**Una sola regla de reparto para las dos vías:** el móvil manda la forma por el
+cable (`MirrorTramo.forma`) calculada con la MISMA función que usa el reloj en
+solitario. Dos vías que dibujan el mismo entreno no pueden tener dos reglas.
+
+**Decidido (2) — la FASE manda sobre el ROL también al contar series.** Un
+calentamiento es una pierna de trabajo, así que contando por rol un «10' + 5×800»
+anunciaba «Serie 1 / 6» mientras el atleta trotaba para entrar en calor.
+`RunLegDisplay.serie` cuenta sólo la parte principal, y cada parte se llama por
+su nombre («Calentamiento», «Vuelta a la calma») en vez de fingir un número. Es
+la misma regla que ya gobernaba el constructor (`tramosDelEntreno()`): cuando un
+fallo aparece dos veces en dos sitios, lo que está mal es la regla, no el sitio.
+
+**Alcance, dicho explícito:** fuerza, ergo y el reloj de pared siguen con el aro
+segmentado por repeticiones — ahí los trozos SÍ son iguales y el «off» es un
+descanso que no se ejecuta, no un tramo con su zona y sus metros.
+
+---
+
+## 2026-08-09 · El constructor de correr habla la gramática, y el color es un dato
+
+**Decidido (1) — un entreno de correr se MONTA, no se rellena.** El constructor
+libre pasa de un formulario de bout («N × la misma dosis + descanso parado») a
+la gramática que el motor ya ejecutaba: `FreeRunPlan` = calentamiento? · lista
+de bloques (cada uno con su «repetir ×N» y sus tramos) · vuelta a la calma?, y
+cada tramo con rol × medida × objetivo × modo de recuperación × cuesta.
+
+**Por qué la lista de BLOQUES y no un solo grupo:** con un grupo entran la
+serie, el fartlek, la pirámide y el progresivo, pero no «60' suave + 6×30"
+fuerte», que son dos cosas distintas en el mismo entreno. Es exactamente la
+profundidad 2 que la gramática permite, sin pedirle al atleta que maneje un
+árbol.
+
+**Correr no pasa por el paso «Formato»:** su esquema (rodaje o serie) lo deduce
+el plan. Elegir antes una etiqueta que el plan puede desmentir es una pregunta
+sin respuesta correcta.
+
+**En consecuencia, NO hacer:** no preguntar por el rol para saber qué es el
+entreno — un calentamiento también «se corre» y contarlo como trabajo hacía que
+la card de un 4×1000 a Z4 anunciara «10 min · Z2», y dejaba empezar un plan que
+era sólo calentamiento. La FASE manda (`tramosDelEntreno()`).
+
+**Decidido (2) — la zona es un sujeto, y el color un dato.** Se añade el
+mecanismo que faltaba para poder pintarlo: DÓNDE de tu banda estás
+(`hrZonePosition` / `HRZoneProfile.posicion`), 0…1 más la zona hacia la que
+subes. «Z3» a 152 y a 159 dice lo mismo y uno de los dos está a un latido de Z4.
+El lienzo de la muñeca se llena del hue de tu zona hasta esa fracción y su borde
+deriva hacia el de la siguiente.
+
+**Es MECANISMO, no método:** las bandas las pone el coach y esto sólo dice en
+qué punto de la suya está el atleta; cambiarlas no toca una línea. Y la regla de
+honestidad no se toca: sin ancla de FC no hay zona, y sin zona no hay página ni
+color. En la última zona el degradado se queda en su propio color en vez de
+prometer una sexta.
+
+---
+
+## 2026-08-09 · Correr: una sola gramática de tramos, y la recuperación se MIDE
+
+**Decidido (1) — el esquema no decide nada; la modalidad sí.** Una prescripción
+de CORRER que describe más de un tramo se despliega a piernas
+(`RunPiernasDerivadas.swift`, antes `RunSeriesDeSets.swift`), la haya escrito la
+gramática nativa (`structure`), la tabla de `sets` del coach, o las rondas de
+`intervals` del constructor libre. Hasta hoy la tercera no producía tramos y
+caía al motor rotativo binario trabajo/descanso, que no tiene cursor: el mismo
+entreno se ejecutaba de dos maneras según quién lo hubiera escrito.
+
+**Dónde se para, y por qué ahí:** sólo `sets` (tabla de ≥2 filas) e `intervals`
+(`rounds > 1` con UNA dosis). El EMOM lo gobierna su minuto y la tabata su
+20/10 — los dos tienen motor propio y traducirlos los mataría, porque
+`onEnterSegment` da precedencia al cursor de tramos. `rounds` (presentación
+fija) tampoco: ahí la lista son ESTACIONES —la ruta de un HYROX sim, un
+chipper— y no repeticiones de un mismo tramo.
+
+**Decidido (2) — una recuperación de correr no es un descanso.** Sólo
+`recoveryMode == .parado` para de verdad (`RunLeg.recuperaEnMovimiento`).
+Cuando el modo NO SE SABE —que es lo que llega hoy de las dos fuentes
+derivadas, porque ninguna lo escribe todavía— se MIDE lo que pase en vez de
+suponerlo: el crono del tramo sigue corriendo (`WorkoutSession.tramoMide`), el
+GPS sigue sumando y la muñeca pinta el ritmo del trote. Si el atleta se queda
+quieto, el GPS dice cero y no se pinta ningún ritmo — no se afirma nada falso.
+
+**Por qué NO el default contrario:** dar por hecho «parado» también es una
+suposición, y encima es la que tira dato real. El diseño viejo la tenía
+cableada («de pie, jadeando y mirando el reloj», `GuionSeries`): congelaba el
+cronómetro del tramo y dejaba de pintar metros durante el trote de vuelta, que
+en una serie de calle es la mitad del volumen de carrera y lo que distingue una
+serie bien hecha de una mal hecha. Medir no inventa; suponer, sí.
+
+**En consecuencia, NO hacer:** no repartir pantallas de correr por
+`presentation` (el reparto por formato mandaba las series libres al RELOJ DE
+PARED, el guion de burpees y planchas, sin metros ni ritmo y en modo ciego);
+corriendo manda lo que el reloj MIDE. Y no volver a poner los metros en cubos
+gruesos en el espejo: el emisor ya está capado a una trama por segundo, así que
+el cubo de 10 m no ahorraba nada y a ritmo de carrera clavaba el numeral tres
+segundos antes de pegar un salto de diez.
+
+---
+
+## 2026-08-10 · Las fases de un plan personal son TRAMOS ENCADENADOS, no etiquetas por semana
+
+**Se descartó trabajo terminado, y la culpa es de la premisa.** Se encargó «que el
+coach pueda colocar fases a lo largo de un plan personal» afirmando en el encargo
+que `methodology_phases` (0052) y `program_week_templates.phase_id` (0063) seguían
+vivos. **No lo estaban:** la migración **0064** borró el catálogo entero y todos
+los `phase_id`, un paso después de que la 0063 los creara. El encargo se escribió
+leyendo ficheros de migración sueltos en vez de este registro, que es justo lo que
+`CLAUDE.md` obliga a leer antes de rediseñar dominio.
+
+El agente lo verificó contra el repo, avisó de que la premisa era falsa, construyó
+una alternativa (tres columnas planas `phase_label`/`phase_tone`/`phase_is_deload`
+en `program_week_templates`, sin tabla catálogo) y **dejó su migración 0167 SIN
+aplicar** pidiendo que se leyera el razonamiento antes. Hizo lo correcto en las
+tres cosas.
+
+**Decidido: se descarta.** No por su calidad, sino porque la decisión de julio ya
+respondía a la pregunta, y con un modelo más simple:
+
+> Una fase **es** un tramo. Un tramo es un microciclo con el **nombre que le pone
+> el coach**, su duración, y su **posición en la cadena**.
+
+Eso ya está construido y vivo: `shared/domain/plan-path.ts` dibuja la espina y
+`web/lib/plan/camino.ts` encadena los tramos por `athlete_month_assignments`. Un
+plan de 14 semanas con Base / descarga / Build / descarga / Pico / Taper **no es
+un plan con seis etiquetas dentro: son seis tramos encadenados**.
+
+Y encaja con lo de esta misma mañana: la restricción `EXCLUDE` de la 0166 (dos
+planes de un atleta no pueden solaparse en fechas) es exactamente lo que garantiza
+que una cadena de tramos sea una cadena limpia.
+
+**Lo que falta de verdad, y es mucho menos:** hoy personalizar crea UN tramo de N
+semanas. Falta poder **encadenar varios tramos personales** al mismo atleta y
+verlos en la espina que ya existe.
+
+**En consecuencia, NO hacer:** no reintroducir fases como atributo de la semana ni
+del mes, con ningún nombre ni forma —columna plana incluida—; y no volver a
+escribir un encargo de dominio sin leer ESTE fichero primero. La rama descartada
+es `worktree-agent-a5d58e9d1fd1ff9b7` por si alguien quiere ver el compositor.
+
+---
+
+## 2026-08-09 · La biblioteca no está a medias por el lector — está a medias en origen
+
+**Decidido tras medirlo, y en contra de la hipótesis con la que empecé.** Los 56
+bloques que un coach real no puede prescribir parecían un fallo de la gramática
+de importación. Medido en seco sobre sus 54 bloques con prosa y sin tipar, el
+reparto es otro:
+
+  · **12** entran con el lector de hoy (6 de movilidad + 6 que cerró la
+    gramática de estructura del metcon)
+  · **22** están **incompletos EN ORIGEN**: el coach nombró el movimiento y no
+    escribió cuánto («WOD For Time 4r: KB overhead lunge + thrusters + clean +
+    TTB – TC12'» no dice cuántos thrusters)
+  · **20** son límite real del lector, cada uno con su motivo verificado
+
+**La consecuencia:** los 22 no los recupera ninguna gramática, ni la mejor. No
+hay dosis que leer. Seguir metiendo lectores para ese 41% es trabajo tirado.
+
+**Lo que sí lo resuelve, y es de producto, no de parser:** que completar un
+bloque a medias cueste minutos y no una tarde, y que un bloque nuevo no pueda
+nacer sin dosis. La Biblioteca ya distingue honestamente los tres estados («sin
+tipar» / «sin dosis» / listo) y ya dice «N líneas sin dosis · ábrelo para
+completarlas» — el hueco es que completarlas sigue siendo abrir 22 bloques a
+mano, uno a uno.
+
+**NO hacer:** inventar la dosis que falta, ni por defecto ni por IA «razonable».
+Un peso o unas repeticiones que el coach no escribió son un entreno que él no
+prescribió. El contrato del importador (FIEL O REVISIÓN) vale igual aquí.
+
+**Cómo se encontró:** usando la app como coach, no leyendo código. Y el número
+hubo que reconciliarlo dos veces — mi primer arnés parseaba título+descripción y
+el título es una TRUNCACIÓN de la descripción, así que penalizaba a bloques que
+sí entran. El del agente era el correcto.
+
+---
+
+## 2026-08-09 · El lector solo alcanzaba una esquina del modelo — y el rango mentía
+
+**Cómo se encontró (y por qué importa el método).** Tras horas afinando la
+gramática contra un plan concreto, Alex preguntó «¿esa tabla es un ejemplo o es
+todo?». Barrer `shared/domain/prescription/types.ts` COMO ESPECIFICACIÓN —los 11
+objetivos y las 5 medidas que el modelo declara, uno por uno, aunque nadie los
+hubiera mencionado— destapó que la gramática alcanzaba **4 objetivos y 2
+medidas**. Ningún ejemplo que teníamos delante lo enseñaba. La regla que sale de
+aquí: el inventario de casos lo da el modelo, jamás el ejemplo.
+
+**Lo que faltaba, y era medio deporte.** RITMO no entraba en ninguno de sus tres
+formatos. `/km` son los 8 km de una carrera HYROX; `/500m` son remo y ski, dos de
+las ocho estaciones. Un coach de resistencia no podía escribir una sola línea de
+su método. Tampoco entraban pulso, vatios, calorías (ni como objetivo ni como
+medida), tiempo como medida, peso corporal ni tope de tiempo.
+
+**Lo que MENTÍA, que era peor.** El lector de secuencias de repeticiones no tenía
+conciencia de unidad, así que cazaba cualquier rango como reps sueltas: «45 min
+entre 130-150 ppm» salía **verde** como dos series de 130 y 150 reps, y «Peso
+muerto 4x6 @150-170 kg» salía verde como dos series de 150 y 170 reps **con el
+4x6 desaparecido**. El saneo de raíz: todo lector de rango se retira del texto
+ANTES de que el de repeticiones lo vea — el mismo patrón que el fichero ya usaba
+para los porcentajes, aplicado donde faltaba.
+
+**Decidido — el rango es ciudadano de primera.** Un coach que prescribe
+`4x12-15 @70-75%` y otro que prescribe `4x12 @72%` están los dos escribiendo
+bien; la banda es una decisión metodológica (autorregulación), no una
+imprecisión. Aplanarla al extremo duro es prescribir otro entreno. **NO hacer:**
+guardar solo un extremo «porque el modelo ya tiene el suelo».
+
+**Decidido — `%FCmax` se reconoce pero NO se deriva.** No es miembro del enum de
+objetivos: el modelo tiene `hr_bpm` (absoluto) y `hr_zone` (índice). Convertir un
+72% a pulsaciones exige la FCmáx **medida** del atleta, y eso es resolución contra
+sus marcas, no gramática. Va a revisión con razón honesta. **NO hacer:** tipar
+con la fórmula 220−edad.
+
+**Decidido — `dose.ts` se parte por responsabilidad.** Estaba en 550 líneas, por
+encima del techo de 500, antes de esta tanda. Ahora `target.ts` (los 11
+objetivos) y `measure.ts` (las 5 medidas), con el traslado puro en un commit
+separado del de comportamiento para que el diff sea auditable contra los 138
+tests de fidelidad.
+
+**Tests de contrato superados, no borrados.** Dos casos de las clases 11 y 15
+fijaban `review` para «6x90 seg strides» explicando en su propio comentario que
+«the grammar has no word-interval reader yet». Codificaban la limitación, no el
+contrato: ahora tipa, y la garantía que sí protegían —que el «6x» no se pierda
+silenciosamente— se mantiene verificada. La supersesión está escrita en el test.
+
+**Sin cerrar:** la banda de kg sobre medida de DISTANCIA
+(`Sled Push 5x25 m @150-170 kg`) va a revisión. Es el guardia de residuo
+funcionando: antes salía verde con 170. Honesto, pero pendiente.
+
+---
+
+## 2026-08-09 · La gramática hablaba UN dialecto — y «verde» tenía que dejar de ser gratis
+
+**El hallazgo.** Alex trajo su propio plan de 95 días y preguntó qué pasaría al
+importarlo. Medido, no estimado: de 25 líneas reales, **4 entraban limpias**. Lo
+grave no eran los fallos sino los aciertos a medias — la misma serie con el
+descanso escrito de siete formas estándar, y sólo `c/2'30"` (la notación de un
+coach concreto) lo capturaba; `rec 150s` y `(rec 2:30)` salían **verdes tirando
+el descanso**, y `, rec 2:30` tumbaba la línea por culpa de una coma. Un
+descanso no es adorno: separa un 6×800 de VO2max de uno de umbral.
+
+**Por qué importa más allá del caso:** es la HARD RULE Nº0 filtrándose al
+parser. La gramática daba por hecho que todo el mundo escribe como el coach
+contra el que se escribió. Con miles de coaches, cada uno trae su dialecto.
+
+**Decidido (1) — el disparador de la IA estaba mal puesto.** Escalaba cuando la
+gramática FALLABA; ahora escala cuando la gramática **puede haber perdido
+algo**. Si al terminar de tipar queda un número sin consumir (un `@160 kg`, un
+`rec 2:30`), la línea no puede salir `detected`. Antes, una línea verde-con-
+pérdida ni siquiera llegaba al modelo de segunda pasada que podría haberla
+rescatado — la gramática ya había cantado victoria. Idea de Alex, y es la buena.
+
+**Decidido (2) — un objetivo por REFERENCIA cuenta como pérdida.** El guardia
+anterior compara números y «a split de carrera» no lleva ninguno, así que
+`SkiErg 3x1000 m a split de carrera` salía verde como «3×1000 m» a secas: el
+coach escribía el ritmo, el atleta recibía metros pelados. Estas frases
+(«@race pace», «a umbral», «a peso de carrera», «all-out») son objetivos
+DERIVADOS del test del atleta o de su división; hasta que se resuelvan de
+verdad, lo honesto es revisar. **NO hacer:** un detector genérico de prosa —
+ancla en la preposición («a split de»), nunca en la palabra suelta, o
+«Bulgarian split squat» deja de tipar.
+
+**Decidido (3) — dos formas nuevas en el modelo de prescripción, aditivas:**
+`Target.kg.implement_count` (un farmers 2×32 son DOS implementos de 32; guardar
+64 es mentira y guardar 32 a secas pierde información) y
+`Measure.kind:'reps_to_failure'` (medida al fallo, sin campos: «4× máx»,
+«máximo unbroken»). Las líneas de trineo/sandbag/farmers tipan con
+`modality:'functional'`, no `'strength'`, porque `completeness.ts` exige medida
+reps/duration para fuerza y éstas van por distancia o tiempo.
+
+**Resultado medido:** 4 → **14 líneas limpias de 25**, y **cero pérdidas
+silenciosas**: las 11 restantes son revisión honesta con el texto intacto.
+
+**Deuda consciente:** `shared/domain/import/dose.ts` queda en 550 líneas (ya
+estaba en 513 antes, por encima del techo de 500). Partirlo es un refactor
+cross-cutting propio, no se hizo aquí. Y en iOS `reps_to_failure` decodifica a
+`.unknown` sin crashear pero el renderer lo salta, e `implement_count` se
+descarta — pendiente de pintarlos.
+
+---
+
+## 2026-08-09 · Las 8 estaciones HYROX tienen una fuente única — `shared/domain/hyrox/stations.ts`
+
+**Decidido:** las distancias/repeticiones oficiales de las 8 estaciones vivían
+retipeadas a mano en `test-catalog.ts` (familia `estaciones`), que además las
+volvía a citar en su propio comentario de cabecera. Ahora hay un único dueño:
+orden 1-8, el slug real de `exercises` (verificado contra el
+`STATION_CATALOGUE` de `station-detail.ts`), la medida canónica de carrera, y
+la carga por (división, género) — reusando `RaceDivision`/`RaceGender`
+(`shared/schema/races.ts`) en vez de inventar un enum paralelo. Fuente:
+`plan-95d-hyrox-singles-pro.md` §0 (pace-club.com + hycrew.com), rulebook
+26/27, solo HOMBRES Open/Pro — toda celda sin fuente (mujeres, elite,
+doubles/relay, grupos de edad) devuelve `null`, nunca el número de hombres.
+La carga no se aplana a un escalar: `single` (un implemento), `per_implement`
+(farmers carry: 2×24 kg, nunca "48 kg"), `sled` (masa total empujada/
+arrastrada), `damper` (ajuste de máquina, no una masa — y no varía por
+género porque la fuente no lo separa, no porque se asuma que sí).
+
+**En consecuencia, no hacer:** no volver a escribir un número de estación
+HYROX suelto en otro fichero — importar de `shared/domain/hyrox/stations.ts`.
+No rellenar una celda sin fuente citada (ver el TODO en la cabecera del
+fichero: pesos femeninos, división elite, doubles/relay, grupos de edad,
+altura del target de wall ball por género).
+
+**Encontrado de paso, NO tocado en este corte (fuera de lo pedido):**
+`web/lib/dashboard/v2/hyrox-template.ts` (plantilla de simulación) y
+`web/lib/templates/station-defaults.ts` (prefill del editor de bloques)
+tienen cada uno su PROPIA copia independiente de estas mismas distancias/
+cargas. `hyrox-template.ts` coincide con los números de aquí; `station-
+defaults.ts` ya había derivado — una sola carga por estación sin partir
+Open/Pro, y su wall ball de 9 kg es en realidad el valor PRO puesto donde se
+espera un default Open. Ninguno de los dos se tocó; wirearlos a esta fuente
+es follow-up, no incluido en este corte.
+
+**Dónde vive:** `shared/domain/hyrox/stations.ts` (nuevo).
+`shared/domain/coach/test-catalog.ts` lo consume vía `estacionMetros`/
+`estacionReps` (mismos valores de antes, ahora con un solo origen). Tests:
+`web/tests/hyrox/stations.test.ts`.
+
+## 2026-08-08 · Circuito llega a la ruta Biblioteca/tests — `template_blocks`
+
+**Decidido:** la decisión de Circuito (7-ago, siguiente entrada) dejó a propósito
+sin auditar la ruta Biblioteca/tests (`template_segments`, distinta de
+`slots_json`). Auditada: 20 bloques circuito reales del coach + 10 ya
+materializados por atleta, con `rounds` metido en el título del bloque por
+falta de columna ("A · Sled (6 rounds)") — el mismo síntoma. Se extiende el
+mismo tipo `CircuitConfig` (`shared/schema/program-templates.ts`) a esta ruta
+vía una tabla hija normalizada, `template_blocks` (migración 0159): una fila
+por `(template_id, block_position)` con `rounds`/`pacing`/descansos separados
+entre estaciones y entre rondas — nunca duplicado por fila como hacía
+`block_title`/`block_format` en `template_segments`.
+
+**Por qué esto y no un backfill:** parsear `rounds` del título es extraer un
+hecho que el coach ya escribió; `pacing` no está escrito en ningún sitio —
+inventarlo con un default, aunque parezca razonable ("por_tarea", el caso
+HYROX típico), rompe la regla "no se sabe es un valor de primera clase"
+(28-jul). Los 30 grupos reales se quedan sin fila (= sin config de circuito,
+comportamiento legacy intacto) hasta que el coach los complete desde el editor.
+
+**Cómo llega al atleta:** `assignment-detail.ts` (`loadAssignmentDetail`)
+consulta `template_blocks` junto a los segmentos y `buildBlocks` sirve la
+config real en `AssignmentDetailBlock.config_json` (antes: literalmente `{}`
+siempre — comentario explícito de que "el studio aún no lo persiste"). Un
+bloque circuito tiene por definición >1 segmento, así que nunca puede caer en
+la fusión de fragmentos de un-solo-segmento que colapsa bloques — el
+`block_position` que llega a `config_json` es siempre el autorado original.
+
+**En consecuencia, no hacer:** no fusionar esto con el `weekDayPartConfigSchema`
+genérico (EMOM/Tabata/intervalos) — Circuito es un tipo cerrado y objetivamente
+correcto aparte, no otro cajón del blob. No asumir que `template_blocks` cubre
+ya el editor de día ni el motor en vivo — son piezas separadas de este mismo
+corte, en curso (ver FOCUS.md).
+
+**Dónde vive:** `shared/schema/program-templates.ts` (`circuitConfigSchema`,
+`circuitPacingSchema`), `infra/migrations/0159_template_blocks.sql`,
+`web/lib/athlete/assignment-detail.ts` (`AssignmentDetailCircuitBlock`,
+`circuitToConfigJson`, `buildBlocks`).
+
+---
+
+## 2026-08-08 · El motor FIXED no tiene fase de descanso — el cursor por estación queda aparte
+
+**Decidido:** `conditioningFold` (`WorkoutModels.swift`) ya consume `pacing`/los
+dos descansos/el target de cabecera del bloque Circuito (ver entrada de arriba
+para el modelo). La generalización del **cursor por estación** a un circuito
+real con rondas (`fixedListIsStations`/`Cursor.fixedStation`, `LiveTramo.swift`)
+se investigó a fondo y se dejó **fuera, a propósito** — no es un ajuste de 3
+líneas.
+
+**Por qué:** dos hallazgos cambian el alcance real:
+1. `StrikeList`, `ForTimeContextStrip` y `StationSubject`
+   (`WorkoutFormatHUDs.swift`) asumen una lista PLANA de un solo paso —
+   `StrikeList.rows` pinta exactamente M filas (las estaciones) sin repetición
+   por ronda, y cada "de N" lee un total único. Sin reescribir esas tres piezas,
+   un circuito de N rondas × M estaciones mostraría solo M filas y el total
+   equivocado.
+2. El motor `.fixed` (`tickFixed`/`markRoundDone`) **no tiene NINGÚN estado de
+   fase de descanso hoy** — las estaciones avanzan sin pausa. Solo el motor
+   `.rotating` (Tabata/Intervals/EMOM, `rotPhase`/`rotPhaseRemaining`) lo tiene.
+   Aplicar los dos descansos del Circuito en vivo pide una máquina de estados
+   nueva en el motor FIXED, no una extensión de 3 líneas.
+
+**En consecuencia:** un bloque circuito con rondas hoy sigue cerrando las N
+estaciones de una ronda con un solo tap (`closeConditioningAndAdvance()`) — más
+literal de lo que la entrada anterior asumía ("ronda hecha cierra las N
+estaciones de golpe" es, de hecho, exactamente lo que hace ahora mismo, no una
+aproximación). Sin regresión: es el comportamiento de siempre, nada lo empeora.
+
+**No hacer:** no intentar colar el cursor por estación como una extensión
+menor de esto. Es una pieza propia — máquina de fases nueva en el motor FIXED +
+reescribir las tres piezas de HUD — y por la regla de prioridad UX del
+proyecto, necesita su propio pase de diseño antes de tocar código (cómo se ve
+"ronda 2 de 4, estación 3 de 3", el HUD de descanso entre rondas).
+
+**Dónde vive:** `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`),
+`ios/FAHYBRIKCore/Plan/Prescription.swift` (`restBetweenRoundsS`),
+`ios/FAHYBRIK/Devices/Treadmill/RunTargetResolver.swift` (el consumidor real
+del target huérfano), `ios/FAHYBRIKTests/Workout/ConditioningFoldTests.swift`.
+Lo pendiente vive en `ios/FAHYBRIKCore/Workout/LiveTramo.swift` y
+`WorkoutFormatHUDs.swift` — sin tocar.
+
+---
+
+## 2026-08-07 · Asignar una semana deja de ser una copia de un solo instante
+
+**Decidido:** un microciclo ya asignado a un atleta ahora sabe de qué `program_week_templates` se materializó (`microcycles.source_week_template_id`, migración 0158), y guardar un día en el editor **resincroniza automáticamente** los microciclos con ese linaje: cada asignación todavía `'scheduled'` recibe el contenido fresco; cualquier otra (`'completed'`/`'partial'`/`'skipped'`/`'missed'`) se deja intacta siempre, porque el atleta ya actuó sobre ella.
+
+**Por qué:** verificado contra producción — Alex escribió una nota de coach para un ejercicio (Puente de glúteo) ya asignado a un atleta; la nota se guardó perfecto en la plantilla y **nunca llegó**, ni siquiera tras una re-materialización posterior no relacionada con su edición. La causa: `instantiateWeekIntoMicrocycle` copia la plantilla una vez y no deja ningún rastro de origen — no había forma de saber a qué microciclos avisar cuando la plantilla cambia. Es el comportamiento estándar de cualquier plataforma de coaching seria (TrainingPeaks, TrueCoach): editar un entreno no empezado se ve reflejado sin un paso de "republicar" aparte.
+
+**Cómo:** `insertSlotAssignment` pasó de decidir por existencia («¿ya hay fila? no la toco») a decidir por `status` («¿sigue 'scheduled'? la reemplazo»); es la misma guarda que ya usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts) para no pisar una decisión que el atleta ya tomó. `resyncWeekTemplateAssignments` reusa el mismo motor de materialización, best-effort por microciclo.
+
+**En consecuencia, no hacer:** no asumir que "ya está asignado" significa "protegido de ediciones futuras" en ningún flujo nuevo que toque `workout_assignments` — el resync corre automáticamente en cada guardado del día. No añadir un segundo mecanismo de "publicar/republicar" manual: el editor ya resincroniza solo.
+
+**Fuera de alcance a propósito:** si el coach BORRA una sesión entera del día después de asignarla, la asignación ya materializada no se borra sola (podría destruir historial visible al atleta) — queda huérfana. No es el caso que motivó esto; se documenta para que no sorprenda.
+
+**Dónde vive:** `infra/migrations/0158_microcycle_source_lineage.sql`, `web/lib/dashboard/coach/instantiate-program.ts` (`resolveOrCreateMicrocycle`, `insertSlotAssignment`, `resyncWeekTemplateAssignments`), `web/app/api/coach/program-weeks/[id]/day/route.ts`.
+
+---
+
+## 2026-08-07 · «Circuito» pasa a ser un tipo de bloque real — deja de ser N líneas sueltas que copian los mismos números
+
+**Decidido:** un bloque de rondas con varias estaciones (el patrón HYROX/hybrid de "N rondas de M estaciones") deja de representarse como una lista plana de items que comparten `rounds`/`work_s`/`rest_s` copiados por convención de UI. Pasa a ser un tipo a nivel de BLOQUE: `rounds` (único), `pacing` (`por_tarea` — la ronda dura lo que tarde el atleta, sin reloj — o `por_reloj` con su `work_s`, un tope duro por estación) y descansos entre rondas / entre estaciones por separado. Las estaciones se quedan solo con su ejercicio y su objetivo, sin duplicar nada de bloque.
+
+**Por qué:** auditado con 3 agentes en paralelo (iOS+watch, editor web, datos reales en Neon) antes de tocar nada. Los 22 bloques `circuit` multi-estación reales en producción son en verdad **3 patrones distintos bajo la misma etiqueta**: circuito por tarea (Sled Push+Lunge+Wallballs, 4 rounds, sin reloj — el caso HYROX real), circuito por reloj (Power Clean+Box Jump, 5 rounds, ventana 120s cada estación — EMOM con varios movimientos), y superserie mal etiquetada (Pull-up+Dip sin rounds ni reloj — ya existe el arquetipo correcto, solo hay que corregir la etiqueta). El mecanismo de "copiar por convención" (`applyHead` en `ComponentsForm.tsx`) ya se demostró roto en producción: **2 de los 22 grupos tienen el campo en una estación y no en la otra** — no son casos hipotéticos, son filas reales.
+
+Esto es también la causa raíz de dos síntomas que Alex reportó por separado: el ritmo fantasma "3:45/km" en el atleta (un `target` de cabecera huérfano que sobrevive porque no hay dueño de bloque que lo limpie) y la confusión de "ventana trabajo" (hoy se pide siempre, aunque el formato no tenga reloj — con `pacing` solo se pide cuando aplica, y nunca se calcula solo desde el ritmo estimado, porque eso convertiría un tope real del coach en una suposición).
+
+En el motor en vivo y en el reloj, el cursor por estación que YA EXISTE (`LiveTramo.Cursor.fixedStation`) estaba artificialmente restringido a la única pasada sin `rounds` (chipper/HYROX-sim). Se vuelve universal para cualquier bloque con `pacing`: el atleta siempre sabe ronda Y estación, nunca solo la ronda — hoy "ronda hecha" cierra las N estaciones de golpe con un solo tap, sin cursor interno.
+
+**Naming:** NO se llama "Series" — ese nombre ya está ocupado en el dominio (`GuionSeries.swift`, `RunSeriesDeSets.swift`: repeticiones de carrera, 3×1000m). Se llama **Circuito**, que además coincide con el valor `circuit` que ya usa `block_format` en la DB.
+
+**En consecuencia, no hacer:** no reintroducir `config_json: {}` como blob libre sin tipar — ya existía tipado en `WeekDayPartConfig` y estaba muerto (el editor v2 nunca lo leía ni escribía, `assignment-detail.ts` lo emitía siempre vacío con un comentario explícito de que "el studio aún no lo persiste"). No copiar `rounds`/`work_s`/`rest_s` en cada item nuevo — ese era el bug. No routear una superserie sin rounds/reloj hacia el arquetipo Circuito.
+
+**Fuera de este corte, a propósito:** la ruta de sesiones-biblioteca (`template_segments`, la de "Screen 5" / instancias por-atleta, distinta del editor de día que usa `slots_json`) no tiene ningún sitio a nivel de bloque donde guardar esto — no hay `config_json` ahí, el agrupador de bloque son solo columnas de texto repetidas por fila. Se audita y decide aparte antes de tocar su esquema — no se improvisa una columna nueva sin ver antes cuánto contenido circuito real vive ahí.
+
+**Dónde vive:** `shared/schema/program-templates.ts` (`weekDayPartConfigSchema`/`editorBlockInputSchema`), `web/components/v2/editor/archetype-forms/ComponentsForm.tsx`, `web/lib/athlete/assignment-detail.ts`, `ios/FAHYBRIKCore/Workout/WorkoutModels.swift` (`conditioningFold`), `ios/FAHYBRIKCore/Workout/LiveTramo.swift` (`Cursor.fixedStation`).
+
+---
+
+## 2026-08-07 · La app no puede decir lo que un coach hace. Ni cuándo, ni cada cuánto
+
+**Decidido (Alex):** ninguna superficie del producto —copy de onboarding, estados vacíos, notificaciones— puede afirmar **qué hace un coach, cuándo lo hace o con qué cadencia**. Si la frase cambiaría según el coach, no puede estar cableada: o sale de un dato, o no se dice.
+
+**Por qué:** es la HARD RULE Nº0 aplicada al copy, que es por donde se estaba colando. `Day1Flow.swift` (en producción) le promete al atleta dos cosas que son *la metodología de un coach concreto*, no hechos del producto:
+
+- «**Tu coach te programará tus tests en la primera semana**» (+ el rótulo «SEMANA 1 · CALIBRACIÓN»). Un coach puede no usar tests, o ponerlos en la semana 4, o solo a quien vuelve de lesión.
+- «**Cada domingo tienes tu plan listo en la app**». Eso es una cadencia semanal con día fijo. Otro coach publica por bloques, o mensual, o cuando le da la gana.
+
+Lo revelador es que el mismo fichero YA razonaba bien en otro punto — *«WHICH tests and HOW MANY are the coach's call (data-driven), so we don't invent a canned 4-test set here»* — y aun así afirmaba el CUÁNDO. La disciplina se aplicó al catálogo y no al calendario.
+
+**La prueba que decide, y es la misma que la de HARD RULE Nº0:** *«¿otro coach competente lo haría distinto?»* Si sí, es método → dato, o silencio. «Tu coach ve tus resultados al terminar» sí es del producto (es el mecanismo). «Cada domingo» no lo es.
+
+**En consecuencia, no hacer:** no escribir copy que fije días, cadencias, número de sesiones, ni la existencia de tests. No prometer al atleta un comportamiento del coach que el producto no puede garantizar — cuando no se cumple, el atleta culpa a su coach de algo que dijo la app. Y no confundir *mecanismo* («tu coach recibe tus resultados») con *método* («cada domingo»): lo primero se puede afirmar, lo segundo nunca.
+
+**Corolario — no mentir por omisión:** el estado vacío de iOS decía «Tu coach aún no ha publicado tu plan» a un atleta cuyo plan SÍ estaba publicado y solo empezaba más tarde (`PlanView.swift:499`, verificado contra las 9 semanas `published` del atleta 64). Un estado vacío tiene que distinguir *no hay nada* de *hay y empieza el lunes*, porque el atleta lee lo segundo como negligencia de su coach.
+
+---
+
+## 2026-08-07 · La biblioteca de bloques no tiene 3 bugs de importador — tiene un parser viejo
+
+**El encargo original** («fase 2») pedía arreglar 3 bugs concretos del importador cazados leyendo `block_exercises` en crudo: %RM leído como reps (block 16), km/h leído como metros (block 43), descanso guardado como trabajo (block 37).
+
+**Verificado ANTES de tocar código: los 3 no reproducen en la gramática de hoy.** Se corrieron los 3 verbatims reales por `parseNotationCell` (shared/domain/import) tal cual está en producción:
+- `"4r every 2': 3 power clean 65-75% + 5 high box jump"` → `confidence:'review'`, verbatim conservado en `note`. La gramática se niega a inventar el reparto EMOM multi-movimiento en vez de leer «65» como reps.
+- `"Threshold cinta: 4x2'30'' a 17km/h – 2' trote a 11km/h"` → `target:{kind:'pace', value_s:212}` (ritmo correcto, no metros).
+- `"12 rounds x 400m run – 1' rest"` → `rest_s:60` (correcto), nunca `work_s`.
+
+**Conclusión: `block_exercises` no se generó con esta gramática.** Es de UN SCRIPT DE UN SOLO USO anterior (`infra/scripts/retype_run/_erg/_strength/_core_mobility/_functional_blocks.ts`, `parse_blocks_lib/_structured.ts`), previo al contrato de honestidad actual (degradar a `review`, nunca inventar). Arreglar "3 bugs del parser" habría sido perseguir un fantasma — el parser de hoy ya está bien; lo que hay que reparar son los DATOS que quedaron atrás.
+
+**Dry-run contra las 99 filas reales de coach 60** (`infra/scripts/repair_block_exercises_grammar.ts`, solo lectura): re-parsear el verbatim (`blocks.description`, Model A, fuente de verdad) y comparar contra `block_exercises` da 4 bloques enteramente vacíos + 18 filas vacías en bloques mixtos (22 rellenos limpios y seguros), ~53 bloques donde el fresco DIFIERE del guardado (mayoría: el fresco es estrictamente más completo, no contradictorio — necesita un diff por CAMPO, no una comparación JSON entera) y ~29 que ni la gramática de hoy resuelve (WODs/EMOMs multi-movimiento densos, correctamente a `review`).
+
+**Por qué NO se aplicó nada esta sesión:** el primer intento de `--apply` reveló un fallo de clasificación real (`paramsHasContent()` contaba `{sets:4}` — un contador sin reps ni carga — como "contenido", lo que escondía filas genuinamente vacías dentro de bloques con alguna fila buena). Corregirlo bien, más sustituir el match de ejercicio por nombre exacto por el resolutor real (`resolveExercise()`, fuzzy, `web/lib/import/exercise-resolve.ts`) y construir un diff por campo (no por objeto entero) es más trabajo del que cabía en la sesión. Aplicar sobre la ÚNICA biblioteca real de producción con un heurístico que ya se demostró roto habría violado la regla de cero datos falsos en cuentas reales.
+
+**En consecuencia, no hacer:** no reabrir esto como "arreglar 3 bugs" — el marco correcto es "re-tipar la biblioteca con la gramática actual". No aplicar `repair_block_exercises_grammar.ts` sin antes: (1) diff por campo, no por objeto entero serializado; (2) `resolveExercise()` real en vez de match de nombre exacto; (3) decidir qué hacer con los ~53 bloques "difieren" caso a caso o con una regla más fina que "estrictamente más completo = aplicar".
+
+**Dónde vive:** `infra/scripts/repair_block_exercises_grammar.ts` (solo lectura, documentado, listo para retomar).
+
+---
+
+## 2026-08-06 · `plan-bloque` pasa a ser la pestaña Plan real — InicioView deja de duplicar «hoy»
+
+**Decidido:** el mockup `plan-bloque` (doble, `propuesta` desde el 29-jul: hoy en grande + carril de la semana + entrada al bloque) se construye en Swift y **sustituye el contenido de `PlanView`**. `InicioView` deja de pintar su propia versión de «qué toca hoy» — pierde `heroSection`, el `pmSession` de la segunda sesión y `hechoHoySection` — porque esa pregunta pasa a responderla el Plan, una sola vez. `InicioView` conserva lo que NO es plan: readiness, carril hacia la carrera, tendencias, entreno libre, panel de pareja, pasos.
+
+**Por qué:** auditado el código real (no el mockup) antes de tocar nada — `InicioView.swift` y `PlanView.swift` leen el MISMO `store.planWeek`, derivan el mismo `SessionMarkState` y navegan al MISMO destino (`WorkoutContainer`/`ExecutedWorkoutView`); son dos renderizados independientes de la misma pregunta, cada uno con su copy propio para «hoy no toca nada». Es la fricción exacta que motivó todo este hilo (el atleta ve el entreno sin el porqué, o el porqué sin el entreno).
+
+**Cuatro huecos que el mockup no cubre y sí el dominio real, resueltos antes de construir:**
+1. **Días con AM+PM (el caso «brick» que abrió este hilo).** El mockup solo modela `hoy.sesiones[0]`. El héroe sigue mostrando la primera sesión; una segunda sesión del mismo día se pinta como fila compacta debajo (el patrón que `InicioView.pmSession` ya validaba), no como un segundo héroe a toda altura.
+2. **`estructural` (calentamiento/principal/vuelta) en `ParteSesion` — corregido a media construcción contra el dato real.** La hipótesis inicial (añadir `group` de `weekDayPartSchema` de punta a punta) se descartó al comprobar `template_segments`: ese campo vive solo en el editor del coach (`shared/schema/program-templates.ts`), nunca se persiste — no hay columna `group` en ningún sitio, y `assignment-detail.ts` construye los bloques desde `template_segments`, no desde `weekDayPartSchema`. Añadirlo de verdad habría exigido migración + tocar el guardado del editor, para un dato que en producción casi no existe: **0 segmentos con `block_format='warmup'` y solo 8 con `'cooldown'`** (de 133 plantillas). El calentamiento/la vuelta a la calma reales viven como **prosa libre** en `templates.warmup`/`templates.cooldown` (66/70 de 133 plantillas la tienen) — y `assignment-detail.ts` los lee de la BD y **nunca los expone** en la respuesta (gap real, ajeno a este build, anotado y no arreglado aquí). **Solución real, sin schema nuevo:** `AssignmentDetailBlock.format` ya viaja en el wire — `estructural` se deriva en la UI de `format ∈ {warmup, cooldown}`. Con los datos de hoy rara vez pintará algo (que es honesto: no hay bloque estructural que atenuar en casi ninguna sesión), y queda listo el día que se tipen.
+3. **La sesión de hoy necesita su desglose real de bloques** (título, nº ejercicios, `estructural`, modalidad del primer ítem) para `ParteSesion` — el resumen de fila (`shortPrescription`, una frase) no basta. El Plan pasa a pedir `AssignmentDetail` de la sesión de hoy al cargar (solo hoy, no la semana entera, para no encarecer la carga).
+4. **El botón de pie «El bloque» necesita un destino real.** `plan-ciclo` (la pantalla que cuenta hacia dónde va el bloque) tampoco existe en Swift, pero el dato que necesita (`GET /api/athlete/macro-progress` → `macroProgress.weeks`) YA se pide y hoy no lo pinta nadie. Se construye una v1 real en el mismo lote — un botón que no lleva a ningún sitio es peor que no tener botón.
+
+**Fuera de alcance, a propósito:** `FreePlanView`/`FreeInicioView` (atleta sin coach) no se tocan — no tienen voz de coach ni concepto de bloque, así que la fusión no aplica igual.
+
+**Gobierna todo lo visual:** `docs/CONTRATO-UI.md` — componentes compartidos de `Theme/`, `Formato.*`/`Vocab.*` para cada cifra, los cuatro estados, las cuatro estrategias de altura del §6.1 (el héroe es `llena`, el descanso es `centra`).
+
+---
+
+## 2026-08-06 · La prioridad de fuentes de FC gobierna el NÚMERO, no solo la etiqueta — y el pulso tiene su propia procedencia
+
+**Decidido:** `WorkoutSession.injectLiveHR` (motor en vivo) ya tenía una jerarquía de prioridad entre fuentes de pulso simultáneas (correa BLE=3 > Apple Watch/HealthKit=2 > PM5=1, con ventana de silencio `hrSourceStaleSeconds`=10 s para el traspaso). El fallo real: esa jerarquía solo decidía la ETIQUETA de la tira de conexión — `liveHRBpm`, `lapHRSamples` (de donde salen `avg_hr`/`max_hr`), el pico del tramo y la cola de HRR se alimentaban de CUALQUIER lectura, sin mirar quién era la dueña. Con dos fuentes activas a la vez (reloj + correa, o reloj + PM5 remando — ambos escenarios normales, no un edge case), `avg_hr` promediaba la unión de dos streams y un artefacto de la fuente más débil podía convertirse en el `max_hr` guardado del tramo. Ahora la decisión de ownership se toma ANTES de tocar ningún acumulador: solo la fuente dueña del instante alimenta el número y los cuatro agregados; una lectura de prioridad menor mientras la dueña sigue viva no entra a NADA (antes sí entraba a todo salvo a la etiqueta).
+
+**Y de forma aditiva:** `segment_executions` gana `hr_source` (migración **0153**, texto nullable, CHECK `strap|healthkit|pm5`) — de qué APARATO salió el pulso guardado, distinto de `source` (que describe el TRAMO: gps/pm5/treadmill/manual). `LapRecord.hrSource` / `SegmentExecutionDTO.hr_source` en Swift, `HR_SOURCES` en `shared/schema/workouts.ts` (mismo patrón que `REPS_STATUSES`/`RX_SCALED_VALUES`, no se reutiliza `biometricSource` porque es un vocabulario de marca/aparato a nivel de EJECUCIÓN entera, una pregunta distinta).
+
+**En consecuencia, no hacer:** no volver a separar "quién tiene la etiqueta" de "quién alimenta el dato" en ningún stream concurrente del motor en vivo — son la MISMA decisión de ownership, tomada una vez, antes de tocar cualquier acumulador. Y no confundir `source` (procedencia del tramo) con `hr_source` (procedencia del pulso): un tramo de cinta puede tener su única FC medida por el Watch.
+
+**Aplicada el mismo 6-ago, y en el orden que importa:** la migración 0153 fue a producción ANTES de integrar el código, porque el INSERT de `web/lib/sync/ingest-execution-segments.ts` referencia `hr_source` sin condicional — al revés habría roto TODO el ingest de segmentos, no solo el pulso. Verificado en producción con un ensayo en transacción revertida contra el esquema real: columna creada nullable, las 221 filas intactas, y el CHECK rechazando un valor fuera del vocabulario.
+
+---
+
+## 2026-08-06 · La velocidad de barra NO sustituye al RIR. Lo calibra — y el RIR tecleado es su etiqueta
+
+**Decidido:** cuando se mida la velocidad de la repetición con el reloj (fase 3 del plan de sensor), **el RIR auto-reportado se queda donde está**. No se retira, no se oculta, no se sustituye. Lo que se enseña de la velocidad es la **comparación del atleta consigo mismo a igual carga y ejercicio**; lo que NO se enseña es el %1RM estimado.
+
+**Por qué, contra la narrativa cómoda del sector.** El discurso habitual —"la velocidad es objetiva, el RIR es subjetivo, luego la velocidad es mejor"— **no está respaldado por la evidencia**, y en la primera redacción de la propuesta lo di por bueno antes de mirar los números:
+- Un atleta entrenado estima su RIR cerca del fallo con **0,65-1 repetición de error medio** (JSCR 2023/2024). Es bastante preciso.
+- Los modelos **generales** velocidad→RIR fallan por **más de 2 repeticiones al 70 % del 1RM**. Solo los **individualizados** por persona bajan de 2 (PMC10901726, 46 sujetos).
+- La correlación velocidad↔RIR percibido varía de r=0,1 a r=0,9 entre personas (media 0,6, r²≈0,3). Los autores concluyen literalmente que son «perspectivas complementarias, no intercambiables» (PMC12360324, 2.972 mediciones).
+- La validez de los acelerómetros de muñeca **se hunde con cargas pesadas**, que es donde más apetece usar esto: el wearable de VBT más estudiado cae a r=0,33 al 100 % del 1RM, mientras los encoders de cable mantienen precisión en todo el rango (PMC7900050).
+- El %1RM desde perfil carga-velocidad **sobreestima 4,5 kg (3,7 %)** con error típico del 9,8 %, y **sin diferencia entre perfil individual y general** — meta-análisis de datos individuales, 641 participantes (PMC10432349). Los autores recomiendan el test directo cuando sea viable.
+
+**El argumento propio que hubo que retirar.** Escribí que la pérdida de velocidad se salva por ser un cociente que cancela el sesgo. **Es falso.** El error del acelerómetro no es un factor constante: crece cuando la barra va lenta. Y las últimas repeticiones de una serie al fallo son justo las lentas, las que definen la pérdida. El cociente arrastra el error de la peor medida en vez de cancelarlo.
+
+**Lo que sí sale de aquí, y es mejor:** el modelo velocidad→RIR **individualizado sí funciona**, y nadie lo tiene porque nadie recoge las dos señales a la vez durante meses. Nosotros vamos a tener, en la misma serie, el RIR que teclea el atleta **y** la velocidad que mide el reloj. **El RIR tecleado no es el rival de la velocidad: es su etiqueta de entrenamiento.** Con suficientes series de una persona se ajusta su curva propia. Por eso la migración de la fase 3 guarda los dos juntos.
+
+**En consecuencia, no hacer:** no retirar el campo de RIR de la UI de fuerza cuando llegue la velocidad; no presentar el %1RM estimado desde velocidad como si fuera una marca; no validar la velocidad con un único número medio (va **por banda de carga**, porque el fallo está concentrado cerca del 1RM); y no extender a peso muerto ni press militar la validación publicada, que **solo existe para sentadilla** con reloj en muñeca.
+
+**Documentos:** `docs/reconocer-el-movimiento.html` §05 y `docs/plan-reconocer-movimiento.html` fase 3.
+
+---
+
+## 2026-08-06 · Reconocer el movimiento es cosa de Apple Watch. Garmin queda descartado, y hay que saber por qué
+
+**Decidido:** el reconocimiento de movimiento por sensor inercial (contar repeticiones, separar trabajo de descanso, clasificar la estación, medir la velocidad de la barra) se construye **solo para Apple Watch**. En Garmin se sigue empujando el entreno por Connect IQ y el atleta confirma a toque, como hoy.
+
+**Por qué, y esto es lo que evita que alguien lo re-explore dentro de seis meses:** Connect IQ **no expone el acelerómetro en crudo a terceros**. Lo que una app recibe es un valor cacheado que se refresca entre 1 y 25 Hz según el modelo, y las tareas en segundo plano están limitadas a ~30 s de ejecución cada 5 minutos. Con eso no se cuenta una repetición ni se detecta una transición — la literatura entera trabaja entre 20 y 100 Hz de señal continua. Garmin **sí** cuenta repeticiones en su firmware nativo (bien en movimientos aislados, mal en compuestos), pero ese acceso privilegiado no lo publica. Por eso no existe ninguna app de Connect IQ de terceros con conteo reputado: no es que nadie lo haya intentado, es que la plataforma no lo permite.
+
+**En Apple tampoco hay atajo, y eso también conviene saberlo:** `HKWorkoutEventType` es exhaustivo y **no tiene ningún evento de repetición ni de serie**; HealthKit no define un tipo de dato para reps; y el modo nativo de fuerza de watchOS no las cuenta. `motionPaused`/`motionResumed` son automáticos solo para *Running*. Todo el que hace esto se lo construye entero sobre Core Motion. Es mecanismo puro, que por la HARD RULE Nº0 es exactamente lo que nos toca poner en código.
+
+**La vía que sí existe:** `CMBatchedSensorManager` (watchOS 10+, Series 8/Ultra en adelante) entrega acelerómetro hasta 800 Hz y movimiento hasta 200 Hz en lotes de un segundo, **y exige una `HKWorkoutSession` activa** — condición que el reloj ya cumple con `workout-processing`. Fallback a `CMMotionManager` a 100 Hz donde no esté.
+
+**En consecuencia, no hacer:** no volver a plantear conteo de repeticiones ni detección de estación dentro de una app de Connect IQ; no buscar una API de Apple que devuelva reps (no existe); no diseñar el procesado en el teléfono (rompería el modo solo-reloj y duplicaría el camino); y no muestrear a 800 Hz para archivar — la literatura trabaja a 20-100 Hz y 800 Hz son 69 MB por hora que no se archivan.
+
+**Documento:** `docs/reconocer-el-movimiento.html` (6-ago) — propuesta completa, sin construir.
+
+---
+
+## 2026-08-11 · Reconocer el movimiento: fases 0–3 en código; migraciones 0173–0177
+
+**Decidido:** se construye la cadena 0–3 del plan (grabar · trabajo/descanso ·
+contar reps · velocidad de barra). Las migraciones del plan HTML (0157–0162)
+ya estaban ocupadas por otras piezas; las reales son **0173–0177**. No se
+reescribe el HTML histórico del plan: el rastro de numeración vive aquí y en
+`FOCUS.md`.
+
+**Semáforo de velocidad:** color = velocidad de subida (m/s), no %1RM. El atleta
+interpreta el RM; la app no estima 1RM desde velocidad genérica. Cortes =
+método del coach (`coach_movement_policy` / overrides), con defectos en
+`shared/domain/strength/velocity-bands.ts`.
+
+**UI fina del vivo (m/s, chip de procedencia):** Claude. Grok: sensor, cable,
+API, ingest, algoritmos.
+
+**Consentimiento:** archivar exige `athletes.sensor_capture_consent_*`. El
+procesado en vivo (1–3) no espera archivo.
+
+**Documentos:** plan + `docs/reconocer-el-movimiento.html`; código bajo
+`ios/FAHYBRIKCore/Sensor/`, `ios/FAHYBRIKWatch/Sensor/`,
+`web/lib/sync/ingest-sensor-capture.ts`.
+
+---
+
+## 2026-08-05 · Una vista por lo que estás haciendo (iOS + watchOS)
+
+**Qué se decidió.** Cada tipo de entreno tiene SU pantalla, en los dos dispositivos.
+Correr fuera ≠ correr en cinta ≠ serie ≠ continuo ≠ fuerza ≠ EMOM ≠ For Time. Una
+vista genérica con `if`s dentro no es diseño: es una excepción disfrazada. El
+reparto lo decide **qué mide el dispositivo** y **quién cierra el trabajo**, no cómo
+se llama el formato — porque las dos fuentes de entreno no escriben lo mismo para la
+misma cosa (el constructor libre emite `intervals`; el coach escribe `sets`).
+
+**Por qué.** Correr lo pintaban SEIS superficies y dos estaban vivas a la vez: un
+`fullScreenCover` tapaba un HUD que seguía montado debajo. De ahí salían tres cosas
+que el atleta veía y no se explicaban: podía saltar entre pantallas del mismo tramo,
+la Live Activity dependía de cuál tuviera abierta, y los tiempos no cuadraban.
+
+**Qué se eliminó** (ninguna tenía diseño detrás; el mapa está en
+`docs/entreno-vista-por-vista.html`): `RunLiveHUD` — la naranja genérica —,
+`StructuredRunLiveHUD`, `IntervalsLiveHUD`, `TabataLiveHUD`, `SteadyLiveHUD`,
+`DeathByLiveHUD`, sus piezas huérfanas y `ManualEntryControl`. Y
+`TreadmillControlDebugSheet`, que se abría con pulsación larga **en producción**,
+queda tras `#if DEBUG`.
+
+**Qué NO hacer en consecuencia.** No volver a añadir una pantalla «genérica de
+correr» ni un botón que abra una segunda vista del mismo tramo. Si un formato se
+queda sin pantalla, se DISEÑA en el doble primero; no se resuelve con un `if` dentro
+de otra. Tabata y Death By de burpees (ni correr ni ergo) se quedaron sin ventana
+trabajo/descanso a propósito: tienen cero casos reales en la biblioteca y ningún
+diseño. Caen al suelo honesto — dicen menos, no dicen nada falso.
+
+---
+
+## 2026-08-05 · Una auto-pausa no puede sobrevivir a quien la vigila
+
+**Qué se decidió.** El invariante de la auto-pausa lo garantiza la SESIÓN, no la
+vista: quien evalúa se registra, y al irse el último cualquier auto-pausa suya se
+levanta sola. Sin vigilante no se puede auto-pausar, porque nadie podría deshacerlo.
+Una pausa **manual** no la levanta nadie más que el atleta.
+
+**Por qué.** `session.autoResume()` tenía un solo llamante en toda la app, dentro
+del modelo de la pantalla de calle, y moría con ella. Parabas en un semáforo,
+cerrabas esa pantalla, y la sesión quedaba **pausada para siempre** — el crono
+detenido y el entreno guardándose con ese tiempo de menos.
+
+**Qué NO hacer.** No volver a poner el ciclo de vida de un estado del motor en manos
+de una vista. Si algo lo enciende, el motor tiene que saber apagarlo aunque quien lo
+encendió desaparezca.
+
+---
+
+## 2026-08-05 · El cable del espejo lleva el TRAMO, no frases
+
+**Qué se decidió.** `MirrorStateFrame` transporta `MirrorTramo` (formato, modalidad,
+ronda n/m, dosis de AHORA, trabajo vs descanso, quién cierra la ventana, lo medido en
+ESA ventana). Con eso, los MISMOS guiones sirven las dos vías: en solitario leen el
+motor, en espejo leen la trama. Una pantalla por formato, no dos.
+
+**Por qué.** El reloj corre en espejo la inmensa mayoría de las sesiones y el cable
+sólo llevaba tres strings ya redactados por el móvil. Sin un campo que dijera el
+formato, la muñeca no podía elegir pantalla: todo el diseño por formato vivía en el
+10 % de los entrenos.
+
+**Qué NO hacer.** No mandar por el cable un dato ya renderizado cuando existe el dato
+en bruto, y no rellenar el hueco de un número con una excusa: la Live Activity
+mandaba el estado del GPS en el sitio del ritmo y salía «RITMO · GPS fuerte /km».
+Sin dato, cambia el sujeto — no se disfraza.
+
+
+## 2026-08-05 · La superserie es un FORMATO de bloque, no un nivel nuevo de anidamiento
+
+**Decidido:** `superset` entra en el catálogo canónico de formatos (`shared/domain/prescription/format.ts`) y en el enum PG `template_format`. Un bloque con formato `superset` **rota** sus ejercicios (A1→A2→A1→A2); uno con formato `sets` los ejecuta en **series rectas** (todas las de A, luego todas las de B). Ambos registran carga por serie.
+
+**Por qué así.** Se planteó primero como una agrupación nueva dentro del bloque, y es un error: el nivel ya existe. Un coach que escribe `A1/A2/A3` y luego `B` está describiendo **dos bloques**, no un bloque con subgrupos. La estructura del repo ya lo modela — `WeekDayPart` es el bloque y sus `items[]` son sus ejercicios — así que la agrupación por letras se traduce a **fronteras de bloque + formato del bloque**, sin tocar el shape de los items ni añadir un nivel de anidamiento que todo lo de aguas abajo tendría que aprender.
+
+**Lo que se verificó antes de decidirlo** (contra el código, no de memoria):
+
+- **`block_position` NO servía.** Es el índice del bloque dentro de la sesión (`editor-serialize.ts:324`, `instantiate-program.ts:621`), no un mecanismo de sub-agrupación. Entre bloque e item no hay nada.
+- **La rotación existe, pero cerrada.** `conditioningFold` (`ios/FAHYBRIKCore/Workout/WorkoutModels.swift:1680`) pliega los items de un bloque en una rotación real — pero solo para formatos que corren reloj (`runsConditioningTimer`), y `sets` no lo cumple. El comentario del propio motor lo dice: *«strength / warmup / cooldown stay one-segment-per-item»*.
+- **Y aunque se reutilizara, no valdría:** el fold coge únicamente el PRIMER set de cada item (`:1689`). Una superserie de fuerza necesita N series por ejercicio alternando, cada una con su descanso. Por eso `superset` es un camino propio en el motor y no un alias de `rounds`.
+
+**En consecuencia, no hacer:** no añadir un campo de grupo a `WeekDayPartItem` ni a `PrescriptionSet` — la letra del coach es notación de entrada, se consume al importar y muere ahí; no reutilizar `rounds`/`circuit` para una superserie de fuerza (arrancaría un reloj de acondicionamiento y perdería las series); y no dar por hecho que dos items en el mismo bloque rotan — hasta hoy nunca lo han hecho, así que todo bloque `sets` existente sigue siendo series rectas.
+
+---
+
+## 2026-08-05 · Una medida de trabajo puede ser un RANGO
+
+**Decidido:** `Measure` gana un `max` opcional en sus cuatro formas (reps, distancia, duración, calorías). El campo base sigue siendo obligatorio y es el **suelo** del rango.
+
+**Por qué:** «4 series de 12-15 repeticiones» es una banda dentro de la que el atleta autorregula. El importador la aplanaba en dos series, una de 12 y otra de 15 — que es otro entreno. El eje `Target` ya sabía expresar rangos (ritmo, zona, RPE, %RM) desde siempre; el eje `Measure` nunca los tuvo, y no había ningún apaño previo en el repo (`reps_scheme` es una **secuencia** de valores exactos, `"10/10/8/8/6"`, no un rango).
+
+**Forma elegida y por qué:** un solo nombre, `max`, para las cuatro formas — el `kind` ya dice la unidad. Y el campo base **obligatorio** en vez de espejar el `value?|min?/max?` de `Target`: así todo lector existente (el prefill de reps del motor en vivo, `prescriptionToParams`, los `Codable` de iOS) sigue funcionando sin tocarlo y enseña el suelo. El cambio es aditivo, no una migración.
+
+**En consecuencia, no hacer:** no confundir rango con secuencia al parsear; ante la ambigüedad, `review`. Y no volver opcional el campo base «por simetría con Target» — rompería en silencio a todos los consumidores.
+
+---
+
+## 2026-08-04 · SÍ al prior poblacional — agregado, ponderado por temporada, por división y formato
+
+**Decidido (Alex):** se construye el prior poblacional de HYROX. Cierra la pregunta que la spec del 27-jul dejó abierta en su §10 y que llevaba desde entonces bloqueando tres cosas: las cinco estaciones de fuerza (sin marca posible en el catálogo), el arranque en frío de un atleta nuevo y la proyección sin objetivo del embudo free.
+
+**Con tres condiciones que son parte de la decisión, no criterio de quien lo implemente:**
+
+1. **Solo estadística agregada.** Cuantiles por casilla *(temporada · división · formato · sexo · grupo de edad) × segmento*. Nunca resultados de terceros identificables, nunca exhibidos, nunca consultables por persona. Lo que se guarda es una distribución, no un ranking.
+2. **Ponderado por temporada.** Rappelt et al. 2026 mide −19 % en el top-100 PRO masculino entre S1 y S7 (ωp²=0,76). Un prior sin reponderar predice el nivel de 2022 con toda la confianza del mundo.
+3. **Por división Y formato.** Consecuencia directa del stress-test: la curva de fatiga y el reparto del tiempo de dobles no son los de singles. Un promedio global no sirve para nada.
+
+**Por qué:** es la única forma de darle un número a quien no ha medido nada — que es todo el mundo el día que se instala la app, y el 100 % del embudo free. Y la vía está validada en revisión por pares: el estudio de referencia del deporte (39.696 resultados PRO/ELITE) se construyó exactamente así, con scripts propios sobre los resultados públicos.
+
+**En consecuencia, no hacer:** no exhibir ni almacenar resultados de terceros a nivel de persona; no usar el prior para nada que no sea encoger una estimación propia; y no bloquear el resto del trabajo esperándolo — 8 de las 9 piezas del plan de `docs/prediccion-hyrox-v2.html` §09 no dependen de él.
+
+**Dónde vive:** decidido, sin construir. `docs/prediccion-hyrox-v2.html` §10.
+
+---
+
+## 2026-08-04 · La durabilidad es un parámetro del atleta Y DEL FORMATO — no una constante de fatiga
+
+**Decidido:** el modelo de predicción v2 (`docs/prediccion-hyrox-v2.html`) deja de tratar la fatiga de la prueba como un escalar. Pasa a ser una **curva de ocho valores** indexada por *(atleta, formato)*, estimada de los datos con encogimiento hacia un prior de su bracket. El «factor de transferencia personal» de hoy —un número único que además solo existe si el atleta ya tiene una carrera— queda como caso degenerado de esa curva.
+
+**Por qué:** se probó la curva poblacional de singles contra las 8 carreras-equipo reales de producción (todas dobles) y el error medio va de 22 a 85 s por vuelta; una de las ocho corre **más rápido al final que al principio en las siete vueltas**. Es física del formato, no ruido: en dobles se corren los 8 km enteros pero las estaciones se reparten, así que se llega a cada vuelta mucho menos fatigado. El mismo stress-test tumbó el reparto del tiempo: Rappelt da carrera 48,5 % / roxzone 7,3 % en singles PRO, y nuestras dobles dan carrera 49,6-60,6 % (media 54,6 %) y roxzone 6,8-11,1 %.
+
+**En consecuencia, no hacer:** no usar una referencia de singles para presupuestar dobles — hoy `dobles-gap` cae, cuando falla el cohorte, a «la carrera de singles del atleta más rápido como referencia de forma», y esa forma en dobles no existe. Y si algún día se importa población, importarla **por división y formato**, nunca un promedio global.
+
+**Dónde vive:** propuesta, sin código. El motor afectado sería `shared/domain/goal-gap/predict.ts` (`personalTransferFactor`) y `shared/domain/dobles-gap/compute.ts` (fuentes de presupuesto).
+
+---
+
+## 2026-08-04 · El ergómetro predice el resto de la carrera mejor que la propia carrera
+
+**Decidido:** `next_inputs` («qué medir para estrechar el rango») se reordena por señal medida, no por intuición. El remo y el ski pasan por delante del 5K.
+
+**Por qué:** dos conjuntos de datos independientes, con tres órdenes de magnitud de diferencia en tamaño, coinciden. Rappelt et al. 2026 (39.696 resultados PRO/ELITE, regresión cuantílica sobre «el resto del tiempo»): remo pseudo-R² 0,25-0,46 frente a carrera 0,14-0,35. Nuestras 8 carreras (n bajo, indicativo): ski 0,92 · remo 0,92 · carrera 0,45. Y el PM5 mide un remo de 1000 m con precisión de laboratorio y a coste cero para el atleta, mientras que un 5K le cuesta una sesión.
+
+**En consecuencia, no hacer:** no seguir pidiendo primero la marca de carrera solo porque correr sea la mitad del tiempo de la prueba. Pesar mucho en el reloj no es lo mismo que informar mucho sobre el resultado.
+
+**Dónde vive:** propuesta. Afectaría a `shared/domain/goal-gap/next-input.ts`.
+
+---
+
+## 2026-08-04 · El avance es del escalón más pequeño, y eso lo decide el MOTOR — nunca una pantalla
+
+**Decidido:** `primaryAdvance()` es el único sitio donde se declara qué significa «siguiente» para cada formato, y ese significado es **el escalón más pequeño que el atleta tiene delante**: la fase en un EMOM, la ronda en un rotativo, la pierna en una carrera estructurada y **la SERIE en fuerza**. Ninguna vista puede tener una regla de avance propia.
+
+**Por qué:** la fuerza era la excepción — su regla («con series pendientes no se cierra el ejercicio») vivía dentro de `FuerzaVivoView`, una vista SwiftUI del iPhone. El botón «Siguiente ▸» del reloj entra por `PhoneMirrorService.applyCommand` → `primaryAdvance()` sin pasar por ninguna pantalla, así que se la saltaba entera: en el gym del 4-ago, un toque en la muñeca durante la serie 1 de press de banca cerró el ejercicio de cuatro series y saltó al curl. Y el segundo fallo reportado ese día —«no respeta el descanso del primer ejercicio»— no era un bug aparte sino su consecuencia: los dos ejercicios comparten bloque, así que el salto fue mudo (sin preview intermedia), `primeSetsIfNeeded` ya había recargado las series del curl, y el 1:30 que sonó era el descanso por defecto del curl con el atleta todavía en banca.
+
+La lección general, que es la que hay que recordar: **una regla de dominio metida en una vista es una regla que solo se cumple en esa vista.** Cada superficie nueva (el reloj, mañana un mando, una Live Activity con botones) la vuelve a romper.
+
+**En consecuencia, no hacer:** no volver a poner condiciones de avance en una vista; si una pantalla necesita saber qué hará el toque, que se lo PREGUNTE al motor (`pendingSetIndex`) y lo rotule, sin decidirlo. Y no declarar «este toque termina la sesión» mirando solo si hay bloque después: en un entreno de fuerza libre todos los ejercicios van en UN bloque, así que era cierto desde la primera serie.
+
+**Dónde vive:** `WorkoutSession.primaryAdvance` / `strengthPrimary` / `pendingSetIndex`, `PhoneMirrorService.buildFrame` (`isFinalStep`). Commit `d9b67424`.
+
+---
+
+## 2026-08-04 · El conteo de series es DOSIS: lo decide la prescripción, no el esquema
+
+**Decidido:** el multiplicador de una prescripción («4 × 10») se lee de los propios sets y va **en el titular**, pegado a la medida. Se pone cuando los sets son **repeticiones de la misma dosis**, y NUNCA cuando son la **rotación** de un bloque plegado, donde cada set es un movimiento distinto (el fold siempre escribe el nombre en `note`) y «3 ×» delante de remo/ski/cinta significaría hacer cada uno tres veces.
+
+**Por qué:** `summaryLine` solo ponía el «N ×» si el esquema era literalmente `.intervals`; para `.sets`, core y movilidad leía `sets.first` y tiraba el resto. Un 4×10 de fuerza llegaba a la pantalla de antes de empezar como «10 · Corporal · descanso 15s» — y «4 × 10» y «10» no son la misma prescripción con más o menos adorno, son dos entrenos distintos. La condición estaba escrita sobre el caso que se tenía delante (las series de correr) en vez de sobre el concepto.
+
+**Y la segunda mitad, que es la misma enfermedad:** existían DOS formateadores de la cabecera de formato — `PrescriptionRenderer.wodHeader`, que solo conocía amrap/emom/for_time y es el que lee la previa, y `conditioningFormatLabel` escondido dentro de `ActiveWorkoutView`, que cubría Tabata, Death By, Series, Continuo, Chipper, Ladder, Rondas y sim de HYROX. Por eso un circuito llegaba a la previa sin cabecera y aparecía con ella al arrancar el entreno. Queda uno solo (§2 del contrato de UI), cubriendo todos los esquemas con reloj.
+
+**En consecuencia, no hacer:** no condicionar un formateador por esquema cuando la pregunta la contesta el dato (¿son repeticiones o son movimientos?); no enrutar la tabla por series por MODALIDAD (un core de 3×20 tiene la misma forma que un 4×10 de banca); y no enseñar `PrescriptionScheme.displayName` al atleta — es el vocabulario del cable, en inglés.
+
+**Dónde vive:** `PrescriptionRenderer.repetitionCount` / `summaryLine` / `wodHeader`, `PreWorkoutBriefView.itemView`. Commit `c8e5c156`.
+
+---
+
+## 2026-08-04 · Un entreno de fuerza es una lista de GRUPOS, y un grupo es N rondas × K estaciones
+
+**Decidido:** la unidad del entreno de fuerza deja de ser el ejercicio suelto y pasa a ser el **grupo**: `N rondas × [estación₁…estaciónₖ]`, con **descanso entre estaciones** (dentro de la ronda) y **descanso entre rondas**. Un grupo de una sola estación son las series seguidas de toda la vida (`4 × 10, descanso 1:30`) y se comporta exactamente igual que hoy; un grupo de dos es una **biserie**; de tres o más, triserie y circuito de fuerza. Un mismo modelo, sin casos especiales.
+
+**Por qué:** el 4-ago Alex montó dos ejercicios queriendo hacerlos intercalados y descubrió que no hay manera de decirlo — el constructor asume en silencio que todo va seguido. Y las dos formas son igual de normales en una sala de pesas, así que la que faltaba no es un extra: es la mitad del dominio. Además, con el modelo viejo el número de series vive en cada ejercicio, y en una biserie eso admite estados sin sentido (4 series de uno y 3 del otro): las rondas son del GRUPO porque la ronda es lo que se repite.
+
+**Cómo se ejecuta, y por qué así:** un grupo es un **BLOQUE** (cada uno con su `blockPosition`), y cada estación sigue siendo **un tramo**. Eso mantiene los tramos 1:1 con los `items[]` del guardado —que mapea ejecución↔prescripción por posición—, así que el contrato con el servidor no se toca. El motor recorre el grupo por rondas y al cerrarlo emite K laps, uno por estación, cada uno con sus R series. El descanso no necesita campo nuevo: el `restS` de cada set ya lo expresa — las estaciones intermedias llevan el de cambio, la última la de la ronda.
+
+**En consecuencia, no hacer:** no meter el número de rondas en la estación (queda contradecible); no plegar el grupo en un solo tramo para simplificar el motor, porque rompería la atribución por ejercicio que lee el coach; y no inventar un campo de descanso nuevo en el contrato compartido cuando `PrescriptionSet.rest_s` ya lo dice.
+
+**Dónde vive:** `FreeStrengthBuilder`, `WorkoutSession`, `FuerzaVivoView`.
+
+---
+
+## 2026-08-04 · Resumen post-entreno: un lap por minuto EMOM + informe de sesión
+
+**El fallo (Alex, gym):** tras un EMOM con PM5 el resumen solo pedía RPE; no había ritmo por estación ni totales útiles, pese a que el monitor manda cal/ritmo/W.
+
+**Decidido:**
+1. **EMOM graba un `LapRecord` por minuto de TRABAJO** (`recordEMOMIntervalBout`), con modalidad del tramo (row/ski/run/…), metros/cal/ritmo/W/HR de esa ventana. `runLegIndex` = ordinal del minuto.
+2. **No hay lap blended del bloque** si ya hay bouts por minuto (misma regla que series erg 5×500). Las rondas EMOM X/Y se estampan en el último bout.
+3. **Resumen final** pinta `ResumenSesionCard` (totales + por máquina) y `TablaDeTramos` con filas «1. Remo · 1:52/500m · 12 cal».
+4. **Se guarda** vía `SegmentPayloadBuilder` → `SegmentExecutionDTO` (ritmo, cal, potencia, modality por tramo).
+
+**En consecuencia, no hacer:** no volver a un solo lap "functional" para un EMOM multi-estación; no inventar ritmos sin medición; no pintar card de sesión vacía.
+
+---
+
+## 2026-08-04 · Multi-máquina en funcional: slots por rol + pool PM5
+
+**El fallo (Alex, gym):** en un EMOM/AMRAP/For Time con remo + ski + run en cinta no se podía conectar ni ski ni remo (el remo ni salía), ni la cinta. El sistema tenía un solo chip «Remo» y un solo `PM5ConnectionStore`, y la elegibilidad miraba el `kind` del segmento (que en un funcional colapsa a `.reps` / `.strength`), no las modalidades de cada movimiento.
+
+**Decidido (mecanismo, HARD RULE Nº0):**
+
+1. **Slots por máquina, no un PM5 genérico.** La previa ofrece `Cinta` · `Remo` · `SkiErg` · `BikeErg` · `Banda` según lo que el session toque de verdad (`involvesRun` / `involvesErg` + modalidades de `sets[]` / `ergKind`). Caso extremo: EMOM 10 cal remo · 10 cal ski · wallballs · 200 m cinta → tres máquinas + banda a la vez.
+
+2. **El atleta asigna cada PM5 a un rol.** El monitor no anuncia ski vs remo; el slot es la asignación. Un mismo peripheral no puede ocupar dos roles (`excludePeripheralIds`).
+
+3. **`PM5Pool`:** un store por rol (cada uno con su `PM5Service` / CBCentralManager) + el unscoped `any` para mono-erg legacy. El tramo vivo resuelve `activeStore(for: modality)` → feed + program solo ese monitor.
+
+4. **Contadores (ya decidido 2026-08-03):** EMOM ronda ergo = `perTramo` (reset a 0 al entrar en ski o remo). AMRAP / free-order acumulativo = `cumulativeSegment`. Al final del entreno se suma el trabajo medido de todos los monitores.
+
+5. **Free functional:** cada set del fold lleva la modalidad del ejercicio (catálogo / categoría / slug). Sin eso el live tramo no sabe qué máquina es y no se ofrece slot.
+
+**En consecuencia, no hacer:** no volver a un único chip «Remo» para todo ergo; no conectar el PM5 mirando solo `segment.kind`; no programar el piece en un monitor de otro rol; no exigir conectar (sigue siendo opcional).
+
+**Código:** `ErgMachineRole` · `PreWorkoutDeviceEligibility` · `PM5Pool` · `DeviceConnectCard` multi-rol · routing en `ActiveWorkoutView` · fold de `FreeFunctionalBuilder`.
+
+---
+
+## 2026-08-03 · El doble mentía con autoridad: sellos fechados, re-verificables, y el índice por recencia
+
+**El fallo (Alex: «no podemos fiarnos de eso»):** el índice del doble hacía afirmaciones que nadie re-verificaba. Auditado contra el Swift real: **los 5 espejos estaban desfasados** — congelados justo antes de la campaña iOS del 29-jul/3-ago («un guion no es un dato»: donde no hay medida se omite el elemento o se explica con palabras) — y uno (`devices`) nació ya incompleto (el banner de conexión perdida del PM5 existía desde el 20-jul y el espejo se declaró el 28 sin él). Peor: **24 de las 33 «propuestas» ya estaban construidas en Swift** (la tanda del 30-jul implementó las propuestas casi literalmente y nadie re-selló el doble), «Tests guiados» figuraba como pendiente teniendo doble (`tests-calibracion`), y `ranking-box` afirmaba un dato falso («los datos ya viajan en el GET de marcas» — el endpoint no lleva percentil ni cohorte).
+
+**Decidido:**
+- **Toda afirmación del doble lleva fecha.** `TwinMeta.actualizado` (YYYY-MM-DD) es obligatorio y se estampa **en el mismo commit** que el cambio de diseño. «Espejo» ya no significa «así está la app hoy» sino «réplica del Swift a esta fecha» — la fecha delata el desfase en vez de esconderlo.
+- **Estado nuevo `construida`:** la propuesta se shipeó en Swift (`fuentes` = los ficheros que la construyeron) pero el doble no está re-verificado contra ese Swift. Es la antesala honesta de `espejo`. Re-sellados 12: tests-calibracion, perfil-rendimiento, analiticas-veredicto, chat-coach, entreno-vivo, gate-bloque, post-entreno, sesion-previa, plan-semana, vivo-fuerza, vivo-emom, vivo-fortime.
+- **Campo `enApp`** en propuestas parciales: una frase con lo que el Swift actual ya tiene y lo que sigue siendo futuro (14 pantallas: vivo-erg/correr/amrap/dobles, watch-dobles/series/fuerza/rodaje/amrap/fortime/cinta/emom, plan-bloque, ranking-box).
+- **Detector permanente:** `cd web && pnpm run twin:desfase` compara la fecha git de cada fuente Swift contra el `actualizado` de su espejo y lista los podridos (exit 1). Correr al tocar UI de iOS y al abrir sesión de diseño.
+- **El índice contesta primero «¿qué es lo nuevo?»:** sección «Lo último» por fechas (cards para el día más fresco, pastillas para los lotes), fecha en cada card, zonas ordenadas por recencia y la tanda del entreno colapsada en una card-colección (21 pantallas dejaban ilegible el inventario).
+- **PENDIENTES = pantallas que existen en la app sin doble** (semántica explícita): Hoy (InicioView), Entreno libre (FreeWorkoutBuilderView), Onboarding día 1. «Tests guiados» eliminado — su doble existe.
+
+**En consecuencia, no hacer:** no declarar `espejo` sin `fuentes` + verificación contra el Swift de ese día; no dejar en `propuesta` algo que Swift ya construyó (→ `construida`, y a `espejo` solo tras re-verificar); no cambiar una pantalla del doble sin bump de su `actualizado`; no volver a un índice sin recencia.
+
+---
+
+## 2026-08-03 · Contadores PM5: la app es dueña del tramo
+
+**Decidido:** en ergo (remo/ski/bike), la app y el PM5 miden **la misma unidad de trabajo (el tramo)**. La app **programa el piece al entrar en cada tramo de trabajo** y el contador de m/cal de esa ventana parte de cero. Libre y prescrito comparten `ErgCounterPolicy` + `PM5WorkoutProgrammer` + `WorkoutSession` — no hay camino especial.
+
+| Scope | Cuándo |
+|---|---|
+| `perTramo` | Series m/cal, pirámide, EMOM ronda ergo, estación For Time, steady con goal |
+| `cumulativeSegment` | AMRAP (window entero); formatos fixed free-order sin cursor de estación |
+
+| Close | Cuándo |
+|---|---|
+| `machineGoal` | Cruce de m/cal (series, estaciones, steady) — test de CRUCE, no umbral estático |
+| `formatClock` | EMOM (el minuto manda); AMRAP |
+| `sessionClock` | Series por tiempo |
+| `athleteTap` | reps / sin goal |
+
+**App-dueña de series:** se abandona el default de intervalos nativos del PM5 (`distanceIntervals`/`calorieIntervals` que no tienen count de rondas). Cada bout se programa como **fixed** de esa medida; el key de ventana es el del tramo → el monitor vuelve a “row to begin” en cada serie.
+
+**Count-in:** al GO se re-ancla la ventana (`reanchorTramoDeviceWindowAtGo`) — lo remado en el 3-2-1 no cuenta.
+
+**UI:** goal de cal pinta `0 / N` sin esperar el primer sample; strip y rest usan ventana de tramo, no el acumulado crudo del PM5.
+
+**Plan:** `docs/plan-sincronia-contadores-dispositivo.md`. Código: `ErgCounterPolicy`, programmer por tramo, auto-cierre series, strip.
+
+**En consecuencia, no hacer:** no volver a programar series como intervalos nativos del PM5 por defecto; no auto-cerrar un EMOM por cruce de cal (el reloj del minuto manda); no resetear el contador en un AMRAP por “ronda mental”; no pintar `live.distanceMeters` crudo en superficies de tramo.
+
+---
+
+## 2026-08-02 · Los tests: TRES sistemas paralelos, y ninguno deja al coach escribir el test que quiere
+
+**El hallazgo (no es una decisión todavía: es el diagnóstico que la precede).** Alex pidió algo elemental —«que el coach pueda montar un test de ergo de 2 × 2 min y que calibre zonas»— y el sistema no puede. Al abrirlo aparecen **tres vocabularios de test conviviendo**, sin hablarse:
+
+1. **`shared/domain/methodology/test-types.ts`** — cinco tipos cerrados (`row_2k`, `ski_2k`, `run_3min`, `run_9min`, `run_30min`) con modalidad × medida × cantidad. **Sí modela tests por DURACIÓN** y sabe resolver un umbral con ellos.
+2. **`coach_calibration_tests` (#34)** — lo que Pablo ve en `/tests`: nombre, formato, **protocolo en texto libre**, resultados y agenda.
+3. **`methodology_tests`** — el catálogo del RAG.
+
+**Los cinco huecos objetivos, con su fichero:**
+
+- **El coach no puede definir QUÉ se hace.** El protocolo es prosa. El contenido se materializa como *un segmento por resultado* con `prescription_json = NULL` (`web/lib/coach/calibration-content.ts`: *«there is no coach-facing editor for a templates row today»*). Solo los cuatro protocolos sembrados traen tramos reales. Conclusión: **un test escrito por el coach no se puede ejecutar guiado en iOS** — ni cuenta intervalos, ni cierra tramos, ni sabe cuántas series hay.
+- **El catálogo de calibración clava protocolo ↔ derivación.** `CALIBRATION_TARGETS` (`shared/domain/coach/test-battery.ts`) dice que «zonas de carrera» son *el tiempo de un 5K* y «zonas de remo» *el tiempo de un 2K*. No hay forma de calibrar con un 30′ (el estándar de umbral), ni con 3′/9′, ni con 2 × 2′ — aunque el sistema (1) ya sepa hacerlo.
+- **Una medida de DISTANCIA no puede calibrar nunca.** `CALIBRATING_MEASURES = time | load | hr` (`shared/schema/test-battery.ts`). Todo test de tiempo fijo —Cooper 12′, 2 × 2′, cualquier MAS test— se guarda como baseline muerto. Es exactamente el caso que se pidió.
+- **Falta la AGREGACIÓN.** Un `store_result` es un valor suelto: no existe «la media de los dos tramos» ni «el mejor de los seis». Sin eso, un test de N esfuerzos no tiene resultado.
+- **El pulso se teclea.** La app mide sola el `hrr60` desde el stream de FC, pero el **umbral de pulso (`lthr_bpm`) lo escribe el atleta a mano**, teniendo nosotros la serie entera de un test máximo. Alex: *«es un test de cardio: tienen que calibrar zonas… con el pulso se ven las zonas, pero hay que saberlo».*
+
+**La forma que tendría que tener un test, y que hay que decidir:** *protocolo estructurado* (la gramática de prescripción que YA existe: calentamiento + N esfuerzos + recuperaciones) × *qué mide cada tramo* (tiempo | distancia | potencia | FC | carga, leído del monitor/GPS/reloj) × *cómo se agregan los tramos* (media | mejor | suma | último) × *qué ancla produce* (ritmo umbral | FC umbral | 1RM | nada) **con el ajuste como dato del coach** — el estándar del deporte es mecanismo nuestro (un 30′ ES el umbral; un 2K va unos segundos por debajo), pero **el número exacto lo edita el coach**, HARD RULE Nº0.
+
+**Lo que sí se decidió y ya está construido:** la superficie del atleta (`/es/design/test-comparativa`, pantalla `propuesta` del doble). Un test se lee **contra otro**, y el sujeto son **las zonas** (dirección de Alex, 2-ago: «las zonas son muy importantes en HYROX, tanto en running como en ergs»): la marca antes → ahora con delta y % · la referencia elegible (anterior · hace 3 meses · tu mejor · 1ª vez) · **la escalera de las seis zonas con la banda de cada una entonces y ahora** — como las bandas del coach son cortes fijos sobre el umbral, el test que lo mueve las mueve todas, y eso es lo que se ve — · el desglose por tramos con su pulso. La v1 (el umbral como un pin en una escala) queda sustituida.
+
+**En consecuencia, no hacer:** no añadir un cuarto vocabulario de test; no comparar dos intentos de protocolos distintos aunque calibren lo mismo; no colorear el delta de pulso de un test máximo como si fuera un veredicto (solo dice algo junto al rendimiento); no pintar como mejora un delta que no mueve el umbral ni medio segundo; y no dejar que el coach cree un test que **parezca** calibrar y luego no calibre.
+
+---
+
+## 2026-07-29 · El catálogo de fases no es del producto — y se barre por semántica, no por prefijo
+
+**Decidido (Alex, orden directa):** el producto no trae un catálogo de fases. Migración **0148**: se borra `templates.target_block` y su enum `target_block`, el valor de notificación de transición sugerida, y los enums huérfanos `block_status` / `macrocycle_status` que el motor de macrociclo dejó atrás al morir en 0068. Fuera también del schema TypeScript, de las seis rutas que escribían `::target_block`, del prompt del LLM que compone la semana, de los scripts de seed, de los comentarios y de `docs/design/`.
+
+**Por qué sobrevivió un mes a su propia retirada — esto es lo que hay que recordar:** las migraciones 0064 y 0068 borraron las tablas y el enum del motor de periodización, y dejaron aquí escrito el porqué. Pero **la columna viva no llevaba ese prefijo sino `target_block`**, así que aquella limpieza —que buscó por el prefijo— la dejó entera. La lección operativa: **una retirada de metodología se barre por SEMÁNTICA (fase, bloque, periodización), nunca por el nombre de un identificador.** Un catálogo de fases puede llamarse cualquier cosa.
+
+**Los datos decían que no se perdía nada, y por eso se borró en vez de migrarse:** de 125 plantillas en producción, las 69 con un valor de fase concreto eran **todas del coach 4 («alexsole»), la cuenta de desarrollo**. Las 56 de los coaches reales (60/61/62) decían `any`, que no dice nada. Ningún coach de verdad clasificó nunca un entreno por fase de catálogo.
 
 **Qué pasa con el prompt de composición semanal:** `compose-week.ts` metía `bloque=${target_block}` en la lista de plantillas que ve el modelo. Para el 100 % de las plantillas de coaches reales eso era literalmente `bloque=any` — ruido, no señal. Y el canal agnóstico que lo sustituye **ya existía y ya llegaba al modelo**: `focus`, texto libre del coach (2-400 caracteres), que viaja literal como «Foco de la semana (literal del coach): …». El coach dice con sus palabras qué toca esa semana; no se le ofrece el desplegable de la doctrina de otro.
 
 **En consecuencia, no hacer:** no reintroducir un catálogo de fases bajo ningún nombre (`target_block`, `phase`, `block_type` como enum cerrado…) — el ORDEN de los microciclos ES la periodización y su NOMBRE lo pone el coach; no volver a barrer una metodología buscando su sigla; y no meter en un prompt un campo cuyo valor real es `any` en casi todas las filas, porque enseña al modelo una estructura que el coach nunca pidió.
 
-**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. Se le quitó el ATR; la decisión de borrarlo entero o revivirlo agnóstico no está tomada.
+**Queda pendiente de decisión (reportado, no tocado):** `methodology_blocks` + `methodology_rules` + `shared/domain/methodology/*` son un motor de reglas **muerto** (0 filas en producción, ningún lector en `web/`) cuya forma sigue siendo la de un catálogo de fases, y su seed se llama `PABLO_DEFAULT_RULES`. El catálogo de fases ya no está; la decisión de borrar el motor entero o revivirlo agnóstico no está tomada.
 
 ---
 
@@ -168,7 +3144,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 2. **Hay CUATRO respuestas a «¿cuántas zonas hay?»** — 5 en `prescription/types.ts`, 6 en `methodology-system.ts`, 7 en `workouts.ts` y `templates.ts`, y 3..7 en `coach_methodology.hr_zone_count`. Ningún coach puede cambiar su modelo de zonas sin tocar cinco ficheros.
 3. **Las zonas de FC están clavadas mientras las de RITMO ya son dato por coach** (`methodology_zones`, 36 filas, cableada de punta a punta). Mismo concepto, dos tratamientos opuestos en el mismo repo — y `hr-zones.ts` se autodenomina «la única fuente» mientras `coach_methodology.hr_anchor` existe y se ignora.
 
-**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y **ATR vivo en el schema** (`['ACC','TRANS','REAL']`, enum `atr_block_type`) contradiciendo a las migraciones 0064/0068 que borraron las fases.
+**Y hay identidad cementada en producto vendible:** **«Pablo ha publicado tu plan» en 7 push a atletas** (con el `join coaches` ya existiendo en `chat/notify.ts`), `Europe/Madrid` como «hoy» de todo el mundo, el onboarding geo-bloqueado a España, y un catálogo de fases aún citado en copy y comentarios pese a las migraciones 0064/0068 que lo retiraron del schema.
 
 **Orden decidido, y el orden importa:** no se puede hacer editable algo que vive en cinco sitios.
 1. **Capa 0 — desduplicar**: un registro en código (`shared/domain/methodology/profile.ts`) con todos los ajustes y **su valor de hoy como default**. Es refactor puro, cero cambio de comportamiento.
@@ -303,7 +3279,7 @@ Se retira la cláusula heredada «+ la tarde anterior»: era del **sueño** (par
 
 ## 2026-07-28 · El TRAMO es la unidad del entreno en vivo — y la salida sigue la MEDIDA, no el movimiento
 
-**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIK/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
+**Decidido:** la unidad de la sesión en vivo no es el bloque, es el **tramo**: la ventana activa, con su modalidad, su medida y su objetivo tipados (`ios/FAHYBRIKCore/Workout/LiveTramo.swift`). El tramo decide tres cosas a la vez — qué superficie de dispositivo se pone delante, qué reloj corre y qué se pinta —, y por eso deja de hacer falta una regla por caso.
 
 **Cuándo una lista de movimientos ES una ruta de tramos:** cuando la biblioteca manda N segmentos hermanos sin `rounds` escritas y con más de un movimiento (`fixedStation`), como en la simulación de HYROX (plantillas 446 y 489). Entonces **la estación es el tramo**. Un EMOM, un AMRAP, un For Time con rondas, «100 burpees for time» y un 5×500 **no** son rutas y no auto-avanzan: verificado con banco standalone de 52 asserts sobre prescripciones de producción.
 
@@ -695,6 +3671,57 @@ Lo del cursor es más sutil y salió probando contra una rama de Neon: **postgre
 
 ---
 
+## 2026-08-18 · Lo que le falta al atleta y lo que le falta a la receta son dos ejes
+
+**Decidido:** la tira de asignación de Hoy separa **dos ejes independientes** que
+antes viajaban fundidos en un solo texto y un solo botón:
+
+- **Eje A · programa del atleta** — `nunca_asignado` / `bloque_terminado` /
+  `bloque_en_curso`. Es un hecho **sobre él**, computable siempre a partir de su
+  último recibo de microciclo, y no depende de lo que el coach tenga montado. Es
+  el **titular** de la tarjeta.
+- **Eje B · receta del nivel** — lo que falta en su celda (nivel × días). Espeja
+  `ResolveFailureReason` del resolver. Solo explica **por qué no cabe la
+  propuesta de un clic**, y su arreglo sirve a **toda la celda**, no a este
+  atleta. Se etiqueta «Tu método» para que no se lea como un hecho del atleta.
+
+De ahí **dos puertas separadas**: reponer SU bloque (camino del atleta) y montar
+la receta (camino del método). Nunca una sola haciéndose pasar por la otra. Un
+atleta con bloque vigente deja de aparecer en la tira.
+
+**Por qué:** en el recorrido del 18-ago (`docs/coach-ux-recorrido.html`, hallazgo
+«Método vs atleta»), Marc — que había recorrido un microciclo de biblioteca
+terminado el 26 de julio — y Guillem — que nunca tuvo ninguno — salían con el
+**mismo texto** («No hay secuencia para N3·5d») y el **mismo botón**, a
+periodización. El estado de la receta del coach estaba hablando por el atleta, y
+el único arreglo ofrecido no era el suyo: un bloque de biblioteca se puede
+asignar **sin secuencia ninguna** (Marc es la prueba). El Plan del atleta mandaba
+de vuelta a Hoy y Hoy mandaba a periodización: el círculo se cerraba sin puerta.
+
+**Decidido también:** «el sistema sigue tu método solo» es una **afirmación** y
+exige la entrevista completa (`puedeAfirmarMetodo`: 34/34). Con 2 de 34, Hoy
+describe lo que hace sin atribuirlo a un método que no está escrito. **No
+bloquea nada** — solo deja de afirmarlo.
+
+**En consecuencia, no hacer:** no auto-asignar el siguiente bloque (reponer usa
+`assign-draft`, que deja las semanas en borrador privado con
+`delivery_mode='manual'` — el cron nunca las publica; publicar sigue siendo otro
+acto del coach). No decidir **qué** bloque toca ni **cada cuánto**: eso es método
+del coach, aquí solo se nombra el hueco y se abren las puertas. No bloquear la
+ficha hasta terminar las 34 preguntas. No devolver un tercer estado de
+publicación.
+
+**Dónde vive:** `shared/domain/coach/hoy-asignacion.ts` (los dos ejes, las
+puertas y el copy), `shared/domain/coach/club-hoy.ts` (`hoyIntroCopy`),
+`shared/domain/coach/method-interview.ts` (`puedeAfirmarMetodo`),
+`web/lib/dashboard/v2/hoy-lanes.ts` (recibo → eje A, filtro de hueco),
+`web/components/v2/hoy/AsignacionSugeridaCard.tsx` y
+`web/components/v2/hoy/ReponerBloqueModal.tsx`. Tests:
+`web/tests/coach/hoy-asignacion.test.ts` (barre la matriz 3 programas × 5
+recetas, no solo los dos atletas del recorrido).
+
+---
+
 ## Anteriores (reconstruidas del historial de migraciones)
 
 Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún sitio legible. Se documentan ahora para que nadie las rehaga.
@@ -705,11 +3732,11 @@ Estas decisiones ya estaban tomadas y ejecutadas, pero no constaban en ningún s
 
 **En consecuencia, no hacer:** no reintroducir una tabla de fases. Una fase es el nombre y la duración de una plantilla mensual más su posición en la secuencia.
 
-### Migración 0068 · ATR nunca es del sistema
+### Migración 0068 · El motor de macrociclo no es del sistema
 
-**Decidido:** se retira el motor de macrociclo ATR. La periodización por bloques es contenido del coach, no una estructura del producto.
+**Decidido:** se retira el motor de macrociclo. La periodización por bloques es contenido del coach, no una estructura del producto.
 
-**En consecuencia, no hacer:** no hardcodear ATR ni ninguna otra escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
+**En consecuencia, no hacer:** no hardcodear ninguna escuela de periodización como enum o entidad. Efecto colateral conocido: `infra/scripts/seed_methodology_rules.ts` quedó muerto al desaparecer el motor.
 
 ### Migración 0053 · La modalidad es propiedad del ejercicio
 

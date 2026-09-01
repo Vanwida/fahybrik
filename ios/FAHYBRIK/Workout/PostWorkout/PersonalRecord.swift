@@ -98,6 +98,25 @@ private struct PRWire: Decodable {
 struct WorkoutExecutionResponse: Decodable {
     private let prs: [PRWire]?
 
+    /// La ejecución que el servidor acaba de crear. El endpoint prescrito a veces
+    /// la manda como texto y el libre como número; las dos formas son la misma
+    /// fila. Opcional: una respuesta que no lo traiga no puede tumbar el decode.
+    let executionId: String?
+
+    enum CodingKeys: String, CodingKey { case prs, executionId }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        prs = try c.decodeIfPresent([PRWire].self, forKey: .prs)
+        if let text = try? c.decodeIfPresent(String.self, forKey: .executionId) {
+            executionId = text
+        } else if let number = try? c.decodeIfPresent(Int.self, forKey: .executionId) {
+            executionId = String(number)
+        } else {
+            executionId = nil
+        }
+    }
+
     /// The records set this session, resolved to KNOWN distances (unknown `kind`
     /// values are skipped, never fatal). Empty when the athlete set none.
     var personalRecords: [PersonalRecord] {
@@ -106,6 +125,28 @@ struct WorkoutExecutionResponse: Decodable {
             return PersonalRecord(kind: kind, newValueS: wire.newValueS, prevValueS: wire.prevValueS)
         }
     }
+}
+
+/// Qué pasó con el envío de una ejecución, para quien tenga que colgar algo de ella.
+///
+/// Existe porque el resultado del envío ya no es «la respuesta o nada»: cuando no hay
+/// cobertura la petición se ENCOLA, y esa entrada es la que traerá el `execution_id`
+/// días después. La traza de la carrera necesita saber cuál de las dos cosas pasó.
+struct ExecutionSubmission {
+    /// La respuesta del servidor, si llegó a haberla.
+    let response: WorkoutExecutionResponse?
+    /// La entrada de la cola que reintentará el envío, si se encoló.
+    let queuedRequestId: UUID?
+    /// El servidor contestó 2xx: hay fila. Encolar no es persistir.
+    let persisted: Bool
+
+    /// La ejecución creada, numérica, o nil si aún no se sabe cuál es.
+    var executionId: Int? {
+        guard let raw = response?.executionId, let value = Int(raw), value > 0 else { return nil }
+        return value
+    }
+
+    static let none = ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: false)
 }
 
 // MARK: - #58 · Structured session feedback (to the coach)

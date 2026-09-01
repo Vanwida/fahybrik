@@ -100,7 +100,7 @@ export function PushBanner() {
         <MIcon
           name="notifications_active"
           size={18}
-          className="mt-0.5 shrink-0 text-[color:var(--v2-accent)]"
+          className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]"
         />
         <p className="min-w-0 flex-1 text-body leading-snug text-[color:var(--v2-fg)]">
           {state === 'available' ? (
@@ -116,7 +116,7 @@ export function PushBanner() {
           type="button"
           onClick={dismiss}
           aria-label="Descartar"
-          className="v2-focus -m-1 shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+          className="v2-focus -m-1 shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
         >
           <MIcon name="close" size={16} />
         </button>
@@ -136,7 +136,7 @@ export function PushBanner() {
               setBusy(false);
             }
           }}
-          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
+          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
         >
           {busy ? 'Activando…' : 'Activar avisos'}
         </button>
@@ -165,7 +165,7 @@ export function PushCard() {
             size={20}
             className={
               state === 'enabled'
-                ? 'mt-0.5 shrink-0 text-[color:var(--v2-accent)]'
+                ? 'mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]'
                 : 'mt-0.5 shrink-0 text-[color:var(--v2-muted)]'
             }
           />
@@ -205,8 +205,8 @@ export function PushCard() {
               }}
               className={
                 state === 'enabled'
-                  ? 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-60'
-                  : 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60'
+                  ? 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-60'
+                  : 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60'
               }
             >
               {busy

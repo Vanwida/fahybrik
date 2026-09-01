@@ -24,12 +24,34 @@ struct FreeExerciseListResponse: Codable {
 }
 
 extension FreeExercise {
-    /// The row's own `PrescriptionModality`, when the catalog tagged one — passed
-    /// through onto the built Prescription so the coach reads the true discipline.
+    /// The row's own `PrescriptionModality` — first the catalog's explicit modality
+    /// field, then the category / slug when the row is only section-tagged. A SkiErg
+    /// row without `modality: "ski"` must still resolve to `.ski` so a free functional
+    /// set can offer the right PM5 slot and the live tramo can route meters to it.
     /// nil → the builder falls back to its section default (.strength / .functional).
     var prescriptionModality: PrescriptionModality? {
-        guard let modality, !modality.isEmpty else { return nil }
-        return PrescriptionModality(rawValue: modality)
+        if let modality, !modality.isEmpty,
+           let m = PrescriptionModality(rawValue: modality) {
+            return m
+        }
+        switch category.lowercased() {
+        case "rowing", "row":           return .row
+        case "ski_erg", "ski":          return .ski
+        case "bike_erg", "bike":        return .bike
+        case "running", "run":          return .run
+        case "strength":                return .strength
+        case "functional", "hyrox_station": return .functional
+        case "core":                    return .core
+        case "mobility":                return .mobility
+        default: break
+        }
+        // Slug fallback (e.g. "ski-erg", "concept2-rower") when category is "other".
+        let s = slug.lowercased()
+        if s.contains("ski") { return .ski }
+        if s.contains("row") || s.contains("remo") { return .row }
+        if s.contains("bike") || s.contains("echo") || s.contains("assault") { return .bike }
+        if s.contains("run") || s.contains("tread") || s.contains("cinta") { return .run }
+        return nil
     }
 
     /// The section this row groups under in the picker — the ES category label.

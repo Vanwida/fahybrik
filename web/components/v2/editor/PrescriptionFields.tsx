@@ -2,7 +2,7 @@
 
 // PrescriptionFields — THE adaptive prescription editor (spec PRESCRIPTION
 // MODEL). ONE component, reused across SCREEN 5 (session editor), SCREEN 8 (day
-// editor) and SCREEN 9 (add-block modal). Three SegmentedControls drive the
+// editor) and SCREEN 9 (add-block modal). Three axis chip groups drive the
 // fields:
 //   ① MODALIDAD   (Carrera | Ergómetro | Fuerza | Circuito)
 //   ② CÓMO SE MIDE (Distancia | Tiempo | Reps | Calorías)
@@ -20,9 +20,9 @@
 //   - Circuito/Metcon: formato + componentes + objetivo/cap.
 
 import { useId } from 'react';
-import type { Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
+import type { Modality, Prescription, PrescriptionScheme } from '@fahybrid/shared/domain/prescription';
 import { setMeasure } from '@fahybrid/shared/domain/prescription';
-import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import {
   axesOf,
   applyErgSubmodality,
@@ -53,9 +53,26 @@ const FORMAT_OPTIONS: { value: PrescriptionScheme; label: string }[] = [
 export function PrescriptionFields({
   value,
   onChange,
+  proposedPaths,
+  lockedModality,
 }: {
   value: Prescription;
   onChange: (next: Prescription) => void;
+  /**
+   * Rutas cuyo valor puso el importador y no el coach. Solo llega desde la
+   * revisión de una importación; sin ella este editor se comporta exactamente
+   * como siempre. Solo la tabla de fuerza tiene dónde ponerla: el resto de campos
+   * son de bloque (rondas, cap, descanso del formato) y el importador no los toca
+   * nunca — ver la lista de lo que NO se rellena en lib/import/fill-defaults.ts.
+   */
+  proposedPaths?: ReadonlyMap<string, string>;
+  /**
+   * La modalidad que el EJERCICIO fija en esta línea (decisión 0053: la
+   * modalidad es intrínseca al ejercicio). Con ella el eje ① deja de ser una
+   * pregunta y se pinta como DATO («la pone el ejercicio»); sin ella (línea sin
+   * ejercicio, o el hatch avanzado) el eje sigue siendo elegible, como siempre.
+   */
+  lockedModality?: Modality | null;
 }) {
   const axes = axesOf(value);
   const formatId = useId();
@@ -72,33 +89,41 @@ export function PrescriptionFields({
 
   return (
     <div className="space-y-4">
-      {/* ── ① MODALIDAD ─────────────────────────────────────────────────── */}
-      <Axis label="Modalidad">
-        <SegmentedControl
-          options={MODALIDAD_OPTIONS}
-          value={axes.modalidad}
-          onChange={(m) => onChange(applyModalidad(value, m))}
-          ariaLabel="Modalidad"
-        />
-        {axes.modalidad === 'ergo' ? (
-          <SegmentedControl
-            size="sm"
-            options={ERGO_SUBMODALITIES.map((o) => ({ value: o.value, label: o.label }))}
-            value={
-              value.modality === 'row' || value.modality === 'ski' || value.modality === 'bike'
-                ? value.modality
-                : 'row'
-            }
-            onChange={(m) => onChange(applyErgSubmodality(value, m))}
-            ariaLabel="Tipo de ergómetro"
-            className="ml-2"
+      {/* ── ① MODALIDAD ─────────────────────────────────────────────────────
+          Con ejercicio elegido la modalidad es un DATO (intrínseca, 0053) y la
+          cabecera del compositor ya la enseña como tag — repetirla aquí era la
+          primera duplicación del drawer. El eje solo aparece cuando ningún
+          ejercicio la determina. */}
+      {lockedModality ? null : (
+        <Axis label="Modalidad">
+          <ChipGroup
+            mono={false}
+            options={MODALIDAD_OPTIONS}
+            value={axes.modalidad}
+            onChange={(m) => onChange(applyModalidad(value, m))}
+            ariaLabel="Modalidad"
           />
-        ) : null}
-      </Axis>
+          {axes.modalidad === 'ergo' ? (
+            <ChipGroup
+              mono={false}
+              options={ERGO_SUBMODALITIES.map((o) => ({ value: o.value, label: o.label }))}
+              value={
+                value.modality === 'row' || value.modality === 'ski' || value.modality === 'bike'
+                  ? value.modality
+                  : 'row'
+              }
+              onChange={(m) => onChange(applyErgSubmodality(value, m))}
+              ariaLabel="Tipo de ergómetro"
+              className="ml-2"
+            />
+          ) : null}
+        </Axis>
+      )}
 
       {/* ── ② CÓMO SE MIDE ──────────────────────────────────────────────── */}
       <Axis label="Cómo se mide">
-        <SegmentedControl
+        <ChipGroup
+          mono={false}
           options={medidaOptions}
           value={
             medidaOptions.some((o) => o.value === axes.medida)
@@ -110,19 +135,26 @@ export function PrescriptionFields({
         />
       </Axis>
 
-      {/* ── ③ CONTRA QUÉ OBJETIVO ───────────────────────────────────────── */}
-      <Axis label="Contra qué objetivo">
-        <SegmentedControl
-          options={objetivoOptions}
-          value={
-            objetivoOptions.some((o) => o.value === axes.objetivo)
-              ? axes.objetivo
-              : objetivoOptions[0]!.value
-          }
-          onChange={(k) => onChange(applyObjetivo(value, k))}
-          ariaLabel="Contra qué objetivo"
-        />
-      </Axis>
+      {/* ── ③ CONTRA QUÉ OBJETIVO ───────────────────────────────────────────
+          En FUERZA la carga vive en los chips del compositor (%RM · kg · RIR ·
+          RPE · Corporal): repetir el eje encima era la segunda duplicación del
+          drawer. En el resto de modalidades el eje sigue fijando el KIND que
+          edita TargetCell. */}
+      {!isStrength ? (
+        <Axis label="Contra qué objetivo">
+          <ChipGroup
+            mono={false}
+            options={objetivoOptions}
+            value={
+              objetivoOptions.some((o) => o.value === axes.objetivo)
+                ? axes.objetivo
+                : objetivoOptions[0]!.value
+            }
+            onChange={(k) => onChange(applyObjetivo(value, k))}
+            ariaLabel="Contra qué objetivo"
+          />
+        </Axis>
+      ) : null}
 
       {/* ── Conditioning format (only for circuito/metcon-style blocks) ──── */}
       {!isStrength ? (
@@ -148,7 +180,7 @@ export function PrescriptionFields({
       {/* ── Adaptive CAMPOS card ─────────────────────────────────────────── */}
       <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
         {isStrength ? (
-          <StrengthFields value={value} onChange={onChange} />
+          <StrengthFields value={value} onChange={onChange} proposedPaths={proposedPaths} />
         ) : (
           <ConditioningFields value={value} onChange={onChange} />
         )}

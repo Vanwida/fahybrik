@@ -68,7 +68,12 @@ export async function POST(req: Request) {
   const account = await findAthleteByEmail(email);
   if (account || isFreeSignupEnabled()) {
     const { code_plaintext, expires_at } = await createEmailLoginCode(email, { requested_ip: ip });
-    await sendEmailLoginCode({ to: email, code: code_plaintext, expires_at });
+    await sendEmailLoginCode({
+      to: email,
+      code: code_plaintext,
+      expires_at,
+      coach_id: account?.athlete.coach_id ?? null,
+    });
   }
 
   return jsonOk({ ok: true });

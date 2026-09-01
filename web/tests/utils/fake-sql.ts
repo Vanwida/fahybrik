@@ -6,6 +6,9 @@
  *  - `.begin(fn)` — runs fn(self) within "transaction" (no rollback semantics)
  *  - `.unsafe(rawString)` — returns a marker the test fake inlines when
  *    reassembling SQL text
+ *  - `.json(value)` — como el driver real: el valor se liga como parámetro
+ *    jsonb; aquí llega al handler como el objeto original, que es lo que los
+ *    tests asertan (ver docs/DECISIONS.md 2026-08-09, payload como OBJETO)
  *
  * The caller passes a `handler(sqlText, values)` that returns rows. Sql text
  * is reassembled by concatenating template strings and replacing parameter
@@ -21,6 +24,15 @@ export type SqlHandler = (sqlText: string, values: unknown[]) => unknown[];
 interface UnsafeMarker {
   __unsafe: true;
   value: string;
+}
+
+interface JsonMarker {
+  __json: true;
+  value: unknown;
+}
+
+function isJsonMarker(x: unknown): x is JsonMarker {
+  return typeof x === 'object' && x != null && (x as { __json?: boolean }).__json === true;
 }
 
 function isUnsafeMarker(x: unknown): x is UnsafeMarker {
@@ -43,6 +55,10 @@ export function createFakeSql(handler: SqlHandler): Sql {
         const v = values[i];
         if (isUnsafeMarker(v)) {
           parts.push(v.value);
+        } else if (isJsonMarker(v)) {
+          paramIdx += 1;
+          parts.push(`$${paramIdx}`);
+          collected.push(v.value);
         } else {
           paramIdx += 1;
           parts.push(`$${paramIdx}`);
@@ -63,6 +79,10 @@ export function createFakeSql(handler: SqlHandler): Sql {
     value: s,
   });
   (tag as unknown as { end: () => Promise<void> }).end = async () => undefined;
+  (tag as unknown as { json: (v: unknown) => JsonMarker }).json = (v: unknown) => ({
+    __json: true,
+    value: v,
+  });
 
   return tag as unknown as Sql;
 }

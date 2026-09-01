@@ -1,7 +1,7 @@
 // v2 · AJUSTES — coach settings. Server component: loads the coach session (auth)
 // + the editable profile, then renders the editable profile form and a link out
 // to Metodología/Periodización (the doc corpus that feeds the IA). v2 brand
-// tokens, light + dark.
+// tokens — el panel es FLEXR (claro perla u oscuro), aislado en `.v2-root`.
 
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { screenNoticeActionClass } from '@/components/v2/ScreenState';
 import { CoachProfileForm } from '@/components/v2/ajustes/CoachProfileForm';
 import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
+import { SignalThresholdsForm } from '@/components/v2/ajustes/SignalThresholdsForm';
 import { PushCard } from '@/components/v2/push/PushNotifications';
 
 export const dynamic = 'force-dynamic';
@@ -68,26 +69,23 @@ export default async function V2AjustesPage({
           <CoachProfileForm initial={profile} />
         </section>
 
-        {/* ── Metodología ────────────────────────────────────────────────── */}
+        {/* ── Alta del atleta (preguntas + correo de llegada) ────────────── */}
         <section>
-          <h2 className="v2-micro mb-2">Metodología</h2>
+          <h2 className="v2-micro mb-2">Alta</h2>
           <Card interactive className="overflow-hidden">
-            <Link
-              href={METODOLOGIA_HREF}
-              className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
-            >
+            <Link href="/cuestionarios" className="v2-focus group flex items-center gap-4 p-4 sm:p-5">
               <span
                 aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
               >
-                <MIcon name="psychology" size={20} />
+                <MIcon name="assignment" size={20} />
               </span>
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                  Periodización y fases
+                  Cuestionarios de alta
                 </span>
                 <span className="text-xs text-[color:var(--v2-muted)]">
-                  Define las fases y principios que alimentan a Coach IA.
+                  Preguntas, pasos y el correo que recibe cada alta.
                 </span>
               </div>
               <MIcon
@@ -99,6 +97,97 @@ export default async function V2AjustesPage({
             </Link>
           </Card>
         </section>
+
+        {/* ── Club (lockup; no es la foto de la persona) ─────────────────── */}
+        <section>
+          <h2 className="v2-micro mb-2">Club</h2>
+          <Card interactive className="overflow-hidden">
+            <Link href="/club" className="v2-focus group flex items-center gap-4 p-4 sm:p-5">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
+              >
+                <MIcon name="storefront" size={20} />
+              </span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-semibold text-[color:var(--v2-fg)]">Tu club</span>
+                <span className="text-xs text-[color:var(--v2-muted)]">
+                  Nombre, logo y color. Vacío = la marca de la app.
+                </span>
+              </div>
+              <MIcon
+                name="chevron_right"
+                size={20}
+                className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                aria-hidden
+              />
+            </Link>
+          </Card>
+        </section>
+
+        {/* ── Metodología ────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="v2-micro mb-2">Metodología</h2>
+          <div className="flex flex-col gap-2">
+            <Card interactive className="overflow-hidden">
+              <Link
+                href="/como-entrenas"
+                className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
+                >
+                  <MIcon name="tune" size={20} />
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                    Cómo entrenas
+                  </span>
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Siete capítulos. El producto te devuelve tu sistema en un párrafo.
+                  </span>
+                </div>
+                <MIcon
+                  name="chevron_right"
+                  size={20}
+                  className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                  aria-hidden
+                />
+              </Link>
+            </Card>
+            <Card interactive className="overflow-hidden">
+              <Link
+                href={METODOLOGIA_HREF}
+                className="v2-focus group flex items-center gap-4 p-4 sm:p-5"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--v2-r-m)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]"
+                >
+                  <MIcon name="psychology" size={20} />
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
+                    Periodización y fases
+                  </span>
+                  <span className="text-xs text-[color:var(--v2-muted)]">
+                    Define las fases y principios que alimentan a Coach IA.
+                  </span>
+                </div>
+                <MIcon
+                  name="chevron_right"
+                  size={20}
+                  className="ml-auto shrink-0 text-[color:var(--v2-faint)] transition-colors group-hover:text-[color:var(--v2-fg)]"
+                  aria-hidden
+                />
+              </Link>
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Avisos de lo que publica (días de espera de las señales) ────── */}
+        <SignalThresholdsForm />
 
         {/* ── Avisos (Web Push de este dispositivo) ──────────────────────── */}
         <PushCard />

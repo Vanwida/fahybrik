@@ -73,7 +73,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <MIcon name="hourglass_top" size={18} className="text-[color:var(--v2-accent)]" />
+          <MIcon name="hourglass_top" size={18} className="text-[color:var(--v2-accent-text)]" />
           <h2 className="text-sm font-semibold text-[color:var(--v2-fg)]">Lista de espera</h2>
           <Pill tone="warn" variant="soft">
             <span className="v2-num">{entries.length}</span>
@@ -115,7 +115,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
                       'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ' +
                       (released
                         ? 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]'
-                        : 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]')
+                        : 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]')
                     }
                   >
                     <span className="v2-num">{e.position}</span>
@@ -126,7 +126,7 @@ export function WaitlistQueueCard({ entries }: { entries: WaitlistEntry[] }) {
                   >
                     <AthleteAvatar name={name} size="sm" />
                     <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)] transition-colors group-hover:text-[color:var(--v2-accent)]">
+                      <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)] transition-colors group-hover:text-[color:var(--v2-accent-text)]">
                         {name}
                       </span>
                       <span className="truncate text-label text-[color:var(--v2-muted)]">

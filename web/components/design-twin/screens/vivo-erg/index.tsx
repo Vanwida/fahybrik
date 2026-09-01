@@ -37,9 +37,12 @@ export const meta: TwinMeta = {
   titulo: 'El ergo por series — el hito manda',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
+  actualizado: '2026-07-29',
   descripcion:
     'Remo, esquí y bici con el monitor: de la puerta de conexión al descanso, con el ritmo contra tu objetivo, lo que queda drenando y lo que la app NO puede medir dicho en su sitio. Gira el marco para la cara de monitor.',
   fuentes: [],
+  enApp:
+    'El núcleo está shipeado (ErgHUDContent + ErgPreStartFlow); esta propuesta es un superconjunto de esa superficie.',
   dispositivo: 'iphone',
   soportaHorizontal: true,
 };

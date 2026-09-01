@@ -8,9 +8,9 @@ import { V2_THEME_STORAGE_KEY, V2_THEME_DEFAULT } from './theme-config';
 
 /**
  * Inline pre-paint script — sets `data-theme` on `.v2-root` BEFORE React hydrates
- * so there is no light/dark flash. Dependency-free; mirrors getClientTheme order.
+ * so there is no light/dark flash. Dependency-free; mirrors resolveV2Theme order.
  */
 export function V2ThemeScript() {
-  const js = `(function(){try{var k='${V2_THEME_STORAGE_KEY}';var s=localStorage.getItem(k);var t=(s==='dark'||s==='light')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'${V2_THEME_DEFAULT}');var el=document.querySelector('.v2-root');if(el)el.setAttribute('data-theme',t);}catch(e){}})();`;
+  const js = `(function(){try{var k='${V2_THEME_STORAGE_KEY}';var s=localStorage.getItem(k);var t=(s==='dark'||s==='light')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'${V2_THEME_DEFAULT}');var el=document.querySelector('.v2-root');if(el)el.setAttribute('data-theme',t);}catch(e){}})();`;
   return <script dangerouslySetInnerHTML={{ __html: js }} />;
 }

@@ -10,7 +10,7 @@
 
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { getCapacityState } from '@/lib/coach/capacity';
-import { coachNameForLead, funnelCoachId } from './funnel-coach';
+import { coachIdForLead, coachNameForLead, funnelCoachId } from './funnel-coach';
 import { sendWaitlistReleasedEmail } from './waitlist-email';
 import { WAITLIST_RELEASED_TOUCH } from '@fahybrid/shared/domain/leads/nurture';
 
@@ -227,6 +227,7 @@ export async function releaseAndNotifyLead(
     cita_token: lead.token,
     unsubscribe_token: lead.unsubscribe_token,
     coach_name: await coachNameForLead(sql, BigInt(leadId)),
+    coach_id: (await coachIdForLead(sql, BigInt(leadId)))?.toString() ?? null,
   });
 
   if (!emailRes.sent) {

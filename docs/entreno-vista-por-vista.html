@@ -1,0 +1,83 @@
+<title>El entreno, vista por vista — mapa, ley y matriz</title>
+<style>
+:root{--n:#0a0a0b;--p:#121214;--p2:#17171a;--l:#26262b;--t:#f5f3f0;--t2:#a8a5a0;--t3:#6f6c68;--o:#F06A2A;--os:#FF8A4C;--rojo:#f0503a;--verde:#3fb950;--m:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--n);color:var(--t);font:16px/1.6 -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.w{max-width:1240px;margin:0 auto;padding:56px 24px 120px}
+h1{font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:-.03em;font-style:italic;font-weight:800;margin:0 0 12px}
+.f{color:var(--t3);font-family:var(--m);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 44px}
+h2{font-size:26px;font-style:italic;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+section{padding-top:44px;margin-top:40px;border-top:1px solid var(--l)}
+section>p.sub{color:var(--t2);margin:0 0 26px;max-width:78ch}
+code{font-family:var(--m);font-size:.86em;color:var(--os);background:rgba(240,106,42,.1);padding:1px 5px;border-radius:5px}
+.tw{overflow-x:auto;border:1px solid var(--l);border-radius:16px;background:var(--p)}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:14px}
+th{text-align:left;font-family:var(--m);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);font-weight:700;padding:14px 14px;border-bottom:1px solid var(--l);white-space:nowrap}
+td{padding:13px 14px;border-bottom:1px solid #1c1c20;vertical-align:top;color:var(--t2)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--t);font-weight:600;white-space:nowrap}
+td.suj{color:var(--t);font-weight:600}
+.n{border:1px solid var(--l);border-radius:16px;background:var(--p);padding:24px 26px;margin-bottom:28px}
+.n p{margin:0 0 12px;color:var(--t2)}.n p:last-child{margin:0}.n b{color:var(--t)}
+.bad{border-color:color-mix(in srgb,var(--rojo) 40%,var(--l))}
+.bad h3{color:var(--rojo)}
+h3{font-size:16px;margin:0 0 10px;letter-spacing:-.01em}
+ol.pasos{counter-reset:s;list-style:none;padding:0;margin:0}
+ol.pasos li{counter-increment:s;position:relative;padding-left:46px;margin-bottom:16px;color:var(--t2)}
+ol.pasos li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--o);color:#0a0a0b;font-weight:800;font-size:14px;font-family:var(--m)}
+ol.pasos li b{color:var(--t)}
+.reglas{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.regla{border:1px solid var(--l);border-radius:14px;background:var(--p);padding:18px 20px}
+.regla b{display:block;margin-bottom:6px;font-size:15px}
+.regla span{color:var(--t3);font-size:13.5px;line-height:1.55}
+@media(max-width:640px){.w{padding:34px 16px 80px}}
+</style>
+<div class="w">
+<h1>El entreno, vista por vista</h1>
+<p class="f">Mapa de lo que hay · ley de diseño con fuente · matriz por tipo de entreno · 5 de agosto de 2026</p>
+
+<div class="n bad">
+<h3>El bug del crono: la causa no era la que parecía</h3>
+<p><code>session.autoResume()</code> tiene <b>un solo llamante en toda la app</b> — el modelo de la pantalla de calle — y muere con ella: su <code>teardown()</code> no lo llama. Traducido: <b>paras en un semáforo, cierras esa pantalla, y la sesión se queda pausada para siempre.</b> No es que los relojes vayan desincronizados: es que uno deja de correr y además falsea lo que se guarda.</p>
+<p>Y hay dos más en la de cinta: tiene <b>reloj propio</b> (<code>legStartedAt</code>) que cuenta desde que la abres, no desde que empezó la serie; y su <code>paused</code> nunca lee el de la sesión, así que cualquier pausa desde fuera las desincroniza exactamente esa cantidad.</p>
+</div>
+
+<section>
+<h2>Lo que sobra</h2>
+<p class="sub">Siete superficies que pueden aparecer durante un entreno y <b>no tienen ningún diseño detrás</b>. No es opinión: se buscó su equivalente en el doble y no existe.</p>
+<div class="tw"><table>
+<tr><th>Superficie</th><th>Dónde</th><th>Por qué sobra</th></tr>
+<tr><td>RunLiveHUD</td><td><code>WorkoutLiveHUDs.swift:71</code></td><td>La naranja genérica. Ningún diseño detrás.</td></tr><tr><td>StructuredRunLiveHUD</td><td><code>WorkoutFormatHUDs.swift:956</code></td><td>Duplica la pantalla de series.</td></tr><tr><td>IntervalsLiveHUD</td><td><code>:717</code></td><td>Sin diseño; su sitio es la vista de series.</td></tr><tr><td>TabataLiveHUD</td><td><code>:659</code></td><td>Cero casos reales en la biblioteca.</td></tr><tr><td>SteadyLiveHUD</td><td><code>:858</code></td><td>Sin diseño; su sitio es rodaje.</td></tr><tr><td>DeathByLiveHUD</td><td><code>:798</code></td><td>Cero casos reales. <b>Decisión tuya</b>: diseñarlo o retirar el formato.</td></tr><tr><td>TreadmillControlDebugSheet</td><td><code>:17</code></td><td>Se abre con pulsación larga <b>en producción</b>.</td></tr>
+</table></div>
+<p class="sub" style="margin-top:20px">Y <b>correr lo pintan seis vistas distintas</b>, dos de ellas vivas a la vez: el cover tapa un HUD que sigue montado debajo. De ahí que pudieras saltar entre pantallas y que la Live Activity dependiera de cuál tuvieras abierta.</p>
+</section>
+
+<section>
+<h2>La ley de diseño</h2>
+<p class="sub">Con fuente, no de memoria. Lo que hacen Apple y Garmin, y lo que el HIG obliga.</p>
+<div class="reglas">
+<div class="regla"><b>La hora no se pelea, se reclama</b><span>Un <code>ToolbarItem(.topBarTrailing)</code> hace que el sistema <b>centre</b> la hora. Respuesta oficial de Apple. En watchOS 26 ya no se auto-oculta: no se puede contar con ello.</span></div><div class="regla"><b>Always-On o no somos una app de entreno</b><span>Es la queja nº 1 contra Strava y Nike en el reloj. Cada pantalla necesita su estado atenuado: fuera centésimas, fuera animaciones, fuera puntos de página, y volver sola a métricas.</span></div><div class="regla"><b>Con la muñeca baja los swipes se ignoran</b><span>Los toques no. <b>Ninguna acción del entreno puede depender de un arrastre</b> — y nuestro lienzo cambia de página arrastrando.</span></div><div class="regla"><b>El color va en los números, no en el fondo</b><span>HIG literal: evitar fondo de color a pantalla completa en una vista que va a estar una hora encendida. Apple pinta negro y colorea el dato.</span></div><div class="regla"><b>Cuatro métricas por pantalla como máximo</b><span>Es lo que hace Apple en todas sus vistas de carrera. Si hace falta una quinta, es otra página.</span></div><div class="regla"><b>Una sesión de HealthKit siempre activa</b><span>Sin ella no hay Always-On y el sistema te echa a los dos minutos.</span></div><div class="regla"><b>Nunca pantalla vacía</b><span>Si sobra sitio, el dato crece. Ni contenido flotando en el centro ni aire por los cuatro lados.</span></div><div class="regla"><b>Nada por debajo de 12 pt, toques de 44×44</b><span>Y prohibidos los pesos Light/Thin: en movimiento desaparecen.</span></div>
+</div>
+</section>
+
+<section>
+<h2>La matriz — una vista por lo que estás haciendo</h2>
+<p class="sub">Todos los tipos que existen de verdad en la biblioteca. El sujeto sale de <b>qué mide el reloj</b> y <b>quién cierra el trabajo</b>; el resto se ordena solo. Base común: negro, naranja de marca, el numeral del contrato, el aro en el borde.</p>
+<div class="tw"><table>
+<tr><th>Tipo</th><th>Quién cierra</th><th>El sujeto</th><th>Segundo nivel</th><th>Acción</th><th>Aro</th><th>Qué cambia en el móvil</th></tr>
+<tr><td>Rodaje · calle</td><td>GPS mide todo</td><td class="suj">Ritmo</td><td>zona / veredicto vs objetivo</td><td>ninguna — se mira, no se toca</td><td>aro sólo si hay objetivo</td><td>Igual, con mapa y Live Activity</td></tr><tr><td>Rodaje · cinta</td><td>la lee el móvil</td><td class="suj">Metros que faltan</td><td>velocidad · inclinación <b>del móvil</b></td><td>ninguna</td><td>fracción del objetivo</td><td>Control de cinta + inclinación</td></tr><tr><td>Rodaje · ergo</td><td>la lee el móvil</td><td class="suj">/500</td><td>paladas · metros <b>del móvil</b></td><td>ninguna</td><td>fracción de la pieza</td><td>HUD horizontal del PM5</td></tr><tr><td>Series · calle</td><td>GPS + hito</td><td class="suj">Metros que faltan</td><td>ritmo GPS</td><td>ninguna (cierra el hito)</td><td><b>segmentado</b>, una por serie</td><td>Mapa + tabla de parciales</td></tr><tr><td>Series · cinta</td><td>la lee el móvil</td><td class="suj">Metros que faltan</td><td>velocidad</td><td>ninguna</td><td>segmentado</td><td>Control de cinta por tramo</td></tr><tr><td>Series · ergo</td><td>la lee el móvil</td><td class="suj">Metros que faltan</td><td>/500 · paladas</td><td>ninguna</td><td>segmentado</td><td>Programa la pieza en el PM5</td></tr><tr><td>Fartlek (por tiempo)</td><td>el reloj corta</td><td class="suj">Cuenta atrás del tramo</td><td>ritmo actual</td><td>ninguna</td><td>ventana del tramo</td><td>Igual + perfil de la serie</td></tr><tr><td>Fuerza</td><td>nadie — lo declaras</td><td class="suj">Carga</td><td>reps · RIR</td><td>«Al acabar · toca» <i>atenuada</i></td><td>segmentado por serie</td><td>Corona ±2,5 kg · historial de la serie</td></tr><tr><td>Descanso de fuerza</td><td>el reloj</td><td class="suj">Cuenta atrás</td><td>la serie que viene</td><td>«Toca · ya»</td><td>drena la cuenta</td><td>Editar carga/reps de lo hecho</td></tr><tr><td>EMOM</td><td>el reloj de pared</td><td class="suj">Lo que queda del minuto</td><td>la tarea de <b>esta</b> ronda</td><td>marcar hecha</td><td>ventana entera</td><td>Lista de estaciones + rotación</td></tr><tr><td>Rounds / RFT</td><td>la ruta</td><td class="suj">Crono total (puntuación)</td><td>movimiento actual + dosis</td><td>ronda hecha</td><td>segmentado por ronda</td><td>Los componentes de la ronda</td></tr><tr><td>For Time · Chipper</td><td>la ruta</td><td class="suj">Crono total (puntuación)</td><td>dosis de la estación</td><td>estación hecha</td><td>segmentado, apagado donde no mide</td><td>Lista completa con tachado</td></tr><tr><td>HYROX Sim</td><td>la ruta de 16</td><td class="suj">Crono total</td><td>estación + dosis</td><td>estación hecha</td><td>16 segmentos</td><td>Parciales + RoxZone</td></tr><tr><td>AMRAP</td><td>la ventana</td><td class="suj">Rondas</td><td>lo que queda de ventana</td><td>+ ronda</td><td>ventana que drena</td><td>Rondas + reps parciales</td></tr><tr><td>Dobles</td><td>tu pareja</td><td class="suj">Trabajas / esperas</td><td>tu salida</td><td>relevo</td><td>—</td><td>Reparto y turno del compañero</td></tr><tr><td>Calentamiento</td><td>nadie</td><td class="suj">El ítem actual</td><td>lo que queda de lista</td><td>hecho</td><td>segmentado por ítem</td><td>Checklist con vídeo</td></tr>
+</table></div>
+</section>
+
+<section>
+<h2>El orden</h2>
+<p class="sub">De la raíz hacia fuera. Cada paso deja el anterior imposible de repetir.</p>
+<ol class="pasos">
+<li><b>La pausa deja de vivir en una vista.</b> Que <code>autoResume</code> y el estado de pausa sean de la sesión y de nadie más. Arregla el crono hoy y quita la razón de que vuelva.</li>
+<li><b>Una vista por ejercicio, del doble.</b> Correr calle, correr cinta, ergo, fuerza, EMOM, ruta, AMRAP, dobles. Se portan las que hay diseñadas; las que no, se diseñan primero en el doble.</li>
+<li><b>Mueren las siete.</b> No se «quitan»: al rutear por tipo dejan de tener condición que las muestre.</li>
+<li><b>Always-On en las dos pantallas.</b> Estado atenuado por vista, sin swipes críticos, vuelta automática a métricas.</li>
+<li><b>El color se muda al dato.</b> Fondo negro, número teñido. Y la hora se reclama con un toolbar item.</li>
+<li><b>Lo que falta:</b> el resumen de carrera está diseñado y no tiene Swift, y el espejo <code>run-live</code> del doble miente — refleja la app de julio.</li>
+</ol>
+</section>
+</div>

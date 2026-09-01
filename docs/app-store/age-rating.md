@@ -26,7 +26,7 @@ Answer **None** to every category below unless noted otherwise.
 | Alcohol, tobacco, or drug use or references | None | n/a |
 | Simulated gambling | None | n/a |
 | Contests | None | We surface external HYROX/CrossFit competitions but do not run contests. |
-| Unrestricted web access | No | The app does not embed an open web browser. Only first-party screens + first-party `https://fahybrik.com/...` links. |
+| Unrestricted web access | No | The app does not embed an open web browser. Only first-party screens + first-party `https://fahybrid.com/...` links. |
 | Gambling and contests | No | n/a |
 
 ## Additional flags

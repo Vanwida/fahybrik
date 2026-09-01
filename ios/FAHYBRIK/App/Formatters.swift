@@ -153,6 +153,15 @@ enum StatsDateParser {
         return f.string(from: date)
     }
 
+    /// "mar 12" — short weekday + day, Spanish. Para etiquetas estrechas donde el
+    /// mes se sobreentiende (el chip de contexto del chat, su selector).
+    static func dayShort(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "EEE d"
+        return f.string(from: date)
+    }
+
     /// "2 jun" — day + month, for tight chart axes / week labels.
     static func dayMonth(_ date: Date) -> String {
         let f = DateFormatter()

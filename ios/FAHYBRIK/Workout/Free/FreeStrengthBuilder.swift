@@ -221,7 +221,6 @@ final class FreeStrengthDraft {
             equipment: [],
             segments: segments,
             coachNote: nil,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
         return FreeWorkoutContext(

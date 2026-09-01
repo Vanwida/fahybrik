@@ -271,7 +271,7 @@
   <div class="ctrlgrid">
     <div class="cg head"><div>Bloque</div><div>Visibilidad</div><div>El valor</div><div>Qué toca el coach</div></div>
     <div class="cg row"><div class="nm">Camino a la carrera</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">Asigna la carrera objetivo y el tiempo meta; los días salen solos.</div></div>
-    <div class="cg row"><div class="nm">Fase · semana N de M</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">El <em>nombre</em> de la fase y los microciclos son dato del coach (agnóstico, no ATR). El "N de M" se deriva.</div></div>
+    <div class="cg row"><div class="nm">Fase · semana N de M</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">El <em>nombre</em> de la fase y los microciclos son dato del coach. El "N de M" se deriva.</div></div>
     <div class="cg row"><div class="nm">¿Cómo llegas hoy? (0–100)</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic fix">🔒<small>fijo</small></div><div class="note"><b>Nada.</b> Pesos y fórmulas en código. (El coach tiene umbrales de readiness en su metodología, pero esta nota <em>no los usa</em> — ver abajo.)</div></div>
     <div class="cg row"><div class="nm">VDOT · umbral · zonas · 5 km</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>entrada</small></div><div class="note">Modelo Daniels = fijo. El coach define qué prueba es el ancla de ritmo (<code>run_pace_anchor</code>, por defecto 5 km).</div></div>
     <div class="cg row"><div class="nm">1RM de fuerza</div><div class="ic fix">🔒<small>fijo</small></div><div class="ic co">⚙️<small>coach</small></div><div class="note">Elige la fórmula (Epley / Brzycki / Lombardi) vía <code>coach_methodology.one_rm_estimation</code>.</div></div>
@@ -471,7 +471,7 @@ rodaje <span class="o">70%</span>   maratón <span class="o">84%</span>   umbral
       <div class="wk cur">S3<small>● ahora</small></div>
       <div class="wk up">S4<small>próxima</small></div>
     </div>
-    <div class="src">Ejemplo de "{nombre de fase} · semana 3 de 4". El nombre es el que el coach dio a su microciclo (no "ATR" hardcodeado). Al atleta nunca le llega jerga: el campo <code>block</code> va siempre <code>null</code> en su vista (<code>:361-372,396</code>).</div>
+    <div class="src">Ejemplo de "{nombre de fase} · semana 3 de 4". El nombre es el que el coach dio a su microciclo. Al atleta nunca le llega jerga: el campo <code>block</code> va siempre <code>null</code> en su vista (<code>:361-372,396</code>).</div>
 
     <div class="flow" style="margin-top:12px">
       <div class="box src">athlete_month_assignments<small>el "recibo" del plan</small></div>

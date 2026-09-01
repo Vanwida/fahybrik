@@ -24,6 +24,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { setAssignmentStatus } from '@/lib/sync/assignment-status';
 import { recordTestBenchmark } from '@/lib/athlete/record-test-benchmark';
 import { insertStrengthMaxVersion } from '@/lib/strength/strength-max';
 import { loadCoachZonesForUnit, insertZoneProfileVersion } from '@/lib/dashboard/v2/zone-derivation';
@@ -151,22 +152,30 @@ export async function recordBatteryResults(params: {
   for (const e of entries) {
     const spec = specBySlug.get(e.slug)!;
     if (spec.measure === 'load') {
-      await recordTestBenchmark(sql, {
-        kind: 'strength',
-        athlete_id,
-        exercise_slug: spec.slug,
-        one_rm_kg: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'strength',
+          athlete_id,
+          exercise_slug: spec.slug,
+          one_rm_kg: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else if (spec.measure === 'hrr') {
       // heart-rate recovery (hrr60) — a baseline benchmark in bpm; derives nothing.
-      await recordTestBenchmark(sql, {
-        kind: 'hrr',
-        athlete_id,
-        exercise_slug: spec.slug,
-        bpm: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'hrr',
+          athlete_id,
+          exercise_slug: spec.slug,
+          bpm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else if (spec.measure === 'hr') {
       // An absolute heart rate (lthr_bpm). This branch is load-bearing: without it
       // the `else` below would file a threshold of 156 ppm as 156 SECONDS.
@@ -178,22 +187,44 @@ export async function recordBatteryResults(params: {
       // athlete's phone, the coach's read-back and the watch alert all switch from
       // an estimated anchor to a measured one. Do not "finish" this by adding a
       // snapshot table: there is nothing missing.
-      await recordTestBenchmark(sql, {
-        kind: 'hr',
-        athlete_id,
-        exercise_slug: spec.slug,
-        bpm: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'hr',
+          athlete_id,
+          exercise_slug: spec.slug,
+          bpm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
+    } else if (spec.measure === 'height') {
+      // Jump height in cm. MUST sit before the timetrial else: that branch
+      // stores unit 'seconds', and 47 cm would render as 0:47 with lower-is-better.
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'jump',
+          athlete_id,
+          exercise_slug: spec.slug,
+          height_cm: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     } else {
       // time-trial (run_5k / row_2k / hyrox_half_sim)
-      await recordTestBenchmark(sql, {
-        kind: 'timetrial',
-        athlete_id,
-        exercise_slug: spec.slug,
-        seconds: e.value,
-        source,
-      });
+      await recordTestBenchmark(
+        sql,
+        {
+          kind: 'timetrial',
+          athlete_id,
+          exercise_slug: spec.slug,
+          seconds: e.value,
+          source,
+        },
+        { assignment_id },
+      );
     }
     out.benchmarks_written += 1;
     if (
@@ -204,7 +235,8 @@ export async function recordBatteryResults(params: {
     }
   }
 
-  // 2) Strength maxes (versioned projection) for each load entry.
+  // 2) Strength maxes (versioned projection) for each load entry, ancladas a ESTA
+  //    ocurrencia igual que sus marcas.
   for (const e of entries) {
     const spec = specBySlug.get(e.slug)!;
     if (spec.measure !== 'load') continue;
@@ -218,6 +250,10 @@ export async function recordBatteryResults(params: {
         test_reps: null,
         one_rm_method: null,
         needs_review: false,
+        // El ancla (0200). Sin ella la ficha no puede distinguir este kilo —que
+        // salió de esta batería— de uno que el coach escribió a mano, y acaba
+        // llamando «medidas» a las dos cosas.
+        assignment_id,
       },
       sql,
     );
@@ -263,6 +299,10 @@ export async function recordBatteryResults(params: {
           : e.value > prev;
     return { slug: e.slug, value: e.value, prev_value: prev, improved };
   });
+
+  // El resultado ES el cierre del día. Sin esto el atleta guarda y Hoy sigue
+  // diciendo Empezar — el puente escribía marcas y no tocaba el assignment.
+  await setAssignmentStatus(sql, assignment_id, athlete_id, 'completed');
 
   out.ok = true;
   return out;

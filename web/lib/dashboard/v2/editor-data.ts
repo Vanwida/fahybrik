@@ -297,6 +297,9 @@ function mapSession(s: DomainWeekSession, index: number): EditorSession {
     time_hint: slot === 'am' ? '08:00' : slot === 'pm' ? '18:00' : undefined,
     // Workout title round-trips from slots_json (WeekSession.focus).
     ...(s.focus ? { focus: s.focus } : {}),
+    // La NOTA del entreno también: sin hidratarla, abrir y guardar el día la
+    // borraría (el serializer la toma autoritativa del input, como el título).
+    ...(s.notes ? { notes: s.notes } : {}),
     blocks: (s.blocks ?? []).map((b, bi) => mapPart(b, bi)),
   };
 }
@@ -311,6 +314,11 @@ function mapPart(part: WeekDayPart, index: number): EditorBlock {
     // heuristic only for legacy parts saved before `group` existed.
     group: part.group ?? inferGroup(part.title, part.format),
     source_block_id: part.source_block_id ?? null,
+    optional: part.optional ?? false,
+    // Circuito: pass-through tal cual (undefined = sin configurar todavía, el
+    // comportamiento legacy). Nunca se infiere ni se rellena aquí — solo el
+    // coach lo completa desde ComponentsForm.
+    circuit: part.circuit,
     items: (part.items ?? []).map((it) => mapItem(it)),
   };
 }
@@ -418,9 +426,11 @@ function blockFormatToModalitySlug(format: string | null): string {
     case 'metcon':
     case 'functional_circuit':
       return 'circuito';
-    // Core, movilidad y activación pre-carrera.
+    // Core, movilidad, calentamiento y vuelta a la calma.
     case 'core_mobility':
     case 'tapering':
+    case 'warmup':
+    case 'cooldown':
       return 'calentamiento';
     default:
       return modalityColorSlug('functional');

@@ -16,9 +16,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Badge } from '@/components/ui/badge';
 import { LevelBadge } from '@/components/v2/LevelBadge';
 import type { V2LevelItem } from '@/lib/dashboard/v2/periodizacion';
-import { ReorderRow, RowIconButton } from './ReorderRow';
+import { ListRow, ListRowAction, ListRowGroup } from '@/components/ui/list-row';
+import { useListReorderMove } from '@/lib/ui/use-list-reorder-move';
 import { SidePanel, Field, TextInput, TextArea } from './SidePanel';
 import { showLevelsEmptyState } from './niveles-empty-state';
 import { cn } from '@/lib/utils';
@@ -78,31 +80,29 @@ export function NivelesPanel({
     [levels],
   );
 
-  // ── Reorder (adjacent swap, persisted) ──────────────────────────────────
-  const move = useCallback(
-    (index: number, delta: -1 | 1) => {
-      const target = index + delta;
-      if (target < 0 || target >= levels.length) return;
-      const next = levels.slice();
-      const tmp = next[index]!;
-      next[index] = next[target]!;
-      next[target] = tmp;
-      // Re-derive sort_order from position so it stays contiguous.
-      const renumbered = next.map((l, i) => ({ ...l, sort_order: i }));
-      setLevels(renumbered);
-      // Persist the two rows that changed position.
-      void Promise.all(
-        [renumbered[index]!, renumbered[target]!].map((l) =>
-          fetch(`/api/coach/levels/${l.id}`, {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ sort_order: l.sort_order }),
-          }),
-        ),
-      ).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
-    },
-    [levels],
+  // ── Reorder (ListRow adjacent steps → live list + one coalesced write) ──
+  // ListRow may emit N synchronous onMove calls on a multi-step drag. Each
+  // step must see the previous result; persistence waits for the final order
+  // and PATCHes every row whose sort_order actually changed.
+  const renumberLevels = useCallback(
+    (list: V2LevelItem[]) => list.map((l, i) => ({ ...l, sort_order: i })),
+    [],
   );
+  const commitLevelOrder = useCallback((next: readonly V2LevelItem[], previous: readonly V2LevelItem[]) => {
+    const prevOrder = new Map(previous.map((l) => [l.id, l.sort_order]));
+    const changed = next.filter((l) => prevOrder.get(l.id) !== l.sort_order);
+    if (changed.length === 0) return;
+    void Promise.all(
+      changed.map((l) =>
+        fetch(`/api/coach/levels/${l.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sort_order: l.sort_order }),
+        }),
+      ),
+    ).catch(() => setError('No se pudo guardar el orden · Reintenta.'));
+  }, []);
+  const move = useListReorderMove(levels, setLevels, commitLevelOrder, renumberLevels);
 
   // ── Save (create or edit) ────────────────────────────────────────────────
   const save = useCallback(async () => {
@@ -225,16 +225,13 @@ export function NivelesPanel({
       {/* topbar */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)]">
+          <Badge tone="neutral">
             <b className="v2-num">{levels.length}</b> niveles
-          </span>
+          </Badge>
           {classified > 0 ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-label font-semibold"
-              style={{ background: 'var(--v2-ok-soft)', color: 'var(--v2-ok)' }}
-            >
+            <Badge tone="ok">
               <b className="v2-num">{classified}</b> atletas clasificados
-            </span>
+            </Badge>
           ) : null}
         </div>
         {!isEmpty ? (
@@ -245,7 +242,7 @@ export function NivelesPanel({
               setError(null);
               setConflict(false);
             }}
-            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} /> Nuevo nivel
           </button>
@@ -265,59 +262,61 @@ export function NivelesPanel({
         >
           {/* list */}
           <div className={cn('flex flex-col gap-2', draft ? 'hidden lg:flex' : undefined)}>
-            {levels.map((lvl, i) => (
-              <ReorderRow
-                key={lvl.id}
-                index={i}
-                total={levels.length}
-                onMove={move}
-                selected={draft?.id === lvl.id}
-                actions={
-                  <>
-                    <span className="mr-1 hidden items-center gap-1 text-label text-[color:var(--v2-faint)] sm:inline-flex">
-                      <MIcon name="person" size={14} />
-                      <b className="v2-num">{lvl.athlete_count}</b> atletas
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onEnter(lvl)}
-                      className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
-                    >
-                      Periodización <MIcon name="arrow_forward" size={13} />
-                    </button>
-                    <RowIconButton
-                      icon="edit"
-                      label="Editar nivel"
-                      onClick={() => {
-                        setDraft({ id: lvl.id, name: lvl.name, label: lvl.label, description: lvl.description ?? '' });
-                        setError(null);
-                        setConflict(false);
-                      }}
-                    />
-                    <RowIconButton icon="delete" label="Eliminar nivel" danger onClick={() => requestDelete(lvl)} />
-                  </>
-                }
-              >
-                <button
-                  type="button"
-                  onClick={() => onEnter(lvl)}
-                  className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
-                  title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+            <ListRowGroup>
+              {levels.map((lvl, i) => (
+                <ListRow
+                  key={lvl.id}
+                  index={i}
+                  total={levels.length}
+                  onMove={move}
+                  selected={draft?.id === lvl.id}
+                  actions={
+                    <>
+                      <span className="mr-1 hidden items-center gap-1 text-label text-[color:var(--v2-faint)] sm:inline-flex">
+                        <MIcon name="person" size={14} />
+                        <b className="v2-num">{lvl.athlete_count}</b> atletas
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onEnter(lvl)}
+                        className="v2-focus hidden h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent-soft)] px-2.5 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-fg)] sm:inline-flex"
+                      >
+                        Periodización <MIcon name="arrow_forward" size={13} />
+                      </button>
+                      <ListRowAction
+                        icon="edit"
+                        label="Editar nivel"
+                        onClick={() => {
+                          setDraft({ id: lvl.id, name: lvl.name, label: lvl.label, description: lvl.description ?? '' });
+                          setError(null);
+                          setConflict(false);
+                        }}
+                      />
+                      <ListRowAction icon="delete" label="Eliminar nivel" danger onClick={() => requestDelete(lvl)} />
+                    </>
+                  }
                 >
-                  <span className="flex items-center gap-2.5">
-                    <LevelBadge level={lvl.name} />
-                    <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent)]">
-                      {lvl.label}
+                  <button
+                    type="button"
+                    onClick={() => onEnter(lvl)}
+                    className="v2-focus group/enter -m-1 block w-full rounded-[var(--v2-r-s)] p-1 text-left"
+                    title={`Abrir la periodización de ${lvl.name} · ${lvl.label}`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <LevelBadge level={lvl.name} />
+                      <span className="truncate text-reading font-bold text-[color:var(--v2-fg)] transition-colors group-hover/enter:text-[color:var(--v2-accent-text)]">
+                        {lvl.label}
+                      </span>
                     </span>
-                  </span>
-                  {lvl.description ? (
-                    <span className="mt-0.5 block truncate text-xs text-[color:var(--v2-muted)]">
-                      {lvl.description}
-                    </span>
-                  ) : null}
-                </button>
-              </ReorderRow>
-            ))}
+                    {lvl.description ? (
+                      <span className="mt-0.5 block truncate text-xs text-[color:var(--v2-muted)]">
+                        {lvl.description}
+                      </span>
+                    ) : null}
+                  </button>
+                </ListRow>
+              ))}
+            </ListRowGroup>
 
             {levels.length > 0 ? (
               <PurposeStrip>
@@ -407,7 +406,7 @@ export function NivelesPanel({
 function PurposeStrip({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-2 flex items-center gap-3 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-4 py-3 text-xs text-[color:var(--v2-muted)]">
-      <span className="shrink-0 text-[color:var(--v2-accent)]">
+      <span className="shrink-0 text-[color:var(--v2-accent-text)]">
         <MIcon name="my_location" size={18} />
       </span>
       <span className="flex-1">{children}</span>
@@ -441,10 +440,10 @@ function EmptyLevels({
   restoring: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-[var(--v2-r-l)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
+    <div className="flex flex-col items-center rounded-[var(--v2-r-card)] border border-dashed border-[color:var(--v2-border)] px-5 py-11 text-center">
       <span
         className="mb-3.5 flex h-13 w-13 items-center justify-center rounded-[var(--v2-r-m)] p-3"
-        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+        style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
       >
         <MIcon name="signal_cellular_alt" size={26} />
       </span>
@@ -479,7 +478,7 @@ function DeleteBlockedDialog({ level, onClose }: { level: V2LevelItem; onClose: 
         </p>
         <p className="mt-1.5 text-body leading-relaxed text-[color:var(--v2-muted)]">
           <b className="text-[color:var(--v2-fg)] v2-num">{level.athlete_count}</b>{' '}
-          {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo — así nadie se queda sin clasificación.
+          {level.athlete_count === 1 ? 'atleta tiene' : 'atletas tienen'} este nivel asignado. Reasígnalos a otro nivel antes de eliminarlo, así nadie se queda sin clasificación.
         </p>
         <div className="mt-4 flex gap-2">
           <PanelButton variant="outline" onClick={onClose} href="/atletas">
@@ -553,7 +552,7 @@ export function PanelButton({
   children: React.ReactNode;
 }) {
   const base =
-    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
   const cls = cn(
     base,
     variant === 'primary' && 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',

@@ -9,6 +9,21 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/domain/jump/protocol';
+import { buildJumpBrief, type JumpBrief } from '@fahybrid/shared/domain/jump/brief';
+import {
+  DEFAULT_JUMP_METHOD,
+  buildJumpProfile,
+  type JumpProfileView,
+} from '@fahybrid/shared/domain/jump/method';
+import { buildCmjReport, type CmjAttemptView, type CmjReport } from '@fahybrid/shared/domain/test-report/cmj';
+import { BENCH_CMJ, BENCH_CMJ_LOADED } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import {
+  heightsFromAttempts,
+  snapshotFromAttempts,
+  valuesForOccurrence,
+  type OccurrenceAttempt,
+} from '@/lib/coach/occurrence-values';
 
 export interface CalibrationTestStatus {
   calibration_slug: string;
@@ -23,12 +38,24 @@ export interface CalibrationTestStatus {
   /** The captured value(s) pre-formatted for the card ("22:14", "140 kg",
    *  "140 kg · 180 kg · 100 kg" for a multi-result battery). Null until captured. */
   result_label: string | null;
+  /** How the athlete measures this test. jump_video → cámara, never WorkoutContainer. */
+  capture: JumpCaptureMode;
+  /** Qué preparar y en qué orden. Solo en jump_video — el atleta lo lee ANTES. */
+  brief: JumpBrief | null;
+  /** Derivado al leer: solo si hay CMJ (y carga si se midió). */
+  jump_profile: JumpProfileView | null;
+  /** Informe de ESA ocurrencia. Null si no es un salto con altura. */
+  jump_report: CmjReport | null;
 }
+
+export type { JumpProfileView, CmjReport };
 
 export interface BatteryStatus {
   total: number;
   completed: number;
   tests: CalibrationTestStatus[];
+  /** Peso de la ficha, para LRI y para no pedirlo si ya está. */
+  athlete_weight_kg: number | null;
 }
 
 export async function loadBatteryStatus(
@@ -66,22 +93,46 @@ export async function loadBatteryStatus(
     group by wa.id, wa.scheduled_for, wa.status, cct.slug, cct.name
     order by wa.scheduled_for asc
   `;
-  if (rows.length === 0) return { total: 0, completed: 0, tests: [] };
+  if (rows.length === 0) return { total: 0, completed: 0, tests: [], athlete_weight_kg: null };
 
-  // The athlete's REAL-test benchmarks (coach_test / athlete_test only — the
-  // self-declared/onboarding ones don't count as a captured calibration), latest
-  // value per slug so the card shows the most recent number.
-  const benchRows = await client<{ exercise_slug: string; value: number }[]>`
-    select distinct on (exercise_slug) exercise_slug, value::float8 as value
+  // REAL-test benches of THIS athlete, with the assignment that produced them.
+  // A slug without assignment_id (onboarding / Marcas / Ritmos) is not an
+  // occurrence — it must not fill every row of that slug.
+  const benchRows = await client<
+    { assignment_id: string | null; exercise_slug: string; value: number; recorded_at: string }[]
+  >`
+    select assignment_id::text as assignment_id,
+           exercise_slug,
+           value::float8 as value,
+           recorded_at::text as recorded_at
     from athlete_benchmarks
     where athlete_id = ${athlete_id} and source in ('coach_test', 'athlete_test')
-    order by exercise_slug, recorded_at desc
+    order by recorded_at desc, id desc
   `;
-  const valueBySlug = new Map(benchRows.map((r) => [r.exercise_slug, r.value]));
+  const attemptRows = await client<OccurrenceAttempt[]>`
+    select assignment_id::text as assignment_id,
+           kind,
+           height_cm::float8 as height_cm,
+           kept,
+           quality,
+           load_kg::float8 as load_kg,
+           body_mass_kg::float8 as body_mass_kg
+    from jump_attempts
+    where athlete_id = ${athlete_id} and assignment_id is not null
+  `;
+
+  const [athleteRow] = await client<{ weight_kg: number | null }[]>`
+    select weight_kg::float8 as weight_kg from athletes where id = ${athlete_id} limit 1
+  `;
+  const bodyMassKg = athleteRow?.weight_kg ?? null;
 
   const executed = new Set(['completed', 'partial']);
   const tests: CalibrationTestStatus[] = rows.map((r) => {
     const specs = r.expected_specs ?? [];
+    const fromBenches = valuesForOccurrence(r.assignment_id, benchRows);
+    const valueBySlug =
+      fromBenches.size > 0 ? fromBenches : heightsFromAttempts(r.assignment_id, attemptRows);
+    const snap = snapshotFromAttempts(r.assignment_id, attemptRows);
     // Completion is gated ONLY by the REQUIRED results — an optional result (e.g. HRR
     // the app auto-measures) never blocks "completado".
     const required = specs.filter((s) => !s.optional);
@@ -103,6 +154,18 @@ export async function loadBatteryStatus(
             .map((s) => formatCapturedValue(s.measure, valueBySlug.get(s.slug)!))
             .join(' · ')
         : null,
+      capture: captureModeForSpecs(specs),
+      brief:
+        captureModeForSpecs(specs) === 'jump_video'
+          ? buildJumpBrief({
+              method: DEFAULT_JUMP_METHOD,
+              load: DEFAULT_JUMP_METHOD.default_load,
+              includeLoaded: specs.some((s) => s.slug === BENCH_CMJ_LOADED),
+              bodyMassKg,
+            })
+          : null,
+      jump_profile: jumpProfileFrom(specs, valueBySlug, snap.body_mass_kg ?? bodyMassKg),
+      jump_report: jumpReportFrom(r.label, r.scheduled_for, specs, valueBySlug, snap, attemptRows, r.assignment_id),
     };
   });
 
@@ -110,6 +173,7 @@ export async function loadBatteryStatus(
     total: tests.length,
     completed: tests.filter((t) => t.result_captured).length,
     tests,
+    athlete_weight_kg: bodyMassKg,
   };
 }
 
@@ -139,7 +203,56 @@ function formatCapturedValue(measure: string, value: number): string {
     case 'hrr':
     case 'hr':
       return `${n} ppm`;
+    case 'height':
+      return `${Math.round(value)} cm`;
     default: // reps
       return n;
   }
+}
+
+function jumpProfileFrom(
+  specs: Array<{ slug: string }>,
+  valueBySlug: Map<string, number>,
+  bodyMassKg: number | null,
+): JumpProfileView | null {
+  if (!specs.some((s) => s.slug === BENCH_CMJ)) return null;
+  const unloaded = valueBySlug.get(BENCH_CMJ);
+  if (unloaded == null) return null;
+  const loadKg = DEFAULT_JUMP_METHOD.default_load.kind === 'kg' ? DEFAULT_JUMP_METHOD.default_load.kg : null;
+  return buildJumpProfile(unloaded, valueBySlug.get(BENCH_CMJ_LOADED) ?? null, loadKg, bodyMassKg);
+}
+
+function jumpReportFrom(
+  title: string,
+  scheduledFor: string,
+  specs: Array<{ slug: string }>,
+  valueBySlug: Map<string, number>,
+  snap: { load_kg: number | null; body_mass_kg: number | null },
+  attempts: OccurrenceAttempt[],
+  assignmentId: string,
+): CmjReport | null {
+  if (!specs.some((s) => s.slug === BENCH_CMJ)) return null;
+  const unloaded = valueBySlug.get(BENCH_CMJ);
+  if (unloaded == null) return null;
+  const loadKg =
+    snap.load_kg ??
+    (DEFAULT_JUMP_METHOD.default_load.kind === 'kg' ? DEFAULT_JUMP_METHOD.default_load.kg : null);
+  const mine = attempts.filter((a) => a.assignment_id === assignmentId);
+  const attemptViews: CmjAttemptView[] = mine
+    .filter((a) => a.kind === 'cmj' || a.kind === 'loaded_cmj')
+    .map((a) => ({
+      kind: a.kind as 'cmj' | 'loaded_cmj',
+      height_cm: a.height_cm,
+      kept: a.kept,
+      quality: a.quality ?? 'ok',
+    }));
+  return buildCmjReport({
+    title,
+    date_label: scheduledFor,
+    unloaded_cm: unloaded,
+    loaded_cm: valueBySlug.get(BENCH_CMJ_LOADED) ?? null,
+    load_kg: loadKg,
+    body_mass_kg: snap.body_mass_kg,
+    attempts: attemptViews,
+  });
 }

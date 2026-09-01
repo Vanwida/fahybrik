@@ -63,6 +63,9 @@ struct TestsHubView: View {
     /// La salida del atleta que aún no tiene batería: la biblioteca de marcas,
     /// donde «Probarme» lanza un intento medido por el mismo motor en vivo.
     @State private var showMarksLibrary = false
+    @State private var jumpBriefTest: CalibrationTestStatus? = nil
+    @State private var jumpLaunch: JumpLaunch? = nil
+    @State private var jumpReport: JumpReportLaunch? = nil
 
     private struct CaptureTarget: Identifiable {
         let id: String            // assignmentId
@@ -110,6 +113,33 @@ struct TestsHubView: View {
         }
         // La biblioteca empuja sus propios destinos, así que viaja con su pila:
         // el hub se abre como cover desde Inicio y ahí no hay ninguna heredada.
+        .fullScreenCover(item: $jumpReport) { launch in
+            JumpReportView(report: launch.report, onClose: { jumpReport = nil })
+        }
+        .fullScreenCover(item: $jumpLaunch) { launch in
+            JumpCaptureView(
+                launch: launch,
+                bearer: bearer,
+                onClose: { jumpLaunch = nil },
+                onSaved: {
+                    jumpLaunch = nil
+                    reloadNonce += 1
+                    onSessionCompleted()
+                }
+            )
+        }
+        .fullScreenCover(item: $jumpBriefTest) { test in
+            if let brief = test.brief {
+                JumpBriefView(
+                    brief: brief,
+                    onReady: {
+                        jumpBriefTest = nil
+                        Task { await startJumpCapture(test) }
+                    },
+                    onClose: { jumpBriefTest = nil }
+                )
+            }
+        }
         .fullScreenCover(isPresented: $showMarksLibrary) {
             NavigationStack {
                 MarksLibraryView(bearer: bearer, hrZones: hrZones)
@@ -318,6 +348,13 @@ struct TestsHubView: View {
                     stateTag(test)
                 }
 
+                if test.isJumpVideo, test.displayState != .done, let prep = test.brief?.dayCard {
+                    Text(prep)
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 benchmarkLines(test)
 
                 if startFailedSlug == test.calibrationSlug {
@@ -418,9 +455,29 @@ struct TestsHubView: View {
     @ViewBuilder
     private func cta(_ test: CalibrationTestStatus) -> some View {
         switch test.displayState {
+        case .done where test.isJumpVideo:
+            ExpertPrimaryButton(title: "VER RESULTADO", height: 46, enabled: test.jumpReport != nil || test.jumpProfile != nil) {
+                if let report = test.jumpReport {
+                    jumpReport = JumpReportLaunch(id: test.assignmentId, report: report)
+                } else if let profile = test.jumpProfile {
+                    jumpReport = JumpReportLaunch(
+                        id: test.assignmentId,
+                        report: CmjReportDTO.thin(
+                            title: test.label,
+                            dateLabel: dateLabel(test.scheduledFor),
+                            profile: profile,
+                            bodyMassKg: status?.athleteWeightKg
+                        )
+                    )
+                }
+            }
         case .resultPending:
             ExpertPrimaryButton(title: "AÑADIR RESULTADO", height: 46) {
                 Task { await openCapture(test) }
+            }
+        case .pending where isScheduledToday(test) && test.isJumpVideo:
+            ExpertPrimaryButton(title: "CONTINUAR", height: 46) {
+                jumpBriefTest = test
             }
         case .pending where isScheduledToday(test):
             ExpertPrimaryButton(title: "CONTINUAR", height: 46) {
@@ -474,7 +531,12 @@ struct TestsHubView: View {
 
     /// «Probarme» → the start endpoint creates/reuses TODAY's assignment; we
     /// launch it through the exact same cover a planned session uses.
+    /// Un salto NO entra al vivo: primero el briefing (trípode, carga, orden).
     private func startTest(_ test: CalibrationTestStatus) async {
+        if test.isJumpVideo {
+            jumpBriefTest = test
+            return
+        }
         guard let bearer, startingSlug == nil else { return }
         startingSlug = test.calibrationSlug
         startFailedSlug = nil
@@ -482,6 +544,31 @@ struct TestsHubView: View {
             let start = try await TestBatteryService.startTest(slug: test.calibrationSlug, bearer: bearer)
             Haptics.medium()
             workoutLaunch = WorkoutLaunch(assignmentId: start.assignmentId, title: test.label)
+        } catch {
+            startFailedSlug = test.calibrationSlug
+            Haptics.error()
+        }
+        startingSlug = nil
+    }
+
+    /// Tras «Estoy listo»: materializa la asignación de hoy. La cámara se
+    /// engancha aquí (el vivo no).
+    private func startJumpCapture(_ test: CalibrationTestStatus) async {
+        guard let bearer, startingSlug == nil else { return }
+        startingSlug = test.calibrationSlug
+        startFailedSlug = nil
+        do {
+            let start = try await TestBatteryService.startTest(slug: test.calibrationSlug, bearer: bearer)
+            Haptics.medium()
+            let includeLoaded = test.brief?.needs.contains(where: { $0.id == "load" }) ?? false
+            jumpLaunch = JumpLaunch(
+                id: start.assignmentId,
+                assignmentId: start.assignmentId,
+                includeLoaded: includeLoaded,
+                loadKg: 15,
+                bodyMassKg: status?.athleteWeightKg,
+                attemptsWanted: 3
+            )
         } catch {
             startFailedSlug = test.calibrationSlug
             Haptics.error()

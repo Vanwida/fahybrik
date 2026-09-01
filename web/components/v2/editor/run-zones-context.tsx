@@ -87,7 +87,7 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
     const band = bands.find((b) => value >= b.fast_s && value <= (b.slow_s ?? Number.POSITIVE_INFINITY));
     caption = band
       ? `${clock(value)}/km cae en su ${band.code} (${clock(band.fast_s)}–${band.slow_s ? clock(band.slow_s) : '∞'})`
-      : `${clock(value)}/km queda fuera de sus zonas — más rápido que su ${bands[bands.length - 1]!.code}`;
+      : `${clock(value)}/km queda fuera de sus zonas: más rápido que su ${bands[bands.length - 1]!.code}`;
   } else {
     const band = bands.find((b) => b.code.toUpperCase() === `Z${target.zone}`) ?? bands[Math.min(target.zone - 1, bands.length - 1)];
     if (!band) return null;

@@ -77,10 +77,12 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     // botón: el lead reservó con el club, y así el correo dice lo mismo lo firme quien
     // lo firme desde el panel.
     coach_name: session.club_name,
+    coach_id: session.coach_id,
   });
 
   try {
-    const res = await actOnAppointment({ id: apptId, action, meet_link, coach_note });
+    // Tenancy: scoped to the session's club through the cita's lead — an alien cita 404s.
+    const res = await actOnAppointment({ id: apptId, coach_id: session.coach_id, action, meet_link, coach_note });
     let a = res.appointment;
 
     if (res.newStatus === 'aceptada') {
@@ -99,10 +101,12 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
           leadName: a.lead_nombre,
           modality: a.modality,
           location: locationStr,
+          coach_id: session.coach_id,
         });
         if (m.meet_link) {
           a = await setAppointmentMeetLink({
             id: apptId,
+            coach_id: session.coach_id,
             meet_link: m.meet_link,
             google_event_id: m.event_id ?? null,
           });

@@ -156,7 +156,7 @@ export function LibraryBlockRail({
             con nombres de talla (--spacing-xl: 24px) y Tailwind resuelve
             --spacing-* antes que --container-* en max-w-*, así que `max-w-xl`
             colapsaría esto a 24px detrás del scrim. */}
-        <div className="w-full max-w-[560px] overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
+        <div className="w-full max-w-[560px] overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]">
           <header className="flex items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
             <div className="flex min-w-0 flex-col">
               <h2 className="v2-display text-lg text-[color:var(--v2-fg)]">Biblioteca de bloques</h2>
@@ -169,7 +169,7 @@ export function LibraryBlockRail({
               aria-label="Cerrar"
               onClick={onClose}
               disabled={insertingId !== null}
-              className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-40"
+              className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-40"
             >
               <MIcon name="close" size={20} />
             </button>
@@ -280,7 +280,7 @@ function GroupChip({
       className={cn(
         'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
         active
-          ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]'
+          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
           : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
       )}
     >
@@ -289,7 +289,7 @@ function GroupChip({
   );
 }
 
-const UNTYPED_REASON = 'Sin tipar — no se puede insertar';
+const UNTYPED_REASON = 'Sin tipar: no se puede insertar';
 
 function BlockRow({
   row,
@@ -335,7 +335,7 @@ function BlockRow({
           <MIcon
             name="progress_activity"
             size={15}
-            className="shrink-0 animate-spin text-[color:var(--v2-accent)]"
+            className="shrink-0 animate-spin text-[color:var(--v2-accent-text)]"
           />
         ) : null}
       </div>

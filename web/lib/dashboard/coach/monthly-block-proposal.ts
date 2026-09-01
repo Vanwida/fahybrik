@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { toJsonValue } from '@/lib/json-column';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { buildAthleteContextPack } from './coach-ia-context';
 import { proposeFirstMonthForIntake } from './intake-month-proposal';
@@ -178,7 +179,7 @@ export async function proposeNextMonthlyBlock(params: {
         month_template_id = ${Number(proposal.month_template_id)},
         proposed_start_date = ${nextStart}::date,
         rationale = ${rationale},
-        context_pack_json = ${JSON.stringify(pack)}::jsonb,
+        context_pack_json = ${client.json(toJsonValue(pack))},
         updated_at = now()
       where id = ${Number(existing[0].id)}
     `;
@@ -194,7 +195,7 @@ export async function proposeNextMonthlyBlock(params: {
       ${Number(proposal.month_template_id)},
       ${nextStart}::date,
       ${rationale},
-      ${JSON.stringify(pack)}::jsonb
+      ${client.json(toJsonValue(pack))}
     )
     returning id::text
   `;
@@ -226,7 +227,7 @@ export async function proposeNextMonthlyBlock(params: {
         values (
           ${Number(owner.user_id)},
           'monthly_block_pending'::notification_type,
-          ${JSON.stringify(payload)}::jsonb
+          ${client.json(payload)}
         )
       `;
     }

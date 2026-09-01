@@ -279,10 +279,23 @@ final class StructuredRunEngineTests: XCTestCase {
 
     // MARK: - Fixtures
 
+    /// THE session's belt feeder — one per session, alive for the whole test, exactly
+    /// as `ActiveWorkoutView` owns one for the whole workout.
+    private var feeder: TreadmillSessionFeeder?
+
     private func makeModel(_ session: WorkoutSession) -> (TreadmillHUDModel, FakeTreadmill) {
         let src = FakeTreadmill()
         let model = TreadmillHUDModel(session: session, hrZones: nil, treadmill: src, hr: FakeHR())
         model.start()
+        // Same fan-out and SAME ORDER as `DeviceHub`: the recording first (it owns the
+        // belt → session feed for the whole workout), the HUD second — its auto-advance
+        // closes the leg's lap on the very sample that completes it.
+        if feeder == nil { feeder = TreadmillSessionFeeder(session: session) }
+        let toModel = src.onSample
+        src.onSample = { [feeder] sample in
+            feeder?.ingest(sample)
+            toModel?(sample)
+        }
         src.onLink?(.connected(name: "Test"))
         return (model, src)
     }
@@ -306,6 +319,6 @@ final class StructuredRunEngineTests: XCTestCase {
     private func plan(_ segments: [WorkoutSegment]) -> WorkoutPlan {
         WorkoutPlan(id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
-                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+                    coachNote: nil, warmupChecklist: [])
     }
 }

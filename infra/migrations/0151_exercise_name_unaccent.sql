@@ -1,0 +1,29 @@
+-- 0151: enable the `unaccent` extension so catalog name matching can fold
+-- accents on the SQL side.
+--
+-- WHY
+-- ---
+-- lib/import/exercise-resolve.ts resolves a free-text term to a catalog
+-- exercise by comparing `lower(coalesce(override.name, exercise.name))`
+-- against a term normalized in TypeScript (`normalizeTerm` — NFD decompose +
+-- strip combining diacritics). SQL's `lower()` does NOT strip accents, so an
+-- exercise named "Puente de Glúteo" produces `puente de glúteo` on the SQL
+-- side against `puente de gluteo` on the TS side — they can never be equal.
+-- Every accented catalog name is therefore invisible to the exact-name (layer
+-- 3) and substring (layer 4) resolvers, and the importer silently creates an
+-- unaccented duplicate next to it instead of matching the real row.
+--
+-- `unaccent` is confirmed AVAILABLE on this Neon project (checked directly:
+-- `select * from pg_available_extensions where name='unaccent'` returns
+-- default_version 1.1, not yet installed) — the SQL-native, Unicode-correct
+-- way to fold the same class of characters `normalizeTerm`'s NFD strip
+-- already folds in TypeScript (á/é/í/ó/ú/ü → a/e/i/o/u/u, ñ → n), so the two
+-- sides compare the SAME form instead of a hand-rolled character map that
+-- would drift from the TS rule over time.
+--
+-- ADDITIVE + idempotent: `create extension if not exists` touches nothing
+-- existing and is safe to re-run. The queries that USE `unaccent()` are a
+-- code change (lib/import/exercise-resolve.ts), not this migration — an
+-- extension add is schema-only.
+
+create extension if not exists unaccent;

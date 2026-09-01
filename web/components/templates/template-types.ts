@@ -49,7 +49,8 @@ export interface TemplateBuilderInitialState {
   warmup: string | null;
   cooldown: string | null;
   coach_notes: string | null;
-  demo_video_url: string | null;
+  // Sin `demo_video_url`: la columna de la mig 0013 no la escribe ni la lee
+  // ninguna ruta del panel. El vídeo de técnica cuelga del EJERCICIO.
   assignment_count: number;
   updated_at: string;
   segments: Array<{

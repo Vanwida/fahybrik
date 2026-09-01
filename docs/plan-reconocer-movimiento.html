@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan de ejecución — reconocer el movimiento en el reloj</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c; --border:#262626; --border-strong:#333;
+    --fg:#f5f5f5; --muted:#a3a3a3; --faint:#737373;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.12);
+    --ok:#4ade80; --warn:#facc15; --bad:#f87171; --info:#60a5fa;
+    --r-m:12px; --r-l:16px;
+    --sp-1:8px; --sp-2:16px; --sp-3:24px; --sp-4:40px; --sp-5:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:var(--sp-5) var(--sp-3)}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,5.4vw,44px);font-weight:800;font-style:italic;letter-spacing:-.02em;line-height:1.1;margin:10px 0 10px}
+  .sub{color:var(--muted);font-size:17.5px;max-width:700px}
+  .meta{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3);font-size:13px;color:var(--faint)}
+  .meta b{color:var(--muted);font-weight:600}
+  h2{font-size:23px;font-weight:800;font-style:italic;margin:var(--sp-5) 0 var(--sp-2);display:flex;align-items:baseline;gap:12px;scroll-margin-top:20px}
+  h2 .n{color:var(--accent);font-size:15px;font-style:normal;font-weight:800;flex:0 0 auto}
+  h3{font-size:15.5px;font-weight:800;margin:var(--sp-3) 0 var(--sp-1)}
+  h4{font-size:12px;font-weight:800;margin:var(--sp-2) 0 7px;color:var(--faint);text-transform:uppercase;letter-spacing:.09em}
+  p{margin:0 0 var(--sp-2)}
+  .mut{color:var(--muted)} .lede{font-size:18px;line-height:1.6}
+  ul,ol{margin:0 0 var(--sp-2) 22px} li{margin-bottom:8px} li::marker{color:var(--accent)}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(240,106,42,.3)}
+  a:hover{border-bottom-color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted);overflow-wrap:anywhere}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  td:first-child{color:var(--fg);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  .tS{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);margin-bottom:var(--sp-2)}
+  .tS table{margin:0}
+  .num{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .pill.bad{color:var(--bad);border-color:rgba(248,113,113,.35)}
+  .pill.warn{color:var(--warn);border-color:rgba(250,204,21,.35)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.35)}
+  .pill.on{background:var(--accent-soft);border-color:rgba(240,106,42,.45);color:var(--accent)}
+  .pill.info{color:var(--info);border-color:rgba(96,165,250,.35)}
+  .law{background:linear-gradient(135deg,var(--surface),#191410);border:1px solid rgba(240,106,42,.35);border-radius:var(--r-l);padding:var(--sp-3);margin-bottom:var(--sp-2)}
+  .law h3{margin:0 0 6px;color:var(--accent)}
+  .law p{margin:0;font-size:15px;color:var(--fg)}
+  .law p + p{margin-top:8px;color:var(--muted);font-size:14px}
+  .warnbox{border-left:3px solid var(--bad);padding:2px 0 2px var(--sp-2);margin-bottom:var(--sp-3)}
+  .warnbox h3{margin:0 0 4px;color:var(--fg)}
+  .warnbox p{margin:0 0 8px;font-size:14.5px;color:var(--muted)}
+  .warnbox p:last-child{margin-bottom:0}
+  .formula{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-m);padding:14px 16px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);margin-bottom:var(--sp-2);overflow-x:auto;white-space:pre}
+  .formula .c{color:var(--faint)}
+  .formula .k{color:var(--accent)}
+  /* una fase: cabecera con número, cuerpo en dos columnas que colapsan */
+  .fase{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);margin-bottom:var(--sp-3);overflow:hidden}
+  .fase > header{display:flex;gap:var(--sp-2);align-items:flex-start;padding:var(--sp-3);border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .fase > header .n{flex:0 0 44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-style:italic;font-size:19px}
+  /* sin min-width:0 un hijo flex no encoge por debajo de su contenido */
+  .fase > header > div{min-width:0;flex:1}
+  .fase > header h3{margin:0 0 3px;font-size:17px;font-style:italic}
+  .fase > header p{margin:0;font-size:14px;color:var(--muted)}
+  .fase .body{padding:var(--sp-3)}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-3)}
+  .cols > div{min-width:0}
+  .fase ol,.fase ul{margin-left:19px;font-size:14px}
+  .fase li{margin-bottom:7px;color:var(--muted)}
+  .fase li strong{color:var(--fg)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);margin:0 5px 5px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tag.new{border-color:rgba(74,222,128,.35);color:var(--ok)}
+  .tag.edit{border-color:rgba(250,204,21,.35);color:var(--warn)}
+  .acc{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--ok);border-radius:var(--r-m);padding:var(--sp-2);margin-top:var(--sp-2)}
+  .acc h4{margin-top:0;color:var(--ok)}
+  .acc ul{margin-bottom:0}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);padding:var(--sp-2) var(--sp-3);margin:var(--sp-4) 0 0}
+  .toc ol{margin:0 0 0 20px;columns:2;column-gap:var(--sp-3)}
+  .toc li{margin-bottom:5px;font-size:14px;break-inside:avoid}
+  .toc a{border:0;color:var(--muted)} .toc a:hover{color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-2)}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);padding:var(--sp-2)}
+  .stat .v{font-size:26px;font-weight:800;font-style:italic;color:var(--fg);line-height:1.1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--faint);margin-top:5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .stat .d{font-size:13.5px;color:var(--muted);margin-top:8px}
+  .footer{margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  .footer p{margin-bottom:8px}
+  @media (max-width:600px){ .wrap{padding:var(--sp-4) var(--sp-2)} .toc ol{columns:1} h2{gap:8px} .fase > header,.fase .body{padding:var(--sp-2)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">FAHYBRID · Plan de ejecución</p>
+  <h1>Reconocer el movimiento — cómo se construye</h1>
+  <p class="sub">Siete fases, cada una con su entregable, sus archivos, su migración y su criterio de aceptación medible. Las cuatro primeras no necesitan un solo dato etiquetado. Ninguna se da por buena porque compile: cada una se acepta contra un número.</p>
+  <div class="meta">
+    <span><b>Fecha</b> · 6 ago 2026</span>
+    <span><b>El porqué</b> · <a href="reconocer-el-movimiento.html">docs/reconocer-el-movimiento.html</a></span>
+    <span><b>Estado</b> · plan · cero código escrito</span>
+    <span><b>Migraciones</b> · desde <code>0157</code></span>
+  </div>
+
+  <div class="toc">
+    <ol>
+      <li><a href="#s0">Cómo leer esto</a></li>
+      <li><a href="#s1">Fase 0 · Grabar</a></li>
+      <li><a href="#s2">Fase 1 · Trabajo o descanso</a></li>
+      <li><a href="#s3">Fase 2 · Contar repeticiones</a></li>
+      <li><a href="#s4">Fase 3 · Velocidad de la barra</a></li>
+      <li><a href="#s5">Fase 4 · Clasificador</a></li>
+      <li><a href="#s6">Fase 5 · Alineador de carrera</a></li>
+      <li><a href="#s7">Fase 6 · El bucle</a></li>
+      <li><a href="#s8">El contrato de datos</a></li>
+      <li><a href="#s9">Lo que decide el coach</a></li>
+      <li><a href="#s10">Migraciones, de una vez</a></li>
+      <li><a href="#s11">Dependencias y qué bloquea qué</a></li>
+      <li><a href="#s12">Los tres errores que hundirían esto</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s0"><span class="n">00</span>Cómo leer esto</h2>
+
+  <p class="lede">Cada fase entrega algo que funciona por sí solo. No hay una fase que solo tenga sentido si viene la siguiente, y no hay ninguna que se acepte «porque el build pasa».</p>
+
+  <div class="grid2">
+    <div class="stat"><div class="v">4 de 7</div><div class="l">fases sin datos etiquetados</div><div class="d">Las fases 0, 1, 2 y 3 son procesado de señal. Se construyen y se validan hoy. Solo la 4 espera corpus.</div></div>
+    <div class="stat"><div class="v">Gratis</div><div class="l">el laboratorio de validación</div><div class="d">El PM5 sabe exactamente cuándo se está remando y cuántas paladas van. Es verdad de referencia sincronizada, sin grabar un vídeo. Valida las fases 1 y 2 sin coste.</div></div>
+    <div class="stat"><div class="v">2</div><div class="l">fases que tocan pantalla</div><div class="d">La 2 y la 3. Esas pasan por el doble como pantalla <em>propuesta</em> antes de escribirse en Swift, y sellan su espejo al shipear. Las demás no tienen superficie.</div></div>
+  </div>
+
+  <div class="law">
+    <h3>El hallazgo que abarata la mitad del plan</h3>
+    <p>Validar un detector de movimiento normalmente exige grabar vídeo y cronometrar a mano, que es lento y caro. <strong>En ergo no hace falta.</strong> El PM5 emite cuándo empieza y acaba cada palada, con su ritmo y su potencia, sincronizado al segundo. Un remo de mil metros es un banco de pruebas perfecto para el detector de trabajo y para el contador de repeticiones: hay verdad de referencia continua, generada por hardware, en cada sesión de ergo que ya se hace.</p>
+    <p>No cubre wall balls ni burpees — para eso sí hará falta vídeo. Pero cubre la validación del <em>mecanismo</em>, que es lo que se puede equivocar en silencio.</p>
+  </div>
+
+  <!-- ───────────────────────── FASE 0 ───────────────────────── -->
+  <h2 id="s1"><span class="n">01</span>Fase 0 · Grabar</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">0</div>
+      <div>
+        <h3>El entreno deja rastro de sensor, y nadie lo nota <span class="pill on">urge</span></h3>
+        <p>Cada sesión hecha con el reloj archiva su señal inercial y la etiqueta de qué se estaba haciendo. Cero superficie visible, cero decisión de producto, cero modelo.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li>Añadir <strong><code>CoreMotion.framework</code></strong> al target del reloj en <code>ios/project.yml</code>. Hoy el target solo tiene HealthKit y WatchConnectivity.</li>
+            <li><strong>Arrancar la captura con la sesión de entreno</strong>, en los dos modos: solo-reloj y espejo. Un único componente, invocado desde los dos sitios — no dos caminos.</li>
+            <li><strong>Detectar la capacidad en ejecución</strong>: si el reloj soporta el muestreo por lotes se usa; si no, cae al muestreo clásico a 100 Hz. La decisión se registra en la cabecera del fichero, porque cambia la interpretación del dato.</li>
+            <li><strong>Decimar a 50 Hz</strong> y cuantizar a entero de 16 bits. La literatura trabaja entre 20 y 100 Hz: 800 Hz no aportan nada y multiplican por dieciséis el archivo.</li>
+            <li><strong>Sellar las ventanas con el tramo activo.</strong> El reloj ya sabe qué toca; lo que falta es escribir el intervalo con su tramo, su ejercicio y su modalidad.</li>
+            <li><strong>Transferir al teléfono</strong> al cerrar la sesión, en segundo plano y con entrega garantizada — nunca en vivo.</li>
+            <li><strong>Archivar</strong> por la tubería de subida prefirmada que ya existe, y registrar la fila que dice dónde quedó.</li>
+            <li><strong>Poblar <code>exercise_id</code> siempre</strong> en los tramos ejecutados. Hoy va suelto en la mayoría de filas, y sin él la etiqueta no vale nada.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">FAHYBRIKWatch/Sensor/SensorCapture.swift</span>
+            <span class="tag new">FAHYBRIKWatch/Sensor/SensorDecimator.swift</span>
+            <span class="tag new">FAHYBRIKWatch/Sensor/SensorSessionWriter.swift</span>
+            <span class="tag new">FAHYBRIK/Watch/SensorFileReceiver.swift</span>
+            <span class="tag edit">ios/project.yml</span>
+            <span class="tag edit">FAHYBRIKWatch/LiveWorkoutSession.swift:69</span>
+            <span class="tag edit">FAHYBRIKWatch/MirrorSessionController.swift:108</span>
+            <span class="tag edit">FAHYBRIK/Watch/WatchConnectivityiOSService.swift</span>
+          </p>
+          <h4>Migración</h4>
+          <p><code>0157_workout_sensor_captures.sql</code> — una fila por captura: ejecución, URL del archivo, frecuencia real, canales, modelo de reloj, muñeca, duración, bytes. <strong>Las etiquetas no se duplican</strong>: ya viven en <code>segment_executions</code> con sus <code>started_at</code>/<code>ended_at</code> y su <code>exercise_id</code>.</p>
+          <h4>Qué NO entra</h4>
+          <ul>
+            <li>Nada en pantalla.</li>
+            <li>Ningún modelo, ninguna inferencia.</li>
+            <li>Nada de los 800 Hz al archivo.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li>Una sesión de <strong>45 minutos produce un archivo por debajo de 3 MB</strong> que llega al teléfono y queda archivado.</li>
+          <li>El archivo se vuelve a leer y <strong>reproduce la señal</strong> sin pérdida de alineación temporal.</li>
+          <li>Las ventanas etiquetadas <strong>cubren al menos el 90 %</strong> del tiempo de trabajo de la sesión.</li>
+          <li><strong>Presupuesto de batería medido, no supuesto.</strong> Dos sesiones equivalentes con y sin captura, mismo reloj, mismo brillo. Apple no publica ninguna cifra para esto. Si el sobrecoste supera el 15 % en una hora, se baja a 25 Hz y se vuelve a medir antes de seguir.</li>
+          <li>Una sesión abandonada a mitad <strong>no deja archivo huérfano</strong> ni bloquea la siguiente.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 1 ───────────────────────── -->
+  <h2 id="s2"><span class="n">02</span>Fase 1 · Trabajo o descanso</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">1</div>
+      <div>
+        <h3>Cada serie y cada estación quedan cronometradas solas</h3>
+        <p>Hoy el reloj mide el tramo entero, que incluye colocarse, respirar y volver. Esto separa el trabajo real del resto sin que nadie toque nada.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li><strong>Detector por energía</strong>: norma de la aceleración, suavizado, y un umbral con histéresis — el de subida más alto que el de bajada, para que no parpadee en el borde.</li>
+            <li><strong>Acuerdo de tres ventanas</strong> antes de cambiar de estado. La literatura documenta que el fallo típico está justo en el arranque y el cierre de la serie, y esta es la mitigación que proponen.</li>
+            <li><strong>Umbral relativo, no absoluto.</strong> Se calibra contra el reposo observado en los primeros segundos del tramo, porque un burpee y un curl no mueven la misma energía.</li>
+            <li>Escribir <strong>trabajo, descanso y confianza</strong> en el tramo ejecutado, como columnas propias.</li>
+            <li><strong>Banco de validación contra el PM5</strong>: coger las sesiones de ergo ya archivadas, comparar la ventana que dice el detector con la que dice el monitor, y publicar el error.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">FAHYBRIKWatch/Sensor/ActivityDetector.swift</span>
+            <span class="tag new">ios/FAHYBRIKTests/ActivityDetectorTests.swift</span>
+            <span class="tag edit">FAHYBRIK/Workout/SegmentPayloadBuilder.swift</span>
+            <span class="tag edit">FAHYBRIK/Workout/WorkoutModels.swift</span>
+          </p>
+          <h4>Migración</h4>
+          <p><code>0158_segment_sensor_timing.sql</code> — a <code>segment_executions</code>: <code>sensor_work_s</code>, <code>sensor_rest_s</code>, <code>sensor_timing_confidence</code>. Columnas explícitas, no un blob: son datos que se van a consultar y agregar.</p>
+          <h4>Qué NO entra</h4>
+          <ul>
+            <li>No cambia lo que ve el atleta. El cronómetro que se enseña sigue siendo el del tramo.</li>
+            <li>No decide cuándo avanzar de tramo. Eso lo sigue mandando quien lo manda hoy.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li>Contra el PM5 como referencia, el inicio y el fin del trabajo caen <strong>dentro de 2 segundos en el 90 % de los tramos de ergo</strong>.</li>
+          <li>En fuerza, contra conteo manual sobre vídeo en al menos 30 series: mismo umbral.</li>
+          <li><strong>Cero series de longitud cero</strong> y cero descansos negativos. Un detector que produce un imposible está roto aunque acierte de media.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 2 ───────────────────────── -->
+  <h2 id="s3"><span class="n">03</span>Fase 2 · Contar repeticiones</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">2</div>
+      <div>
+        <h3>El contador se precarga solo, y el atleta corrige</h3>
+        <p>El primer momento en que esto se nota. El botón de «toca para sumar una» no desaparece: deja de arrancar en cero.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li><strong>Eje dominante</strong> del movimiento por componentes principales sobre la ventana de trabajo — el gesto define su propio eje, no se fija a mano por ejercicio.</li>
+            <li><strong>Autocorrelación</strong> para hallar el periodo, y conteo de picos sobre esa proyección. No necesita saber qué ejercicio es: se apoya en que es periódico.</li>
+            <li><strong>Detección del patrón alternante.</strong> El fallo conocido de este método es contar el doble cuando se alterna brazo. Se detecta por la firma de doble pico y ahí <strong>se declara baja confianza en vez de entregar el número</strong>.</li>
+            <li><strong>Confianza explícita</strong> derivada de la regularidad del periodo y de la nitidez de los picos. Tres estados: contado, dudoso, no lo sé.</li>
+            <li><strong>Precargar el contador</strong> en el único sitio donde hoy se suma.</li>
+            <li><strong>UX por el doble antes de Swift</strong>: pantalla <em>propuesta</em> con los tres estados, y quién contó siempre visible.</li>
+            <li>Guardar <strong>quién contó</strong> en el tramo: el atleta, el sensor, o el sensor corregido por el atleta. Ese último es la etiqueta de oro de la fase 6.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">FAHYBRIKWatch/Sensor/RepCounter.swift</span>
+            <span class="tag new">FAHYBRIKWatch/Sensor/RepConfidence.swift</span>
+            <span class="tag new">ios/FAHYBRIKTests/RepCounterTests.swift</span>
+            <span class="tag new">web/components/design-twin/pantallas/contador-reps/</span>
+            <span class="tag edit">FAHYBRIK/Workout/Vivo/FuerzaVivoView.swift:318</span>
+            <span class="tag edit">FAHYBRIK/Workout/WorkoutSession.swift:825</span>
+          </p>
+          <h4>Migración</h4>
+          <p><code>0159_reps_provenance.sql</code> — a <code>segment_executions</code>: <code>reps_source</code> (<code>athlete_tap</code> · <code>sensor</code> · <code>sensor_corrected</code>) y <code>reps_confidence</code>. Ya existe <code>reps_confirmed</code>, que se mantiene con su significado actual.</p>
+          <h4>Qué NO entra</h4>
+          <ul>
+            <li>No se cuentan movimientos que el coach no haya marcado como contables.</li>
+            <li>No se cierra un tramo por cruce del conteo. Quien cierra el tramo no cambia.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li><strong>Al menos el 90 % de las series dentro de ±1 repetición</strong> en wall balls, burpees y barra, contra conteo manual sobre vídeo. La línea base publicada sin entrenar nada llega al 96 %; por debajo del 90 % esto no sale.</li>
+          <li><strong>Cero series entregadas con confianza alta y error mayor que 2.</strong> Este es el criterio que manda sobre todos: equivocarse de vez en cuando es tolerable, equivocarse con aplomo destruye la confianza en el sistema entero.</li>
+          <li>En remo y ski, el conteo de ciclos <strong>cuadra con las paladas del PM5</strong> dentro del 5 %.</li>
+          <li>El patrón alternante <strong>nunca</strong> se entrega como confianza alta.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 3 ───────────────────────── -->
+  <h2 id="s4"><span class="n">04</span>Fase 3 · Velocidad de la barra</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">3</div>
+      <div>
+        <h3>La barra se mide, y el RIR se calibra <span class="pill warn">expectativa corregida</span></h3>
+        <p>La muñeca sigue a la barra, así que se puede medir a qué velocidad se movió cada repetición. Lo que <strong>no</strong> hace es sustituir al RIR: la evidencia dice que el atleta entrenado acierta con menos de una repetición de error, y que los modelos generales de velocidad fallan por más de dos. Lo que sí da es comparación consigo mismo a igual carga, y la curva individual que solo sale recogiendo las dos cosas a la vez.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li><strong>Separar concéntrica de excéntrica</strong> dentro de cada repetición por el signo de la aceleración en el eje dominante.</li>
+            <li><strong>Integrar la aceleración</strong> en la fase concéntrica, corrigiendo la gravedad con la orientación del dispositivo.</li>
+            <li><strong>Anclar la deriva</strong> en las fases estáticas. Toda integración de acelerómetro deriva; el truco estándar es que al principio y al final de cada repetición la velocidad es cero, y eso da dos anclajes por repetición.</li>
+            <li>Calcular por serie: <strong>velocidad media de la primera repetición, de la última, y la pérdida entre ambas</strong>. Más el recorrido y el tempo real.</li>
+            <li><strong>Validar por banda de carga, no en global.</strong> La validez de los acelerómetros de muñeca se degrada al acercarse al 1RM — el wearable más estudiado cae a 0,33 de correlación ahí. Un número medio único escondería justo el fallo que importa.</li>
+            <li><strong>Marcar como no fiable</strong> lo que caiga en la banda de carga donde la validación propia no llegue al umbral. Se omite, no se enseña degradado.</li>
+            <li>Presentar la <strong>comparación consigo mismo a igual carga</strong>, que es lo que no depende de correlacionar con nada. <strong>No</strong> presentar el %1RM estimado: sobreestima un 3,7 % incluso con encoder de laboratorio.</li>
+            <li><strong>Guardar velocidad y RIR juntos</strong> en cada serie. Es el par que permite ajustar después la curva individual del atleta, que es lo único que la literatura da por válido para traducir velocidad a RIR.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">FAHYBRIKWatch/Sensor/BarVelocityEstimator.swift</span>
+            <span class="tag new">shared/domain/strength/velocity-loss.ts</span>
+            <span class="tag new">ios/FAHYBRIKTests/BarVelocityTests.swift</span>
+            <span class="tag new">web/components/design-twin/pantallas/velocidad-serie/</span>
+            <span class="tag edit">FAHYBRIK/Workout/WorkoutModels.swift</span>
+          </p>
+          <h4>Migración</h4>
+          <p><code>0160_set_velocity.sql</code> — sobre la serie ejecutada: <code>mean_velocity_first_m_s</code>, <code>mean_velocity_last_m_s</code>, <code>velocity_loss_pct</code>, <code>rom_m</code>, <code>velocity_confidence</code>.</p>
+          <h4>Un argumento que hubo que retirar</h4>
+          <p class="mut" style="font-size:14px">La primera versión de este plan decía que la pérdida de velocidad se salva por ser un cociente que cancela el sesgo. <strong>No se salva.</strong> El error del acelerómetro no es un factor constante: crece cuando la barra va lenta. Y las últimas repeticiones de una serie al fallo son justo las lentas — las que definen la pérdida. El cociente arrastra el error de la peor medida. Por eso la validación va por banda de carga y por eso el titular de esta fase cambió.</p>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li>Contra vídeo, correlación <strong>por encima de 0,90 en la banda ligera-media</strong> (hasta el 80 % del 1RM), en al menos tres ejercicios de barra. El estudio publicado con este hardware da 0,95 en sentadilla: por debajo de 0,90 ahí, la implementación está mal, no el sensor.</li>
+          <li><strong>Curva de error declarada por banda de carga</strong>, no un número único. Se espera que empeore cerca del 1RM; lo que no se acepta es no saber cuánto.</li>
+          <li>La <strong>pérdida de velocidad crece monótonamente</strong> dentro de una serie llevada al fallo. Si no lo hace, el estimador no sirve por muy buena que sea la correlación media.</li>
+          <li>Cero repeticiones perdidas <strong>por transporte</strong>: todo se calcula en el reloj, sin enlace vivo. La parte del 8 % que era del enlace desaparece; la que es de la física de la muñeca, no — y esa se declara.</li>
+          <li>Solo hay validación publicada de reloj-en-muñeca <strong>en sentadilla</strong>. Peso muerto y press militar los validamos nosotros o no se presentan.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 4 ───────────────────────── -->
+  <h2 id="s5"><span class="n">05</span>Fase 4 · Clasificador</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">4</div>
+      <div>
+        <h3>Qué familia de movimiento es <span class="pill warn">necesita corpus</span></h3>
+        <p>La única fase que espera datos. Reconoce familias, no ejercicios, y solo entre los candidatos que la sesión declara.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li><strong>Exportador</strong> de archivos y etiquetas al formato de entrenamiento. El almacén es binario compacto; el formato de entrenamiento es otro. Se convierte al entrenar, en el escritorio, no en el reloj.</li>
+            <li><strong>Definir las familias</strong>, no los ejercicios: empuje horizontal, empuje vertical, tracción, sentadilla, bisagra de cadera, zancada, lanzamiento sobre cabeza, salto, burpee, carry, tirón de trineo, ergo, correr, descanso.</li>
+            <li><strong>Entrenar</strong> con el clasificador de actividad de Apple, en el escritorio.</li>
+            <li><strong>Evaluar dejando fuera un sujeto entero</strong>, siempre. Nunca partición aleatoria: mezclar ventanas del mismo atleta entre entrenamiento y prueba infla el resultado hasta trece puntos y produce un modelo que parece excelente y falla con el primer atleta nuevo.</li>
+            <li><strong>Clase «no lo sé» explícita</strong>, y calibración del umbral para que absorba lo dudoso en vez de forzar una etiqueta.</li>
+            <li><strong>Restringir al conjunto de candidatos</strong> que declara el programa antes de decidir. Es lo que sube el acierto quince puntos.</li>
+            <li><strong>Versionar el modelo</strong> y registrar qué versión produjo cada predicción.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">infra/scripts/export_sensor_corpus.ts</span>
+            <span class="tag new">infra/ml/train_activity_classifier.swift</span>
+            <span class="tag new">FAHYBRIKWatch/Sensor/MovementClassifier.swift</span>
+            <span class="tag new">FAHYBRIKWatch/Resources/MovementFamily.mlmodel</span>
+            <span class="tag new">shared/domain/movement/families.ts</span>
+          </p>
+          <h4>Migración</h4>
+          <p><code>0161_movement_inference.sql</code> — por tramo: <code>detected_family</code>, <code>detection_confidence</code>, <code>model_version</code>. La versión del modelo no es opcional: sin ella no se puede saber después qué sabía el sistema cuando acertó o falló.</p>
+          <h4>Cuándo se arranca</h4>
+          <p class="mut" style="font-size:14px">Cuando el corpus tenga cobertura suficiente por familia y por persona. La literatura trabaja con entre 10 y 54 sujetos; con menos de <strong>ocho personas distintas</strong> por familia no se entrena nada, porque el resultado no diría nada.</p>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li><strong>85 % o más dejando fuera un sujeto entero</strong>, sobre las familias objetivo, con los candidatos restringidos por el programa.</li>
+          <li>La clase «no lo sé» <strong>captura al menos el 80 % de los errores</strong> que cometería el modelo. Es preferible callar que fallar.</li>
+          <li>Latencia de inferencia en el reloj <strong>por debajo de 100 ms</strong> por ventana, y sin impacto medible sobre la batería más allá de lo ya presupuestado en la fase 0.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 5 ───────────────────────── -->
+  <h2 id="s6"><span class="n">06</span>Fase 5 · Alineador de carrera</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">5</div>
+      <div>
+        <h3>Los diez tramos de una simulación, sin un solo toque</h3>
+        <p>En HYROX el orden es fijo. Eso convierte «clasificar ocho cosas» en «cortar el tiempo en la secuencia correcta», que es otro problema y mucho más fácil.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li>Tomar la <strong>secuencia canónica de dieciséis tramos</strong> que ya está escrita en la plantilla del producto.</li>
+            <li><strong>Buscar la partición más probable</strong> del tiempo con la restricción de que el orden no se altera: solo se puede avanzar, nunca saltar ni retroceder.</li>
+            <li>Alimentarla con lo que cada capa aporte: correr o no correr, energía, familia detectada si la hay, y los tramos que el PM5 confirma.</li>
+            <li><strong>Duraciones esperadas como apoyo</strong>, tomadas del propio historial del atleta cuando exista.</li>
+            <li><strong>Rescatar trineo y carry</strong>: no se clasifican, se sitúan. Son las que quedan cuando todo lo demás está colocado.</li>
+            <li>Escribir los diez tramos con su procedencia y ofrecerlos <strong>como propuesta revisable</strong>, no como hecho.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">shared/domain/hyrox/sequence-align.ts</span>
+            <span class="tag new">web/tests/hyrox/sequence-align.test.ts</span>
+            <span class="tag edit">web/lib/dashboard/v2/hyrox-template.ts</span>
+          </p>
+          <h4>Dónde corre</h4>
+          <p class="mut" style="font-size:14px">Esta no corre en el reloj: se resuelve al cerrar la sesión, con todo el rastro delante. Va en el dominio compartido para que el mismo código valga en el teléfono y en el servidor.</p>
+          <h4>Qué NO entra</h4>
+          <ul>
+            <li>No se aplica a una carrera oficial: ahí manda el cronometraje de la organización.</li>
+            <li>No auto-avanza el entreno en vivo. Es análisis posterior.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="acc">
+        <h4>Criterio de aceptación</h4>
+        <ul>
+          <li>En simulaciones con tramos marcados a mano, <strong>los diez cortes dentro de 5 segundos en el 80 % de los casos</strong>.</li>
+          <li><strong>El orden nunca sale alterado.</strong> Es una restricción dura del algoritmo, no un resultado: si sale desordenado, hay un fallo de implementación.</li>
+          <li>Cuando el rastro no da para decidir, devuelve <strong>menos tramos, no tramos inventados</strong>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── FASE 6 ───────────────────────── -->
+  <h2 id="s7"><span class="n">07</span>Fase 6 · El bucle</h2>
+
+  <div class="fase">
+    <header>
+      <div class="n">6</div>
+      <div>
+        <h3>Cada corrección enseña al sistema</h3>
+        <p>Lo que convierte esto en algo que mejora solo, y el archivo en el activo del que hablaba el documento del predictor.</p>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h4>Tareas</h4>
+          <ol>
+            <li><strong>Toda corrección del atleta se guarda como etiqueta fuerte</strong>, con su ventana temporal exacta. Es la única etiqueta perfecta que existe: alguien miró y dijo que no.</li>
+            <li><strong>Reentrenamiento periódico</strong> con el corpus acumulado, y comparación contra la versión en producción sobre el mismo conjunto de prueba.</li>
+            <li><strong>No se promueve un modelo que empeore</strong> ninguna de las familias, aunque suba la media.</li>
+            <li><strong>Panel del coach</strong>: qué se midió solo, qué se corrigió, y en qué ejercicios el sistema se equivoca más. Eso es información de producto y de método a la vez.</li>
+            <li>Métrica de salud del bucle: <strong>proporción de correcciones por sesión</strong>. Si sube, algo se rompió.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Archivos</h4>
+          <p>
+            <span class="tag new">web/lib/ml/corpus-stats.ts</span>
+            <span class="tag new">web/app/[locale]/(coach)/movimiento/page.tsx</span>
+            <span class="tag new">infra/scripts/retrain_and_compare.ts</span>
+          </p>
+          <h4>La ley que se hereda del predictor</h4>
+          <p class="mut" style="font-size:14px">Cada inferencia guarda <strong>la versión del modelo y las entradas que la produjeron</strong>. Sin eso, dentro de un año no se puede reconstruir qué sabía el sistema entonces, y el reentrenamiento se contamina con información del futuro. Es el mismo fallo que el vector de entradas del predictor, y también es irrecuperable hacia atrás.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── CONTRATO ───────────────────────── -->
+  <h2 id="s8"><span class="n">08</span>El contrato de datos</h2>
+
+  <p>Qué viaja, en qué dirección, y cuánto pesa. El principio: <strong>la señal se queda en el reloj y viaja al final; lo que cruza en vivo son conclusiones.</strong></p>
+
+  <div class="formula"><span class="c">// RELOJ, en memoria, mientras entrena</span>
+señal cruda      800 Hz (o 100)   se procesa y se tira
+señal decimada    50 Hz × 6 ch    int16 → <span class="k">600 B/s</span> → ~2,1 MB/h → al archivo
+
+<span class="c">// RELOJ → TELÉFONO, en vivo, por el canal que ya existe</span>
+conclusiones      reps, confianza, trabajo/descanso, familia, velocidad
+                  <span class="k">unos pocos bytes por tramo</span> — nunca señal
+
+<span class="c">// RELOJ → TELÉFONO, al cerrar, transferencia en segundo plano</span>
+archivo de sesión cabecera + señal + ventanas etiquetadas   <span class="k">&lt; 3 MB</span>
+
+<span class="c">// TELÉFONO → ARCHIVO, por subida prefirmada (nunca por la API)</span>
+archivo comprimido y su fila de registro
+</div>
+
+  <p><strong>Cabecera del archivo</strong>, y no es burocracia: sin ella el dato de dentro no se puede interpretar dentro de un año. Versión del formato, identificador de la ejecución, instante cero, frecuencia real conseguida, canales, modelo de reloj, muñeca en la que se lleva, y versión de la app.</p>
+
+  <div class="warnbox">
+    <h3>Por qué int16 y no coma flotante</h3>
+    <p>La mitad de bytes por la misma información útil. Un acelerómetro de consumo no tiene ni de lejos la precisión que justificaría coma flotante de 32 bits, y el factor de escala va en la cabecera. Es la diferencia entre 4,3 y 2,1 MB por hora, y a escala de un archivo que dura toda la vida deportiva del atleta, eso importa.</p>
+  </div>
+
+  <!-- ───────────────────────── COACH ───────────────────────── -->
+  <h2 id="s9"><span class="n">09</span>Lo que decide el coach</h2>
+
+  <p>Todo lo que otro entrenador competente haría distinto nace como dato editable con valor por defecto. Nuestros valores de hoy son <strong>defectos</strong>: un coach que no toca nada se comporta exactamente como se comportaría sin esta tabla.</p>
+
+  <div class="tS"><table>
+    <thead><tr><th>Ajuste</th><th>Dónde vive</th><th>Por defecto</th><th>Por qué es suyo</th></tr></thead>
+    <tbody>
+      <tr><td>Confianza mínima para contar sin preguntar</td><td><code>coach_movement_policy</code></td><td class="num">0,80</td><td>Un coach quiere cero fricción; otro no acepta un número que no haya mirado alguien</td></tr>
+      <tr><td>Pérdida de velocidad que da la serie por terminada</td><td><code>coach_movement_policy</code></td><td class="num">20 %</td><td><strong>Hay escuelas que cortan al 10, al 20 y al 30 %.</strong> Cablearlo sería imponer una metodología</td></tr>
+      <tr><td>Si el conteo automático se aplica por defecto</td><td><code>coach_movement_policy</code></td><td>sí</td><td>Hay quien prefiere que el atleta cuente siempre, por atención</td></tr>
+      <tr><td>Si este ejercicio se cuenta solo</td><td><code>coach_exercise_overrides</code></td><td>nulo = hereda</td><td>El coach conoce sus movimientos y sabe cuáles son un desastre de contar</td></tr>
+      <tr><td>Recorrido mínimo que cuenta como repetición válida</td><td><code>coach_exercise_overrides</code></td><td>nulo = hereda</td><td>Es el criterio técnico del coach, y varía por ejercicio y por atleta</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="mut">Los dos últimos van a <code>coach_exercise_overrides</code>, que ya existe y ya tiene exactamente esta doctrina escrita: campos independientemente nulables donde <strong>nulo significa heredar el global</strong>. Añadir columnas ahí es más barato y más coherente que crear otra tabla del mismo grano. El primero de los tres globales sí pide tabla nueva, siguiendo el patrón del repo de una tabla por dominio.</p>
+
+  <!-- ───────────────────────── MIGRACIONES ───────────────────────── -->
+  <h2 id="s10"><span class="n">10</span>Migraciones, de una vez</h2>
+
+  <div class="tS"><table>
+    <thead><tr><th>#</th><th>Qué hace</th><th>Fase</th></tr></thead>
+    <tbody>
+      <tr><td class="num">0157</td><td><code>workout_sensor_captures</code> — dónde quedó el archivo de cada sesión y con qué parámetros se grabó</td><td>0</td></tr>
+      <tr><td class="num">0158</td><td><code>segment_executions</code> + trabajo, descanso y confianza medidos</td><td>1</td></tr>
+      <tr><td class="num">0159</td><td><code>segment_executions</code> + procedencia y confianza del conteo de repeticiones</td><td>2</td></tr>
+      <tr><td class="num">0160</td><td>Velocidad por serie: primera, última, pérdida, recorrido, confianza</td><td>3</td></tr>
+      <tr><td class="num">0161</td><td>Familia detectada, confianza y <strong>versión del modelo</strong> por tramo</td><td>4</td></tr>
+      <tr><td class="num">0162</td><td><code>coach_movement_policy</code> + las dos columnas nuevas en <code>coach_exercise_overrides</code></td><td>2</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="mut">Todas por el runner del repo, nunca a mano contra la base. Numeración desde 0157 porque 0156 (<code>workout_traces</code>) es la última aplicada.</p>
+
+  <!-- ───────────────────────── DEPENDENCIAS ───────────────────────── -->
+  <h2 id="s11"><span class="n">11</span>Dependencias y qué bloquea qué</h2>
+
+  <div class="formula"><span class="k">0</span> Grabar ─────┬─────────────────────────────────────────► <span class="k">4</span> Clasificador ──► <span class="k">6</span> Bucle
+              │                                              ▲
+              └──► <span class="k">1</span> Trabajo/descanso ──► <span class="k">2</span> Contar ──► <span class="k">3</span> Velocidad
+                                    │            │
+                                    └────────────┴──────────► <span class="k">5</span> Alineador
+
+<span class="c">0 no depende de nada y todo lo demás se beneficia de que ya esté corriendo</span>
+<span class="c">1, 2 y 3 NO esperan corpus: funcionan el día que se escriben</span>
+<span class="c">4 es la única que espera datos — y 5 funciona sin ella, peor</span>
+</div>
+
+  <p>Lo que esto significa en la práctica: <strong>la fase 0 puede correr en paralelo con todo</strong> y debería arrancar primero por lo que ya se dijo. Las fases 1, 2 y 3 son una cadena y se hacen en ese orden porque cada una se apoya en la anterior. La 4 se puede empezar el día que el corpus tenga cobertura, sin bloquear nada.</p>
+
+  <!-- ───────────────────────── ERRORES ───────────────────────── -->
+  <h2 id="s12"><span class="n">12</span>Los tres errores que hundirían esto</h2>
+
+  <div class="warnbox">
+    <h3>1. Evaluar mezclando atletas</h3>
+    <p>Partir las ventanas al azar entre entrenamiento y prueba mete al mismo atleta en los dos lados. El modelo aprende a esa persona y el resultado sale precioso — hasta trece puntos por encima de la realidad. Después falla con el primer atleta nuevo y nadie entiende por qué. <strong>Siempre se deja fuera un sujeto entero.</strong> Es una regla del banco de pruebas, no una preferencia.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>2. Entregar un número equivocado con seguridad</h3>
+    <p>La queja repetida de los usuarios de estas funciones en otras apps no es que fallen: es que cuando fallan con aplomo, <strong>el atleta deja de fiarse del sistema entero</strong> y vuelve a meterlo todo a mano. Por eso el criterio duro de la fase 2 no es la media de acierto: es que no haya ni una serie entregada con confianza alta y error grande.</p>
+  </div>
+
+  <div class="warnbox">
+    <h3>3. Empezar por el clasificador</h3>
+    <p>Es lo que pide el instinto y es la única de las siete que no se puede construir hoy. Empezar por ahí significa meses sin entregar nada, un modelo entrenado con tres personas, y descubrir tarde que dos de las capas que no necesitaban datos ya habrían dado la mitad del valor.</p>
+  </div>
+
+  <div class="law">
+    <h3>Y lo que no es un error sino una cuenta atrás</h3>
+    <p>La fase 0 no da valor visible, así que es la que apetece posponer. Pero es <strong>la única del plan que no se puede recuperar hacia atrás</strong>: cada sesión que se entrena sin grabar el sensor es corpus que no vuelve. Todo lo demás se puede construir tarde y sale igual de bien.</p>
+    <p>Con una condición previa que no es negociable y que no depende de programar: <strong>el consentimiento y la propiedad del dato, resueltos antes del primer byte.</strong> La señal inercial de la muñeca identifica a una persona por su forma de moverse. Con cero usuarios eso es un párrafo bien escrito. Después es otra cosa.</p>
+  </div>
+
+  <div class="footer">
+    <p><strong>Qué no incluye este plan.</strong> No hay estimaciones de tiempo: el criterio de este proyecto es que cada fase salga bien, no que salga rápido. No hay decisión sobre el consentimiento — es de Alex y está pendiente desde el 4 de agosto. No hay diseño de pantalla: las fases 2 y 3 pasan por el doble antes de escribirse. Y no se ha escrito una sola línea de código de producto.</p>
+    <p>FAHYBRID · 6 de agosto de 2026 · plan de ejecución · el porqué está en <a href="reconocer-el-movimiento.html">reconocer-el-movimiento.html</a></p>
+  </div>
+
+</div>
+</body>
+</html>

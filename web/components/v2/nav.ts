@@ -35,19 +35,22 @@ export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['entrenar', 'negocio',
 
 /** Primary nav (top of the sidebar), in render order within each group. */
 export const V2_NAV_ITEMS: readonly V2NavItem[] = [
-  // Entrenar — the daily loop with his athletes.
-  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
+  // Entrenar — the daily loop with his athletes. Atletas va primero: es la CASA
+  // del panel (rediseño FLEXR); /hoy sigue viva como la cola completa de triage.
   { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'entrenar' },
+  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
   { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'entrenar', badge: 'mensajes' },
   // Negocio — capture leads, get paid, watch the funnel.
   { href: '/leads', label: 'Leads', icon: 'person_add', group: 'negocio', badge: 'leads' },
   { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
   { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
   { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
-  // Método — the framework first, then the reusable library, then the tests.
+  // Método — el oficio primero (cómo entrena), luego el marco, la biblioteca y los tests.
+  { href: '/como-entrenas', label: 'Cómo entrenas', icon: 'tune', group: 'metodo' },
   { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
   { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
   { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
+  { href: '/cuestionarios', label: 'Cuestionarios', icon: 'assignment', group: 'metodo' },
 ] as const;
 
 /** Items belonging to a given group, in declaration order. */
@@ -61,6 +64,14 @@ export const V2_NAV_GUIDE: V2NavItem = {
   href: '/guia',
   label: 'Guía',
   icon: 'school',
+  group: 'entrenar',
+};
+
+/** Pinned with Guía + Ajustes — the club lockup (name, logo, accent). */
+export const V2_NAV_CLUB: V2NavItem = {
+  href: '/club',
+  label: 'Club',
+  icon: 'storefront',
   group: 'entrenar',
 };
 

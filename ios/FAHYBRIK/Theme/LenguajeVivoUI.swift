@@ -58,10 +58,30 @@ struct Ambiente: View {
     let zona: HRZone?
     /// Tiñe de naranja: SOLO el instante en que algo se logra.
     var acento: Bool = false
+    /// UN TONO QUE NO ES UNA ZONA, para las pantallas cuyo sujeto no es el pulso.
+    ///
+    /// En las analíticas el lienzo lo tiñe el VEREDICTO, no una zona: no hay una
+    /// intensidad que valga para doce semanas. Es el mismo ambiente y la misma
+    /// mezcla — se añade aquí en vez de escribir un segundo degradado, porque dos
+    /// definiciones del fondo de la app acaban separándose y entonces dos
+    /// pantallas hermanas dejan de parecer la misma. Nil = manda `zona`.
+    var tono: Color? = nil
 
     @Environment(\.colorScheme) private var esquema
 
     var body: some View {
+        if let tono {
+            capa(tono)
+                .animation(.easeInOut(duration: MezclaAmbiente.transicion), value: tono)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        } else {
+            porZona
+        }
+    }
+
+    private var porZona: some View {
         ZStack {
             // Una capa por zona, y solo la viva a opacidad 1: así el cambio de
             // zona se TRANSICIONA. Un degradado no interpola de un color a otro;
@@ -514,6 +534,12 @@ struct ApoyoVivo: View {
     var ausente: String?
     /// Marca de procedencia: «estimado», «declarado».
     var marca: String?
+    /// La coletilla de la celda: la zona en que cayó ese pulso, la unidad cuando
+    /// no cabe al lado de la cifra. Va en faint y debajo — es lo ÚLTIMO que se
+    /// lee. Existe en el kit del doble (`Apoyo.pie`) desde el 29-jul y aquí
+    /// faltaba, así que una celda que quería decir «157 · Z4» sólo podía decir una
+    /// de las dos cosas.
+    var pie: String?
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xs) {
@@ -543,6 +569,11 @@ struct ApoyoVivo: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
+            }
+            if let pie {
+                Text(pie)
+                    .scaledFont(10, weight: .medium, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
             }
         }
         .frame(maxWidth: .infinity)

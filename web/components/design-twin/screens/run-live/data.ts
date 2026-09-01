@@ -6,6 +6,16 @@
 // ("04:37") y el de cinta con `TreadmillMath.clock` ("4:37") — así que el doble
 // las conserva en vez de unificarlas.
 
+import {
+  distanciaCubierta,
+  distanciaDosis,
+  dosisDeCarrera,
+  esDecimal,
+  reloj,
+  ritmoObjetivo,
+  type TramoCarrera,
+} from '../../datos-reales';
+
 export type Entorno = 'cinta' | 'calle';
 
 /** GPSSignalQuality (Workout/Outdoor/RunPaceSmoother.swift). */
@@ -19,7 +29,7 @@ export const ETIQUETA_GPS: Record<CalidadGPS, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// El bloque de ejemplo — 4×1000 m @ 4:35 /km, descanso 2'
+// El bloque de ejemplo — 4 × 1 km @ 4:35/km, con 2' al trote entre series
 // ---------------------------------------------------------------------------
 
 /** Umbral (LTHR) del atleta de ejemplo — el servidor resuelve las zonas contra esto. */
@@ -34,20 +44,50 @@ export const TOLERANCIA_SKM = 8;
 export const INCLINACION_PRESCRITA_PCT = 1;
 export const CADENCIA_PRESCRITA_PPM = 180;
 
+/** Metros de cada serie y segundos de cada recuperación — el bloque de ejemplo. */
+const SERIE_M = 1000;
+const RECUPERACION_S = 120;
+const SERIES = 4;
+
+/**
+ * LA ESTRUCTURA del bloque, expandida: 4 series con 2' entre ellas = 7 tramos (la
+ * última no lleva recuperación detrás).
+ *
+ * El OFF va declarado al TROTE porque es lo que este bloque es y lo que el propio
+ * HUD dice en pantalla («Recuperación», nunca «Descanso»): dos minutos entre
+ * series de 1000 a 4:35 se trotan. Sin declararlo, la dosis diría «descanso
+ * 2:00» — la palabra que la app reserva para cuando de verdad se para.
+ */
+export const TRAMOS: readonly TramoCarrera[] = Array.from({ length: SERIES }, (_, i) => [
+  { tipo: 'trabajo' as const, metros: SERIE_M, objetivo: ritmoObjetivo(OBJETIVO_SKM) },
+  ...(i < SERIES - 1
+    ? [{ tipo: 'recuperacion' as const, segundos: RECUPERACION_S, modo: 'trote' as const }]
+    : []),
+]).flat();
+
 /** Cabecera de la puerta de bloque (BlockPreviewGate). */
 export const BLOQUE = {
   fase: 'PRINCIPAL',
   titulo: 'Series de 1000',
+  /** «BLOQUE 2 DE 4» — la posición del bloque en la sesión, no las series. */
   numero: 2,
   total: 4,
-  /** conditioningFormatLabel(.intervals) → displayName + "N series". */
-  formato: 'Intervalos · 4 series',
-  /** WorkRow: nombre = título del segmento, trabajo = previewWorkLine. */
+  /**
+   * `PrescriptionRenderer.wodHeader` de un `intervals` — «Series», y luego cuántas.
+   * Decía «Intervalos», que era la grafía de `conditioningFormatLabel`, la segunda
+   * implementación de esta cabecera: murió el 30-jul y ahora hay una sola (§2).
+   */
+  formato: `Series · ${SERIES} series`,
+  /**
+   * WorkRow: nombre = título del segmento, trabajo = `previewWorkLine`. La línea
+   * NO se escribe a mano: sale de la MISMA estructura que corre el HUD, por el
+   * mismo formateador que la puerta del bloque de verdad — así no puede decir una
+   * cosa aquí y otra tres tramos más abajo.
+   */
   filas: [
     {
       nombre: 'Series de 1000',
-      // PrescriptionRenderer.summaryLine: medida · ritmo · (N× · descanso)
-      trabajo: '1000 m · @ 4:35 /km · 4× · descanso 2:00',
+      trabajo: dosisDeCarrera({ estructura: [...TRAMOS] })?.linea,
     },
   ],
 } as const;
@@ -55,22 +95,9 @@ export const BLOQUE = {
 /** El título del segmento vivo — lo que el HUD pinta bajo «Tramo N de M». */
 export const SEGMENTO_TITULO = 'Series de 1000';
 
-export interface Tramo {
-  tipo: 'trabajo' | 'recuperacion';
-  metros?: number;
-  segundos?: number;
-}
-
-/** La estructura expandida: 4 series con 2' entre ellas = 7 tramos. */
-export const TRAMOS: readonly Tramo[] = [
-  { tipo: 'trabajo', metros: 1000 },
-  { tipo: 'recuperacion', segundos: 120 },
-  { tipo: 'trabajo', metros: 1000 },
-  { tipo: 'recuperacion', segundos: 120 },
-  { tipo: 'trabajo', metros: 1000 },
-  { tipo: 'recuperacion', segundos: 120 },
-  { tipo: 'trabajo', metros: 1000 },
-];
+/** El tramo, como lo ve este guion. Alias del tipo compartido: la gramática de
+ *  correr es una sola en todo el doble (§2). */
+export type Tramo = TramoCarrera;
 
 /** WorkoutSession.countInSeconds — el 3·2·1 antes del primer tramo. */
 export const CUENTA_ATRAS_S = 3;
@@ -155,19 +182,29 @@ export function fmtElapsed(segundos: number): string {
   return `${mm}:${ss}`;
 }
 
-/** PrescriptionRenderer.formatDistance — "1.4 km" / "2 km" / "437 m". */
+/**
+ * `Formato.distancia(…) ?? "0 m"` — la DOSIS del tramo y lo cubierto contra ella,
+ * que es como lo escribe el `GoalProgress` del HUD de calle: «1,4 km», «2 km».
+ *
+ * Escribía «1.4 km» con PUNTO. La app no localiza nada: escribe la coma española a
+ * mano en `Formato.esDecimal`, y un punto decimal en un espejo es exactamente el
+ * tipo de mentira pequeña que este doble existe para no contar.
+ */
 export function fmtDistancia(metros: number): string {
-  if (!(metros > 0)) return '0 m';
-  if (metros >= 1000) {
-    const km = metros / 1000;
-    return km % 1 === 0 ? `${km} km` : `${km.toFixed(1)} km`;
-  }
-  return `${Math.round(metros)} m`;
+  return distanciaDosis(metros) ?? '0 m';
 }
 
-/** TreadmillHUDView.distString — "1.40 km" / "437 m" (la cinta cuenta más fino). */
-export function fmtDistanciaCinta(metros: number): string {
-  return metros >= 1000 ? `${(metros / 1000).toFixed(2)} km` : `${Math.round(metros)} m`;
+/**
+ * `Formato.distanciaCubierta(…) ?? "0 m"` — la distancia MEDIDA, con sus dos
+ * decimales: «1,40 km», «437 m». En una medida los ceros SON el dato (has cubierto
+ * un kilómetro cuatrocientos clavados) y además el ancho no baila mientras corres.
+ *
+ * No es «la de la cinta»: la usan las dos superficies —el chip de distancia del HUD
+ * de calle y las celdas de la cinta— porque la diferencia es el CONCEPTO (medida vs
+ * dosis), no el aparato.
+ */
+export function fmtDistanciaCubierta(metros: number): string {
+  return distanciaCubierta(metros) ?? '0 m';
 }
 
 /** Un decimal con punto, como String(format: "%.1f") — la app no localiza. */
@@ -209,6 +246,93 @@ export function palabraEstadoCinta(estado: EstadoObjetivo): string | null {
   if (estado === 'rapido') return 'Afloja';
   if (estado === 'lento') return 'Aprieta';
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Cuando no hay ritmo medido — TreadmillHUDView.sinRitmo / OutdoorRunHUDView.
+// lecturaViva: el sujeto degrada a la SIGUIENTE VERDAD DISPONIBLE, nunca a un
+// hueco. En este bloque hay un único punto (PaceTarget.single = 4:35, sin
+// banda), así que el objetivo SIEMPRE existe y es esa siguiente verdad.
+// ---------------------------------------------------------------------------
+
+/**
+ * `RunTarget.objetivoLabel` — el ritmo objetivo CON su unidad pegada: «4:35/km».
+ *
+ * La unidad va dentro porque en Swift va dentro, y las dos pantallas la escriben
+ * tal cual: la cinta en su línea de objetivo y el sujeto de «Objetivo» cuando
+ * todavía no hay ritmo medido. Devolvía «4:35» y cada HUD le pegaba un « /km» con
+ * espacio delante — la tercera grafía del ritmo, otra vez (§2).
+ */
+export function objetivoLabel(): string {
+  return `${reloj(OBJETIVO_SKM)}/km`;
+}
+
+/**
+ * LA VELOCIDAD QUE HAY QUE MARCAR EN LA CONSOLA — `RunTarget.velocidadDeCinta`
+ * sobre `TreadmillMath.speedKmh(fromPaceSecPerKm:step:)`: 4:35/km → «13,1».
+ *
+ * Se redondea AL ESCALÓN que la cinta publica en su rango de velocidades (0,1
+ * km/h por defecto): un «13,09» no se puede marcar en ninguna consola, y un
+ * número que el atleta no puede teclear no es ayuda.
+ */
+export function velocidadDeCinta(escalonKmh = 0.1): string {
+  const bruto = 3600 / OBJETIVO_SKM;
+  return esDecimal(Math.round(bruto / escalonKmh) * escalonKmh, 1);
+}
+
+/**
+ * El objetivo de la cinta, con el número que hay que marcar al lado —
+ * `TreadmillHUDView.objetivoConMarca`: «Objetivo 4:35/km · pon 13,1».
+ *
+ * El coach prescribe en ritmo, que es su idioma; la consola se marca en km/h, que
+ * es el de la máquina. Y mientras la cinta no acepte que la app le fije la
+ * velocidad —hoy no lo hace ninguna de las que hemos encontrado, esta BH incluida—
+ * la cuenta la hace el atleta a mano y sudando. Sólo cuando le toca marcarla a él:
+ * si la app pudiera fijarla, darle un número que teclear sería ruido.
+ */
+export function objetivoConMarca(puedeControlarVelocidad = false): string {
+  if (puedeControlarVelocidad) return `Objetivo ${objetivoLabel()}`;
+  return `Objetivo ${objetivoLabel()} · pon ${velocidadDeCinta()}`;
+}
+
+/** La siguiente verdad disponible sin ritmo: el objetivo si existe, si no el
+ *  reloj del tramo. La segunda rama no es alcanzable con este bloque (siempre
+ *  prescribe un ritmo), pero es la que usaría un tramo sin `PaceTarget`. */
+export function sinRitmo(legSegundos: number): { etiqueta: string; cifra: string } {
+  const objetivo = objetivoLabel();
+  return objetivo ? { etiqueta: 'Objetivo', cifra: objetivo } : { etiqueta: 'Tiempo', cifra: fmtElapsed(legSegundos) };
+}
+
+// ---------------------------------------------------------------------------
+// Por qué NO hay dato — TreadmillHUDModel.sinLecturaMotivo / sinPulsoMotivo
+// (§7 del CONTRATO-UI). El Swift distingue cuatro motivos para cada aparato;
+// este guion solo recorre dos de cada uno — nunca simula una cinta que se
+// calla tras haber dado datos, ni un umbral perdido de la banda — pero la
+// palabra que SÍ dice es la real, nunca un guion.
+// ---------------------------------------------------------------------------
+
+/** TreadmillHUDModel.sinLecturaMotivo. `conDatos` false = nunca llegó el
+ *  primer dato ("esperando a la cinta"); true implica velocidad 0 con datos
+ *  vivos ("cinta parada") — las otras dos palabras («sin conectar» / «la
+ *  cinta no envía datos») son de un enlace que este guion no modela. */
+export function sinLecturaMotivoCinta(conDatos: boolean): string {
+  return conDatos ? 'cinta parada' : 'esperando a la cinta';
+}
+
+/** TreadmillHUDModel.sinPulsoMotivo — el reloj es siempre la fuente en este
+ *  HUD (chip "Pulso · Watch"), así que el único motivo alcanzable es el de un
+ *  enlace conectado sin lectura todavía. */
+export const SIN_PULSO_MOTIVO_CINTA = 'sin lecturas aún';
+
+/** El motivo del pulso en la calle — chip "Sin reloj" (OutdoorRunHUDView). */
+export const SIN_PULSO_MOTIVO_CALLE = 'sin reloj';
+
+/** TreadmillHUDView.beltReadingLine — lo que la CINTA dice que hace, bajo el
+ *  héroe: la misma medida en las unidades del propio dial. Ausente hasta el
+ *  primer dato — nunca una fila de guiones. */
+export function lineaLecturaCinta(velocidadKmh: number, conDatos: boolean): string | null {
+  if (!conDatos || velocidadKmh <= 0) return null;
+  return `${fmt1(velocidadKmh)} km/h en la cinta`;
 }
 
 // ---------------------------------------------------------------------------

@@ -19,10 +19,13 @@ import { getTargetRaceRow } from './target-race';
  * "semana N de M", never periodization jargon.
  *
  * Resolution: the assignment whose [start_date, end_date] window contains `on_date`
- * (most recent wins). `week_index` = which Mon–Sun week within that window today
- * falls in (1-based); `week_count` = the assignment's week count (its
- * `microcycle_ids[]`, with a date-span fallback). Returns null when today is outside
- * any materialized microciclo (free-planned / between plans).
+ * (most recent `start_date` wins; `id desc` breaks a tie deterministically — 0166's
+ * database constraint means two rows can no longer genuinely OVERLAP, but this
+ * still matters for two rows sharing the exact same `start_date` back-to-back).
+ * `week_index` = which Mon–Sun week within that window today falls in (1-based);
+ * `week_count` = the assignment's week count (its `microcycle_ids[]`, with a
+ * date-span fallback). Returns null when today is outside any materialized
+ * microciclo (free-planned / between plans).
  */
 export type CurrentMicrociclo = {
   /** athlete_month_assignments.id — the coach "microciclo" (assignment receipt) id. */
@@ -30,6 +33,11 @@ export type CurrentMicrociclo = {
   month_template_id: bigint;
   /** program_month_templates.name — THE agnostic label the coach writes. */
   name: string;
+  /** program_month_templates.athlete_id (0164) — null = a shared library
+   *  microciclo; set = a PERSONAL plan built for exactly this athlete. Callers
+   *  use this to distinguish "on the level×days sequence" from "on a bespoke
+   *  plan" without a second query. */
+  template_athlete_id: bigint | null;
   /** athlete_levels.name for the assignment's template, or '' when unleveled. */
   level: string;
   /** 1-based week within the assignment window (semana N). */
@@ -62,6 +70,7 @@ export async function getCurrentMicrociclo(params: {
       month_template_id: bigint;
       name: string | null;
       level: string;
+      template_athlete_id: bigint | null;
       start_date: string;
       end_date: string;
       week_count: number;
@@ -72,6 +81,7 @@ export async function getCurrentMicrociclo(params: {
       ama.month_template_id                                  as month_template_id,
       m.name                                                 as name,
       coalesce(al.name, '')                                  as level,
+      m.athlete_id                                            as template_athlete_id,
       to_char(ama.start_date, 'YYYY-MM-DD')                  as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')                  as end_date,
       coalesce(array_length(ama.microcycle_ids, 1), 0)::int  as week_count
@@ -81,7 +91,7 @@ export async function getCurrentMicrociclo(params: {
     where ama.athlete_id = ${params.athlete_id as number}
       and ama.start_date <= ${todayIso}::date
       and ama.end_date   >= ${todayIso}::date
-    order by ama.start_date desc
+    order by ama.start_date desc, ama.id desc
     limit 1
   `;
   const r = rows[0];
@@ -106,6 +116,7 @@ export async function getCurrentMicrociclo(params: {
     month_template_id: r.month_template_id,
     name: r.name,
     level: r.level,
+    template_athlete_id: r.template_athlete_id,
     week_index,
     week_count,
     assignment_start: r.start_date,

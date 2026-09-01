@@ -102,6 +102,7 @@
 }
 .studio-stamp[data-estado='espejo'] { color: var(--st-ok); background: rgba(63, 199, 115, 0.12); }
 .studio-stamp[data-estado='propuesta'] { color: var(--st-accent); background: rgba(240, 106, 42, 0.14); }
+.studio-stamp[data-estado='construida'] { color: var(--st-ok); background: none; box-shadow: inset 0 0 0 1px rgba(63, 199, 115, 0.4); }
 .studio-stamp[data-estado='pendiente'] { color: var(--st-faint); background: rgba(255, 255, 255, 0.06); }
 
 .studio-escenarios {
@@ -307,8 +308,10 @@
 a.studio-card:hover { border-color: rgba(240, 106, 42, 0.5); transform: translateY(-1px); }
 .studio-card h3 { font-size: 16px; font-weight: 700; margin: 2px 0 0; }
 .studio-card p { font-size: 12.5px; line-height: 1.5; color: var(--st-muted); margin: 0; }
+.studio-card .studio-enapp { font-size: 12px; color: var(--st-faint); }
+.studio-card .studio-enapp strong { color: var(--st-muted); font-weight: 600; }
 .studio-card-pendiente { opacity: 0.55; }
-.studio-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-card-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .studio-device { font-size: 11px; color: var(--st-faint); letter-spacing: 0.08em; text-transform: uppercase; }
 .studio-tag { font-size: 11px; color: var(--st-faint); }
 .studio-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 2px; }
@@ -319,6 +322,45 @@ a.studio-card:hover { border-color: rgba(240, 106, 42, 0.5); transform: translat
   color: var(--st-accent);
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 }
+
+/* Lo último — la respuesta a «¿qué es lo nuevo?», antes del inventario. */
+.studio-ultimo { display: flex; flex-direction: column; gap: 16px; }
+.studio-dia { display: flex; flex-direction: column; gap: 10px; }
+.studio-dia-fecha {
+  font-size: 11px;
+  color: var(--st-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.studio-dia-fecha[data-reciente='true'] { color: var(--st-accent); }
+.studio-dia-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--st-hairline);
+  color: var(--st-fg);
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: border-color 120ms ease;
+}
+a.studio-pill:hover { border-color: rgba(240, 106, 42, 0.5); }
+.studio-pill-resto { border-color: transparent; color: var(--st-faint); }
+
+.studio-card-top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.studio-card-top-right .studio-device { white-space: nowrap; }
+.studio-fecha {
+  font-size: 11px;
+  color: var(--st-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.studio-fecha[data-reciente='true'] { color: var(--st-accent); }
+.studio-zona-n { color: var(--st-faint); font-weight: 400; }
+.studio-stamp[data-estado='coleccion'] { color: var(--st-accent); background: rgba(240, 106, 42, 0.14); }
+.studio-card-coleccion { border-color: rgba(240, 106, 42, 0.35); }
 
 .studio-archivo summary { cursor: pointer; list-style: none; }
 .studio-archivo summary::-webkit-details-marker { display: none; }

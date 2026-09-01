@@ -14,6 +14,7 @@ import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { cn } from '@/lib/utils';
 
 const AJUSTES_HREF = '/ajustes';
+const CLUB_HREF = '/club';
 
 export function AccountMenu({
   coach_name,
@@ -89,6 +90,18 @@ export function AccountMenu({
 
           {/* Actions */}
           <div className="p-1">
+            <Link
+              href={CLUB_HREF}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={cn(
+                'v2-focus flex items-center gap-3 rounded-[var(--v2-r-s)] px-3 py-2 text-sm transition-colors',
+                'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
+              )}
+            >
+              <MIcon name="storefront" size={18} aria-hidden />
+              <span className="font-medium">Tu club</span>
+            </Link>
             <Link
               href={AJUSTES_HREF}
               role="menuitem"

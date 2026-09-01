@@ -16,6 +16,7 @@ import type { AthleteResumen } from '@/lib/dashboard/coach/resumen';
 // lives in is server-only but no value ever crosses into the client bundle.
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
 import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
+import type { IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import type { AthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
 import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
@@ -23,10 +24,12 @@ import type { JointSession } from '@/lib/dashboard/coach/athlete-profile-shell';
 import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { AthleteReviewState } from '@/lib/citas/reviews';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import type { CoachAthleteCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
+import type { AthleteWeekChip } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import {
-  BENCH_BACK_SQUAT_1RM,
   BENCH_RUN_5K,
   BENCH_ROW_2K,
+  BENCH_SKI_1K,
   benchmarkLabel,
   benchmarkMetric,
   benchmarkIsDirectional,
@@ -50,7 +53,14 @@ export interface StrengthMaxView {
   one_rm_kg: number;
   version: number;
   recorded_at: string;
+  /** Quién produjo el número: onboarding | coach_test | athlete_test. */
   source: string;
+  /** La ocurrencia de batería que lo produjo (0200), o null si no hubo protocolo.
+   *  `source` + esto = el origen; lo lee shared/domain/strength → leerOrigen. */
+  assignment_id: string | null;
+  /** El set del que se estimó, cuando lo hubo (entrada a mano peso × reps). */
+  test_weight_kg: number | null;
+  test_reps: number | null;
   /** All versions for this lift, oldest→newest, for the progression delta. */
   history: { one_rm_kg: number; version: number; recorded_at: string }[];
 }
@@ -93,14 +103,90 @@ export interface TestProgressionRow {
 }
 
 // ── Sub-tab identity (the ?tab= query value) ────────────────────────────────────
-export const ATLETA_TABS = ['perfil', 'plan', 'ritmos', 'carreras', 'historico', 'sesiones', 'biometria', 'rendimiento', 'pagos', 'mensajes'] as const;
+// Cinco pestañas (docs/DECISIONS.md 2026-08-13). Mensajes no es pestaña: es el
+// botón de cabecera y abre una vista oculta. Las ?tab= viejas redirigen.
+export const ATLETA_TABS = ['resumen', 'plan', 'rendimiento', 'del-coach', 'atleta'] as const;
 export type AtletaTab = (typeof ATLETA_TABS)[number];
-export const DEFAULT_ATLETA_TAB: AtletaTab = 'perfil';
+/** Vista que la URL puede pedir además de las 5 pestañas (hilo de chat). */
+export type AtletaVista = AtletaTab | 'mensajes';
+export const DEFAULT_ATLETA_TAB: AtletaTab = 'resumen';
 
-export function normalizeAtletaTab(raw: string | undefined): AtletaTab {
-  return (ATLETA_TABS as readonly string[]).includes(raw ?? '')
-    ? (raw as AtletaTab)
-    : DEFAULT_ATLETA_TAB;
+export const RENDIMIENTO_VISTAS = ['carrera', 'fuerza', 'cuerpo'] as const;
+export type RendimientoVista = (typeof RENDIMIENTO_VISTAS)[number];
+
+export const CARRERA_CAPAS = ['aterrizaje', 'en-zonas', 'ritmos', 'carreras'] as const;
+export type CarreraCapa = (typeof CARRERA_CAPAS)[number];
+
+export const ATLETA_SECCIONES = ['perfil', 'sesiones', 'pagos'] as const;
+export type AtletaSeccion = (typeof ATLETA_SECCIONES)[number];
+
+const TAB_ALIASES: Record<string, AtletaVista> = {
+  perfil: 'atleta',
+  ritmos: 'rendimiento',
+  carreras: 'rendimiento',
+  historico: 'rendimiento',
+  sesiones: 'atleta',
+  biometria: 'rendimiento',
+  correr: 'rendimiento',
+  pagos: 'atleta',
+  mensajes: 'mensajes',
+};
+
+const RENDIMIENTO_ALIASES: Record<string, RendimientoVista> = {
+  ritmos: 'carrera',
+  zonas: 'carrera',
+  'en-zonas': 'carrera',
+  carreras: 'carrera',
+  correr: 'carrera',
+  diagnostico: 'cuerpo',
+  historico: 'fuerza',
+  biometria: 'cuerpo',
+};
+
+const CARRERA_CAPA_ALIASES: Record<string, CarreraCapa> = {
+  ritmos: 'ritmos',
+  zonas: 'en-zonas',
+  'en-zonas': 'en-zonas',
+  carreras: 'carreras',
+  correr: 'aterrizaje',
+  diagnostico: 'en-zonas',
+};
+
+const ATLETA_ALIASES: Record<string, AtletaSeccion> = {
+  perfil: 'perfil',
+  sesiones: 'sesiones',
+  pagos: 'pagos',
+};
+
+export function normalizeAtletaTab(raw: string | undefined): AtletaVista {
+  if (raw && (ATLETA_TABS as readonly string[]).includes(raw)) return raw as AtletaTab;
+  if (raw && raw in TAB_ALIASES) return TAB_ALIASES[raw]!;
+  return DEFAULT_ATLETA_TAB;
+}
+
+export function resolveAtletaUrl(
+  rawTab: string | undefined,
+  rawVista: string | undefined,
+): {
+  tab: AtletaVista;
+  rendimientoVista: RendimientoVista;
+  carreraCapa: CarreraCapa;
+  atletaSeccion: AtletaSeccion;
+} {
+  const tab = normalizeAtletaTab(rawTab);
+  const rendimientoVista: RendimientoVista =
+    rawVista && (RENDIMIENTO_VISTAS as readonly string[]).includes(rawVista)
+      ? (rawVista as RendimientoVista)
+      : (RENDIMIENTO_ALIASES[rawVista ?? ''] ?? RENDIMIENTO_ALIASES[rawTab ?? ''] ?? 'carrera');
+  const carreraCapa: CarreraCapa =
+    rawVista && (CARRERA_CAPAS as readonly string[]).includes(rawVista)
+      ? (rawVista as CarreraCapa)
+      : (CARRERA_CAPA_ALIASES[rawVista ?? ''] ?? CARRERA_CAPA_ALIASES[rawTab ?? ''] ?? 'aterrizaje');
+  const atletaSeccion: AtletaSeccion =
+    rawVista && (ATLETA_SECCIONES as readonly string[]).includes(rawVista)
+      ? (rawVista as AtletaSeccion)
+      : (ATLETA_ALIASES[rawTab ?? ''] ?? 'perfil');
+  return { tab, rendimientoVista, carreraCapa, atletaSeccion };
 }
 
 // ── Lifecycle (#13) — the ficha's pause/baja/re-alta context ─────────────────────
@@ -167,6 +253,8 @@ export interface DetalleHeader {
     edited_by_name: string | null;
     edited_at: string | null;
   };
+  /** Entrega de la semana calendario — misma fuente que el roster y el lienzo. */
+  week_chip: AthleteWeekChip;
 }
 
 // ── Stat cluster (the 4 header StatTiles) ──────────────────────────────────────
@@ -234,6 +322,36 @@ export interface TrainingDaysData {
   has_availability: boolean;
 }
 
+// ── Resumen extras (client-safe) ──────────────────────────────────────────────
+export interface FichaAdherenceWeek {
+  week_start: string;
+  scheduled: number;
+  completed: number;
+  /** Null when nothing was due that week — never a punitive 0. */
+  pct: number | null;
+}
+
+export interface FichaWeekAdjustment {
+  proposal_id: number;
+  summary: string;
+}
+
+export interface FichaPrivateNote {
+  body: string;
+}
+
+export interface FichaResumenExtras {
+  adherence_weeks: FichaAdherenceWeek[];
+  week_adjustment: FichaWeekAdjustment | null;
+  private_note: FichaPrivateNote | null;
+  sleep_hours: number | null;
+  readiness_delta: number | null;
+  race_goal_time_seconds: number | null;
+  race_date: string | null;
+  race_format: string | null;
+  race_division: string | null;
+}
+
 // ── The unified payload the page passes to the client ──────────────────────────
 export interface V2AthleteDetalle {
   header: DetalleHeader;
@@ -247,6 +365,8 @@ export interface V2AthleteDetalle {
   training_days: TrainingDaysData;
   resumen: AthleteResumen | null;
   plan: AthletePlanPayload | null;
+  /** De qué nace el plan. Independiente de `plan` (puede no haber microciclos). */
+  plan_mode: IntakePlanMode;
   body: BodyPayload | null;
   subscription: AthleteSubscriptionStatus | null;
   /** Pagos tab (#15): the athlete's current billing (agreed price, status, next
@@ -286,6 +406,14 @@ export interface V2AthleteDetalle {
    *  propuesta pendiente y si toca (due). null si el load degradó. Alimenta el panel al
    *  frente del tab 1:1. */
   review: AthleteReviewState | null;
+  /** Del coach: lo que se le ha PUBLICADO a este atleta con SU estado (visto, hecho,
+   *  respondido y los pasos marcados), archivados incluidos — la ficha es historial,
+   *  no bandeja. Vacío = todavía no se le ha publicado nada. Se lee con la ficha
+   *  porque la insignia de la pestaña la necesita desde cualquier otra pestaña. */
+  communications: CoachAthleteCommunicationDTO[];
+  /** Extras de la pestaña Resumen (adherencia 4 sem, ajuste, nota). Degrada a
+   *  vacío si el load falló — Resumen se pinta igual con lo que ya trae `resumen`. */
+  ficha: FichaResumenExtras;
 }
 
 // Re-export so the client tab components import the type from this client-safe
@@ -354,6 +482,7 @@ function fmtMetricValue(value: number, metric: BenchmarkMetric): string {
   if (metric === 'distance') return `${Math.round(value)} m`; // Cooper
   if (metric === 'rate') return `${Math.round(value)} ppm`; // heart rate
   if (metric === 'power') return `${Math.round(value)} W`; // FTP
+  if (metric === 'height') return `${Math.round(value)} cm`;
   return `${Math.round(value)}`; // reps
 }
 
@@ -366,6 +495,7 @@ function fmtDeltaLabel(delta: number, metric: BenchmarkMetric): string {
   if (metric === 'distance') return `${sign}${Math.round(abs)} m`;
   if (metric === 'rate') return `${sign}${Math.round(abs)} ppm`;
   if (metric === 'power') return `${sign}${Math.round(abs)} W`;
+  if (metric === 'height') return `${sign}${Math.round(abs)} cm`;
   return `${sign}${Math.round(abs)}`;
 }
 
@@ -455,11 +585,25 @@ function deriveObjectiveGroups(zone_profiles: AthleteZoneProfile[]): DerivedObje
   });
 }
 
-/** Maps the REAL reference-test results into the Perfil reference-test cards:
- *  pace tests (5k / 2k) from athlete_benchmarks (latest result, mm:ss) and the
- *  1RM from athlete_strength_maxes (kg). No result → null ("pendiente"). NEVER
- *  derived from in-WOD segment durations. Derived objectives come from the stored
- *  zone profiles (resolver output). Pure — safe in the client bundle. */
+/** Icon for a reference-test card — modality family, never invent a fake glyph. */
+function referenceTestIcon(slug: string): string {
+  if (slug.startsWith('run_') || slug === 'cooper_12min') return 'directions_run';
+  if (slug.startsWith('row_')) return 'rowing';
+  if (slug.startsWith('ski_')) return 'downhill_skiing';
+  if (slug.startsWith('bike_') || slug === 'ftp_watts') return 'pedal_bike';
+  if (slug.startsWith('hyrox')) return 'sports_score';
+  if (slug.includes('hr') || slug === 'lthr_bpm') return 'monitor_heart';
+  return 'timer';
+}
+
+/** Pace / endurance anchors always listed (pendiente if empty). Extra benchmarks
+ *  with a recorded result append after — so ski/bike/hyrox no longer disappear.
+ *  Strength 1RM lives ONLY in the Fuerza panel below (no double paint). NEVER
+ *  derived from in-WOD segment durations. Pure — safe in the client bundle. */
+/** Core HYROX / hybrid anchors always listed (even if pending). Other recorded
+ *  benchmarks append. */
+const REFERENCE_TEST_ANCHORS = [BENCH_RUN_5K, BENCH_ROW_2K, BENCH_SKI_1K] as const;
+
 export function buildPerfilTab(
   benchmarks: BenchmarkSeries[] = [],
   zone_profiles: AthleteZoneProfile[] = [],
@@ -468,31 +612,52 @@ export function buildPerfilTab(
 ): PerfilTabData {
   const benchBySlug = new Map(benchmarks.map((b) => [b.exercise_slug, b]));
 
-  // Latest result of a TIME-based benchmark, formatted mm:ss (5k / 2k row are
-  // always seconds). No recorded result → null ("pendiente de registro").
-  const latestTime = (slug: string): { value: string | null; date_iso: string | null } => {
-    const last = benchBySlug.get(slug)?.results.at(-1) ?? null;
-    if (!last) return { value: null, date_iso: null };
-    return { value: fmtTime(Math.round(last.value)), date_iso: last.recorded_at };
+  const latestOf = (
+    slug: string,
+  ): { value: string | null; date_iso: string | null; unit: string | null } => {
+    const series = benchBySlug.get(slug);
+    const last = series?.results.at(-1) ?? null;
+    if (!last || !series) return { value: null, date_iso: null, unit: null };
+    const metric = benchmarkMetric(series.unit);
+    // kg lives in strength_maxes — never double-count as a "test de referencia".
+    if (metric === 'load') return { value: null, date_iso: null, unit: null };
+    return {
+      value: fmtMetricValue(last.value, metric),
+      date_iso: last.recorded_at,
+      unit: series.unit,
+    };
   };
 
-  const run5k = latestTime(BENCH_RUN_5K);
-  const row2k = latestTime(BENCH_ROW_2K);
-  // The 1RM reference card reads the REAL back-squat max (kg) from the strength
-  // system — NOT a segment time misread as a load. No max → "Pendiente".
-  const squat = strength_maxes.find((m) => m.exercise_slug === BENCH_BACK_SQUAT_1RM) ?? null;
+  const reference_tests: ReferenceTest[] = [];
+  const seen = new Set<string>();
 
-  const reference_tests: ReferenceTest[] = [
-    { slug: BENCH_RUN_5K, icon: 'directions_run', label: benchmarkLabel(BENCH_RUN_5K), value: run5k.value, date_iso: run5k.date_iso },
-    { slug: BENCH_ROW_2K, icon: 'rowing', label: benchmarkLabel(BENCH_ROW_2K), value: row2k.value, date_iso: row2k.date_iso },
-    {
-      slug: '1rm',
-      icon: 'fitness_center',
-      label: 'Fuerza · 1RM',
-      value: squat ? `${Math.round(squat.one_rm_kg)} kg` : null,
-      date_iso: squat?.recorded_at ?? null,
-    },
-  ];
+  for (const slug of REFERENCE_TEST_ANCHORS) {
+    const latest = latestOf(slug);
+    reference_tests.push({
+      slug,
+      icon: referenceTestIcon(slug),
+      label: benchmarkLabel(slug),
+      value: latest.value,
+      date_iso: latest.date_iso,
+    });
+    seen.add(slug);
+  }
+
+  // Cualquier otro benchmark con resultado real (no kg) entra al final.
+  for (const b of benchmarks) {
+    if (seen.has(b.exercise_slug)) continue;
+    if (benchmarkMetric(b.unit) === 'load') continue;
+    const last = b.results.at(-1);
+    if (!last) continue;
+    reference_tests.push({
+      slug: b.exercise_slug,
+      icon: referenceTestIcon(b.exercise_slug),
+      label: b.label || benchmarkLabel(b.exercise_slug),
+      value: fmtMetricValue(last.value, benchmarkMetric(b.unit)),
+      date_iso: last.recorded_at,
+    });
+    seen.add(b.exercise_slug);
+  }
 
   // Real derived zone targets from the stored zone profiles (resolver output),
   // grouped by modality. When the athlete has no test yet this is [] → the Perfil

@@ -48,6 +48,24 @@ function sortPhases(phases: Phase[]): Phase[] {
   return [...phases].sort((a, b) => PHASE_RANK[a.role] - PHASE_RANK[b.role]);
 }
 
+/** El cuerpo que sembramos nosotros al abrir una fase. Si sigue igual, no hay
+ *  trabajo del coach dentro: es el hueco por rellenar. */
+function defaultElementsFor(role: PhaseRole): Phase['elements'] {
+  if (role === 'warmup') return defaultWarmupElements();
+  if (role === 'cooldown') return defaultCooldownElements();
+  return seedStructure()[0]!.elements;
+}
+
+function isUntouched(role: PhaseRole, elements: Phase['elements']): boolean {
+  return JSON.stringify(elements) === JSON.stringify(defaultElementsFor(role));
+}
+
+/** Las dos acciones de un toque que BORRAN lo ya escrito. Se confirman; el resto
+ *  del editor no pregunta nada, porque nada más destruye. */
+type PendingAction =
+  | { kind: 'archetype'; id: RunArchetypeId; label: string }
+  | { kind: 'removePhase'; role: PhaseRole; label: string };
+
 export function RunStructureForm({
   value,
   onChange,
@@ -59,9 +77,11 @@ export function RunStructureForm({
   // legacy seed → a fresh single-bout. The first real edit persists it.
   const structure: RunStructure = value.structure ?? legacyToStructure(value) ?? seedStructure();
   const [activeRole, setActiveRole] = useState<PhaseRole>('main');
+  const [pending, setPending] = useState<PendingAction | null>(null);
 
   const commit = (nextStructure: RunStructure) => {
     onChange(prescriptionFromStructure(nextStructure, value.note ? { note: value.note } : undefined));
+    setPending(null);
   };
 
   const phaseFor = (role: PhaseRole): Phase | undefined => structure.find((p) => p.role === role);
@@ -85,6 +105,23 @@ export function RunStructureForm({
     // Prefills fill the PRINCIPAL phase; warmup/cooldown are preserved.
     commit(sortPhases(structure.map((p) => (p.role === 'main' ? { ...p, elements: prefillElements(id) } : p))));
     setActiveRole('main');
+  };
+
+  // Una plantilla NO se suma: sustituye. Con el principal todavía en blanco eso
+  // no cuesta nada, así que va directa; si el coach ya ha escrito ahí, primero
+  // se pregunta. Un toque nunca puede borrarle un entreno escrito —
+  // exactamente lo que le pasó a una sesión real de correr (11-ago).
+  const requestArchetype = (id: RunArchetypeId, label: string) => {
+    const main = phaseFor('main');
+    if (!main || isUntouched('main', main.elements)) return applyArchetype(id);
+    setPending({ kind: 'archetype', id, label });
+  };
+
+  // Misma regla para la × de una fase: si dentro hay algo escrito, se pregunta.
+  const requestRemovePhase = (role: PhaseRole, label: string) => {
+    const phase = phaseFor(role);
+    if (!phase || isUntouched(role, phase.elements)) return removePhase(role);
+    setPending({ kind: 'removePhase', role, label });
   };
 
   /**
@@ -132,8 +169,8 @@ export function RunStructureForm({
               key={a.id}
               type="button"
               title={a.hint}
-              onClick={() => applyArchetype(a.id)}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent)]"
+              onClick={() => requestArchetype(a.id, a.name)}
+              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
             >
               <MIcon name={a.icon} size={14} />
               {a.name}
@@ -141,6 +178,25 @@ export function RunStructureForm({
           ))}
         </div>
       </div>
+
+      {/* Lo que se va a perder, dicho antes de perderlo. Se pinta entre los dos
+          disparadores (los chips arriba, la × de la fase abajo). */}
+      {pending ? (
+        <ConfirmBar
+          message={
+            pending.kind === 'archetype'
+              ? `«${pending.label}» sustituye lo que ya has escrito en el principal.`
+              : `Se borra el ${pending.label.toLowerCase()} que has escrito.`
+          }
+          confirmLabel={pending.kind === 'archetype' ? 'Sustituir' : 'Borrar'}
+          onConfirm={() =>
+            pending.kind === 'archetype'
+              ? applyArchetype(pending.id)
+              : removePhase(pending.role)
+          }
+          onCancel={() => setPending(null)}
+        />
+      ) : null}
 
       {/* Phase tabs */}
       <div className="flex items-center gap-1 border-b border-[color:var(--v2-border)]">
@@ -152,7 +208,7 @@ export function RunStructureForm({
                 key={tab.role}
                 type="button"
                 onClick={() => addPhase(tab.role)}
-                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent)]"
+                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent-text)]"
               >
                 <MIcon name="add" size={13} />
                 {tab.label}
@@ -181,13 +237,13 @@ export function RunStructureForm({
                   title={`Quitar ${tab.label}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    removePhase(tab.role);
+                    requestRemovePhase(tab.role, tab.label);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       e.stopPropagation();
-                      removePhase(tab.role);
+                      requestRemovePhase(tab.role, tab.label);
                     }
                   }}
                   className="inline-flex text-[color:var(--v2-faint)] hover:text-[color:var(--v2-danger)]"
@@ -211,6 +267,46 @@ export function RunStructureForm({
   );
 }
 
+// ── Confirmar antes de destruir ───────────────────────────────────────────────
+
+function ConfirmBar({
+  message,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      role="alertdialog"
+      aria-label={message}
+      className="flex flex-wrap items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-3 py-2"
+    >
+      <MIcon name="warning" size={15} className="shrink-0 text-[color:var(--v2-warn)]" />
+      <span className="min-w-0 flex-1 text-xs text-[color:var(--v2-fg)]">{message}</span>
+      <button
+        type="button"
+        autoFocus
+        onClick={onConfirm}
+        className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-warn)] px-2.5 text-label font-bold text-[color:var(--v2-bg)]"
+      >
+        {confirmLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-bold text-[color:var(--v2-fg)]"
+      >
+        Cancelar
+      </button>
+    </div>
+  );
+}
+
 // ── The quick line ────────────────────────────────────────────────────────────
 
 function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
@@ -228,7 +324,7 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-1">
-        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent)]" />
+        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
         <input
           value={text}
           onChange={(e) => {
@@ -256,8 +352,8 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
       </div>
       {failed ? (
         <p role="alert" className="pl-1 text-label text-[color:var(--v2-warn)]">
-          No lo he entendido — prueba como <span className="font-mono">6x1000 @4:30 r2'</span> o{' '}
-          <span className="font-mono">20' Z2</span>. También puedes montarlo abajo.
+          No lo he entendido: prueba como <span className="font-mono">6x1000 @4:30 r2&apos;</span>{' '}
+          o <span className="font-mono">20&apos; Z2</span>. También puedes montarlo abajo.
         </p>
       ) : null}
     </div>

@@ -33,7 +33,7 @@ export function MicrociclosPanel({
       <TeachingEmptyState
         icon="calendar_view_week"
         title="Aún no tienes microciclos"
-        whatToDo={<>Un microciclo es una estructura de varias semanas — la unidad que vivirá tu atleta.</>}
+        whatToDo={<>Un microciclo es una estructura de varias semanas, la unidad que vivirá tu atleta.</>}
         why={
           <>
             <b>Por qué importa:</b> son las piezas que luego encadenas en Periodización → Secuencias.
@@ -44,7 +44,7 @@ export function MicrociclosPanel({
           <button
             type="button"
             onClick={onCreate}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="add" size={18} />
             Crear mi primer microciclo

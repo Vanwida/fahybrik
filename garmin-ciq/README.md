@@ -146,28 +146,30 @@ contenido de Garmin Connect (`getAppWorkouts`, no `getWorkouts`).
 
 ## Compilar
 
-El SDK de Connect IQ **no está instalado en esta máquina** (ver "Sin verificar").
-Para compilar:
+Requisitos en Mac: SDK Connect IQ (SDK Manager), dispositivos objetivo descargados,
+y **Java** (`brew install openjdk`). `monkeyc` no arranca sin JRE.
 
-1. Instala el [SDK Manager de Connect IQ](https://developer.garmin.com/connect-iq/sdk/)
-   y desde él un SDK 7.x, más los dispositivos objetivo.
-2. Genera la clave de desarrollador (firma la app, **es un secreto** — `.gitignore`
-   ya la excluye):
-   ```
-   openssl genrsa -out developer_key.pem 4096
-   openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem -out developer_key.der -nocrypt
-   ```
-3. Compila para un dispositivo:
-   ```
-   monkeyc -f monkey.jungle -o bin/fahybrid.prg -y developer_key.der -d fr965 --typecheck 1
-   ```
-   `--typecheck 1` (gradual), no 3 (estricto): la firma publicada del callback de
-   `makeWebRequest` no incluye `PersistedContent.Iterator` aunque es lo que
-   entrega en las descargas FIT — es un fallo conocido del SDK, no del código.
-4. Empaquetar para la tienda:
-   ```
-   monkeyc -f monkey.jungle -o bin/fahybrid.iq -y developer_key.der -e
-   ```
+```bash
+# Clave de desarrollador (secreto — .gitignore la excluye; una vez por máquina)
+openssl genrsa -out developer_key.pem 4096
+openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem -out developer_key.der -nocrypt
+
+# Compilar (default fr965; otro modelo: ./build.sh fenix7)
+./build.sh
+# equivalente:
+# JAVA_HOME=/opt/homebrew/opt/openjdk monkeyc -f monkey.jungle \
+#   -o bin/fahybrid-fr965.prg -y developer_key.der -d fr965 --typecheck 1
+```
+
+`--typecheck 1` (gradual), no 3 (estricto): la firma publicada del callback de
+`makeWebRequest` no incluye `PersistedContent.Iterator` aunque es lo que
+entrega en las descargas FIT — fallo conocido del SDK, no del código.
+
+Empaquetar para la tienda:
+
+```
+monkeyc -f monkey.jungle -o bin/fahybrid.iq -y developer_key.der -e
+```
 
 Si `monkeyc` rechaza algún `<iq:product>`, es que ese id no existe en el SDK
 instalado: quítalo. La lista válida la manda el SDK (`bin/devices.xml`), no este

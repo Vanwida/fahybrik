@@ -7,9 +7,16 @@
 // resolving an exercise here is the exact same affordance as authoring by hand —
 // the resolved exercise_id lands on the line and the day turns green in the grid.
 
+import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { ReviewDay } from '@/lib/dashboard/v2/import-review';
-import { dayIncompleteLines, dayTone } from '@/lib/dashboard/v2/import-review';
+import {
+  blockTruncation,
+  dayIncompleteLines,
+  dayProposedFields,
+  dayProposedPaths,
+  dayTone,
+} from '@/lib/dashboard/v2/import-review';
 import { MIcon } from '@/components/ui/MIcon';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 
@@ -18,6 +25,17 @@ import { BlockEditor } from '@/components/v2/editor/BlockEditor';
  * en un día normal, poner «Mañana» encima de la única sesión es ruido.
  */
 const SESSION_LABEL = ['Mañana', 'Tarde', 'Extra'];
+
+/** La línea que se añade a mano donde la foto cortó. MISMA semilla que usa el
+ *  «Añadir ejercicio» del editor de bloque (`EMPTY_PRESCRIPTION` en BlockEditor):
+ *  una línea añadida aquí tiene que nacer igual que una añadida allí. */
+const SEED_PRESCRIPTION: Prescription = {
+  scheme: 'sets',
+  modality: 'strength',
+  sets: [{ measure: { kind: 'reps', value: 8 } }],
+};
+
+let manualSeq = 0;
 
 const TONE_COPY: Record<ReturnType<typeof dayTone>, { label: string; className: string }> = {
   rest: { label: 'Descanso', className: 'text-[color:var(--v2-faint)]' },
@@ -33,6 +51,8 @@ export function ImportDayReviewDrawer({
   dayLabel,
   onChangeSession,
   onChangeIncluded,
+  onAcceptProposals,
+  onAddPhoto,
   onClose,
 }: {
   day: ReviewDay;
@@ -42,6 +62,11 @@ export function ImportDayReviewDrawer({
   onChangeSession: (sessionIndex: number, session: EditorSession) => void;
   /** Toggle whether this day gets imported at all. */
   onChangeIncluded: (included: boolean) => void;
+  /** Da por buenos de golpe todos los valores propuestos del día. */
+  onAcceptProposals: () => void;
+  /** Vuelve al paso de las fotos para añadir la captura del entreno abierto.
+   *  Ausente cuando esta importación no vino de una foto. */
+  onAddPhoto?: () => void;
   onClose: () => void;
 }) {
   const sessions = day.sessions;
@@ -51,6 +76,39 @@ export function ImportDayReviewDrawer({
   // with WHAT is missing, because the block editor below shows empty fields
   // without saying which ones matter.
   const incompleteLines = dayIncompleteLines(day);
+  // Lo que la foto no enseñaba y rellenó el importador. Sale en trazo discontinuo:
+  // el coach tiene que poder ver de un vistazo qué leyó la foto y qué pusimos
+  // nosotros por él. Al confirmar la distinción desaparece y no se guarda.
+  const proposedCount = dayProposedFields(day).length;
+  // Por línea, qué rutas siguen siendo propuestas: el editor de bloque marca con
+  // ellas el campo exacto, que es donde el coach entiende «esto no lo escribí yo».
+  const proposedPaths = dayProposedPaths(day);
+
+  /** Una línea vacía en el bloque que la foto cortó, para escribirla a mano. */
+  const addManualLine = (sessionIndex: number, blockUid: string) => {
+    const session = sessions[sessionIndex];
+    if (!session) return;
+    manualSeq += 1;
+    onChangeSession(sessionIndex, {
+      ...session,
+      blocks: session.blocks.map((b) =>
+        b.uid !== blockUid
+          ? b
+          : {
+              ...b,
+              items: [
+                ...b.items,
+                {
+                  uid: `manual-${Date.now()}-${manualSeq}`,
+                  exercise_id: null,
+                  exercise_name: '',
+                  prescription: SEED_PRESCRIPTION,
+                },
+              ],
+            },
+      ),
+    });
+  };
 
   const updateBlock = (sessionIndex: number, next: EditorBlock) => {
     const session = sessions[sessionIndex];
@@ -97,7 +155,7 @@ export function ImportDayReviewDrawer({
                 className={`v2-focus mt-2 inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors ${
                   day.included
                     ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
-                    : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent)] hover:border-[color:var(--v2-accent)]'
+                    : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent-text)] hover:border-[color:var(--v2-accent)]'
                 }`}
               >
                 <MIcon name={day.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
@@ -109,7 +167,7 @@ export function ImportDayReviewDrawer({
             type="button"
             onClick={onClose}
             aria-label="Cerrar revisión del día"
-            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
           >
             <MIcon name="close" size={20} />
           </button>
@@ -117,7 +175,7 @@ export function ImportDayReviewDrawer({
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {!hasSessions ? (
-            <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso — nada que revisar.</p>
+            <p className="text-sm text-[color:var(--v2-muted)]">Día de descanso, nada que revisar.</p>
           ) : (
             <>
               {incompleteLines.length > 0 ? (
@@ -135,7 +193,7 @@ export function ImportDayReviewDrawer({
                           {line.exercise_name || 'Línea sin nombre'}
                         </span>
                         <span className="text-[color:var(--v2-muted)]">
-                          {' — '}
+                          {' · '}
                           {line.reasons.join(' · ')}
                         </span>
                       </li>
@@ -144,10 +202,62 @@ export function ImportDayReviewDrawer({
                 </div>
               ) : null}
 
+              {day.notes ? (
+                /* La fuente traía algo que no era entreno («Semana 12», «Control
+                   test salto»). Se enseña ANTES de confirmar porque si no el coach
+                   no puede comprobar qué se leyó, y al guardar acaba en la nota del
+                   día. Aquí no se edita: para eso está el editor del día. */
+                <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-[color:var(--v2-fg)]">
+                    <MIcon name="sticky_note_2" size={15} className="text-[color:var(--v2-muted)]" />
+                    Nota del día
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-line text-label leading-snug text-[color:var(--v2-muted)]">
+                    {day.notes}
+                  </p>
+                  <p className="mt-1.5 text-nano text-[color:var(--v2-faint)]">
+                    No es un entreno, así que se guarda como nota. Si el día ya tiene una, esta se
+                    añade debajo.
+                  </p>
+                </div>
+              ) : null}
+
+              {proposedCount > 0 ? (
+                <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] p-3.5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-[color:var(--v2-warn)]">
+                        <MIcon name="edit_note" size={15} />
+                        {proposedCount === 1
+                          ? '1 valor lo hemos puesto nosotros'
+                          : `${proposedCount} valores los hemos puesto nosotros`}
+                      </p>
+                      {/* Lo que hace que aceptarlos en bloque sea seguro: solo se
+                          proponen CONVENCIONES del entrenador, nunca un número que
+                          dependa del atleta. Decirlo aquí ahorra abrir línea por
+                          línea para comprobar qué se tocó. */}
+                      <p className="mt-1 max-w-prose text-label leading-snug text-[color:var(--v2-muted)]">
+                        La foto no los enseñaba, así que van con tus valores por defecto: descanso,
+                        RIR y rango de repeticiones. El ritmo, la carga y la zona no se proponen
+                        nunca, que dependen del atleta. Cámbialos donde haga falta o dalos por
+                        buenos.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onAcceptProposals}
+                      className="v2-focus shrink-0 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-warn)]/50 px-3 py-1.5 text-label font-semibold text-[color:var(--v2-warn)] transition-colors hover:bg-[color:var(--v2-warn)]/15"
+                    >
+                      Aceptar todos los propuestos
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {sessions.map((session, sessionIndex) => (
                 <section key={session.uid} className="space-y-3">
                   {sessions.length > 1 ? (
-                    <h3 className="flex items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent)]">
+                    <h3 className="flex items-center gap-1.5 text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
                       <MIcon name={sessionIndex === 0 ? 'wb_sunny' : 'bedtime'} size={13} />
                       {SESSION_LABEL[sessionIndex] ?? `Sesión ${sessionIndex + 1}`}
                     </h3>
@@ -170,17 +280,56 @@ export function ImportDayReviewDrawer({
                       Esta sesión no tiene bloques tipados.
                     </p>
                   ) : (
-                    session.blocks.map((block) => (
-                      <div
-                        key={block.uid}
-                        className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4"
-                      >
-                        <BlockEditor
-                          block={block}
-                          onChange={(next) => updateBlock(sessionIndex, next)}
-                        />
-                      </div>
-                    ))
+                    session.blocks.map((block) => {
+                      const cut = blockTruncation(day, block.uid);
+                      const hidden = cut?.hidden_count ?? null;
+                      return (
+                        <div key={block.uid} className="space-y-2">
+                          <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4">
+                            <BlockEditor
+                              block={block}
+                              proposedPaths={proposedPaths}
+                              onChange={(next) => updateBlock(sessionIndex, next)}
+                            />
+                          </div>
+                          {cut ? (
+                            /* Lo que la fuente cortó se DICE. Es la diferencia entre
+                               una semana incompleta y una semana incompleta que
+                               nadie sabe que lo está. */
+                            <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/45 bg-[color:var(--v2-warn-soft)] px-3 py-2.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-warn)]">
+                                  <MIcon name="content_cut" size={14} className="mt-px shrink-0" />
+                                  {hidden == null
+                                    ? 'La foto cortaba aquí: la tarjeta seguía y no se ve el resto.'
+                                    : hidden === 1
+                                      ? 'La foto cortaba aquí: quedaba 1 entrada más en la tarjeta.'
+                                      : `La foto cortaba aquí: quedaban ${hidden} entradas más en la tarjeta.`}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => addManualLine(sessionIndex, block.uid)}
+                                    className="v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                                  >
+                                    Añadir a mano
+                                  </button>
+                                  {onAddPhoto ? (
+                                    <button
+                                      type="button"
+                                      onClick={onAddPhoto}
+                                      className="v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
+                                    >
+                                      Subir foto del entreno
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
                   )}
                 </section>
               ))}
@@ -192,7 +341,7 @@ export function ImportDayReviewDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
+            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
           >
             <MIcon name="check" size={16} />
             Hecho

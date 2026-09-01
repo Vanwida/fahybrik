@@ -18,6 +18,7 @@
 // convertiría en punto de entrada del bundle de cliente y Next exigiría que sus
 // props fueran serializables — cosa que un `onRetry` no es.
 import { useState } from 'react';
+import Link from 'next/link';
 import { MIcon } from '@/components/ui/MIcon';
 import { ChatAttachment } from './ChatAttachment';
 import type { UIMessage } from './useConversation';
@@ -31,10 +32,13 @@ const TIME_FMT = new Intl.DateTimeFormat('es-ES', {
 
 export function ChatBubble({
   message,
+  athleteId,
   onRetry,
   onDelete,
 }: {
   message: UIMessage;
+  /** De quién es el hilo — hace falta para llevar a SU sesión. */
+  athleteId?: string;
   /** Reintentar un envío fallido. */
   onRetry?: (id: string) => void;
   /** Borrar un mensaje PROPIO. Sin esto no se ofrece la acción. */
@@ -73,7 +77,7 @@ export function ChatBubble({
               type="button"
               onClick={() => setConfirmingDelete(true)}
               aria-label="Borrar el mensaje"
-              className="v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
+              className="v2-focus flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
             >
               <MIcon name="delete" size={15} />
             </button>
@@ -88,6 +92,21 @@ export function ChatBubble({
           message.pending && 'opacity-70',
         )}
       >
+        {message.context ? (
+          <SobreQue
+            label={message.context.label}
+            preview={message.context.preview}
+            // Solo lleva a algún sitio una SESIÓN que siga existiendo. Una
+            // carrera y un ejercicio de catálogo enseñan su dato y no navegan:
+            // el panel no tiene todavía a dónde llevarlos.
+            href={
+              message.context.kind === 'session' && message.context.exists && athleteId
+                ? `/atletas/${athleteId}?tab=plan&sesion=${message.context.ref}`
+                : null
+            }
+          />
+        ) : null}
+
         {hasAttachment ? <ChatAttachment message={message} /> : null}
 
         {hasText ? (
@@ -95,8 +114,8 @@ export function ChatBubble({
             className={cn(
               'whitespace-pre-wrap break-words rounded-[var(--v2-r-m)] px-3 py-2 text-body leading-relaxed',
               isCoach
-                ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]'
-                : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-fg)]',
+                ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-bg)] text-[color:var(--v2-fg)]',
             )}
           >
             {message.body}
@@ -106,6 +125,62 @@ export function ChatBubble({
         <Footer message={message} isCoach={isCoach} onRetry={onRetry} />
       </div>
     </div>
+  );
+}
+
+/**
+ * SOBRE QUÉ va el mensaje.
+ *
+ * Es la mitad del valor de la pieza: sin esto el coach lee «no me llega con 90 s»
+ * y tiene que gastar un turno preguntando de qué bloque. La etiqueta la redacta
+ * el servidor (`web/lib/chat/context.ts`) — aquí no se compone texto, solo se
+ * pinta, para que diga exactamente lo mismo en el móvil, en el panel y en el push.
+ *
+ * `preview` es la línea de DATO de la cosa AHORA (la etiqueta es identidad y va
+ * congelada; el estado es el de hoy, porque quien lee está a punto de contestar o
+ * de corregir). Con ella, el caso común se resuelve sin abrir nada.
+ *
+ * `href` solo llega cuando hay a dónde ir de verdad — una sesión que sigue
+ * existiendo — y entonces la tarjeta es un enlace a esa sesión en la ficha del
+ * atleta. Sin destino no se dibuja ni el galón ni el cursor de mano: prometer un
+ * click que no lleva a ninguna parte es peor que no ofrecerlo.
+ */
+function SobreQue({
+  label,
+  preview,
+  href,
+}: {
+  label: string;
+  preview?: string | null;
+  href?: string | null;
+}) {
+  const cuerpo = (
+    <>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
+          Sobre
+        </span>
+        <span className="break-words text-label font-semibold text-[color:var(--v2-fg)]">{label}</span>
+        {preview ? (
+          <span className="break-words text-label text-[color:var(--v2-muted)]">{preview}</span>
+        ) : null}
+      </span>
+      {href ? <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" /> : null}
+    </>
+  );
+
+  const marco =
+    'flex max-w-full items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5';
+
+  if (!href) return <span className={marco}>{cuerpo}</span>;
+
+  return (
+    <Link
+      href={href}
+      className={cn(marco, 'v2-focus transition-colors hover:border-[color:var(--v2-border-strong)]')}
+    >
+      {cuerpo}
+    </Link>
   );
 }
 
@@ -147,7 +222,7 @@ function Footer({
         <MIcon
           name={message.read_at ? 'done_all' : 'done'}
           size={13}
-          className={message.read_at ? 'text-[color:var(--v2-accent)]' : undefined}
+          className={message.read_at ? 'text-[color:var(--v2-accent-text)]' : undefined}
           aria-label={message.read_at ? 'Leído' : 'Enviado'}
         />
       ) : null}

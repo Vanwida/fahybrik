@@ -18,6 +18,22 @@
       "types": "./schema/*.ts",
       "default": "./schema/*.ts"
     },
+    "./schema/coach-method-interview": {
+      "types": "./schema/coach-method-interview.ts",
+      "default": "./schema/coach-method-interview.ts"
+    },
+    "./domain/coach/method-interview": {
+      "types": "./domain/coach/method-interview.ts",
+      "default": "./domain/coach/method-interview.ts"
+    },
+    "./domain/coach/method-interview-mirror": {
+      "types": "./domain/coach/method-interview-mirror.ts",
+      "default": "./domain/coach/method-interview-mirror.ts"
+    },
+    "./domain/coach/method-interview-catalog": {
+      "types": "./domain/coach/method-interview-catalog.ts",
+      "default": "./domain/coach/method-interview-catalog.ts"
+    },
     "./domain/training-load": {
       "types": "./domain/training-load/index.ts",
       "default": "./domain/training-load/index.ts"
@@ -37,6 +53,10 @@
     "./domain/adherence": {
       "types": "./domain/adherence/index.ts",
       "default": "./domain/adherence/index.ts"
+    },
+    "./domain/analytics": {
+      "types": "./domain/analytics/index.ts",
+      "default": "./domain/analytics/index.ts"
     },
     "./domain/execution-merge": {
       "types": "./domain/execution-merge/index.ts",
@@ -70,6 +90,18 @@
       "types": "./domain/athlete/*.ts",
       "default": "./domain/athlete/*.ts"
     },
+    "./domain/coach/*": {
+      "types": "./domain/coach/*.ts",
+      "default": "./domain/coach/*.ts"
+    },
+    "./domain/jump/*": {
+      "types": "./domain/jump/*.ts",
+      "default": "./domain/jump/*.ts"
+    },
+    "./domain/coach/*": {
+      "types": "./domain/coach/*.ts",
+      "default": "./domain/coach/*.ts"
+    },
     "./domain/*": {
       "types": "./domain/*.ts",
       "default": "./domain/*.ts"
@@ -90,6 +122,7 @@
     "test": "echo \"no tests yet\" && exit 0"
   },
   "dependencies": {
+    "haversine-distance": "^1.2.4",
     "postgres": "^3.4.9",
     "zod": "^3.23.8"
   },

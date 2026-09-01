@@ -11,10 +11,10 @@ import Foundation
 // nil on no-bearer / request failure (so the views render honest empty states),
 // and each endpoint is itself honest-empty when the athlete has no imported race.
 //
-// What is ALSO live: the training analytics from `GET /api/athlete/analytics`
-// (StatsService / AthleteAnalytics). Carreras' "Rendimiento" section surfaces
-// those real numbers — see StatsService.fetchAnalytics; this file does NOT
-// re-fetch them, it only owns the race-derived contract.
+// Este fichero SOLO posee el contrato derivado de carreras. La analítica de
+// entrenamiento se lee en la pestaña ANALÍTICAS, por su propio endpoint por
+// sección (`AnalyticsService`); el resumen suelto que se pedía aquí no lo leía
+// ninguna pantalla y se retiró.
 //
 // Snake_case Codable keys match the project convention (Swift Codable mirrors
 // the API's snake_case responses).
@@ -591,9 +591,8 @@ struct RunningAnalysis: Codable, Hashable {
     /// wire name, this carries the VDOT number, surfaced as "VDOT 49,9".
     let vo2_estimate: String?
     let best_1k: String?
-    /// Weekly running volume — present in the analysis payload, but ALSO live
-    /// via StatsService; the deep-dive prefers the live StatsService figure and
-    /// treats this as a fallback so the two never silently disagree. ISO week.
+    /// Weekly running volume — el volumen de la semana ISO tal como lo trae el
+    /// propio análisis de carrera.
     let weekly_volume_km: String?
     /// Rolling last-7-days running volume — the Inicio "Volumen · 7 días" figure
     /// (distinct from `weekly_volume_km`, which is the ISO week). Nil when none.

@@ -49,7 +49,7 @@ export type FormatFamily = 'metcon' | 'endurance' | 'strength' | 'structural';
 export type FormatParam =
   | 'rounds' //     number of rounds / minutes
   | 'work_s' //     work-window length (EMOM minute, Tabata work, interval bout)
-  | 'rest_s' //     rest between intervals / rounds
+  | 'rest_s' //     rest between intervals / rounds / straight sets / superset rotations
   | 'total_s' //    total time (AMRAP duration, Steady duration) or time CAP (For Time / Chipper / Ladder)
   | 'start' //      Death By — starting amount (reps/cal) in round 1
   | 'increment'; // Death By — amount added each round
@@ -156,6 +156,33 @@ export const WORKOUT_FORMATS = {
     presentation: 'set_table',
     params: ['rest_s'],
   },
+  // A superset ROTATES its block's exercises (A1→A2→A1→A2, see
+  // docs/DECISIONS.md 2026-08-05) instead of running them in straight sets —
+  // that rotation is the ONLY thing that distinguishes it from `sets`, so
+  // every other axis mirrors its pair:
+  //   family: 'strength' — a superset of two lifts is still strength work,
+  //     not a metcon; nothing about it is scored against a clock.
+  //   score: 'load' — same judgment as `sets`: the load moved per set, not a
+  //     time or a round count. `prescriptionDuration` (duration.ts) already
+  //     falls through to `setsSeconds` for any non-'time'/'rounds_survived'
+  //     score with no declared window, so this reuses that path for free.
+  //   presentation: 'set_table' — self-paced, no clock forces the rotation's
+  //     cadence (the decision doc rules OUT reusing the rotating/clock-driven
+  //     engine `sets` never used either). The live surface still has to
+  //     alternate between the block's items' tables instead of running one,
+  //     but that is a UI concern for when its timer is built, not a new
+  //     presentation axis.
+  //   params: ['rest_s'] — the descanso between rotations (A1's set → A2's
+  //     set) is the one structural knob a superset needs; how many series
+  //     each exercise gets lives on that item's own `sets[]`, exactly like
+  //     `sets` never carries a `rounds` param either.
+  superset: {
+    label: 'Superset',
+    family: 'strength',
+    score: 'load',
+    presentation: 'set_table',
+    params: ['rest_s'],
+  },
   warmup: {
     label: 'Warm-up',
     family: 'structural',
@@ -191,6 +218,9 @@ export const WORKOUT_FORMAT_KEYS = Object.keys(WORKOUT_FORMATS) as WorkoutFormat
 //   interval       → intervals (the old singular spelling of the same format)
 //   simulation     → hyrox_sim (older free-text label for a HYROX simulation;
 //                    still seen in template_segments.block_format)
+//   superserie     → superset (the coach's own Spanish spelling of the same
+//                    format; input-only, like `interval` below — never a DB
+//                    enum value, so it stays out of LEGACY_TEMPLATE_FORMATS)
 export const LEGACY_FORMAT_ALIASES: Readonly<Record<string, WorkoutFormat>> = {
   strength_block: 'sets',
   tempo: 'steady',
@@ -198,6 +228,7 @@ export const LEGACY_FORMAT_ALIASES: Readonly<Record<string, WorkoutFormat>> = {
   test: 'for_time',
   interval: 'intervals',
   simulation: 'hyrox_sim',
+  superserie: 'superset',
 };
 
 // The legacy values that still exist as `template_format` ENUM members in the DB

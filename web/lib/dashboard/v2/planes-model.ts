@@ -17,12 +17,16 @@ import type {
   WeekDayPart,
   WeekSlots,
 } from '@fahybrid/shared/schema/program-templates';
-import { legacyItemToPrescription, prescriptionToText } from '@fahybrid/shared/domain/prescription';
+import {
+  legacyItemToPrescription,
+  normalizeFormat,
+  prescriptionToText,
+} from '@fahybrid/shared/domain/prescription';
+import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 
-// Per-day card limits — keep the 7-column week scannable: at most a couple of
-// dose lines per block, a couple of blocks summarised; the rest collapses to
-// "+N más" / "+N bl". Named so the threshold isn't a scattered magic number.
-const MAX_BLOCKS_PER_DAY_CARD = 2;
+// Per-day card limit — keep the 7-column week scannable: at most a couple of
+// dose lines per block; the rest collapses to "+N ej". (El tope de bloques por
+// tarjeta murió con el tablero denso de ago-2026: la tarjeta enseña todos.)
 const MAX_ITEM_LINES_PER_BLOCK = 2;
 
 // ── methodology_group_id → modality ──────────────────────────────────────────
@@ -74,6 +78,13 @@ export interface DayBlockInfo {
   lines: DayItemLine[];
   /** Total exercise items in the block (lines may be truncated). */
   item_count: number;
+  /**
+   * El bloque es un extra que el atleta puede saltarse (fase 2, ago-2026,
+   * `WeekDayPart.optional`). Ausente/false = obligatorio. Mismo dato que lee
+   * el day editor (SessionPartCard) — las dos superficies nunca pueden
+   * discrepar porque las dos lo leen del mismo `WeekDayPart`.
+   */
+  optional: boolean;
 }
 
 /** A session within a day (AM / PM …) with its coach focus + blocks. */
@@ -117,27 +128,48 @@ export interface DayModalityInfo {
 // Render an item's dose from its structured prescription, deriving from legacy
 // params_json+notes when no prescription_json is stored (mirrors editor-data so
 // real Pablo weeks — which carry params_json — read correctly, not blank).
-function itemDose(item: WeekDayPart['items'][number]): string {
-  const prescription =
+function itemPrescription(item: WeekDayPart['items'][number]) {
+  return (
     item.prescription_json ??
     legacyItemToPrescription({
       params_json: (item.params_json ?? null) as Record<string, unknown> | null,
       notes: item.notes ?? null,
-    });
-  return prescriptionToText(prescription);
+    })
+  );
+}
+
+function itemDose(item: WeekDayPart['items'][number]): string {
+  return prescriptionToText(itemPrescription(item));
+}
+
+// methodology_group_id clasifica cuando existe; los bloques importados lo traen
+// null, así que el fallback es la modalidad de la PRESCRIPCIÓN de sus items — el
+// mismo dato que colorea la vista día, para que las dos superficies no puedan
+// discrepar. Sin grupo y sin modalidad en ningún item → null (el gris no miente).
+function blockModality(block: WeekDayPart): V2Modality | null {
+  const format = block.format ? normalizeFormat(block.format) : undefined;
+  if (format === 'warmup' || format === 'cooldown') return 'calentamiento';
+  const byGroup = modalityForGroup(block.methodology_group_id);
+  if (byGroup) return byGroup;
+  for (const it of block.items ?? []) {
+    const m = itemPrescription(it)?.modality;
+    if (m) return modalityColorSlug(m);
+  }
+  return null;
 }
 
 function blockInfo(block: WeekDayPart): DayBlockInfo {
   const items = block.items ?? [];
   return {
     title: block.title,
-    modality: modalityForGroup(block.methodology_group_id),
+    modality: blockModality(block),
     group_id: block.methodology_group_id ?? null,
     item_count: items.length,
     lines: items.slice(0, MAX_ITEM_LINES_PER_BLOCK).map((it) => ({
       name: it.exercise_name,
       dose: itemDose(it),
     })),
+    optional: block.optional ?? false,
   };
 }
 
@@ -167,7 +199,7 @@ export function deriveDayModality(day: WeekDay): DayModalityInfo {
     for (const block of blocks) {
       block_count += 1;
       item_count += (block.items ?? []).length;
-      const mod = modalityForGroup(block.methodology_group_id);
+      const mod = blockModality(block);
       if (!mod) continue;
       if (!counts.has(mod)) order.push(mod);
       counts.set(mod, (counts.get(mod) ?? 0) + 1);

@@ -426,12 +426,18 @@ final class DeviceChannel {
         link = .idle
     }
 
-    /// Full teardown at the end of the workout.
+    /// Full teardown at the end of the workout — always cuts the BLE link (PM5 /
+    /// FTMS gym machines must leave the bus for the next athlete). Optimistic
+    /// `.idle` so the chip never lingers as "listo" while CB winds down.
     func stop() {
         generation += 1
         isPresentingPicker = false
         inlineSelectionActive = false
         pendingConfirmation = nil
+        pickInFlight = false
+        link = .idle
+        // Prefer disconnect (cancelPeripheralConnection) then full stop (scan kill).
+        _source?.disconnect()
         _source?.stop()
     }
 

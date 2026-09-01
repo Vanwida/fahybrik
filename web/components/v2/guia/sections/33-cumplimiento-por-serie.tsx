@@ -100,7 +100,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <>
           Prescribir un ritmo por tramo solo sirve si luego puedes leer si se cumplió. En el detalle
           de una sesión ya hecha, cada tramo de carrera aparece <b>prescrito contra hecho</b> con un{' '}
-          <b>veredicto</b> —en banda, más rápido, más lento— y arriba, el <b>% de la sesión</b> que
+          <b>veredicto</b> (en banda, más rápido, más lento) y arriba, el <b>% de la sesión</b> que
           cayó donde tocaba. Todo con la <b>misma banda</b> que vio tu atleta al correr.
         </>
       }
@@ -108,8 +108,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            El <b>cumplimiento por tramo</b>: en la sesión ejecutada, cada tramo lleva su veredicto —{' '}
-            <b>En banda</b>, <b>Más rápido</b>, <b>Más lento</b> o <b>Sin dato</b>— y una cabecera con{' '}
+            El <b>cumplimiento por tramo</b>: en la sesión ejecutada, cada tramo lleva su veredicto:{' '}
+            <b>En banda</b>, <b>Más rápido</b>, <b>Más lento</b> o <b>Sin dato</b>, y una cabecera con{' '}
             <b>cuántos tramos</b> cayeron en banda y el <b>porcentaje</b> de la sesión.
           </>
         }
@@ -124,7 +124,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             Porque «lo hizo» no es lo mismo que «lo hizo como tocaba». Ver el ritmo real tramo a tramo
             te dice si <b>ajustar la banda</b>, si tu atleta <b>fue sobrado</b> o si <b>se pasó de
-            frenada</b> — con datos, no con sensaciones.
+            frenada</b>, con datos, no con sensaciones.
           </>
         }
       />
@@ -133,14 +133,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Cada tramo con objetivo se juzga contra su banda: <b>En banda</b> (verde) si cayó dentro,{' '}
         <b>Más rápido</b> o <b>Más lento</b> (ámbar) si se salió por arriba o por abajo, y{' '}
-        <b>Sin dato</b> cuando no hay con qué comparar —un tramo libre, o uno del que no llegó el
-        ritmo—. Los bordes de la banda <b>cuentan como dentro</b>: justo en el límite es En banda, no
+        <b>Sin dato</b> cuando no hay con qué comparar (un tramo libre, o uno del que no llegó el
+        ritmo). Los bordes de la banda <b>cuentan como dentro</b>: justo en el límite es En banda, no
         fuera.
       </p>
 
       <DocNote variant="cue" title="El ámbar es una señal, no un suspenso">
         <p>
-          Salirse de la banda —por rápido o por lento— se pinta en <b>ámbar</b>, nunca en rojo: es{' '}
+          Salirse de la banda (por rápido o por lento) se pinta en <b>ámbar</b>, nunca en rojo: es{' '}
           <b>información para ti</b>, no una falta del atleta. A veces significa que tu banda iba corta
           y toca ampliarla; a veces, que el día pedía otra cosa. Tú decides qué hacer con la señal.
         </p>
@@ -151,7 +151,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Arriba del detalle, una línea resume la carrera entera: <b>cuántos tramos</b> de los
         evaluables cayeron en banda, cuántos se fueron <b>más rápido</b> y cuántos <b>más lento</b>, y
         un <b>porcentaje</b> con el color de la adherencia. Si la sesión no trae ritmo suficiente para
-        juzgarla, lo dice tal cual —<b>«Sin datos de ritmo suficientes»</b>— en vez de inventarse un
+        juzgarla, lo dice tal cual: <b>«Sin datos de ritmo suficientes»</b>, en vez de inventarse un
         número.
       </p>
 
@@ -231,7 +231,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         Si tu atleta no dejó datos de un tramo, el tramo <b>sigue ahí</b>: ves lo que estaba
         prescrito con un <b>«sin registro»</b> atenuado, nunca un número inventado para cuadrar. El
-        hueco visible es más honesto que un dato de relleno — y te dice exactamente dónde falta
+        hueco visible es más honesto que un dato de relleno, y te dice exactamente dónde falta
         captura.
       </p>
 
@@ -239,14 +239,14 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <p>
           El veredicto no usa una vara distinta a la del atleta: es <b>la misma banda</b> que su app
           resolvió a partir de tu prescripción cuando corrió. Lo que él vio en vivo y lo que tú lees
-          después <b>coinciden</b> — no hay dos criterios.
+          después <b>coinciden</b>: no hay dos criterios.
         </p>
       </DocNote>
 
       <p style={{ marginTop: '18px' }}>
         Así se cierra el círculo de la carrera: la <b>prescribes</b> tramo a tramo, tu atleta la{' '}
         <b>corre</b>, y aquí la <b>lees</b> con el mismo rasero. Sin frases sueltas, sin números
-        inventados — solo lo prescrito contra lo hecho, y qué hacer con la diferencia.
+        inventados: solo lo prescrito contra lo hecho, y qué hacer con la diferencia.
       </p>
     </DocSection>
   );

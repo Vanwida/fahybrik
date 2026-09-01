@@ -8,6 +8,7 @@
 // inside sql.begin() can reuse the same logic.
 
 import { type Sql, type TransactionClient } from '@/lib/db';
+import { PROFILE_PHOTO_VARIANTS, profilePhotoUrl } from '@/lib/profile/photo-source';
 import { buildHrZonesDTO, loadAthleteHrZones, type HrZonesDTO } from './hr-zones';
 
 // ── DTO ──────────────────────────────────────────────────────────────────────
@@ -15,6 +16,14 @@ import { buildHrZonesDTO, loadAthleteHrZones, type HrZonesDTO } from './hr-zones
 export interface AthleteProfileDTO {
   id: string;
   full_name: string;
+  /**
+   * La foto de perfil, YA LISTA PARA PINTAR — con su variante pegada, no la base que
+   * guarda la columna. La app la mete en un círculo tal cual llega, así que darle la
+   * base sería darle una URL que no carga; y darle el original sería servirle varios
+   * MB para un avatar. Se sirve la variante grande porque el retrato de Perfil es el
+   * mayor sitio donde la pinta. Null = todavía no hay foto, y se ven las iniciales.
+   */
+  avatar_url: string | null;
   dob: string | null;
   sex: 'male' | 'female' | 'other' | null;
   height_cm: number | null;
@@ -55,6 +64,8 @@ export interface AthleteProfileDTO {
 interface AthleteRow {
   athlete_id: string;
   full_name: string;
+  /** La BASE de entrega tal y como está en la columna (sin variante). */
+  avatar_url: string | null;
   dob: string | null;
   sex: 'male' | 'female' | 'other' | null;
   height_cm: string | null;
@@ -88,6 +99,7 @@ function rowToDTO(row: AthleteRow, hr_zones: HrZonesDTO | null): AthleteProfileD
     hr_zones,
     id: row.athlete_id,
     full_name: row.full_name,
+    avatar_url: profilePhotoUrl(row.avatar_url, PROFILE_PHOTO_VARIANTS.ficha),
     dob: row.dob,
     sex: row.sex,
     height_cm: toNumber(row.height_cm),
@@ -122,6 +134,7 @@ export async function loadAthleteProfileByUserId(
     select
       a.id::text                              as athlete_id,
       a.full_name,
+      a.avatar_url,
       to_char(a.dob, 'YYYY-MM-DD')           as dob,
       a.sex,
       a.height_cm::text,
@@ -164,6 +177,7 @@ export async function loadAthleteProfileById(
     select
       a.id::text                              as athlete_id,
       a.full_name,
+      a.avatar_url,
       to_char(a.dob, 'YYYY-MM-DD')           as dob,
       a.sex,
       a.height_cm::text,

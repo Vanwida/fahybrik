@@ -35,8 +35,8 @@ Priorizado por impacto en una demo en vivo HOY.
 - **Fix:** Añadir `type:<kind>` top-level en `apns.ts` (usar el `category` que ya se pasa) o cambiar iOS a leer `aps.category`. Unificar shape `kind` vs `screen`.
 
 ### 2.5 — `notifications.payload_json` doble-encodeado · ALTA
-- **Qué:** Se guarda como **string JSON** (no objeto) → `payload_json->>'kind'`/`'thread_id'` siempre NULL → **dedup/idempotencia roto** en triggers que sí están live (ATR transition dispatch, disparado por Pablo) → notificaciones duplicadas. Rompe también lectores de analítica y deep-link.
-- **Evidencia:** `dispatch.ts:49` `${JSON.stringify(payload)}::jsonb` con driver `postgres.js` re-serializa. `jsonb_typeof` en prod = `'string'`. Mismo patrón en **6 sitios** (`mass-adjustments`, `intake`, `partner/cascade`, `chat/service`, `atr-transition-dispatch`).
+- **Qué:** Se guarda como **string JSON** (no objeto) → `payload_json->>'kind'`/`'thread_id'` siempre NULL → **dedup/idempotencia roto** en triggers que sí están live (transition dispatch, disparado por Pablo) → notificaciones duplicadas. Rompe también lectores de analítica y deep-link.
+- **Evidencia:** `dispatch.ts:49` `${JSON.stringify(payload)}::jsonb` con driver `postgres.js` re-serializa. `jsonb_typeof` en prod = `'string'`. Mismo patrón en **6 sitios** (`mass-adjustments`, `intake`, `partner/cascade`, `chat/service`, transition-dispatch).
 - **Fix:** `${sql.json(payload)}` en los 6 sitios + backfill de la fila corrupta existente.
 
 ### 2.6 — "Invite-only" es un gate de cliente que falla-abierto · ALTA (seguridad)
@@ -73,7 +73,7 @@ Datos de prueba inyectados ad-hoc contra Neon prod (sin origen en el repo). **Li
 |---|---|---|
 | Users `*@fahybrik.test` (comp-test 28-may) | **8** (ids 7,8,13,14,20,21,25,26) | `DELETE FROM users WHERE email LIKE '%@fahybrik.test'` (cascada borra 8 coaches) |
 | Coaches "Coach A"/"Coach B" basura | **8** (ids 5,6,8,9,10,11,12,13) | cae por cascade del anterior |
-| Mes ATR duplicado (`ATR·pro·Semana base` id11, sin refs) | 1 | `DELETE FROM program_month_templates WHERE id=11` |
+| Mes duplicado (`pro·Semana base` id11, sin refs) | 1 | `DELETE FROM program_month_templates WHERE id=11` |
 | Subscription falsa `source='comp'` (Alex) | 1 | `DELETE` o re-crear con source legítima |
 | Assignment + chat de coach-dev id14 sobre atleta de coach 4 | 2 filas | reasignar `created_by_coach_id`/`coach_id` a 4 (debris de test, no bug de acceso) |
 | Coach demo `pablo@fabrik.training` sin contenido | 1 | decidir identidad canónica de Pablo (3 compitiendo) |
@@ -125,7 +125,7 @@ Orden de ataque para llegar a **mostrable** lo antes posible. Fases 0-1 son lo q
 
 ### Fase 0 — Limpieza de datos prod (horas, sin tocar código)
 1. `DELETE` 8 users `*@fahybrik.test` + cascada de 8 coaches.
-2. Borrar mes ATR id11, subscription `comp` falsa, debris assignment/chat de coach 14.
+2. Borrar mes id11, subscription `comp` falsa, debris assignment/chat de coach 14.
 3. Decidir identidad canónica de Pablo y consolidar el atleta real bajo el coach de demo.
 4. **Nunca volver a correr scripts comp-test contra prod** — usar branch efímera de Neon.
 

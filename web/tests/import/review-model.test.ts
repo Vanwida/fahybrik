@@ -18,8 +18,14 @@ import type {
   ProposalWeek,
 } from '@/lib/import/build-proposal';
 import {
+  acceptDayProposals,
+  blockTruncation,
   buildConfirmBody,
   buildReviewModel,
+  dayHiddenCount,
+  dayProposedFields,
+  dayProposedPaths,
+  dayReviewLineCount,
   dayTone,
   sessionIncompleteLines,
   totalExcludedDays,
@@ -30,6 +36,7 @@ import {
   type MicroWeekRef,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
+import { proposedFieldLabel } from '@/lib/dashboard/v2/import-provenance';
 
 // ── Fixture builders (minimal but REAL types — no `any`) ──────────────────────
 
@@ -333,5 +340,333 @@ describe('lines with no dose block confirm', () => {
         }),
       ),
     ).toBe(0);
+  });
+});
+
+// ── LEÍDO frente a PROPUESTO, y lo que la fuente cortó ────────────────────────
+// Lo que trae la rama de FOTO: los huecos que rellenó el importador con los
+// valores por defecto del coach, y las tarjetas que la captura cortó. Las dos
+// cosas viven SOLO en la revisión: se pintan, se aceptan o se cambian, y al
+// confirmar desaparecen. Aquí se fija justo eso.
+
+/** Un día con una línea de fuerza y `filled` marcando el descanso y el RIR. */
+function photoDay(
+  itemUid: string,
+  filled: Array<{ item_uid: string; field: string; path: string }>,
+  truncations: Array<{ block_uid: string; hidden_count: number | null }> = [],
+): ProposalDay {
+  const session = makeSession([
+    {
+      uid: itemUid,
+      name: 'Back Squat',
+      exerciseId: 10,
+      prescription: {
+        scheme: 'sets',
+        modality: 'strength',
+        sets: [
+          { measure: { kind: 'reps', value: 8, max: 12 }, target: { kind: 'rir', value: 2 }, rest_s: 90 },
+          { measure: { kind: 'reps', value: 8, max: 12 }, target: { kind: 'rir', value: 2 } },
+        ],
+      },
+    },
+  ]);
+  return {
+    ...makeDay(1, 'Lunes', [session], [makeFlag(itemUid, 'Back Squat')]),
+    // Los dos campos que añade la foto: opcionales en la propuesta, así que se
+    // adjuntan como los adjunta el servidor y el modelo los lee con desconfianza.
+    ...{ filled, truncations },
+  } as ProposalDay;
+}
+
+/** El uid de la línea lo pone el llamador para poder apuntar a ella en `filled`,
+ *  igual que hace el servidor: la marca de lo propuesto viaja POR UID. */
+function photoModel(
+  itemUid: string,
+  filled: Array<{ item_uid: string; field: string; path: string }>,
+  truncations: Array<{ block_uid: string; hidden_count: number | null }> = [],
+): ReviewWeek[] {
+  return buildReviewModel(
+    makeProposal([makeWeek(1, [photoDay(itemUid, filled, truncations)])]),
+    [makeMicroWeek('101', 0)],
+  );
+}
+
+describe('lo propuesto por el importador', () => {
+  test('se lee de la propuesta y se congela el valor que dejó', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    const pending = dayProposedFields(day);
+    expect(pending).toHaveLength(2);
+    expect(pending.map((p) => proposedFieldLabel(p.field, p.snapshot))).toEqual([
+      'descanso 90 s',
+      'RIR 2',
+    ]);
+  });
+
+  test('editar un propuesto lo da por confirmado: deja de contar', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    // El coach cambia el descanso en el editor de bloque.
+    day.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s = 120;
+    const pending = dayProposedFields(day);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.field).toBe('intensity');
+  });
+
+  test('«aceptar todos» los da por buenos sin tocar un solo valor', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const accepted = acceptDayProposals(model[0]!.days[0]!);
+    expect(dayProposedFields(accepted)).toHaveLength(0);
+    expect(accepted.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s).toBe(90);
+  });
+
+  test('un día con propuestas es ámbar, nunca verde', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    expect(dayTone(model[0]!.days[0]!)).toBe('review');
+    expect(dayTone(acceptDayProposals(model[0]!.days[0]!))).toBe('ok');
+  });
+
+  test('lo que no se entiende se tira: campo raro, línea que no existe, ruta inventada', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'peso', path: 'sets[0].rest_s' },
+      { item_uid: 'no-existe', field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'rest', path: 'items[0].loco' },
+      { item_uid: itemUid, field: 'rest', path: 'sets[1].rest_s' }, // la 2ª serie no lo lleva
+    ]);
+    expect(dayProposedFields(model[0]!.days[0]!)).toHaveLength(0);
+  });
+
+  test('las repeticiones propuestas se leen como el rango que son', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'reps', path: 'sets[0].measure' },
+    ]);
+    const [pending] = dayProposedFields(model[0]!.days[0]!);
+    expect(proposedFieldLabel(pending!.field, pending!.snapshot)).toBe('8-12 reps');
+  });
+
+  test('nada de esto se guarda: el confirmar manda la prescripción a secas', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const body = buildConfirmBody('7', model);
+    expect(JSON.stringify(body)).not.toContain('propuesto');
+    expect(JSON.stringify(body)).not.toContain('not_visible_in_source');
+    // Y el valor propuesto SÍ viaja, porque es la prescripción del coach.
+    expect(body.weeks[0]!.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s).toBe(90);
+  });
+});
+
+describe('lo que la fuente cortó', () => {
+  test('se cuenta lo que dijo que escondía, y 1 cuando no lo dijo', () => {
+    const model = photoModel(uid('item'), [], [
+      { block_uid: 'blk-a', hidden_count: 4 },
+      { block_uid: 'blk-b', hidden_count: null },
+    ]);
+    const day = model[0]!.days[0]!;
+    expect(dayHiddenCount(day)).toBe(5);
+    expect(blockTruncation(day, 'blk-a')?.hidden_count).toBe(4);
+    expect(blockTruncation(day, 'blk-z')).toBeNull();
+  });
+
+  test('un día con trabajo sin ver es ámbar', () => {
+    const model = photoModel(uid('item'), [], [{ block_uid: 'blk-a', hidden_count: 4 }]);
+    expect(dayTone(model[0]!.days[0]!)).toBe('review');
+  });
+
+  test('sin nada de la foto, el día se revisa como siempre', () => {
+    const model = photoModel(uid('item'), []);
+    const day = model[0]!.days[0]!;
+    expect(day.proposed).toEqual([]);
+    expect(day.truncations).toEqual([]);
+    expect(dayTone(day)).toBe('ok');
+  });
+});
+
+describe('las rutas propuestas que consume el editor de bloque', () => {
+  test('llegan por línea, con su etiqueta ya escrita', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const paths = dayProposedPaths(model[0]!.days[0]!);
+    expect([...paths.keys()]).toEqual([itemUid]);
+    expect([...paths.get(itemUid)!.entries()]).toEqual([
+      ['sets[0].rest_s', 'descanso 90 s'],
+      ['sets[0].target', 'RIR 2'],
+    ]);
+  });
+
+  test('editar el valor saca su ruta del mapa, no solo de la lista', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.sessions[0]!.blocks[0]!.items[0]!.prescription.sets![0]!.rest_s = 120;
+    expect([...dayProposedPaths(day).get(itemUid)!.keys()]).toEqual(['sets[0].target']);
+  });
+
+  test('sin propuestas el mapa está vacío: el editor no recibe nada que marcar', () => {
+    expect(dayProposedPaths(photoModel(uid('item'), [])[0]!.days[0]!).size).toBe(0);
+  });
+});
+
+// ── El TERCER estado de la gramática: `incomplete` ────────────────────────────
+// `confidence` ya no es binaria. `incomplete` = se supo el ejercicio pero no su
+// dosis, que es el estado NORMAL de una foto (una tarjeta lista «Band Pull Apart»
+// sin decir series ni reps). No es un error: casi siempre lo tapa el relleno por
+// defecto. Lo que se fija aquí es que NO contamine el ámbar, porque si lo hiciera
+// toda importación por foto saldría en revisar por definición.
+
+describe('`incomplete` no es un error', () => {
+  test('una línea incomplete cuya dosis se rellenó NO pone el día en revisar por sí misma', () => {
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.flags = day.flags.map((f) => ({ ...f, confidence: 'incomplete' as const }));
+    // Ámbar sí, pero por el PROPUESTO, no por la confianza…
+    expect(dayTone(day)).toBe('review');
+    // …y al dar por bueno lo propuesto, el día se queda verde. Si `incomplete`
+    // contara como revisar, esto seguiría en ámbar para siempre.
+    expect(dayTone(acceptDayProposals(day))).toBe('ok');
+    expect(totalIncomplete([{ ...model[0]!, days: [day] }])).toBe(0);
+  });
+
+  test('solo `review` cuenta como línea que pide ojos', () => {
+    const itemUid = uid('item');
+    const day = photoModel(itemUid, [])[0]!.days[0]!;
+    day.flags = day.flags.map((f) => ({ ...f, confidence: 'incomplete' as const }));
+    expect(dayReviewLineCount(day)).toBe(0);
+    day.flags = [...day.flags, makeFlag(uid('item'), 'texto raro', { confidence: 'review' })];
+    expect(dayReviewLineCount(day)).toBe(1);
+    expect(dayTone(day)).toBe('review');
+  });
+
+  test('la píldora no esconde un «revisar» detrás de los huecos ya tapados', () => {
+    // El caso que pedía el orden: diez huecos rellenados y una línea sin tipar.
+    const itemUid = uid('item');
+    const model = photoModel(itemUid, [
+      { item_uid: itemUid, field: 'rest', path: 'sets[0].rest_s' },
+      { item_uid: itemUid, field: 'intensity', path: 'sets[0].target' },
+    ]);
+    const day = model[0]!.days[0]!;
+    day.flags = [...day.flags, makeFlag(uid('item'), 'texto raro', { confidence: 'review' })];
+    // Las dos cosas conviven, y la que pide ojos manda sobre la que solo pide OK.
+    expect(dayProposedFields(day).length).toBe(2);
+    expect(dayReviewLineCount(day)).toBe(1);
+    expect(dayHiddenCount(day)).toBe(0);
+  });
+});
+
+// ── La nota del día ───────────────────────────────────────────────────────────
+// Una tarjeta que no es entreno («Semana 12», «Control test salto») lleva
+// información del coach. Se leía y se perdía por el camino, que es peor que no
+// capturarla: la importación parecía haberla entendido y luego no estaba en
+// ningún sitio. Ahora viaja hasta `WeekDay.notes`.
+
+describe('la nota del día llega hasta el confirmar', () => {
+  function dayWithNote(notes: string | undefined): ProposalDay {
+    const itemUid = uid('item');
+    return {
+      ...makeDay(1, 'Lunes', [makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10 }])], [
+        makeFlag(itemUid, 'Back Squat'),
+      ]),
+      ...(notes === undefined ? {} : { notes }),
+    } as ProposalDay;
+  }
+
+  test('una tarjeta de nota acaba en el cuerpo del confirmar', () => {
+    const model = buildReviewModel(
+      makeProposal([makeWeek(1, [dayWithNote('Control test salto\nPesaje el viernes')])]),
+      [makeMicroWeek('101', 0)],
+    );
+    expect(model[0]!.days[0]!.notes).toBe('Control test salto\nPesaje el viernes');
+    const body = buildConfirmBody('7', model);
+    expect(body.weeks[0]!.notes).toBe('Control test salto\nPesaje el viernes');
+  });
+
+  test('sin nota, el cuerpo no lleva el campo (el Excel y el pegado no la traen)', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote(undefined)])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    expect(model[0]!.days[0]!.notes).toBeUndefined();
+    expect('notes' in buildConfirmBody('7', model).weeks[0]!).toBe(false);
+  });
+
+  test('una nota en blanco no ensucia el día', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote('   \n  ')])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    expect(model[0]!.days[0]!.notes).toBeUndefined();
+  });
+
+  test('un día excluido no manda su nota', () => {
+    const model = buildReviewModel(makeProposal([makeWeek(1, [dayWithNote('Control test')])]), [
+      makeMicroWeek('101', 0),
+    ]);
+    model[0]!.days[0]!.included = false;
+    expect(buildConfirmBody('7', model).weeks).toHaveLength(0);
+  });
+});
+
+// ── La prosa del bloque sobrevive al confirmar ────────────────────────────────
+// `blockToWire` construye el cuerpo que se guarda. El serializer tiene el
+// contrato «lo que llega manda, si no se conserva el ORIGINAL» — seguro para el
+// editor de día, donde el original existe. En una IMPORTACIÓN no hay original:
+// el bloque nace ahí, así que lo que esta función omita NO se preserva, se
+// PIERDE. `coach_note` lleva la prosa que la gramática no pudo tipar, y en una
+// tarjeta como «Bici Libre Z2», cuya prescripción entera es una frase, ESO es el
+// entreno. Omitirlo habría leído la línea del coach, se la habría enseñado en la
+// revisión, y la habría borrado justo al pulsar confirmar.
+describe('la prosa y el rol del bloque sobreviven al confirmar', () => {
+  function bodyForBlock(patch: Partial<EditorSession['blocks'][number]>) {
+    const itemUid = uid('item');
+    const session = makeSession([{ uid: itemUid, name: 'Back Squat', exerciseId: 10 }]);
+    Object.assign(session.blocks[0]!, patch);
+    const micro = [makeMicroWeek('w10', 0)];
+    const proposal = makeProposal([makeWeek(1, [makeDay(1, 'Lunes', [session], [makeFlag(itemUid, 'Back Squat')])])]);
+    const weeks = buildReviewModel(proposal, micro);
+    weeks[0]!.target_week_id = 'w10';
+    return buildConfirmBody('1', weeks);
+  }
+
+  test('coach_note viaja hasta el cuerpo que se guarda', () => {
+    const body = bodyForBlock({ coach_note: 'Hora y media de rodar libre soltando piernas, tranquilo.' });
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]! as { coach_note?: string };
+    expect(block.coach_note).toBe('Hora y media de rodar libre soltando piernas, tranquilo.');
+  });
+
+  test('el rol estructural del bloque viaja también', () => {
+    const body = bodyForBlock({ group: 'calentamiento' });
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]! as { group?: string };
+    expect(block.group).toBe('calentamiento');
+  });
+
+  test('un bloque sin prosa ni rol no inventa las claves', () => {
+    const body = bodyForBlock({});
+    const block = body.weeks[0]!.sessions[0]!.blocks[0]!;
+    expect('coach_note' in block).toBe(false);
+    expect('group' in block).toBe(false);
   });
 });

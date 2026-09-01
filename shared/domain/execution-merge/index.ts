@@ -7,3 +7,4 @@
 export * from './channel';
 export * from './precedence';
 export * from './provenance';
+export * from './segment-fusion';

@@ -511,6 +511,9 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
   }
   const byId = new Map(catalog.map((e) => [e.id, e]));
 
+  const { loadCoachMethodMirror } = await import('@/lib/coach/method-interview');
+  const method_mirror = await loadCoachMethodMirror(args.coach_id, args.client).catch(() => '');
+
   const skeleton = await planWeekSkeleton({
     focus: args.focus,
     level: args.level,
@@ -524,6 +527,7 @@ async function composeWeekPlan(args: ComposeWeekArgs): Promise<BuildResult> {
     box_block: formatBoxScheduleForPrompt(args.box_class_schedule ?? null),
     coach_id: args.coach_id,
     athlete_id: args.athlete_id ?? null,
+    method_mirror: method_mirror || null,
   });
 
   const byName = new Map(args.templates.map((t) => [t.name.trim().toLowerCase(), t]));

@@ -48,8 +48,8 @@ const WEEKDAYS: ReadonlyArray<{ weekday: number; label: string }> = [
 // #40: the two independent schedules. Order also fixes how windows are serialized on save.
 const MODALITIES: ReadonlyArray<CitaModality> = ['video', 'presencial'];
 const MODALITY_OPTIONS: ReadonlyArray<{ value: CitaModality; label: string }> = [
-  { value: 'video', label: '📹 Videollamadas' },
-  { value: 'presencial', label: '📍 Presencial' },
+  { value: 'video', label: 'Videollamadas' },
+  { value: 'presencial', label: 'Presencial' },
 ];
 
 // Default box name — a placeholder hint, never forced onto the coach.
@@ -488,7 +488,7 @@ export function AvailabilityEditor({
           >
             <MIcon name="info" size={18} className="mt-0.5 text-[color:var(--v2-warn)]" />
             <p className="text-sm text-[color:var(--v2-fg)]">
-              Aún no has definido tu disponibilidad — los leads verán{' '}
+              Aún no has definido tu disponibilidad, los leads verán{' '}
               <span className="font-semibold">“Pablo te escribirá para cuadrar la llamada”</span>.
             </p>
           </div>
@@ -516,7 +516,7 @@ export function AvailabilityEditor({
                           <input
                             type="time"
                             value={r.start}
-                            aria-label={`${label} — inicio`}
+                            aria-label={`${label} · inicio`}
                             onChange={(e) => updateRange(activeModality, weekday, idx, 'start', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />
@@ -524,7 +524,7 @@ export function AvailabilityEditor({
                           <input
                             type="time"
                             value={r.end}
-                            aria-label={`${label} — fin`}
+                            aria-label={`${label} · fin`}
                             onChange={(e) => updateRange(activeModality, weekday, idx, 'end', e.target.value)}
                             className={cn(INPUT_CLS, 'v2-num w-[7.5rem]', invalid && 'border-[color:var(--v2-danger)]')}
                           />
@@ -532,7 +532,7 @@ export function AvailabilityEditor({
                             type="button"
                             onClick={() => removeRange(activeModality, weekday, idx)}
                             aria-label={`Quitar franja de ${label}`}
-                            className="v2-focus inline-flex h-9 w-9 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)]"
+                            className="v2-focus inline-flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)]"
                           >
                             <MIcon name="close" size={16} />
                           </button>
@@ -543,7 +543,7 @@ export function AvailabilityEditor({
                   <button
                     type="button"
                     onClick={() => addRange(activeModality, weekday)}
-                    className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-accent)] transition-colors hover:opacity-80"
+                    className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-xs font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:opacity-80"
                   >
                     <MIcon name="add" size={15} />
                     Añadir franja
@@ -710,7 +710,7 @@ export function AvailabilityEditor({
                   onClick={() => removeException(e.id)}
                   disabled={exBusy}
                   aria-label={`Quitar bloqueo del ${formatCitaDate(e.fecha)}`}
-                  className="v2-focus inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="v2-focus inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-danger-soft)] hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <MIcon
                     name={exBusy && removingId === e.id ? 'progress_activity' : 'delete'}

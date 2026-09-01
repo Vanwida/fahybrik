@@ -42,8 +42,9 @@ export interface CoachSession {
 // Clerk, resolvemos un coach fijo para usar el dashboard sin login. NODE_ENV es
 // 'production' en todo build/deploy de Vercel (incl. previews) → nunca activo en
 // prod. Pareja del bypass en proxy.ts. QUITAR cuando el login de Clerk funcione
-// en local. El coach es el dueño del atleta sembrado (alexsole@gmail.com).
-const DEV_BYPASS_COACH_EMAIL = 'alexsole@gmail.com';
+// en local. Override with DEV_BYPASS_COACH_EMAIL; default is a placeholder.
+const DEV_BYPASS_COACH_EMAIL =
+  process.env.DEV_BYPASS_COACH_EMAIL?.trim().toLowerCase() || 'coach@example.com';
 
 // A coach's data is scoped by coach_id (the club). Which humans may act as that
 // club is now decided by `coach_members` (migration 0113), NOT the 1:1
@@ -118,6 +119,31 @@ const coachSessionByEmail = (email: string, jti: string) =>
 /** Resolve the coach session for a Clerk user id, or null if not a club member. */
 const coachSessionByClerkUserId = (clerkUserId: string, jti: string) =>
   resolveCoachSession({ clerk: clerkUserId }, jti);
+
+/**
+ * Resolve the coach session for a Clerk user id with NO Clerk request context.
+ *
+ * `getCoachSession()` below reads the identity from the browser's Clerk session
+ * cookie. The MCP connector has no cookie and no Clerk session at all: it
+ * carries an OAuth access token whose subject is a Clerk user id. This is the
+ * SAME resolver reached with that id directly (`coach_members` first, legacy
+ * `coaches.user_id` owner link as fallback) — one query, no second SELECT to
+ * drift from this one.
+ *
+ * Two deliberate differences from the cookie path:
+ *   - It does NOT provision. Joining a club off the allowlist is a
+ *     first-login-through-the-browser concern; a token whose user is not
+ *     already a member is simply not a coach here → null.
+ *   - `jti` is empty. An OAuth access token has no Clerk SESSION id, and
+ *     inventing one would put a value in that field that names nothing. No
+ *     coach-session callsite reads `jti` (only the legacy athlete/magic-link
+ *     paths do), so empty is both honest and inert.
+ */
+export function getCoachSessionForClerkUser(
+  clerkUserId: string,
+): Promise<CoachSession | null> {
+  return coachSessionByClerkUserId(clerkUserId, '');
+}
 
 /** Resolve the coach session for a DB user id, or null if not a club member. */
 const coachSessionByUserId = (userId: bigint, jti: string) =>

@@ -1,5 +1,5 @@
 // App de AJUSTES (vive en la app Zepp del móvil). Login del atleta por email +
-// código de 6 dígitos — reusa el login #41 de FAHYBRIK (endpoints ya vivos):
+// código de 6 dígitos — reusa el login #41 de FAHYBRID (endpoints ya vivos):
 //   POST /api/auth/email/request  { email }            → envía el código
 //   POST /api/auth/email/verify   { email, code }      → devuelve el token
 // El token se guarda en settingsStorage y el Side Service lo lee para el Bearer.
@@ -58,7 +58,10 @@ AppSettingsPage({
     return View(
       { style: { padding: '16px' } },
       [
-        Text({ style: { fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' } }, 'FAHYBRIK · Reloj'),
+        // La marca es FAHYBRID. `FAHYBRIK` es el nombre heredado del repo y no se
+        // escribe donde lo lee el atleta: esta pantalla vive en la app Zepp de su
+        // móvil. Mismo nombre que app.json (`appName`) y que la app del iPhone.
+        Text({ style: { fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' } }, 'FAHYBRID · Reloj'),
         Text(
           { style: { fontSize: '13px', color: '#888', marginBottom: '16px' } },
           connected

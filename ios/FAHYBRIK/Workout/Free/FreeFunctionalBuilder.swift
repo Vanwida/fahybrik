@@ -220,11 +220,15 @@ enum FreeFunctionalItems {
         scheme: PrescriptionScheme,
         structure: FunctionalStructural
     ) -> Prescription {
-        let set = PrescriptionSet(measure: m.doseMeasure, target: nil, modality: nil,
+        // Set-level modality is what LiveTramo / involvesErg / device slots read.
+        // Without it a free EMOM of ski+row collapses to "functional" and the app
+        // never offers a PM5 or routes meters to the right machine.
+        let mod = m.exercise.prescriptionModality ?? .functional
+        let set = PrescriptionSet(measure: m.doseMeasure, target: nil, modality: mod,
                                   restS: nil, tempo: nil, note: nil)
         return Prescription(
             scheme: scheme,
-            modality: m.exercise.prescriptionModality ?? .functional,
+            modality: mod,
             sets: [set],
             rounds: structure.rounds, workS: structure.workS,
             restS: structure.restS, totalS: structure.totalS,
@@ -354,9 +358,18 @@ final class FreeFunctionalDraft {
     // sets are omitted entirely — a bare clock, which every conditioning HUD and the
     // EMOM expansion already handle (they were written for sets-less prescriptions).
     private func foldedPrescription(_ f: FreeFunctionalFormat, _ s: FunctionalStructural) -> Prescription {
+        // Each movement keeps its machine modality (row/ski/bike/run/…) so the
+        // pre-start device card, LiveTramo routing and ErgCounterPolicy can see
+        // which PM5 / cinta owns each round — not a single "functional" blob.
         let sets = movements.map { m in
-            PrescriptionSet(measure: m.doseMeasure, target: nil, modality: nil,
-                            restS: nil, tempo: nil, note: m.exercise.name)
+            PrescriptionSet(
+                measure: m.doseMeasure,
+                target: nil,
+                modality: m.exercise.prescriptionModality ?? .functional,
+                restS: nil,
+                tempo: nil,
+                note: m.exercise.name
+            )
         }
         return Prescription(
             scheme: f.scheme,
@@ -408,7 +421,6 @@ final class FreeFunctionalDraft {
             equipment: [],
             segments: [segment],
             coachNote: nil,
-            demoVideoUrl: nil,
             warmupChecklist: []
         )
         return FreeWorkoutContext(

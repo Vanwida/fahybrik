@@ -84,11 +84,11 @@ export function RestDayPanel({
       {/* Header — this is a deliberate rest day, not an empty one. */}
       <div className="flex flex-col items-center gap-1.5 text-center">
         <div className="flex items-center gap-2">
-          <MIcon name="bedtime" size={20} className="text-[color:var(--v2-accent)]" />
+          <MIcon name="bedtime" size={20} className="text-[color:var(--v2-accent-text)]" />
           <span className="v2-display text-lg text-[color:var(--v2-fg)]">Día de descanso</span>
         </div>
         <p className="max-w-[384px] text-xs text-[color:var(--v2-muted)]">
-          Sugerencias de recuperación opcionales — siguen siendo descanso.
+          Sugerencias de recuperación opcionales. Siguen siendo descanso.
         </p>
       </div>
 
@@ -189,7 +189,7 @@ export function RestDayPanel({
         </div>
       ) : null}
 
-      <p className="mt-5 text-center font-mono text-eyebrow uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
+      <p className="mt-5 text-center text-eyebrow uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
         Sin carga · no cuenta como sesión
       </p>
     </div>

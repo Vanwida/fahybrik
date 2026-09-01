@@ -1,4 +1,4 @@
-// LOS CASOS REALES CON LOS QUE SE DIRIGEN LAS NUEVE VISTAS DE LA MUÑECA.
+// LOS CASOS REALES CON LOS QUE SE DIRIGEN LAS DIEZ VISTAS DE LA MUÑECA.
 //
 // Todo lo de aquí sale de la base de producción el 30-jul-2026 y lleva su fila
 // al lado. Un mockup que enseña un número que la app no puede saber es un
@@ -6,7 +6,7 @@
 // pantalla donde menos sitio hay para desmentirse luego.
 //
 // ═══════════════════════════════════════════════════════════════════════════
-//  LOS CINCO HECHOS QUE MANDAN SOBRE EL DISEÑO, Y NINGUNO ES CÓMODO
+//  LOS SEIS HECHOS QUE MANDAN SOBRE EL DISEÑO, Y NINGUNO ES CÓMODO
 // ═══════════════════════════════════════════════════════════════════════════
 //
 //  1. **NO HAY ANCLA DE FC. En ningún atleta.** `athletes.max_hr_bpm` es NULL
@@ -41,6 +41,11 @@
 //     cero filas. Las 27 carreras de dobles reales guardan el crono y ocho
 //     parciales DE EQUIPO — ni reparto por atleta, ni tiempos de cambio. Así
 //     que «sales en ~40 s» no se puede calcular con nada de lo que hay.
+//
+//  6. **Los cuatro formatos del reloj de pared no se han ejecutado NUNCA en
+//     funcional.** `intervals` sólo tiene ejecuciones de `run` y de `row`;
+//     `steady`, de `run`, `row` y `ski`. Y `tabata` y `death_by` no existen ni
+//     prescritos: cero líneas en toda la biblioteca. Ver el apartado (10).
 
 import type { Ancla } from './kit-watch/modelo';
 
@@ -413,4 +418,187 @@ export const DOBLES = {
   fcTrabajo: 172,
   fcEsperaDesde: 172,
   fcEsperaHasta: 148,
+} as const;
+
+// ---------------------------------------------------------------------------
+// (10) EL RELOJ DE PARED — `intervals`, `tabata`, `death_by` y `steady` cuando
+//      la modalidad NO es ni correr ni ergo
+// ---------------------------------------------------------------------------
+//
+// EL RECUENTO, medido contra producción el 5-ago-2026 y no contra la memoria:
+//
+//   · `intervals` (más su grafía antigua `interval`) — 74 líneas de prescripción
+//     entre `template_segments` y `block_exercises`. De ésas, las FUNCIONALES,
+//     que son las que se quedaron sin pantalla: bloques 79 y 493 (plancha
+//     lateral), 402 y 403 (on/off por estación), 393 y las plantillas 91, 367 y
+//     385 (fuerza-potencia cada 2'), y las plantillas 319, 329 y 335 (core).
+//   · `steady` — 283 líneas. Funcionales: los calentamientos (409, 410), las
+//     vueltas a la calma (411, 516) y los bloques de técnica de los tests de
+//     pista (389, 447).
+//   · `tabata` — **CERO.** Ni una línea con ese `scheme`, ni una mención en
+//     ningún título ni en ninguna nota de toda la base.
+//   · `death_by` — **CERO**, igual.
+//
+// Los dos que no existen se diseñan de todas formas (el atleta que se monte una
+// tabata desde el constructor libre la tiene mañana), pero van MARCADOS y su
+// estructura NO se la inventa nadie: sale del propio motor, que es el sitio
+// donde ya estaba escrita.
+
+/** El objetivo que gobierna el esfuerzo, tal cual lo escribió el coach. */
+export interface ObjetivoPared {
+  etiqueta: string;
+  valor: string;
+}
+
+/**
+ * El pulso de un caso: el rango medido y sobre cuántos segundos se reparte.
+ * `null` cuando NO se midió, que aquí es lo normal — ver `PULSO_BURPEES`.
+ */
+export interface PulsoCaso {
+  desde: number;
+  hasta: number;
+  /** Los segundos sobre los que la rampa recorre el rango entero. */
+  sobreS: number;
+}
+
+/**
+ * EL DATO INCÓMODO DE ESTA FAMILIA: **ninguno de los cuatro formatos se ha
+ * ejecutado NUNCA con una modalidad funcional.** En `segment_executions`,
+ * `intervals` sólo aparece con `run` y `row`, y `steady` con `run`, `row` y
+ * `ski`; las tres filas de modalidad `functional` que hay no traen pulso.
+ *
+ * Consecuencia: los dos casos REALES de esta vista (la plancha y la movilidad)
+ * se pintan SIN pulso, igual que `FUERZA_SIN_FC`. No es que el reloj no sepa
+ * medirlo —lo mide siempre—: es que no hay ninguna ejecución que reproducir, y
+ * fabricar una curva sería pintar una suposición con cara de medida (§7).
+ */
+const SIN_PULSO = null;
+
+/**
+ * El ÚNICO pulso real que existe en toda la base de un trabajo funcional
+ * rotativo a pulso: la ejecución 90 de la plantilla 462 —10 rondas de 60 s a 10
+ * burpees—, con 148 de media y 166 de máxima (el mismo caso del que ya tira
+ * `EMOM_A_PULSO`).
+ *
+ * Se lo prestan la tabata y el death by, que son burpees igualmente y no tienen
+ * ejecución propia. Es el mismo criterio que el ritmo de ergo del EMOM: con UN
+ * dato real repetido al menos se sabe de dónde sale; con dos inventados, no.
+ * Los 600 s de la rampa tampoco son de gusto — son lo que duró aquella sesión.
+ */
+const PULSO_BURPEES: PulsoCaso = {
+  desde: EMOM_A_PULSO.fcDesde,
+  hasta: EMOM_A_PULSO.fcHasta,
+  sobreS: EMOM_A_PULSO.rondas * EMOM_A_PULSO.ventanaS,
+};
+
+/**
+ * Bloques 79 y 493, «Side plank 4x40''/20''» — plancha lateral, 4 rondas de 40 s
+ * de trabajo y 20 s de descanso, a peso corporal y sin ningún objetivo escrito.
+ *
+ * Es el `intervals` funcional CANÓNICO y por eso es el escenario mínimo: la
+ * misma dosis en las cuatro rondas, el reloj corta, y no hay absolutamente nada
+ * más que enseñar. (El bloque trae la línea dos veces, de 4 y de 6 rondas — una
+ * por lado. La muñeca ve una cada vez.)
+ */
+export const INTERVALOS_CORE = {
+  procedencia: "bloque 79 · «Side plank 4x40''/20''» · biblioteca del coach",
+  /** `exercises.name` dice «Side Plank»; el atleta oye «plancha lateral». */
+  movimiento: 'Plancha lateral',
+  rondas: 4,
+  /** La ronda en la que arranca la reproducción: metido en faena, que es cuando se mira. */
+  rondaActual: 3,
+  trabajoS: 40,
+  descansoS: 20,
+  objetivo: null as ObjetivoPared | null,
+  pulso: SIN_PULSO as PulsoCaso | null,
+} as const;
+
+/**
+ * Bloque 402, «Intervalos on/off por estación a ritmo de carrera (Semana 11)» —
+ * cuatro estaciones (ski, remo, bici y trineo) a 3 rondas de 60 s / 60 s cada
+ * una. La del TRINEO es la que cae aquí: las otras tres las mide el móvil por
+ * BLE y se las llevan las vistas de ergo.
+ *
+ * Aporta lo que la plancha no tiene: un OBJETIVO escrito (`target` RPE 9). Es la
+ * única diferencia entre dos intervalos, y por eso es lo que se gana el segundo
+ * nivel — no el movimiento, que ya te lo sabes.
+ */
+export const INTERVALOS_ESTACION = {
+  procedencia: 'bloque 402 · «Intervalos on/off por estación» · semana 11',
+  movimiento: 'Empuje de trineo',
+  rondas: 3,
+  rondaActual: 2,
+  trabajoS: 60,
+  descansoS: 60,
+  objetivo: { etiqueta: 'Empuja a', valor: 'RPE 9' } as ObjetivoPared | null,
+  pulso: SIN_PULSO as PulsoCaso | null,
+} as const;
+
+/**
+ * TABATA — cero casos en la biblioteca, así que la estructura NO se inventa: es
+ * la del preajuste del propio constructor libre de la app
+ * (`FreeFunctionalBuilder.swift`, `FreeEmomPreset.tabata`): ciclo de 30 s = 20 de
+ * trabajo + 10 de cambio, 8 rondas. Su rótulo literal es «Tabata · 8 rondas ·
+ * 20/10».
+ *
+ * Y ahí va un hallazgo que ordena la pantalla: **la app no guarda una tabata
+ * como `tabata`.** El constructor la escribe como `emom` con otros números,
+ * porque «20/10 × 8 ES esa estructura» (comentario del propio fichero). Por eso
+ * el formato tiene cero filas y por eso la pantalla no puede colgar de que
+ * alguien escriba `scheme: 'tabata'`: tiene que salir de la FORMA (ventanas
+ * cortas con parada explícita), no del nombre.
+ */
+export const TABATA = {
+  procedencia: 'propuesta · CERO casos; la estructura sale del preajuste de la app',
+  movimiento: 'Burpees',
+  rondas: 8,
+  /** Desde la primera: en una tabata lo que se aguanta es llegar a la octava. */
+  rondaActual: 1,
+  trabajoS: 20,
+  descansoS: 10,
+  pulso: PULSO_BURPEES,
+} as const;
+
+/**
+ * DEATH BY — cero casos, y otra vez la estructura sale del motor y no de mí:
+ * `WorkoutModels.swift` fija `deathByStart = prescription.start ?? 1`,
+ * `deathByIncrement = prescription.increment ?? 1` y la ventana en
+ * `formatWorkSeconds ?? 60`. O sea: el minuto N pide N repeticiones.
+ *
+ * Los dos hechos del motor que decide esta pantalla (`WorkoutSession.swift`):
+ *   · `deathByTarget = start + increment × rondasHechas` — LAS REPETICIONES DE
+ *     ESTE MINUTO, que son el formato entero.
+ *   · el minuto que se cumple solo cuenta como logrado; **lo único que acaba el
+ *     bloque es que el atleta declare que falló** (`deathByFail`), y la
+ *     puntuación es «rondas superadas».
+ */
+export const DEATH_BY = {
+  procedencia: 'propuesta · CERO casos; arranque/incremento/minuto = defectos del motor',
+  movimiento: 'Burpees',
+  minutoS: 60,
+  arranque: 1,
+  incremento: 1,
+  /** El minuto 7, o sea 7 repeticiones: ya se nota, y aún se llega. */
+  rondaActual: 7,
+  pulso: PULSO_BURPEES,
+} as const;
+
+/**
+ * Bloque 409, «Calentamiento general» — movilidad de cadera, 300 s de una sola
+ * ventana (`total_s`). Es el `steady` funcional tal cual está en la biblioteca,
+ * y tiene diez hermanos con la misma forma: las vueltas a la calma (411 y 516,
+ * con 300 s de foam roll y 180 s de respiración) y la técnica de carrera de los
+ * tests de pista (389 y 447, 300 s).
+ *
+ * Una sola ventana, sin trocear, sin nada que declarar y sin nada que tocar: es
+ * el caso donde la muñeca dice UNA cosa, y la pantalla entera es esa cosa.
+ */
+export const STEADY_FUNCIONAL = {
+  procedencia: 'bloque 409 · «Calentamiento general» · biblioteca del coach',
+  /** `exercises.name` dice «Hip mobility flow». */
+  movimiento: 'Movilidad de cadera',
+  /** Una sola ventana, así que la «ronda» siempre es la 1. */
+  rondaActual: 1,
+  ventanaS: 300,
+  pulso: SIN_PULSO as PulsoCaso | null,
 } as const;

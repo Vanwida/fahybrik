@@ -12,7 +12,10 @@
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
+import {
+  loadMonthTemplateWithWeeks,
+  loadDeliveredCountsForWeeks,
+} from '@/lib/dashboard/coach/program-months';
 import {
   deriveWeekModalities,
   weekSessionCount,
@@ -88,6 +91,37 @@ export default async function V2MicrocicloPage({
         )
       : null;
 
+  // A PERSONAL plan (0164) has no level to pair against — athlete_id/athlete_name
+  // tell the editor whose it is, so it can swap the library "Asignar a atleta"
+  // action for the athlete context + an activate-in-place flow instead.
+  const owner =
+    full.month.athlete_id != null
+      ? { athlete_id: full.month.athlete_id, athlete_name: full.month.athlete_name ?? '' }
+      : null;
+
+  // Plantilla vacía pero entregado con contenido (ver loadDeliveredCountsForWeeks):
+  // el coach aterriza aquí desde la ficha del atleta y ve un andamio en blanco que
+  // parece haber perdido su trabajo — solo se comprueba para un plan PERSONAL, y
+  // solo cuando la plantilla realmente suma cero sesiones (si tiene contenido, no
+  // hay nada que explicar).
+  let deliveredElsewhere: { athlete_id: string; athlete_name: string; count: number } | null =
+    null;
+  const templateSessionTotal = weeks.reduce((sum, w) => sum + w.session_count, 0);
+  if (owner && templateSessionTotal === 0) {
+    const delivered = await loadDeliveredCountsForWeeks({
+      coach_id,
+      athlete_id: Number(owner.athlete_id),
+      week_template_ids: full.weeks.map((w) => Number(w.id)),
+    }).catch(() => ({ total_assignments: 0, weeks_with_content: 0 }));
+    if (delivered.total_assignments > 0) {
+      deliveredElsewhere = {
+        athlete_id: owner.athlete_id,
+        athlete_name: owner.athlete_name,
+        count: delivered.total_assignments,
+      };
+    }
+  }
+
   return (
     <MicrocicloEditor
       microcycle_id={id}
@@ -95,6 +129,8 @@ export default async function V2MicrocicloPage({
       level={full.month.level}
       weeks={weeks}
       dayModel={dayModel}
+      owner={owner}
+      deliveredElsewhere={deliveredElsewhere}
     />
   );
 }

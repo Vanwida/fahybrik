@@ -35,6 +35,20 @@
                ReferencedContainer = "container:FAHYBRIK.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D3A6C918B3FECD30E5432594"
+               BuildableName = "FAHYBRIKUITests.xctest"
+               BlueprintName = "FAHYBRIKUITests"
+               ReferencedContainer = "container:FAHYBRIK.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -55,12 +69,24 @@
       <Testables>
          <TestableReference
             skipped = "NO"
-            parallelizable = "NO">
+            parallelizable = "NO"
+            testExecutionOrdering = "random">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "966A3685D7CBCD58C63D69D5"
                BuildableName = "FAHYBRIKTests.xctest"
                BlueprintName = "FAHYBRIKTests"
+               ReferencedContainer = "container:FAHYBRIK.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D3A6C918B3FECD30E5432594"
+               BuildableName = "FAHYBRIKUITests.xctest"
+               BlueprintName = "FAHYBRIKUITests"
                ReferencedContainer = "container:FAHYBRIK.xcodeproj">
             </BuildableReference>
          </TestableReference>

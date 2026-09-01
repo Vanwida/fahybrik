@@ -21,7 +21,7 @@ import type { V2WeekAdjustmentCard } from '@/lib/dashboard/v2/hoy-lanes';
 import { DecisionStrip } from '@/components/v2/hoy/DecisionStrip';
 
 const BTN_BASE =
-  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] px-2 text-label font-semibold transition-colors';
+  'v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors';
 
 /** "23 jun" from an ISO date (YYYY-MM-DD), box timezone-safe (date-only). */
 function weekStartLabel(iso: string): string {

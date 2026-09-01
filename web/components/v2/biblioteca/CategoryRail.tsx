@@ -140,7 +140,7 @@ export function CategoryRail({
         {activos > 0 ? (
           <span
             className="v2-num flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-eyebrow font-bold"
-            style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent)' }}
+            style={{ background: 'var(--v2-accent-soft)', color: 'var(--v2-accent-text)' }}
           >
             {activos}
           </span>

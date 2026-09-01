@@ -1,6 +1,19 @@
 import SwiftUI
 import WebKit
+import AVKit
+import Combine
 
+// EL SITIO DONDE SE DECIDE QUÉ ES UN VÍDEO Y CON QUÉ SE REPRODUCE.
+//
+// Un vídeo de técnica llega SIEMPRE como un localizador suelto (un `String?`:
+// `exercise_video_url`, `technique_video_url`, `WorkoutSegment.videoUrl`), y
+// tiene exactamente dos formas válidas: un enlace de YouTube o el vídeo propio del
+// entrenador, alojado en Cloudflare Stream y servido como HLS. `VideoDeTecnica` (más
+// abajo) las clasifica y `VideoDeTecnicaPlayer` monta el reproductor que toca.
+// NINGUNA vista vuelve a mirar la URL a mano: antes preguntaban
+// `YouTubeLinkParser.videoId(from:) != nil` cada una por su cuenta, así que un vídeo
+// propio perfectamente válido se quedaba invisible en las cinco.
+//
 // In-app YouTube embed — athlete never leaves FAHYBRIK to Safari for playback.
 //
 // WHY loadHTMLString + IFrame API (not a bare URLRequest to /embed):
@@ -26,7 +39,7 @@ import WebKit
 
 /// The embedding origin handed to the YouTube player. Must be a real https
 /// origin the player can validate against; we use the app's own domain.
-private let kEmbedOrigin = "https://www.fahybrid.com"
+private var kEmbedOrigin: String { Marca.origenIncrustado }
 /// Name of the JS→Swift bridge used to surface in-player errors.
 private let kErrorHandlerName = "ytError"
 /// Caps the inline width of a portrait (Short) player so a 9:16 video does not
@@ -184,7 +197,12 @@ struct YouTubeEmbedView: UIViewRepresentable {
                 || host.contains("google")
                 || host.contains("ggpht")
                 || host.contains("gstatic")
-                || host.contains("fahybrid")
+                // Nuestro propio dominio: es el ORIGEN que se le entrega al
+                // reproductor (kEmbedOrigin), así que si no está en la lista el
+                // player se queda sin poder validarse. Sale de `Marca` y no de un
+                // literal justo por eso: con el literal, una marca con otro
+                // dominio se bloquearía a sí misma sin ningún error visible.
+                || host.contains(Marca.dominioWeb)
             decisionHandler(allowed ? .allow : .cancel)
         }
     }
@@ -209,12 +227,10 @@ enum YouTubeLinkParser {
     struct Video: Equatable {
         let id: String
         let orientation: Orientation
-
-        var isShort: Bool { orientation == .portrait }
     }
 
-    /// Parses a YouTube URL into its id and intended orientation. Single source
-    /// of truth — `videoId(from:)` delegates here.
+    /// Parses a YouTube URL into its id and intended orientation. Su ÚNICO llamante
+    /// es `VideoDeTecnica`, que es quien decide de qué tipo es un localizador.
     static func parse(from urlString: String) -> Video? {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -245,13 +261,220 @@ enum YouTubeLinkParser {
         return nil
     }
 
-    static func videoId(from urlString: String) -> String? {
-        parse(from: urlString)?.id
-    }
-
     /// The canonical public watch URL for an id — used by the external fallback.
     static func watchURL(for videoId: String) -> URL? {
         URL(string: "https://www.youtube.com/watch?v=\(videoId)")
+    }
+}
+
+// MARK: - El localizador, clasificado
+
+/// Qué es el localizador de un vídeo, y por tanto con qué se reproduce.
+///
+/// LA ÚNICA pieza que responde «¿esto tiene vídeo?». El entrenador puede pegar un
+/// enlace de YouTube o subir su propio vídeo, y las dos formas tienen que llegar
+/// igual de lejos: al atleta le da lo mismo dónde vive el archivo.
+///
+/// - `.youtube`: enlace público, se ve con el embed de siempre.
+/// - `.stream`:  el vídeo que sube el entrenador. Vive en Cloudflare Stream y llega
+///   como su manifiesto HLS
+///   («https://customer-<code>.cloudflarestream.com/<uid>/manifest/video.m3u8»), que
+///   AVPlayer reproduce de forma NATIVA y con calidad adaptativa: sin librerías, sin
+///   descargar el fichero entero y sin credencial (ver `VideoStreamPlayer`).
+/// - `nil`: no hay vídeo, o el localizador no es ninguna de las dos formas (un
+///   enlace a otro sitio, texto suelto). Sin vídeo no se pinta nada.
+///
+/// El host se comprueba ENTERO —prefijo y sufijo— y nunca con `contains`, que dejaría
+/// pasar «cloudflarestream.com.loquesea.tld». Es lo que impide que la app del atleta
+/// acabe pidiéndole bytes a un dominio ajeno porque alguien escribió lo que quiso en
+/// la columna. Es la misma frontera que aplica el servidor al guardar
+/// (`web/lib/exercises/video-source.ts`).
+enum VideoDeTecnica: Equatable {
+    case youtube(YouTubeLinkParser.Video)
+    case stream(URL)
+
+    /// El subdominio por cuenta de Cloudflare Stream: `customer-<code>.cloudflarestream.com`.
+    private static let streamHostPrefix = "customer-"
+    private static let streamHostSuffix = ".cloudflarestream.com"
+    /// El identificador de un vídeo en Stream: 32 hexadecimales.
+    private static let streamUidPattern = #"^[0-9a-f]{32}$"#
+    /// El code de la cuenta dentro del subdominio.
+    private static let streamCodePattern = #"^[a-z0-9]+$"#
+    /// Los caminos que Cloudflare reparte del MISMO vídeo. Se aceptan todos y se
+    /// reproduce siempre el HLS, que es lo que AVPlayer entiende sin ayuda.
+    private static let streamHlsPath = "manifest/video.m3u8"
+    private static let streamPaths = [streamHlsPath, "manifest/video.mpd", "iframe", "watch"]
+
+    init?(_ localizador: String?) {
+        guard let crudo = localizador?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !crudo.isEmpty
+        else { return nil }
+
+        if let video = YouTubeLinkParser.parse(from: crudo) {
+            self = .youtube(video)
+            return
+        }
+        guard let url = Self.streamHLS(desde: crudo) else { return nil }
+        self = .stream(url)
+    }
+
+    /// El manifiesto HLS que hay detrás de cualquiera de las direcciones que
+    /// Cloudflare reparte para un vídeo, o nil si eso no es un vídeo nuestro.
+    private static func streamHLS(desde localizador: String) -> URL? {
+        guard let components = URLComponents(string: localizador),
+              components.scheme?.lowercased() == "https",
+              let host = components.host?.lowercased(),
+              host.hasPrefix(streamHostPrefix), host.hasSuffix(streamHostSuffix)
+        else { return nil }
+
+        let code = String(host.dropFirst(streamHostPrefix.count).dropLast(streamHostSuffix.count))
+        guard code.range(of: streamCodePattern, options: .regularExpression) != nil
+        else { return nil }
+
+        let tramos = components.path.split(separator: "/").map(String.init)
+        guard let uid = tramos.first?.lowercased(),
+              uid.range(of: streamUidPattern, options: .regularExpression) != nil,
+              streamPaths.contains(tramos.dropFirst().joined(separator: "/"))
+        else { return nil }
+
+        return URL(string: "https://\(host)/\(uid)/\(streamHlsPath)")
+    }
+
+    /// ¿Hay vídeo REPRODUCIBLE detrás de este localizador? Es lo que decide si se
+    /// ofrece el botón de «Ver técnica» con el play o sin él.
+    static func hay(en localizador: String?) -> Bool {
+        VideoDeTecnica(localizador) != nil
+    }
+}
+
+// MARK: - Reproductor
+
+/// El reproductor de un vídeo de técnica, venga de donde venga. Las vistas montan
+/// ESTO y no vuelven a preguntar de qué tipo es.
+struct VideoDeTecnicaPlayer: View {
+    let video: VideoDeTecnica
+    var autoplay: Bool = false
+
+    var body: some View {
+        switch video {
+        case .youtube(let yt):
+            YouTubePlayer(video: yt, autoplay: autoplay)
+        case .stream(let url):
+            VideoStreamPlayer(url: url, autoplay: autoplay)
+        }
+    }
+}
+
+/// El vídeo que ha subido el entrenador, servido como HLS desde Cloudflare Stream.
+///
+/// AVPlayer reproduce HLS de forma NATIVA: se le da el manifiesto y él pide los
+/// trozos que le hagan falta, eligiendo la calidad según la cobertura que haya —que
+/// es justo lo que hace falta cuando el atleta mira la técnica en medio del gimnasio.
+/// Ni librería, ni descargar el vídeo entero antes de ver el primer fotograma.
+///
+/// SIN CREDENCIAL, y a propósito: la URL es absoluta y pública (`requireSignedURLs`
+/// desactivado, ver `web/lib/exercises/video-stream.ts`), así que aquí NO va el bearer
+/// de la sesión. Lo protege un identificador de 32 hexadecimales que no se adivina,
+/// igual que un vídeo de YouTube no listado. Antes de Stream el fichero era nuestro y
+/// SÍ había que pedirlo con el bearer y bajarlo entero; eso ya no existe.
+///
+/// Estados honestos: mientras abre, se ve que está abriendo; si no se puede, se dice
+/// y se ofrece reintentar. Nunca un rectángulo negro eterno.
+struct VideoStreamPlayer: View {
+    let url: URL
+    var autoplay: Bool = false
+
+    @State private var estado: Estado = .cargando
+    /// La relación de aspecto REAL, para que un vídeo grabado en vertical no salga con
+    /// franjas negras. En HLS no se sabe hasta que el reproductor tiene el primer
+    /// fotograma, así que se empieza por la de siempre y se corrige en cuanto se sabe.
+    @State private var relacion: CGFloat = Self.relacionPorDefecto
+
+    private enum Estado {
+        case cargando
+        case listo(AVPlayer, AVPlayerItem)
+        case fallo
+    }
+
+    /// Relación de aspecto por defecto mientras no se conoce la del vídeo.
+    private static let relacionPorDefecto: CGFloat = 16.0 / 9.0
+
+    var body: some View {
+        contenido
+            .task(id: url) { await cargar() }
+    }
+
+    @ViewBuilder
+    private var contenido: some View {
+        switch estado {
+        case .cargando:
+            marco {
+                ProgressView().tint(Theme.Color.accentText)
+            }
+        case .listo(let player, let item):
+            VideoPlayer(player: player)
+                .aspectRatio(relacion, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                .onReceive(item.publisher(for: \.presentationSize)) { tamano in
+                    guard tamano.width > 0, tamano.height > 0 else { return }
+                    relacion = tamano.width / tamano.height
+                }
+                .onDisappear { player.pause() }
+        case .fallo:
+            marco { fallo }
+        }
+    }
+
+    private var fallo: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            Image(systemName: "play.slash")
+                .font(.system(size: 26))
+                .foregroundStyle(Theme.Color.muted)
+            Text("No se pudo cargar el vídeo")
+                .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                .foregroundStyle(Theme.Color.foreground)
+            Text("Comprueba tu conexión y vuelve a intentarlo.")
+                .scaledFont(12, relativeTo: .footnote)
+                .foregroundStyle(Theme.Color.muted)
+                .multilineTextAlignment(.center)
+            Button {
+                Haptics.light()
+                Task { await cargar() }
+            } label: {
+                Text("Reintentar")
+                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+            .buttonStyle(PressScaleStyle())
+        }
+        .padding(Theme.Spacing.l)
+    }
+
+    private func marco<Contenido: View>(@ViewBuilder _ contenido: () -> Contenido) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                .fill(Theme.Color.surfaceSunken)
+            contenido()
+        }
+        .aspectRatio(Self.relacionPorDefecto, contentMode: .fit)
+    }
+
+    @MainActor
+    private func cargar() async {
+        estado = .cargando
+        relacion = Self.relacionPorDefecto
+        // Se pregunta ANTES de montar el reproductor si el manifiesto se puede
+        // reproducir: es un viaje corto que distingue «tarda» de «no está», y sin él
+        // un vídeo borrado o sin cobertura se quedaría en un rectángulo negro mudo.
+        let asset = AVURLAsset(url: url)
+        guard let reproducible = try? await asset.load(.isPlayable), reproducible else {
+            estado = .fallo
+            return
+        }
+        let item = AVPlayerItem(asset: asset)
+        let player = AVPlayer(playerItem: item)
+        estado = .listo(player, item)
+        if autoplay { player.play() }
     }
 }
 
@@ -280,26 +503,33 @@ struct YouTubePlayer: View {
     }
 }
 
-struct YouTubeSheet: View {
+/// El vídeo de técnica en hoja (lo abre el entreno en vivo, que además pausa el
+/// cronómetro mientras está abierta). Misma chapa para las dos formas: título,
+/// «Cerrar» y el reproductor que le corresponda al localizador.
+struct VideoDeTecnicaSheet: View {
     let url: String
     let title: String
     @Environment(\.dismiss) private var dismiss
     @State private var embedFailed = false
 
-    private var video: YouTubeLinkParser.Video? { YouTubeLinkParser.parse(from: url) }
+    private var video: VideoDeTecnica? { VideoDeTecnica(url) }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let video {
+                switch video {
+                case .youtube(let yt):
                     if embedFailed {
-                        externalFallback(id: video.id)
+                        externalFallback(id: yt.id)
                     } else {
-                        YouTubePlayer(video: video, onLoadFailed: { embedFailed = true })
+                        YouTubePlayer(video: yt, onLoadFailed: { embedFailed = true })
                             .padding()
                     }
-                } else {
-                    Text("Enlace de video no válido")
+                case .stream(let manifiesto):
+                    VideoStreamPlayer(url: manifiesto)
+                        .padding()
+                case nil:
+                    Text("Enlace de vídeo no válido")
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -312,8 +542,10 @@ struct YouTubeSheet: View {
                     Button("Cerrar") { dismiss() }
                         .foregroundStyle(Theme.Color.accentText)
                 }
-                // Always-available escape hatch to the YouTube app / Safari.
-                if let video, let watch = YouTubeLinkParser.watchURL(for: video.id) {
+                // Always-available escape hatch to the YouTube app / Safari. Sólo
+                // existe para YouTube: un fichero nuestro no se abre en ningún sitio
+                // fuera de la app.
+                if case .youtube(let yt) = video, let watch = YouTubeLinkParser.watchURL(for: yt.id) {
                     ToolbarItem(placement: .topBarLeading) {
                         Link(destination: watch) {
                             Image(systemName: "play.rectangle")

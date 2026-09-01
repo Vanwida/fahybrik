@@ -15,6 +15,11 @@
 //
 // Ejercicios es lo único agnóstico (nuestro); de Bloque para arriba es el método
 // del coach. Ese panel lo construye `build-ejercicios`; aquí solo se monta.
+//
+// COMUNICADOS va DESPUÉS de la escalera y fuera de ella: no es un peldaño (no se
+// compone de sesiones ni arma un microciclo), es el otro contenido reutilizable
+// del coach — lo que le publica al atleta fuera del entreno. Su panel carga sus
+// propios datos, como Ejercicios.
 
 import { useMemo, useState, useCallback } from 'react';
 import { useRouter, usePathname } from '@/i18n/navigation';
@@ -36,6 +41,7 @@ import { EjerciciosPanel } from '@/components/v2/biblioteca/EjerciciosPanel';
 import { BloquesPanel } from '@/components/v2/biblioteca/BloquesPanel';
 import { SesionesPanel } from '@/components/v2/biblioteca/SesionesPanel';
 import { MicrociclosPanel } from '@/components/v2/biblioteca/MicrociclosPanel';
+import { ComunicadosPanel } from '@/components/v2/biblioteca/ComunicadosPanel';
 import {
   LIB_MODALITY_FILTERS,
   LIB_OBJECTIVES,
@@ -64,22 +70,28 @@ const BIBLIOTECA_STEPS: readonly PipelineStepKey[] = ['sesiones', 'microciclos']
 const TAB_INTRO_LINE: Record<BibliotecaTab, React.ReactNode> = {
   ejercicios: (
     <>
-      Un <b>ejercicio</b> es un movimiento — la pieza más pequeña, con la que armas tus bloques.
+      Un <b>ejercicio</b> es un movimiento: la pieza más pequeña, con la que armas tus bloques.
     </>
   ),
   bloques: (
     <>
-      Un <b>bloque</b> es una pieza reutilizable — el ladrillo con el que armas los días.
+      Un <b>bloque</b> es una pieza reutilizable: el ladrillo con el que armas los días.
     </>
   ),
   sesiones: (
     <>
-      Una <b>sesión</b> es un entreno entero — lo que tu atleta hace un día.
+      Una <b>sesión</b> es un entreno entero: lo que tu atleta hace un día.
     </>
   ),
   microciclos: (
     <>
-      Un <b>microciclo</b> es una estructura de varias semanas — la unidad que vivirá tu atleta.
+      Un <b>microciclo</b> es una estructura de varias semanas: la unidad que vivirá tu atleta.
+    </>
+  ),
+  comunicados: (
+    <>
+      Una <b>plantilla</b> es un comunicado escrito una vez, listo para publicárselo a quien
+      quieras.
     </>
   ),
 };
@@ -100,6 +112,8 @@ const TAB_OPTIONS = (
   { value: 'bloques', label: `Bloques · ${counts.bloques}` },
   { value: 'sesiones', label: `Sesiones · ${counts.sesiones}` },
   { value: 'microciclos', label: `Microciclos · ${counts.microciclos}` },
+  // Comunicados tampoco trae contador: su panel carga sus propios datos.
+  { value: 'comunicados', label: 'Comunicados' },
 ];
 
 type ModalityRailId = 'todas' | V2LibModalityFilter;
@@ -132,6 +146,9 @@ export function BibliotecaView({
   const [readiness, setReadiness] = useState<V2LibReadiness | null>(null);
   const [query, setQuery] = useState('');
   const [nuevoMicroOpen, setNuevoMicroOpen] = useState(false);
+  // La acción principal de Comunicados vive en la cabecera (como el resto), pero
+  // el compositor lo monta su panel, que es quien tiene la lista que refrescar.
+  const [nuevaPlantillaOpen, setNuevaPlantillaOpen] = useState(false);
   const q = query.trim().toLowerCase();
 
   const railVisible = RAIL_TABS.includes(tab);
@@ -148,6 +165,9 @@ export function BibliotecaView({
       }
       // El estado es un eje SOLO de bloques: al salir se limpia siempre.
       if (next !== 'bloques') setReadiness(null);
+      // Salir con el compositor pedido lo dejaría esperando: al volver se abriría
+      // solo, sin que nadie lo hubiera pulsado.
+      if (next !== 'comunicados') setNuevaPlantillaOpen(false);
       router.replace(`${pathname}?tab=${next}`, { scroll: false });
     },
     [router, pathname],
@@ -196,12 +216,14 @@ export function BibliotecaView({
     bloques: bloques.length,
     sesiones: sesiones.length,
     microciclos: microciclos.length,
+    comunicados: null, // su panel cuenta lo suyo
   };
   const COUNT_NOUN: Record<BibliotecaTab, string> = {
     ejercicios: '',
     bloques: 'bloques',
     sesiones: 'sesiones',
     microciclos: 'microciclos',
+    comunicados: '',
   };
   const filteredCount = FILTERED_COUNT[tab];
 
@@ -232,13 +254,17 @@ export function BibliotecaView({
               placeholder="buscar…"
               aria-label="Buscar en la biblioteca"
               className={cn(
-                'v2-focus h-9 w-40 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-52',
+                'v2-focus h-9 w-40 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] pl-8 pr-3 text-sm sm:w-52',
                 'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
                 'focus:border-[color:var(--v2-border-strong)]',
               )}
             />
           </label>
-          <PrimaryAction tab={tab} onCreateMicro={() => setNuevoMicroOpen(true)} />
+          <PrimaryAction
+            tab={tab}
+            onCreateMicro={() => setNuevoMicroOpen(true)}
+            onCreatePlantilla={() => setNuevaPlantillaOpen(true)}
+          />
         </div>
       </div>
 
@@ -268,8 +294,11 @@ export function BibliotecaView({
         ) : null}
       </div>
 
-      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
-      <div className="mt-1 border-b border-[color:var(--v2-border)] pb-3">
+      {/* ── Tab bar ──────────────────────────────────────────────────────────
+           `overflow-x-auto`: la tira de pastillas no cabe en 390 y sin esto
+           empuja la PÁGINA, que entonces scrollea de lado entera. Lo que
+           desborda scrollea dentro de su caja, nunca el cuerpo. */}
+      <div className="mt-1 overflow-x-auto border-b border-[color:var(--v2-border)] pb-3">
         <SegmentedControl<BibliotecaTab>
           options={TAB_OPTIONS(data.counts)}
           value={tab}
@@ -278,11 +307,19 @@ export function BibliotecaView({
         />
       </div>
 
-      {/* El orden de tamaño — la confusión típica de la Biblioteca. */}
-      <ContextHint className="mt-3">
-        De lo más pequeño a lo más grande: <b>Ejercicio</b> (un movimiento) → <b>Bloque</b> (una
-        pieza) → <b>Sesión</b> (un entreno) → <b>Microciclo</b> (varias semanas).
-      </ContextHint>
+      {/* El orden de tamaño — la confusión típica de la Biblioteca. En Comunicados
+          la confusión es OTRA (¿esto no es el chat?), así que la pista cambia. */}
+      {tab === 'comunicados' ? (
+        <ContextHint className="mt-3">
+          Esto no es el chat: un comunicado se <b>publica</b> y se <b>sigue</b> (si lo ha abierto,
+          si lo ha hecho, qué te ha contestado). El día a día sigue en Mensajes.
+        </ContextHint>
+      ) : (
+        <ContextHint className="mt-3">
+          De lo más pequeño a lo más grande: <b>Ejercicio</b> (un movimiento) → <b>Bloque</b> (una
+          pieza) → <b>Sesión</b> (un entreno) → <b>Microciclo</b> (varias semanas).
+        </ContextHint>
+      )}
 
       {/* ── Two-pane: category rail + grid ───────────────────────────────── */}
       <div className={cn('mt-4 grid gap-4', railVisible ? 'lg:grid-cols-[200px_1fr]' : 'grid-cols-1')}>
@@ -322,6 +359,13 @@ export function BibliotecaView({
               onCreate={() => setNuevoMicroOpen(true)}
             />
           ) : null}
+          {tab === 'comunicados' ? (
+            <ComunicadosPanel
+              query={q}
+              nuevaPlantilla={nuevaPlantillaOpen}
+              onNuevaPlantilla={setNuevaPlantillaOpen}
+            />
+          ) : null}
 
           {/* Footer count — honest, reflects active filters. */}
           {filteredCount != null && filteredCount > 0 ? (
@@ -338,9 +382,17 @@ export function BibliotecaView({
 }
 
 /** Acción principal de cada pestaña. Ejercicios la trae su propio panel. */
-function PrimaryAction({ tab, onCreateMicro }: { tab: BibliotecaTab; onCreateMicro: () => void }) {
+function PrimaryAction({
+  tab,
+  onCreateMicro,
+  onCreatePlantilla,
+}: {
+  tab: BibliotecaTab;
+  onCreateMicro: () => void;
+  onCreatePlantilla: () => void;
+}) {
   const CLS =
-    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
+    'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
 
   if (tab === 'ejercicios') return null;
   if (tab === 'microciclos') {
@@ -348,6 +400,14 @@ function PrimaryAction({ tab, onCreateMicro }: { tab: BibliotecaTab; onCreateMic
       <button type="button" onClick={onCreateMicro} className={CLS}>
         <MIcon name="add" size={18} />
         Nuevo microciclo
+      </button>
+    );
+  }
+  if (tab === 'comunicados') {
+    return (
+      <button type="button" onClick={onCreatePlantilla} className={CLS}>
+        <MIcon name="add" size={18} />
+        Nueva plantilla
       </button>
     );
   }

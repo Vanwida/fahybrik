@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El sistema del dashboard</title>
+<style>
+:root{
+  --bg:#070707; --col:#111; --card:#181818; --card2:#1e1e1e;
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --fg:#f3f3f3; --mu:#8d8d8d; --dim:#5c5c5c;
+  --or:#f06a2a; --or-s:rgba(240,106,42,.16);
+  --gn:#3fc773; --gn-s:rgba(63,199,115,.14);
+  --am:#f2a52e; --am-s:rgba(242,165,46,.14);
+  --rd:#f2504f; --rd-s:rgba(242,80,79,.14);
+  --bl:#4d9eeb; --bl-s:rgba(77,158,235,.14);
+  --sans:"Geist","SF Pro Text",system-ui,sans-serif;
+  --disp:"Archivo","Archivo Narrow","SF Pro Display",system-ui,sans-serif;
+  --mono:"Geist Mono","SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--fg);font:400 14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.top{position:sticky;top:0;z-index:5;background:rgba(7,7,7,.92);backdrop-filter:blur(12px);
+     border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:flex-end;
+     justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{font:900 italic 22px/1 var(--disp);letter-spacing:-.03em}
+.brand i{font-style:italic;color:var(--or)}
+.hint{font:500 11px/1.3 var(--sans);color:var(--dim);letter-spacing:.04em;text-transform:uppercase;margin-top:6px}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 90px}
+section{margin-bottom:36px}
+h2{font:800 italic 17px/1.2 var(--disp);letter-spacing:-.02em;margin-bottom:4px}
+h2 em{font-style:italic;color:var(--or)}
+.sub{color:var(--mu);font:500 13px/1.45 var(--sans);margin-bottom:14px;max-width:78ch}
+h3{font:700 11px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:24px 0 10px}
+p{max-width:82ch;margin-bottom:9px}
+p.m{color:var(--mu)}
+b{font-weight:700}
+code{font:600 12.5px/1.3 var(--mono);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:5px;color:#dcdcdc}
+.tesis{border:1px solid var(--or);background:linear-gradient(180deg,var(--or-s),rgba(240,106,42,.04));
+       border-radius:14px;padding:18px 20px}
+.tesis p{margin:0;font:600 15px/1.5 var(--sans);max-width:86ch}
+.tesis p+p{margin-top:9px;font-weight:500;color:#e2e2e2}
+table{width:100%;border-collapse:collapse;font:500 13px/1.45 var(--sans)}
+thead th{font:700 10px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+         text-align:left;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+tbody td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+td.n{font:650 13px/1.3 var(--mono);white-space:nowrap}
+td.ko{color:var(--rd)} td.ok{color:var(--gn)}
+.wrap{border:1px solid var(--line);border-radius:14px;background:var(--col);padding:12px 4px 2px;overflow-x:auto}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;
+     font:650 10px/1.45 var(--sans);letter-spacing:.02em;white-space:nowrap}
+.t-rd{background:var(--rd-s);color:var(--rd)}
+.t-gn{background:var(--gn-s);color:var(--gn)}
+.t-am{background:var(--am-s);color:var(--am)}
+.t-bl{background:var(--bl-s);color:var(--bl)}
+.t-or{background:var(--or-s);color:var(--or)}
+.t-dim{background:rgba(255,255,255,.06);color:var(--dim)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:12px;background:var(--col);padding:14px 15px}
+.box h4{font:700 13px/1.3 var(--sans);margin-bottom:6px}
+.box h4 span{font:650 10px/1 var(--mono);color:var(--dim);margin-right:7px}
+.box p{font:500 12.5px/1.5 var(--sans);color:var(--mu);margin:0}
+.box p+p{margin-top:7px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:860px){.kpi{grid-template-columns:1fr 1fr}}
+.kpi div{border:1px solid var(--line);border-radius:12px;background:var(--col);padding:12px 13px}
+.kpi b{display:block;font:700 26px/1 var(--mono);letter-spacing:-.02em;margin-bottom:5px}
+.kpi span{font:500 11.5px/1.4 var(--sans);color:var(--mu);display:block}
+.kpi .rd b{color:var(--rd)} .kpi .gn b{color:var(--gn)} .kpi .am b{color:var(--am)}
+ul{margin:0 0 10px 0;padding-left:0;list-style:none;max-width:82ch}
+li{position:relative;padding-left:16px;margin-bottom:6px;color:#e6e6e6;font:500 13px/1.5 var(--sans)}
+li:before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--dim)}
+li b{color:var(--fg)}
+pre{background:#0d0d0d;border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;
+    font:500 12px/1.6 var(--mono);color:#d6d6d6;margin-bottom:10px}
+pre .c{color:var(--dim)}
+pre .k{color:var(--or)}
+pre .g{color:var(--gn)}
+pre .r{color:var(--rd)}
+.ola{border:1px solid var(--line);border-radius:14px;background:var(--col);margin-bottom:10px;overflow:hidden}
+.ola-h{display:flex;align-items:center;gap:11px;padding:12px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ola-h b{font:700 14px/1.2 var(--sans)}
+.ola-h .num{font:800 italic 15px/1 var(--disp);color:var(--or);min-width:26px}
+.ola-h .why{color:var(--mu);font:500 12.5px/1.35 var(--sans);flex:1;min-width:200px}
+.ola-b{padding:12px 15px}
+.ola-b li{font-size:12.5px}
+.rule{margin-top:26px;border-top:1px solid var(--line);padding-top:12px;
+      font:500 11.5px/1.6 var(--sans);color:var(--dim)}
+.crit{border-left:2px solid var(--am);padding-left:12px;margin:12px 0}
+.crit p{color:#e0e0e0;font-size:13px}
+.mea{border-left:2px solid var(--rd);padding-left:12px;margin:12px 0}
+.mea p{color:#e0e0e0;font-size:13px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="brand">FAH<i>YBRID</i></div>
+    <div class="hint">El sistema del dashboard · 14 ago · docs/design-system-web.html</div>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <div class="tesis">
+    <p>El stack estándar de este dashboard <b>ya está instalado y pagado</b>: shadcn CLI v4, Base UI, <code>cva</code>, <code>cn()</code>, Tailwind v4, <code>components.json</code> configurado. Lo que se hizo fue instalarlo y construir <b>333 componentes a mano por encima</b>, con un sistema de tokens paralelo que no habla con él.</p>
+    <p>Por eso este documento no propone nada nuevo. Propone <b>terminar de usar lo que ya está</b>: los componentes de shadcn, los nombres de token que toda IA conoce sin explicación, <code>AGENTS.md</code> como fichero de reglas (el estándar de la Linux Foundation que leen Codex, Cursor, Copilot, Gemini y otros veinte), y las reglas de lint que ya existen empaquetadas. Cero piezas caseras.</p>
+  </div>
+</section>
+
+<section>
+  <h2>1 · El fallo raíz: <em>tres sistemas de tokens</em></h2>
+  <p class="sub">Esto explica todo lo demás, y se ve en tres ficheros del repo.</p>
+
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Sistema</th><th>Vive en</th><th>Nombres</th><th>Quién lo habla</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Marca (espejo de iOS)</td><td><code>app/globals.css</code></td><td><code>--bg</code> <code>--surface</code> <code>--fg</code> <code>--accent</code> <code>--outline</code></td><td>Espejo de <code>Theme.swift</code> y <code>shared/tokens.json</code>. Dark only.</td></tr>
+        <tr><td>2 · shadcn (el estándar)</td><td><code>app/globals.css</code></td><td><code>--background</code> <code>--card</code> <code>--border</code> <code>--primary</code> <code>--muted-foreground</code></td><td><b>Solo <code>components/ui/button.tsx</code>.</b> Nadie más.</td></tr>
+        <tr><td>3 · v2 (casero)</td><td><code>(v2)/v2-theme.css</code></td><td>101 tokens <code>--v2-*</code>, con sus propios hex y su claro/oscuro</td><td><b>Los 333 componentes del dashboard.</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mea">
+    <p><b>La consecuencia exacta, y es la respuesta a «¿por qué nadie usa el botón?»:</b> <code>components/ui/button.tsx</code> está escrito con <code>bg-primary</code> y <code>border-border</code> — sistema 2. El resto del dashboard habla sistema 3. Un botón de shadcn puesto en cualquier pantalla <b>no se ve como la pantalla</b>. No es que se ignorara el estándar por pereza: es que el estándar quedó desconectado, y el camino corto fue construir al lado.</p>
+  </div>
+
+  <p class="m">El sistema 3 no está mal hecho — 101 tokens coherentes, con tema claro y oscuro, sin hex sueltos. El problema es que es <b>un dialecto privado</b>: ninguna IA lo conoce, ningún componente de fuera lo entiende, y cada sesión nueva tiene que aprenderlo leyendo código.</p>
+</section>
+
+<section>
+  <h2>2 · Lo que iba a proponer <em>vs. lo que ya existe</em></h2>
+  <p class="sub">La versión anterior de este documento proponía un kit propio, una página <code>/design/kit</code> y diez reglas de eslint escritas a mano. Todo eso ya existe como estándar. Corregido:</p>
+
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Lo que iba a inventar</th><th>El estándar que ya usa todo el mundo</th><th>En el repo</th></tr></thead>
+      <tbody>
+        <tr><td><code>components/v2/kit/</code></td><td><code>components/ui/</code> de shadcn</td><td class="ok">configurado, con 1 componente</td></tr>
+        <tr><td>Mi <code>Button</code> con variantes a mano</td><td><code>cva</code> + <code>cn()</code> + <code>Slot</code>, el patrón de shadcn</td><td class="ok"><code>class-variance-authority</code> y <code>tailwind-merge</code> instalados</td></tr>
+        <tr><td>Mi <code>Modal</code> / <code>Drawer</code> / <code>Sheet</code></td><td>primitivos de Base UI vía <code>shadcn add dialog sheet</code></td><td class="ok"><code>@base-ui/react ^1.4.1</code> instalado</td></tr>
+        <tr><td>Mi página <code>/design/kit</code></td><td><code>shadcn docs &lt;componente&gt;</code> (salida pensada para agentes) + el registry JSON</td><td class="ok"><code>shadcn ^4.7.0</code> en dependencias</td></tr>
+        <tr><td>Mis 10 reglas de eslint a medida</td><td><code>eslint-plugin-tailwindcss</code>: <code>no-arbitrary-value</code>, <code>no-hardcoded-colors</code>, <code>no-unnecessary-arbitrary-value</code></td><td class="ko">no instalado</td></tr>
+        <tr><td>Reescribir la §9 del CONTRATO-UI</td><td><code>AGENTS.md</code> — estándar de la Linux Foundation, +60.000 repos, leído por Codex, Cursor, Copilot, Gemini CLI, Windsurf, Zed, Jules, Devin, Aider…</td><td class="ko">no existe</td></tr>
+        <tr><td>Mis tokens <code>--v2-*</code></td><td>los nombres de shadcn (<code>--background</code>, <code>--card</code>, <code>--border</code>…) que cualquier IA reconoce sin que se lo expliques</td><td class="ko">3 sistemas en paralelo</td></tr>
+        <tr><td>Un catálogo visual propio</td><td>Storybook, si hace falta que se vea</td><td class="ko">no instalado — <b>opcional</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="m" style="margin-top:10px">Todo lo de la columna del medio son piezas que se instalan con un comando y que otra IA ya sabe usar sin leer nada nuestro. Es literalmente lo contrario de lo que había hecho.</p>
+</section>
+
+<section>
+  <h2>3 · La evidencia <em>medida hoy</em></h2>
+  <p class="sub">Todo lo de abajo sale de <code>grep</code> sobre <code>web/</code> a fecha 14-ago. Ningún número es estimado.</p>
+
+  <div class="kpi">
+    <div><b>586</b><span>componentes <code>.tsx</code>, 132.606 líneas</span></div>
+    <div class="rd"><b>0</b><span>ficheros importan <code>ui/button</code></span></div>
+    <div class="rd"><b>537</b><span><code>&lt;button&gt;</code> a mano, en 180 ficheros</span></div>
+    <div class="rd"><b>220</b><span>ficheros pintan la card a mano</span></div>
+  </div>
+
+  <h3>Los primitivos existen. Nadie los usa.</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Primitivo</th><th>Lo importan</th><th>Se reinventa</th><th>Adopción</th></tr></thead>
+      <tbody>
+        <tr><td><code>ui/button.tsx</code> (shadcn)</td><td class="n">0</td><td class="n">537 <code>&lt;button&gt;</code> en 180 ficheros</td><td><span class="tag t-rd">0 %</span></td></tr>
+        <tr><td><code>v2/Card.tsx</code></td><td class="n">13</td><td class="n">220 ficheros con borde+radio+fondo</td><td><span class="tag t-rd">5 %</span></td></tr>
+        <tr><td><code>v2/ModalPortal.tsx</code></td><td class="n">0</td><td class="n">48 ficheros con <code>fixed inset-0</code></td><td><span class="tag t-rd">0 %</span></td></tr>
+        <tr><td><code>v2/ScreenState.tsx</code></td><td class="n">5</td><td class="n">45 páginas, 1 <code>loading.tsx</code></td><td><span class="tag t-rd">11 %</span></td></tr>
+        <tr><td><code>v2/StatTile</code> · <code>StatusDot</code></td><td class="n">1 cada uno</td><td class="n">—</td><td><span class="tag t-rd">1 %</span></td></tr>
+        <tr><td><code>v2/EmptyState.tsx</code></td><td class="n">33</td><td class="n">27 ficheros con el vacío a mano</td><td><span class="tag t-am">55 %</span></td></tr>
+        <tr><td><code>v2/Pill.tsx</code></td><td class="n">46</td><td class="n">poco</td><td><span class="tag t-gn">bien</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Las reglas del CONTRATO-UI §9 (29-jul) — cuáles se cumplen</h3>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Regla escrita</th><th>Hoy</th><th>Medida</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td>Color: token siempre, <b>sin fallback</b></td><td><span class="tag t-gn">se cumple</span></td><td class="n">0</td><td>Se arregló de una pasada; el patrón ya no sale solo.</td></tr>
+        <tr><td>El scrim es <code>--v2-scrim</code>, no <code>bg-black/60</code></td><td><span class="tag t-gn">se cumple</span></td><td class="n">1</td><td>Igual.</td></tr>
+        <tr><td>Anchos <code>max-w</code> que colisionan</td><td><span class="tag t-gn">se cumple</span></td><td class="n">0</td><td><b>Es la única regla de UI que está en eslint.</b></td></tr>
+        <tr><td><b>Ni un</b> <code>text-[Npx]</code> nuevo</td><td><span class="tag t-rd">roto</span></td><td class="n">191</td><td rowspan="6" style="vertical-align:middle;color:#bdbdbd">Todas estas exigen <b>acordarse en cada línea nueva</b>. Ninguna la comprueba nada. Es la diferencia entera.</td></tr>
+        <tr><td>Los medios píxeles son ruido</td><td><span class="tag t-rd">roto</span></td><td class="n">≥59</td></tr>
+        <tr><td>Un solo ancho de contenedor</td><td><span class="tag t-rd">roto</span></td><td class="n">19</td></tr>
+        <tr><td>Toda ruta resuelve sus estados</td><td><span class="tag t-rd">roto</span></td><td class="n">1 / 45</td></tr>
+        <tr><td>Ficheros bajo 500 líneas</td><td><span class="tag t-rd">roto</span></td><td class="n">20</td></tr>
+        <tr><td>Un formateador por concepto (§2)</td><td><span class="tag t-rd">roto</span></td><td class="n">6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="m" style="margin-top:10px">Las tres que se cumplen no se cumplen por disciplina: dos son patrones que ya nadie escribe, y la tercera está en el linter. <b>Ninguna regla de prosa ha sobrevivido a un mes de sesiones.</b></p>
+</section>
+
+<section>
+  <h2>4 · El <em>AGENTS.md</em> — el fichero que pides</h2>
+  <p class="sub">Es el estándar abierto para decirle a cualquier agente cómo se trabaja en un repo. Markdown plano, sin esquema ni sintaxis propia. Va en la raíz, y admite ficheros anidados: el agente lee el más cercano al fichero que edita.</p>
+
+  <div class="grid2">
+    <div class="box">
+      <h4>Por qué este y no un <code>design.md</code> nuestro</h4>
+      <p>Un <code>design.md</code> hay que descubrirlo y hay que decirle a cada IA que lo lea. <code>AGENTS.md</code> lo abren solos Codex, Cursor, Copilot, Gemini CLI, Windsurf, Zed, Jules, Devin, Aider y VS Code — sin configurar nada.</p>
+      <p>Claude Code también lo lee, y <code>CLAUDE.md</code> pasa a apuntar ahí en vez de duplicar. <b>Una sola ley, la que ya sabe leer todo el mundo.</b></p>
+    </div>
+    <div class="box">
+      <h4>Dónde va cada uno</h4>
+      <p><code>/AGENTS.md</code> — el repo: cuentas, comandos, cómo se commitea, dónde está la ley del dominio.</p>
+      <p><code>/web/AGENTS.md</code> — <b>el design system</b>: tokens, componentes, la tabla «necesitas → usa», lo prohibido.</p>
+      <p><code>/ios/AGENTS.md</code> — lo mismo para Swift, que hoy vive en <code>CONTRATO-UI.md</code> §0-8.</p>
+    </div>
+  </div>
+
+  <h3>Cómo se ve <code>web/AGENTS.md</code> — extracto real de la propuesta</h3>
+<pre><span class="c"># Dashboard del coach — reglas de UI</span>
+
+<span class="c">## Antes de escribir un componente</span>
+
+<span class="k">1.</span> `npx shadcn@latest add &lt;componente&gt;` <span class="c">— comprueba SIEMPRE si existe antes</span>
+   <span class="c">de escribir uno. `npx shadcn@latest docs button` da la API y ejemplos.</span>
+<span class="k">2.</span> <span class="c">Si no existe en shadcn, mira `components/ui/`.</span>
+<span class="k">3.</span> <span class="c">Solo entonces se escribe uno nuevo, y va en `components/ui/`, con `cva`.</span>
+
+<span class="c">## Tokens — nombres de shadcn, siempre</span>
+
+<span class="g">bg-background text-foreground bg-card border-border text-muted-foreground</span>
+<span class="g">bg-primary text-primary-foreground bg-destructive</span>
+
+<span class="r">PROHIBIDO</span><span class="c">: hex crudo · `text-[13px]` · `max-w-[880px]` · `bg-white/5`</span>
+<span class="r">PROHIBIDO</span><span class="c">: tokens `--v2-*` NUEVOS (los existentes son alias, en migración)</span>
+
+<span class="c">## Necesitas → usa</span>
+
+<span class="c">| Acción                  | `&lt;Button&gt;`      | components/ui/button   |</span>
+<span class="c">| Contenedor              | `&lt;Card&gt;`        | components/ui/card     |</span>
+<span class="c">| Diálogo                 | `&lt;Dialog&gt;`      | components/ui/dialog   |</span>
+<span class="c">| Confirmar algo destructivo | `&lt;AlertDialog&gt;` | components/ui/alert-dialog |</span>
+<span class="c">| Panel lateral           | `&lt;Sheet&gt;`       | components/ui/sheet    |</span>
+<span class="c">| Tabla densa             | `&lt;Table&gt;`       | components/ui/table    |</span>
+<span class="c">| Carga en frío           | `&lt;Skeleton&gt;`    | components/ui/skeleton |</span>
+<span class="c">| Duración, ritmo, fecha  | `lib/formato.ts` | uno solo, nunca inline |</span>
+
+<span class="c">## Comprobar antes de decir hecho</span>
+
+pnpm lint      <span class="c"># las reglas de arriba están en eslint, no son consejos</span>
+pnpm typecheck</pre>
+
+  <p class="m">La forma importa: <b>imperativa, con el comando exacto y la ruta exacta</b>. Nada de prosa explicando por qué. El porqué vive en <code>docs/DECISIONS.md</code>; <code>AGENTS.md</code> solo dice qué hacer.</p>
+</section>
+
+<section>
+  <h2>5 · El plan — <em>cuatro olas</em></h2>
+  <p class="sub">Alcance: los <b>333</b> ficheros de <code>components/v2/</code> y las 45 páginas de <code>(v2)</code>. No se toca <code>design-twin/</code> (206, es el espejo de iOS y tiene su propio <code>twin.css</code>) ni <code>landing/</code> (22, otro lenguaje a propósito).</p>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">0</span><b>La ley y la red</b><span class="why">No toca ninguna pantalla. Termina con las reglas escritas y comprobadas por máquina.</span></div>
+    <div class="ola-b"><ul>
+      <li><code>AGENTS.md</code> en raíz, <code>web/</code> e <code>ios/</code>. <code>CLAUDE.md</code> y <code>.cursor/rules/</code> apuntan ahí en vez de repetir.</li>
+      <li><code>eslint-plugin-tailwindcss</code> instalado con <code>no-arbitrary-value</code>, <code>no-hardcoded-colors</code> y <code>no-unnecessary-arbitrary-value</code>, en <code>warn</code> con la deuda actual marcada.</li>
+      <li>Captura de las 45 páginas a 390 · 768 · 1440 con el Playwright que ya está — la referencia visual contra la que se compara todo lo demás.</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">1</span><b>Un solo sistema de tokens</b><span class="why">Cambio de nombres, cero cambio visual. Es el desbloqueo de todo.</span></div>
+    <div class="ola-b"><ul>
+      <li>Los <b>valores</b> actuales del dashboard (los <code>--v2-*</code>, que son los que ves hoy) pasan a los <b>nombres</b> de shadcn: <code>--background</code>, <code>--card</code>, <code>--border</code>, <code>--primary</code>…</li>
+      <li>Los 101 <code>--v2-*</code> quedan como <b>alias</b> apuntando ahí. Los 333 ficheros no se tocan y la pantalla no se mueve un píxel.</li>
+      <li>A partir de ese momento un componente de shadcn puesto en cualquier pantalla ya se ve como la pantalla. <b>Sin esto, nada de lo demás sirve.</b></li>
+      <li>Regla nueva en el linter: <code>--v2-*</code> nuevos prohibidos.</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">2</span><b>Traer los componentes</b><span class="why">Un comando por pieza. No se escribe ninguno.</span></div>
+    <div class="ola-b"><ul>
+      <li><code>shadcn add</code>: <code>card dialog alert-dialog sheet table tabs select input label textarea skeleton badge separator dropdown-menu popover tooltip scroll-area sonner</code>.</li>
+      <li>Los caseros que valen (<code>Pill</code>, <code>EmptyState</code>, <code>ScreenState</code>, <code>StatTile</code>) se reescriben <b>encima</b> de los de shadcn y se quedan en <code>components/ui/</code>.</li>
+      <li><code>lib/formato.ts</code> único, absorbiendo los 6 ficheros de formato actuales.</li>
+    </ul></div>
+  </div>
+
+  <div class="ola">
+    <div class="ola-h"><span class="num">3</span><b>Migrar y recomponer</b><span class="why">Carpeta por carpeta, con la captura antes/después. La única ola larga.</span></div>
+    <div class="ola-b"><ul>
+      <li>Mecánico y por codemod: 191 tamaños, 19 anchos, 61 hex. Deterministas.</li>
+      <li>Por carpeta (<code>hoy/</code>, <code>atletas/</code>, <code>biblioteca/</code>…): botones y cards al componente. Al cerrar cada una, su regla sube a <code>error</code> y esa carpeta ya no puede volver atrás.</li>
+      <li>Lo que no es mecánico: estados de ruta en las 45 páginas, los 20 ficheros de +500 líneas, el vacío de <code>/altas</code>, el responsive a 390 y la escala de 100 atletas en <code>/biblioteca</code>.</li>
+    </ul></div>
+  </div>
+
+  <div class="crit">
+    <p><b>Riesgo real:</b> no hay ni una prueba visual. Por eso la ola 0 captura las 45 páginas antes de tocar nada, y la ola 1 está diseñada para no mover un píxel. Si la ola 1 mueve algo, es un bug y se ve en la comparación, no en producción.</p>
+  </div>
+</section>
+
+<section>
+  <h2>6 · Lo que esto <em>no</em> arregla</h2>
+  <ul>
+    <li><b>No arregla la arquitectura de información.</b> Las 13 pestañas no eran un problema de componentes. Eso se decide vista por vista, y va en la ola 3.</li>
+    <li><b>No arregla lo que no se pinta.</b> Siguen 29 rutas de API del coach sin superficie.</li>
+    <li><b>No sustituye tu ojo.</b> El linter garantiza que todo hable el mismo idioma, no que lo que diga valga la pena.</li>
+    <li><b>Storybook no entra</b> salvo que lo pidas. Es el estándar para catálogo visual, pero es una pieza más que mantener y <code>shadcn docs</code> ya cubre lo que necesita una IA.</li>
+  </ul>
+</section>
+
+<div class="rule">
+  Medido el 14-ago sobre <code>web/</code> · Estándares verificados el 14-ago: <a href="https://agents.md" style="color:var(--mu)">agents.md</a> (Linux Foundation / AAIF), shadcn CLI v4, <code>eslint-plugin-tailwindcss</code> · Ya en <code>package.json</code>: <code>shadcn ^4.7.0</code>, <code>@base-ui/react ^1.4.1</code>, <code>class-variance-authority</code>, <code>tailwind-merge</code>, <code>clsx</code>, <code>lucide-react</code>
+</div>
+
+</main>
+</body>
+</html>

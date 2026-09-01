@@ -20,10 +20,13 @@ export const meta: TwinMeta = {
   id: 'watch-fuerza',
   titulo: 'Muñeca · fuerza',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
+  actualizado: '2026-08-03',
   descripcion:
     'El reloj está en la muñeca que sostiene la barra: durante la serie no pide nada, sólo enuncia. La decisión y los controles viven en el descanso.',
   fuentes: [],
+  enApp:
+    'SetTableLiveView + RestBannerView están shipeados (los espeja watch-live); esta propuesta afina encima.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };
