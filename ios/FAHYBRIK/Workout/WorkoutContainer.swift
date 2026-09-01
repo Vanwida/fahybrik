@@ -54,6 +54,9 @@ struct WorkoutContainer: View {
     /// ended up in the seconds-per-zone the coach reads. A session with no zones
     /// simply records no zone time, and the HUD shows the pulse without a zone.
     var hrZones: HRZoneProfile? = nil
+    /// Process-death reopen: the coach plan already lives in this engine.
+    /// Skip the brief, skip armBlock, skip the recover modal.
+    var recoveredSession: WorkoutSession? = nil
 
     enum Phase: Equatable {
         case brief
@@ -149,6 +152,10 @@ struct WorkoutContainer: View {
             )
         }
         .task {
+            if let recovered = recoveredSession {
+                applyRecovered(recovered)
+                return
+            }
             // A free workout is a one-off in-memory build with no assignment — never
             // offer to recover an unrelated prescribed snapshot over it.
             if freeContext == nil,
@@ -183,11 +190,11 @@ struct WorkoutContainer: View {
                         let new = WorkoutSession(plan: plan, hrZones: hrZones)
                         new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         new.runEnvironment = runEnv       // #8 — auto-open the chosen run HUD
+                        stampFreeMetadata(on: new)
                         session = new
                         manualEntry = false
-                        // Mirror mode: remote-start the wrist recording alongside the
-                        // live engine. Non-blocking — the workout runs alone if the
-                        // watch never joins. Manual/capture flows never begin (below).
+                        // Mirror: iPhone is primary. Watch ADOPTS. begin() no longer
+                        // startWatchApp (that created a second HKWorkoutSession).
                         PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: plan))
                         // #56 — dobles en vivo: emit presence so the training partner's
                         // phone sees this session live. Self-gates (no pair / private →
@@ -416,6 +423,36 @@ struct WorkoutContainer: View {
         }
     }
 
+    private func stampFreeMetadata(on session: WorkoutSession) {
+        guard let free = freeContext else { return }
+        session.isFreeRun = true
+        session.freeTitle = free.title
+        session.freeModalityWire = free.modalityWire
+        if let items = free.items {
+            session.freeItemsJSON = try? JSONEncoder().encode(items)
+        }
+    }
+
+    private func applyRecovered(_ recovered: WorkoutSession) {
+        stampFreeMetadata(on: recovered)
+        if recovered.isFreeRun, freeContext == nil {
+            recovered.freeTitle = recovered.freeTitle ?? recovered.plan.name
+        }
+        session = recovered
+        manualEntry = false
+        loadState = .ready(recovered.plan, nil)
+        PhoneMirrorService.shared.begin(
+            session: recovered,
+            activityKind: mirrorActivityKind(for: recovered.plan)
+        )
+        DoblesLivePresence.shared.begin(
+            session: recovered,
+            assignmentId: assignmentId ?? recovered.assignmentId,
+            bearer: bearer
+        )
+        phase = .active
+    }
+
     // The wrist recording's activity kind (mirror mode), in the watch vocabulary
     // ("running" | "strength" | "hyrox" | "mixed"). Reuses the SAME string→kind map
     // the watch push uses. A dobles session records as HYROX; a free workout carries
@@ -455,9 +492,9 @@ struct WorkoutContainer: View {
             loadState = .ready(free.plan, nil)
             let new = WorkoutSession(plan: free.plan, hrZones: hrZones)
             new.runEnvironment = free.runEnvironment   // #8 — chosen in the free builder
+            stampFreeMetadata(on: new)
             session = new
             manualEntry = false
-            // Mirror the free workout to the wrist too (records HR + one HKWorkout).
             PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: free.plan))
             phase = .active
             return
@@ -522,9 +559,8 @@ struct WorkoutContainer: View {
                         // confirmation, per-set detail, declared load — and the
                         // segment re-primed itself with the PRESCRIPTION on entry.
                         recovered.restore(from: saved)
-                        session = recovered
+                        applyRecovered(recovered)
                         crashRecoveryPrompt = nil
-                        phase = .active
                     }
                 }
             }

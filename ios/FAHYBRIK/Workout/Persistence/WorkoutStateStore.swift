@@ -56,6 +56,43 @@ struct PersistedWorkoutState: Codable {
     /// The block-scoped Rx / Scaled choice and its note.
     var rxScaled: String? = nil
     var scaledNote: String? = nil
+
+    /// Apple `HKWorkoutSession` id this coach plan hangs off. Optional so an
+    /// older snapshot still decodes; process-death reopen on 18 does not need it.
+    var hkSessionUUID: UUID? = nil
+    /// Free / ad-hoc (no assignment). Launch resume uses `isFresh`, not the
+    /// same-assignment gate — a nil assignment must still reopen.
+    var isFree: Bool? = nil
+    var freeTitle: String? = nil
+    var freeModalityWire: String? = nil
+    var freeItemsJSON: Data? = nil
+    var runEnvironment: RunEnvironment? = nil
+    var hasArmedInitial: Bool? = nil
+    var isAwaitingBlockStart: Bool? = nil
+    var isAwaitingFinishDecision: Bool? = nil
+    var isExtraWork: Bool? = nil
+    var autoPaused: Bool? = nil
+    var restRemainingSeconds: Double? = nil
+    var restTotalSeconds: Double? = nil
+    var emomCountInRemaining: Double? = nil
+    var emomIntervalIndex: Int? = nil
+    var emomPhase: String? = nil
+    var emomPhaseRemaining: Double? = nil
+    var emomCompletedIntervals: Int? = nil
+    var emomSegmentIndex: Int? = nil
+    var runLegIndex: Int? = nil
+    var runCountInRemaining: Double? = nil
+    var runLegRemaining: Double? = nil
+    var runLegStartElapsed: Double? = nil
+    var runStructureSegmentIndex: Int? = nil
+    var condCountInRemaining: Double? = nil
+    var condStartElapsed: Double? = nil
+    var condSegmentIndex: Int? = nil
+    var fixedRoundsDone: Int? = nil
+    var rotPhase: String? = nil
+    var rotRoundIndex: Int? = nil
+    var rotPhaseRemaining: Double? = nil
+    var rotRoundsCompleted: Int? = nil
 }
 
 // AUDIT-1 — the honest crash-recovery gate. Pure so the "same assignment + fresh"
@@ -66,15 +103,27 @@ enum WorkoutRecoveryGate {
     /// The recovery window — the same 6 h the watch uses.
     static let maxAge: TimeInterval = 6 * 3600
 
+    /// Process-death reopen: any fresh coach plan, including free / ad-hoc.
+    static func isFresh(
+        _ saved: PersistedWorkoutState,
+        now: Date = Date(),
+        maxAge: TimeInterval = WorkoutRecoveryGate.maxAge
+    ) -> Bool {
+        guard !saved.plan.id.uuidString.isEmpty else { return false }
+        return saved.savedAt > now.addingTimeInterval(-maxAge)
+    }
+
+    /// Modal when the athlete re-opens the SAME assignment (never cross-attribute).
+    /// Free/ad-hoc launch resume uses `isFresh`, not this.
     static func shouldOffer(
         saved: PersistedWorkoutState,
         currentAssignmentId: String?,
         now: Date = Date(),
         maxAge: TimeInterval = WorkoutRecoveryGate.maxAge
     ) -> Bool {
+        guard isFresh(saved, now: now, maxAge: maxAge) else { return false }
         guard let savedAssignment = saved.assignmentId, savedAssignment == currentAssignmentId else { return false }
-        guard !saved.plan.id.uuidString.isEmpty else { return false }
-        return saved.savedAt > now.addingTimeInterval(-maxAge)
+        return true
     }
 }
 

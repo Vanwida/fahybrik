@@ -2,17 +2,10 @@ import Foundation
 import Observation
 import HealthKit
 
-// MIRROR MODE — the wrist side of the 90% session. The iPhone drives the workout
-// (the only engine); the watch RECORDS it (HKWorkoutSession + HKLiveWorkoutBuilder
-// → HR / kcal / one saved HKWorkout) and renders frames the phone pushes. It never
-// runs the engine here — the standalone WatchWorkoutCoordinator owns phone-less
-// sessions and always wins a conflict.
-//
-// Transport is the HealthKit mirrored-session app-data channel: the phone launches
-// this app with a HKWorkoutConfiguration (→ MirrorAppDelegate.handle), we build the
-// session, beginCollection, then startMirroringToCompanionDevice(). Frames + end
-// arrive on `didReceiveDataFromRemoteWorkoutSession`; HR + commands + the closing
-// workout id go back via `sendToRemoteWorkoutSession`. Wire = MirrorWireModels.
+// MIRROR MODE — the wrist ADOPTS. The iPhone owns the only HKWorkoutSession
+// (primary). This controller never creates a session. Apple delivers the mirrored
+// session via workoutSessionMirroringStartHandler; we render frames the phone
+// pushes. Standalone WatchWorkoutCoordinator still owns phone-less sessions.
 @MainActor
 @Observable
 final class MirrorSessionController: NSObject {
@@ -82,9 +75,23 @@ final class MirrorSessionController: NSObject {
 
     // MARK: - Start
 
-    /// Phone launched us with a workout config. Stand up the recording UNLESS a
-    /// standalone (phone-less) session is already running — that one wins.
+    /// Register the adopt handler. iPhone is primary; we receive the mirrored
+    /// session here. Creating our own HKWorkoutSession would be a second clock.
+    func prepareToAdopt() {
+        store.workoutSessionMirroringStartHandler = { [weak self] incoming in
+            Task { @MainActor in self?.adopt(incoming) }
+        }
+    }
+
+    /// Phone launched us with a workout config (legacy startWatchApp). Adopt —
+    /// do not create a primary.
     func start(config: HKWorkoutConfiguration) {
+        _ = config
+        prepareToAdopt()
+    }
+
+    /// Take the mirrored session Apple delivered. Do not `startActivity`.
+    func adopt(_ incoming: HKWorkoutSession) {
         guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
         state = .recording
         frame = nil
@@ -93,41 +100,19 @@ final class MirrorSessionController: NSObject {
         isConnectionLost = false
         hkPaused = false
         isClosing = false
-
-        Task {
-            await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
-            beginRecording(config: config)
-        }
-    }
-
-    private func beginRecording(config: HKWorkoutConfiguration) {
-        guard state == .recording, session == nil else { return }
-        do {
-            let session = try HKWorkoutSession(healthStore: store, configuration: config)
-            let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
-            session.delegate = self
-            builder.delegate = self
-            self.session = session
-            self.builder = builder
-
-            let start = Date()
-            session.startActivity(with: start)
-            builder.beginCollection(withStart: start) { [weak self] _, _ in
-                Task { @MainActor in self?.beginMirroring() }
-            }
-        } catch {
-            resetToIdle()
-        }
-    }
-
-    private func beginMirroring() {
-        guard let session, state == .recording else { return }
+        session = incoming
+        incoming.delegate = self
+        let builder = incoming.associatedWorkoutBuilder()
+        builder.dataSource = HKLiveWorkoutDataSource(
+            healthStore: store,
+            workoutConfiguration: incoming.workoutConfiguration
+        )
+        builder.delegate = self
+        self.builder = builder
         lastSignalAt = Date()
         startWatchdog()
         requestSyncUntilFirstFrame()
         WatchHaptics.start()
-        Task { try? await session.startMirroringToCompanionDevice() }
     }
 
     // MARK: - Incoming (phone → watch)

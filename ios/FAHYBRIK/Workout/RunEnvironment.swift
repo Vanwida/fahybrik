@@ -6,7 +6,7 @@ import SwiftUI
 // prescribed brief AND the free builder), carried on the session, and used to
 // AUTO-OPEN the right live HUD on start — the athlete never lands on a generic
 // screen with phantom GPS pace when they said "cinta".
-enum RunEnvironment: String {
+enum RunEnvironment: String, Codable {
     case treadmill   // indoor — connect + drive the belt, GPS stays OFF
     case outdoor     // outside — GPS pace/map, no treadmill offer
 }
