@@ -2,15 +2,14 @@ import Foundation
 import HealthKit
 import Observation
 
-/// iPhone PRIMARY `HKWorkoutSession` (Apple, iOS 17+, deploy 18). This object
-/// IS the run. FAHYBRID owns only the coach plan hanging off `runUUID`.
+/// iPhone PRIMARY `HKWorkoutSession` when Apple can create it (iOS 26).
+/// FAHYBRID owns only the coach plan hanging off `runUUID`.
 ///
-/// Clock: `HKWorkoutSession.startDate` + pause/resume of this session
-/// (`WorkoutRunClock`). `init(healthStore:configuration:)` /
-/// `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` /
-/// `recoverActiveWorkoutSession` are iOS 26 — recover is used IN ADDITION to
-/// the disk plan, never as the only reopen path, and never as a second clock.
-/// Create on deploy 18: `init(configuration:)` (deprecated on the iOS 17+ class).
+/// Clock: `HKWorkoutSession.startDate` + pause/resume of THAT session
+/// (`WorkoutRunClock`). Create / recover / Live builder /
+/// `associatedWorkoutBuilder` are iOS 26. Deploy 18 has no iOS initializer
+/// (Apple: `init(configuration:)` is watchOS 3 only, unavailable on iOS).
+/// On 18 the coach plan lives on disk; we do not construct a session.
 ///
 /// One primary. Watch ADOPTS if Apple delivers a mirrored session.
 @MainActor
@@ -68,50 +67,38 @@ final class PhoneWorkoutRun: NSObject {
 
     // MARK: - Start / attach / recover
 
-    /// Apple (HealthKit MCP):
-    /// - class `HKWorkoutSession` — iOS 17+
-    /// - `init(healthStore:configuration:)` — iOS 26 / watchOS 5
-    ///   ("with an associated workout builder")
-    /// - `init(configuration:)` — deprecated on that iOS 17+ class; the
-    ///   initializer that exists on deploy 18
-    /// Clock is `startDate`. Not a builder. Not PR 100's 18/26 clock split.
-    private static func makeSession(
-        healthStore: HKHealthStore,
-        configuration: HKWorkoutConfiguration
-    ) throws -> HKWorkoutSession {
-        if #available(iOS 26.0, *) {
-            return try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
-        } else {
-            return try HKWorkoutSession(configuration: configuration)
-        }
-    }
-
     /// Bind the coach-plan hang-off id. Apple does not expose `HKWorkoutSession`
     /// uuid (`startDate` / `state` / `type` only) — this id lives on disk.
     func bindRunUUID(_ id: UUID?) {
         if let id { runUUID = id }
     }
 
-    /// Create and retain the primary session on Empezar. Idempotent — recover
-    /// and a second onAppear must not birth another session.
+    /// Retain the hang-off UUID. Create Apple's session only on iOS 26
+    /// (`init(healthStore:configuration:)`). Idempotent. iOS 18 does not
+    /// construct — there is no iOS-available initializer below 26.
     func startIfNeeded(
         activityKind: String,
         diskOffset: TimeInterval = 0,
         startPaused: Bool = false,
         runUUID preferred: UUID? = nil
     ) {
-        guard session == nil, HKHealthStore.isHealthDataAvailable() else { return }
+        guard session == nil else { return }
+        runUUID = runUUID ?? preferred ?? UUID()
+        self.diskOffset = max(0, diskOffset)
+        pauseBeganAt = nil
+        pausedAccumulated = 0
+
+        guard #available(iOS 26.0, *), HKHealthStore.isHealthDataAvailable() else {
+            if startPaused { pauseBeganAt = Date() }
+            return
+        }
         let config = HKWorkoutConfiguration()
         config.activityType = Self.activityType(for: activityKind)
         config.locationType = Self.locationType(for: activityKind)
         do {
-            let session = try Self.makeSession(healthStore: healthStore, configuration: config)
+            let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
             session.delegate = delegateShim
             self.session = session
-            self.runUUID = self.runUUID ?? preferred ?? UUID()
-            self.diskOffset = max(0, diskOffset)
-            self.pauseBeganAt = nil
-            self.pausedAccumulated = 0
             session.startActivity(with: Date())
             if startPaused { pause() }
             Task { try? await self.healthStore.requestAuthorization(
@@ -119,7 +106,7 @@ final class PhoneWorkoutRun: NSObject {
             ) }
         } catch {
             self.session = nil
-            self.runUUID = nil
+            if startPaused { pauseBeganAt = Date() }
         }
     }
 

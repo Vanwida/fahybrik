@@ -7,7 +7,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-48 (este lote):** Verify KO en FAHYBRIKTests — `lift("Back Squat", 80, 1)` sin labels. El helper es `lift(_ title: String, kg: Double, order: Int)`. Solo se etiquetan esas llamadas. No se reabre FH-46. No se toca PhoneWorkoutRun.
+**FH-48 (este lote):** Verify KO — `init(configuration:)` es watchOS 3 / unavailable en iOS. SDK 26.5 + deploy 18 no tiene create de `HKWorkoutSession`. Path 18: plan del coach en disco, sin construir sesión. Create + recover solo detrás de iOS 26 (`init(healthStore:configuration:)`). Reloj = `startDate` + pausas. No PR 100. Deploy sigue 18.
 
 **FH-53 (en main / prod):** unique `(execution_id, position)` restaurado (0149). No mezclar con FH-48.
 
