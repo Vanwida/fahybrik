@@ -280,6 +280,18 @@ struct EmomInterval: Equatable {
     /// is the type being wrong (§7 del contrato de UI). Quien pinta decide.
     let work: String?
     let detail: String?    // "@ 1:50/500m", "RPE 8" — nil when none prescribed
+    /// ¿ES ESTA RONDA UNA MÁQUINA? — row/ski/bike, no burpees ni core.
+    ///
+    /// Existe porque el reloj necesita saber si el CUERPO puede mirar mientras
+    /// hace esta ronda, y eso no es un dato que se adivine del texto («Ski 45
+    /// s» vs «10 burpees»): es la modalidad que el coach ya escribió en cada
+    /// set (`PrescriptionSet.modality`). Antes de este campo, el guion del
+    /// espejo (`GuionDelEspejo.emom`) lo daba por hecho a `.ojeada` SIEMPRE —
+    /// un EMOM de burpees se pintaba como si tuvieras las manos libres para
+    /// mirar el reloj en pleno suelo. El dato ya se calculaba aquí mismo
+    /// (`isErg` en `emomInterval`/`uniformEmomInterval`) y se tiraba después
+    /// de decidir el formato del `detail`; ahora se queda.
+    let isErg: Bool
 }
 
 // The full EMOM dosage for one segment, expanded across its N intervals. Built
@@ -393,7 +405,7 @@ extension PrescriptionSet {
         let isErg = modality?.isErg ?? fallbackIsErg
         let detail = PrescriptionRenderer.targetLoad(target)
             ?? PrescriptionRenderer.paceString(target, isErg: isErg)
-        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail)
+        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail, isErg: isErg)
     }
 
     /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal"), or
@@ -442,7 +454,7 @@ extension WorkoutSegment {
         let detail = effortGuidance
             ?? PrescriptionRenderer.targetLoad(p.target)
             ?? PrescriptionRenderer.paceString(p.target, isErg: kind.isErg)
-        return EmomInterval(movement: title, work: work, detail: detail)
+        return EmomInterval(movement: title, work: work, detail: detail, isErg: kind.isErg)
     }
 }
 
@@ -847,6 +859,23 @@ struct LapRecord: Codable, Identifiable {
     /// The monitor's own per-interval splits (ErgData interval table), captured
     /// verbatim from the PM5. Empty/nil when no split boundary fired this segment.
     var ergSplits: [PM5Split]? = nil
+
+    // MARK: HR provenance — el fallo de la mezcla de fuentes concurrentes (correa
+    // + Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
+    // treadmill/manual), no específicamente de qué aparato salió el pulso.
+    /// Provenance of the PULSE specifically — "strap" | "healthkit" | "pm5", nil
+    /// when this lap has no HR at all. Set from `WorkoutSession.hrSource` — the
+    /// single owning device the priority latch (`injectLiveHR`) already tracks —
+    /// at the instant this lap had any HR samples; nil otherwise. Defaulted so
+    /// older persisted snapshots and the freeform fallback keep building.
+    var hrSource: String? = nil
+
+    // Sensor (fases 1–2) — defaulted for snapshot decode.
+    var sensorWorkS: Double? = nil
+    var sensorRestS: Double? = nil
+    var sensorTimingConfidence: Double? = nil
+    var repsSource: String? = nil
+    var repsConfidence: Double? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -857,6 +886,12 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var id: Int { setIndex }
     let setIndex: Int                  // 1-based
     var repsPrescribed: Int?
+    /// El TECHO cuando el coach prescribió una banda («12-15»): `repsPrescribed` es
+    /// el suelo y con él se prellena y se calcula, y esto es lo que hace que la
+    /// pantalla enseñe la banda entera en vez de media prescripción. Solo se pinta;
+    /// no viaja al cable (`SetExecutionDTO` registra lo HECHO, que es un número).
+    /// `var` con defecto para que los snapshots cacheados sigan decodificando.
+    var repsPrescribedMax: Int? = nil
     var repsActual: Int?
     var loadPrescribedKg: Double?
     var loadActualKg: Double?
@@ -866,6 +901,17 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var confirmed: Bool
     var tempo: String?
     var restS: Int?
+    /// Serie de aproximación (card 151): se registra igual, pero no es volumen de
+    /// trabajo. Ausente = serie de trabajo.
+    var isApproach: Bool = false
+    // Sensor (fases 2–3) — defaults so snapshots keep decoding.
+    var repsSource: String? = nil
+    var repsConfidence: Double? = nil
+    var meanVelocityFirstMs: Double? = nil
+    var meanVelocityLastMs: Double? = nil
+    var velocityLossPct: Double? = nil
+    var romM: Double? = nil
+    var velocityConfidence: Double? = nil
 }
 
 // Per-segment execution record on the wire. Property names are already
@@ -949,6 +995,22 @@ struct SegmentExecutionDTO: Codable {
     /// "warmup" | "main" | "cooldown". Un calentamiento es `kind: work` en la
     /// gramática, así que sin la fase no se distingue de una serie.
     var leg_phase: String? = nil
+
+    // HR provenance — el fallo de la mezcla de fuentes concurrentes (correa +
+    // Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
+    // treadmill/manual), no específicamente el pulso.
+    /// Provenance of `avg_hr`/`max_hr` — "strap" | "healthkit" | "pm5", null when
+    /// this segment has no HR at all. See `LapRecord.hrSource`. `var` with a
+    /// default so older payloads (watch relay, cached snapshots) keep building.
+    var hr_source: String? = nil
+
+    // Sensor timing + rep provenance (plan fases 1–2, mig 0174/0175).
+    var sensor_work_s: Double? = nil
+    var sensor_rest_s: Double? = nil
+    var sensor_timing_confidence: Double? = nil
+    /// "athlete_tap" | "sensor" | "sensor_corrected"
+    var reps_source: String? = nil
+    var reps_confidence: Double? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit
@@ -985,6 +1047,14 @@ struct SetExecutionDTO: Codable {
     let confirmed: Bool?
     let tempo: String?
     let rest_s: Int?
+    // Fase 2–3 sensor fields (optional; older clients omit).
+    var reps_source: String? = nil
+    var reps_confidence: Double? = nil
+    var mean_velocity_first_m_s: Double? = nil
+    var mean_velocity_last_m_s: Double? = nil
+    var velocity_loss_pct: Double? = nil
+    var rom_m: Double? = nil
+    var velocity_confidence: Double? = nil
 }
 
 // POST /api/sync/workout-execution body. Explicit snake_case keys to match the
