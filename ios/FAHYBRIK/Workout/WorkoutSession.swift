@@ -27,6 +27,13 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
+    /// Apple `HKWorkoutSession` this coach plan hangs off (iPhone primary).
+    var hkSessionUUID: UUID? = nil
+    /// Free / ad-hoc — process-death reopen must not require an assignment.
+    var isFreeRun: Bool = false
+    var freeTitle: String? = nil
+    var freeModalityWire: String? = nil
+    var freeItemsJSON: Data? = nil
     /// Where the athlete said they run TODAY (cinta / calle), chosen pre-start.
     /// Drives the auto-open of the right live HUD and keeps GPS off on a treadmill
     /// run (indoor GPS noise reads as phantom pace). Ephemeral — never persisted.
@@ -681,24 +688,45 @@ final class WorkoutSession {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may
         // have closed the store on finish/discard.
         Task { await WorkoutStateStore.shared.open() }
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            LiveWorkoutResume.shared.track(self)
+            let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
+            PhoneWorkoutRun.shared.startIfNeeded(
+                activityKind: kind,
+                diskOffset: elapsedSeconds,
+                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial
+            )
+            if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
+            PhoneWorkoutRun.shared.startMirroring()
+        }
+        #endif
         guard timer == nil else { return }
         lastTick = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        // Poller of Apple's session clock (or lastTick on watch). Common mode so
+        // a backgrounded live still ticks while HKWorkoutSession keeps us alive.
+        let t = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
         // First appearance: ARM the current block (show its preview, hold the
         // clock) so the session begins with the athlete's approval, not a timer
-        // that's already running. A crash-recovered EMOM keeps its live interval
-        // state (emomSegmentIndex != nil) and resumes running, exactly as before.
-        // Re-appearances (hasArmedInitial) just resume the timer — they never
-        // re-arm a block mid-session.
+        // that's already running. A crash-recovered session has hasArmedInitial
+        // already true — restore must never call armBlock().
         if !hasArmedInitial {
             hasArmedInitial = true
             #if os(iOS)
             AudioCoach.shared.beginWorkout()   // fresh voice-coaching state for this workout (#63, iOS-only)
             #endif
             if emomSegmentIndex == nil { armBlock() }
+            #if os(iOS)
+            if isAwaitingBlockStart {
+                MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+            }
+            #endif
         }
+        persistNow()
     }
 
     func stop() {
@@ -716,9 +744,16 @@ final class WorkoutSession {
         if isPaused {
             isPaused = false
             lastTick = Date()
+            #if os(iOS)
+            MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+            #endif
         } else {
             isPaused = true
+            #if os(iOS)
+            MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+            #endif
         }
+        persistNow()
     }
 
     /// Engage AUTO-pause (outdoor GPS #64): the athlete stopped moving, so freeze the
@@ -730,6 +765,10 @@ final class WorkoutSession {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         isPaused = true
         autoPaused = true
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        #endif
+        persistNow()
     }
 
     /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
@@ -740,6 +779,10 @@ final class WorkoutSession {
         isPaused = false
         autoPaused = false
         lastTick = Date()
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        #endif
+        persistNow()
     }
 
     /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
@@ -973,6 +1016,12 @@ final class WorkoutSession {
         AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
         #endif
         stop()
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.end()
+            LiveWorkoutResume.shared.dismiss()
+        }
+        #endif
         // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
         // never be re-offered as "recuperar entreno en curso", and the latch stops a
         // late autosave Task from re-creating the snapshot after this.
@@ -984,7 +1033,22 @@ final class WorkoutSession {
     /// resurrect the discarded session.
     func discardAndClose() {
         stop()
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.end()
+            LiveWorkoutResume.shared.dismiss()
+        }
+        #endif
         Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// Write the coach plan now (background / pause / block). The Timer is a
+    /// poller, not the store — a jetsam mid-background must still find this file.
+    func persistNow() {
+        guard !isFinished else { return }
+        Task { [snapshot = persistedSnapshot()] in
+            await WorkoutStateStore.shared.save(snapshot)
+        }
     }
 
     /// Open the post-effort HRR window (tests guiados). Called by the container
@@ -1052,8 +1116,12 @@ final class WorkoutSession {
         isAwaitingBlockStart = false
         isPaused = false
         lastTick = Date()
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        #endif
         Haptics.medium()
         onEnterSegment()
+        persistNow()
     }
 
     /// "Terminar bloque" — end the CURRENT block before it's complete (e.g. an
@@ -2654,9 +2722,23 @@ final class WorkoutSession {
             return
         }
         let now = Date()
-        let dt = now.timeIntervalSince(lastTick)
-        lastTick = now
+        let dt: Double
+        #if os(iOS)
+        let appleElapsed: TimeInterval? = MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.session == nil ? nil : PhoneWorkoutRun.shared.elapsedTime
+        }
+        if let apple = appleElapsed {
+            dt = max(0, apple - elapsedSeconds)
+            elapsedSeconds = apple
+        } else {
+            dt = now.timeIntervalSince(lastTick)
+            elapsedSeconds += dt
+        }
+        #else
+        dt = now.timeIntervalSince(lastTick)
         elapsedSeconds += dt
+        #endif
+        lastTick = now
         lapElapsedSeconds += dt
         if let zone = liveZone {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt
@@ -2783,7 +2865,39 @@ final class WorkoutSession {
             declaredLoadKg: loadConfirmed ? manualLoadKg : nil,
             manualRunDistanceMeters: manualRunDistanceMeters,
             rxScaled: rxScaled,
-            scaledNote: scaledNote
+            scaledNote: scaledNote,
+            hkSessionUUID: hkSessionUUID,
+            isFree: isFreeRun || assignmentId == nil,
+            freeTitle: freeTitle,
+            freeModalityWire: freeModalityWire,
+            freeItemsJSON: freeItemsJSON,
+            runEnvironment: runEnvironment,
+            hasArmedInitial: hasArmedInitial,
+            isAwaitingBlockStart: isAwaitingBlockStart,
+            isAwaitingFinishDecision: isAwaitingFinishDecision,
+            isExtraWork: isExtraWork,
+            autoPaused: autoPaused,
+            restRemainingSeconds: restRemainingSeconds,
+            restTotalSeconds: restTotalSeconds,
+            emomCountInRemaining: emomCountInRemaining,
+            emomIntervalIndex: emomIntervalIndex,
+            emomPhase: emomSegmentIndex == nil ? nil : emomPhase.rawValue,
+            emomPhaseRemaining: emomPhaseRemaining,
+            emomCompletedIntervals: emomCompletedIntervals,
+            emomSegmentIndex: emomSegmentIndex,
+            runLegIndex: runStructureSegmentIndex == nil ? nil : runLegIndex,
+            runCountInRemaining: runCountInRemaining,
+            runLegRemaining: runLegRemaining,
+            runLegStartElapsed: runLegStartElapsed,
+            runStructureSegmentIndex: runStructureSegmentIndex,
+            condCountInRemaining: condCountInRemaining,
+            condStartElapsed: condStartElapsed,
+            condSegmentIndex: condSegmentIndex,
+            fixedRoundsDone: fixedRoundsDone,
+            rotPhase: condSegmentIndex == nil ? nil : rotPhase.rawValue,
+            rotRoundIndex: rotRoundIndex,
+            rotPhaseRemaining: rotPhaseRemaining,
+            rotRoundsCompleted: rotRoundsCompleted
         )
     }
 
@@ -2799,6 +2913,12 @@ final class WorkoutSession {
     /// that format from zero instead of claiming rounds nobody finished.
     func restore(from snapshot: PersistedWorkoutState) {
         assignmentId = snapshot.assignmentId
+        hkSessionUUID = snapshot.hkSessionUUID
+        isFreeRun = snapshot.isFree == true || snapshot.assignmentId == nil
+        freeTitle = snapshot.freeTitle
+        freeModalityWire = snapshot.freeModalityWire
+        freeItemsJSON = snapshot.freeItemsJSON
+        runEnvironment = snapshot.runEnvironment
         currentSegmentIndex = snapshot.currentSegmentIndex
         elapsedSeconds = snapshot.elapsedSeconds
         lapElapsedSeconds = snapshot.lapElapsedSeconds
@@ -2809,6 +2929,16 @@ final class WorkoutSession {
         rxScaled = snapshot.rxScaled
         scaledNote = snapshot.scaledNote
         manualRunDistanceMeters = snapshot.manualRunDistanceMeters
+        isPaused = snapshot.isPaused
+        autoPaused = snapshot.autoPaused ?? false
+        isAwaitingBlockStart = snapshot.isAwaitingBlockStart ?? false
+        isAwaitingFinishDecision = snapshot.isAwaitingFinishDecision ?? false
+        isExtraWork = snapshot.isExtraWork ?? false
+        if isExtraWork { finishDecisionMade = true }
+        // Recovered live already passed the first gate — start() must not armBlock().
+        hasArmedInitial = snapshot.hasArmedInitial ?? true
+        if let rest = snapshot.restRemainingSeconds { restRemainingSeconds = rest }
+        if let total = snapshot.restTotalSeconds { restTotalSeconds = total }
         if let kg = snapshot.declaredLoadKg {
             manualLoadKg = kg
             primedLoadKg = nil          // declared, not primed → `loadConfirmed` holds
@@ -2824,6 +2954,31 @@ final class WorkoutSession {
         if let sets = snapshot.setRecords, !sets.isEmpty {
             setRecords = sets
             setsPrimedSegmentIndex = currentSegmentIndex
+        }
+        if let idx = snapshot.emomSegmentIndex {
+            emomSegmentIndex = idx
+            emomCountInRemaining = snapshot.emomCountInRemaining ?? 0
+            emomIntervalIndex = snapshot.emomIntervalIndex ?? 0
+            emomPhase = snapshot.emomPhase.flatMap(RotatingPhase.init(rawValue:)) ?? .work
+            emomPhaseRemaining = snapshot.emomPhaseRemaining ?? 0
+            emomCompletedIntervals = snapshot.emomCompletedIntervals ?? 0
+        }
+        if let idx = snapshot.runStructureSegmentIndex {
+            runStructureSegmentIndex = idx
+            runLegIndex = snapshot.runLegIndex ?? 0
+            runCountInRemaining = snapshot.runCountInRemaining ?? 0
+            runLegRemaining = snapshot.runLegRemaining ?? 0
+            runLegStartElapsed = snapshot.runLegStartElapsed ?? 0
+        }
+        if let idx = snapshot.condSegmentIndex {
+            condSegmentIndex = idx
+            condCountInRemaining = snapshot.condCountInRemaining ?? 0
+            condStartElapsed = snapshot.condStartElapsed ?? 0
+            fixedRoundsDone = snapshot.fixedRoundsDone ?? 0
+            rotPhase = snapshot.rotPhase.flatMap(RotatingPhase.init(rawValue:)) ?? .work
+            rotRoundIndex = snapshot.rotRoundIndex ?? 0
+            rotPhaseRemaining = snapshot.rotPhaseRemaining ?? 0
+            rotRoundsCompleted = snapshot.rotRoundsCompleted ?? 0
         }
     }
 

@@ -7,7 +7,9 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-53 (este lote, no merge):** no se podía guardar el entreno. Causa raíz: prod no tiene `segment_executions_position_unique` `(execution_id, position)` que `0001_init.sql` ya declara; el ingest hace `ON CONFLICT` sobre esas columnas → Postgres 42P10 → 500 → rollback de `createFreeWorkout` → retry = otro 500. Migración **0149** (idempotente, IF NOT EXISTS). El cliente deja de cerrar el resumen como éxito si el POST no es 2xx; REINTENTAR drena `RequestQueue` (ya encola 5xx; no encola 4xx). Overlay: ya no dice «está guardado». Log único en `APIClient` (status + body). Sin segundo motor, sin FH-48, sin bump iOS. Esta sesión: con unique en prod, drain en primer plano del binario ya instalado; sin unique, no se recupera en este binario.
+**FH-48 (este lote):** el live moría al ir a background. Causa raíz: el live de `main` es un `Timer` en `@State`, no un `HKWorkoutSession`. Un solo session en el iPhone; el plan del coach cuelga de ese UUID y se reabre DESDE DISCO en 18 (cold launch + `scenePhase.active`, free, sin bearer, sin `armBlock()`). En 26, `recoverActiveWorkoutSession` además. Reloj = `startDate` + pausas (`WorkoutRunClock`) — no el split HKWorkoutBuilder@18 / Live@26 de PR 100. Watch ADOPTA. Sin keep-alives como dueño. PR 100 no se mergea.
+
+**FH-53 (en main / prod):** unique `(execution_id, position)` restaurado (0149). No mezclar con FH-48.
 
 **En main · FH-41 (PR #99):** N × distancia + descanso en PM5 ya no es CSAFE type 7. `PM5WorkoutProgrammer` manda un bout `fixedDistance` (o time/cal). `monitorRunsTheSeries` es false; la app sigue siendo el reloj; la clave de tramo no cambia en el descanso. Pendiente de soak: live + SkiErg PM5 + N × distancia + descanso (el monitor debe mostrar 0…N m de ESA serie).
 

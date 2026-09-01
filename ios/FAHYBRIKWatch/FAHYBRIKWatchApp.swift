@@ -18,7 +18,10 @@ struct FAHYBRIKWatchApp: App {
                 .environmentObject(connectivity)
                 .environment(coordinator)
                 .environment(MirrorSessionController.shared)
-                .onAppear { connectivity.activate() }
+                .onAppear {
+                    connectivity.activate()
+                    MirrorSessionController.shared.prepareToAdopt()
+                }
         }
     }
 }
@@ -28,6 +31,8 @@ struct FAHYBRIKWatchApp: App {
 /// controller (which yields if a standalone session is already running).
 final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
-        Task { @MainActor in MirrorSessionController.shared.start(config: workoutConfiguration) }
+        // iPhone owns the primary HKWorkoutSession. A startWatchApp wake must
+        // ADOPT, not create a second session.
+        Task { @MainActor in MirrorSessionController.shared.prepareToAdopt() }
     }
 }

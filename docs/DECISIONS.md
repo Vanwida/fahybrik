@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · El live es un HKWorkoutSession en el iPhone; el plan del coach vive en disco (FH-48)
+
+**Decidido (Plan reescrito, Owner 1-sep-2026):** un solo `HKWorkoutSession` en el iPhone (Apple, iOS 17+, deploy 18). FAHYBRID solo persiste el plan del coach (bloque/serie/tramo) colgado de ese UUID. Cero segundo reloj. Cero keep-alives como dueño. Cero `UIBackgroundModes` extra.
+
+**Reloj:** `HKWorkoutSession.startDate` + pause/resume de ESA sesión (`WorkoutRunClock`). Una fórmula. `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` / `recoverActiveWorkoutSession` son iOS 26: recover se usa ADEMÁS del plan en disco, nunca en vez, y nunca como reloj. No se usa `HKWorkoutBuilder.elapsedTime(at:)` en 18 — eso era el split 18/26 de PR 100, un parche.
+
+**Muerte del proceso en 18:** Apple no recupera la sesión. Se reabre el plan del coach DESDE DISCO (cold launch Y `scenePhase.active`), con o sin bearer, free incluido, sin `armBlock()`. En 26: recover de Apple + el mismo disco.
+
+**Watch:** un primary. El iPhone espeja (`startMirroringToCompanionDevice`); el Watch ADOPTA. No `startWatchApp` (eso creaba la segunda sesión).
+
+**Causa raíz:** el live de prod era un `Timer` en `@State` (`WorkoutSession` + `fullScreenCover`). iOS no lo trata como workout. No fue un HealthKit mal instalado. PR 100 no se mergea.
+
+**En consecuencia, no hacer:** no partir el reloj por builder 18/26; no tratar recover-on-26 como el done; no gatear el resume por bearer; no inventar un Timer como dueño; no mezclar FH-53; no subir el deploy a 26; no tocar HUD / PM5 / metros Watch / writer de Salud.
+
+---
+
 ## 2026-09-01 · Guardar el entreno: el unique de 0001 es el árbitro; no hay segundo motor (FH-53)
 
 **Decidido (Doc Plan, Owner 1-sep-2026):** el POST que ya existe (`URLSession.shared` + `RequestQueue` en disco) es el único motor. Esta sesión se perdió porque Postgres en prod no tiene el unique que `0001_init.sql` ya nombra (`segment_executions_position_unique` sobre `(execution_id, position)`). El ingest hace `ON CONFLICT (execution_id, position)`; sin ese árbitro Postgres lanza 42P10, `createFreeWorkout` (una transacción) hace rollback, el retry es otro 500, y el JSON en RAM muere si iOS mata la app.

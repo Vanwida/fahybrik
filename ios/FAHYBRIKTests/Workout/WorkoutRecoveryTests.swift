@@ -82,4 +82,55 @@ final class WorkoutRecoveryTests: XCTestCase {
 
         await store.clear()
     }
+
+    // MARK: - Process death (rewritten FH-48)
+
+    func testFreshAllowsFreeWithoutAssignment() {
+        XCTAssertTrue(WorkoutRecoveryGate.isFresh(snapshot(assignment: nil)))
+        XCTAssertFalse(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: nil), currentAssignmentId: nil))
+    }
+
+    func testFreshRejectsStaleFree() {
+        let old = Date().addingTimeInterval(-(6 * 3600 + 60))
+        XCTAssertFalse(WorkoutRecoveryGate.isFresh(snapshot(assignment: nil, savedAt: old)))
+    }
+
+    func testRestoreAppliesPauseAndDoesNotRearm() {
+        var snap = snapshot(assignment: "42")
+        snap = PersistedWorkoutState(
+            plan: snap.plan, startedAt: snap.startedAt, currentSegmentIndex: 2,
+            elapsedSeconds: 90, lapElapsedSeconds: 20, laps: [],
+            repsByCurrentSegment: 4, isPaused: true, savedAt: Date(),
+            assignmentId: "42", hasArmedInitial: true, isAwaitingBlockStart: false
+        )
+        let session = WorkoutSession(plan: snap.plan, startedAt: snap.startedAt)
+        session.restore(from: snap)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.elapsedSeconds, 90, accuracy: 0.01)
+        XCTAssertEqual(session.currentSegmentIndex, 2)
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        session.start()
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        XCTAssertTrue(session.isPaused)
+        session.stop()
+    }
+
+    func testRestoreReopensFreeCursor() {
+        var snap = snapshot(assignment: nil)
+        snap = PersistedWorkoutState(
+            plan: snap.plan, startedAt: snap.startedAt, currentSegmentIndex: 1,
+            elapsedSeconds: 45, lapElapsedSeconds: 10, laps: [],
+            repsByCurrentSegment: 0, isPaused: false, savedAt: Date(),
+            assignmentId: nil, isFree: true, hasArmedInitial: true,
+            isAwaitingBlockStart: false
+        )
+        XCTAssertTrue(WorkoutRecoveryGate.isFresh(snap))
+        let session = WorkoutSession(plan: snap.plan, startedAt: snap.startedAt)
+        session.restore(from: snap)
+        XCTAssertTrue(session.isFreeRun)
+        XCTAssertEqual(session.elapsedSeconds, 45, accuracy: 0.01)
+        session.start()
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        session.stop()
+    }
 }
