@@ -6,11 +6,13 @@ import Observation
 /// IS the run. FAHYBRID owns only the coach plan hanging off `runUUID`.
 ///
 /// Clock: `HKWorkoutSession.startDate` + pause/resume of this session
-/// (`WorkoutRunClock`). `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` /
+/// (`WorkoutRunClock`). `init(healthStore:configuration:)` /
+/// `HKLiveWorkoutBuilder` / `associatedWorkoutBuilder` /
 /// `recoverActiveWorkoutSession` are iOS 26 — recover is used IN ADDITION to
 /// the disk plan, never as the only reopen path, and never as a second clock.
+/// Create on deploy 18: `init(configuration:)` (deprecated on the iOS 17+ class).
 ///
-/// One primary. Watch ADOPTS (`startMirroringToCompanionDevice`).
+/// One primary. Watch ADOPTS if Apple delivers a mirrored session.
 @MainActor
 @Observable
 final class PhoneWorkoutRun: NSObject {
@@ -66,6 +68,24 @@ final class PhoneWorkoutRun: NSObject {
 
     // MARK: - Start / attach / recover
 
+    /// Apple (HealthKit MCP):
+    /// - class `HKWorkoutSession` — iOS 17+
+    /// - `init(healthStore:configuration:)` — iOS 26 / watchOS 5
+    ///   ("with an associated workout builder")
+    /// - `init(configuration:)` — deprecated on that iOS 17+ class; the
+    ///   initializer that exists on deploy 18
+    /// Clock is `startDate`. Not a builder. Not PR 100's 18/26 clock split.
+    private static func makeSession(
+        healthStore: HKHealthStore,
+        configuration: HKWorkoutConfiguration
+    ) throws -> HKWorkoutSession {
+        if #available(iOS 26.0, *) {
+            return try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
+        } else {
+            return try HKWorkoutSession(configuration: configuration)
+        }
+    }
+
     /// Bind the coach-plan hang-off id. Apple does not expose `HKWorkoutSession`
     /// uuid (`startDate` / `state` / `type` only) — this id lives on disk.
     func bindRunUUID(_ id: UUID?) {
@@ -85,7 +105,7 @@ final class PhoneWorkoutRun: NSObject {
         config.activityType = Self.activityType(for: activityKind)
         config.locationType = Self.locationType(for: activityKind)
         do {
-            let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
+            let session = try Self.makeSession(healthStore: healthStore, configuration: config)
             session.delegate = delegateShim
             self.session = session
             self.runUUID = self.runUUID ?? preferred ?? UUID()
