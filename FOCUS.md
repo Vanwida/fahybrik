@@ -7,7 +7,9 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-48 (este lote):** Verify KO — `init(configuration:)` es watchOS 3 / unavailable en iOS. SDK 26.5 + deploy 18 no tiene create de `HKWorkoutSession`. Path 18: plan del coach en disco, sin construir sesión. Create + recover solo detrás de iOS 26 (`init(healthStore:configuration:)`). Reloj = `startDate` + pausas. No PR 100. Deploy sigue 18.
+**FH-55 (este lote):** Un live, un diseño. Todo el trabajo (ergo, carrera, formato, EMOM, fuerza, descanso, estructural, relevo) monta `MarcoVivo`. El sujeto es la lectura (`ErgHUDContent`, ritmo, ronda); cromo y acción son `LenguajeVivoUI` / `BotonVivo`. El cromo C (phaseRail PRINCIPAL naranja + `ExpertActionButton` 40 pt) es inalcanzable y está borrado. Cerrar la X de la tapa de cinta no vuelve a C: `SuperficieViva.de` sigue `.run`. Versión 6 iPhone y Watch. No FH-44, no FH-9, no FH-48/56, no PR 94.
+
+**FH-48 (en main):** Verify KO — `init(configuration:)` es watchOS 3 / unavailable en iOS. SDK 26.5 + deploy 18 no tiene create de `HKWorkoutSession`. Path 18: plan del coach en disco, sin construir sesión. Create + recover solo detrás de iOS 26 (`init(healthStore:configuration:)`). Reloj = `startDate` + pausas. No PR 100. Deploy sigue 18. No mezclar con FH-55.
 
 **FH-53 (en main / prod):** unique `(execution_id, position)` restaurado (0149). No mezclar con FH-48.
 
@@ -19,7 +21,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 **El nombre del coach ya sale de la base** en las push, los correos de cita y de lead y los `.ics`. Y **un lead se graba con su dueño en la captura** (0147): NULL significa «sin asignar», nunca «el coach por defecto».
 
-**En curso / lo siguiente:** las cuatro vistas en vivo que faltan en Swift (ergo, For Time, AMRAP, dobles) y el reloj · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
+**En curso / lo siguiente:** soak 2 h del live unificado (cinta + BikeErg + fuerza: si reaparece el HUD naranja, FH-55 falla) · el reloj (HUD Watch no es este lote) · llevar a Swift las pantallas aprobadas del doble · cablear `coach_methodology`, que tiene 37 columnas, 0 filas y 1 sola lectura.
 
 **Esperan decisión de Alex:** si guardamos la serie de ritmo (`execution_streams`) · el identificador de coach en el enlace público de captura · las tres filas «Pablo Amigo» (60/61/62) con los atletas repartidos · el modelo de las 5 estaciones de HYROX · borrar o revivir `methodology_blocks`/`methodology_rules` (motor muerto cuya forma sigue siendo un catálogo de fases) · la firma de distribución, que bloquea TestFlight.
 

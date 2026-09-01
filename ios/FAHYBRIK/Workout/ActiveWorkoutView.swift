@@ -79,9 +79,6 @@ struct ActiveWorkoutView: View {
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
     @State private var liveHR = LiveHeartRateProvider()
-    /// Drives the erg surface's portrait↔landscape arrangement (`.compact` = landscape).
-    @Environment(\.verticalSizeClass) private var vSizeClass
-
     /// Does a Concept2 monitor have anything to do with this segment — now, or in a
     /// later round of the format it runs? This is the CONNECT question: the athlete
     /// has to be able to pair the ski before the ski minute arrives, and a ski/bike
@@ -93,20 +90,6 @@ struct ActiveWorkoutView: View {
     /// Is an erg measuring what the athlete is doing RIGHT NOW? This is the SCREEN
     /// question — whose numbers own the surface this second.
     private var isErgSegment: Bool { session.tramoIsErg }
-    /// Landscape + a device-measured window → that surface takes the whole screen.
-    /// There is no second erg view and no "ver en grande" cover: rotating the phone
-    /// IS the gesture, and the SAME component re-lays itself out. It now includes
-    /// erg work INSIDE a format (a ski EMOM turned sideways used to give a cropped
-    /// generic timer), and the rest, which reads even better big.
-    /// Excluded: the dobles relay, structural blocks (warmup/cooldown checklists)
-    /// and the pre-block gate, which owns the screen.
-    private var isErgLandscapeFocus: Bool {
-        vSizeClass == .compact
-            && (isErgSegment || (session.isTramoResting && segmentInvolvesErg))
-            && !session.currentSegmentIsPartnerRelay
-            && !session.currentBlockIsStructural
-            && !session.isAwaitingBlockStart
-    }
     private var isRunSegment: Bool {
         session.currentSegment?.kind == .running
     }
@@ -167,80 +150,8 @@ struct ActiveWorkoutView: View {
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.3), value: session.isTramoResting)
             }
-            if let viva = superficieViva {
-                // EL LENGUAJE DEL §10: estas dos superficies montan su propio marco
-                // (`MarcoVivo`) porque el ancla del sujeto es una propiedad de la
-                // PANTALLA, no de una vista — ver `superficieViva`. El cromo y la
-                // acción siguen siendo de aquí; lo que cambia es quién los coloca.
-                Ambiente(zona: session.liveZone)
-                switch viva {
-                case .emom:
-                    EmomVivoView(session: session,
-                                 accionTitulo: primaryTitle,
-                                 alTocarAccion: { primaryAction() }) { topStrip }
-                case .fuerza:
-                    FuerzaVivoView(session: session,
-                                   accionTitulo: primaryTitle,
-                                   alTocarAccion: { primaryAction() }) { topStrip }
-                }
-            } else if isErgLandscapeFocus {
-                // ROTATED ON AN ERG: the athlete turned the phone precisely to get the
-                // big numbers, so the device surface owns the screen. The chrome kept
-                // is `topStrip` (salir / pausa / atrás) so he is never trapped, and —
-                // new — the primary action, anchored bottom-right at a thumb's reach.
-                // Landscape used to have no action at all, so ending a serie meant
-                // rotating the phone back mid-piece: the action lives at the bottom in
-                // BOTH orientations or the rule isn't a rule.
-                HStack(alignment: .top, spacing: 10) {
-                    VStack(spacing: 6) {
-                        topStrip
-                        if session.isTramoResting {
-                            RestSurface(session: session)
-                        } else {
-                            ErgHUDContent(session: session, pm5: pm5)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    VStack(spacing: 8) {
-                        Spacer(minLength: 0)
-                        landscapeAction
-                    }
-                    .frame(width: 132)
-                }
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.top, 4)
-                .padding(.bottom, 6)
-            } else {
-            VStack(spacing: 8) {
-                topStrip
-                phaseRail
-                // #56 — the training partner's live strip (Peloton-style). Hidden when
-                // there's no pair / no presence; collapsible so the athlete's own work
-                // stays the focus. Above the HUD, never over the controls.
-                DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
-                                collapsed: $partnerStripCollapsed)
-                // THE ACTION IS NEVER NEGOTIABLE. Turned sideways there is barely a
-                // third of the height, and a HUD that does not shrink (the per-set
-                // strength table, a long route) pushed the button off the bottom
-                // edge — the athlete could see his work and not close it. So in
-                // landscape the WORK scrolls and the action is pinned under it, in
-                // every format. Portrait is untouched: the same children, in the
-                // same order, with the same spacing.
-                if isCompactHeight && !surfaceScrollsItself {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 8) { liveSurface }
-                    }
-                    .frame(maxHeight: .infinity)
-                    liveAction
-                } else {
-                    liveSurface
-                    liveAction
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, 10)
-            }
+            Ambiente(zona: session.liveZone)
+            superficieMontada
 
             // Block-transition gate: the upcoming block's preview / "ready" screen.
             // Full-screen over the live HUD while the session is parked before a
@@ -563,6 +474,8 @@ struct ActiveWorkoutView: View {
     // in the chosen live HUD (cinta / calle) when a run segment goes live, instead of
     // a generic GPS screen. Fires ONCE per segment (the autoOpenedRunSegment guard),
     // so a manual close stays closed until the next run segment.
+    // Cerrar la X de la tapa NO puede devolver el cromo C: `de()` sigue
+    // siendo `.run` y monta `MarcoVivo`. Este guard solo evita reabrir la tapa.
     private func maybeAutoOpenRunCover() {
         guard let env = session.runEnvironment,
               isRunSegment,
@@ -810,105 +723,145 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal, Theme.Spacing.m)
     }
 
-    private var relayButton: some View {
-        ExpertPrimaryButton(title: "Relevo ▸", height: 56, enabled: true) {
-            session.advanceRelay()
-        }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.bottom, Theme.Spacing.l)
-    }
-
-    // THE ACTIVE TRAMO DECIDES. Whatever window the athlete is inside right now
-    // owns the screen: if a machine measures it, the machine's surface is what they
-    // see, and the format that wraps it becomes the context strip on top. That rule
-    // is what was missing — an EMOM or an interval series used to route to a generic
-    // timer that knows nothing about a PM5, so the same erg showed full data alone
-    // and none at all the moment a format wrapped it.
-    //
-    // Order, and why: a structured run keeps its own leg engine (untouched); a REST
-    // is its own screen whatever produced it; then the device tramo; then the
-    // format; then the plain per-kind grid.
-    // LAS DOS SUPERFICIES QUE HABLAN EL §10 Y MONTAN SU PROPIO MARCO.
-    //
-    // Por qué no van dentro de `modalityHUD` como las demás: el ancla del sujeto
-    // (§10.3) es una propiedad de la PANTALLA, no de una vista. `OutdoorRunHUDView`
-    // la cumple porque es un `fullScreenCover` que posee sus cinco filas; una vista
-    // metida en la ranura de `liveSurface` no sabe a qué altura empieza —y encima
-    // esa altura cambia según haya o no tira de conexiones, mapa de tramos o
-    // pareja—, así que su sujeto caería a una altura distinta en cada tramo del
-    // mismo entreno. Que es exactamente lo que el §10.3 viene a quitar.
-    //
-    // Así que a estas dos se les da la pantalla entera: el marco reserva las filas
-    // (`MarcoVivo`), el cromo y la acción se les pasan desde aquí, y el ancla vale
-    // lo mismo que en la vista de correr. Todo lo demás sigue por el árbol de
-    // siempre, sin tocar.
-    private enum SuperficieViva { case emom, fuerza }
-
-    /// Qué superficie del §10 posee la pantalla ahora mismo, o nil cuando manda el
-    /// árbol de siempre.
-    ///
-    /// LA CADENA ES LA MISMA que la de `liveSurface` + `modalityHUD`, en el mismo
-    /// orden y por la misma razón: el tramo activo decide. Se lee de arriba abajo
-    /// como allí, y si mañana se mueve una prioridad hay que moverla en los dos
-    /// sitios — de ahí que las dos citen esta nota.
-    private var superficieViva: SuperficieViva? {
-        // Lo que `liveSurface` resuelve ANTES de llegar al HUD de modalidad.
-        if session.currentSegmentIsPartnerRelay { return nil }
-        if session.currentBlockIsStructural { return nil }
-        if isErgLandscapeFocus { return nil }
-        // …y lo que `modalityHUD` resuelve antes que el formato.
-        if session.isRunStructureActive { return nil }
-        if session.isTramoResting { return nil }   // el descanso tiene su pantalla
-        if session.tramoIsErg { return nil }       // manda la máquina que mide
-        if session.currentSegment?.isEMOM == true { return .emom }
-        // Los formatos de acondicionamiento conservan su cronómetro dedicado.
-        if session.currentSegment?.isConditioningTimer == true { return nil }
-        // Y el resto es el suelo honesto de fuerza/reps — el mismo reparto que
-        // hacía el `switch` de `modalityHUD`, del que correr es la única excepción.
-        return session.currentSegment?.kind == .running ? nil : .fuerza
-    }
-
-    // THE ACTIVE TRAMO DECIDES — ver la nota de `superficieViva`, que resuelve las
-    // dos primeras ramas de formato antes de llegar aquí.
+    // UN MARCO. El tramo decide la LECTURA; el cromo y la acción son siempre
+    // `MarcoVivo` + `BotonVivo`. El árbol que devolvía nil (y pintaba phaseRail
+    // PRINCIPAL naranja + ExpertActionButton 40 pt) ya no existe.
     @ViewBuilder
-    private var modalityHUD: some View {
-        if session.isRunStructureActive {
-            // #61 — a folded run that carries a `structure` runs the native leg
-            // cursor (per-bout distance/target/incline), not the rotating machine.
-            StructuredRunLiveHUD(session: session)
-        } else if session.isTramoResting {
-            // Work just stopped: the questions changed, so the screen changes. One
-            // surface for every engine that rests (EMOM change window, Tabata /
-            // interval rest) — see RestSurface.
-            RestSurface(session: session)
-        } else if session.tramoIsErg {
-            // Erg work, alone or inside any format.
-            ErgHUDContent(session: session, pm5: pm5)
-        } else if session.currentSegment?.isConditioningTimer == true {
-            // Conditioning formats route by SCHEME to their dedicated timer (the
-            // block-level fold means one segment = one format), regardless of kind.
-            // A free-order format (AMRAP / For Time / Chipper) genuinely does not
-            // know which movement the athlete is on, so the format keeps the subject
-            // — but if a monitor is streaming under it, its numbers are shown rather
-            // than thrown away.
+    private var superficieMontada: some View {
+        switch SuperficieViva.de(session) {
+        case .emom:
+            EmomVivoView(session: session,
+                         accionTitulo: primaryTitle,
+                         alTocarAccion: { primaryAction() }) { topStrip }
+        case .fuerza:
+            FuerzaVivoView(session: session,
+                           accionTitulo: primaryTitle,
+                           alTocarAccion: { primaryAction() }) { topStrip }
+        case .relay:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                relaySurface
+            } apoyos: {
+                EmptyView()
+            }
+        case .structural:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                structuralWorkSurface
+            } apoyos: {
+                EmptyView()
+            }
+        case .rest:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                RestSurface(session: session)
+            } apoyos: {
+                apoyosDelHost
+            }
+        case .ergo:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                ErgHUDContent(session: session, pm5: pm5)
+            } apoyos: {
+                apoyosDelHost
+            }
+        case .runStructure:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                StructuredRunLiveHUD(session: session)
+            } apoyos: {
+                apoyosDelHost
+            }
+        case .conditioning:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                sujetoDeConditioning
+            } apoyos: {
+                apoyosDelHost
+            }
+        case .run:
+            HostVivo(session: session, accion: accionDelHost) {
+                topStrip
+            } sujeto: {
+                RunLiveHUD(session: session, gpsActive: gpsActive,
+                           onTapTreadmill: { showTreadmill = true },
+                           onTapOutdoor: { showOutdoor = true })
+            } apoyos: {
+                apoyosDelHost
+            }
+        }
+    }
+
+    private var accionDelHost: AccionDelHost {
+        if session.currentSegmentIsPartnerRelay {
+            return .una(titulo: "Relevo ▸", unicaSalida: true, nota: nil, act: { session.advanceRelay() })
+        }
+        if session.currentSegment?.formatScheme == .deathBy && session.condCountInRemaining <= 0 {
+            return .deathBy(falle: { session.deathByFail() }, logre: { session.deathByLogged() })
+        }
+        return .una(titulo: primaryTitle,
+                    unicaSalida: session.currentBlockIsStructural,
+                    nota: nil,
+                    act: { primaryAction() })
+    }
+
+    @ViewBuilder
+    private var sujetoDeConditioning: some View {
+        VStack(spacing: Theme.Spacing.s) {
             conditioningHUD
-            // The monitor's live numbers ride under a free-order format because
-            // nothing knows whether he is on the machine, so throwing them away
-            // would lose real data. On a ROUTE the app DOES know — and he is not on
-            // it, or the erg surface would have taken the screen. Leaving the rower's
-            // numbers under "50 wall balls" would read as his current work.
             if segmentInvolvesErg, pm5.isConnected, !session.isStationTramo {
                 ErgLiveStrip(pm5: pm5)
             }
-        } else {
-            // Correr es lo ÚNICO que queda en este árbol: el EMOM y el hierro se
-            // llevan la pantalla entera antes de llegar aquí (ver `superficieViva`),
-            // y con ellos se fue el suelo de `.rowOrSki` / `.none`, que ya iba a la
-            // misma superficie de fuerza.
-            RunLiveHUD(session: session, gpsActive: gpsActive,
-                       onTapTreadmill: { showTreadmill = true },
-                       onTapOutdoor: { showOutdoor = true })
         }
+    }
+
+    @ViewBuilder
+    private var apoyosDelHost: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
+                            collapsed: $partnerStripCollapsed)
+            ConnectionStrip(
+                session: session,
+                pm5: pm5,
+                gpsActive: gpsActive,
+                segmentIsErg: segmentInvolvesErg,
+                segmentIsRun: isRunSegment,
+                onTapPM5: { showPM5Sheet = true }
+            )
+            if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
+                BlockIntervalStrip(
+                    segments: session.plan.segments,
+                    currentIndex: session.currentSegmentIndex,
+                    onTap: { requestJump(to: $0) }
+                )
+            }
+            if let turn = currentDoblesTurn, !session.currentSegmentIsPartnerRelay {
+                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
+                               compact: true, partnerFallback: partnerFirstName)
+            }
+            if session.currentSegmentIsMetcon {
+                RxScaledToggle(session: session)
+            }
+            if segmentInvolvesErg && !pm5.isConnected {
+                connectPM5CTA
+            }
+            if isRunSeriesSegment, SuperficieViva.de(session) != .run {
+                TreadmillEntryButton(action: { showTreadmill = true })
+                OutdoorEntryButton(action: { showOutdoor = true })
+            }
+            Spacer(minLength: 0)
+            if !session.isTramoResting, !isErgSegment {
+                SiguienteTramoChip(siguiente: session.nextSegment)
+                    .padding(.bottom, 6)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
@@ -929,213 +882,6 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    /// The primary action, sized for landscape's narrow column. Same action and
-    /// same label as portrait — one behaviour, two arrangements.
-    private var landscapeAction: some View {
-        ExpertActionButton(title: primaryTitle, action: { primaryAction() })
-            .frame(height: 96)
-    }
-
-    /// Landscape. Named for what it MEANS (there is almost no height) rather than
-    /// for the orientation, because that is the constraint the layout answers.
-    private var isCompactHeight: Bool { vSizeClass == .compact }
-
-    /// The surface already owns a scroll view of its own (the warm-up / cool-down
-    /// checklist, which can run to a dozen movements and has scrolled since it was
-    /// built). Wrapping it in a second one would put two vertical scrollers on top
-    /// of each other and neither would answer the finger reliably — and it needs no
-    /// help anyway: its own scroller shrinks, so the button below it is already
-    /// pinned in both orientations.
-    private var surfaceScrollsItself: Bool { session.currentBlockIsStructural }
-
-    // THE WORK, and THE ACTION — split so the action can be pinned outside whatever
-    // scrolls. They are two properties instead of one because a landscape screen has
-    // to be able to put a scroll view between them; portrait renders them back to
-    // back inside the same VStack, which is exactly the tree it had before.
-
-    @ViewBuilder
-    private var liveSurface: some View {
-        if session.currentSegmentIsPartnerRelay {
-            // #23 — HYROX dobles relay: the PARTNER works this station while the
-            // athlete recovers (real dobles). Nothing is logged for the athlete;
-            // "Relevo ▸" advances to their next station.
-            relaySurface
-            Spacer(minLength: 0)
-        } else if session.currentBlockIsStructural {
-            // Warmup / cooldown: ONE readable checklist, gated behind a single
-            // "hecho" button — never per-exercise navigation/logging.
-            structuralWorkSurface
-            Spacer(minLength: 0)
-        } else {
-            ConnectionStrip(
-                session: session,
-                pm5: pm5,
-                gpsActive: gpsActive,
-                segmentIsErg: segmentInvolvesErg,
-                segmentIsRun: isRunSegment,
-                onTapPM5: { showPM5Sheet = true }
-            )
-            // The whole-session segment map earns its row only when there is more
-            // than one segment AND the current window isn't already counting its own
-            // series — inside a 20-round EMOM it repeated context the format strip
-            // already carries, on a screen that had no height to spare.
-            if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
-                BlockIntervalStrip(
-                    segments: session.plan.segments,
-                    currentIndex: session.currentSegmentIndex,
-                    onTap: { requestJump(to: $0) }
-                )
-            }
-            // #56 — DOBLES turn hero (mine / split): whose station this is, the rep
-            // reparto + bicolor bar and the "Después:" preview, above the work HUD.
-            // Carries the coach's pact (replacing the old dim split line); nil
-            // (hidden) for individual work and the relay.
-            if let turn = currentDoblesTurn {
-                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
-                               compact: true, partnerFallback: partnerFirstName)
-            }
-            modalityHUD
-            if session.currentSegmentIsMetcon {
-                RxScaledToggle(session: session)
-            }
-            // The erg surface fills its own height (see ErgHUDContent), so no spacer
-            // is pushed under it — that spacer is what left the old layout with a
-            // dead band in the middle and the bar squashed at the bottom. Formats
-            // that don't fill still get their slack. A scroll view gives its content
-            // its natural height, so the spacer has nothing to push against there
-            // and would only add a gap the athlete has to scroll past.
-            if !isErgSegment && !isCompactHeight {
-                Spacer(minLength: 0)
-            }
-            // Connect is offered whenever an erg belongs to this block, not only
-            // while its round is live — otherwise a ski EMOM gives the athlete no
-            // way to pair before the first minute starts.
-            if segmentInvolvesErg && !pm5.isConnected {
-                connectPM5CTA
-            }
-            if isRunSeriesSegment {
-                TreadmillEntryButton(action: { showTreadmill = true })
-                OutdoorEntryButton(action: { showOutdoor = true })
-            }
-            nextSegmentChip
-        }
-    }
-
-    @ViewBuilder
-    private var liveAction: some View {
-        if session.currentSegmentIsPartnerRelay {
-            relayButton
-        } else if session.currentBlockIsStructural {
-            primaryButton
-        } else {
-            bottomControls
-        }
-    }
-
-    // The "NEXT" chip is silent whenever something else already answers "what
-    // comes next" better: the rest screen answers it for the ROUND, and the erg
-    // surface's own context line answers it mid-piece ("luego descanso 2:00"). Two
-    // answers to the same question — one of them about a different scope — is
-    // exactly the clutter that left no room for the numbers.
-    @ViewBuilder
-    private var nextSegmentChip: some View {
-        if !session.isTramoResting, !isErgSegment {
-            // El chip vive en `SiguienteTramoChip`: las superficies del §10 montan
-            // su propio marco y necesitaban el mismo, y una segunda copia es como
-            // nacieron las catorce duraciones que el `Formato` vino a arreglar.
-            // Aquí se queda la CONDICIÓN (cuándo callar), que sí es de esta pantalla.
-            SiguienteTramoChip(siguiente: session.nextSegment)
-                .padding(.bottom, 6)
-        }
-    }
-
-    // MARK: - Phase rail (persistent top phases)
-
-    private enum RailState { case done, current, upcoming }
-
-    @ViewBuilder
-    private var phaseRail: some View {
-        let regions = session.plan.phaseRegions
-        HStack(spacing: 6) {
-            if regions.isEmpty {
-                // No block context (freeform / minimal plan) → one "Entreno" chip
-                // rather than a hidden, dead top area.
-                phaseChip(title: "Entreno", state: .current, action: nil)
-            } else {
-                ForEach(regions) { region in
-                    phaseChip(
-                        title: region.title,
-                        state: railState(region),
-                        action: { requestJump(to: region.firstIndex) }
-                    )
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-    }
-
-    private func railState(_ r: WorkoutPhaseRegion) -> RailState {
-        let i = session.currentSegmentIndex
-        if i > r.lastIndex { return .done }
-        if i >= r.firstIndex { return .current }
-        return .upcoming
-    }
-
-    @ViewBuilder
-    private func phaseChip(title: String, state: RailState, action: (() -> Void)?) -> some View {
-        let label = HStack(spacing: 5) {
-            if state == .done {
-                Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy))
-            }
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 9)
-        .foregroundStyle(railForeground(state))
-        .background(railBackground(state))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                .stroke(state == .current ? Theme.Color.accentText : Theme.Color.hairline,
-                        lineWidth: state == .current ? 1.5 : 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        .opacity(state == .upcoming ? 0.5 : 1)
-
-        Group {
-            if let action {
-                Button(action: action) { label }.buttonStyle(PressScaleStyle())
-            } else {
-                label
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Fase \(title), \(railAccessibility(state))")
-    }
-
-    private func railForeground(_ state: RailState) -> Color {
-        switch state {
-        case .current:  return Theme.Color.accentOn
-        case .done:     return Theme.Color.muted
-        case .upcoming: return Theme.Color.muted
-        }
-    }
-
-    private func railBackground(_ state: RailState) -> Color {
-        state == .current ? Theme.Color.accent : Theme.Color.surface
-    }
-
-    private func railAccessibility(_ state: RailState) -> String {
-        switch state {
-        case .current:  return "actual"
-        case .done:     return "completada"
-        case .upcoming: return "siguiente, toca para saltar"
-        }
-    }
-
     // MARK: - Primary action
 
     // Warmup / cooldown checklist surface — every movement + a rounds guide,
@@ -1151,11 +897,6 @@ struct ActiveWorkoutView: View {
                 .padding(.top, 4)
             }
         }
-    }
-
-    private var primaryButton: some View {
-        ExpertActionButton(title: primaryTitle, action: { primaryAction() })
-            .frame(height: 88)
     }
 
     // A structural block closes as ONE completion; everything else advances.
@@ -1213,7 +954,7 @@ struct ActiveWorkoutView: View {
     // The conditioning bottom button label, by scheme. During the post-Empezar
     // 3-2-1 it SKIPS the count-in. AMRAP marks a round; For Time / Chipper / Ladder
     // / Steady close (final time); Tabata logs a rep; Intervals end a bout. Death By
-    // uses dual buttons (see `deathByControls`) — this label is for accessibility.
+    // uses dual BotonVivo (FALLÉ / LO LOGRÉ) — this label is for accessibility.
     private var conditioningPrimaryTitle: String {
         if session.condCountInRemaining > 0 { return "SALTAR" }
         switch session.currentSegment?.formatScheme {
@@ -1233,38 +974,6 @@ struct ActiveWorkoutView: View {
             }
             return session.isLastSegment ? "TERMINAR" : "HECHO"
         default:         return "SIGUIENTE"
-        }
-    }
-
-    // The bottom action area: Death By gets a dual "Fallé / Lo logré" control (the
-    // fail is what ends it); every other format uses the single contextual button.
-    @ViewBuilder
-    private var bottomControls: some View {
-        if session.currentSegment?.formatScheme == .deathBy && session.condCountInRemaining <= 0 {
-            deathByControls
-        } else {
-            primaryButton
-        }
-    }
-
-    private var deathByControls: some View {
-        HStack(spacing: 8) {
-            Button(action: { session.deathByFail() }) {
-                Text("FALLÉ")
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(width: 116)
-                    .frame(height: 88)
-                    .background(Theme.Color.surfaceElevated)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.danger.opacity(0.55), lineWidth: 1.5))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Fallé, termina el Death By")
-            ExpertActionButton(title: "LO LOGRÉ", action: { session.deathByLogged() })
-                .frame(height: 88)
         }
     }
 
@@ -1297,7 +1006,7 @@ struct ActiveWorkoutView: View {
 
     // MARK: - Navigation requests (confirm where the move is destructive)
 
-    // Phase rail / segment stepper. A forward jump that OMITS intermediate work
+    // BlockIntervalStrip / segment stepper. A forward jump that OMITS intermediate work
     // confirms; an adjacent forward step is the normal advance. A backward jump
     // reopens; it confirms only if the current segment has unsaved live progress.
     private func requestJump(to index: Int) {
@@ -1669,42 +1378,4 @@ private struct PendingNav {
     let message: String
     let confirmTitle: String
     let action: () -> Void
-}
-
-// The big bottom primary action (88pt, radius 14). Generalised from the old
-// LAP-only button: the title is contextual ("SIGUIENTE" / "HECHO" / "TERMINAR" /
-// "EMPEZAR"). The session methods own the haptic; this only flashes on tap. A
-// 0.5s debounce guards against a double-fire under sweaty fingers.
-private struct ExpertActionButton: View {
-    let title: String
-    let action: () -> Void
-    @State private var flashing: Bool = false
-    @State private var lastTap: Date = .distantPast
-
-    var body: some View {
-        Button {
-            let now = Date()
-            guard now.timeIntervalSince(lastTap) > 0.5 else { return }
-            lastTap = now
-            withAnimation(.easeOut(duration: 0.18)) { flashing = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                withAnimation(.easeIn(duration: 0.16)) { flashing = false }
-            }
-            action()
-        } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .fill(flashing ? Theme.Color.ok : Theme.Color.accent)
-                Text(title)
-                    .font(.system(size: 40, weight: .heavy, design: .default).italic())
-                    .tracking(3)
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.horizontal, Theme.Spacing.l)
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(title)
-    }
 }

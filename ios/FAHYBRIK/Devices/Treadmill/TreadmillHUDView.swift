@@ -324,7 +324,7 @@ struct TreadmillHUDView: View {
                     startButton { model.startBelt() }
                 }
             } else {
-                neutralButton("TERMINAR TRAMO") { model.endLegNow() }
+                BotonVivo(titulo: "TERMINAR TRAMO") { model.endLegNow() }
             }
         }
     }
@@ -697,17 +697,17 @@ struct TreadmillHUDView: View {
                 if model.canControlSpeed {
                     // The belt takes start/stop/speed → START when stopped, big STOP when moving.
                     if model.beltMoving {
-                        neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
+                        BotonVivo(titulo: model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
                         stopButton { model.stopBelt() }
                     } else {
                         startButton { model.startBelt() }
-                        neutralButton("TERMINAR TRAMO") { model.endLegNow() }
+                        BotonVivo(titulo: "TERMINAR TRAMO") { model.endLegNow() }
                     }
                 } else {
                     // Manual-speed belt (athlete starts/stops on the console) OR read-only →
                     // the app runs the workout flow, never a belt button that would do nothing.
-                    neutralButton(model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
-                    neutralButton("TERMINAR TRAMO AHORA") { model.endLegNow() }
+                    BotonVivo(titulo: model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
+                    BotonVivo(titulo: "TERMINAR TRAMO AHORA") { model.endLegNow() }
                 }
             }
         }
@@ -776,24 +776,6 @@ struct TreadmillHUDView: View {
             }
         }
         .transition(.opacity)
-    }
-
-    private func neutralButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 17, weight: .heavy, design: .default).italic())
-                .tracking(0.8)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .frame(height: 66)
-                .background(Theme.Color.surfaceElevated)
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
     }
 
     // MARK: - Connected-but-silent hint (mirror of the erg's "sin datos" banner)

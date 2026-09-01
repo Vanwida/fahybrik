@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · Un live, un diseño: MarcoVivo para todo el trabajo (FH-55)
+
+**Decidido (Doc Plan + addenda, Owner 1-sep-2026):** el live tiene UN casco. Quien gana el árbol de prioridad de `ActiveWorkoutView` pinta la LECTURA (ergo / ritmo / ronda / serie). El cromo y la acción son siempre `MarcoVivo` + `BotonVivo` (`LenguajeVivoUI`). `SuperficieViva.de` no puede devolver nil.
+
+**Se elimina el cromo C.** Era el default cuando `superficieViva` devolvía nil: `phaseRail` PRINCIPAL naranja + `ExpertActionButton` TERMINAR 40 pt. BikeErg vivía ahí. Dejar ese árbol «por si acaso» es un parche. `ExpertActionButton` no existe. `phaseRail` no existe.
+
+**Tres familias era el bug, no dos.** Owner fotografió A (tapa cinta: cards, REANUDAR / TERMINAR TRAMO) contra C (cromo naranja). B (`MarcoVivo`: EMOM sin máquina, fuerza, tapa outdoor) ya estaba en el camino. Unificar = un casco (B, y A alineada a B con `BotonVivo`). Dejar A para run, B para hierro y C para ergo ES el fallo.
+
+**El tramo decide la lectura, no el cromo.** `tramoIsErg` no abre otro árbol: `ErgHUDContent` es el sujeto dentro de `MarcoVivo`. El minuto de ski/bici de un EMOM es `.ergo`, no `EmomVivoView`. Un For Time / AMRAP elige el sujeto (`formatScheme`), no un cromo. Cerrar la X de la tapa de cinta hace `dismiss()`; `maybeAutoOpenRunCover` no reabre el mismo tramo; `de()` sigue `.run` y el atleta queda en el mismo casco, no en C.
+
+**Naranja sólido solo `unicaSalida`** (fuerza, estructural, relevo). Pintar `BotonVivo` naranja siempre es FH-9 — no se hace aquí. No se inventan pestañas (FH-44). El acento de marca no se toca.
+
+**En consecuencia, no hacer:** no revivir `ExpertActionButton`; no un tercer HUD «para ergo»; no devolver nil en `SuperficieViva.de`; no mezclar FH-48 / FH-56 / PR 94; no implementar FH-44 ni FH-9 en este lote; no tocar el HUD del Watch ni el flujo de conexión PM5 (`ErgPreStartFlow`) salvo que el live lo pinte.
+
+---
+
 ## 2026-09-01 · El live es un HKWorkoutSession en el iPhone; el plan del coach vive en disco (FH-48)
 
 **Decidido (Plan reescrito, Owner 1-sep-2026):** un solo `HKWorkoutSession` en el iPhone (Apple, iOS 17+, deploy 18). FAHYBRID solo persiste el plan del coach (bloque/serie/tramo) colgado de ese UUID. Cero segundo reloj. Cero keep-alives como dueño. Cero `UIBackgroundModes` extra.
