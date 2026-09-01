@@ -402,11 +402,12 @@ extension PrescriptionSet {
     static func emomWorkString(_ m: Measure?) -> String? {
         guard let m else { return nil }
         switch m {
-        case .reps(let v):           return v > 0 ? "\(v) reps" : nil
-        case .distance(let meters):  return Formato.distancia(meters)
-        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
-        case .calories(let v):       return v > 0 ? "\(v) cal" : nil
-        case .unknown:               return nil
+        case let .reps(v, _):           return v > 0 ? "\(v) reps" : nil
+        case let .distance(meters, _):  return Formato.distancia(meters)
+        case let .duration(seconds, _): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
+        case let .calories(v, _):       return v > 0 ? "\(v) cal" : nil
+        case .repsToFailure:            return Vocab.alFallo
+        case .unknown:                  return nil
         }
     }
 }
