@@ -146,6 +146,8 @@ extension WorkoutSession {
         MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
         #endif
     }
+
+    func tap(reps: Int = 1) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         repsCurrentSegment = max(0, repsCurrentSegment + reps)
         repsConfirmed = true
