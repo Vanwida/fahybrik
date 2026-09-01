@@ -7,7 +7,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-48 (este lote):** el live moría al ir a background. Causa raíz: el live de `main` es un `Timer` en `@State`, no un `HKWorkoutSession`. Un solo session en el iPhone; el plan del coach cuelga de ese UUID y se reabre DESDE DISCO en 18 (cold launch + `scenePhase.active`, free, sin bearer, sin `armBlock()`). En 26, `recoverActiveWorkoutSession` además. Reloj = `startDate` + pausas (`WorkoutRunClock`) — no el split HKWorkoutBuilder@18 / Live@26 de PR 100. Watch ADOPTA. Sin keep-alives como dueño. PR 100 no se mergea.
+**FH-48 (este lote, PR #106):** el live moría al ir a background. Causa raíz: el live de `main` es un `Timer` en `@State`, no un `HKWorkoutSession`. Un solo session en el iPhone; el plan del coach cuelga de ese UUID y se reabre DESDE DISCO en 18 (cold launch + `scenePhase.active`, free, sin bearer, sin `armBlock()`). En 26, `recoverActiveWorkoutSession` además. Reloj = `startDate` + pausas (`WorkoutRunClock`) — no el split HKWorkoutBuilder@18 / Live@26 de PR 100. Watch ADOPTA si Apple entrega el espejo; `startMirroringToCompanionDevice` es watchOS 10 (no se llama en iOS). Sin keep-alives como dueño. PR 100 no se mergea.
 
 **FH-53 (en main / prod):** unique `(execution_id, position)` restaurado (0149). No mezclar con FH-48.
 

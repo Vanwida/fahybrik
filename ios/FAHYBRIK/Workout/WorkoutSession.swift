@@ -695,7 +695,8 @@ final class WorkoutSession {
             PhoneWorkoutRun.shared.startIfNeeded(
                 activityKind: kind,
                 diskOffset: elapsedSeconds,
-                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial
+                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial,
+                runUUID: hkSessionUUID
             )
             if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
             PhoneWorkoutRun.shared.startMirroring()
@@ -794,6 +795,9 @@ final class WorkoutSession {
     func pauseForVideo() -> Bool {
         guard !isPaused, !isFinished else { return false }
         isPaused = true
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        #endif
         return true
     }
 
@@ -803,6 +807,9 @@ final class WorkoutSession {
         guard isPaused, !isFinished else { return }
         isPaused = false
         lastTick = Date()
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        #endif
     }
 
     func tap(reps: Int = 1) {
@@ -1105,6 +1112,9 @@ final class WorkoutSession {
         primeRxScaledIfNeeded()
         isPaused = false
         isAwaitingBlockStart = true
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        #endif
     }
 
     /// "Empezar" — leave the preview and START the current block. Resets the tick

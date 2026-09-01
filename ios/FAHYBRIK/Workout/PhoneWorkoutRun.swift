@@ -66,9 +66,20 @@ final class PhoneWorkoutRun: NSObject {
 
     // MARK: - Start / attach / recover
 
+    /// Bind the coach-plan hang-off id. Apple does not expose `HKWorkoutSession`
+    /// uuid (`startDate` / `state` / `type` only) — this id lives on disk.
+    func bindRunUUID(_ id: UUID?) {
+        if let id { runUUID = id }
+    }
+
     /// Create and retain the primary session on Empezar. Idempotent — recover
     /// and a second onAppear must not birth another session.
-    func startIfNeeded(activityKind: String, diskOffset: TimeInterval = 0, startPaused: Bool = false) {
+    func startIfNeeded(
+        activityKind: String,
+        diskOffset: TimeInterval = 0,
+        startPaused: Bool = false,
+        runUUID preferred: UUID? = nil
+    ) {
         guard session == nil, HKHealthStore.isHealthDataAvailable() else { return }
         let config = HKWorkoutConfiguration()
         config.activityType = Self.activityType(for: activityKind)
@@ -77,7 +88,7 @@ final class PhoneWorkoutRun: NSObject {
             let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
             session.delegate = delegateShim
             self.session = session
-            self.runUUID = runUUID ?? UUID()
+            self.runUUID = self.runUUID ?? preferred ?? UUID()
             self.diskOffset = max(0, diskOffset)
             self.pauseBeganAt = nil
             self.pausedAccumulated = 0
@@ -94,13 +105,13 @@ final class PhoneWorkoutRun: NSObject {
 
     /// Reattach a session Apple handed back from `recoverActiveWorkoutSession`.
     /// iOS 26 only. Clock stays `startDate` — we do not read a builder.
+    /// Does not mint a hang-off id (Apple has none); disk binds it.
     func attachRecovered(_ recovered: HKWorkoutSession) {
         session = recovered
         recovered.delegate = delegateShim
         diskOffset = 0
         pausedAccumulated = 0
         pauseBeganAt = recovered.state == .paused ? Date() : nil
-        if runUUID == nil { runUUID = UUID() }
     }
 
     /// Align pause accounting so `elapsedTime` matches the coach snapshot after
@@ -148,13 +159,16 @@ final class PhoneWorkoutRun: NSObject {
         session?.resume()
     }
 
-    /// Mirror the iPhone primary TO the Watch. Watch adopts — it must not create.
-    /// Apple documents `startMirroringToCompanionDevice` as watchOS 10; the
-    /// method is on `HKWorkoutSession` (iOS 17+). If the companion never joins,
-    /// the phone remains the owner.
+    /// Watch adopts if Apple delivers a mirrored session. Apple docs (HealthKit):
+    /// `startMirroringToCompanionDevice` is watchOS 10 — Watch → companion iOS.
+    /// There is no iOS symbol that mirrors an iPhone primary onto the Watch.
+    /// `startWatchApp` is "to create a new workout session" — we do not call it.
+    /// If the wrist never joins, the phone remains the owner.
     func startMirroring() {
+        #if os(watchOS)
         guard let session, session.type != .mirrored else { return }
         session.startMirroringToCompanionDevice { _, _ in }
+        #endif
     }
 
     func sendToWatch(_ data: Data) {

@@ -18,7 +18,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Muerte del proceso en 18:** Apple no recupera la sesión. Se reabre el plan del coach DESDE DISCO (cold launch Y `scenePhase.active`), con o sin bearer, free incluido, sin `armBlock()`. En 26: recover de Apple + el mismo disco.
 
-**Watch:** un primary. El iPhone espeja (`startMirroringToCompanionDevice`); el Watch ADOPTA. No `startWatchApp` (eso creaba la segunda sesión).
+**Watch:** un primary en el iPhone. El Watch ADOPTA si Apple entrega una sesión espejada (`workoutSessionMirroringStartHandler`). No `startWatchApp` — Apple: *«Launches or wakes the companion watchOS app to create a new workout session»*. `startMirroringToCompanionDevice` es **watchOS 10** (Watch → iPhone); no hay símbolo iOS que espeje un primary de iPhone al Watch. Si la muñeca no se une, el teléfono sigue siendo el dueño.
 
 **Causa raíz:** el live de prod era un `Timer` en `@State` (`WorkoutSession` + `fullScreenCover`). iOS no lo trata como workout. No fue un HealthKit mal instalado. PR 100 no se mergea.
 

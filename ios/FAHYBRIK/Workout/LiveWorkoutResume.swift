@@ -14,6 +14,8 @@ final class LiveWorkoutResume {
     /// Weak so a finished container can deallocate. Used to persist on background
     /// and to skip a second cover while the live is already up.
     @ObservationIgnored private weak var tracked: WorkoutSession?
+    /// `.task` and `scenePhase.active` can enter together on cold launch.
+    @ObservationIgnored private var isRecovering = false
 
     private init() {}
 
@@ -31,16 +33,18 @@ final class LiveWorkoutResume {
     /// Cold launch AND `scenePhase.active`. Always. No bearer gate. Free included.
     /// Apple recover (iOS 26) is in addition to the disk plan, not instead of it.
     func recoverOnLaunch(hrZones: HRZoneProfile?) async {
-        if hasLiveSession { return }
+        if hasLiveSession || isRecovering { return }
+        isRecovering = true
+        defer { isRecovering = false }
         _ = await PhoneWorkoutRun.shared.recover()
         guard let saved = await WorkoutStateStore.shared.load(),
               WorkoutRecoveryGate.isFresh(saved) else { return }
-        if let appleUUID = PhoneWorkoutRun.shared.runUUID,
-           let snapUUID = saved.hkSessionUUID,
-           appleUUID != snapUUID {
-            return
-        }
+        guard LiveWorkoutResumeGate.shouldReopenCoachPlan(
+            boundRunUUID: PhoneWorkoutRun.shared.runUUID,
+            snapshotUUID: saved.hkSessionUUID
+        ) else { return }
         await WorkoutStateStore.shared.open()
+        PhoneWorkoutRun.shared.bindRunUUID(saved.hkSessionUUID)
         let session = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
         session.restore(from: saved)
         let kind = WatchConnectivityiOSService.activityKind(from: saved.plan.principalModalityWire)
@@ -48,11 +52,10 @@ final class LiveWorkoutResume {
             PhoneWorkoutRun.shared.startIfNeeded(
                 activityKind: kind,
                 diskOffset: saved.elapsedSeconds,
-                startPaused: saved.isPaused || (saved.isAwaitingBlockStart ?? false)
+                startPaused: saved.isPaused || (saved.isAwaitingBlockStart ?? false),
+                runUUID: saved.hkSessionUUID
             )
-            if let uuid = PhoneWorkoutRun.shared.runUUID {
-                session.hkSessionUUID = uuid
-            }
+            session.hkSessionUUID = PhoneWorkoutRun.shared.runUUID ?? saved.hkSessionUUID
         } else {
             PhoneWorkoutRun.shared.adoptDiskElapsed(saved.elapsedSeconds, isPaused: saved.isPaused)
             if saved.isPaused || (saved.isAwaitingBlockStart ?? false) {
@@ -76,6 +79,15 @@ final class LiveWorkoutResume {
     func dismiss() {
         cover = nil
         tracked = nil
+    }
+}
+
+/// Apple has no `HKWorkoutSession` uuid. Reopen unless this process already
+/// bound a different hang-off than the snapshot (26 recover vs leftover plan).
+enum LiveWorkoutResumeGate {
+    static func shouldReopenCoachPlan(boundRunUUID: UUID?, snapshotUUID: UUID?) -> Bool {
+        guard let bound = boundRunUUID, let snap = snapshotUUID else { return true }
+        return bound == snap
     }
 }
 

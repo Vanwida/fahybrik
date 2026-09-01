@@ -3,9 +3,10 @@ import Observation
 import HealthKit
 
 // PHONE side of MIRROR MODE. The iPhone owns the PRIMARY HKWorkoutSession
-// (`PhoneWorkoutRun`). This service pushes 1 Hz frames and receives HR/commands
-// over `sendToRemoteWorkoutSession`. The Watch ADOPTS — we do not startWatchApp
-// (that created a second session). If the wrist never joins, the phone runs alone.
+// (`PhoneWorkoutRun`). Frames go over `sendToRemoteWorkoutSession` when Apple
+// has paired a remote session. The Watch ADOPTS — we do not startWatchApp
+// (Apple: that creates a new Watch session). If the wrist never joins, the
+// phone runs alone.
 @MainActor
 @Observable
 final class PhoneMirrorService {
@@ -79,8 +80,9 @@ final class PhoneMirrorService {
         }
     }
 
-    /// Bind the engine and mirror the iPhone PRIMARY to the Watch. The Watch
-    /// ADOPTS — we do not `startWatchApp` (that created a second session).
+    /// Bind the engine. The Watch ADOPTS if Apple delivers a mirrored session.
+    /// We do not `startWatchApp` (Apple: that creates a new Watch session).
+    /// `startMirroringToCompanionDevice` is watchOS 10 (Watch → iPhone) — a no-op here.
     /// `activityKind` is the watch vocabulary ("running" | "strength" | "hyrox" |
     /// "mixed") — the same string WatchConnectivityiOSService.activityKind emits.
     func begin(session: WorkoutSession, activityKind: String) {

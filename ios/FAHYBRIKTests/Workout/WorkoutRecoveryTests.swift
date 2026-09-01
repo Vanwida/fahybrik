@@ -115,6 +115,19 @@ final class WorkoutRecoveryTests: XCTestCase {
         session.stop()
     }
 
+    func testResumeGateReopensWhenEitherUUIDMissing() {
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: nil, snapshotUUID: UUID()))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: UUID(), snapshotUUID: nil))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: nil, snapshotUUID: nil))
+    }
+
+    func testResumeGateRejectsMismatchedHangOff() {
+        let a = UUID()
+        let b = UUID()
+        XCTAssertFalse(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: a, snapshotUUID: b))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: a, snapshotUUID: a))
+    }
+
     func testRestoreReopensFreeCursor() {
         var snap = snapshot(assignment: nil)
         snap = PersistedWorkoutState(
