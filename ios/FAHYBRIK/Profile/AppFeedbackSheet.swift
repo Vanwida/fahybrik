@@ -45,20 +45,11 @@ enum AppFeedbackAPI {
     static let maxBody = 2000
     static let maxAppVersion = 60
 
-    /// "1.0 (5)" — marketing version + build from the bundle, clamped to the wire
-    /// limit. Nil if the bundle carries neither (never fabricated).
+    /// Marketing + build from the running bundle, clamped to the wire limit.
+    /// Same reader as Perfil and the Watch idle footer. Nil if the bundle
+    /// carries neither (never fabricated).
     static var appVersion: String? {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String
-        let build = info?["CFBundleVersion"] as? String
-        let composed: String?
-        switch (short, build) {
-        case let (s?, b?): composed = "\(s) (\(b))"
-        case let (s?, nil): composed = s
-        case let (nil, b?): composed = b
-        default: composed = nil
-        }
-        return composed.map { String($0.prefix(maxAppVersion)) }
+        AppBundleMetadata.displayVersion.map { String($0.prefix(maxAppVersion)) }
     }
 
     /// POST the feedback. Returns `saved`. Throws `APIError` (401/429/400/network)

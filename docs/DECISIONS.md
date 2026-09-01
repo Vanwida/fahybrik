@@ -10,6 +10,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · La versión del binario se ve DENTRO de la app (iPhone y Watch)
+
+**Decidido (Owner, Guidelines §7):** cada update iOS/WatchOS sube
+`CURRENT_PROJECT_VERSION` en el mismo PR, y la etiqueta marketing + build se
+pinta **dentro** de Perfil (iPhone) y del idle del reloj — no en Ajustes de iOS.
+Formato: `1.0 (N)`.
+
+**Fuente:** `Bundle.object(forInfoDictionaryKey:)` sobre
+`CFBundleShortVersionString` (release number, Bundle Resources) y
+`CFBundleVersion` (build that identifies an iteration). Una sola lectura:
+`AppBundleMetadata` en `FAHYBRIKCore` (mismo criterio que `Marca`). El
+Info.plist de los tres targets expande `$(MARKETING_VERSION)` /
+`$(CURRENT_PROJECT_VERSION)` desde `settings.base` de `project.yml`.
+
+**Se descarta:** un segundo lector en `AppFeedbackSheet` (ahora reutiliza
+`displayVersion`); el footer del reloj que fabricaba `"?"` y prefijaba `v`;
+pintar la versión encima del HUD live (el overlay vivía en `standaloneContent`,
+que incluye `.active`).
+
+**En consecuencia, no hacer:** no inventar un motor de versión; no clavar el
+número de build en Swift; no dejar `project.yml` y `pbxproj` desfasados; no
+pintar la versión en el live HUD; no leer el bundle otra vez para el feedback.
+
+---
+
 ## 2026-08-24 · Un entreno tiene UN dueño y UN final. Y quién lo termina, importa.
 
 **Qué pasó (card 157):** al acabar un entreno en el móvil había que acabarlo otra vez en el Apple Watch — otro Terminar, otro resumen, otro guardado — y al revés igual. Sin saber cuál de los dos contaba.
