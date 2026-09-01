@@ -8,8 +8,10 @@ import Foundation
 //   · Cinta tonta      → HKWorkout indoor del reloj. Apple cuenta.
 //
 // Se elige en `RunPreStartFlow` (brief prescrito y constructor libre), viaja
-// en la sesión y abre el HUD correcto. Ephemeral — no se persiste.
-enum RunEnvironment: String, Equatable, CaseIterable {
+// en la sesión y en el snapshot (`PersistedWorkoutState.runEnvironment`) para
+// reabrir el HUD correcto. `String` + `Codable`: Apple sintetiza encode/decode
+// con el raw value; sin esto el snapshot no es `Decodable`.
+enum RunEnvironment: String, Codable, Equatable, CaseIterable {
     case outdoor     // Calle
     case treadmill   // Cinta con conexión (FTMS)
     case indoor      // Cinta sin conexión (tonta)
