@@ -7,7 +7,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-48 (este lote):** Verify KO en `main` `a901a311` — `HKWorkoutSession(healthStore:configuration:)` es iOS 26 y el deploy es 18. Crear en 18 con `init(configuration:)` (Apple, deprecado en la clase iOS 17+). Recover / Live builder / `init(healthStore:)` siguen detrás de `#available(iOS 26)`. Reloj = `startDate` + pausas. Disco igual. No el split de builders de PR 100.
+**FH-48 (este lote):** Verify KO en FAHYBRIKTests — `lift("Back Squat", 80, 1)` sin labels. El helper es `lift(_ title: String, kg: Double, order: Int)`. Solo se etiquetan esas llamadas. No se reabre FH-46. No se toca PhoneWorkoutRun.
 
 **FH-53 (en main / prod):** unique `(execution_id, position)` restaurado (0149). No mezclar con FH-48.
 

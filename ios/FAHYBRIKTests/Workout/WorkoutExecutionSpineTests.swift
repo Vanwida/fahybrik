@@ -291,7 +291,7 @@ final class WorkoutExecutionSpineTests: XCTestCase {
             return WorkoutSegment(order: order, title: title, kind: .strength, templateSegmentId: order,
                                   targetReps: 5, loadKg: kg, blockTitle: "A", blockPosition: 1, prescription: rx)
         }
-        let s = armedSession([lift("Back Squat", 80, 1), lift("Bench Press", 60, 2)])
+        let s = armedSession([lift("Back Squat", kg: 80, order: 1), lift("Bench Press", kg: 60, order: 2)])
         s.primeManualLoadIfNeeded()
         s.confirmExerciseLoad(95)
         s.primaryAdvance()
