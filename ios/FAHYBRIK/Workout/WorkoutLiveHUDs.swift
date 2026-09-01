@@ -1,15 +1,13 @@
 import SwiftUI
 
-// Las piezas de la pantalla de entreno que NO tienen marco propio: el HUD de
-// correr en cinta/manual, las listas estructurales y las tiras de contexto que
-// `ActiveWorkoutView` apila en su ranura.
+// LECTURAS del live, no cromo. `RunLiveHUD` y las listas estructurales son el
+// SUJETO dentro de `HostVivo` / `MarcoVivo`. El cromo y la acción viven en
+// `LenguajeVivoUI` (`BotonVivo`). Un fork de cromo por formato es deuda.
 //
-// Lo que ya NO vive aquí, y por qué (29-jul):
-//   • El EMOM y el hierro se mudaron a `Workout/Vivo/` — hablan el §10 del
-//     CONTRATO-UI y montan su propio `MarcoVivo`, porque el ancla del sujeto es
-//     una propiedad de la pantalla y no cabe en una ranura.
-//   • El ergo nunca estuvo aquí: tiene UNA superficie propia, `ErgHUDContent`
-//     (Devices/PM5), que sirve vertical y horizontal por igual.
+// Lo que ya NO vive aquí, y por qué:
+//   • El EMOM y el hierro montan su propio `MarcoVivo` (`Workout/Vivo/`).
+//   • El ergo es `ErgHUDContent` (Devices/PM5): la lectura de la máquina,
+//     también dentro del mismo marco. Vertical y horizontal, el mismo sujeto.
 //
 // Todas leen `WorkoutSession` + `PM5ConnectionStore` como fuentes únicas — sin
 // estado duplicado. Tokens de Theme/Atoms.

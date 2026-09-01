@@ -170,11 +170,7 @@ struct FuerzaVivoView<Cromo: View>: View {
                 }
             }
             Spacer(minLength: 0)
-            if let bpm = session.liveHRBpm {
-                chipPulso("\(bpm) \(Vocab.ppm)", tono: session.liveZone?.color ?? Theme.Color.foreground)
-            } else {
-                chipPulso("Sin reloj", tono: Theme.Color.muted)
-            }
+            ChipPulsoVivo(session: session)
         }
     }
 
@@ -195,21 +191,6 @@ struct FuerzaVivoView<Cromo: View>: View {
 
     private var descansoPrescrito: Int? {
         session.setRecords.compactMap(\.restS).first
-    }
-
-    private func chipPulso(_ texto: String, tono: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "heart.fill").font(.system(size: 8, weight: .bold))
-            Text(texto)
-                .scaledFont(9, weight: .heavy, relativeTo: .caption2, italic: true)
-                .uppercaseTracked(0.7)
-                .lineLimit(1)
-        }
-        .foregroundStyle(tono)
-        .padding(.horizontal, Theme.Spacing.s)
-        .padding(.vertical, 4)
-        .background(Theme.Color.surface.opacity(0.8), in: Capsule())
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - El sujeto

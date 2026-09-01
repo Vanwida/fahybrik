@@ -438,6 +438,9 @@
 		F0BD26DAFD50CDA3681C31F3 /* InjuryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9EF8E668CB2CF467C847928 /* InjuryServiceTests.swift */; };
 		F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */; };
 		F15648AE7B7F361903CFF902 /* EmomVivoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */; };
+		A11F5501C0DE55AA00000002 /* SuperficieViva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000001 /* SuperficieViva.swift */; };
+		A11F5501C0DE55AA00000004 /* HostVivo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000003 /* HostVivo.swift */; };
+		A11F5501C0DE55AA00000006 /* SuperficieVivaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
 		F2B1FCED68ECF4D589808275 /* SolicitarCarreraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2842D4B17C41EEA3B415E8BA /* SolicitarCarreraView.swift */; };
 		F2FCE58AD9EBE3714C6352B4 /* EmailSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B36B6CE858283E18E8F3CB /* EmailSignInView.swift */; };
@@ -862,6 +865,9 @@
 		C9E8D2BEFA54D20B8D0BF7DB /* DoblesShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesShared.swift; sourceTree = "<group>"; };
 		CAD8AE716E7330D8587FAA76 /* LifecycleSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleSheets.swift; sourceTree = "<group>"; };
 		CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmomVivoView.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000001 /* SuperficieViva.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperficieViva.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000003 /* HostVivo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostVivo.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperficieVivaTests.swift; sourceTree = "<group>"; };
 		CB2C2734A579C7C24E28E740 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		CBF44E434FDCCBC4C3AD2987 /* DecodingTolerance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodingTolerance.swift; sourceTree = "<group>"; };
 		CC334A9E3CE1FDC278B121B0 /* NoAutoConnectSourceGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoAutoConnectSourceGuardTests.swift; sourceTree = "<group>"; };
@@ -1459,6 +1465,7 @@
 				30558745496C3229EA59B4C9 /* KeychainTokenStoreTests.swift */,
 				38597AB9E7F5718DE1CB8079 /* LenguajeVivoTests.swift */,
 				997EAFD257C4395ADB3A7140 /* OutdoorRunHUDRenderTests.swift */,
+				A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */,
 				3B686534E928B8738B0F6C60 /* PerfilMarcasHistorialRenderTests.swift */,
 				9ED9D3FD08706D11359E7E7C /* VivoHUDRenderTests.swift */,
 				997F135C465EA5E004B46A6A /* WireEnumToleranceTests.swift */,
@@ -1579,7 +1586,9 @@
 			children = (
 				CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */,
 				61CB129472FF891F9C5BB0BB /* FuerzaVivoView.swift */,
+				A11F5501C0DE55AA00000003 /* HostVivo.swift */,
 				289F5B93DF2287BB13B6C122 /* SiguienteTramoChip.swift */,
+				A11F5501C0DE55AA00000001 /* SuperficieViva.swift */,
 			);
 			path = Vivo;
 			sourceTree = "<group>";
@@ -2246,6 +2255,7 @@
 				C3D049B376C0CE832D341785 /* HistoryModels.swift in Sources */,
 				D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */,
 				4DB86F3236C11593F201290B /* HistoryView.swift in Sources */,
+				A11F5501C0DE55AA00000004 /* HostVivo.swift in Sources */,
 				A477410C61DF6DFC872C0151 /* HyresultImport.swift in Sources */,
 				87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,
@@ -2363,6 +2373,7 @@
 				B941C8D1CE4EA7D022184C0C /* StrengthService.swift in Sources */,
 				265692D9C6031D4DD0D30A6D /* SubscriptionService.swift in Sources */,
 				8EB2694A481FA095DC2785D6 /* SubscriptionView.swift in Sources */,
+				A11F5501C0DE55AA00000002 /* SuperficieViva.swift in Sources */,
 				FD1772240A6080F945385803 /* TablaDeTramos.swift in Sources */,
 				4B02E985167FE08605FA5F61 /* TestBatteryCard.swift in Sources */,
 				A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */,
@@ -2522,6 +2533,7 @@
 				F3EEAA6DE2296AE646640CF1 /* KeychainTokenStoreTests.swift in Sources */,
 				759868AA595B3738C90678E3 /* LenguajeVivoTests.swift in Sources */,
 				F95A0651AA28B3E9ED1B78D6 /* MirrorWireModelsTests.swift in Sources */,
+				A11F5501C0DE55AA00000006 /* SuperficieVivaTests.swift in Sources */,
 				3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */,
 				412634389E44225B77D3E588 /* NoAutoConnectSourceGuardTests.swift in Sources */,
 				00A56EEA99012C1B9C92DA57 /* NutritionAndOfflineTests.swift in Sources */,
@@ -2593,7 +2605,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -2622,7 +2634,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
@@ -2652,7 +2664,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -2675,7 +2687,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -2788,7 +2800,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
@@ -2897,7 +2909,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
