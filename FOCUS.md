@@ -7,7 +7,7 @@ Estado vivo del proyecto. Se actualiza en el mismo commit que el trabajo.
 
 ## En qué estamos ahora
 
-**FH-55 (este lote):** Un live, un diseño. Todo el trabajo (ergo, carrera, formato, EMOM, fuerza, descanso, estructural, relevo) monta `MarcoVivo`. El sujeto es la lectura (`ErgHUDContent`, ritmo, ronda); cromo y acción son `LenguajeVivoUI` / `BotonVivo`. El cromo C (phaseRail PRINCIPAL naranja + `ExpertActionButton` 40 pt) es inalcanzable y está borrado. Cerrar la X de la tapa de cinta no vuelve a C: `SuperficieViva.de` sigue `.run`. Versión 6 iPhone y Watch. No FH-44, no FH-9, no FH-48/56, no PR 94.
+**FH-55 (este lote, Verify KO en main `241efde2`):** Un live, un diseño. El rodaje (`.running` + `.steady`) disparaba `isConditioningTimer` y `de()` devolvía `.conditioning` — cerrar la X de la tapa caía al sujeto de formato, no a `.run`. La raíz: ese flag es el motor del timer continuo, no la familia. Un rodaje es `.run`; rotating/fixed en carrera (serie) siguen siendo formato. Cromo C sigue muerto. Versión 7 iPhone y Watch. No FH-44, no FH-9, no FH-48/56, no PR 94.
 
 **FH-48 (en main):** Verify KO — `init(configuration:)` es watchOS 3 / unavailable en iOS. SDK 26.5 + deploy 18 no tiene create de `HKWorkoutSession`. Path 18: plan del coach en disco, sin construir sesión. Create + recover solo detrás de iOS 26 (`init(healthStore:configuration:)`). Reloj = `startDate` + pausas. No PR 100. Deploy sigue 18. No mezclar con FH-55.
 

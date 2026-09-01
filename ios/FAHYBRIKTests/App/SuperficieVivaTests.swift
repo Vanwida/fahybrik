@@ -39,12 +39,29 @@ final class SuperficieVivaTests: XCTestCase {
 
     func testCerrarLaTapaDeLaCintaNoCambiaLaSuperficie() {
         let s = sesionDeRodaje()
+        // La trampa: `.steady` dispara el timer continuo. El rodaje no es un
+        // AMRAP — `de()` tiene que seguir siendo `.run` con tapa y sin ella.
+        XCTAssertEqual(s.currentSegment?.kind, .running)
+        XCTAssertTrue(s.currentSegment?.isConditioningTimer == true)
         s.runEnvironment = .treadmill
         XCTAssertEqual(SuperficieViva.de(s), .run)
         // dismiss() de la tapa no mueve el tramo. La misma sesión, sin cover,
         // sigue siendo `.run` dentro de MarcoVivo — no hay rama que pinte C.
         s.runEnvironment = .treadmill
         XCTAssertEqual(SuperficieViva.de(s), .run)
+    }
+
+    func testUnaSerieDeIntervalosEnCarreraSigueSiendoElSujetoDeFormato() {
+        let s = sesion(tramo: WorkoutSegment(
+            order: 1, title: "Series", kind: .running,
+            blockTitle: "Principal", blockPosition: 1,
+            prescription: Prescription(scheme: .intervals, modality: .run, sets: nil,
+                                       rounds: nil, workS: nil, restS: nil, totalS: nil,
+                                       target: nil, note: nil, start: nil, increment: nil)
+        ), nombre: "Series", formato: .intervals)
+        XCTAssertTrue(s.currentSegment?.isConditioningTimer == true)
+        XCTAssertTrue(s.currentSegment.map(TreadmillLegResolver.isRunSeries) == true)
+        XCTAssertEqual(SuperficieViva.de(s), .conditioning)
     }
 
     func testElDescansoTieneSuperficiePropiaDentroDelMismoMarco() {

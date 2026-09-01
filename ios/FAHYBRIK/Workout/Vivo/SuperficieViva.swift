@@ -37,8 +37,19 @@ enum SuperficieViva: Equatable, Hashable {
         if session.isTramoResting { return .rest }
         if session.tramoIsErg { return .ergo }
         if session.currentSegment?.isEMOM == true { return .emom }
+        // Un rodaje es `.running` + `.steady`. `isConditioningTimer` es verdad
+        // porque `.steady` es `presentation.continuous` (el motor del timer).
+        // Eso no lo convierte en un metcon: la lectura es el ritmo, la misma
+        // familia que la tapa de cinta. Cerrar la X no puede caer a
+        // `.conditioning`. rotating/fixed en una carrera (serie de intervalos)
+        // sí son sujeto de formato — `TreadmillLegResolver.isRunSeries`.
+        if session.currentSegment?.kind == .running {
+            switch session.currentSegment?.formatScheme?.presentation {
+            case .rotating, .fixed: return .conditioning
+            default: return .run
+            }
+        }
         if session.currentSegment?.isConditioningTimer == true { return .conditioning }
-        if session.currentSegment?.kind == .running { return .run }
         return .fuerza
     }
 

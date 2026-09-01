@@ -20,6 +20,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **El tramo decide la lectura, no el cromo.** `tramoIsErg` no abre otro árbol: `ErgHUDContent` es el sujeto dentro de `MarcoVivo`. El minuto de ski/bici de un EMOM es `.ergo`, no `EmomVivoView`. Un For Time / AMRAP elige el sujeto (`formatScheme`), no un cromo. Cerrar la X de la tapa de cinta hace `dismiss()`; `maybeAutoOpenRunCover` no reabre el mismo tramo; `de()` sigue `.run` y el atleta queda en el mismo casco, no en C.
 
+**Verify KO (main `241efde2`):** `de()` devolvía `.conditioning` en el rodaje porque `.steady` es `presentation.continuous` y `runsConditioningTimer` es true. Ese flag mueve el **motor**, no la familia. Un `kind == .running` continuo es `.run` (ritmo, misma familia que la tapa). rotating/fixed en una carrera (serie de intervalos, `TreadmillLegResolver.isRunSeries`) siguen siendo el sujeto de formato. No se borra el test; no se revive `ExpertActionButton`.
+
 **Naranja sólido solo `unicaSalida`** (fuerza, estructural, relevo). Pintar `BotonVivo` naranja siempre es FH-9 — no se hace aquí. No se inventan pestañas (FH-44). El acento de marca no se toca.
 
 **En consecuencia, no hacer:** no revivir `ExpertActionButton`; no un tercer HUD «para ergo»; no devolver nil en `SuperficieViva.de`; no mezclar FH-48 / FH-56 / PR 94; no implementar FH-44 ni FH-9 en este lote; no tocar el HUD del Watch ni el flujo de conexión PM5 (`ErgPreStartFlow`) salvo que el live lo pinte.
