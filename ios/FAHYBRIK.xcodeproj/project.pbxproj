@@ -195,6 +195,7 @@
 		3C8DDBA07356D0EDC06ECD01 /* FTMSTreadmillParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150C8A6EAB2B6FC85A7D0ED7 /* FTMSTreadmillParser.swift */; };
 		3C9C1BE3BB2C4BCAFB44CF4A /* SegmentPayloadBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */; };
 		3D6EEA07484CC11CE91F6123 /* Marca.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896EC1A4C3D3358026159348 /* Marca.swift */; };
+		C4E81F0A2B3D4E5F678901A4 /* AppBundleMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E81F0A2B3D4E5F678901A2 /* AppBundleMetadata.swift */; };
 		3DE2AAB4DE75277ECCB4F60E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABF59F238D4FB4A53CCDD05 /* Theme.swift */; };
 		3E55F85773197FF1BD26983A /* EspejoRelojDeParedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E72209D35AE53CA2F387704 /* EspejoRelojDeParedTests.swift */; };
 		3EFA167417339F48C82665BE /* LiveTramo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875822AD5A6180C450B3EE21 /* LiveTramo.swift */; };
@@ -419,6 +420,7 @@
 		8D166C23847531560CAF20D4 /* ComunicadosRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C4E3CC564310D52A1DE108 /* ComunicadosRenderTests.swift */; };
 		8D47A791EFC15AAB5892C044 /* VelocityBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527B6B20D42AB64D4F086227 /* VelocityBand.swift */; };
 		8D4F2F670EE3C60304B31C52 /* Marca.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896EC1A4C3D3358026159348 /* Marca.swift */; };
+		C4E81F0A2B3D4E5F678901A3 /* AppBundleMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E81F0A2B3D4E5F678901A2 /* AppBundleMetadata.swift */; };
 		8D8868BDE5DADDAC6A37AFEA /* LifecycleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9BCAC54B1135B6D52A350D /* LifecycleService.swift */; };
 		8DEE0437EA5937750E042D9C /* ZoneColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D0CFAFFC697A7A0094E1F1 /* ZoneColors.swift */; };
 		8E21D993997C9EFB2B962BA1 /* PRCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41BF2CACC5E2925AC09BFD /* PRCelebrationView.swift */; };
@@ -1175,6 +1177,7 @@
 		8915E616B82CB5366D36A6F3 /* FTMSControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTMSControlTests.swift; sourceTree = "<group>"; };
 		8925609DB271071B935E9CF7 /* HRRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRRecovery.swift; sourceTree = "<group>"; };
 		896EC1A4C3D3358026159348 /* Marca.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Marca.swift; sourceTree = "<group>"; };
+		C4E81F0A2B3D4E5F678901A2 /* AppBundleMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBundleMetadata.swift; sourceTree = "<group>"; };
 		8981AEE1687A28AE700CC44D /* GuionEmomTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionEmomTests.swift; sourceTree = "<group>"; };
 		8B4AAD8F61F4ADD21D54B55D /* ThresholdStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdStep.swift; sourceTree = "<group>"; };
 		8C040930274FF65628C57B9E /* LenguajeVivoCascada.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LenguajeVivoCascada.swift; sourceTree = "<group>"; };
@@ -2427,6 +2430,7 @@
 				021EE92493AA33528CE56ADE /* Theme */,
 				B2B38ABACFBA2E036E95CD76 /* Watch */,
 				41837D4D40F920DB8CE8C951 /* Workout */,
+				C4E81F0A2B3D4E5F678901A2 /* AppBundleMetadata.swift */,
 				896EC1A4C3D3358026159348 /* Marca.swift */,
 			);
 			path = FAHYBRIKCore;
@@ -3216,6 +3220,7 @@
 				6D79FBA1678E850311503F96 /* AnalyticsDrillDownSheet.swift in Sources */,
 				9C904732E95B8BC0B8CBAA8F /* AnalyticsModels.swift in Sources */,
 				15DC74D353BFCBB16D88FA9E /* AnalyticsService.swift in Sources */,
+				C4E81F0A2B3D4E5F678901A3 /* AppBundleMetadata.swift in Sources */,
 				77677B0B9C204CC55F83F5ED /* AnalyticsView.swift in Sources */,
 				395AF6D21D163CFC54906B7D /* AppDataStore.swift in Sources */,
 				744826B811F6C240A856D320 /* AppFeedbackSheet.swift in Sources */,
@@ -3676,6 +3681,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5ADBE6C7DB39B3ADDA2BEED6 /* ActivityDetector.swift in Sources */,
+				C4E81F0A2B3D4E5F678901A4 /* AppBundleMetadata.swift in Sources */,
 				27AA220AFE014799B02D7E80 /* AssignmentDetail.swift in Sources */,
 				F8113F1D69BEF3D867F5A23C /* BlockGateView.swift in Sources */,
 				3F5B58AE8A8E601CAFD03E96 /* ChecklistLiveView.swift in Sources */,
@@ -3994,7 +4000,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -4022,7 +4028,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4050,7 +4056,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4072,7 +4078,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4166,7 +4172,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4211,7 +4217,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4271,7 +4277,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4345,7 +4351,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
