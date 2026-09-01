@@ -211,7 +211,7 @@ targets:
         PRODUCT_NAME: FAHYBRIK
         # Version = single source of truth. The Info.plist CFBundleShortVersionString
         # / CFBundleVersion expand from these (see info: block) — no second literal.
-        CURRENT_PROJECT_VERSION: 7
+        CURRENT_PROJECT_VERSION: 8
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -265,6 +265,9 @@ targets:
       # Foundation puro, y compartido a propósito: si el reloj tuviera su propia
       # copia, muñeca y teléfono volverían a escribir el mismo dato de dos maneras
       # — que es exactamente de donde salieron «5:00»/«05:00» y «42,4»/«42.4».
+      # CFBundleShortVersionString / CFBundleVersion for the wrist UI footer
+      # (Guidelines §7). Foundation-only, same source as the iPhone Perfil footer.
+      - path: FAHYBRIK/App/AppBundleMetadata.swift
       - path: FAHYBRIK/Theme/Formato.swift
       # EL LENGUAJE DEL ENTRENO EN VIVO (contrato §10), la mitad que es DECISIÓN:
       # dónde cae el sujeto, cuánto mide el numeral, si vas mejor o peor que tu
@@ -369,7 +372,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FAHYBRIKWatch/FAHYBRIKWatch.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_NAME: FAHYBRIKWatch
-        CURRENT_PROJECT_VERSION: 7
+        CURRENT_PROJECT_VERSION: 8
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: NO
@@ -414,7 +417,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fahybrid.app.widgets
         PRODUCT_NAME: FAHYBRIKWidgets
-        CURRENT_PROJECT_VERSION: 7
+        CURRENT_PROJECT_VERSION: 8
         MARKETING_VERSION: "1.0"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO

@@ -175,6 +175,7 @@ struct ProfileView: View {
 
                         signOutButton
                         deleteAccountRow
+                        appVersionFooter
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
@@ -1518,6 +1519,21 @@ struct ProfileView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
             withAnimation(.easeOut(duration: 0.25)) {
                 exportToast = nil
+            }
+        }
+    }
+
+    // MARK: - App version (Guidelines §7 — build visible in Perfil, not iOS Settings)
+
+    private var appVersionFooter: some View {
+        Group {
+            if let version = AppBundleMetadata.displayVersion {
+                Text(version)
+                    .scaledFont(11, relativeTo: .caption2)
+                    .foregroundStyle(Theme.Color.faint)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, Theme.Spacing.m)
+                    .accessibilityLabel("Versión \(version)")
             }
         }
     }

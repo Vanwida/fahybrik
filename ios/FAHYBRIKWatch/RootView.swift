@@ -81,33 +81,45 @@ struct RootView: View {
 
     @ViewBuilder
     private var idleContent: some View {
-        if let today = plan.today {
-            if today.isDone {
-                DoneDayFlow(payload: today)
-            } else if let snapshot = recoverable {
-                // A fresh, matching crash snapshot exists → offer to resume the
-                // interrupted workout (its laps + elapsed) rather than start over.
-                ResumeOfferView(
-                    title: today.title ?? "Sesión",
-                    onResume: {
-                        coordinator.resume(from: snapshot, payload: today)
-                        recoverable = nil
-                    },
-                    onDiscard: {
-                        Task { await WorkoutStateStore.shared.clear() }
-                        recoverable = nil
+        Group {
+            if let today = plan.today {
+                if today.isDone {
+                    DoneDayFlow(payload: today)
+                } else if let snapshot = recoverable {
+                    // A fresh, matching crash snapshot exists → offer to resume the
+                    // interrupted workout (its laps + elapsed) rather than start over.
+                    ResumeOfferView(
+                        title: today.title ?? "Sesión",
+                        onResume: {
+                            coordinator.resume(from: snapshot, payload: today)
+                            recoverable = nil
+                        },
+                        onDiscard: {
+                            Task { await WorkoutStateStore.shared.clear() }
+                            recoverable = nil
+                        }
+                    )
+                } else {
+                    PreWorkoutFlow(
+                        payload: today,
+                        plan: coordinator.previewPlan(for: plan.assignmentDetail)
+                    ) {
+                        coordinator.start(payload: today, detail: plan.assignmentDetail)
                     }
-                )
-            } else {
-                PreWorkoutFlow(
-                    payload: today,
-                    plan: coordinator.previewPlan(for: plan.assignmentDetail)
-                ) {
-                    coordinator.start(payload: today, detail: plan.assignmentDetail)
                 }
+            } else {
+                EmptyStateView()
             }
-        } else {
-            EmptyStateView()
+        }
+        .overlay(alignment: .bottom) {
+            // Guidelines §7 — build number findable on every idle screen (not live HUD).
+            if let version = AppBundleMetadata.displayVersion {
+                Text(version)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(WatchTheme.dim)
+                    .padding(.bottom, 2)
+                    .accessibilityLabel("Versión \(version)")
+            }
         }
     }
 }

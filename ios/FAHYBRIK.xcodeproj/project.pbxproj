@@ -128,6 +128,8 @@
 		38F9EDD5FBF767C5EFBFE803 /* AvailabilityServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6952A219F897CC1D619D6E37 /* AvailabilityServiceTests.swift */; };
 		3938FBF847B593B8CB016DBE /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7977DBCE8367B9C75CC6D124 /* PlanView.swift */; };
 		395AF6D21D163CFC54906B7D /* AppDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB23F7334F5D028FAE86F55 /* AppDataStore.swift */; };
+		A8F3E2D1C4B5678901234AC /* AppBundleMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F3E2D1C4B5678901234AB /* AppBundleMetadata.swift */; };
+		C8F3E2D1C4B5678901234AD /* AppBundleMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F3E2D1C4B5678901234AB /* AppBundleMetadata.swift */; };
 		398EB27CC523A8A947120001 /* TreadmillLeg.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EF04D12188570A339018BC1 /* TreadmillLeg.swift */; };
 		39C68B76C2A72E924DEDC317 /* RunPreStartFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5773D08D2A19E53DF38FCE8 /* RunPreStartFlow.swift */; };
 		3A6F3A9E6FED10573184973F /* WorkoutSession+Tramo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B12DC780CE36870E7A644666 /* WorkoutSession+Tramo.swift */; };
@@ -878,6 +880,7 @@
 		CEBA3019D6F13D1753993AB3 /* RaceCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCalendarService.swift; sourceTree = "<group>"; };
 		CF52F661AB1368C35F9E7999 /* FoodScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodScannerView.swift; sourceTree = "<group>"; };
 		CF7992686883AAE7EFFE35F8 /* FreeWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeWorkout.swift; sourceTree = "<group>"; };
+		A8F3E2D1C4B5678901234AB /* AppBundleMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBundleMetadata.swift; sourceTree = "<group>"; };
 		CFB23F7334F5D028FAE86F55 /* AppDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDataStore.swift; sourceTree = "<group>"; };
 		CFDFAE896A7B1788ACD9E8DD /* ResumenSemanaCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumenSemanaCard.swift; sourceTree = "<group>"; };
 		D02E9C3585FE2242F1D24D76 /* PartnerInviteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerInviteSheet.swift; sourceTree = "<group>"; };
@@ -1825,6 +1828,7 @@
 			isa = PBXGroup;
 			children = (
 				CFB23F7334F5D028FAE86F55 /* AppDataStore.swift */,
+				A8F3E2D1C4B5678901234AB /* AppBundleMetadata.swift */,
 				24621B92CC17784D41A5DEB7 /* AppLinks.swift */,
 				B3E8F007672C98463F4570A9 /* AppRoot.swift */,
 				087517CB7BA486835A805A48 /* AppShell.swift */,
@@ -2123,6 +2127,7 @@
 				15DC74D353BFCBB16D88FA9E /* AnalyticsService.swift in Sources */,
 				77677B0B9C204CC55F83F5ED /* AnalyticsView.swift in Sources */,
 				395AF6D21D163CFC54906B7D /* AppDataStore.swift in Sources */,
+				A8F3E2D1C4B5678901234AC /* AppBundleMetadata.swift in Sources */,
 				744826B811F6C240A856D320 /* AppFeedbackSheet.swift in Sources */,
 				36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */,
 				E16711BB7C8F02FC5317AC95 /* AppRoot.swift in Sources */,
@@ -2431,6 +2436,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9CD312B46C63246E5EC96B36 /* AssignmentDetail.swift in Sources */,
+				C8F3E2D1C4B5678901234AD /* AppBundleMetadata.swift in Sources */,
 				F8113F1D69BEF3D867F5A23C /* BlockGateView.swift in Sources */,
 				3F5B58AE8A8E601CAFD03E96 /* ChecklistLiveView.swift in Sources */,
 				CC182D52ABF0025FAF48C849 /* ContinuousLiveView.swift in Sources */,
@@ -2605,7 +2611,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -2634,7 +2640,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
@@ -2664,7 +2670,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -2687,7 +2693,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -2800,7 +2806,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
@@ -2909,7 +2915,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
