@@ -10,6 +10,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-01 · El unify no puede quedarse con callers de feat y tipos de un main viejo
+
+**El hueco:** el unify a main se quedó con los callers de feat
+(`SegmentPayloadBuilder`, `WorkoutSession+Strength/+RepCounter/+Laps`,
+`GuionEmom`) y con los tipos recortados de un main anterior. Xcode Cloud
+tumba `FAHYBRIKWatch`: `SetExecutionDTO` no tenía `reps_source`,
+`SetRecord` no tenía `repsSource` ni velocidad, `LapRecord` no tenía
+`repsSource`/`hrSource`/sensor, `SegmentExecutionDTO` no tenía el cable
+espejo, `EmomInterval` no tenía `isErg`.
+
+**Ground truth:** feat padre `d90fc597`. Se copian esos miembros (defaults
+para que un snapshot viejo siga decodificando). No se inventa campo. No se
+toca pantalla. No se inventa skip-serie.
+
+**Se descarta:** parchear el builder para no enviar lo que el tipo no tiene;
+volver a recortar el tipo «porque el ingest de un main viejo no lo
+conocía»; restaurar `SupersetSlot` / `isSuperset` sin caller vivo en este
+árbol.
+
+**NO hacer:** no mezclar de nuevo callers de una rama con tipos de otra;
+no subir `CURRENT_PROJECT_VERSION` en un PR distinto al del arreglo; no
+revertir `DEVELOPMENT_TEAM`.
+
+---
+
 ## 2026-09-01 · El team de firma de ESTE binario se clava; `TBD` se descarta
 
 **El hueco:** `DEVELOPMENT_TEAM: TBD` (16-ago / 17-ago) se eligió para el
