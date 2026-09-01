@@ -42,7 +42,11 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
-    @State private var saveError: String? = nil
+    /// Last POST was not 2xx — stay on the summary. The button becomes REINTENTAR.
+    @State private var saveFailed: Bool = false
+    /// 5xx/offline already sits in RequestQueue. Retry drains that queue; it does
+    /// not POST again (a second free POST would create a second session).
+    @State private var retryFromQueue: Bool = false
 
     // MARK: #58 — structured feedback to the coach (prescribed sessions only)
     @State private var difficulty: PerceivedDifficulty? = nil
@@ -54,15 +58,12 @@ struct PostWorkoutSummaryView: View {
     /// Set (non-empty) when the sync response reports running records → the
     /// celebration overlays the summary until dismissed, THEN we close.
     @State private var celebrationRecords: [PersonalRecord] = []
-    /// One-shot guard: true once the summary has closed (normally, or because the
-    /// athlete tapped to leave during the save wait). Stops the still-pending sync
-    /// response from closing again or celebrating over a dismissed view.
+    /// One-shot guard: true once the summary has closed after a 2xx (or a drain
+    /// that delivered the queued body). Stops a late response from closing again.
     @State private var didFinish: Bool = false
     /// Rendered share image of THIS summary (no PR badge — records are unknown
     /// until save). Re-rendered on appear and when the RPE changes.
-    /// La hoja de compartir (card 132): la tarjeta se construye AL ABRIR — los
-    /// datos de la sesión ya están cerrados y el RPE no viaja en la tarjeta.
-    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
+    @State private var summaryShareURL: URL? = nil
 
     // MARK: #28 — joint side-by-side (dobles)
     /// Set after a .doublesJoint close when the partner has ALSO logged their side →
@@ -76,10 +77,28 @@ struct PostWorkoutSummaryView: View {
     /// which consults the pure `ReviewGate` first.
     @Environment(\.requestReview) private var requestReview
 
-    /// How long to wait for the sync response before closing anyway. A slow/failing
-    /// API must never trap the athlete in the summary — the sync still replays via
-    /// RequestQueue; we just skip the celebration this time.
+    /// Bound for the joint-summary fetch only. The save POST itself is waited
+    /// out (`URLSession.shared`); a non-2xx does not close as success.
     private static let prCelebrationLookupTimeout: TimeInterval = 6
+
+    private var saveButtonTitle: String {
+        if isSaving { return "GUARDANDO…" }
+        if saveFailed { return "REINTENTAR" }
+        return "GUARDAR"
+    }
+
+    /// Path whose body RequestQueue holds after a queued save — drain retry
+    /// watches this path, it does not invent a second POST.
+    private var queuedSavePath: String {
+        if freeContext != nil { return FreeWorkoutAPI.path }
+        switch logTarget {
+        case .solo:
+            return WorkoutExecutionAPI.path
+        case .doublesJoint:
+            if let assignmentId { return DoblesExecutionAPI.path(sessionId: assignmentId) }
+            return WorkoutExecutionAPI.path
+        }
+    }
 
     // MARK: Cronómetro — the movements declared AFTER the work
     /// Set once the athlete names what they did in a session started as a bare clock.
@@ -149,10 +168,8 @@ struct PostWorkoutSummaryView: View {
                 DoblesJointSummaryView(data: jointData, onDone: dismissJoint)
             }
         }
-        .onAppear { seedCapturedScore() }
-        .sheet(item: $tarjetaParaCompartir) { tarjeta in
-            CompartirSheet(tarjeta: tarjeta)
-        }
+        .onAppear { seedCapturedScore(); renderSummaryCard() }
+        .onChange(of: rpe) { _, _ in renderSummaryCard() }
         .fullScreenCover(isPresented: $showDeclareSheet) {
             FreeDeclareMovementsSheet(
                 bearer: KeychainTokenStore.shared.read(),
@@ -209,18 +226,10 @@ struct PostWorkoutSummaryView: View {
                             zonesStackedBar(coverage)
                         }
                         hrSection
-                        // Informe de sesión: totales + por máquina (remo / ski / run)
-                        // desde los laps medidos. Se pinta solo si hay datos reales.
-                        if ResumenSesionCard.hayQuePintarla(laps: session.laps,
-                                                            elapsedSeconds: session.elapsedSeconds) {
-                            ResumenSesionCard(laps: session.laps,
-                                              elapsedSeconds: session.elapsedSeconds)
-                        }
                         // La tabla se pinta cuando tiene MÁS DE UNA FILA que enseñar.
                         // Antes preguntaba `segments.count > 1` — por bloques, no por
                         // filas —, y por eso quien acababa una serie suelta (un
                         // segmento, seis tramos dentro) no veía ninguno de los seis.
-                        // EMOM multi-estación: un lap por minuto con ritmo/cal/W.
                         if TablaDeTramos.hayQuePintarla(segmentos: session.plan.segments,
                                                         laps: session.laps) {
                             TablaDeTramos(
@@ -258,20 +267,8 @@ struct PostWorkoutSummaryView: View {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
-            if let saveError {
-                Text(saveError)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.danger)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, Theme.Spacing.m)
-                    .padding(.top, Theme.Spacing.s)
-                    .accessibilityLabel(saveError)
-            }
-            // No se sale hasta que el POST deja fila. Si falla, error + reintento.
-            // «GUARDANDO…» no cierra: eso era mentir que ya estaba guardado.
             ExpertPrimaryButton(
-                title: isSaving ? "GUARDANDO…" : (saveError == nil ? "GUARDAR" : "REINTENTAR"),
+                title: saveButtonTitle,
                 height: 46,
                 action: { if !isSaving { handleSave() } }
             )
@@ -298,79 +295,93 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Save the execution. Close ONLY when the POST leaves a workout_executions
-    // row (notes travel in that same body). Fail → stay + retry. The summary
-    // never enqueues: enqueue + retry would duplicate a free session.
+    // Save the execution. Close as success only on 2xx (or a drain that delivered
+    // the queued body). A 5xx/offline stays in RequestQueue; REINTENTAR drains it.
+    // A 4xx is not enqueued (`RequestQueue.isRetriable`). URLSession.shared waits
+    // out the POST — no timeout-as-success.
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
-        saveError = nil
         let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
 
-        // EL ARCHIVO DE LA SESIÓN, antes de tocar la red.
-        //
-        // La traza cuelga de un `execution_id` que todavía no existe, así que se
-        // APARCA EN DISCO primero y se resuelve después con lo que conteste el envío
-        // — o con lo que conteste la cola, días más tarde, si aquí no había línea.
-        // Aparcar antes y no después es lo que hace que la única forma de perder la
-        // traza sea perder también la sesión entera: si la app muere durante el
-        // envío, la ejecución tampoco se guardó ni se encoló, así que no hay nada a
-        // lo que colgarla. Ver `WorkoutTraceUploader`.
-        // La traza se cierra dentro de cada camino de guardado, porque antes de
-        // sellarla hay que pedirle a Apple Salud su SEGUNDA OPINIÓN sobre los metros
-        // y eso es asíncrono. Ver `closedTraces`.
-        let recorder = session.trace
-        let sessionStartedAt = session.startedAt
+        if retryFromQueue {
+            Task { @MainActor in
+                await RequestQueue.shared.drain(bearer: bearer)
+                guard !didFinish else { return }
+                let left = await RequestQueue.shared.snapshot()
+                if left.contains(where: { $0.path == queuedSavePath }) {
+                    saveFailed = true
+                    isSaving = false
+                } else {
+                    finishAfterSave(records: [])
+                }
+            }
+            return
+        }
 
         // FREE MODE: route to the free-save contract. No coach-prescription feedback
         // and no PR celebration — the free endpoint carries neither.
         if let free = freeContext {
-            var payload = buildFreePayload(free)
+            let payload = buildFreePayload(free)
             // Every free session is sent, declared or not: a cronómetro carries its
             // format, its duration and the effort, which is a real training session
             // and exactly what a timer app throws away. The contract accepts a
             // funcional with no items as long as it states the shape it ran, and
             // `buildFreePayload` always puts one of the two on the wire.
-            // El POST va PRIMERO. HealthKit / traza no pueden tapar un fallo: las
-            // tres EMOM del 19-ago cerraron como guardadas y no dejaron fila porque
-            // el Task esperaba Salud antes de enviar y el resumen ya se había ido.
-            payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
+            // Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el
+            // HKWorkout y nos pasa su uuid; sin reloj no lo escribía NADIE y la
+            // sesión no contaba para los anillos — ahora la escribe el teléfono.
+            //
+            // El entreno libre TAMBIÉN se espeja a la muñeca, así que este es
+            // justo el camino donde los dos pueden escribir a la vez. Por eso va
+            // `wristRecorded`: si la muñeca grabó, el teléfono no escribe, haya
+            // llegado su uuid o no. Que el relevo llegue tarde ya no duplica —
+            // antes sí, porque el reloj que aún no ha contestado es el mismo que
+            // el reloj cuyo HKWorkout todavía no se puede consultar.
+            let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
-            let treadmill = session.runEnvironment?.isTreadmillSurface == true
-            let mark: (slug: String, value: Double, runContext: String?)? = {
-                guard let tag = free.benchmark, payload.completeness == "full",
-                      let value = benchmarkValue(tag: tag, segments: payload.segments) else { return nil }
-                let runContext: String? = free.modalityWire == "run"
-                    ? (session.runEnvironment?.isTreadmillSurface == true ? "treadmill" : "outdoor")
-                    : nil
-                return (tag.slug, value, runContext)
-            }()
+            let treadmill = session.runEnvironment == .treadmill
             Task { @MainActor in
-                let submission = await FreeWorkoutAPI.submitReturning(
-                    payload, bearer: bearer, enqueueOnFailure: false
-                )
-                guard persistOrRetry(submission) else { return }
-                Task {
-                    if payload.source_workout_ref == nil,
-                       let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
-                        _ = await HealthKitWorkoutWriter.ensureSaved(
-                            draft, wristRecorded: wristRecorded
+                var ref = wristRef
+                if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
+                    ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
+                }
+                var sent = payload
+                sent.source_workout_ref = ref
+                let outcome = await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                guard !didFinish else { return }
+                switch outcome {
+                case .saved(let response):
+                    Task {
+                        let parkId = await WorkoutTraceUploader.park(
+                            await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                        )
+                        await WorkoutTraceUploader.resolve(
+                            parkId: parkId,
+                            executionId: response?.executionId.flatMap(Int.init),
+                            queuedRequestId: nil,
+                            bearer: bearer
                         )
                     }
-                    let parkId = await WorkoutTraceUploader.park(
-                        await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
-                    )
-                    await WorkoutTraceUploader.resolve(
-                        parkId: parkId,
-                        executionId: submission.executionId,
-                        queuedRequestId: submission.queuedRequestId,
-                        bearer: bearer
-                    )
+                    // #Marcas — only after the session POST is 2xx. A FULL finish
+                    // writes the mark; an abandoned attempt never writes a half number.
+                    if let tag = free.benchmark, payload.completeness == "full",
+                       let value = benchmarkValue(tag: tag, segments: payload.segments) {
+                        let runContext: String? = free.modalityWire == "run"
+                            ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
+                            : nil
+                        Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
+                    }
+                    finishAfterSave(records: [])
+                case .queued:
+                    retryFromQueue = true
+                    saveFailed = true
+                    isSaving = false
+                case .rejected:
+                    retryFromQueue = false
+                    saveFailed = true
+                    isSaving = false
                 }
-                if let mark {
-                    Task { await MarkAttemptAPI.submit(slug: mark.slug, value: mark.value, runContext: mark.runContext, bearer: bearer) }
-                }
-                finishAfterSave(records: [])
             }
             return
         }
@@ -390,69 +401,59 @@ struct PostWorkoutSummaryView: View {
         let submitted = payload
         let target = logTarget
         Task { @MainActor in
-            let parkId = await WorkoutTraceUploader.park(
-                await Self.closedTraces(recorder: recorder, startedAt: sessionStartedAt)
-            )
-            let submission: ExecutionSubmission
+            let outcome: WorkoutSaveOutcome
             switch target {
             case .solo:
-                submission = await WorkoutExecutionAPI.submitReturning(
-                    submitted, bearer: bearer, enqueueOnFailure: false
-                )
+                outcome = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
             case .doublesJoint:
                 // sessionId == this athlete's own assignment id == payload.assignment_id.
-                submission = await DoblesExecutionAPI.submitReturning(
-                    sessionId: submitted.assignment_id, submitted, bearer: bearer,
-                    enqueueOnFailure: false
+                outcome = await DoblesExecutionAPI.submitReturning(
+                    sessionId: submitted.assignment_id, submitted, bearer: bearer
                 )
             }
-            // El archivo sube POR SU CUENTA. No bloquea el cierre: el resguardo ya
-            // está en disco y el id se sella con lo que contestó el POST.
-            Task {
-                await WorkoutTraceUploader.resolve(
-                    parkId: parkId,
-                    executionId: submission.executionId,
-                    queuedRequestId: submission.queuedRequestId,
-                    bearer: bearer
-                )
-            }
-            guard persistOrRetry(submission) else { return }
-            let records = submission.response?.personalRecords ?? []
-            // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
-            // When the partner has already logged too, the joint card is the closing
-            // moment (it also surfaces PR chips); otherwise fall through to the solo
-            // PR/close flow. A no-partner / network miss simply closes as normal.
-            if target == .doublesJoint {
-                let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
-                if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
-                   let jd = JointShareData.from(dto: summary, title: session.plan.name,
-                                                date: Date(), partnerFallback: nil) {
-                    guard !didFinish else { return }
-                    pendingJointRecords = records
-                    isSaving = false
-                    withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
-                    return
+            guard !didFinish else { return }
+            switch outcome {
+            case .saved(let response):
+                Task {
+                    let parkId = await WorkoutTraceUploader.park(
+                        await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                    )
+                    await WorkoutTraceUploader.resolve(
+                        parkId: parkId,
+                        executionId: response?.executionId.flatMap(Int.init),
+                        queuedRequestId: nil,
+                        bearer: bearer
+                    )
                 }
-            }
-            if records.isEmpty {
-                finishAfterSave(records: [])
-            } else {
-                withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                let records = response?.personalRecords ?? []
+                // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
+                if target == .doublesJoint {
+                    let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
+                    if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
+                       let jd = JointShareData.from(dto: summary, title: session.plan.name,
+                                                    date: Date(), partnerFallback: nil) {
+                        guard !didFinish else { return }
+                        pendingJointRecords = records
+                        isSaving = false
+                        withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
+                        return
+                    }
+                }
+                if records.isEmpty {
+                    finishAfterSave(records: [])
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                    isSaving = false
+                }
+            case .queued:
+                retryFromQueue = true
+                saveFailed = true
+                isSaving = false
+            case .rejected:
+                retryFromQueue = false
+                saveFailed = true
                 isSaving = false
             }
-        }
-    }
-
-    /// True when the POST left a row. False = stay and offer retry.
-    @discardableResult
-    private func persistOrRetry(_ submission: ExecutionSubmission) -> Bool {
-        switch WorkoutFinishPersist.decide(submission) {
-        case .dismissSaved:
-            return true
-        case .showRetry:
-            isSaving = false
-            saveError = WorkoutFinishPersist.retryMessage
-            return false
         }
     }
 
@@ -464,12 +465,11 @@ struct PostWorkoutSummaryView: View {
         finishAfterSave(records: records)
     }
 
-    // Close the summary ONCE, requesting an App Store review only when the pure gate
-    // allows it — a genuine beaten PR (not a first mark) is a standalone good moment.
+    // Close the summary ONCE, only after a 2xx (or a drain that delivered).
+    // The review-prompt tenure gate counts a persisted workout, not a tap.
     private func finishAfterSave(records: [PersonalRecord]) {
         guard !didFinish else { return }
         didFinish = true
-        // Only count a workout that actually persisted (#59).
         ReviewPromptStore.shared.recordWorkoutSaved()
         maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
@@ -479,6 +479,19 @@ struct PostWorkoutSummaryView: View {
         let records = celebrationRecords
         celebrationRecords = []
         finishAfterSave(records: records)
+    }
+
+    private static func closedTraces(
+        recorder: WorkoutTraceRecorder,
+        startedAt: Date
+    ) async -> [WorkoutTraceDTO] {
+        if !recorder.points(of: .distance, source: .gps).isEmpty {
+            let reference = await HealthKitDistanceProbe.cumulativeSeries(
+                startedAt: startedAt, endedAt: Date()
+            )
+            recorder.adopt(reference, as: .distance, source: .healthkit)
+        }
+        return recorder.traces(startedAt: startedAt)
     }
 
     private func maybeRequestReview(afterGenuinePR: Bool) {
@@ -495,32 +508,8 @@ struct PostWorkoutSummaryView: View {
         requestReview()
     }
 
-    // Await whichever finishes first — the response or a timeout — WITHOUT blocking
-    // on the (possibly slow) submit: a timeout resumes with nil while the submit
-    // keeps running to completion in the background. Resume is guarded exactly once.
-    /// La traza de la sesión, cerrada — con la SEGUNDA OPINIÓN de Apple Salud sobre
-    /// los metros dentro cuando la hay.
-    ///
-    /// El contraste se pide sólo cuando de verdad medimos distancia con el GPS: en
-    /// cinta los metros los da la máquina y compararlos con lo que anduvo el atleta
-    /// no significa nada, y en una sesión de fuerza no hay nada que contrastar.
-    ///
-    /// La segunda serie se guarda AL LADO de la nuestra (misma señal, otra fuente),
-    /// jamás encima. Es lo que hace que un fallo de la puerta de distancia se vea solo
-    /// la próxima vez en lugar de vivir escondido hasta que alguien lo note corriendo.
-    private static func closedTraces(
-        recorder: WorkoutTraceRecorder,
-        startedAt: Date
-    ) async -> [WorkoutTraceDTO] {
-        if !recorder.points(of: .distance, source: .gps).isEmpty {
-            let reference = await HealthKitDistanceProbe.cumulativeSeries(
-                startedAt: startedAt, endedAt: Date()
-            )
-            recorder.adopt(reference, as: .distance, source: .healthkit)
-        }
-        return recorder.traces(startedAt: startedAt)
-    }
-
+    // Await whichever finishes first — the joint fetch or a timeout. The save POST
+    // is not wrapped here. Resume is guarded exactly once.
     private static func firstValue<T>(
         of task: Task<T?, Never>,
         timeout: TimeInterval
@@ -536,6 +525,15 @@ struct PostWorkoutSummaryView: View {
                 if once.claim() { continuation.resume(returning: nil) }
             }
         }
+    }
+
+    // Render the summary's share card (no PR badge — records are unknown pre-save).
+    @MainActor
+    private func renderSummaryCard() {
+        let data = WorkoutShareData.from(
+            session: session, totalSeconds: executionCore().totalDuration, rpe: rpe, records: []
+        )
+        summaryShareURL = WorkoutShareRenderer.pngURL(for: data)
     }
 
     // Share data for the celebration card (with the PR badge).
@@ -569,14 +567,7 @@ struct PostWorkoutSummaryView: View {
     private func executionCore() -> ExecutionCore {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
-        // LA HORA DE FIN ES CUANDO SE ACABÓ DE ENTRENAR, no cuando se pulsa guardar.
-        // El 20-ago el guardado estuvo roto y Alex se quedó horas en el resumen
-        // esperando: el entreno acabó a las 12:36 y quedó archivado como si hubiera
-        // terminado a las 16:35 — casi cinco horas de ventana para 47 minutos de
-        // trabajo. El motor ya sella el final (`finishedAt`); esto sólo lo usa.
-        // Sin sello (un registro a mano, donde ningún reloj corrió) se cae a ahora,
-        // que es lo que había y es lo correcto para ese caso.
-        let endedAt = WorkoutFinishPersist.endedAt(finishedAt: session.finishedAt, now: Date())
+        let endedAt = Date()
         // Manual log: total time is entered by hand (or, for a time-scored format,
         // taken from the "Tiempo final" field). Live: measured by the timer.
         let totalDuration: Int? = manualEntry
@@ -600,7 +591,7 @@ struct PostWorkoutSummaryView: View {
             // end; 'partial' (→ partial) when terminated early.
             completeness: session.completeness.rawValue,
             segments: segments.isEmpty ? nil : segments,
-            notes: WorkoutFinishPersist.notesOnWire(notes),
+            notes: notes.isEmpty ? nil : notes,
             liveSource: manualEntry ? "manual" : nil
         )
     }
@@ -755,7 +746,7 @@ struct PostWorkoutSummaryView: View {
                     // An invitation, never a warning: the session is already saved
                     // when this card appears, so the copy offers what naming the
                     // movements ADDS instead of threatening what it avoids.
-                    Text("Si dices qué hiciste, cuenta también en tus ejercicios. El entreno se guarda al pulsar Guardar.")
+                    Text("El entreno se guarda igual. Si dices qué hiciste, cuenta también en tus ejercicios.")
                         .font(Theme.Typography.small)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -784,19 +775,15 @@ struct PostWorkoutSummaryView: View {
                 HeroNumber(text: Formato.clock(session.elapsedSeconds), size: 36)
             }
             Spacer()
-            Button {
-                Haptics.light()
-                tarjetaParaCompartir = .entreno(
-                    TarjetaCompartibleBuilder.despues(
-                        session: session, totalSeconds: executionCore().totalDuration
-                    )
-                )
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
+            if let summaryShareURL {
+                ShareLink(item: summaryShareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.Color.accentText)
+                }
+                .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
+                .accessibilityLabel("Compartir entreno")
             }
-            .accessibilityLabel("Compartir entreno")
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)

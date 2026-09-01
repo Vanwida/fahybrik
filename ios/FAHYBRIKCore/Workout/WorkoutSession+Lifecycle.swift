@@ -9,6 +9,20 @@ extension WorkoutSession {
         // AUDIT-3 — (re)enable persistence for this workout; a previous session may
         // have closed the store on finish/discard.
         Task { await WorkoutStateStore.shared.open() }
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            LiveWorkoutResume.shared.track(self)
+            let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
+            PhoneWorkoutRun.shared.startIfNeeded(
+                activityKind: kind,
+                diskOffset: elapsedSeconds,
+                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial,
+                runUUID: hkSessionUUID
+            )
+            if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
+            PhoneWorkoutRun.shared.startMirroring()
+        }
+        #endif
         guard timer == nil else { return }
         lastTick = Date()
         // `.common` so ticks (and with them cue haptics / audio) keep firing while
@@ -31,7 +45,13 @@ extension WorkoutSession {
             AudioCoach.shared.beginWorkout()   // fresh voice-coaching state for this workout (#63, iOS-only)
             #endif
             if emomSegmentIndex == nil { armBlock() }
+            #if os(iOS)
+            if isAwaitingBlockStart {
+                MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+            }
+            #endif
         }
+        persistNow()
     }
 
     func stop() {
@@ -49,9 +69,16 @@ extension WorkoutSession {
         if isPaused {
             isPaused = false
             lastTick = Date()
+            #if os(iOS)
+            MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+            #endif
         } else {
             isPaused = true
+            #if os(iOS)
+            MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+            #endif
         }
+        persistNow()
     }
 
     func beginAutoPauseEvaluation() { autoPauseEvaluadores += 1 }
@@ -74,6 +101,10 @@ extension WorkoutSession {
         guard autoPauseEvaluadores > 0 else { return }
         isPaused = true
         autoPaused = true
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        #endif
+        persistNow()
     }
 
     /// Resume from an AUTO-pause when movement returns. ONLY lifts a pause WE set — a
@@ -84,6 +115,10 @@ extension WorkoutSession {
         isPaused = false
         autoPaused = false
         lastTick = Date()
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        #endif
+        persistNow()
     }
 
     /// Pause the clock for a transient, NON-modal interruption — e.g. the athlete
@@ -95,6 +130,9 @@ extension WorkoutSession {
     func pauseForVideo() -> Bool {
         guard !isPaused, !isFinished else { return false }
         isPaused = true
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        #endif
         return true
     }
 
@@ -104,9 +142,10 @@ extension WorkoutSession {
         guard isPaused, !isFinished else { return }
         isPaused = false
         lastTick = Date()
+        #if os(iOS)
+        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        #endif
     }
-
-    func tap(reps: Int = 1) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart else { return }
         repsCurrentSegment = max(0, repsCurrentSegment + reps)
         repsConfirmed = true
@@ -402,6 +441,12 @@ extension WorkoutSession {
         AudioCoach.shared.finishWorkout(totalSeconds: Int(elapsedSeconds.rounded()))
         #endif
         stop()
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.end()
+            LiveWorkoutResume.shared.dismiss()
+        }
+        #endif
         // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
         // never be re-offered as "recuperar entreno en curso", and the latch stops a
         // late autosave Task from re-creating the snapshot after this.
@@ -413,7 +458,22 @@ extension WorkoutSession {
     /// resurrect the discarded session.
     func discardAndClose() {
         stop()
+        #if os(iOS)
+        MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.end()
+            LiveWorkoutResume.shared.dismiss()
+        }
+        #endif
         Task { await WorkoutStateStore.shared.close() }
+    }
+
+    /// Write the coach plan now (background / pause / block). The Timer is a
+    /// poller, not the store — a jetsam mid-background must still find this file.
+    func persistNow() {
+        guard !isFinished else { return }
+        Task { [snapshot = persistedSnapshot()] in
+            await WorkoutStateStore.shared.save(snapshot)
+        }
     }
 
     /// Open the post-effort HRR window (tests guiados). Called by the container

@@ -58,6 +58,7 @@ struct AppShell: View {
     // their data from it and never re-fetch (or spin) just because their tab was
     // recreated on switch. See AppDataStore.
     @State private var store = AppDataStore()
+    @State private var liveResume = LiveWorkoutResume.shared
 
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
@@ -152,6 +153,25 @@ struct AppShell: View {
                 .environment(store)
                 .environment(\.openChat) { _ in chatTrasBandeja = true }
         }
+        .fullScreenCover(item: Binding(
+            get: { liveResume.cover },
+            set: { liveResume.cover = $0 }
+        )) { cover in
+            WorkoutContainer(
+                assignmentId: cover.assignmentId,
+                fallbackTitle: cover.title,
+                bearer: bearer,
+                freeContext: cover.freeContext,
+                hrZones: store.identity.value?.hrZones ?? cover.session.hrZones,
+                recoveredSession: cover.session,
+                onClose: { liveResume.dismiss() },
+                onCompleted: { _ in
+                    liveResume.dismiss()
+                    Task { await store.planMutated() }
+                }
+            )
+            .environment(store)
+        }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -180,12 +200,20 @@ struct AppShell: View {
                 await WorkoutTraceUploader.sweep(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
             }
+            await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
         }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, let bearer else { return }
+            if phase == .background {
+                LiveWorkoutResume.shared.persistTracked()
+                return
+            }
+            guard phase == .active else { return }
             Task {
-                await WorkoutTraceUploader.sweep(bearer: bearer)
-                await RequestQueue.shared.drain(bearer: bearer)
+                await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
+                if let bearer {
+                    await WorkoutTraceUploader.sweep(bearer: bearer)
+                    await RequestQueue.shared.drain(bearer: bearer)
+                }
             }
         }
         .onAppear {

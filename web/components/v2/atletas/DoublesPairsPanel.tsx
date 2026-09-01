@@ -10,9 +10,10 @@
 // The pair drives the SAME per-athlete pipeline as an individual assign; each
 // athlete gets the plan at their own intensity. Empty/error states are honest.
 
-import { useMemo, useState, useTransition } from 'react';
+import { useId, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Select, type SelectOption } from '@/components/ui/select';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { CoachGuidanceEditor } from '@/components/v2/atletas/CoachGuidanceEditor';
 import { DoblesSimulationEditor } from '@/components/v2/atletas/DoblesSimulationEditor';
@@ -177,6 +178,7 @@ function LinkPairModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const fieldId = useId();
   const [aId, setAId] = useState('');
   const [bId, setBId] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -212,10 +214,13 @@ function LinkPairModal({
     return a.level_name ? `${a.full_name} · ${a.level_name}` : a.full_name;
   }
 
-  const selectClass = cn(
-    'v2-focus h-10 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 text-sm',
-    'text-[color:var(--v2-fg)] focus:border-[color:var(--v2-border-strong)]',
-  );
+  // Un atleta no se empareja consigo mismo: cada lista esconde al elegido en la
+  // otra. Antes esto se hacía con un `.filter()` sobre los `<option>`.
+  function optionsExcluding(excludedId: string): SelectOption<string>[] {
+    return candidates
+      .filter((c) => c.athlete_id !== excludedId)
+      .map((c) => ({ value: c.athlete_id, label: optionLabel(c) }));
+  }
 
   return (
     <div
@@ -251,32 +256,35 @@ function LinkPairModal({
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[color:var(--v2-muted)]">Atleta 1</span>
-              <select className={selectClass} value={aId} onChange={(e) => setAId(e.target.value)}>
-                <option value="">Elegir atleta…</option>
-                {candidates
-                  .filter((c) => c.athlete_id !== bId)
-                  .map((c) => (
-                    <option key={c.athlete_id} value={c.athlete_id}>
-                      {optionLabel(c)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[color:var(--v2-muted)]">Atleta 2</span>
-              <select className={selectClass} value={bId} onChange={(e) => setBId(e.target.value)}>
-                <option value="">Elegir atleta…</option>
-                {candidates
-                  .filter((c) => c.athlete_id !== aId)
-                  .map((c) => (
-                    <option key={c.athlete_id} value={c.athlete_id}>
-                      {optionLabel(c)}
-                    </option>
-                  ))}
-              </select>
-            </label>
+            {/* El disparador es un `<button>`, no un `<select>`, así que el
+                nombre accesible se ata a mano al rótulo que ya está en pantalla
+                en vez de quedar al azar del `<label>` que los envolvía. */}
+            <div className="flex flex-col gap-1.5">
+              <span id={`${fieldId}-a`} className="text-xs font-semibold text-[color:var(--v2-muted)]">
+                Atleta 1
+              </span>
+              <Select
+                aria-labelledby={`${fieldId}-a`}
+                size="lg"
+                items={optionsExcluding(bId)}
+                value={aId || null}
+                onValueChange={setAId}
+                placeholder="Elegir atleta…"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span id={`${fieldId}-b`} className="text-xs font-semibold text-[color:var(--v2-muted)]">
+                Atleta 2
+              </span>
+              <Select
+                aria-labelledby={`${fieldId}-b`}
+                size="lg"
+                items={optionsExcluding(aId)}
+                value={bId || null}
+                onValueChange={setBId}
+                placeholder="Elegir atleta…"
+              />
+            </div>
 
             {error ? (
               <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p>

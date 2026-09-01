@@ -10,7 +10,7 @@ final class WorkoutRecoveryTests: XCTestCase {
         WorkoutPlan(id: id, name: "S", format: .forTime, estimatedDurationSeconds: 0,
                     blockContext: "", zoneTargets: [], equipment: [],
                     segments: [WorkoutSegment(order: 1, title: "x", kind: .reps)],
-                    coachNote: nil, warmupChecklist: [])
+                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     }
     private func snapshot(assignment: String?, savedAt: Date = Date(), planId: UUID = UUID()) -> PersistedWorkoutState {
         PersistedWorkoutState(plan: plan(id: planId), startedAt: Date(), currentSegmentIndex: 0,
@@ -83,59 +83,67 @@ final class WorkoutRecoveryTests: XCTestCase {
         await store.clear()
     }
 
-    // MARK: - Card 142: "Salir y seguir luego" (leaveToResumeLater)
-    //
-    // El atleta se va A PROPÓSITO a media sesión con intención clara de volver —
-    // muy distinto de terminar (finish) o abandonar (discardAndClose). Estas
-    // pruebas fijan las dos garantías que pidió Alex: el reloj se congela de
-    // verdad, y la instantánea SOBREVIVE (nunca se toca clear()/close() en esta
-    // ruta, al revés que discardAndClose).
+    // MARK: - Process death (rewritten FH-48)
 
-    private func runningSession() -> WorkoutSession {
-        let s = WorkoutSession(plan: plan())
-        s.start(); s.beginBlock(); s.stop()   // corriendo, no en pausa, no en la puerta de bloque
-        return s
+    func testFreshAllowsFreeWithoutAssignment() {
+        XCTAssertTrue(WorkoutRecoveryGate.isFresh(snapshot(assignment: nil)))
+        XCTAssertFalse(WorkoutRecoveryGate.shouldOffer(saved: snapshot(assignment: nil), currentAssignmentId: nil))
     }
 
-    func testLeaveToResumeLaterPausesTheClock() {
-        let s = runningSession()
-        XCTAssertFalse(s.isPaused)
-        s.leaveToResumeLater()
-        XCTAssertTrue(s.isPaused, "salir a medias tiene que congelar el reloj: lo de fuera no cuenta")
+    func testFreshRejectsStaleFree() {
+        let old = Date().addingTimeInterval(-(6 * 3600 + 60))
+        XCTAssertFalse(WorkoutRecoveryGate.isFresh(snapshot(assignment: nil, savedAt: old)))
     }
 
-    func testLeaveToResumeLaterIsIdempotentWhenAlreadyPaused() {
-        // El sheet de salida ya puede haber pausado el reloj (pauseForVideo) antes
-        // de que el atleta elija "Salir y seguir luego" — esto NUNCA puede
-        // alternarlo de vuelta a corriendo.
-        let s = runningSession()
-        s.togglePause()
-        XCTAssertTrue(s.isPaused)
-        s.leaveToResumeLater()
-        XCTAssertTrue(s.isPaused)
+    func testRestoreAppliesPauseAndDoesNotRearm() {
+        var snap = snapshot(assignment: "42")
+        snap = PersistedWorkoutState(
+            plan: snap.plan, startedAt: snap.startedAt, currentSegmentIndex: 2,
+            elapsedSeconds: 90, lapElapsedSeconds: 20, laps: [],
+            repsByCurrentSegment: 4, isPaused: true, savedAt: Date(),
+            assignmentId: "42", hasArmedInitial: true, isAwaitingBlockStart: false
+        )
+        let session = WorkoutSession(plan: snap.plan, startedAt: snap.startedAt)
+        session.restore(from: snap)
+        XCTAssertTrue(session.isPaused)
+        XCTAssertEqual(session.elapsedSeconds, 90, accuracy: 0.01)
+        XCTAssertEqual(session.currentSegmentIndex, 2)
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        session.start()
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        XCTAssertTrue(session.isPaused)
+        session.stop()
     }
 
-    func testLeaveToResumeLaterSnapshotSurvivesAndIsOfferedBack() async throws {
-        // Lo mismo que hace `WorkoutContainer.onLeaveAndResume`: guardar la
-        // instantánea y NUNCA llamar a clear()/close(). El store tiene que
-        // seguir teniéndola, y el gate tiene que seguir dispuesto a ofrecerla —
-        // exactamente lo que lee `WorkoutResumeBanner` en Plan.
-        let store = WorkoutStateStore(filename: "test-leave-\(UUID().uuidString).json")
-        await store.open()
-        let s = runningSession()
-        s.assignmentId = "77"
+    func testResumeGateReopensWhenEitherUUIDMissing() {
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: nil, snapshotUUID: UUID()))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: UUID(), snapshotUUID: nil))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: nil, snapshotUUID: nil))
+    }
 
-        let snap = s.leaveToResumeLater()
-        await store.save(snap)
+    func testResumeGateRejectsMismatchedHangOff() {
+        let a = UUID()
+        let b = UUID()
+        XCTAssertFalse(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: a, snapshotUUID: b))
+        XCTAssertTrue(LiveWorkoutResumeGate.shouldReopenCoachPlan(boundRunUUID: a, snapshotUUID: a))
+    }
 
-        // `XCTUnwrap` recibe una autoclosure y ahí dentro no cabe un `await`:
-        // se saca la espera fuera y se desenvuelve después.
-        let cargado = await store.load()
-        let loaded = try XCTUnwrap(cargado)
-        XCTAssertEqual(loaded.assignmentId, "77")
-        XCTAssertTrue(loaded.isPaused)
-        XCTAssertTrue(WorkoutRecoveryGate.shouldOffer(saved: loaded, currentAssignmentId: "77"))
-
-        await store.clear()
+    func testRestoreReopensFreeCursor() {
+        var snap = snapshot(assignment: nil)
+        snap = PersistedWorkoutState(
+            plan: snap.plan, startedAt: snap.startedAt, currentSegmentIndex: 1,
+            elapsedSeconds: 45, lapElapsedSeconds: 10, laps: [],
+            repsByCurrentSegment: 0, isPaused: false, savedAt: Date(),
+            assignmentId: nil, isFree: true, hasArmedInitial: true,
+            isAwaitingBlockStart: false
+        )
+        XCTAssertTrue(WorkoutRecoveryGate.isFresh(snap))
+        let session = WorkoutSession(plan: snap.plan, startedAt: snap.startedAt)
+        session.restore(from: snap)
+        XCTAssertTrue(session.isFreeRun)
+        XCTAssertEqual(session.elapsedSeconds, 45, accuracy: 0.01)
+        session.start()
+        XCTAssertFalse(session.isAwaitingBlockStart)
+        session.stop()
     }
 }

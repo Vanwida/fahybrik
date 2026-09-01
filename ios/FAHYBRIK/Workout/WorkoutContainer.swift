@@ -222,6 +222,10 @@ struct WorkoutContainer: View {
     /// cargar el plan. Fuera del cuerpo porque la cadena de modificadores ya está
     /// en el límite que el compilador de SwiftUI resuelve de una pieza.
     private func arranque() async {
+        if let recovered = recoveredSession {
+            applyRecovered(recovered)
+            return
+        }
         // Un entreno libre se monta en memoria y no tiene asignación — nunca se le
         // ofrece encima la instantánea de un entreno prescrito que no es el suyo.
         if freeContext == nil,
@@ -239,12 +243,7 @@ struct WorkoutContainer: View {
             // Descartar sigue existiendo, dentro del entreno, donde siempre.
             let recuperada = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
             recuperada.restore(from: saved)
-            session = recuperada
-            PhoneMirrorService.shared.begin(
-                session: recuperada,
-                activityKind: mirrorActivityKind(for: saved.plan)
-            )
-            phase = .active
+            applyRecovered(recuperada)
             return
         }
         await loadPlan()
@@ -261,6 +260,7 @@ struct WorkoutContainer: View {
                         let new = WorkoutSession(plan: plan, hrZones: hrZones)
                         new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
                         new.runEnvironment = runEnv       // #8 — auto-open the chosen run HUD
+                        stampFreeMetadata(on: new)
                         session = new
                         manualEntry = false
                         // Mirror mode: remote-start the wrist recording alongside the
@@ -552,6 +552,36 @@ struct WorkoutContainer: View {
             : .summary
     }
 
+    private func stampFreeMetadata(on session: WorkoutSession) {
+        guard let free = freeContext else { return }
+        session.isFreeRun = true
+        session.freeTitle = free.title
+        session.freeModalityWire = free.modalityWire
+        if let items = free.items {
+            session.freeItemsJSON = try? JSONEncoder().encode(items)
+        }
+    }
+
+    private func applyRecovered(_ recovered: WorkoutSession) {
+        stampFreeMetadata(on: recovered)
+        if recovered.isFreeRun, freeContext == nil {
+            recovered.freeTitle = recovered.freeTitle ?? recovered.plan.name
+        }
+        session = recovered
+        manualEntry = false
+        loadState = .ready(recovered.plan, nil)
+        PhoneMirrorService.shared.begin(
+            session: recovered,
+            activityKind: mirrorActivityKind(for: recovered.plan)
+        )
+        DoblesLivePresence.shared.begin(
+            session: recovered,
+            assignmentId: assignmentId ?? recovered.assignmentId,
+            bearer: bearer
+        )
+        phase = .active
+    }
+
     // The wrist recording's activity kind (mirror mode), in the watch vocabulary
     // ("running" | "strength" | "hyrox" | "mixed"). Reuses the SAME string→kind map
     // the watch push uses. A dobles session records as HYROX; a free workout carries
@@ -591,6 +621,7 @@ struct WorkoutContainer: View {
             loadState = .ready(free.plan, nil)
             let new = WorkoutSession(plan: free.plan, hrZones: hrZones)
             new.runEnvironment = free.runEnvironment   // #8 — chosen in the free builder
+            stampFreeMetadata(on: new)
             session = new
             manualEntry = false
             // Mirror the free workout to the wrist too (records HR + one HKWorkout).

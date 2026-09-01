@@ -6,7 +6,10 @@
 // block names come from the coach's suggestions (never a hardcoded phase catalogue);
 // nothing here invents method.
 
+import { useId } from 'react';
+
 import { MIcon } from '@/components/ui/MIcon';
+import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/v2/Pill';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import type { IntakeProfile, IntakeWarning } from '@/lib/coach/intake';
@@ -335,6 +338,11 @@ export function WelcomeNotesStep({
   onChangeBody: (v: string) => void;
   onChangeNotes: (v: string) => void;
 }) {
+  // La etiqueta de las notas ya estaba escrita en pantalla pero suelta: nadie
+  // la ataba al campo, así que el lector de pantalla anunciaba «cuadro de
+  // texto» a secas (WCAG 4.1.2). Se ata a la que ya se ve, no se inventa otra.
+  const idNotas = useId();
+
   return (
     <Panel
       title="Bienvenida y notas"
@@ -367,36 +375,28 @@ export function WelcomeNotesStep({
         </span>
       </button>
 
-      <div className="flex flex-col gap-1">
-        <textarea
-          value={body}
-          disabled={!send}
-          maxLength={WELCOME_MAX}
-          onChange={(e) => onChangeBody(e.target.value)}
-          rows={4}
-          placeholder="Mensaje de bienvenida…"
-          className={cn(
-            'v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
-            'focus:border-[color:var(--v2-border-strong)] disabled:opacity-50',
-          )}
-        />
-        <span className="v2-num self-end text-label text-[color:var(--v2-faint)]">
-          {body.length} / {WELCOME_MAX}
-        </span>
-      </div>
+      <Textarea
+        aria-label="Mensaje de bienvenida"
+        value={body}
+        disabled={!send}
+        maxLength={WELCOME_MAX}
+        onChange={(e) => onChangeBody(e.target.value)}
+        rows={4}
+        placeholder="Mensaje de bienvenida…"
+        contador
+      />
 
       <div className="flex flex-col gap-1.5">
-        <span className="v2-micro">Notas internas · privadas</span>
-        <textarea
+        <span id={idNotas} className="v2-micro">
+          Notas internas · privadas
+        </span>
+        <Textarea
+          aria-labelledby={idNotas}
           value={notes}
           maxLength={WELCOME_MAX}
           onChange={(e) => onChangeNotes(e.target.value)}
           rows={2}
           placeholder="Notas para ti, no visibles para el atleta…"
-          className={cn(
-            'v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
-            'focus:border-[color:var(--v2-border-strong)]',
-          )}
         />
       </div>
     </Panel>

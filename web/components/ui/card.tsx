@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 // píxeles que hoy se escriben a mano, en claro y en oscuro, sin un solo valor
 // arbitrario en la llamada.
 //
-// LAS VARIANTES SON TRES PORQUE SON TRES LOS PAPELES QUE EXISTEN — medido sobre
-// `components/v2` + las páginas de `(v2)` el 14-ago (`row` se añade el 15-ago):
+// LAS VARIANTES SON DOS PORQUE SON DOS LOS PAPELES QUE EXISTEN — medido sobre
+// `components/v2` + las páginas de `(v2)` el 14-ago:
 //
 //   panel  · la superficie que se apoya en el lienzo de la página. Lleva
 //            elevación, radio grande. 22 pintadas a mano + las 12 que ya
@@ -21,13 +21,6 @@ import { cn } from '@/lib/utils';
 //            menor (un anidado nunca redondea más que su contenedor) y sin
 //            elevación: dos sombras apiladas no leen como profundidad, leen
 //            como suciedad. 59 pintadas a mano — es el contenedor más común.
-//   row    · la FILA de una lista ordenable, que se apoya en el lienzo como el
-//            panel pero se apila con sus hermanas. Por eso toma el fondo del
-//            panel (`bg-card`) y el radio del anidado (12 px): a 3–6 filas
-//            seguidas, el radio grande las separa de más y la elevación
-//            repetida ensucia. No es `inset` — `bg-muted` es un escalón de
-//            fondo que la fila no da, y sobre él el chip de nivel pierde
-//            contraste. Es exactamente lo que pintaba a mano `ReorderRow`.
 //
 // NO lleva padding. El relleno lo pone quien la usa (p-3, p-3.5, p-4, p-5 y
 // px-3.5 py-3 conviven hoy y todos son correctos para su contenido): cablearlo
@@ -41,7 +34,6 @@ const cardVariants = cva('border text-card-foreground', {
     variant: {
       panel: 'rounded-card border-border bg-card shadow-card',
       inset: 'rounded-card-inset border-border bg-muted',
-      row: 'rounded-card-inset border-border bg-card',
     },
     // La tarjeta entera es pulsable (abre un detalle, navega). El borde se tiñe
     // de marca al pasar por encima. Es el gesto que ya hacía `v2/Card`, y se

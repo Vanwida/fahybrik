@@ -38,6 +38,13 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
+    /// Apple `HKWorkoutSession` this coach plan hangs off (iPhone primary).
+    var hkSessionUUID: UUID? = nil
+    /// Free / ad-hoc — process-death reopen must not require an assignment.
+    var isFreeRun: Bool = false
+    var freeTitle: String? = nil
+    var freeModalityWire: String? = nil
+    var freeItemsJSON: Data? = nil
     /// Where the athlete said they run TODAY (calle / cinta enchufada / cinta
     /// tonta), chosen pre-start. Drives the HUD and the fuente de los metros.
     /// Ephemeral — never persisted.

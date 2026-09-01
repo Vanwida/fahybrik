@@ -126,22 +126,6 @@ struct SegmentDoblesSplit: Codable, Equatable {
     }
 }
 
-/// UN TURNO de una superserie: qué ejercicio toca y por qué vuelta vas.
-///
-/// Existe porque la rotación aplanada (`sets[]` en orden de ejecución) sabe qué
-/// hacer pero no sabe DECIRLO: la serie 5 de doce es «la vuelta 2 del press», y sin
-/// eso el atleta ve doce series numeradas seguidas sin saber en cuál está. La
-/// vuelta se guarda y no se calcula por división, porque con series desiguales
-/// (A1 con 4 y A2 con 3) el índice deja de dividir.
-struct SupersetSlot: Codable, Equatable {
-    /// El movimiento de este turno — la etiqueta del coach, si no el ejercicio.
-    let movement: String
-    /// La vuelta a la rotación, en base 1.
-    let round: Int
-    /// Cuántas vueltas tiene el bloque entero.
-    let rounds: Int
-}
-
 struct WorkoutSegment: Codable, Identifiable {
     let id: UUID
     let order: Int
@@ -198,22 +182,6 @@ struct WorkoutSegment: Codable, Identifiable {
     /// unchanged. `var` with a default so the big init and cached/mirror snapshots
     /// stay untouched and decode tolerantly.
     var doblesSplit: SegmentDoblesSplit? = nil
-
-    /// La rotación de una SUPERSERIE, un turno por serie de `prescription.sets` y en
-    /// el mismo orden — para que la pantalla pueda decir en todo momento qué
-    /// ejercicio toca y por qué vuelta va. Nil en todo lo demás. `var` con defecto
-    /// para que las llamadas y los snapshots cacheados sigan decodificando.
-    var supersetSlots: [SupersetSlot]? = nil
-
-    /// True cuando este tramo ejecuta un bloque en superserie.
-    var isSuperset: Bool { prescription?.scheme == .superset }
-
-    /// El turno que corresponde a la serie `i` (base 0). Nil fuera de una
-    /// superserie o cuando la rotación no cubre ese índice.
-    func supersetSlot(at i: Int) -> SupersetSlot? {
-        guard let supersetSlots, supersetSlots.indices.contains(i) else { return nil }
-        return supersetSlots[i]
-    }
 
     /// The MODALITY string emitted on the execution wire for this segment. Single
     /// source for the lap's `modality` (#erg-2).
@@ -273,8 +241,7 @@ struct WorkoutSegment: Codable, Identifiable {
         blockPosition: Int? = nil,
         videoUrl: String? = nil,
         prescription: Prescription? = nil,
-        ergKind: String? = nil,
-        supersetSlots: [SupersetSlot]? = nil
+        ergKind: String? = nil
     ) {
         self.id = id
         self.order = order
@@ -295,7 +262,6 @@ struct WorkoutSegment: Codable, Identifiable {
         self.videoUrl = videoUrl
         self.prescription = prescription
         self.ergKind = ergKind
-        self.supersetSlots = supersetSlots
     }
 }
 
@@ -314,18 +280,6 @@ struct EmomInterval: Equatable {
     /// is the type being wrong (§7 del contrato de UI). Quien pinta decide.
     let work: String?
     let detail: String?    // "@ 1:50/500m", "RPE 8" — nil when none prescribed
-    /// ¿ES ESTA RONDA UNA MÁQUINA? — row/ski/bike, no burpees ni core.
-    ///
-    /// Existe porque el reloj necesita saber si el CUERPO puede mirar mientras
-    /// hace esta ronda, y eso no es un dato que se adivine del texto («Ski 45
-    /// s» vs «10 burpees»): es la modalidad que el coach ya escribió en cada
-    /// set (`PrescriptionSet.modality`). Antes de este campo, el guion del
-    /// espejo (`GuionDelEspejo.emom`) lo daba por hecho a `.ojeada` SIEMPRE —
-    /// un EMOM de burpees se pintaba como si tuvieras las manos libres para
-    /// mirar el reloj en pleno suelo. El dato ya se calculaba aquí mismo
-    /// (`isErg` en `emomInterval`/`uniformEmomInterval`) y se tiraba después
-    /// de decidir el formato del `detail`; ahora se queda.
-    let isErg: Bool
 }
 
 // The full EMOM dosage for one segment, expanded across its N intervals. Built
@@ -439,16 +393,21 @@ extension PrescriptionSet {
         let isErg = modality?.isErg ?? fallbackIsErg
         let detail = PrescriptionRenderer.targetLoad(target)
             ?? PrescriptionRenderer.paceString(target, isErg: isErg)
-        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail, isErg: isErg)
+        return EmomInterval(movement: movement, work: Self.emomWorkString(measure), detail: detail)
     }
 
-    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal", y
-    /// "12-15 reps" cuando el coach prescribió una banda), o nil cuando la medida
-    /// falta / es cero / es desconocida. Lo ÚNICO propio del EMOM es que deletrea
-    /// la unidad de las repeticiones; el formateo vive una sola vez en
-    /// `PrescriptionRenderer.measureWork` (§2), que es de donde sale la banda.
+    /// The EMOM minute's WORK string ("15 reps", "0:40", "200 m", "15 cal"), or
+    /// nil when the measure is absent / zero / unknown. EMOM-specific: it spells
+    /// the reps unit, unlike `PrescriptionRenderer.measureWork`.
     static func emomWorkString(_ m: Measure?) -> String? {
-        PrescriptionRenderer.measureWork(m, deletreandoReps: true)
+        guard let m else { return nil }
+        switch m {
+        case .reps(let v):           return v > 0 ? "\(v) reps" : nil
+        case .distance(let meters):  return Formato.distancia(meters)
+        case .duration(let seconds): return seconds > 0 ? Formato.clock(seconds, subMinuto: .segundos) : nil
+        case .calories(let v):       return v > 0 ? "\(v) cal" : nil
+        case .unknown:               return nil
+        }
     }
 }
 
@@ -482,7 +441,7 @@ extension WorkoutSegment {
         let detail = effortGuidance
             ?? PrescriptionRenderer.targetLoad(p.target)
             ?? PrescriptionRenderer.paceString(p.target, isErg: kind.isErg)
-        return EmomInterval(movement: title, work: work, detail: detail, isErg: kind.isErg)
+        return EmomInterval(movement: title, work: work, detail: detail)
     }
 }
 
@@ -606,15 +565,8 @@ extension WorkoutSegment {
     /// True when this strength segment is a multi-SET piece (a 5×5, a pyramid) the
     /// athlete logs set by set — driven by the structured `prescription.sets`.
     /// A single-set strength move falls back to the simple prefilled rep flow.
-    ///
-    /// Una SUPERSERIE entra siempre, la mueva el músculo que la mueva: el formato ya
-    /// declara que esto se registra serie a serie. Mirando solo el `kind`, una
-    /// superserie de sentadilla + dominadas se resuelve como mixta (`.reps`) y se
-    /// habría quedado sin registro de carga — que es exactamente lo que un bloque de
-    /// fuerza no puede perder.
     var usesMultiSetStrength: Bool {
-        guard !isEMOM else { return false }
-        guard kind == .strength || isSuperset else { return false }
+        guard kind == .strength, !isEMOM else { return false }
         return (prescription?.sets?.count ?? 0) > 1
     }
 
@@ -654,24 +606,9 @@ extension WorkoutSegment {
 
     /// True when this segment runs a NON-EMOM conditioning timer (For Time, AMRAP,
     /// Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim).
-    ///
-    /// QUIÉN CONDUCE EL TRAMO SE DECIDE UNA VEZ, Y AQUÍ. El motor lo tiene claro
-    /// desde el #61 (`WorkoutSession.onEnterSegment`): la ESTRUCTURA de carrera manda
-    /// sobre el rotativo, y el EMOM tiene su propio motor. Esta propiedad —que es la
-    /// que leen las PANTALLAS— solo excluía el EMOM, así que una serie de correr con
-    /// estructura decía «yo llevo reloj de acondicionamiento» aunque el que la
-    /// conducía fuese el cursor de tramos. El resultado, con datos reales (Fartlek
-    /// 16×500 m Z4, 10-ago): la pantalla de antes de empezar montaba debajo un
-    /// `ForTimeLiveHUD` con sus 16 rondas sin recortar —unos 2.000 pt en una pantalla
-    /// de 874— así que el `ZStack` del entreno activo crecía más que el móvil, la
-    /// puerta del bloque quedaba centrada en ese alto y al atleta solo le llegaba una
-    /// franja de «LO QUE VIENE»: sin título y, sobre todo, sin EMPEZAR. Pantalla en
-    /// blanco y entreno imposible de arrancar.
-    ///
-    /// Con la exclusión, la cadena de la vista (`superficieViva` → `modalityHUD`)
-    /// dice de la carrera estructurada lo que ya decía el motor: no es esto.
+    /// EMOM is excluded — it keeps its own dedicated engine (`isEMOM`).
     var isConditioningTimer: Bool {
-        guard let s = formatScheme, !isEMOM, !hasRunStructure else { return false }
+        guard let s = formatScheme, !isEMOM else { return false }
         return s.runsConditioningTimer
     }
 
@@ -787,6 +724,7 @@ struct WorkoutPlan: Codable, Identifiable {
     let equipment: [String]
     let segments: [WorkoutSegment]
     let coachNote: String?
+    let demoVideoUrl: String?
     let warmupChecklist: [String]
 }
 
@@ -908,23 +846,6 @@ struct LapRecord: Codable, Identifiable {
     /// The monitor's own per-interval splits (ErgData interval table), captured
     /// verbatim from the PM5. Empty/nil when no split boundary fired this segment.
     var ergSplits: [PM5Split]? = nil
-
-    // MARK: HR provenance — el fallo de la mezcla de fuentes concurrentes (correa
-    // + Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
-    // treadmill/manual), no específicamente de qué aparato salió el pulso.
-    /// Provenance of the PULSE specifically — "strap" | "healthkit" | "pm5", nil
-    /// when this lap has no HR at all. Set from `WorkoutSession.hrSource` — the
-    /// single owning device the priority latch (`injectLiveHR`) already tracks —
-    /// at the instant this lap had any HR samples; nil otherwise. Defaulted so
-    /// older persisted snapshots and the freeform fallback keep building.
-    var hrSource: String? = nil
-
-    // Sensor (fases 1–2) — defaulted for snapshot decode.
-    var sensorWorkS: Double? = nil
-    var sensorRestS: Double? = nil
-    var sensorTimingConfidence: Double? = nil
-    var repsSource: String? = nil
-    var repsConfidence: Double? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -935,12 +856,6 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var id: Int { setIndex }
     let setIndex: Int                  // 1-based
     var repsPrescribed: Int?
-    /// El TECHO cuando el coach prescribió una banda («12-15»): `repsPrescribed` es
-    /// el suelo y con él se prellena y se calcula, y esto es lo que hace que la
-    /// pantalla enseñe la banda entera en vez de media prescripción. Solo se pinta;
-    /// no viaja al cable (`SetExecutionDTO` registra lo HECHO, que es un número).
-    /// `var` con defecto para que los snapshots cacheados sigan decodificando.
-    var repsPrescribedMax: Int? = nil
     var repsActual: Int?
     var loadPrescribedKg: Double?
     var loadActualKg: Double?
@@ -950,17 +865,6 @@ struct SetRecord: Codable, Equatable, Identifiable {
     var confirmed: Bool
     var tempo: String?
     var restS: Int?
-    /// Serie de aproximación (card 151): se registra igual, pero no es volumen de
-    /// trabajo. Ausente = serie de trabajo.
-    var isApproach: Bool = false
-    // Sensor (fases 2–3) — defaults so snapshots keep decoding.
-    var repsSource: String? = nil
-    var repsConfidence: Double? = nil
-    var meanVelocityFirstMs: Double? = nil
-    var meanVelocityLastMs: Double? = nil
-    var velocityLossPct: Double? = nil
-    var romM: Double? = nil
-    var velocityConfidence: Double? = nil
 }
 
 // Per-segment execution record on the wire. Property names are already
@@ -1044,22 +948,6 @@ struct SegmentExecutionDTO: Codable {
     /// "warmup" | "main" | "cooldown". Un calentamiento es `kind: work` en la
     /// gramática, así que sin la fase no se distingue de una serie.
     var leg_phase: String? = nil
-
-    // HR provenance — el fallo de la mezcla de fuentes concurrentes (correa +
-    // Watch, o Watch + PM5). `source` arriba describe el TRAMO (gps/pm5/
-    // treadmill/manual), no específicamente el pulso.
-    /// Provenance of `avg_hr`/`max_hr` — "strap" | "healthkit" | "pm5", null when
-    /// this segment has no HR at all. See `LapRecord.hrSource`. `var` with a
-    /// default so older payloads (watch relay, cached snapshots) keep building.
-    var hr_source: String? = nil
-
-    // Sensor timing + rep provenance (plan fases 1–2, mig 0174/0175).
-    var sensor_work_s: Double? = nil
-    var sensor_rest_s: Double? = nil
-    var sensor_timing_confidence: Double? = nil
-    /// "athlete_tap" | "sensor" | "sensor_corrected"
-    var reps_source: String? = nil
-    var reps_confidence: Double? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit
@@ -1096,14 +984,6 @@ struct SetExecutionDTO: Codable {
     let confirmed: Bool?
     let tempo: String?
     let rest_s: Int?
-    // Fase 2–3 sensor fields (optional; older clients omit).
-    var reps_source: String? = nil
-    var reps_confidence: Double? = nil
-    var mean_velocity_first_m_s: Double? = nil
-    var mean_velocity_last_m_s: Double? = nil
-    var velocity_loss_pct: Double? = nil
-    var rom_m: Double? = nil
-    var velocity_confidence: Double? = nil
 }
 
 // POST /api/sync/workout-execution body. Explicit snake_case keys to match the
@@ -1170,6 +1050,14 @@ struct WorkoutExecutionPayload: Codable {
 // exact path. So the networking-backed submitters are compiled out on watchOS
 // (they'd otherwise drag APIClient + RequestQueue onto the wrist for no reason).
 #if !os(watchOS)
+// Result of the EXISTING POST + RequestQueue path. Not a second save engine:
+// 2xx (or 2xx with an unreadable body) is saved; 5xx/offline is queued; 4xx is not.
+enum WorkoutSaveOutcome {
+    case saved(WorkoutExecutionResponse?)
+    case queued
+    case rejected
+}
+
 enum WorkoutExecutionAPI {
     static let path = "/api/sync/workout-execution"
 
@@ -1178,33 +1066,30 @@ enum WorkoutExecutionAPI {
     }
 
     /// Submit and decode the response (which carries any running `prs` set this
-    /// session, #65, and the `execution_id` the session's trace hangs off).
-    /// Preserves the offline-first replay on a network/HTTP failure — and now REPORTS
-    /// the queued entry, because whoever wants to hang something off this execution
-    /// needs to know which entry will eventually bring its id.
+    /// session, #65). `.saved(nil)` when the body can't be read — the execution
+    /// WAS persisted, never replay. `.queued` only on a transient failure
+    /// (`RequestQueue.isRetriable`); a 4xx is `.rejected` and is not enqueued.
     static func submitReturning(
         _ payload: WorkoutExecutionPayload,
-        bearer: String?,
-        enqueueOnFailure: Bool = true
-    ) async -> ExecutionSubmission {
+        bearer: String?
+    ) async -> WorkoutSaveOutcome {
         do {
-            let response: WorkoutExecutionResponse = try await APIClient.shared.post(
+            let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: path, body: payload, bearer: bearer
             )
-            return ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
+            return .saved(resp)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
-            return ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: true)
+            return .saved(nil)
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
-            // El resumen pasa enqueueOnFailure=false: fallo = reintento, no «guardado».
-            if enqueueOnFailure, RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                let queued = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return ExecutionSubmission(response: nil, queuedRequestId: queued, persisted: false)
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
+                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                return .queued
             }
-            return .none
+            return .rejected
         }
     }
 }
@@ -1240,24 +1125,23 @@ enum DoblesExecutionAPI {
     static func submitReturning(
         sessionId: String,
         _ payload: WorkoutExecutionPayload,
-        bearer: String?,
-        enqueueOnFailure: Bool = true
-    ) async -> ExecutionSubmission {
+        bearer: String?
+    ) async -> WorkoutSaveOutcome {
         let p = path(sessionId: sessionId)
         do {
-            let response: WorkoutExecutionResponse = try await APIClient.shared.post(
+            let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: p, body: payload, bearer: bearer
             )
-            return ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
+            return .saved(resp)
         } catch APIError.decoding {
-            return ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: true)
+            return .saved(nil)
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
-            if enqueueOnFailure, RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                let queued = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
-                return ExecutionSubmission(response: nil, queuedRequestId: queued, persisted: false)
+            if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
+                await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
+                return .queued
             }
-            return .none
+            return .rejected
         }
     }
 }
@@ -1284,6 +1168,7 @@ extension WorkoutPlan {
                 WorkoutSegment(order: 1, title: name, kind: .reps)
             ],
             coachNote: nil,
+            demoVideoUrl: nil,
             warmupChecklist: []
         )
     }
@@ -1310,24 +1195,6 @@ extension WorkoutPlan {
         let segments: [WorkoutSegment] = workout.blocks
             .sorted { $0.blockPosition < $1.blockPosition }
             .flatMap { block -> [WorkoutSegment] in
-                // Calentamiento y vuelta a la calma NUNCA se pliegan, sea cual sea su
-                // `format` — es el contrato que ya documentaban `conditioningFold` y
-                // `StructuralBlockChecklist` («un tramo por movimiento») pero que
-                // ningún guard comprobaba de verdad: los tres pliegues de abajo miran
-                // el FORMATO del bloque, no su FASE, así que un calentamiento montado
-                // como circuito/rondas (un activation flow de verdad, no un caso raro)
-                // se plegaba en un solo tramo opaco — el título salía concatenando los
-                // nombres de los 9 ejercicios y «hecho» saltaba directo al siguiente
-                // bloque sin pasar por ninguno (Alex, 7-ago). Cortar aquí, antes de
-                // los tres pliegues, es la única forma de que ninguno futuro repita el
-                // mismo fallo.
-                let phase = BlockPhase.classify(title: block.title)
-                if phase == .warmup || phase == .cooldown {
-                    return block.items.map { item in
-                        order += 1
-                        return segment(from: item, order: order, block: block)
-                    }
-                }
                 // An ALTERNATING EMOM is ONE block with several movements that the
                 // athlete cycles minute by minute (min1 wallballs / min2 run / min3
                 // wallballs …) — a SINGLE 15-min EMOM, not back-to-back ones. The
@@ -1338,18 +1205,6 @@ extension WorkoutPlan {
                 if let merged = block.alternatingEmom {
                     order += 1
                     return [mergedEmomSegment(block: block, merged: merged, order: order)]
-                }
-                // UNA SUPERSERIE ROTA: A1 serie 1 → A2 serie 1 → A3 serie 1 →
-                // descanso → A1 serie 2 … Es UN bloque, así que es UN tramo cuya
-                // rotación aplanada conserva TODAS las series de cada ejercicio con
-                // su carga y su descanso. No pasa por `conditioningFold` —ni podría:
-                // aquel se queda con el primer set de cada ejercicio y arranca un
-                // reloj de acondicionamiento, y esto es fuerza que se registra serie
-                // a serie. Un bloque mal formado devuelve nil y cae a series rectas.
-                if let (folded, slots) = block.supersetFold {
-                    order += 1
-                    return [mergedSupersetSegment(block: block, merged: folded,
-                                                  slots: slots, order: order)]
                 }
                 // Every OTHER multi-movement conditioning block (For Time, AMRAP,
                 // Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds,
@@ -1390,6 +1245,7 @@ extension WorkoutPlan {
             // live engine (phone + watch, shared) runs each athlete's half.
             segments: applyDoblesSplit(resolvedSegments, assignment: detail.assignment),
             coachNote: workout.coachNote,
+            demoVideoUrl: nil,
             warmupChecklist: []
         )
     }
@@ -1450,7 +1306,7 @@ extension WorkoutPlan {
         // into a real per-set prescription so the multi-set logger records ALL N sets
         // (with their tempo/rest). An AUTHORED prescription always wins — only a
         // prescription-LESS scalar strength with N>1 sets is synthesized here.
-        let prescription = item.prescription ?? item.scalarStrengthPrescription
+        let prescription = item.prescription ?? scalarStrengthPrescription(from: p, kind: kind)
         return WorkoutSegment(
             order: order,
             title: item.exerciseName,
@@ -1465,7 +1321,11 @@ extension WorkoutPlan {
             targetPowerWatts: prescription?.wattsTarget ?? p.watts,
             targetCalories: p.calories,         // #erg-1: calorie erg target now visible in HUD
             targetZone: p.hrZone.flatMap { HRZone(rawValue: $0) },
-            loadKg: p.loadKg,
+            // FH-46: a %RM line arrives as `load_pct` (loadKg nil). The brief
+            // already shows `resolved_load`; seed the live scalar with the same
+            // absolute kg (`value ?? min` → `minKg`) so the close wheel is not
+            // the 20 kg fallback. Do not recompute %RM here.
+            loadKg: p.loadKg ?? item.resolvedLoad?.minKg,
             targetRpe: p.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
@@ -1476,6 +1336,25 @@ extension WorkoutPlan {
             prescription: prescription,
             ergKind: item.ergSubtype            // #erg-2: row/ski/bike, not a merged "row"
         )
+    }
+
+    /// #break-3(a): build a per-set strength prescription from a SCALAR "N × reps"
+    /// (params_json `{sets, reps, load_kg | load_pct, rest_seconds}`) so a
+    /// prescription-less multi-set lift materializes ALL its sets instead of priming
+    /// one. Returns nil unless it is genuinely a multi-set (`sets > 1`) rep-based
+    /// strength scalar — a single set, a non-strength item, or a repless scalar keeps
+    /// the legacy single-lap path (single sets get their per-set detail at close time).
+    private static func scalarStrengthPrescription(from p: WorkoutItemParams, kind: SegmentKind) -> Prescription? {
+        guard kind == .strength, let sets = p.sets, sets > 1, let reps = p.reps, reps > 0 else { return nil }
+        // Prefer an absolute kg objective; else a %1RM; else none (athlete logs load).
+        let target: Target? = p.loadKg.map { .kg(value: $0, min: nil, max: nil) }
+            ?? p.loadPct.map { .percentRM(value: $0, min: nil, max: nil) }
+        let one = PrescriptionSet(measure: .reps(reps), target: target, modality: .strength,
+                                  restS: p.restSeconds, tempo: nil, note: nil)
+        return Prescription(scheme: .sets, modality: .strength,
+                            sets: Array(repeating: one, count: sets),
+                            rounds: nil, workS: nil, restS: p.restSeconds, totalS: nil,
+                            target: target, note: nil, start: nil, increment: nil)
     }
 
     // Package the shared alternating-EMOM fold (`block.alternatingEmom` — the ONE
@@ -1567,43 +1446,6 @@ extension WorkoutPlan {
             // the ONE lap records the right erg. A fold that MIXES machines carries
             // none — see `mergedEmomSegment` for why the kind alone can't tell.
             ergKind: block.singleErgMachine
-        )
-    }
-
-    // Empaqueta la superserie plegada (`block.supersetFold`) en el ÚNICO tramo que
-    // la ejecuta. Espeja a los otros dos plegados: aquí solo vive lo propio del
-    // tramo (título, modalidad del registro, id atribuido); la rotación se construye
-    // una vez en `WorkoutBlock`.
-    private static func mergedSupersetSegment(block: WorkoutBlock,
-                                              merged: Prescription,
-                                              slots: [SupersetSlot],
-                                              order: Int) -> WorkoutSegment {
-        // Homogénea (todo hierro) conserva su kind; una superserie MIXTA (sentadilla
-        // + dominadas) no tiene una sola modalidad → `.reps`, un registro neutro sin
-        // GPS ni PM5 falsos. Misma regla que los otros dos plegados. Y no se pierde
-        // el registro por serie: `usesMultiSetStrength` lo decide por el FORMATO.
-        let kinds = Set(block.items.map(\.segmentKind))
-        let kind: SegmentKind = kinds.count == 1 ? (kinds.first ?? .reps) : .reps
-
-        // Los ejercicios en orden — es lo que el atleta reconoce como el bloque.
-        let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " · ")
-
-        return WorkoutSegment(
-            order: order,
-            title: title.isEmpty ? block.title : title,
-            kind: kind,
-            // Un tramo, un template_segments.id: se atribuye al primer ejercicio (los
-            // demás comparten bloque), igual que en los otros dos plegados.
-            templateSegmentId: block.items.first?.templateSegmentId,
-            // Sin escalares de bloque: la verdad de una superserie es de CADA serie,
-            // y un objetivo de bloque sería el del primer ejercicio sobre todos.
-            blockTitle: block.title,
-            blockPosition: block.blockPosition,
-            // Varios movimientos → ningún vídeo de técnica que no engañe.
-            videoUrl: nil,
-            prescription: merged,
-            ergKind: block.singleErgMachine,
-            supersetSlots: slots
         )
     }
 
@@ -1724,41 +1566,6 @@ extension WorkoutItem {
         if let d = p.durationSeconds, d > 0 { return .duration(seconds: d) }
         return nil
     }
-
-    /// #break-3(a): a per-set strength prescription built from a SCALAR "N × reps"
-    /// (params_json `{sets, reps, load_kg | load_pct, rest_seconds}`), so a
-    /// prescription-less multi-set lift materializes ALL its sets instead of priming
-    /// one. Nil unless it is genuinely a multi-set (`sets > 1`) rep-based strength
-    /// scalar — a single set, a non-strength item, or a repless scalar keeps the
-    /// legacy single-lap path (single sets get their per-set detail at close time).
-    ///
-    /// Vive en `WorkoutItem` (y no dentro del constructor de tramos) porque la
-    /// rotación de la superserie necesita EXACTAMENTE las mismas series: si cada
-    /// camino se las materializara por su cuenta, un 4×10 escrito en escalares
-    /// rotaría distinto de como se ejecuta recto. UNA definición.
-    var scalarStrengthPrescription: Prescription? {
-        let p = paramsJson
-        guard segmentKind == .strength, let sets = p.sets, sets > 1,
-              let reps = p.reps, reps > 0 else { return nil }
-        // Prefer an absolute kg objective; else a %1RM; else none (athlete logs load).
-        let target: Target? = p.loadKg.map { .kg(value: $0, min: nil, max: nil) }
-            ?? p.loadPct.map { .percentRM(value: $0, min: nil, max: nil) }
-        let one = PrescriptionSet(measure: .reps(reps), target: target, modality: .strength,
-                                  restS: p.restSeconds, tempo: nil, note: nil)
-        return Prescription(scheme: .sets, modality: .strength,
-                            sets: Array(repeating: one, count: sets),
-                            rounds: nil, workS: nil, restS: p.restSeconds, totalS: nil,
-                            target: target, note: nil, start: nil, increment: nil)
-    }
-
-    /// Las series de este ejercicio tal y como se van a ejecutar: las estructuradas
-    /// del coach, y si no las trae, las que se materializan de sus escalares. Vacío
-    /// cuando el ejercicio no declara ninguna serie — que es una de las dos formas
-    /// en que una superserie llega mal formada.
-    var seriesEjecutables: [PrescriptionSet] {
-        if let sets = prescription?.sets, !sets.isEmpty { return sets }
-        return scalarStrengthPrescription?.sets ?? []
-    }
 }
 
 // MARK: - WorkoutBlock → alternating-EMOM fold (THE single source)
@@ -1837,13 +1644,7 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                // Su DESCANSO — el de la serie, y si no el del EJERCICIO, igual que
-                // hacen la intensidad y la modalidad justo arriba. Era el único
-                // campo que no bajaba a mirar el nivel del ejercicio, y el coach
-                // escribe «descanso 2:00» UNA vez por movimiento, no repetido dentro
-                // de cada serie: sin este respaldo, las pausas que el plan prescribe
-                // entre estaciones desaparecían. Card 110.
-                restS: baseSet?.restS ?? item.prescription?.restS,
+                restS: baseSet?.restS,
                 tempo: baseSet?.tempo,
                 // The MOVEMENT label shown for this minute — the coach's set note, else
                 // the exercise name. Never nil, so each minute names its own movement.
@@ -1877,86 +1678,6 @@ extension WorkoutBlock {
             note: nil,
             start: nil,
             increment: nil
-        )
-    }
-
-    /// True cuando el coach declaró este bloque como SUPERSERIE. Solo el formato
-    /// del bloque lo dice: dos ejercicios en el mismo bloque nunca han rotado, y no
-    /// van a empezar a hacerlo por estar juntos (docs/DECISIONS.md 2026-08-05).
-    var isSuperset: Bool { PrescriptionScheme(canonicalizing: format) == .superset }
-
-    /// La SUPERSERIE plegada: los ejercicios del bloque en el orden REAL de
-    /// ejecución —A1 serie 1 → A2 serie 1 → A3 serie 1 → A1 serie 2 …— más la
-    /// etiqueta de qué ejercicio y qué vuelta es cada turno.
-    ///
-    /// POR QUÉ NO SIRVE `conditioningFold`: aquel se queda con el PRIMER set de
-    /// cada ejercicio (una ronda de metcon es una lista de movimientos), y una
-    /// superserie de fuerza es justo lo contrario — cada ejercicio trae N series
-    /// con SU carga y SU descanso, y perderlas es perder el entreno. Aquí se
-    /// conservan todas: la serie r de cada ejercicio, con su medida, su objetivo,
-    /// su tempo y su descanso intactos.
-    ///
-    /// SERIES DESIGUALES: si A1 trae 4 y A2 trae 3, la vuelta 4 la corre A1 solo.
-    /// Nada se inventa y nada se pierde; las vueltas son las del que más trae.
-    ///
-    /// DEGRADA A SERIES RECTAS (nil) cuando el bloque llega mal formado: un solo
-    /// ejercicio, o algún ejercicio sin series. Misma doctrina que el EMOM y el
-    /// AMRAP — un bloque roto se ejecuta como lo que sí se entiende, nunca revienta
-    /// y nunca se inventa una rotación que el coach no escribió.
-    var supersetFold: (prescription: Prescription, slots: [SupersetSlot])? {
-        guard isSuperset, items.count > 1 else { return nil }
-        let porEjercicio = items.map(\.seriesEjecutables)
-        guard porEjercicio.allSatisfy({ !$0.isEmpty }) else { return nil }
-        let vueltas = porEjercicio.map(\.count).max() ?? 0
-        guard vueltas > 0 else { return nil }
-
-        var rotacion: [PrescriptionSet] = []
-        var slots: [SupersetSlot] = []
-        for vuelta in 0..<vueltas {
-            for (i, item) in items.enumerated() {
-                let series = porEjercicio[i]
-                // El ejercicio que ya agotó sus series no vuelve a aparecer.
-                guard vuelta < series.count else { continue }
-                let serie = series[vuelta]
-                let etiquetaCoach = serie.note?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let movimiento = (etiquetaCoach?.isEmpty == false) ? etiquetaCoach! : item.exerciseName
-                rotacion.append(
-                    PrescriptionSet(
-                        // La serie ENTERA, verbatim: su medida, su carga, su tempo y
-                        // su descanso son lo que hace que esto sea fuerza y no un WOD.
-                        measure: serie.measure,
-                        target: serie.target ?? item.prescription?.target,
-                        modality: serie.modality
-                            ?? item.prescription?.modality
-                            ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                        restS: serie.restS,
-                        tempo: serie.tempo,
-                        // Nunca nil: cada turno nombra su movimiento, que es la mitad
-                        // de lo que el atleta necesita saber en una rotación.
-                        note: movimiento
-                    )
-                )
-                slots.append(SupersetSlot(movement: movimiento, round: vuelta + 1, rounds: vueltas))
-            }
-        }
-
-        return (
-            Prescription(
-                scheme: .superset,
-                modality: nil,
-                sets: rotacion,
-                rounds: vueltas,
-                workS: nil,
-                restS: nil,
-                totalS: nil,
-                // El objetivo es de CADA serie (cargas distintas por ejercicio): uno
-                // de bloque sería el del primer ejercicio pintado sobre todos.
-                target: nil,
-                note: nil,
-                start: nil,
-                increment: nil
-            ),
-            slots
         )
     }
 
@@ -1999,13 +1720,7 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                // Su DESCANSO — el de la serie, y si no el del EJERCICIO, igual que
-                // hacen la intensidad y la modalidad justo arriba. Era el único
-                // campo que no bajaba a mirar el nivel del ejercicio, y el coach
-                // escribe «descanso 2:00» UNA vez por movimiento, no repetido dentro
-                // de cada serie: sin este respaldo, las pausas que el plan prescribe
-                // entre estaciones desaparecían. Card 110.
-                restS: baseSet?.restS ?? item.prescription?.restS,
+                restS: baseSet?.restS,
                 tempo: baseSet?.tempo,
                 note: (coachLabel?.isEmpty == false) ? coachLabel : item.exerciseName
             )
@@ -2022,54 +1737,10 @@ extension WorkoutBlock {
         }
         let totalS = itemMax { $0.totalS } ?? configJson?.int("time_cap_seconds") ?? configJson?.int("total_seconds")
         let rounds = itemMax { $0.rounds } ?? configJson?.int("rounds")
-
-        // CIRCUITO (2026-08-07 DECISIONS): a block authored with a real `pacing` —
-        // "por_tarea" (no clock; the round ends whenever the athlete strikes the last
-        // station) or "por_reloj" (a hard per-station clock, `work_seconds`) — GATES
-        // `workS` explicitly instead of ever inferring one. `por_tarea` means "no
-        // clock cap", full stop: it wins over any legacy per-item leftover — this is
-        // the exact "ventana trabajo" confusion Alex reported, where a work window
-        // kept being asked for / applied on a format that has none. No `pacing` in
-        // `config_json` (every block today, and every non-circuit format forever)
-        // falls to the pre-existing legacy chain byte-for-byte.
-        let pacing = configJson?.string("pacing")
-        let workS: Int?
-        switch pacing {
-        case "por_tarea":
-            workS = nil
-        case "por_reloj":
-            workS = configJson?.int("work_seconds")
-        default:
-            workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
-        }
-
-        // Two SEPARATE rest windows (2026-08-07 DECISIONS): the gap INSIDE a round,
-        // between one station and the next — `restS`, its existing meaning, already
-        // correct — and the gap AFTER a full round, before the next one starts —
-        // `restBetweenRoundsS`, new. `rest_between_stations_seconds` only exists on a
-        // real Circuito block, so it slots in ahead of the legacy generic
-        // `rest_seconds` without ever shadowing it for EMOM/Tabata/intervals, which
-        // keep reading that key exactly as before.
-        let restS = itemFirst { $0.restS }
-            ?? configJson?.int("rest_between_stations_seconds")
-            ?? configJson?.int("rest_seconds")
-        let restBetweenRoundsS = configJson?.int("rest_between_rounds_seconds")
+        let workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
+        let restS = itemFirst { $0.restS } ?? configJson?.int("rest_seconds")
         let start = itemFirst { $0.start } ?? configJson?.int("start")
         let increment = itemFirst { $0.increment } ?? configJson?.int("increment")
-
-        // A block-level HEADER target is only honest when EVERY item genuinely
-        // shares the SAME one — a uniform interval pyramid ("5×400m @ threshold")
-        // where every bout carries the identical objective. Blindly taking item 0's
-        // target is the "3:45/km huérfano" bug (2026-08-07 DECISIONS): a mixed
-        // circuit's item 0 (say a Run station) keeps its own real pace, but that pace
-        // is not the BLOCK's — `RunTarget.resolve(from:)` (Devices/Treadmill/
-        // RunTargetResolver.swift) reads `segment.prescription?.target` directly, with
-        // no per-station awareness, and would show a leftover run pace as the target
-        // while the athlete is on Wallballs or Sled Push.
-        let firstTarget = items.first?.prescription?.target
-        let uniformTarget: Target? = (firstTarget != nil
-            && items.allSatisfy { $0.prescription?.target == firstTarget })
-            ? firstTarget : nil
 
         return Prescription(
             scheme: scheme,
@@ -2079,11 +1750,10 @@ extension WorkoutBlock {
             workS: workS,
             restS: restS,
             totalS: totalS,
-            target: uniformTarget,
+            target: items.first?.prescription?.target,
             note: nil,
             start: start,
-            increment: increment,
-            restBetweenRoundsS: restBetweenRoundsS
+            increment: increment
         )
     }
 }

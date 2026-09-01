@@ -1,9 +1,8 @@
 'use client';
 
-// BloqueCard — un BLOQUE: la pieza reutilizable del coach (`blocks`). El punto
-// de color codifica la modalidad (misma leyenda que el carril); el cuerpo lleva
-// el título, su grupo metodológico, la procedencia del Excel (source_ref) y la
-// prosa verbatim.
+// BloqueCard — un BLOQUE: la pieza reutilizable del coach (`blocks`). El borde
+// izquierdo codifica la modalidad; el cuerpo lleva el título, su grupo
+// metodológico, la procedencia del Excel (source_ref) y la prosa verbatim.
 //
 // Marcas honestas, y son DISTINTAS entre sí:
 //   · "sin tipar"  → no tiene ejercicios estructurados: el atleta NO puede
@@ -17,6 +16,7 @@
 // La card entera enlaza al editor de bloque (/biblioteca/bloque/[id]).
 
 import { Link } from '@/i18n/navigation';
+import { Badge } from '@/components/ui/badge';
 import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META } from '@/components/v2/constants';
 import { cn } from '@/lib/utils';
@@ -63,14 +63,18 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
       href={`/biblioteca/bloque/${bloque.id}`}
       aria-label={`Editar bloque ${bloque.title}`}
       className={cn(
-        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4',
+        'v2-stagger v2-focus flex flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3',
         'shadow-[var(--v2-shadow-card)] transition-colors hover:border-[color:var(--v2-border-strong)]',
       )}
-      style={{ ['--v2-stagger-i' as string]: index }}
+      style={{
+        ['--v2-stagger-i' as string]: index,
+        borderLeftWidth: '3px',
+        borderLeftColor: `var(${meta.colorVar})`,
+      }}
     >
       {/* Título + estado (excluyentes: o sin tipar, o sin dosis, o nada) */}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="v2-display min-w-0 text-[15.5px] text-[color:var(--v2-fg)]">
+        <h3 className="min-w-0 text-sm font-semibold leading-snug text-[color:var(--v2-fg)]">
           {bloque.title}
         </h3>
         {bloque.readiness === 'sin_tipar' ? (
@@ -88,19 +92,9 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
         ) : null}
       </div>
 
-      {/* Grupo + procedencia del Excel (desambigua títulos repetidos). El punto
-          de color es la MODALIDAD (misma leyenda que el carril); el chip del
-          grupo del coach es neutro — el grupo es SU categoría, no la nuestra. */}
+      {/* Grupo + procedencia del Excel (desambigua títulos repetidos) */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span
-          aria-hidden
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ background: `var(${meta.colorVar})` }}
-        />
-        <span className="sr-only">{meta.label}. </span>
-        <span className="inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-faint)]">
-          {bloque.group_label}
-        </span>
+        <Badge tint={{ fg: meta.colorVar, bg: meta.softVar }}>{bloque.group_label}</Badge>
         {bloque.source_ref ? (
           <span className="text-label text-[color:var(--v2-faint)]">{bloque.source_ref}</span>
         ) : null}
@@ -141,16 +135,14 @@ export function BloqueCard({ bloque, index }: { bloque: V2BloqueItem; index: num
   );
 }
 
-/** Marca de estado. Un bloque tiene UNO: sin tipar o sin dosis (o ninguno). */
+/** Marca de estado. Un bloque tiene UNO: sin tipar o sin dosis (o ninguno).
+ *  Las dos son el MISMO aviso —falta trabajo para poder ejecutarlo— así que las
+ *  dos van en `warn`; lo que cambia es el icono y el porqué del `title`. */
 function StateBadge({ icon, label, title }: { icon: string; label: string; title: string }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
-      style={{ background: 'var(--v2-warn-soft)', color: 'var(--v2-warn)' }}
-      title={title}
-    >
+    <Badge tone="warn" title={title}>
       <MIcon name={icon} size={13} aria-hidden />
       {label}
-    </span>
+    </Badge>
   );
 }

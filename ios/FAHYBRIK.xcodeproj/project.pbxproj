@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D4E5F6480000000011 /* WorkoutRunClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6480000000001 /* WorkoutRunClock.swift */; };
+		A1B2C3D4E5F6480000000012 /* PhoneWorkoutRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6480000000002 /* PhoneWorkoutRun.swift */; };
+		A1B2C3D4E5F6480000000013 /* LiveWorkoutResume.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6480000000003 /* LiveWorkoutResume.swift */; };
+		A1B2C3D4E5F6480000000014 /* WorkoutRunClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6480000000004 /* WorkoutRunClockTests.swift */; };
 		0008744763DD61C6C20B88C6 /* FreePlanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6B684F6DD7656408A56D3A /* FreePlanService.swift */; };
 		003257B50533484BD181DEF8 /* FuerzaProgreso.swift in Sources */ = {isa = PBXBuildFile; fileRef = BADDA23DB46C948881C5F15A /* FuerzaProgreso.swift */; };
 		00A507E96D6129601C733A29 /* RunPiernasDerivadas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74A7836106423C0FF50731 /* RunPiernasDerivadas.swift */; };
@@ -701,6 +705,9 @@
 		F0C898F9D3FFEC1E359B6977 /* ExecutedWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */; };
 		F0D6A102995BF2B74B86F836 /* AthletePhotoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D28A7728666849597315503 /* AthletePhotoTests.swift */; };
 		F15648AE7B7F361903CFF902 /* EmomVivoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */; };
+		A11F5501C0DE55AA00000002 /* SuperficieViva.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000001 /* SuperficieViva.swift */; };
+		A11F5501C0DE55AA00000004 /* HostVivo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000003 /* HostVivo.swift */; };
+		A11F5501C0DE55AA00000006 /* SuperficieVivaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */; };
 		F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996007C0E035EF597F9CD7 /* ProgressDots.swift */; };
 		F20440807B6060077D7B51E5 /* WorkoutLocationTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E790AA296B1E01AEBD86E15 /* WorkoutLocationTypeTests.swift */; };
 		F2603AB183E2B052254F9B4F /* EspejoEmomTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46BCAB06AB654D67510BD40E /* EspejoEmomTests.swift */; };
@@ -809,6 +816,10 @@
 /* Begin PBXFileReference section */
 		0136340F9BC49BAEDE3A7918 /* HealthHistoryImportPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryImportPanel.swift; sourceTree = "<group>"; };
 		0140CF589D2DF45B13A401B3 /* ComunicadosBandejaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadosBandejaView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6480000000001 /* WorkoutRunClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRunClock.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6480000000002 /* PhoneWorkoutRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWorkoutRun.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6480000000003 /* LiveWorkoutResume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutResume.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6480000000004 /* WorkoutRunClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRunClockTests.swift; sourceTree = "<group>"; };
 		019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorRunStructureTests.swift; sourceTree = "<group>"; };
 		01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRRecoveryTests.swift; sourceTree = "<group>"; };
 		01C7A66E3732F43A168C63FE /* ContinuousLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousLiveView.swift; sourceTree = "<group>"; };
@@ -1341,6 +1352,9 @@
 		CAA8EDF1A9BA3B408F8503D4 /* LecturaDeSesionModelo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeSesionModelo.swift; sourceTree = "<group>"; };
 		CAD8AE716E7330D8587FAA76 /* LifecycleSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleSheets.swift; sourceTree = "<group>"; };
 		CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmomVivoView.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000001 /* SuperficieViva.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperficieViva.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000003 /* HostVivo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostVivo.swift; sourceTree = "<group>"; };
+		A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperficieVivaTests.swift; sourceTree = "<group>"; };
 		CB2C2734A579C7C24E28E740 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		CBE305F6A833611F70DA989A /* RepTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepTracker.swift; sourceTree = "<group>"; };
 		CBEB050F749E432ACB4B32EC /* ResumenCarreraPiezas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumenCarreraPiezas.swift; sourceTree = "<group>"; };
@@ -1659,12 +1673,20 @@
 				A5A47F3B4D9352A06DFF181D /* DoblesTurnHero.swift */,
 				481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */,
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
+				141E799DEAD09B89E810DA46 /* HRRecovery.swift */,
+				9A9504F8733B644F322ED87D /* LiveTramo.swift */,
+				188E789D535F0AB8C94725AE /* ManualEntryControl.swift */,
+				A1B2C3D4E5F6480000000003 /* LiveWorkoutResume.swift */,
 				51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */,
+				A1B2C3D4E5F6480000000002 /* PhoneWorkoutRun.swift */,
 				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
 				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
 				E38DE2084485521A56ED911B /* RestSurface.swift */,
 				01DAA3EA8B7E0A817603675B /* RoundsLiveHUD.swift */,
 				C5773D08D2A19E53DF38FCE8 /* RunPreStartFlow.swift */,
+				9B64C9C6F6AC849116A6AADF /* SegmentPayloadBuilder.swift */,
+				29AA65EF8BDDC031F6FB2245 /* WorkoutAudio.swift */,
+				A1B2C3D4E5F6480000000001 /* WorkoutRunClock.swift */,
 				9A7B3E7538CE6B296E4EC448 /* WorkoutContainer.swift */,
 				9A9DD42611097003D4CA70E1 /* WorkoutFormatHUDs.swift */,
 				88F69A67DF399577268C9EDD /* WorkoutLiveDataSources.swift */,
@@ -2274,6 +2296,7 @@
 				30558745496C3229EA59B4C9 /* KeychainTokenStoreTests.swift */,
 				38597AB9E7F5718DE1CB8079 /* LenguajeVivoTests.swift */,
 				997EAFD257C4395ADB3A7140 /* OutdoorRunHUDRenderTests.swift */,
+				A11F5501C0DE55AA00000005 /* SuperficieVivaTests.swift */,
 				3B686534E928B8738B0F6C60 /* PerfilMarcasHistorialRenderTests.swift */,
 				EBC525D2831ECE05AE3828BD /* ResumenCarreraRenderTests.swift */,
 				9ED9D3FD08706D11359E7E7C /* VivoHUDRenderTests.swift */,
@@ -2345,6 +2368,7 @@
 				6454AAADEB7DDBDCBBF936BD /* WorkoutFinishPersistTests.swift */,
 				9E790AA296B1E01AEBD86E15 /* WorkoutLocationTypeTests.swift */,
 				8D9039B9DC0EF86C77A91572 /* WorkoutRecoveryTests.swift */,
+				A1B2C3D4E5F6480000000004 /* WorkoutRunClockTests.swift */,
 				2F2A08F21330D14F046C8981 /* WorkoutSessionAutoPauseTests.swift */,
 				6EAFCCDADC8DDC255E7DC5A1 /* WorkoutSessionTraceTests.swift */,
 				D1F53D30D3D6D813DB3687D1 /* WorkoutTraceOfflineTests.swift */,
@@ -2482,7 +2506,9 @@
 				7F7388DEA38285E98E239125 /* EditorDeSerie.swift */,
 				CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */,
 				61CB129472FF891F9C5BB0BB /* FuerzaVivoView.swift */,
+				A11F5501C0DE55AA00000003 /* HostVivo.swift */,
 				289F5B93DF2287BB13B6C122 /* SiguienteTramoChip.swift */,
+				A11F5501C0DE55AA00000001 /* SuperficieViva.swift */,
 			);
 			path = Vivo;
 			sourceTree = "<group>";
@@ -3389,6 +3415,7 @@
 				C3D049B376C0CE832D341785 /* HistoryModels.swift in Sources */,
 				D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */,
 				4DB86F3236C11593F201290B /* HistoryView.swift in Sources */,
+				A11F5501C0DE55AA00000004 /* HostVivo.swift in Sources */,
 				A477410C61DF6DFC872C0151 /* HyresultImport.swift in Sources */,
 				87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,
@@ -3554,6 +3581,7 @@
 				265692D9C6031D4DD0D30A6D /* SubscriptionService.swift in Sources */,
 				8EB2694A481FA095DC2785D6 /* SubscriptionView.swift in Sources */,
 				7B5ECCB49F6F34E17DC4FE8C /* SujetoDeLaCarrera.swift in Sources */,
+				A11F5501C0DE55AA00000002 /* SuperficieViva.swift in Sources */,
 				FD1772240A6080F945385803 /* TablaDeTramos.swift in Sources */,
 				45FBEFE753CE944451BB3D1D /* TarjetaCompartible.swift in Sources */,
 				12F0464E7BE155BD772FD675 /* TarjetaCompartibleBuilders.swift in Sources */,
@@ -3601,6 +3629,8 @@
 				7D9FE0ABA448EC6ECED339B8 /* WorkoutFormatHUDs.swift in Sources */,
 				38EB3CDD921525EE98A1F465 /* WorkoutItemParamsFormatter.swift in Sources */,
 				13CDD2668A7998ABDA91AA41 /* WorkoutLiveDataSources.swift in Sources */,
+				A1B2C3D4E5F6480000000013 /* LiveWorkoutResume.swift in Sources */,
+				A1B2C3D4E5F6480000000012 /* PhoneWorkoutRun.swift in Sources */,
 				C151C3D00F11EA5A60F3F3E7 /* WorkoutLiveHUDs.swift in Sources */,
 				04B7E8333C0AEDBC87F3495A /* WorkoutModels.swift in Sources */,
 				203EB4F18C90F4F98F159674 /* WorkoutResumeBanner.swift in Sources */,
@@ -3623,6 +3653,10 @@
 				FBEE4CF4BF016AC1FBF60789 /* WorkoutSession+Trace.swift in Sources */,
 				DF20CB56CEF52206FDB877BD /* WorkoutSession+Tramo.swift in Sources */,
 				405217EAA3A7F5C635125423 /* WorkoutSession.swift in Sources */,
+				A1B2C3D4E5F6480000000011 /* WorkoutRunClock.swift in Sources */,
+				C949CFF5A2856DA6B0B6E5EB /* WorkoutModels.swift in Sources */,
+				3A6F3A9E6FED10573184973F /* WorkoutSession+Tramo.swift in Sources */,
+				41E920DF478C0ACD2515ED76 /* WorkoutSession.swift in Sources */,
 				9C14B56B598D69788291422C /* WorkoutSessionLiveDescriptor.swift in Sources */,
 				E24E67E80C6A171FA8EC7E52 /* WorkoutStateStore.swift in Sources */,
 				62B441BD009471748245C354 /* WorkoutTraceRecorder.swift in Sources */,
@@ -3857,6 +3891,7 @@
 				759868AA595B3738C90678E3 /* LenguajeVivoTests.swift in Sources */,
 				E9C29CBDFEC5EBD6C613E682 /* MachineTramoLawTests.swift in Sources */,
 				F95A0651AA28B3E9ED1B78D6 /* MirrorWireModelsTests.swift in Sources */,
+				A11F5501C0DE55AA00000006 /* SuperficieVivaTests.swift in Sources */,
 				3C3CFFC81A3C42D8F79E3A19 /* MockDeviceProfileTests.swift in Sources */,
 				412634389E44225B77D3E588 /* NoAutoConnectSourceGuardTests.swift in Sources */,
 				1817A3984342368F09270D7C /* NotaDeVozTests.swift in Sources */,
@@ -3917,6 +3952,7 @@
 				0A4DD7F699DE961F2F016D22 /* WorkoutFinishPersistTests.swift in Sources */,
 				F20440807B6060077D7B51E5 /* WorkoutLocationTypeTests.swift in Sources */,
 				9E24EFBB5F114D60DF923B04 /* WorkoutRecoveryTests.swift in Sources */,
+				A1B2C3D4E5F6480000000014 /* WorkoutRunClockTests.swift in Sources */,
 				5D4101AA7F659FA1AC07C97A /* WorkoutSessionAutoPauseTests.swift in Sources */,
 				9715CC102B7FEA7D97A46771 /* WorkoutSessionTraceTests.swift in Sources */,
 				D199CC5C0BB75607674D5A71 /* WorkoutTraceOfflineTests.swift in Sources */,
@@ -3957,6 +3993,9 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -3982,6 +4021,8 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4008,6 +4049,9 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWatch/Generated-Info.plist";
@@ -4027,6 +4071,9 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWatch/Generated-Info.plist";
@@ -4119,7 +4166,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4163,6 +4210,8 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4222,7 +4271,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = TBD;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4295,6 +4344,9 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;

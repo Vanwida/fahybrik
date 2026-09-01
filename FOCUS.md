@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-08-24** (card 132: compartir el entreno, construido en Swift)
+Última actualización: **2026-09-01** (merge main → feat: fixes + live one-design, build 21)
 
 ## Ahora
 

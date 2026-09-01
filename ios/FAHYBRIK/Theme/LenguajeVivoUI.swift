@@ -428,18 +428,13 @@ struct DeltaPastilla: View {
 
 // MARK: - §10.5 · La acción no pesa como el sujeto
 
-/// LA FRANJA DE ACCIÓN — anclada abajo, a una mano, y en su sitio de la jerarquía.
+/// LA ACCIÓN DEL LIVE. Un `SwiftUI.Button` — Apple tiene el tipo; no hay motor de HUD.
 ///
-/// «Terminar rodaje» o «Serie hecha» son la ACCIÓN: **el sujeto es lo que MIRAS,
-/// la acción es lo que TOCAS.** Por eso el CONTORNO es el estado normal y el
-/// relleno naranja la excepción — no al revés, que es como estaba y por lo que 96
-/// pt de naranja macizo eran la mayor mancha de color de la pantalla.
-///
-/// `unicaSalida` = el relleno se gana SOLO cuando el toque es lo único que puede
-/// cerrar el tramo (la fuerza la cierras tú; el rodaje lo cierra el hito). Así el
-/// color deja de ser decoración y pasa a decir quién gobierna la transición, que
-/// es exactamente la variable que separa estas vistas.
-struct FranjaAccion: View {
+/// El CONTORNO es el estado normal (REANUDAR / TERMINAR TRAMO de la cinta). El
+/// relleno naranja se gana SOLO cuando el toque es la única salida del tramo
+/// (`unicaSalida`). Pintarlo naranja siempre es otra ticket (el acento de marca
+/// no pinta la barra entera).
+struct BotonVivo: View {
     let titulo: String
     /// El toque es lo ÚNICO que cierra el tramo: ahí, y solo ahí, manda el relleno.
     var unicaSalida: Bool = false
@@ -451,9 +446,6 @@ struct FranjaAccion: View {
         Button(action: { Haptics.medium(); accion() }) {
             VStack(spacing: 3) {
                 Text(titulo)
-                    // 17 pt es el tamaño de la CTA de la app. El EMOM la escribía
-                    // a 26 y por eso su acción gritaba más que el trabajo que
-                    // anunciaba.
                     .scaledFont(17, weight: .heavy, relativeTo: .body, italic: true)
                     .tracking(1)
                     .textCase(.uppercase)
@@ -467,6 +459,7 @@ struct FranjaAccion: View {
             .lineLimit(1).minimumScaleFactor(0.7)
             .foregroundStyle(unicaSalida ? Theme.Color.accentOn : Theme.Color.foreground)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minHeight: 66)
             .background(unicaSalida ? Theme.Color.accent : Theme.Color.surface.opacity(0.7))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
@@ -475,6 +468,48 @@ struct FranjaAccion: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(titulo)
+    }
+}
+
+/// La ranura de acción de `MarcoVivo`: un `BotonVivo` a todo el ancho de la franja.
+struct FranjaAccion: View {
+    let titulo: String
+    var unicaSalida: Bool = false
+    var nota: String?
+    let accion: () -> Void
+
+    var body: some View {
+        BotonVivo(titulo: titulo, unicaSalida: unicaSalida, nota: nota, accion: accion)
+    }
+}
+
+/// El chip de pulso de la franja de contexto. Una pieza: EMOM, hierro y el host
+/// del resto no pueden escribir tres chips que se contradigan.
+struct ChipPulsoVivo: View {
+    let session: WorkoutSession
+
+    var body: some View {
+        if let bpm = session.liveHRBpm {
+            chip("\(bpm) \(Vocab.ppm)", tono: session.liveZone?.color ?? Theme.Color.foreground)
+        } else {
+            chip("Sin reloj", tono: Theme.Color.muted)
+        }
+    }
+
+    private func chip(_ texto: String, tono: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "heart.fill").font(.system(size: 8, weight: .bold))
+            Text(texto)
+                .scaledFont(9, weight: .heavy, relativeTo: .caption2, italic: true)
+                .uppercaseTracked(0.7)
+                .lineLimit(1)
+        }
+        .foregroundStyle(tono)
+        .padding(.horizontal, Theme.Spacing.s)
+        .padding(.vertical, 4)
+        .background(Theme.Color.surface.opacity(0.8), in: Capsule())
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -1,7 +1,9 @@
 # Inventario de código muerto — PASO 4
 
 Levantado el **2026-08-14** sobre `feat/pm5-counter-sync` (`ce6108b6`).
-Nada se ha borrado. Nada se ha commiteado.
+**PASO 5 (este commit):** borradas las 7 rutas de §7. Los 49 REVISAR siguen.
+La verificación de callers se re-hizo también sobre `origin/main` (`7ac632b9`)
+antes de borrar: 0 callers de código.
 
 Complementa `docs/architecture-map.md` §12 y `docs/safety-cleanup-inventory.md`
 (PASO 1–2). Este paso **verifica** lo que un recuento a ciegas llamaría muerto.
@@ -292,7 +294,7 @@ ni `PerfilTab`. Un import desde el barril no los salvaría hoy.
 ## 7 · Primera tanda pequeña
 
 **7 rutas, ni 6 ni 8.** 5 one-shots `apply_*` + 2 componentes de auth huérfanos.
-Un commit, rutas explícitas, sin `-A`. Nada de esto se ha borrado.
+Un commit, rutas explícitas, sin `-A`. **Borradas en este commit.**
 
 | # | Ruta | Grupo |
 |---|---|---|
@@ -321,7 +323,7 @@ No entra `UnderConstruction` / `SettingRow` / `PerfilTab`.
 No entra `screenshots/` (decisión de Alex).
 No se toca FLEXR. No se toca `magic-link.ts`.
 
-### Cruzado de las 7 (re-verificado 2026-08-14; nada borrado)
+### Cruzado de las 7 (re-verificado 2026-08-14; borradas en PASO 5)
 
 Por cada ruta: `import()` / `require()`, scripts npm (raíz, web, infra),
 `web/tests/**`, `registry.ts` del doble, `ios/` + `project.yml` + `garmin-ciq/`

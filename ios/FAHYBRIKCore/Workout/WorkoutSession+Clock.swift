@@ -21,40 +21,33 @@ extension WorkoutSession {
             return
         }
         let now = Date()
-        let bruto = now.timeIntervalSince(lastTick)
-        // MIRAR EL MÓVIL A MITAD DE ENTRENO NO ALARGA EL ENTRENO (card 143).
-        //
-        // Este reloj suma el hueco entre un latido y el siguiente, no lee la hora
-        // de fin menos la de inicio. Mientras la app está delante eso es exacto.
-        // Cuando el sistema la manda al fondo SUSPENDE los latidos sin cancelarlos,
-        // así que al volver el primer latido traía de golpe todo el rato ausente y
-        // se sumaba entero: 40 minutos de entreno con una llamada de 15 se
-        // guardaban como 55. Y no es cosmético — la duración alimenta la carga de
-        // la semana, que es con lo que el entrenador decide si alguien se está
-        // pasando.
-        //
-        // POR QUÉ NO BASTA CON DESCONTAR SIEMPRE EL SEGUNDO PLANO: el que corre por
-        // la calle con el móvil en el bolsillo y la pantalla apagada SÍ está
-        // entrenando, y ese tiempo tiene que contar. La diferencia no es si la app
-        // estaba delante: es si alguien seguía MIDIENDO trabajo.
-        //
-        // Por eso el hueco cuenta cuando durante él entraron metros —de calle, de
-        // cinta o de ergómetro— y no cuenta cuando no entró nada. El pulso no vale
-        // como prueba: el reloj sigue latiendo mientras descansas.
-        //
-        // Y cuando no cuenta, no se tira: se guarda en `discardedSuspendedSeconds`,
-        // porque un entreno que dice 40 minutos cuando pasaron 55 tiene que poder
-        // explicarse.
-        var dt = bruto
-        if bruto > Self.huecoQueDelataSuspension {
+        var dt: Double
+        #if os(iOS)
+        let appleElapsed: TimeInterval? = MainActor.assumeIsolated {
+            PhoneWorkoutRun.shared.session == nil ? nil : PhoneWorkoutRun.shared.elapsedTime
+        }
+        if let apple = appleElapsed {
+            dt = max(0, apple - elapsedSeconds)
+            elapsedSeconds = apple
+        } else {
+            let bruto = now.timeIntervalSince(lastTick)
+            dt = bruto
+            elapsedSeconds += dt
+        }
+        #else
+        dt = now.timeIntervalSince(lastTick)
+        elapsedSeconds += dt
+        #endif
+        if dt > Self.huecoQueDelataSuspension {
+            let bruto = dt
             let midieronDurante = lastMeasuredWorkAt.map { $0 > lastTick } ?? false
             if !midieronDurante {
                 discardedSuspendedSeconds += bruto - Self.latidoNormal
                 dt = Self.latidoNormal
+                elapsedSeconds -= (bruto - Self.latidoNormal)
             }
         }
         lastTick = now
-        elapsedSeconds += dt
         lapElapsedSeconds += dt
         if let zone = liveZone {
             lapZoneAccumSec[zone.rawValue, default: 0] += dt

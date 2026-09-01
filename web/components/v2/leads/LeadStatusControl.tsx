@@ -11,6 +11,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MIcon } from '@/components/ui/MIcon';
+import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/v2/Pill';
 import {
   LEAD_STATUS_META,
@@ -115,21 +116,17 @@ export function LeadStatusControl({
         // the explicit "Reabrir" human correction (descartado → nuevo).
         <div className="flex flex-col gap-1.5">
           <span className="v2-micro">Descartado</span>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            className="w-fit"
             onClick={() => setStatus('nuevo')}
             disabled={busy}
-            className={cn(
-              'v2-focus inline-flex h-9 w-fit items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50',
-            )}
+            loading={reopening}
           >
-            <MIcon
-              name={reopening ? 'progress_activity' : 'restart_alt'}
-              size={16}
-              className={reopening ? 'animate-spin' : undefined}
-            />
+            {reopening ? null : <MIcon name="restart_alt" size={16} />}
             Reabrir
-          </button>
+          </Button>
           <p className="text-xs text-[color:var(--v2-muted)]">Corrección: devuelve el lead a “Nuevo”.</p>
         </div>
       ) : (

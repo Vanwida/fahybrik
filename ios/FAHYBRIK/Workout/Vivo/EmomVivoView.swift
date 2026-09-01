@@ -101,13 +101,7 @@ struct EmomVivoView<Cromo: View>: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            // Sin reloj no se pinta un pulso: ni con un guion ni con un cero (§7).
-            // Y sin ancla de FC tampoco hay zona con la que teñir el chip.
-            if let bpm = session.liveHRBpm {
-                chip("\(bpm) \(Vocab.ppm)", tono: session.liveZone?.color ?? Theme.Color.foreground)
-            } else {
-                chip("Sin reloj", tono: Theme.Color.muted)
-            }
+            ChipPulsoVivo(session: session)
         }
     }
 
@@ -123,21 +117,6 @@ struct EmomVivoView<Cromo: View>: View {
         let cada = "cada \(Formato.clock(plan.intervalSeconds, subMinuto: .segundos))"
         guard plan.hasTransition else { return cada }
         return "\(Formato.clock(plan.workSeconds, subMinuto: .segundos)) de trabajo · \(cada)"
-    }
-
-    private func chip(_ texto: String, tono: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "heart.fill").font(.system(size: 8, weight: .bold))
-            Text(texto)
-                .scaledFont(9, weight: .heavy, relativeTo: .caption2, italic: true)
-                .uppercaseTracked(0.7)
-                .lineLimit(1)
-        }
-        .foregroundStyle(tono)
-        .padding(.horizontal, Theme.Spacing.s)
-        .padding(.vertical, 4)
-        .background(Theme.Color.surface.opacity(0.8), in: Capsule())
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - El sujeto — el minuto, y pegado a él lo que de verdad haces

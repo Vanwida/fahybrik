@@ -1,4 +1,13 @@
 import Foundation
+import os
+
+// One HTTP-failure log for every verb. The bytes already live on `APIError.http`.
+// `Logger` + `OSLogPrivacy.public` (os) so status+body show in the device console
+// instead of being redacted. Not a logger per save format.
+private let apiLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.fahybrid.app",
+    category: "http"
+)
 
 // Snake_case JSON convention to match shared/schema/* TypeScript Zod schemas.
 enum APIBase {
@@ -7,25 +16,7 @@ enum APIBase {
            let u = URL(string: s) {
             return u
         }
-        return Marca.apiPorDefecto
-    }
-
-    /// Una referencia de fichero de un DTO, resuelta contra esta base.
-    ///
-    /// El servidor sirve unas como RUTA («/api/communications/audio/…», que es lo
-    /// que sobrevive a cambiar de entorno) y otras ya absolutas. Las dos tienen
-    /// que acabar apuntando al mismo sitio, y quien las consume no puede tener
-    /// que saber cuál le tocó.
-    ///
-    /// Una que ya viene absoluta se devuelve TAL CUAL, sin re-normalizar: es la
-    /// clave con la que la caché de media guarda sus bytes, y cambiarle un
-    /// carácter la haría descargar otra vez lo que ya tiene.
-    static func absoluta(_ referencia: String?) -> String? {
-        guard let limpia = referencia?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !limpia.isEmpty
-        else { return nil }
-        if limpia.contains("://") { return limpia }
-        return URL(string: limpia, relativeTo: url)?.absoluteURL.absoluteString
+        return URL(string: "https://app.fahybrid.com")!
     }
 }
 
@@ -97,6 +88,15 @@ actor APIClient {
         .timedOut, .cannotConnectToHost, .cannotFindHost,
     ]
 
+    /// Single site: non-2xx → device log (status + body) then `APIError.http`.
+    private func requireSuccess(path: String, data: Data, http: HTTPURLResponse) throws {
+        guard (200..<300).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? "\(data.count) bytes"
+            apiLog.error("status=\(http.statusCode, privacy: .public) body=\(body, privacy: .public) path=\(path, privacy: .public)")
+            throw APIError.http(http.statusCode, data)
+        }
+    }
+
     func post<TBody: Encodable, TResp: Decodable>(
         path: String,
         body: TBody,
@@ -109,9 +109,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -133,18 +131,12 @@ actor APIClient {
     /// POST a pre-encoded JSON body EXACTLY as stored. The offline RequestQueue
     /// persists the original encoded bytes, so its replay must send them
     /// verbatim — never re-encode (the in-memory DTO that produced them is
-    /// long gone). Success is any 2xx.
-    ///
-    /// Devuelve el cuerpo de la respuesta, sin decodificar: quien encoló puede
-    /// necesitar lo que el servidor contestó días después (el `execution_id` de una
-    /// ejecución que subió desde la cola, y del que cuelga la traza de la carrera).
-    /// Descartable, que es como lo usa casi todo el mundo.
-    @discardableResult
+    /// long gone). Success is any 2xx; the body is ignored.
     func postJSONData(
         path: String,
         data: Data,
         bearer: String? = nil
-    ) async throws -> Data {
+    ) async throws {
         var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -152,10 +144,7 @@ actor APIClient {
         req.httpBody = data
 
         let (respData, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, respData)
-        }
-        return respData
+        try requireSuccess(path: path, data: respData, http: http)
     }
 
     /// PATCH with a JSON body. Mirrors `post(...)` exactly, differing only in
@@ -172,9 +161,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -197,9 +184,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -220,9 +205,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         do {
             return try decoder.decode(TResp.self, from: data)
         } catch {
@@ -243,9 +226,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         let mime = (http.value(forHTTPHeaderField: "Content-Type") ?? "application/json")
             .split(separator: ";")
             .first
@@ -277,19 +258,24 @@ actor APIClient {
         req.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
-        req.httpBody = Self.multipartBody(
-            boundary: boundary,
-            fields: fields,
-            fieldName: fieldName,
-            filename: filename,
-            mimeType: mimeType,
-            fileData: imageData
-        )
+        var body = Data()
+        // Plain-text fields first (e.g. `app=concept2`), then the image part.
+        for (name, value) in fields {
+            let part = "--\(boundary)\r\n"
+                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
+                + "\(value)\r\n"
+            body.append(Data(part.utf8))
+        }
+        let prologue = "--\(boundary)\r\n"
+            + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
+            + "Content-Type: \(mimeType)\r\n\r\n"
+        body.append(Data(prologue.utf8))
+        body.append(imageData)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        req.httpBody = body
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         do {
             return try decoder.decode(TResp.self, from: data)
         } catch {
@@ -313,9 +299,7 @@ actor APIClient {
         }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         // Empty-typed responses + empty bodies on DELETE both map to Empty.
         if let empty = Empty() as? TResp {
             return empty
@@ -328,38 +312,6 @@ actor APIClient {
     }
 
     // MARK: - Helpers
-
-    /// Builds a `multipart/form-data` body: optional plain-text fields first,
-    /// then EXACTLY one file part.
-    ///
-    /// The ONE place that body gets assembled. `postImage` sends it to our own
-    /// API; the athlete's profile photo sends the same shape straight to the
-    /// image store, which can't go through this actor because it targets another
-    /// host with a pre-signed URL and no bearer of ours.
-    nonisolated static func multipartBody(
-        boundary: String,
-        fields: [String: String] = [:],
-        fieldName: String,
-        filename: String,
-        mimeType: String,
-        fileData: Data
-    ) -> Data {
-        var body = Data()
-        // Plain-text fields first (e.g. `app=concept2`), then the file part.
-        for (name, value) in fields {
-            let part = "--\(boundary)\r\n"
-                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
-                + "\(value)\r\n"
-            body.append(Data(part.utf8))
-        }
-        let prologue = "--\(boundary)\r\n"
-            + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
-            + "Content-Type: \(mimeType)\r\n\r\n"
-        body.append(Data(prologue.utf8))
-        body.append(fileData)
-        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-        return body
-    }
 
     /// Builds a request URL from a path that MAY include a query string
     /// ("a/b?x=1&y=2"). `appendingPathComponent` percent-encodes "?", which
@@ -421,46 +373,6 @@ enum ISO8601DateFormatters {
     }()
 
     static func parse(_ raw: String) -> Date? {
-        if let d = withFraction.date(from: raw) ?? plain.date(from: raw) { return d }
-        guard let normal = normalizado(raw) else { return nil }
-        return withFraction.date(from: normal) ?? plain.date(from: normal)
-    }
-
-    /// EL OTRO FORMATO QUE MANDA EL SERVIDOR, y no es ISO 8601.
-    ///
-    /// Varias consultas sirven la marca de tiempo como `columna::text`, y eso en
-    /// Postgres se escribe «2026-08-12 06:30:00.123456+00»: espacio en vez de `T`,
-    /// desfase de dos dígitos y hasta seis decimales. `ISO8601DateFormatter` la
-    /// rechaza ENTERA, así que sin esto un instante real llega y se lee como
-    /// ausente — que es la peor de las dos, porque no da error.
-    ///
-    /// Se normaliza y se vuelve a intentar; lo que ya venía en ISO ni pasa por
-    /// aquí. Sin desfase se asume UTC, que es como lo guarda la base.
-    private static func normalizado(_ raw: String) -> String? {
-        var cuerpo = raw.replacingOccurrences(of: " ", with: "T")
-        guard cuerpo.contains("T") else { return nil }
-
-        var desfase = ""
-        if cuerpo.hasSuffix("Z") {
-            desfase = "Z"
-            cuerpo.removeLast()
-        } else if let i = cuerpo.lastIndex(where: { $0 == "+" || $0 == "-" }),
-                  cuerpo.distance(from: i, to: cuerpo.endIndex) <= 6,
-                  cuerpo[cuerpo.index(after: i)...].allSatisfy({ $0.isNumber || $0 == ":" }) {
-            desfase = String(cuerpo[i...])
-            cuerpo = String(cuerpo[..<i])
-            if desfase.count == 3 { desfase += ":00" }        // «+00»
-            if desfase.count == 5 {                            // «+0000»
-                desfase.insert(":", at: desfase.index(desfase.startIndex, offsetBy: 3))
-            }
-        }
-
-        // Los decimales se recortan a tres: es lo que sabe leer el formateador, y
-        // un microsegundo no cambia dónde cae una muestra en una curva.
-        if let punto = cuerpo.firstIndex(of: ".") {
-            cuerpo = String(cuerpo[..<punto]) + "."
-                + cuerpo[cuerpo.index(after: punto)...].prefix(3)
-        }
-        return cuerpo + (desfase.isEmpty ? "Z" : desfase)
+        withFraction.date(from: raw) ?? plain.date(from: raw)
     }
 }

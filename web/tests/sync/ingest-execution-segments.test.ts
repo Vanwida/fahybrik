@@ -64,6 +64,18 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     return { fx, executionId };
   }
 
+  test('has the 0001 unique (execution_id, position) ON CONFLICT arbiter', async () => {
+    const rows = await sql<Array<{ conname: string }>>`
+      select c.conname
+      from pg_constraint c
+      join pg_class t on t.oid = c.conrelid
+      where t.relname = 'segment_executions'
+        and c.contype = 'u'
+        and c.conname = 'segment_executions_position_unique'
+    `;
+    expect(rows).toHaveLength(1);
+  });
+
   test('persists a run + row segment with modality and modality-native intensity', async () => {
     const { fx, executionId } = await seedExecution();
 

@@ -28,9 +28,8 @@ enum PM5WorkoutProgrammer {
 
         switch p.scheme {
         case .intervals:
-            // App-owned series: program ONE bout (not native intervals, not the
-            // whole multi-round total). The live path re-sends per tramo key.
-            return boutFixedSpec(measure: boutMeasure(segment, p), pace: pace)
+            // FH-41: with rest → one bout per window; rest-less → folded split piece.
+            return intervalsSpec(segment, p, pace: pace)
         case .steady, .warmup, .cooldown, .forTime:
             return scalarSpec(segment, pace: pace)
         case .amrap:
@@ -84,6 +83,36 @@ enum PM5WorkoutProgrammer {
     }
 
     // MARK: - Shapes
+
+    /// Uniform interval work. With rest the APP is the clock, so the monitor
+    /// gets only this bout — not a type-7 series that would run its own rest.
+    /// Rest-less series fold into one fixed piece split by the bout.
+    private static func intervalsSpec(_ segment: WorkoutSegment, _ p: Prescription, pace: Double?) -> PM5WorkoutSpec {
+        let rest = p.restS ?? p.sets?.first?.restS ?? 0
+        guard let measure = boutMeasure(segment, p) else { return .justRow(pace: pace) }
+        let rounds = max(1, segment.formatRounds ?? 1)
+
+        switch measure {
+        case .distance(let meters, _):
+            let m = Int(meters.rounded())
+            guard m > 0 else { return .justRow(pace: pace) }
+            return rest > 0
+                ? .fixedDistance(meters: m, pace: pace)
+                : .fixedDistance(meters: m * rounds, splitMeters: m, pace: pace)
+        case .duration(let seconds, _):
+            guard seconds > 0 else { return .justRow(pace: pace) }
+            return rest > 0
+                ? .fixedTime(seconds: seconds, pace: pace)
+                : .fixedTime(seconds: seconds * rounds, splitSeconds: seconds, pace: pace)
+        case .calories(let cals, _):
+            guard cals > 0 else { return .justRow(pace: pace) }
+            return rest > 0
+                ? .fixedCalories(calories: cals, pace: pace)
+                : .fixedCalories(calories: cals * rounds, splitCalories: cals, pace: pace)
+        case .reps, .repsToFailure, .unknown:
+            return .justRow(pace: pace)
+        }
+    }
 
     /// One bout → fixed piece (the app will re-send for the next bout).
     private static func boutFixedSpec(measure: Measure?, pace: Double?) -> PM5WorkoutSpec {
