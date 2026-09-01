@@ -365,8 +365,8 @@ final class FreeWorkoutDraft {
         let measure = buildMeasure()
         var distance: Double? = nil
         var duration: Int? = nil
-        if case let .distance(m) = measure { distance = m }
-        if case let .duration(s) = measure { duration = s }
+        if case let .distance(m, _) = measure { distance = m }
+        if case let .duration(s, _) = measure { duration = s }
 
         // Scalar pace stored as sec/KM (the segment convention; the erg grid halves
         // it for /500m). Only when the target is a pace.

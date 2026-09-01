@@ -2,17 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-01** (build 24: Codable + team de firma clavado)
+Última actualización: **2026-09-01** (build 25: leftover Measure switches)
 
 ## Ahora
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con
 `Bundle.main.object(forInfoDictionaryKey:)`. Perfil (iPhone) y el footer idle
-del reloj muestran marketing + build. Build **24** iPhone, Watch y widgets.
-`RunEnvironment` es `Codable` (el snapshot sintetiza `Decodable`).
-`DEVELOPMENT_TEAM` = `S6W4459DDG` en `settings.base` (ya no `TBD`).
-No HUD live. No FH-48, no FH-56, no PR 94. No se instala desde aquí.
+del reloj muestran marketing + build. Build **25** iPhone, Watch y widgets.
+`DEVELOPMENT_TEAM` = `S6W4459DDG` (no se toca).
+
+**Measure leftover (unify):** `emomWorkString` y `FreeWorkout.buildContext`
+aún leían la forma vieja (un asociado, sin `max`) y el EMOM omitía
+`.repsToFailure` — Xcode 2026-09-01 16:58, `WorkoutModels.swift:404-408`.
+Ahora desempaquetan `max` y lo ignoran; al fallo = `Vocab.alFallo`.
+Tarjeta/RunStructure cambian `RunSegmentMeasure`, no `Measure`. Sin
+instalar. CoS compilará en el Mac.
 
 **132 · COMPARTIR EL ENTRENO — construido en iOS, pendiente de probar en el móvil.**
 Mockup aprobado en el doble (`/es/design/compartir-entreno`, 5 escenarios) y

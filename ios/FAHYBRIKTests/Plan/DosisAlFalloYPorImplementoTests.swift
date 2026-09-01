@@ -36,6 +36,20 @@ final class DosisAlFalloYPorImplementoTests: XCTestCase {
         XCTAssertFalse(PrescriptionRenderer.measureWork(m)?.isEmpty ?? true)
     }
 
+    func testAlFalloEnElEmomDiceLaMismaPalabra() {
+        // El EMOM tenía su propio switch, todavía en la forma vieja de Measure.
+        // Si vuelve a omitir el caso, el atleta ve el minuto sin dosis — o el
+        // proyecto no compila. La palabra es la de Vocab, no otra.
+        XCTAssertEqual(PrescriptionSet.emomWorkString(.repsToFailure), Vocab.alFallo)
+    }
+
+    func testEmomWorkStringIgnoraElTechoYDeletreaIgual() {
+        XCTAssertEqual(PrescriptionSet.emomWorkString(.reps(15, max: 20)), "15 reps")
+        XCTAssertEqual(PrescriptionSet.emomWorkString(.calories(12, max: 15)), "12 cal")
+        XCTAssertNil(PrescriptionSet.emomWorkString(.reps(0)))
+        XCTAssertNil(PrescriptionSet.emomWorkString(.unknown))
+    }
+
     func testAlFalloNoTieneSueloNiTecho() throws {
         // No hay cifra: contarlo como 0 lo haría desaparecer del volumen, y
         // contarlo como cualquier otro número sería inventárselo.

@@ -32,6 +32,31 @@ dejar `project.yml` y `pbxproj` desfasados.
 
 ---
 
+## 2026-09-01 · Un `switch` de `Measure` que no desempaqueta `max` no compila
+
+**El hueco:** `Measure` unificó `max` opcional + `repsToFailure` (05-ago). Los
+lectores que siguieron la forma vieja (`.reps(let v)` / `.distance(let meters)`
+sin techo, o un `switch` sin `.repsToFailure`) no son un warning: Xcode
+tumba el target. Ground truth 2026-09-01 16:58:
+`WorkoutModels.swift` `emomWorkString` (no exhaustivo + tipos asociados).
+El mismo leftover en `FreeWorkout.buildContext` (if-case sobre `Measure`).
+
+**Decidido:** todo lector de `Measure` desempaqueta el techo
+(`let v, _` / `let meters, _`). Quien pinta solo el suelo (el string de
+trabajo del EMOM) igual lo desempaqueta y lo tira. `.repsToFailure` usa
+`Vocab.alFallo` — la misma palabra que `PrescriptionRenderer`. No se
+reescribe el enum.
+
+**No es `Measure`:** `RunSegmentMeasure` (`distance(m:)` / `duration(s:)`)
+ni `SegmentGoal` ni los `measureKind` del constructor libre. Esos switches
+se dejan.
+
+**NO hacer:** no parchear solo el primer error de Xcode; no inventar otra
+palabra para el fallo; no tocar `max` en el enum «para que compile el
+lector viejo».
+
+---
+
 ## 2026-09-01 · La versión del binario se ve DENTRO de la app (iPhone y Watch)
 
 **Decidido (Owner, Guidelines §7):** cada update iOS/WatchOS sube
