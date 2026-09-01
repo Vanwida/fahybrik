@@ -1,4 +1,13 @@
 import Foundation
+import os
+
+// One HTTP-failure log for every verb. The bytes already live on `APIError.http`.
+// `Logger` + `OSLogPrivacy.public` (os) so status+body show in the device console
+// instead of being redacted. Not a logger per save format.
+private let apiLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.fahybrid.app",
+    category: "http"
+)
 
 // Snake_case JSON convention to match shared/schema/* TypeScript Zod schemas.
 enum APIBase {
@@ -79,6 +88,15 @@ actor APIClient {
         .timedOut, .cannotConnectToHost, .cannotFindHost,
     ]
 
+    /// Single site: non-2xx → device log (status + body) then `APIError.http`.
+    private func requireSuccess(path: String, data: Data, http: HTTPURLResponse) throws {
+        guard (200..<300).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? "\(data.count) bytes"
+            apiLog.error("status=\(http.statusCode, privacy: .public) body=\(body, privacy: .public) path=\(path, privacy: .public)")
+            throw APIError.http(http.statusCode, data)
+        }
+    }
+
     func post<TBody: Encodable, TResp: Decodable>(
         path: String,
         body: TBody,
@@ -91,9 +109,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -128,9 +144,7 @@ actor APIClient {
         req.httpBody = data
 
         let (respData, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, respData)
-        }
+        try requireSuccess(path: path, data: respData, http: http)
     }
 
     /// PATCH with a JSON body. Mirrors `post(...)` exactly, differing only in
@@ -147,9 +161,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -172,9 +184,7 @@ actor APIClient {
         req.httpBody = try encoder.encode(body)
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         if let empty = Empty() as? TResp {
             return empty
         }
@@ -195,9 +205,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         do {
             return try decoder.decode(TResp.self, from: data)
         } catch {
@@ -218,9 +226,7 @@ actor APIClient {
         if let bearer { req.addValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         let mime = (http.value(forHTTPHeaderField: "Content-Type") ?? "application/json")
             .split(separator: ";")
             .first
@@ -269,9 +275,7 @@ actor APIClient {
         req.httpBody = body
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         do {
             return try decoder.decode(TResp.self, from: data)
         } catch {
@@ -295,9 +299,7 @@ actor APIClient {
         }
 
         let (data, http) = try await perform(req)
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(http.statusCode, data)
-        }
+        try requireSuccess(path: path, data: data, http: http)
         // Empty-typed responses + empty bodies on DELETE both map to Empty.
         if let empty = Empty() as? TResp {
             return empty

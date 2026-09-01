@@ -621,16 +621,17 @@ struct FreeWorkoutPayload: Codable {
 }
 
 // Offline-first sync for a free workout. Mirrors `WorkoutExecutionAPI`: POST, and
-// on any failure enqueue for replay through the shared RequestQueue so closing the
-// summary is never blocked by network. The replay body is encoded with the SAME
-// snake_case strategy as the live POST (the nested Prescription carries camelCase
-// Swift keys, so a default encoder would desync them).
+// on a transient failure enqueue for replay through the shared RequestQueue.
+// The replay body is encoded with the SAME snake_case strategy as the live POST
+// (the nested Prescription carries camelCase Swift keys, so a default encoder
+// would desync them). The summary must NOT close as saved unless this is `.saved`.
 enum FreeWorkoutAPI {
     static let path = "/api/athlete/workouts/free"
 
-    static func submit(_ payload: FreeWorkoutPayload, bearer: String?) async {
+    static func submit(_ payload: FreeWorkoutPayload, bearer: String?) async -> WorkoutSaveOutcome {
         do {
             try await APIClient.shared.postRaw(path: path, body: payload, bearer: bearer)
+            return .saved(nil)
         } catch {
             // AUDIT — a deterministic 4xx is never queued (it would replay forever).
             let enc = JSONEncoder()
@@ -638,7 +639,9 @@ enum FreeWorkoutAPI {
             enc.dateEncodingStrategy = .iso8601
             if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                return .queued
             }
+            return .rejected
         }
     }
 }

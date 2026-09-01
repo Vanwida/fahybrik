@@ -42,6 +42,11 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
+    /// Last POST was not 2xx — stay on the summary. The button becomes REINTENTAR.
+    @State private var saveFailed: Bool = false
+    /// 5xx/offline already sits in RequestQueue. Retry drains that queue; it does
+    /// not POST again (a second free POST would create a second session).
+    @State private var retryFromQueue: Bool = false
 
     // MARK: #58 — structured feedback to the coach (prescribed sessions only)
     @State private var difficulty: PerceivedDifficulty? = nil
@@ -53,9 +58,8 @@ struct PostWorkoutSummaryView: View {
     /// Set (non-empty) when the sync response reports running records → the
     /// celebration overlays the summary until dismissed, THEN we close.
     @State private var celebrationRecords: [PersonalRecord] = []
-    /// One-shot guard: true once the summary has closed (normally, or because the
-    /// athlete tapped to leave during the save wait). Stops the still-pending sync
-    /// response from closing again or celebrating over a dismissed view.
+    /// One-shot guard: true once the summary has closed after a 2xx (or a drain
+    /// that delivered the queued body). Stops a late response from closing again.
     @State private var didFinish: Bool = false
     /// Rendered share image of THIS summary (no PR badge — records are unknown
     /// until save). Re-rendered on appear and when the RPE changes.
@@ -73,10 +77,28 @@ struct PostWorkoutSummaryView: View {
     /// which consults the pure `ReviewGate` first.
     @Environment(\.requestReview) private var requestReview
 
-    /// How long to wait for the sync response before closing anyway. A slow/failing
-    /// API must never trap the athlete in the summary — the sync still replays via
-    /// RequestQueue; we just skip the celebration this time.
+    /// Bound for the joint-summary fetch only. The save POST itself is waited
+    /// out (`URLSession.shared`); a non-2xx does not close as success.
     private static let prCelebrationLookupTimeout: TimeInterval = 6
+
+    private var saveButtonTitle: String {
+        if isSaving { return "GUARDANDO…" }
+        if saveFailed { return "REINTENTAR" }
+        return "GUARDAR"
+    }
+
+    /// Path whose body RequestQueue holds after a queued save — drain retry
+    /// watches this path, it does not invent a second POST.
+    private var queuedSavePath: String {
+        if freeContext != nil { return FreeWorkoutAPI.path }
+        switch logTarget {
+        case .solo:
+            return WorkoutExecutionAPI.path
+        case .doublesJoint:
+            if let assignmentId { return DoblesExecutionAPI.path(sessionId: assignmentId) }
+            return WorkoutExecutionAPI.path
+        }
+    }
 
     // MARK: Cronómetro — the movements declared AFTER the work
     /// Set once the athlete names what they did in a session started as a bare clock.
@@ -245,13 +267,10 @@ struct PostWorkoutSummaryView: View {
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
-            // Stays tappable WHILE saving: on a slow response the athlete is never
-            // trapped — tapping "GUARDANDO…" closes now. The sync keeps running
-            // offline-first (RequestQueue); only this celebration is skipped.
             ExpertPrimaryButton(
-                title: isSaving ? "GUARDANDO…" : "GUARDAR",
+                title: saveButtonTitle,
                 height: 46,
-                action: { isSaving ? closeNow() : handleSave() }
+                action: { if !isSaving { handleSave() } }
             )
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
@@ -276,18 +295,29 @@ struct PostWorkoutSummaryView: View {
         }
     }
 
-    // Save the execution. Free / ad-hoc sessions fire-and-forget and close at once.
-    // A prescribed session briefly awaits the sync response (bounded by
-    // `prCelebrationLookupTimeout`) so a running PR can be celebrated before we
-    // close — but a slow/failing API never traps the athlete: on timeout we close
-    // and the sync still replays via RequestQueue.
+    // Save the execution. Close as success only on 2xx (or a drain that delivered
+    // the queued body). A 5xx/offline stays in RequestQueue; REINTENTAR drains it.
+    // A 4xx is not enqueued (`RequestQueue.isRetriable`). URLSession.shared waits
+    // out the POST — no timeout-as-success.
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
         let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
-        // This workout happened — count it toward the review-prompt tenure gate,
-        // even when the network is offline (#59).
-        ReviewPromptStore.shared.recordWorkoutSaved()
+
+        if retryFromQueue {
+            Task { @MainActor in
+                await RequestQueue.shared.drain(bearer: bearer)
+                guard !didFinish else { return }
+                let left = await RequestQueue.shared.snapshot()
+                if left.contains(where: { $0.path == queuedSavePath }) {
+                    saveFailed = true
+                    isSaving = false
+                } else {
+                    finishAfterSave(records: [])
+                }
+            }
+            return
+        }
 
         // FREE MODE: route to the free-save contract. No coach-prescription feedback
         // and no PR celebration — the free endpoint carries neither.
@@ -311,29 +341,37 @@ struct PostWorkoutSummaryView: View {
             let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
             let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
-            Task {
+            Task { @MainActor in
                 var ref = wristRef
                 if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
                     ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
                 }
                 var sent = payload
                 sent.source_workout_ref = ref
-                await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                let outcome = await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                guard !didFinish else { return }
+                switch outcome {
+                case .saved(_):
+                    // #Marcas — only after the session POST is 2xx. A FULL finish
+                    // writes the mark; an abandoned attempt never writes a half number.
+                    if let tag = free.benchmark, payload.completeness == "full",
+                       let value = benchmarkValue(tag: tag, segments: payload.segments) {
+                        let runContext: String? = free.modalityWire == "run"
+                            ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
+                            : nil
+                        Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
+                    }
+                    finishAfterSave(records: [])
+                case .queued:
+                    retryFromQueue = true
+                    saveFailed = true
+                    isSaving = false
+                case .rejected:
+                    retryFromQueue = false
+                    saveFailed = true
+                    isSaving = false
+                }
             }
-            // #Marcas — a benchmark attempt ALSO posts its measured value as a mark.
-            // Only a FULL finish counts: an abandoned attempt saves the session (the
-            // coach still sees the work) but never writes a half number into the
-            // athlete's record — the mockup's promise, kept here.
-            if let tag = free.benchmark, payload.completeness == "full",
-               let value = benchmarkValue(tag: tag, segments: payload.segments) {
-                // Calle/cinta comes from the SESSION (the brief's pre-start stamped
-                // it), so the mark and what the athlete actually did can't diverge.
-                let runContext: String? = free.modalityWire == "run"
-                    ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
-                    : nil
-                Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
-            }
-            finishAfterSave(records: [])
             return
         }
 
@@ -352,52 +390,46 @@ struct PostWorkoutSummaryView: View {
         let submitted = payload
         let target = logTarget
         Task { @MainActor in
-            // The submit runs to completion on its own (enqueues on failure); we
-            // only bound how long we WAIT for its response before closing, so a slow
-            // API never traps the athlete here.
-            let responseTask = Task { () -> WorkoutExecutionResponse? in
-                switch target {
-                case .solo:
-                    return await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
-                case .doublesJoint:
-                    // sessionId == this athlete's own assignment id == payload.assignment_id.
-                    return await DoblesExecutionAPI.submitReturning(
-                        sessionId: submitted.assignment_id, submitted, bearer: bearer
-                    )
-                }
+            let outcome: WorkoutSaveOutcome
+            switch target {
+            case .solo:
+                outcome = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
+            case .doublesJoint:
+                // sessionId == this athlete's own assignment id == payload.assignment_id.
+                outcome = await DoblesExecutionAPI.submitReturning(
+                    sessionId: submitted.assignment_id, submitted, bearer: bearer
+                )
             }
-            let response = await Self.firstValue(
-                of: responseTask, timeout: Self.prCelebrationLookupTimeout
-            )
-            // The athlete may have tapped to leave while we waited — if so, don't
-            // reopen or celebrate over a view that's already gone.
             guard !didFinish else { return }
-            let records = response?.personalRecords ?? []
-            // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
-            // When the partner has already logged too, the joint card is the closing
-            // moment (it also surfaces PR chips); otherwise fall through to the solo
-            // PR/close flow. A no-partner / network miss simply closes as normal.
-            if target == .doublesJoint {
-                // Bound the joint-summary fetch to the SAME 6 s budget as the PR response
-                // so a slow/hanging endpoint never traps the athlete on the summary; a
-                // timeout resumes nil and we close normally (the joint card can still
-                // arrive later via the Dobles view).
-                let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
-                if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
-                   let jd = JointShareData.from(dto: summary, title: session.plan.name,
-                                                date: Date(), partnerFallback: nil) {
-                    guard !didFinish else { return }
-                    pendingJointRecords = records
-                    isSaving = false
-                    withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
-                    return
+            switch outcome {
+            case .saved(let response):
+                let records = response?.personalRecords ?? []
+                // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
+                if target == .doublesJoint {
+                    let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
+                    if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
+                       let jd = JointShareData.from(dto: summary, title: session.plan.name,
+                                                    date: Date(), partnerFallback: nil) {
+                        guard !didFinish else { return }
+                        pendingJointRecords = records
+                        isSaving = false
+                        withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
+                        return
+                    }
                 }
-            }
-            if records.isEmpty {
-                finishAfterSave(records: [])
-            } else {
-                // Celebrate first; closing is deferred to the celebration dismiss.
-                withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                if records.isEmpty {
+                    finishAfterSave(records: [])
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                    isSaving = false
+                }
+            case .queued:
+                retryFromQueue = true
+                saveFailed = true
+                isSaving = false
+            case .rejected:
+                retryFromQueue = false
+                saveFailed = true
                 isSaving = false
             }
         }
@@ -411,17 +443,12 @@ struct PostWorkoutSummaryView: View {
         finishAfterSave(records: records)
     }
 
-    // Leave during the save wait: don't wait for the response — the sync keeps
-    // running offline-first, we just skip the celebration this time.
-    private func closeNow() {
-        finishAfterSave(records: [])
-    }
-
-    // Close the summary ONCE, requesting an App Store review only when the pure gate
-    // allows it — a genuine beaten PR (not a first mark) is a standalone good moment.
+    // Close the summary ONCE, only after a 2xx (or a drain that delivered).
+    // The review-prompt tenure gate counts a persisted workout, not a tap.
     private func finishAfterSave(records: [PersonalRecord]) {
         guard !didFinish else { return }
         didFinish = true
+        ReviewPromptStore.shared.recordWorkoutSaved()
         maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
     }
@@ -446,9 +473,8 @@ struct PostWorkoutSummaryView: View {
         requestReview()
     }
 
-    // Await whichever finishes first — the response or a timeout — WITHOUT blocking
-    // on the (possibly slow) submit: a timeout resumes with nil while the submit
-    // keeps running to completion in the background. Resume is guarded exactly once.
+    // Await whichever finishes first — the joint fetch or a timeout. The save POST
+    // is not wrapped here. Resume is guarded exactly once.
     private static func firstValue<T>(
         of task: Task<T?, Never>,
         timeout: TimeInterval

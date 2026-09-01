@@ -1050,6 +1050,14 @@ struct WorkoutExecutionPayload: Codable {
 // exact path. So the networking-backed submitters are compiled out on watchOS
 // (they'd otherwise drag APIClient + RequestQueue onto the wrist for no reason).
 #if !os(watchOS)
+// Result of the EXISTING POST + RequestQueue path. Not a second save engine:
+// 2xx (or 2xx with an unreadable body) is saved; 5xx/offline is queued; 4xx is not.
+enum WorkoutSaveOutcome {
+    case saved(WorkoutExecutionResponse?)
+    case queued
+    case rejected
+}
+
 enum WorkoutExecutionAPI {
     static let path = "/api/sync/workout-execution"
 
@@ -1058,25 +1066,30 @@ enum WorkoutExecutionAPI {
     }
 
     /// Submit and decode the response (which carries any running `prs` set this
-    /// session, #65). Returns nil — WITHOUT celebrating — when the response can't
-    /// be read, and preserves the offline-first replay on a network/HTTP failure.
+    /// session, #65). `.saved(nil)` when the body can't be read — the execution
+    /// WAS persisted, never replay. `.queued` only on a transient failure
+    /// (`RequestQueue.isRetriable`); a 4xx is `.rejected` and is not enqueued.
     static func submitReturning(
         _ payload: WorkoutExecutionPayload,
         bearer: String?
-    ) async -> WorkoutExecutionResponse? {
+    ) async -> WorkoutSaveOutcome {
         do {
-            return try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
+            let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
+                path: path, body: payload, bearer: bearer
+            )
+            return .saved(resp)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
-            return nil
+            return .saved(nil)
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+                return .queued
             }
-            return nil
+            return .rejected
         }
     }
 }
@@ -1113,18 +1126,22 @@ enum DoblesExecutionAPI {
         sessionId: String,
         _ payload: WorkoutExecutionPayload,
         bearer: String?
-    ) async -> WorkoutExecutionResponse? {
+    ) async -> WorkoutSaveOutcome {
         let p = path(sessionId: sessionId)
         do {
-            return try await APIClient.shared.post(path: p, body: payload, bearer: bearer)
+            let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
+                path: p, body: payload, bearer: bearer
+            )
+            return .saved(resp)
         } catch APIError.decoding {
-            return nil
+            return .saved(nil)
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
+                return .queued
             }
-            return nil
+            return .rejected
         }
     }
 }
