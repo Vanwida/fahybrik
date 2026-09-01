@@ -2,15 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-01** (versión 1.0 (22) visible en Perfil y Watch idle)
+Última actualización: **2026-09-01** (build 23: restaura `tap` en Lifecycle)
 
 ## Ahora
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con
 `Bundle.main.object(forInfoDictionaryKey:)`. Perfil (iPhone) y el footer idle
-del reloj muestran marketing + build. Build **22** iPhone, Watch y widgets.
-No HUD live. No FH-48, no FH-56, no PR 94.
+del reloj muestran marketing + build. Build **23** iPhone, Watch y widgets
+(el unify a main dejó `WorkoutSession.tap` sin firma; Xcode no compilaba).
+No HUD live. No FH-48, no FH-56, no PR 94. No se instala desde aquí.
 
 **132 · COMPARTIR EL ENTRENO — construido en iOS, pendiente de probar en el móvil.**
 Mockup aprobado en el doble (`/es/design/compartir-entreno`, 5 escenarios) y
