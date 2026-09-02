@@ -194,20 +194,38 @@ extension WorkoutSegment {
     /// The segment KIND is the floor, deliberately. It is the live engine's own
     /// classification and it is what every device path keyed off before the tramo
     /// existed, so a mis-tagged or absent `prescription.modality` can never take a
-    /// rower's monitor away from them. Inside an erg or run kind the prescription
-    /// only gets to REFINE (row vs ski vs bike), never to contradict.
+    /// rower's monitor away from them. Inside an erg kind the catalogue names the
+    /// machine (`ergKind`); the prescription only gets to refine, never to
+    /// contradict. HealthKit does not measure a SkiErg flywheel —
+    /// `HKWorkoutActivityType.crossCountrySkiing` is outdoor Nordic skiing.
     var resolvedModality: PrescriptionModality {
         switch kind {
         case .running:
             return .run
         case .rowOrSki:
-            let declared = prescription?.modality
-            return declared?.isErg == true ? declared! : .row
+            return resolvedErgModality ?? .row
         case .strength:
             return prescription?.modality ?? agreedMachineModality ?? .strength
         case .sled, .reps:
             return prescription?.modality ?? agreedMachineModality ?? .functional
         }
+    }
+
+    /// Which Concept2 machine this erg segment is. Same order as `wireModality`:
+    /// catalogue first, then the prescription, then agreed sets. Nil when nobody
+    /// named a machine — the live floor stays `.row` so an unscoped mono-erg
+    /// still finds `PM5Pool.any`.
+    var resolvedErgModality: PrescriptionModality? {
+        if let kind = ergKind, let named = PrescriptionModality(rawValue: kind), named.isErg {
+            return named
+        }
+        if let declared = prescription?.modality, declared.isErg {
+            return declared
+        }
+        if let agreed = agreedMachineModality, agreed.isErg {
+            return agreed
+        }
+        return nil
     }
 
     /// True when a Concept2 monitor has anything to do with this segment — the

@@ -237,3 +237,57 @@ final class GuionEstacionesTests: XCTestCase {
         }
     }
 }
+
+// FH-42 — el sujeto del ergo son actuales/objetivo, no los metros que faltan,
+// y la etiqueta es la del tramo (SkiErg no se pinta como «Remo»).
+final class GuionErgoFH42Tests: XCTestCase {
+
+    func testConMaquinaElSujetoEsActualesYObjetivo() {
+        let e = GuionErgo.Estado(
+            fase: .remando, serie: 1, totalSeries: 1, tramoM: 400,
+            maquina: true, hechosM: 187, ritmoSec500: nil,
+            segundosEnFase: 40, quedaDescansoS: nil,
+            zonaViva: nil, bpm: 150,
+            etiqueta: "SKIERG", esCalorias: false)
+        let p = GuionErgo.paginas(e)[0]
+        XCTAssertEqual(p.sujeto, Formato.trabajo(hecho: 187, objetivo: 400))
+        XCTAssertEqual(p.unidad, "m")
+        XCTAssertEqual(p.contexto, "SKIERG")
+    }
+
+    func testCaloriasNoSePintanComoMetros() {
+        let e = GuionErgo.Estado(
+            fase: .remando, serie: 1, totalSeries: 1, tramoM: 12,
+            maquina: true, hechosM: 6, ritmoSec500: nil,
+            segundosEnFase: 20, quedaDescansoS: nil,
+            zonaViva: nil, bpm: 148,
+            etiqueta: "SkiErg", esCalorias: true)
+        let p = GuionErgo.paginas(e)[0]
+        XCTAssertEqual(p.sujeto, Formato.trabajo(hecho: 6, objetivo: 12))
+        XCTAssertEqual(p.unidad, "cal")
+    }
+
+    func testSinMaquinaNoPintaCeroSobreElObjetivo() {
+        let e = GuionErgo.Estado(
+            fase: .remando, serie: 1, totalSeries: 1, tramoM: 400,
+            maquina: false, hechosM: nil, ritmoSec500: nil,
+            segundosEnFase: 12, quedaDescansoS: nil,
+            zonaViva: nil, bpm: 140,
+            etiqueta: "SkiErg", esCalorias: false)
+        let sujetos = GuionErgo.paginas(e).map(\.sujeto)
+        XCTAssertFalse(sujetos.contains(Formato.trabajo(hecho: 0, objetivo: 400)))
+        XCTAssertFalse(sujetos.contains("0/400"))
+    }
+
+    func testSinObjetivoNoPintaCeroSobreCero() {
+        let e = GuionErgo.Estado(
+            fase: .remando, serie: 1, totalSeries: 1, tramoM: 0,
+            maquina: true, hechosM: 50, ritmoSec500: nil,
+            segundosEnFase: 30, quedaDescansoS: nil,
+            zonaViva: nil, bpm: 140,
+            etiqueta: "SkiErg", esCalorias: false)
+        let sujetos = GuionErgo.paginas(e).map(\.sujeto)
+        XCTAssertFalse(sujetos.contains(Formato.trabajo(hecho: 0, objetivo: 0)))
+        XCTAssertFalse(sujetos.contains(Formato.trabajo(hecho: 50, objetivo: 0)))
+    }
+}

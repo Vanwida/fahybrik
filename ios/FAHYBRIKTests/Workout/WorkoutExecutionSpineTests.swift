@@ -502,6 +502,35 @@ final class WorkoutExecutionSpineTests: XCTestCase {
         XCTAssertEqual(seg.wireModality, "ski")
     }
 
+    /// FH-42: un SkiErg 400 m sin `prescription.modality` no puede caer a `.row`.
+    /// El catálogo (`ergKind`) nombra la máquina; `PM5Pool` lee este valor.
+    func testRowOrSkiCatalogueSkiIsNotRow() {
+        let ski = WorkoutSegment(order: 1, title: "SkiErg", kind: .rowOrSki,
+                                 targetDistanceMeters: 400, ergKind: "ski")
+        XCTAssertEqual(ski.resolvedModality, .ski)
+        XCTAssertEqual(ski.resolvedErgModality, .ski)
+
+        let row = WorkoutSegment(order: 1, title: "Remo", kind: .rowOrSki,
+                                 targetDistanceMeters: 500, ergKind: "row")
+        XCTAssertEqual(row.resolvedModality, .row)
+
+        let unscoped = WorkoutSegment(order: 1, title: "Erg", kind: .rowOrSki,
+                                      targetDistanceMeters: 500)
+        XCTAssertEqual(unscoped.resolvedModality, .row)
+        XCTAssertNil(unscoped.resolvedErgModality)
+    }
+
+    func testRowOrSkiAgreedSetsNameTheMachineWithoutErgKind() {
+        let set = PrescriptionSet(measure: .distance(meters: 400), target: nil,
+                                  modality: .ski, restS: nil, tempo: nil, note: nil)
+        let p = Prescription(scheme: .intervals, modality: nil, sets: [set, set],
+                             rounds: 2, workS: nil, restS: 60, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "SkiErg", kind: .rowOrSki,
+                                 targetDistanceMeters: 400, prescription: p)
+        XCTAssertEqual(seg.resolvedModality, .ski)
+    }
+
     // Two-movement block JSON — the shape every FOLD assertion needs.
     private func twoItemBlock(format: String,
                               first: (category: String, slug: String, name: String),

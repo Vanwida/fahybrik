@@ -85,6 +85,39 @@ final class PhoneMirrorTramoTests: XCTestCase {
         XCTAssertNotEqual(dosis, f.blockTitle)
     }
 
+    // MARK: - SkiErg 400 m (FH-42): el cable lleva ski, no remo
+
+    /// El síntoma del ticket: estación `SKIERG · 400 M`, metros a 00:00. El
+    /// catálogo dice ski y no hay `prescription.modality`; el tubo ya existe
+    /// (`sampleErg` → `hechoMedida`). Si la modalidad del tramo cae a remo, el
+    /// pool mira el slot vacío y el cable manda nil.
+    func testSkiErg400SinModalidadDeclaradaViajaMetrosDeLaMaquina() {
+        let seg = WorkoutSegment(order: 1, title: "SkiErg", kind: .rowOrSki,
+                                 targetDistanceMeters: 400,
+                                 blockTitle: "SkiErg", blockPosition: 1,
+                                 ergKind: "ski")
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "SkiErg", format: .sets,
+            estimatedDurationSeconds: 600, blockContext: "Libre", zoneTargets: [],
+            equipment: [], segments: [seg], coachNote: nil, demoVideoUrl: nil,
+            warmupChecklist: []))
+        s.start()
+        s.beginBlock()
+        s.stop()
+        s.ergConnected = true
+        XCTAssertEqual(s.currentTramo.modality, .ski)
+        s.sampleErg(paceSecPer500m: 120, powerWatts: 200, strokeRate: 28,
+                    distanceMeters: 0, caloriesKcal: nil)
+        s.sampleErg(paceSecPer500m: 120, powerWatts: 200, strokeRate: 28,
+                    distanceMeters: 187, caloriesKcal: nil)
+
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.modalidad, PrescriptionModality.ski.rawValue)
+        XCTAssertEqual(f.tramo?.objetivoMedida, 400)
+        XCTAssertEqual(f.tramo?.hechoMedida ?? 0, 187, accuracy: 0.001)
+        XCTAssertEqual(f.tramo?.objetivoEsCalorias, false)
+    }
+
     // MARK: - Fuerza: la serie EN CURSO, no la primera
 
     /// Un 4×10 mandaba la primera serie congelada dentro de `detailLine` las cuatro

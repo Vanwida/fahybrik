@@ -93,6 +93,13 @@ enum GuionErgo {
         var quedaDescansoS: Double?
         var zonaViva: HRZone?
         var bpm: Int?
+        /// Nombre del movimiento («SkiErg», «Remo»). El contexto lo pinta;
+        /// no se fabrica «Remo» para un ski. Al final, con defecto, para que
+        /// `CASOS` y el escaparate sigan compilando.
+        var etiqueta: String = "Ergo"
+        /// La pieza se mide en calorías, no en metros. Misma pareja que el cable
+        /// (`objetivoEsCalorias`): 12 cal no se pinta como metros.
+        var esCalorias: Bool = false
     }
 
     struct Gestos {
@@ -118,11 +125,13 @@ enum GuionErgo {
             return [paginaDescanso(e, g)] + resto
         }
 
-        if !e.maquina {
+        // Sin máquina, o sin objetivo de m/cal (un 2 min): pulso y crono.
+        // No se fabrica un 0/0 con cara de metros.
+        if !e.maquina || e.tramoM <= 0 {
             return paginasSinMaquina(e, g, pulso: pulso)
         }
 
-        return [paginaFaltan(e)] + resto + [paginaRitmo(e)].compactMap { $0 }
+        return [paginaProgreso(e)] + resto + [paginaRitmo(e)].compactMap { $0 }
     }
 
     // MARK: - Descanso
@@ -137,7 +146,9 @@ enum GuionErgo {
             sujeto: WatchFormat.countdown(queda),
             tono: WatchTinte.urgente(queda),
             segundoEtiqueta: "Luego",
-            segundoValor: WatchDistancia.completa(e.tramoM),
+            segundoValor: e.esCalorias
+                ? "\(Int(e.tramoM.rounded())) cal"
+                : WatchDistancia.completa(e.tramoM),
             accion: "Toca · empezar ya",
             onToca: g.empezarYa
         )
@@ -152,7 +163,7 @@ enum GuionErgo {
     private static func paginasSinMaquina(_ e: Estado, _ g: Gestos, pulso: WatchPagina?) -> [WatchPagina] {
         let tiempo = WatchPaginasComunes.tiempo(
             segundos: e.segundosEnFase,
-            contexto: "Remo · en la serie",
+            contexto: "\(e.etiqueta) · en la serie",
             nota: WatchNota.sinMaquina,
             modo: .ojeada
         )
@@ -165,18 +176,20 @@ enum GuionErgo {
         return pulso != nil ? [primera, tiempo] : [primera]
     }
 
-    // MARK: - Remando, con PM5 — lo que falta y tu ritmo
+    // MARK: - Remando, con PM5 — actuales / objetivo y tu ritmo
 
-    private static func paginaFaltan(_ e: Estado) -> WatchPagina {
-        let faltan = max(0, e.tramoM - (e.hechosM ?? 0))
+    private static func paginaProgreso(_ e: Estado) -> WatchPagina {
+        let hechos = Int((e.hechosM ?? 0).rounded())
+        let objetivo = Int(e.tramoM.rounded())
         return WatchPagina(
-            id: "faltan",
-            contexto: "Remo · te faltan",
+            id: "trabajo",
+            contexto: e.etiqueta,
             modo: .ojeada,
-            sujeto: WatchDistancia.cifra(faltan),
-            unidad: WatchDistancia.unidad(faltan),
+            // Canónico §2: «187 de 400», no una barra (esa ya es /km y /500m).
+            sujeto: Formato.trabajo(hecho: hechos, objetivo: objetivo),
+            unidad: e.esCalorias ? "cal" : "m",
             // La serie que va cabe aquí sin costarle un punto al numeral, y sin
-            // ella un «214 m» a secas no dice si es la primera o la última.
+            // ella un «187 de 400» a secas no dice si es la primera o la última.
             segundoEtiqueta: "Serie",
             segundoValor: "\(e.serie) de \(e.totalSeries)",
             nota: WatchNota.delMovil
@@ -190,11 +203,54 @@ enum GuionErgo {
         guard let ritmo = e.ritmoSec500 else { return nil }
         return WatchPagina(
             id: "ritmo",
-            contexto: "Remo · tu ritmo",
+            contexto: "\(e.etiqueta) · tu ritmo",
             modo: .ojeada,
             sujeto: WatchFormat.pace(ritmo),
             segundoValor: "/500 m",
             nota: WatchNota.delMovil
+        )
+    }
+
+    // MARK: - El motor EN SOLITARIO → Estado
+    //
+    // El mismo papel que `GuionDelEspejo.ergo` hace para el cable. Cero
+    // Bluetooth en el reloj: `maquina` solo es cierto si el motor ya tiene
+    // `tramoErgDistanceMeters` / `tramoErgCalories` (el iPhone los escribió
+    // vía `sampleErg`). Sin iPhone son nil — pulso y crono, no un contador
+    // nuevo ni los metros de carrera.
+    static func estadoSolitario(_ session: WorkoutSession) -> Estado {
+        let tramo = session.currentTramo
+        let esCalorias = (tramo.targetCalories ?? 0) > 0
+        let objetivo: Double
+        let hechos: Double?
+        if esCalorias {
+            objetivo = Double(tramo.targetCalories ?? 0)
+            hechos = session.tramoErgCalories.map { Double($0) }
+        } else {
+            objetivo = tramo.targetDistanceMeters ?? 0
+            hechos = session.tramoErgDistanceMeters
+        }
+        return Estado(
+            fase: session.isTramoResting ? .descanso : .remando,
+            serie: session.tramoRoundIndex + 1,
+            totalSeries: max(1, session.tramoRoundTotal),
+            tramoM: objetivo,
+            maquina: hechos != nil,
+            hechosM: hechos,
+            ritmoSec500: nil,
+            segundosEnFase: session.tramoElapsedSeconds,
+            quedaDescansoS: session.isTramoResting ? session.tramoRestRemaining : nil,
+            zonaViva: session.liveZone,
+            bpm: session.liveHRBpm,
+            etiqueta: tramo.label,
+            esCalorias: esCalorias
+        )
+    }
+
+    static func gestosSolitario(_ session: WorkoutSession) -> Gestos {
+        Gestos(
+            cerrarSerie: { session.primaryAdvance() },
+            empezarYa: { session.primaryAdvance() }
         )
     }
 }

@@ -298,7 +298,9 @@ enum GuionDelEspejo {
             segundosEnFase: elapsed,
             quedaDescansoS: t.enDescanso ? t.ventanaQueda : nil,
             zonaViva: zona(t.zonaViva),
-            bpm: bpm
+            bpm: bpm,
+            etiqueta: t.etiqueta ?? "Ergo",
+            esCalorias: t.objetivoEsCalorias
         )
     }
 
