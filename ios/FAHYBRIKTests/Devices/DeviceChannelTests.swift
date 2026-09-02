@@ -428,4 +428,123 @@ final class DeviceChannelTests: XCTestCase {
         XCTAssertGreaterThan(src.stopCount, 0)   // scan stopped (battery)
         XCTAssertEqual(src.connectCalls, [])
     }
+
+    /// After a mid-session `.lost`, the scan button the law documents is
+    /// `openPicker`: it raises the sheet and starts a scan. It does NOT connect.
+    func testOpenPickerAfterLostStartsScanNotConnect() {
+        let mine = cand(1)
+        let (ch, src, _) = makeChannel(remembered: mine.id)
+        ch.connect(mine.id)
+        src.land(name: "Titanium T1")
+        src.dropUnexpectedly()
+        XCTAssertEqual(ch.link, .lost)
+
+        let connects = src.connectCalls.count
+        ch.openPicker()
+        XCTAssertTrue(ch.isPresentingPicker, "the chip tap must raise the list")
+        XCTAssertGreaterThan(src.scanStarted, 0, "recovery is scan, not retrieve")
+        XCTAssertEqual(src.connectCalls.count, connects, "openPicker must not connect")
+        XCTAssertNotEqual(ch.link, .connected(name: "Titanium T1"))
+    }
+}
+
+// MARK: - Live host chips after a drop (FH-59)
+
+/// The live host must keep a scan path mounted when cinta goes `.lost`, PM5
+/// goes `.idle` (connectionLost is a flag — PM5 has no `.lost` DeviceLink),
+/// and HR source becomes nil. Recovery is openPicker / PM5 sheet: not
+/// beginBlock, not finish, not onAppear connect.
+final class LiveDeviceScanPathTests: XCTestCase {
+
+    private func path(
+        wantsCinta: Bool = false,
+        wantsPM5: Bool = false,
+        coverOpen: Bool = false,
+        treadmill: DeviceLink = .idle,
+        pm5: PM5ConnectionState = .idle,
+        pm5Lost: Bool = false,
+        hr: DeviceLink = .idle,
+        hrSource: WorkoutSession.HRSource? = nil
+    ) -> LiveDeviceScanPath {
+        LiveDeviceScanPath.offer(
+            wantsCinta: wantsCinta,
+            wantsPM5: wantsPM5,
+            treadmillCoverOpen: coverOpen,
+            treadmillLink: treadmill,
+            pm5State: pm5,
+            pm5ConnectionLost: pm5Lost,
+            hrLink: hr,
+            hrSource: hrSource
+        )
+    }
+
+    func testCintaLostStillOffersChipAndPickerWithoutBeginBlock() {
+        let p = path(wantsCinta: true, treadmill: .lost)
+        XCTAssertTrue(p.showCintaChip, ".lost must not hide the cinta chip")
+        XCTAssertTrue(p.showTreadmillEntry, "cover closed → host entry")
+        XCTAssertTrue(p.cintaOpensPicker)
+        XCTAssertFalse(p.requiresBeginBlock)
+        XCTAssertFalse(p.showPM5Chip)
+    }
+
+    func testCintaIdleAlsoKeepsChip() {
+        let p = path(wantsCinta: true, treadmill: .idle)
+        XCTAssertTrue(p.showCintaChip)
+        XCTAssertTrue(p.cintaOpensPicker)
+        XCTAssertFalse(p.requiresBeginBlock)
+    }
+
+    func testPM5IdleAfterDropStillOffersChipAndSheet() {
+        // PM5 didDisconnect leaves connectionState `.idle`; connectionLost is
+        // a side flag. Tests must cover `.idle`, not only `.lost`.
+        let p = path(wantsPM5: true, pm5: .idle, pm5Lost: true)
+        XCTAssertTrue(p.showPM5Chip, ".idle after a drop must not hide the PM5 chip")
+        XCTAssertTrue(p.pm5OpensSheet)
+        XCTAssertFalse(p.requiresBeginBlock)
+        XCTAssertFalse(p.showCintaChip)
+    }
+
+    func testHRNoneStillShowsChip() {
+        let p = path(hr: .lost, hrSource: nil)
+        XCTAssertTrue(p.showHRChip, "hrSource == nil must not hide the HR chip")
+        XCTAssertTrue(p.hrOpensPicker)
+        XCTAssertFalse(p.requiresBeginBlock)
+    }
+
+    func testReturnToRunCoverClosedStillOffersChip() {
+        // SuperficieViva.de == .run, cover closed (maybeAutoOpenRunCover already
+        // stamped, or chipper fold `.reps` never auto-opened).
+        let p = path(wantsCinta: true, coverOpen: false, treadmill: .lost)
+        XCTAssertTrue(p.showCintaChip)
+        XCTAssertTrue(p.showTreadmillEntry)
+        XCTAssertTrue(p.cintaOpensPicker)
+        XCTAssertFalse(p.requiresBeginBlock)
+    }
+
+    func testCoverOpenDoesNotNeedHostEntry() {
+        let p = path(wantsCinta: true, coverOpen: true, treadmill: .lost)
+        XCTAssertTrue(p.showCintaChip)
+        XCTAssertFalse(p.showTreadmillEntry, "HUD already has the picker")
+    }
+
+    func testDropDoesNotFinishTheWorkout() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-59"))
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertFalse(s.isFinished)
+        let p = path(wantsCinta: true, treadmill: .lost)
+        XCTAssertFalse(s.isFinished, "a BLE drop must not finish the session")
+        XCTAssertFalse(p.requiresBeginBlock)
+        // Recovery is the picker, not a second beginBlock.
+        XCTAssertTrue(p.cintaOpensPicker)
+    }
+
+    func testPrepareOnAppearDoesNotConnectAfterIdle() {
+        // Control: appearing on a station must not reach for a machine.
+        // DeviceChannel.prepare() is the onAppear hook; already proven inert
+        // in DeviceChannelTests. Here the live path must not invent a connect.
+        let p = path(wantsCinta: true, wantsPM5: true, treadmill: .idle, pm5: .idle)
+        XCTAssertTrue(p.cintaOpensPicker)
+        XCTAssertTrue(p.pm5OpensSheet)
+        XCTAssertFalse(p.requiresBeginBlock)
+    }
 }

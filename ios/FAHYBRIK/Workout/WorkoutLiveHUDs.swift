@@ -397,13 +397,70 @@ struct RxScaledToggle: View {
 }
 
 
+// MARK: - Live scan path after a BLE drop (FH-59)
+//
+// The DeviceConnection law already promises a button back into the scan after
+// `.idle` / `.lost`. This is WHICH chips the live host must keep mounted so that
+// button exists when the athlete returns to a station — including after a drop.
+// Pure: no BLE, no views. Recovery is scan + tap on DevicePickerSheet /
+// PM5LiveStreamView. Never beginBlock, never finish, never auto-reconnect.
+
+/// What the live host mounts so a drop has a scan path without leaving live.
+struct LiveDeviceScanPath: Equatable {
+    /// Cinta chip in ConnectionStrip. `.lost` / `.idle` do NOT hide it.
+    var showCintaChip: Bool
+    /// Host `TreadmillEntryButton` while the cover is closed — even if
+    /// `SuperficieViva.de == .run`. Opening the cover reaches TreadmillHUDView's
+    /// existing picker; the chip itself opens DevicePickerSheet.
+    var showTreadmillEntry: Bool
+    /// PM5 chip + CTA for the current tramo's pool store. PM5 drop lands in
+    /// `.idle` (`connectionLost` is a side flag) — still shown.
+    var showPM5Chip: Bool
+    /// HR chip. Never hidden when `hrSource == nil` (that was the live hole).
+    var showHRChip: Bool
+
+    /// Opening the chip is `openPicker` / the PM5 sheet. Never `beginBlock`.
+    var cintaOpensPicker: Bool { showCintaChip }
+    var pm5OpensSheet: Bool { showPM5Chip }
+    var hrOpensPicker: Bool { showHRChip }
+    var requiresBeginBlock: Bool { false }
+
+    /// `wantsCinta` / `wantsPM5` are the TRAMO that uses the source (and the
+    /// return to it). Link state is an input so tests can drop to `.lost` (cinta)
+    /// or `.idle` (PM5) and assert the chip stays. State never hides a chip.
+    static func offer(
+        wantsCinta: Bool,
+        wantsPM5: Bool,
+        treadmillCoverOpen: Bool,
+        treadmillLink: DeviceLink,
+        pm5State: PM5ConnectionState,
+        pm5ConnectionLost: Bool,
+        hrLink: DeviceLink,
+        hrSource: WorkoutSession.HRSource?
+    ) -> LiveDeviceScanPath {
+        // `.lost` (FTMS) and `.idle` (PM5 / HR) must not hide the chip.
+        _ = treadmillLink
+        _ = pm5State
+        _ = pm5ConnectionLost
+        _ = hrLink
+        _ = hrSource
+        return LiveDeviceScanPath(
+            showCintaChip: wantsCinta,
+            showTreadmillEntry: wantsCinta && !treadmillCoverOpen,
+            showPM5Chip: wantsPM5,
+            showHRChip: true
+        )
+    }
+}
+
 // MARK: - Connection / data-provenance strip
 //
 // A glanceable row of small chips telling the athlete (and, via the record, the
 // coach) WHERE the live data comes from this segment: the erg (PM5), the heart-
-// rate source (Apple Watch/HealthKit or a strap through the PM5), and phone GPS
-// on runs. Each chip is on (accent) when that source is active, muted when not.
-// Tapping the PM5 chip opens pairing (non-blocking) when an erg segment needs it.
+// rate source, the cinta, and phone GPS on runs. Each chip is on (accent) when
+// that source is live, muted when not. Tapping a machine chip opens the existing
+// picker (`DevicePickerSheet` / `PM5LiveStreamView`) — including after `.lost`
+// / `.idle`. HR never hides when the source drops.
 
 struct ConnectionStrip: View {
     let session: WorkoutSession
@@ -416,18 +473,29 @@ struct ConnectionStrip: View {
     let onTapPM5: () -> Void
     /// Remo / SkiErg / BikeErg when the tramo names a role; nil = generic PM5.
     var roleTitle: String? = nil
+    var path: LiveDeviceScanPath = LiveDeviceScanPath(
+        showCintaChip: false, showTreadmillEntry: false,
+        showPM5Chip: false, showHRChip: true
+    )
+    var treadmillLink: DeviceLink = .idle
+    var hrLink: DeviceLink = .idle
+    var onTapCinta: (() -> Void)? = nil
+    var onTapHR: (() -> Void)? = nil
 
     private var pm5ChipText: String {
         let name = roleTitle ?? "PM5"
-        return pm5.isConnected ? name : "Conecta \(name)"
+        if pm5.isConnected { return name }
+        if pm5.connectionLost { return "Se perdió \(name)" }
+        return "Conecta \(name)"
     }
 
-    private var hrLabel: String? {
+    /// Always a label — `.none` used to hide the chip, which is the live hole.
+    private var hrLabel: String {
         switch session.hrSource {
         case .strap:     return "HR · Banda"
         case .healthkit: return "HR · Watch"
         case .pm5:       return "HR · PM5"
-        case .none:      return nil
+        case .none:      return hrLink == .lost ? "HR · se perdió" : "HR · conectar"
         }
     }
 
@@ -437,13 +505,31 @@ struct ConnectionStrip: View {
         case .strap:     return "la banda"
         case .healthkit: return "el reloj"
         case .pm5:       return "el PM5"
-        case .none:      return "el reloj"
+        case .none:      return "sin pulso, toca para buscar"
+        }
+    }
+
+    private var cintaChipText: String {
+        if let name = treadmillLink.deviceName { return "Cinta · \(name)" }
+        switch treadmillLink {
+        case .lost:                  return "Cinta · se perdió"
+        case .scanning, .connecting: return "Cinta · buscando"
+        case .unavailable, .failed:  return "Cinta · sin señal"
+        case .idle, .connected:      return "Cinta · conectar"
         }
     }
 
     var body: some View {
         HStack(spacing: 6) {
-            if segmentIsErg {
+            if path.showCintaChip, let onTapCinta {
+                Button(action: onTapCinta) {
+                    DeviceChip(icon: "figure.run", text: cintaChipText, link: treadmillLink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(treadmillLink.isLive ? "Cinta conectada" : "Buscar cinta")
+                .accessibilityHint("Abre la lista para elegir una cinta")
+            }
+            if path.showPM5Chip || segmentIsErg {
                 Button(action: onTapPM5) {
                     chip(
                         icon: "antenna.radiowaves.left.and.right",
@@ -456,9 +542,13 @@ struct ConnectionStrip: View {
                     ? "\(roleTitle ?? "PM5") conectado"
                     : "Conectar \(roleTitle ?? "PM5")")
             }
-            if let hrLabel {
-                chip(icon: "heart.fill", text: hrLabel, on: true)
-                    .accessibilityLabel("Frecuencia cardiaca desde \(hrSpokenSource)")
+            if path.showHRChip {
+                Button(action: { onTapHR?() }) {
+                    DeviceChip(icon: "heart.fill", text: hrLabel, link: hrChipLink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Frecuencia cardiaca, \(hrSpokenSource)")
+                .accessibilityHint("Abre la lista para elegir una banda")
             }
             if segmentIsRun {
                 chip(
@@ -472,6 +562,17 @@ struct ConnectionStrip: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
+    }
+
+    /// Engine provenance paints a live chip; a dropped strap/channel stays
+    /// `.lost` / `.idle` so the chip is still tappable.
+    private var hrChipLink: DeviceLink {
+        switch session.hrSource {
+        case .strap:     return hrLink
+        case .healthkit: return hrLink.isLive ? hrLink : .connected(name: "Watch")
+        case .pm5:       return .connected(name: "PM5")
+        case .none:      return hrLink
+        }
     }
 
     private func chip(icon: String, text: String, on: Bool) -> some View {

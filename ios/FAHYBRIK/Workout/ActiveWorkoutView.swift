@@ -66,6 +66,7 @@ struct ActiveWorkoutView: View {
     // athlete had already paused before opening the video).
     @State private var resumeAfterVideo: Bool = false
     @State private var pool = PM5Pool.shared
+    @State private var hub = DeviceHub.shared
     /// Roles the athlete already chose «sin monitor» for this Empezar attempt.
     @State private var skippedErgRoles: Set<ErgMachineRole> = []
     @State private var skippedUnscopedErg: Bool = false
@@ -126,6 +127,25 @@ struct ActiveWorkoutView: View {
         return TreadmillLegResolver.isRunSeries(s) || s.hasRunStructure
             || (session.tramoIsRun && s.kind != .running)
     }
+    /// Cinta is used on a run tramo AND when returning to it (cover may be closed).
+    private var wantsCinta: Bool {
+        session.tramoIsRun || isRunSegment || isRunSeriesSegment
+            || session.runEnvironment == .treadmill
+    }
+    /// Chips/CTAs the host must keep mounted after a BLE drop. Pool-by-role for PM5.
+    private var liveScanPath: LiveDeviceScanPath {
+        let store = pickerPM5
+        return LiveDeviceScanPath.offer(
+            wantsCinta: wantsCinta,
+            wantsPM5: isErgSegment,
+            treadmillCoverOpen: showTreadmill,
+            treadmillLink: hub.treadmill.link,
+            pm5State: store.connectionState,
+            pm5ConnectionLost: store.connectionLost,
+            hrLink: hub.heartRate.link,
+            hrSource: session.hrSource
+        )
+    }
     private var gpsActive: Bool {
         runGPS.status == .active || runGPS.status == .authorized
     }
@@ -163,6 +183,8 @@ struct ActiveWorkoutView: View {
     var body: some View {
         ZStack {
             let _ = pool.epoch
+            let _ = hub.treadmill.link
+            let _ = hub.heartRate.link
             Theme.Color.background
                 .ignoresSafeArea()
                 .instrumentCanvas()
@@ -276,6 +298,17 @@ struct ActiveWorkoutView: View {
         }
         .sheet(isPresented: $showPM5Sheet, onDismiss: { maybeAutoOpenRunCover() }) {
             PM5LiveStreamView(store: pickerPM5, roleTitle: liveErgRole?.titleES)
+        }
+        // Live scan path (FH-59): same pickers as the brief / HUD, presented from
+        // the host so a drop can be recovered without the cover and without
+        // beginBlock. Disabled while the treadmill HUD is up — it presents the
+        // same channels, and two presenters fight.
+        .sheet(isPresented: livePickerBinding(hub.treadmill, enabled: !showTreadmill)) {
+            DevicePickerSheet(channel: hub.treadmill)
+        }
+        .sheet(isPresented: livePickerBinding(hub.heartRate, enabled: !showTreadmill)) {
+            DevicePickerSheet(channel: hub.heartRate,
+                              batteryPercent: hub.hrBatteryPercent)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
             TreadmillHUDView(session: session, hrZones: hrZones)
@@ -456,6 +489,21 @@ struct ActiveWorkoutView: View {
         store.excludePeripheralIds = pool.occupiedPeripheralIds
             .subtracting([store.connectedIdentifier].compactMap { $0 })
         showPM5Sheet = true
+    }
+
+    private func openCintaPicker() {
+        hub.treadmill.openPicker()
+    }
+
+    private func openHRPicker() {
+        hub.heartRate.openPicker()
+    }
+
+    /// Same latch as DeviceConnectCard: a presenter that isn't on screen cannot
+    /// raise its sheet (cover vs host fight).
+    private func livePickerBinding(_ channel: DeviceChannel, enabled: Bool) -> Binding<Bool> {
+        Binding(get: { enabled && channel.isPresentingPicker },
+                set: { if enabled { channel.isPresentingPicker = $0 } })
     }
 
     /// Let go of every machine the moment the work ends — before the summary, not
@@ -880,9 +928,14 @@ struct ActiveWorkoutView: View {
                 pm5: livePM5 ?? pickerPM5,
                 gpsActive: gpsActive,
                 segmentIsErg: isErgSegment,
-                segmentIsRun: isRunSegment,
+                segmentIsRun: isRunSegment || session.tramoIsRun,
                 onTapPM5: { openPM5Picker() },
-                roleTitle: liveErgRole?.titleES
+                roleTitle: liveErgRole?.titleES,
+                path: liveScanPath,
+                treadmillLink: hub.treadmill.link,
+                hrLink: hub.heartRate.link,
+                onTapCinta: { openCintaPicker() },
+                onTapHR: { openHRPicker() }
             )
             if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
                 BlockIntervalStrip(
@@ -898,11 +951,13 @@ struct ActiveWorkoutView: View {
             if session.currentSegmentIsMetcon {
                 RxScaledToggle(session: session)
             }
-            if isErgSegment && livePM5?.isConnected != true {
+            if liveScanPath.showPM5Chip && livePM5?.isConnected != true {
                 connectPM5CTA
             }
-            if isRunSeriesSegment, SuperficieViva.de(session) != .run {
+            if liveScanPath.showTreadmillEntry {
                 TreadmillEntryButton(action: { showTreadmill = true })
+            }
+            if isRunSeriesSegment, SuperficieViva.de(session) != .run {
                 OutdoorEntryButton(action: { showOutdoor = true })
             }
             Spacer(minLength: 0)

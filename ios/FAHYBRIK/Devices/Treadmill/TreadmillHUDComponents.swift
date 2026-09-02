@@ -25,11 +25,76 @@ extension TargetStatus {
     }
 }
 
-// AQUÍ ESTABA `TreadmillEntryButton` («CORRER EN CINTA»), borrado el 5-ago junto con
-// su gemelo `OutdoorEntryButton`: abrían un `fullScreenCover` encima de la pantalla
-// del entreno. Correr en cinta ya no es una pantalla a la que se entra — es LA
-// pantalla del tramo cuando has dicho que corres en cinta (ver
-// `ActiveWorkoutView.superficieViva`).
+// `TreadmillEntryButton` / `OutdoorEntryButton` remount the existing covers
+// (`showTreadmill` / `showOutdoor`). The live host needs a path into the HUD
+// picker when the cover is closed — DeviceConnection's scan button, not a
+// second pre-start. The chip in ConnectionStrip opens DevicePickerSheet;
+// this CTA opens the HUD that already hosts the same picker.
+
+struct TreadmillEntryButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: { Haptics.light(); action() }) {
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: "figure.run")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("CORRER EN CINTA")
+                    .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
+                    .tracking(1.2)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 10)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.accentText.opacity(0.6), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .foregroundStyle(Theme.Color.accentText)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.bottom, 4)
+        .accessibilityLabel("Correr en cinta")
+        .accessibilityHint("Abre la cinta para buscar y elegir")
+    }
+}
+
+struct OutdoorEntryButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: { Haptics.light(); action() }) {
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("CORRER FUERA")
+                    .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
+                    .tracking(1.2)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 10)
+            .background(Theme.Color.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                    .stroke(Theme.Color.outline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .foregroundStyle(Theme.Color.muted)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.bottom, 4)
+        .accessibilityLabel("Correr fuera")
+    }
+}
 
 // MARK: - Connection chip
 
