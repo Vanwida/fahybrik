@@ -150,6 +150,48 @@ final class SuperficieVivaTests: XCTestCase {
 
     // MARK: - Fixtures
 
+
+    // MARK: - FH-60 sala 5:00 remo + 5:00 run
+
+    func testSalaRemoRunArrancaEnErgoNoEnStripDeRondas() {
+        let s = salaViva()
+        XCTAssertEqual(s.currentTramo.modality, .row)
+        XCTAssertTrue(s.tramoIsErg)
+        XCTAssertEqual(SuperficieViva.de(s), .ergo)
+        XCTAssertFalse(s.tramoIsRun)
+    }
+
+    func testSalaRemoRunALos300sEsRunNoErgLiveStrip() {
+        let s = salaViva()
+        s.lapElapsedSeconds = s.tramoStartElapsed + 300
+        s.advanceStationIfClockGoalMet()
+        XCTAssertEqual(s.currentTramo.modality, .run)
+        XCTAssertTrue(s.tramoIsRun)
+        XCTAssertFalse(s.tramoIsErg)
+        XCTAssertEqual(SuperficieViva.de(s), .run,
+                       "sin cinta: RunLiveHUD / Watch indoor / manual, no strip de remo")
+        s.runEnvironment = nil
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+    }
+
+    private func salaViva() -> WorkoutSession {
+        let remo = PrescriptionSet(measure: .duration(seconds: 300), target: nil,
+                                   modality: .row, restS: nil, tempo: nil, note: "Rowing")
+        let run = PrescriptionSet(measure: .duration(seconds: 300), target: nil,
+                                  modality: .run, restS: nil, tempo: nil, note: "Run")
+        let p = Prescription(scheme: .rounds, modality: .functional, sets: [remo, run],
+                             rounds: 10, workS: nil, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        let s = sesion(tramo: WorkoutSegment(
+            order: 1, title: "Rowing · Run", kind: .reps,
+            blockTitle: "Principal", blockPosition: 1, prescription: p
+        ), nombre: "Libre rondas", formato: .rounds)
+        s.start(); s.beginBlock(); s.stop()
+        if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        return s
+    }
+
+
     private func sesionDeRodaje() -> WorkoutSession {
         sesion(tramo: WorkoutSegment(
             order: 1, title: "Rodaje Z2", kind: .running,

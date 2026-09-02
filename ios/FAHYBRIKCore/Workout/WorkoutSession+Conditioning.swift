@@ -87,10 +87,19 @@ extension WorkoutSession {
         deathByFailed = false
     }
 
-    /// The number of strike-able list items in a FIXED checklist: the movements for
-    /// a Chipper (one pass), else the round count (For Time / Ladder / Rounds).
+    /// The number of strike-able list items in a FIXED checklist.
+    ///
+    /// A station list of N movements that also has R outer rounds is N × R
+    /// strikes (else 10 rounds of remo+run would close after 10 taps = 5 rounds).
+    /// One-pass routes (no `rounds`) stay N. Homogeneous rounds (one movement)
+    /// stay `formatRounds`.
     var fixedListTotal: Int {
         guard let seg = currentSegment else { return 1 }
+        if seg.fixedListIsStations {
+            let n = max(1, seg.declaredComponents.count)
+            let r = max(1, seg.formatRounds ?? 1)
+            return n * r
+        }
         switch seg.formatScheme {
         case .chipper:
             return max(1, seg.components.count)
@@ -99,6 +108,73 @@ extension WorkoutSession {
         default:
             return max(1, seg.formatRounds ?? 1)
         }
+    }
+
+    /// Movements in one pass of a station list. 1 when the list is not stations.
+    var fixedStationCount: Int {
+        guard let seg = currentSegment, seg.fixedListIsStations else { return 1 }
+        return max(1, seg.declaredComponents.count)
+    }
+
+    /// Inner station + outer `rounds` coexist.
+    var fixedHasOuterRounds: Bool {
+        currentSegment?.fixedListIsStations == true
+            && (currentSegment?.formatRounds ?? 0) > 0
+    }
+
+    /// Outer round (0-based) when inner stations coexist with `formatRounds`.
+    var fixedOuterRoundIndex: Int {
+        let n = fixedStationCount
+        return n > 0 ? fixedRoundsDone / n : 0
+    }
+
+    var fixedOuterRoundTotal: Int {
+        max(1, currentSegment?.formatRounds ?? 1)
+    }
+
+    /// What the Rounds HUD counts: outer rounds when they coexist with stations,
+    /// else the strike list (homogeneous rounds / one-pass stays as it was).
+    var roundsHUDTotal: Int {
+        fixedHasOuterRounds ? fixedOuterRoundTotal : fixedListTotal
+    }
+
+    var roundsHUDDone: Int {
+        fixedHasOuterRounds ? min(fixedOuterRoundIndex, roundsHUDTotal) : fixedRoundsDone
+    }
+
+    /// Round number the last strike belonged to (1-based), for the undo chip.
+    var roundsHUDLastClosed: Int {
+        guard fixedHasOuterRounds else { return fixedRoundsDone }
+        let n = fixedStationCount
+        guard n > 0, fixedRoundsDone > 0 else { return 0 }
+        return (fixedRoundsDone - 1) / n + 1
+    }
+
+    /// Current inner movement among `declaredComponents`, or nil when the HUD
+    /// should not highlight (homogeneous / one-pass Rounds face).
+    var roundsHUDInnerIndex: Int? {
+        guard fixedHasOuterRounds else { return nil }
+        let n = fixedStationCount
+        return n > 0 ? fixedRoundsDone % n : nil
+    }
+
+    /// Seconds the last CLOSED outer round took (sum of its inner stations).
+    var roundsHUDLastClosedSeconds: Double? {
+        let n = fixedHasOuterRounds ? fixedStationCount : 1
+        let done = roundsHUDDone
+        guard done > 0, n > 0 else { return nil }
+        let start = (done - 1) * n
+        let end = start + n
+        guard end <= fixedRoundSplits.count else { return nil }
+        return fixedRoundSplits[start..<end].reduce(0.0) { $0 + $1.seconds }
+    }
+
+    /// Block-clock stamp of the last closed outer round — "esta ronda" subtracts it.
+    var roundsHUDClosedElapsed: Double {
+        let n = fixedHasOuterRounds ? fixedStationCount : 1
+        let complete = roundsHUDDone * n
+        guard complete > 0, complete <= fixedRoundSplits.count else { return 0 }
+        return fixedRoundSplits[complete - 1].elapsed
     }
 
     // Seconds in the WORK phase of a rotating format (Tabata / Intervals work, a
@@ -402,9 +478,20 @@ extension WorkoutSession {
     /// Lo que NO cambia: sin descanso escrito no aparece ninguno. Un simulacro
     /// sigue yendo seguido.
     private func beginFixedRest(seg: WorkoutSegment?, closedStation: Int) {
-        let rest = seg.flatMap { s in
-            s.rotationSet(at: closedStation)?.restS ?? s.prescription?.restS
-        } ?? 0
+        let setRest = seg.flatMap { $0.rotationSet(at: closedStation)?.restS } ?? 0
+        let blockRest = seg?.prescription?.restS ?? 0
+        let n = max(1, seg?.declaredComponents.count ?? 1)
+        let repeating = seg?.fixedListIsStations == true && (seg?.formatRounds ?? 0) > 0
+        let rest: Int
+        if repeating {
+            // Inner stations of a repeating round: only a per-set rest between
+            // remo and run. The block's restS is BETWEEN ROUNDS, so it fires
+            // after the last movement of the cycle, not after every station.
+            let endOfRound = (closedStation + 1) % n == 0
+            rest = endOfRound ? (setRest > 0 ? setRest : blockRest) : setRest
+        } else {
+            rest = setRest > 0 ? setRest : blockRest
+        }
         guard rest > 0 else {
             fixedRestRemaining = 0
             fixedRestTotal = 0

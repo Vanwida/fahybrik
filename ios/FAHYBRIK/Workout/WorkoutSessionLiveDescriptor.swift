@@ -41,6 +41,10 @@ extension WorkoutSession {
                 // the same number — la muñeca dice lo mismo que la pantalla, o son
                 // dos apps.
                 if currentSegment?.fixedListIsStations == true, total > 1 {
+                    if fixedHasOuterRounds {
+                        let r = fixedOuterRoundTotal
+                        return "RONDA \(min(fixedOuterRoundIndex + 1, r))/\(r)"
+                    }
                     return "ESTACIÓN \(min(fixedRoundsDone + 1, total))/\(total)"
                 }
                 if total > 1 { return "RONDA \(min(fixedRoundsDone + 1, total))/\(total)" }

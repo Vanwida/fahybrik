@@ -306,7 +306,12 @@ struct ForTimeLiveHUD: View {
     /// a station nothing else measures. Then the subject is the work in front of him
     /// — the block clock moves to the context strip, because a 72 pt total time next
     /// to a 14 pt "50 wall balls" tells him the one thing he already knows.
-    private var isStationRoute: Bool { seg?.fixedListIsStations == true && !isCountIn }
+    /// One-pass route (chipper / For Time / HYROX without outer `rounds`). A
+    /// repeating station list keeps `RoundsLiveHUD` so the outer round count stays
+    /// the face; the inner movement is highlighted there, not a second screen.
+    private var isStationRoute: Bool {
+        seg?.fixedListIsStations == true && !isCountIn && seg?.formatRounds == nil
+    }
 
     var body: some View {
         VStack(spacing: 12) {

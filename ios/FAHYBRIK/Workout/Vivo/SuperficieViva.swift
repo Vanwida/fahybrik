@@ -49,6 +49,10 @@ enum SuperficieViva: Equatable, Hashable {
             default: return .run
             }
         }
+        // Inner run station of a folded .reps block (Libre rondas remo+run): the
+        // tramo is running even though the segment kind is not. Existing RunLiveHUD
+        // / Watch indoor / manual — not a remo strip.
+        if session.tramoIsRun { return .run }
         if session.currentSegment?.isConditioningTimer == true { return .conditioning }
         return .fuerza
     }

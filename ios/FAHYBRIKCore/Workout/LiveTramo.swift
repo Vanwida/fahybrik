@@ -242,31 +242,24 @@ extension WorkoutSegment {
         return prescription?.sets?.contains { $0.modality == .run } ?? false
     }
 
-    /// True when a FIXED format's checklist enumerates the MOVEMENTS of a single
-    /// pass — a chipper, a For Time / HYROX sim authored as a route — rather than
-    /// repeated ROUNDS of the same list.
+    /// True when a FIXED format's checklist enumerates the MOVEMENTS — a chipper,
+    /// a For Time / HYROX sim authored as a route, or a Rondas list whose round
+    /// contains more than one movement.
     ///
     /// THE discriminator for whether the app honestly knows which movement the
-    /// athlete is on. Authored `rounds` means the list repeats: the app knows the
-    /// round and never the movement inside it, so the segment stays the tramo and
-    /// nothing changes. No `rounds` + a movement list means the list IS the route,
-    /// and the strike cursor is a real per-station cursor — which is what lets the
-    /// device own the transition instead of the athlete's thumb.
+    /// athlete is on. N>1 movements are a station list even when the format also
+    /// has `rounds`: the inner cursor is the movement (`fixedRoundsDone % N`), the
+    /// outer cursor is the round (`fixedRoundsDone / N`). Authored `rounds` on a
+    /// ONE-movement list still means "repeat this one thing" — the segment stays
+    /// the tramo because a single station says nothing the segment didn't already.
     ///
     /// AMRAP is excluded on purpose: its list repeats for a whole window and its
-    /// strike counts rounds, not stations. A ONE-movement list is excluded too —
-    /// a single station is a cursor that says nothing the segment didn't already.
-    ///
-    /// Ground truth (28-jul, `template_segments`): a real HYROX simulation ships as
-    /// N sibling segments of one block, each with its own modality and measure and
-    /// no `rounds`; the fold turns them into this exact shape.
+    /// strike counts rounds, not stations.
     var fixedListIsStations: Bool {
         guard let scheme = formatScheme, scheme.presentation == .fixed else { return false }
         switch scheme {
-        case .chipper:
+        case .chipper, .forTime, .ladder, .rounds, .hyroxSim:
             return declaredComponents.count > 1
-        case .forTime, .ladder, .rounds, .hyroxSim:
-            return formatRounds == nil && declaredComponents.count > 1
         default:
             return false
         }

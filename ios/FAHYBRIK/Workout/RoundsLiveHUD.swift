@@ -119,7 +119,7 @@ struct RoundsLiveHUD: View {
             GeometryReader { geo in
                 let caben = RoundsListBudget.rondasListadas(alto: geo.size.height)
                 Group {
-                    if session.fixedListTotal <= caben { caraLista } else { caraContador }
+                    if session.roundsHUDTotal <= caben { caraLista } else { caraContador }
                 }
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }
@@ -133,8 +133,8 @@ struct RoundsLiveHUD: View {
     private var caraLista: some View {
         VStack(spacing: 12) {
             RoundsContextStrip(session: session,
-                               posicion: "Ronda \(min(session.fixedRoundsDone + 1, session.fixedListTotal)) de \(session.fixedListTotal)")
-            SujetoTrabajoRonda(seg: seg, grande: true)
+                               posicion: "Ronda \(min(session.roundsHUDDone + 1, session.roundsHUDTotal)) de \(session.roundsHUDTotal)")
+            SujetoTrabajoRonda(seg: seg, grande: true, interiorActivo: session.roundsHUDInnerIndex)
             RoundRowsList(session: session)
         }
     }
@@ -168,23 +168,23 @@ struct RoundsLiveHUD: View {
         VStack(spacing: 12) {
             RoundsContextStrip(
                 session: session,
-                posicion: "Ronda \(min(session.fixedRoundsDone + 1, session.fixedListTotal))/\(session.fixedListTotal)")
+                posicion: "Ronda \(min(session.roundsHUDDone + 1, session.roundsHUDTotal))/\(session.roundsHUDTotal)")
             // El deshacer NO se recorta (verif3 cazó al suelo recortándolo):
             // con una cerrada, su chip tachado viaja también aquí — 19 pt que
             // el peor cromo real (~187) sigue absorbiendo.
-            if let anterior = session.fixedRoundSplits.last, session.fixedRoundsDone > 0 {
+            if let seconds = session.roundsHUDLastClosedSeconds {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("Ronda \(session.fixedRoundsDone)")
+                    Text("Ronda \(session.roundsHUDLastClosed)")
                         .font(.system(size: 13, weight: .semibold))
                         .strikethrough(true, color: Theme.Color.muted)
-                    Text(Formato.clock(anterior.seconds))
+                    Text(Formato.clock(seconds))
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 }
                 .foregroundStyle(Theme.Color.muted)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: 0.5) { session.unmarkLastRound() }
-                .accessibilityLabel("Ronda \(session.fixedRoundsDone), cerrada en \(Formato.clock(anterior.seconds)). Mantén pulsado para deshacerla.")
+                .accessibilityLabel("Ronda \(session.roundsHUDLastClosed), cerrada en \(Formato.clock(seconds)). Mantén pulsado para deshacerla.")
             }
             MetricRow3(cells: [
                 .init(label: "Esta ronda", value: Formato.clock(parcialVivoS)),
@@ -216,7 +216,23 @@ struct RoundsLiveHUD: View {
     /// Lo que lleva la ronda en vuelo: el reloj del bloque menos el sello de
     /// la última cerrada.
     private var parcialVivoS: Double {
-        max(0, session.condElapsed - (session.fixedRoundSplits.last?.elapsed ?? 0))
+        max(0, session.condElapsed - session.roundsHUDClosedElapsed)
+    }
+
+    /// Parciales de RONDA (no de estación). Con cursor interior, N strikes
+    /// suman una ronda; la proyección y la media leen eso, no el split suelto.
+    private var parcialesDeRonda: [Double] {
+        let splits = session.fixedRoundSplits.map(\.seconds)
+        guard session.fixedHasOuterRounds else { return splits }
+        let n = session.fixedStationCount
+        guard n > 0 else { return splits }
+        var out: [Double] = []
+        var i = 0
+        while i + n <= splits.count {
+            out.append(splits[i..<(i + n)].reduce(0, +))
+            i += n
+        }
+        return out
     }
 
     /// La MEDIA, no el parcial de la última: ese ya lo dice la ronda tachada
@@ -226,7 +242,7 @@ struct RoundsLiveHUD: View {
         // Sin unidad: «1:52 / ronda» envolvía la celda a dos líneas y esos
         // ~35 pt eran justo el margen del nivel 3 (verif2). La etiqueta ya
         // dice de qué es la media.
-        let media = RoundsReadings.mediaS(session.fixedRoundSplits.map(\.seconds))
+        let media = RoundsReadings.mediaS(parcialesDeRonda)
         return .init(label: "Tu media",
                      value: media.map { Formato.clock($0.rounded()) },
                      ausente: "desde la 2ª")
@@ -236,8 +252,8 @@ struct RoundsLiveHUD: View {
     /// FRASE, no una cifra: monoespaciar lo que no se mide lo disfraza de
     /// medida.
     private var lectura: Text? {
-        let cerradas = session.fixedRoundSplits.map(\.seconds)
-        guard let proyeccion = RoundsReadings.proyeccionS(rondas: session.fixedListTotal,
+        let cerradas = parcialesDeRonda
+        guard let proyeccion = RoundsReadings.proyeccionS(rondas: session.roundsHUDTotal,
                                                           cerradas: cerradas) else { return nil }
         let cap = seg?.formatTotalSeconds
         let seComeElTope = cap.map { proyeccion > Double($0) } ?? false
@@ -308,7 +324,7 @@ private struct RoundsContextStrip: View {
         }
         .stripChrome()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(session.currentSegment?.formatScheme?.displayName ?? "Formato"), \(posicion ?? "ronda \(session.fixedRoundsDone + 1) de \(session.fixedListTotal)"). Tiempo \(Formato.clock(session.condElapsed))")
+        .accessibilityLabel("\(session.currentSegment?.formatScheme?.displayName ?? "Formato"), \(posicion ?? "ronda \(session.roundsHUDDone + 1) de \(session.roundsHUDTotal)"). Tiempo \(Formato.clock(session.condElapsed))")
     }
 }
 
@@ -320,6 +336,8 @@ private struct RoundsContextStrip: View {
 private struct SujetoTrabajoRonda: View {
     let seg: WorkoutSegment?
     let grande: Bool
+    /// Inner movement of the current outer round, when both cursors exist.
+    var interiorActivo: Int? = nil
 
     private var lineas: [String] {
         (seg?.declaredComponents ?? []).map { c in
@@ -343,10 +361,11 @@ private struct SujetoTrabajoRonda: View {
             EmptyView()
         } else {
             VStack(spacing: grande ? 6 : 3) {
-                ForEach(visibles, id: \.self) { linea in
+                ForEach(Array(visibles.enumerated()), id: \.offset) { i, linea in
+                    let esActiva = interiorActivo.map { $0 == i } ?? true
                     Text(linea)
                         .font(.system(size: grande ? 25 : 17, weight: .heavy).italic())
-                        .foregroundStyle(Theme.Color.foreground)
+                        .foregroundStyle(esActiva ? Theme.Color.foreground : Theme.Color.muted)
                         .multilineTextAlignment(.center)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -374,25 +393,25 @@ private struct SujetoContadorRonda: View {
     /// deshacer y una función no se recorta).
     var compacto: Bool = false
 
-    private var activa: Int { min(session.fixedRoundsDone, session.fixedListTotal - 1) }
+    private var activa: Int { min(session.roundsHUDDone, max(0, session.roundsHUDTotal - 1)) }
 
     var body: some View {
         VStack(spacing: 6) {
-            if let anterior = session.fixedRoundSplits.last, session.fixedRoundsDone > 0 {
+            if let seconds = session.roundsHUDLastClosedSeconds {
                 // `muted` y no `faint`: esta línea es la ÚNICA memoria de lo que
                 // costó la anterior y además es el blanco del deshacer — tiene
                 // que pasar AA. Subordinada lo está de sobra: 13 contra 76.
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("Ronda \(session.fixedRoundsDone)")
+                    Text("Ronda \(session.roundsHUDLastClosed)")
                         .font(.system(size: 13, weight: .semibold))
                         .strikethrough(true, color: Theme.Color.muted)
-                    Text(Formato.clock(anterior.seconds))
+                    Text(Formato.clock(seconds))
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 }
                 .foregroundStyle(Theme.Color.muted)
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: 0.5) { session.unmarkLastRound() }
-                .accessibilityLabel("Ronda \(session.fixedRoundsDone), cerrada en \(Formato.clock(anterior.seconds)). Mantén pulsado para deshacerla.")
+                .accessibilityLabel("Ronda \(session.roundsHUDLastClosed), cerrada en \(Formato.clock(seconds)). Mantén pulsado para deshacerla.")
             } else {
                 // La fila se reserva igual: sin ella el numeral subiría en la
                 // primera ronda y bajaría en la segunda, y el sujeto no baila.
@@ -405,7 +424,7 @@ private struct SujetoContadorRonda: View {
             // tamaño que el presupuesto del hueco permite — 96, no los 125 del
             // doble, y queda declarado como adaptación.
             LabelText(text: "Ronda", size: 10)
-            Text("\(activa + 1)/\(session.fixedListTotal)")
+            Text("\(activa + 1)/\(session.roundsHUDTotal)")
                 .font(.system(size: 96, weight: .heavy, design: .monospaced))
                 .monospacedDigit()
                 .foregroundStyle(Theme.Color.foreground)
@@ -413,10 +432,10 @@ private struct SujetoContadorRonda: View {
                 .minimumScaleFactor(0.5)
                 .frame(height: 96)
 
-            SujetoTrabajoRonda(seg: seg, grande: false)
+            SujetoTrabajoRonda(seg: seg, grande: false, interiorActivo: session.roundsHUDInnerIndex)
 
             if !compacto {
-                if activa + 1 < session.fixedListTotal {
+                if activa + 1 < session.roundsHUDTotal {
                     // La que viene: solo su número. Una ronda pendiente no
                     // tiene nada que decir.
                     Text("Ronda \(activa + 2)")
@@ -441,8 +460,8 @@ private struct SujetoContadorRonda: View {
 private struct HiloDeRondas: View {
     let session: WorkoutSession
 
-    private var rondas: Int { session.fixedListTotal }
-    private var cerradas: Int { session.fixedRoundsDone }
+    private var rondas: Int { session.roundsHUDTotal }
+    private var cerradas: Int { session.roundsHUDDone }
 
     var body: some View {
         VStack(spacing: 7) {
@@ -494,7 +513,7 @@ private struct RoundRowsList: View {
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 10)
-                ForEach(0..<session.fixedListTotal, id: \.self) { i in
+                ForEach(0..<session.roundsHUDTotal, id: \.self) { i in
                     Hairline()
                     fila(i)
                 }
@@ -504,8 +523,8 @@ private struct RoundRowsList: View {
 
     @ViewBuilder
     private func fila(_ i: Int) -> some View {
-        let done = i < session.fixedRoundsDone
-        let active = i == session.fixedRoundsDone
+        let done = i < session.roundsHUDDone
+        let active = i == session.roundsHUDDone
         Button(action: { if active { session.markRoundDone() } }) {
             HStack(spacing: 10) {
                 Text("Ronda \(i + 1)")
@@ -531,7 +550,7 @@ private struct RoundRowsList: View {
         .buttonStyle(PressScaleStyle())
         .disabled(!active)
         .simultaneousGesture(LongPressGesture().onEnded { _ in
-            if done && i == session.fixedRoundsDone - 1 { session.unmarkLastRound() }
+            if done && i == session.roundsHUDDone - 1 { session.unmarkLastRound() }
         })
         .accessibilityLabel("Ronda \(i + 1), \(done ? "hecha" : (active ? "actual, toca para marcar" : "pendiente"))")
     }
@@ -540,15 +559,18 @@ private struct RoundRowsList: View {
     /// que lleva la de ahora. Una pendiente no dice nada — un guion ahí se lee
     /// como un parcial de cero.
     private func cola(_ i: Int, done: Bool, active: Bool) -> String? {
+        let n = session.fixedHasOuterRounds ? session.fixedStationCount : 1
         if done {
-            guard i < session.fixedRoundSplits.count else { return nil }
-            let s = session.fixedRoundSplits[i]
-            let tiempo = Formato.clock(s.seconds)
-            guard let trabajo = s.workLine else { return tiempo }
-            return "\(trabajo) · \(tiempo)"
+            let start = i * n
+            let end = start + n
+            guard end <= session.fixedRoundSplits.count else { return nil }
+            let slice = session.fixedRoundSplits[start..<end]
+            let seconds = slice.reduce(0.0) { $0 + $1.seconds }
+            return Formato.clock(seconds)
         }
         guard active else { return nil }
-        return Formato.clock(max(0, session.condElapsed - (session.fixedRoundSplits.last?.elapsed ?? 0)))
+        let closed = session.fixedRoundSplits.prefix(i * n).last?.elapsed ?? 0
+        return Formato.clock(max(0, session.condElapsed - closed))
     }
 }
 

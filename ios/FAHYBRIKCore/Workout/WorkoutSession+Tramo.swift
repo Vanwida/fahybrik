@@ -56,11 +56,13 @@ extension WorkoutSession {
                                      index: emomIntervalIndex,
                                      boxedSeconds: plan.workSeconds)
         }
-        // A FIXED format authored as a ROUTE (a For Time / HYROX sim / chipper whose
-        // list is its stations) does have an honest per-movement cursor: the strike
-        // cursor. The athlete tells the app he moved on, or — when a machine measures
-        // the station — the machine does. Either way the window is the STATION, so
-        // the device, the clock and the screen follow it like any other tramo.
+        // A FIXED format authored as a ROUTE (a For Time / HYROX sim / chipper, or
+        // a repeating Rondas list of N>1 movements) does have an honest per-movement
+        // cursor: the strike cursor. Outer rounds coexist: rotationSet cycles the
+        // list, then the round increments. The athlete tells the app he moved on, or
+        // — when a machine or the clock measures the station — it does. Either way
+        // the window is the STATION, so the device, the clock and the screen follow
+        // it like any other tramo.
         if seg.isConditioningTimer, seg.fixedListIsStations {
             let station = currentStationIndex
             return seg.rotationTramo(segmentIndex: i, cursor: .fixedStation(station),
@@ -68,10 +70,10 @@ extension WorkoutSession {
                                      boxedSeconds: seg.stationBoxSeconds(at: station))
         }
         // Only a ROTATING conditioning format has an honest per-round cursor beyond
-        // that. An AMRAP, or a For Time whose list is repeated ROUNDS, is free-order:
-        // nothing knows which movement the athlete is on, so the segment stays the
-        // tramo and the device data is shown as a strip instead of taking over the
-        // screen (it would have to lie about the subject to do otherwise).
+        // that. An AMRAP is free-order: nothing knows which movement the athlete is
+        // on, so the segment stays the tramo and the device data is shown as a strip
+        // instead of taking over the screen (it would have to lie about the subject
+        // to do otherwise).
         if seg.isConditioningTimer, seg.formatScheme?.presentation == .rotating {
             // The box is the format's FULL work window, never what is left of it —
             // a progress fraction against a shrinking denominator never moves.
@@ -144,7 +146,9 @@ extension WorkoutSession {
         if isExtraWork { return 0 }
         if isRunStructureActive { return runLegIndex }
         if currentSegment?.isEMOM == true { return emomIntervalIndex }
-        if currentSegment?.fixedListIsStations == true { return currentStationIndex }
+        if currentSegment?.fixedListIsStations == true {
+            return fixedHasOuterRounds ? fixedOuterRoundIndex : currentStationIndex
+        }
         if isConditioningActive { return rotRoundIndex }
         if case .strengthSet(let i) = currentTramo.cursor { return i }
         return 0
@@ -156,7 +160,9 @@ extension WorkoutSession {
         if isExtraWork { return 1 }
         if isRunStructureActive { return runLegTotal }
         if let plan = currentSegment?.emomPlan { return plan.intervalCount }
-        if currentSegment?.fixedListIsStations == true { return fixedListTotal }
+        if currentSegment?.fixedListIsStations == true {
+            return fixedHasOuterRounds ? fixedOuterRoundTotal : fixedListTotal
+        }
         if isConditioningActive { return Swift.max(1, rotTotalRounds) }
         if case .strengthSet = currentTramo.cursor {
             let n = currentSegment?.prescription?.sets?.count ?? setRecords.count

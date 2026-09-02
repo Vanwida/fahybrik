@@ -191,6 +191,40 @@ final class ErgCounterPolicyTests: XCTestCase {
 
     // MARK: - Crossing helper (measure pure)
 
+
+    // MARK: - FH-60 duration station inside repeating rounds
+
+    func testRondasDurationStationClosesOnSessionClock() {
+        let remo = PrescriptionSet(measure: .duration(seconds: 300), target: nil,
+                                   modality: .row, restS: nil, tempo: nil, note: "Rowing")
+        let run = PrescriptionSet(measure: .duration(seconds: 300), target: nil,
+                                  modality: .run, restS: nil, tempo: nil, note: "Run")
+        let seg = WorkoutSegment(
+            order: 1, title: "Rowing · Run", kind: .reps,
+            blockTitle: "Principal", blockPosition: 1,
+            prescription: Prescription(scheme: .rounds, modality: .functional,
+                                       sets: [remo, run], rounds: 10, workS: nil, restS: nil,
+                                       totalS: nil, target: nil, note: nil, start: nil, increment: nil)
+        )
+        XCTAssertTrue(seg.fixedListIsStations)
+        let t = seg.rotationTramo(segmentIndex: 0, cursor: .fixedStation(0),
+                                  index: 0, boxedSeconds: seg.stationBoxSeconds(at: 0))
+        XCTAssertEqual(t.modality, .row)
+        XCTAssertEqual(t.boxedSeconds, 300)
+        XCTAssertTrue(t.closesOnClock(elapsedInTramo: 300))
+        let p = policy(t, seg)
+        XCTAssertEqual(p.scope, ErgCounterPolicy.Scope.perTramo)
+        XCTAssertEqual(p.close, ErgCounterPolicy.Close.sessionClock)
+
+        let runT = seg.rotationTramo(segmentIndex: 0, cursor: .fixedStation(1),
+                                     index: 1, boxedSeconds: seg.stationBoxSeconds(at: 1))
+        XCTAssertEqual(runT.modality, .run)
+        XCTAssertTrue(runT.closesOnClock(elapsedInTramo: 300))
+        XCTAssertEqual(policy(runT, seg).program, ErgCounterPolicy.Program.none,
+                       "Run no programa el PM5")
+    }
+
+
     func testCrossesMachineGoalOnCalories() {
         let t = LiveTramo(segmentIndex: 0, cursor: .conditioningRound(0),
                           label: "Ski", modality: .ski,

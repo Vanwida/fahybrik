@@ -185,6 +185,40 @@ final class ConditioningFoldTests: XCTestCase {
 
     // MARK: - Regression: empty config_json (today's default) is untouched
 
+
+    // MARK: - FH-60 same path through conditioningFold
+
+    func testFoldSalaRemoRunDeclaraEstacionesConRounds() {
+        func rx(_ seconds: Int, _ mod: PrescriptionModality, _ name: String) -> Prescription {
+            Prescription(scheme: .rounds, modality: mod,
+                         sets: [PrescriptionSet(measure: .duration(seconds: seconds), target: nil,
+                                                modality: mod, restS: nil, tempo: nil, note: name)],
+                         rounds: 10, workS: nil, restS: nil, totalS: nil,
+                         target: nil, note: nil, start: nil, increment: nil)
+        }
+        let remo = item("row", name: "Rowing", category: "erg", prescription: rx(300, .row, "Rowing"))
+        let run = item("run", name: "Run", category: "running", prescription: rx(300, .run, "Run"))
+        let b = block(items: [remo, run], config: ["rounds": .number(10)], format: "rounds")
+        let folded = b.conditioningFold
+        XCTAssertEqual(folded?.scheme, .rounds)
+        XCTAssertEqual(folded?.rounds, 10)
+        XCTAssertEqual(folded?.sets?.count, 2)
+        XCTAssertEqual(folded?.sets?[0].modality, .row)
+        XCTAssertEqual(folded?.sets?[1].modality, .run)
+        if case let .duration(s, _)? = folded?.sets?[0].measure { XCTAssertEqual(s, 300) }
+        else { XCTFail("remo measure is duration 300") }
+        if case let .duration(s, _)? = folded?.sets?[1].measure { XCTAssertEqual(s, 300) }
+        else { XCTFail("run measure is duration 300") }
+
+        let seg = WorkoutSegment(order: 1, title: "Rowing · Run", kind: .reps,
+                                 blockTitle: "Principal", blockPosition: 1, prescription: folded)
+        XCTAssertTrue(seg.fixedListIsStations,
+                      "el fold de sala, con rounds > 0, tiene cursor interior")
+        XCTAssertEqual(seg.formatRounds, 10)
+        XCTAssertEqual(seg.declaredComponents.count, 2)
+    }
+
+
     func testEmptyConfigJsonMatchesLegacyBehaviorAcrossTheBoard() {
         let sled = item("sled", name: "Sled Push", prescription: rx(workS: 40, restS: 12))
         let lunge = item("lunge", name: "Lunge")

@@ -13,10 +13,10 @@ import Foundation
 //   intervalos     conditioningRound        SÍ en policy            NO: misma puerta de
 //                                           si kind/modality erg    kind==.running
 //   Tabata/DeathBy conditioningRound        justRow / formatClock   igual
-//   For Time       fixedStation SÓLO si     SÍ si estación          SÍ si kind running
-//   chipper/HYROX  lista sin `rounds`       si no: segmento entero  si no: 0 m
-//   rondas/circuito segmento (no sabe el    connect sí, sample NO   igual
-//                   movimiento)             si kind=.reps
+//   For Time       fixedStation si N>1      SÍ si estación erg      SÍ si estación run
+//   chipper/HYROX  movimientos (con o sin   (cursor interior)       (cursor interior)
+//   rondas         `rounds`)                homogeneo 1 mov:        homogeneo 1 mov:
+//                                           segmento / strip        segmento
 //   series/fuerza  NINGUNO (setTable)       connect por involvesErg  no
 //   superserie     NINGUNO                  el set abierto no era    no
 //                                           el tramo → tramoIsErg

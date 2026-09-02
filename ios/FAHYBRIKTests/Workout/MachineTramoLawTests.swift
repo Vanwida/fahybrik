@@ -262,6 +262,99 @@ final class MachineTramoLawTests: XCTestCase {
         default: return nil
         }
     }
+
+    // MARK: - FH-60 inner cursor coexists with outer rounds (sala 5:00 remo + 5:00 run)
+
+    func testRondasRemoRunConRoundsEsListaDeEstaciones() {
+        let s = salaRemoRun(rondas: 10)
+        XCTAssertTrue(s.currentSegment?.fixedListIsStations == true,
+                      "N>1 movimientos son estaciones aunque formatRounds > 0")
+        XCTAssertEqual(s.fixedListTotal, 20, "N × R strikes, no formatRounds")
+        XCTAssertEqual(s.fixedStationCount, 2)
+        XCTAssertTrue(s.fixedHasOuterRounds)
+        XCTAssertEqual(s.currentTramo.modality, .row)
+        XCTAssertTrue(s.currentTramo.isFixedStation)
+        XCTAssertTrue(MachineTramoLaw.recordsPM5(tramo: s.currentTramo, segment: s.currentSegment))
+        XCTAssertFalse(MachineTramoLaw.recordsFTMS(tramo: s.currentTramo, segment: s.currentSegment))
+    }
+
+    func testALos300sSinTapPasaARunYCambiaDeCarril() {
+        let s = salaRemoRun(rondas: 10)
+        let remo = s.currentTramo
+        XCTAssertEqual(remo.modality, .row)
+        XCTAssertEqual(remo.boxedSeconds, 300)
+        XCTAssertFalse(remo.closesOnClock(elapsedInTramo: 299))
+        XCTAssertTrue(remo.closesOnClock(elapsedInTramo: 300))
+
+        s.lapElapsedSeconds = s.tramoStartElapsed + 300
+        s.advanceStationIfClockGoalMet()
+
+        XCTAssertEqual(s.fixedRoundsDone, 1, "el reloj cierra el remo, no hace falta markRoundDone")
+        XCTAssertEqual(s.currentTramo.modality, .run)
+        XCTAssertTrue(MachineTramoLaw.recordsFTMS(tramo: s.currentTramo, segment: s.currentSegment))
+        XCTAssertFalse(MachineTramoLaw.recordsPM5(tramo: s.currentTramo, segment: s.currentSegment),
+                       "en Run el PM5 no firma el tramo")
+        XCTAssertEqual(s.fixedOuterRoundIndex, 0, "sigue la ronda 1; el cursor interior avanzó")
+    }
+
+    func testDiezStrikesDeDosMovimientosNoCierranCincoRondas() {
+        let s = salaRemoRun(rondas: 10)
+        for _ in 0..<10 { s.markRoundDone() }
+        XCTAssertEqual(s.fixedRoundsDone, 10)
+        XCTAssertEqual(s.fixedOuterRoundIndex, 5)
+        XCTAssertFalse(s.isFinished)
+        XCTAssertTrue(s.isConditioningActive)
+        XCTAssertEqual(s.currentTramo.modality, .row, "ronda 6, de nuevo remo")
+    }
+
+    func testRondasHomogeneasDeUnMovimientoNoSonEstaciones() {
+        let set = PrescriptionSet(measure: .duration(seconds: 300), target: nil,
+                                  modality: .row, restS: nil, tempo: nil, note: "Rowing")
+        let p = Prescription(scheme: .rounds, modality: .functional, sets: [set],
+                             rounds: 10, workS: nil, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        let seg = WorkoutSegment(order: 1, title: "Rowing", kind: .reps,
+                                 blockTitle: "Principal", blockPosition: 1, prescription: p)
+        XCTAssertFalse(seg.fixedListIsStations,
+                       "un solo movimiento con rounds sigue siendo ronda, no estación")
+        let s = vivo(seg, formato: .rounds)
+        XCTAssertEqual(s.fixedListTotal, 10)
+        XCTAssertFalse(s.currentTramo.isFixedStation)
+        XCTAssertTrue(MachineTramoLaw.recordsPM5(tramo: s.currentTramo, segment: s.currentSegment))
+    }
+
+    private func salaRemoRun(rondas: Int) -> WorkoutSession {
+        vivo(Self.salaSegmento(rondas: rondas), formato: .rounds)
+    }
+
+    private func vivo(_ seg: WorkoutSegment, formato: PrescriptionScheme) -> WorkoutSession {
+        let plan = WorkoutPlan(id: UUID(), name: seg.title, format: formato,
+                               estimatedDurationSeconds: 3600, blockContext: "Principal",
+                               zoneTargets: [], equipment: [], segments: [seg],
+                               coachNote: nil, warmupChecklist: [])
+        let s = WorkoutSession(plan: plan)
+        s.start(); s.beginBlock(); s.stop()
+        if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        return s
+    }
+
+    static func salaSegmento(rondas: Int) -> WorkoutSegment {
+        func set(_ m: Measure, _ mod: PrescriptionModality, _ nota: String) -> PrescriptionSet {
+            PrescriptionSet(measure: m, target: nil, modality: mod, restS: nil, tempo: nil, note: nota)
+        }
+        let p = Prescription(
+            scheme: .rounds, modality: .functional,
+            sets: [
+                set(.duration(seconds: 300), .row, "Rowing"),
+                set(.duration(seconds: 300), .run, "Run"),
+            ],
+            rounds: rondas, workS: nil, restS: nil, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil)
+        return WorkoutSegment(order: 1, title: "Rowing · Run", kind: .reps,
+                              blockTitle: "Principal", blockPosition: 1, prescription: p)
+    }
+
+
 }
 
 private extension Measure {

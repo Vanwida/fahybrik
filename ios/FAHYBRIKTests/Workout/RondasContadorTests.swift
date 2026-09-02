@@ -131,11 +131,13 @@ final class RondasContadorTests: XCTestCase {
         s.start()
         s.beginBlock()
         if s.condCountInRemaining > 0 { s.primaryAdvance() } // SALTAR el 3-2-1
-        XCTAssertEqual(s.fixedListTotal, 8)
+        XCTAssertEqual(s.fixedListTotal, 24, "3 movimientos × 8 rondas")
+        XCTAssertEqual(s.roundsHUDTotal, 8, "el HUD sigue contando rondas exteriores")
 
         s.primaryAdvance()
-        XCTAssertEqual(s.fixedRoundsDone, 1, "una pulsación = una ronda")
-        XCTAssertFalse(s.isFinished, "el WOD sigue vivo: quedan siete rondas")
+        XCTAssertEqual(s.fixedRoundsDone, 1, "una pulsación = una estación interior")
+        XCTAssertEqual(s.fixedOuterRoundIndex, 0, "sigue la ronda 1")
+        XCTAssertFalse(s.isFinished, "el WOD sigue vivo")
         XCTAssertTrue(s.isConditioningActive, "el bloque no se ha cerrado")
 
         s.unmarkLastRound()
@@ -183,10 +185,14 @@ final class RondasContadorTests: XCTestCase {
         s.start()
         s.beginBlock()
         if s.condCountInRemaining > 0 { s.primaryAdvance() }
-        s.lapElapsedSeconds = 100
-        s.primaryAdvance()
-        s.lapElapsedSeconds = 230
-        s.primaryAdvance()
+        // Dos rondas EXTERIORES cerradas (3 estaciones × 2) para que exista media.
+        var t = 0.0
+        for _ in 1...6 {
+            t += 50
+            s.lapElapsedSeconds = t
+            s.primaryAdvance()
+        }
+        XCTAssertEqual(s.roundsHUDDone, 2)
         let ancho: CGFloat = 370
 
         func mide(_ v: AnyView) -> CGFloat {
@@ -221,8 +227,12 @@ final class RondasContadorTests: XCTestCase {
         // Tres cerradas no: DOS cerradas → el atleta va por la TERCERA, y las
         // dos superficies dicen «RONDA 3/8» — no «2/8» una y «3/8» la otra.
         XCTAssertEqual(s.fixedRoundsDone, 2)
-        XCTAssertEqual(s.liveProgressText, "RONDA 3/8",
-                       "la muñeca dice lo mismo que la pantalla, o son dos apps")
+        XCTAssertEqual(s.fixedOuterRoundIndex, 0)
+        XCTAssertEqual(s.liveProgressText, "RONDA 1/8",
+                       "dos estaciones de la ronda 1; la muñeca dice la ronda exterior")
+        s.primaryAdvance()
+        XCTAssertEqual(s.liveProgressText, "RONDA 2/8",
+                       "tres estaciones = una ronda cerrada; vas por la 2")
         s.stop()
     }
 }
