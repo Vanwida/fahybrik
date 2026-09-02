@@ -148,10 +148,34 @@ enum WorkoutLocationType {
         environment: RunEnvironment?
     ) -> HKWorkoutSessionLocationType {
         guard activityKind == "running" else { return .indoor }
+        return streetOrIndoor(environment)
+    }
+
+    /// PIECE, not day. A run inside mixed / HYROX is still a run: outdoor unless
+    /// the athlete said treadmill / indoor. The day's kind must not forbid GPS.
+    static func resolve(
+        pieceIsRun: Bool,
+        dayActivityKind: String?,
+        environment: RunEnvironment?
+    ) -> HKWorkoutSessionLocationType {
+        if pieceIsRun { return streetOrIndoor(environment) }
+        return resolve(activityKind: dayActivityKind, environment: environment)
+    }
+
+    static func activityType(for activityKind: String?) -> HKWorkoutActivityType {
+        switch activityKind {
+        case "running":  return .running
+        case "strength": return .functionalStrengthTraining
+        case "hyrox":    return .functionalStrengthTraining
+        case "mixed":    return .mixedCardio
+        default:         return .other
+        }
+    }
+
+    private static func streetOrIndoor(_ environment: RunEnvironment?) -> HKWorkoutSessionLocationType {
         switch environment {
         case .treadmill, .indoor: return .indoor
-        case .outdoor:            return .outdoor
-        case nil:                 return .outdoor
+        case .outdoor, nil:       return .outdoor
         }
     }
 }
@@ -258,13 +282,7 @@ extension WatchTodayPayload {
     /// teammate's new views read the same mapping. Mirrors the vocabulary the phone
     /// sends in `activityKind` ("running" | "strength" | "hyrox" | "mixed").
     var healthKitActivityType: HKWorkoutActivityType {
-        switch activityKind {
-        case "running"?:  return .running
-        case "strength"?: return .functionalStrengthTraining
-        case "hyrox"?:    return .functionalStrengthTraining
-        case "mixed"?:    return .mixedCardio
-        default:          return .other
-        }
+        WorkoutLocationType.activityType(for: activityKind)
     }
 
     /// Calle o cinta para la sesión del reloj cuando la lleva ÉL solo. Ver

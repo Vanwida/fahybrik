@@ -31,8 +31,20 @@ final class GuionSeriesTests: XCTestCase {
     }
 
     func testConHitoElContextoSigueDiciendoQueLoQueSeVeSonLosQueFaltan() {
-        XCTAssertEqual(contexto(estado(.main, cierre: .hito(metros: 800))), "Serie 2 / 5 · te faltan")
-        XCTAssertEqual(contexto(estado(.warmup, cierre: .hito(metros: 2000))), "Calentamiento · te faltan")
+        var conMetros = estado(.main, cierre: .hito(metros: 800))
+        conMetros.metrosEnTramo = 200
+        XCTAssertEqual(contexto(conMetros), "Serie 2 / 5 · te faltan")
+        var calentamiento = estado(.warmup, cierre: .hito(metros: 2000))
+        calentamiento.metrosEnTramo = 400
+        XCTAssertEqual(contexto(calentamiento), "Calentamiento · te faltan")
+    }
+
+    func testSinAppleElHitoNoSeVendeComoMedida() {
+        let e = estado(.main, cierre: .hito(metros: 500))
+        let primera = GuionSeries.paginas(e).first
+        XCTAssertEqual(primera?.contexto, "Serie 2 / 5")
+        XCTAssertNotEqual(primera?.sujeto, "500")
+        XCTAssertNotEqual(primera?.unidad, "m")
     }
 
     func testFueraDeLaParteprincipalLaRecuperacionNoAnunciaSerie() {

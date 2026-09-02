@@ -55,9 +55,9 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         let paginas = try paginasEnLaMuneca(seriesLibres())
         let primera = try XCTUnwrap(paginas.first)
         XCTAssertTrue(primera.contexto.hasPrefix("Serie 1 / 5"))
-        // 500 m prescritos y cero cubiertos todavía: faltan los 500.
-        XCTAssertEqual(primera.sujeto, "500")
-        XCTAssertEqual(primera.unidad, "m")
+        // Sin Apple no hay resta: el 500 prescrito no se pinta como medida.
+        XCTAssertNotEqual(primera.sujeto, "500")
+        XCTAssertNotEqual(primera.unidad, "m")
     }
 
     /// Y AVANZAN. Este test faltaba, y su ausencia dejó pasar el peor fallo de la
@@ -72,8 +72,9 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         s.sampleRunDistance(deltaMeters: 180, source: .healthkit)
         let aMitad = try XCTUnwrap(try paginasEnLaMuneca(s).first).sujeto
 
+        XCTAssertNotEqual(alSalir, "500", "sin Apple el objetivo no es una cifra")
+        XCTAssertEqual(aMitad, "320")
         XCTAssertNotEqual(aMitad, alSalir, "el numeral se quedaba congelado toda la serie")
-        XCTAssertLessThan(Int(aMitad) ?? .max, Int(alSalir) ?? 0)
     }
 
     /// El botón «Terminar» en la primera de cinco series no puede volver a

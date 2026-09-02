@@ -617,7 +617,8 @@ final class PhoneMirrorService {
                 let w = session.sensorWindow
                 return MirrorSensorWindow(key: w.key, modality: w.modality,
                                           name: w.name, resting: w.resting)
-            }()
+            }(),
+            runEnvironment: session.runEnvironment
         )
     }
 

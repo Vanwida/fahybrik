@@ -65,7 +65,7 @@ settings:
     # Bump on every device install that must refresh the companion watch app —
     # same CFBundleVersion as the previous install often leaves the wrist on the
     # old binary (Alex hit this testing sensor rep-count).
-    CURRENT_PROJECT_VERSION: 40
+    CURRENT_PROJECT_VERSION: 41
     MARKETING_VERSION: "1.0"
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -413,6 +413,9 @@ targets:
       - sdk: HealthKit.framework
       - sdk: WatchConnectivity.framework
       - sdk: CoreMotion.framework
+      # Permission + horizontalAccuracy only. Apple's HKLiveWorkoutBuilder
+      # emits distanceWalkingRunning outdoors after this; we never integrate fixes.
+      - sdk: CoreLocation.framework
     # ----- Info.plist -----
     # Explicit info: block (like the iOS target) because WKBackgroundModes is an
     # array the INFOPLIST_KEY_* settings can't express. workout-processing keeps
@@ -444,8 +447,11 @@ targets:
         WKWatchOnly: false
         WKBackgroundModes:
           - workout-processing
-        NSHealthShareUsageDescription: "$(BRAND_DISPLAY_NAME) lee tu HR y consumo calórico durante el entreno para registrar la sesión con precisión."
+        NSHealthShareUsageDescription: "$(BRAND_DISPLAY_NAME) lee tu pulso, el consumo calórico y la distancia que recorres durante el entreno para registrar la sesión con precisión."
         NSHealthUpdateUsageDescription: "$(BRAND_DISPLAY_NAME) guarda en Apple Health los entrenos que registras desde el reloj."
+        # Same tone as the iPhone: without this string watchOS cannot ask for
+        # location, and outdoor `distanceWalkingRunning` never arrives.
+        NSLocationWhenInUseUsageDescription: "$(BRAND_DISPLAY_NAME) usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
     settings:
       configs:
         Debug:

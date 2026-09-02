@@ -70,6 +70,10 @@ final class MirrorSessionController: NSObject {
     /// re-enter the close path.
     private var isClosing = false
     private var lastHRRelayAt: Date = .distantPast
+    /// Cumulative `distanceWalkingRunning` last sent as a delta.
+    private var lastReportedDistance: Double = 0
+    private var appliedPlan: WatchHKActivityPlan?
+    private let locationGate = WatchRunLocationGate()
     /// Later of "recording started" and "last frame" — the watchdog reference.
     private var lastSignalAt: Date = .distantPast
     private var watchdog: Timer?
@@ -106,10 +110,12 @@ final class MirrorSessionController: NSObject {
         do {
             let created = try HKWorkoutSession(healthStore: store, configuration: configuration)
             let builder = created.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(
+            let dataSource = HKLiveWorkoutDataSource(
                 healthStore: store,
                 workoutConfiguration: configuration
             )
+            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+            builder.dataSource = dataSource
             created.delegate = self
             builder.delegate = self
             session = created
@@ -155,10 +161,12 @@ final class MirrorSessionController: NSObject {
         session = incoming
         incoming.delegate = self
         let builder = incoming.associatedWorkoutBuilder()
-        builder.dataSource = HKLiveWorkoutDataSource(
+        let dataSource = HKLiveWorkoutDataSource(
             healthStore: store,
             workoutConfiguration: incoming.workoutConfiguration
         )
+        WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+        builder.dataSource = dataSource
         builder.delegate = self
         self.builder = builder
         lastSignalAt = Date()
@@ -187,6 +195,7 @@ final class MirrorSessionController: NSObject {
         lastSignalAt = frameReceivedAt ?? Date()
         isConnectionLost = false
         applyPhase(f.phase)
+        syncRunActivity(from: f)
     }
 
     /// Mirror the engine's pause state onto the HK session so paused/rest minutes
@@ -222,6 +231,61 @@ final class MirrorSessionController: NSObject {
     /// A wrist control tap relayed to the phone's engine (it is the only mutator).
     func sendCommand(_ kind: String) {
         send(type: MirrorWire.MessageType.command, MirrorCommand(kind: kind))
+    }
+
+    private func syncRunActivity(from frame: MirrorStateFrame) {
+        guard let session else { return }
+        let pieceIsRun = frame.tramo?.modalidad == PrescriptionModality.run.rawValue
+        let plan = WatchHKActivityPlan.make(
+            pieceIsRun: pieceIsRun,
+            dayActivityKind: Self.dayKind(from: session.workoutConfiguration.activityType),
+            environment: frame.runEnvironment ?? Self.environment(
+                dayType: session.workoutConfiguration.activityType,
+                sessionLocation: session.workoutConfiguration.locationType
+            )
+        )
+        if let dataSource = builder?.dataSource, plan.collectDistance {
+            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+        }
+        if appliedPlan != plan {
+            let sessionMatches = session.workoutConfiguration.activityType == plan.activityType
+                && session.workoutConfiguration.locationType == plan.locationType
+            if plan.isRunPiece {
+                if appliedPlan != nil || !sessionMatches {
+                    session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+                }
+            } else if appliedPlan?.isRunPiece == true {
+                session.endCurrentActivity(on: Date())
+                session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+            }
+            appliedPlan = plan
+        }
+        locationGate.apply(wantsGPS: plan.wantsGPS)
+    }
+
+    private static func dayKind(from type: HKWorkoutActivityType) -> String? {
+        switch type {
+        case .running: return "running"
+        case .functionalStrengthTraining: return "strength"
+        case .mixedCardio: return "mixed"
+        default: return nil
+        }
+    }
+
+    private static func environment(
+        dayType: HKWorkoutActivityType,
+        sessionLocation: HKWorkoutSessionLocationType
+    ) -> RunEnvironment? {
+        guard dayType == .running else { return nil }
+        return sessionLocation == .indoor ? .indoor : .outdoor
+    }
+
+    private func relayDistance(_ meters: Double) {
+        guard let delta = WatchHKActivityPlan.distanceDelta(
+            fromCumulative: meters, lastReported: lastReportedDistance
+        ) else { return }
+        lastReportedDistance = meters
+        send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: delta))
     }
 
     private func relayHR(_ bpm: Int) {
@@ -304,6 +368,9 @@ final class MirrorSessionController: NSObject {
         stopWatchdog()
         session = nil
         builder = nil
+        appliedPlan = nil
+        lastReportedDistance = 0
+        locationGate.stop()
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
@@ -381,9 +448,17 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
         _ workoutBuilder: HKLiveWorkoutBuilder,
         didCollectDataOf collectedTypes: Set<HKSampleType>
     ) {
-        guard collectedTypes.contains(HKQuantityType(.heartRate)) else { return }
-        let stats = workoutBuilder.statistics(for: HKQuantityType(.heartRate))
-        Task { @MainActor [weak self] in self?.applyHR(stats) }
+        let hr = collectedTypes.contains(HKQuantityType(.heartRate))
+        let distance = collectedTypes.contains(WatchHKActivityPlan.distanceType)
+        guard hr || distance else { return }
+        let hrStats = hr ? workoutBuilder.statistics(for: HKQuantityType(.heartRate)) : nil
+        let distStats = distance ? workoutBuilder.statistics(for: WatchHKActivityPlan.distanceType) : nil
+        Task { @MainActor [weak self] in
+            if hr { self?.applyHR(hrStats) }
+            if let q = distStats?.sumQuantity() {
+                self?.relayDistance(q.doubleValue(for: .meter()))
+            }
+        }
     }
 
     @MainActor
