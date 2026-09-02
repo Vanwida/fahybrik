@@ -170,6 +170,8 @@
 		35A37ADE9AF72E9564AAC4C3 /* GuionRodaje.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE7E41B7C0903AFD10C7D1A /* GuionRodaje.swift */; };
 		A33C0DE010C00001000102 /* GPSSignalQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000101 /* GPSSignalQuality.swift */; };
 		A33C0DE010C00001000103 /* GPSSignalQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000101 /* GPSSignalQuality.swift */; };
+		A33C0DE010C00001000802 /* RunLiveHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000801 /* RunLiveHero.swift */; };
+		A33C0DE010C00001000803 /* RunLiveHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000801 /* RunLiveHero.swift */; };
 		A33C0DE010C00001000202 /* WatchHKActivityPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */; };
 		A33C0DE010C00001000203 /* WatchHKActivityPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */; };
 		A33C0DE010C00001000302 /* RodajeMedida.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000301 /* RodajeMedida.swift */; };
@@ -891,6 +893,7 @@
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
 		1616ED872D0729B7B3C9FE2D /* WatchWireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWireModels.swift; sourceTree = "<group>"; };
 		A33C0DE010C00001000101 /* GPSSignalQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPSSignalQuality.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000801 /* RunLiveHero.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLiveHero.swift; sourceTree = "<group>"; };
 		A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHKActivityPlan.swift; sourceTree = "<group>"; };
 		A33C0DE010C00001000301 /* RodajeMedida.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RodajeMedida.swift; sourceTree = "<group>"; };
 		A33C0DE010C00001000401 /* WatchRunLocationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRunLocationGate.swift; sourceTree = "<group>"; };
@@ -1954,6 +1957,7 @@
 				74E06CA535E229B097483A04 /* RunDistanceAuthority.swift */,
 				A33C0DE010C00001000101 /* GPSSignalQuality.swift */,
 				38A7E4B267878B9E411230B8 /* RunEnvironment.swift */,
+				A33C0DE010C00001000801 /* RunLiveHero.swift */,
 				314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */,
 				3A720378A9EB0DA597445F4E /* WorkoutAudio.swift */,
 				D3A119EF4ACCD7D41E0EC821 /* WorkoutModels.swift */,
@@ -3597,6 +3601,7 @@
 				EFF0BE7D5C7543F05874A03D /* RunDistanceAuthority.swift in Sources */,
 				A33C0DE010C00001000102 /* GPSSignalQuality.swift in Sources */,
 				6A4E0F6F4B1A79BB29E2639C /* RunEnvironment.swift in Sources */,
+				A33C0DE010C00001000802 /* RunLiveHero.swift in Sources */,
 				D9670592564C60F3F95FA5E1 /* RunLegDisplay.swift in Sources */,
 				6DE5E4AAD07935B34086E31D /* RunLegProgress.swift in Sources */,
 				DD32A406F569C759C2A0E05B /* RunLiveActivityController.swift in Sources */,
@@ -3781,6 +3786,7 @@
 				CFB4A4B849B74584279854E0 /* RunDistanceAuthority.swift in Sources */,
 				A33C0DE010C00001000103 /* GPSSignalQuality.swift in Sources */,
 				E8FC412A0272579E70857926 /* RunEnvironment.swift in Sources */,
+				A33C0DE010C00001000803 /* RunLiveHero.swift in Sources */,
 				21C8D12907C4B19CA15EA8FC /* RunLegDisplay.swift in Sources */,
 				534C998303E340E80469F455 /* RunLegProgress.swift in Sources */,
 				CE1782BD80B3DE6C710D4FA6 /* RunPaceModel.swift in Sources */,
@@ -4058,7 +4064,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -4086,7 +4092,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4114,7 +4120,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4136,7 +4142,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4230,7 +4236,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4275,7 +4281,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4335,7 +4341,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4409,7 +4415,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
