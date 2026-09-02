@@ -94,6 +94,113 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.detailLine, "1:00")                      // the recovery's measure
         XCTAssertEqual(f.progressText, "TRAMO 2/2")
         XCTAssertEqual(f.countdownRemaining, s.runLegRemaining)   // timed recovery counts down
+        XCTAssertEqual(f.tramo?.cierre, "sessionClock")
+        XCTAssertEqual(f.tramo?.ventanaQueda, 60)
+        XCTAssertEqual(f.tramo?.parte, "main")
+        XCTAssertTrue(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
+    }
+
+    func testTrottingTimedRestStillClosesOnTheClock() {
+        let s = structuredSession([main([work(.duration(s: 60)), rec(.duration(s: 45), .trote)])])
+        s.primaryAdvance()
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoRecuperandoEnMovimiento)
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.cierre, "sessionClock")
+        XCTAssertEqual(f.tramo?.ventanaQueda, 45)
+        XCTAssertTrue(f.tramo?.recuperacionEnMovimiento == true)
+        XCTAssertTrue(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
+    }
+
+    func testDistanceRecoveryDoesNotInventClockZero() {
+        let s = structuredSession([main([work(.distance(m: 800)), rec(.distance(m: 200), .trote)])])
+        s.primaryAdvance()
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.cierre, "machineGoal")
+        XCTAssertNil(f.tramo?.ventanaQueda, "DISTANCE rest must not invent a 0")
+        XCTAssertEqual(f.tramo?.parte, "main")
+        XCTAssertFalse(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
+        XCTAssertFalse(MirrorTimedRest.shouldAdvance(
+            tramo: f.tramo, sinceFrame: 999, alreadyFiredFor: nil
+        ))
+    }
+
+    func testOpenRecoveryDoesNotInventClockZero() {
+        let s = structuredSession([main([work(.distance(m: 800)), rec(.unknown, .parado)])])
+        s.primaryAdvance()
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        let f = mirror.buildFrame(from: s)
+        XCTAssertEqual(f.tramo?.cierre, "athleteTap")
+        XCTAssertNil(f.tramo?.ventanaQueda)
+        XCTAssertFalse(MirrorTimedRest.shouldAdvance(
+            tramo: f.tramo, sinceFrame: 999, alreadyFiredFor: nil
+        ))
+    }
+
+    func testEmpezarYaOnTimedRestPushesFrameAndReleasesNextRun() {
+        let s = structuredSession([main([
+            work(.duration(s: 60)), rec(.duration(s: 30), .parado), work(.duration(s: 60)),
+        ])])
+        s.primaryAdvance()
+        s.primaryAdvance()
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertEqual(s.runLegIndex, 1)
+
+        var types: [String] = []
+        mirror.sendOverride = { types.append($0) }
+        defer {
+            mirror.sendOverride = nil
+            mirror.teardown()
+        }
+        mirror.begin(session: s, activityKind: "running")
+
+        s.lastPrimaryAdvanceAt = Date(timeIntervalSinceNow: -5)
+        let data = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.command,
+            MirrorCommand(kind: MirrorWire.CommandKind.advance)
+        )
+        XCTAssertNotNil(data)
+        mirror.handleIncoming([data!])
+
+        XCTAssertFalse(s.isTramoResting)
+        XCTAssertTrue(s.isRunLegWork)
+        XCTAssertEqual(s.runLegIndex, 2)
+        XCTAssertTrue(types.contains(MirrorWire.MessageType.frame),
+                      "pocket Timer is dead — the new piece must ride the HK reply")
+    }
+
+    func testRecuperaInWarmupDoesNotCloseTheStructuralBlock() {
+        let rx = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: nil, workS: nil,
+                              restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil,
+                              structure: [main([
+                                work(.duration(s: 60)), rec(.duration(s: 30), .parado), work(.duration(s: 60)),
+                              ])])
+        let warmup = WorkoutSegment(order: 1, title: "Series", kind: .running,
+                                    blockTitle: "Calentamiento", blockPosition: 1, prescription: rx)
+        let next = WorkoutSegment(order: 2, title: "Fuerza", kind: .strength,
+                                  blockTitle: "Principal", blockPosition: 2)
+        let s = WorkoutSession(plan: WorkoutPlan(
+            id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
+            blockContext: "Test", zoneTargets: [], equipment: [], segments: [warmup, next],
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
+        s.start()
+        s.beginBlock()
+        s.stop()
+        s.primaryAdvance()
+        s.primaryAdvance()
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.isTramoResting)
+        XCTAssertEqual(s.currentSegmentIndex, 0)
+
+        s.lastPrimaryAdvanceAt = Date(timeIntervalSinceNow: -5)
+        s.applyCommand(MirrorWire.CommandKind.advance)
+
+        XCTAssertEqual(s.currentSegmentIndex, 0, "empezar ya is not Calentamiento hecho")
+        XCTAssertEqual(s.runLegIndex, 2)
+        XCTAssertTrue(s.isRunLegWork)
     }
 
     // MARK: - Leg change flips the structural key (fresh frame resent at once)

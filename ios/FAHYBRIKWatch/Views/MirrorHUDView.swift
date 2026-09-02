@@ -16,6 +16,8 @@ struct MirrorHUDView: View {
     /// ticks must fire here when the displayed second changes, not only when a
     /// phone frame lands (phone timers die in background).
     @State private var lastCountInCeil: Int? = nil
+    /// TIME Recupera already sent `advance` for this window. Not a rest clock.
+    @State private var firedTimedRest: MirrorTimedRest.Window? = nil
     /// La muñeca bajada. El lienzo lo resuelve para el vivo; aquí se aplica a las
     /// dos capas que lo tapan (pausa y descanso), que no pasan por él.
     @Environment(\.isLuminanceReduced) private var atenuado
@@ -171,6 +173,7 @@ struct MirrorHUDView: View {
         // `frame == nil` se filtra en `livePage` (waiting overlay). Aquí siempre hay trama.
         if let f = frame {
             TimelineView(.periodic(from: .now, by: 1)) { context in
+                let since = sinceFrame(context.date)
                 WatchReloj(
                     paginas: GuionDelEspejo.paginas(
                         f,
@@ -184,6 +187,13 @@ struct MirrorHUDView: View {
                     tinte: WatchTinte.color(for: controller.liveZone),
                     bisel: bisel
                 )
+                .onChange(of: f.tramo?.enDescanso) { _, rest in
+                    if rest != true { firedTimedRest = nil }
+                }
+                .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
+                    fireTimedRestAdvanceIfNeeded(frame: f, since: since)
+                }
+                .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
             }
         }
     }
@@ -603,6 +613,16 @@ struct MirrorHUDView: View {
     private var frame: MirrorStateFrame? { controller.frame }
     private var phase: String? { controller.frame?.phase }
     private var targetZone: HRZone? { frame?.targetZone.flatMap { HRZone(rawValue: $0) } }
+
+    /// TIME Recupera aged to 0 → the same `advance` as «Toca · ya».
+    /// No Watch rest Timer. DISTANCE / open never pass `isTimedRunRest`.
+    private func fireTimedRestAdvanceIfNeeded(frame: MirrorStateFrame, since: TimeInterval) {
+        guard MirrorTimedRest.shouldAdvance(
+            tramo: frame.tramo, sinceFrame: since, alreadyFiredFor: firedTimedRest
+        ), let t = frame.tramo else { return }
+        firedTimedRest = MirrorTimedRest.window(of: t)
+        controller.sendCommand(MirrorWire.CommandKind.advance)
+    }
 
     /// Seconds accrued since the last frame while the clock is running — the active
     /// live clock AND the count-in count-down (both re-based locally between frames);

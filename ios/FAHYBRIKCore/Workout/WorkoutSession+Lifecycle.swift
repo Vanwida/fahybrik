@@ -237,6 +237,12 @@ extension WorkoutSession {
             if isAwaitingBlockStart { beginBlock() }
             // Relevo de la pareja: no cae a primaryAdvance → lap() (volumen ajeno).
             else if currentSegmentIsPartnerRelay { advanceRelay() }
+            // Recupera of a structured run is the same door as work — TIME 0 and
+            // «empezar ya». A warmup/cooldown must not swallow that as one
+            // completeStructuralBlock (that would skip the next run).
+            else if isTramoResting, isRunStructureActive {
+                primaryAdvance(fromAthleteTap: true)
+            }
             else if currentBlockIsStructural { completeStructuralBlock() }
             else { primaryAdvance(fromAthleteTap: true) }
         default:

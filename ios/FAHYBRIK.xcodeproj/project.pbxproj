@@ -119,6 +119,7 @@
 		22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158FB79985DE754FE1E747C6 /* ChatAttachmentTests.swift */; };
 		224F4A88F787625AABAD068F /* WorkoutSession+Series.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100A46BEFBB86855121B1C7D /* WorkoutSession+Series.swift */; };
 		226DB9AE95AD945D4EFA2D5A /* MirrorWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03218581AAA9E16520C58C0 /* MirrorWireModels.swift */; };
+		A1F132000000000000000003 /* MirrorTimedRest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F132000000000000000001 /* MirrorTimedRest.swift */; };
 		22E1A040160E3DD43F919FF9 /* PlanHoyAtoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A9FA3AF0BBE29C6F3C285F /* PlanHoyAtoms.swift */; };
 		22FBEC8B247392F70B84F47A /* ChatAttachmentBubbles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384C3CDF4A4ACADEBB556B33 /* ChatAttachmentBubbles.swift */; };
 		23967D4E30184569A20CEA03 /* CheckinModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A61E54509FB54D27A0E8E66 /* CheckinModel.swift */; };
@@ -556,6 +557,8 @@
 		BB02C57142E776481FD449C5 /* PlanCicloAtoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961F95F9E3BE585D7E0145FA /* PlanCicloAtoms.swift */; };
 		BBAA95CDADA087BDDAEC4F39 /* Day1Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED914E7FD12348A011B65D7E /* Day1Model.swift */; };
 		BC0375C7CF4DE6A2B0F3187A /* MirrorWireModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03218581AAA9E16520C58C0 /* MirrorWireModels.swift */; };
+		A1F132000000000000000004 /* MirrorTimedRest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F132000000000000000001 /* MirrorTimedRest.swift */; };
+		A1F132000000000000000005 /* MirrorTimedRestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F132000000000000000002 /* MirrorTimedRestTests.swift */; };
 		BCB226FEBCCCB765D039FF7B /* WatchHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956769F6213FB8DED5CFF4C0 /* WatchHaptics.swift */; };
 		BCD0C53AEAFF1A7D432E7498 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AC85A6196643A05AC41D33 /* Formatters.swift */; };
 		BD60F1956D8B724284E1A277 /* PreWorkoutDeviceEligibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FAF4C4483A043E5A8C16AEF /* PreWorkoutDeviceEligibilityTests.swift */; };
@@ -1251,6 +1254,8 @@
 		9ED9D3FD08706D11359E7E7C /* VivoHUDRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoHUDRenderTests.swift; sourceTree = "<group>"; };
 		9F726D0B3292528EFE86B210 /* FAHYBRIKApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FAHYBRIKApp.swift; sourceTree = "<group>"; };
 		A03218581AAA9E16520C58C0 /* MirrorWireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorWireModels.swift; sourceTree = "<group>"; };
+		A1F132000000000000000001 /* MirrorTimedRest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorTimedRest.swift; sourceTree = "<group>"; };
+		A1F132000000000000000002 /* MirrorTimedRestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorTimedRestTests.swift; sourceTree = "<group>"; };
 		A06EC84A68595D96B6B4E325 /* WatchConnectivityiOSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityiOSService.swift; sourceTree = "<group>"; };
 		A0EC7E9941EEFC1AA744FFF8 /* WorkoutCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCaptureView.swift; sourceTree = "<group>"; };
 		A12A56769ECDC19E3A27146E /* DoblesRaceGapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesRaceGapTests.swift; sourceTree = "<group>"; };
@@ -2377,6 +2382,7 @@
 				B2DBBE1FA64231A285485E73 /* LecturaDeSesionModeloTests.swift */,
 				761CB7573BA0E60BEFB80578 /* MachineTramoLawTests.swift */,
 				3AC88949D9D6EEF0EC372A99 /* MirrorWireModelsTests.swift */,
+				A1F132000000000000000002 /* MirrorTimedRestTests.swift */,
 				3EFC2994C5FD896C235AEC9B /* PhoneMirrorEndRetryTests.swift */,
 				019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */,
 				E41F6DF21C1C2034449D31A3 /* PhoneMirrorTramoTests.swift */,
@@ -2529,6 +2535,7 @@
 				1BC008DA8EB4F7B79BD9552D /* Guiones */,
 				5A85943891F10EE0BF2504C9 /* Lienzo */,
 				A03218581AAA9E16520C58C0 /* MirrorWireModels.swift */,
+				A1F132000000000000000001 /* MirrorTimedRest.swift */,
 				7C249A715D2DF2172BBBD7AB /* WatchRunLegDriver.swift */,
 				EF508133E47D6A4BCA18B484 /* WatchTraceSpool.swift */,
 				1616ED872D0729B7B3C9FE2D /* WatchWireModels.swift */,
@@ -3506,6 +3513,7 @@
 				2536C41E6F8614CD2BADBEC3 /* MarksService.swift in Sources */,
 				32E39D602596E9A178401301 /* MeService.swift in Sources */,
 				226DB9AE95AD945D4EFA2D5A /* MirrorWireModels.swift in Sources */,
+				A1F132000000000000000003 /* MirrorTimedRest.swift in Sources */,
 				D9065D0C5E589BFD16B24349 /* MockDeviceSources.swift in Sources */,
 				6740ACDEAC1B3B3B84556722 /* MyStrengthView.swift in Sources */,
 				6AAF20CF8B6E2553501825C0 /* MyZonesView.swift in Sources */,
@@ -3757,6 +3765,7 @@
 				C7AE5A6084D1678C991120A8 /* MirrorHUDView.swift in Sources */,
 				47791F6DD5FC985FF62276C9 /* MirrorSessionController.swift in Sources */,
 				BC0375C7CF4DE6A2B0F3187A /* MirrorWireModels.swift in Sources */,
+				A1F132000000000000000004 /* MirrorTimedRest.swift in Sources */,
 				42C8CB40307FF5EA6A471F4C /* PM5DataParser.swift in Sources */,
 				7BFF3BD33F2C773D88A2E177 /* PauseFinishPage.swift in Sources */,
 				2C2775C730EDFA3BBC25D124 /* Prescription.swift in Sources */,
@@ -3954,6 +3963,7 @@
 				73DA4A94BE09244002B8CBA3 /* PartnerInfoTests.swift in Sources */,
 				6016DD2AAD64F4A796967F5F /* PerfilMarcasHistorialRenderTests.swift in Sources */,
 				E8886F57E583B18BE689901C /* PhoneMirrorEndRetryTests.swift in Sources */,
+				A1F132000000000000000005 /* MirrorTimedRestTests.swift in Sources */,
 				98268CC10A1E9970008EC9EF /* PhoneMirrorRunStructureTests.swift in Sources */,
 				70E9FA7CDECA0EAEF029E5D7 /* PhoneMirrorTramoTests.swift in Sources */,
 				61476DEAAFEBE811EB1F3103 /* PlanCicloRenderTests.swift in Sources */,
@@ -4048,7 +4058,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -4076,7 +4086,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4104,7 +4114,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4126,7 +4136,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4220,7 +4230,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4265,7 +4275,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4325,7 +4335,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4399,7 +4409,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";

@@ -468,15 +468,15 @@ final class PhoneMirrorService {
         switch kind {
         case MirrorWire.CommandKind.advance:
             // Espejo y solitario entran por la misma puerta del motor.
+            // TIME rest at 0 and «empezar ya» are this same command. The 1 Hz
+            // frame Timer is dead in the pocket — push the new piece now.
             session.applyCommand(kind)
+            pushFrameNow()
         case MirrorWire.CommandKind.sync:
             // La muñeca pide re-base (arranque en frío / reconexión). Forzar el
             // envío saltándose la clave estructural — el heartbeat de 5 s no corre
             // con la app en background, pero ESTE camino sí (el dato nos despierta).
-            let frame = buildFrame(from: session)
-            send(MirrorWire.MessageType.frame, frame)
-            lastSentKey = structuralKey(frame)
-            lastSentAt = Date()
+            pushFrameNow()
         case MirrorWire.CommandKind.pause:
             if !session.isPaused { session.togglePause() }
         case MirrorWire.CommandKind.resume:
@@ -730,14 +730,13 @@ final class PhoneMirrorService {
             rondaN: ronda?.n,
             rondaTotal: ronda?.total,
             enDescanso: descansando,
-            cierre: cierreDelTramo(tramo, descansando: descansando),
+            cierre: cierreDelTramo(tramo, session: session, descansando: descansando),
             objetivoMedida: objetivoMedida,
             hechoMedida: hecho,
             objetivoEsCalorias: objetivoEsCalorias,
-            // En descanso el reloj que corre es el del descanso; en trabajo, el de
-            // la ventana — y `tramoWorkRemaining` ya viene nil cuando no la cierra
-            // un reloj, así que la muñeca no inventa cuenta atrás.
-            ventanaQueda: descansando ? session.tramoRestRemaining : session.tramoWorkRemaining,
+            // TIME rest sends remaining. DISTANCE / open rest send nil — never a
+            // fabricated 0 that the wrist would treat as "clock done".
+            ventanaQueda: ventanaQuedaDelTramo(session, tramo, descansando: descansando),
             ventanaTotal: tramo.boxedSeconds.map { Double($0) },
             enTramoS: session.tramoElapsedSeconds,
             ritmoSecPorKm: ritmo,
@@ -774,12 +773,48 @@ final class PhoneMirrorService {
     /// La regla verdadera es la del tramo y es la misma de `LiveTramo`: metros o
     /// calorías → lo sabe la medida; segundos → lo sabe el reloj; nada de eso →
     /// no lo sabe nadie y lo dice el atleta.
-    private func cierreDelTramo(_ tramo: LiveTramo, descansando: Bool) -> String {
-        // En descanso manda siempre el reloj del descanso: no hay medida que cruzar.
-        if descansando { return "sessionClock" }
+    private func cierreDelTramo(_ tramo: LiveTramo, session: WorkoutSession, descansando: Bool) -> String {
+        // Recupera of a structured run uses the SAME closer as work. Forcing
+        // sessionClock on every rest made a DISTANCE / open recovery look like
+        // TIME already at 0. Iron / EMOM / station rest stay on the clock —
+        // this ticket does not retouch that chrome.
+        if descansando {
+            if session.isRunStructureActive {
+                if session.currentRunLeg?.isTimed == true { return "sessionClock" }
+                if tramo.targetDistanceMeters != nil || tramo.targetCalories != nil { return "machineGoal" }
+                return "athleteTap"
+            }
+            return "sessionClock"
+        }
         if tramo.targetDistanceMeters != nil || tramo.targetCalories != nil { return "machineGoal" }
         if tramo.boxedSeconds != nil || tramo.targetDurationSeconds != nil { return "sessionClock" }
         return "athleteTap"
+    }
+
+    /// Clock remaining only when a clock closes the window. A DISTANCE recovery
+    /// has `runLegRemaining == 0` — that 0 is not a deadline.
+    private func ventanaQuedaDelTramo(
+        _ session: WorkoutSession, _ tramo: LiveTramo, descansando: Bool
+    ) -> Double? {
+        if descansando {
+            if session.isRunStructureActive {
+                guard session.currentRunLeg?.isTimed == true,
+                      session.tramoRestRemaining > 0 else { return nil }
+                return session.tramoRestRemaining
+            }
+            return session.tramoRestRemaining
+        }
+        return session.tramoWorkRemaining
+    }
+
+    /// Immediate frame. The pocket kills the 1 Hz Timer; an incoming HK command
+    /// wakes the phone — this is what the wrist must see after Recupera ends.
+    private func pushFrameNow() {
+        guard let session else { return }
+        let frame = buildFrame(from: session)
+        send(MirrorWire.MessageType.frame, frame)
+        lastSentKey = structuralKey(frame)
+        lastSentAt = Date()
     }
 
     private func estadoWire(_ status: TargetStatus) -> String {
