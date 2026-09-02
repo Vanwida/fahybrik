@@ -1,22 +1,148 @@
 import SwiftUI
 
 // Pausar / Siguiente bloque / Terminar — one horizontal swipe away from the live
-// screen, so they're reachable but never fired by accident mid-effort. Pausar
-// toggles the engine clock; Siguiente bloque closes the CURRENT block honestly
-// (real work logged, rest skipped) and parks on the next block's gate; Terminar
-// confirms, then finishes as PARTIAL (the athlete cut the protocol short — never
-// a fabricated 'completed'; a full run auto-finishes on its own). Mockup 6.
+// screen. FH-30: en rodaje el cromo ES la lámina (Pausar naranja grande, Nuevo
+// tramo, Terminar rojo abajo). La confirmación es página «¿Terminar y guardar?»,
+// no un confirmationDialog. Los botones de motor ya existentes se quedan;
+// «Nuevo tramo» no ejecuta motor (FH-31).
 struct PauseFinishPage: View {
     let session: WorkoutSession
+    var driver: WatchRunLegDriver? = nil
 
-    // Pause must go through the coordinator, not straight to the engine: it pauses/
-    // resumes BOTH the engine clock and the HealthKit session, so paused minutes stop
-    // accruing elapsed/kcal and no rest-HR sample pollutes the lap.
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
 
     @State private var confirmingFinish = false
 
+    private var esRodaje: Bool {
+        session.isRunStructureActive || session.currentSegment?.kind == .running
+    }
+
     var body: some View {
+        if esRodaje {
+            lamina
+        } else {
+            gym
+        }
+    }
+
+    // MARK: - Lámina (rodaje)
+
+    private var lamina: some View {
+        RodajeMarco(session: session, driver: driver) {
+            if confirmingFinish {
+                confirmar
+            } else {
+                controles
+            }
+        }
+    }
+
+    private var controles: some View {
+        VStack(spacing: 0) {
+            RodajeVersales(texto: encabezado, tono: RodajeTipo.contexto)
+            VStack(spacing: 8) {
+                botonLamina(
+                    session.isPaused ? "Reanudar" : "Pausar",
+                    alto: 60,
+                    fondo: WatchTheme.orange,
+                    tinta: Color(red: 22/255, green: 8/255, blue: 0)
+                ) {
+                    coordinator.togglePause()
+                }
+                if muestraNuevoTramo {
+                    botonLamina("Nuevo tramo", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
+                        // FH-31: el motor no se toca. El botón existe para el cromo.
+                    }
+                }
+                if session.canEndBlockEarly && session.hasBlockAfterCurrent {
+                    botonLamina("Siguiente bloque", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
+                        session.endBlockEarly()
+                    }
+                }
+                botonLamina(
+                    "Terminar",
+                    alto: 46,
+                    fondo: Color(red: 36/255, green: 11/255, blue: 11/255),
+                    tinta: WatchTheme.zoneRed,
+                    borde: Color(red: 115/255, green: 35/255, blue: 35/255)
+                ) {
+                    confirmingFinish = true
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }
+    }
+
+    private var confirmar: some View {
+        VStack(spacing: 0) {
+            RodajeVersales(texto: encabezado, tono: RodajeTipo.contexto)
+            Spacer(minLength: 4)
+            Text("¿Terminar\ny guardar?")
+                .font(.system(size: 17, weight: .heavy))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(WatchTheme.ink)
+                .padding(.horizontal, 4)
+            Spacer(minLength: 4)
+            VStack(spacing: 8) {
+                botonLamina("Terminar", alto: 48, fondo: WatchTheme.zoneRed, tinta: Color(red: 42/255, green: 0, blue: 0)) {
+                    session.finish(completeness: .partial)
+                }
+                botonLamina("Seguir", alto: 44, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
+                    confirmingFinish = false
+                }
+            }
+            .padding(.bottom, 6)
+        }
+    }
+
+    private var encabezado: String {
+        let reloj = WatchFormat.clock(session.elapsedSeconds)
+        if session.isPaused { return "en pausa · \(reloj)" }
+        if session.isRunStructureActive {
+            let s = RunLegDisplay.serie(legs: session.currentRunLegs ?? [], indice: session.runLegIndex)
+            return "serie \(s.n) de \(s.total) · \(reloj)"
+        }
+        return "rodaje · \(reloj)"
+    }
+
+    /// Sólo cuando los cortes son del atleta. Si el coach escribió la estructura,
+    /// el corte ya está y el botón no está.
+    private var muestraNuevoTramo: Bool {
+        session.currentSegment?.kind == .running && !session.isRunStructureActive
+    }
+
+    private func botonLamina(
+        _ titulo: String,
+        alto: CGFloat,
+        fondo: Color,
+        tinta: Color,
+        borde: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            WatchHaptics.tap()
+            action()
+        } label: {
+            Text(titulo)
+                .font(.system(size: 15, weight: .heavy))
+                .foregroundStyle(tinta)
+                .frame(maxWidth: .infinity)
+                .frame(height: alto)
+                .background(fondo)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    if let borde {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(borde, lineWidth: 1.5)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Gym / otras modalidades (cromo previo)
+
+    private var gym: some View {
         ZStack {
             WatchTheme.bg.ignoresSafeArea()
             VStack(spacing: 11) {
@@ -28,8 +154,6 @@ struct PauseFinishPage: View {
                 ) {
                     coordinator.togglePause()
                 }
-                // Only when a block EXISTS after this one — cutting the last block
-                // short is exactly what Terminar already does.
                 if session.canEndBlockEarly && session.hasBlockAfterCurrent {
                     actionRow(
                         title: "Siguiente bloque",

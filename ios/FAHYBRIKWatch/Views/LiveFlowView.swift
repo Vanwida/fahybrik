@@ -2,31 +2,33 @@ import SwiftUI
 
 // The live workout shell (variant C · "Auto · 1 botón"). The LIVE screen is
 // primary — one big button advances everything, zero navigation during effort.
-// A horizontal swipe reaches the peripheral pages: LEFT → Pausar / Terminar,
-// RIGHT → the session map. Between blocks the engine parks on the block gate;
-// per-set rest overlays the live screen (keeping its state alive).
+// A horizontal swipe reaches the peripheral pages.
 //
-// NOTE (deviation): the map is reached by swipe-right rather than crown. The
-// strength screen (SetTableLiveView) claims the crown for ±load (mockup 4d), so
-// binding the crown to page navigation too would fight it. Swipe pages keep the
-// crown free for load and match the Apple Workout paging model.
+// RODAJE (FH-30): Datos | Vivo | Controles, vivo al centro. No SessionMapView.
+// El resto de modalidades se quedan mapa / familia / pause.
 struct LiveFlowView: View {
     let session: WorkoutSession
     // #68 — the structured-run driver lives on the coordinator (workout lifetime); the
     // tramo screen reads it. Pulled from the environment so paging never recreates it.
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
 
-    // 0 = map · 1 = live (default) · 2 = pause/finish. Swipe-left from live lands
-    // on pause/finish; swipe-right on the map.
+    // Rodaje: 0 = datos · 1 = vivo (default) · 2 = controles.
+    // Otras: 0 = map · 1 = live (default) · 2 = pause/finish.
     @State private var page = 1
 
     var body: some View {
         TabView(selection: $page) {
-            SessionMapView(session: session)
-                .tag(0)
+            Group {
+                if esRodaje {
+                    RodajeDatosPage(session: session, driver: coordinator.runLegDriver)
+                } else {
+                    SessionMapView(session: session)
+                }
+            }
+            .tag(0)
             liveArea
                 .tag(1)
-            PauseFinishPage(session: session)
+            PauseFinishPage(session: session, driver: esRodaje ? coordinator.runLegDriver : nil)
                 .tag(2)
         }
         .tabViewStyle(.page)
@@ -36,6 +38,11 @@ struct LiveFlowView: View {
         .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
             if awaiting { page = 1 }
         }
+    }
+
+    /// Continuous `.running` OR street series (`isRunStructureActive`).
+    private var esRodaje: Bool {
+        session.isRunStructureActive || session.currentSegment?.kind == .running
     }
 
     // MARK: - Live area (gate · family · rest overlay)
