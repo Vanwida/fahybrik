@@ -141,8 +141,11 @@ enum GuionSeries {
         // porque «326 m» a secas no distingue llevar de faltar (mismo patrón que
         // «REMO · TE FALTAN» en el ergo del doble).
         let base = contextoDeParte(e)
-        let contexto = { if case .hito = e.cierre { return base + " · te faltan" } else { return base } }()
         let (sujeto, unidad) = sujetoDeTrabajo(e)
+        let contexto: String = {
+            if case .hito = e.cierre, e.metrosEnTramo != nil { return base + " · te faltan" }
+            return base
+        }()
         let (etiqueta, valor, tono) = segundoDeTrabajo(e)
         return WatchPagina(
             id: "serie",
@@ -168,9 +171,11 @@ enum GuionSeries {
         switch e.cierre {
         case let .hito(metros):
             // Lo que falta se redondea hacia ARRIBA: no se da por acabado un tramo
-            // antes de tiempo. Sin GPS todavía no hay resta que hacer, así que se
-            // enseña el tramo entero — es lo que falta, literalmente.
-            let recorridos = e.metrosEnTramo ?? 0
+            // antes de tiempo. Sin Apple no hay resta: el sujeto es el reloj de
+            // la pieza, nunca el objetivo prescrito con cara de medida (§7).
+            guard let recorridos = e.metrosEnTramo else {
+                return (WatchFormat.clock(e.enTramoS), nil)
+            }
             let faltan = max(0, metros - recorridos)
             return (String(Int(faltan.rounded(.up))), "m")
         case .reloj:
@@ -261,8 +266,10 @@ enum GuionSeries {
 
     private static func sujetoDeRecuperacion(_ e: Estado) -> (String, String?, Color?) {
         if case let .hito(metros) = e.cierre {
-            // Recuperación por distancia (trote de 200 m): mismos metros que faltan.
-            let faltan = max(0, metros - (e.metrosEnTramo ?? 0))
+            guard let recorridos = e.metrosEnTramo else {
+                return (WatchFormat.clock(e.enTramoS), nil, nil)
+            }
+            let faltan = max(0, metros - recorridos)
             return (String(Int(faltan.rounded(.up))), "m", nil)
         }
         if let queda = e.quedaS {

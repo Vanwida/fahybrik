@@ -51,6 +51,21 @@ final class MirrorWireModelsTests: XCTestCase {
         XCTAssertNil(f.lineTitle)
         XCTAssertNil(f.progressText)
         XCTAssertNil(f.countdownRemaining)
+        XCTAssertNil(f.runEnvironment, "campo aditivo: un frame viejo no lo trae")
+    }
+
+    func testRunEnvironmentRoundTripsOnAMixedIndoorPiece() throws {
+        var f = sampleFrame(phase: MirrorWire.Phase.active, countdown: nil)
+        f.runEnvironment = .indoor
+        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.frame, f))
+        let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorStateFrame.self))
+        XCTAssertEqual(back.runEnvironment, .indoor)
+        XCTAssertEqual(
+            WatchHKActivityPlan.make(
+                pieceIsRun: true, dayActivityKind: "hyrox", environment: back.runEnvironment
+            ).locationType,
+            .indoor
+        )
     }
 
     func testUnknownPhaseDecodesTolerantly() throws {

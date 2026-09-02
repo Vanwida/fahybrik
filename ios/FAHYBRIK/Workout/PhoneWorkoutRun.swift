@@ -55,13 +55,7 @@ final class PhoneWorkoutRun: NSObject {
     }
 
     static func activityType(for activityKind: String) -> HKWorkoutActivityType {
-        switch activityKind {
-        case "running":  return .running
-        case "strength": return .functionalStrengthTraining
-        case "hyrox":    return .functionalStrengthTraining
-        case "mixed":    return .mixedCardio
-        default:         return .other
-        }
+        WorkoutLocationType.activityType(for: activityKind)
     }
 
     nonisolated static func locationType(

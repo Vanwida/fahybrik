@@ -167,6 +167,16 @@
 		34B36E283F253D40CAD83898 /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A6593BCAA51A1D1C2F65412 /* RunActivityAttributes.swift */; };
 		34B68B858E33AB9A6B53398C /* PM5ProgramBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A230D680521FB14ED37B422F /* PM5ProgramBanner.swift */; };
 		35A37ADE9AF72E9564AAC4C3 /* GuionRodaje.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE7E41B7C0903AFD10C7D1A /* GuionRodaje.swift */; };
+		A33C0DE010C00001000102 /* GPSSignalQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000101 /* GPSSignalQuality.swift */; };
+		A33C0DE010C00001000103 /* GPSSignalQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000101 /* GPSSignalQuality.swift */; };
+		A33C0DE010C00001000202 /* WatchHKActivityPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */; };
+		A33C0DE010C00001000203 /* WatchHKActivityPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */; };
+		A33C0DE010C00001000302 /* RodajeMedida.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000301 /* RodajeMedida.swift */; };
+		A33C0DE010C00001000303 /* RodajeMedida.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000301 /* RodajeMedida.swift */; };
+		A33C0DE010C00001000402 /* WatchRunLocationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000401 /* WatchRunLocationGate.swift */; };
+		A33C0DE010C00001000502 /* RodajeMedidaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000501 /* RodajeMedidaTests.swift */; };
+		A33C0DE010C00001000602 /* WatchHKActivityPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0DE010C00001000601 /* WatchHKActivityPlanTests.swift */; };
+		A33C0DE010C00001000701 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CB2C2734A579C7C24E28E740 /* CoreLocation.framework */; };
 		3649655BEA378103F4D3D87D /* HealthKitDistanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9681B1287A531D024D4565 /* HealthKitDistanceProbe.swift */; };
 		367C42749D875BD70FE3F8ED /* HealthKitHistoryWindowReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110D0DB2E64AEB960DDDAC21 /* HealthKitHistoryWindowReader.swift */; };
 		367E19CFF9D503E286D23A3E /* GoalGapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72E7448666C10232EE2F84A /* GoalGapService.swift */; };
@@ -877,6 +887,12 @@
 		15D33A1EAE7246F7590AC8CE /* JumpCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpCaptureView.swift; sourceTree = "<group>"; };
 		15DDF3DE2CED1923EEB99304 /* EnduranceBenchmarksStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnduranceBenchmarksStep.swift; sourceTree = "<group>"; };
 		1616ED872D0729B7B3C9FE2D /* WatchWireModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWireModels.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000101 /* GPSSignalQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPSSignalQuality.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHKActivityPlan.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000301 /* RodajeMedida.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RodajeMedida.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000401 /* WatchRunLocationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRunLocationGate.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000501 /* RodajeMedidaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RodajeMedidaTests.swift; sourceTree = "<group>"; };
+		A33C0DE010C00001000601 /* WatchHKActivityPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHKActivityPlanTests.swift; sourceTree = "<group>"; };
 		16EA8C61C7CEADE4745EFE42 /* SensorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorTypes.swift; sourceTree = "<group>"; };
 		1746871F83CAA0B2483927DB /* CarrerasService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarrerasService.swift; sourceTree = "<group>"; };
 		17C39EAFFA43816CE7A455FC /* WorkoutResumeBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutResumeBanner.swift; sourceTree = "<group>"; };
@@ -1516,6 +1532,7 @@
 				2A2FDB88C73DBF06B1117255 /* HealthKit.framework in Frameworks */,
 				C36579C8244668482DF5DC89 /* WatchConnectivity.framework in Frameworks */,
 				0BC32A150CB384D8240A6139 /* CoreMotion.framework in Frameworks */,
+				A33C0DE010C00001000701 /* CoreLocation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1813,6 +1830,7 @@
 				F54687C897D7B426D10F534E /* FAHYBRIKWatchApp.swift */,
 				DC5F9E5EE28C600F66A1DEBF /* Generated-Info.plist */,
 				EA39FD9391B44A7E577DC77A /* LiveWorkoutSession.swift */,
+				A33C0DE010C00001000401 /* WatchRunLocationGate.swift */,
 				402132036A5D8D6B3AF95944 /* MirrorSessionController.swift */,
 				61FEDB6AF066E215592457AE /* RootView.swift */,
 				F945E9395294CCBFBEA591EA /* WatchConnectivityService.swift */,
@@ -1929,6 +1947,7 @@
 				875822AD5A6180C450B3EE21 /* LiveTramo.swift */,
 				6BFE1F6771E34443971A93F5 /* MachineTramoLaw.swift */,
 				74E06CA535E229B097483A04 /* RunDistanceAuthority.swift */,
+				A33C0DE010C00001000101 /* GPSSignalQuality.swift */,
 				38A7E4B267878B9E411230B8 /* RunEnvironment.swift */,
 				314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */,
 				3A720378A9EB0DA597445F4E /* WorkoutAudio.swift */,
@@ -2056,6 +2075,7 @@
 			children = (
 				2346317B6F3CA4FFA893C0F8 /* WatchFormato.swift */,
 				8FAB3010E312E5962AD2B09E /* WatchPaginaModelo.swift */,
+				A33C0DE010C00001000301 /* RodajeMedida.swift */,
 				C077541E9DC372D5E3A8A526 /* WatchPaleta.swift */,
 			);
 			path = Lienzo;
@@ -2379,6 +2399,8 @@
 				C0FF2D302F5C3AA0CA6F1823 /* WatchTraceRelayTests.swift */,
 				DA8F533B42B013698D985B07 /* WorkoutExecutionSpineTests.swift */,
 				6454AAADEB7DDBDCBBF936BD /* WorkoutFinishPersistTests.swift */,
+				A33C0DE010C00001000501 /* RodajeMedidaTests.swift */,
+				A33C0DE010C00001000601 /* WatchHKActivityPlanTests.swift */,
 				9E790AA296B1E01AEBD86E15 /* WorkoutLocationTypeTests.swift */,
 				8D9039B9DC0EF86C77A91572 /* WorkoutRecoveryTests.swift */,
 				A1B2C3D4E5F6480000000004 /* WorkoutRunClockTests.swift */,
@@ -2510,6 +2532,7 @@
 				7C249A715D2DF2172BBBD7AB /* WatchRunLegDriver.swift */,
 				EF508133E47D6A4BCA18B484 /* WatchTraceSpool.swift */,
 				1616ED872D0729B7B3C9FE2D /* WatchWireModels.swift */,
+				A33C0DE010C00001000201 /* WatchHKActivityPlan.swift */,
 			);
 			path = Watch;
 			sourceTree = "<group>";
@@ -3413,6 +3436,7 @@
 				D00555A6B12DDB6655705F2E /* GuionFuerza.swift in Sources */,
 				D36C8C2D33314BF098CC320A /* GuionRelojDePared.swift in Sources */,
 				35A37ADE9AF72E9564AAC4C3 /* GuionRodaje.swift in Sources */,
+				A33C0DE010C00001000302 /* RodajeMedida.swift in Sources */,
 				5B05CE1F2AF23C6455381CBE /* GuionRuta.swift in Sources */,
 				499BB52C11DD3BA148DA6B62 /* GuionSeries.swift in Sources */,
 				CDE74F3EA54C1D6A61F66B0F /* HRRecovery.swift in Sources */,
@@ -3563,6 +3587,7 @@
 				84CB839B8C23B5C46D7D7713 /* RunCompliance.swift in Sources */,
 				841170B9A8C6B42AA2267BE2 /* RunCueEngine.swift in Sources */,
 				EFF0BE7D5C7543F05874A03D /* RunDistanceAuthority.swift in Sources */,
+				A33C0DE010C00001000102 /* GPSSignalQuality.swift in Sources */,
 				6A4E0F6F4B1A79BB29E2639C /* RunEnvironment.swift in Sources */,
 				D9670592564C60F3F95FA5E1 /* RunLegDisplay.swift in Sources */,
 				6DE5E4AAD07935B34086E31D /* RunLegProgress.swift in Sources */,
@@ -3636,6 +3661,7 @@
 				23FD69D6BAC28D51AFBFC755 /* WatchRunLegDriver.swift in Sources */,
 				90264CD912170E31C1B01A7D /* WatchTraceSpool.swift in Sources */,
 				B4A4668007B190368E57929A /* WatchWireModels.swift in Sources */,
+				A33C0DE010C00001000202 /* WatchHKActivityPlan.swift in Sources */,
 				0356197E3802A9F29B46AD24 /* WearablesService.swift in Sources */,
 				00F86C7F428E1611D4EE7957 /* WelcomeStep.swift in Sources */,
 				C12609F99CC7ACFF14D13A60 /* WorkoutAudio.swift in Sources */,
@@ -3715,6 +3741,7 @@
 				424C5539BEDB92B4A645AABD /* GuionFuerza.swift in Sources */,
 				1F56CAB14C805E8A8D0303B2 /* GuionRelojDePared.swift in Sources */,
 				EFCBF6E629FDADFD9A002011 /* GuionRodaje.swift in Sources */,
+				A33C0DE010C00001000303 /* RodajeMedida.swift in Sources */,
 				2DB83891315D37C598EAFC77 /* GuionRuta.swift in Sources */,
 				D6F9D19606FE36987E682C87 /* GuionSeries.swift in Sources */,
 				BFC48902A484C7F8D31E7C84 /* HRRecovery.swift in Sources */,
@@ -3724,6 +3751,7 @@
 				EEBC99BA15D17BB81E7AC277 /* LiveHUDShared.swift in Sources */,
 				3EFA167417339F48C82665BE /* LiveTramo.swift in Sources */,
 				6C294DDB41A3122F1D2F50CA /* LiveWorkoutSession.swift in Sources */,
+				A33C0DE010C00001000402 /* WatchRunLocationGate.swift in Sources */,
 				088920FEBA3F02616B1131A1 /* MachineTramoLaw.swift in Sources */,
 				3D6EEA07484CC11CE91F6123 /* Marca.swift in Sources */,
 				C7AE5A6084D1678C991120A8 /* MirrorHUDView.swift in Sources */,
@@ -3742,6 +3770,7 @@
 				4DB2635ADEFABE694C8A79A0 /* RootView.swift in Sources */,
 				E7BC0C0DB10EA20087AEC6FA /* RunCompliance.swift in Sources */,
 				CFB4A4B849B74584279854E0 /* RunDistanceAuthority.swift in Sources */,
+				A33C0DE010C00001000103 /* GPSSignalQuality.swift in Sources */,
 				E8FC412A0272579E70857926 /* RunEnvironment.swift in Sources */,
 				21C8D12907C4B19CA15EA8FC /* RunLegDisplay.swift in Sources */,
 				534C998303E340E80469F455 /* RunLegProgress.swift in Sources */,
@@ -3775,6 +3804,7 @@
 				FE823A89DDCB3775E8D6F237 /* WatchTraceOutbox.swift in Sources */,
 				FF93CD5A7DDDE2949EF8534E /* WatchTraceSpool.swift in Sources */,
 				D7D698CFE51980A2F6C1C21B /* WatchWireModels.swift in Sources */,
+				A33C0DE010C00001000203 /* WatchHKActivityPlan.swift in Sources */,
 				BE1D0752047E4D83B3098372 /* WatchWorkoutCoordinator.swift in Sources */,
 				A23B36E0A4FD578996F6B5BA /* WorkoutAudio.swift in Sources */,
 				718D233E70D26960FEEBB206 /* WorkoutModels.swift in Sources */,
@@ -3972,6 +4002,8 @@
 				79A17E6B5A771745403E2F16 /* WireEnumToleranceTests.swift in Sources */,
 				50601E45AAAA8D57DDFF27F7 /* WorkoutExecutionSpineTests.swift in Sources */,
 				0A4DD7F699DE961F2F016D22 /* WorkoutFinishPersistTests.swift in Sources */,
+				A33C0DE010C00001000502 /* RodajeMedidaTests.swift in Sources */,
+				A33C0DE010C00001000602 /* WatchHKActivityPlanTests.swift in Sources */,
 				F20440807B6060077D7B51E5 /* WorkoutLocationTypeTests.swift in Sources */,
 				9E24EFBB5F114D60DF923B04 /* WorkoutRecoveryTests.swift in Sources */,
 				A1B2C3D4E5F6480000000014 /* WorkoutRunClockTests.swift in Sources */,
@@ -4016,7 +4048,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -4044,7 +4076,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4072,7 +4104,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4094,7 +4126,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4188,7 +4220,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4233,7 +4265,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4293,7 +4325,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4367,7 +4399,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";

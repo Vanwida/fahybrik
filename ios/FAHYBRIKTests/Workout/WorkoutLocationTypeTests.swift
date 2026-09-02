@@ -69,6 +69,31 @@ final class WorkoutLocationTypeTests: XCTestCase {
         XCTAssertEqual(WorkoutLocationType.resolve(activityKind: nil, environment: nil), .indoor)
     }
 
+    // FH-33 — the PIECE can be a run even when the DAY is not.
+    func testARunPieceOnAMixedDayIsOutdoorWhenStreetOrUnknown() {
+        for day in ["mixed", "hyrox", "strength"] {
+            XCTAssertEqual(
+                WorkoutLocationType.resolve(
+                    pieceIsRun: true, dayActivityKind: day, environment: nil
+                ),
+                .outdoor,
+                "\(day) + run piece + nil → street, not the day's indoor"
+            )
+            XCTAssertEqual(
+                WorkoutLocationType.resolve(
+                    pieceIsRun: true, dayActivityKind: day, environment: .outdoor
+                ),
+                .outdoor
+            )
+            XCTAssertEqual(
+                WorkoutLocationType.resolve(
+                    pieceIsRun: true, dayActivityKind: day, environment: .indoor
+                ),
+                .indoor
+            )
+        }
+    }
+
     // El reloj a solas lee la regla a través del payload, sin una segunda copia que
     // pueda divergir de la del espejo.
     func testTheWatchPayloadReadsTheSameRule() {

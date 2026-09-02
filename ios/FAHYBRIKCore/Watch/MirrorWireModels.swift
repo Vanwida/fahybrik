@@ -211,6 +211,11 @@ struct MirrorStateFrame: Codable, Equatable {
     /// OPTIONAL + ADDITIVE: un reloj viejo lo ignora; un móvil viejo lo omite y la
     /// muñeca cae a deducirlo del tramo.
     var sensorWindow: MirrorSensorWindow? = nil
+    /// Calle / cinta que contestó el atleta en el teléfono. La pieza de correr
+    /// de un día mixed / HYROX lo necesita: `locationType` de la sesión es el
+    /// del DÍA (indoor) y sin esto `beginNewActivity` declararía calle y Apple
+    /// esperaría GPS en una cinta. OPTIONAL + ADDITIVE.
+    var runEnvironment: RunEnvironment? = nil
 }
 
 /// Phone → watch: LA VENTANA DE TRABAJO ACTIVA, en dato.

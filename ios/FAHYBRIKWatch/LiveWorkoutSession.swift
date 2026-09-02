@@ -36,6 +36,13 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     /// `source_workout_ref`. The save happens on the session-state delegate, off the
     /// call that ended the session — a continuation bridges that gap.
     private var endContinuation: CheckedContinuation<String?, Never>?
+    /// Session configuration we opened with — skip a redundant `beginNewActivity`
+    /// when the current piece already matches the day.
+    private var startedPlan: WatchHKActivityPlan?
+    private var appliedPlan: WatchHKActivityPlan?
+    /// Piece plan that arrived before `beginCollection` flipped `isActive`.
+    /// `beginNewActivity` needs a running session; the 0.5 s tick is the fallback.
+    private var pendingPlan: WatchHKActivityPlan?
 
     // MARK: - Authorization
 
@@ -80,19 +87,33 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: config)
             let builder = session.associatedWorkoutBuilder()
-            builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+            let dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+            builder.dataSource = dataSource
             session.delegate = self
             builder.delegate = self
             self.session = session
             self.builder = builder
+            startedPlan = WatchHKActivityPlan(
+                isRunPiece: activityType == .running,
+                activityType: activityType,
+                locationType: locationType,
+                wantsGPS: activityType == .running && locationType == .outdoor,
+                collectDistance: activityType == .running
+            )
+            appliedPlan = startedPlan
 
             let start = Date()
             session.startActivity(with: start)
             builder.beginCollection(withStart: start) { [weak self] _, _ in
                 Task { @MainActor in
-                    self?.isActive = true
-                    self?.startDate = start
-                    self?.startTickTimer()
+                    guard let self else { return }
+                    self.isActive = true
+                    self.startDate = start
+                    self.startTickTimer()
+                    if let pending = self.pendingPlan {
+                        self.syncActivity(pending)
+                    }
                 }
             }
         } catch {
@@ -109,6 +130,35 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     func resume() {
         session?.resume()
         isPaused = false
+    }
+
+    /// Switch the live activity to the RUN PIECE (or back to the day) without
+    /// minting a second session. `locationType` on the session is immutable;
+    /// `beginNewActivity` is the Apple door for mixed / HYROX.
+    func syncActivity(_ plan: WatchHKActivityPlan) {
+        if let dataSource = builder?.dataSource, plan.collectDistance {
+            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+        }
+        guard isActive, let session else {
+            pendingPlan = plan
+            return
+        }
+        pendingPlan = nil
+        if appliedPlan == plan { return }
+        let matchesStart = appliedPlan == nil
+            && startedPlan?.activityType == plan.activityType
+            && startedPlan?.locationType == plan.locationType
+        if matchesStart {
+            appliedPlan = plan
+            return
+        }
+        if plan.isRunPiece {
+            session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+        } else if appliedPlan?.isRunPiece == true {
+            session.endCurrentActivity(on: Date())
+            session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+        }
+        appliedPlan = plan
     }
 
     /// End the HK session and return the saved HKWorkout's UUID string (nil when
@@ -191,6 +241,9 @@ extension LiveWorkoutSession: HKWorkoutSessionDelegate {
         tickTimer = nil
         session = nil
         builder = nil
+        startedPlan = nil
+        appliedPlan = nil
+        pendingPlan = nil
         startDate = nil
         isActive = false
         isPaused = false
@@ -236,8 +289,9 @@ extension LiveWorkoutSession: HKLiveWorkoutBuilderDelegate {
         case HKQuantityType(.distanceWalkingRunning):
             if let q = stats.sumQuantity() {
                 distanceMeters = q.doubleValue(for: .meter())
-                let delta = distanceMeters - lastReportedDistance
-                if delta > 0 {
+                if let delta = WatchHKActivityPlan.distanceDelta(
+                    fromCumulative: distanceMeters, lastReported: lastReportedDistance
+                ) {
                     lastReportedDistance = distanceMeters
                     onDistanceDelta?(delta)
                 }

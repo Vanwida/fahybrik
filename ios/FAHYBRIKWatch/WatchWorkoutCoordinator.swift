@@ -41,6 +41,11 @@ final class WatchWorkoutCoordinator {
     /// HealthKit live session (HR / kcal / distance + the workout save). Owned here
     /// and driven purely as a metric source; the engine is the UI clock authority.
     let live = LiveWorkoutSession()
+    /// Permission + accuracy only. Never integrates fixes into meters.
+    private let locationGate = WatchRunLocationGate()
+    /// Day kind from the payload (`running` / `mixed` / `hyrox`…). The HK
+    /// activity of a RUN PIECE is resolved against this, not instead of it.
+    private var dayActivityKind: String?
 
     /// Fase 1–3: push wrist pipeline conclusions into the local engine (standalone).
     private var sensorTick: Timer?
@@ -213,12 +218,13 @@ final class WatchWorkoutCoordinator {
         // single owner of capture state.
         live.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
         // La fuente va explícita: estos metros los pone `distanceWalkingRunning` de
-        // HealthKit (fusión de Apple), NO un fix de GPS — la muñeca no toca
-        // CoreLocation. Sellarlos como «gps» sería etiquetar el archivo con un aparato
-        // que no los midió.
+        // HealthKit (fusión de Apple). CoreLocation en la muñeca pide permiso y
+        // mira `horizontalAccuracy`; no cuenta metros. Sellarlos como «gps»
+        // etiquetaría el archivo con un aparato que no los midió.
         live.onDistanceDelta = { [weak engine] meters in
             engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
         }
+        dayActivityKind = payload.activityKind
 
         engine.start()
         // #68 — the per-leg distance driver runs for the WHOLE session: it reads the
@@ -241,6 +247,7 @@ final class WatchWorkoutCoordinator {
                 activityType: payload.healthKitActivityType,
                 locationType: payload.healthKitLocationType
             )
+            self.syncAppleRunPipe()
         }
     }
 
@@ -259,7 +266,19 @@ final class WatchWorkoutCoordinator {
         sensorTick = nil
     }
 
+    private func syncAppleRunPipe() {
+        guard phase == .active, let engine = session else { return }
+        let plan = WatchHKActivityPlan.make(
+            pieceIsRun: engine.tramoIsRun,
+            dayActivityKind: dayActivityKind,
+            environment: engine.runEnvironment
+        )
+        live.syncActivity(plan)
+        locationGate.apply(wantsGPS: plan.wantsGPS)
+    }
+
     private func tickSensorIntoEngine() {
+        syncAppleRunPipe()
         guard phase == .active, let engine = session, SensorCapture.shared.isRunning else { return }
         let pipe = SensorCapture.shared.pipeline
         // EL CONTEXTO primero: qué serie está abierta. Sin ventana el contador no
@@ -361,8 +380,7 @@ final class WatchWorkoutCoordinator {
             // EL ARCHIVO DE LA MUÑECA. La serie medida se deja en disco AHORA, con su
             // cupón, y no sale hasta «Listo» — igual que el sobre de la ejecución, para
             // que fichero y ejecución no puedan separarse. En la muñeca la serie es
-            // pulso y distancia y nada más: aquí no hay CoreLocation, así que no hay
-            // velocidad ni altitud que archivar.
+            // pulso y distancia de Salud: CoreLocation no archiva fixes.
             self.stagedTraceLocalId = WatchTraceOutbox.shared.stage(
                 traces: engine.trace.traces(startedAt: engine.startedAt)
             )
@@ -490,6 +508,8 @@ final class WatchWorkoutCoordinator {
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         live.onHeartRate = nil
         live.onDistanceDelta = nil
+        locationGate.stop()
+        dayActivityKind = nil
         session = nil
         assignmentId = nil
         didFinalize = false

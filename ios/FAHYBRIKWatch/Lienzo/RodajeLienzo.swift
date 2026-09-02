@@ -346,65 +346,63 @@ struct RodajeVivoPage: View {
     }
 
     private static func lecturaRodaje(session: WorkoutSession) -> Lectura {
-        let sinGPS = session.liveRunDistanceMeters == nil && session.liveCoveredPaceSecPerKm == nil
-        let ritmo: String? = session.liveCoveredPaceSecPerKm.map {
+        let medida = RodajeMedida.vivo(entradaRodaje(session))
+        return pintar(medida, pausa: session.isPaused, base: "rodaje")
+    }
+
+    private static func entradaRodaje(_ session: WorkoutSession) -> RodajeMedida.Entrada {
+        RodajeMedida.Entrada(
+            esCalle: RodajeMedida.esCalle(environment: session.runEnvironment),
+            metrosApple: session.liveRunDistanceMeters,
+            ritmoSecPorKm: session.liveCoveredPaceSecPerKm,
+            objetivoMetros: session.currentSegment?.targetDistanceMeters.map { Double($0) },
+            objetivoSegundos: session.currentSegment?.targetDurationSeconds.map { Double($0) },
+            segundosPieza: session.condElapsed,
+            esSerie: false
+        )
+    }
+
+    private static func pintar(
+        _ medida: RodajeMedida.Lectura,
+        pausa: Bool,
+        base: String
+    ) -> Lectura {
+        let ritmo: String? = medida.ritmoSecPorKm.map {
             "\(WatchFormat.pace($0)) \(Formato.UnidadRitmo.porKm.rawValue)"
         }
-        if session.isPaused {
-            let (sujeto, unidad) = sujetoRodaje(session, sinGPS: sinGPS)
+        if pausa {
             return Lectura(
-                contexto: "en pausa · te quedan",
-                sujeto: sujeto,
-                unidad: unidad,
+                contexto: medida.quedan ? "en pausa · te quedan" : "en pausa · llevas",
+                sujeto: medida.sujeto,
+                unidad: medida.unidad,
                 ritmo: ritmo
             )
         }
-        if sinGPS {
+        if medida.notaSinSenal {
             return Lectura(
-                contexto: "rodaje · llevas",
-                sujeto: WatchFormat.clock(session.condElapsed),
+                contexto: "\(base) · llevas",
+                sujeto: medida.sujeto,
                 nota: WatchNota.sinSenal
             )
         }
-        let (sujeto, unidad, quedan) = sujetoYQuedan(session)
         return Lectura(
-            contexto: quedan ? "rodaje · te quedan" : "rodaje · llevas",
-            sujeto: sujeto,
-            unidad: unidad,
+            contexto: medida.quedan ? "\(base) · te quedan" : "\(base) · llevas",
+            sujeto: medida.sujeto,
+            unidad: medida.unidad,
             ritmo: ritmo
         )
     }
 
-    private static func sujetoRodaje(_ session: WorkoutSession, sinGPS: Bool) -> (String, String) {
-        if sinGPS { return (WatchFormat.clock(session.condElapsed), "") }
-        let (s, u, _) = sujetoYQuedan(session)
-        return (s, u)
-    }
-
-    /// Restante de la pieza en su unidad, o el reloj de la pieza si no falta nada medible.
-    private static func sujetoYQuedan(_ session: WorkoutSession) -> (String, String, Bool) {
-        if let targetM = session.currentSegment?.targetDistanceMeters, targetM > 0 {
-            let cubiertos = session.liveRunDistanceMeters ?? 0
-            let faltan = max(0, Double(targetM) - cubiertos)
-            return (WatchDistancia.cifra(faltan), WatchDistancia.unidad(faltan), true)
-        }
-        if let total = session.currentSegment?.targetDurationSeconds, total > 0 {
-            let queda = max(0, Double(total) - session.condElapsed)
-            return (WatchFormat.countdown(queda), "", true)
-        }
-        return (WatchFormat.clock(session.condElapsed), "", false)
-    }
-
-    private static func lecturaSerie(session: WorkoutSession, driver: WatchRunLegDriver?) -> Lectura {
+    private static func lecturaSerie(session: WorkoutSession, driver _: WatchRunLegDriver?) -> Lectura {
         let isRecovery = !(session.currentRunLeg?.isWork ?? true)
         let serie = RunLegDisplay.serie(
             legs: session.currentRunLegs ?? [],
             indice: session.runLegIndex
         )
-        let ritmoSec = RunLegDisplay.legPaceSecPerKm(
-            coveredMeters: driver?.legCoveredMeters ?? session.runLegCoveredMeters,
-            elapsedS: session.runLegElapsed
-        )
+        let cubiertos = session.tramoRunCoveredMeters
+        let ritmoSec = cubiertos.flatMap {
+            RunLegDisplay.legPaceSecPerKm(coveredMeters: $0, elapsedS: session.runLegElapsed)
+        }
         let ritmo: String? = ritmoSec.map {
             "\(WatchFormat.pace($0)) \(Formato.UnidadRitmo.porKm.rawValue)"
         }
@@ -414,7 +412,7 @@ struct RodajeVivoPage: View {
         let juicio: String? = (objetivo?.status == .inTarget) ? "en objetivo" : nil
 
         if isRecovery {
-            let (sujeto, unidad, tono) = sujetoRecupera(session, driver: driver)
+            let (sujeto, unidad, tono) = sujetoRecupera(session)
             let next: RunLeg? = {
                 guard let legs = session.currentRunLegs else { return nil }
                 let i = session.runLegIndex + 1
@@ -436,45 +434,47 @@ struct RodajeVivoPage: View {
         }
 
         if session.isPaused {
-            let (sujeto, unidad, quedan) = sujetoSerie(session, driver: driver)
+            let medida = medidaSerie(session)
             return Lectura(
-                contexto: quedan ? "en pausa · te quedan" : "en pausa · llevas",
-                sujeto: sujeto,
-                unidad: unidad,
+                contexto: medida.quedan ? "en pausa · te quedan" : "en pausa · llevas",
+                sujeto: medida.sujeto,
+                unidad: medida.unidad,
                 ritmo: ritmo,
                 juicio: juicio
             )
         }
 
         let parte = RunLegDisplay.nombreDeParte(session.currentRunLeg?.phaseRole ?? .main)
-        let (sujeto, unidad, quedan) = sujetoSerie(session, driver: driver)
+        let medida = medidaSerie(session)
         let base = parte ?? "serie \(serie.n) de \(serie.total)"
         return Lectura(
-            contexto: quedan ? "\(base) · te quedan" : base,
-            sujeto: sujeto,
-            unidad: unidad,
-            ritmo: ritmo,
-            juicio: juicio
+            contexto: medida.quedan ? "\(base) · te quedan" : base,
+            sujeto: medida.sujeto,
+            unidad: medida.unidad,
+            ritmo: medida.notaSinSenal ? nil : ritmo,
+            juicio: medida.notaSinSenal ? nil : juicio,
+            nota: medida.notaSinSenal ? WatchNota.sinSenal : nil
         )
     }
 
-    private static func sujetoSerie(_ session: WorkoutSession, driver: WatchRunLegDriver?) -> (String, String, Bool) {
-        let cubiertos = driver?.legCoveredMeters ?? session.runLegCoveredMeters
-        if let m = session.currentRunLeg?.distanceMeters, m > 0 {
-            let faltan = max(0, Double(m) - cubiertos)
-            return (String(Int(faltan.rounded(.up))), "m", true)
-        }
-        if let total = session.currentRunLeg?.durationSeconds, total > 0 {
-            return (WatchFormat.countdown(session.runLegRemaining), "", true)
-        }
-        return (WatchFormat.clock(session.runLegElapsed), "", false)
+    private static func medidaSerie(_ session: WorkoutSession) -> RodajeMedida.Lectura {
+        RodajeMedida.vivo(RodajeMedida.Entrada(
+            esCalle: RodajeMedida.esCalle(environment: session.runEnvironment),
+            metrosApple: session.tramoRunCoveredMeters,
+            ritmoSecPorKm: session.tramoRunCoveredMeters.flatMap {
+                RunLegDisplay.legPaceSecPerKm(coveredMeters: $0, elapsedS: session.runLegElapsed)
+            },
+            objetivoMetros: session.currentRunLeg?.distanceMeters.map { Double($0) },
+            objetivoSegundos: session.currentRunLeg?.durationSeconds.map { Double($0) },
+            segundosPieza: session.runLegElapsed,
+            esSerie: true
+        ))
     }
 
-    private static func sujetoRecupera(_ session: WorkoutSession, driver: WatchRunLegDriver?) -> (String, String, Color) {
-        let cubiertos = driver?.legCoveredMeters ?? session.runLegCoveredMeters
-        if let m = session.currentRunLeg?.distanceMeters, m > 0 {
-            let faltan = max(0, Double(m) - cubiertos)
-            return (String(Int(faltan.rounded(.up))), "m", WatchTheme.ink)
+    private static func sujetoRecupera(_ session: WorkoutSession) -> (String, String, Color) {
+        let medida = medidaSerie(session)
+        if session.currentRunLeg?.distanceMeters != nil, session.tramoRunCoveredMeters == nil {
+            return (medida.sujeto, medida.unidad, WatchTheme.ink)
         }
         if (session.currentRunLeg?.durationSeconds ?? 0) > 0 {
             return (WatchFormat.countdown(session.runLegRemaining), "", WatchTheme.zoneGreen)
