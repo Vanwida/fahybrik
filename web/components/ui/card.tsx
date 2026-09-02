@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 // píxeles que hoy se escriben a mano, en claro y en oscuro, sin un solo valor
 // arbitrario en la llamada.
 //
-// LAS VARIANTES SON DOS PORQUE SON DOS LOS PAPELES QUE EXISTEN — medido sobre
-// `components/v2` + las páginas de `(v2)` el 14-ago:
+// LAS VARIANTES SON TRES PORQUE SON TRES LOS PAPELES QUE EXISTEN — medido sobre
+// `components/v2` + las páginas de `(v2)` el 14-ago, y ListRow el 15-ago:
 //
 //   panel  · la superficie que se apoya en el lienzo de la página. Lleva
 //            elevación, radio grande. 22 pintadas a mano + las 12 que ya
@@ -21,6 +21,9 @@ import { cn } from '@/lib/utils';
 //            menor (un anidado nunca redondea más que su contenedor) y sin
 //            elevación: dos sombras apiladas no leen como profundidad, leen
 //            como suciedad. 59 pintadas a mano — es el contenedor más común.
+//   row    · la fila compacta de lista. Radio inset (`rounded-card-inset`,
+//            12 px en el dashboard), fondo de panel (`bg-card`), sin elevación.
+//            ListRow ya la llama; `tests/ui/list-row.test.ts` fija esas clases.
 //
 // NO lleva padding. El relleno lo pone quien la usa (p-3, p-3.5, p-4, p-5 y
 // px-3.5 py-3 conviven hoy y todos son correctos para su contenido): cablearlo
@@ -34,6 +37,7 @@ const cardVariants = cva('border text-card-foreground', {
     variant: {
       panel: 'rounded-card border-border bg-card shadow-card',
       inset: 'rounded-card-inset border-border bg-muted',
+      row: 'rounded-card-inset border-border bg-card',
     },
     // La tarjeta entera es pulsable (abre un detalle, navega). El borde se tiñe
     // de marca al pasar por encima. Es el gesto que ya hacía `v2/Card`, y se
