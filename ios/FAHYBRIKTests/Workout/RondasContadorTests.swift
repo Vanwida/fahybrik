@@ -44,7 +44,7 @@ final class RondasContadorTests: XCTestCase {
                                estimatedDurationSeconds: capS ?? 900,
                                blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         return WorkoutSession(plan: plan, hrZones: nil)
     }
 

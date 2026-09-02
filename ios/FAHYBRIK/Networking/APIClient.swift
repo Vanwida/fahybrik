@@ -18,6 +18,23 @@ enum APIBase {
         }
         return URL(string: "https://app.fahybrid.com")!
     }
+
+    /// Una referencia de fichero de un DTO, resuelta contra esta base.
+    ///
+    /// El servidor sirve unas como RUTA, que es lo que sobrevive a cambiar
+    /// de entorno, y otras ya absolutas. Las dos tienen que acabar apuntando
+    /// al mismo sitio, y quien las consume no puede tener que saber cual le toco.
+    ///
+    /// Una que ya viene absoluta se devuelve TAL CUAL, sin re-normalizar: es la
+    /// clave con la que la cache de media guarda sus bytes, y cambiarle un
+    /// caracter la haria descargar otra vez lo que ya tiene.
+    static func absoluta(_ referencia: String?) -> String? {
+        guard let limpia = referencia?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !limpia.isEmpty
+        else { return nil }
+        if limpia.contains("://") { return limpia }
+        return URL(string: limpia, relativeTo: url)?.absoluteURL.absoluteString
+    }
 }
 
 enum APIError: Error {
@@ -132,11 +149,12 @@ actor APIClient {
     /// persists the original encoded bytes, so its replay must send them
     /// verbatim — never re-encode (the in-memory DTO that produced them is
     /// long gone). Success is any 2xx; the body is ignored.
+    @discardableResult
     func postJSONData(
         path: String,
         data: Data,
         bearer: String? = nil
-    ) async throws {
+    ) async throws -> Data {
         var req = URLRequest(url: Self.requestURL(path: path))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -145,6 +163,7 @@ actor APIClient {
 
         let (respData, http) = try await perform(req)
         try requireSuccess(path: path, data: respData, http: http)
+        return respData
     }
 
     /// PATCH with a JSON body. Mirrors `post(...)` exactly, differing only in
@@ -328,6 +347,38 @@ actor APIClient {
         return comps.url ?? base
     }
 
+
+    /// Builds a multipart/form-data body: optional plain-text fields first,
+    /// then EXACTLY one file part.
+    ///
+    /// The ONE place that body gets assembled. postImage sends it to our own
+    /// API; the athlete profile photo sends the same shape straight to the
+    /// image store, which cannot go through this actor because it targets another
+    /// host with a pre-signed URL and no bearer of ours.
+    nonisolated static func multipartBody(
+        boundary: String,
+        fields: [String: String] = [:],
+        fieldName: String,
+        filename: String,
+        mimeType: String,
+        fileData: Data
+    ) -> Data {
+        var body = Data()
+        for (name, value) in fields {
+            let part = "--\(boundary)\r\n"
+                + "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n"
+                + "\(value)\r\n"
+            body.append(Data(part.utf8))
+        }
+        let prologue = "--\(boundary)\r\n"
+            + "Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n"
+            + "Content-Type: \(mimeType)\r\n\r\n"
+        body.append(Data(prologue.utf8))
+        body.append(fileData)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        return body
+    }
+
     /// Best-effort filename extraction from a `Content-Disposition` header.
     /// Handles RFC 6266 `filename*=UTF-8''...` and plain `filename="..."`.
     private static func parseFilename(from header: String?) -> String? {
@@ -375,4 +426,8 @@ enum ISO8601DateFormatters {
     static func parse(_ raw: String) -> Date? {
         withFraction.date(from: raw) ?? plain.date(from: raw)
     }
-}
+}    /// The ONE place that body gets assembled. `postImage` sends it to our own
+    /// API; the athlete's profile photo sends the same shape straight to the
+    /// image store, which can't go through this actor because it targets another
+    /// host with a pre-signed URL and no bearer of ours.
+

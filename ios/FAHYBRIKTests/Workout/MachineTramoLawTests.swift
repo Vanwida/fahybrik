@@ -306,7 +306,7 @@ final class MachineTramoLawTests: XCTestCase {
         return WorkoutPlan(id: UUID(), name: title, format: scheme,
                            estimatedDurationSeconds: 900, blockContext: title,
                            zoneTargets: [], equipment: [], segments: [seg],
-                           coachNote: nil, warmupChecklist: [])
+                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     }
 
     private func rounds(_ scheme: PrescriptionScheme) -> Int? {
@@ -411,7 +411,7 @@ final class MachineTramoLawTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: seg.title, format: formato,
                                estimatedDurationSeconds: 3600, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()
         if s.condCountInRemaining > 0 { s.primaryAdvance() }

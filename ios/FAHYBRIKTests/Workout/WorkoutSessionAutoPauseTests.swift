@@ -13,7 +13,7 @@ final class WorkoutSessionAutoPauseTests: XCTestCase {
                                  targetDistanceMeters: 5000, blockTitle: "Carrera", blockPosition: 1)
         let plan = WorkoutPlan(id: UUID(), name: "Test", format: .steady, estimatedDurationSeconds: 900,
                                blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()   // running, not paused, not awaiting
         // La auto-pausa sólo existe mientras alguien mira la velocidad. En la app

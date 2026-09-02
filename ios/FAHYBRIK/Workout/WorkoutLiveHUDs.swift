@@ -744,3 +744,107 @@ private struct IntervalChip: View {
         return dicho
     }
 }
+
+// QUÉ CIFRA MANDA EL HUD DE CORRER cuando no hay cinta FTMS.
+//
+// El plan (ritmo objetivo) NO es una medida. Sin reloj y sin cinta el héroe
+// dice que no hay fuente — nunca pinta 5:45/km como si lo hubiera medido.
+enum RunLiveHero: Equatable {
+    case esfuerzo(String)
+    case ritmoMedido(Int)
+    case sinFuente
+    case relojDeVuelta(Double)
+
+    static func resolve(
+        isGuidanceOnly: Bool,
+        effortGuidance: String?,
+        livePaceSecPerKm: Int?,
+        hasLiveDistance: Bool,
+        hasPacePrescription: Bool,
+        lapElapsed: Double
+    ) -> RunLiveHero {
+        if isGuidanceOnly { return .esfuerzo(effortGuidance ?? "Suave") }
+        if hasLiveDistance, let ritmo = livePaceSecPerKm { return .ritmoMedido(ritmo) }
+        if hasPacePrescription { return .sinFuente }
+        return .relojDeVuelta(lapElapsed)
+    }
+}
+
+// Compact in-workout stepper for athlete-logged values when no device measures
+// them: actual load on strength/sled, covered distance on a run with no GPS.
+struct ManualStepperField: View {
+    let label: String
+    let unit: String
+    @Binding var value: Double?
+    let step: Double
+    var seedOnFirstTap: Double = 0
+    var whole: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabelText(text: label, size: 11)
+            HStack(spacing: 10) {
+                stepButton(systemName: "minus", delta: -step)
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(display)
+                        .font(.system(size: 30, weight: .heavy, design: .default).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    if !unit.isEmpty {
+                        Text(unit)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                stepButton(systemName: "plus", delta: step)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(display) \(unit)")
+        .accessibilityValue(display)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: adjust(step)
+            case .decrement: adjust(-step)
+            @unknown default: break
+            }
+        }
+    }
+
+    private var display: String {
+        guard let v = value else { return "—" }
+        return whole ? "\(Int(v.rounded()))" : trimmed(v)
+    }
+
+    private func trimmed(_ v: Double) -> String {
+        let s = Formato.esDecimal(v, siempreDecimales: true)
+        return s.hasSuffix(".0") ? String(s.dropLast(2)) : s
+    }
+
+    private func stepButton(systemName: String, delta: Double) -> some View {
+        Button(action: { adjust(delta) }) {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(width: 36, height: 36)
+                .background(Theme.Color.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(delta > 0 ? "Sumar \(unit)" : "Restar \(unit)")
+    }
+
+    private func adjust(_ delta: Double) {
+        Haptics.light()
+        let base = value ?? seedOnFirstTap
+        value = max(0, base + delta)
+    }
+}

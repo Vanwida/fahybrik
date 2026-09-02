@@ -38,7 +38,7 @@ final class TreadmillIndoorHUDTests: XCTestCase {
             id: UUID(), name: "Cinta tonta", format: .steady,
             estimatedDurationSeconds: 0, blockContext: "Carrera",
             zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []
         )
         let s = WorkoutSession(plan: plan)
         s.runEnvironment = .indoor

@@ -36,7 +36,7 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
             blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []))
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
         s.start()        // arms the block gate
         s.beginBlock()   // clears the gate → startRunStructure (count-in, leg 0 primed)
         s.stop()         // kill the timer; the leg-cursor state is preserved
@@ -115,7 +115,7 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         return WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Test", format: .steady, estimatedDurationSeconds: 1800,
             blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []))
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
     }
 
     func testTreadmillContinuousRunSendsBeltRing() {
@@ -157,7 +157,7 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
             blockContext: "Test", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []))
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
         s.sampleTreadmillDistance(deltaMeters: 300)
         mirror.isTreadmillLive = { true }
         defer { mirror.isTreadmillLive = { DeviceHub.shared.treadmillLink.isLive } }

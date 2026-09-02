@@ -44,7 +44,7 @@ final class EntrenoSinMiedoTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza + estaciones", format: .sets,
                                estimatedDurationSeconds: 3600, blockContext: "Fuerza",
                                zoneTargets: [], equipment: [], segments: [fuerza, estacion],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start()
         s.beginBlock()

@@ -35,7 +35,7 @@ final class DescansoEntreEstacionesTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "HCT", format: .forTime,
                                estimatedDurationSeconds: 2040, blockContext: "HCT",
                                zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()   // salta el 3-2-1 → estación 0

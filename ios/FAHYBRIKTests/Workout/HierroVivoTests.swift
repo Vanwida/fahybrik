@@ -343,7 +343,7 @@ final class HierroVivoTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza", format: .sets,
                                estimatedDurationSeconds: 1200, blockContext: bloque,
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan, hrZones: nil)
         s.primeSetsIfNeeded()
         for i in 0..<cerradas { s.confirmSet(i) }

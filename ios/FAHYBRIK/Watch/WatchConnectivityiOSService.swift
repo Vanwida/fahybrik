@@ -282,14 +282,23 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // had a toggle, so `false` just confirms the solo path; the server stays the
         // final net (409 session_private on a joint log of a private session).
         let shareWithPartner = envelope.shareWithPartner ?? true
-        let submission: ExecutionSubmission
+        let outcome: WorkoutSaveOutcome
         if resolveIsDoubles(assignmentId: envelope.assignmentId) && shareWithPartner {
             // sessionId == this athlete's own assignment id == payload.assignment_id.
-            submission = await DoblesExecutionAPI.submitReturning(
+            outcome = await DoblesExecutionAPI.submitReturning(
                 sessionId: payload.assignment_id, payload, bearer: bearer
             )
         } else {
-            submission = await WorkoutExecutionAPI.submitReturning(payload, bearer: bearer)
+            outcome = await WorkoutExecutionAPI.submitReturning(payload, bearer: bearer)
+        }
+        let submission: ExecutionSubmission
+        switch outcome {
+        case .saved(let response):
+            submission = ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
+        case .queued:
+            submission = ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: false)
+        case .rejected:
+            submission = .none
         }
 
         // EL ARCHIVO DE LA MUÑECA encuentra aquí su ejecución. La respuesta se

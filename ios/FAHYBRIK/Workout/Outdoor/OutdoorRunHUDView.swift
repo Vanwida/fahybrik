@@ -502,7 +502,7 @@ private func rodajeDePrueba() -> WorkoutSession {
     let plan = WorkoutPlan(id: UUID(), name: "Rodaje", format: .steady,
                            estimatedDurationSeconds: 2400, blockContext: "Carrera",
                            zoneTargets: [], equipment: [], segments: [tramo],
-                           coachNote: nil, warmupChecklist: [])
+                           coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     return WorkoutSession(plan: plan)
 }
 

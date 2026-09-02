@@ -407,17 +407,6 @@ struct FuerzaVivoView<Cromo: View>: View {
 
 // MARK: - El riel de series — dónde estás en el ejercicio
 
-/// UNA identidad de la serie que se está editando.
-///
-/// `Int` a secas no vale para `.sheet(item:)` —no es `Identifiable`— y envolverlo
-/// aquí evita el otro camino, que es un `Bool` de «está abierta» más un índice
-/// suelto: dos estados que se pueden contradecir y abrir el editor de la serie
-/// equivocada.
-struct SerieEnEdicion: Identifiable, Equatable {
-    let indice: Int
-    var id: Int { indice }
-}
-
 /// Identidad de la hoja de kg al cerrar el ejercicio. `kg` es la semilla
 /// (resuelto o prescrito); girar o no, HECHO declara ese valor.
 private struct CierreDeCarga: Identifiable {
@@ -501,70 +490,6 @@ struct RielDeSeries: View {
         return "Serie \(rec.setIndex), \(estado), \(dosis(rec)). Tocar para ajustar"
     }
 }
-
-// MARK: - El editor de una serie — la excepción, en su propia hoja
-
-/// Lo que sintió se PREGUNTA; no se copia del plan (§7). Por eso RPE y RIR entran
-/// vacíos y se pueden dejar sin contestar.
-///
-/// Vive en una hoja y no en la pantalla porque no cabía: reps + carga + RPE + RIR
-/// miden más que la banda de apoyos entera. Y porque ajustar no es el camino
-/// normal — el camino normal es un toque en el botón grande.
-struct EditorDeSerie: View {
-    let session: WorkoutSession
-    let indice: Int
-    @Environment(\.dismiss) private var dismiss
-
-    private var rec: SetRecord? {
-        session.setRecords.indices.contains(indice) ? session.setRecords[indice] : nil
-    }
-
-    var body: some View {
-        ScrollView {
-            if let rec {
-                VStack(spacing: Theme.Spacing.m) {
-                    HStack {
-                        Text("\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
-                            .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Spacer()
-                        Button("Listo") { dismiss() }
-                            .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                    HStack(spacing: Theme.Spacing.s) {
-                        PasoEntero(etiqueta: Vocab.reps,
-                                   valor: rec.repsActual ?? rec.repsPrescribed ?? 0,
-                                   alCambiar: { session.setSetReps(indice, $0) })
-                        PasoDecimal(etiqueta: Vocab.rpe, paso: 0.5, maximo: 10, valor: rec.rpe,
-                                    alCambiar: { session.setSetRPE(indice, $0) })
-                        PasoDecimal(etiqueta: Vocab.rir, paso: 1, maximo: 10, valor: rec.rir,
-                                    alCambiar: { session.setSetRIR(indice, $0) })
-                    }
-                    if rec.loadPrescribedKg != nil || rec.loadActualKg != nil {
-                        // Rueda con CASCADA: cambias esta y la heredan las series
-                        // que faltan; las hechas conservan su peso real.
-                        RuedaDeCarga(valor: rec.loadActualKg ?? rec.loadPrescribedKg ?? 20,
-                                     alCambiar: { session.setSetLoadCascade(indice, $0) })
-                    }
-                    Button(action: {
-                        session.setSetSkipped(indice, rec.status != "skipped"); Haptics.light()
-                    }) {
-                        Text(rec.status == "skipped" ? "Deshacer salto" : "Saltar esta serie")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(rec.status == "skipped" ? Theme.Color.accentText : Theme.Color.muted)
-                            .underline()
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(Theme.Spacing.l)
-            }
-        }
-        .background(Theme.Color.background)
-    }
-}
-
-
 
 // MARK: - Los controles de ajuste
 

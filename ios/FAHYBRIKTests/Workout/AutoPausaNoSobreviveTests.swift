@@ -17,7 +17,7 @@ final class AutoPausaNoSobreviveTests: XCTestCase {
         let s = WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: "Rodaje", format: .steady, estimatedDurationSeconds: 1_800,
             blockContext: "Libre", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, warmupChecklist: []))
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
         s.start(); s.beginBlock(); s.stop()
         return s
     }

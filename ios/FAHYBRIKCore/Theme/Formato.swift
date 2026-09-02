@@ -308,6 +308,12 @@ enum Formato {
     // esta app («12-15» de `serie`), y «6-6-4-4-3» le daría dos sentidos al mismo
     // signo. El coach también la escribe con barra en el `notes` del bloque.
 
+    static func dosisDeSeries(series: Int, reps: Int?) -> String? {
+        guard series > 0, let r = reps, r > 0 else { return nil }
+        return "\(series) \(signoPor) \(r)"
+    }
+
+
     /// CONTRA QUÉ SE HACE UNA SERIE. Las formas están en la base, tal cual:
     ///
     ///     kg           `{"kind":"kg","value":82.5}`

@@ -35,7 +35,7 @@ final class DescansoDelBloqueTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Fuerza B + Trineos", format: .sets,
                                estimatedDurationSeconds: 2822, blockContext: "Fuerza · Cadera",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan, hrZones: nil)
         s.primeSetsIfNeeded()
         return s

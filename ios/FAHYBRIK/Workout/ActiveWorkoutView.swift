@@ -14,6 +14,7 @@ struct ActiveWorkoutView: View {
     /// routes to the post-workout summary that LOGS the result. Exiting via this
     /// closure returns the athlete to a still-pending session.
     let onExit: () -> Void
+    var onLeaveAndResume: (() -> Void)? = nil
     /// #23 — partner first name for the dobles RELAY screen ("{name} hace SkiErg").
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
@@ -362,7 +363,7 @@ struct ActiveWorkoutView: View {
             maybeAutoOpenRunCover()     // the screen is free again — see the guard
         }) {
             if let url = session.currentSegment?.videoUrl {
-                YouTubeSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
+                VideoDeTecnicaSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
             }
         }
     }
@@ -443,8 +444,7 @@ struct ActiveWorkoutView: View {
     }
 
     private var segmentHasVideo: Bool {
-        session.currentSegment?.videoUrl != nil
-            && YouTubeLinkParser.videoId(from: session.currentSegment!.videoUrl!) != nil
+        VideoDeTecnica.hay(en: session.currentSegment?.videoUrl)
     }
 
     // `attemptPM5IfNeeded()` USED TO LIVE HERE, called on appear and on EVERY segment
@@ -538,9 +538,8 @@ struct ActiveWorkoutView: View {
     // Hook the optional providers' callbacks into the session. Done once on
     // appear; the closures capture `session`, which is stable for the screen.
     private func wireLiveSources() {
-        runGPS.onDistanceDelta = { meters in
-            session.sampleRunGPS(deltaMeters: meters)
-        }
+        // Distancia de carrera: la cuenta Apple (`RunPedometer`) en la vista
+        // activa / HUD outdoor. RunLocationProvider ya no emite onDistanceDelta.
         liveHR.onSample = { bpm in
             session.injectLiveHR(bpm, source: .healthkit)
         }
@@ -908,7 +907,9 @@ struct ActiveWorkoutView: View {
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip
             } sujeto: {
-                StructuredRunLiveHUD(session: session)
+                RunLiveHUD(session: session, gpsActive: gpsActive,
+                           onTapTreadmill: { openTreadmillCover() },
+                           onTapOutdoor: { showOutdoor = true })
             } apoyos: {
                 apoyosDelHost
             }
@@ -1011,13 +1012,13 @@ struct ActiveWorkoutView: View {
     private var conditioningHUD: some View {
         switch session.currentSegment?.formatScheme {
         case .amrap:     AmrapLiveHUD(session: session)
-        case .tabata:    TabataLiveHUD(session: session)
-        case .intervals: IntervalsLiveHUD(session: session)
-        case .deathBy:   DeathByLiveHUD(session: session)
-        case .steady:    SteadyLiveHUD(session: session)
+        // Tabata / intervals / deathBy / steady HUDs were removed 5-ago
+        // (WorkoutFormatHUDs). Same remaining face as For Time / rounds.
+        case .tabata, .intervals, .deathBy, .steady:
+            ForTimeLiveHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
-        case .emom, .sets, .warmup, .cooldown, .none:
+        case .emom, .sets, .warmup, .cooldown, .superset, .none:
             // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
             // cuatro esquemas y el nil. Se escriben en vez de un `default` para que
             // un esquema NUEVO no caiga aquí en silencio — que el compilador avise.

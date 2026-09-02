@@ -55,6 +55,8 @@ struct WorkoutContainer: View {
     /// ended up in the seconds-per-zone the coach reads. A session with no zones
     /// simply records no zone time, and the HUD shows the pulse without a zone.
     var hrZones: HRZoneProfile? = nil
+    /// Live-resume cover already reconstructed the session (AppShell). Nil = load the plan.
+    var recoveredSession: WorkoutSession? = nil
 
     enum Phase: Equatable {
         case brief

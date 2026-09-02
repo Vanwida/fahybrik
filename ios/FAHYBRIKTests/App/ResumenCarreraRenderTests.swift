@@ -124,7 +124,7 @@ final class ResumenCarreraRenderTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: nombre, format: .intervals,
                                estimatedDurationSeconds: 0, blockContext: "Principal",
                                zoneTargets: [], equipment: [], segments: [tramo],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan, hrZones: Self.zonas())
         s.start(); s.beginBlock(); s.stop()
         s.primaryAdvance()      // salta la cuenta atrás 3-2-1

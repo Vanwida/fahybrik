@@ -32,7 +32,7 @@ final class WorkoutExecutionSpineTests: XCTestCase {
     private func plan(_ segments: [WorkoutSegment]) -> WorkoutPlan {
         WorkoutPlan(id: UUID(), name: "Test", format: .sets, estimatedDurationSeconds: 600,
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
-                    coachNote: nil, warmupChecklist: [])
+                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     }
 
     /// Build a live session parked on its first segment with the timer OFF (state

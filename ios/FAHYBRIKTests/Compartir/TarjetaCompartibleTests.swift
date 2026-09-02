@@ -161,7 +161,7 @@ final class TarjetaCompartibleTests: XCTestCase {
         WorkoutPlan(id: UUID(), name: "Prueba", format: .sets,
                     estimatedDurationSeconds: 3600, blockContext: "",
                     zoneTargets: [], equipment: [], segments: segmentos,
-                    coachNote: nil, warmupChecklist: [])
+                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     }
 
     private func dia(_ inicial: String, estado: EstadoDiaPlan, sesiones: Int) -> DiaDelPlan {
@@ -205,7 +205,7 @@ final class TarjetaCompartibleTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "8 × 400", format: .sets,
                                estimatedDurationSeconds: 1800, blockContext: "",
                                zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start()
 

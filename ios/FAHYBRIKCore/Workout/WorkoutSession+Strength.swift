@@ -185,6 +185,21 @@ extension WorkoutSession {
         }
     }
 
+    /// Declara el kg al CERRAR el ejercicio (FH-46). Un valor para ESTE tramo:
+    /// se escribe en las series no saltadas y en `manualLoadKg`. No hereda al
+    /// siguiente (`resetSegmentManualAndGPS` lo aísla). `confirmSet` no cambia.
+    /// Si todas las series están saltadas, no escribe (cruce con FH-47).
+    func confirmExerciseLoad(_ kg: Double) {
+        if !setRecords.isEmpty, setRecords.allSatisfy({ $0.status == "skipped" }) { return }
+        let value = max(0, kg)
+        manualLoadKg = value
+        primedLoadKg = nil
+        for i in setRecords.indices where setRecords[i].status != "skipped" {
+            setRecords[i].loadActualKg = value
+            recomputeSetStatus(i)
+        }
+    }
+
     func setSetRPE(_ index: Int, _ rpe: Double?) {
         guard setRecords.indices.contains(index) else { return }
         setRecords[index].rpe = rpe

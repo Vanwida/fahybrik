@@ -96,7 +96,7 @@ final class DoblesLiveTests: XCTestCase {
         WorkoutSession(plan: WorkoutPlan(
             id: UUID(), name: name, format: .amrap, estimatedDurationSeconds: 0,
             blockContext: "", zoneTargets: [], equipment: [], segments: segments,
-            coachNote: nil, warmupChecklist: []))
+            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
     }
 
     func testPayloadActiveMapsCoreFields() {

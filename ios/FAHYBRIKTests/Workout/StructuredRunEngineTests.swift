@@ -335,6 +335,6 @@ final class StructuredRunEngineTests: XCTestCase {
     private func plan(_ segments: [WorkoutSegment]) -> WorkoutPlan {
         WorkoutPlan(id: UUID(), name: "Test", format: .intervals, estimatedDurationSeconds: 900,
                     blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
-                    coachNote: nil, warmupChecklist: [])
+                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
     }
 }

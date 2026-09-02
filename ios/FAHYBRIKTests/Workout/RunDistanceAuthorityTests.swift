@@ -209,7 +209,7 @@ final class RunDistanceAuthorityTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Rodaje", format: .steady,
                                estimatedDurationSeconds: 0, blockContext: "Carrera",
                                zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.runEnvironment = environment
         s.start(); s.beginBlock(); s.stop()

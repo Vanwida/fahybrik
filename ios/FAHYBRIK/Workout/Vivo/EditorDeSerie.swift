@@ -131,7 +131,7 @@ struct EditorDeSerie: View {
 // MARK: - Los controles de ajuste
 
 /// Un entero con − y +. Ajustar es la excepción, así que no grita.
-struct PasoEntero: View {
+private struct PasoEntero: View {
     let etiqueta: String
     let valor: Int
     let alCambiar: (Int) -> Void
@@ -221,7 +221,7 @@ private struct PasoDecimal: View {
 
 /// La rueda de carga: pasos de 2,5 kg, redondeando lo que entre a la rejilla de
 /// discos. «esta y siguientes» dice lo que hace.
-struct RuedaDeCarga: View {
+private struct RuedaDeCarga: View {
     let valor: Double
     let alCambiar: (Double) -> Void
 

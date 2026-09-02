@@ -21,7 +21,7 @@ final class DescansoTodosLosFormatosTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Ski-Erg", format: .rounds,
                                estimatedDurationSeconds: 900, blockContext: "SkiErg",
                                zoneTargets: [], equipment: [], segments: [seg],
-                               coachNote: nil, warmupChecklist: [])
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         let s = WorkoutSession(plan: plan)
         s.start()
         s.beginBlock()
