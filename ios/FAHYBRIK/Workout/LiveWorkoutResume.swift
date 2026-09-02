@@ -53,7 +53,8 @@ final class LiveWorkoutResume {
                 activityKind: kind,
                 diskOffset: saved.elapsedSeconds,
                 startPaused: saved.isPaused || (saved.isAwaitingBlockStart ?? false),
-                runUUID: saved.hkSessionUUID
+                runUUID: saved.hkSessionUUID,
+                environment: saved.runEnvironment
             )
             session.hkSessionUUID = PhoneWorkoutRun.shared.runUUID ?? saved.hkSessionUUID
         } else {

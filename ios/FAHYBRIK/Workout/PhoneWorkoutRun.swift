@@ -61,8 +61,11 @@ final class PhoneWorkoutRun: NSObject {
         }
     }
 
-    static func locationType(for activityKind: String) -> HKWorkoutSessionLocationType {
-        activityKind == "running" ? .outdoor : .indoor
+    nonisolated static func locationType(
+        for activityKind: String,
+        environment: RunEnvironment? = nil
+    ) -> HKWorkoutSessionLocationType {
+        WorkoutLocationType.resolve(activityKind: activityKind, environment: environment)
     }
 
     // MARK: - Start / attach / recover
@@ -80,7 +83,8 @@ final class PhoneWorkoutRun: NSObject {
         activityKind: String,
         diskOffset: TimeInterval = 0,
         startPaused: Bool = false,
-        runUUID preferred: UUID? = nil
+        runUUID preferred: UUID? = nil,
+        environment: RunEnvironment? = nil
     ) {
         guard session == nil else { return }
         runUUID = runUUID ?? preferred ?? UUID()
@@ -88,13 +92,21 @@ final class PhoneWorkoutRun: NSObject {
         pauseBeganAt = nil
         pausedAccumulated = 0
 
+        // `HKWorkoutConfiguration.locationType` is immutable after init.
+        // Creating the session as outdoor at `WorkoutSession.start()` (env still
+        // nil) would lock a later indoor run. Delay until the athlete answers.
+        if activityKind == "running" && environment == nil {
+            if startPaused { pauseBeganAt = Date() }
+            return
+        }
+
         guard #available(iOS 26.0, *), HKHealthStore.isHealthDataAvailable() else {
             if startPaused { pauseBeganAt = Date() }
             return
         }
         let config = HKWorkoutConfiguration()
         config.activityType = Self.activityType(for: activityKind)
-        config.locationType = Self.locationType(for: activityKind)
+        config.locationType = Self.locationType(for: activityKind, environment: environment)
         do {
             let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
             session.delegate = delegateShim

@@ -84,6 +84,41 @@ final class WorkoutLocationTypeTests: XCTestCase {
 
     // El escritor del teléfono ya lo tenía bien y esta prueba lo deja clavado: la
     // respuesta del atleta decide, y sólo correr admite exterior.
+    @MainActor
+    func testPhoneWorkoutRunHonorsIndoorEnvironment() {
+        XCTAssertEqual(
+            PhoneWorkoutRun.locationType(for: "running", environment: .indoor),
+            .indoor,
+            "cinta tonta: HKWorkout indoor, no GPS de calle"
+        )
+        XCTAssertEqual(
+            PhoneWorkoutRun.locationType(for: "running", environment: .treadmill),
+            .indoor
+        )
+        XCTAssertEqual(
+            PhoneWorkoutRun.locationType(for: "running", environment: .outdoor),
+            .outdoor
+        )
+        XCTAssertEqual(
+            PhoneWorkoutRun.locationType(for: "running", environment: nil),
+            .outdoor,
+            "sin respuesta el defecto de resolve sigue siendo calle"
+        )
+        XCTAssertEqual(
+            PhoneWorkoutRun.locationType(for: "strength", environment: .outdoor),
+            .indoor
+        )
+    }
+
+    func testTheWatchPayloadLivePathHonorsEnvironment() {
+        let run = WatchTodayPayload.minimalTest(activityKind: "running")
+        XCTAssertEqual(run.healthKitLocationType(environment: .indoor), .indoor)
+        XCTAssertEqual(run.healthKitLocationType(environment: .treadmill), .indoor)
+        XCTAssertEqual(run.healthKitLocationType(environment: .outdoor), .outdoor)
+        XCTAssertEqual(run.healthKitLocationType(environment: nil), .outdoor)
+        XCTAssertEqual(run.healthKitLocationType, .outdoor)
+    }
+
     func testThePhoneWriterAlreadyTellsTheTruth() {
         XCTAssertTrue(HealthKitWorkoutWriter.isIndoor(modality: "run", treadmill: true))
         XCTAssertFalse(HealthKitWorkoutWriter.isIndoor(modality: "run", treadmill: false))

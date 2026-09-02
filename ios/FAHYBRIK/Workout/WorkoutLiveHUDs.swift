@@ -83,7 +83,7 @@ struct RunLiveHUD: View {
     private var seg: WorkoutSegment? { session.currentSegment }
 
     private var hasLiveDistance: Bool {
-        gpsActive && (session.liveRunDistanceMeters ?? 0) > 0
+        (session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters ?? 0) > 0
     }
 
     // A target-less run leg (no pace, no distance, no zone) with no live GPS has
@@ -127,7 +127,7 @@ struct RunLiveHUD: View {
                     // coach. Un tramo sin ninguna de las dos NO deja celda vacía: no
                     // hay hueco que declarar donde nunca hubo dato (§6.2 bis).
                     if hasLiveDistance,
-                       let d = session.liveRunDistanceMeters,
+                       let d = session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters,
                        let cubierta = Formato.distanciaCubierta(d) {
                         ApoyoVivo(etiqueta: Vocab.distancia, valor: cubierta)
                     } else if let d = seg?.targetDistanceMeters, let objetivo = Formato.distancia(d) {
@@ -173,33 +173,18 @@ struct RunLiveHUD: View {
 
     // MARK: El sujeto — la SIGUIENTE VERDAD DISPONIBLE, nunca un hueco
 
-    /// Qué cifra manda esta pantalla. Se resuelve por orden de evidencia y NUNCA
-    /// cae en un guion: si no hay ritmo medido manda el objetivo, y si tampoco hay
-    /// objetivo manda el reloj de la vuelta, que es lo único que la app sabe con
-    /// certeza (mismo patrón que el HUD de exterior, §7).
-    ///
-    /// El ritmo sale del MOTOR (`session.liveCoveredPaceSecPerKm`), nunca de una
-    /// cuenta propia. Esta vista tenía su copia — distancia del tramo entre tiempo de
-    /// la vuelta — y en un 6×800 el denominador se comía los trotes: el HUD decía
-    /// 5:33/km mientras el atleta corría a 3:30, y el registro que le llegaba al coach
-    /// sí era el bueno. Dos números del mismo esfuerzo. El motor mide sobre la PIERNA
-    /// en una serie estructurada, así que lo que se ve y lo que se guarda coinciden.
-    private enum SujetoDelHUD {
-        /// Tramo sin nada medible: manda el esfuerzo que pidió el coach.
-        case esfuerzo(String)
-        /// Ritmo REAL, medido.
-        case ritmoMedido(Int)
-        /// Aún no hay ritmo medido: manda el objetivo, que sí se sabe.
-        case ritmoObjetivo(Int)
-        /// Ni medido ni prescrito: el reloj de la vuelta.
-        case relojDeVuelta(Double)
-    }
-
-    private var sujeto: SujetoDelHUD {
-        if isGuidanceOnly { return .esfuerzo(seg?.effortGuidance ?? "Suave") }
-        if hasLiveDistance, let ritmo = session.liveCoveredPaceSecPerKm { return .ritmoMedido(ritmo) }
-        if let objetivo = seg?.targetPaceSecondsPerKm { return .ritmoObjetivo(objetivo) }
-        return .relojDeVuelta(session.lapElapsedSeconds)
+    /// Qué cifra manda esta pantalla. El ritmo sale del MOTOR
+    /// (`session.liveCoveredPaceSecPerKm`). Sin medida y con un ritmo prescrito
+    /// NO se pinta el plan como héroe: se dice que no hay fuente.
+    private var sujeto: RunLiveHero {
+        RunLiveHero.resolve(
+            isGuidanceOnly: isGuidanceOnly,
+            effortGuidance: seg?.effortGuidance,
+            livePaceSecPerKm: session.liveCoveredPaceSecPerKm,
+            hasLiveDistance: hasLiveDistance,
+            hasPacePrescription: seg?.targetPaceSecondsPerKm != nil,
+            lapElapsed: session.lapElapsedSeconds
+        )
     }
 
     /// Etiqueta y cifra viajan JUNTAS a propósito: cuando eran dos decisiones
@@ -209,8 +194,10 @@ struct RunLiveHUD: View {
         let porKm = Formato.UnidadRitmo.porKm.rawValue
         switch sujeto {
         case let .esfuerzo(v):      return ("Esfuerzo objetivo", v, "")
-        case let .ritmoMedido(p):   return ("\(Vocab.ritmo) · GPS", Formato.ritmoCifras(Double(p)), porKm)
-        case let .ritmoObjetivo(p): return ("\(Vocab.ritmo) objetivo", Formato.ritmoCifras(Double(p)), porKm)
+        case let .ritmoMedido(p):
+            let etiqueta = gpsActive ? "\(Vocab.ritmo) · GPS" : Vocab.ritmo
+            return (etiqueta, Formato.ritmoCifras(Double(p)), porKm)
+        case .sinFuente:            return (Vocab.ritmo, Vocab.sinFuente, "")
         case let .relojDeVuelta(s): return (Vocab.vuelta, Formato.clock(s, anchoFijo: true), "")
         }
     }

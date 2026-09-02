@@ -328,7 +328,7 @@ struct TreadmillHUDView: View {
 
     private var landscapeMetrics: some View {
         HStack(spacing: 8) {
-            ExpertCell(label: "Metros", value: distString(model.legDistanceM), unit: "")
+            ExpertCell(label: "Metros", value: distString(model.coveredMeters), unit: "")
             ExpertCell(label: "Tiempo", value: Formato.clock(Int(model.legElapsedEffective)), unit: "")
             // Metros y tiempo los sabe la app siempre; el pulso viene de fuera y puede
             // no estar. Entonces la celda dice POR QUÉ, no una raya (§7).
@@ -693,7 +693,7 @@ struct TreadmillHUDView: View {
             case let .distance(target):
                 GoalProgress(
                     caption: "Distancia del tramo",
-                    primary: distString(model.legDistanceM),
+                    primary: distString(model.coveredMeters),
                     secondary: distString(target),
                     elapsed: clock,
                     fraction: model.progressFraction,
@@ -711,7 +711,7 @@ struct TreadmillHUDView: View {
             case .open:
                 GoalProgress(
                     caption: "Llevas en el tramo",
-                    primary: distString(model.legDistanceM),
+                    primary: distString(model.coveredMeters),
                     secondary: nil,
                     elapsed: clock,
                     fraction: nil,
@@ -875,6 +875,7 @@ struct TreadmillHUDView: View {
             onSkip: {
                 Haptics.light()
                 model.session.runEnvironment = .indoor
+                model.session.ensurePhoneWorkoutRun()
                 sinCinta = true
             },
             onShareDiagnostics: model.diagnosticsText != nil ? { showDiagnostics = true } : nil
@@ -891,19 +892,14 @@ struct TreadmillHUDView: View {
 
     // MARK: - Formatting
 
-    /// El ritmo REAL de la cinta. nil = no hay medida, y punto: el centinela "—:—" que
-    /// vivía aquí obligaba a cada sitio que lo pintaba a fingir que era un ritmo (§7).
-    /// Quien pinta decide qué hacer con el nil, con `model.sinLecturaMotivo` al lado.
+    /// Ritmo MEDIDO: cinta o HK indoor de la sesión. nil = no hay fuente.
     private var heroPace: String? {
-        model.livePaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
+        model.heroPaceSecPerKm.map { Formato.ritmoCifras(Double($0)) }
     }
 
-    /// LA SIGUIENTE VERDAD DISPONIBLE cuando la cinta no da ritmo: lo que te han
-    /// mandado, y si no te han mandado nada, el reloj del tramo — lo único que la app
-    /// sabe con certeza siempre. Es el mismo escalón que usa el rodaje al aire libre.
+    /// Sin cinta y sin reloj el héroe no finge el ritmo del plan.
     private var sinRitmo: (etiqueta: String, cifra: String) {
-        if let objetivo = model.runTarget.objetivoLabel { return (Vocab.objetivo, objetivo) }
-        return (Vocab.tiempo, Formato.clock(model.legElapsedEffective, anchoFijo: true))
+        (Vocab.ritmo, Vocab.sinFuente)
     }
 
     private var heroCaption: String {

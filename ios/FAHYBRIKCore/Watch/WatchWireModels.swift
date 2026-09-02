@@ -271,7 +271,13 @@ extension WatchTodayPayload {
     /// `WorkoutLocationType.resolve`: en la muñeca no hay quien conteste esa pregunta,
     /// así que sale del valor por defecto declarado.
     var healthKitLocationType: HKWorkoutSessionLocationType {
-        WorkoutLocationType.resolve(activityKind: activityKind, environment: nil)
+        healthKitLocationType(environment: nil)
+    }
+
+    /// El HUD en vivo (cinta tonta / calle) pasa la respuesta del atleta.
+    /// El brief de la mañana no la tiene: el defecto de `resolve` sigue siendo calle.
+    func healthKitLocationType(environment: RunEnvironment?) -> HKWorkoutSessionLocationType {
+        WorkoutLocationType.resolve(activityKind: activityKind, environment: environment)
     }
 
     /// A copy flagged as completed — the watch shows the finished state and the

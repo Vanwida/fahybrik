@@ -481,6 +481,8 @@ enum Vocab {
     static let cadencia = "pasos/min"
 
     static let ritmo = "Ritmo"
+    /// Sin cinta y sin reloj: el HUD no finge el ritmo del plan.
+    static let sinFuente = "no hay fuente"
     static let distancia = "Distancia"
     static let tiempo = "Tiempo"
     static let vuelta = "Vuelta"

@@ -35,6 +35,7 @@ struct ActiveWorkoutView: View {
     @State private var partnerStripCollapsed: Bool = false
 
     @State private var showTreadmill: Bool = false
+    @State private var treadmillEmpiezaSinCinta: Bool = false
     @State private var showOutdoor: Bool = false
     // #8 — the last segment index whose run HUD we auto-opened. Guards the auto-open
     // to ONCE per segment, so a manual close is respected until the next run segment.
@@ -311,10 +312,13 @@ struct ActiveWorkoutView: View {
                               batteryPercent: hub.hrBatteryPercent)
         }
         .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, hrZones: hrZones)
+            TreadmillHUDView(session: session, hrZones: hrZones,
+                             empiezaSinCinta: treadmillEmpiezaSinCinta,
+                             alSalir: { showTreadmill = false })
         }
         .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, hrZones: hrZones)
+            OutdoorRunHUDView(session: session, hrZones: hrZones,
+                              alSalir: { showOutdoor = false })
         }
         // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
         // so the next cover / the count-in never fights the dismissing one.
@@ -323,6 +327,7 @@ struct ActiveWorkoutView: View {
                 sessionTitle: session.plan.name,
                 onStart: { env in
                     session.runEnvironment = env
+                    session.ensurePhoneWorkoutRun()
                     gateContinuation = .checkErg
                     showRunGate = false
                 },
@@ -542,6 +547,11 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    private func openTreadmillCover() {
+        treadmillEmpiezaSinCinta = session.runEnvironment == .indoor
+        showTreadmill = true
+    }
+
     // #8 — the athlete answered "¿dónde corres?" before starting: put them straight
     // in the chosen live HUD (cinta / calle) when a run segment goes live, instead of
     // a generic GPS screen. Fires ONCE per segment (the autoOpenedRunSegment guard),
@@ -563,9 +573,12 @@ struct ActiveWorkoutView: View {
               // lands in his HUD the moment the screen is free.
               !showPM5Sheet, !showSegmentVideo else { return }
         autoOpenedRunSegment = session.currentSegmentIndex
-        switch env {
-        case .treadmill: showTreadmill = true
-        case .outdoor:   showOutdoor = true
+        switch RunCoverAutoOpen.decide(environment: env) {
+        case .treadmill(let sinCinta):
+            treadmillEmpiezaSinCinta = sinCinta
+            showTreadmill = true
+        case .outdoor:
+            showOutdoor = true
         }
     }
 
@@ -659,12 +672,16 @@ struct ActiveWorkoutView: View {
     // Start phone GPS only on run segments (and only if not denied); stop it
     // otherwise so we don't hold the location indicator during erg/strength work.
     private func updateRunGPS() {
-        // While the outdoor GPS HUD (#64) is up it OWNS the location stream (its own
-        // provider feeds the session); running ours too would double-count distance,
-        // so stand down until it closes. On a TREADMILL run the GPS stays off
-        // entirely — indoor GPS noise reads as phantom pace ("números aleatorios");
-        // the belt is the distance source.
-        if isRunSegment && !showOutdoor && session.runEnvironment != .treadmill {
+        // Indoor / cinta: GPS off. Calle: GPS only when the street screen is not
+        // already owning the stream. Wrist recording does not change ownGPS here —
+        // `RunPhoneSensorPlan` already encodes that split.
+        let plan = RunPhoneSensorPlan.decide(
+            isRunSegment: isRunSegment,
+            environment: session.runEnvironment,
+            streetScreenOwnsSurface: showOutdoor,
+            wristIsRecording: PhoneMirrorService.shared.wristJoined
+        )
+        if plan.ownGPS {
             runGPS.start()
         } else {
             runGPS.stop()
@@ -887,7 +904,7 @@ struct ActiveWorkoutView: View {
                 topStrip
             } sujeto: {
                 RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { showTreadmill = true },
+                           onTapTreadmill: { openTreadmillCover() },
                            onTapOutdoor: { showOutdoor = true })
             } apoyos: {
                 apoyosDelHost
@@ -955,7 +972,7 @@ struct ActiveWorkoutView: View {
                 connectPM5CTA
             }
             if liveScanPath.showTreadmillEntry {
-                TreadmillEntryButton(action: { showTreadmill = true })
+                TreadmillEntryButton(action: { openTreadmillCover() })
             }
             if isRunSeriesSegment, SuperficieViva.de(session) != .run {
                 OutdoorEntryButton(action: { showOutdoor = true })

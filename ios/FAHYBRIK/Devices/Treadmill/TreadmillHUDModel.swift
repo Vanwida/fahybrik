@@ -553,6 +553,17 @@ final class TreadmillHUDModel {
     /// field reads 0 mid-run. Nil is NOT a value to paint: `sinLecturaMotivo` says why.
     var livePaceSecPerKm: Int? { speedResolver.paceSecPerKm }
 
+    /// Hero pace: belt when it is moving, else the session's covered pace (HK indoor
+    /// via `RunDistanceAuthority`). Never the plan target.
+    var heroPaceSecPerKm: Int? { livePaceSecPerKm ?? session.liveCoveredPaceSecPerKm }
+
+    /// Metros del tramo que pinta el HUD: cinta si ella firma, si no lo que
+    /// `RunDistanceAuthority` ya aceptó (HK indoor del reloj).
+    var coveredMeters: Double {
+        if session.lapBeltOwnsDistance { return legDistanceM }
+        return session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters ?? 0
+    }
+
     /// Preferred HR: the BLE strap when live, else the watch/HealthKit stream the
     /// workout already receives (Apple Watch works with no extra plumbing).
     var currentBpm: Int? {
@@ -602,6 +613,9 @@ final class TreadmillHUDModel {
     /// esto sólo se usa cuando la magnitud es nil, y distingue las cuatro razones
     /// por las que puede serlo — que llevan a cuatro cosas distintas que hacer.
     var sinLecturaMotivo: String {
+        if session.runEnvironment == .indoor && !treadmillLink.isLive {
+            return "sin reloj ni cinta"
+        }
         if !treadmillLink.isLive { return "sin conectar" }
         if latest.lastUpdate == .distantPast { return "esperando a la cinta" }
         if telemetrySilent { return "la cinta no envía datos" }
@@ -625,7 +639,7 @@ final class TreadmillHUDModel {
     var heroStatus: TargetStatus {
         if isRecovery { return .unknown }
         switch runTarget {
-        case .pace: return runTarget.paceStatus(currentSecPerKm: livePaceSecPerKm)
+        case .pace: return runTarget.paceStatus(currentSecPerKm: heroPaceSecPerKm)
         case .zone: return runTarget.zoneStatus(currentZone: liveZone)
         case .none: return .unknown
         }
@@ -654,7 +668,7 @@ final class TreadmillHUDModel {
     var progressFraction: Double {
         switch currentLeg.goal {
         case let .distance(target):
-            return target > 0 ? min(1, max(0, legDistanceM / target)) : 0
+            return target > 0 ? min(1, max(0, coveredMeters / target)) : 0
         case let .time(target):
             guard target > 0 else { return 0 }
             let remaining = legTimeRemaining ?? Double(target)
@@ -709,14 +723,14 @@ final class TreadmillHUDModel {
     /// whether (and what) to speak; the hysteresis / split rules live in its engine.
     private func feedAudioCoach() {
         guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
-        if !isRecovery, case .pace = runTarget, let pace = livePaceSecPerKm {
+        if !isRecovery, case .pace = runTarget, let pace = heroPaceSecPerKm {
             AudioCoach.shared.paceUpdate(status: runTarget.paceStatus(currentSecPerKm: pace),
                                          deltaSec: runTarget.paceDeviationSecPerKm(currentSecPerKm: pace))
         }
         // Km splits are a CONTINUOUS-run concept; a series / structured run announces
         // per tramo instead, so it never gets a competing split.
         if !isStructured, !isSeries, !isRecovery {
-            AudioCoach.shared.distanceUpdate(distanceM: legDistanceM, elapsedS: legElapsedEffective)
+            AudioCoach.shared.distanceUpdate(distanceM: coveredMeters, elapsedS: legElapsedEffective)
         }
     }
 
@@ -754,7 +768,9 @@ final class TreadmillHUDModel {
     /// resumes at zero — the SEGMENT total is still persisted correctly.
     private func rehydrateContinuousLegFromSession() {
         guard !isStructured, !isSeries else { return }
-        let already = session.lapBeltDistanceMeters
+        let already = session.lapBeltOwnsDistance
+            ? session.lapBeltDistanceMeters
+            : (session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters ?? 0)
         guard already > 0 else { return }
         legDistanceM = already
         pendingRehydratedLegDistanceM = already
@@ -776,7 +792,7 @@ final class TreadmillHUDModel {
         guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
         let leg = currentLeg
         guard leg.ownsAutoAdvance, autoAdvancedLegKey != activeLegKey else { return }
-        guard leg.goal.isComplete(distanceM: legDistanceM, elapsedS: legElapsedEffective) else { return }
+        guard leg.goal.isComplete(distanceM: coveredMeters, elapsedS: legElapsedEffective) else { return }
         isComplete = true
         Haptics.success()
         autoAdvancedLegKey = activeLegKey

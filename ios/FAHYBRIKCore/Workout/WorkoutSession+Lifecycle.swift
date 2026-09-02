@@ -12,15 +12,7 @@ extension WorkoutSession {
         #if os(iOS)
         MainActor.assumeIsolated {
             LiveWorkoutResume.shared.track(self)
-            let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
-            PhoneWorkoutRun.shared.startIfNeeded(
-                activityKind: kind,
-                diskOffset: elapsedSeconds,
-                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial,
-                runUUID: hkSessionUUID
-            )
-            if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
-            PhoneWorkoutRun.shared.startMirroring()
+            ensurePhoneWorkoutRun()
         }
         #endif
         guard timer == nil else { return }
@@ -53,6 +45,25 @@ extension WorkoutSession {
         }
         persistNow()
     }
+
+    #if os(iOS)
+    /// Bind / create the iPhone HK session once the athlete's indoor/outdoor
+    /// answer is known. Idempotent: `startIfNeeded` no-ops if Apple already owns one.
+    func ensurePhoneWorkoutRun() {
+        MainActor.assumeIsolated {
+            let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
+            PhoneWorkoutRun.shared.startIfNeeded(
+                activityKind: kind,
+                diskOffset: elapsedSeconds,
+                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial,
+                runUUID: hkSessionUUID,
+                environment: runEnvironment
+            )
+            if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
+            PhoneWorkoutRun.shared.startMirroring()
+        }
+    }
+    #endif
 
     func stop() {
         timer?.invalidate()
