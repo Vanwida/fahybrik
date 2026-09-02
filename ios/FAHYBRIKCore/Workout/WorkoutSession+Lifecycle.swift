@@ -47,8 +47,8 @@ extension WorkoutSession {
     }
 
     #if os(iOS)
-    /// Bind / create the iPhone HK session once the athlete's indoor/outdoor
-    /// answer is known. Idempotent: `startIfNeeded` no-ops if Apple already owns one.
+    /// Bind the hang-off UUID and launch the Watch to create the PRIMARY
+    /// (`startWatchApp`) once calle/cinta is known. Idempotent.
     func ensurePhoneWorkoutRun() {
         MainActor.assumeIsolated {
             let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
@@ -60,7 +60,7 @@ extension WorkoutSession {
                 environment: runEnvironment
             )
             if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
-            PhoneWorkoutRun.shared.startMirroring()
+            PhoneMirrorService.shared.launchWatchIfNeeded()
         }
     }
     #endif

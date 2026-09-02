@@ -3,9 +3,8 @@ import XCTest
 
 // EL ÁRBOL DEL LIVE — una superficie, nunca nil, nunca el cromo C.
 //
-// Quien gana pinta la pantalla entera. Cerrar la tapa de la cinta no cambia el
-// tramo: `maybeAutoOpenRunCover` no reabre, y `SuperficieViva.de` sigue siendo
-// `.run` (MarcoVivo), no el phaseRail PRINCIPAL + TERMINAR 40 pt.
+// Quien gana pinta la pantalla entera. Correr (`.run` / `.runStructure`) monta
+// Outdoor/Treadmill EN SITIO (`RunLiveChrome`); no hay tapa encima de otro HUD.
 
 final class SuperficieVivaTests: XCTestCase {
 
@@ -138,6 +137,43 @@ final class SuperficieVivaTests: XCTestCase {
         s.stop()
         XCTAssertTrue(s.isRunStructureActive)
         XCTAssertEqual(SuperficieViva.de(s), .runStructure)
+    }
+
+    /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
+    /// encima. El calentamiento es la primera pierna de la misma estructura.
+    func testLibreRunConCalentamientoEsUnSoloCromoEnSitio() {
+        let calentamiento = RunElement.segment(RunSegment(
+            kind: .work, measure: .duration(s: 600), target: .hrZone(2), resolved: nil,
+            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
+        ))
+        let principal = RunElement.segment(RunSegment(
+            kind: .work, measure: .distance(m: 5000), target: .hrZone(3), resolved: nil,
+            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
+        ))
+        let rx = Prescription(scheme: .steady, modality: .run, sets: nil,
+                              rounds: nil, workS: nil, restS: nil, totalS: nil,
+                              target: nil, note: nil, start: nil, increment: nil,
+                              structure: [
+                                RunPhase(role: .warmup, elements: [calentamiento]),
+                                RunPhase(role: .main, elements: [principal]),
+                              ])
+        let tramo = WorkoutSegment(order: 1, title: "Libre", kind: .running,
+                                   blockTitle: "Principal", blockPosition: 1,
+                                   prescription: rx)
+        let s = WorkoutSession(plan: plan([tramo], nombre: "Libre", formato: .steady))
+        s.start()
+        s.beginBlock()
+        s.stop()
+        XCTAssertEqual(s.currentRunLeg?.phaseRole, .warmup)
+        XCTAssertEqual(SuperficieViva.de(s), .runStructure)
+        XCTAssertEqual(RunLiveChrome.de(s), .host,
+                       "sin calle/cinta el host espera la puerta — no una tapa")
+        s.runEnvironment = .outdoor
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+        s.runEnvironment = .indoor
+        XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: true))
+        s.runEnvironment = .treadmill
+        XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
     }
 
     func testTodasLasRamasVivasExistenYNingunaEsElArbolViejo() {

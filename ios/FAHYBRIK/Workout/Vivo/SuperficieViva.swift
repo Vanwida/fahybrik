@@ -65,4 +65,29 @@ enum SuperficieViva: Equatable, Hashable {
             return false
         }
     }
+
+    /// Carrera estructurada o rodaje: estas dos ramas son UN live.
+    var esCarrera: Bool {
+        self == .run || self == .runStructure
+    }
+}
+
+/// Quién pinta el live de correr — EN SITIO, no una tapa encima de otro HUD.
+///
+/// `OutdoorRunHUDView` / `TreadmillHUDView` ya se declararon superficie viva
+/// el 5-ago (no cover). `maybeAutoOpenRunCover` seguía abriendo esa tapa sobre
+/// `HostVivo`+`RunLiveHUD`: dos lives a la vez (FH-66, libre + calentamiento).
+enum RunLiveChrome: Equatable {
+    case outdoor
+    case treadmill(empiezaSinCinta: Bool)
+    case host
+
+    static func de(_ session: WorkoutSession) -> RunLiveChrome {
+        guard SuperficieViva.de(session).esCarrera,
+              let env = session.runEnvironment else { return .host }
+        switch RunCoverAutoOpen.decide(environment: env) {
+        case .outdoor: return .outdoor
+        case .treadmill(let sinCinta): return .treadmill(empiezaSinCinta: sinCinta)
+        }
+    }
 }

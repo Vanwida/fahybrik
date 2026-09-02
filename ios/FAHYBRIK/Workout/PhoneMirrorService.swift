@@ -4,15 +4,19 @@ import HealthKit
 
 // PHONE side of MIRROR MODE — the 90% session. The athlete drives the workout from
 // the iPhone (this app's rich UI runs the ONE engine, WorkoutSession) while the
-// Apple Watch RECORDS it (HKWorkoutSession → live HR/kcal, one HKWorkout) and shows
-// a glanceable HUD in step. The wrist never runs a second engine that could drift:
-// it relays control taps and streams HR, and this service pushes 1 Hz state frames.
+// Apple Watch RECORDS it (primary HKWorkoutSession → live HR/kcal, one HKWorkout)
+// and shows a glanceable HUD in step. The wrist never runs a second engine.
 //
-// Transport is the HealthKit mirrored-session app-data channel, NOT WatchConnectivity
-// (see MirrorWireModels). We register the mirroring start handler EARLY, remote-start
-// the watch app with an HKWorkoutConfiguration, adopt the mirrored HKWorkoutSession
-// when it arrives, and speak MirrorEnvelope both ways. Non-blocking throughout: if the
-// wrist never joins, the phone runs the workout alone.
+// Apple (WWDC23 / `startWatchApp` / `startMirroringToCompanionDevice`):
+//   1. iPhone calls `startWatchApp(with:)` — "to create a new workout session".
+//   2. Watch `handle(_:)` creates the PRIMARY and calls
+//      `startMirroringToCompanionDevice` (watchOS 10 → companion iOS).
+//   3. iPhone `workoutSessionMirroringStartHandler` receives the MIRRORED session.
+// Minting a primary on iPhone made HealthKit 3 ("not currently mirroring") and
+// left the wrist with nothing to adopt — FH-66 / reopened FH-30.
+//
+// Transport is the HealthKit mirrored-session channel, not WatchConnectivity.
+// Non-blocking: if the wrist never joins, the phone runs the workout alone.
 @MainActor
 @Observable
 final class PhoneMirrorService {
@@ -113,6 +117,10 @@ final class PhoneMirrorService {
     /// free workouts: short sessions + cold watch launch). The next `adopt` sends
     /// this immediately so the wrist never records forever with no owner.
     @ObservationIgnored private var pendingEndSave: Bool? = nil
+    /// Watch vocabulary from `begin` — `startWatchApp` waits for run environment.
+    @ObservationIgnored private var activityKind: String = "mixed"
+    /// One launch per `begin`. Reset when a new session binds.
+    @ObservationIgnored private var didLaunchWatch = false
 
     private init() {}
 
@@ -134,11 +142,7 @@ final class PhoneMirrorService {
         guard !didRegisterHandler, HKHealthStore.isHealthDataAvailable() else { return }
         didRegisterHandler = true
         healthStore.workoutSessionMirroringStartHandler = { [weak self] incoming in
-            Task { @MainActor in
-                guard let self else { return }
-                if PhoneWorkoutRun.shared.hasPrimarySession { return }
-                self.adopt(incoming)
-            }
+            Task { @MainActor in self?.adopt(incoming) }
         }
     }
 
@@ -173,16 +177,68 @@ final class PhoneMirrorService {
     /// "mixed") — the same string WatchConnectivityiOSService.activityKind emits.
     func begin(session: WorkoutSession, activityKind: String) {
         self.session = session
+        self.activityKind = activityKind
         endedWorkoutUuid = nil
         wristRecordedWorkout = false   // one flag per session; the previous one is over
         wristFinishedByAthlete = false // idem: el final de la sesión anterior no cuenta aquí
         pendingEndSave = nil           // a new session cancels any orphaned end intent
+        didLaunchWatch = false
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()
-        PhoneWorkoutRun.shared.startMirroring()
+        launchWatchIfNeeded()
         startFrameLoop()
         tickFrame()
     }
+
+    /// Apple `startWatchApp(with:)` — launches the wrist to CREATE the primary.
+    /// A running session waits until the athlete answers calle/cinta: locationType
+    /// is immutable on `HKWorkoutConfiguration`.
+    func launchWatchIfNeeded() {
+        guard session != nil, HKHealthStore.isHealthDataAvailable() else { return }
+        if activityKind == "running", session?.runEnvironment == nil { return }
+        guard !didLaunchWatch, !wristJoined else { return }
+        didLaunchWatch = true
+        watchLaunchGeneration += 1
+        let generation = watchLaunchGeneration
+        let config = HKWorkoutConfiguration()
+        config.activityType = Self.activityType(for: activityKind)
+        config.locationType = WorkoutLocationType.resolve(
+            activityKind: activityKind,
+            environment: session?.runEnvironment
+        )
+        Task { [weak self] in
+            guard let self else { return }
+            try? await self.healthStore.requestAuthorization(
+                toShare: [HKObjectType.workoutType()], read: []
+            )
+            await self.launchWatchApp(config, generation: generation)
+        }
+    }
+
+    /// Launch the watch app with up to `watchLaunchAttempts` tries, a few seconds
+    /// apart — stopping early once a launch reports success, the wrist has joined,
+    /// or a newer begin()/end() superseded this loop.
+    private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
+        for attempt in 1...Self.watchLaunchAttempts {
+            guard generation == watchLaunchGeneration, !wristJoined else { return }
+            let launched: Bool = await withCheckedContinuation { cont in
+                healthStore.startWatchApp(with: config) { ok, _ in
+                    cont.resume(returning: ok)
+                }
+            }
+            if launched || wristJoined { return }
+            guard attempt < Self.watchLaunchAttempts else { return }
+            try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
+        }
+    }
+
+    /// Reattach a mirrored session Apple recovered after process death.
+    func attachRecovered(_ incoming: HKWorkoutSession) {
+        adopt(incoming)
+    }
+
+    func pauseRemote() { mirrored?.pause() }
+    func resumeRemote() { mirrored?.resume() }
 
     /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
     /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
@@ -209,7 +265,7 @@ final class PhoneMirrorService {
         // encontraba el entreno todavía abierto en la muñeca, con su propio final
         // y su propio guardado que hacer otra vez.
         WatchConnectivityiOSService.shared.endLiveWorkout()
-        guard PhoneWorkoutRun.shared.hasPrimarySession || mirrored != nil else {
+        guard mirrored != nil else {
             pendingEndSave = save
             return
         }
@@ -318,7 +374,7 @@ final class PhoneMirrorService {
 
     private func tickFrame() {
         guard let session else { return }
-        guard PhoneWorkoutRun.shared.hasPrimarySession || mirrored != nil else { return }
+        guard mirrored != nil else { return }
         // Always send at least the first frame of a session (lastSentKey empty),
         // and re-send when structure changes or the heartbeat elapses. Free
         // strength used to sit black on the wrist until something structural
@@ -873,10 +929,6 @@ final class PhoneMirrorService {
     private func send<P: Encodable>(_ type: String, _ payload: P) {
         if let sendOverride { sendOverride(type); return }
         guard let data = MirrorEnvelope.encoding(type: type, payload) else { return }
-        if PhoneWorkoutRun.shared.hasPrimarySession {
-            PhoneWorkoutRun.shared.sendToWatch(data)
-            return
-        }
         guard let mirrored else { return }
         Task { try? await mirrored.sendToRemoteWorkoutSession(data: data) }
     }

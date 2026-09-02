@@ -85,6 +85,19 @@ final class WorkoutLocationTypeTests: XCTestCase {
     // El escritor del teléfono ya lo tenía bien y esta prueba lo deja clavado: la
     // respuesta del atleta decide, y sólo correr admite exterior.
     @MainActor
+    func testPhoneDoesNotMintAPrimaryWorkoutSession() {
+        PhoneWorkoutRun.shared.end()
+        PhoneWorkoutRun.shared.startIfNeeded(
+            activityKind: "running",
+            environment: .outdoor
+        )
+        XCTAssertNil(PhoneWorkoutRun.shared.session,
+                     "el Primary lo crea el reloj; el iPhone no mina uno")
+        XCTAssertFalse(PhoneWorkoutRun.shared.hasPrimarySession)
+        PhoneWorkoutRun.shared.end()
+    }
+
+    @MainActor
     func testPhoneWorkoutRunHonorsIndoorEnvironment() {
         XCTAssertEqual(
             PhoneWorkoutRun.locationType(for: "running", environment: .indoor),
