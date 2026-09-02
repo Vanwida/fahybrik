@@ -32,7 +32,11 @@ enum SuperficieViva: Equatable, Hashable {
     /// `ErgHUDContent` dentro de `MarcoVivo`, no `EmomVivoView` ni el cromo C.
     static func de(_ session: WorkoutSession) -> SuperficieViva {
         if session.currentSegmentIsPartnerRelay { return .relay }
-        if session.currentBlockIsStructural { return .structural }
+        // Warmup that opens a run lives in the run chrome (same view). A mobility
+        // warmup with no run after still uses the structural host.
+        if session.currentBlockIsStructural && !session.calentamientoEnLaCarrera {
+            return .structural
+        }
         if session.isRunStructureActive { return .runStructure }
         if session.isTramoResting { return .rest }
         if session.tramoIsErg { return .ergo }
@@ -53,6 +57,7 @@ enum SuperficieViva: Equatable, Hashable {
         // tramo is running even though the segment kind is not. Existing RunLiveHUD
         // / Watch indoor / manual — not a remo strip.
         if session.tramoIsRun { return .run }
+        if session.calentamientoEnLaCarrera { return .run }
         if session.currentSegment?.isConditioningTimer == true { return .conditioning }
         return .fuerza
     }
@@ -75,15 +80,15 @@ enum SuperficieViva: Equatable, Hashable {
 /// Quién pinta el live de correr — EN SITIO, no una tapa encima de otro HUD.
 ///
 /// `OutdoorRunHUDView` / `TreadmillHUDView` ya se declararon superficie viva
-/// el 5-ago (no cover). `maybeAutoOpenRunCover` seguía abriendo esa tapa sobre
-/// `HostVivo`+`RunLiveHUD`: dos lives a la vez (FH-66, libre + calentamiento).
+/// el 5-ago (no cover). El calentamiento que abre una carrera vive en ESTE
+/// cromo (FH-55): no hay HostVivo debajo ni tapa encima.
 enum RunLiveChrome: Equatable {
     case outdoor
     case treadmill(empiezaSinCinta: Bool)
     case host
 
     static func de(_ session: WorkoutSession) -> RunLiveChrome {
-        guard SuperficieViva.de(session).esCarrera,
+        guard SuperficieViva.de(session).esCarrera || session.calentamientoEnLaCarrera,
               let env = session.runEnvironment else { return .host }
         switch RunCoverAutoOpen.decide(environment: env) {
         case .outdoor: return .outdoor

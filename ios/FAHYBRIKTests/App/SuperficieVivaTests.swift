@@ -139,6 +139,51 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .runStructure)
     }
 
+    /// Bloque Calentamiento (jog) + Principal (carrera): el calentamiento YA
+    /// es el cromo nuevo. Al cerrar el bloque, la carrera sigue en el mismo.
+    func testCalentamientoQueAbreCarreraEsElMismoCromo() {
+        let s = sesionCalentamientoMasCarrera(jog: true)
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.calentamientoEnLaCarrera)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertTrue(SuperficieViva.de(s).esCarrera)
+        XCTAssertEqual(RunLiveChrome.de(s), .host,
+                       "sin calle/cinta el host espera la puerta — no una tapa")
+        s.runEnvironment = .outdoor
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+        s.completeStructuralBlock()
+        XCTAssertEqual(s.currentSegment?.title, "5K")
+        XCTAssertFalse(s.currentBlockIsStructural)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+    }
+
+    func testCalentamientoDeMovilidadAntesDeCarreraUsaElMismoCromo() {
+        let s = sesionCalentamientoMasCarrera(jog: false)
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.calentamientoEsListaEnLaCarrera)
+        XCTAssertEqual(SuperficieViva.de(s), .run,
+                       "no el host estructural: el live es calle/cinta")
+        s.runEnvironment = .treadmill
+        XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
+        s.completeStructuralBlock()
+        XCTAssertEqual(s.currentSegment?.kind, .running)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
+    }
+
+    func testCalentamientoSinCarreraSigueSiendoEstructural() {
+        let s = sesion(tramo: WorkoutSegment(
+            order: 1, title: "Movilidad", kind: .reps,
+            blockTitle: "Calentamiento", blockPosition: 1
+        ), nombre: "Solo movilidad", formato: .warmup)
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertFalse(s.calentamientoEnLaCarrera)
+        XCTAssertEqual(SuperficieViva.de(s), .structural)
+    }
+
     /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
     /// encima. El calentamiento es la primera pierna de la misma estructura.
     func testLibreRunConCalentamientoEsUnSoloCromoEnSitio() {
@@ -227,6 +272,19 @@ final class SuperficieVivaTests: XCTestCase {
         return s
     }
 
+
+    private func sesionCalentamientoMasCarrera(jog: Bool) -> WorkoutSession {
+        let wu = jog
+            ? WorkoutSegment(order: 1, title: "Jog", kind: .running,
+                             targetDurationSeconds: 600,
+                             blockTitle: "Calentamiento", blockPosition: 1)
+            : WorkoutSegment(order: 1, title: "Movilidad", kind: .reps,
+                             blockTitle: "Calentamiento", blockPosition: 1)
+        let run = WorkoutSegment(order: 2, title: "5K", kind: .running,
+                                 targetDistanceMeters: 5000,
+                                 blockTitle: "Principal", blockPosition: 2)
+        return WorkoutSession(plan: plan([wu, run], nombre: "Hoy", formato: .steady))
+    }
 
     private func sesionDeRodaje() -> WorkoutSession {
         sesion(tramo: WorkoutSegment(

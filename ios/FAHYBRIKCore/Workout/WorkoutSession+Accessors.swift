@@ -140,6 +140,38 @@ extension WorkoutSession {
         return phase == .warmup || phase == .cooldown
     }
 
+    /// El calentamiento es un bloque del live de correr, no otra pantalla.
+    /// Este bloque corre, o el siguiente es una carrera: el cromo es calle/cinta
+    /// desde el primer toque. Al cerrar el bloque, la carrera sigue en esa vista.
+    /// El checklist viejo debajo de Outdoor/Treadmill era el stack (FH-55).
+    var calentamientoEnLaCarrera: Bool {
+        guard currentBlockIsStructural,
+              currentBlockRegion?.phase == .warmup,
+              let region = currentBlockRegion else { return false }
+        if regionHasRun(region) { return true }
+        let next = region.lastIndex + 1
+        guard next < plan.segments.count,
+              let siguiente = plan.blockRegion(containing: next) else { return false }
+        return regionHasRun(siguiente)
+    }
+
+    /// Checklist (movilidad) dentro del cromo de correr — no un jog.
+    var calentamientoEsListaEnLaCarrera: Bool {
+        calentamientoEnLaCarrera
+            && currentSegment?.kind != .running
+            && currentSegment?.hasRunStructure != true
+    }
+
+    var tituloHechoEstructural: String {
+        currentBlockRegion?.phase == .cooldown
+            ? "VUELTA A LA CALMA HECHA"
+            : "CALENTAMIENTO HECHO"
+    }
+
+    private func regionHasRun(_ region: WorkoutBlockRegion) -> Bool {
+        plan.segments(in: region).contains { $0.kind == .running || $0.hasRunStructure }
+    }
+
     /// The completeness lock (concept §B / decision F.2): TRUE when the session
     /// holds at least one unit of REAL work — a closed working lap or live progress
     /// on a NON-structural segment. Warmup/cooldown completions are EXCLUDED: a

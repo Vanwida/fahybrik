@@ -586,12 +586,13 @@ struct ActiveWorkoutView: View {
         showTreadmill = true
     }
 
-    // A run / runStructure already IS Outdoor/Treadmill via `RunLiveChrome`.
-    // Opening a cover on top of HostVivo was the second live (FH-66).
-    // Other superficies (a run station inside a folded format) still use a
-    // cover so they can reach the street/cinta HUD without changing the tree.
+    // A run / runStructure / warmup-of-the-run already IS Outdoor/Treadmill
+    // via `RunLiveChrome`. Opening a cover on top of HostVivo was the stack
+    // (FH-55 leftover on 49). Folded-format run stations still use a cover.
     private func maybeAutoOpenRunCover() {
         if SuperficieViva.de(session).esCarrera { return }
+        if session.calentamientoEnLaCarrera { return }
+        if RunLiveChrome.de(session) != .host { return }
         guard let env = session.runEnvironment,
               isRunSegment,
               !session.isAwaitingBlockStart,
@@ -626,7 +627,8 @@ struct ActiveWorkoutView: View {
         skippedErgRoles = []
         skippedUnscopedErg = false
         let segs = upcomingBlockSegments
-        if segs.contains(where: { $0.kind == .running }), session.runEnvironment == nil {
+        if session.runEnvironment == nil,
+           segs.contains(where: { $0.kind == .running }) || session.calentamientoEnLaCarrera {
             showRunGate = true
         } else if presentErgGateIfNeeded() {
             return
@@ -932,11 +934,19 @@ struct ActiveWorkoutView: View {
     }
 
     /// One live for correr. Outdoor / cinta mount in place once calle/cinta
-    /// is known and the block is running. HostVivo+RunLiveHUD only while the
-    /// gate still holds — never a second cover on top (FH-66).
+    /// is known — including the warmup block that opens that run. HostVivo
+    /// only while the gate still holds. Never a second cover on top (FH-55).
     @ViewBuilder
     private var cromoDeCarrera: some View {
-        if session.isAwaitingBlockStart {
+        switch RunLiveChrome.de(session) {
+        case .outdoor:
+            OutdoorRunHUDView(session: session, hrZones: hrZones,
+                              alSalir: { requestExit() })
+        case .treadmill(let sinCinta):
+            TreadmillHUDView(session: session, hrZones: hrZones,
+                             empiezaSinCinta: sinCinta,
+                             alSalir: { requestExit() })
+        case .host:
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip
             } sujeto: {
@@ -945,26 +955,6 @@ struct ActiveWorkoutView: View {
                            onTapOutdoor: { showOutdoor = true })
             } apoyos: {
                 apoyosDelHost
-            }
-        } else {
-            switch RunLiveChrome.de(session) {
-            case .outdoor:
-                OutdoorRunHUDView(session: session, hrZones: hrZones,
-                                  alSalir: { requestExit() })
-            case .treadmill(let sinCinta):
-                TreadmillHUDView(session: session, hrZones: hrZones,
-                                 empiezaSinCinta: sinCinta,
-                                 alSalir: { requestExit() })
-            case .host:
-                HostVivo(session: session, accion: accionDelHost) {
-                    topStrip
-                } sujeto: {
-                    RunLiveHUD(session: session, gpsActive: gpsActive,
-                               onTapTreadmill: { openTreadmillCover() },
-                               onTapOutdoor: { showOutdoor = true })
-                } apoyos: {
-                    apoyosDelHost
-                }
             }
         }
     }
@@ -1094,9 +1084,7 @@ struct ActiveWorkoutView: View {
     private var primaryTitle: String {
         // Warmup / cooldown: one tap closes the whole structural block.
         if session.currentBlockIsStructural {
-            return session.currentBlockRegion?.phase == .cooldown
-                ? "VUELTA A LA CALMA HECHA"
-                : "CALENTAMIENTO HECHO"
+            return session.tituloHechoEstructural
         }
         // #61 structured run: skip the count-in, then advance the leg cursor. A WORK
         // leg is closed by "TRAMO HECHO" (the honest manual/belt affordance — a

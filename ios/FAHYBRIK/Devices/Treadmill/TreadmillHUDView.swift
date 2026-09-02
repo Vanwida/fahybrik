@@ -66,6 +66,8 @@ struct TreadmillHUDView: View {
                     connectingState
                 } else if model.isCountIn {
                     countInState
+                } else if model.session.calentamientoEsListaEnLaCarrera {
+                    calentamientoEnCinta
                 } else if isLandscape {
                     landscapeLiveHUD
                 } else {
@@ -100,6 +102,36 @@ struct TreadmillHUDView: View {
             TreadmillControlDebugSheet(model: model)
         }
         #endif
+    }
+
+    /// Movilidad del calentamiento: el mismo cromo de cinta, no otra pantalla.
+    @ViewBuilder
+    private var calentamientoEnCinta: some View {
+        if let region = model.session.currentBlockRegion {
+            StructuralBlockChecklist(
+                segments: model.session.plan.segments(in: region),
+                phaseName: region.phase.displayName
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            BotonVivo(titulo: model.session.tituloHechoEstructural, unicaSalida: true) {
+                model.session.completeStructuralBlock()
+            }
+        }
+    }
+
+    /// Cierra el bloque de calentamiento o el tramo de carrera — un toque.
+    private func cerrarTramoOCalentamiento() {
+        if model.session.currentBlockIsStructural {
+            model.session.completeStructuralBlock()
+        } else {
+            model.endLegNow()
+        }
+    }
+
+    private var tituloCierreDeTramo: String {
+        model.session.currentBlockIsStructural
+            ? model.session.tituloHechoEstructural
+            : "TERMINAR TRAMO"
     }
 
     // MARK: - Header (chips + close)
@@ -349,7 +381,10 @@ struct TreadmillHUDView: View {
                     startButton { model.startBelt() }
                 }
             } else {
-                BotonVivo(titulo: "TERMINAR TRAMO") { model.endLegNow() }
+                BotonVivo(titulo: tituloCierreDeTramo,
+                           unicaSalida: model.session.currentBlockIsStructural) {
+                    cerrarTramoOCalentamiento()
+                }
             }
         }
     }
@@ -752,13 +787,21 @@ struct TreadmillHUDView: View {
                         stopButton { model.stopBelt() }
                     } else {
                         startButton { model.startBelt() }
-                        BotonVivo(titulo: "TERMINAR TRAMO") { model.endLegNow() }
+                        BotonVivo(titulo: tituloCierreDeTramo,
+                                   unicaSalida: model.session.currentBlockIsStructural) {
+                            cerrarTramoOCalentamiento()
+                        }
                     }
                 } else {
                     // Manual-speed belt (athlete starts/stops on the console) OR read-only →
                     // the app runs the workout flow, never a belt button that would do nothing.
                     BotonVivo(titulo: model.paused ? "REANUDAR" : "PAUSA") { model.togglePause() }
-                    BotonVivo(titulo: "TERMINAR TRAMO AHORA") { model.endLegNow() }
+                    BotonVivo(titulo: model.session.currentBlockIsStructural
+                                ? model.session.tituloHechoEstructural
+                                : "TERMINAR TRAMO AHORA",
+                               unicaSalida: model.session.currentBlockIsStructural) {
+                        cerrarTramoOCalentamiento()
+                    }
                 }
             }
         }

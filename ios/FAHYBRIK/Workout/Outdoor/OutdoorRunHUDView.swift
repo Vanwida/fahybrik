@@ -153,6 +153,11 @@ struct OutdoorRunHUDView: View {
     }
 
     private var tituloTramo: String {
+        if model.session.currentBlockIsStructural {
+            return model.session.currentBlockRegion?.phase.displayName
+                ?? model.currentSegment?.title
+                ?? "Calentamiento"
+        }
         if model.isRecovery { return "Recuperación" }
         return model.currentSegment?.title ?? "Correr"
     }
@@ -176,7 +181,13 @@ struct OutdoorRunHUDView: View {
 
     @ViewBuilder
     private var sujeto: some View {
-        if model.isCountIn {
+        if model.session.calentamientoEsListaEnLaCarrera,
+           let region = model.session.currentBlockRegion {
+            StructuralBlockChecklist(
+                segments: model.session.plan.segments(in: region),
+                phaseName: region.phase.displayName
+            )
+        } else if model.isCountIn {
             EtiquetaSujeto(texto: "Prepárate")
             Numeral(texto: "\(max(0, model.countInRemaining))", tono: Theme.Color.accentText)
             Text("Empieza la carrera")
@@ -436,10 +447,18 @@ struct OutdoorRunHUDView: View {
     /// pinta como la salida. Solo el tramo ABIERTO —el rodaje que no termina hasta
     /// que tú lo dices— se gana el relleno.
     private var accion: some View {
-        FranjaAccion(titulo: model.isStructured ? "TRAMO HECHO" : "HECHO",
-                     unicaSalida: model.currentLeg.goal == .open,
-                     nota: notaDeAccion) {
-            model.endLegNow()
+        if model.session.currentBlockIsStructural {
+            FranjaAccion(titulo: model.session.tituloHechoEstructural,
+                         unicaSalida: true,
+                         nota: nil) {
+                model.session.completeStructuralBlock()
+            }
+        } else {
+            FranjaAccion(titulo: model.isStructured ? "TRAMO HECHO" : "HECHO",
+                         unicaSalida: model.currentLeg.goal == .open,
+                         nota: notaDeAccion) {
+                model.endLegNow()
+            }
         }
     }
 
