@@ -8,8 +8,8 @@ struct FAHYBRIKWatchApp: App {
     @StateObject private var planModel = WatchPlanModel.shared
     @StateObject private var connectivity = WatchConnectivityService.shared
     @State private var coordinator = WatchWorkoutCoordinator.shared
-    // Receives a mirrored session if Apple delivers one (Watch adopts; iPhone owns
-    // the primary). startWatchApp creates a second session — we do not call it.
+    // Apple: Watch is PRIMARY. `startWatchApp` on the phone delivers a
+    // configuration here; we create the session and mirror to the companion.
     @WKApplicationDelegateAdaptor(MirrorAppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -42,10 +42,13 @@ struct FAHYBRIKWatchApp: App {
     }
 }
 
-/// If watchOS delivers a workout configuration (legacy startWatchApp or system
-/// wake), adopt — do not create a second HKWorkoutSession.
+/// Apple `startWatchApp(with:)` on the phone wakes us and passes the
+/// configuration. Create the PRIMARY and mirror it — that is the documented
+/// `handle(_:)` contract (HealthKit / WKApplicationDelegate).
 final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
-        Task { @MainActor in MirrorSessionController.shared.prepareToAdopt() }
+        Task { @MainActor in
+            MirrorSessionController.shared.startPrimary(configuration: workoutConfiguration)
+        }
     }
 }

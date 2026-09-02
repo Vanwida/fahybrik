@@ -2,10 +2,13 @@ import Foundation
 import Observation
 import HealthKit
 
-// MIRROR MODE — the wrist ADOPTS. The iPhone owns the only HKWorkoutSession
-// (primary). This controller never creates a session. Apple delivers the mirrored
-// session via workoutSessionMirroringStartHandler; we render frames the phone
-// pushes. Standalone WatchWorkoutCoordinator still owns phone-less sessions.
+// MIRROR MODE — the wrist is PRIMARY. Apple (HealthKit):
+// `HKWorkoutSessionType.primary` runs on watchOS;
+// `startMirroringToCompanionDevice` (watchOS 10) mirrors to companion iOS;
+// iPhone `workoutSessionMirroringStartHandler` receives the mirrored session.
+//
+// Phone-driven: `startWatchApp` → `handle(_:)` → `startPrimary`.
+// Standalone WatchWorkoutCoordinator still owns phone-less sessions.
 @MainActor
 @Observable
 final class MirrorSessionController: NSObject {
@@ -75,22 +78,71 @@ final class MirrorSessionController: NSObject {
 
     // MARK: - Start
 
-    /// Register the adopt handler. iPhone is primary; we receive the mirrored
-    /// session here. Creating our own HKWorkoutSession would be a second clock.
+    /// Register a fallback handler. Apple calls this on the companion iPhone;
+    /// keeping it here is harmless if a mirrored session ever arrives.
     func prepareToAdopt() {
         store.workoutSessionMirroringStartHandler = { [weak self] incoming in
             Task { @MainActor in self?.adopt(incoming) }
         }
     }
 
-    /// Phone launched us with a workout config (legacy startWatchApp). Adopt —
-    /// do not create a primary.
-    func start(config: HKWorkoutConfiguration) {
-        _ = config
-        prepareToAdopt()
+    /// Apple `handle(_:)` after `startWatchApp`: create the PRIMARY, mirror it
+    /// to the companion iPhone, start activity + live builder. Do not start a
+    /// second coach engine — the phone already owns `WorkoutSession`.
+    func startPrimary(configuration: HKWorkoutConfiguration) {
+        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        Task { await beginPrimary(configuration: configuration) }
     }
 
-    /// Take the mirrored session Apple delivered. Do not `startActivity`.
+    /// Phone launched us with a workout config. Create the primary.
+    func start(config: HKWorkoutConfiguration) {
+        startPrimary(configuration: config)
+    }
+
+    private func beginPrimary(configuration: HKWorkoutConfiguration) async {
+        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
+        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        do {
+            let created = try HKWorkoutSession(healthStore: store, configuration: configuration)
+            let builder = created.associatedWorkoutBuilder()
+            builder.dataSource = HKLiveWorkoutDataSource(
+                healthStore: store,
+                workoutConfiguration: configuration
+            )
+            created.delegate = self
+            builder.delegate = self
+            session = created
+            self.builder = builder
+            state = .recording
+            frame = nil
+            frameReceivedAt = nil
+            liveHR = nil
+            isConnectionLost = false
+            hkPaused = false
+            isClosing = false
+            do {
+                try await created.startMirroringToCompanionDevice()
+            } catch {
+                // Phone unreachable; the primary still records on the wrist.
+            }
+            let start = Date()
+            created.startActivity(with: start)
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                builder.beginCollection(withStart: start) { _, _ in
+                    cont.resume()
+                }
+            }
+            lastSignalAt = start
+            startWatchdog()
+            requestSyncUntilFirstFrame()
+            WatchHaptics.start()
+        } catch {
+            resetToIdle()
+        }
+    }
+
+    /// Take a session Apple delivered already running. Do not `startActivity`.
     func adopt(_ incoming: HKWorkoutSession) {
         guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
         state = .recording

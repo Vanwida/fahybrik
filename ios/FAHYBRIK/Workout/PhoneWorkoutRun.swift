@@ -2,16 +2,18 @@ import Foundation
 import HealthKit
 import Observation
 
-/// iPhone PRIMARY `HKWorkoutSession` when Apple can create it (iOS 26).
-/// FAHYBRID owns only the coach plan hanging off `runUUID`.
+/// Hang-off for the coach plan (`runUUID`) and Apple recover of a *mirrored*
+/// session. FAHYBRID does not mint an iPhone `HKWorkoutSession`.
 ///
-/// Clock: `HKWorkoutSession.startDate` + pause/resume of THAT session
-/// (`WorkoutRunClock`). Create / recover / Live builder /
-/// `associatedWorkoutBuilder` are iOS 26. Deploy 18 has no iOS initializer
-/// (Apple: `init(configuration:)` is watchOS 3 only, unavailable on iOS).
-/// On 18 the coach plan lives on disk; we do not construct a session.
+/// Apple (HealthKit `HKWorkoutSessionType`): primary runs on watchOS;
+/// mirrored runs on the companion iOS device. `startMirroringToCompanionDevice`
+/// is watchOS 10 — Watch → iPhone. There is no iOS symbol that mirrors an
+/// iPhone primary onto the Watch. Creating a primary here made HealthKit
+/// error 3 ("Workout session is not currently mirroring to the companion
+/// device") and left the wrist with nothing to adopt.
 ///
-/// One primary. Watch ADOPTS if Apple delivers a mirrored session.
+/// Clock: if Apple handed us a recovered mirrored session, `startDate` +
+/// pause of THAT session (`WorkoutRunClock`). Otherwise the coach engine.
 @MainActor
 @Observable
 final class PhoneWorkoutRun: NSObject {
@@ -29,7 +31,8 @@ final class PhoneWorkoutRun: NSObject {
     @ObservationIgnored private var pauseBeganAt: Date?
     @ObservationIgnored private var pausedAccumulated: TimeInterval = 0
 
-    /// True while THIS process owns the run (not a session mirrored FROM the Watch).
+    /// True only if this process minted a primary — which we no longer do.
+    /// Kept so older call sites compile; always false after `startIfNeeded`.
     var hasPrimarySession: Bool {
         guard let session else { return false }
         return session.type != .mirrored
@@ -76,9 +79,9 @@ final class PhoneWorkoutRun: NSObject {
         if let id { runUUID = id }
     }
 
-    /// Retain the hang-off UUID. Create Apple's session only on iOS 26
-    /// (`init(healthStore:configuration:)`). Idempotent. iOS 18 does not
-    /// construct — there is no iOS-available initializer below 26.
+    /// Retain the hang-off UUID. Does not construct `HKWorkoutSession`.
+    /// The Watch creates the primary; iPhone adopts via
+    /// `workoutSessionMirroringStartHandler` (`PhoneMirrorService`).
     func startIfNeeded(
         activityKind: String,
         diskOffset: TimeInterval = 0,
@@ -86,40 +89,14 @@ final class PhoneWorkoutRun: NSObject {
         runUUID preferred: UUID? = nil,
         environment: RunEnvironment? = nil
     ) {
+        _ = activityKind
+        _ = environment
         guard session == nil else { return }
         runUUID = runUUID ?? preferred ?? UUID()
         self.diskOffset = max(0, diskOffset)
         pauseBeganAt = nil
         pausedAccumulated = 0
-
-        // `HKWorkoutConfiguration.locationType` is immutable after init.
-        // Creating the session as outdoor at `WorkoutSession.start()` (env still
-        // nil) would lock a later indoor run. Delay until the athlete answers.
-        if activityKind == "running" && environment == nil {
-            if startPaused { pauseBeganAt = Date() }
-            return
-        }
-
-        guard #available(iOS 26.0, *), HKHealthStore.isHealthDataAvailable() else {
-            if startPaused { pauseBeganAt = Date() }
-            return
-        }
-        let config = HKWorkoutConfiguration()
-        config.activityType = Self.activityType(for: activityKind)
-        config.locationType = Self.locationType(for: activityKind, environment: environment)
-        do {
-            let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)
-            session.delegate = delegateShim
-            self.session = session
-            session.startActivity(with: Date())
-            if startPaused { pause() }
-            Task { try? await self.healthStore.requestAuthorization(
-                toShare: HealthKitPermissions.shareTypes, read: []
-            ) }
-        } catch {
-            self.session = nil
-            if startPaused { pauseBeganAt = Date() }
-        }
+        if startPaused { pauseBeganAt = Date() }
     }
 
     /// Reattach a session Apple handed back from `recoverActiveWorkoutSession`.
@@ -146,8 +123,9 @@ final class PhoneWorkoutRun: NSObject {
         pauseBeganAt = isPaused ? Date() : nil
     }
 
-    /// `recoverActiveWorkoutSession` is iOS 26.0 / watchOS 5. On 18 this is a
-    /// no-op — the coach plan on disk reopens the live.
+    /// Apple `recoverActiveWorkoutSession` — reattach a mirrored session the
+    /// Watch is still running. Availability is Apple's, not a homemade split
+    /// of who owns the primary.
     func recover() async -> HKWorkoutSession? {
         if let session { return session }
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
@@ -155,7 +133,9 @@ final class PhoneWorkoutRun: NSObject {
         return await withCheckedContinuation { cont in
             healthStore.recoverActiveWorkoutSession { session, _ in
                 Task { @MainActor in
-                    if let session { self.attachRecovered(session) }
+                    if let session {
+                        PhoneMirrorService.shared.attachRecovered(session)
+                    }
                     cont.resume(returning: session)
                 }
             }
@@ -168,6 +148,7 @@ final class PhoneWorkoutRun: NSObject {
         guard pauseBeganAt == nil else { return }
         pauseBeganAt = Date()
         session?.pause()
+        PhoneMirrorService.shared.pauseRemote()
     }
 
     func resume() {
@@ -176,13 +157,10 @@ final class PhoneWorkoutRun: NSObject {
             pauseBeganAt = nil
         }
         session?.resume()
+        PhoneMirrorService.shared.resumeRemote()
     }
 
-    /// Watch adopts if Apple delivers a mirrored session. Apple docs (HealthKit):
-    /// `startMirroringToCompanionDevice` is watchOS 10 — Watch → companion iOS.
-    /// There is no iOS symbol that mirrors an iPhone primary onto the Watch.
-    /// `startWatchApp` is "to create a new workout session" — we do not call it.
-    /// If the wrist never joins, the phone remains the owner.
+    /// No-op on iOS. Apple: `startMirroringToCompanionDevice` is watchOS 10.
     func startMirroring() {
         #if os(watchOS)
         guard let session, session.type != .mirrored else { return }

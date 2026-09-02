@@ -138,12 +138,22 @@ struct ActiveWorkoutView: View {
             || session.runEnvironment == .treadmill
     }
     /// Chips/CTAs the host must keep mounted after a BLE drop. Pool-by-role for PM5.
+    /// Cinta HUD is the in-place live — host pickers must not fight it.
+    private var cintaHudMontado: Bool {
+        if case .treadmill = RunLiveChrome.de(session) { return !session.isAwaitingBlockStart }
+        return showTreadmill
+    }
+    /// Calle HUD is the in-place live — host GPS must yield.
+    private var calleHudMontado: Bool {
+        RunLiveChrome.de(session) == .outdoor && !session.isAwaitingBlockStart
+    }
+
     private var liveScanPath: LiveDeviceScanPath {
         let store = pickerPM5
         return LiveDeviceScanPath.offer(
             wantsCinta: wantsCinta,
             wantsPM5: isErgSegment,
-            treadmillCoverOpen: showTreadmill,
+            treadmillCoverOpen: cintaHudMontado,
             treadmillLink: hub.treadmill.link,
             pm5State: store.connectionState,
             pm5ConnectionLost: store.connectionLost,
@@ -236,7 +246,6 @@ struct ActiveWorkoutView: View {
             session.beltConnected = hub.treadmillConnected
             attemptProgramPM5()
             updateRunGPS()
-            maybeAutoOpenRunCover()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
             if !PhoneMirrorService.shared.wristJoined {
@@ -270,7 +279,12 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
             // The athlete tapped "Empezar" on a block whose first segment is a run —
             // land them straight in the HUD they chose, not the generic screen.
+            updateRunGPS()
             if !awaiting { maybeAutoOpenRunCover() }
+        }
+        .onChange(of: session.runEnvironment) { _, _ in
+            updateRunGPS()
+            session.ensurePhoneWorkoutRun()
         }
         .onChange(of: showOutdoor) { _, presenting in
             // Hand the GPS to the outdoor HUD when it opens; take it back on close.
@@ -312,10 +326,10 @@ struct ActiveWorkoutView: View {
         // the host so a drop can be recovered without the cover and without
         // beginBlock. Disabled while the treadmill HUD is up — it presents the
         // same channels, and two presenters fight.
-        .sheet(isPresented: livePickerBinding(hub.treadmill, enabled: !showTreadmill)) {
+        .sheet(isPresented: livePickerBinding(hub.treadmill, enabled: !cintaHudMontado)) {
             DevicePickerSheet(channel: hub.treadmill)
         }
-        .sheet(isPresented: livePickerBinding(hub.heartRate, enabled: !showTreadmill)) {
+        .sheet(isPresented: livePickerBinding(hub.heartRate, enabled: !cintaHudMontado)) {
             DevicePickerSheet(channel: hub.heartRate,
                               batteryPercent: hub.hrBatteryPercent)
         }
@@ -572,13 +586,12 @@ struct ActiveWorkoutView: View {
         showTreadmill = true
     }
 
-    // #8 — the athlete answered "¿dónde corres?" before starting: put them straight
-    // in the chosen live HUD (cinta / calle) when a run segment goes live, instead of
-    // a generic GPS screen. Fires ONCE per segment (the autoOpenedRunSegment guard),
-    // so a manual close stays closed until the next run segment.
-    // Cerrar la X de la tapa NO puede devolver el cromo C: `de()` sigue
-    // siendo `.run` y monta `MarcoVivo`. Este guard solo evita reabrir la tapa.
+    // A run / runStructure already IS Outdoor/Treadmill via `RunLiveChrome`.
+    // Opening a cover on top of HostVivo was the second live (FH-66).
+    // Other superficies (a run station inside a folded format) still use a
+    // cover so they can reach the street/cinta HUD without changing the tree.
     private func maybeAutoOpenRunCover() {
+        if SuperficieViva.de(session).esCarrera { return }
         guard let env = session.runEnvironment,
               isRunSegment,
               !session.isAwaitingBlockStart,
@@ -698,7 +711,7 @@ struct ActiveWorkoutView: View {
         let plan = RunPhoneSensorPlan.decide(
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
-            streetScreenOwnsSurface: showOutdoor,
+            streetScreenOwnsSurface: calleHudMontado || showOutdoor,
             wristIsRecording: PhoneMirrorService.shared.wristJoined
         )
         if plan.ownGPS {
@@ -904,15 +917,7 @@ struct ActiveWorkoutView: View {
                 apoyosDelHost
             }
         case .runStructure:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { openTreadmillCover() },
-                           onTapOutdoor: { showOutdoor = true })
-            } apoyos: {
-                apoyosDelHost
-            }
+            cromoDeCarrera
         case .conditioning:
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip
@@ -922,6 +927,16 @@ struct ActiveWorkoutView: View {
                 apoyosDelHost
             }
         case .run:
+            cromoDeCarrera
+        }
+    }
+
+    /// One live for correr. Outdoor / cinta mount in place once calle/cinta
+    /// is known and the block is running. HostVivo+RunLiveHUD only while the
+    /// gate still holds — never a second cover on top (FH-66).
+    @ViewBuilder
+    private var cromoDeCarrera: some View {
+        if session.isAwaitingBlockStart {
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip
             } sujeto: {
@@ -930,6 +945,26 @@ struct ActiveWorkoutView: View {
                            onTapOutdoor: { showOutdoor = true })
             } apoyos: {
                 apoyosDelHost
+            }
+        } else {
+            switch RunLiveChrome.de(session) {
+            case .outdoor:
+                OutdoorRunHUDView(session: session, hrZones: hrZones,
+                                  alSalir: { requestExit() })
+            case .treadmill(let sinCinta):
+                TreadmillHUDView(session: session, hrZones: hrZones,
+                                 empiezaSinCinta: sinCinta,
+                                 alSalir: { requestExit() })
+            case .host:
+                HostVivo(session: session, accion: accionDelHost) {
+                    topStrip
+                } sujeto: {
+                    RunLiveHUD(session: session, gpsActive: gpsActive,
+                               onTapTreadmill: { openTreadmillCover() },
+                               onTapOutdoor: { showOutdoor = true })
+                } apoyos: {
+                    apoyosDelHost
+                }
             }
         }
     }

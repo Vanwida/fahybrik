@@ -38,7 +38,8 @@ final class WorkoutSession {
     /// crash-recovery snapshot so recovery is never cross-attributed. Set by the
     /// container after creation; nil for ad-hoc / free sessions.
     var assignmentId: String? = nil
-    /// Apple `HKWorkoutSession` this coach plan hangs off (iPhone primary).
+    /// Hang-off id for the coach plan. Apple has no `HKWorkoutSession` uuid;
+    /// the Watch owns the primary, the phone adopts the mirrored session.
     var hkSessionUUID: UUID? = nil
     /// Free / ad-hoc — process-death reopen must not require an assignment.
     var isFreeRun: Bool = false
