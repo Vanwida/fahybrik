@@ -195,11 +195,27 @@ enum WatchWireKeys {
     /// Teléfono → reloj: «este entreno ya ha terminado aquí». El reloj cierra su
     /// grabación y vuelve a reposo sin pedir un segundo final.
     ///
+    /// El valor es el save flag (`MirrorEnd.save`). La clave es el aviso: un
+    /// teléfono viejo mandaba `true` de relleno y sigue significando «guarda».
+    ///
     /// Va por este cable y no por el del espejo porque el espejo solo existe
     /// cuando el reloj está reflejando al teléfono: si el reloj llevaba el entreno
     /// por su cuenta, el aviso del espejo no llega a ninguna parte y el atleta se
     /// queda con el entreno abierto en la muñeca.
     static let liveEnd = "live_end_v1"
+}
+
+/// Phone → watch: the iPhone already finished this workout.
+///
+/// Routes to whoever is actually recording (PRIMARY `MirrorSessionController`
+/// or standalone `WatchWorkoutCoordinator`). Each finish path no-ops if idle.
+/// Not a second HK teardown — callers invoke the existing `finish(save:)`.
+enum WatchLiveEnd {
+    /// `nil` = not this aviso. Otherwise `MirrorEnd.save` (non-Bool → save).
+    static func saveFlag(in body: [String: Any]) -> Bool? {
+        guard let raw = body[WatchWireKeys.liveEnd] else { return nil }
+        return (raw as? Bool) ?? true
+    }
 }
 
 // MARK: - Coders (the single encode/decode contract, shared by both ends)

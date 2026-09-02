@@ -276,7 +276,7 @@ final class PhoneMirrorService {
         // su cuenta, este `end` no llegaba a ninguna parte y el atleta se
         // encontraba el entreno todavía abierto en la muñeca, con su propio final
         // y su propio guardado que hacer otra vez.
-        WatchConnectivityiOSService.shared.endLiveWorkout()
+        WatchConnectivityiOSService.shared.endLiveWorkout(save: save)
         guard mirrored != nil else {
             pendingEndSave = save
             return

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
 // MIRROR MODE — the wrist is PRIMARY. Apple (HealthKit):
 // `HKWorkoutSessionType.primary` runs on watchOS;
@@ -77,6 +78,9 @@ final class MirrorSessionController: NSObject {
     /// Later of "recording started" and "last frame" — the watchdog reference.
     private var lastSignalAt: Date = .distantPast
     private var watchdog: Timer?
+    /// Card 72 — leftover PRIMARY: `handle(_:)` is a NEW session. Finish first.
+    private var pendingStartConfiguration: HKWorkoutConfiguration?
+    private static let log = Logger(subsystem: Marca.subsistemaLog("mirror"), category: "watch-lifecycle")
 
     private override init() { super.init() }
 
@@ -93,8 +97,21 @@ final class MirrorSessionController: NSObject {
     /// Apple `handle(_:)` after `startWatchApp`: create the PRIMARY, mirror it
     /// to the companion iPhone, start activity + live builder. Do not start a
     /// second coach engine — the phone already owns `WorkoutSession`.
+    ///
+    /// Card 72: a silent `guard idle` left leftover PRIMARY undiagnosable and
+    /// blocked every later `startWatchApp`. Apple (`handle(_:)`): this is a NEW
+    /// session — close leftover via the one `finish(save:)` path, then start.
     func startPrimary(configuration: HKWorkoutConfiguration) {
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
+        guard WatchWorkoutCoordinator.shared.phase == .idle else {
+            Self.log.warning("startPrimary declined — standalone live")
+            return
+        }
+        if state != .idle {
+            Self.log.warning("startPrimary leftover state=\(String(describing: self.state), privacy: .public) — finishing then starting")
+            pendingStartConfiguration = configuration
+            if state == .recording { finish(save: true) }
+            return
+        }
         Task { await beginPrimary(configuration: configuration) }
     }
 
@@ -323,6 +340,12 @@ final class MirrorSessionController: NSObject {
         Task { await closeRecording(save: save, reason: reason) }
     }
 
+    /// WCSession `liveEnd` fallback. Same `finish(save:)` as `MirrorEnd` on the
+    /// HK channel — not a second teardown. No-op if this owner is idle.
+    func finishFromPhone(save: Bool) {
+        finish(save: save)
+    }
+
     /// Lost-phone exit from the controls page: a person tapped Terminar.
     func finishLocally() {
         finishByAthlete()
@@ -401,6 +424,10 @@ final class MirrorSessionController: NSObject {
         hkPaused = false
         isClosing = false
         state = .idle
+        if let pending = pendingStartConfiguration {
+            pendingStartConfiguration = nil
+            Task { await beginPrimary(configuration: pending) }
+        }
     }
 
     // MARK: - Connection watchdog

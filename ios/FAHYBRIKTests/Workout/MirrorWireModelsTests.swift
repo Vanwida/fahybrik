@@ -152,4 +152,21 @@ final class MirrorWireModelsTests: XCTestCase {
         XCTAssertNil(f.beltTargetM)
         XCTAssertNil(f.beltPaceSecPerKm)
     }
+
+    // FH-28 — liveEnd is the phone-finished aviso. Value = MirrorEnd.save.
+    // PRIMARY and standalone both read this; each existing finish no-ops if idle.
+    func testLiveEndSaveFlagTrueAndFalse() {
+        XCTAssertEqual(WatchLiveEnd.saveFlag(in: [WatchWireKeys.liveEnd: true]), true)
+        XCTAssertEqual(WatchLiveEnd.saveFlag(in: [WatchWireKeys.liveEnd: false]), false)
+    }
+
+    func testLiveEndAbsentIsNotAnEndAviso() {
+        XCTAssertNil(WatchLiveEnd.saveFlag(in: [WatchWireKeys.today: Data()]))
+        XCTAssertNil(WatchLiveEnd.saveFlag(in: [:]))
+    }
+
+    func testLiveEndNonBoolStillMeansSave() {
+        // Older phones sent a dummy `true`; a stray non-Bool must not drop the aviso.
+        XCTAssertEqual(WatchLiveEnd.saveFlag(in: [WatchWireKeys.liveEnd: 1]), true)
+    }
 }

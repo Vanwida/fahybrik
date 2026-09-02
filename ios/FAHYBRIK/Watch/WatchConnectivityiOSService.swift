@@ -201,13 +201,13 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     /// si no hay alcance en ese instante, se encola: el aviso no puede depender de
     /// que el bluetooth esté fino justo al pulsar Terminar.
     @MainActor
-    func endLiveWorkout() {
+    func endLiveWorkout(save: Bool) {
         guard WCSession.isSupported() else { return }
         activate()
         let session = WCSession.default
         guard session.activationState == .activated,
               session.isPaired, session.isWatchAppInstalled else { return }
-        let body: [String: Any] = [WatchWireKeys.liveEnd: true]
+        let body: [String: Any] = [WatchWireKeys.liveEnd: save]
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
                 Task { @MainActor in session.transferUserInfo(body) }
