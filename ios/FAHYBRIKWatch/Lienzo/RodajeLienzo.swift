@@ -60,7 +60,7 @@ struct RodajeMarco<Content: View>: View {
             if let fondo = fondoSolido, !atenuado {
                 fondo.ignoresSafeArea()
             } else if let tinte = tinteZona, !atenuado {
-                tinte.opacity(WatchTinte.maxOpacity)
+                tinte.opacity(RodajeTipo.tinteMax)
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.7), value: session.liveZone)
             }
@@ -152,6 +152,9 @@ struct RodajeMarco<Content: View>: View {
 enum RodajeTipo {
     static let dim = Color.white.opacity(0.76)
     static let contexto = Color.white.opacity(0.85)
+    /// TINTE_MAX de `docs/mocks/tools/reloj-correr.py`. No vive en `WatchTinte`:
+    /// el 38 % del resto de modalidades no es esta lámina.
+    static let tinteMax: Double = 0.45
     static let versales: CGFloat = 10
     static let tracking: CGFloat = 1.1
     static let segundo: CGFloat = 22
@@ -309,6 +312,7 @@ struct RodajeVivoPage: View {
                         arriba: 3
                     )
                 }
+                RodajePuntos(activa: 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .multilineTextAlignment(.center)

@@ -40,36 +40,42 @@ struct PauseFinishPage: View {
     private var controles: some View {
         VStack(spacing: 0) {
             RodajeVersales(texto: encabezado, tono: RodajeTipo.contexto)
-            VStack(spacing: 8) {
-                botonLamina(
-                    session.isPaused ? "Reanudar" : "Pausar",
-                    alto: 60,
-                    fondo: WatchTheme.orange,
-                    tinta: Color(red: 22/255, green: 8/255, blue: 0)
-                ) {
-                    coordinator.togglePause()
-                }
-                if muestraNuevoTramo {
-                    botonLamina("Nuevo tramo", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                        // FH-31: el motor no se toca. El botón existe para el cromo.
+            GeometryReader { geo in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 8) {
+                        botonLamina(
+                            session.isPaused ? "Reanudar" : "Pausar",
+                            alto: 60,
+                            fondo: WatchTheme.orange,
+                            tinta: Color(red: 22/255, green: 8/255, blue: 0)
+                        ) {
+                            coordinator.togglePause()
+                        }
+                        if muestraNuevoTramo {
+                            botonLamina("Nuevo tramo", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
+                                // FH-31: el motor no se toca. El botón existe para el cromo.
+                            }
+                        }
+                        if session.canEndBlockEarly && session.hasBlockAfterCurrent {
+                            botonLamina("Siguiente bloque", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
+                                session.endBlockEarly()
+                            }
+                        }
+                        botonLamina(
+                            "Terminar",
+                            alto: 46,
+                            fondo: Color(red: 36/255, green: 11/255, blue: 11/255),
+                            tinta: WatchTheme.zoneRed,
+                            borde: Color(red: 115/255, green: 35/255, blue: 35/255)
+                        ) {
+                            confirmingFinish = true
+                        }
                     }
-                }
-                if session.canEndBlockEarly && session.hasBlockAfterCurrent {
-                    botonLamina("Siguiente bloque", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                        session.endBlockEarly()
-                    }
-                }
-                botonLamina(
-                    "Terminar",
-                    alto: 46,
-                    fondo: Color(red: 36/255, green: 11/255, blue: 11/255),
-                    tinta: WatchTheme.zoneRed,
-                    borde: Color(red: 115/255, green: 35/255, blue: 35/255)
-                ) {
-                    confirmingFinish = true
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geo.size.height, alignment: .center)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            RodajePuntos(activa: 2)
         }
     }
 
