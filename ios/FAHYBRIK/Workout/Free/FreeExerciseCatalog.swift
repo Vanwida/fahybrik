@@ -40,17 +40,30 @@ extension FreeExercise {
         case "bike_erg", "bike":        return .bike
         case "running", "run":          return .run
         case "strength":                return .strength
-        case "functional", "hyrox_station": return .functional
+        case "functional":              return .functional
         case "core":                    return .core
         case "mobility":                return .mobility
+        // hyrox_station: Ski/Row/Run ARE machines (shared/domain/exercises/classify.ts
+        // modalityForCategory). Wall balls etc. stay functional. Do not return
+        // .functional here or the slug/name fallback never runs.
+        case "hyrox_station":           break
         default: break
         }
-        // Slug fallback (e.g. "ski-erg", "concept2-rower") when category is "other".
-        let s = slug.lowercased()
-        if s.contains("ski") { return .ski }
-        if s.contains("row") || s.contains("remo") { return .row }
-        if s.contains("bike") || s.contains("echo") || s.contains("assault") { return .bike }
-        if s.contains("run") || s.contains("tread") || s.contains("cinta") { return .run }
+        // Slug + name fallback (e.g. "ski-erg", "HYROX SkiErg", "concept2-rower").
+        let haystack = (slug + " " + name).lowercased()
+        if haystack.contains("ski") { return .ski }
+        if haystack.contains("row") || haystack.contains("remo") { return .row }
+        if category.lowercased() != "hyrox_station" {
+            // classify.ts: hyrox_station never maps to bike (no official bike station).
+            if haystack.contains("bike") || haystack.contains("echo") || haystack.contains("assault") {
+                return .bike
+            }
+        }
+        if haystack.contains("run") || haystack.contains("tread") || haystack.contains("cinta")
+            || haystack.contains("carrera") {
+            return .run
+        }
+        if category.lowercased() == "hyrox_station" { return .functional }
         return nil
     }
 

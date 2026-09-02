@@ -62,7 +62,7 @@ final class FreeWorkoutEncodeTests: XCTestCase {
         XCTAssertEqual(sets.count, 1)
         let s0 = sets[0]
         XCTAssertEqual(s0["rest_s"] as? Int, 90)
-        XCTAssertNil(s0["modality"])   // set modality omitted; top-level carries it
+        XCTAssertEqual(s0["modality"] as? String, "row")  // FH-61: set keeps the machine
 
         let measure = try XCTUnwrap(s0["measure"] as? [String: Any])
         XCTAssertEqual(measure["kind"] as? String, "distance")
@@ -304,4 +304,111 @@ final class FreeWorkoutEncodeTests: XCTestCase {
             XCTAssertEqual(v, 300)
         } else { XCTFail("expected pace target") }
     }
+
+    // MARK: - FH-61 libre encode keeps machines and station scheme
+
+    /// hyrox_station Ski/Row/Run are machines (classify.ts); wall balls stay functional.
+    func testHyroxStationCatalogExposesMachines() {
+        XCTAssertEqual(
+            FreeExercise(id: 1, name: "HYROX SkiErg", slug: "hyrox-skierg",
+                         category: "hyrox_station", modality: nil).prescriptionModality, .ski)
+        XCTAssertEqual(
+            FreeExercise(id: 2, name: "HYROX Rowing", slug: "hyrox-rowing",
+                         category: "hyrox_station", modality: nil).prescriptionModality, .row)
+        XCTAssertEqual(
+            FreeExercise(id: 3, name: "HYROX Run", slug: "hyrox-run",
+                         category: "hyrox_station", modality: nil).prescriptionModality, .run)
+        XCTAssertEqual(
+            FreeExercise(id: 4, name: "HYROX Wall Balls", slug: "wall-balls",
+                         category: "hyrox_station", modality: nil).prescriptionModality, .functional)
+    }
+
+    /// Plan cloned as libre: Run / Ski / Row / Run / Ski. One pass (rounds = 1)
+    /// stays chipper. Connect sees cinta + both PM5s. Live advances one station
+    /// per strike — markRoundDone does not eat Ski+Row at once.
+    func testLibreRunSkiRowChipperKeepsMachinesAndStations() throws {
+        let d = FreeFunctionalDraft()
+        d.selectFormat(.forTime)
+        d.rounds = 1
+        d.add(FreeExercise(id: 1, name: "HYROX Run", slug: "hyrox-run",
+                           category: "hyrox_station", modality: nil))
+        d.add(FreeExercise(id: 2, name: "HYROX SkiErg", slug: "hyrox-ski-erg",
+                           category: "hyrox_station", modality: nil))
+        d.add(FreeExercise(id: 3, name: "HYROX Rowing", slug: "hyrox-rowing",
+                           category: "hyrox_station", modality: nil))
+        d.add(FreeExercise(id: 1, name: "HYROX Run", slug: "hyrox-run",
+                           category: "hyrox_station", modality: nil))
+        d.add(FreeExercise(id: 2, name: "HYROX SkiErg", slug: "hyrox-ski-erg",
+                           category: "hyrox_station", modality: nil))
+        for i in d.movements.indices {
+            var m = d.movements[i]
+            m.dose = .meters
+            m.meters = 1000
+            d.movements[i] = m
+        }
+
+        let ctx = try XCTUnwrap(d.buildContext())
+        let seg = try XCTUnwrap(ctx.plan.segments.first)
+        XCTAssertTrue(seg.involvesErg)
+        XCTAssertTrue(seg.involvesRun)
+        XCTAssertEqual(seg.prescription?.sets?.compactMap(\.modality),
+                       [.run, .ski, .row, .run, .ski])
+        XCTAssertNil(seg.prescription?.rounds, "chipper stays chipper, not rondas")
+        XCTAssertTrue(seg.fixedListIsStations)
+
+        let chips = PreWorkoutDeviceEligibility.devices(for: ctx.plan.segments)
+        XCTAssertTrue(chips.contains(.treadmill), "cinta for the run stations")
+        XCTAssertTrue(chips.contains(.erg(.ski)))
+        XCTAssertTrue(chips.contains(.erg(.row)))
+
+        let s = WorkoutSession(plan: ctx.plan)
+        s.start(); s.beginBlock(); s.stop()
+        if s.condCountInRemaining > 0 { s.primaryAdvance() }
+        XCTAssertEqual(s.currentTramo.modality, .run)
+        s.markRoundDone()
+        XCTAssertEqual(s.currentTramo.modality, .ski,
+                       "one strike advances one station; Ski is not eaten with Row")
+        s.markRoundDone()
+        XCTAssertEqual(s.currentTramo.modality, .row)
+        XCTAssertFalse(s.isFinished)
+    }
+
+    /// Control: assignment fold (plan path, no libre) still declares stations + machines.
+    func testPlanAssignmentFoldUntouchedByLibreEncode() {
+        func rx(_ meters: Double, _ mod: PrescriptionModality, _ name: String) -> Prescription {
+            Prescription(scheme: .forTime, modality: mod,
+                         sets: [PrescriptionSet(measure: .distance(meters: meters), target: nil,
+                                                modality: mod, restS: nil, tempo: nil, note: name)],
+                         rounds: nil, workS: nil, restS: nil, totalS: nil,
+                         target: nil, note: nil, start: nil, increment: nil)
+        }
+        let emptyParams = WorkoutItemParams(
+            sets: nil, reps: nil, loadKg: nil, loadPct: nil, rpe: nil, restSeconds: nil,
+            durationSeconds: nil, distanceKm: nil, distanceMeters: nil, paceSecPerKm: nil,
+            cadenceSpm: nil, calories: nil, caloriesPerMin: nil, hrZone: nil, watts: nil
+        )
+        func item(_ uid: String, name: String, category: String, prescription: Prescription) -> WorkoutItem {
+            WorkoutItem(uid: uid, templateSegmentId: nil, exerciseId: uid, exerciseName: name,
+                        exerciseSlug: uid, exerciseCategory: category,
+                        exerciseVideoUrl: nil, cues: nil, exerciseDescription: nil,
+                        paramsJson: emptyParams, prescription: prescription,
+                        resolvedIntensity: nil, resolvedLoad: nil, notes: nil)
+        }
+        let run = item("run", name: "Run", category: "running", prescription: rx(1000, .run, "Run"))
+        let ski = item("ski", name: "SkiErg", category: "ski_erg", prescription: rx(1000, .ski, "SkiErg"))
+        let row = item("row", name: "Rowing", category: "rowing", prescription: rx(1000, .row, "Rowing"))
+        let blk = WorkoutBlock(uid: "b1", title: "Principal", format: "for_time", blockPosition: 1,
+                               coachNote: nil, configJson: nil, items: [run, ski, row, run, ski])
+        let folded = blk.conditioningFold
+        XCTAssertEqual(folded?.scheme, .forTime)
+        XCTAssertNil(folded?.rounds)
+        XCTAssertEqual(folded?.sets?.compactMap(\.modality), [.run, .ski, .row, .run, .ski])
+        let seg = WorkoutSegment(order: 1, title: "Run · SkiErg · Rowing · Run · SkiErg",
+                                 kind: .reps, blockTitle: "Principal", blockPosition: 1,
+                                 prescription: folded)
+        XCTAssertTrue(seg.fixedListIsStations)
+        XCTAssertTrue(seg.involvesErg)
+        XCTAssertTrue(seg.involvesRun)
+    }
+
 }

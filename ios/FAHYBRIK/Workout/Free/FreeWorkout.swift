@@ -311,43 +311,38 @@ final class FreeWorkoutDraft {
         let measure = buildMeasure()
         let target = buildTarget()
         let pmod = modality.prescription
+        // Set-level modality is what involvesErg / involvesRun / device slots read
+        // when a multi-station piece is forced through this encode. Omitting it
+        // was the measured half of FH-61 (chips off on a cloned plan).
+        func set(restS: Int? = nil) -> PrescriptionSet {
+            PrescriptionSet(measure: measure, target: target, modality: pmod,
+                            restS: restS, tempo: nil, note: nil)
+        }
 
         switch format {
         case .series:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: restSeconds, tempo: nil, note: nil)
-            return Prescription(scheme: .intervals, modality: pmod, sets: [set],
+            return Prescription(scheme: .intervals, modality: pmod, sets: [set(restS: restSeconds)],
                                 rounds: rounds, workS: nil, restS: restSeconds, totalS: nil,
                                 target: target, note: nil, start: nil, increment: nil)
         case .continuo:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: nil, tempo: nil, note: nil)
-            return Prescription(scheme: .steady, modality: pmod, sets: [set],
+            return Prescription(scheme: .steady, modality: pmod, sets: [set()],
                                 rounds: nil, workS: nil, restS: nil,
                                 totalS: measureKind == .time ? workSeconds : nil,
                                 target: target, note: nil, start: nil, increment: nil)
         case .emom:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: nil, tempo: nil, note: nil)
-            return Prescription(scheme: .emom, modality: pmod, sets: [set],
+            return Prescription(scheme: .emom, modality: pmod, sets: [set()],
                                 rounds: rounds, workS: cadenceSeconds, restS: nil, totalS: nil,
                                 target: target, note: nil, start: nil, increment: nil)
         case .amrap:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: nil, tempo: nil, note: nil)
-            return Prescription(scheme: .amrap, modality: pmod, sets: [set],
+            return Prescription(scheme: .amrap, modality: pmod, sets: [set()],
                                 rounds: nil, workS: nil, restS: nil, totalS: windowSeconds,
                                 target: target, note: nil, start: nil, increment: nil)
         case .forTime:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: nil, tempo: nil, note: nil)
-            return Prescription(scheme: .forTime, modality: pmod, sets: [set],
+            return Prescription(scheme: .forTime, modality: pmod, sets: [set()],
                                 rounds: nil, workS: nil, restS: nil, totalS: nil,
                                 target: target, note: nil, start: nil, increment: nil)
         case .rounds:
-            let set = PrescriptionSet(measure: measure, target: target, modality: nil,
-                                      restS: restSeconds, tempo: nil, note: nil)
-            return Prescription(scheme: .rounds, modality: pmod, sets: [set],
+            return Prescription(scheme: .rounds, modality: pmod, sets: [set(restS: restSeconds)],
                                 rounds: rounds, workS: nil, restS: restSeconds, totalS: nil,
                                 target: target, note: nil, start: nil, increment: nil)
         }

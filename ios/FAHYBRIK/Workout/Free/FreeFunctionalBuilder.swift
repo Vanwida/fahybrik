@@ -334,7 +334,10 @@ final class FreeFunctionalDraft {
     private func structural(_ f: FreeFunctionalFormat) -> FunctionalStructural {
         switch f {
         case .forTime:
-            return FunctionalStructural(rounds: max(1, rounds), workS: nil, restS: nil,
+            // One pass (rounds == 1, the chipper / HYROX route) keeps rounds nil
+            // so the scheme stays chipper. Default stepper is still 3; that is
+            // repeating For Time, not a product change of the default.
+            return FunctionalStructural(rounds: rounds > 1 ? rounds : nil, workS: nil, restS: nil,
                                         totalS: capSeconds > 0 ? capSeconds : nil)
         case .amrap:
             return FunctionalStructural(rounds: nil, workS: nil, restS: nil, totalS: windowSeconds)
