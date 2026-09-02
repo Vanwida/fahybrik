@@ -2,22 +2,23 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-01** (build 26: tipos de serie/tramo que el unify recortó)
+Última actualización: **2026-09-02** (build 27: superserie que el unify recortó)
 
 ## Ahora
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con
 `Bundle.main.object(forInfoDictionaryKey:)`. Perfil (iPhone) y el footer idle
-del reloj muestran marketing + build. Build **26** iPhone, Watch y widgets.
+del reloj muestran marketing + build. Build **27** iPhone, Watch y widgets.
 `DEVELOPMENT_TEAM` = `S6W4459DDG` (no se toca).
 
-**Tipos de Workout recortados (unify):** el unify de main se quedó con los
-callers de feat y con `SetRecord` / `SetExecutionDTO` / `LapRecord` /
-`SegmentExecutionDTO` / `EmomInterval` de un main viejo. El reloj no
-compilaba (`reps_source`, `repsSource`, velocidad, `hrSource`, `isErg`).
-Restaurados desde feat `d90fc597`, con defaults para snapshots viejos. No
-se tocan pantallas. No se inventa skip-serie. Sin instalar. CoS en Xcode Cloud.
+**Superserie recortada (unify, leftover de 118):** PR 118 restauró serie/tramo
+y dijo que `SupersetSlot` no tenía caller. Sí los tiene, en el iPhone:
+`WorkoutSessionLiveDescriptor.supersetSlot`, `EditorDeSerie.supersetSlot`,
+`PreWorkoutBriefView.supersetFold` + `scalarStrengthPrescription`. Sin esos
+miembros el target FAHYBRIK no compila. Restaurados desde feat `d90fc597`,
+con el pliegue que rellena los turnos. No se tocan pantallas. No se inventa
+campo. Sin instalar. CoS en Xcode Cloud.
 
 **132 · COMPARTIR EL ENTRENO — construido en iOS, pendiente de probar en el móvil.**
 Mockup aprobado en el doble (`/es/design/compartir-entreno`, 5 escenarios) y

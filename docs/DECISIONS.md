@@ -10,6 +10,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-02 · `SupersetSlot` sí tenía caller vivo; PR 118 se equivocó al descartarlo
+
+**El hueco:** el barrido de PR 118 (reloj / `SetRecord` / `LapRecord` / DTO /
+`EmomInterval.isErg`) cerró el target Watch y descartó `SupersetSlot` /
+`isSuperset` / `supersetFold` «sin caller vivo». El caller estaba en el
+iPhone: `WorkoutSessionLiveDescriptor` y `EditorDeSerie` llaman
+`supersetSlot(at:)`, la previa llama `block.supersetFold` y
+`item.scalarStrengthPrescription`. Xcode tumba `FAHYBRIK`, no el reloj.
+
+**Ground truth:** feat padre `d90fc597`. Se copian esos miembros y el
+pliegue que rellena los turnos (`WorkoutPlan.from` → `mergedSupersetSegment`).
+Defaults para que un snapshot viejo siga decodificando. No se inventa campo.
+No se toca pantalla. No se inventa skip-serie.
+
+**Se descarta:** dejar el accessor vacío (compila y la previa/el vivo mienten);
+volver a recortar el tipo porque el ingest de un main viejo no lo conocía;
+restaurar el guard de calentamiento/vuelta de feat (no es leftover de compile).
+
+**NO hacer:** no declarar «sin caller» sin barrer los tres targets; no subir
+`CURRENT_PROJECT_VERSION` en un PR distinto al del arreglo; no revertir
+`DEVELOPMENT_TEAM`.
+
+---
+
 ## 2026-09-01 · El unify no puede quedarse con callers de feat y tipos de un main viejo
 
 **El hueco:** el unify a main se quedó con los callers de feat
