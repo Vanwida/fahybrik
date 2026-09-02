@@ -71,11 +71,9 @@ struct RunLiveHUD: View {
     /// GPS availability so the HUD shows a live covered-pace hero when phone GPS
     /// is feeding distance, or a manual distance stepper when it isn't.
     var gpsActive: Bool = false
-    /// Opens the live treadmill HUD (#60). Offered on every run leg; the treadmill
-    /// screen itself handles the "no compatible treadmill found" case honestly.
+    /// Elige cinta en sitio (`runEnvironment = .treadmill`). No abre tapa.
     var onTapTreadmill: (() -> Void)? = nil
-    /// Opens the live OUTDOOR GPS HUD (#64) — the sibling of the treadmill entry for
-    /// running outside (map + GPS pace + auto-pause).
+    /// Elige calle en sitio (`runEnvironment = .outdoor`). No abre tapa.
     var onTapOutdoor: (() -> Void)? = nil
 
     @State private var manualDistance: Double?

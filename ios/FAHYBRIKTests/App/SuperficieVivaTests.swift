@@ -174,6 +174,20 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
     }
 
+    /// Las tapas Outdoor/Treadmill ya no existen: el cromo en sitio es el live.
+    /// kind == .running durante un calentamiento estructural no abre un cover.
+    func testCalentamientoEstructuralCorriendoNoEsUnaTapaEncima() {
+        let s = sesionCalentamientoMasCarrera(jog: true)
+        s.start(); s.beginBlock(); s.stop()
+        s.runEnvironment = .outdoor
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.calentamientoEnLaCarrera)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+        XCTAssertNotEqual(SuperficieViva.de(s), .structural,
+                          "un jog de calentamiento no pinta HostVivo debajo")
+    }
+
     func testCalentamientoSinCarreraSigueSiendoEstructural() {
         let s = sesion(tramo: WorkoutSegment(
             order: 1, title: "Movilidad", kind: .reps,

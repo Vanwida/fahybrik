@@ -25,11 +25,8 @@ extension TargetStatus {
     }
 }
 
-// `TreadmillEntryButton` / `OutdoorEntryButton` remount the existing covers
-// (`showTreadmill` / `showOutdoor`). The live host needs a path into the HUD
-// picker when the cover is closed — DeviceConnection's scan button, not a
-// second pre-start. The chip in ConnectionStrip opens DevicePickerSheet;
-// this CTA opens the HUD that already hosts the same picker.
+// `TreadmillEntryButton` / `OutdoorEntryButton` eligen calle/cinta en sitio
+// (`runEnvironment` → `RunLiveChrome`). No hay `fullScreenCover` de HUD.
 
 struct TreadmillEntryButton: View {
     let action: () -> Void

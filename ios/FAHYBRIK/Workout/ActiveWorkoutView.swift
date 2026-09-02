@@ -35,12 +35,8 @@ struct ActiveWorkoutView: View {
     @State private var partnerLive: PartnerLiveStatus? = nil
     @State private var partnerStripCollapsed: Bool = false
 
-    @State private var showTreadmill: Bool = false
-    @State private var treadmillEmpiezaSinCinta: Bool = false
-    @State private var showOutdoor: Bool = false
-    // #8 — the last segment index whose run HUD we auto-opened. Guards the auto-open
-    // to ONCE per segment, so a manual close is respected until the next run segment.
-    @State private var autoOpenedRunSegment: Int? = nil
+    // #8 — Outdoor/Treadmill ya no son `fullScreenCover`. El cromo se monta
+    // en sitio (`RunLiveChrome`). Las tapas apiladas sobre HostVivo eran FH-55.
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -141,7 +137,7 @@ struct ActiveWorkoutView: View {
     /// Cinta HUD is the in-place live — host pickers must not fight it.
     private var cintaHudMontado: Bool {
         if case .treadmill = RunLiveChrome.de(session) { return !session.isAwaitingBlockStart }
-        return showTreadmill
+        return false
     }
     /// Calle HUD is the in-place live — host GPS must yield.
     private var calleHudMontado: Bool {
@@ -274,21 +270,13 @@ struct ActiveWorkoutView: View {
         }
         .onChange(of: session.currentSegmentIndex) { _, _ in
             updateRunGPS()
-            maybeAutoOpenRunCover()
         }
-        .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
-            // The athlete tapped "Empezar" on a block whose first segment is a run —
-            // land them straight in the HUD they chose, not the generic screen.
+        .onChange(of: session.isAwaitingBlockStart) { _, _ in
             updateRunGPS()
-            if !awaiting { maybeAutoOpenRunCover() }
         }
         .onChange(of: session.runEnvironment) { _, _ in
             updateRunGPS()
             session.ensurePhoneWorkoutRun()
-        }
-        .onChange(of: showOutdoor) { _, presenting in
-            // Hand the GPS to the outdoor HUD when it opens; take it back on close.
-            if presenting { runGPS.stop() } else { updateRunGPS() }
         }
         .onChange(of: PhoneMirrorService.shared.wristJoined) { _, joined in
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
@@ -319,7 +307,7 @@ struct ActiveWorkoutView: View {
             // "cada ronda la app debe mandar el reinicio del pm5").
             attemptProgramPM5()
         }
-        .sheet(isPresented: $showPM5Sheet, onDismiss: { maybeAutoOpenRunCover() }) {
+        .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pickerPM5, roleTitle: liveErgRole?.titleES)
         }
         // Live scan path (FH-59): same pickers as the brief / HUD, presented from
@@ -332,15 +320,6 @@ struct ActiveWorkoutView: View {
         .sheet(isPresented: livePickerBinding(hub.heartRate, enabled: !cintaHudMontado)) {
             DevicePickerSheet(channel: hub.heartRate,
                               batteryPercent: hub.hrBatteryPercent)
-        }
-        .fullScreenCover(isPresented: $showTreadmill) {
-            TreadmillHUDView(session: session, hrZones: hrZones,
-                             empiezaSinCinta: treadmillEmpiezaSinCinta,
-                             alSalir: { showTreadmill = false })
-        }
-        .fullScreenCover(isPresented: $showOutdoor) {
-            OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { showOutdoor = false })
         }
         // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
         // so the next cover / the count-in never fights the dismissing one.
@@ -374,7 +353,6 @@ struct ActiveWorkoutView: View {
             // Resume only if opening the video is what paused the clock.
             if resumeAfterVideo { session.resumeFromVideo() }
             resumeAfterVideo = false
-            maybeAutoOpenRunCover()     // the screen is free again — see the guard
         }) {
             if let url = session.currentSegment?.videoUrl {
                 VideoDeTecnicaSheet(url: url, title: session.currentSegment?.title ?? "Técnica")
@@ -581,39 +559,11 @@ struct ActiveWorkoutView: View {
         session.beltConnected = hub.treadmillConnected
     }
 
-    private func openTreadmillCover() {
-        treadmillEmpiezaSinCinta = session.runEnvironment == .indoor
-        showTreadmill = true
-    }
-
-    // A run / runStructure / warmup-of-the-run already IS Outdoor/Treadmill
-    // via `RunLiveChrome`. Opening a cover on top of HostVivo was the stack
-    // (FH-55 leftover on 49). Folded-format run stations still use a cover.
-    private func maybeAutoOpenRunCover() {
-        if SuperficieViva.de(session).esCarrera { return }
-        if session.calentamientoEnLaCarrera { return }
-        if RunLiveChrome.de(session) != .host { return }
-        guard let env = session.runEnvironment,
-              isRunSegment,
-              !session.isAwaitingBlockStart,
-              autoOpenedRunSegment != session.currentSegmentIndex,
-              !showTreadmill, !showOutdoor,
-              // NEVER push a cover over an open sheet. This fires off SESSION state
-              // (the engine advancing a segment), so it can land while the athlete has
-              // the erg sheet or a technique video open — and UIKit answers a modal
-              // fighting a modal with "only presenting a single sheet is supported",
-              // eating his taps. `autoOpenedRunSegment` is deliberately NOT stamped on
-              // this path, and both sheets re-run this check on dismiss, so he still
-              // lands in his HUD the moment the screen is free.
-              !showPM5Sheet, !showSegmentVideo else { return }
-        autoOpenedRunSegment = session.currentSegmentIndex
-        switch RunCoverAutoOpen.decide(environment: env) {
-        case .treadmill(let sinCinta):
-            treadmillEmpiezaSinCinta = sinCinta
-            showTreadmill = true
-        case .outdoor:
-            showOutdoor = true
-        }
+    /// Calle/cinta se elige en sitio. No hay tapa: `runEnvironment` monta
+    /// `RunLiveChrome` (la misma asignación que `RunPreStartFlow`).
+    private func elegirSitioDeCarrera(_ env: RunEnvironment) {
+        session.runEnvironment = env
+        session.ensurePhoneWorkoutRun()
     }
 
     // MARK: - Pre-block start gates (run env → erg connect → count-in)
@@ -713,7 +663,7 @@ struct ActiveWorkoutView: View {
         let plan = RunPhoneSensorPlan.decide(
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
-            streetScreenOwnsSurface: calleHudMontado || showOutdoor,
+            streetScreenOwnsSurface: calleHudMontado,
             wristIsRecording: PhoneMirrorService.shared.wristJoined
         )
         if plan.ownGPS {
@@ -951,8 +901,8 @@ struct ActiveWorkoutView: View {
                 topStrip
             } sujeto: {
                 RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { openTreadmillCover() },
-                           onTapOutdoor: { showOutdoor = true })
+                           onTapTreadmill: { elegirSitioDeCarrera(.treadmill) },
+                           onTapOutdoor: { elegirSitioDeCarrera(.outdoor) })
             } apoyos: {
                 apoyosDelHost
             }
@@ -1017,12 +967,6 @@ struct ActiveWorkoutView: View {
             }
             if liveScanPath.showPM5Chip && livePM5?.isConnected != true {
                 connectPM5CTA
-            }
-            if liveScanPath.showTreadmillEntry {
-                TreadmillEntryButton(action: { openTreadmillCover() })
-            }
-            if isRunSeriesSegment, SuperficieViva.de(session) != .run {
-                OutdoorEntryButton(action: { showOutdoor = true })
             }
             Spacer(minLength: 0)
             if !session.isTramoResting, !isErgSegment {
