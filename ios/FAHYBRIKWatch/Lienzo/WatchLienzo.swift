@@ -82,10 +82,24 @@ struct WatchReloj: View {
                         .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
                 }
-                // Viñeta de la lámina: esquinas y bandas de versales, cuerpo PLANO
-                // al 45 %. El degradado de antes iba a negro y apagaba el tinte.
-                WatchViñeta()
-                    .ignoresSafeArea()
+                // Degradado OLED: aire arriba/abajo, sujeto legible en el centro.
+                // Rodaje (FH-30) pinta su viñeta plana en RodajeMarco, no aquí:
+                // EMOM / fuerza / ergo no son la lámina de correr.
+                LinearGradient(
+                    colors: [
+                        Color.black,
+                        Color.black.opacity(0.80),
+                        Color.black.opacity(0),
+                        Color.black.opacity(0.72),
+                        Color.black,
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                // Con la muñeca baja el degradado sube: menos píxeles encendidos
+                // alrededor del sujeto, que es lo único que hay que poder leer.
+                .opacity(atenuado ? 0.75 : 0.55)
+                .ignoresSafeArea()
 
                 if let bisel { bisel.ignoresSafeArea() }
 

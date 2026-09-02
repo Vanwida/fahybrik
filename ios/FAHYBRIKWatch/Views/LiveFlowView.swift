@@ -31,7 +31,7 @@ struct LiveFlowView: View {
             PauseFinishPage(session: session, driver: esRodaje ? coordinator.runLegDriver : nil)
                 .tag(2)
         }
-        .tabViewStyle(.page)
+        .tabViewStyle(.page(indexDisplayMode: esRodaje ? .never : .automatic))
         // Parking on a block gate (auto block end, or "Siguiente bloque" fired from
         // the pause page) pulls the athlete back to the live area so the gate — and
         // the next block's Empezar — is what they see, not a stale side page.

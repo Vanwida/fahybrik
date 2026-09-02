@@ -3,6 +3,32 @@ import SwiftUI
 // DATOS — «la sesión». Única página sin sujeto: cuatro filas de 24 pt.
 // Espejo de `pagina_datos` en docs/mocks/tools/reloj-correr.py.
 
+/// Los tres puntos de la lámina (6 pt, hueco 3, activo blanco / 28 %).
+/// TabView pagina; el índice del sistema se apaga en rodaje para no duplicarlos.
+struct RodajePuntos: View {
+    let activa: Int
+    var total: Int = 3
+
+    @Environment(\.isLuminanceReduced) private var atenuado
+
+    var body: some View {
+        if atenuado {
+            Color.clear.frame(height: RodajeTipo.filaPuntos)
+        } else {
+            HStack(spacing: 3) {
+                ForEach(0..<total, id: \.self) { n in
+                    Circle()
+                        .fill(n == activa ? Color.white : Color.white.opacity(0.28))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(height: RodajeTipo.filaPuntos)
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
 struct RodajeDatosPage: View {
     let session: WorkoutSession
     var driver: WatchRunLegDriver? = nil
@@ -21,6 +47,7 @@ struct RodajeDatosPage: View {
                 if session.liveZone == nil {
                     RodajeVersales(texto: WatchNota.sinAncla, arriba: 2)
                 }
+                RodajePuntos(activa: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }

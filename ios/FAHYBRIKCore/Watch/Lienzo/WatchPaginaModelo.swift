@@ -107,8 +107,9 @@ enum WatchNota {
 // MARK: - Tinte del lienzo
 
 enum WatchTinte {
-    /// Tope del tinte de zona (TINTE_MAX = 45 de la lámina). Por encima el aro y las versales pierden contraste.
-    static let maxOpacity: Double = 0.45
+    /// Tope del tinte de zona. Por encima el aro y las versales pierden contraste.
+    /// El 45 % plano es sólo de la lámina de rodaje (`RodajeTipo.tinteMax`).
+    static let maxOpacity: Double = 0.38
 
     /// Color de relleno del fondo, o nil → negro puro (sin ancla / sin zona).
     static func color(for zone: HRZone?) -> Color? {
