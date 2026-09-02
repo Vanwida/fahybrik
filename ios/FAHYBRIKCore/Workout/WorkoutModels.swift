@@ -1821,7 +1821,7 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                restS: baseSet?.restS,
+                restS: baseSet?.restS ?? item.prescription?.restS,
                 tempo: baseSet?.tempo,
                 // The MOVEMENT label shown for this minute — the coach's set note, else
                 // the exercise name. Never nil, so each minute names its own movement.
@@ -1977,7 +1977,7 @@ extension WorkoutBlock {
                     ?? baseSet?.modality
                     ?? item.prescription?.modality
                     ?? PrescriptionModality(rawValue: item.segmentKind.modality),
-                restS: baseSet?.restS,
+                restS: baseSet?.restS ?? item.prescription?.restS,
                 tempo: baseSet?.tempo,
                 note: (coachLabel?.isEmpty == false) ? coachLabel : item.exerciseName
             )
@@ -1994,11 +1994,27 @@ extension WorkoutBlock {
         }
         let totalS = itemMax { $0.totalS } ?? configJson?.int("time_cap_seconds") ?? configJson?.int("total_seconds")
         let rounds = itemMax { $0.rounds } ?? configJson?.int("rounds")
-        let workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
-        let restS = itemFirst { $0.restS } ?? configJson?.int("rest_seconds")
+        let pacing = configJson?.string("pacing")
+        let workS: Int?
+        switch pacing {
+        case "por_tarea":
+            workS = nil
+        case "por_reloj":
+            workS = configJson?.int("work_seconds")
+        default:
+            workS = itemFirst { $0.workS } ?? configJson?.int("work_seconds") ?? configJson?.int("emom_interval_seconds")
+        }
+        let restS = itemFirst { $0.restS }
+            ?? configJson?.int("rest_between_stations_seconds")
+            ?? configJson?.int("rest_seconds")
+        let restBetweenRoundsS = configJson?.int("rest_between_rounds_seconds")
         let start = itemFirst { $0.start } ?? configJson?.int("start")
         let increment = itemFirst { $0.increment } ?? configJson?.int("increment")
 
+        let firstTarget = items.first?.prescription?.target
+        let uniformTarget: Target? = (firstTarget != nil
+            && items.allSatisfy { $0.prescription?.target == firstTarget })
+            ? firstTarget : nil
         return Prescription(
             scheme: scheme,
             modality: nil,
@@ -2007,10 +2023,11 @@ extension WorkoutBlock {
             workS: workS,
             restS: restS,
             totalS: totalS,
-            target: items.first?.prescription?.target,
+            target: uniformTarget,
             note: nil,
             start: start,
-            increment: increment
+            increment: increment,
+            restBetweenRoundsS: restBetweenRoundsS
         )
     }
 }
