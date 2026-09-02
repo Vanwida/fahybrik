@@ -27,11 +27,7 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         // singleton es compartido con el resto del target de tests.
         mirror.sendOverride = nil
         mirror.teardown()
-        // `teardown()` conserva el final del atleta (el resumen lo lee). `begin`
-        // lo apaga para que el orden aleatorio no contamine la siguiente prueba.
-        let s = WorkoutSession(plan: .minimal(title: "teardown"))
-        mirror.begin(session: s, activityKind: "mixed")
-        mirror.teardown()
+        mirror.resetAthleteEndFlagsForTests()
         super.tearDown()
     }
 

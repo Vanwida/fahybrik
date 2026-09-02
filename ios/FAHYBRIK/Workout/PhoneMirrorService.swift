@@ -68,6 +68,13 @@ final class PhoneMirrorService {
     /// the retry cadence can be verified against a REAL Timer without a live wrist
     /// pairing. Nil in production.
     @ObservationIgnored var sendOverride: ((_ type: String) -> Void)?
+    /// Test seam — `teardown()` keeps athlete-end flags (the summary reads them).
+    func resetAthleteEndFlagsForTests() {
+        wristFinishedByAthlete = false
+        wristRecordedWorkout = false
+        pendingEndSave = nil
+        endedWorkoutUuid = nil
+    }
     // The last frame's STRUCTURAL signature (phase / titles / progress / zone /
     // presence of a countdown or rest) — the free-running clocks are excluded so a
     // 1 Hz elapsed tick alone never forces a resend (the wrist ticks them locally).
