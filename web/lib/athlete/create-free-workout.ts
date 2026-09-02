@@ -281,10 +281,12 @@ export async function createFreeWorkout(
   // Refresh the coach attention queue AFTER the tx commits — the recorder's own
   // fire-and-forget recompute runs INSIDE the tx on a different (pooled)
   // connection and therefore can't see the uncommitted rows, so it no-ops on the
-  // workout_libre signal. This awaited, post-commit pass computes against
-  // committed data so the coach's "entreno libre" card appears immediately.
+  // workout_libre signal. This post-commit pass computes against committed data
+  // so the coach's "entreno libre" card appears. Do NOT await: recompute hanging
+  // (Neon CONNECT_TIMEOUT / CONNECTION_CLOSED) blocked the save HTTP 2xx even
+  // though the row was already persisted — overlay Guardando never cleared.
   // Best-effort: never throws into the caller.
-  await recomputeAthlete({ athlete_id: athleteId, client: db }).catch(() => {});
+  void recomputeAthlete({ athlete_id: athleteId, client: db }).catch(() => {});
 
   return ids;
 }
