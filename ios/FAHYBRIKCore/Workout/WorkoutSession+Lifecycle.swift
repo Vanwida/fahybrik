@@ -228,6 +228,22 @@ extension WorkoutSession {
     /// móvil y para el «Siguiente» de la muñeca, que entran los dos por esta
     /// puerta. Sólo tienen que marcarlo los dos sitios donde hay un dedo detrás; el
     /// defecto no frena nada, que es el comportamiento de siempre.
+    ///
+    /// `applyCommand` es la puerta del DEDO (espejo y solitario). El motor
+    /// sigue llamando a `primaryAdvance()` a secas: no pasa por aquí.
+    func applyCommand(_ kind: String) {
+        switch kind {
+        case MirrorWire.CommandKind.advance:
+            if isAwaitingBlockStart { beginBlock() }
+            // Relevo de la pareja: no cae a primaryAdvance → lap() (volumen ajeno).
+            else if currentSegmentIsPartnerRelay { advanceRelay() }
+            else if currentBlockIsStructural { completeStructuralBlock() }
+            else { primaryAdvance(fromAthleteTap: true) }
+        default:
+            break
+        }
+    }
+
     func primaryAdvance(fromAthleteTap: Bool = false) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
         if fromAthleteTap {

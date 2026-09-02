@@ -78,6 +78,25 @@ final class GuionSeriesTests: XCTestCase {
         XCTAssertEqual(RunLegDisplay.serie(legs: legs, indice: 6).n, 3)
     }
 
+    func testTrabajoPrescritoElGestoAvanzaSinAnunciar() {
+        var avanzó = false
+        let g = GuionSeries.Gestos(cerrarSerie: { avanzó = true })
+        let hito = GuionSeries.paginas(estado(.main, cierre: .hito(metros: 800)), g).first
+        XCTAssertNotNil(hito?.onToca)
+        XCTAssertNil(hito?.accion, "hito/reloj: gesto sí, franja no")
+        hito?.onToca?()
+        XCTAssertTrue(avanzó)
+        let sinGesto = GuionSeries.paginas(estado(.main, cierre: .hito(metros: 800))).first
+        XCTAssertNil(sinGesto?.onToca)
+    }
+
+    func testSerieAbiertaSigueAnunciandoElToque() {
+        let g = GuionSeries.Gestos(cerrarSerie: {})
+        let p = GuionSeries.paginas(estado(.main, cierre: .atleta), g).first
+        XCTAssertEqual(p?.accion, "Toca · serie hecha")
+        XCTAssertNotNil(p?.onToca)
+    }
+
     func testSinParteprincipalSeCuentaLoQueHay() {
         let calentamiento = RunLeg(kind: .work, measure: .duration(s: 600), target: nil,
                                    resolved: nil, inclinePct: nil, cadenceSpm: nil,

@@ -95,7 +95,8 @@ enum GuionSeries {
     }
 
     struct Gestos {
-        /// Cerrar la serie corriendo. Sólo existe cuando no hay hito ni reloj.
+        /// Avanzar la serie (trabajo). El espejo manda `advance`; el solitario
+        /// entra por `applyCommand`. Nil = esta página no es un botón.
         var cerrarSerie: (() -> Void)?
         /// Adelantar la recuperación.
         var empezarYa: (() -> Void)?
@@ -157,12 +158,10 @@ enum GuionSeries {
             segundoEtiqueta: etiqueta,
             segundoValor: valor,
             segundoTono: tono,
-            // EL GESTO EXISTE SÓLO CUANDO NADA MÁS PUEDE CERRAR EL TRAMO. Con hito
-            // o con reloj, cerrar solo es lo correcto: con la pantalla entera de
-            // blanco y el brazo en movimiento, un toque de más terminaría una
-            // serie que iba bien.
+            // El gesto avanza la serie prescrita (el motor ya sabe). No se
+            // anuncia con hito/reloj — la franja solo sale en serie abierta.
             accion: e.cierre == .atleta ? "Toca · serie hecha" : nil,
-            onToca: e.cierre == .atleta ? g.cerrarSerie : nil
+            onToca: g.cerrarSerie
         )
     }
 

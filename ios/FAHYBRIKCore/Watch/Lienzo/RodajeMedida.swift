@@ -90,3 +90,20 @@ enum RodajeMedida {
         }
     }
 }
+
+/// Vivo tap: prescribed series advances; libre does not.
+/// The motor already has `applyCommand(.advance)`. This only decides IF the
+/// gesture fires — it is not a second tap engine.
+enum RodajeVivoToca {
+    /// Work or recovery of a structured run, while the clock is live.
+    static func avanza(_ session: WorkoutSession) -> Bool {
+        session.isRunStructureActive && !session.isPaused && !session.isFinished
+    }
+
+    /// Controls: a new cut only when the athlete owns the cuts.
+    static func muestraNuevoTramo(_ session: WorkoutSession) -> Bool {
+        session.isFreeRun
+            && session.currentSegment?.kind == .running
+            && !session.isRunStructureActive
+    }
+}
