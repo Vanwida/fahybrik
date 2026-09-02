@@ -128,6 +128,21 @@ final class MirrorWireModelsTests: XCTestCase {
         }
     }
 
+    func testMirrorEndedAthleteReasonRoundTrips() throws {
+        let ended = MirrorEnded(workoutUuid: "ABC", reason: MirrorWire.EndReason.athlete)
+        let data = try XCTUnwrap(MirrorEnvelope.encoding(type: MirrorWire.MessageType.ended, ended))
+        let back = try XCTUnwrap(MirrorEnvelope.decoding(data)?.body(as: MirrorEnded.self))
+        XCTAssertEqual(back.workoutUuid, "ABC")
+        XCTAssertEqual(back.reason, MirrorWire.EndReason.athlete)
+    }
+
+    func testOldMirrorEndedWithoutReasonDecodes() throws {
+        let json = Data(#"{"workoutUuid":"x"}"#.utf8)
+        let ended = try MirrorWire.decoder.decode(MirrorEnded.self, from: json)
+        XCTAssertEqual(ended.workoutUuid, "x")
+        XCTAssertNil(ended.reason)
+    }
+
     func testOldFrameWithoutBeltFieldsDecodesToNil() throws {
         // A phone that predates the belt fields sends a frame without them → nil, so an
         // older watch just renders the standard active glance (no ring). Additive, safe.

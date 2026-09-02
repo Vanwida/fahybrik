@@ -168,6 +168,8 @@ final class LiveWorkoutSession: NSObject, ObservableObject {
     @discardableResult
     func end() async -> String? {
         guard session != nil else { return nil }
+        let now = Date()
+        session?.stopActivity(with: now)
         return await withCheckedContinuation { continuation in
             endContinuation = continuation
             session?.end()

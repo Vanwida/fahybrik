@@ -237,8 +237,10 @@ final class PhoneMirrorService {
         adopt(incoming)
     }
 
-    func pauseRemote() { mirrored?.pause() }
-    func resumeRemote() { mirrored?.resume() }
+    /// Do not `pause()` / `resume()` the iPhone mirrored session. Primary is
+    /// watchOS — a kicked frame lets the wrist call those on its session.
+    func pauseRemote() { kickFrame() }
+    func resumeRemote() { kickFrame() }
 
     /// Force a fresh frame right now (e.g. the live engine just `start()`ed).
     /// Free workouts open the mirror before ActiveWorkoutView calls `session.start()`,
@@ -259,6 +261,9 @@ final class PhoneMirrorService {
     /// wrist instead of leaving it recording until reboot.
     func end(save: Bool) {
         watchLaunchGeneration += 1   // cancel any in-flight launch retries
+        // The wrist already tore down the PRIMARY (`MirrorEnded` reason=athlete).
+        // Staging a late `pendingEndSave` would kill the next session on adopt.
+        if wristFinishedByAthlete { return }
         // EL AVISO SALE SIEMPRE, HAYA ESPEJO O NO. El canal del espejo solo existe
         // mientras el reloj refleja al teléfono; si el reloj llevaba el entreno por
         // su cuenta, este `end` no llegaba a ninguna parte y el atleta se

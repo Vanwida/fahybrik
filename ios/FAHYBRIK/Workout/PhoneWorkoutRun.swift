@@ -141,7 +141,7 @@ final class PhoneWorkoutRun: NSObject {
     func pause() {
         guard pauseBeganAt == nil else { return }
         pauseBeganAt = Date()
-        session?.pause()
+        // Clock only. `HKWorkoutSession.pause()` belongs to the Watch PRIMARY.
         PhoneMirrorService.shared.pauseRemote()
     }
 
@@ -150,7 +150,6 @@ final class PhoneWorkoutRun: NSObject {
             pausedAccumulated += Date().timeIntervalSince(began)
             pauseBeganAt = nil
         }
-        session?.resume()
         PhoneMirrorService.shared.resumeRemote()
     }
 

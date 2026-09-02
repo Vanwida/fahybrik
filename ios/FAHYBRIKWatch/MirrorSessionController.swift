@@ -198,19 +198,32 @@ final class MirrorSessionController: NSObject {
         syncRunActivity(from: f)
     }
 
-    /// Mirror the engine's pause state onto the HK session so paused/rest minutes
-    /// don't accrue kcal and no rest-HR reaches the recording.
+    /// Engine pause → Watch PRIMARY `pause()` / `resume()`. Not the iPhone mirror.
     private func applyPhase(_ phase: String) {
         switch phase {
         case MirrorWire.Phase.paused:
-            if !hkPaused { session?.pause(); hkPaused = true }
+            pausePrimary()
         case MirrorWire.Phase.active, MirrorWire.Phase.gate, MirrorWire.Phase.countIn:
             // The count-in is live recording (the athlete is about to move) — resume
             // the HK session like active/gate, never leave it paused into a tramo.
-            if hkPaused { session?.resume(); hkPaused = false }
+            resumePrimary()
         default:
             break                       // finished → handled by the end handshake
         }
+    }
+
+    /// Wrist (or a paused frame) → pause the PRIMARY. Idempotent.
+    func pausePrimary() {
+        guard state == .recording, !hkPaused else { return }
+        session?.pause()
+        hkPaused = true
+    }
+
+    /// Wrist (or an active frame) → resume the PRIMARY. Idempotent.
+    func resumePrimary() {
+        guard state == .recording, hkPaused else { return }
+        session?.resume()
+        hkPaused = false
     }
 
     /// Pide el frame actual al teléfono hasta que llegue el PRIMERO (0,5 s · 2 s ·
@@ -302,48 +315,58 @@ final class MirrorSessionController: NSObject {
 
     // MARK: - End
 
-    /// Phone-driven end: save (finish the HKWorkout) or discard (the athlete exited
-    /// without recording — no workout lands).
+    /// Phone-driven end. Reason is `phone` / `discarded` — never `athlete`.
     private func finish(save: Bool) {
         guard state == .recording else { return }
         state = .ending
-        Task { await closeRecording(save: save) }
+        let reason = save ? MirrorWire.EndReason.phone : MirrorWire.EndReason.discarded
+        Task { await closeRecording(save: save, reason: reason) }
     }
 
-    /// Lost-phone exit from the controls page: keep the workout (it lands in Apple
-    /// Health; the phone/backend HealthKit sync ingests it later) or drop it. Relay
-    /// MirrorEnded too in case the channel revives before teardown.
+    /// Lost-phone exit from the controls page: a person tapped Terminar.
     func finishLocally() {
+        finishByAthlete()
+    }
+
+    /// Terminar confirm: stopActivity → endCollection → finishWorkout → end()
+    /// then MirrorEnded(reason: athlete).
+    func finishByAthlete() {
         guard state == .recording else { return }
         state = .ending
-        Task { await closeRecording(save: true) }
+        Task { await closeRecording(save: true, reason: MirrorWire.EndReason.athlete) }
     }
 
     func discardLocally() {
         guard state == .recording else { return }
         state = .ending
-        Task { await closeRecording(save: false) }
+        Task { await closeRecording(save: false, reason: MirrorWire.EndReason.discarded) }
     }
 
-    private func closeRecording(save: Bool) async {
+    private func closeRecording(save: Bool, reason: String) async {
         isClosing = true
         stopWatchdog()
 
+        let now = Date()
+        session?.stopActivity(with: now)
+
         var workoutUuid: String?
         if save {
-            workoutUuid = await endAndSave()
+            workoutUuid = await endAndSave(at: now)
         } else {
             builder?.discardWorkout()
         }
-        // Relay the finished id BEFORE ending the session (awaited, not fire-and-
-        // forget, so it clears the channel first) — best-effort; the fallback is the
-        // phone's HealthKit ingest of the same workout, deduped on source_workout_ref.
-        if let session, let data = MirrorEnvelope.encoding(
-            type: MirrorWire.MessageType.ended, MirrorEnded(workoutUuid: workoutUuid)
-        ) {
-            try? await session.sendToRemoteWorkoutSession(data: data)
+        // First send still has a pipe; second is after `end()` (channel dying).
+        let endedPacket = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.ended,
+            MirrorEnded(workoutUuid: workoutUuid, reason: reason)
+        )
+        if let session, let endedPacket {
+            try? await session.sendToRemoteWorkoutSession(data: endedPacket)
         }
         session?.end()
+        if let session, let endedPacket {
+            try? await session.sendToRemoteWorkoutSession(data: endedPacket)
+        }
 
         WatchHaptics.success()
         try? await Task.sleep(for: Self.savedBeat)
@@ -353,10 +376,10 @@ final class MirrorSessionController: NSObject {
     /// End collection and save the HKWorkout, returning its UUID string (nil on a
     /// save failure). The workout is the source of truth the phone tags its
     /// execution with.
-    private func endAndSave() async -> String? {
+    private func endAndSave(at date: Date) async -> String? {
         guard let builder else { return nil }
         do {
-            try await builder.endCollection(at: Date())
+            try await builder.endCollection(at: date)
             let workout = try await builder.finishWorkout()
             return workout?.uuid.uuidString
         } catch {
