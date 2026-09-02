@@ -52,6 +52,10 @@ extension WorkoutSession {
     func sampleTreadmillSpeed(metersPerSecond: Double) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
         guard metersPerSecond >= 0 else { return }
+        // Same window-anchor as `sampleTreadmillDistance` / `sampleErg`: a speed
+        // sample must belong to THIS tramo. A still belt (0 km/h) can ARM wait-first
+        // if Empezar already opened a connected run; first speed > 0 releases it.
+        syncTramoIfNeeded()
         // First speed > 0 is movement, same as a metre: release the wait-first clock.
         // A 0 km/h reading is connect, not start — do not arm-release on a still belt.
         if metersPerSecond > 0 { releaseArmedTramoClock() }

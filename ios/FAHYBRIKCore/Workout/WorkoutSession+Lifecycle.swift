@@ -662,5 +662,10 @@ extension WorkoutSession {
             clearConditioning()
             clearRunStructure()
         }
+        // Wait-first must arm HERE, not on the first 0.25 s tick. Continuous `.running`
+        // has no count-in GO to reanchor; stopping the timer (tests) or opening the
+        // HUD before a tick used to leave `tramoClockArmed` false so the HUD painted
+        // session elapsed and TIME auto-closed at 0 km/h.
+        syncTramoIfNeeded()
     }
 }
