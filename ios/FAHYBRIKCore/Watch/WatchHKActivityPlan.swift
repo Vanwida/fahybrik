@@ -47,9 +47,15 @@ struct WatchHKActivityPlan: Equatable {
         )
     }
 
+    // Apple: HKLiveWorkoutDataSource is watchOS 5 / iOS 26. This file compiles
+    // into the iPhone target via FAHYBRIKCore (deploy 18.0). The helper is the
+    // Watch API that already compiles in FAHYBRIKWatch; the Plan itself stays
+    // on both targets. Not an 18/26 split of who owns the Primary session.
+#if os(watchOS)
     static func enableDistanceCollection(on dataSource: HKLiveWorkoutDataSource) {
         dataSource.enableCollection(for: distanceType, predicate: nil)
     }
+#endif
 
     /// Incremental meters from a cumulative `distanceWalkingRunning` sum.
     /// Nil when Apple has not moved — never a 0 to paint as a reading.
