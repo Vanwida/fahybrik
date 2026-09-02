@@ -27,6 +27,7 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         // singleton es compartido con el resto del target de tests.
         mirror.sendOverride = nil
         mirror.teardown()
+        mirror.resetAthleteEndFlagsForTests()
         super.tearDown()
     }
 
@@ -81,5 +82,46 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { exp2.fulfill() }
         wait(for: [exp2], timeout: 4)
         XCTAssertEqual(sendCount, 5)
+    }
+
+    /// FH-31 — Terminar en la muñeca manda `reason=athlete`. El teléfono cierra
+    /// el motor una vez y NO reenvía `MirrorEnd` (eso dejaría un `pendingEndSave`
+    /// que mataría el siguiente entreno al adoptar).
+    func testAthleteEndedClosesThePhoneAndEndIsANoOp() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-31"))
+        mirror.begin(session: s, activityKind: "mixed")
+        XCTAssertFalse(mirror.wristFinishedByAthlete)
+
+        let data = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.ended,
+            MirrorEnded(workoutUuid: "uuid-athlete", reason: MirrorWire.EndReason.athlete)
+        )
+        XCTAssertNotNil(data)
+        mirror.handleIncoming([data!])
+
+        XCTAssertTrue(mirror.wristFinishedByAthlete)
+        XCTAssertEqual(mirror.consumeWorkoutRef(), "uuid-athlete")
+
+        var sends: [String] = []
+        mirror.sendOverride = { sends.append($0) }
+        mirror.end(save: true)
+        XCTAssertEqual(sends, [], "el Primary ya cerró en la muñeca — no reenviar MirrorEnd")
+    }
+
+    func testEndedWithoutReasonDoesNotFinishThePhoneEngine() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-31-old"))
+        mirror.begin(session: s, activityKind: "mixed")
+
+        let data = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.ended,
+            MirrorEnded(workoutUuid: "uuid-old")
+        )
+        XCTAssertNotNil(data)
+        mirror.handleIncoming([data!])
+
+        XCTAssertFalse(
+            mirror.wristFinishedByAthlete,
+            "una muñeca vieja sin motivo no termina el motor del teléfono"
+        )
     }
 }

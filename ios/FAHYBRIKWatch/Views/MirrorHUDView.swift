@@ -496,7 +496,7 @@ struct MirrorHUDView: View {
             titleVisibility: .visible
         ) {
             Button("Terminar", role: .destructive) {
-                controller.sendCommand(MirrorWire.CommandKind.advance)
+                controller.finishByAthlete()
             }
             Button("Seguir", role: .cancel) { }
         }
@@ -544,7 +544,13 @@ struct MirrorHUDView: View {
         let paused = phase == MirrorWire.Phase.paused
         return Button {
             WatchHaptics.tap()
-            controller.sendCommand(paused ? MirrorWire.CommandKind.resume : MirrorWire.CommandKind.pause)
+            if paused {
+                controller.resumePrimary()
+                controller.sendCommand(MirrorWire.CommandKind.resume)
+            } else {
+                controller.pausePrimary()
+                controller.sendCommand(MirrorWire.CommandKind.pause)
+            }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: paused ? "play.fill" : "pause.fill")
