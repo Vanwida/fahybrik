@@ -21,17 +21,6 @@ final class HierroVivoTests: XCTestCase {
 
     /// El canvas del iPhone 17 Pro (puntos lógicos), el móvil de desarrollo.
     private static let lienzo = CGSize(width: 402, height: 874)
-    /// El ancho que el marco deja dentro de su relleno.
-    private static let anchoUtil: CGFloat = 402 - 2 * BandaViva.hueco
-    /// EL HUECO DE APOYOS, derivado del reparto del marco igual que lo deriva el
-    /// doble: el lienzo útil menos cromo, contexto, banda del sujeto y acción con
-    /// sus huecos y su relleno. Es la cota contra la que se mide la cara pintada.
-    private static var huecoApoyos: CGFloat {
-        let util = lienzo.height - 59 - 34   // safe areas del 17 Pro
-        return util - (BandaViva.cromo + BandaViva.contexto + BandaViva.sujeto
-                       + BandaViva.accion + 6 * BandaViva.hueco)
-    }
-
     // MARK: - La carga, en sus cuatro escrituras (el eje entero del modelo)
 
     /// UN PORCENTAJE NO ES UN PESO, y jamás se convierte: la app no tiene el 1RM
@@ -183,46 +172,6 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertTrue(Formato.rango(75, 85).contains("\u{002D}"))
         XCTAssertEqual(Formato.dosisDeSerie(reps: 12, repsMax: 15, carga: nil)?.sujeto?.cifra, "12-15")
     }
-
-    // MARK: - La ventana del riel — aritmética, no una constante de gusto
-
-    /// El umbral no se elige: es el primero que no cabe a lo ancho del marco REAL.
-    /// Con el lienzo del 17 Pro caben cuatro peldaños con su dosis, así que la
-    /// ventana empieza en la quinta serie — que es el 49 % del corpus (37 de 75).
-    func testElUmbralDeLaVentanaSaleDelAnchoDelMarco() {
-        XCTAssertEqual(VentanaDeSeries.caben(ancho: Self.anchoUtil), 4,
-                       "con \(Int(Self.anchoUtil)) pt caben cuatro peldaños de \(Int(VentanaDeSeries.anchoPeldanoPt))")
-        // Nunca por debajo de la ventana: con tres no hay nada que decidir.
-        XCTAssertEqual(VentanaDeSeries.caben(ancho: 100), VentanaDeSeries.ventana)
-        XCTAssertEqual(VentanaDeSeries.caben(ancho: 0), VentanaDeSeries.ventana)
-    }
-
-    /// Con cuatro series se pintan las CUATRO: es el caso de la captura y no hay
-    /// nada que colapsar.
-    func testConCuatroSeriesSePintanLasCuatro() {
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 4, activa: 1, caben: 4), [0, 1, 2, 3])
-    }
-
-    /// Desde la quinta es VENTANA de tres pegada al cursor: la cerrada de antes, la
-    /// que haces, la que viene. Con esas tres, las dos preguntas del que está
-    /// levantando («cómo fue la última», «cambia la siguiente») siguen contestadas.
-    func testDesdeLaQuintaElRielEsVentanaDeTres() {
-        // La pirámide real 6-6-4-4-3, con el atleta en la tercera.
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 5, activa: 2, caben: 4), [1, 2, 3])
-    }
-
-    /// En los EXTREMOS la ventana se DESPLAZA en vez de encogerse, o la primera y la
-    /// última serie tendrían dos peldaños en vez de tres.
-    func testEnLosExtremosLaVentanaSeDesplazaNoSeEncoge() {
-        // Las doce series del bloque 501, al principio y al final.
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 12, activa: 0, caben: 4), [0, 1, 2])
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 12, activa: 11, caben: 4), [9, 10, 11])
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 12, activa: 5, caben: 4), [4, 5, 6])
-        // Y con menos series que la ventana, todas — sin repetir ni inventar huecos.
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 2, activa: 0, caben: 4), [0, 1])
-        XCTAssertEqual(VentanaDeSeries.visibles(total: 0, activa: 0, caben: 4), [])
-    }
-
     // MARK: - La cascada de apoyos — se reserva contra el hueco, no contra un frame
 
     func testLaCascadaReservaEnOrdenYLaPrimeraNoPagaHueco() {
@@ -245,71 +194,6 @@ final class HierroVivoTests: XCTestCase {
         XCTAssertLessThan(p.libre, 0)
         XCTAssertFalse(p.cabe(10), "con el hueco ya desbordado no entra nada opcional")
     }
-
-    // MARK: - La velocidad — dos ausencias que no son la misma
-
-    /// SIN SENSOR la celda NO EXISTE: prometer una medida que no va a llegar es la
-    /// otra forma de mentir (§7).
-    func testSinSensorLaCeldaDeVelocidadNoExiste() {
-        XCTAssertEqual(VelocidadDeLaSerie.resolver(vivo: nil, cerrada: nil, sensorPuesto: false),
-                       .sinSensor)
-        // Ni siquiera con una lectura en la mano: si el sensor no está puesto, esa
-        // lectura no es de este entreno.
-        XCTAssertEqual(VelocidadDeLaSerie.resolver(vivo: lectura(0.49, confianza: 0.78),
-                                                   cerrada: nil, sensorPuesto: false),
-                       .sinSensor)
-    }
-
-    /// CON SENSOR Y POCA CONFIANZA la celda existe y dice que no se fía, SIN cifra:
-    /// un «rojo con aplomo» sobre una medida que no se sostiene es peor que no medir.
-    func testConSensorYPocaConfianzaLaCeldaLoDiceSinCifra() {
-        // El caso del fondo lastrado: el estimador lee peor un dip que una sentadilla.
-        let dudosa = lectura(0.34, confianza: 0.31)
-        XCTAssertEqual(VelocidadDeLaSerie.resolver(vivo: nil, cerrada: dudosa, sensorPuesto: true),
-                       .pocaConfianza)
-        XCTAssertNil(VelocidadDeLaSerie.resolver(vivo: nil, cerrada: dudosa, sensorPuesto: true).reading,
-                     "sin confianza no se pinta cifra")
-        // Sensor puesto y todavía nada medido no es lo mismo que no fiarse.
-        XCTAssertEqual(VelocidadDeLaSerie.resolver(vivo: nil, cerrada: nil, sensorPuesto: true),
-                       .aunNo)
-    }
-
-    /// La lectura VIVA manda sobre la de la serie cerrada: una lectura de hace tres
-    /// minutos no describe la barra de ahora.
-    func testLaLecturaVivaMandaSobreLaDeLaSerieCerrada() {
-        let viva = lectura(0.62, confianza: 0.80)
-        let vieja = lectura(0.38, confianza: 0.74)
-        let r = VelocidadDeLaSerie.resolver(vivo: viva, cerrada: vieja, sensorPuesto: true)
-        XCTAssertEqual(r.reading?.metersPerSecond, 0.62)
-        // Y descansando, cuando la serie en vuelo ya no existe, se lee la cerrada.
-        let descansando = VelocidadDeLaSerie.resolver(vivo: nil, cerrada: vieja, sensorPuesto: true)
-        XCTAssertEqual(descansando.reading?.metersPerSecond, 0.38)
-    }
-
-    /// Lo que el motor estampó al cerrar la serie (`confirmSet` → `stampVelocity`)
-    /// se lee tal cual, con su banda resuelta por el dominio compartido.
-    func testLaLecturaDeUnaSerieCerradaSaleDeLoEstampado() {
-        var rec = SetRecord(setIndex: 1, repsPrescribed: 10, repsActual: nil,
-                            loadPrescribedKg: 82.5, loadActualKg: nil, rpe: nil, rir: nil,
-                            status: "done", confirmed: true, tempo: nil, restS: 90)
-        rec.meanVelocityFirstMs = 0.55
-        rec.meanVelocityLastMs = 0.38
-        rec.velocityLossPct = 31
-        rec.velocityConfidence = 0.74
-        let r = VelocidadDeLaSerie.deSerieCerrada(rec)
-        XCTAssertEqual(r?.metersPerSecond, 0.38)
-        // 0,38 m/s cae por debajo del corte de «media» (0,40) → LENTA. Es justo lo
-        // que cuenta el escenario del doble: la serie 2 salió lenta, y por eso el
-        // atleta baja de 82,5 a 77,5 en la 3.
-        XCTAssertEqual(r?.band, .orange)
-        XCTAssertEqual(r?.band.label.lowercased(), "lenta")
-        XCTAssertEqual(r?.lossPct, 31)
-        // Una serie sin medida no inventa una lectura de cero.
-        var sin = rec
-        sin.meanVelocityLastMs = nil
-        XCTAssertNil(VelocidadDeLaSerie.deSerieCerrada(sin))
-    }
-
     private func lectura(_ ms: Double, confianza: Double, perdida: Double? = nil) -> VelocityLiveReading {
         VelocityLiveReading(metersPerSecond: ms,
                             band: VelocityBand.from(velocityMs: ms, confidence: confianza),
@@ -364,72 +248,6 @@ final class HierroVivoTests: XCTestCase {
                        descansoS: 150, cerradas: cerradas)
     }
 
-    /// `blocks` 501: doce series, sin carga y sin descanso.
-    private func dip12(cerradas: Int = 6) -> WorkoutSession {
-        sesionDeFuerza(series: [10, 10, 8, 8, 6, 4, 12, 10, 10, 8, 8, 6],
-                       carga: nil, descansoS: nil, cerradas: cerradas,
-                       bloque: "Fuerza superior", titulo: "Weighted dip")
-    }
-
-    // MARK: - LA CARA QUE SE PINTA CABE EN SU COTA
-
-    @MainActor
-    private func mideApoyos(_ s: WorkoutSession) -> CGFloat {
-        let hud = FuerzaVivoView(session: s, accionTitulo: "HECHO", alTocarAccion: {}) { EmptyView() }
-        let presupuesto = PresupuestoApoyos(alto: Self.huecoApoyos, ancho: Self.anchoUtil)
-        let vista = VStack(spacing: Theme.Spacing.s) { hud.apoyos(presupuesto) }
-        return UIHostingController(rootView: AnyView(vista.environment(\.colorScheme, .dark)))
-            .sizeThatFits(in: CGSize(width: Self.anchoUtil, height: .greatestFiniteMagnitude)).height
-    }
-
-    /// LA CARA DE TRABAJO: riel + fila + el chip de lo siguiente. Se mide con una
-    /// serie CERRADA porque es el estado que de verdad se pinta —la media, el chip,
-    /// la marca de la cerrada existen— y medir el estado virgen fue lo que dejó al
-    /// contador de rondas derramándose 538 pt en un hueco de 393.
-    @MainActor
-    func testLaCaraDeTrabajoCabeEnElHuecoDeApoyos() {
-        let alto = mideApoyos(squat4x10())
-        XCTAssertLessThanOrEqual(alto, Self.huecoApoyos + 1,
-            "los apoyos piden \(Int(alto)) pt y el marco deja \(Int(Self.huecoApoyos)): "
-            + "lo que no cabe no se recorta, EMPUJA la franja de acción fuera")
-    }
-
-    /// LA CARA DE DESCANSO: la misma, más la frase de la pérdida de velocidad. Es la
-    /// que más piezas tiene a la vez, así que es la cota que manda.
-    @MainActor
-    func testLaCaraDeDescansoConLaFraseDeVelocidadCabe() {
-        let s = squat4x10(cerradas: 0)
-        s.primeSetsIfNeeded()
-        // Se cierra la serie con velocidad estampada: `confirmSet` arranca el
-        // descanso, así que este es el instante exacto de la cara de descanso.
-        s.setRecords[0].meanVelocityFirstMs = 0.55
-        s.setRecords[0].meanVelocityLastMs = 0.38
-        s.setRecords[0].velocityLossPct = 31
-        s.setRecords[0].velocityConfidence = 0.74
-        s.confirmSet(0)
-        XCTAssertGreaterThan(s.restRemainingSeconds, 0, "el motor abre el descanso al cerrar")
-        let alto = mideApoyos(s)
-        XCTAssertLessThanOrEqual(alto, Self.huecoApoyos + 1,
-            "la cara de descanso pide \(Int(alto)) pt sobre \(Int(Self.huecoApoyos))")
-    }
-
-    /// LA PIRÁMIDE y las DOCE SERIES: el riel es ventana y paga su cabecera. El alto
-    /// de la cara no puede depender del número de series — eso es lo que se fija.
-    @MainActor
-    func testLaCaraNoCreceConElNumeroDeSeries() {
-        let cuatro = mideApoyos(squat4x10())
-        let cinco = mideApoyos(squatPiramide())
-        let doce = mideApoyos(dip12())
-        XCTAssertLessThanOrEqual(cinco, Self.huecoApoyos + 1, "la pirámide pide \(Int(cinco)) pt")
-        XCTAssertLessThanOrEqual(doce, Self.huecoApoyos + 1, "las doce piden \(Int(doce)) pt")
-        // La ventana cuesta su cabecera y nada más: doce series no piden más alto
-        // que cinco, porque las dos pintan tres peldaños.
-        XCTAssertEqual(cinco, doce, accuracy: 1,
-                       "cinco y doce series pintan la misma cara: tres peldaños y su cabecera")
-        XCTAssertGreaterThan(cinco, cuatro,
-                             "cinco series pagan la cabecera que cuatro no pagan")
-    }
-
     /// Y LA PANTALLA ENTERA, con el hierro dentro de la puerta del bloque: lo que se
     /// salga por abajo es el botón que cierra la serie.
     @MainActor
@@ -446,30 +264,6 @@ final class HierroVivoTests: XCTestCase {
                                  "la pantalla pide \(Int(alto)) pt en un móvil de \(Int(Self.lienzo.height))")
         s.stop()
     }
-
-    // MARK: - El reparto, contra huecos apretados
-
-    /// EL RIEL NO SE RECORTA aunque el hueco venga de un cromo extremo (dobles), y
-    /// lo que cae es lo de más abajo en la prioridad: el chip de lo siguiente
-    /// primero, que es contexto que se puede mirar al acabar.
-    @MainActor
-    func testEnUnHuecoApretadoCaeLoSiguienteYElRielSeQueda() {
-        let hud = FuerzaVivoView(session: squat4x10(), accionTitulo: "HECHO", alTocarAccion: {}) { EmptyView() }
-        let holgado = hud.reparto(PresupuestoApoyos(alto: Self.huecoApoyos, ancho: Self.anchoUtil))
-        XCTAssertTrue(holgado.riel)
-        XCTAssertTrue(holgado.fila)
-
-        // El cromo de dobles deja ~120 pt: no caben riel Y fila.
-        let apretado = hud.reparto(PresupuestoApoyos(alto: 120, ancho: Self.anchoUtil))
-        XCTAssertTrue(apretado.riel, "el riel es la única puerta al ajuste: no se recorta")
-        XCTAssertFalse(apretado.siguiente, "lo siguiente es lo primero que cae")
-
-        // Y en el peor hueco imaginable, el riel sigue estando.
-        let suelo = hud.reparto(PresupuestoApoyos(alto: 20, ancho: Self.anchoUtil))
-        XCTAssertTrue(suelo.riel)
-        XCTAssertFalse(suelo.fila)
-    }
-
     // MARK: - Las tres caras, renderizadas
     //
     // En el simulador no hay reloj, ni sensor, ni un entreno de verdad al que
@@ -530,7 +324,7 @@ final class HierroVivoTests: XCTestCase {
 
     /// LA PIRÁMIDE — cinco series desiguales, carga en %RM y el riel como ventana.
     @MainActor
-    func testRenderPiramideConVentana() {
+    func testRenderPiramide() {
         let s = squatPiramide()
         s.liveHRBpm = 138
         XCTAssertNotNil(render(lienzoCompleto(s), nombre: "hierro-3-piramide"))

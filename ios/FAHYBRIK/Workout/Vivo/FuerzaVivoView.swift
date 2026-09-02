@@ -40,140 +40,6 @@ import SwiftUI
 /// El CROMO lo pone el anfitrión (`ActiveWorkoutView`) y esta vista solo lo coloca
 /// en la primera fila: así el ancla del §10.3 es EXACTA sin que la pantalla pierda
 /// la navegación que ya tenía.
-// MARK: - La velocidad de la barra, resuelta — lo medido y lo que no se sostiene
-
-/// QUÉ DICE LA CELDA DE VELOCIDAD, que son cuatro cosas distintas y no dos.
-///
-/// La distinción que importa es entre DOS AUSENCIAS que no son la misma: sin
-/// sensor no hay nada que prometer y la celda **no existe**; con sensor puesto y
-/// una lectura que no se sostiene, la celda existe y dice que no se fía. Prometer
-/// una medida que no va a llegar es la otra forma de mentir (§7), y pintar «rojo
-/// con aplomo» sobre algo que el estimador no sostiene es peor que no medir.
-enum VelocidadDeLaSerie: Equatable {
-    /// El reloj no está capturando movimiento. La celda no se pinta.
-    case sinSensor
-    /// Sensor puesto y todavía sin ninguna repetición medida.
-    case aunNo
-    /// Medido, pero por debajo del mínimo de confianza: celda SIN cifra.
-    case pocaConfianza
-    case lectura(VelocityLiveReading)
-
-    /// La lectura de una serie ya CERRADA, a partir de lo que el motor le estampó
-    /// (`confirmSet` → `stampVelocity`). Nil cuando esa serie no trae medida.
-    static func deSerieCerrada(_ rec: SetRecord) -> VelocityLiveReading? {
-        guard let ms = rec.meanVelocityLastMs else { return nil }
-        return VelocityLiveReading(
-            metersPerSecond: ms,
-            band: VelocityBand.from(velocityMs: ms, confidence: rec.velocityConfidence),
-            lossPct: rec.velocityLossPct,
-            confidence: rec.velocityConfidence ?? 0
-        )
-    }
-
-    /// - Parameters:
-    ///   - vivo: la lectura de la repetición que se acaba de cerrar DENTRO de la
-    ///     serie en vuelo. Es lo que la app sabe mientras levantas, y va primero:
-    ///     una lectura de hace tres minutos no describe la barra de ahora.
-    ///   - cerrada: lo que quedó estampado en la última serie cerrada. Es lo que
-    ///     se lee descansando, cuando la serie en vuelo ya no existe.
-    ///   - sensorPuesto: de la SESIÓN, no del ejercicio.
-    static func resolver(vivo: VelocityLiveReading?,
-                         cerrada: VelocityLiveReading?,
-                         sensorPuesto: Bool) -> VelocidadDeLaSerie {
-        guard sensorPuesto else { return .sinSensor }
-        if let v = vivo, v.band != .none { return .lectura(v) }
-        if let c = cerrada { return c.band == .none ? .pocaConfianza : .lectura(c) }
-        // Con sensor puesto y una lectura viva que no pasa el corte, lo honesto es
-        // decir que no se fía — no callarse como si no hubiera puesto el reloj.
-        return vivo != nil ? .pocaConfianza : .aunNo
-    }
-
-    var reading: VelocityLiveReading? {
-        if case let .lectura(r) = self { return r }
-        return nil
-    }
-}
-
-// MARK: - La ventana del riel — la aritmética, no una preferencia
-
-/// CUÁNTAS SERIES CABEN EN EL RIEL, y desde cuál se convierte en VENTANA.
-///
-/// El umbral no es un número elegido: es el primero que no cabe a lo ancho. Se
-/// deriva del ancho REAL que el marco le da al riel (no de un lienzo supuesto),
-/// igual que el umbral del contador de rondas se deriva del alto medido.
-enum VentanaDeSeries {
-    /// Lo que mide un avance de la monoespaciada, en fracción de su tamaño.
-    static let avanceMono: CGFloat = 0.6
-    /// EL TAMAÑO AL QUE LA DOSIS DEJA DE ENCOGERSE, que es el que manda aquí y no
-    /// el nominal: el peldaño escribe en `Theme.Typography.readoutS` (22 pt) con
-    /// `minimumScaleFactor(0.5)`, así que hasta 11 pt la dosis cabe encogiéndose y
-    /// se sigue leyendo. El presupuesto se hace contra ese SUELO — hacerlo contra
-    /// los 22 pt nominales declararía «no caben» cuatro peldaños que caben de
-    /// sobra, y hacerlo por debajo dejaría pasar peldaños ilegibles.
-    ///
-    /// Que caiga en los mismos 11 px que estimó el doble no es coincidencia: allí
-    /// se eligió a ojo el tamaño mínimo legible y aquí sale de la escala real.
-    static let dosisMinimaPt: CGFloat = 11
-    /// «10 × 82,5» — la dosis más larga que sale del corpus real, en glifos.
-    static let glifosDosis = 10
-    /// Relleno horizontal del peldaño y hueco entre peldaños.
-    static let rellenoPeldanoPt: CGFloat = 8
-    static let huecoPeldanoPt: CGFloat = 6
-
-    /// Lo que necesita un peldaño para decir su dosis sin bajar del suelo legible.
-    static let anchoPeldanoPt: CGFloat =
-        (CGFloat(glifosDosis) * avanceMono * dosisMinimaPt).rounded(.up) + rellenoPeldanoPt
-
-    /// La ventana: la cerrada de antes, la de ahora y la que viene.
-    static let ventana = 3
-
-    /// Cuántos peldaños con dosis caben en `ancho` puntos. Nunca menos que la
-    /// ventana: por debajo de eso no hay nada que decidir, y encoger la dosis de
-    /// tres peldaños se lee peor que enseñar tres apretados.
-    static func caben(ancho: CGFloat) -> Int {
-        guard ancho > 0 else { return ventana }
-        let n = Int((ancho + huecoPeldanoPt) / (anchoPeldanoPt + huecoPeldanoPt))
-        return max(ventana, n)
-    }
-
-    /// Los índices que pinta el riel. Con pocas series, todas; desde el umbral, la
-    /// ventana pegada al cursor — y en los extremos se DESPLAZA en vez de
-    /// encogerse, o la primera y la última serie tendrían dos peldaños de tres.
-    static func visibles(total: Int, activa: Int, caben: Int) -> [Int] {
-        guard total > 0 else { return [] }
-        guard total > caben else { return Array(0..<total) }
-        let ancho = min(ventana, total)
-        let inicio = min(max(0, activa - 1), max(0, total - ancho))
-        return Array(inicio..<(inicio + ancho))
-    }
-}
-
-// MARK: - El presupuesto de los apoyos del hierro
-
-/// LO QUE MIDE CADA APOYO, para que la cascada reparta contra el hueco real.
-///
-/// Altos FIJOS y declarados, no medidos por pieza: es lo que hace que el reparto
-/// dependa del HUECO y jamás del contenido — dos ejercicios de cuatro series
-/// rinden la misma cara pese lo que pesen sus nombres. La misma regla que hace
-/// puro el umbral del contador de rondas. Los tests miden que la cara PINTADA
-/// cabe en su cota; si un alto de aquí se queda corto, ahí salta.
-enum ApoyosDelHierro {
-    /// Un peldaño: rótulo de 11 + dosis en `readoutS` (22) + relleno de 9 y 9.
-    static let rielPt: CGFloat = 62
-    /// Y su cabecera, que SOLO existe cuando el riel es ventana: enseñando tres de
-    /// doce hay que decir que son tres de doce, o el atleta cree que su ejercicio
-    /// tiene tres. Con todas a la vista no hay nada que declarar y no se paga.
-    static let cabeceraRielPt: CGFloat = 22
-    /// La fila de celdas: etiqueta + `readoutS` + pie + relleno de 10 y 10.
-    static let filaPt: CGFloat = 76
-    /// La frase de la velocidad perdida: dos líneas a 12 pt.
-    static let lecturaPt: CGFloat = 34
-    /// El chip de lo que viene después de este tramo.
-    static let siguientePt: CGFloat = 42
-    /// Los ajustes de un tramo de UNA serie: paso, rueda de 84 y el salto.
-    static let ajustesPt: CGFloat = 190
-}
-
 struct FuerzaVivoView<Cromo: View>: View {
     let session: WorkoutSession
     let accionTitulo: String
@@ -478,166 +344,6 @@ struct FuerzaVivoView<Cromo: View>: View {
         return pendiente ?? session.setRecords.indices.last
     }
 
-    // MARK: - Los apoyos — cascada por prioridad sobre el hueco MEDIDO
-
-    /// QUÉ ENTRA EN LOS APOYOS, y el orden no es estético.
-    ///
-    /// El RIEL dice dónde vas y cómo fueron las anteriores (sin él la pantalla no
-    /// sitúa) y además es la única puerta al ajuste, así que **no se recorta**: es
-    /// una función, y una función no cae porque la pantalla venga apretada — la
-    /// misma regla que protege el deshacer de la cara por rondas. La FILA lleva lo
-    /// medido (velocidad, pulso) y el tiempo. La LECTURA interpreta lo que acabas de
-    /// hacer. Y LO SIGUIENTE es contexto que se puede mirar al acabar, así que es lo
-    /// primero que cae.
-    ///
-    /// La lectura y la fila no compiten por casualidad: la pérdida de velocidad se
-    /// lee con la serie ya CERRADA —cara de descanso— y es la misma ranura
-    /// contestando a «¿qué haces AHORA?».
-    /// Interno (no privado) a propósito: la cota que hay que medir es la de la cara
-    /// que se PINTA, no la del marco que la contiene — `MarcoVivoLayout` propone un
-    /// alto fijo, así que medir la pantalla entera nunca delataría unos apoyos que
-    /// se derraman. Los tests miden esto contra el hueco real.
-    @ViewBuilder
-    func apoyos(_ presupuesto: PresupuestoApoyos) -> some View {
-        let plan = reparto(presupuesto)
-        if plan.riel {
-            RielDeSeries(series: session.setRecords,
-                         actual: indiceSerieActual,
-                         turnos: seg?.supersetSlots,
-                         caben: VentanaDeSeries.caben(ancho: presupuesto.ancho),
-                         alTocar: { editando = SerieEnEdicion(indice: $0) })
-        }
-        if plan.ajustes { ajustesDeTramo }
-        if plan.fila { filaDeApoyos }
-        if plan.lectura, let frase = lecturaDeVelocidad { frase }
-        if plan.siguiente { SiguienteTramoChip(siguiente: session.nextSegment) }
-    }
-
-    struct Reparto: Equatable {
-        var riel = false
-        var ajustes = false
-        var fila = false
-        var lectura = false
-        var siguiente = false
-    }
-
-    /// El reparto, contra el hueco real y en orden de prioridad. Vive aparte del
-    /// pintado para que se pueda MEDIR sin montar la pantalla.
-    func reparto(_ presupuesto: PresupuestoApoyos) -> Reparto {
-        var p = presupuesto
-        var salida = Reparto()
-        if porSeries {
-            let alto = ApoyosDelHierro.rielPt
-                + (session.setRecords.count > VentanaDeSeries.caben(ancho: p.ancho)
-                   ? ApoyosDelHierro.cabeceraRielPt : 0)
-            // Obligatorio: es la única puerta al ajuste de una serie.
-            salida.riel = p.cabe(alto, obligatorio: true)
-        } else if seg?.repsArePrimable == true || admiteCarga {
-            // Y en un tramo de UNA serie, los ajustes son la única forma de registrar.
-            salida.ajustes = p.cabe(ApoyosDelHierro.ajustesPt, obligatorio: true)
-        }
-        salida.fila = p.cabe(ApoyosDelHierro.filaPt)
-        if descansando, lecturaDeVelocidad != nil {
-            salida.lectura = p.cabe(ApoyosDelHierro.lecturaPt)
-        }
-        if session.nextSegment != nil {
-            salida.siguiente = p.cabe(ApoyosDelHierro.siguientePt)
-        }
-        return salida
-    }
-
-    /// La fila: lo MEDIDO primero, y el tiempo después.
-    ///
-    /// La velocidad abre la fila porque es lo único del levantamiento que la app
-    /// mide — el resto es tiempo y pulso. Y va aquí y no en la banda porque no es lo
-    /// que se te cae de la cabeza (nunca lo has sabido): es lo que la app te AÑADE,
-    /// y se lee entre series, cuando decides con cuánto va la siguiente. La banda es
-    /// del sujeto, que es la prescripción; esto es la ejecución.
-    @ViewBuilder
-    private var filaDeApoyos: some View {
-        FilaApoyos {
-            switch velocidad {
-            case .sinSensor:
-                // Sin sensor la celda NO EXISTE: prometer una medida que no va a
-                // llegar es la otra forma de mentir (§7).
-                EmptyView()
-            case .aunNo:
-                ApoyoVivo(etiqueta: Vocab.velocidad, valor: nil, ausente: "aún no")
-            case .pocaConfianza:
-                // Con sensor y sin lectura fiable la celda existe y dice que no se
-                // fía, en vez de pintar un número que no se sostiene.
-                ApoyoVivo(etiqueta: Vocab.velocidad, valor: nil, ausente: "poca confianza")
-            case let .lectura(r):
-                // El tono es el semáforo, y la PALABRA va en el pie: un dato que solo
-                // se dice con color no lo lee quien no distingue el verde del ámbar.
-                ApoyoVivo(etiqueta: Vocab.velocidad,
-                          valor: r.mpsText,
-                          tono: r.band.tono,
-                          pie: "m/s · \(r.band.label.lowercased())")
-            }
-            ApoyoVivo(etiqueta: Vocab.fc,
-                      valor: session.liveHRBpm.map { "\($0)" },
-                      tono: session.liveZone?.color ?? Theme.Color.foreground,
-                      ausente: "sin reloj",
-                      pie: Vocab.ppm)
-            // LA PAUSA, no una «vuelta»: lo que se pregunta entre series es cuánto
-            // llevas parado, y sigue contando cuando el descanso prescrito ya se
-            // agotó — que es justo cuando dejas de saberlo.
-            ApoyoVivo(etiqueta: Vocab.pausa,
-                      valor: session.secondsSinceLastSet.map { Formato.clock($0, anchoFijo: true) },
-                      ausente: "aún no",
-                      pie: "desde la última")
-            // El descanso del plan cae cuando el sensor ocupa una celda: cuatro caben,
-            // cinco no, y entre «lo que pide el plan» y lo que la barra ha hecho de
-            // verdad gana lo medido. Sigue estando en la cara del descanso, que es
-            // donde se cobra: drenando en el strip de arriba.
-            if velocidad == .sinSensor, let d = descansoPrescrito {
-                ApoyoVivo(etiqueta: Vocab.descanso,
-                          valor: Formato.clock(d, subMinuto: .segundos),
-                          pie: "lo que pide el plan")
-            }
-        }
-    }
-
-    // MARK: - La velocidad de la barra
-
-    /// ¿Está el reloj capturando movimiento? Es de la SESIÓN, no del ejercicio: o
-    /// hay un espejo mandando conclusiones, o alguna serie ya trae medida estampada.
-    private var sensorPuesto: Bool {
-        session.sensorConclusions != nil
-            || session.setRecords.contains { $0.meanVelocityLastMs != nil }
-    }
-
-    private var velocidad: VelocidadDeLaSerie {
-        VelocidadDeLaSerie.resolver(
-            vivo: VelocityLive.reading(from: session.sensorConclusions),
-            cerrada: ultimaSerieMedida.flatMap(VelocidadDeLaSerie.deSerieCerrada),
-            sensorPuesto: sensorPuesto
-        )
-    }
-
-    /// La última serie CERRADA que trae medida. Hacia atrás: la de ahora está en
-    /// vuelo y su velocidad todavía no se ha estampado.
-    private var ultimaSerieMedida: SetRecord? {
-        session.setRecords.last { $0.confirmed && $0.meanVelocityLastMs != nil }
-    }
-
-    /// LO QUE HAS PERDIDO DENTRO DE LA SERIE, como FRASE y no como cifra —
-    /// monoespaciar lo que hay que interpretar lo disfraza de medida (§4), y un
-    /// número que hay que interpretar de cabeza a 170 ppm no se interpreta.
-    ///
-    /// Solo con la serie ya cerrada: es lo que se lee descansando, cuando decides
-    /// con cuánto va la siguiente.
-    private var lecturaDeVelocidad: Text? {
-        guard descansando,
-              let r = velocidad.reading,
-              let perdida = r.lossPct, perdida > 0.5 else { return nil }
-        return Text("Tu última repetición fue \(r.band.label.lowercased()): "
-                    + "\(r.mpsText) m/s, un \(Int(perdida.rounded())) % menos que la primera de la serie.")
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.Color.muted)
-    }
-
     // MARK: - Los apoyos
 
     private var apoyos: some View {
@@ -656,7 +362,6 @@ struct FuerzaVivoView<Cromo: View>: View {
             if porSeries {
                 RielDeSeries(series: session.setRecords,
                              actual: indiceSerieActual,
-                             turnos: seg?.supersetSlots,
                              alTocar: { editando = SerieEnEdicion(indice: $0) })
             } else {
                 ajustesDeTramo
@@ -709,89 +414,29 @@ private struct CierreDeCarga: Identifiable {
     let kg: Double
 }
 
-/// LAS SERIES A LO ANCHO, con la que tienes delante encendida.
+/// Las series a lo ancho, con la que tienes delante encendida.
 ///
-/// Es un RIEL, no una tabla: dice en qué serie vas y cómo quedaron las anteriores.
-/// La tabla que había antes crecía con el número de series hasta empujar la acción
-/// fuera de la pantalla, y encima ponía el gesto que repites cuatro veces
-/// («hecha») en un botón de 12 pt.
+/// Es un RIEL, no una tabla: dice en qué serie vas y cómo quedaron las anteriores,
+/// y cabe igual con cuatro que con ocho. La tabla que había antes crecía con el
+/// número de series hasta empujar la acción fuera de la pantalla, y encima ponía el
+/// gesto que repites cuatro veces («hecha») en un botón de 12 pt.
 ///
-/// Y ES UNA VENTANA cuando no caben. No un cursor como el contador de rondas: las
-/// rondas de un metcon son HOMOGÉNEAS (la 12 repite la 11) y colapsarlas concentra;
-/// las series de fuerza son HETEROGÉNEAS —6-6-4-4-3— y colapsarlas destruye la
-/// única cosa que el riel sabe decir. Con la ventana de tres, las dos preguntas que
-/// se hace el que está levantando («cómo fue la última», «cambia la siguiente»)
-/// siguen contestadas; con doce peldaños ilegibles, ninguna.
-///
-/// Tocar una serie abre su editor, y eso la ventana NO se lo lleva por delante: un
-/// rediseño que quita una función y se llama mejora es lo que el deshacer de la
-/// cara por rondas tuvo prohibido.
-///
-/// EN UNA SUPERSERIE EL RIEL ES LA VUELTA, no el bloque entero: tres ejercicios por
-/// cuatro vueltas son doce peldaños, y doce no contestan «¿qué me queda de ESTA
-/// vuelta?». Así que la rotación se recorta a los turnos de la vuelta en curso y
-/// cada peldaño se rotula con su EJERCICIO en vez de con un número global.
+/// Tocar una serie abre su editor. Ajustar es la excepción (§7): lo normal es que
+/// la serie salga como está escrita y se cierre con el botón grande.
 struct RielDeSeries: View {
     let series: [SetRecord]
     let actual: Int?
-    /// La rotación de la superserie, un turno por serie y en el mismo orden. Nil en
-    /// una serie recta, donde los peldaños son las series del mismo ejercicio.
-    var turnos: [SupersetSlot]? = nil
-    /// Cuántos peldaños caben legibles en el ancho que el marco dio. Lo deriva
-    /// `VentanaDeSeries.caben(ancho:)` de la geometría real.
-    var caben: Int = VentanaDeSeries.ventana
     let alTocar: (Int) -> Void
 
-    /// Los peldaños de la VUELTA en una superserie; todas las series en fuerza recta.
-    private var delTurno: [SetRecord] {
-        guard let turnos, let actual, turnos.indices.contains(actual) else { return series }
-        let vuelta = turnos[actual].round
-        return series.filter { rec in
-            let i = rec.setIndex - 1
-            return turnos.indices.contains(i) && turnos[i].round == vuelta
-        }
-    }
-
-    /// Y de esos, los que se pintan: todos mientras quepan, y la ventana pegada al
-    /// cursor cuando no.
-    private var visibles: [SetRecord] {
-        let candidatos = delTurno
-        let cursor = candidatos.firstIndex { $0.setIndex - 1 == actual } ?? max(0, candidatos.count - 1)
-        return VentanaDeSeries.visibles(total: candidatos.count, activa: cursor, caben: caben)
-            .map { candidatos[$0] }
-    }
-
-    private var esVentana: Bool { delTurno.count > caben }
-
-    private func turno(_ rec: SetRecord) -> SupersetSlot? {
-        let i = rec.setIndex - 1
-        guard let turnos, turnos.indices.contains(i) else { return nil }
-        return turnos[i]
-    }
-
     var body: some View {
-        VStack(spacing: 6) {
-            // La cabecera SOLO cuando es ventana: enseñando tres de doce hay que decir
-            // que son tres de doce, o el atleta cree que su ejercicio tiene tres. Con
-            // todas a la vista no hay nada que declarar y no se paga su alto.
-            if esVentana {
-                HStack(alignment: .firstTextBaseline) {
-                    LabelText(text: "Tus series", size: 10)
-                    Spacer()
-                    Text("\(delTurno.filter(\.confirmed).count) cerradas de \(delTurno.count)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.Color.muted)
+        HStack(spacing: 6) {
+            ForEach(series) { rec in
+                let i = rec.setIndex - 1
+                Button(action: { Haptics.light(); alTocar(i) }) {
+                    peldano(rec, esLaDeAhora: i == actual)
                 }
-            }
-            HStack(spacing: VentanaDeSeries.huecoPeldanoPt) {
-                ForEach(visibles) { rec in
-                    let i = rec.setIndex - 1
-                    Button(action: { Haptics.light(); alTocar(i) }) {
-                        peldano(rec, esLaDeAhora: i == actual)
-                    }
-                    .buttonStyle(PressScaleStyle())
-                    .accessibilityLabel(voz(rec, esLaDeAhora: i == actual))
-                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel(voz(rec, esLaDeAhora: i == actual))
             }
         }
     }
@@ -800,16 +445,13 @@ struct RielDeSeries: View {
         VStack(spacing: 3) {
             HStack(spacing: 3) {
                 if rec.confirmed, rec.status != "skipped" {
-                    // Verde la que se hizo como estaba escrita, ÁMBAR la que se
-                    // ajustó: antes de decidir la siguiente, eso es lo que quieres ver.
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .heavy))
                         .foregroundStyle(rec.status == "scaled" ? Theme.Color.warning : Theme.Color.ok)
                 }
-                Text(turno(rec)?.movement ?? "S\(rec.setIndex)")
+                Text("S\(rec.setIndex)")
                     .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
                     .foregroundStyle(esLaDeAhora ? Theme.Color.accentText : Theme.Color.muted)
-                    .lineLimit(1).minimumScaleFactor(0.5)
             }
             Text(dosis(rec))
                 .font(Theme.Typography.readoutS)
@@ -833,26 +475,19 @@ struct RielDeSeries: View {
         .opacity(rec.status == "skipped" ? 0.45 : 1)
     }
 
-    /// Lo prescrito, o lo REGISTRADO en cuanto se confirma: si en la 3 bajaste el
-    /// peso, eso es justo lo que quieres ver antes de decidir la 4. Una serie sin
-    /// dosis escrita —el circuito real del coach— no pinta un guion: se calla.
+    /// Lo prescrito, o lo registrado en cuanto se confirma. Una serie sin dosis
+    /// escrita —el circuito real del coach— no pinta un guion: se calla.
     private func dosis(_ rec: SetRecord) -> String {
         let reps = rec.confirmed ? (rec.repsActual ?? rec.repsPrescribed) : rec.repsPrescribed
         let kg = rec.confirmed ? (rec.loadActualKg ?? rec.loadPrescribedKg) : rec.loadPrescribedKg
-        return Formato.serie(reps: reps,
-                             repsMax: rec.confirmed ? nil : rec.repsPrescribedMax,
-                             cargaKg: kg)?.linea ?? "·"
+        return Formato.serie(reps: reps, cargaKg: kg)?.linea ?? "·"
     }
 
     private func voz(_ rec: SetRecord, esLaDeAhora: Bool) -> String {
         let estado = rec.status == "skipped" ? "saltada"
             : rec.confirmed ? (rec.status == "scaled" ? "ajustada" : "hecha")
             : (esLaDeAhora ? "la que toca" : "pendiente")
-        // El lector de pantalla dice lo mismo que se ve: en una rotación, el
-        // ejercicio y la vuelta; en fuerza recta, el número de la serie.
-        let quien = turno(rec).map { "\($0.movement), \(Vocab.ronda.lowercased()) \($0.round) de \($0.rounds)" }
-            ?? "Serie \(rec.setIndex)"
-        return "\(quien), \(estado), \(dosis(rec)). Tocar para ajustar"
+        return "Serie \(rec.setIndex), \(estado), \(dosis(rec)). Tocar para ajustar"
     }
 }
 
