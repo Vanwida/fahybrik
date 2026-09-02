@@ -207,13 +207,16 @@ struct ActiveWorkoutView: View {
                     .animation(.easeInOut(duration: 0.3), value: session.isTramoResting)
             }
             Ambiente(zona: session.liveZone)
-            superficieMontada
-
-            // Block-transition gate: the upcoming block's preview / "ready" screen.
-            // Full-screen over the live HUD while the session is parked before a
-            // block (`isAwaitingBlockStart`); the clock starts only on "Empezar".
-            if session.isAwaitingBlockStart {
+            // UN presentador (FH-66). La puerta y el live no se apilan: en 50
+            // el cromo de carrera ya iba en sitio (FH-55) y la gate se montaba
+            // encima — Libre + calentamiento veía dos vistas. Mismo XOR que
+            // `LiveFlowView` en el reloj. Apple: un Bool de `fullScreenCover`
+            // es una presentación; dos canales para el mismo run es el hueco.
+            switch PresentadorVivo.de(session) {
+            case .puerta:
                 blockPreviewOverlay
+            case .live:
+                superficieMontada
             }
 
             if showPauseConfirm {

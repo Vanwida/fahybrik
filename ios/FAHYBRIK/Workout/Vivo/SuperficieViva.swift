@@ -96,3 +96,22 @@ enum RunLiveChrome: Equatable {
         }
     }
 }
+
+/// UN presentador. La puerta de bloque y el live no pueden estar a la vez.
+///
+/// En 50 (FH-55) las tapas Outdoor/Treadmill ya no existen. El leftover de
+/// Libre + calentamiento era el `ZStack` que montaba `cromoDeCarrera` debajo
+/// de `BlockPreviewGate` mientras `isAwaitingBlockStart`. Dos canales, el
+/// mismo hueco de clase que dos `fullScreenCover(isPresented:)` (Apple: cada
+/// Bool es una presentación). El Watch ya hace XOR (`LiveFlowView.liveArea`).
+/// WorkoutKit `CustomWorkout.warmup` es un paso del mismo workout, no otra
+/// sesión ni otra tapa.
+enum PresentadorVivo: Equatable {
+    case puerta
+    case live(SuperficieViva)
+
+    static func de(_ session: WorkoutSession) -> PresentadorVivo {
+        if session.isAwaitingBlockStart { return .puerta }
+        return .live(SuperficieViva.de(session))
+    }
+}

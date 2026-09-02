@@ -10,8 +10,8 @@ import SwiftUI
 // between-blocks transition). The session engine (`WorkoutSession`) holds the
 // clock frozen while this is on screen via `isAwaitingBlockStart`.
 //
-// Rendered full-screen over the live HUD by ActiveWorkoutView. Reuses the shared
-// Theme atoms + PrescriptionRenderer-backed `WorkoutSegment.previewWorkLine`, so
+// Presented XOR the live (`PresentadorVivo`) — same exclusive gate as Watch
+// `LiveFlowView`. Reuses Theme atoms + `WorkoutSegment.previewWorkLine`, so
 // the work reads exactly like the pre-workout brief and the live HUD.
 // Card 114 — Alex, sesión del 20-ago: «Al entrar en estaciones no estaba claro
 // si eran 3 seguidas de cada ejercicio o 1 y 1 y 1. El atleta lo hizo mal».

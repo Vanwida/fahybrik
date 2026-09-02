@@ -38,7 +38,7 @@ enum RunEnvironment: String, Codable, Equatable, CaseIterable {
     var isTreadmillSurface: Bool { self != .outdoor }
 }
 
-/// Qué tapa abre el HUD de correr al vivir un tramo, y con qué honestidad.
+/// Calle o cinta — la decisión de cromo, no un segundo presentador.
 /// Indoor (cinta tonta) reutiliza el HUD de cinta, ya sin guía de conectar.
 enum RunCoverAutoOpen: Equatable {
     case treadmill(empiezaSinCinta: Bool)

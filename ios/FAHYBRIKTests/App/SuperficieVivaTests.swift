@@ -201,25 +201,7 @@ final class SuperficieVivaTests: XCTestCase {
     /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
     /// encima. El calentamiento es la primera pierna de la misma estructura.
     func testLibreRunConCalentamientoEsUnSoloCromoEnSitio() {
-        let calentamiento = RunElement.segment(RunSegment(
-            kind: .work, measure: .duration(s: 600), target: .hrZone(2), resolved: nil,
-            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
-        ))
-        let principal = RunElement.segment(RunSegment(
-            kind: .work, measure: .distance(m: 5000), target: .hrZone(3), resolved: nil,
-            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
-        ))
-        let rx = Prescription(scheme: .steady, modality: .run, sets: nil,
-                              rounds: nil, workS: nil, restS: nil, totalS: nil,
-                              target: nil, note: nil, start: nil, increment: nil,
-                              structure: [
-                                RunPhase(role: .warmup, elements: [calentamiento]),
-                                RunPhase(role: .main, elements: [principal]),
-                              ])
-        let tramo = WorkoutSegment(order: 1, title: "Libre", kind: .running,
-                                   blockTitle: "Principal", blockPosition: 1,
-                                   prescription: rx)
-        let s = WorkoutSession(plan: plan([tramo], nombre: "Libre", formato: .steady))
+        let s = sesionLibreConCalentamiento(blockTitle: "Principal")
         s.start()
         s.beginBlock()
         s.stop()
@@ -233,6 +215,41 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: true))
         s.runEnvironment = .treadmill
         XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
+    }
+
+    /// Owner model: bloque titulado Calentamiento + `kind == .running` (Libre
+    /// con calentamiento). El test de «Principal» queda verde sin reproducirlo.
+    /// UN presentador: la puerta no monta el live debajo.
+    func testLibreCalentamientoTituladoNoApilaPuertaYLive() {
+        let s = sesionLibreConCalentamiento(blockTitle: "Calentamiento")
+        s.runEnvironment = .outdoor
+        s.start()
+        XCTAssertTrue(s.isAwaitingBlockStart)
+        XCTAssertEqual(PresentadorVivo.de(s), .puerta,
+                       "la puerta es el único canal — el cromo no vive debajo")
+        XCTAssertEqual(SuperficieViva.de(s), .runStructure,
+                       "el árbol ya sabe que es carrera; no pinta HostVivo estructural")
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+        XCTAssertTrue(SuperficieViva.de(s).esCarrera)
+        s.beginBlock()
+        s.stop()
+        XCTAssertEqual(PresentadorVivo.de(s), .live(.runStructure))
+        XCTAssertEqual(s.currentRunLeg?.phaseRole, .warmup)
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+    }
+
+    func testCalentamientoQueSeCorreNoMontaLiveBajoLaPuerta() {
+        let s = sesionCalentamientoMasCarrera(jog: true)
+        s.runEnvironment = .outdoor
+        s.start()
+        XCTAssertTrue(s.isAwaitingBlockStart)
+        XCTAssertEqual(PresentadorVivo.de(s), .puerta)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
+        s.beginBlock()
+        s.stop()
+        XCTAssertEqual(PresentadorVivo.de(s), .live(.run))
+        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
     }
 
     func testTodasLasRamasVivasExistenYNingunaEsElArbolViejo() {
@@ -286,6 +303,28 @@ final class SuperficieVivaTests: XCTestCase {
         return s
     }
 
+
+    private func sesionLibreConCalentamiento(blockTitle: String) -> WorkoutSession {
+        let calentamiento = RunElement.segment(RunSegment(
+            kind: .work, measure: .duration(s: 600), target: .hrZone(2), resolved: nil,
+            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
+        ))
+        let principal = RunElement.segment(RunSegment(
+            kind: .work, measure: .distance(m: 5000), target: .hrZone(3), resolved: nil,
+            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
+        ))
+        let rx = Prescription(scheme: .steady, modality: .run, sets: nil,
+                              rounds: nil, workS: nil, restS: nil, totalS: nil,
+                              target: nil, note: nil, start: nil, increment: nil,
+                              structure: [
+                                RunPhase(role: .warmup, elements: [calentamiento]),
+                                RunPhase(role: .main, elements: [principal]),
+                              ])
+        let tramo = WorkoutSegment(order: 1, title: "Libre", kind: .running,
+                                   blockTitle: blockTitle, blockPosition: 1,
+                                   prescription: rx)
+        return WorkoutSession(plan: plan([tramo], nombre: "Libre", formato: .steady))
+    }
 
     private func sesionCalentamientoMasCarrera(jog: Bool) -> WorkoutSession {
         let wu = jog
