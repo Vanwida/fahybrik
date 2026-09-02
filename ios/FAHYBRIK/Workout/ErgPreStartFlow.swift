@@ -7,11 +7,10 @@ import SwiftUI
 // crosses (plan, libre, test, benchmark) — never by the pre-workout brief, which
 // the free/benchmark paths skip entirely.
 //
-// Why a sequence and not a gate on the brief's button: Alex, testing the rower —
-// "primero hay una pantalla de conectarse, se acepta la conexión, y una vez se
-// conecta se empieza. No podemos empezar todo a la vez." A morphing CTA on the
-// brief still reads as the workout already opening; a dedicated screen reads as
-// what it is: connect first.
+// The store is the pool slot for THIS role (or pool.any for unscoped / mono).
+// A Remo+Ski block presents this screen once per missing role so Ski is asked
+// apart from Remo. Same PM5LiveStreamView(store:) the brief chips open —
+// never a second scan engine, never .shared beside a role store.
 struct ErgPreStartFlow: View {
     /// Shown small over the connect screen so the athlete knows WHAT they're starting.
     let sessionTitle: String
@@ -20,12 +19,14 @@ struct ErgPreStartFlow: View {
     /// A benchmark has NO escape: the monitor measures the mark; without it there
     /// is nothing to save. A prescribed/free session keeps the honest manual out.
     let isBenchmark: Bool
+    /// Pool store for the role being asked. Parent owns the pool.
+    @Bindable var store: PM5ConnectionStore
+    /// Remo / SkiErg / BikeErg — titles the picker so two PM5s are unambiguous.
+    var roleTitle: String? = nil
     /// Fired when the athlete accepted a live monitor (or took the manual escape).
     let onStart: () -> Void
     /// Backs out without starting.
     let onCancel: () -> Void
-
-    @State private var pm5 = PM5ConnectionStore.shared
 
     var body: some View {
         ZStack {
@@ -58,15 +59,13 @@ struct ErgPreStartFlow: View {
                 .padding(.horizontal, Theme.Spacing.l)
                 .padding(.top, Theme.Spacing.m)
 
-                // The ONE connect journey: scan → pick YOUR machine → "USAR ESTE PM5".
-                // Its accept button fires onDone → we start. Same screen the brief's
-                // top card opens, so there are never two ways to pair an erg.
-                PM5LiveStreamView(store: pm5, onDone: onStart)
+                // The ONE connect journey: scan, pick YOUR machine, USAR ESTE PM5.
+                // Same screen the brief's role chip opens — never two ways to pair.
+                PM5LiveStreamView(store: store, onDone: onStart, roleTitle: roleTitle)
 
                 if !isBenchmark {
-                    // The honest escape for a session done on a non-BLE erg: it starts,
-                    // the monitor just won't feed the laps. A benchmark never offers
-                    // this — a mark the app didn't measure doesn't exist.
+                    // The honest escape for THIS role: the piece can start, this
+                    // monitor just won't feed the laps. A benchmark never offers it.
                     Button(action: onStart) {
                         Text("Empezar sin monitor · lo apuntas tú")
                             .font(Theme.Typography.small)

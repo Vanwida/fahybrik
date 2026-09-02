@@ -1,14 +1,13 @@
 import SwiftUI
 
-// ErgData-style FIRST-CLASS connect card for the Concept2 erg — full-width at the
-// TOP of the free builder's Configura step and of the prescribed brief whenever
-// the session contains erg work. Connecting IS the first step of an erg session
-// (there is no "¿dónde?" question like running), so the card is big and unmissable,
-// never a small chip below the fold. State comes from the SAME shared
-// `PM5ConnectionStore` the chips and the live HUD read, so whatever connects here
-// stays connected into the workout — no re-scan.
+// Mono-erg brief / free-builder card. Reads `PM5Pool.shared.any` (the unscoped
+// store, same object as the legacy `.shared` singleton). Multi-machine sessions
+// use `DeviceConnectCard` chips bound to `PM5Pool.store(for:)` — this card is
+// NOT that path and must not open a second CBCentralManager beside the pool.
+// Connecting IS the first step of a mono-erg session, so the card is big and
+// unmissable. The athlete picks from a list; nothing reconnects itself.
 struct ErgConnectCard: View {
-    @State private var pm5 = PM5ConnectionStore.shared
+    @State private var pm5 = PM5Pool.shared.any
     @State private var showSheet = false
 
     var body: some View {

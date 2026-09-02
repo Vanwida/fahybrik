@@ -45,6 +45,15 @@ enum ErgMachineRole: String, CaseIterable, Identifiable, Codable, Hashable {
         }
     }
 
+    /// Connect-gate header: one word per role so Remo and Ski are never one string.
+    var machineWord: String {
+        switch self {
+        case .row:  return "el remo"
+        case .ski:  return "el SkiErg"
+        case .bike: return "la bici"
+        }
+    }
+
     init?(modality: PrescriptionModality) {
         switch modality {
         case .row:  self = .row
@@ -179,6 +188,58 @@ enum PreWorkoutDeviceEligibility {
             roles.insert(r)
         }
         return roles
+    }
+
+    /// Named roles across a block, stable row to ski to bike. Folded `.reps`
+    /// chippers still name Ski vs Row from set.modality / ergKind, not kind.isErg.
+    static func namedErgRoles(in segments: [WorkoutSegment]) -> [ErgMachineRole] {
+        var set = Set<ErgMachineRole>()
+        for s in segments { set.formUnion(namedErgRoles(in: s)) }
+        return ErgMachineRole.allCases.filter { set.contains($0) }
+    }
+
+    /// Roles the gate still has to ask. A named Remo+Ski block does not close
+    /// because one of them is up — each role is its own accept-or-sin-monitor.
+    /// Mono-erg (one named role) treats the unscoped `any` store as that role so
+    /// the brief's ErgConnectCard (pool.any) is the same link Empezar respects.
+    static func missingErgRoles(
+        in segments: [WorkoutSegment],
+        roleConnected: Set<ErgMachineRole>,
+        anyConnected: Bool,
+        skipped: Set<ErgMachineRole> = []
+    ) -> [ErgMachineRole] {
+        let named = namedErgRoles(in: segments)
+        return named.filter { role in
+            if skipped.contains(role) { return false }
+            if roleConnected.contains(role) { return false }
+            if named.count <= 1 && anyConnected { return false }
+            return true
+        }
+    }
+
+    /// Untagged erg work (legacy rowOrSki with no machine): one `any` gate.
+    static func needsUnscopedErgConnect(
+        in segments: [WorkoutSegment],
+        anyConnected: Bool,
+        skipped: Bool = false
+    ) -> Bool {
+        guard namedErgRoles(in: segments).isEmpty else { return false }
+        return segments.contains(where: { $0.involvesErg }) && !anyConnected && !skipped
+    }
+
+    static func needsErgConnect(
+        in segments: [WorkoutSegment],
+        roleConnected: Set<ErgMachineRole>,
+        anyConnected: Bool,
+        skipped: Set<ErgMachineRole> = [],
+        skippedUnscoped: Bool = false
+    ) -> Bool {
+        if !missingErgRoles(in: segments, roleConnected: roleConnected,
+                            anyConnected: anyConnected, skipped: skipped).isEmpty {
+            return true
+        }
+        return needsUnscopedErgConnect(in: segments, anyConnected: anyConnected,
+                                       skipped: skippedUnscoped)
     }
 
     /// A cardiovascular segment — run, erg, or a conditioning/metcon/EMOM block,

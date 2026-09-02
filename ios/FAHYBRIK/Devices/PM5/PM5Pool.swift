@@ -8,8 +8,9 @@ import Observation
 // Routing rule (mechanism, HARD RULE Nº0):
 //   · Live tramo modality → the store bound to that role (if connected).
 //   · Fallback: the unscoped `any` store when the session only offered "PM5"
-//     or the athlete connected a single monitor without a named role.
-//   · Non-erg tramo (wallballs, rest) → no active store; other links stay up.
+//     or the athlete connected a single monitor without a named role (mono-erg
+//     ErgConnectCard). Never another role's monitor — that is «2 PM5 as 1».
+//   · Non-erg tramo (wallballs, rest, Run) → no active store; other links stay up.
 //
 // Counter policy stays in `ErgCounterPolicy` — the pool only picks WHICH
 // monitor receives program / which live sample feeds the session.
@@ -69,22 +70,24 @@ final class PM5Pool {
     /// True when at least one PM5 is streaming.
     var anyConnected: Bool { allStores.contains(where: \.isConnected) }
 
+    /// True when THIS role's store is streaming. Does not create a store and
+    /// does not look at another role — two named machines are two links.
+    func isRoleConnected(_ role: ErgMachineRole) -> Bool {
+        roleStores[role]?.isConnected == true
+    }
+
     // MARK: - Active routing
 
     /// Which store owns the numbers for this tramo modality right now.
-    /// Prefers a role-bound connected store; falls back to `any` if that is the
-    /// only live link (athlete connected one PM5 on a multi-slot session).
+    /// Prefers a role-bound connected store; falls back to `any` for mono-erg /
+    /// unscoped. Does NOT fall back to another role: silence on Ski is honest
+    /// when only Remo is paired.
     func activeStore(for modality: PrescriptionModality) -> PM5ConnectionStore? {
         if let role = ErgMachineRole(modality: modality) {
             if let s = roleStores[role], s.isConnected { return s }
-            // Single connected monitor used as stand-in for any erg role.
             if any.isConnected { return any }
-            // Last resort: any other connected role store (wrong machine is still
-            // better than silence if he only paired one of two).
-            if let other = roleStores.values.first(where: \.isConnected) { return other }
             return roleStores[role] ?? any
         }
-        // Non-erg tramo — no machine numbers.
         return nil
     }
 

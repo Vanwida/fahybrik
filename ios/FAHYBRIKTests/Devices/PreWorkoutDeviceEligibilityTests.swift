@@ -130,4 +130,102 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
         let roles = PreWorkoutDeviceEligibility.namedErgRoles(in: s)
         XCTAssertEqual(roles, [.row, .ski])
     }
+    private func runSkiRow() -> [WorkoutSegment] {
+        [
+            seg(.running),
+            seg(.rowOrSki, ergKind: "ski"),
+            seg(.rowOrSki, ergKind: "row"),
+        ]
+    }
+
+    private func chipperRunSkiRow() -> Prescription {
+        let sets = [
+            PrescriptionSet(measure: .distance(meters: 1000), target: nil, modality: .run,
+                            restS: nil, tempo: nil, note: "Run"),
+            PrescriptionSet(measure: .distance(meters: 1000), target: nil, modality: .ski,
+                            restS: nil, tempo: nil, note: "SkiErg"),
+            PrescriptionSet(measure: .distance(meters: 1000), target: nil, modality: .row,
+                            restS: nil, tempo: nil, note: "Rowing"),
+        ]
+        return Prescription(scheme: .chipper, modality: .functional, sets: sets,
+                            rounds: 1, workS: nil, restS: nil, totalS: nil,
+                            target: nil, note: nil, start: nil, increment: nil)
+    }
+
+    // MARK: - FH-58 gate per missing role
+
+    func testRunSkiRowEligibilityNamesBothErgs() {
+        let out = devices(runSkiRow())
+        XCTAssertTrue(out.contains(.treadmill))
+        XCTAssertTrue(out.contains(.erg(.row)))
+        XCTAssertTrue(out.contains(.erg(.ski)))
+        XCTAssertEqual(PreWorkoutDeviceEligibility.namedErgRoles(in: runSkiRow()),
+                       [.row, .ski])
+    }
+
+    func testFoldedChipperNamesSkiAndRowFromSetsNotKind() {
+        let s = seg(.reps, prescription: chipperRunSkiRow())
+        XCTAssertEqual(s.kind, .reps)
+        XCTAssertFalse(s.kind.isErg)
+        let roles = PreWorkoutDeviceEligibility.namedErgRoles(in: [s])
+        XCTAssertEqual(roles, [.row, .ski])
+        XCTAssertEqual(ErgMachineRole.ski.machineWord, "el SkiErg")
+        XCTAssertEqual(ErgMachineRole.row.machineWord, "el remo")
+    }
+
+    func testNeedsErgConnectStillTrueWhenOnlyRowConnected() {
+        let segs = runSkiRow()
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [.row], anyConnected: false))
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.missingErgRoles(
+                in: segs, roleConnected: [.row], anyConnected: false),
+            [.ski])
+    }
+
+    func testNeedsErgConnectFalseWhenRowAndSkiConnected() {
+        let segs = runSkiRow()
+        XCTAssertFalse(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [.row, .ski], anyConnected: false))
+        XCTAssertTrue(PreWorkoutDeviceEligibility.missingErgRoles(
+            in: segs, roleConnected: [.row, .ski], anyConnected: false).isEmpty)
+    }
+
+    func testAnyConnectedDoesNotSatisfyTwoNamedRoles() {
+        // Mono fallback must not close a Remo+Ski block.
+        let segs = runSkiRow()
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [], anyConnected: true))
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.missingErgRoles(
+                in: segs, roleConnected: [], anyConnected: true),
+            [.row, .ski])
+    }
+
+    func testMonoRowOneGate() {
+        let segs = [seg(.rowOrSki, ergKind: "row")]
+        XCTAssertEqual(PreWorkoutDeviceEligibility.namedErgRoles(in: segs), [.row])
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [], anyConnected: false))
+        XCTAssertFalse(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [.row], anyConnected: false))
+        // Brief ErgConnectCard writes `any` — mono gate respects it.
+        XCTAssertFalse(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [], anyConnected: true))
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.missingErgRoles(
+                in: segs, roleConnected: [], anyConnected: false),
+            [.row])
+    }
+
+    func testSkippedRoleIsNotAskedAgain() {
+        let segs = runSkiRow()
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.missingErgRoles(
+                in: segs, roleConnected: [.row], anyConnected: false, skipped: [.ski]),
+            [])
+        XCTAssertFalse(PreWorkoutDeviceEligibility.needsErgConnect(
+            in: segs, roleConnected: [.row], anyConnected: false, skipped: [.ski]))
+    }
+
 }

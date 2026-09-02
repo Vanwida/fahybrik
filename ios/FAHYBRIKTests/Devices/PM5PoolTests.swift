@@ -60,4 +60,45 @@ final class PM5PoolTests: XCTestCase {
         pool.disconnectAll()
         XCTAssertNotNil(pool.store(for: .row))
     }
+
+    func testSkiStoreIsNotRowStoreWhenBothConnected() {
+        let pool = PM5Pool(any: PM5ConnectionStore(service: PM5Service()))
+        let row = pool.store(for: .row)
+        let ski = pool.store(for: .ski)
+        row.connectionState = .streaming
+        row.connectedIdentifier = UUID()
+        ski.connectionState = .streaming
+        ski.connectedIdentifier = UUID()
+
+        XCTAssertFalse(row === ski)
+        XCTAssertTrue(pool.activeStore(for: .ski) === ski)
+        XCTAssertTrue(pool.activeStore(for: .row) === row)
+        XCTAssertNotEqual(row.connectedIdentifier, ski.connectedIdentifier)
+    }
+
+    func testActiveStoreDoesNotFallBackToOtherRole() {
+        // The «2 as 1» bug: Remo is up, Ski is named, Ski tramo must not read Remo.
+        let pool = PM5Pool(any: PM5ConnectionStore(service: PM5Service()))
+        let row = pool.store(for: .row)
+        let ski = pool.store(for: .ski)
+        row.connectionState = .streaming
+        row.connectedIdentifier = UUID()
+
+        let store = pool.activeStore(for: .ski)
+        XCTAssertFalse(store === row)
+        XCTAssertTrue(store === ski)
+        XCTAssertFalse(store?.isConnected == true)
+        XCTAssertTrue(pool.isRoleConnected(.row))
+        XCTAssertFalse(pool.isRoleConnected(.ski))
+    }
+
+    func testMonoRowUsesOneStore() {
+        let any = PM5ConnectionStore(service: PM5Service())
+        let pool = PM5Pool(any: any)
+        let row = pool.store(for: .row)
+        row.connectionState = .streaming
+        row.connectedIdentifier = UUID()
+        XCTAssertTrue(pool.activeStore(for: .row) === row)
+        XCTAssertEqual(pool.occupiedPeripheralIds.count, 1)
+    }
 }

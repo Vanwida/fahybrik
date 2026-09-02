@@ -409,11 +409,18 @@ struct ConnectionStrip: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
     let gpsActive: Bool
-    /// Whether the current segment actually wants the erg / GPS, so we only nudge
-    /// to connect where it matters (don't surface a dead PM5 chip on a squat).
+    /// Whether the current TRAMO actually wants the erg / GPS, so we only nudge
+    /// to connect where it matters (don't surface a remo chip on a Run station).
     let segmentIsErg: Bool
     let segmentIsRun: Bool
     let onTapPM5: () -> Void
+    /// Remo / SkiErg / BikeErg when the tramo names a role; nil = generic PM5.
+    var roleTitle: String? = nil
+
+    private var pm5ChipText: String {
+        let name = roleTitle ?? "PM5"
+        return pm5.isConnected ? name : "Conecta \(name)"
+    }
 
     private var hrLabel: String? {
         switch session.hrSource {
@@ -440,12 +447,14 @@ struct ConnectionStrip: View {
                 Button(action: onTapPM5) {
                     chip(
                         icon: "antenna.radiowaves.left.and.right",
-                        text: pm5.isConnected ? "PM5" : "Conecta PM5",
+                        text: pm5ChipText,
                         on: pm5.isConnected
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(pm5.isConnected ? "Remo PM5 conectado" : "Conectar remo PM5")
+                .accessibilityLabel(pm5.isConnected
+                    ? "\(roleTitle ?? "PM5") conectado"
+                    : "Conectar \(roleTitle ?? "PM5")")
             }
             if let hrLabel {
                 chip(icon: "heart.fill", text: hrLabel, on: true)
