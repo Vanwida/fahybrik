@@ -68,6 +68,9 @@ struct ActiveWorkoutView: View {
     @State private var resumeAfterVideo: Bool = false
     @State private var pool = PM5Pool.shared
     @State private var hub = DeviceHub.shared
+    /// Belt telemetry → session for the WHOLE workout, not only while the HUD
+    /// cover is open. Twin of the PM5 store feed.
+    @State private var treadmillFeeder: TreadmillSessionFeeder?
     /// Roles the athlete already chose «sin monitor» for this Empezar attempt.
     @State private var skippedErgRoles: Set<ErgMachineRole> = []
     @State private var skippedUnscopedErg: Bool = false
@@ -229,6 +232,7 @@ struct ActiveWorkoutView: View {
             // Seed the monitor flag: the athlete may have paired in the pre-start
             // gate, before this view existed, and `onChange` only fires on CHANGES.
             session.ergConnected = livePM5?.isConnected == true
+            session.beltConnected = hub.treadmillConnected
             attemptProgramPM5()
             updateRunGPS()
             maybeAutoOpenRunCover()
@@ -282,6 +286,9 @@ struct ActiveWorkoutView: View {
             // `.shared`.
             syncErgFromActiveStore()
             attemptProgramPM5()
+        }
+        .onChange(of: hub.treadmill.link) { _, _ in
+            session.beltConnected = hub.treadmillConnected
         }
         .onChange(of: session.currentSegmentIndex) { _, _ in
             // A new erg piece starts with a clean interval table — the PM5's split
@@ -545,6 +552,20 @@ struct ActiveWorkoutView: View {
         DeviceHub.shared.onBpm = { bpm in
             session.injectLiveHR(bpm, source: .strap)
         }
+        feedTreadmill()
+    }
+
+    /// THE recording's belt feed for the whole workout. `DeviceHub.onRecordSample`
+    /// runs before the HUD's `onSample`, so metres that close a leg land in THIS
+    /// lap. Also keeps `beltConnected` in lock-step with the hub — twin of
+    /// `syncErgFromActiveStore` / `ergConnected`.
+    private func feedTreadmill() {
+        let feeder = treadmillFeeder ?? TreadmillSessionFeeder(session: session)
+        treadmillFeeder = feeder
+        hub.onRecordSample = { sample in
+            feeder.ingest(sample)
+        }
+        session.beltConnected = hub.treadmillConnected
     }
 
     private func openTreadmillCover() {

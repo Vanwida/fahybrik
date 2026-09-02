@@ -645,14 +645,15 @@ final class TreadmillHUDModel {
         }
     }
 
-    /// Effective elapsed for the current leg's goal + the "Tiempo" readout. For a
-    /// continuous run we trust the session's own segment clock (it counts from the
-    /// segment start even if the HUD opened mid-run, and it's pause-correct); for a
-    /// series bout there is no per-bout session clock, so we use our own wall clock
-    /// measured from the bout opening.
+    /// Effective elapsed for the current leg's goal + the "Tiempo" readout.
+    /// Wait-first: while the belt has not moved, this is the armed tramo clock (0),
+    /// never `Date() - legStartedAt` nor `lapElapsedSeconds` from Empezar. After
+    /// the first speed / metre the session's wait-first clock is the source of
+    /// truth (structured legs use `runLegElapsed`, re-anchored on release).
     var legElapsedEffective: Double {
+        if session.tramoClockArmed { return session.tramoElapsedSeconds }
         if isStructured { return session.runLegElapsed }   // the session's per-leg clock
-        return isSeries ? legElapsedS : session.lapElapsedSeconds
+        return session.tramoElapsedSeconds
     }
 
     /// Remaining seconds for a TIME leg. The session owns interval time/recovery
@@ -711,7 +712,8 @@ final class TreadmillHUDModel {
     private func tick() {
         syncLeg()
         if !paused {
-            legElapsedS = max(0, Date().timeIntervalSince(legStartedAt) - pausedAccum)
+            // Same clock the readout uses — do not invent a wall-clock from HUD open.
+            legElapsedS = legElapsedEffective
         }
         maybeAutoAdvance()
         feedAudioCoach()
@@ -790,6 +792,9 @@ final class TreadmillHUDModel {
     /// own clock. Fires once per leg.
     private func maybeAutoAdvance() {
         guard !paused, !isCountIn, !session.isAwaitingBlockStart else { return }
+        // Connect ≠ start: a TIME boxed run must not auto-close at 0 km/h.
+        // TERMINAR (`endLegNow` / primaryAdvance) is not this path.
+        guard !session.tramoClockArmed else { return }
         let leg = currentLeg
         guard leg.ownsAutoAdvance, autoAdvancedLegKey != activeLegKey else { return }
         guard leg.goal.isComplete(distanceM: coveredMeters, elapsedS: legElapsedEffective) else { return }

@@ -32,7 +32,13 @@ extension WorkoutSession {
     var isRunLegWork: Bool { currentRunLeg?.isWork ?? true }
 
     /// Elapsed seconds in the current leg since its GO (the count-in excluded).
-    var runLegElapsed: Double { Swift.max(0, lapElapsedSeconds - runLegStartElapsed) }
+    /// Held at zero while wait-first is armed — a TIME boxed FTMS leg must not
+    /// paint or auto-roll the wait at 0 km/h. Released by the first belt movement,
+    /// which also re-anchors `runLegStartElapsed`.
+    var runLegElapsed: Double {
+        if tramoClockArmed { return 0 }
+        return Swift.max(0, lapElapsedSeconds - runLegStartElapsed)
+    }
 
     /// True when the current structured leg is DISTANCE-measured — so the app-only
     /// HUD can pick the honest close affordance (belt auto-close when a treadmill is
@@ -94,6 +100,7 @@ extension WorkoutSession {
     private func skipRunCountIn() {
         runCountInRemaining = 0
         markRunLegStart()
+        reanchorTramoDeviceWindowAtGo()
         WorkoutAudio.shared.playGo()
         Haptics.cueGo()
         #if os(iOS)
@@ -187,6 +194,7 @@ extension WorkoutSession {
             if before.rounded(.up) != runCountInRemaining.rounded(.up) {
                 if runCountInRemaining <= 0 {
                     markRunLegStart()   // GO — the leg clock + per-leg baselines start now
+                    reanchorTramoDeviceWindowAtGo()
                     WorkoutAudio.shared.playGo()
                     Haptics.cueGo()
                     #if os(iOS)
@@ -202,6 +210,9 @@ extension WorkoutSession {
         // TIME leg: count down, tick the final 3s, auto-roll at zero. A DISTANCE leg
         // has no countdown → nothing to tick.
         guard runLegRemaining > 0 else { return }
+        // Connect ≠ start. While the belt has not moved, a boxed TIME run must not
+        // auto-advance. TERMINAR is `primaryAdvance` / `runStructurePrimary`, not this.
+        if tramoClockArmed { return }
         let before = runLegRemaining
         let after = before - dt
         for boundary in [3.0, 2.0, 1.0] where before > boundary && after <= boundary {

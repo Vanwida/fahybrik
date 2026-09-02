@@ -263,6 +263,22 @@ final class StructuredRunEngineTests: XCTestCase {
         m.teardown()
     }
 
+    func testTIMELegDoesNotTickDownAtZeroKmh() {
+        let s = structuredSession([main([work(.duration(s: 60))])])
+        s.beltConnected = true
+        s.primaryAdvance()
+        XCTAssertTrue(s.tramoClockArmed)
+        let remaining = s.runLegRemaining
+        XCTAssertEqual(remaining, 60, accuracy: 0.001)
+        s.tickRunStructure(dt: 20)
+        XCTAssertEqual(s.runLegRemaining, 60, accuracy: 0.001)
+        XCTAssertEqual(s.runLegElapsed, 0, accuracy: 0.001)
+        s.sampleTreadmillSpeed(metersPerSecond: 3.0)
+        XCTAssertFalse(s.tramoClockArmed)
+        s.tickRunStructure(dt: 10)
+        XCTAssertEqual(s.runLegRemaining, 50, accuracy: 0.001)
+    }
+
     func testSteadyStructuredRunStaysOneLap() throws {
         // A steady/continuous run is ONE work leg → ONE lap. The per-leg path must not
         // break the steady case (it degrades to a single recorded leg).

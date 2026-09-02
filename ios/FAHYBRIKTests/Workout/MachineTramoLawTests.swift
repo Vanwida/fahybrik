@@ -170,6 +170,86 @@ final class MachineTramoLawTests: XCTestCase {
         XCTAssertEqual(s.tramoBeltDistanceMeters ?? 0, 120, accuracy: 0.001)
     }
 
+    // MARK: - Wait-first clock (FH-63): one hold, two sources
+
+    func testCintaFTMSEsperaLaPrimeraVelocidad() {
+        let s = parked(scheme: .steady, modality: .run)
+        s.beltConnected = true
+        s.beginBlock()
+        s.stop()
+        if s.isTramoCountIn { s.primaryAdvance() }
+        XCTAssertTrue(s.tramoClockArmed, "cinta conectada espera el primer movimiento")
+        s.lapElapsedSeconds = 12
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001,
+                       "el tap no cuenta: HUD a 0 con belt a 0")
+        s.sampleTreadmillSpeed(metersPerSecond: 0)
+        XCTAssertTrue(s.tramoClockArmed, "0 km/h es conectar, no empezar")
+        s.sampleTreadmillSpeed(metersPerSecond: 2.5)
+        XCTAssertFalse(s.tramoClockArmed)
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        let zero = s.tramoStartElapsed
+        s.lapElapsedSeconds = zero + 7
+        XCTAssertEqual(s.tramoElapsedSeconds, 7, accuracy: 0.001)
+        s.sampleTreadmillDistance(deltaMeters: 20)
+        XCTAssertEqual(s.tramoBeltDistanceMeters ?? 0, 20, accuracy: 0.001)
+    }
+
+    func testCintaMetrosTambienSueltanElCrono() {
+        let s = parked(scheme: .steady, modality: .run)
+        s.beltConnected = true
+        s.beginBlock()
+        s.stop()
+        if s.isTramoCountIn { s.primaryAdvance() }
+        XCTAssertTrue(s.tramoClockArmed)
+        s.lapElapsedSeconds = 8
+        s.sampleTreadmillDistance(deltaMeters: 5)
+        XCTAssertFalse(s.tramoClockArmed)
+        XCTAssertEqual(s.tramoBeltDistanceMeters ?? 0, 5, accuracy: 0.001)
+    }
+
+    func testCintaSinConexionNoArma() {
+        let s = session(scheme: .steady, modality: .run)
+        XCTAssertFalse(s.beltConnected)
+        XCTAssertFalse(s.tramoClockArmed, "cinta tonta: el crono sale al tap")
+        s.lapElapsedSeconds = s.tramoStartElapsed + 10
+        XCTAssertEqual(s.tramoElapsedSeconds, 10, accuracy: 0.001)
+    }
+
+    func testCintaTIMENoAutoAvanzaACeroKmh() {
+        let s = parked(scheme: .steady, modality: .run)
+        s.beltConnected = true
+        s.beginBlock()
+        s.stop()
+        if s.isTramoCountIn { s.primaryAdvance() }
+        XCTAssertTrue(s.tramoClockArmed)
+        let remaining = s.runLegRemaining
+        s.tickRunStructure(dt: 30)
+        XCTAssertEqual(s.runLegRemaining, remaining, accuracy: 0.001,
+                       "TIME boxed no rueda a 0 km/h")
+        XCTAssertEqual(s.runLegElapsed, 0, accuracy: 0.001)
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        // TERMINAR is not auto-advance at 0 — the athlete can still close.
+        s.primaryAdvance()
+    }
+
+    func testPM5EmpiezaAlRemarNoSeRompe() {
+        let s = parked(scheme: .intervals, modality: .row)
+        s.ergConnected = true
+        s.beginBlock()
+        s.stop()
+        if s.isTramoCountIn { s.primaryAdvance() }
+        XCTAssertTrue(s.tramoClockArmed, "PM5 espera la primera palada")
+        s.lapElapsedSeconds = 9
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        s.sampleErg(paceSecPer500m: 120, powerWatts: 200, strokeRate: 28,
+                    distanceMeters: 10, caloriesKcal: 1)
+        XCTAssertFalse(s.tramoClockArmed)
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        let zero = s.tramoStartElapsed
+        s.lapElapsedSeconds = zero + 6
+        XCTAssertEqual(s.tramoElapsedSeconds, 6, accuracy: 0.001)
+    }
+
     // MARK: - Builders
 
     /// Sesión ya dentro del bloque, reloj parado. El tramo está vivo.

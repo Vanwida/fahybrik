@@ -105,6 +105,55 @@ final class TreadmillAutoAdvanceTests: XCTestCase {
         m.teardown()
     }
 
+    // MARK: - Wait-first HUD clock (FH-63)
+
+    func testFTMSConnectedBeltZeroHUDElapsedHoldsUntilFirstSpeed() {
+        let s = WorkoutSession(plan: plan([
+            WorkoutSegment(order: 1, title: "20 min", kind: .running,
+                           targetDurationSeconds: 1200, blockTitle: "Carrera", blockPosition: 1)
+        ], format: .steady))
+        s.beltConnected = true
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.tramoClockArmed)
+        let (m, src) = makeModel(s)
+        XCTAssertEqual(m.legElapsedEffective, 0, accuracy: 0.001)
+        s.lapElapsedSeconds = 15
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        XCTAssertEqual(m.legElapsedEffective, 0, accuracy: 0.001,
+                       "abrir HUD con belt a 0 no pinta elapsed de sesion")
+        src.emit(0, speedKmh: 0)
+        XCTAssertTrue(s.tramoClockArmed)
+        XCTAssertEqual(m.legElapsedEffective, 0, accuracy: 0.001)
+        src.emit(0, speedKmh: 9)
+        XCTAssertFalse(s.tramoClockArmed)
+        XCTAssertEqual(s.tramoElapsedSeconds, 0, accuracy: 0.001)
+        XCTAssertEqual(m.legElapsedEffective, 0, accuracy: 0.001)
+        s.lapElapsedSeconds = s.tramoStartElapsed + 8
+        XCTAssertEqual(m.legElapsedEffective, 8, accuracy: 0.001)
+        src.emit(40, speedKmh: 9)
+        XCTAssertGreaterThan(s.tramoBeltDistanceMeters ?? 0, 0)
+        m.teardown()
+    }
+
+    func testTIMEDoesNotAutoCloseAtZeroKmhWhileArmed() {
+        let s = WorkoutSession(plan: plan([
+            WorkoutSegment(order: 1, title: "20 min", kind: .running,
+                           targetDurationSeconds: 1200, blockTitle: "Carrera", blockPosition: 1),
+            WorkoutSegment(order: 2, title: "5 min", kind: .running,
+                           targetDurationSeconds: 300, blockTitle: "Carrera", blockPosition: 1)
+        ], format: .steady))
+        s.beltConnected = true
+        s.start(); s.beginBlock(); s.stop()
+        let (m, src) = makeModel(s)
+        src.emit(0, speedKmh: 0)
+        s.lapElapsedSeconds = 1200
+        src.emit(0, speedKmh: 0)
+        XCTAssertEqual(s.currentSegmentIndex, 0, "TIME no auto-cierra a 0 km/h")
+        m.endLegNow()
+        XCTAssertEqual(s.currentSegmentIndex, 1, "TERMINAR sigue pudiendo cerrar")
+        m.teardown()
+    }
+
     // MARK: - Time auto-close (continuous)
 
     func testTimeAutoCloseContinuous() {

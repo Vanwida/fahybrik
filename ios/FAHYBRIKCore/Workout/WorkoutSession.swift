@@ -483,9 +483,10 @@ final class WorkoutSession {
     var tramoKey: String = ""
     /// `lapElapsedSeconds` at the moment the tramo opened — the tramo clock's zero.
     var tramoStartElapsed: Double = 0
-    /// The tramo clock is HELD at zero waiting for the machine to move. Only ever
-    /// true for a device-measured tramo with no time box: a 500 m bout starts when
-    /// the erg starts, not when the athlete taps.
+    /// The tramo clock is HELD at zero waiting for the machine to move. Wait-first
+    /// is not "this is a PM5": it is "this source has not given the first movement
+    /// event". A 500 m bout starts when the erg starts; a belt tramo starts on the
+    /// first speed / metre, not when the athlete taps Empezar.
     var tramoClockArmed: Bool = false
     /// TRUE while a monitor is actually streaming to us. Set by the live view from
     /// the PM5 store; the engine never talks to Bluetooth itself.
@@ -497,6 +498,12 @@ final class WorkoutSession {
     /// duration and closed with a recorded zero. With nothing to wait for, the
     /// clock simply starts when the athlete taps, which is what he expects.
     var ergConnected: Bool = false
+    /// TRUE while an FTMS belt is actually connected. Twin of `ergConnected` for
+    /// the run lane: wait-first holds the tramo/leg clock until the first speed
+    /// or metre. Set by the live view from DeviceHub; the engine never talks to
+    /// Bluetooth itself. Cinta sin conexion (outdoor / cinta tonta) leaves this
+    /// false, so the clock starts on the tap — that is a different ticket.
+    var beltConnected: Bool = false
     /// PM5 cumulative distance / calories at tramo entry — the live progress bar's
     /// zero, so serie 2 of a 5×500 starts from 0 m again instead of 1000/500.
     var tramoErgStartDistance: Double? = nil

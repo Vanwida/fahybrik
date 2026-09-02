@@ -52,6 +52,9 @@ extension WorkoutSession {
     func sampleTreadmillSpeed(metersPerSecond: Double) {
         guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun else { return }
         guard metersPerSecond >= 0 else { return }
+        // First speed > 0 is movement, same as a metre: release the wait-first clock.
+        // A 0 km/h reading is connect, not start — do not arm-release on a still belt.
+        if metersPerSecond > 0 { releaseArmedTramoClock() }
         trace.record(.speed, source: .treadmill, value: metersPerSecond, atSecond: traceSecond())
     }
 

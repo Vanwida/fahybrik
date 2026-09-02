@@ -448,15 +448,22 @@ extension WorkoutSession {
         tramoBeltStartDistance = lapBeltDistanceMeters
         tramoGpsStartDistance = lapGpsDistanceMeters
         stampTramoSampleCursors()
-        // A device-measured window with no time box starts when the MACHINE starts.
-        // The athlete taps "Empezar", walks to the erg, sits down: the bout's clock
-        // has no business running through any of that.
-        //
-        // Only when a monitor is actually connected, though. The arm is released by
-        // a device sample and by nothing else, so arming without one held the clock
-        // at 0:00 for the whole station and recorded that zero — and pairing the PM5
-        // is OPTIONAL. No monitor, nothing to wait for: the clock starts on the tap.
-        tramoClockArmed = tramo.isErg && tramo.boxedSeconds == nil && !isTramoResting && ergConnected
+        // A device-measured window starts when the MACHINE starts. The athlete taps
+        // "Empezar", walks to the erg or the belt: the bout's clock has no business
+        // running through any of that. Wait-first is not "it is a PM5"; it is "this
+        // source has not given the first movement event".
+        tramoClockArmed = shouldArmWaitFirstClock(tramo)
+    }
+
+    /// PM5: unboxed work, monitor connected (pairing is optional — no monitor, the
+    /// clock starts on the tap). FTMS: belt connected, including TIME boxed — a
+    /// boxed run must not roll at 0 km/h. Rest never waits (EMOM/recovery clocks
+    /// stay the format's). Cinta sin conexion does not arm.
+    func shouldArmWaitFirstClock(_ tramo: LiveTramo) -> Bool {
+        guard !isTramoResting else { return false }
+        if tramo.isErg { return tramo.boxedSeconds == nil && ergConnected }
+        if tramo.isRun { return beltConnected }
+        return false
     }
 
     /// Reset the tramo layer wholesale (segment entry / a discarded back-step), so
@@ -500,11 +507,17 @@ extension WorkoutSession {
     }
 
     /// The machine moved: release the held clock and stamp its real zero. Called
-    /// from `sampleErg` on the first sample that shows actual work.
+    /// from `sampleErg` on the first sample that shows actual work, and from
+    /// `sampleTreadmillDistance` / `sampleTreadmillSpeed` on the first belt movement.
     func releaseArmedTramoClock() {
         guard tramoClockArmed else { return }
         tramoClockArmed = false
         tramoStartElapsed = lapElapsedSeconds
+        // Structured-run TIME/DISTANCE legs have their own zero (`runLegElapsed`).
+        // Re-anchor it too so the HUD does not jump by the wait.
+        if isRunStructureActive {
+            runLegStartElapsed = lapElapsedSeconds
+        }
     }
 
     /// Track the tramo's HR peak so the rest screen can show a real drop.
@@ -614,10 +627,7 @@ extension WorkoutSession {
         tramoGpsStartDistance = lapGpsDistanceMeters
         tramoStartElapsed = lapElapsedSeconds
         stampTramoSampleCursors()
-        tramoClockArmed = currentTramo.isErg
-            && currentTramo.boxedSeconds == nil
-            && !isTramoResting
-            && ergConnected
+        tramoClockArmed = shouldArmWaitFirstClock(currentTramo)
     }
 
     /// The BOX of a clock-measured station ran out → close it and walk on. Called

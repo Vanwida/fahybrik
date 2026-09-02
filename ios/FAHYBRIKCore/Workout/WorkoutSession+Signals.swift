@@ -277,6 +277,9 @@ extension WorkoutSession {
         // does — otherwise minute 4's metres land in minute 3's bout.
         syncTramoIfNeeded()
         claimTreadmillDistanceSource()
+        // Real belt movement in this window: the held bout clock starts HERE, not
+        // when the athlete tapped Empezar with the belt still at 0 km/h.
+        releaseArmedTramoClock()
         // Los metros de ESTA pierna antes de sumar — la prueba del cierre automático
         // es haber visto CRUZAR el objetivo, no estar por encima de él.
         let runMetersBefore = tramoRunCoveredMeters
