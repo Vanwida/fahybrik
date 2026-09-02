@@ -317,12 +317,16 @@ struct RodajeVivoPage: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .multilineTextAlignment(.center)
             .contentShape(Rectangle())
-            .onTapGesture {
-                if let toca = lectura.onToca {
+            // TabView page swipe eats a plain onTapGesture. The screen is the
+            // button — no Button, no WKTapGestureRecognizer.
+            .highPriorityGesture(
+                TapGesture().onEnded {
+                    guard let toca = lectura.onToca else { return }
                     WatchHaptics.tap()
                     toca()
                 }
-            }
+            )
+            .accessibilityAddTraits(lectura.onToca != nil ? .isButton : [])
         }
     }
 
@@ -394,6 +398,9 @@ struct RodajeVivoPage: View {
     }
 
     private static func lecturaSerie(session: WorkoutSession, driver _: WatchRunLegDriver?) -> Lectura {
+        let avanza: (() -> Void)? = RodajeVivoToca.avanza(session)
+            ? { session.applyCommand(MirrorWire.CommandKind.advance) }
+            : nil
         let isRecovery = !(session.currentRunLeg?.isWork ?? true)
         let serie = RunLegDisplay.serie(
             legs: session.currentRunLegs ?? [],
@@ -429,7 +436,7 @@ struct RodajeVivoPage: View {
                 juicio: viene == nil ? nil : "luego",
                 nota: "toca · empezar ya",
                 notaTinta: WatchTheme.ink,
-                onToca: { session.primaryAdvance() }
+                onToca: avanza
             )
         }
 
@@ -453,7 +460,8 @@ struct RodajeVivoPage: View {
             unidad: medida.unidad,
             ritmo: medida.notaSinSenal ? nil : ritmo,
             juicio: medida.notaSinSenal ? nil : juicio,
-            nota: medida.notaSinSenal ? WatchNota.sinSenal : nil
+            nota: medida.notaSinSenal ? WatchNota.sinSenal : nil,
+            onToca: avanza
         )
     }
 

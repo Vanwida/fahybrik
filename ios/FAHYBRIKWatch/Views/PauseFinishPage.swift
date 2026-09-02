@@ -111,10 +111,9 @@ struct PauseFinishPage: View {
         return "rodaje · \(reloj)"
     }
 
-    /// Sólo cuando los cortes son del atleta. Si el coach escribió la estructura,
-    /// el corte ya está y el botón no está.
+    /// Sólo cuando los cortes son del atleta (libre). Prescrito: el corte ya está.
     private var muestraNuevoTramo: Bool {
-        session.currentSegment?.kind == .running && !session.isRunStructureActive
+        RodajeVivoToca.muestraNuevoTramo(session)
     }
 
     private func botonLamina(

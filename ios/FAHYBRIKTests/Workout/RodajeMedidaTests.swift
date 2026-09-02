@@ -104,4 +104,86 @@ final class RodajeMedidaTests: XCTestCase {
         XCTAssertNil(WatchHKActivityPlan.distanceDelta(fromCumulative: 12.5, lastReported: 12.5))
         XCTAssertNil(WatchHKActivityPlan.distanceDelta(fromCumulative: 10, lastReported: 12.5))
     }
+
+    // MARK: - FH-34 · Vivo tap = applyCommand(.advance), not a second engine
+
+    func testSeriePrescritaElToqueAvanza() {
+        let s = structuredSession()
+        s.primaryAdvance()
+        XCTAssertTrue(RodajeVivoToca.avanza(s))
+        XCTAssertEqual(s.runLegIndex, 0)
+        s.applyCommand(MirrorWire.CommandKind.advance)
+        XCTAssertEqual(s.runLegIndex, 1)
+        XCTAssertFalse(s.isRunLegWork)
+    }
+
+    func testLibreElToqueNoAvanzaYNuevoTramoSoloSiEsLibre() {
+        let s = continuousSession(free: true)
+        XCTAssertTrue(s.isFreeRun)
+        XCTAssertFalse(RodajeVivoToca.avanza(s))
+        XCTAssertTrue(RodajeVivoToca.muestraNuevoTramo(s))
+        let prescrito = continuousSession(free: false)
+        XCTAssertFalse(RodajeVivoToca.avanza(prescrito))
+        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(prescrito))
+        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(structuredSession()))
+    }
+
+    func testPausaYRodajeContinuoNoSonBoton() {
+        let s = structuredSession()
+        s.primaryAdvance()
+        s.togglePause()
+        XCTAssertFalse(RodajeVivoToca.avanza(s))
+        s.togglePause()
+        XCTAssertTrue(RodajeVivoToca.avanza(s))
+    }
+
+    func testDobleToquePorApplyCommandCuentaComoUno() {
+        let s = structuredSession()
+        s.primaryAdvance()
+        s.applyCommand(MirrorWire.CommandKind.advance)
+        XCTAssertEqual(s.runLegIndex, 1)
+        s.applyCommand(MirrorWire.CommandKind.advance)
+        XCTAssertEqual(s.runLegIndex, 1, "el antirrebote del dedo vive en applyCommand")
+        s.lastPrimaryAdvanceAt = Date(timeIntervalSinceNow: -5)
+        s.applyCommand(MirrorWire.CommandKind.advance)
+        XCTAssertEqual(s.runLegIndex, 2)
+    }
+
+    private func work(_ m: RunSegmentMeasure) -> RunElement {
+        .segment(RunSegment(kind: .work, measure: m, target: nil, resolved: nil,
+                            inclinePct: nil, cadenceSpm: nil, recoveryMode: nil))
+    }
+    private func rec(_ m: RunSegmentMeasure) -> RunElement {
+        .segment(RunSegment(kind: .recovery, measure: m, target: nil, resolved: nil,
+                            inclinePct: nil, cadenceSpm: nil, recoveryMode: .parado))
+    }
+
+    private func structuredSession() -> WorkoutSession {
+        let rx = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: nil, workS: nil,
+                              restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil,
+                              structure: [RunPhase(role: .main, elements: [
+                                work(.distance(m: 400)), rec(.duration(s: 60)),
+                                work(.distance(m: 400)), rec(.duration(s: 60)),
+                            ])])
+        let seg = WorkoutSegment(order: 1, title: "Series", kind: .running,
+                                 blockTitle: "Series", blockPosition: 1, prescription: rx)
+        let s = WorkoutSession(plan: plan([seg], format: .intervals))
+        s.start(); s.beginBlock(); s.stop()
+        return s
+    }
+
+    private func continuousSession(free: Bool) -> WorkoutSession {
+        let seg = WorkoutSegment(order: 1, title: "Rodaje", kind: .running,
+                                 targetDistanceMeters: 5000, blockTitle: "Carrera", blockPosition: 1)
+        let s = WorkoutSession(plan: plan([seg], format: .steady))
+        s.isFreeRun = free
+        s.start(); s.beginBlock(); s.stop()
+        return s
+    }
+
+    private func plan(_ segments: [WorkoutSegment], format: WorkoutFormat) -> WorkoutPlan {
+        WorkoutPlan(id: UUID(), name: "Test", format: format, estimatedDurationSeconds: 900,
+                    blockContext: "Test", zoneTargets: [], equipment: [], segments: segments,
+                    coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+    }
 }

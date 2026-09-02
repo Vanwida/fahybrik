@@ -467,15 +467,8 @@ final class PhoneMirrorService {
         guard let session else { return }
         switch kind {
         case MirrorWire.CommandKind.advance:
-            if session.isAwaitingBlockStart { session.beginBlock() }
-            // #56 — a wrist advance on the PARTNER's relay station must route to
-            // advanceRelay() (the same path the phone's "Relevo ▸" uses): it logs NO
-            // lap for the athlete. Falling through to primaryAdvance() → lap() would
-            // record the partner's station as the athlete's work and corrupt volume.
-            else if session.currentSegmentIsPartnerRelay { session.advanceRelay() }
-            else if session.currentBlockIsStructural { session.completeStructuralBlock() }
-            // Un dedo en la muñeca rebota igual que uno en el móvil (card 113).
-            else { session.primaryAdvance(fromAthleteTap: true) }
+            // Espejo y solitario entran por la misma puerta del motor.
+            session.applyCommand(kind)
         case MirrorWire.CommandKind.sync:
             // La muñeca pide re-base (arranque en frío / reconexión). Forzar el
             // envío saltándose la clave estructural — el heartbeat de 5 s no corre
