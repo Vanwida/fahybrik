@@ -458,8 +458,8 @@ struct BotonVivo: View {
             }
             .lineLimit(1).minimumScaleFactor(0.7)
             .foregroundStyle(unicaSalida ? Theme.Color.accentOn : Theme.Color.foreground)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .frame(minHeight: 66)
+            .frame(maxWidth: .infinity)
+            .frame(height: BandaViva.accion)
             .background(unicaSalida ? Theme.Color.accent : Theme.Color.surface.opacity(0.7))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
