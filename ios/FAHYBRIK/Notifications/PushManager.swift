@@ -171,6 +171,7 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         resumeHealthKitObserversIfConnected()
+        DeviceCentral.shared.instantiateIfLiveUIDExists()
         return true
     }
 

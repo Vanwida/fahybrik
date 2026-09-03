@@ -110,4 +110,59 @@ final class NoAutoConnectSourceGuardTests: XCTestCase {
         }
         return found
     }
+
+    /// FH-72: one `CBCentralManager` per iOS process, in `DeviceCentral` only.
+    func testProductHasExactlyOneCBCentralManagerInit() throws {
+        var hits: [(String, Int)] = []
+        for (name, text) in try swiftSources() {
+            let n = code(text).components(separatedBy: "CBCentralManager(").count - 1
+            if n > 0 { hits.append((name, n)) }
+        }
+        XCTAssertEqual(hits.count, 1, "exactly one product file may construct CBCentralManager")
+        XCTAssertEqual(hits.first?.name, "DeviceCentral.swift")
+        XCTAssertEqual(hits.first?.1, 1)
+    }
+
+    /// Restore re-engages THIS session's peripheral. It is not reconnect-anyone:
+    /// no scan, no second central, no 180D else-branch.
+    func testWillRestoreStateIsNotReconnectAnyone() throws {
+        let sources = try swiftSources()
+        guard let text = sources.first(where: { $0.name == "DeviceCentral.swift" })?.text else {
+            return XCTFail("DeviceCentral.swift missing")
+        }
+        let source = code(text)
+        let restoreBodies = bodies(of: "willRestoreState", in: source)
+        XCTAssertFalse(restoreBodies.isEmpty, "willRestoreState must exist on the one central")
+        for body in restoreBodies {
+            XCTAssertFalse(body.contains("scanForPeripherals"),
+                           "willRestoreState must not scan")
+            XCTAssertFalse(body.contains("CBCentralManager("),
+                           "willRestoreState must not create another central")
+            XCTAssertFalse(body.contains("180D"),
+                           "do not copy Apple sample's UserDefaults + 180D else")
+            XCTAssertTrue(body.contains("chosenStation"),
+                          "connect only after the identifier is THIS session/role/station")
+            XCTAssertTrue(body.contains("CBCentralManagerRestoredStatePeripheralsKey"),
+                          "only restored peripherals")
+        }
+        for (name, text) in sources {
+            XCTAssertFalse(code(text).contains("NotifyOnDisconnectionKey"),
+                           "\(name) uses NotifyOnDisconnectionKey — Apple's alert is for apps without bluetooth-central")
+        }
+    }
+
+    /// Restore UID is THIS live (`plan.id` + `startedAt`). HealthKit's session
+    /// UUID is Watch/FH-75 and must not change the key after the first instantiate.
+    func testRestoreUIDIsTheLivePlanIdentityNotHealthKit() {
+        let plan = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let started = Date(timeIntervalSince1970: 1_700_000_123.456)
+        XCTAssertEqual(
+            DeviceCentral.restoreUID(planId: plan, startedAt: started),
+            "\(plan.uuidString)|\(Int(started.timeIntervalSince1970 * 1000))"
+        )
+        XCTAssertEqual(
+            DeviceCentral.restoreUID(planId: plan, startedAt: started),
+            DeviceCentral.restoreUID(planId: plan, startedAt: started)
+        )
+    }
 }

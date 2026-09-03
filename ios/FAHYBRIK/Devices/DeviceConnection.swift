@@ -230,8 +230,11 @@ final class DeviceChannel {
     /// the wrong one can move a belt under whoever is running on it. False for read-only
     /// devices (an HR strap can't hurt anybody) — there the tap connects straight away.
     let requiresConfirmation: Bool
+    let bleStation: BLEStation
     private let makeSource: () -> ConnectableSource
     private let remembered: RememberedDeviceStore
+    /// Chosen in THIS session. Survives `.lost`. Never `remembered.id`.
+    private(set) var sessionIdentifier: DeviceID?
 
     /// Called once, right after the source is lazily created, so the owner (the hub)
     /// can wire the type-specific telemetry callback (`onSample` / `onBpm`) that lives
@@ -261,6 +264,7 @@ final class DeviceChannel {
          pickHint: String? = nil,
          requiresConfirmation: Bool = false,
          remembered: RememberedDeviceStore,
+         station: BLEStation = .treadmill,
          makeSource: @escaping () -> ConnectableSource) {
         self.title = title
         self.icon = icon
@@ -268,6 +272,7 @@ final class DeviceChannel {
         self.pickHint = pickHint
         self.requiresConfirmation = requiresConfirmation
         self.remembered = remembered
+        self.bleStation = station
         self.makeSource = makeSource
     }
 
@@ -391,7 +396,28 @@ final class DeviceChannel {
         isPresentingPicker = false
         link = .connecting
         lastConnectingID = id
+        sessionIdentifier = id
+        DeviceCentral.shared.remember(id, station: bleStation)
         source().connect(id)
+    }
+
+    func adoptSessionIdentifier(_ id: DeviceID?) {
+        sessionIdentifier = id
+    }
+
+    func markSessionLost() {
+        guard sessionIdentifier != nil else { return }
+        if link != .lost { link = .lost }
+    }
+
+    /// CTA for THIS session's machine via retrieve+connect. No session machine → FH-59 picker.
+    func reconnectSessionMachineOrOpenPicker() {
+        guard !isConnected else { openPicker(); return }
+        if let id = sessionIdentifier, link == .lost || link == .failed {
+            connect(id)
+            return
+        }
+        openPicker()
     }
 
     /// The athlete tapped "Desconectar". Deterministic — the source cuts the link and
@@ -403,6 +429,8 @@ final class DeviceChannel {
         pendingConfirmation = nil
         isPresentingPicker = false
         inlineSelectionActive = false
+        sessionIdentifier = nil
+        DeviceCentral.shared.forget(station: bleStation)
         _source?.disconnect()
         if _source == nil { link = .idle }
     }
@@ -435,6 +463,8 @@ final class DeviceChannel {
         inlineSelectionActive = false
         pendingConfirmation = nil
         pickInFlight = false
+        sessionIdentifier = nil
+        DeviceCentral.shared.forget(station: bleStation)
         link = .idle
         // Prefer disconnect (cancelPeripheralConnection) then full stop (scan kill).
         _source?.disconnect()

@@ -446,6 +446,33 @@ final class DeviceChannelTests: XCTestCase {
         XCTAssertEqual(src.connectCalls.count, connects, "openPicker must not connect")
         XCTAssertNotEqual(ch.link, .connected(name: "Titanium T1"))
     }
+
+    /// FH-72 CTA: after a drop, the session machine is retrieve+connect. Remembered
+    /// is a badge, never the connect argument. openPicker stays the FH-59 path.
+    func testLostCTAReconnectsSessionMachineNotRemembered() {
+        let session = cand(1)
+        let remembered = cand(2)
+        let (ch, src, _) = makeChannel(remembered: remembered.id)
+        ch.connect(session.id)
+        src.land(name: "Titanium T1")
+        src.dropUnexpectedly()
+        XCTAssertEqual(ch.link, .lost)
+        XCTAssertEqual(ch.sessionIdentifier, session.id)
+
+        ch.reconnectSessionMachineOrOpenPicker()
+        XCTAssertEqual(src.connectCalls.last, session.id)
+        XCTAssertNotEqual(src.connectCalls.last, remembered.id)
+        XCTAssertFalse(ch.isPresentingPicker)
+    }
+
+    func testLostWithoutSessionMachineOpensPicker() {
+        let remembered = cand(2)
+        let (ch, src, _) = makeChannel(remembered: remembered.id)
+        XCTAssertNil(ch.sessionIdentifier)
+        ch.reconnectSessionMachineOrOpenPicker()
+        XCTAssertTrue(ch.isPresentingPicker)
+        XCTAssertTrue(src.connectCalls.isEmpty)
+    }
 }
 
 // MARK: - Live host chips after a drop (FH-59)

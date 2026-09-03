@@ -13,14 +13,14 @@ import Foundation
 // there — no reconnect — and disconnects are deterministic on request.
 //
 // Unavailable in the simulator; the HUD uses MockHeartRateSource there.
-final class BLEHeartRateSource: NSObject, HeartRateSource {
+final class BLEHeartRateSource: NSObject, HeartRateSource, DeviceCentralClient {
+    let bleStation: BLEStation = .heartRate
     var onBpm: ((Int) -> Void)?
     var onBattery: ((Int) -> Void)?
     var onLink: ((DeviceLink) -> Void)?
     var onDiscovered: (([DeviceCandidate]) -> Void)?
     var onBluetooth: ((BluetoothAvailability) -> Void)?
 
-    private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
     private var found: [DeviceID: (peripheral: CBPeripheral, candidate: DeviceCandidate)] = [:]
     private var pendingScan = false
@@ -30,15 +30,15 @@ final class BLEHeartRateSource: NSObject, HeartRateSource {
 
     override init() {
         super.init()
-        central = CBCentralManager(delegate: self, queue: nil,
-                                   options: [CBCentralManagerOptionShowPowerAlertKey: false])
+        DeviceCentral.shared.register(self)
     }
 
     func startScan() {
         intentionalStop = false
         found.removeAll()
         onDiscovered?([])
-        switch central.state {
+        DeviceCentral.shared.scan(services: [TreadmillGATT.heartRateService], station: bleStation)
+        switch DeviceCentral.shared.state {
         case .poweredOn: beginScan()
         case .unknown, .resetting: pendingScan = true
         default: onLink?(.unavailable)
@@ -49,19 +49,21 @@ final class BLEHeartRateSource: NSObject, HeartRateSource {
         intentionalStop = false
         if let p = found[id]?.peripheral {
             connect(peripheral: p, advertised: [])
-        } else if let p = central.retrievePeripherals(withIdentifiers: [id]).first {
+        } else if let p = DeviceCentral.shared.retrieve(id) {
             connect(peripheral: p, advertised: [])
+        } else {
+            onLink?(.failed("No encuentro esa banda. Enciéndela y acércate."))
         }
     }
 
     func disconnect() {
         intentionalStop = true
         pendingScan = false
-        if central.isScanning { central.stopScan() }
+        DeviceCentral.shared.stopScan(station: bleStation)
         guard let p = peripheral else { onLink?(.idle); return }
         disconnectGen += 1
         let gen = disconnectGen
-        central.cancelPeripheralConnection(p)
+        DeviceCentral.shared.cancel(p)
         DispatchQueue.main.asyncAfter(deadline: .now() + DeviceConnectionTiming.disconnectTimeoutSeconds) { [weak self] in
             guard let self, self.disconnectGen == gen else { return }
             self.finalizeDisconnect()
@@ -71,8 +73,8 @@ final class BLEHeartRateSource: NSObject, HeartRateSource {
     func stop() {
         intentionalStop = true
         pendingScan = false
-        if central.isScanning { central.stopScan() }
-        if let p = peripheral { central.cancelPeripheralConnection(p) }
+        DeviceCentral.shared.stopScan(station: bleStation)
+        if let p = peripheral { DeviceCentral.shared.cancel(p) }
         finalizeDisconnect()
     }
 
@@ -89,17 +91,16 @@ final class BLEHeartRateSource: NSObject, HeartRateSource {
     private func beginScan() {
         diag.reset()
         onLink?(.scanning)
-        central.scanForPeripherals(withServices: [TreadmillGATT.heartRateService],
-                                   options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        DeviceCentral.shared.scan(services: [TreadmillGATT.heartRateService], station: bleStation)
     }
 
     private func connect(peripheral p: CBPeripheral, advertised: [CBUUID]) {
-        if central.isScanning { central.stopScan() }
+        DeviceCentral.shared.stopScan(station: bleStation)
         peripheral = p
         p.delegate = self
         diag.note(peripheral: p, advertised: advertised)
         onLink?(.connecting)
-        central.connect(p, options: nil)
+        DeviceCentral.shared.connect(p, station: bleStation)
     }
 }
 

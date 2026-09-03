@@ -99,11 +99,6 @@ struct ErgConnectCard: View {
 
     private func tap() {
         Haptics.light()
-        // OPENS THE SHEET. It does not connect. A remembered erg used to be reconnected
-        // right here, on this tap, before the athlete had seen a single machine name —
-        // so "conectar" silently meant "grab whatever answers to that identifier". Now
-        // the sheet scans, the erg used last sits on top of the list badged, and he
-        // taps the one he is actually sitting on.
-        showSheet = true
+        pm5.reconnectSessionMachineOrOpenSheet { showSheet = true }
     }
 }

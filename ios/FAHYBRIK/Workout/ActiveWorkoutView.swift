@@ -239,6 +239,10 @@ struct ActiveWorkoutView: View {
         .allowsLandscape()
         .onAppear {
             session.start()
+            DeviceCentral.shared.attachLiveIdentity(
+                planId: session.plan.id,
+                startedAt: session.startedAt
+            )
             wireLiveSources()
             // Seed the monitor flag: the athlete may have paired in the pre-start
             // gate, before this view existed, and `onChange` only fires on CHANGES.
@@ -500,15 +504,15 @@ struct ActiveWorkoutView: View {
         let store = pickerPM5
         store.excludePeripheralIds = pool.occupiedPeripheralIds
             .subtracting([store.connectedIdentifier].compactMap { $0 })
-        showPM5Sheet = true
+        store.reconnectSessionMachineOrOpenSheet { showPM5Sheet = true }
     }
 
     private func openCintaPicker() {
-        hub.treadmill.openPicker()
+        hub.treadmill.reconnectSessionMachineOrOpenPicker()
     }
 
     private func openHRPicker() {
-        hub.heartRate.openPicker()
+        hub.heartRate.reconnectSessionMachineOrOpenPicker()
     }
 
     /// Same latch as DeviceConnectCard: a presenter that isn't on screen cannot

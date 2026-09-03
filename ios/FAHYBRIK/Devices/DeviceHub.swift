@@ -89,6 +89,7 @@ final class DeviceHub {
             // arrancar, parar), so choosing one asks for a confirmation first.
             requiresConfirmation: true,
             remembered: DeviceDefaults.treadmill,
+            station: .treadmill,
             makeSource: { injectedTreadmill ?? Self.makeTreadmill() })
         heartRate = DeviceChannel(
             title: "Banda de pulso", icon: "heart.fill",
@@ -96,6 +97,7 @@ final class DeviceHub {
             // (Garmin, Polar, Amazfit, Apple with a relay app) can emit their pulse.
             scanHint: "Enciende tu banda de pulso — o pon tu reloj a emitir pulso por Bluetooth (en los ajustes del reloj: «difundir» o «compartir» frecuencia cardiaca). Aparecerá aquí en cuanto la encuentre.",
             remembered: DeviceDefaults.heartRate,
+            station: .heartRate,
             makeSource: { injectedHR ?? Self.makeHR() })
 
         treadmill.onSourceCreated = { [weak self] src in
@@ -202,7 +204,13 @@ final class DeviceHub {
         stopHeartRate()
         // All PM5 links (role-bound Remo/Ski/Bike + unscoped) share this lifecycle.
         PM5Pool.shared.disconnectAll()
+        DeviceCentral.shared.endLive()
     }
+
+    /// Restore path: create the GATT client without scanning so `willRestoreState`
+    /// can re-engage THIS session's peripheral.
+    func materializeTreadmill() { treadmill.prewireInjectedSource() }
+    func materializeHR() { heartRate.prewireInjectedSource() }
 
     /// Release the BELT alone. Split out of `stopAll` because the two devices stop
     /// being useful at different moments: the belt is done the instant the work is,

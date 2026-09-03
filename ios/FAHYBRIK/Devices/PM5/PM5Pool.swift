@@ -3,7 +3,8 @@ import Observation
 
 // Session-scoped multi-PM5 owner. A functional EMOM can need Remo + Ski at the
 // same time (two physical monitors); each `ErgMachineRole` gets its own
-// `PM5ConnectionStore` + `PM5Service` so BLE links do not stomp each other.
+// `PM5ConnectionStore` + GATT client. One `DeviceCentral` — stores do not
+// build a `CBCentralManager`.
 //
 // Routing rule (mechanism, HARD RULE Nº0):
 //   · Live tramo modality → the store bound to that role (if connected).
@@ -30,7 +31,7 @@ final class PM5Pool {
     private(set) var epoch: UInt64 = 0
 
     /// `any` defaults to the legacy shared store so mono-erg / profile keep one
-    /// CBCentralManager and one remembered pairing. Role stores get their own.
+    /// remembered pairing. Role stores get their own GATT client, same radio.
     init(any: PM5ConnectionStore = .shared) {
         self.any = any
         wire(any, role: nil)
@@ -38,10 +39,10 @@ final class PM5Pool {
 
     // MARK: - Stores
 
-    /// The store for a named erg role. Creates it (own CBCentralManager) on first use.
+    /// The store for a named erg role. Parser only — radio is `DeviceCentral`.
     func store(for role: ErgMachineRole) -> PM5ConnectionStore {
         if let existing = roleStores[role] { return existing }
-        let s = PM5ConnectionStore(service: PM5Service())
+        let s = PM5ConnectionStore(service: PM5Service(station: BLEStation(role)))
         roleStores[role] = s
         wire(s, role: role)
         return s

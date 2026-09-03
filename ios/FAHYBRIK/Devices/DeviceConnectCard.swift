@@ -176,17 +176,15 @@ struct DeviceConnectCard: View {
     private func tap(_ device: PreWorkoutDevice, link: DeviceLink) {
         Haptics.light()
         if let ch = channel(for: device) {
-            // ONE intent for every state: the tap opens the sheet now and the scan runs
-            // behind it (live → manage/disconnect, busy → watch progress, idle/lost →
-            // scan → list → pick). It scans; it never connects.
-            ch.openPicker()
+            ch.reconnectSessionMachineOrOpenPicker()
             return
         }
-        // PM5: open the role's own sheet. Hide peripherals already claimed by
-        // another role so one monitor cannot be bound to Remo and Ski at once.
+        // PM5: CTA to THIS session's machine, else the role's sheet (FH-59).
         if let store = pool.store(for: device) {
             store.excludePeripheralIds = pool.occupiedPeripheralIds
                 .subtracting([store.connectedIdentifier].compactMap { $0 })
+            store.reconnectSessionMachineOrOpenSheet { openPM5DeviceId = device.id }
+            return
         }
         openPM5DeviceId = device.id
     }

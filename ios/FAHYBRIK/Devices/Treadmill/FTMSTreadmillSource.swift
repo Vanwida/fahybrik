@@ -1,9 +1,9 @@
 import CoreBluetooth
 import Foundation
 
-// Real FTMS treadmill over CoreBluetooth. Mirrors the PM5Service pattern:
-// NSObject + CBCentralManager on the main queue, a pure parser does the byte work,
-// state is pushed out through callbacks.
+// Real FTMS treadmill over CoreBluetooth. GATT client of one belt — the radio
+// is `DeviceCentral`. A pure parser does the byte work; state is pushed out
+// through callbacks.
 //
 // CONNECTION MODEL: scanning ACCUMULATES every Fitness Machine it finds into a
 // candidate list (name + signal) and reports it. It NEVER connects — not to the first
@@ -19,7 +19,8 @@ import Foundation
 //
 // NOTE: CoreBluetooth is unavailable in the iOS simulator; the HUD uses
 // MockTreadmillSource there. This class only runs on device.
-final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControllable {
+final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControllable, DeviceCentralClient {
+    let bleStation: BLEStation = .treadmill
     var onSample: ((TreadmillSample) -> Void)?
     var onLink: ((DeviceLink) -> Void)?
     var onDiscovered: (([DeviceCandidate]) -> Void)?
@@ -30,7 +31,6 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     var onMachineEvent: ((TreadmillMachineEvent) -> Void)?
     var onControlResult: ((TreadmillControlResult) -> Void)?
 
-    private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
     private var dataChar: CBCharacteristic?
     /// The writable Control Point (0x2AD9) once discovered — nil on a read-only belt.
@@ -55,8 +55,7 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
 
     override init() {
         super.init()
-        central = CBCentralManager(delegate: self, queue: nil,
-                                   options: [CBCentralManagerOptionShowPowerAlertKey: true])
+        DeviceCentral.shared.register(self)
         wireSequencer()
     }
 
@@ -129,7 +128,8 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         intentionalStop = false
         found.removeAll()
         onDiscovered?([])
-        switch central.state {
+        DeviceCentral.shared.scan(services: [TreadmillGATT.fitnessMachineService], station: bleStation)
+        switch DeviceCentral.shared.state {
         case .poweredOn: beginScan()
         case .unknown, .resetting: pendingScan = true
         default: onLink?(.unavailable)
@@ -140,19 +140,21 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
         intentionalStop = false
         if let p = found[id]?.peripheral {
             connect(p, advertised: [])
-        } else if let p = central.retrievePeripherals(withIdentifiers: [id]).first {
+        } else if let p = DeviceCentral.shared.retrieve(id) {
             connect(p, advertised: [])
+        } else {
+            onLink?(.failed("No encuentro esa cinta. Enciéndela y acércate."))
         }
     }
 
     func disconnect() {
         intentionalStop = true
         pendingScan = false
-        if central.isScanning { central.stopScan() }
+        DeviceCentral.shared.stopScan(station: bleStation)
         guard let p = peripheral else { onLink?(.idle); return }
         disconnectGen += 1
         let gen = disconnectGen
-        central.cancelPeripheralConnection(p)
+        DeviceCentral.shared.cancel(p)
         // Deterministic: if CoreBluetooth's didDisconnect doesn't arrive (machine off
         // / out of range), force the disconnected state so the chip can't hang.
         DispatchQueue.main.asyncAfter(deadline: .now() + DeviceConnectionTiming.disconnectTimeoutSeconds) { [weak self] in
@@ -164,8 +166,8 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     func stop() {
         intentionalStop = true
         pendingScan = false
-        if central.isScanning { central.stopScan() }
-        if let p = peripheral { central.cancelPeripheralConnection(p) }
+        DeviceCentral.shared.stopScan(station: bleStation)
+        if let p = peripheral { DeviceCentral.shared.cancel(p) }
         finalizeDisconnect()
     }
 
@@ -203,12 +205,11 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
     private func beginScan() {
         diag.reset()
         onLink?(.scanning)
-        central.scanForPeripherals(withServices: [TreadmillGATT.fitnessMachineService],
-                                   options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        DeviceCentral.shared.scan(services: [TreadmillGATT.fitnessMachineService], station: bleStation)
     }
 
     private func connect(_ p: CBPeripheral, advertised: [CBUUID]) {
-        if central.isScanning { central.stopScan() }
+        DeviceCentral.shared.stopScan(station: bleStation)
         peripheral = p
         p.delegate = self
         // A DIFFERENT machine → forget what we learned about the last one.
@@ -229,7 +230,7 @@ final class FTMSTreadmillSource: NSObject, TreadmillDataSource, TreadmillControl
                   found[p.identifier]?.candidate.name ?? p.name ?? "sin nombre")
         detectProfile(for: p)
         onLink?(.connecting)
-        central.connect(p, options: nil)
+        DeviceCentral.shared.connect(p, station: bleStation)
     }
 
     /// Identify the machine FAMILY from its advertised name, so the right control dialect

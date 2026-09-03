@@ -63,16 +63,14 @@ protocol PM5ServiceDelegate: AnyObject {
     func pm5Service(_ service: PM5Service, didUpdateCSAFELog lines: [String])
 }
 
-// CoreBluetooth wrapper. Single-peripheral usage — we only ever want one PM5
-// at a time. Auto-reconnect is OFF, permanently and everywhere: neither this
-// service nor its store may reopen a link the athlete did not ask for, on a
-// drop or on any lifecycle event. See `DeviceConnection.swift` for the rule.
-final class PM5Service: NSObject {
-    static let shared = PM5Service()
+// GATT client of ONE PM5. The radio is `DeviceCentral` — this type never
+// constructs a `CBCentralManager`. Auto-reconnect is OFF. See DeviceConnection.
+final class PM5Service: NSObject, DeviceCentralClient {
+    static let shared = PM5Service(station: .pm5Any)
 
+    let bleStation: BLEStation
     weak var delegate: PM5ServiceDelegate?
 
-    private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
     private var rowingService: CBService?
     // Control-plane (CSAFE) channel for PROGRAMMING workouts on the monitor.
@@ -110,18 +108,17 @@ final class PM5Service: NSObject {
     private(set) var bluetoothState: PM5BluetoothState = .unknown
     private(set) var connectionState: PM5ConnectionState = .idle
 
-    override init() {
+    init(station: BLEStation = .pm5Any) {
+        self.bleStation = station
         super.init()
-        // queue: nil → main, fine for our 1Hz parsing rate.
-        self.central = CBCentralManager(delegate: self, queue: nil, options: [
-            CBCentralManagerOptionShowPowerAlertKey: true,
-        ])
+        DeviceCentral.shared.register(self)
     }
 
     // MARK: - public API
 
     func startScan() {
-        guard bluetoothState == .poweredOn else {
+        DeviceCentral.shared.scan(services: [PM5GATT.infoService], station: bleStation)
+        guard bluetoothState == .poweredOn || DeviceCentral.shared.state == .poweredOn else {
             pendingScan = true
             return
         }
@@ -138,14 +135,11 @@ final class PM5Service: NSObject {
         case .connecting, .discoveringServices, .streaming, .disconnecting:
             break
         }
-        central.scanForPeripherals(
-            withServices: [PM5GATT.infoService],
-            options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
-        )
+        DeviceCentral.shared.scan(services: [PM5GATT.infoService], station: bleStation)
     }
 
     func stopScan() {
-        if central.isScanning { central.stopScan() }
+        DeviceCentral.shared.stopScan(station: bleStation)
         if case .scanning = connectionState { update(connection: .idle) }
     }
 
@@ -155,7 +149,7 @@ final class PM5Service: NSObject {
         // retrievePeripherals (which can be empty just after a scan). If neither
         // resolves, say so instead of a silent no-op.
         if let known = discoveredPeripherals[id]
-            ?? central.retrievePeripherals(withIdentifiers: [id]).first {
+            ?? DeviceCentral.shared.retrieve(id) {
             connect(peripheral: known)
         } else {
             update(connection: .failed("No encuentro ese PM5. Enciéndelo, ponlo en la pantalla principal y acércate."))
@@ -167,7 +161,7 @@ final class PM5Service: NSObject {
         // stuck in `.disconnecting` forever — settle to idle immediately.
         guard let peripheral else { finalizeDisconnect(); return }
         update(connection: .disconnecting)
-        central.cancelPeripheralConnection(peripheral)
+        DeviceCentral.shared.cancel(peripheral)
         disconnectGen += 1
         let gen = disconnectGen
         // Deterministic: CoreBluetooth's didDisconnect can be delayed or never arrive
@@ -213,7 +207,7 @@ final class PM5Service: NSObject {
             peripheral = nil
             rowingService = nil
             resetControlPlane()
-            central.cancelPeripheralConnection(current)
+            DeviceCentral.shared.cancel(current)
         }
         connect(id)
     }
@@ -334,7 +328,7 @@ final class PM5Service: NSObject {
         self.peripheral = peripheral
         peripheral.delegate = self
         update(connection: .connecting)
-        central.connect(peripheral, options: nil)
+        DeviceCentral.shared.connect(peripheral, station: bleStation)
     }
 
     private func update(connection state: PM5ConnectionState) {

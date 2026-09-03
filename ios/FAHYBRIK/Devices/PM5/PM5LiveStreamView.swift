@@ -266,26 +266,35 @@ struct PM5LiveStreamView: View {
         }
     }
 
-    /// "Se perdió la conexión con el erg" — shown after an unexpected drop. Nothing is
-    /// reconnecting; the list below IS the way back, and it takes a tap.
+    /// After a drop: if THIS session chose a machine, the note is the CTA
+    /// (`retrievePeripherals` + `connect`). The list below stays as FH-59.
     @ViewBuilder
     private var lostNote: some View {
         if store.connectionLost, !store.isConnected {
-            HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.warning)
-                Text("Se perdió la conexión con el erg. Elígelo otra vez abajo para volver a conectarlo.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let id = store.sessionIdentifier {
+                Button { store.connect(id) } label: { lostNoteLabel }
+                    .buttonStyle(.plain)
+            } else {
+                lostNoteLabel
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.warningTint)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .accessibilityElement(children: .combine)
         }
+    }
+
+    private var lostNoteLabel: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.s) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.Color.warning)
+            Text("Se perdió la conexión con el erg. Elígelo otra vez abajo para volver a conectarlo.")
+                .font(Theme.Typography.small)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.m)
+        .background(Theme.Color.warningTint)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     // ErgData-style discovered row: erg icon + "ID <serial>" (the number on the

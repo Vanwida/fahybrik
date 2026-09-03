@@ -17,6 +17,9 @@ final class PM5ConnectionStore: NSObject {
     var discovered: [PM5Discovered] = []
     var connectedDeviceName: String? = nil
     var connectedIdentifier: UUID? = nil
+    /// Chosen in THIS session. Survives drop (`connectedIdentifier` → nil).
+    /// Never `rememberedIdentifier`. Cleared on athlete disconnect / stopAll.
+    private(set) var sessionIdentifier: UUID? = nil
     var live: PM5LiveSample = PM5LiveSample()
     /// Completed splits/intervals of the current PM5 workout (0x37+0x38 joined by
     /// interval number), ordered. Snapshotted per erg segment by the session.
@@ -91,8 +94,7 @@ final class PM5ConnectionStore: NSObject {
         return false
     }
 
-    /// Inject a service so multi-PM5 sessions can hold one CBCentralManager per role.
-    /// Default `PM5Service.shared` keeps mono-erg / profile behaviour unchanged.
+    /// Inject a GATT client. Default `PM5Service.shared` keeps mono-erg / profile.
     init(service: PM5Service = .shared) {
         self.service = service
         super.init()
@@ -126,12 +128,34 @@ final class PM5ConnectionStore: NSObject {
     /// The athlete tapped an erg in the list. THE only way a PM5 link is ever opened.
     func connect(_ id: UUID) {
         connectionLost = false
+        sessionIdentifier = id
+        DeviceCentral.shared.remember(id, station: service.bleStation)
         #if targetEnvironment(simulator)
         startMockStream()
         #else
         lastError = nil
         service.connect(id)
         #endif
+    }
+
+    func adoptSessionIdentifier(_ id: UUID?) {
+        sessionIdentifier = id
+    }
+
+    func markSessionLost() {
+        guard sessionIdentifier != nil else { return }
+        connectionLost = true
+        notifyUpdate()
+    }
+
+    /// CTA: retrieve+connect THIS session's machine. No session machine → sheet (FH-59).
+    func reconnectSessionMachineOrOpenSheet(openSheet: () -> Void) {
+        if isConnected { openSheet(); return }
+        if connectionLost, let id = sessionIdentifier {
+            connect(id)
+            return
+        }
+        openSheet()
     }
 
     func disconnect() {
@@ -143,6 +167,8 @@ final class PM5ConnectionStore: NSObject {
         connectionState = .idle
         connectedDeviceName = nil
         connectedIdentifier = nil
+        sessionIdentifier = nil
+        DeviceCentral.shared.forget(station: service.bleStation)
         programState = .idle
         programmedWindowKey = nil
         live = PM5LiveSample()
@@ -162,6 +188,8 @@ final class PM5ConnectionStore: NSObject {
     func switchTo(_ id: UUID) {
         expectingDisconnect = true      // the old link drops because he chose another
         connectionLost = false
+        sessionIdentifier = id
+        DeviceCentral.shared.remember(id, station: service.bleStation)
         #if targetEnvironment(simulator)
         startMockStream()
         #else
@@ -180,9 +208,13 @@ final class PM5ConnectionStore: NSObject {
         connectionState = .idle
         connectedDeviceName = nil
         connectedIdentifier = nil
+        sessionIdentifier = nil
+        DeviceCentral.shared.forget(station: service.bleStation)
         programState = .idle
         programmedWindowKey = nil
         #else
+        sessionIdentifier = nil
+        DeviceCentral.shared.forget(station: service.bleStation)
         service.forgetPaired()
         #endif
     }
@@ -287,6 +319,7 @@ final class PM5ConnectionStore: NSObject {
         connectionState = .streaming
         connectedDeviceName = "PM5 Simulator"
         connectedIdentifier = UUID()
+        sessionIdentifier = connectedIdentifier
         UserDefaults.standard.set(connectedIdentifier?.uuidString, forKey: PM5Defaults.lastPairedIdentifier)
         UserDefaults.standard.set("PM5 Simulator", forKey: PM5Defaults.lastPairedName)
         mockTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -371,6 +404,7 @@ extension PM5ConnectionStore: PM5ServiceDelegate {
     func pm5Service(_ service: PM5Service, didConnect deviceName: String, identifier: UUID) {
         self.connectedDeviceName = deviceName
         self.connectedIdentifier = identifier
+        self.sessionIdentifier = identifier
         self.lastError = nil
         self.connectionLost = false
         self.expectingDisconnect = false

@@ -149,6 +149,7 @@
 		2AD3387B52E11CED13C90EE0 /* FacilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4792F4658F35CB9D30DCE9C4 /* FacilityStep.swift */; };
 		2C2775C730EDFA3BBC25D124 /* Prescription.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAD19613B47FAFD72C02B4F9 /* Prescription.swift */; };
 		2CA78AF286F7B748A5746DF8 /* SessionMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAF9B84A8FC35C78460E38E5 /* SessionMapView.swift */; };
+		2CD8A1F04B7E6C9D3A12E801 /* DeviceCentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15A8E91B0D24F7A8E3C1A02 /* DeviceCentral.swift */; };
 		2CE4D614AEBAEAC3172982D8 /* DeviceConnectCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C168F742CD340687C6684273 /* DeviceConnectCard.swift */; };
 		2CE80662DF9035482255EA28 /* SubscriptionInfoDecodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD13F5971611B2585250661 /* SubscriptionInfoDecodeTests.swift */; };
 		2DAA54D7ECBC9C70CA1A3719 /* CoachSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 233D0942A0A59156E8D7098E /* CoachSpeaker.swift */; };
@@ -1365,6 +1366,7 @@
 		C0FF2D302F5C3AA0CA6F1823 /* WatchTraceRelayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTraceRelayTests.swift; sourceTree = "<group>"; };
 		C1067573AB177F92538E19DA /* WatchHKActivityPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHKActivityPlanTests.swift; sourceTree = "<group>"; };
 		C164427110ED40C5F5BF17A2 /* SensorFileCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorFileCodec.swift; sourceTree = "<group>"; };
+		C15A8E91B0D24F7A8E3C1A02 /* DeviceCentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCentral.swift; sourceTree = "<group>"; };
 		C168F742CD340687C6684273 /* DeviceConnectCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConnectCard.swift; sourceTree = "<group>"; };
 		C18634F34DD13AF5C162866E /* RunAutoPause.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunAutoPause.swift; sourceTree = "<group>"; };
 		C1B16E9B65B37556A136A785 /* ExecutionTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionTrace.swift; sourceTree = "<group>"; };
@@ -3010,6 +3012,7 @@
 			children = (
 				EA6DA94A654AEBD5A25D9C8A /* PM5 */,
 				68508908367F728B1488C00F /* Treadmill */,
+				C15A8E91B0D24F7A8E3C1A02 /* DeviceCentral.swift */,
 				C168F742CD340687C6684273 /* DeviceConnectCard.swift */,
 				2B43F27E8F2380A23E1E6447 /* DeviceConnection.swift */,
 				58859ABC592990B8A4EB837F /* DeviceHub.swift */,
@@ -3366,6 +3369,7 @@
 				84206ABA69E5D38C61E12324 /* DemoAuthService.swift in Sources */,
 				07FF6AFE31C74856A422D922 /* DemoSignInView.swift in Sources */,
 				5FFAFA710DF724AE78741A41 /* DetalleDeCarrera.swift in Sources */,
+				2CD8A1F04B7E6C9D3A12E801 /* DeviceCentral.swift in Sources */,
 				2CE4D614AEBAEAC3172982D8 /* DeviceConnectCard.swift in Sources */,
 				95989F2BA0A1266E74EDF6B2 /* DeviceConnection.swift in Sources */,
 				C0C4BF9ABFABEEA9379070D9 /* DeviceDiagnostics.swift in Sources */,
@@ -4237,7 +4241,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 57;
+				CURRENT_PROJECT_VERSION = 58;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4340,7 +4344,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 57;
+				CURRENT_PROJECT_VERSION = 58;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;

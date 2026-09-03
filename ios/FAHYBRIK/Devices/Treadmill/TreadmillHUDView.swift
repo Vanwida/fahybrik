@@ -208,7 +208,7 @@ struct TreadmillHUDView: View {
                             onLongPress: (() -> Void)? = nil) -> some View {
         Button {
             Haptics.light()
-            channel.openPicker()
+            channel.reconnectSessionMachineOrOpenPicker()
         } label: {
             DeviceChip(icon: icon, text: text, link: link)
         }
@@ -948,7 +948,7 @@ struct TreadmillHUDView: View {
         // One intent for every link state: the tap opens the picker and the scan runs
         // behind it (upgrading a silent reconnect already in flight rather than
         // restarting it). The channel never pops this sheet on its own.
-        model.treadmillChannel.openPicker()
+        model.treadmillChannel.reconnectSessionMachineOrOpenPicker()
     }
 
     // MARK: - Formatting

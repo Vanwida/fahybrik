@@ -142,18 +142,7 @@ actor WorkoutStateStore {
         // Application Support is the canonical home; if the FS denies it
         // (sandbox edge cases, full disk), degrade to the temp dir so a
         // persistence hiccup can never crash an active workout.
-        let dir: URL
-        if let support = try? FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) {
-            dir = support
-        } else {
-            dir = FileManager.default.temporaryDirectory
-        }
-        self.url = dir.appendingPathComponent(filename)
+        self.url = Self.snapshotURL(filename: filename, createDirectory: true)
     }
 
     func save(_ state: PersistedWorkoutState) {
@@ -188,5 +177,34 @@ actor WorkoutStateStore {
     func close() {
         closed = true
         try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Launch-time sync read. Apple delivers `willRestoreState` when the
+    /// `CBCentralManager` is instantiated — the actor cannot be awaited there.
+    nonisolated static func peekLiveSnapshot(
+        filename: String = "workout-state.json"
+    ) -> PersistedWorkoutState? {
+        let url = snapshotURL(filename: filename, createDirectory: false)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(PersistedWorkoutState.self, from: data)
+    }
+
+    nonisolated static func snapshotURL(
+        filename: String,
+        createDirectory: Bool
+    ) -> URL {
+        let dir: URL
+        if let support = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: createDirectory
+        ) {
+            dir = support
+        } else {
+            dir = FileManager.default.temporaryDirectory
+        }
+        return dir.appendingPathComponent(filename)
     }
 }
