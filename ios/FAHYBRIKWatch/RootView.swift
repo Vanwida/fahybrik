@@ -10,9 +10,8 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var plan: WatchPlanModel
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
-    // Mirror mode (iPhone-driven session): takes precedence over ALL idle content
-    // when active. It can't co-occur with a standalone session — start() declines
-    // while the coordinator is busy.
+    // Mirror / orphan HUD: phone is coach, or recover without a coach motor.
+    // `has PRIMARY` is not this switch — solo recording keeps LiveFlowView.
     @Environment(MirrorSessionController.self) private var mirror
 
     /// A fresh, matching crash snapshot for today's session, if one is on disk — the
@@ -53,7 +52,7 @@ struct RootView: View {
 
     @ViewBuilder
     private var content: some View {
-        if mirror.isActive {
+        if mirror.showsMirrorHUD {
             MirrorHUDView(controller: mirror)
         } else {
             standaloneContent

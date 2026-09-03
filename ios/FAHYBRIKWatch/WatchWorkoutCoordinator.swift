@@ -3,13 +3,10 @@ import Observation
 import HealthKit
 import os
 
-// Glue between the wrist UI, the shared WorkoutSession engine, and the HealthKit
-// live-metric stream. It builds the runnable plan from the pushed assignment
-// detail, owns the engine (timers, laps, format state) + the HealthKit session
-// (HR / distance / kcal + the on-end HKWorkout save), pipes live HR and covered
-// distance into the engine, and on finish assembles the execution payload EXACTLY
-// as the iPhone does, hands it to the phone over WatchConnectivity, and marks the
-// day done locally.
+// Glue between the wrist UI and the shared WorkoutSession coach engine.
+// PRIMARY create/adopt/recover/end lives on MirrorSessionController. This
+// coordinator asks that owner for the session and pipes builder HR / distance
+// into the engine.
 @MainActor
 @Observable
 final class WatchWorkoutCoordinator {
@@ -24,7 +21,7 @@ final class WatchWorkoutCoordinator {
     /// A crash snapshot older than this is stale: we never offer to resume a workout
     /// from an earlier training session (or the previous day). Comfortably longer
     /// than any single session, short enough to exclude yesterday's leftovers.
-    private static let snapshotFreshnessWindow: TimeInterval = 6 * 60 * 60
+    static let snapshotFreshnessWindow: TimeInterval = 6 * 60 * 60
 
     private(set) var phase: Phase = .idle
     /// The live engine — nil until a session starts. @Observable, so views that
@@ -38,8 +35,7 @@ final class WatchWorkoutCoordinator {
     /// across the view being recreated by watchOS paging. Nil until a session starts.
     private(set) var runLegDriver: WatchRunLegDriver?
 
-    /// HealthKit live session (HR / kcal / distance + the workout save). Owned here
-    /// and driven purely as a metric source; the engine is the UI clock authority.
+    /// Facade over the one PRIMARY owner (auth + start/pause/end forwards).
     let live = LiveWorkoutSession()
     /// Permission + accuracy only. Never integrates fixes into meters.
     private let locationGate = WatchRunLocationGate()
@@ -92,10 +88,10 @@ final class WatchWorkoutCoordinator {
     /// The built execution awaiting its (possibly toggled) send — held so the toggle
     /// can re-encode the envelope with the final decision. Nil until the async
     /// HK-end + payload build completes.
-    private var pendingResult: (assignmentId: String, payload: WorkoutExecutionPayload)?
+    var pendingResult: (assignmentId: String, payload: WorkoutExecutionPayload)?
     /// The current staged outbox bytes for this finish. Swapped by the toggle,
     /// transferred by "Listo".
-    private var stagedEnvelopeData: Data?
+    var stagedEnvelopeData: Data?
     /// «Listo» llegó ANTES de que el staging async terminara (un cierre de resumen
     /// rápido mientras el save de HealthKit aún tardaba): el Task de finalize()
     /// transfiere en cuanto el sobre exista. Sin esto, el resultado quedaba
@@ -106,24 +102,7 @@ final class WatchWorkoutCoordinator {
     /// metadata del fichero) para que el teléfono pueda volver a juntarlos, y
     /// sobrevive a un re-staging del toggle de dobles: si cambiara con cada flip, el
     /// sobre acabaría reclamando una traza que no existe.
-    private var stagedTraceLocalId: String?
-
-    // MARK: - Plan preview (pre-start)
-
-    /// The runnable plan for a pushed assignment detail, or nil for a rest day /
-    /// bodyless assignment. Pure — the brief reads it to preview block count + the
-    /// first block's work line without starting anything.
-    func previewPlan(for detail: AssignmentDetail?) -> WorkoutPlan? {
-        detail.flatMap { WorkoutPlan.from(detail: $0) }
-    }
-
-    /// The plan a session day actually RUNS: the full prescription when we have the
-    /// detail, else a minimal honest fallback (single open segment named from the
-    /// title, count-up clock, HR only) so a summary-only day — detail dropped over
-    /// the size cap, or nothing cached — is still runnable. No fabricated targets.
-    private func runnablePlan(payload: WatchTodayPayload, detail: AssignmentDetail?) -> WorkoutPlan {
-        previewPlan(for: detail) ?? WorkoutPlan.minimal(title: payload.title)
-    }
+    var stagedTraceLocalId: String?
 
     // MARK: - Lifecycle
 
@@ -137,10 +116,6 @@ final class WatchWorkoutCoordinator {
     /// back into a profile and, in doing so, hardcoded `isEstimated: false` on a
     /// number that was very often an estimate. Nil → no zones, which the engine
     /// handles by recording no zone time.
-    private static func hrZones(from payload: WatchTodayPayload) -> HRZoneProfile? {
-        payload.athleteHrZones
-    }
-
     /// Card 72 — same self-heal criterion as MirrorSessionController.start(config:):
     /// a blocked start must repair itself instead of failing forever. `phase` can't
     /// wedge across a process relaunch on its own (it resets to `.idle` with the
@@ -162,16 +137,19 @@ final class WatchWorkoutCoordinator {
         // Symmetric guard with MirrorSessionController.start (which yields to a live
         // standalone session): a mirror recording driven by the phone must equally
         // block a second, standalone engine here — the only path to a duplicate run.
-        guard phase == .idle, MirrorSessionController.shared.state == .idle,
-              payload.dayKind == WatchDayKind.session else {
-            Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+        guard phase == .idle, payload.dayKind == WatchDayKind.session else {
+            Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public)")
+            return
+        }
+        if MirrorSessionController.shared.mode == .mirror {
+            Self.log.warning("start() declined — phone is coach")
             return
         }
         let engine = WorkoutSession(
             plan: runnablePlan(payload: payload, detail: detail),
             hrZones: Self.hrZones(from: payload)
         )
-        launch(engine: engine, payload: payload)
+        launch(engine: engine, payload: payload, reusePrimary: false)
     }
 
     /// Resume a crash-recovered session: same launch, but the engine is rebuilt from
@@ -183,8 +161,12 @@ final class WatchWorkoutCoordinator {
         repairStuckPhaseIfNeeded()
         // Same symmetric guard as start: never resume a standalone engine while the
         // phone is driving a mirror recording (the reverse of MirrorSessionController).
-        guard phase == .idle, MirrorSessionController.shared.state == .idle else {
-            Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public) mirrorState=\(String(describing: MirrorSessionController.shared.state), privacy: .public)")
+        guard phase == .idle else {
+            Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public)")
+            return
+        }
+        if MirrorSessionController.shared.mode == .mirror {
+            Self.log.warning("resume() declined — phone is coach")
             return
         }
         let engine = WorkoutSession(
@@ -195,12 +177,12 @@ final class WatchWorkoutCoordinator {
         // The SAME restore the phone uses — the session owns it, so the wrist can
         // never resume with a different idea of what the athlete had confirmed.
         engine.restore(from: snapshot)
-        launch(engine: engine, payload: payload)
+        launch(engine: engine, payload: payload, reusePrimary: true)
     }
 
-    /// Shared start path for a fresh or resumed engine: capture the assignment, wire
-    /// the HealthKit stream into the engine, and start both clocks + the HK session.
-    private func launch(engine: WorkoutSession, payload: WatchTodayPayload) {
+    /// Shared start path for a fresh or resumed engine. PRIMARY comes from the
+    /// one Watch owner — resume reuses a recovered session (no `startActivity`).
+    private func launch(engine: WorkoutSession, payload: WatchTodayPayload, reusePrimary: Bool) {
         session = engine
         assignmentId = payload.assignmentId
         didFinalize = false
@@ -245,7 +227,8 @@ final class WatchWorkoutCoordinator {
             await live.requestAuthorization()
             live.start(
                 activityType: payload.healthKitActivityType,
-                locationType: payload.healthKitLocationType
+                locationType: payload.healthKitLocationType,
+                reuseIfPresent: reusePrimary
             )
             self.syncAppleRunPipe()
         }
@@ -294,20 +277,6 @@ final class WatchWorkoutCoordinator {
         guard pipe.sampleCount >= 12 else { return }
         sensorSeq += 1
         engine.applySensorConclusions(pipe.conclusions(seq: sensorSeq))
-    }
-
-    /// A resumable crash snapshot for today, or nil. Offered only when it is FRESH
-    /// (within the window) and for the SAME session as today — matched on the plan
-    /// name, since the engine's snapshot carries no assignment id. Prevents both a
-    /// stale previous-session snapshot and one from a DIFFERENT assignment leaking in
-    /// (which would log the wrong laps). Rest days never resume.
-    func restorableSnapshot(payload: WatchTodayPayload, detail: AssignmentDetail?) async -> PersistedWorkoutState? {
-        guard payload.dayKind == WatchDayKind.session,
-              let saved = await WorkoutStateStore.shared.load(),
-              !saved.plan.id.uuidString.isEmpty,
-              Date().timeIntervalSince(saved.savedAt) < Self.snapshotFreshnessWindow,
-              saved.plan.name == runnablePlan(payload: payload, detail: detail).name else { return nil }
-        return saved
     }
 
     /// Pausar / Reanudar — pause or resume BOTH the engine clock (the UI authority)
@@ -431,40 +400,9 @@ final class WatchWorkoutCoordinator {
         WatchHaptics.success()
         Task { await WorkoutStateStore.shared.clear() }
         Task { [weak self] in
-            _ = await self?.live.end()   // cierra y guarda el HKWorkout
+            // PRIMARY teardown is MirrorSessionController.finishFromPhone (applyLiveEnd).
             self?.reset()
         }
-    }
-
-    /// Build the wire envelope for the current share decision. `shareWithPartner` is
-    /// carried only for a dobles result; nil for solo/individual (the phone then
-    /// falls back to its own solo/joint resolution).
-    private func makeEnvelope(assignmentId: String, payload: WorkoutExecutionPayload) -> WatchExecutionEnvelope? {
-        // Encode with the SHARED plain coder — the same one the phone uses to decode
-        // the envelope and re-submit the DTO (WatchWire, WatchWireModels).
-        guard let data = try? WatchWire.encoder.encode(payload) else { return nil }
-        return WatchExecutionEnvelope(
-            assignmentId: assignmentId,
-            payloadJson: data,
-            shareWithPartner: isDoublesResult ? shareWithPartner : nil,
-            traceLocalId: stagedTraceLocalId
-        )
-    }
-
-    /// Summary toggle → update the decision and SWAP the staged outbox entry so any
-    /// later drain (or the "Listo" transfer) sends the athlete's actual choice.
-    func setShareWithPartner(_ value: Bool) {
-        shareWithPartner = value
-        restageIfPossible()
-    }
-
-    private func restageIfPossible() {
-        guard isDoublesResult, let pending = pendingResult,
-              let envelope = makeEnvelope(assignmentId: pending.assignmentId, payload: pending.payload)
-        else { return }
-        stagedEnvelopeData = WatchConnectivityService.shared.restageExecutionResult(
-            previous: stagedEnvelopeData, envelope: envelope
-        )
     }
 
     /// "Listo" — commit the (possibly toggled) staged result and return to the day's
@@ -508,6 +446,8 @@ final class WatchWorkoutCoordinator {
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         live.onHeartRate = nil
         live.onDistanceDelta = nil
+        MirrorSessionController.shared.onHeartRate = nil
+        MirrorSessionController.shared.onDistanceDelta = nil
         locationGate.stop()
         dayActivityKind = nil
         session = nil
@@ -516,63 +456,5 @@ final class WatchWorkoutCoordinator {
         phase = .idle
     }
 
-    // MARK: - Execution payload
-    //
-    // Mirrors PostWorkoutSummaryView.executionCore / buildSegments
-    // (ios/FAHYBRIK/Workout/PostWorkoutSummaryView.swift) — the on-wrist summary
-    // collects no RPE / notes / manual overlays, so those are the only omissions.
-    // A later pass can DRY this against the iPhone assembly.
-
-    private func buildExecutionPayload(
-        assignmentId: String,
-        session: WorkoutSession,
-        sourceWorkoutRef: String?
-    ) -> WorkoutExecutionPayload {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        let total = Int(session.elapsedSeconds.rounded())
-
-        // Only send the score dimensions relevant to this format (same split the
-        // iPhone summary uses: time formats vs rounds formats).
-        let isTimeScored: Bool
-        let isRoundsScored: Bool
-        switch session.plan.format {
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            isTimeScored = true;  isRoundsScored = false
-        case .amrap, .tabata, .deathBy:
-            isTimeScored = false; isRoundsScored = true
-        default:
-            isTimeScored = false; isRoundsScored = false
-        }
-        let scoreTime = isTimeScored ? (session.capturedScoreTimeSeconds ?? total) : nil
-        let scoreRounds = isRoundsScored ? session.capturedScoreRounds : nil
-        let scoreReps = isRoundsScored ? session.capturedScoreReps : nil
-
-        let segments = buildSegments(iso: iso, laps: session.laps)
-
-        return WorkoutExecutionPayload(
-            assignment_id: assignmentId,
-            perceived_exertion: nil,        // RPE captured later on the phone
-            total_duration_seconds: total,
-            notes: nil,
-            source: nil,                    // live path → backend defaults 'healthkit'
-            score_time_s: scoreTime,
-            score_rounds: scoreRounds,
-            score_reps: scoreReps,
-            completeness: session.completeness.rawValue,
-            started_at: iso.string(from: session.startedAt),
-            ended_at: iso.string(from: Date()),
-            segments: segments.isEmpty ? nil : segments,
-            source_workout_ref: sourceWorkoutRef
-        )
-    }
-
-    // La traducción laps → cable es UNA y vive en SegmentPayloadBuilder (compilado en
-    // los dos targets). El reloj no tiene la pantalla donde el atleta declara FC o
-    // ritmo a mano, así que pasa el overlay vacío; todo lo demás es idéntico al
-    // teléfono — incluida la re-secuenciación de `position`, sin la cual los tramos
-    // de una carrera estructurada colapsaban en una sola fila al llegar al servidor.
-    private func buildSegments(iso: ISO8601DateFormatter, laps: [LapRecord]) -> [SegmentExecutionDTO] {
-        SegmentPayloadBuilder.build(laps: laps, overlay: .none, iso: iso)
-    }
 }
+

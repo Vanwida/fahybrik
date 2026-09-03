@@ -1,11 +1,8 @@
 import SwiftUI
 
-// The wrist HUD for MIRROR MODE. Every value is frame-driven — the phone's engine
-// is the single authority; this screen renders its pushed snapshot and re-bases the
-// clock locally between frames. Two pages (TabView .page): the LIVE glance (default)
-// and a thin CONTROLS page. Layout borrows the standalone live idiom (LiveScaffold,
-// the zone bar from ContinuousLiveView, the rest banner's green take-over) so the
-// two modes read identically on the wrist.
+// The wrist HUD for MIRROR / orphan mode. Builder owns elapsed / HR / kcal /
+// distance. Phone frames decorate the coach script (title, next station, advance).
+// No local session → Conectando. PRIMARY without a frame → Grabando en la muñeca.
 struct MirrorHUDView: View {
     let controller: MirrorSessionController
 
@@ -49,10 +46,11 @@ struct MirrorHUDView: View {
             // seguían llegando y el watchdog nunca ofrecía la salida local. Con la
             // fase final y sin cierre, se sigue enseñando el último estado real.
             if controller.state == .ending {
-                savingOverlay
+                MirrorSavingOverlay()
+            } else if !controller.hasLocalSession {
+                MirrorWaitingForPhoneOverlay()
             } else if frame == nil {
-                // Espejo activo sin trama: nunca dejar la pantalla en negro.
-                waitingForPhoneOverlay
+                MirrorRecordingOnWristOverlay(controller: controller)
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
             } else if phase == MirrorWire.Phase.countIn {
@@ -76,9 +74,9 @@ struct MirrorHUDView: View {
                 // brillo en vez de quedarse encendidos a plena luz: el descanso es
                 // POR DEFINICIÓN el momento en que la muñeca está abajo.
                 if phase == MirrorWire.Phase.paused {
-                    pausedOverlay.opacity(atenuado ? 0.65 : 1)
+                    MirrorPausedOverlay().opacity(atenuado ? 0.65 : 1)
                 } else if let rest = frame?.restRemaining {
-                    restOverlay(base: rest).opacity(atenuado ? 0.7 : 1)
+                    MirrorRestOverlay(base: rest, sinceFrame: sinceFrame).opacity(atenuado ? 0.7 : 1)
                 }
             }
         }
@@ -198,22 +196,6 @@ struct MirrorHUDView: View {
         }
     }
 
-    /// Espejo grabando / unido, todavía sin trama del iPhone. Antes era EmptyView
-    /// → pantalla negra (muy visible en libre de fuerza: el reloj arranca al
-    /// Empezar y el teléfono tarda un momento en mandar el primer frame).
-    private var waitingForPhoneOverlay: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .tint(WatchTheme.orange)
-            WatchLabel(text: "Conectando…", accent: true)
-            Text("El entreno se controla\ndesde el iPhone")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
     /// segmentado en series/fuerza/ergo — el on/off alrededor del cuadrado —,
     /// continuo para una sola cosa en marcha, y nada cuando nadie sabe el total.
@@ -307,95 +289,9 @@ struct MirrorHUDView: View {
         }
     }
 
-    // MARK: - Treadmill belt (indoor run)
-    //
-    // The wrist glance for a live treadmill DISTANCE run: a progress bar filling with the
-    // covered belt meters (a distance leg has no countdown to tick), the covered pace and
-    // the zone — the SAME readouts the phone HUD shows. The BELT values are frame-pushed
-    // (the wrist can't derive belt distance locally), so the bar and the meters only move
-    // when the phone resends; the CLOCK is re-based locally like activeContent's, because
-    // it's what the hero degrades to before the first measured pace. Same status/HR/
-    // advance idiom as activeContent.
-    private func treadmillContent(_ f: MirrorStateFrame, covered: Double, target: Double?) -> some View {
-        LiveScaffold(status: f.blockTitle) {
-            // El reloj SÍ se re-basa localmente entre tramas (igual que en
-            // activeContent): los metros de la cinta no se pueden derivar aquí, pero el
-            // tiempo sí, así que la lectura degradada no se queda congelada.
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                treadmillHero(f, now: context.date, covered: covered, target: target)
-            }
-        } bottom: {
-            advanceButton
-        }
-    }
-
-    /// El cuerpo del hero de cinta. Vive aparte del `LiveScaffold` a propósito: dentro
-    /// del `TimelineView` el inferidor de SwiftUI no podía resolver el `Content` del
-    /// scaffold, y el error salía apuntando al scaffold en vez de aquí.
-    private func treadmillHero(_ f: MirrorStateFrame, now: Date,
-                               covered: Double, target: Double?) -> some View {
-        let lectura = lecturaDeCinta(f, now: now)
-        return VStack(spacing: 6) {
-            if let line = f.lineTitle {
-                Text(line)
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            WatchLabel(text: lectura.etiqueta)
-            GiantNumber(text: lectura.texto, size: 46, unit: lectura.unidad)
-            beltProgressBar(covered: covered, target: target)
-            WatchLabel(text: beltDistanceLabel(covered: covered, target: target))
-            hrZoneRow
-        }
-    }
-
-    /// LA SIGUIENTE VERDAD DISPONIBLE en la cinta: el ritmo cubierto si el teléfono ya
-    /// lo ha medido, y mientras no (los primeros metros del tramo) el reloj del tramo.
-    /// Etiqueta, cifra y unidad viajan JUNTAS — mismo criterio que
-    /// `StructuredRunLiveView.lecturaDelTramo` y que el HUD del teléfono. El guion que
-    /// había aquí ocupaba el hero con algo que no dice nada, y con el «/km» al lado
-    /// (§7).
-    private func lecturaDeCinta(_ f: MirrorStateFrame, now: Date) -> (etiqueta: String, texto: String, unidad: String?) {
-        guard let ritmo = f.beltPaceSecPerKm else {
-            return (Vocab.tiempo, WatchFormat.clock(f.lapElapsed + sinceFrame(now)), nil)
-        }
-        return (Vocab.ritmo, WatchFormat.pace(ritmo), Formato.UnidadRitmo.porKm.rawValue)
-    }
-
-    private func beltDistanceLabel(covered: Double, target: Double?) -> String {
-        guard let target, target > 0 else { return beltDistance(covered, km: covered >= 1000) }
-        let km = target >= 1000                              // format both by the target's scale
-        return "\(beltDistance(covered, km: km)) / \(beltDistance(target, km: km))"
-    }
-
-    private func beltDistance(_ meters: Double, km: Bool) -> String {
-        km ? (Formato.distanciaCubierta(meters) ?? "0 m") : "\(Int(meters.rounded())) m"
-    }
-
-    /// La barra solo existe cuando hay contra qué llenarla. Sin objetivo de distancia
-    /// (un tramo de cinta abierto) se pintaba una cápsula vacía de punta a punta, que
-    /// insinúa un progreso hacia una meta que nadie prescribió — el §7 la nombra con
-    /// todas las letras. Se omite, y la línea de metros de debajo dice lo que sí se
-    /// ha medido.
-    @ViewBuilder
-    private func beltProgressBar(covered: Double, target: Double?) -> some View {
-        if let target, target > 0 {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(WatchTheme.surfaceRaised)
-                    Capsule().fill(WatchTheme.orange)
-                        .frame(width: geo.size.width * min(1, max(0, covered / target)))
-                }
-            }
-            .frame(height: 8)
-        }
-    }
-
     // MARK: - HR + zone bar (mirrors ContinuousLiveView)
 
-    private var hrZoneRow: some View {
+    var hrZoneRow: some View {
         VStack(spacing: 5) {
             HStack {
                 HRPill(bpm: controller.liveHR, zoneColor: controller.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim)
@@ -437,53 +333,6 @@ struct MirrorHUDView: View {
         return slot * (CGFloat(zone.rawValue) - 0.5) - 1.5
     }
 
-    // MARK: - Overlays
-
-    private var pausedOverlay: some View {
-        ZStack {
-            WatchTheme.bg.opacity(0.92).ignoresSafeArea()
-            VStack(spacing: 8) {
-                Image(systemName: "pause.fill")
-                    .font(.system(size: 30, weight: .heavy))
-                    .foregroundStyle(WatchTheme.orange)
-                WatchLabel(text: "En pausa", accent: true)
-            }
-        }
-    }
-
-    private func restOverlay(base: Double) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            ZStack {
-                WatchTheme.restBg.ignoresSafeArea()
-                VStack(spacing: 6) {
-                    StatusHeader(text: "Descanso", color: WatchTheme.zoneGreen)
-                    Spacer(minLength: 0)
-                    WatchLabel(text: "Vuelve en", color: WatchTheme.zoneGreen.opacity(0.85))
-                    GiantNumber(
-                        // MIRROR of the phone's rest clock → round like the phone (#68).
-                        text: CountdownFormat.mirrored(max(0, base - sinceFrame(context.date))),
-                        size: 80,
-                        color: WatchTheme.zoneGreen
-                    )
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-            }
-        }
-    }
-
-    private var savingOverlay: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            VStack(spacing: 10) {
-                ProgressView()
-                    .tint(WatchTheme.orange)
-                WatchLabel(text: "Guardando…", accent: true)
-            }
-        }
-    }
-
     // MARK: - Advance button
 
     /// The FINAL step never ends on one tap (IMG_2385: a free strength session is
@@ -491,7 +340,7 @@ struct MirrorHUDView: View {
     /// On the last step the button says what it does — "Terminar" — and asks.
     @State private var confirmingFinish = false
 
-    private var advanceButton: some View {
+    var advanceButton: some View {
         let final = isFinalStep
         return BigTapButton(title: advanceTitle) {
             if final {
@@ -529,83 +378,7 @@ struct MirrorHUDView: View {
     // MARK: - Controls page
 
     private var controlsPage: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            if controller.isConnectionLost {
-                connectionLostControls
-            } else {
-                normalControls
-            }
-        }
-    }
-
-    private var normalControls: some View {
-        VStack(spacing: 11) {
-            pauseResumeButton
-            Text("El entreno se controla desde el iPhone")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 12)
-    }
-
-    private var pauseResumeButton: some View {
-        let paused = phase == MirrorWire.Phase.paused
-        return Button {
-            WatchHaptics.tap()
-            if paused {
-                controller.resumePrimary()
-                controller.sendCommand(MirrorWire.CommandKind.resume)
-            } else {
-                controller.pausePrimary()
-                controller.sendCommand(MirrorWire.CommandKind.pause)
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: paused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 18, weight: .heavy))
-                Text(paused ? "Reanudar" : "Pausar")
-                    .font(.system(size: 16, weight: .heavy))
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(WatchTheme.ink)
-            .padding(.horizontal, 16)
-            .frame(height: 52)
-            .frame(maxWidth: .infinity)
-            .background(WatchTheme.surfaceRaised)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    // Phone unreachable but recording alive → honest local exit (mirrors
-    // ResumeOfferView's visual idiom).
-    private var connectionLostControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            WatchLabel(text: "Sin conexión con el iPhone", accent: true)
-            Text("El entreno se sigue grabando aquí.")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-            Spacer(minLength: 0)
-            BigTapButton(title: "Terminar y guardar aquí", systemImage: "checkmark") {
-                controller.finishLocally()
-            }
-            Button {
-                WatchHaptics.tap()
-                controller.discardLocally()
-            } label: {
-                Text("Descartar")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundStyle(WatchTheme.dim)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        MirrorHUDControlsPage(controller: controller, phase: phase)
     }
 
     // MARK: - Derived
@@ -627,7 +400,7 @@ struct MirrorHUDView: View {
     /// Seconds accrued since the last frame while the clock is running — the active
     /// live clock AND the count-in count-down (both re-based locally between frames);
     /// frozen on a gate / pause / rest-that-isn't-active.
-    private func sinceFrame(_ now: Date) -> Double {
+    func sinceFrame(_ now: Date) -> Double {
         guard let at = controller.frameReceivedAt,
               phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
         return max(0, now.timeIntervalSince(at))

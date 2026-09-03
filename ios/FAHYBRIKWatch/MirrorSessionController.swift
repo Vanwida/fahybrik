@@ -3,198 +3,82 @@ import Observation
 import HealthKit
 import os
 
-// MIRROR MODE — the wrist is PRIMARY. Apple (HealthKit):
+// ONE Watch PRIMARY owner. Apple (HealthKit):
 // `HKWorkoutSessionType.primary` runs on watchOS;
 // `startMirroringToCompanionDevice` (watchOS 10) mirrors to companion iOS;
+// `recoverActiveWorkoutSession` reattaches an orphan PRIMARY (no `startActivity`).
 // iPhone `workoutSessionMirroringStartHandler` receives the mirrored session.
 //
-// Phone-driven: `startWatchApp` → `handle(_:)` → `startPrimary`.
-// Standalone WatchWorkoutCoordinator still owns phone-less sessions.
+// Modes, not stacks: mirror (`handle`) · solo (coordinator) · orphan (recover).
+// `has PRIMARY` ≠ MirrorHUD. LiveWorkoutSession does not mint.
 @MainActor
 @Observable
 final class MirrorSessionController: NSObject {
 
     static let shared = MirrorSessionController()
 
-    // MARK: - Published state
-
     enum State { case idle, recording, ending }
-    private(set) var state: State = .idle
-    /// Anything but idle → the wrist shows the mirror HUD (RootView gives it
-    /// precedence over all standalone/idle content).
-    var isActive: Bool { state != .idle }
 
-    /// The last engine snapshot the phone pushed — the HUD renders only what's here,
-    /// never a fabricated value.
+    /// How the PRIMARY was claimed. Not a second session type.
+    enum Mode { case idle, mirror, solo, orphan }
+
+    private(set) var state: State = .idle
+    private(set) var mode: Mode = .idle
+
+    /// PRIMARY exists. Not the HUD switch — RootView uses `showsMirrorHUD`.
+    var isActive: Bool { state != .idle }
+    var hasLocalSession: Bool { session != nil }
+    /// Phone is coach, or recover without a coach motor. Solo keeps LiveFlowView.
+    var showsMirrorHUD: Bool { mode == .mirror || mode == .orphan }
+
+    /// Last engine snapshot the phone pushed. Frames decorate; they are not the HUD clock.
     private(set) var frame: MirrorStateFrame?
-    /// When `frame` landed — the HUD re-bases its local clock from this instant while
-    /// the phase is active (it ticks between frames; a new frame re-bases it).
     private(set) var frameReceivedAt: Date?
-    /// Wrist HR for the local zone bar (nil until the sensor streams).
     private(set) var liveHR: Int?
-    /// No frame within the watchdog window — recording CONTINUES; the controls page
-    /// then offers a local save/discard so a lost phone never traps a live HKWorkout.
+    private(set) var activeKcal: Double = 0
+    private(set) var distanceMeters: Double = 0
+    /// Apple `HKLiveWorkoutBuilder.elapsedTime` (includes pauses). 0 until a builder exists.
+    var builderElapsed: TimeInterval { builder?.elapsedTime ?? 0 }
+    /// No frame within the watchdog window — recording CONTINUES; MirrorHUD
+    /// controls then offer a local save/discard.
     private(set) var isConnectionLost = false
 
-    /// Live HR mapped to its zone for the wrist tint.
-    ///
-    /// Reads the SAME server-resolved bands the phone's engine records against
-    /// (pushed with the day and persisted by `WatchPlanModel`). It used to classify
-    /// against a hardcoded 190 bpm "for colour only", which meant the wrist could
-    /// paint a beat Z3 while the phone filed the same beat as Z2. Nil when the
-    /// athlete has no zones: the wrist shows the pulse with no tint, which is the
-    /// truth, rather than a colour derived from a made-up ceiling.
+    /// Pipes for the solo coach motor. Mirror relays HR/distance to the phone instead.
+    var onHeartRate: ((Int) -> Void)?
+    var onDistanceDelta: ((Double) -> Void)?
+
     var liveZone: HRZone? {
         guard let zones = WatchPlanModel.shared.today?.athleteHrZones else { return nil }
         return liveHR.flatMap { zones.zone(forBpm: $0) }
     }
 
-    // MARK: - Tuning
+    static let connectionLostAfter: TimeInterval = 15
+    static let hrRelayMinInterval: TimeInterval = 1
+    static let savedBeat: Duration = .milliseconds(900)
 
-    /// Recording keeps going when the phone goes quiet; past this gap the wrist
-    /// surfaces a local exit.
-    private static let connectionLostAfter: TimeInterval = 15
-    /// Minimum spacing between wrist-HR relays to the phone (the sensor collects
-    /// faster than the engine needs).
-    private static let hrRelayMinInterval: TimeInterval = 1
-    /// Confirmation beat on the "Guardando…" screen before returning to idle.
-    private static let savedBeat: Duration = .milliseconds(900)
-
-    // MARK: - HealthKit
-
-    private let store = HKHealthStore()
-    private var session: HKWorkoutSession?
-    private var builder: HKLiveWorkoutBuilder?
-    /// Local intent flag so a run of paused frames never double-pauses the session.
-    private var hkPaused = false
-    /// Set while we drive the teardown, so the session's own `.ended` callback can't
-    /// re-enter the close path.
-    private var isClosing = false
-    private var lastHRRelayAt: Date = .distantPast
-    /// Cumulative `distanceWalkingRunning` last sent as a delta.
-    private var lastReportedDistance: Double = 0
-    private var appliedPlan: WatchHKActivityPlan?
-    private let locationGate = WatchRunLocationGate()
-    /// Later of "recording started" and "last frame" — the watchdog reference.
-    private var lastSignalAt: Date = .distantPast
-    private var watchdog: Timer?
+    let store = HKHealthStore()
+    var session: HKWorkoutSession?
+    var builder: HKLiveWorkoutBuilder?
+    var hkPaused = false
+    var isClosing = false
+    var lastHRRelayAt: Date = .distantPast
+    var lastReportedDistance: Double = 0
+    var appliedPlan: WatchHKActivityPlan?
+    var startedPlan: WatchHKActivityPlan?
+    var pendingPlan: WatchHKActivityPlan?
+    let locationGate = WatchRunLocationGate()
+    var lastSignalAt: Date = .distantPast
+    var watchdog: Timer?
     /// Card 72 — leftover PRIMARY: `handle(_:)` is a NEW session. Finish first.
-    private var pendingStartConfiguration: HKWorkoutConfiguration?
-    private static let log = Logger(subsystem: Marca.subsistemaLog("mirror"), category: "watch-lifecycle")
+    var pendingStartConfiguration: HKWorkoutConfiguration?
+    var pendingStartMode: Mode = .mirror
+    static let log = Logger(subsystem: Marca.subsistemaLog("mirror"), category: "watch-lifecycle")
 
     private override init() { super.init() }
 
-    // MARK: - Start
-
-    /// Register a fallback handler. Apple calls this on the companion iPhone;
-    /// keeping it here is harmless if a mirrored session ever arrives.
-    func prepareToAdopt() {
-        store.workoutSessionMirroringStartHandler = { [weak self] incoming in
-            Task { @MainActor in self?.adopt(incoming) }
-        }
-    }
-
-    /// Apple `handle(_:)` after `startWatchApp`: create the PRIMARY, mirror it
-    /// to the companion iPhone, start activity + live builder. Do not start a
-    /// second coach engine — the phone already owns `WorkoutSession`.
-    ///
-    /// Card 72: a silent `guard idle` left leftover PRIMARY undiagnosable and
-    /// blocked every later `startWatchApp`. Apple (`handle(_:)`): this is a NEW
-    /// session — close leftover via the one `finish(save:)` path, then start.
-    func startPrimary(configuration: HKWorkoutConfiguration) {
-        guard WatchWorkoutCoordinator.shared.phase == .idle else {
-            Self.log.warning("startPrimary declined — standalone live")
-            return
-        }
-        if state != .idle {
-            Self.log.warning("startPrimary leftover state=\(String(describing: self.state), privacy: .public) — finishing then starting")
-            pendingStartConfiguration = configuration
-            if state == .recording { finish(save: true) }
-            return
-        }
-        Task { await beginPrimary(configuration: configuration) }
-    }
-
-    /// Phone launched us with a workout config. Create the primary.
-    func start(config: HKWorkoutConfiguration) {
-        startPrimary(configuration: config)
-    }
-
-    private func beginPrimary(configuration: HKWorkoutConfiguration) async {
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
-        await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
-        do {
-            let created = try HKWorkoutSession(healthStore: store, configuration: configuration)
-            let builder = created.associatedWorkoutBuilder()
-            let dataSource = HKLiveWorkoutDataSource(
-                healthStore: store,
-                workoutConfiguration: configuration
-            )
-            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
-            builder.dataSource = dataSource
-            created.delegate = self
-            builder.delegate = self
-            session = created
-            self.builder = builder
-            state = .recording
-            frame = nil
-            frameReceivedAt = nil
-            liveHR = nil
-            isConnectionLost = false
-            hkPaused = false
-            isClosing = false
-            do {
-                try await created.startMirroringToCompanionDevice()
-            } catch {
-                // Phone unreachable; the primary still records on the wrist.
-            }
-            let start = Date()
-            created.startActivity(with: start)
-            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                builder.beginCollection(withStart: start) { _, _ in
-                    cont.resume()
-                }
-            }
-            lastSignalAt = start
-            startWatchdog()
-            requestSyncUntilFirstFrame()
-            WatchHaptics.start()
-        } catch {
-            resetToIdle()
-        }
-    }
-
-    /// Take a session Apple delivered already running. Do not `startActivity`.
-    func adopt(_ incoming: HKWorkoutSession) {
-        guard state == .idle, WatchWorkoutCoordinator.shared.phase == .idle else { return }
-        state = .recording
-        frame = nil
-        frameReceivedAt = nil
-        liveHR = nil
-        isConnectionLost = false
-        hkPaused = false
-        isClosing = false
-        session = incoming
-        incoming.delegate = self
-        let builder = incoming.associatedWorkoutBuilder()
-        let dataSource = HKLiveWorkoutDataSource(
-            healthStore: store,
-            workoutConfiguration: incoming.workoutConfiguration
-        )
-        WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
-        builder.dataSource = dataSource
-        builder.delegate = self
-        self.builder = builder
-        lastSignalAt = Date()
-        startWatchdog()
-        requestSyncUntilFirstFrame()
-        WatchHaptics.start()
-    }
-
     // MARK: - Incoming (phone → watch)
 
-    private func handleRemote(_ data: Data) {
+    func handleRemote(_ data: Data) {
         guard let envelope = MirrorEnvelope.decoding(data) else { return }
         switch envelope.type {
         case MirrorWire.MessageType.frame:
@@ -202,7 +86,7 @@ final class MirrorSessionController: NSObject {
         case MirrorWire.MessageType.end:
             if let e = envelope.body(as: MirrorEnd.self) { finish(save: e.save) }
         default:
-            break                       // tolerant: a newer phone may speak more types
+            break
         }
     }
 
@@ -211,6 +95,7 @@ final class MirrorSessionController: NSObject {
         frameReceivedAt = Date()
         lastSignalAt = frameReceivedAt ?? Date()
         isConnectionLost = false
+        if mode == .orphan { mode = .mirror }
         applyPhase(f.phase)
         syncRunActivity(from: f)
     }
@@ -221,44 +106,12 @@ final class MirrorSessionController: NSObject {
         case MirrorWire.Phase.paused:
             pausePrimary()
         case MirrorWire.Phase.active, MirrorWire.Phase.gate, MirrorWire.Phase.countIn:
-            // The count-in is live recording (the athlete is about to move) — resume
-            // the HK session like active/gate, never leave it paused into a tramo.
             resumePrimary()
         default:
-            break                       // finished → handled by the end handshake
+            break
         }
     }
 
-    /// Wrist (or a paused frame) → pause the PRIMARY. Idempotent.
-    func pausePrimary() {
-        guard state == .recording, !hkPaused else { return }
-        session?.pause()
-        hkPaused = true
-    }
-
-    /// Wrist (or an active frame) → resume the PRIMARY. Idempotent.
-    func resumePrimary() {
-        guard state == .recording, hkPaused else { return }
-        session?.resume()
-        hkPaused = false
-    }
-
-    /// Pide el frame actual al teléfono hasta que llegue el PRIMERO (0,5 s · 2 s ·
-    /// 5 s). Sin esto, una app de watch que arranca en frío con el iPhone ya en
-    /// background se quedaba en 0:00 (IMG_2387): el heartbeat del teléfono es un
-    /// timer y los timers no corren en background; este comando sí lo despierta.
-    private func requestSyncUntilFirstFrame() {
-        for delay in [0.5, 2.0, 5.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, self.state == .recording, self.frame == nil else { return }
-                self.sendCommand(MirrorWire.CommandKind.sync)
-            }
-        }
-    }
-
-    // MARK: - Outgoing (watch → phone)
-
-    /// A wrist control tap relayed to the phone's engine (it is the only mutator).
     func sendCommand(_ kind: String) {
         send(type: MirrorWire.MessageType.command, MirrorCommand(kind: kind))
     }
@@ -274,10 +127,29 @@ final class MirrorSessionController: NSObject {
                 sessionLocation: session.workoutConfiguration.locationType
             )
         )
+        applyActivityPlan(plan)
+    }
+
+    func syncSoloActivity(_ plan: WatchHKActivityPlan) {
         if let dataSource = builder?.dataSource, plan.collectDistance {
             WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
         }
-        if appliedPlan != plan {
+        guard state == .recording, session != nil else {
+            pendingPlan = plan
+            return
+        }
+        applyActivityPlan(plan)
+    }
+
+    private func applyActivityPlan(_ plan: WatchHKActivityPlan) {
+        guard let session else { return }
+        if let dataSource = builder?.dataSource, plan.collectDistance {
+            WatchHKActivityPlan.enableDistanceCollection(on: dataSource)
+        }
+        pendingPlan = nil
+        if mode == .solo {
+            applySoloActivityPlan(plan, session: session)
+        } else if appliedPlan != plan {
             let sessionMatches = session.workoutConfiguration.activityType == plan.activityType
                 && session.workoutConfiguration.locationType == plan.locationType
             if plan.isRunPiece {
@@ -291,6 +163,25 @@ final class MirrorSessionController: NSObject {
             appliedPlan = plan
         }
         locationGate.apply(wantsGPS: plan.wantsGPS)
+    }
+
+    /// Same `beginNewActivity` gate LiveWorkoutSession used for solo.
+    private func applySoloActivityPlan(_ plan: WatchHKActivityPlan, session: HKWorkoutSession) {
+        if appliedPlan == plan { return }
+        let matchesStart = appliedPlan == nil
+            && startedPlan?.activityType == plan.activityType
+            && startedPlan?.locationType == plan.locationType
+        if matchesStart {
+            appliedPlan = plan
+            return
+        }
+        if plan.isRunPiece {
+            session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+        } else if appliedPlan?.isRunPiece == true {
+            session.endCurrentActivity(on: Date())
+            session.beginNewActivity(configuration: plan.configuration, date: Date(), metadata: nil)
+        }
+        appliedPlan = plan
     }
 
     private static func dayKind(from type: HKWorkoutActivityType) -> String? {
@@ -310,145 +201,43 @@ final class MirrorSessionController: NSObject {
         return sessionLocation == .indoor ? .indoor : .outdoor
     }
 
-    private func relayDistance(_ meters: Double) {
+    func relayDistance(_ meters: Double) {
+        distanceMeters = meters
         guard let delta = WatchHKActivityPlan.distanceDelta(
             fromCumulative: meters, lastReported: lastReportedDistance
         ) else { return }
         lastReportedDistance = meters
-        send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: delta))
+        onDistanceDelta?(delta)
+        if mode == .mirror || mode == .orphan {
+            send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: delta))
+        }
     }
 
-    private func relayHR(_ bpm: Int) {
+    func relayHR(_ bpm: Int) {
+        onHeartRate?(bpm)
+        guard mode == .mirror || mode == .orphan else { return }
         let now = Date()
         guard now.timeIntervalSince(lastHRRelayAt) >= Self.hrRelayMinInterval else { return }
         lastHRRelayAt = now
         send(type: MirrorWire.MessageType.hr, MirrorHRSample(bpm: bpm))
     }
 
-    private func send<P: Encodable>(type: String, _ payload: P) {
+    func send<P: Encodable>(type: String, _ payload: P) {
         guard let session, let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         Task { try? await session.sendToRemoteWorkoutSession(data: data) }
     }
 
-    // MARK: - End
-
-    /// Phone-driven end. Reason is `phone` / `discarded` — never `athlete`.
-    private func finish(save: Bool) {
-        guard state == .recording else { return }
-        state = .ending
-        let reason = save ? MirrorWire.EndReason.phone : MirrorWire.EndReason.discarded
-        Task { await closeRecording(save: save, reason: reason) }
+    func applyHR(_ stats: HKStatistics?) {
+        guard let q = stats?.mostRecentQuantity() else { return }
+        let bpm = Int(q.doubleValue(for: .count().unitDivided(by: .minute())).rounded())
+        guard bpm > 0 else { return }
+        liveHR = bpm
+        relayHR(bpm)
     }
 
-    /// WCSession `liveEnd` fallback. Same `finish(save:)` as `MirrorEnd` on the
-    /// HK channel — not a second teardown. No-op if this owner is idle.
-    func finishFromPhone(save: Bool) {
-        finish(save: save)
-    }
-
-    /// Lost-phone exit from the controls page: a person tapped Terminar.
-    func finishLocally() {
-        finishByAthlete()
-    }
-
-    /// Terminar confirm: stopActivity → endCollection → finishWorkout → end()
-    /// then MirrorEnded(reason: athlete).
-    func finishByAthlete() {
-        guard state == .recording else { return }
-        state = .ending
-        Task { await closeRecording(save: true, reason: MirrorWire.EndReason.athlete) }
-    }
-
-    func discardLocally() {
-        guard state == .recording else { return }
-        state = .ending
-        Task { await closeRecording(save: false, reason: MirrorWire.EndReason.discarded) }
-    }
-
-    private func closeRecording(save: Bool, reason: String) async {
-        isClosing = true
-        stopWatchdog()
-
-        let now = Date()
-        session?.stopActivity(with: now)
-
-        var workoutUuid: String?
-        if save {
-            workoutUuid = await endAndSave(at: now)
-        } else {
-            builder?.discardWorkout()
-        }
-        // First send still has a pipe; second is after `end()` (channel dying).
-        let endedPacket = MirrorEnvelope.encoding(
-            type: MirrorWire.MessageType.ended,
-            MirrorEnded(workoutUuid: workoutUuid, reason: reason)
-        )
-        if let session, let endedPacket {
-            try? await session.sendToRemoteWorkoutSession(data: endedPacket)
-        }
-        session?.end()
-        if let session, let endedPacket {
-            try? await session.sendToRemoteWorkoutSession(data: endedPacket)
-        }
-
-        WatchHaptics.success()
-        try? await Task.sleep(for: Self.savedBeat)
-        resetToIdle()
-    }
-
-    /// End collection and save the HKWorkout, returning its UUID string (nil on a
-    /// save failure). The workout is the source of truth the phone tags its
-    /// execution with.
-    private func endAndSave(at date: Date) async -> String? {
-        guard let builder else { return nil }
-        do {
-            try await builder.endCollection(at: date)
-            let workout = try await builder.finishWorkout()
-            return workout?.uuid.uuidString
-        } catch {
-            return nil
-        }
-    }
-
-    private func resetToIdle() {
-        stopWatchdog()
-        session = nil
-        builder = nil
-        appliedPlan = nil
-        lastReportedDistance = 0
-        locationGate.stop()
-        frame = nil
-        frameReceivedAt = nil
-        liveHR = nil
-        isConnectionLost = false
-        hkPaused = false
-        isClosing = false
-        state = .idle
-        if let pending = pendingStartConfiguration {
-            pendingStartConfiguration = nil
-            Task { await beginPrimary(configuration: pending) }
-        }
-    }
-
-    // MARK: - Connection watchdog
-
-    private func startWatchdog() {
-        stopWatchdog()
-        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.checkConnection() }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        watchdog = t
-    }
-
-    private func checkConnection() {
-        guard state == .recording else { return }
-        isConnectionLost = Date().timeIntervalSince(lastSignalAt) > Self.connectionLostAfter
-    }
-
-    private func stopWatchdog() {
-        watchdog?.invalidate()
-        watchdog = nil
+    func applyEnergy(_ stats: HKStatistics?) {
+        guard let q = stats?.sumQuantity() else { return }
+        activeKcal = q.doubleValue(for: .kilocalorie())
     }
 }
 
@@ -472,8 +261,6 @@ extension MirrorSessionController: HKWorkoutSessionDelegate {
     ) {
         Task { @MainActor [weak self] in
             guard let self, toState == .ended, !self.isClosing, self.state == .recording else { return }
-            // An external end we didn't drive (rare) → return the wrist to idle
-            // without a second teardown.
             self.resetToIdle()
         }
     }
@@ -498,25 +285,22 @@ extension MirrorSessionController: HKLiveWorkoutBuilderDelegate {
         _ workoutBuilder: HKLiveWorkoutBuilder,
         didCollectDataOf collectedTypes: Set<HKSampleType>
     ) {
-        let hr = collectedTypes.contains(HKQuantityType(.heartRate))
-        let distance = collectedTypes.contains(WatchHKActivityPlan.distanceType)
-        guard hr || distance else { return }
-        let hrStats = hr ? workoutBuilder.statistics(for: HKQuantityType(.heartRate)) : nil
-        let distStats = distance ? workoutBuilder.statistics(for: WatchHKActivityPlan.distanceType) : nil
+        let hrType = HKQuantityType(.heartRate)
+        let kcalType = HKQuantityType(.activeEnergyBurned)
+        let distanceType = WatchHKActivityPlan.distanceType
+        let hr = collectedTypes.contains(hrType)
+        let kcal = collectedTypes.contains(kcalType)
+        let distance = collectedTypes.contains(distanceType)
+        guard hr || kcal || distance else { return }
+        let hrStats = hr ? workoutBuilder.statistics(for: hrType) : nil
+        let kcalStats = kcal ? workoutBuilder.statistics(for: kcalType) : nil
+        let distStats = distance ? workoutBuilder.statistics(for: distanceType) : nil
         Task { @MainActor [weak self] in
             if hr { self?.applyHR(hrStats) }
+            if kcal { self?.applyEnergy(kcalStats) }
             if let q = distStats?.sumQuantity() {
                 self?.relayDistance(q.doubleValue(for: .meter()))
             }
         }
-    }
-
-    @MainActor
-    private func applyHR(_ stats: HKStatistics?) {
-        guard let q = stats?.mostRecentQuantity() else { return }
-        let bpm = Int(q.doubleValue(for: .count().unitDivided(by: .minute())).rounded())
-        guard bpm > 0 else { return }
-        liveHR = bpm
-        relayHR(bpm)
     }
 }

@@ -143,8 +143,8 @@ struct AppRoot: View {
                 auth.finishOnboarding()
             }
             #endif
-            // Register the mirrored-session handler early (idempotent) so a wrist
-            // recording started during a workout is never missed. Cheap, no prompt.
+            // Idempotent backup. First registration is FAHYBRIKApp.init /
+            // PushAppDelegate.didFinishLaunching — not this onAppear.
             PhoneMirrorService.shared.prepare()
             if auth.stage == .authenticated {
                 startHealthKitSync()

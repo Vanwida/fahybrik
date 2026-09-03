@@ -231,6 +231,13 @@
 		47057C27EB401CF7C4B955E1 /* ConditioningFoldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488AC6863303C38D31E04DD5 /* ConditioningFoldTests.swift */; };
 		4763897FC880EB48E2793753 /* PM5PoolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A45F1B5091874587B7E24EA /* PM5PoolTests.swift */; };
 		47791F6DD5FC985FF62276C9 /* MirrorSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402132036A5D8D6B3AF95944 /* MirrorSessionController.swift */; };
+		C8D42F1B02E35A7B9F23D512 /* MirrorSessionController+Primary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C31E0A91D24F6A8E12C401 /* MirrorSessionController+Primary.swift */; };
+		E0F64B3D24A57C9D1B45F734 /* MirrorSessionController+Finish.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E53A2C13F46B8C0A34E623 /* MirrorSessionController+Finish.swift */; };
+		A2B86D5F46C79E1F3D67B956 /* MirrorHUDOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A75C4E35B68D0E2C56A845 /* MirrorHUDOverlays.swift */; };
+		E6FC01938A0BD25371BAF390 /* MirrorHUDControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5EB908279FAC14260A9E289 /* MirrorHUDControls.swift */; };
+		B8BE23B5AC2DF47593DC1B12 /* MirrorHUDTreadmill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AD12A49B1CE36482CB0A01 /* MirrorHUDTreadmill.swift */; };
+		D0D045D7CE4F1697B5FE3D34 /* WatchWorkoutCoordinator+Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9CF34C6BD3E0586A4ED2C23 /* WatchWorkoutCoordinator+Plan.swift */; };
+		F2F267F9E06138B9D7105F56 /* WatchWorkoutCoordinator+Result.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E156E8DF5027A8C60F4E45 /* WatchWorkoutCoordinator+Result.swift */; };
 		47B9B6B8070BD16A1C552E4E /* PartnerInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02E9C3585FE2242F1D24D76 /* PartnerInviteSheet.swift */; };
 		48170AB55CC2B3798C418CDA /* FreeRunPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9BE395A6F598D88E4974CC /* FreeRunPlan.swift */; };
 		4941BE143A09912E9C796770 /* CoachInboxHeaderButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD0DDF62ECF9F4FD481B553 /* CoachInboxHeaderButton.swift */; };
@@ -1008,6 +1015,10 @@
 		3F4C5A3B39CA521FC4C354A9 /* Vo2MaxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vo2MaxView.swift; sourceTree = "<group>"; };
 		3FAF4C4483A043E5A8C16AEF /* PreWorkoutDeviceEligibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreWorkoutDeviceEligibilityTests.swift; sourceTree = "<group>"; };
 		402132036A5D8D6B3AF95944 /* MirrorSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorSessionController.swift; sourceTree = "<group>"; };
+		B7C31E0A91D24F6A8E12C401 /* MirrorSessionController+Primary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirrorSessionController+Primary.swift"; sourceTree = "<group>"; };
+		D9E53A2C13F46B8C0A34E623 /* MirrorSessionController+Finish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirrorSessionController+Finish.swift"; sourceTree = "<group>"; };
+		C9CF34C6BD3E0586A4ED2C23 /* WatchWorkoutCoordinator+Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WatchWorkoutCoordinator+Plan.swift"; sourceTree = "<group>"; };
+		E1E156E8DF5027A8C60F4E45 /* WatchWorkoutCoordinator+Result.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WatchWorkoutCoordinator+Result.swift"; sourceTree = "<group>"; };
 		40F291F224069354D3B2B0D0 /* DoblesLiveModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveModels.swift; sourceTree = "<group>"; };
 		41EB05553A86CA68BFC2CE3D /* ImportedRaceHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedRaceHistory.swift; sourceTree = "<group>"; };
 		422FB3DEADCCD2CCF0CF4935 /* 2026-08-11-2303-sin-ventana.fhsc */ = {isa = PBXFileReference; path = "2026-08-11-2303-sin-ventana.fhsc"; sourceTree = "<group>"; };
@@ -1297,6 +1308,9 @@
 		AC3759759850F8540B6D0AE3 /* PartnerInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerInfoTests.swift; sourceTree = "<group>"; };
 		AC3C8A419E3CFC4262A5424A /* DoblesJointModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesJointModels.swift; sourceTree = "<group>"; };
 		ACBF1518D4C8078575B404A7 /* MirrorHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorHUDView.swift; sourceTree = "<group>"; };
+		F1A75C4E35B68D0E2C56A845 /* MirrorHUDOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorHUDOverlays.swift; sourceTree = "<group>"; };
+		D5EB908279FAC14260A9E289 /* MirrorHUDControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorHUDControls.swift; sourceTree = "<group>"; };
+		A7AD12A49B1CE36482CB0A01 /* MirrorHUDTreadmill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorHUDTreadmill.swift; sourceTree = "<group>"; };
 		AD8291E339640768D2BED431 /* ComoLlegoHoyBloque.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComoLlegoHoyBloque.swift; sourceTree = "<group>"; };
 		AD86040DF1940315EE2D211C /* GuionRuta.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionRuta.swift; sourceTree = "<group>"; };
 		ADA05164599E370BFC4B91C4 /* CorrerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrerService.swift; sourceTree = "<group>"; };
@@ -1847,6 +1861,8 @@
 				DC5F9E5EE28C600F66A1DEBF /* Generated-Info.plist */,
 				EA39FD9391B44A7E577DC77A /* LiveWorkoutSession.swift */,
 				402132036A5D8D6B3AF95944 /* MirrorSessionController.swift */,
+				B7C31E0A91D24F6A8E12C401 /* MirrorSessionController+Primary.swift */,
+				D9E53A2C13F46B8C0A34E623 /* MirrorSessionController+Finish.swift */,
 				5791A21D0B5F7BBE60A54E80 /* PrivacyInfo.xcprivacy */,
 				61FEDB6AF066E215592457AE /* RootView.swift */,
 				F945E9395294CCBFBEA591EA /* WatchConnectivityService.swift */,
@@ -1856,6 +1872,8 @@
 				C825E842B1A72422D58E674D /* WatchTheme.swift */,
 				49F0E9248C0953490DA441E1 /* WatchTraceOutbox.swift */,
 				FEB313E33B83EC23E35ECC4F /* WatchWorkoutCoordinator.swift */,
+				C9CF34C6BD3E0586A4ED2C23 /* WatchWorkoutCoordinator+Plan.swift */,
+				E1E156E8DF5027A8C60F4E45 /* WatchWorkoutCoordinator+Result.swift */,
 			);
 			path = FAHYBRIKWatch;
 			sourceTree = "<group>";
@@ -2243,6 +2261,9 @@
 				8352F0F5673F2DA172314C9D /* LiveFlowView.swift */,
 				C2AE2572F37333FE254CDC1A /* LiveHUDShared.swift */,
 				ACBF1518D4C8078575B404A7 /* MirrorHUDView.swift */,
+				F1A75C4E35B68D0E2C56A845 /* MirrorHUDOverlays.swift */,
+				D5EB908279FAC14260A9E289 /* MirrorHUDControls.swift */,
+				A7AD12A49B1CE36482CB0A01 /* MirrorHUDTreadmill.swift */,
 				B0275845B700EAF34FAE2F4D /* PauseFinishPage.swift */,
 				4F10ED5AE777292AA63A3454 /* ReadinessGlanceView.swift */,
 				7D001A4A1CE72500F4573623 /* RelojDeParedLiveView.swift */,
@@ -3782,6 +3803,13 @@
 				3D6EEA07484CC11CE91F6123 /* Marca.swift in Sources */,
 				C7AE5A6084D1678C991120A8 /* MirrorHUDView.swift in Sources */,
 				47791F6DD5FC985FF62276C9 /* MirrorSessionController.swift in Sources */,
+				C8D42F1B02E35A7B9F23D512 /* MirrorSessionController+Primary.swift in Sources */,
+				E0F64B3D24A57C9D1B45F734 /* MirrorSessionController+Finish.swift in Sources */,
+				A2B86D5F46C79E1F3D67B956 /* MirrorHUDOverlays.swift in Sources */,
+				E6FC01938A0BD25371BAF390 /* MirrorHUDControls.swift in Sources */,
+				B8BE23B5AC2DF47593DC1B12 /* MirrorHUDTreadmill.swift in Sources */,
+				D0D045D7CE4F1697B5FE3D34 /* WatchWorkoutCoordinator+Plan.swift in Sources */,
+				F2F267F9E06138B9D7105F56 /* WatchWorkoutCoordinator+Result.swift in Sources */,
 				691131CD4FD94895CB6B4E1A /* MirrorTimedRest.swift in Sources */,
 				BC0375C7CF4DE6A2B0F3187A /* MirrorWireModels.swift in Sources */,
 				42C8CB40307FF5EA6A471F4C /* PM5DataParser.swift in Sources */,
@@ -4241,7 +4269,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4344,7 +4372,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;

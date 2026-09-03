@@ -190,9 +190,8 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     /// «El entreno ya terminó en el teléfono». Devuelve true si el aviso era este,
     /// para que no siga su camino como si fuera un plan del día.
     ///
-    /// Both wrist owners see it: standalone (`WatchWorkoutCoordinator`) AND the
-    /// Apple PRIMARY (`MirrorSessionController`). Each existing finish no-ops
-    /// if that owner is idle. Not a second HK path — PRIMARY uses `finish(save:)`.
+    /// Coach motor (`WatchWorkoutCoordinator`) plus the one PRIMARY owner.
+    /// Each finish no-ops if that side is idle. Not a second HK path.
     @MainActor
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard let save = WatchLiveEnd.saveFlag(in: body) else { return false }

@@ -172,7 +172,22 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         UNUserNotificationCenter.current().delegate = self
         resumeHealthKitObserversIfConnected()
         DeviceCentral.shared.instantiateIfLiveUIDExists()
+        registerMirrorHandler()
         return true
+    }
+
+    /// Apple: `workoutSessionMirroringStartHandler` before a mirrored session
+    /// arrives. Idempotent with `FAHYBRIKApp.init` / `AppRoot.onAppear`.
+    private func registerMirrorHandler() {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                PhoneMirrorService.shared.prepare()
+            }
+        } else {
+            DispatchQueue.main.sync {
+                PhoneMirrorService.shared.prepare()
+            }
+        }
     }
 
     /// Apple: register `HKObserverQuery` in `didFinishLaunchingWithOptions`

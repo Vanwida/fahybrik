@@ -7,6 +7,20 @@ struct FAHYBRIKApp: App {
     // doesn't expose. See Notifications/PushManager.swift.
     @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
 
+    init() {
+        // Apple: `workoutSessionMirroringStartHandler` must exist before HealthKit
+        // delivers a mirrored session. First registration — not `AppRoot.onAppear`.
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                PhoneMirrorService.shared.prepare()
+            }
+        } else {
+            DispatchQueue.main.sync {
+                PhoneMirrorService.shared.prepare()
+            }
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             AppRoot()
