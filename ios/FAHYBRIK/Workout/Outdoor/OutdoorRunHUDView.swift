@@ -452,14 +452,19 @@ struct OutdoorRunHUDView: View {
     /// pinta como la salida. Solo el tramo ABIERTO —el rodaje que no termina hasta
     /// que tú lo dices— se gana el relleno.
     private var accion: some View {
-        if model.session.currentBlockIsStructural {
+        // FH-55 montó el calentamiento en este cromo. Si el bloque SE CORRE
+        // (jog / serie), SuperficieViva ya eligió carrera: el toque es el
+        // tramo, no «CALENTAMIENTO HECHO» a pantalla. La lista de movilidad
+        // sigue cerrando el bloque de un toque.
+        if model.session.currentBlockIsStructural && !model.session.calentamientoCorridoPorTramos {
             FranjaAccion(titulo: model.session.tituloHechoEstructural,
                          unicaSalida: true,
                          nota: nil) {
                 model.session.completeStructuralBlock()
             }
         } else {
-            FranjaAccion(titulo: model.isStructured ? "TRAMO HECHO" : "HECHO",
+            FranjaAccion(titulo: model.isStructured || model.session.calentamientoCorridoPorTramos
+                            ? "TRAMO HECHO" : "HECHO",
                          unicaSalida: model.currentLeg.goal == .open,
                          nota: notaDeAccion) {
                 model.endLegNow()

@@ -195,7 +195,47 @@ final class SuperficieVivaTests: XCTestCase {
         ), nombre: "Solo movilidad", formato: .warmup)
         XCTAssertTrue(s.currentBlockIsStructural)
         XCTAssertFalse(s.calentamientoEnLaCarrera)
+        XCTAssertFalse(s.calentamientoCorridoPorTramos)
         XCTAssertEqual(SuperficieViva.de(s), .structural)
+    }
+
+    /// FH-55: el jog YA es el live de correr. El toque es el tramo, no el bloque.
+    func testJogDeCalentamientoSeCierraPorTramo() {
+        let s = sesionCalentamientoMasCarrera(jog: true)
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.calentamientoEnLaCarrera)
+        XCTAssertFalse(s.calentamientoEsListaEnLaCarrera)
+        XCTAssertTrue(s.calentamientoCorridoPorTramos)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegment?.title, "5K")
+        XCTAssertFalse(s.currentBlockIsStructural)
+    }
+
+    /// La lista de movilidad sigue siendo un hecho de bloque.
+    func testListaDeCalentamientoNoSeCierraPorTramo() {
+        let s = sesionCalentamientoMasCarrera(jog: false)
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.calentamientoEsListaEnLaCarrera)
+        XCTAssertFalse(s.calentamientoCorridoPorTramos)
+    }
+
+    /// Captura 53: Tramo 1 de 17 · Run Technique. Un toque avanza UN tramo.
+    /// `completeStructuralBlock` se saltaría los 16 que quedan.
+    func testRunTechniqueEnCalentamientoAvanzaUnTramo() {
+        let s = sesionRunTechniqueEnCalentamiento(tramos: 17)
+        s.start(); s.beginBlock(); s.stop()
+        XCTAssertTrue(s.currentBlockIsStructural)
+        XCTAssertTrue(s.calentamientoCorridoPorTramos)
+        XCTAssertEqual(SuperficieViva.de(s), .runStructure)
+        XCTAssertEqual(s.runLegTotal, 17)
+        s.primaryAdvance()
+        XCTAssertFalse(s.isRunCountIn)
+        XCTAssertEqual(s.runLegNumber, 1)
+        s.primaryAdvance()
+        XCTAssertTrue(s.currentBlockIsStructural, "sigue en el calentamiento")
+        XCTAssertEqual(s.runLegNumber, 2)
+        XCTAssertEqual(s.currentSegment?.title, "Run Technique")
     }
 
     /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
@@ -324,6 +364,27 @@ final class SuperficieVivaTests: XCTestCase {
                                    blockTitle: blockTitle, blockPosition: 1,
                                    prescription: rx)
         return WorkoutSession(plan: plan([tramo], nombre: "Libre", formato: .steady))
+    }
+
+    private func sesionRunTechniqueEnCalentamiento(tramos: Int) -> WorkoutSession {
+        let elementos = (0..<tramos).map { _ in
+            RunElement.segment(RunSegment(
+                kind: .work, measure: .duration(s: 480), target: nil, resolved: nil,
+                inclinePct: nil, cadenceSpm: nil, recoveryMode: nil
+            ))
+        }
+        let rx = Prescription(scheme: .intervals, modality: .run, sets: nil,
+                              rounds: nil, workS: nil, restS: nil, totalS: nil,
+                              target: nil, note: nil, start: nil, increment: nil,
+                              structure: [RunPhase(role: .warmup, elements: elementos)])
+        let tecnica = WorkoutSegment(order: 1, title: "Run Technique", kind: .running,
+                                     blockTitle: "Calentamiento", blockPosition: 1,
+                                     prescription: rx)
+        let principal = WorkoutSegment(order: 2, title: "5K", kind: .running,
+                                       targetDistanceMeters: 5000,
+                                       blockTitle: "Principal", blockPosition: 2)
+        return WorkoutSession(plan: plan([tecnica, principal],
+                                         nombre: "Run Technique", formato: .intervals))
     }
 
     private func sesionCalentamientoMasCarrera(jog: Bool) -> WorkoutSession {
