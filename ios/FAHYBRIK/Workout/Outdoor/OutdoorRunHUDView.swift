@@ -41,12 +41,16 @@ struct OutdoorRunHUDView: View {
     /// `ActiveWorkoutView`: pedir la salida, con su confirmación si hay trabajo
     /// registrado.
     let alSalir: () -> Void
+    /// Abre la hoja de bloques del padre. Un disparador: `mostrarBloques = true`.
+    let alVerBloques: () -> Void
     /// "Avisos de voz" (#63) toggle — shares the key with ProfileView.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
-    init(session: WorkoutSession, hrZones: HRZoneProfile?, alSalir: @escaping () -> Void) {
+    init(session: WorkoutSession, hrZones: HRZoneProfile?,
+         alSalir: @escaping () -> Void, alVerBloques: @escaping () -> Void) {
         _model = State(initialValue: OutdoorRunHUDModel(session: session, hrZones: hrZones))
         self.alSalir = alSalir
+        self.alVerBloques = alVerBloques
     }
 
     var body: some View {
@@ -94,6 +98,7 @@ struct OutdoorRunHUDView: View {
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
             Spacer(minLength: 0)
+            BotonVerBloques(accion: alVerBloques)
             botonRedondo(voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill",
                          tono: voiceCoachEnabled ? Theme.Color.accentText : Theme.Color.muted,
                          etiqueta: voiceCoachEnabled ? "Silenciar avisos de voz" : "Activar avisos de voz") {
@@ -545,7 +550,8 @@ private func zonasDePrueba() -> HRZoneProfile {
 #Preview("Correr en vivo · con pulso") {
     let sesion = rodajeDePrueba()
     sesion.liveHRBpm = 145        // Z2 con el umbral de 170 → estás donde toca
-    return OutdoorRunHUDView(session: sesion, hrZones: zonasDePrueba(), alSalir: {})
+    return OutdoorRunHUDView(session: sesion, hrZones: zonasDePrueba(),
+                             alSalir: {}, alVerBloques: {})
 }
 
 /// SIN ANCLA DE FC — el servidor no mandó zonas y no hay reloj. NO hay tinte, no
@@ -553,7 +559,8 @@ private func zonasDePrueba() -> HRZoneProfile {
 /// ni una barra vacía (§7). Es el atleta recién dado de alta, que es el caso de
 /// diseño (§6.3) — no la versión rota de la de arriba.
 #Preview("Correr en vivo · sin ancla de FC") {
-    OutdoorRunHUDView(session: rodajeDePrueba(), hrZones: nil, alSalir: {})
+    OutdoorRunHUDView(session: rodajeDePrueba(), hrZones: nil,
+                      alSalir: {}, alVerBloques: {})
 }
 #endif
 

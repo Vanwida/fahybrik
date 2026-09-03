@@ -34,16 +34,20 @@ struct TreadmillHUDView: View {
     /// `OutdoorRunHUDView`: sin cover propio, un `dismiss()` desde aquí se llevaría
     /// la presentación del entreno entero sin cerrar la sesión.
     let alSalir: () -> Void
+    /// Abre la hoja de bloques del padre. Un disparador: `mostrarBloques = true`.
+    let alVerBloques: () -> Void
     /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
     /// HUD vivo (reloj indoor), no a la guía de conectar.
     init(session: WorkoutSession, hrZones: HRZoneProfile?,
-         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void) {
+         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void,
+         alVerBloques: @escaping () -> Void) {
         // The SHARED hub — so a belt connected in the brief is already live here (no
         // re-scan), and the connection outlives this surface going away and coming back.
         _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
                                                        hub: .shared))
         _sinCinta = State(initialValue: empiezaSinCinta)
         self.alSalir = alSalir
+        self.alVerBloques = alVerBloques
     }
 
     var body: some View {
@@ -148,6 +152,7 @@ struct TreadmillHUDView: View {
             headerChip(icon: "heart.fill", text: pulseChipText,
                        link: model.effectiveHRLink, channel: model.hrChannel)
             Spacer(minLength: 0)
+            BotonVerBloques(accion: alVerBloques)
             Button(action: { Haptics.light(); voiceCoachEnabled.toggle(); if !voiceCoachEnabled { AudioCoach.shared.stopSpeaking() } }) {
                 Image(systemName: voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                     .font(.system(size: 13, weight: .heavy))

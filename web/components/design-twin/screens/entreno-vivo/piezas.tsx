@@ -15,7 +15,7 @@
 // inventan UNA sola vez aquí y las dos vistas describen el MISMO instante.
 
 import type { ReactNode } from 'react';
-import { IconCheckCircle, IconChevron, IconCircle, IconClose, Label, Mono, RAD } from '../../kit';
+import { IconCheckCircle, IconChevron, IconCircle, IconClose, IconListBullet, Label, Mono, RAD } from '../../kit';
 import { HYROX, type ItemReal } from '../../datos-reales';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +59,7 @@ export function TopStrip({
   return (
     <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
       {iconBtn(<IconClose size={13} />, 'Salir del entreno')}
+      {iconBtn(<IconListBullet size={13} />, 'Ver el entreno entero')}
       {iconBtn(<span style={{ fontSize: 16 }}>‖</span>, 'Pausar entreno')}
       {iconBtn(<IconChevron dir="left" size={13} />, 'Volver atrás', !puedeVolver)}
       {/* UN solo Spacer, como en el Swift: título e índice viajan juntos a la derecha. */}

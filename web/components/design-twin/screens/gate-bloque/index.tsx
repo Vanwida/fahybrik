@@ -18,10 +18,13 @@ export const meta: TwinMeta = {
   titulo: 'La puerta del bloque — «empieza cuando estés listo»',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-08-10',
+  actualizado: '2026-09-03',
   descripcion:
     'La pantalla que ven las dos poblaciones: es el único briefing del entreno libre y la antesala de cada bloque del plan. Hoy reserva el mismo hueco para 1 ítem que para 16.',
-  fuentes: ['ios/FAHYBRIK/Workout/BlockPreviewGate.swift'],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/BlockPreviewGate.swift',
+    'ios/FAHYBRIK/Workout/BotonVerBloques.swift',
+  ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {

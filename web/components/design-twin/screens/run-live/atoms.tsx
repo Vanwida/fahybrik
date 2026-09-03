@@ -519,6 +519,7 @@ export type NombreIcono =
   | 'speaker-on'
   | 'speaker-off'
   | 'xmark'
+  | 'list-bullet'
   | 'chevron-left'
   | 'pause-circle'
   | 'check-circle'
@@ -587,6 +588,16 @@ export function Icono({ nombre, size = 14 }: { nombre: NombreIcono; size?: numbe
       return (
         <svg {...comun}>
           <path d="M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5" />
+        </svg>
+      );
+    case 'list-bullet':
+      return (
+        <svg {...comun}>
+          <rect x="3" y="4" width="18" height="16" rx="2.4" />
+          <path d="M9 9h8M9 12h8M9 15h8" />
+          <circle cx="6.4" cy="9" r="0.9" fill="currentColor" />
+          <circle cx="6.4" cy="12" r="0.9" fill="currentColor" />
+          <circle cx="6.4" cy="15" r="0.9" fill="currentColor" />
         </svg>
       );
     case 'chevron-left':

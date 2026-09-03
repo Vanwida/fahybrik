@@ -288,6 +288,9 @@
 		5677E087C238140250D08673 /* ImportRaceLinkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9120CB1234A2DD3E8B1AE0DC /* ImportRaceLinkSheet.swift */; };
 		568FFB4BE2AF2974BB928C52 /* GrafiaDeLectura.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1498F79170D56D0AB35AC4 /* GrafiaDeLectura.swift */; };
 		570A7A2CF8BE911194FF72F7 /* BloquesDelEntreno.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32C9CD61B4A421F8C2F4E9CC /* BloquesDelEntreno.swift */; };
+		B70C12D1F203581B0E6C4D22 /* BotonVerBloques.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69B01C0E1F2470A9D5B3C11 /* BotonVerBloques.swift */; };
+		D92E34F315257A3D208E6F44 /* WorkoutSessionBloquesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81D23E20414692C1F7D5E33 /* WorkoutSessionBloquesTests.swift */; };
+		FB40561537479C5F42008166 /* BloquesDelEntrenoWireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA3F450426368B4E319F7055 /* BloquesDelEntrenoWireTests.swift */; };
 		570EE6AEC3C13661091B45C9 /* DevicePickerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3B368C604B50246EEB4455 /* DevicePickerComponents.swift */; };
 		57D3394402AD06E63D823021 /* FreeInicioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A299C853C165208E4093B866 /* FreeInicioView.swift */; };
 		58083273FDEA8CF20C17C44A /* GuionEmom.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73A38561623C867F1D46A7A /* GuionEmom.swift */; };
@@ -970,6 +973,9 @@
 		3211E4DD5A803BFD2342F461 /* ComunicadoNotaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoNotaView.swift; sourceTree = "<group>"; };
 		328802A6B2D7559DB3EF927B /* CountdownFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownFormat.swift; sourceTree = "<group>"; };
 		32C9CD61B4A421F8C2F4E9CC /* BloquesDelEntreno.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BloquesDelEntreno.swift; sourceTree = "<group>"; };
+		A69B01C0E1F2470A9D5B3C11 /* BotonVerBloques.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotonVerBloques.swift; sourceTree = "<group>"; };
+		C81D23E20414692C1F7D5E33 /* WorkoutSessionBloquesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionBloquesTests.swift; sourceTree = "<group>"; };
+		EA3F450426368B4E319F7055 /* BloquesDelEntrenoWireTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BloquesDelEntrenoWireTests.swift; sourceTree = "<group>"; };
 		339393195A20ADB48340066A /* ScanDecisionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDecisionEngineTests.swift; sourceTree = "<group>"; };
 		339EE90FF180852D710A7754 /* PrescriptionRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrescriptionRenderer.swift; sourceTree = "<group>"; };
 		33FEA2FA921AC55E3FFFC89F /* AssignmentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentDetail.swift; sourceTree = "<group>"; };
@@ -1706,6 +1712,7 @@
 				E9D79500017FDAB4E97FE123 /* ActiveWorkoutView.swift */,
 				D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */,
 				32C9CD61B4A421F8C2F4E9CC /* BloquesDelEntreno.swift */,
+				A69B01C0E1F2470A9D5B3C11 /* BotonVerBloques.swift */,
 				A5A47F3B4D9352A06DFF181D /* DoblesTurnHero.swift */,
 				481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */,
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
@@ -2352,6 +2359,7 @@
 				AF98AEC6595EEA02941F54A5 /* AutoPausaNoSobreviveTests.swift */,
 				8DCFE42EFC724B52FA60B387 /* BlockPacingTests.swift */,
 				3CFF8B2F4451DE1FB58F4988 /* BloqueMixtoConCarreraTests.swift */,
+				EA3F450426368B4E319F7055 /* BloquesDelEntrenoWireTests.swift */,
 				0E2C66CF7D6908E2FE6914BF /* CarreraDeLaSesionTests.swift */,
 				F45BC7DCE5C583CF3A8485B1 /* CarreraEstructuradaFartlekTests.swift */,
 				A2751F1D06858BAF7F4930D5 /* CoachSpeechTests.swift */,
@@ -2414,6 +2422,7 @@
 				9E790AA296B1E01AEBD86E15 /* WorkoutLocationTypeTests.swift */,
 				8D9039B9DC0EF86C77A91572 /* WorkoutRecoveryTests.swift */,
 				A1B2C3D4E5F6480000000004 /* WorkoutRunClockTests.swift */,
+				C81D23E20414692C1F7D5E33 /* WorkoutSessionBloquesTests.swift */,
 				2F2A08F21330D14F046C8981 /* WorkoutSessionAutoPauseTests.swift */,
 				6EAFCCDADC8DDC255E7DC5A1 /* WorkoutSessionTraceTests.swift */,
 				D1F53D30D3D6D813DB3687D1 /* WorkoutTraceOfflineTests.swift */,
@@ -3294,6 +3303,7 @@
 				AC17C34B3ED133A70AE5973D /* BloqueDeCarga.swift in Sources */,
 				EC3618C2145F63C63C184EBB /* BloquesDeLectura.swift in Sources */,
 				570A7A2CF8BE911194FF72F7 /* BloquesDelEntreno.swift in Sources */,
+				B70C12D1F203581B0E6C4D22 /* BotonVerBloques.swift in Sources */,
 				5055813216E7AD42B5FA3A70 /* BuscarCarreraSheet.swift in Sources */,
 				99C3558C185BAB01F929B38A /* CaminoDelPlan.swift in Sources */,
 				0EC13F23AE4D1496EAEAE8AD /* CarreraDeLaSesion.swift in Sources */,
@@ -3878,6 +3888,7 @@
 				C1240E4E483AAD11A809ACAF /* BenchmarkDeltaTests.swift in Sources */,
 				51494130D8C634086E83060C /* BlockPacingTests.swift in Sources */,
 				600E103FCFDF040AC4021986 /* BloqueMixtoConCarreraTests.swift in Sources */,
+				FB40561537479C5F42008166 /* BloquesDelEntrenoWireTests.swift in Sources */,
 				E9E4D0CD51A32061D5FD04CF /* CarreraDeLaSesionTests.swift in Sources */,
 				31D9AE6558B17029AE63751E /* CarreraEstructuradaFartlekTests.swift in Sources */,
 				22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */,
@@ -4023,6 +4034,7 @@
 				F20440807B6060077D7B51E5 /* WorkoutLocationTypeTests.swift in Sources */,
 				9E24EFBB5F114D60DF923B04 /* WorkoutRecoveryTests.swift in Sources */,
 				A1B2C3D4E5F6480000000014 /* WorkoutRunClockTests.swift in Sources */,
+				D92E34F315257A3D208E6F44 /* WorkoutSessionBloquesTests.swift in Sources */,
 				5D4101AA7F659FA1AC07C97A /* WorkoutSessionAutoPauseTests.swift in Sources */,
 				9715CC102B7FEA7D97A46771 /* WorkoutSessionTraceTests.swift in Sources */,
 				D199CC5C0BB75607674D5A71 /* WorkoutTraceOfflineTests.swift in Sources */,
@@ -4064,7 +4076,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";
@@ -4092,7 +4104,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Release.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4120,7 +4132,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4142,7 +4154,7 @@
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_ENTITLEMENTS = FAHYBRIKWatch/FAHYBRIKWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -4236,7 +4248,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4281,7 +4293,7 @@
 				CODE_SIGN_ENTITLEMENTS = "FAHYBRIK/FAHYBRIK-Debug.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_ASSET_PATHS = "\"FAHYBRIK/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				FAHYBRIK_API_BASE = "https://app.$(BRAND_WEB_DOMAIN)";
@@ -4341,7 +4353,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4415,7 +4427,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 52;
+				CURRENT_PROJECT_VERSION = 53;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "FAHYBRIKWidgets/Generated-Info.plist";

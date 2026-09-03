@@ -129,6 +129,9 @@ struct BlockPreviewGate: View {
     /// Leave the workout from the gate WITHOUT recording anything (clean discard).
     /// The athlete is never trapped on the "ready" screen.
     let onExit: () -> Void
+    /// Abre la hoja de bloques del padre. Sin esto no se puede saltar el
+    /// calentamiento desde la puerta.
+    let alVerBloques: () -> Void
 
     // One displayable work line. An alternating EMOM expands to one row per
     // distinct movement in the rotation; everything else is one row per segment.
@@ -246,6 +249,7 @@ struct BlockPreviewGate: View {
             }
             .buttonStyle(PressScaleStyle())
             .accessibilityLabel("Salir del entreno")
+            BotonVerBloques(accion: alVerBloques)
             if canGoBack {
                 Button(action: { Haptics.light(); onBack() }) {
                     ZStack {

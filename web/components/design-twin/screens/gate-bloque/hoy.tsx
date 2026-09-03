@@ -13,7 +13,7 @@
 // que medir — se envuelve en `.twin-scroll` y punto.
 
 import type { ItemReal } from '../../datos-reales';
-import { Card, Hairline, IconChevron, IconClose, Label, Muerto, RoundButton } from '../../kit';
+import { Card, Hairline, IconChevron, IconClose, IconListBullet, Label, Muerto, RoundButton } from '../../kit';
 import { FilaTrabajo, Pie } from './piezas';
 
 export interface HoyProps {
@@ -49,6 +49,11 @@ export function Hoy({ titulo, formato, blockNumber, blockCount, items, onLog }: 
         <RoundButton onClick={() => onLog('Salir del entreno')} label="Salir del entreno">
           <span style={{ color: 'var(--twin-muted)', display: 'inline-flex' }}>
             <IconClose />
+          </span>
+        </RoundButton>
+        <RoundButton onClick={() => onLog('Ver el entreno entero')} label="Ver el entreno entero">
+          <span style={{ color: 'var(--twin-muted)', display: 'inline-flex' }}>
+            <IconListBullet />
           </span>
         </RoundButton>
         {blockCount > 1 && (

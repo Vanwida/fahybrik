@@ -139,6 +139,7 @@ export function HUDCinta({
       <ChipDispositivo icono="runner" texto={`Cinta · ${CINTA_NOMBRE}`} encendido />
       <ChipDispositivo icono="heart" texto="Pulso · Watch" encendido={bpm !== null} buscando={bpm === null} />
       <span style={{ flex: 1 }} />
+      <BotonRedondo icono="list-bullet" onClick={() => onLog('Ver el entreno entero')} etiqueta="Ver el entreno entero" />
       <BotonRedondo
         icono={voz ? 'speaker-on' : 'speaker-off'}
         onClick={() => setVoz((v) => !v)}

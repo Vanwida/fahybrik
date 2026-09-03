@@ -13,11 +13,13 @@ export function PuertaBloque({
   onEmpezar,
   onSalir,
   onAtras,
+  onLog,
 }: {
   horizontal: boolean;
   onEmpezar: () => void;
   onSalir: () => void;
   onAtras: () => void;
+  onLog: (linea: string) => void;
 }) {
   return (
     <div
@@ -39,6 +41,12 @@ export function PuertaBloque({
         {/* Fila superior: salir (nunca atrapado) + bloque anterior + posición */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <BotonRedondo icono="xmark" onClick={onSalir} etiqueta="Salir del entreno" borde />
+          <BotonRedondo
+            icono="list-bullet"
+            onClick={() => onLog('Ver el entreno entero')}
+            etiqueta="Ver el entreno entero"
+            borde
+          />
           <BotonRedondo icono="chevron-left" onClick={onAtras} etiqueta="Bloque anterior" color="var(--twin-fg)" borde />
           <span
             style={{

@@ -700,6 +700,34 @@ export function IconChevron({ dir = 'right', size = 13 }: { dir?: 'left' | 'righ
   );
 }
 
+/** `list.bullet.rectangle` — ver el entreno entero (FH-69). */
+export function IconListBullet({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
+      <rect
+        x="1.6"
+        y="2.2"
+        width="12.8"
+        height="11.6"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M5.4 5.6h6.2M5.4 8h6.2M5.4 10.4h6.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="3.8" cy="5.6" r="0.7" fill="currentColor" />
+      <circle cx="3.8" cy="8" r="0.7" fill="currentColor" />
+      <circle cx="3.8" cy="10.4" r="0.7" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function IconClose({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>

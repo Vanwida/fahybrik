@@ -37,6 +37,7 @@ struct ActiveWorkoutView: View {
 
     // #8 — Outdoor/Treadmill ya no son `fullScreenCover`. El cromo se monta
     // en sitio (`RunLiveChrome`). Las tapas apiladas sobre HostVivo eran FH-55.
+    @State private var mostrarBloques = false
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -352,6 +353,9 @@ struct ActiveWorkoutView: View {
                 onCancel: { showErgGate = false }
             )
         }
+        .sheet(isPresented: $mostrarBloques) {
+            BloquesDelEntreno(session: session) { mostrarBloques = false }
+        }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
             if resumeAfterVideo { session.resumeFromVideo() }
@@ -386,7 +390,8 @@ struct ActiveWorkoutView: View {
                 canGoBack: session.canStepBack,
                 onEmpezar: { requestBlockStart() },
                 onBack: { requestBack() },
-                onExit: { requestExit() }
+                onExit: { requestExit() },
+                alVerBloques: { mostrarBloques = true }
             )
         }
     }
@@ -718,6 +723,7 @@ struct ActiveWorkoutView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Salir del entreno")
+            BotonVerBloques { mostrarBloques = true }
             Button(action: {
                 session.togglePause()
                 if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
@@ -894,11 +900,13 @@ struct ActiveWorkoutView: View {
         switch RunLiveChrome.de(session) {
         case .outdoor:
             OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { requestExit() })
+                              alSalir: { requestExit() },
+                              alVerBloques: { mostrarBloques = true })
         case .treadmill(let sinCinta):
             TreadmillHUDView(session: session, hrZones: hrZones,
                              empiezaSinCinta: sinCinta,
-                             alSalir: { requestExit() })
+                             alSalir: { requestExit() },
+                             alVerBloques: { mostrarBloques = true })
         case .host:
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip

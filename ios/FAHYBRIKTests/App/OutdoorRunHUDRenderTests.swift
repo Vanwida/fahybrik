@@ -41,7 +41,8 @@ final class OutdoorRunHUDRenderTests: XCTestCase {
     func testConPulsoElLienzoSeTineDeTuZona() {
         let sesion = sesionDeRodaje()
         sesion.liveHRBpm = 145        // Z2 con el umbral de 170 → estás donde toca
-        let imagen = render(OutdoorRunHUDView(session: sesion, hrZones: Self.zonas(), alSalir: {}),
+        let imagen = render(OutdoorRunHUDView(session: sesion, hrZones: Self.zonas(),
+                                              alSalir: {}, alVerBloques: {}),
                             nombre: "correr-vivo-con-pulso")
         XCTAssertNotNil(imagen, "La vista de correr en vivo tiene que renderizar con pulso")
     }
@@ -53,7 +54,8 @@ final class OutdoorRunHUDRenderTests: XCTestCase {
         // atleta recién dado de alta, que es el caso de diseño (§6.3).
         let sesion = sesionDeRodaje()
         sesion.liveHRBpm = nil
-        let imagen = render(OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {}),
+        let imagen = render(OutdoorRunHUDView(session: sesion, hrZones: nil,
+                                              alSalir: {}, alVerBloques: {}),
                             nombre: "correr-vivo-sin-ancla-fc")
         XCTAssertNotNil(imagen, "Sin ancla de FC la pantalla no se rompe: dice la verdad")
     }

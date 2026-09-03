@@ -100,7 +100,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // qué está vacía, que es lo único accionable (§7).
         let sesion = sesionDeRodaje()
         let imagen = render(lienzo(sesion) {
-            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {})
+            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {}, alVerBloques: {})
         }, nombre: "formato-sostenido-sin-medida")
         XCTAssertNil(sesion.liveCoveredPaceSecPerKm, "El caso de diseño es SIN ritmo medido")
         XCTAssertNotNil(imagen, "El sostenido tiene que sostenerse sin ninguna medida")
@@ -114,7 +114,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // no se lee. Ahora el sujeto degrada al RELOJ y la etiqueta lo dice.
         let sesion = sesionDeSeries()
         let imagen = render(lienzo(sesion) {
-            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {})
+            OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {}, alVerBloques: {})
         }, nombre: "formato-series-sin-ritmo-medido")
         XCTAssertNil(sesion.liveCoveredPaceSecPerKm, "El caso de diseño es SIN ritmo medido")
         XCTAssertEqual(sesion.currentSegment?.targetPaceSecondsPerKm, 270,

@@ -2,15 +2,24 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-01** (build 26: tipos de serie/tramo que el unify recortó)
+Última actualización: **2026-09-03** (build 53: FH-69 recablea BloquesDelEntreno)
 
 ## Ahora
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con
 `Bundle.main.object(forInfoDictionaryKey:)`. Perfil (iPhone) y el footer idle
-del reloj muestran marketing + build. Build **26** iPhone, Watch y widgets.
+del reloj muestran marketing + build. Build **53** iPhone, Watch y widgets.
 `DEVELOPMENT_TEAM` = `S6W4459DDG` (no se toca).
+
+**FH-69 · VER EL ENTRENO ENTERO MIENTRAS ENTRENAS.** La hoja
+(`BloquesDelEntreno`) y el motor (`WorkoutSession+Bloques`) seguían
+compilando; el unify de PR 113 soltó el presentador (`mostrarBloques` /
+sheet / botón). Recableada la misma hoja en `ActiveWorkoutView` y el
+mismo botón en `topStrip`, calle, cinta y puerta. No se mergeó ninguna
+`cursor/*`. Fuera de este pico: `SiguienteTramoChip` / `BlockIntervalStrip`
+en el HUD de carrera. Ticket:
+https://app.notion.com/p/3d04164765c181b89898c0e8da4b041b
 
 **Tipos de Workout recortados (unify):** el unify de main se quedó con los
 callers de feat y con `SetRecord` / `SetExecutionDTO` / `LapRecord` /
