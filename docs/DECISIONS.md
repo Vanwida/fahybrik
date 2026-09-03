@@ -10,40 +10,6 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-09-03 · El unify no puede quedarse el fichero de una pantalla y soltar el presentador
-
-**El hueco (FH-69):** `BloquesDelEntreno` y `WorkoutSession+Bloques` compilaban.
-El presentador no: `@State mostrarBloques`, el `.sheet` y el botón
-`list.bullet.rectangle` («Ver el entreno entero»). El atleta no podía
-mirar / saltar / reiniciar / guardar un bloque en vivo.
-
-**Ground truth:** el 24-ago `afd8d289` cableó las tres piezas. El merge de
-PR 113 (1-sep) reescribió `ActiveWorkoutView` hacia feat, que nunca tuvo
-`mostrarBloques`. El merge conservó los dos ficheros de main y soltó el
-cable. FH-55 / FH-66 no borraron el presentador; sí partieron el cromo
-(calle/cinta en sitio, XOR puerta/live), así que restaurar solo `topStrip`
-dejaría ciegos a puerta, calle y cinta.
-
-**Decidido:** recablear la hoja que ya existe, una sola vez, en
-`ActiveWorkoutView`. El mismo `Button` abre esa hoja desde `topStrip`,
-`OutdoorRunHUDView.cromo`, `TreadmillHUDView.header` y
-`BlockPreviewGate.topRow`. Un disparador: `mostrarBloques = true`.
-Callback `alVerBloques` como `alSalir`. Acciones de la hoja:
-`saltarBloque` / `irAlBloque` / `guardarBloqueYSeguir` /
-`reiniciarBloque`. No `jumpTo`.
-
-**Se descarta:** mergear o cherry-pick de `cursor/*` que aún tienen el
-hunk de agosto (llevan `ActiveWorkoutView` pre-FH-55); inventar otra
-hoja o un `fullScreenCover`; meter `SiguienteTramoChip` /
-`BlockIntervalStrip` en los HUD de carrera (ticket siguiente); tocar
-Watch chrome; reescribir Plan.
-
-**NO hacer:** no volver a conservar un `*View.swift` y soltar quién lo
-presenta; no copiar `ActiveWorkoutView` entero de una rama leftover; no
-subir `CURRENT_PROJECT_VERSION` en un commit distinto al arreglo.
-
----
-
 ## 2026-09-01 · El unify no puede quedarse con callers de feat y tipos de un main viejo
 
 **El hueco:** el unify a main se quedó con los callers de feat
