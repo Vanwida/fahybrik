@@ -170,7 +170,21 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        resumeHealthKitObserversIfConnected()
         return true
+    }
+
+    /// Apple: register HKObserverQuery in didFinishLaunching so they exist
+    /// before HealthKit delivers a background update. Credentials are the
+    /// existing Keychain bearer + persisted athlete id. start() is idempotent;
+    /// AppRoot / Perfil / día-1 still call it after login.
+    private func resumeHealthKitObserversIfConnected() {
+        guard HealthKitConnection.isConnected else { return }
+        HealthKitSyncService.shared.configure(
+            bearer: KeychainTokenStore.shared.read(),
+            athleteId: AuthState.persistedAthleteId()
+        )
+        HealthKitSyncService.shared.start()
     }
 
     // MARK: - Orientation gate

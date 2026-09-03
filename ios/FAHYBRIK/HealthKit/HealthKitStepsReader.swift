@@ -29,12 +29,12 @@ enum HealthKitConnection {
     /// an athlete who widens their Health permissions later recovers the history.
     /// Pass `bearer` when the caller holds it; the onboarding surfaces don't, so
     /// they fall back to the Keychain session token (same one AuthState reads).
-    static func markConnectedAndSync(bearer: String? = nil) {
+    static func markConnectedAndSync(bearer: String? = nil) async throws {
         HealthKitSyncService.shared.configure(
             bearer: bearer ?? KeychainTokenStore.shared.read(),
             athleteId: AuthState.persistedAthleteId()
         )
-        HealthKitSyncService.shared.connect()
+        try await HealthKitSyncService.shared.connect()
         UserDefaults.standard.set(true, forKey: connectedKey)
     }
 }

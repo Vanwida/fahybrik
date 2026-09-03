@@ -28,6 +28,11 @@ final class HealthKitSyncService {
     /// it mutates AuthState / UI state.
     var onUnauthorized: (@MainActor () -> Void)?
 
+    /// `enableBackgroundDelivery` / `disableAllBackgroundDelivery` threw
+    /// `HKError.Code.errorAuthorizationDenied`. Profile wires this to the existing
+    /// `healthDenied` route so we never claim Apple Health active.
+    var onAuthorizationDenied: (@MainActor () -> Void)?
+
     // True once start() has registered its observer set. Guards start() so the
     // several lifecycle callsites (launch, deep-link auth, onboarding finish) plus
     // the Perfil (re)connect can all call it without stacking duplicate anchored
@@ -140,6 +145,7 @@ final class HealthKitSyncService {
         // Un import de histórico consentido que se cortó (la app murió, se fue la red)
         // se retoma al arrancar. Sin consentimiento previo esto no hace nada.
         Task { @MainActor in HealthKitHistoryImporter.resumeForCurrentAthlete() }
+        Task { await self.finishEnablingDeliveries() }
     }
 
     /// Explicit user connect — the Perfil Apple Health toggle turning ON. Unlike the
@@ -152,7 +158,7 @@ final class HealthKitSyncService {
     /// reset the whole pre-grant history — last night's sleep, today's HRV, the 14–60d
     /// HRV baseline — is skipped forever and "¿Cómo llegas hoy?" stays empty. Re-uploaded
     /// samples de-dupe server-side (ingest-healthkit.ts), so the re-pull never doubles data.
-    func connect() {
+    func connect() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         resetAnchors()
         // El suelo del re-tirón cubre el HUECO de la desconexión, no unos 30 días
@@ -170,14 +176,15 @@ final class HealthKitSyncService {
         // Y si el atleta ya consintió traerse su histórico y se quedó a medias, esto
         // lo retoma. No es preguntar de nuevo: es terminar lo que ya dijo que sí.
         Task { @MainActor in HealthKitHistoryImporter.resumeForCurrentAthlete() }
+        try await enableRegisteredDeliveries()
     }
 
     func stop() {
         observerQueries.forEach { store.stop($0) }
         observerQueries.removeAll()
         // start() enabled background delivery per type; turn it all off so the app
-        // stops waking to read Health data after a disconnect. No-op if none set.
-        store.disableAllBackgroundDelivery { _, _ in }
+        // stops waking to read Health data after a disconnect.
+        Task { await self.finishDisablingDeliveries() }
         // Anchors are intentionally KEPT: a later reconnect re-runs start(), whose
         // backfill then does an anchor-delta pull that covers only the disconnected
         // gap — cheaper and cleaner than re-dragging the whole recent window.
@@ -240,13 +247,13 @@ final class HealthKitSyncService {
     private func observeWorkouts() {
         let workoutType = HKObjectType.workoutType()
         let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completionHandler, error in
-            defer { completionHandler() }
-            guard error == nil, let self else { return }
-            Task { await self.flushWorkouts() }
+            guard let self else { completionHandler(); return }
+            self.handleObserverFire(error: error, completionHandler: completionHandler) {
+                await self.flushWorkouts()
+            }
         }
         store.execute(query)
         observerQueries.append(query)
-        store.enableBackgroundDelivery(for: workoutType, frequency: .immediate) { _, _ in }
     }
 
     private func flushWorkouts() async {
@@ -281,9 +288,8 @@ final class HealthKitSyncService {
     private func observeQuantity(_ id: HKQuantityTypeIdentifier, metric: String, unit: HKUnit) {
         guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return }
         let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
-            defer { completionHandler() }
-            guard error == nil, let self else { return }
-            Task {
+            guard let self else { completionHandler(); return }
+            self.handleObserverFire(error: error, completionHandler: completionHandler) {
                 await self.flushQuantity(
                     type: type,
                     metric: metric,
@@ -294,7 +300,6 @@ final class HealthKitSyncService {
         }
         store.execute(query)
         observerQueries.append(query)
-        store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
     }
 
     private func flushQuantity(
@@ -355,15 +360,80 @@ final class HealthKitSyncService {
     private func observeSleep() {
         guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return }
         let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
-            defer { completionHandler() }
-            guard error == nil, let self else { return }
-            Task { await self.flushSleep(type: type, firstPullSince: self.recentWindowFloor()) }
+            guard let self else { completionHandler(); return }
+            self.handleObserverFire(error: error, completionHandler: completionHandler) {
+                await self.flushSleep(type: type, firstPullSince: self.recentWindowFloor())
+            }
         }
         store.execute(query)
         observerQueries.append(query)
-        // Sleep background delivery is capped below `.immediate`; hourly is plenty
-        // for a nightly metric.
-        store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
+    }
+
+    /// Apple: call `HKObserverQueryCompletionHandler` only after processing ends.
+    /// If it is not called three times, HealthKit stops background updates.
+    private func handleObserverFire(
+        error: Error?,
+        completionHandler: @escaping HKObserverQueryCompletionHandler,
+        work: @escaping () async -> Void
+    ) {
+        Task {
+            defer { completionHandler() }
+            guard error == nil else { return }
+            await work()
+        }
+    }
+
+    static func isAuthorizationDenied(_ error: Error) -> Bool {
+        if let hk = error as? HKError, hk.code == .errorAuthorizationDenied {
+            return true
+        }
+        let ns = error as NSError
+        return ns.domain == HKError.errorDomain
+            && ns.code == HKError.Code.errorAuthorizationDenied.rawValue
+    }
+
+    /// Official overlay: `enableBackgroundDelivery(for:frequency:) async throws`.
+    /// Sleep stays `.hourly` — HealthKit caps it below `.immediate`.
+    private func enableRegisteredDeliveries() async throws {
+        try await store.enableBackgroundDelivery(
+            for: HKObjectType.workoutType(),
+            frequency: .immediate
+        )
+        for m in Self.quantityMetrics {
+            guard let type = HKQuantityType.quantityType(forIdentifier: m.id) else { continue }
+            try await store.enableBackgroundDelivery(for: type, frequency: .immediate)
+        }
+        if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
+            try await store.enableBackgroundDelivery(for: sleep, frequency: .hourly)
+        }
+    }
+
+    private func finishEnablingDeliveries() async {
+        do {
+            try await enableRegisteredDeliveries()
+        } catch {
+            await handleDeliveryFailure(error)
+        }
+    }
+
+    private func finishDisablingDeliveries() async {
+        do {
+            try await store.disableAllBackgroundDelivery()
+        } catch {
+            // Disconnect already unclaims. Never claim active if disable failed.
+            UserDefaults.standard.set(false, forKey: HealthKitConnection.connectedKey)
+            if Self.isAuthorizationDenied(error) {
+                let handler = onAuthorizationDenied
+                await MainActor.run { handler?() }
+            }
+        }
+    }
+
+    private func handleDeliveryFailure(_ error: Error) async {
+        UserDefaults.standard.set(false, forKey: HealthKitConnection.connectedKey)
+        guard Self.isAuthorizationDenied(error) else { return }
+        let handler = onAuthorizationDenied
+        await MainActor.run { handler?() }
     }
 
     private func flushSleep(type: HKCategoryType, firstPullSince: Date) async {

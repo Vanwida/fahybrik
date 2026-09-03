@@ -378,7 +378,7 @@ struct Day1Flow: View {
             // answered). HealthKit never reports READ-grant status, so a successful
             // return = the sheet was shown → treat as connected, start sync, advance.
             try await HealthKitPermissions.request()
-            HealthKitConnection.markConnectedAndSync(bearer: bearer)
+            try await HealthKitConnection.markConnectedAndSync(bearer: bearer)
             advance()
         } catch {
             // HealthKit genuinely unavailable (simulator / unprovisioned build). Do

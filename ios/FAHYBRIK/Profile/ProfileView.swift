@@ -207,6 +207,10 @@ struct ProfileView: View {
             // this scopes the session and revalidates Perfil's slices in the
             // background, plus the Perfil-only races list.
             store.activate(bearer: bearer)
+            HealthKitSyncService.shared.onAuthorizationDenied = {
+                healthDenied = true
+                healthConnected = false
+            }
             await store.loadProfile()
             await loadRaces()
             await loadPolar()
@@ -1065,7 +1069,15 @@ struct ProfileView: View {
         // so an athlete who granted Health READ permission LATER than the first sync
         // (e.g. steps-only at first, everything later) recovers their sleep / HRV / RHR
         // history instead of it being skipped forever. Re-uploads de-dupe server-side.
-        HealthKitSyncService.shared.connect()
+        // Delivery must succeed before we claim active — enableBackgroundDelivery
+        // throws HKError.Code.errorAuthorizationDenied without the entitlement.
+        do {
+            try await HealthKitSyncService.shared.connect()
+        } catch {
+            healthConnected = false
+            healthDenied = HealthKitSyncService.isAuthorizationDenied(error)
+            return
+        }
         // EL MISMO TOQUE. Conectar = consentir el barrido del pasado. Un segundo
         // botón «Importar histórico» no es estándar y confunde (parece dos syncs).
         // consentAndStart es idempotente: si ya terminó o ya va, no reabre trabajo.
