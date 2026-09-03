@@ -456,15 +456,22 @@ struct OutdoorRunHUDView: View {
         // (jog / serie), SuperficieViva ya eligió carrera: el toque es el
         // tramo, no «CALENTAMIENTO HECHO» a pantalla. La lista de movilidad
         // sigue cerrando el bloque de un toque.
-        if model.session.currentBlockIsStructural && !model.session.calentamientoCorridoPorTramos {
+        if model.session.calentamientoCorridoPorTramos {
+            FranjaAccion(titulo: "TRAMO HECHO",
+                         unicaSalida: model.currentLeg.goal == .open,
+                         nota: notaDeAccion) {
+                model.endLegNow()
+            }
+        } else if model.session.currentBlockIsStructural {
+            // Lista / cooldown: cierra el bloque. Sin `unicaSalida` si el live
+            // ya es carrera — ese relleno era el panel rojo sobre el HUD.
             FranjaAccion(titulo: model.session.tituloHechoEstructural,
-                         unicaSalida: true,
+                         unicaSalida: !model.session.calentamientoEnLaCarrera,
                          nota: nil) {
                 model.session.completeStructuralBlock()
             }
         } else {
-            FranjaAccion(titulo: model.isStructured || model.session.calentamientoCorridoPorTramos
-                            ? "TRAMO HECHO" : "HECHO",
+            FranjaAccion(titulo: model.isStructured ? "TRAMO HECHO" : "HECHO",
                          unicaSalida: model.currentLeg.goal == .open,
                          nota: notaDeAccion) {
                 model.endLegNow()

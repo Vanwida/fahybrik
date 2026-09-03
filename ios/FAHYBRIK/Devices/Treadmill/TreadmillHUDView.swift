@@ -117,7 +117,7 @@ struct TreadmillHUDView: View {
                 phaseName: region.phase.displayName
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            BotonVivo(titulo: model.session.tituloHechoEstructural, unicaSalida: true) {
+            BotonVivo(titulo: model.session.tituloHechoEstructural, unicaSalida: false) {
                 model.session.completeStructuralBlock()
             }
         }
@@ -135,10 +135,11 @@ struct TreadmillHUDView: View {
         }
     }
 
-    /// Relleno naranja solo cuando el toque cierra el BLOQUE (lista / cooldown).
-    /// El calentamiento que se corre no es `unicaSalida` — es un tramo más.
+    /// El live de correr (`calentamientoEnLaCarrera`) no pinta `unicaSalida`:
+    /// ese relleno es el panel rojo que tapaba el HUD. Solo un bloque
+    /// estructural que NO es ese live (cooldown / host) se gana el relleno.
     private var cierreEsHechoDeBloque: Bool {
-        model.session.currentBlockIsStructural && !model.session.calentamientoCorridoPorTramos
+        model.session.currentBlockIsStructural && !model.session.calentamientoEnLaCarrera
     }
 
     private var tituloCierreDeTramo: String { tituloCierre(ahora: false) }
