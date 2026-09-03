@@ -162,6 +162,13 @@ extension WorkoutSession {
             && currentSegment?.hasRunStructure != true
     }
 
+    /// El live ya eligió carrera (`SuperficieViva` `.run` / `.runStructure`).
+    /// El toque cierra el TRAMO (`endLegNow` / `primaryAdvance`), no el bloque
+    /// (`completeStructuralBlock` + `unicaSalida`). La lista de movilidad no.
+    var calentamientoCorridoPorTramos: Bool {
+        calentamientoEnLaCarrera && !calentamientoEsListaEnLaCarrera
+    }
+
     var tituloHechoEstructural: String {
         currentBlockRegion?.phase == .cooldown
             ? "VUELTA A LA CALMA HECHA"
