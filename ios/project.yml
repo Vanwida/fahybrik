@@ -65,7 +65,7 @@ settings:
     # Bump on every device install that must refresh the companion watch app —
     # same CFBundleVersion as the previous install often leaves the wrist on the
     # old binary (Alex hit this testing sensor rep-count).
-    CURRENT_PROJECT_VERSION: 55
+    CURRENT_PROJECT_VERSION: 56
     MARKETING_VERSION: "1.0"
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -97,6 +97,13 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: FAHYBRIK
+        excludes:
+          - PrivacyInfo.xcprivacy
+      # Explicit Copy Bundle Resources — XcodeGen has no target `resources:` key.
+      # PrivacyInfo.xcprivacy is Apple's App Privacy Configuration plist.
+      - path: FAHYBRIK/PrivacyInfo.xcprivacy
+        type: file
+        buildPhase: resources
       # El dominio compartido con la muñeca. Ver el bloque FAHYBRIKCore de abajo:
       # el teléfono y el reloj incluyen esta MISMA carpeta, así que la pertenencia
       # la decide dónde vive el fichero y no una lista que alguien deba recordar.
@@ -375,6 +382,8 @@ targets:
       testTargets: []
     sources:
       - path: FAHYBRIKWatch
+        excludes:
+          - PrivacyInfo.xcprivacy
       # ----- EL DOMINIO COMPARTIDO, POR CARPETA Y NO POR LISTA -----
       # Aquí vivían enumerados a mano los ~50 ficheros que el reloj comparte con
       # el teléfono. La asimetría era el fallo: el teléfono los recibía por incluir
@@ -409,6 +418,9 @@ targets:
       # (Workout/Trace/WorkoutTraceUploader.swift) y `GuionEscaparate` — el único guion
       # que instancia vistas del reloj. Ver docs/DECISIONS.md (2026-08-17).
       - path: FAHYBRIKCore
+      - path: FAHYBRIKWatch/PrivacyInfo.xcprivacy
+        type: file
+        buildPhase: resources
     dependencies:
       - sdk: HealthKit.framework
       - sdk: WatchConnectivity.framework
