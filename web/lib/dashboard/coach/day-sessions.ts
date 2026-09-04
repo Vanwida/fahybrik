@@ -307,12 +307,12 @@ export async function clearAthleteDayScheduled(params: {
     const pending = await tx<
       Array<{ id: string; template_id: string }>
     >`
-      select wa.id::text as id, wa.template_id::text as template_id
-      from workout_assignments wa
-      where wa.athlete_id = ${params.athlete_id}
-        and wa.scheduled_for = ${params.iso_date}::date
-        and wa.status = 'scheduled'
-        and coalesce(wa.origin, 'coach') <> 'self'
+      delete from workout_assignments
+      where athlete_id = ${params.athlete_id}
+        and scheduled_for = ${params.iso_date}::date
+        and status = 'scheduled'
+        and coalesce(origin, 'coach') <> 'self'
+      returning id::text as id, template_id::text as template_id
     `;
     if (pending.length === 0) {
       throw new DaySessionError(
@@ -326,12 +326,6 @@ export async function clearAthleteDayScheduled(params: {
     const templateIds = [
       ...new Set(pending.map((row) => Number(row.template_id)).filter((id) => Number.isFinite(id))),
     ];
-
-    await tx`
-      delete from workout_assignments
-      where athlete_id = ${params.athlete_id}
-        and id in ${tx(assignmentIds)}
-    `;
 
     if (templateIds.length > 0) {
       await tx`
