@@ -24,6 +24,7 @@ import { StackBar, WeekStrip } from '@/components/v2/planes/WeekStrip';
 import {
   blockSinDosis,
   dayBlocks,
+  dayRestControlSlot,
   modalitySegments,
   slotLabelForIndex,
 } from '@/components/v2/planes/semana-model';
@@ -147,6 +148,36 @@ function SessionCard({
   );
 }
 
+// Control Descanso del tablero — el MISMO PUT (kind:'rest', sessions:[]).
+// type=button + z-10: nunca es un Link ni queda bajo las SessionCard.
+const REST_ACTION =
+  'relative z-10 v2-focus flex w-full shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60';
+
+function DayRestButton({
+  onMarkRest,
+  restBusy,
+  dayLabel,
+  className,
+}: {
+  onMarkRest: () => void;
+  restBusy: boolean;
+  dayLabel?: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onMarkRest}
+      disabled={restBusy}
+      aria-label={dayLabel ? `Marcar ${dayLabel} como descanso` : undefined}
+      className={className ?? REST_ACTION}
+    >
+      <MIcon name={restBusy ? 'progress_activity' : 'bedtime'} size={15} />
+      {restBusy ? 'Marcando…' : 'Descanso'}
+    </button>
+  );
+}
+
 // ── Día vacío: tres acciones, cero columna fantasma ──────────────────────────
 function EmptyDayCard({
   onAddWorkout,
@@ -169,10 +200,7 @@ function EmptyDayCard({
         <MIcon name="add" size={15} />
         Entreno
       </button>
-      <button type="button" onClick={onMarkRest} disabled={restBusy} className={action}>
-        <MIcon name={restBusy ? 'progress_activity' : 'bedtime'} size={15} />
-        {restBusy ? 'Marcando…' : 'Descanso'}
-      </button>
+      <DayRestButton onMarkRest={onMarkRest} restBusy={restBusy} className={action} />
       <button type="button" onClick={onCopyHere} className={action}>
         <MIcon name="content_copy" size={15} />
         Copiar otro día aquí
@@ -209,7 +237,8 @@ function DayColumn({
   restError: boolean;
 }) {
   const label = DAY_LABELS_FULL[dayIndex];
-  const hasContent = day.session_count > 0;
+  const restSlot = dayRestControlSlot(day);
+  const hasContent = restSlot === 'before-sessions';
 
   const restClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -234,6 +263,16 @@ function DayColumn({
 
       {hasContent ? (
         <>
+          <DayRestButton
+            onMarkRest={onMarkRest}
+            restBusy={restBusy}
+            dayLabel={label}
+          />
+          {restError ? (
+            <p className="px-2 pb-1 text-nano font-semibold text-[color:var(--v2-danger)]">
+              No se pudo marcar el descanso.
+            </p>
+          ) : null}
           {day.sessions.map((s, i) => (
             <SessionCard
               key={i}
@@ -254,22 +293,8 @@ function DayColumn({
               {day.item_count} ej
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onMarkRest}
-            disabled={restBusy}
-            className="v2-focus flex w-full items-center gap-1.5 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
-          >
-            <MIcon name={restBusy ? 'progress_activity' : 'bedtime'} size={15} />
-            {restBusy ? 'Marcando…' : 'Descanso'}
-          </button>
-          {restError ? (
-            <p className="px-2 pb-1 text-nano font-semibold text-[color:var(--v2-danger)]">
-              No se pudo marcar el descanso.
-            </p>
-          ) : null}
         </>
-      ) : day.is_rest ? (
+      ) : restSlot === 'rest-link' ? (
         <Link
           href={href}
           scroll={false}

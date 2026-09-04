@@ -45,6 +45,20 @@ export function weekSinDosisCount(days: DayModalityInfo[]): number {
   return days.reduce((n, d) => n + daySinDosisCount(d), 0);
 }
 
+/**
+ * Dónde vive el control Descanso del tablero. Un día CON sesiones no puede
+ * colgarlo debajo de las SessionCard (son Links a `?dia=`): 15ab1d0b lo puso
+ * tras el footer y el coach no podía seleccionarlo — el hit target del día
+ * son las cards. `before-sessions` = action row encima de los Links.
+ */
+export function dayRestControlSlot(
+  day: Pick<DayModalityInfo, 'session_count' | 'is_rest'>,
+): 'before-sessions' | 'empty-card' | 'rest-link' {
+  if (day.session_count > 0) return 'before-sessions';
+  if (day.is_rest) return 'rest-link';
+  return 'empty-card';
+}
+
 /** 1..7 del primer día con un bloque sin dosis — para que el chip ámbar abra donde hay trabajo. */
 export function firstSinDosisDay(days: DayModalityInfo[]): number | null {
   const day = days.find((d) => daySinDosisCount(d) > 0);
