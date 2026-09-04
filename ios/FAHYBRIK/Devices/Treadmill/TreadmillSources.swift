@@ -57,12 +57,24 @@ enum DeviceLink: Equatable {
     /// The surface says so honestly and offers a button back into the scan list.
     case lost
     case unavailable             // Bluetooth off / unauthorized / nothing found
-    case failed(String)          // hard error, human-readable
+    /// Hard error with a human-readable reason. Associated value — never
+    /// compare with `== .failed` (that token binds to
+    /// `WorkoutContainer.LoadState.failed` and the build dies).
+    case failed(String)
 
     var isLive: Bool { if case .connected = self { return true }; return false }
 
     /// The peripheral name when connected, else nil.
     var deviceName: String? { if case let .connected(name) = self { return name }; return nil }
+
+    /// Mid-session drop or hard fail. The chip CTA may retrieve THIS session's
+    /// machine (`CBCentral.retrievePeripherals`). Not `.idle` / `.unavailable`.
+    var allowsSessionRetrieve: Bool {
+        switch self {
+        case .lost, .failed: return true
+        default: return false
+        }
+    }
 }
 
 /// Live treadmill telemetry for the HUD. The CONNECTION concern (scan → list → pick

@@ -36,6 +36,8 @@ final class DeviceChannelTests: XCTestCase {
         func land(name: String) { onLink?(.connected(name: name)) }
         /// The peripheral vanished on its own (out of range, powered off, taken).
         func dropUnexpectedly() { onLink?(.lost) }
+        /// Retrieve/connect hard-failed. Same CTA path as `.lost`.
+        func fail(_ message: String = "x") { onLink?(.failed(message)) }
     }
 
     // MARK: - Fixtures
@@ -472,6 +474,33 @@ final class DeviceChannelTests: XCTestCase {
         ch.reconnectSessionMachineOrOpenPicker()
         XCTAssertTrue(ch.isPresentingPicker)
         XCTAssertTrue(src.connectCalls.isEmpty)
+    }
+
+    /// Retrieve miss emits `.failed(String)`. Same CTA as `.lost` — session
+    /// machine, never remembered. `== .failed` does not compile (payload).
+    func testFailedCTAReconnectsSessionMachineNotRemembered() {
+        let session = cand(1)
+        let remembered = cand(2)
+        let (ch, src, _) = makeChannel(remembered: remembered.id)
+        ch.connect(session.id)
+        src.fail("No encuentro esa cinta.")
+        XCTAssertTrue(ch.link.allowsSessionRetrieve)
+        XCTAssertEqual(ch.sessionIdentifier, session.id)
+
+        ch.reconnectSessionMachineOrOpenPicker()
+        XCTAssertEqual(src.connectCalls.last, session.id)
+        XCTAssertNotEqual(src.connectCalls.last, remembered.id)
+        XCTAssertFalse(ch.isPresentingPicker)
+    }
+
+    func testDeviceLinkAllowsSessionRetrieveOnlyWhenDown() {
+        XCTAssertTrue(DeviceLink.lost.allowsSessionRetrieve)
+        XCTAssertTrue(DeviceLink.failed("x").allowsSessionRetrieve)
+        XCTAssertFalse(DeviceLink.idle.allowsSessionRetrieve)
+        XCTAssertFalse(DeviceLink.scanning.allowsSessionRetrieve)
+        XCTAssertFalse(DeviceLink.connecting.allowsSessionRetrieve)
+        XCTAssertFalse(DeviceLink.unavailable.allowsSessionRetrieve)
+        XCTAssertFalse(DeviceLink.connected(name: "T1").allowsSessionRetrieve)
     }
 }
 

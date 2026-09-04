@@ -413,7 +413,7 @@ final class DeviceChannel {
     /// CTA for THIS session's machine via retrieve+connect. No session machine → FH-59 picker.
     func reconnectSessionMachineOrOpenPicker() {
         guard !isConnected else { openPicker(); return }
-        if let id = sessionIdentifier, link == .lost || link == .failed {
+        if let id = sessionIdentifier, link.allowsSessionRetrieve {
             connect(id)
             return
         }
