@@ -22,8 +22,10 @@ final class MirrorSessionController: NSObject {
     /// How the PRIMARY was claimed. Not a second session type.
     enum Mode { case idle, mirror, solo, orphan }
 
-    private(set) var state: State = .idle
-    private(set) var mode: Mode = .idle
+    // Swift `private` is file-scoped. Create / adopt / recover / end live in
+    // +Primary and +Finish; those files must write these. HUD only reads.
+    var state: State = .idle
+    var mode: Mode = .idle
 
     /// PRIMARY exists. Not the HUD switch — RootView uses `showsMirrorHUD`.
     var isActive: Bool { state != .idle }
@@ -32,16 +34,16 @@ final class MirrorSessionController: NSObject {
     var showsMirrorHUD: Bool { mode == .mirror || mode == .orphan }
 
     /// Last engine snapshot the phone pushed. Frames decorate; they are not the HUD clock.
-    private(set) var frame: MirrorStateFrame?
-    private(set) var frameReceivedAt: Date?
-    private(set) var liveHR: Int?
-    private(set) var activeKcal: Double = 0
-    private(set) var distanceMeters: Double = 0
+    var frame: MirrorStateFrame?
+    var frameReceivedAt: Date?
+    var liveHR: Int?
+    var activeKcal: Double = 0
+    var distanceMeters: Double = 0
     /// Apple `HKLiveWorkoutBuilder.elapsedTime` (includes pauses). 0 until a builder exists.
     var builderElapsed: TimeInterval { builder?.elapsedTime ?? 0 }
     /// No frame within the watchdog window — recording CONTINUES; MirrorHUD
     /// controls then offer a local save/discard.
-    private(set) var isConnectionLost = false
+    var isConnectionLost = false
 
     /// Pipes for the solo coach motor. Mirror relays HR/distance to the phone instead.
     var onHeartRate: ((Int) -> Void)?
