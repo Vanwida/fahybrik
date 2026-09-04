@@ -10,33 +10,6 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-09-04 · Descanso del atleta = cero asignaciones `scheduled` (FH-79)
-
-**El hueco:** el PATCH del día del atleta solo reescribe
-`template_segments` de la instancia. No había primitiva que desasignara. El
-descanso del atleta no es un `kind:'rest'` en la receta ni un día vacío
-guardado con bloques a cero: es **cero filas `scheduled`** ese `iso_date`.
-
-**Decidido:** `clearAthleteDayScheduled` borra las asignaciones `scheduled`
-del atleta en esa fecha, no toca completed/partial/missed/skipped ni
-`origin='self'`, no filtra `notes like 'slot:%'`, no llama
-`resyncWeekTemplateAssignments`, no muta la plantilla de biblioteca ni la
-semana del programa. Las instancias huérfanas se borran con la guarda de
-dueño de `rollbackCreatedSession`. El API es el mismo PATCH del día, body
-`{ kind: 'rest' }` sin `template_id` — camino separado del de segmentos.
-409 si no hay nada scheduled que quitar.
-
-**Se descarta:** un segundo modelo de día (`day.kind` en la instancia);
-tratar el descanso como `updateAthleteInstanceDay` con `segments: []`;
-arreglar SemanaBoard.markRest / PUT program-weeks como si fuera la
-instancia (eso es FH-80); `delete_session` MCP (FH-81); el POST del atleta
-`/api/athlete/plan/session/delete`; menú hover del canvas de biblioteca.
-
-**NO hacer:** no resincronizar el grupo; no inventar un motor de descanso;
-no tocar iOS/Watch.
-
----
-
 ## 2026-09-01 · El unify no puede quedarse con callers de feat y tipos de un main viejo
 
 **El hueco:** el unify a main se quedó con los callers de feat
