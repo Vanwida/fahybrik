@@ -27,6 +27,7 @@ import {
   modalitySegments,
   slotLabelForIndex,
 } from '@/components/v2/planes/semana-model';
+import { putDay } from '@/components/v2/editor/day-editor-io';
 import { cn } from '@/lib/utils';
 
 // Nombre compartido de view-transition (v2-theme.css `.vt-day-editor`): la
@@ -253,6 +254,20 @@ function DayColumn({
               {day.item_count} ej
             </span>
           </div>
+          <button
+            type="button"
+            onClick={onMarkRest}
+            disabled={restBusy}
+            className="v2-focus flex w-full items-center gap-1.5 rounded-[var(--v2-r-s)] px-2 py-1.5 text-left text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+          >
+            <MIcon name={restBusy ? 'progress_activity' : 'bedtime'} size={15} />
+            {restBusy ? 'Marcando…' : 'Descanso'}
+          </button>
+          {restError ? (
+            <p className="px-2 pb-1 text-nano font-semibold text-[color:var(--v2-danger)]">
+              No se pudo marcar el descanso.
+            </p>
+          ) : null}
         </>
       ) : day.is_rest ? (
         <Link
@@ -325,9 +340,9 @@ export function SemanaBoard({
   duplicating: boolean;
   duplicateError: boolean;
 }) {
-  // «Descanso» de un día vacío: el MISMO guardado de día que usa el editor
-  // (PUT program-weeks/[id]/day con kind:'rest' y cero sesiones), sin salir del
-  // tablero. Transparencia: es una escritura real → estado busy + error honesto.
+  // «Descanso» desde el tablero (día vacío o con sesiones): el MISMO PUT de día
+  // que usa el editor (kind:'rest', cero sesiones), sin endpoint nuevo ni modal.
+  // Transparencia: escritura real → busy + error honesto por day_of_week.
   const [restBusyDow, setRestBusyDow] = useState<number | null>(null);
   const [restErrorDow, setRestErrorDow] = useState<number | null>(null);
   const markRest = async (dow: number) => {
@@ -335,13 +350,8 @@ export function SemanaBoard({
     setRestBusyDow(dow);
     setRestErrorDow(null);
     try {
-      const res = await fetch(`/api/coach/program-weeks/${week.id}/day`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ day_of_week: dow, kind: 'rest', sessions: [] }),
-      });
-      if (!res.ok) throw new Error(`rest failed (${res.status})`);
+      const ok = await putDay(week.id, { day_of_week: dow, kind: 'rest', sessions: [] });
+      if (!ok) throw new Error('rest failed');
       onChanged();
     } catch {
       setRestErrorDow(dow);
