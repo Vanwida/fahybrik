@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 import { createAuthoredInstance, cloneTemplateAsInstance } from './template-instance';
 
 /** Formato de una sesión autorada cuyo autor no dice ninguno: la tabla de series. */
@@ -266,4 +267,100 @@ export async function createDaySession(params: {
   // El `template_id` sale también: quien crea una sesión `authored` necesita saber
   // en qué instancia escribir el contenido, y hoy solo lo sabía esta función.
   return { assignment_id: ins[0]!.id, template_id: templateId };
+}
+
+/**
+ * Descanso del atleta = cero asignaciones `scheduled` ese día.
+ *
+ * No hay `kind:'rest'` en la instancia: el PATCH de contenido solo reescribe
+ * `template_segments` y deja la asignación. Esta primitiva es el write-path que
+ * faltaba. No toca completed/partial/missed/skipped ni `origin='self'`. No filtra
+ * por `notes like 'slot:%'` (eso es el prune de materializar plantilla). No llama
+ * a `resyncWeekTemplateAssignments` (eso reescribe el grupo). No muta la receta
+ * ni reescribe segmentos.
+ *
+ * Las instancias huérfanas se borran con la misma guarda de dueño que
+ * `rollbackCreatedSession` (coach + instance_athlete_id) y solo si ya no las
+ * apunta ninguna asignación.
+ */
+export async function clearAthleteDayScheduled(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  iso_date: string;
+  actor: Actor;
+  channel?: AuditChannel;
+  client?: Sql;
+}): Promise<{ cleared: number }> {
+  const client = params.client ?? defaultSql;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.iso_date)) {
+    throw new DaySessionError('bad_request', 'Fecha inválida', 400);
+  }
+  parseIsoDate(params.iso_date);
+
+  await assertCoachOwnsAthlete({
+    client,
+    coach_id: params.coach_id,
+    athlete_id: params.athlete_id,
+  });
+
+  return client.begin(async (tx) => {
+    const pending = await tx<
+      Array<{ id: string; template_id: string }>
+    >`
+      select wa.id::text as id, wa.template_id::text as template_id
+      from workout_assignments wa
+      where wa.athlete_id = ${params.athlete_id}
+        and wa.scheduled_for = ${params.iso_date}::date
+        and wa.status = 'scheduled'
+        and coalesce(wa.origin, 'coach') <> 'self'
+    `;
+    if (pending.length === 0) {
+      throw new DaySessionError(
+        'no_scheduled',
+        'No hay entrenos pendientes que quitar este día',
+        409,
+      );
+    }
+
+    const assignmentIds = pending.map((row) => Number(row.id));
+    const templateIds = [
+      ...new Set(pending.map((row) => Number(row.template_id)).filter((id) => Number.isFinite(id))),
+    ];
+
+    await tx`
+      delete from workout_assignments
+      where athlete_id = ${params.athlete_id}
+        and id in ${tx(assignmentIds)}
+    `;
+
+    if (templateIds.length > 0) {
+      await tx`
+        delete from templates t
+        where t.id in ${tx(templateIds)}
+          and t.coach_id = ${Number(params.coach_id)}
+          and t.instance_athlete_id = ${params.athlete_id}
+          and not exists (
+            select 1 from workout_assignments wa
+            where wa.template_id = t.id
+          )
+      `;
+    }
+
+    await recordAudit(tx, {
+      entity_type: 'workout_assignments',
+      entity_id: BigInt(assignmentIds[0]!),
+      action: 'delete',
+      actor: params.actor,
+      channel: params.channel,
+      diff: {
+        athlete_id: params.athlete_id,
+        iso_date: params.iso_date,
+        kind: 'rest',
+        cleared: assignmentIds.length,
+        assignment_ids: assignmentIds.map(String),
+      },
+    });
+
+    return { cleared: assignmentIds.length };
+  });
 }

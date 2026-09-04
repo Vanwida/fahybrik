@@ -2,9 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-01** (build 26: tipos de serie/tramo que el unify recortó)
+Última actualización: **2026-09-04** (FH-79: descanso del atleta = cero scheduled)
 
 ## Ahora
+
+**FH-79 · Descanso del atleta.** La instancia no tenía write-path de quitar:
+PATCH del día solo reescribía `template_segments`. Descanso = borrar las
+asignaciones `scheduled` de ese iso_date (no completed/partial/missed/skipped
+ni `origin='self'`; no `resyncWeekTemplateAssignments`; no receta). API:
+`PATCH /api/coach/athletes/:id/plan/day/:date` con `{ kind: 'rest' }`. Ficha
+(Quitar) y editor del día (Quitar entreno). No iOS. No FH-80 hover. No MCP.
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con

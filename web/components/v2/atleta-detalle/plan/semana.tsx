@@ -1,6 +1,7 @@
 'use client';
 
-import { Link } from '@/i18n/navigation';
+import { useState } from 'react';
+import { Link, useRouter } from '@/i18n/navigation';
 import { FichaCard, FichaLabel, PillEstado } from '../resumen/piezas';
 import type { PlanDay, PlanWeekRow } from '@/lib/dashboard/coach/athlete-plan';
 import { formatRangoSemana, sesionesDelDia } from '@/lib/dashboard/v2/ficha-resumen';
@@ -153,6 +154,7 @@ function DiaCol({
   const vacio = sesiones.length === 0;
   const extra = Math.max(0, sesiones.length - SESIONES_VISIBLES);
   const visibles = extra > 0 ? sesiones.slice(0, SESIONES_VISIBLES) : sesiones;
+  const hasScheduled = day.sessions.some((s) => s.status === 'scheduled');
   return (
     <div
       className={cn(
@@ -165,11 +167,16 @@ function DiaCol({
         <span className="v2-micro text-[10px]">
           {short} {dayNumber(day.iso_date)}
         </span>
-        {day.is_today ? (
-          <span className="ml-auto inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[color:var(--v2-accent-fg)]">
-            Hoy
-          </span>
-        ) : null}
+        <div className="ml-auto flex items-center gap-1">
+          {day.is_today ? (
+            <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[color:var(--v2-accent-fg)]">
+              Hoy
+            </span>
+          ) : null}
+          {hasScheduled ? (
+            <MarcarDescansoButton athleteId={athleteId} isoDate={day.iso_date} />
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 px-2.5 py-2">
         {vacio ? (
@@ -216,6 +223,60 @@ function DiaCol({
         )}
       </div>
     </div>
+  );
+}
+
+function MarcarDescansoButton({
+  athleteId,
+  isoDate,
+}: {
+  athleteId: string;
+  isoDate: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function markRest() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/coach/athletes/${athleteId}/plan/day/${isoDate}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind: 'rest' }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+      if (!res.ok) {
+        setError(body?.error?.message ?? 'No se pudo marcar descanso');
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError('No se pudo marcar descanso');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void markRest()}
+      disabled={busy}
+      title={error ?? 'Marcar descanso'}
+      aria-label="Marcar descanso"
+      className={cn(
+        'v2-focus inline-flex items-center rounded-[var(--v2-r-pill)] border px-1.5 py-0.5 text-xs font-semibold disabled:opacity-50',
+        error
+          ? 'border-[color:var(--v2-danger)] text-[color:var(--v2-danger)]'
+          : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+      )}
+    >
+      {busy ? '…' : 'Quitar'}
+    </button>
   );
 }
 
