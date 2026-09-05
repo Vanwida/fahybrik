@@ -1,21 +1,14 @@
-// COROS "Service Status Check URL" — el endpoint que COROS consulta para saber si
-// nuestro servicio está en pie. Declarado en la solicitud de API (25-jul-2026).
+// COROS "Service Status Check URL" — el endpoint que un monitor consulta para
+// saber si nuestro servicio está en pie.
 //
 // POR QUÉ NO SE GATEA A 503 COMO EL RESTO DE /api/coros/*
 // ------------------------------------------------------
-// Los demás endpoints de COROS devuelven 503 mientras faltan las credenciales, y
-// está bien: sin client id no hay OAuth que hacer. Pero este NO, y la diferencia
-// es la pregunta que responde cada uno.
+// Connect / callback pueden devolver 503 si Dynamic Client Registration falla
+// en ese momento. Este endpoint NO: COROS (o nuestro propio monitor) pregunta
+// "¿estáis en pie?", no "¿ya tenéis un client_id persistido?".
 //
-// COROS aquí pregunta "¿estáis en pie?", no "¿tenéis ya mis credenciales?".
-// Devolver 503 mientras esperamos su aprobación les diría que el servicio está
-// caído — justo durante la revisión de nuestra solicitud, y por una condición que
-// depende de ELLOS. Un monitor que reintenta y siempre ve 503 acaba marcando la
-// integración como muerta; Polar, por ejemplo, desactiva un webhook tras 7 días
-// consecutivos sin un 200.
-//
-// Así que: 200 siempre que el proceso responda, y el DETALLE del estado va en el
-// cuerpo. Informativo sin ser destructivo.
+// `configured` es true cuando Pico PUEDE registrarse solo (DCR + callback),
+// no cuando hay un Partner COROS_CLIENT_ID / SECRET. MCP es self-service.
 //
 // La comprobación de base de datos es deliberadamente barata (`select 1`) y va con
 // tope de tiempo: este endpoint tiene que contestar rápido o deja de cumplir su
@@ -53,7 +46,7 @@ export async function GET(): Promise<Response> {
     JSON.stringify({
       status: 'ok',
       service: 'FAHYBRID',
-      // `configured` false = faltan COROS_CLIENT_ID / SECRET / CALLBACK (MCP self-service).
+      // `configured` true = DCR can register (no Partner COROS_* required).
       integration: {
         provider: 'coros',
         configured: cfg.ok,

@@ -4,7 +4,8 @@
 // signed token from POST /api/athlete/wearables/coros/connect-url. A raw
 // athlete_id query param is rejected.
 
-import { corosGatedResponse, loadCorosConfig } from '@/lib/coros/config';
+import { corosDcrFailedResponse, corosGatedResponse, loadCorosConfig } from '@/lib/coros/config';
+import { resolveCorosRuntime } from '@/lib/coros/dcr';
 import { createPkcePair } from '@/lib/coros/pkce';
 import { buildAuthorizeUrl } from '@/lib/oauth/oauth2';
 import { buildStateCookie } from '@/lib/oauth/state';
@@ -26,8 +27,8 @@ export async function GET(request: Request): Promise<Response> {
     return jsonError(400, 'invalid_token', 'token query param is required');
   }
 
-  const cfg = loadCorosConfig();
-  if (!cfg.ok) return corosGatedResponse(cfg.missing);
+  const gate = loadCorosConfig();
+  if (!gate.ok) return corosGatedResponse(gate.missing);
 
   if (!isCryptoConfigured()) {
     return jsonError(
@@ -42,6 +43,9 @@ export async function GET(request: Request): Promise<Response> {
     return jsonError(400, 'invalid_token', 'token is invalid or expired');
   }
   const athlete_id = verified.athlete_id;
+  const runtime = await resolveCorosRuntime();
+  if (!runtime.ok) return corosDcrFailedResponse(runtime.message);
+  const cfg = runtime.config;
   const secure = isSecureRequest(request, url);
   const pkce = createPkcePair();
 
@@ -53,11 +57,11 @@ export async function GET(request: Request): Promise<Response> {
   });
 
   const authorizeUrl = buildAuthorizeUrl({
-    authorizeEndpoint: cfg.config.authorizeEndpoint,
-    clientId: cfg.config.clientId,
-    redirectUri: cfg.config.callbackUrl,
+    authorizeEndpoint: cfg.authorizeEndpoint,
+    clientId: cfg.clientId,
+    redirectUri: cfg.callbackUrl,
     state,
-    scope: cfg.config.scopes,
+    scope: cfg.scopes,
     extraParams: {
       code_challenge: pkce.challenge,
       code_challenge_method: 'S256',

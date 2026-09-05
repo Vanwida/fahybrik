@@ -38,6 +38,7 @@ export type CorosMcpClientOptions = {
   tokenEndpoint: string;
   clientId: string;
   clientSecret: string;
+  basicAuth?: boolean;
   tokens: CorosMcpTokens;
   fetchImpl?: FetchFn;
   now?: () => number;
@@ -186,6 +187,7 @@ export class CorosMcpClient implements CorosMcpSurface {
         clientId: this.opts.clientId,
         clientSecret: this.opts.clientSecret,
         refreshToken,
+        basicAuth: this.opts.basicAuth,
       });
     } catch (e) {
       await this.opts.onAuthError?.();

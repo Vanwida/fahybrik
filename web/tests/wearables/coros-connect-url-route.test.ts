@@ -48,12 +48,14 @@ describe('POST /api/athlete/wearables/coros/connect-url', () => {
     expect(res.status).toBe(401);
   });
 
-  it('503 coros_not_configured when COROS env is missing', async () => {
+  it('200 without Partner COROS_CLIENT_ID / SECRET (DCR self-service)', async () => {
     vi.mocked(getAthleteSessionFromBearer).mockResolvedValue(SESSION);
     setEnv('COROS_CLIENT_ID', undefined);
+    setEnv('COROS_CLIENT_SECRET', undefined);
     const res = await POST(req());
-    expect(res.status).toBe(503);
-    expect(await res.json()).toMatchObject({ error: 'coros_not_configured' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { url: string };
+    expect(new URL(body.url).pathname).toBe('/api/coros/connect');
   });
 
   it('200 returns a connect URL whose token decodes to the BEARER athlete_id', async () => {

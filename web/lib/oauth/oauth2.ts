@@ -86,10 +86,7 @@ export async function exchangeCodeForTokens(params: {
     code: params.code,
     redirect_uri: params.redirectUri,
   };
-  if (!params.basicAuth) {
-    form.client_id = params.clientId;
-    form.client_secret = params.clientSecret;
-  }
+  applyClientAuthToForm(form, params);
   if (params.codeVerifier) form.code_verifier = params.codeVerifier;
   return postTokenRequest(params.tokenEndpoint, form, 'token exchange', {
     basicAuth: params.basicAuth,
@@ -111,10 +108,7 @@ export async function refreshAccessToken(params: {
     grant_type: 'refresh_token',
     refresh_token: params.refreshToken,
   };
-  if (!params.basicAuth) {
-    form.client_id = params.clientId;
-    form.client_secret = params.clientSecret;
-  }
+  applyClientAuthToForm(form, params);
   return postTokenRequest(params.tokenEndpoint, form, 'token refresh', {
     basicAuth: params.basicAuth,
     clientId: params.clientId,
@@ -133,10 +127,7 @@ export async function revokeToken(params: {
 }): Promise<void> {
   const form: Record<string, string> = { token: params.token };
   if (params.tokenTypeHint) form.token_type_hint = params.tokenTypeHint;
-  if (!params.basicAuth) {
-    form.client_id = params.clientId;
-    form.client_secret = params.clientSecret;
-  }
+  applyClientAuthToForm(form, params);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const headers: Record<string, string> = {
@@ -156,6 +147,16 @@ export async function revokeToken(params: {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Public MCP clients (auth method none) send client_id and omit client_secret.
+function applyClientAuthToForm(
+  form: Record<string, string>,
+  params: { clientId: string; clientSecret: string; basicAuth?: boolean },
+): void {
+  if (params.basicAuth) return;
+  form.client_id = params.clientId;
+  if (params.clientSecret) form.client_secret = params.clientSecret;
 }
 
 // Build the HTTP Basic Authorization header value for client_secret_basic.

@@ -2,7 +2,7 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { loadCorosConfig } from '@/lib/coros/config';
+import { corosUsesBasicAuth, resolveCorosRuntime } from '@/lib/coros/dcr';
 import { revokeToken } from '@/lib/oauth/oauth2';
 import {
   loadWearableConnection,
@@ -16,20 +16,21 @@ export async function disconnectCoros(args: {
   sql?: Sql;
 }): Promise<void> {
   const sql = args.sql ?? defaultSql;
-  const cfg = loadCorosConfig();
+  const runtime = await resolveCorosRuntime();
   const tokens = await loadWearableConnection({
     athlete_id: args.athlete_id,
     provider: COROS,
     client: sql,
   });
-  if (cfg.ok && tokens) {
+  if (runtime.ok && tokens) {
     try {
       await revokeToken({
-        revokeEndpoint: cfg.config.revokeEndpoint,
-        clientId: cfg.config.clientId,
-        clientSecret: cfg.config.clientSecret,
+        revokeEndpoint: runtime.config.revokeEndpoint,
+        clientId: runtime.config.clientId,
+        clientSecret: runtime.config.clientSecret,
         token: tokens.access_token,
         tokenTypeHint: 'access_token',
+        basicAuth: corosUsesBasicAuth(runtime.config),
       });
     } catch {
       // Token already dead at the provider — we still mark revoked locally.

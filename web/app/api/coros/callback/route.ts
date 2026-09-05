@@ -4,6 +4,7 @@
 // PKCE verifier comes from the encrypted state cookie.
 
 import { loadCorosConfig } from '@/lib/coros/config';
+import { corosUsesBasicAuth, resolveCorosRuntime } from '@/lib/coros/dcr';
 import { corosErrorPage, corosSuccessPage } from '@/lib/coros/oauth-html';
 import { exchangeCodeForTokens } from '@/lib/oauth/oauth2';
 import { clearStateCookie, readStateCookie } from '@/lib/oauth/state';
@@ -34,8 +35,8 @@ export async function GET(request: Request): Promise<Response> {
     return corosErrorPage(400, 'Falta el código de autorización de COROS.');
   }
 
-  const cfg = loadCorosConfig();
-  if (!cfg.ok) {
+  const gate = loadCorosConfig();
+  if (!gate.ok) {
     return corosErrorPage(503, 'La conexión con COROS no está disponible ahora mismo.');
   }
 
@@ -57,15 +58,22 @@ export async function GET(request: Request): Promise<Response> {
     return corosErrorPage(401, 'La sesión de conexión caducó. Vuelve a intentarlo desde la app.');
   }
 
+  const runtime = await resolveCorosRuntime();
+  if (!runtime.ok) {
+    return corosErrorPage(503, 'La conexión con COROS no está disponible ahora mismo.');
+  }
+  const cfg = runtime.config;
+
   let tokens;
   try {
     tokens = await exchangeCodeForTokens({
-      tokenEndpoint: cfg.config.tokenEndpoint,
-      clientId: cfg.config.clientId,
-      clientSecret: cfg.config.clientSecret,
+      tokenEndpoint: cfg.tokenEndpoint,
+      clientId: cfg.clientId,
+      clientSecret: cfg.clientSecret,
       code,
-      redirectUri: cfg.config.callbackUrl,
+      redirectUri: cfg.callbackUrl,
       codeVerifier: recovered.code_verifier,
+      basicAuth: corosUsesBasicAuth(cfg),
     });
   } catch {
     return corosErrorPage(502, 'No se pudo completar la conexión con COROS. Vuelve a intentarlo.');
@@ -76,7 +84,7 @@ export async function GET(request: Request): Promise<Response> {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
     expires_at: tokens.expires_in != null ? new Date(Date.now() + tokens.expires_in * 1000) : null,
-    scopes: tokens.scope ?? cfg.config.scopes,
+    scopes: tokens.scope ?? cfg.scopes,
   };
 
   try {

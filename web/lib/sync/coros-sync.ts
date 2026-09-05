@@ -3,7 +3,8 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { COROS_FIT_DAILY_CAP, loadCorosConfig } from '@/lib/coros/config';
+import { COROS_FIT_DAILY_CAP } from '@/lib/coros/config';
+import { corosUsesBasicAuth, resolveCorosRuntime } from '@/lib/coros/dcr';
 import { CorosMcpClient, type CorosMcpSurface } from '@/lib/coros/mcp-client';
 import {
   loadWearableConnection,
@@ -29,16 +30,18 @@ export async function buildCorosClientFor(
   athlete_id: bigint,
   sql: Sql,
 ): Promise<CorosMcpSurface | null> {
-  const cfg = loadCorosConfig();
-  if (!cfg.ok) return null;
+  const runtime = await resolveCorosRuntime();
+  if (!runtime.ok) return null;
   const conn = await loadWearableConnection({ athlete_id, provider: COROS, client: sql });
   if (!conn) return null;
+  const cfg = runtime.config;
 
   return new CorosMcpClient({
-    mcpUrl: cfg.config.mcpUrl,
-    tokenEndpoint: cfg.config.tokenEndpoint,
-    clientId: cfg.config.clientId,
-    clientSecret: cfg.config.clientSecret,
+    mcpUrl: cfg.mcpUrl,
+    tokenEndpoint: cfg.tokenEndpoint,
+    clientId: cfg.clientId,
+    clientSecret: cfg.clientSecret,
+    basicAuth: corosUsesBasicAuth(cfg),
     tokens: {
       access_token: conn.access_token,
       refresh_token: conn.refresh_token ?? null,

@@ -1,10 +1,8 @@
-// GET /api/coros/status — el endpoint que COROS consulta para saber si estamos en
-// pie. Lo que estos tests protegen no es el JSON: es que NUNCA baje de 200 por una
-// condición que no significa "estamos caídos".
+// GET /api/coros/status — el endpoint que un monitor consulta para saber si
+// estamos en pie. Lo que estos tests protegen no es el JSON: es que NUNCA baje
+// de 200 por una condición que no significa "estamos caídos".
 //
-// El riesgo real: durante la revisión de nuestra solicitud no tenemos aún sus
-// credenciales. Si por eso devolviéramos 503, su monitor concluiría que el servicio
-// está muerto — y lo haría justo mientras deciden si aprobarnos.
+// `configured` es DCR self-service (podemos registrar), no Partner COROS_*.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,15 +13,17 @@ const { loadCorosConfig } = await import('@/lib/coros/config');
 const { sql } = await import('@/lib/db');
 const { GET, HEAD } = await import('@/app/api/coros/status/route');
 
-const gated = { ok: false as const, missing: ['COROS_CLIENT_ID'] };
 const configured = {
   ok: true as const,
   config: {
-    clientId: 'x',
-    clientSecret: 'y',
-    authorizeEndpoint: 'https://open.coros.com/oauth2/authorize',
-    tokenEndpoint: 'https://open.coros.com/oauth2/token',
-    callbackUrl: 'https://fahybrid.com/api/coros/callback',
+    authorizeEndpoint: 'https://mcpus.coros.com/oauth2/authorize',
+    tokenEndpoint: 'https://mcpus.coros.com/oauth2/token',
+    revokeEndpoint: 'https://mcpus.coros.com/oauth2/revoke',
+    registrationEndpoint: 'https://mcpus.coros.com/connect/register',
+    metadataUrl: 'https://mcp.coros.com/.well-known/oauth-authorization-server',
+    callbackUrl: 'https://app.fahybrid.com/api/coros/callback',
+    mcpUrl: 'https://mcp.coros.com/mcp',
+    scopes: 'openid mcp.tools offline_access',
   },
 };
 
@@ -34,18 +34,17 @@ describe('GET /api/coros/status', () => {
     vi.mocked(sql).mockResolvedValue([{ ok: 1 }] as never);
   });
 
-  it('responde 200 aunque NO tengamos todavía las credenciales de COROS', async () => {
-    // El caso de hoy mismo: solicitud enviada, esperando aprobación.
-    vi.mocked(loadCorosConfig).mockReturnValue(gated as never);
+  it('responde 200 y configured=true sin Partner COROS_CLIENT_ID / SECRET', async () => {
+    // MCP es self-service: DCR puede registrar. Partner env no es la puerta.
+    vi.mocked(loadCorosConfig).mockReturnValue(configured as never);
 
     const res = await GET();
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body.status).toBe('ok');
-    // Y lo dice con honestidad en el cuerpo, sin fingir que está todo listo.
-    expect(body.integration.configured).toBe(false);
-    expect(body.integration.ingest_ready).toBe(false);
+    expect(body.integration.configured).toBe(true);
+    expect(body.integration.ingest_ready).toBe(true);
   });
 
   it('responde 200 aunque la base de datos no conteste', async () => {

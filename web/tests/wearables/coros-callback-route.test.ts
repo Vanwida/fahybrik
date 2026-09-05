@@ -67,7 +67,10 @@ describe('GET /api/coros/callback (human HTML)', () => {
     expect(html).toContain('Cuenta COROS conectada');
     expect(html).toContain('Ya puedes volver a la app');
     expect(exchangeCodeForTokens).toHaveBeenCalledWith(
-      expect.objectContaining({ codeVerifier: 'verifier-s256' }),
+      expect.objectContaining({
+        codeVerifier: 'verifier-s256',
+        tokenEndpoint: 'https://mcpus.coros.com/oauth2/token',
+      }),
     );
     expect(saveWearableConnection).toHaveBeenCalledTimes(1);
   });

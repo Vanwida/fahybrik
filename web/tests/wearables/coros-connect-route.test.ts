@@ -55,6 +55,7 @@ describe('GET /api/coros/connect (token-hardened, PKCE)', () => {
     expect(res.status).toBe(302);
     const location = res.headers.get('location')!;
     const authorize = new URL(location);
+    expect(authorize.origin).toBe('https://mcpus.coros.com');
     expect(authorize.searchParams.get('client_id')).toBe('client-abc');
     expect(authorize.searchParams.get('code_challenge_method')).toBe('S256');
     expect(authorize.searchParams.get('code_challenge')).toBeTruthy();
