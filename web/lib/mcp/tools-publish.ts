@@ -42,7 +42,13 @@ import { appendNote } from '@/lib/coach/athlete-deep-dive';
 import { createCommunication, deleteCommunication } from '@/lib/coach/communications';
 import { publishCommunication } from '@/lib/coach/communications-publish';
 import { CommunicationError } from '@/lib/communications/store';
-import { PublishWeekError, publishBlock, publishWeek } from '@/lib/coach/publish-week';
+import {
+  DELIVERY_MODE,
+  PublishWeekError,
+  markWeekDraft,
+  publishBlock,
+  publishWeek,
+} from '@/lib/coach/publish-week';
 import { RATE_LIMITS, withRateLimit } from '@/lib/security/rate-limit';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
@@ -176,6 +182,60 @@ export function registerPublishTools(server: McpServer): void {
             avisos: [...anchoredAvisos(asked), ...publishAvisos(published)],
           },
           publishResumen({ athlete_name: athlete.full_name, weeks: published, notified }),
+        );
+      }),
+  );
+
+  // ── unpublish_week ─────────────────────────────────────────────────────────
+  server.registerTool(
+    'unpublish_week',
+    {
+      title: 'Ocultar una semana (dejarla en borrador)',
+      description:
+        'Oculta una semana al atleta: la marca como borrador. El contenido NO se borra; solo deja de verla en su app hasta que la vuelvas a publicar. Úsalo cuando el coach diga «quítasela de la app», «ocúltala» o «déjala en borrador». Vale cualquier día de esa semana: se ancla a su lunes.',
+      inputSchema: {
+        athlete_id: athleteIdArg,
+        week_start: isoDateArg.describe(
+          'Cualquier día de la semana que se oculta (AAAA-MM-DD): se ancla sola a su lunes.',
+        ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id) => {
+        const athlete = await resolveOwnedAthlete({ coach_id, athlete_id: args.athlete_id });
+        if (!athlete) return fail(NO_SUCH_ATHLETE_MESSAGE);
+
+        const week_start = weekStartOf(args.week_start);
+        try {
+          await markWeekDraft({
+            coach_id,
+            athlete_id: args.athlete_id,
+            week_start,
+            delivery_mode: DELIVERY_MODE.manual,
+          });
+        } catch (err) {
+          if (err instanceof PublishWeekError) {
+            return fail(err.code === 'not_found' ? NO_SUCH_ATHLETE_MESSAGE : err.message);
+          }
+          throw err;
+        }
+
+        return ok(
+          {
+            athlete_id: String(args.athlete_id),
+            athlete_name: athlete.full_name,
+            week_start,
+            status: 'draft',
+            delivery_mode: DELIVERY_MODE.manual,
+            athlete_sees_it: false,
+          },
+          `${athlete.full_name} · semana del ${week_start}: en borrador, el atleta NO la ve. El contenido sigue ahí.`,
         );
       }),
   );

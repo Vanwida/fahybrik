@@ -204,6 +204,38 @@ export function moveResumen(params: {
   );
 }
 
+/** «Marc: quitada «Rodaje largo» del 4 de agosto. El día queda en descanso — publicado…» */
+export function deleteResumen(params: {
+  athlete_name: string;
+  title: string;
+  iso_date: string;
+  dayIsRest: boolean;
+  visibility: WeekVisibility;
+}): string {
+  const day = params.dayIsRest
+    ? 'El día queda en descanso'
+    : 'Ese día sigue teniendo otras sesiones';
+  return (
+    `${params.athlete_name}: quitada «${params.title}» del ${longDateEs(params.iso_date)}. ` +
+    `${day} — ${params.visibility.text}.`
+  );
+}
+
+/** «Marc · 4 de agosto: día en descanso (2 sesiones quitadas) — publicado…» */
+export function restDayResumen(params: {
+  athlete_name: string;
+  iso_date: string;
+  cleared: number;
+  visibility: WeekVisibility;
+}): string {
+  const n =
+    params.cleared === 1 ? '1 sesión quitada' : `${params.cleared} sesiones quitadas`;
+  return (
+    `${params.athlete_name} · ${longDateEs(params.iso_date)}: día en descanso (${n}) — ` +
+    `${params.visibility.text}.`
+  );
+}
+
 /** «Marc · semana del 18 de agosto: foco «Series de umbral» — publicado: lo ve ya…»
  *  o, al borrarlo: «Marc · semana del 18 de agosto: foco borrado — publicado…» */
 export function focusResumen(params: {

@@ -1,10 +1,10 @@
-// Las escrituras del día: crear una sesión, cambiarle el contenido y moverla.
+// Las escrituras del día: crear, cambiar, mover, quitar una sesión y dejar el
+// día en descanso.
 //
-// Son las tres cosas que el coach hace de pie en el gym («añádele un rodaje el
-// martes», «cámbiale el 5×5 a 3×5 con 2 de RIR», «muévele el jueves al sábado»), y
-// las tres pasan por las MISMAS funciones que el panel: `createDaySession` +
-// `updateAthleteInstanceDay` para el contenido y `rescheduleAssignment` para la
-// fecha. Ni una consulta paralela, así que el conector no puede divergir del panel.
+// Pasan por las MISMAS funciones que el panel: `createDaySession` +
+// `updateAthleteInstanceDay` para el contenido, `rescheduleAssignment` para la
+// fecha, y `clearAthleteSessionScheduled` / `clearAthleteDayScheduled` para
+// quitar. Ni una consulta paralela, así que el conector no puede divergir del panel.
 //
 // LO QUE NO HACE ESTE FICHERO, Y ES DELIBERADO:
 //
@@ -28,15 +28,12 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sql } from '@/lib/db';
 import { coachActor, recordAudit } from '@/lib/audit/record-edit';
-import { buildAthletePlan, type PlanSession } from '@/lib/dashboard/coach/athlete-plan';
+import type { PlanSession } from '@/lib/dashboard/coach/athlete-plan';
 import { createDaySession, DaySessionError } from '@/lib/dashboard/coach/day-sessions';
 import { loadAthleteDayEditor } from '@/lib/dashboard/coach/athlete-day-editor';
 import { updateAthleteInstanceDay } from '@/lib/dashboard/coach/template-instance';
-import { TemplateError } from '@/lib/dashboard/coach/templates';
-import { InvalidAuthoringLineError } from '@/lib/dashboard/v2/editor-serialize';
 import { AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
 import { PLAN_SLOT, rescheduleAssignment } from '@/lib/coach/deep-dive-plan';
-import { prescriptionToText, type Prescription } from '@fahybrid/shared/domain/prescription';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
   athleteIdArg,
@@ -46,48 +43,17 @@ import {
   resolveOwnedAthlete,
   withCoach,
 } from './runtime';
+import { contentBlocksArg, contentGrammar, contentReadback, sessionFormatFor } from './write-content';
 import {
-  ContentError,
-  contentBlocksArg,
-  contentGrammar,
-  contentReadback,
-  contentToSegments,
-  gateContent,
-  normalizeContentBlocks,
-  resolveContentExercises,
-  sessionFormatFor,
-  type ContentBlock,
-  type NormalizedContentBlock,
-} from './write-content';
+  contentWriteError,
+  itemCount,
+  prepareContent,
+  rollbackCreatedSession,
+  snapshotBlocks,
+} from './write-prepare';
 import { moveResumen, weekVisibility, writeResumen } from './shape-write';
-
-const sessionIdArg = z
-  .number()
-  .int()
-  .positive()
-  .describe('El session_id que devuelve get_plan (el assignment_id de esa sesión).');
-
-/** Cómo se avisa de que una sesión con dos candidatas no se ha tocado. */
-function ambiguousDay(params: {
-  athlete_name: string;
-  iso_date: string;
-  sessions: PlanSession[];
-  what: string;
-}) {
-  return ok(
-    {
-      touched: false,
-      iso_date: params.iso_date,
-      sessions: params.sessions.map((s) => ({
-        session_id: s.assignment_id,
-        title: s.title,
-        status: s.status,
-      })),
-    },
-    `${params.athlete_name} tiene ${params.sessions.length} sesiones el ${params.iso_date}: ` +
-      `dime cuál con session_id y ${params.what}. No he tocado nada.`,
-  );
-}
+import { registerClearWriteTools } from './tools-write-clear';
+import { ambiguousDay, findSessionById, sessionIdArg, sessionsOnDate } from './write-resolve';
 
 export function registerWriteTools(server: McpServer): void {
   // ── create_session ─────────────────────────────────────────────────────────
@@ -496,191 +462,6 @@ export function registerWriteTools(server: McpServer): void {
         );
       }),
   );
-}
 
-// ---------------------------------------------------------------------------
-// Piezas compartidas
-// ---------------------------------------------------------------------------
-
-function itemCount(blocks: ContentBlock[]): number {
-  return blocks.reduce((n, b) => n + b.items.length, 0);
-}
-
-/**
- * Los tres portones seguidos, y las filas listas para escribir. Devuelve
- * `{ error }` con una frase accionable en vez de lanzar: un rechazo de dosis no es
- * una excepción, es la respuesta.
- *
- * Lo PRIMERO es normalizar (canónico + plano derivado de la estructura): a partir
- * de ahí todo — completitud, avisos, serialización y lectura de vuelta — habla de
- * `blocks`, la prescripción que de verdad se persiste. Ver la nota de
- * `write-content.ts`.
- */
-async function prepareContent(params: { coach_id: bigint; blocks: ContentBlock[] }): Promise<
-  | { error: string }
-  | {
-      blocks: NormalizedContentBlock[];
-      exercises: Awaited<ReturnType<typeof resolveContentExercises>>;
-      segments: ReturnType<typeof contentToSegments>;
-      avisos: string[];
-    }
-> {
-  let blocks: NormalizedContentBlock[];
-  try {
-    blocks = normalizeContentBlocks(params.blocks);
-  } catch (err) {
-    if (err instanceof ContentError) return { error: err.message };
-    throw err;
-  }
-
-  let exercises: Awaited<ReturnType<typeof resolveContentExercises>>;
-  try {
-    exercises = await resolveContentExercises({ coach_id: params.coach_id, blocks });
-  } catch (err) {
-    if (err instanceof ContentError) return { error: err.message };
-    throw err;
-  }
-
-  const gate = gateContent(blocks, exercises);
-  if (gate.blocking.length > 0) {
-    return {
-      error:
-        'No he escrito nada: hay líneas que el atleta no podría ejecutar. ' +
-        `${gate.blocking.join(' · ')}. Complétalas y vuelve a intentarlo.`,
-    };
-  }
-
-  try {
-    return {
-      blocks,
-      exercises,
-      segments: contentToSegments(blocks, exercises),
-      avisos: gate.avisos,
-    };
-  } catch (err) {
-    if (err instanceof InvalidAuthoringLineError || err instanceof ContentError) {
-      return { error: err.message };
-    }
-    throw err;
-  }
-}
-
-/** El porqué legible de un fallo al escribir contenido, o null si no es de los nuestros. */
-function contentWriteError(err: unknown): string | null {
-  if (err instanceof InvalidAuthoringLineError) return err.message;
-  if (err instanceof TemplateError) return err.message;
-  if (err instanceof ContentError) return err.message;
-  return null;
-}
-
-/**
- * Deshace una sesión recién creada cuyo contenido no se pudo escribir. Solo toca
- * los dos ids que acabamos de crear en esta misma llamada, y ambos con su dueño en
- * el WHERE. Los segmentos de la instancia caen por cascada.
- */
-async function rollbackCreatedSession(params: {
-  coach_id: bigint;
-  athlete_id: number;
-  assignment_id: number;
-  template_id: number;
-}): Promise<void> {
-  await sql`
-    delete from workout_assignments
-    where id = ${params.assignment_id} and athlete_id = ${params.athlete_id}
-  `;
-  await sql`
-    delete from templates
-    where id = ${params.template_id}
-      and coach_id = ${Number(params.coach_id)}
-      and instance_athlete_id = ${params.athlete_id}
-  `;
-}
-
-/** Las sesiones de un día, por el mismo camino que las lee `get_session`. */
-async function sessionsOnDate(params: {
-  coach_id: bigint;
-  athlete_id: number;
-  iso_date: string;
-}): Promise<PlanSession[]> {
-  const plan = await buildAthletePlan({
-    coach_id: params.coach_id,
-    athlete_id: params.athlete_id,
-    view_mode: 'week',
-    anchor_iso: params.iso_date,
-  });
-  return plan.weeks[0]?.days.find((d) => d.iso_date === params.iso_date)?.sessions ?? [];
-}
-
-/**
- * Una sesión por id, con su fecha y su nombre — lo que hace falta para contar de
- * dónde sale al moverla. Scoped al atleta Y al coach: la de otro club se responde
- * igual que una que no existe.
- */
-async function findSessionById(params: {
-  coach_id: bigint;
-  athlete_id: number;
-  assignment_id: number;
-}): Promise<PlanSession | undefined> {
-  const rows = await sql<
-    Array<{ id: string; iso: string; title: string; status: string; format: string | null }>
-  >`
-    select wa.id::text as id,
-           to_char(wa.scheduled_for, 'YYYY-MM-DD') as iso,
-           t.name as title,
-           wa.status::text as status,
-           t.format::text as format
-    from workout_assignments wa
-    join athletes a on a.id = wa.athlete_id
-    left join templates t on t.id = wa.template_id
-    where wa.id = ${params.assignment_id}
-      and wa.athlete_id = ${params.athlete_id}
-      and a.coach_id = ${Number(params.coach_id)}
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return undefined;
-  return {
-    assignment_id: row.id,
-    iso_date: row.iso,
-    title: row.title ?? 'Entreno',
-    dose_lines: [],
-    dose_more: 0,
-    status: row.status as PlanSession['status'],
-    duration_min: null,
-    format: row.format,
-    rpe: null,
-    // Este lector va por assignment_id y no baja a los segmentos: null = «no se
-    // sabe» (quien la necesite pide el plan, que sí la resuelve).
-    modality: null,
-  };
-}
-
-/**
- * El contenido actual de una sesión, en la MISMA forma que acepta la escritura —
- * más la dosis escrita de cada línea, para que el asistente pueda decirle al coach
- * lo que hay hoy sin interpretar la gramática por su cuenta.
- */
-function snapshotBlocks(
-  blocks: Array<{
-    title: string;
-    format: string | null;
-    items: Array<{
-      exercise_id: number | null;
-      exercise_name: string;
-      prescription: Prescription;
-      notes?: string | undefined;
-    }>;
-  }>,
-): Array<Record<string, unknown>> {
-  return blocks.map((block) => ({
-    title: block.title,
-    format: block.format,
-    items: block.items.map((item) => ({
-      exercise_id: item.exercise_id,
-      exercise_name: item.exercise_name,
-      prescription: item.prescription,
-      dose: prescriptionToText(item.prescription).trim() || null,
-      ...(item.notes ? { notes: item.notes } : {}),
-    })),
-  }));
+  registerClearWriteTools(server);
 }

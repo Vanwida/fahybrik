@@ -17,9 +17,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sql } from '@/lib/db';
 import { COMMUNICATION_VIEWS } from '@fahybrid/shared/domain/coach-communications';
 import {
+  deleteCommunication,
   listCommunications,
   listCommunicationsForAthlete,
 } from '@/lib/coach/communications';
+import { CommunicationError } from '@/lib/communications/store';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
   athleteIdArg,
@@ -85,8 +87,53 @@ export function registerCommunicationsTools(server: McpServer): void {
         const rows = await listCommunications({ coach_id, view, sql });
         return ok(
           { view, communications: rows.map(toCommunication), count: rows.length },
-          coachCommsResumen({ view, rows }),
+            coachCommsResumen({ view, rows }),
         );
+      }),
+  );
+
+  // ── archive_communication ──────────────────────────────────────────────────
+  server.registerTool(
+    'archive_communication',
+    {
+      title: 'Archivar un comunicado',
+      description:
+        'Archiva un comunicado publicado (desaparece de la bandeja del atleta; el coach conserva quién lo hizo) o borra un borrador que nadie ha visto. Es IRREVERSIBLE para el atleta: confirma con el entrenador antes de usarla. Solo los comunicados de este club.',
+      inputSchema: {
+        communication_id: z
+          .union([z.string().regex(/^\d+$/), z.number().int().positive()])
+          .describe('El id del comunicado que sale de list_communications.'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id) => {
+        try {
+          const result = await deleteCommunication({
+            coach_id,
+            id: args.communication_id,
+          });
+          const verb = result.outcome === 'archived' ? 'archivado' : 'borrado';
+          return ok(
+            {
+              communication_id: result.id,
+              outcome: result.outcome,
+            },
+            `Comunicado ${verb}.`,
+          );
+        } catch (err) {
+          if (err instanceof CommunicationError) {
+            return fail(
+              'No hay ningún comunicado tuyo con ese identificador. Pide la lista con list_communications.',
+            );
+          }
+          throw err;
+        }
       }),
   );
 }

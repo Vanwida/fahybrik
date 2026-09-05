@@ -40,6 +40,8 @@ function argValue(name: string, athleteId: number): unknown {
       return [athleteId];
     case 'date':
     case 'to_date':
+    case 'start':
+    case 'week_start':
       return '2026-08-11';
     case 'view':
       return 'week';
@@ -58,6 +60,7 @@ function argValue(name: string, athleteId: number): unknown {
           days: [
             {
               weekday: 1,
+              title: 'Rodaje',
               blocks: [{ title: 'Rodaje', items: [{ exercise_id: 1, prescription: RUN_90_Z2 }] }],
             },
           ],
@@ -65,7 +68,15 @@ function argValue(name: string, athleteId: number): unknown {
       ];
     case 'level_id':
     case 'microcycle_id':
+    case 'event_id':
+    case 'communication_id':
       return 1;
+    case 'format':
+      return 'singles';
+    case 'division':
+      return 'open';
+    case 'gender_category':
+      return 'men';
     case 'communication':
       return {
         kind: 'focus',
@@ -143,7 +154,7 @@ describeWithDb('MCP · el portón del add-on (DB real)', () => {
     const { client, close } = await connectAs(sinElClerkId);
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(19);
+      expect(tools).toHaveLength(27);
 
       for (const tool of tools) {
         const required = tool.inputSchema.required ?? [];

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
+import { AthleteLevelError, setAthleteLevel } from '@/lib/dashboard/athletes/level';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,27 +88,17 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const coach_id = Number(session.coach_id);
   const { level_id } = parsed.data;
 
-  // Verify athlete belongs to this coach
-  const athlete = await sql<Array<{ id: string }>>`
-    select id::text from athletes
-    where id = ${athlete_id} and coach_id = ${coach_id}
-    limit 1
-  `;
-  if (!athlete[0]) return jsonError('not_found', 'Atleta no encontrado', 404);
-
-  // Verify the level belongs to this coach
-  const level = await sql<Array<{ id: string }>>`
-    select id::text from athlete_levels
-    where id = ${level_id} and coach_id = ${coach_id}
-    limit 1
-  `;
-  if (!level[0]) return jsonError('not_found', 'Nivel no encontrado o no pertenece a este coach', 404);
-
-  await sql`
-    update athletes
-    set level_id = ${level_id}, level_source = 'coach'
-    where id = ${athlete_id}
-  `;
-
-  return jsonOk({ level_id: level_id.toString(), level_source: 'coach' });
+  try {
+    const written = await setAthleteLevel({
+      coach_id,
+      athlete_id,
+      level_id,
+    });
+    return jsonOk({ level_id: written.level_id, level_source: written.level_source });
+  } catch (err) {
+    if (err instanceof AthleteLevelError) {
+      return jsonError(err.code, err.message, err.status);
+    }
+    throw err;
+  }
 }

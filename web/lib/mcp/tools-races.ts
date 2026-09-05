@@ -12,8 +12,10 @@
 // consultas para contestar algo que no se pregunta.
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { athleteTargetRaceInput } from '@fahybrid/shared/schema';
 import { getAthleteRacesForCoach } from '@/lib/races/coach-races';
 import { buildPredictionReview } from '@/lib/athlete/prediction-review';
+import { setAthleteTargetRace, TargetRaceError } from '@/lib/races/target-race-write';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
   athleteIdArg,
@@ -72,6 +74,68 @@ export function registerRacesTools(server: McpServer): void {
             past: races.past,
           }),
         );
+      }),
+  );
+
+  server.registerTool(
+    'set_target_race',
+    {
+      title: 'Fijar la carrera objetivo del atleta',
+      description:
+        'Fija la carrera OBJETIVO del atleta a partir de un evento del catálogo: formato, división y categoría. Es el mismo acto que el selector de carrera del panel. No inventa una nota: si hay que apuntar algo interno, usa add_note.',
+      inputSchema: {
+        athlete_id: athleteIdArg,
+        event_id: athleteTargetRaceInput.shape.event_id.describe(
+          'El evento del catálogo al que apunta el plan.',
+        ),
+        format: athleteTargetRaceInput.shape.format,
+        division: athleteTargetRaceInput.shape.division,
+        gender_category: athleteTargetRaceInput.shape.gender_category,
+        goal_time_seconds: athleteTargetRaceInput.shape.goal_time_seconds.describe(
+          'Objetivo de tiempo en segundos. Sin esto, sin objetivo de reloj.',
+        ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id) => {
+        const athlete = await resolveOwnedAthlete({ coach_id, athlete_id: args.athlete_id });
+        if (!athlete) return fail(NO_SUCH_ATHLETE_MESSAGE);
+
+        try {
+          const result = await setAthleteTargetRace({
+            athlete_id: args.athlete_id,
+            event_id: args.event_id,
+            format: args.format,
+            division: args.division,
+            gender_category: args.gender_category,
+            goal_time_seconds: args.goal_time_seconds ?? null,
+            require_visible: false,
+          });
+          return ok(
+            {
+              athlete_id: String(args.athlete_id),
+              athlete_name: athlete.full_name,
+              race_id: result.race_id,
+              target_race: result.target_race,
+            },
+            result.target_race
+              ? `${athlete.full_name}: objetivo «${result.target_race.name}».`
+              : `${athlete.full_name}: carrera objetivo fijada.`,
+          );
+        } catch (err) {
+          if (err instanceof TargetRaceError) {
+            return fail(
+              err.code === 'event_not_found' ? 'No encuentro ese evento.' : err.message,
+            );
+          }
+          throw err;
+        }
       }),
   );
 }

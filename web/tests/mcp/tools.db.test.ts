@@ -58,14 +58,18 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
     await closeTestSql();
   });
 
-  test('el servidor anuncia exactamente sus 19 tools, y quién lee y quién escribe', async () => {
+  test('el servidor anuncia exactamente sus tools, y quién lee y quién escribe', async () => {
     const { client, close } = await connectAs(coachAClerkId);
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual([
         'add_note',
+        'archive_communication',
+        'assign_microcycle',
         'create_microcycle',
         'create_session',
+        'delete_microcycle',
+        'delete_session',
         'edit_day',
         'get_athlete',
         'get_briefing',
@@ -80,7 +84,11 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
         'search_library',
         'search_methodology',
         'send_message',
+        'set_athlete_level',
+        'set_rest_day',
+        'set_target_race',
         'set_week_focus',
+        'unpublish_week',
         'update_microcycle',
       ]);
       // El hint de lectura es lo que le dice al cliente que no hace falta pedir
@@ -88,14 +96,21 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
       // justamente para que SÍ la pida antes de tocar o soltar nada.
       const WRITERS = new Set([
         'add_note',
+        'archive_communication',
+        'assign_microcycle',
         'create_microcycle',
-        'create_session',
+        'delete_microcycle',
+        'delete_session',
         'edit_day',
         'move_session',
         'publish_communication',
         'publish_week',
         'send_message',
+        'set_athlete_level',
+        'set_rest_day',
+        'set_target_race',
         'set_week_focus',
+        'unpublish_week',
         'update_microcycle',
       ]);
       for (const t of tools) {

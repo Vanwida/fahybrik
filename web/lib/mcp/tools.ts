@@ -1,5 +1,6 @@
 // Las tools del coach — el club entero (docs/mcp-conector-coach.html): de lectura,
-// y las tres del día que escriben (`tools-write.ts`).
+// las del día que escriben (`tools-write.ts`) y las de paridad (asignar, archivar,
+// ocultar semana, carrera objetivo, nivel).
 //
 // Each tool is a thin mouth over a function the dashboard already calls, reached
 // WITHOUT an HTTP hop: `lib/coach/*` takes `{ coach_id, … }` and is consumed
@@ -34,6 +35,7 @@ import { countUnreadForCoach } from '@/lib/chat/service';
 import { athleteIdArg, ok, withCoach } from './runtime';
 import { registerCommunicationsTools } from './tools-comms';
 import { registerLibraryTools } from './tools-library';
+import { registerAssignTools } from './tools-assign';
 import { registerPlanTools } from './tools-plan';
 import { registerPublishTools } from './tools-publish';
 import { registerRacesTools } from './tools-races';
@@ -154,6 +156,7 @@ export function registerCoachTools(server: McpServer): void {
   // Y las del día que SÍ escriben. Van al final a propósito: el orden en que se
   // registran es el orden en que las lee el asistente, y primero se mira.
   registerWriteTools(server);
+  registerAssignTools(server);
   // Receta de biblioteca, entera. Distinta superficie que el día entregado:
   // escribe program_*_templates, nunca workout_assignments.
   registerMicrocycleTools(server);

@@ -30,6 +30,9 @@ const MONDAY = '2026-08-03';
 const TUESDAY = '2026-08-04';
 const WEDNESDAY = '2026-08-05';
 const THURSDAY = '2026-08-06';
+const FRIDAY = '2026-08-07';
+const SATURDAY = '2026-08-08';
+const SUNDAY = '2026-08-09';
 /** Semana siguiente, la que se deja marcada como BORRADOR a propósito. */
 const NEXT_MONDAY = '2026-08-10';
 const NEXT_TUESDAY = '2026-08-11';
@@ -131,9 +134,17 @@ describeWithDb('MCP · escrituras del día (DB real)', () => {
     try {
       const { tools } = await client.listTools();
       const byName = new Map(tools.map((t) => [t.name, t]));
-      for (const name of ['create_session', 'edit_day', 'move_session']) {
+      for (const name of [
+        'create_session',
+        'edit_day',
+        'move_session',
+        'delete_session',
+        'set_rest_day',
+      ]) {
         expect(byName.has(name), `falta ${name}`).toBe(true);
       }
+      expect(byName.get('delete_session')!.annotations?.destructiveHint).toBe(true);
+      expect(byName.get('set_rest_day')!.annotations?.destructiveHint).toBe(true);
       // La gramática de la dosis viaja en la descripción (para que el cliente la
       // rellene bien) Y el esquema JSON de la prescripción se genera de verdad
       // (es lo que se rompería en silencio si el Zod del dominio no fuera
@@ -599,6 +610,8 @@ describeWithDb('MCP · escrituras del día (DB real)', () => {
           'move_session',
           { athlete_id: clubA.athleteId, from_date: THURSDAY, to_date: '2026-08-07' },
         ],
+        ['delete_session', { athlete_id: clubA.athleteId, date: THURSDAY }],
+        ['set_rest_day', { athlete_id: clubA.athleteId, date: THURSDAY }],
       ];
 
       for (const [name, args] of attempts) {
@@ -615,6 +628,165 @@ describeWithDb('MCP · escrituras del día (DB real)', () => {
       expect(await countAssignments(sql, clubA.athleteId, THURSDAY)).toBe(beforeThursday);
       expect(await countAssignments(sql, clubA.athleteId, '2026-08-07')).toBe(beforeFriday);
       expect(await countAssignments(sql, clubA.athleteId, WEDNESDAY)).toBe(1);
+    } finally {
+      await close();
+    }
+  });
+
+  test('delete_session: quita una pendiente y el día queda en descanso; get_plan queda limpio', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const created = payload(
+        await call(client, 'create_session', {
+          athlete_id: clubA.athleteId,
+          date: FRIDAY,
+          title: 'Tempo',
+          blocks: [
+            { title: 'Tempo', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+          ],
+        }),
+      );
+      const sessionId = Number(created.session_id);
+
+      const deleted = payload(
+        await call(client, 'delete_session', {
+          athlete_id: clubA.athleteId,
+          session_id: sessionId,
+        }),
+      );
+      expect(deleted.kind).toBe('rest');
+      expect(deleted.sessions).toEqual([]);
+      expect(deleted.iso_date).toBe(FRIDAY);
+      expect(deleted._resumen as string).toContain('descanso');
+
+      expect(await countAssignments(sql, clubA.athleteId, FRIDAY)).toBe(0);
+
+      const plan = payload(
+        await call(client, 'get_plan', { athlete_id: clubA.athleteId, view: 'week', anchor: FRIDAY }),
+      );
+      const week = (plan.plan as Json).week as { days: Array<{ iso_date: string; sessions: Json[] }> };
+      const fri = week.days.find((d) => d.iso_date === FRIDAY)!;
+      expect(fri.sessions).toEqual([]);
+
+      const audit = await sql<Array<{ action: string; channel: string }>>`
+        select action::text as action, channel from audit_log
+        where entity_type = 'workout_assignments' and entity_id = ${sessionId}
+          and action = 'delete'
+      `;
+      expect(audit.length).toBeGreaterThanOrEqual(1);
+      expect(audit[0]).toMatchObject({ action: 'delete', channel: 'mcp' });
+    } finally {
+      await close();
+    }
+  });
+
+  test('delete_session: una ya entrenada no se toca', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const created = payload(
+        await call(client, 'create_session', {
+          athlete_id: clubA.athleteId,
+          date: SATURDAY,
+          title: 'Ya hecha',
+          blocks: [
+            { title: 'Rodaje', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+          ],
+        }),
+      );
+      const sessionId = Number(created.session_id);
+      await sql`
+        update workout_assignments set status = 'completed'
+        where id = ${sessionId}
+      `;
+
+      const text = errorText(
+        await call(client, 'delete_session', {
+          athlete_id: clubA.athleteId,
+          session_id: sessionId,
+        }),
+      );
+      expect(text).toContain('ya está entrenada');
+      expect(await countAssignments(sql, clubA.athleteId, SATURDAY)).toBe(1);
+    } finally {
+      await close();
+    }
+  });
+
+  test('delete_session: el día ambiguo lista y no muta', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const first = payload(
+        await call(client, 'create_session', {
+          athlete_id: clubA.athleteId,
+          date: SUNDAY,
+          title: 'Fuerza B',
+          blocks: [
+            { title: 'Rodaje', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+          ],
+        }),
+      );
+      const second = payload(
+        await call(client, 'create_session', {
+          athlete_id: clubA.athleteId,
+          date: SUNDAY,
+          title: 'Rodaje B',
+          blocks: [
+            { title: 'Rodaje', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+          ],
+        }),
+      );
+
+      const ambiguous = payload(
+        await call(client, 'delete_session', { athlete_id: clubA.athleteId, date: SUNDAY }),
+      );
+      expect(ambiguous.touched).toBe(false);
+      expect((ambiguous.sessions as Json[]).map((s) => s.session_id).sort()).toEqual(
+        [String(first.session_id), String(second.session_id)].sort(),
+      );
+      expect(await countAssignments(sql, clubA.athleteId, SUNDAY)).toBe(2);
+    } finally {
+      await close();
+    }
+  });
+
+  test('set_rest_day: el día queda kind rest y sin sesiones pendientes', async () => {
+    const { client, close } = await connectAs(coachAClerkId);
+    try {
+      const restDate = '2026-08-14';
+      await call(client, 'create_session', {
+        athlete_id: clubA.athleteId,
+        date: restDate,
+        title: 'Uno',
+        blocks: [
+          { title: 'Rodaje', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+        ],
+      });
+      await call(client, 'create_session', {
+        athlete_id: clubA.athleteId,
+        date: restDate,
+        title: 'Dos',
+        blocks: [
+          { title: 'Rodaje', items: [{ exercise_id: runExerciseId, prescription: RUN_90_Z2 }] },
+        ],
+      });
+
+      const body = payload(
+        await call(client, 'set_rest_day', { athlete_id: clubA.athleteId, date: restDate }),
+      );
+      expect(body.kind).toBe('rest');
+      expect(body.sessions).toEqual([]);
+      expect(body.cleared).toBe(2);
+      expect(await countAssignments(sql, clubA.athleteId, restDate)).toBe(0);
+
+      const plan = payload(
+        await call(client, 'get_plan', {
+          athlete_id: clubA.athleteId,
+          view: 'week',
+          anchor: restDate,
+        }),
+      );
+      const week = (plan.plan as Json).week as { days: Array<{ iso_date: string; sessions: Json[] }> };
+      expect(week.days.find((d) => d.iso_date === restDate)!.sessions).toEqual([]);
     } finally {
       await close();
     }

@@ -23,6 +23,7 @@ import { buildAthletePlan, type PlanSession } from '@/lib/dashboard/coach/athlet
 import { loadCoachSessionDetail } from '@/lib/coach/session-detail';
 import { loadSessionContentSummaries } from '@/lib/coach/session-content';
 import { coachActor, recordAudit } from '@/lib/audit/record-edit';
+import { AthleteLevelError, setAthleteLevel } from '@/lib/dashboard/athletes/level';
 import { setWeekFocus } from '@/lib/coach/week-focus';
 import {
   NO_SUCH_ATHLETE_MESSAGE,
@@ -245,6 +246,62 @@ export function registerPlanTools(server: McpServer): void {
             visibility,
           }),
         );
+      }),
+  );
+
+  // ── set_athlete_level ──────────────────────────────────────────────────────
+  server.registerTool(
+    'set_athlete_level',
+    {
+      title: 'Asignar el nivel del atleta',
+      description:
+        'Asigna el NIVEL de un atleta (el eje de periodización del club). El level_id tiene que ser de este coach: búscalo con search_library (kind: "level"). No toca el plan ni crea notas.',
+      inputSchema: {
+        athlete_id: athleteIdArg,
+        level_id: z
+          .number()
+          .int()
+          .positive()
+          .describe('El nivel del club. Búscalo con search_library (kind: "level").'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (args, extra) =>
+      withCoach(extra.authInfo, async (coach_id) => {
+        const athlete = await resolveOwnedAthlete({ coach_id, athlete_id: args.athlete_id });
+        if (!athlete) return fail(NO_SUCH_ATHLETE_MESSAGE);
+
+        try {
+          const written = await setAthleteLevel({
+            coach_id,
+            athlete_id: args.athlete_id,
+            level_id: args.level_id,
+          });
+          return ok(
+            {
+              athlete_id: String(args.athlete_id),
+              athlete_name: athlete.full_name,
+              level_id: written.level_id,
+              level_name: written.level_name,
+              level_source: written.level_source,
+            },
+            `${athlete.full_name}: nivel «${written.level_name}».`,
+          );
+        } catch (err) {
+          if (err instanceof AthleteLevelError) {
+            return fail(
+              err.message.includes('Atleta')
+                ? NO_SUCH_ATHLETE_MESSAGE
+                : 'Ese nivel no existe o no es tuyo. Pide los niveles con search_library (kind: "level").',
+            );
+          }
+          throw err;
+        }
       }),
   );
 }
