@@ -6,6 +6,14 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**One-pager de posicionamiento FLEXR vs competidores (5-sep, para Gerard):**
+comparativa honesta FLEXR vs TrueCoach · TrainHeroic · SugarWOD ·
+TrainingPeaks · FITR · Harbiz. Cuña: híbrido/HYROX + IA desde la metodología
+del coach + analítica unificada + app de atleta premium. Competidores validados
+por búsqueda web (estado sep-2026; TrainingPeaks+TrainHeroic ahora bajo Garmin).
+HealthKit hoy; Garmin API/Concept2 = roadmap (Fase 4), marcado como tal.
+Página: `docs/flexr-vs-competitors-one-pager.html`.
+
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con
 `Bundle.main.object(forInfoDictionaryKey:)`. Perfil (iPhone) y el footer idle
