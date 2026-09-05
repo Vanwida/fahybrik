@@ -47,7 +47,9 @@ describe('FH-79 Pico REPLAN UX — un control por superficie, no por celda', () 
     expect(controls).toMatch(/Quitar sesión/);
     expect(controls).toMatch(/Marcar día descanso/);
     expect(controls).toMatch(/assignment_id: params\.assignmentId/);
-    expect(controls).not.toMatch(/undo|5s|5 s/i);
+    expect(controls).toMatch(/RestConfirmDialog/);
+    expect(controls).toMatch(/LifecycleDialog/);
+    expect(controls).not.toMatch(/setTimeout/);
     expect(controls).toMatch(/scheduledCount > 1/);
   });
 });

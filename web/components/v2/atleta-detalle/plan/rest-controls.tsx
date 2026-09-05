@@ -1,7 +1,7 @@
 'use client';
 
 // FH-79 — un control por alcance, no por celda. Sesión (assignment_id) y día
-// (sin id) hablan el mismo PATCH. Confirmación modal: nunca undo de 5 s, nunca
+// (sin id) hablan el mismo PATCH. Confirmación modal (LifecycleDialog), nunca
 // wipe silencioso. Vocabulario: «Quitar sesión» / «Marcar día descanso».
 
 import { useState } from 'react';
