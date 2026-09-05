@@ -99,6 +99,7 @@ describeWithDb('MCP · las tools del atleta (DB real)', () => {
         'archive_communication',
         'assign_microcycle',
         'create_microcycle',
+        'create_session',
         'delete_microcycle',
         'delete_session',
         'edit_day',
