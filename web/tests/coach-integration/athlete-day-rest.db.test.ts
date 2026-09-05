@@ -13,7 +13,10 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { createTemplate } from '@/lib/dashboard/coach/templates';
 import { cloneTemplateAsInstance } from '@/lib/dashboard/coach/template-instance';
-import { clearAthleteDayScheduled } from '@/lib/dashboard/coach/day-sessions';
+import {
+  clearAthleteDayScheduled,
+  clearAthleteSessionScheduled,
+} from '@/lib/dashboard/coach/day-sessions';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeAssignment,
@@ -357,5 +360,99 @@ describeWithDb('athlete-day rest — clear scheduled (real DB)', () => {
     expect(await templateExists(libId)).toBe(true);
     expect(await sql`select * from template_segments where template_id = ${libId} order by position`).toEqual(libSegsBefore);
     expect(await sql`select * from template_segments where template_id = ${b.templateId} order by position`).toEqual(bSegsBefore);
+  });
+
+  test('session — quitar 1 de 2 scheduled; la otra y completed se quedan', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const libId = await seedLibrary(fx);
+    const keep = await forkAndAssign({ fx, libId, athleteId: fx.athleteId, iso: DAY_A });
+    const drop = await forkAndAssign({ fx, libId, athleteId: fx.athleteId, iso: DAY_A });
+    const done = await forkAndAssign({
+      fx, libId, athleteId: fx.athleteId, iso: DAY_A, status: 'completed',
+    });
+
+    const result = await clearAthleteSessionScheduled({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      iso_date: DAY_A,
+      assignment_id: drop.assignmentId,
+      client: sql,
+      actor: ACTOR,
+    });
+    expect(result).toEqual({ cleared: 1, assignment_id: String(drop.assignmentId) });
+    expect(await assignmentIds(fx.athleteId, DAY_A)).toEqual([
+      String(keep.assignmentId),
+      String(done.assignmentId),
+    ]);
+    expect(await templateExists(drop.templateId)).toBe(false);
+    expect(await templateExists(keep.templateId)).toBe(true);
+    expect(await templateExists(done.templateId)).toBe(true);
+
+    const trail = await sql<Array<{ action: string; diff_json: unknown }>>`
+      select action::text, diff_json
+      from audit_log
+      where entity_type = 'workout_assignments' and entity_id = ${drop.assignmentId}
+      order by created_at desc limit 1
+    `;
+    expect(trail[0]!.action).toBe('delete');
+    expect(trail[0]!.diff_json).toMatchObject({
+      athlete_id: fx.athleteId,
+      iso_date: DAY_A,
+      kind: 'rest',
+      cleared: 1,
+      assignment_id: String(drop.assignmentId),
+    });
+  });
+
+  test('session — completed intacto: 409 y no borra', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const libId = await seedLibrary(fx);
+    const done = await forkAndAssign({
+      fx, libId, athleteId: fx.athleteId, iso: DAY_A, status: 'completed',
+    });
+
+    await expect(
+      clearAthleteSessionScheduled({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        iso_date: DAY_A,
+        assignment_id: done.assignmentId,
+        client: sql,
+        actor: ACTOR,
+      }),
+    ).rejects.toMatchObject({ name: 'DaySessionError', code: 'not_pending', status: 409 });
+    expect(await assignmentIds(fx.athleteId, DAY_A)).toEqual([String(done.assignmentId)]);
+    expect(await templateExists(done.templateId)).toBe(true);
+  });
+
+  test('session — 404 si el id no es de este día', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+    const libId = await seedLibrary(fx);
+    const otherDay = await forkAndAssign({ fx, libId, athleteId: fx.athleteId, iso: DAY_B });
+
+    await expect(
+      clearAthleteSessionScheduled({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        iso_date: DAY_A,
+        assignment_id: otherDay.assignmentId,
+        client: sql,
+        actor: ACTOR,
+      }),
+    ).rejects.toMatchObject({ name: 'DaySessionError', code: 'not_found', status: 404 });
+    await expect(
+      clearAthleteSessionScheduled({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        iso_date: DAY_A,
+        assignment_id: 9_000_000_001,
+        client: sql,
+        actor: ACTOR,
+      }),
+    ).rejects.toMatchObject({ name: 'DaySessionError', code: 'not_found', status: 404 });
+    expect(await assignmentIds(fx.athleteId, DAY_B)).toEqual([String(otherDay.assignmentId)]);
   });
 });

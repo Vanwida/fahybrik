@@ -6,20 +6,21 @@
 // endpoint so isolation holds. A day with multiple sessions stacks one editor per
 // session; an empty day shows an honest empty state.
 //
-// Quitar entreno / descanso: llama al PATCH { kind: 'rest' } — NO guarda el
-// SessionEditor con bloques vacíos (eso reescribe segmentos y deja la asignación).
+// FH-79: dos controles de alcance distinto. Cabecera = «Marcar día descanso»
+// (primitiva día, confirm «¿Quitar todas?» si N>1). Cada SessionEditor scheduled
+// = «Quitar esta sesión» (primitiva sesión). Nunca wipe silencioso.
 
-import { useState } from 'react';
-import { Link, useRouter } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SessionEditor } from '@/components/v2/editor/SessionEditor';
 import type { AthleteDayEditorData } from '@/lib/dashboard/coach/athlete-day-editor';
 import { RunZonesProvider } from '@/components/v2/editor/run-zones-context';
+import { MarcarDiaDescansoButton, QuitarEstaSesionButton } from './plan/rest-controls';
 
 export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData }) {
   const multi = data.sessions.length > 1;
-  const hasScheduled = data.sessions.some((s) => s.status === 'scheduled');
+  const scheduledCount = data.sessions.filter((s) => s.status === 'scheduled').length;
 
   return (
     // La regla del ritmo: this is the ONE surface with a real athlete behind the
@@ -42,8 +43,12 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
           <h1 className="v2-display text-2xl capitalize text-[color:var(--v2-fg)] sm:text-3xl">
             {data.day_label}
           </h1>
-          {hasScheduled ? (
-            <QuitarEntrenoButton athleteId={data.athlete_id} isoDate={data.iso_date} />
+          {scheduledCount > 0 ? (
+            <MarcarDiaDescansoButton
+              athleteId={data.athlete_id}
+              isoDate={data.iso_date}
+              scheduledCount={scheduledCount}
+            />
           ) : null}
         </div>
       </div>
@@ -66,12 +71,23 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
       ) : (
         data.sessions.map((s, i) => (
           <section key={s.template_id} className="flex flex-col gap-2.5">
-            {multi ? (
-              <h2 className="v2-micro">
-                Sesión {i + 1}
-                {s.title ? ` · ${s.title}` : ''}
-              </h2>
-            ) : null}
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              {multi ? (
+                <h2 className="v2-micro">
+                  Sesión {i + 1}
+                  {s.title ? ` · ${s.title}` : ''}
+                </h2>
+              ) : (
+                <span />
+              )}
+              {s.status === 'scheduled' ? (
+                <QuitarEstaSesionButton
+                  athleteId={data.athlete_id}
+                  isoDate={data.iso_date}
+                  assignmentId={s.assignment_id}
+                />
+              ) : null}
+            </div>
             <SessionEditor
               model={s.model}
               back={null}
@@ -86,59 +102,5 @@ export function AthleteDayEditorScreen({ data }: { data: AthleteDayEditorData })
       )}
     </div>
     </RunZonesProvider>
-  );
-}
-
-function QuitarEntrenoButton({
-  athleteId,
-  isoDate,
-}: {
-  athleteId: string;
-  isoDate: string;
-}) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function quitar() {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/coach/athletes/${athleteId}/plan/day/${isoDate}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind: 'rest' }),
-      });
-      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-      if (!res.ok) {
-        setError(body?.error?.message ?? 'No se pudo quitar el entreno');
-        return;
-      }
-      router.refresh();
-    } catch {
-      setError('No se pudo quitar el entreno');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={() => void quitar()}
-        disabled={busy}
-        aria-label="Quitar entreno"
-        className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3.5 text-sm font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)] disabled:opacity-50"
-      >
-        <MIcon name="bedtime" size={16} />
-        {busy ? 'Quitando…' : 'Quitar entreno'}
-      </button>
-      {error ? (
-        <p className="text-xs font-semibold text-[color:var(--v2-danger)]">{error}</p>
-      ) : null}
-    </div>
   );
 }

@@ -2,7 +2,12 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { coachActor } from '@/lib/audit/record-edit';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
-import { clearAthleteDayScheduled, DaySessionError } from '@/lib/dashboard/coach/day-sessions';
+import { parseRestWrite } from '@/lib/dashboard/coach/day-rest-write';
+import {
+  clearAthleteDayScheduled,
+  clearAthleteSessionScheduled,
+  DaySessionError,
+} from '@/lib/dashboard/coach/day-sessions';
 import { updateAthleteInstanceDay } from '@/lib/dashboard/coach/template-instance';
 import { TemplateError } from '@/lib/dashboard/coach/templates';
 import { InvalidAuthoringLineError } from '@/lib/dashboard/v2/editor-serialize';
@@ -12,23 +17,12 @@ export const dynamic = 'force-dynamic';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * `{ kind: 'rest' }` sin `template_id` / `segments` → primitiva de descanso
- * (quita scheduled). Mezclar rest con el path de contenido es 400: no se
- * reescribe la instancia vacía fingiendo un descanso.
- */
-function restWriteRequested(payload: unknown): 'rest' | 'mixed' | null {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
-  const rec = payload as Record<string, unknown>;
-  if (rec.kind !== 'rest') return null;
-  if ('template_id' in rec || 'segments' in rec) return 'mixed';
-  return 'rest';
-}
-
 // PATCH /api/coach/athletes/[id]/plan/day/[date]
-// Two writes, separated:
-//   · { kind: 'rest' } — clear this athlete's scheduled assignments that day.
+// Three writes, separated:
+//   · { kind: 'rest' } — primitiva DÍA (todas las scheduled).
+//   · { kind: 'rest', assignment_id } — primitiva SESIÓN (una).
 //   · { template_id, name?, segments } — rewrite the instance's template_segments.
+// Rest + segments/template_id = 400. assignment_id inválido = 400.
 export async function PATCH(
   request: Request,
   ctx: { params: Promise<{ id: string; date: string }> },
@@ -48,17 +42,20 @@ export async function PATCH(
     return jsonError('bad_request', 'JSON inválido', 400);
   }
 
-  const restKind = restWriteRequested(payload);
-  if (restKind === 'mixed') {
+  const restWrite = parseRestWrite(payload);
+  if (restWrite.status === 'mixed') {
     return jsonError(
       'bad_request',
-      'Descanso y contenido no van en el mismo body — usa { kind: "rest" } sin template_id',
+      'Descanso y contenido no van en el mismo body — usa { kind: "rest" } sin template_id ni segments',
       400,
     );
   }
+  if (restWrite.status === 'bad_assignment') {
+    return jsonError('bad_request', 'assignment_id inválido', 400);
+  }
 
   try {
-    if (restKind === 'rest') {
+    if (restWrite.status === 'day') {
       const result = await clearAthleteDayScheduled({
         coach_id: session.coach_id,
         athlete_id: Number(parsedId.data.id),
@@ -66,6 +63,21 @@ export async function PATCH(
         actor: coachActor(session),
       });
       return jsonOk({ ok: true, kind: 'rest', cleared: result.cleared });
+    }
+    if (restWrite.status === 'session') {
+      const result = await clearAthleteSessionScheduled({
+        coach_id: session.coach_id,
+        athlete_id: Number(parsedId.data.id),
+        iso_date: date,
+        assignment_id: restWrite.assignment_id,
+        actor: coachActor(session),
+      });
+      return jsonOk({
+        ok: true,
+        kind: 'rest',
+        assignment_id: result.assignment_id,
+        cleared: result.cleared,
+      });
     }
 
     const result = await updateAthleteInstanceDay({

@@ -3,7 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
+import { recordAudit, type Actor, type AuditChannel, type DbClient } from '@/lib/audit/record-edit';
 import { createAuthoredInstance, cloneTemplateAsInstance } from './template-instance';
 
 /** Formato de una sesión autorada cuyo autor no dice ninguno: la tabla de series. */
@@ -269,15 +269,61 @@ export async function createDaySession(params: {
   return { assignment_id: ins[0]!.id, template_id: templateId };
 }
 
+async function deleteOrphanInstances(
+  tx: DbClient,
+  coachId: number,
+  athleteId: number,
+  templateIds: number[],
+): Promise<void> {
+  const ids = [...new Set(templateIds.filter((id) => Number.isFinite(id)))];
+  if (ids.length === 0) return;
+  await tx`
+    delete from templates t
+    where t.id in ${tx(ids)}
+      and t.coach_id = ${coachId}
+      and t.instance_athlete_id = ${athleteId}
+      and not exists (
+        select 1 from workout_assignments wa
+        where wa.template_id = t.id
+      )
+  `;
+}
+
+async function recordRestAudit(
+  tx: DbClient,
+  params: {
+    actor: Actor;
+    channel?: AuditChannel;
+    athlete_id: number;
+    iso_date: string;
+    assignmentIds: number[];
+    assignment_id?: number;
+  },
+): Promise<void> {
+  await recordAudit(tx, {
+    entity_type: 'workout_assignments',
+    entity_id: BigInt(params.assignmentIds[0]!),
+    action: 'delete',
+    actor: params.actor,
+    channel: params.channel,
+    diff: {
+      athlete_id: params.athlete_id,
+      iso_date: params.iso_date,
+      kind: 'rest',
+      cleared: params.assignmentIds.length,
+      assignment_ids: params.assignmentIds.map(String),
+      ...(params.assignment_id != null ? { assignment_id: String(params.assignment_id) } : {}),
+    },
+  });
+}
+
 /**
- * Descanso del atleta = cero asignaciones `scheduled` ese día.
+ * Primitiva DÍA: cero asignaciones `scheduled` ese día.
  *
  * No hay `kind:'rest'` en la instancia: el PATCH de contenido solo reescribe
- * `template_segments` y deja la asignación. Esta primitiva es el write-path que
- * faltaba. No toca completed/partial/missed/skipped ni `origin='self'`. No filtra
- * por `notes like 'slot:%'` (eso es el prune de materializar plantilla). No llama
- * a `resyncWeekTemplateAssignments` (eso reescribe el grupo). No muta la receta
- * ni reescribe segmentos.
+ * `template_segments` y deja la asignación. No toca completed/partial/missed/
+ * skipped ni `origin='self'`. No filtra por `notes like 'slot:%'`. No llama a
+ * `resyncWeekTemplateAssignments`. No muta la receta ni reescribe segmentos.
  *
  * Las instancias huérfanas se borran con la misma guarda de dueño que
  * `rollbackCreatedSession` (coach + instance_athlete_id) y solo si ya no las
@@ -323,38 +369,116 @@ export async function clearAthleteDayScheduled(params: {
     }
 
     const assignmentIds = pending.map((row) => Number(row.id));
-    const templateIds = [
-      ...new Set(pending.map((row) => Number(row.template_id)).filter((id) => Number.isFinite(id))),
-    ];
-
-    if (templateIds.length > 0) {
-      await tx`
-        delete from templates t
-        where t.id in ${tx(templateIds)}
-          and t.coach_id = ${Number(params.coach_id)}
-          and t.instance_athlete_id = ${params.athlete_id}
-          and not exists (
-            select 1 from workout_assignments wa
-            where wa.template_id = t.id
-          )
-      `;
-    }
-
-    await recordAudit(tx, {
-      entity_type: 'workout_assignments',
-      entity_id: BigInt(assignmentIds[0]!),
-      action: 'delete',
+    await deleteOrphanInstances(
+      tx,
+      Number(params.coach_id),
+      params.athlete_id,
+      pending.map((row) => Number(row.template_id)),
+    );
+    await recordRestAudit(tx, {
       actor: params.actor,
       channel: params.channel,
-      diff: {
-        athlete_id: params.athlete_id,
-        iso_date: params.iso_date,
-        kind: 'rest',
-        cleared: assignmentIds.length,
-        assignment_ids: assignmentIds.map(String),
-      },
+      athlete_id: params.athlete_id,
+      iso_date: params.iso_date,
+      assignmentIds,
     });
 
     return { cleared: assignmentIds.length };
+  });
+}
+
+/**
+ * Primitiva SESIÓN: una asignación `scheduled` por `assignment_id`.
+ *
+ * Misma frontera que el día (no self, no completed, no resync, no segmentos).
+ * 404 si no existe en ese atleta+día. 409 si existe y no está pendiente.
+ */
+export async function clearAthleteSessionScheduled(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  iso_date: string;
+  assignment_id: number;
+  actor: Actor;
+  channel?: AuditChannel;
+  client?: Sql;
+}): Promise<{ cleared: number; assignment_id: string }> {
+  const client = params.client ?? defaultSql;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.iso_date)) {
+    throw new DaySessionError('bad_request', 'Fecha inválida', 400);
+  }
+  parseIsoDate(params.iso_date);
+
+  await assertCoachOwnsAthlete({
+    client,
+    coach_id: params.coach_id,
+    athlete_id: params.athlete_id,
+  });
+
+  return client.begin(async (tx) => {
+    const found = await tx<
+      Array<{
+        id: string;
+        template_id: string;
+        status: string;
+        origin: string;
+        iso_date: string;
+      }>
+    >`
+      select
+        wa.id::text as id,
+        wa.template_id::text as template_id,
+        wa.status::text as status,
+        coalesce(wa.origin, 'coach') as origin,
+        to_char(wa.scheduled_for, 'YYYY-MM-DD') as iso_date
+      from workout_assignments wa
+      where wa.id = ${params.assignment_id}
+        and wa.athlete_id = ${params.athlete_id}
+      limit 1
+    `;
+    const row = found[0];
+    if (!row || row.iso_date !== params.iso_date) {
+      throw new DaySessionError('not_found', 'Entreno no encontrado', 404);
+    }
+    if (row.status !== 'scheduled' || row.origin === 'self') {
+      throw new DaySessionError(
+        'not_pending',
+        'Ese entreno no está pendiente — no se puede quitar',
+        409,
+      );
+    }
+
+    const deleted = await tx<Array<{ id: string; template_id: string }>>`
+      delete from workout_assignments
+      where id = ${params.assignment_id}
+        and athlete_id = ${params.athlete_id}
+        and scheduled_for = ${params.iso_date}::date
+        and status = 'scheduled'
+        and coalesce(origin, 'coach') <> 'self'
+      returning id::text as id, template_id::text as template_id
+    `;
+    if (deleted.length === 0) {
+      throw new DaySessionError(
+        'not_pending',
+        'Ese entreno no está pendiente — no se puede quitar',
+        409,
+      );
+    }
+
+    await deleteOrphanInstances(
+      tx,
+      Number(params.coach_id),
+      params.athlete_id,
+      deleted.map((d) => Number(d.template_id)),
+    );
+    await recordRestAudit(tx, {
+      actor: params.actor,
+      channel: params.channel,
+      athlete_id: params.athlete_id,
+      iso_date: params.iso_date,
+      assignmentIds: [params.assignment_id],
+      assignment_id: params.assignment_id,
+    });
+
+    return { cleared: 1, assignment_id: String(params.assignment_id) };
   });
 }

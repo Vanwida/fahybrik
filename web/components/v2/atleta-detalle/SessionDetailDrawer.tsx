@@ -33,6 +33,7 @@ import {
 import type { RunComplianceSummary, RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import { QuitarEstaSesionButton } from './plan/rest-controls';
 
 const STATUS_META: Record<
   CoachSessionDetail['status'],
@@ -359,6 +360,16 @@ export function SessionDetailDrawer({
             </div>
           )}
         </div>
+        {detail?.status === 'scheduled' ? (
+          <footer className="border-t border-[color:var(--v2-border)] px-5 py-3">
+            <QuitarEstaSesionButton
+              athleteId={athleteId}
+              isoDate={detail.iso_date}
+              assignmentId={assignmentId}
+              onDone={onClose}
+            />
+          </footer>
+        ) : null}
             </aside>,
             portalTarget,
           )
