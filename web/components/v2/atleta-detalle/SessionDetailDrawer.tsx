@@ -34,6 +34,7 @@ import type { RunComplianceSummary, RunComplianceVerdict } from '@fahybrid/share
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import { QuitarEstaSesionButton } from './plan/rest-controls';
+import { shouldShowDrawerSessionRemove } from '@/lib/dashboard/v2/ficha-resumen';
 
 const STATUS_META: Record<
   CoachSessionDetail['status'],
@@ -99,6 +100,8 @@ export function SessionDetailDrawer({
   assignmentId,
   onClose,
   onInvalid,
+  isoDate: isoDateFromPlan = null,
+  planStatus = null,
 }: {
   athleteId: string;
   assignmentId: string;
@@ -109,6 +112,11 @@ export function SessionDetailDrawer({
    *  válido y el coach espera poder reintentar. Opcional — sin ella, ambos
    *  casos caen al mismo aviso de error de siempre. */
   onInvalid?: () => void;
+  /** Fecha de la fila del plan — el PATCH de sesión la necesita aunque el
+   *  detalle aún no haya contestado (o falle). */
+  isoDate?: string | null;
+  /** Status de la misma fila. El canvas ya lo tiene; no se espera al GET. */
+  planStatus?: CoachSessionDetail['status'] | null;
 }) {
   const [detail, setDetail] = useState<CoachSessionDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -167,6 +175,12 @@ export function SessionDetailDrawer({
   }
   const hasAnyActual = (detail?.segment_actuals.length ?? 0) > 0;
   const isCompleted = detail?.status === 'completed' || detail?.execution != null;
+  const isoDate = detail?.iso_date ?? isoDateFromPlan;
+  const showSessionRemove = shouldShowDrawerSessionRemove({
+    detailStatus: detail?.status,
+    planStatus,
+    isoDate,
+  });
 
   // Per-tramo running-compliance verdicts, keyed to each logged lap (`uid#position`).
   const verdictByLap = new Map<string, RunComplianceVerdict>();
@@ -360,13 +374,16 @@ export function SessionDetailDrawer({
             </div>
           )}
         </div>
-        {detail?.status === 'scheduled' ? (
+        {showSessionRemove && isoDate ? (
           <footer className="border-t border-[color:var(--v2-border)] px-5 py-3">
             <QuitarEstaSesionButton
               athleteId={athleteId}
-              isoDate={detail.iso_date}
+              isoDate={isoDate}
               assignmentId={assignmentId}
               onDone={onClose}
+              label="Quitar sesión"
+              ariaLabel="Quitar esta sesión"
+              hint="Quitar esta sesión. Las otras del mismo día se quedan."
             />
           </footer>
         ) : null}

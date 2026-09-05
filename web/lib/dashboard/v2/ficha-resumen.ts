@@ -67,6 +67,32 @@ export function sesionesDelDia(day: PlanDay, todayIso: string): SesionVista[] {
   }));
 }
 
+/** Drawer: si el detalle ya respondió, manda él. Si no, el plan de la ficha
+ *  (el canvas ya sabe si la sesión está pending). Sin fecha no hay PATCH. */
+export function shouldShowDrawerSessionRemove(input: {
+  detailStatus?: string | null;
+  planStatus?: string | null;
+  isoDate?: string | null;
+}): boolean {
+  const status = input.detailStatus ?? input.planStatus;
+  const iso = input.isoDate;
+  return status === 'scheduled' && typeof iso === 'string' && iso.length > 0;
+}
+
+/** Fila del plan para un assignment_id. El drawer la usa para no esperar al GET. */
+export function sesionPorId(
+  weeks: ReadonlyArray<{ days: ReadonlyArray<{ sessions: readonly PlanSession[] }> }>,
+  assignmentId: string,
+): PlanSession | null {
+  for (const week of weeks) {
+    for (const day of week.days) {
+      const hit = day.sessions.find((s) => s.assignment_id === assignmentId);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
 export function buildPendientes(detalle: V2AthleteDetalle): Pendiente[] {
   const id = detalle.header.athlete_id;
   const out: Pendiente[] = [];

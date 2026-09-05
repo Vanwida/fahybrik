@@ -28,6 +28,7 @@ import {
   planRelationCopy,
   planWeekRelation,
 } from '@fahybrid/shared/domain/coach/honest-week';
+import { sesionPorId } from '@/lib/dashboard/v2/ficha-resumen';
 import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { cn } from '@/lib/utils';
 
@@ -178,6 +179,7 @@ export function PlanTab({
   const viewedRail = activeWeek
     ? (railWeeks.find((w) => w.week_start === activeWeek.week_start) ?? null)
     : null;
+  const openRow = openSession ? sesionPorId(plan.weeks, openSession) : null;
 
   return (
     <>
@@ -373,6 +375,8 @@ export function PlanTab({
           key={openSession}
           athleteId={athlete_id}
           assignmentId={openSession}
+          isoDate={openRow?.iso_date ?? null}
+          planStatus={openRow?.status ?? null}
           onClose={() => openSessionSynced(null)}
           onInvalid={() => openSessionSynced(null)}
         />

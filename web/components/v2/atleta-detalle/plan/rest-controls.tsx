@@ -92,11 +92,17 @@ export function QuitarEstaSesionButton({
   isoDate,
   assignmentId,
   onDone,
+  label = 'Quitar esta sesión',
+  ariaLabel = 'Quitar esta sesión',
+  hint = 'Solo esta sesión. Las otras del mismo día se quedan.',
 }: {
   athleteId: string;
   isoDate: string;
   assignmentId: string;
   onDone?: () => void;
+  label?: string;
+  ariaLabel?: string;
+  hint?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -128,15 +134,13 @@ export function QuitarEstaSesionButton({
           setOpen(true);
         }}
         disabled={busy}
-        aria-label="Quitar esta sesión"
+        aria-label={ariaLabel}
         className={cn(DIALOG_OUTLINE_CLS, 'disabled:opacity-50')}
       >
         <MIcon name="delete" size={16} />
-        Quitar esta sesión
+        {label}
       </button>
-      <p className="text-xs text-[color:var(--v2-muted)]">
-        Solo esta sesión. Las otras del mismo día se quedan.
-      </p>
+      <p className="text-xs text-[color:var(--v2-muted)]">{hint}</p>
       {open ? (
         <RestConfirmDialog
           title="¿Quitar esta sesión?"

@@ -108,7 +108,10 @@ export function SemanaCanvas({
       {focus ? <div className="px-4 pt-3">{focus}</div> : null}
 
       {paintDays ? (
-        <div className="grid grid-cols-1 gap-2.5 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7">
+        <div
+          data-semana-canvas
+          className="grid grid-cols-1 gap-2.5 px-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-7"
+        >
           {week.days.map((d, i) => (
             <DiaCol
               key={d.iso_date}
@@ -128,6 +131,36 @@ export function SemanaCanvas({
         </div>
       )}
     </FichaCard>
+  );
+}
+
+/** Cabecera de celda: solo el día. Sin ids, sin clicks — no puede crecer un
+ *  control de alcance. Las acciones viven en el drawer y el editor. */
+function DiaColHeader({
+  short,
+  iso,
+  isToday,
+}: {
+  short: string;
+  iso: string;
+  isToday: boolean;
+}) {
+  return (
+    <div
+      data-dia-col-header
+      className="flex items-center gap-1.5 border-b border-[color:var(--v2-border)] px-2.5 py-2"
+    >
+      <span className="v2-micro text-[10px]">
+        {short} {dayNumber(iso)}
+      </span>
+      <div className="ml-auto flex items-center gap-1">
+        {isToday ? (
+          <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[color:var(--v2-accent-fg)]">
+            Hoy
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -161,21 +194,13 @@ function DiaCol({
         (day.is_today || tieneActiva) && 'border-[1.5px] border-[color:var(--v2-fg)]',
       )}
     >
-      <div className="flex items-center gap-1.5 border-b border-[color:var(--v2-border)] px-2.5 py-2">
-        <span className="v2-micro text-[10px]">
-          {short} {dayNumber(day.iso_date)}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          {day.is_today ? (
-            <span className="inline-flex items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[color:var(--v2-accent-fg)]">
-              Hoy
-            </span>
-          ) : null}
-        </div>
-      </div>
+      <DiaColHeader short={short} iso={day.iso_date} isToday={day.is_today} />
       <div className="flex flex-1 flex-col gap-1.5 px-2.5 py-2">
         {vacio ? (
-          <span className="flex flex-1 items-center justify-center text-[12.5px] font-semibold text-[color:var(--v2-faint)]">
+          <span
+            data-descanso-pasivo
+            className="flex flex-1 items-center justify-center text-[12.5px] font-semibold text-[color:var(--v2-faint)]"
+          >
             Descanso
           </span>
         ) : (
