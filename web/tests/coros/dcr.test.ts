@@ -53,7 +53,7 @@ describe('COROS MCP DCR', () => {
   });
 
   it('registers a public MCP client (measured 201 shape: auth none, no secret)', async () => {
-    const fetchImpl = vi.fn(async () =>
+    const fetchImpl: typeof fetch = vi.fn(async () =>
       new Response(
         JSON.stringify({
           client_id: '11111111-2222-4333-8444-555555555555',
@@ -71,12 +71,14 @@ describe('COROS MCP DCR', () => {
       registrationEndpoint: COROS_MCP_OAUTH.register,
       redirectUri: 'https://app.fahybrid.com/api/coros/callback',
       scopes: 'openid mcp.tools offline_access',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     });
     expect(client.clientId).toBe('11111111-2222-4333-8444-555555555555');
     expect(client.clientSecret).toBe('');
     expect(client.tokenEndpointAuthMethod).toBe('none');
-    const posted = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
+    const calls = vi.mocked(fetchImpl).mock.calls;
+    const postedInit = calls[0]?.[1];
+    const posted = JSON.parse(String(postedInit && 'body' in postedInit ? postedInit.body : '')) as {
       token_endpoint_auth_method: string;
       client_name: string;
     };
