@@ -1,17 +1,15 @@
 import Foundation
 
-// Athlete wearable integrations (currently Polar). Mirrors MeService: a thin enum
-// over APIClient, snake_case wire fields decoded to camelCase by the shared decoder.
+// Athlete wearable integrations (Polar + COROS MCP). Thin enum over APIClient.
 //
 // Contract (bearer-authed):
 //   GET  api/athlete/wearables
-//        → { "providers": [ { "provider", "connected", "connected_at" } ] }
-//   POST api/athlete/wearables/polar/connect-url
-//        → 200 { "url": "https://…" }  ·  503 { "error": "polar_not_configured" }
-//
-// Decode is deliberately tolerant: the providers array may be empty, and unknown
-// providers are ignored (callers filter to the one they care about). @LossyArray
-// drops any malformed row instead of throwing the whole response.
+//        → { "providers": [...], "pending_links": [...] }
+//   POST api/athlete/wearables/{polar|coros}/connect-url
+//        → 200 { "url": "https://…" }  ·  503 { "error": "*_not_configured" }
+//   POST api/athlete/wearables/coros/sync
+//   POST api/athlete/wearables/coros/disconnect
+//   POST api/athlete/wearables/coros/confirm  { confirmation_id, answer }
 
 /// One provider's connection state. `connected_at` is optional (absent until linked).
 struct WearableProvider: Decodable, Equatable {
@@ -20,8 +18,16 @@ struct WearableProvider: Decodable, Equatable {
     let connectedAt: String?
 }
 
+struct WearablePendingLink: Decodable, Equatable {
+    let confirmationId: String
+    let provider: String
+    let sourceWorkoutRef: String
+    let startedAt: String?
+}
+
 struct WearablesResponse: Decodable {
     @LossyArray var providers: [WearableProvider]
+    @LossyArray var pendingLinks: [WearablePendingLink]
 }
 
 /// The authorize URL the athlete opens to start the provider OAuth.
@@ -29,29 +35,52 @@ private struct WearableConnectURL: Decodable {
     let url: String
 }
 
-enum WearablesService {
-    /// Provider key for Polar — single source of truth for the filter + the endpoint.
-    static let polar = "polar"
+private struct CorosConfirmBody: Encodable {
+    let confirmationId: String
+    let answer: String
+}
 
-    static func fetch(bearer: String) async throws -> [WearableProvider] {
-        let resp: WearablesResponse = try await APIClient.shared.get(
+enum WearablesService {
+    static let polar = "polar"
+    static let coros = "coros"
+
+    static func fetch(bearer: String) async throws -> WearablesResponse {
+        try await APIClient.shared.get(
             path: "api/athlete/wearables",
             bearer: bearer
         )
-        return resp.providers
     }
 
-    /// Starts the Polar OAuth: the backend returns the authorize URL to open in an
-    /// in-app browser. When Polar isn't configured the backend returns 503, which
-    /// surfaces here as `APIError.http(503, _)` for the caller to message.
     static func polarConnectURL(bearer: String) async throws -> URL {
-        let resp: WearableConnectURL = try await APIClient.shared.post(
-            path: "api/athlete/wearables/\(polar)/connect-url",
+        try await connectURL(provider: polar, bearer: bearer)
+    }
+
+    static func corosConnectURL(bearer: String) async throws -> URL {
+        try await connectURL(provider: coros, bearer: bearer)
+    }
+
+    static func corosSync(bearer: String) async throws -> WearablesResponse {
+        try await APIClient.shared.post(
+            path: "api/athlete/wearables/\(coros)/sync",
             body: Empty(),
             bearer: bearer
         )
-        guard let url = URL(string: resp.url) else { throw APIError.invalidResponse }
-        return url
+    }
+
+    static func corosDisconnect(bearer: String) async throws {
+        try await APIClient.shared.postRaw(
+            path: "api/athlete/wearables/\(coros)/disconnect",
+            body: Empty(),
+            bearer: bearer
+        )
+    }
+
+    static func corosConfirm(bearer: String, confirmationId: String, yes: Bool) async throws {
+        try await APIClient.shared.postRaw(
+            path: "api/athlete/wearables/\(coros)/confirm",
+            body: CorosConfirmBody(confirmationId: confirmationId, answer: yes ? "yes" : "no"),
+            bearer: bearer
+        )
     }
 
     /// Email y código para vincular la app del reloj Garmin, para enseñárselos al
@@ -71,6 +100,16 @@ enum WearablesService {
             body: Empty(),
             bearer: bearer
         )
+    }
+
+    private static func connectURL(provider: String, bearer: String) async throws -> URL {
+        let resp: WearableConnectURL = try await APIClient.shared.post(
+            path: "api/athlete/wearables/\(provider)/connect-url",
+            body: Empty(),
+            bearer: bearer
+        )
+        guard let url = URL(string: resp.url) else { throw APIError.invalidResponse }
+        return url
     }
 }
 

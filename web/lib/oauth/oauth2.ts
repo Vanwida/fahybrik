@@ -122,6 +122,42 @@ export async function refreshAccessToken(params: {
   });
 }
 
+/** RFC 7009 token revocation. Best-effort: a dead token still counts as revoked. */
+export async function revokeToken(params: {
+  revokeEndpoint: string;
+  clientId: string;
+  clientSecret: string;
+  token: string;
+  tokenTypeHint?: 'access_token' | 'refresh_token';
+  basicAuth?: boolean;
+}): Promise<void> {
+  const form: Record<string, string> = { token: params.token };
+  if (params.tokenTypeHint) form.token_type_hint = params.tokenTypeHint;
+  if (!params.basicAuth) {
+    form.client_id = params.clientId;
+    form.client_secret = params.clientSecret;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const headers: Record<string, string> = {
+    'content-type': 'application/x-www-form-urlencoded',
+    accept: 'application/json',
+  };
+  if (params.basicAuth) {
+    headers.authorization = basicAuthHeader(params.clientId, params.clientSecret);
+  }
+  try {
+    await fetch(params.revokeEndpoint, {
+      method: 'POST',
+      headers,
+      body: new URLSearchParams(form).toString(),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Build the HTTP Basic Authorization header value for client_secret_basic.
 function basicAuthHeader(clientId: string, clientSecret: string): string {
   return `Basic ${Buffer.from(`${clientId}:${clientSecret}`, 'utf8').toString('base64')}`;

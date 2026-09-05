@@ -80,9 +80,12 @@ import { findOverlappingExecution } from '@/lib/sync/execution-time-dedupe';
 import { encodePolyline } from '@/lib/sync/polyline';
 import { deriveLapIntensity } from '@/lib/garmin/lap-mapping';
 import type { CanonicalActivity, CanonicalLap } from './canonical';
+import type { BiometricSource } from '@fahybrid/shared/schema/_primitives';
 
-/** El aparato que hay detrás de un import FIT — ver friction #1 arriba. */
-const FIT_DEVICE_SOURCE = 'garmin';
+/** El aparato que hay detrás de un import FIT — ver friction #1 arriba.
+ *  COROS MCP pasa `source: 'coros'`; el importador de fichero Garmin sigue
+ *  usando el defecto. No se fuerza garmin cuando el reloj es COROS. */
+const DEFAULT_FIT_SOURCE: BiometricSource = 'garmin';
 
 /** Filas por sentencia al insertar muestras de pulso (mismo tope que
  *  `ingest-healthkit.ts`: un lote normal cabe en una, y protege de una
@@ -143,8 +146,11 @@ export async function materializeFitActivity(args: {
   /** Por defecto sí: una actividad importada es una sesión con zonas. El
    *  backfill masivo lo apaga, igual que en el espejo de HealthKit. */
   computeZones?: boolean;
+  /** Aparato que midió. Defecto garmin (importador de fichero). COROS MCP pasa 'coros'. */
+  source?: BiometricSource;
 }): Promise<FitMaterializeResult> {
   const { sql, athlete_id, activity } = args;
+  const deviceSource = args.source ?? DEFAULT_FIT_SOURCE;
   const id = athlete_id as unknown as number;
 
   assertCoherentWindow(activity);
@@ -229,7 +235,7 @@ export async function materializeFitActivity(args: {
         ${activity.started_at.toISOString()}::timestamptz,
         ${activity.ended_at.toISOString()}::timestamptz,
         ${wallSeconds},
-        ${FIT_DEVICE_SOURCE}::biometric_source,
+        ${deviceSource}::biometric_source,
         ${activity.source_ref},
         'imported'::execution_recording_method,
         ${intOrNull(activity.avg_hr, 30, 260)},
@@ -248,10 +254,17 @@ export async function materializeFitActivity(args: {
     // detalle (mismo fallback que el espejo de HealthKit). ──────────────────
     if (validLaps.length > 0) {
       for (let i = 0; i < validLaps.length; i++) {
-        await insertLapSegment({ tx, executionId, position: i, lap: validLaps[i]!, modality: activity.modality });
+        await insertLapSegment({
+          tx,
+          executionId,
+          position: i,
+          lap: validLaps[i]!,
+          modality: activity.modality,
+          source: deviceSource,
+        });
       }
     } else {
-      await insertSummarySegment({ tx, executionId, activity });
+      await insertSummarySegment({ tx, executionId, activity, source: deviceSource });
     }
 
     // ── Ruta GPS: mismo formato exacto que `record-workout-execution.ts`
@@ -281,7 +294,13 @@ export async function materializeFitActivity(args: {
         ) as has_samples
       `;
       if (!existingHr[0]!.has_samples) {
-        await insertHrSamples({ tx, athleteId: id, sourceRef: activity.source_ref, samples: activity.hr_samples });
+        await insertHrSamples({
+          tx,
+          athleteId: id,
+          sourceRef: activity.source_ref,
+          samples: activity.hr_samples,
+          source: deviceSource,
+        });
       }
     }
 
@@ -309,8 +328,9 @@ async function insertLapSegment(args: {
   position: number;
   lap: CanonicalLap;
   modality: CanonicalActivity['modality'];
+  source: BiometricSource;
 }): Promise<void> {
-  const { tx, executionId, position, lap, modality } = args;
+  const { tx, executionId, position, lap, modality, source } = args;
   // El pace se deriva con el timer time del lap (`duration_s`, sin pausas)
   // cuando el fichero lo trae; si no, con el tiempo de pared del propio lap.
   // Preferir el timer time es lo que hace que un lap con auto-pausa no salga
@@ -342,7 +362,7 @@ async function insertLapSegment(args: {
       ${modality},
       ${avgPace ?? null},
       ${intensity.run_cadence_spm},
-      ${FIT_DEVICE_SOURCE},
+      ${source},
       'session'
     )
   `;
@@ -354,8 +374,9 @@ async function insertSummarySegment(args: {
   tx: TransactionClient;
   executionId: string;
   activity: CanonicalActivity;
+  source: BiometricSource;
 }): Promise<void> {
-  const { tx, executionId, activity } = args;
+  const { tx, executionId, activity, source } = args;
   const paceKm =
     activity.modality === 'run' &&
     activity.distance_m != null &&
@@ -381,7 +402,7 @@ async function insertSummarySegment(args: {
       ${intOrNull(activity.max_hr, 30, 260)},
       ${activity.modality},
       ${paceKm},
-      ${FIT_DEVICE_SOURCE},
+      ${source},
       'session'
     )
   `;
@@ -395,8 +416,9 @@ async function insertHrSamples(args: {
   athleteId: number;
   sourceRef: string;
   samples: CanonicalActivity['hr_samples'];
+  source: BiometricSource;
 }): Promise<void> {
-  const { tx, athleteId, sourceRef, samples } = args;
+  const { tx, athleteId, sourceRef, samples, source } = args;
   for (let i = 0; i < samples.length; i += HR_SAMPLE_INSERT_CHUNK) {
     const chunk = samples.slice(i, i + HR_SAMPLE_INSERT_CHUNK);
     await tx`
@@ -406,7 +428,7 @@ async function insertHrSamples(args: {
       )
       select
         ${athleteId},
-        ${FIT_DEVICE_SOURCE}::biometric_source,
+        ${source}::biometric_source,
         ${sourceRef},
         'hr'::biometric_metric,
         t.at::timestamptz,

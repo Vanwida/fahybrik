@@ -35,6 +35,8 @@ type StatePayload = {
   nonce: string;
   // Unix seconds; rejected on read if past.
   expires_at: number;
+  // PKCE S256 verifier (COROS MCP). Polar ignores this field.
+  code_verifier?: string;
 };
 
 export function stateCookieName(provider: WearableProvider): string {
@@ -47,6 +49,7 @@ export function buildStateCookie(params: {
   provider: WearableProvider;
   athlete_id: bigint;
   secure: boolean;
+  code_verifier?: string;
 }): { cookie: string; state: string } {
   const nonce = randomBytes(NONCE_BYTES).toString('hex');
   const payload: StatePayload = {
@@ -54,6 +57,7 @@ export function buildStateCookie(params: {
     provider: params.provider,
     nonce,
     expires_at: Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE_SECONDS,
+    ...(params.code_verifier ? { code_verifier: params.code_verifier } : {}),
   };
   const value = encrypt(JSON.stringify(payload)).toString('base64url');
   const attrs = [
@@ -75,7 +79,7 @@ export function readStateCookie(params: {
   provider: WearableProvider;
   cookieHeader: string | null;
   state: string;
-}): { athlete_id: bigint } | null {
+}): { athlete_id: bigint; code_verifier?: string } | null {
   if (!params.cookieHeader || !params.state) return null;
   const raw = extractCookie(params.cookieHeader, stateCookieName(params.provider));
   if (!raw) return null;
@@ -97,7 +101,12 @@ export function readStateCookie(params: {
   if (payload.nonce !== params.state) return null;
   if (typeof payload.athlete_id !== 'string' || !/^\d+$/.test(payload.athlete_id)) return null;
 
-  return { athlete_id: BigInt(payload.athlete_id) };
+  return {
+    athlete_id: BigInt(payload.athlete_id),
+    ...(typeof payload.code_verifier === 'string' && payload.code_verifier.length > 0
+      ? { code_verifier: payload.code_verifier }
+      : {}),
+  };
 }
 
 // Clears the cookie (post-exchange or on error).

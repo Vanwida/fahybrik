@@ -56,4 +56,21 @@ final class WearablesServiceTests: XCTestCase {
         let resp = try decode(#"{"providers":[{"provider":"polar","connected":null}]}"#)
         XCTAssertEqual(resp.providers.first?.connected, false)
     }
+
+    func testDecodesCorosAndPendingLink() throws {
+        let resp = try decode(#"""
+        {"providers":[{"provider":"coros","connected":true,"connected_at":"2026-09-05T10:00:00Z"}],
+         "pending_links":[{"confirmation_id":"3","provider":"coros","source_workout_ref":"coros:99","started_at":"2026-09-05T08:00:00Z"}]}
+        """#)
+        XCTAssertEqual(resp.providers.first?.provider, WearablesService.coros)
+        XCTAssertEqual(resp.providers.first?.connected, true)
+        XCTAssertEqual(resp.pendingLinks.count, 1)
+        XCTAssertEqual(resp.pendingLinks.first?.confirmationId, "3")
+        XCTAssertEqual(resp.pendingLinks.first?.sourceWorkoutRef, "coros:99")
+    }
+
+    func testAbsentPendingLinksKeyDecodesEmpty() throws {
+        let resp = try decode(#"{"providers":[{"provider":"coros","connected":false}]}"#)
+        XCTAssertTrue(resp.pendingLinks.isEmpty)
+    }
 }

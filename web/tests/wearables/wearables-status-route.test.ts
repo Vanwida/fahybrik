@@ -6,9 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/athlete-session', () => ({ getAthleteSessionFromBearer: vi.fn() }));
 vi.mock('@/lib/wearables/status', () => ({ listWearableConnections: vi.fn() }));
+vi.mock('@/lib/sync/coros-link', () => ({ listPendingCorosLinks: vi.fn() }));
+vi.mock('@/lib/db', () => ({ sql: {} }));
 
 const { getAthleteSessionFromBearer } = await import('@/lib/auth/athlete-session');
 const { listWearableConnections } = await import('@/lib/wearables/status');
+const { listPendingCorosLinks } = await import('@/lib/sync/coros-link');
 const { GET } = await import('@/app/api/athlete/wearables/route');
 
 const SESSION = { athlete_id: BigInt(7) } as unknown as NonNullable<
@@ -21,7 +24,10 @@ function req(withAuth = true): Request {
   });
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(listPendingCorosLinks).mockResolvedValue([]);
+});
 
 describe('GET /api/athlete/wearables', () => {
   it('401 without a bearer', async () => {
@@ -38,7 +44,7 @@ describe('GET /api/athlete/wearables', () => {
 
     const res = await GET(req());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ providers });
+    expect(await res.json()).toEqual({ providers, pending_links: [] });
     expect(listWearableConnections).toHaveBeenCalledWith({ athlete_id: BigInt(7) });
   });
 
@@ -47,6 +53,6 @@ describe('GET /api/athlete/wearables', () => {
     vi.mocked(listWearableConnections).mockResolvedValue([]);
     const res = await GET(req());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ providers: [] });
+    expect(await res.json()).toEqual({ providers: [], pending_links: [] });
   });
 });

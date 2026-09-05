@@ -22,11 +22,14 @@ export interface HubProps {
   healthShowRevokeHint: boolean;
   polarConnected: boolean;
   polarConnecting: boolean;
+  corosConnected: boolean;
+  corosConnecting: boolean;
   pm5Remembered: string | null;
   onWatchToggle: (next: boolean) => void;
   onHealthToggle: (next: boolean) => void;
   onGarmin: () => void;
   onPolar: () => void;
+  onCoros: () => void;
   onPM5: () => void;
 }
 
@@ -68,6 +71,8 @@ export function Hub(props: HubProps) {
           <AppleHealthRow {...props} />
           <Hairline />
           <PolarRow {...props} />
+          <Hairline />
+          <CorosRow {...props} />
           <Hairline />
           {/* Amazfit entra por Apple Salud, no por una conexión nuestra: el
               interruptor está en Zepp. Informativo a propósito. */}
@@ -183,6 +188,32 @@ function PolarRow({ polarConnected, polarConnecting, onPolar }: HubProps) {
         polarConnecting ? (
           <Spinner />
         ) : polarConnected ? (
+          <StatusPill text="conectada" color="var(--twin-ok)" />
+        ) : (
+          <PillAndChevron text="conectar" color="var(--twin-accent-text)" />
+        )
+      }
+    />
+  );
+}
+
+/** Misma fila que Polar: sin vincular abre OAuth; vinculada enseña estado. */
+function CorosRow({ corosConnected, corosConnecting, onCoros }: HubProps) {
+  return (
+    <DeviceRow
+      icon="watch.analog"
+      title="COROS"
+      subtitle={
+        corosConnected
+          ? 'Lee tus entrenos. El plan no baja al reloj.'
+          : 'Conecta tu cuenta para sincronizar tus entrenos'
+      }
+      onTap={corosConnecting ? undefined : onCoros}
+      ariaLabel={`COROS, ${corosConnected ? 'conectada' : 'conectar'}`}
+      trailing={
+        corosConnecting ? (
+          <Spinner />
+        ) : corosConnected ? (
           <StatusPill text="conectada" color="var(--twin-ok)" />
         ) : (
           <PillAndChevron text="conectar" color="var(--twin-accent-text)" />

@@ -1,25 +1,23 @@
-// COROS Open API (OAuth 2.0) endpoint config + env-gating helpers.
+// COROS MCP (https://mcp.coros.com/mcp) — OAuth 2.0 self-service + pull.
 //
-// Production credentials are gated on COROS developer-program approval. Until
-// the env vars are provisioned, /api/coros/* endpoints return 503 with a clear
-// message rather than a 500 — mirrors lib/garmin/config.ts gatedResponse.
-//
-// GROUND TRUTH (verified against COROS official sources):
-//   - OAuth 2.0 Authorization Code, confidential client (secret server-side).
-//   - Authorize endpoint is public and confirmed live:
-//       https://open.coros.com/oauth2/authorize
-//   - The TOKEN endpoint is NOT public — it lives in COROS's private API
-//     Reference Guide. We therefore do NOT hardcode a guessed URL: it is read
-//     from COROS_TOKEN_URL, defaulting to the conventional path below but
-//     treated as TO-CONFIRM. Override it in env once COROS confirms.
-//   - COROS does NOT use OAuth scopes; access is gated by approved "API
-//     functions". So the connect flow sends NO scope param.
+// This is NOT the Partner Open API (open.coros.com) and is NOT the Partner
+// webhook path. MCP publishes OAuth metadata at
+// https://mcp.coros.com/.well-known/oauth-authorization-server (regional
+// redirect to mcpus / mcpeu / mcpcn). Required Vercel env:
+//   COROS_CLIENT_ID, COROS_CLIENT_SECRET, COROS_OAUTH_CALLBACK_URL, ENCRYPTION_KEY
+// Optional overrides: COROS_MCP_URL, COROS_AUTHORIZE_URL, COROS_TOKEN_URL,
+// COROS_REVOKE_URL. Partner COROS_TOKEN_URL / COROS_WEBHOOK_SECRET are ignored.
 
-export const COROS_ENDPOINTS = {
-  // Public + confirmed live.
-  authorize: 'https://open.coros.com/oauth2/authorize',
-  // TO-CONFIRM (private docs). Overridable via COROS_TOKEN_URL.
-  token: 'https://open.coros.com/oauth2/token',
+export const COROS_MCP_URL_DEFAULT = 'https://mcp.coros.com/mcp';
+export const COROS_MCP_SCOPES = 'openid mcp.tools offline_access';
+export const COROS_FIT_DAILY_CAP = 50;
+
+// Fallbacks from the live well-known document (mcp.coros.com redirects by
+// region). Override via env when COROS publishes a different host.
+export const COROS_MCP_OAUTH = {
+  authorize: 'https://mcp.coros.com/oauth2/authorize',
+  token: 'https://mcp.coros.com/oauth2/token',
+  revoke: 'https://mcp.coros.com/oauth2/revoke',
 } as const;
 
 export type CorosConfig = {
@@ -27,11 +25,10 @@ export type CorosConfig = {
   clientSecret: string;
   authorizeEndpoint: string;
   tokenEndpoint: string;
+  revokeEndpoint: string;
   callbackUrl: string;
-  // Optional shared secret used to verify inbound webhook signatures. When
-  // unset, the webhook accepts unsigned requests (acceptable for the COROS
-  // "Service Status Check URL" and during pre-approval bring-up).
-  webhookSecret?: string;
+  mcpUrl: string;
+  scopes: string;
 };
 
 export type CorosConfigResult =
@@ -42,7 +39,6 @@ export function loadCorosConfig(): CorosConfigResult {
   const clientId = process.env.COROS_CLIENT_ID;
   const clientSecret = process.env.COROS_CLIENT_SECRET;
   const callbackUrl = process.env.COROS_OAUTH_CALLBACK_URL;
-  const webhookSecret = process.env.COROS_WEBHOOK_SECRET;
 
   const missing: string[] = [];
   if (!clientId) missing.push('COROS_CLIENT_ID');
@@ -55,12 +51,12 @@ export function loadCorosConfig(): CorosConfigResult {
     config: {
       clientId: clientId!,
       clientSecret: clientSecret!,
-      authorizeEndpoint: COROS_ENDPOINTS.authorize,
-      // COROS_TOKEN_URL is optional; default to the conventional path but treat
-      // it as TO-CONFIRM (see file header).
-      tokenEndpoint: process.env.COROS_TOKEN_URL || COROS_ENDPOINTS.token,
+      authorizeEndpoint: process.env.COROS_AUTHORIZE_URL || COROS_MCP_OAUTH.authorize,
+      tokenEndpoint: process.env.COROS_TOKEN_URL || COROS_MCP_OAUTH.token,
+      revokeEndpoint: process.env.COROS_REVOKE_URL || COROS_MCP_OAUTH.revoke,
       callbackUrl: callbackUrl!,
-      webhookSecret: webhookSecret && webhookSecret.length > 0 ? webhookSecret : undefined,
+      mcpUrl: process.env.COROS_MCP_URL || COROS_MCP_URL_DEFAULT,
+      scopes: process.env.COROS_SCOPES || COROS_MCP_SCOPES,
     },
   };
 }
@@ -70,9 +66,8 @@ export function corosGatedResponse(missing: string[]): Response {
     JSON.stringify({
       error: 'coros_not_configured',
       message:
-        'COROS Open API integration is gated on developer-program approval. Required env vars are missing.',
+        'COROS MCP OAuth is not configured. Set COROS_CLIENT_ID, COROS_CLIENT_SECRET, COROS_OAUTH_CALLBACK_URL and ENCRYPTION_KEY. MCP is self-service — no Partner webhook.',
       missing_env: missing,
-      docs: '/docs/coros_oauth.md',
     }),
     { status: 503, headers: { 'content-type': 'application/json' } },
   );

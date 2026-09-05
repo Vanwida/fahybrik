@@ -1,16 +1,15 @@
-// GET /api/coros/connect?athlete_id=<id>
+// GET /api/coros/connect?token=<connect-token>
 //
-// Initiates a COROS OAuth 2.0 authorization-code flow. On success, redirects the
-// browser to COROS's authorize page with a CSRF `state` carried in an encrypted
-// HttpOnly cookie; on developer-program gating (env vars missing) returns 503.
-//
-// COROS does NOT use OAuth scopes (access is gated by approved API functions),
-// so we send NO scope param. Mirrors /api/garmin/connect route shape.
+// Starts COROS MCP OAuth (PKCE S256). The athlete is identified ONLY by the
+// signed token from POST /api/athlete/wearables/coros/connect-url. A raw
+// athlete_id query param is rejected.
 
 import { corosGatedResponse, loadCorosConfig } from '@/lib/coros/config';
+import { createPkcePair } from '@/lib/coros/pkce';
 import { buildAuthorizeUrl } from '@/lib/oauth/oauth2';
 import { buildStateCookie } from '@/lib/oauth/state';
 import { isCryptoConfigured } from '@/lib/crypto/aes-gcm';
+import { verifyConnectToken } from '@/lib/wearables/connect-token';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,33 +18,38 @@ const COROS_PROVIDER = 'coros' as const;
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const athlete_id_raw = url.searchParams.get('athlete_id');
-  if (!athlete_id_raw || !/^\d+$/.test(athlete_id_raw)) {
-    return jsonError(400, 'invalid_athlete_id', 'athlete_id query param is required and must be numeric');
+  if (url.searchParams.has('athlete_id') && !url.searchParams.get('token')) {
+    return jsonError(400, 'invalid_token', 'token query param is required');
   }
-  const athlete_id = BigInt(athlete_id_raw);
+  const token = url.searchParams.get('token');
+  if (!token) {
+    return jsonError(400, 'invalid_token', 'token query param is required');
+  }
 
   const cfg = loadCorosConfig();
   if (!cfg.ok) return corosGatedResponse(cfg.missing);
 
-  // We persist the CSRF state in an encrypted cookie for the callback to verify,
-  // so ENCRYPTION_KEY must be set before we begin.
   if (!isCryptoConfigured()) {
     return jsonError(
       503,
       'encryption_not_configured',
-      'ENCRYPTION_KEY env var is required to begin the COROS OAuth flow. See /docs/coros_setup.md.',
+      'ENCRYPTION_KEY env var is required to begin the COROS OAuth flow.',
     );
   }
 
+  const verified = verifyConnectToken({ token, provider: COROS_PROVIDER });
+  if (!verified.ok) {
+    return jsonError(400, 'invalid_token', 'token is invalid or expired');
+  }
+  const athlete_id = verified.athlete_id;
   const secure = isSecureRequest(request, url);
+  const pkce = createPkcePair();
 
-  // Encrypted, HttpOnly, SameSite=Lax state cookie. `state` is the CSRF nonce we
-  // echo into the authorize URL and verify on the callback.
   const { cookie, state } = buildStateCookie({
     provider: COROS_PROVIDER,
     athlete_id,
     secure,
+    code_verifier: pkce.verifier,
   });
 
   const authorizeUrl = buildAuthorizeUrl({
@@ -53,7 +57,11 @@ export async function GET(request: Request): Promise<Response> {
     clientId: cfg.config.clientId,
     redirectUri: cfg.config.callbackUrl,
     state,
-    // No scope: COROS gates access by approved API functions, not OAuth scopes.
+    scope: cfg.config.scopes,
+    extraParams: {
+      code_challenge: pkce.challenge,
+      code_challenge_method: 'S256',
+    },
   });
 
   return new Response(null, {
@@ -62,8 +70,6 @@ export async function GET(request: Request): Promise<Response> {
   });
 }
 
-// Secure when the request is HTTPS. Behind a proxy (Vercel) the inbound URL may
-// be http while the public URL is https, so honor x-forwarded-proto too.
 function isSecureRequest(request: Request, url: URL): boolean {
   if (url.protocol === 'https:') return true;
   const fwd = request.headers.get('x-forwarded-proto');

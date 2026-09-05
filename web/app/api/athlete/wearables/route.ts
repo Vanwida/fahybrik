@@ -11,6 +11,8 @@
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { listWearableConnections } from '@/lib/wearables/status';
+import { listPendingCorosLinks } from '@/lib/sync/coros-link';
+import { sql } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +23,9 @@ export async function GET(req: Request) {
     return jsonError('unauthorized', 'Athlete bearer required', 401);
   }
 
-  const providers = await listWearableConnections({ athlete_id: session.athlete_id });
-  return jsonOk({ providers });
+  const [providers, pending_links] = await Promise.all([
+    listWearableConnections({ athlete_id: session.athlete_id }),
+    listPendingCorosLinks({ sql, athlete_id: session.athlete_id }),
+  ]);
+  return jsonOk({ providers, pending_links });
 }

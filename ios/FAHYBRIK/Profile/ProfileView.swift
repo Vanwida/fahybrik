@@ -40,6 +40,7 @@ struct ProfileView: View {
     // opening Perfil renders instantly from memory — no redaction flash, no
     // re-fetch on a tab switch; the store revalidates in the background.
     @Environment(AppDataStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
 
     private var identity: AthleteIdentity? { store.identity.value }
     private var partner: PartnerInfo? { store.partner.value?.partner }
@@ -109,6 +110,19 @@ struct ProfileView: View {
     @State private var polarConnecting: Bool = false
     @State private var polarSafari: SafariURL? = nil
     @State private var polarAlert: String? = nil
+
+    // COROS MCP: same OAuth tube as Polar (SFSafariViewController), plus
+    // pull-on-open / «Sincronizar ahora», disconnect (revoke token, keep historial)
+    // and the Sí/No «¿esto es el entreno?» ask. Watch is not required here.
+    @State private var corosConnected: Bool = false
+    @State private var corosConnecting: Bool = false
+    @State private var corosSyncing: Bool = false
+    @State private var corosSafari: SafariURL? = nil
+    @State private var corosAlert: String? = nil
+    @State private var showCorosActions: Bool = false
+    @State private var showCorosDisconnectConfirm: Bool = false
+    @State private var showCorosLinkAsk: Bool = false
+    @State private var corosPendingLink: WearablePendingLink? = nil
 
     private enum SheetKind: String, Identifiable {
         case methodology
@@ -216,7 +230,8 @@ struct ProfileView: View {
             }
             await store.loadProfile()
             await loadRaces()
-            await loadPolar()
+            await loadWearables()
+            await pullCorosIfConnected()
             // El histórico corre en silencio. Cero pixeles extra bajo el toggle.
             if healthConnected {
                 let importer = HealthKitHistoryImporter.shared
@@ -271,13 +286,57 @@ struct ProfileView: View {
         }
         // Polar OAuth in an in-app browser; the callback lands on a web page (not the
         // app), so re-fetch the wearables status when the sheet closes.
-        .sheet(item: $polarSafari, onDismiss: { Task { await loadPolar() } }) { item in
+        .sheet(item: $polarSafari, onDismiss: { Task { await loadWearables() } }) { item in
+            SafariView(url: item.url).ignoresSafeArea()
+        }
+        .sheet(item: $corosSafari, onDismiss: { Task { await loadWearables(); await pullCorosIfConnected() } }) { item in
             SafariView(url: item.url).ignoresSafeArea()
         }
         .alert("Polar", isPresented: polarAlertBinding, presenting: polarAlert) { _ in
             Button("Entendido", role: .cancel) {}
         } message: { message in
             Text(message)
+        }
+        .alert("COROS", isPresented: corosAlertBinding, presenting: corosAlert) { _ in
+            Button("Entendido", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
+        .confirmationDialog(
+            "COROS",
+            isPresented: $showCorosActions,
+            titleVisibility: .visible
+        ) {
+            Button("Sincronizar ahora") { Task { await syncCoros() } }
+            Button("Desconectar", role: .destructive) { showCorosDisconnectConfirm = true }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Tus entrenos ya importados se quedan en el historial si desconectas.")
+        }
+        .confirmationDialog(
+            "¿Desconectar COROS?",
+            isPresented: $showCorosDisconnectConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Desconectar", role: .destructive) { Task { await disconnectCoros() } }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Revocamos el acceso a tu cuenta COROS. El historial ya importado se conserva.")
+        }
+        .confirmationDialog(
+            "¿Esto es el entreno?",
+            isPresented: $showCorosLinkAsk,
+            titleVisibility: .visible
+        ) {
+            Button("Sí") { Task { await answerCorosLink(yes: true) } }
+            Button("No") { Task { await answerCorosLink(yes: false) } }
+            Button("Ahora no", role: .cancel) {}
+        } message: {
+            Text("Hay un entreno previsto hoy y una actividad nueva en COROS. Si dices que no, la actividad queda en el historial y el plan no se toca.")
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await pullCorosIfConnected() }
         }
         .confirmationDialog(
             "¿Desconectar Apple Salud?",
@@ -800,6 +859,8 @@ struct ProfileView: View {
                 Hairline()
                 polarRow
                 Hairline()
+                corosRow
+                Hairline()
                 // Amazfit entra por Apple Salud, no por una conexión nuestra: la app
                 // Zepp sincroniza ahí y nuestra ingesta de HealthKit no filtra por
                 // aplicación de origen, así que esos entrenos ya llegan. Informativo
@@ -924,12 +985,19 @@ struct ProfileView: View {
         Binding(get: { polarAlert != nil }, set: { if !$0 { polarAlert = nil } })
     }
 
-    /// Reads the wearables status and reflects Polar's connected flag. Silent on
-    /// failure — the row simply stays "conectar".
-    private func loadPolar() async {
+    /// Reads the wearables status and reflects Polar + COROS. Silent on
+    /// failure — the rows simply stay "conectar".
+    private func loadWearables() async {
         guard let bearer else { return }
-        guard let providers = try? await WearablesService.fetch(bearer: bearer) else { return }
-        polarConnected = providers.first { $0.provider == WearablesService.polar }?.connected ?? false
+        guard let resp = try? await WearablesService.fetch(bearer: bearer) else { return }
+        polarConnected = resp.providers.first { $0.provider == WearablesService.polar }?.connected ?? false
+        corosConnected = resp.providers.first { $0.provider == WearablesService.coros }?.connected ?? false
+        if let next = resp.pendingLinks.first(where: { $0.provider == WearablesService.coros }) {
+            corosPendingLink = next
+            showCorosLinkAsk = true
+        } else {
+            corosPendingLink = nil
+        }
     }
 
     /// Requests the Polar OAuth URL and opens it in-app. 503 (not configured) and
@@ -945,6 +1013,135 @@ struct ProfileView: View {
             polarAlert = "Polar no está disponible todavía. Vuelve a intentarlo más adelante."
         } catch {
             polarAlert = "No pudimos conectar con Polar. Revisa tu conexión e inténtalo de nuevo."
+        }
+    }
+
+    // MARK: - COROS
+
+    private var corosRow: some View {
+        Button {
+            if corosConnected {
+                showCorosActions = true
+                return
+            }
+            guard !corosConnecting else { return }
+            Haptics.light()
+            Task { await connectCoros() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "watch.analog")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.Color.accentText)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("COROS")
+                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(corosRowSubtitle)
+                        .scaledFont(11, relativeTo: .caption2)
+                        .foregroundStyle(Theme.Color.muted)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if corosConnecting || corosSyncing {
+                    ProgressView().tint(Theme.Color.accentText)
+                } else {
+                    Text(corosConnected ? "conectada" : "conectar")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(corosConnected ? Theme.Color.ok : Theme.Color.accentText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background((corosConnected ? Theme.Color.ok : Theme.Color.accentText).opacity(0.15))
+                        .clipShape(Capsule())
+                    if !corosConnected {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.Color.faint)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+        .disabled(corosConnecting || corosSyncing || bearer == nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("COROS, \(corosConnected ? "conectada" : "conectar")")
+        .accessibilityHint(corosConnected ? "Sincronizar o desconectar" : "Toca para conectar tu cuenta COROS")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var corosRowSubtitle: String {
+        if corosSyncing { return "Sincronizando tus entrenos…" }
+        if corosConnected { return "Lee tus entrenos. El plan no baja al reloj." }
+        return "Conecta tu cuenta para sincronizar tus entrenos"
+    }
+
+    private var corosAlertBinding: Binding<Bool> {
+        Binding(get: { corosAlert != nil }, set: { if !$0 { corosAlert = nil } })
+    }
+
+    private func connectCoros() async {
+        guard let bearer, !corosConnecting else { return }
+        corosConnecting = true
+        defer { corosConnecting = false }
+        do {
+            corosSafari = SafariURL(url: try await WearablesService.corosConnectURL(bearer: bearer))
+        } catch let APIError.http(status, _) where status == 503 {
+            corosAlert = "COROS no está disponible todavía. Vuelve a intentarlo más adelante."
+        } catch {
+            corosAlert = "No pudimos conectar con COROS. Revisa tu conexión e inténtalo de nuevo."
+        }
+    }
+
+    private func pullCorosIfConnected() async {
+        guard corosConnected, !corosSyncing else { return }
+        await syncCoros()
+    }
+
+    private func syncCoros() async {
+        guard let bearer, !corosSyncing else { return }
+        corosSyncing = true
+        defer { corosSyncing = false }
+        do {
+            let resp = try await WearablesService.corosSync(bearer: bearer)
+            corosConnected = resp.providers.first { $0.provider == WearablesService.coros }?.connected ?? corosConnected
+            if let next = resp.pendingLinks.first(where: { $0.provider == WearablesService.coros }) {
+                corosPendingLink = next
+                showCorosLinkAsk = true
+            } else {
+                corosPendingLink = nil
+                await loadWearables()
+            }
+        } catch {
+            await loadWearables()
+        }
+    }
+
+    private func disconnectCoros() async {
+        guard let bearer else { return }
+        do {
+            try await WearablesService.corosDisconnect(bearer: bearer)
+            corosConnected = false
+            corosPendingLink = nil
+        } catch {
+            corosAlert = "No pudimos desconectar COROS. Inténtalo de nuevo."
+        }
+    }
+
+    private func answerCorosLink(yes: Bool) async {
+        guard let bearer, let link = corosPendingLink else { return }
+        do {
+            try await WearablesService.corosConfirm(
+                bearer: bearer,
+                confirmationId: link.confirmationId,
+                yes: yes
+            )
+            corosPendingLink = nil
+            await loadWearables()
+        } catch {
+            corosAlert = "No pudimos guardar tu respuesta. Inténtalo de nuevo."
         }
     }
 

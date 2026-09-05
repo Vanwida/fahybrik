@@ -53,8 +53,7 @@ export async function GET(): Promise<Response> {
     JSON.stringify({
       status: 'ok',
       service: 'FAHYBRID',
-      // `configured` false = seguimos esperando las credenciales de COROS. No es un
-      // fallo nuestro y por eso no baja el código HTTP.
+      // `configured` false = faltan COROS_CLIENT_ID / SECRET / CALLBACK (MCP self-service).
       integration: {
         provider: 'coros',
         configured: cfg.ok,

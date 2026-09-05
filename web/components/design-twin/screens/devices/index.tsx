@@ -26,7 +26,7 @@ export const meta: TwinMeta = {
   titulo: 'Dispositivos y relojes',
   zona: 'Conexiones y relojes',
   estado: 'espejo',
-  actualizado: '2026-08-13',
+  actualizado: '2026-09-05',
   descripcion: 'El equipo del atleta agrupado por lo que hace: quién recibe el entreno, quién solo lee y qué se conecta en el gimnasio.',
   fuentes: [
     'ios/FAHYBRIK/Profile/ProfileView.swift',
@@ -37,6 +37,8 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Devices/PM5/PM5ConnectionStore.swift',
     'ios/FAHYBRIK/Shared/SafariView.swift',
     'web/app/api/polar/callback/route.ts',
+    'web/app/api/coros/callback/route.ts',
+    'web/app/api/athlete/wearables/coros/connect-url/route.ts',
   ],
   dispositivo: 'iphone',
   soportaHorizontal: false,
@@ -130,6 +132,8 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
   const [polarConnected, setPolarConnected] = useState(cfg.polarConectado);
   const [polarConnecting, setPolarConnecting] = useState(false);
+  const [corosConnected, setCorosConnected] = useState(false);
+  const [corosConnecting, setCorosConnecting] = useState(false);
   const [polarPaso, setPolarPaso] = useState<PasoNavegador>('autorizando');
   // El callback aterriza en una web, no en la app: el enlace ya existe en el
   // servidor antes de que la fila se entere.
@@ -307,6 +311,8 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
               healthShowRevokeHint={healthRevoke}
               polarConnected={polarConnected}
               polarConnecting={polarConnecting}
+              corosConnected={corosConnected}
+              corosConnecting={corosConnecting}
               pm5Remembered={pm5Recordado}
               onWatchToggle={(next) => {
                 if (next) {
@@ -329,6 +335,19 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
                 onLog('Garmin · cómo poner el entreno en el reloj');
               }}
               onPolar={abrirPolar}
+              onCoros={() => {
+                if (corosConnected) {
+                  onLog('COROS · sincronizar o desconectar');
+                  return;
+                }
+                setCorosConnecting(true);
+                onLog('Pidiendo la URL de autorización de COROS…');
+                window.setTimeout(() => {
+                  setCorosConnecting(false);
+                  setCorosConnected(true);
+                  onLog('De vuelta en la app · COROS consta como conectada');
+                }, 900);
+              }}
               onPM5={() => {
                 setRuta('pm5');
                 onLog('Concept2 PM5 · ajustes del remo');
