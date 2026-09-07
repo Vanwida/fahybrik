@@ -2,14 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (picker de ejercicios, build 65)
+Última actualización: **2026-09-07** (audit Start libre run+ski)
 
 ## Ahora
 
-**PICKER DE EJERCICIOS — «Cargando…» eterno.** GET 200 (visto en prod). La
-lista era una hoja dentro del cover de Hoy: iOS cancela la tarea, tira el
-resultado y el spinner no se entera. Cover propio; la primera carga no se
-descarta. Build **65**.
+**START SIGUE SIENDO CUATRO PUERTAS.** Recorrido real: libre → funcional →
+rondas → run+ski. El botón dice Empezar y no empieza; calle no dice GPS;
+después sale la puerta del bloque (parece un resumen); el ski se pregunta
+en el segundo Empezar; el reloj se lanza en silencio y al ir atrás queda
+a medias. Informe: `docs/audit-start-libre.html`. No se parcheó. La pieza
+1 del 7-sep se enganchó a las puertas viejas; no las sustituyó.
 
 **START DE SESIÓN — pieza 1 del runtime.** Un WOD mixto pregunta calle/cinta y
 cada PM5 (remo, ski, bici) ANTES de que corra el reloj, aunque el bloque sea

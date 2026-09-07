@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-07 · El Start no se parchea por el botón ni por el ski
+
+**El hueco:** libre → funcional → rondas → run+ski. El botón dice Empezar
+y abre «dónde corres». El copy de calle no dice GPS. Después la puerta
+del bloque (parece un resumen). El ski se pregunta en el segundo
+Empezar. El reloj se lanza en silencio; al ir atrás la muñeca queda a
+medias y el siguiente lanzamiento falla mudo.
+
+**Decidido:** no curar el copy, el nombre del botón ni pegar ski al lado
+de calle en el constructor. Eso es el dedo. La raíz del 7-sep sigue: no
+hay un Start, hay cuatro puertas. Informe: `docs/audit-start-libre.html`.
+
+**Se descarta:** otro `if` en el constructor libre; renombrar Empezar
+sin unificar las preguntas; lanzar el reloj «a ver si entra» como
+solución.
+
+---
+
 ## 2026-09-07 · El Start pregunta la receta entera, no el kind del bloque
 
 **El hueco:** un WOD por rondas remo+ski+carrera no pedía calle/cinta ni las
