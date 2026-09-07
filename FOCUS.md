@@ -2,15 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (picker de ejercicios, build 64)
+Última actualización: **2026-09-07** (picker de ejercicios, build 65)
 
 ## Ahora
 
-**PICKER DE EJERCICIOS — no cargaba en el 63.** El Start de sesión colgó
-`RunPreStartFlow` (cover) al lado del sheet del catálogo en el builder
-funcional: UIKit solo deja una presentación. GET `/api/athlete/exercises`
-200; el picker no pintaba. Cover en el host; decode Int|String y una fila
-mala no tumba la lista. Build **64**.
+**PICKER DE EJERCICIOS — «Cargando…» eterno.** GET 200 (visto en prod). La
+lista era una hoja dentro del cover de Hoy: iOS cancela la tarea, tira el
+resultado y el spinner no se entera. Cover propio; la primera carga no se
+descarta. Build **65**.
 
 **START DE SESIÓN — pieza 1 del runtime.** Un WOD mixto pregunta calle/cinta y
 cada PM5 (remo, ski, bici) ANTES de que corra el reloj, aunque el bloque sea

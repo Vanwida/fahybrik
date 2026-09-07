@@ -36,10 +36,10 @@ struct FreeFunctionalBuilderView: View {
             if step == .config { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        // Sheet only. Calle/cinta is presented by the host
-        // (`FreeWorkoutBuilderView`). A cover next to this sheet is the
-        // gym-failure (DevicePickerSheet) — build 63 blanked the catalog.
-        .sheet(isPresented: $showPicker) {
+        // Cover, not sheet: this builder already sits inside Hoy's
+        // fullScreenCover. A sheet there is the gym-failure — GET 200 and
+        // the picker stays on "Cargando…". Calle/cinta stays on the host.
+        .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
                 preferredCategory: "functional",

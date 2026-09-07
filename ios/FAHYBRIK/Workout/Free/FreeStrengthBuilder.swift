@@ -298,7 +298,8 @@ struct FreeStrengthBuilderView: View {
             if draft.canStart { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .sheet(isPresented: $showPicker) {
+        // Cover, not sheet: same Hoy-cover rule as the functional picker.
+        .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
                 preferredCategory: "strength",

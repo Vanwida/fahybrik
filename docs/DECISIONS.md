@@ -33,8 +33,10 @@ llegar a cada estación como sustituto del inventario de sesión.
 salte el sitio de carrera; no apagar el podómetro porque el HUD de calle
 esté montado (eso ya era la ley de `RunPhoneSensorPlan`). El cover de
 calle/cinta vive en el HOST del builder libre (`FreeWorkoutBuilderView`),
-nunca al lado del sheet del catálogo: build 63 lo colgó en
-`FreeFunctionalBuilderView` y el picker dejó de pintar (GET 200).
+nunca al lado del catálogo. El catálogo tampoco es una *sheet* dentro del
+cover de Hoy: iOS cancela el `.task`, el GET vuelve 200 y el spinner se
+queda en «Cargando…» (build 63–64). Es un cover propio; la primera carga
+no se tira si cancelan la tarea.
 
 ---
 
