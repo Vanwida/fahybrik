@@ -7,13 +7,14 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **FH-91 — UN SOLO START (estructural, en main).**
-Cuatro puertas sustituidas por `SessionStartGate` + `SessionStartPolicy`
-(Core). Prescrito: brief → puerta → vivo. Libre: builder → puerta → vivo
-(ya no `begin` en `loadPlan`). `BlockPreviewGate` = solo preview de bloque;
-`requestBlockStart` = `beginBlock()` directo. Reloj: `begin` en la puerta,
-cancelar = `end(save:false)`. Plan: `docs/plan-fh-91-start.md`. Ley:
-DECISIONS 07-sep FH-91. **Pendiente:** smoke en dispositivo (libre run+ski
-GPS, atrás, repetir; prescrito run+ski misma puerta).
+Cuatro puertas sustituidas por `SessionStartGate`. Recipe + orden de pasos
+en `PreWorkoutDeviceEligibility` (misma inventario que el brief); Core solo
+copy + honestidad reloj (`SessionStartPolicy`). Prescrito: brief → puerta →
+vivo. Libre: builder → puerta → vivo (ya no `begin` en `loadPlan`).
+`BlockPreviewGate` = solo preview; `requestBlockStart` = `beginBlock()`.
+Reloj: `begin` en puerta, `wristJoined` honesto, cancelar = `end(save:false)`.
+Plan: `docs/plan-fh-91-start.md`. Ley: DECISIONS 07-sep FH-91. **Pendiente:**
+smoke en dispositivo (libre run+ski GPS, atrás, repetir; prescrito run+ski).
 
 **GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
 Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El

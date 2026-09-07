@@ -1,20 +1,18 @@
 import SwiftUI
 
-// FH-91 — ONE pre-live gate for every launch path (prescribed brief, libre,
-// funcional, benchmark). Asks everything the recipe needs; does not release live
-// until `SessionStartPolicy.canReleaseLive`. Reuses the existing run / erg flows
-// as inline steps — never as separate doors on brief, builder, or block preview.
+// FH-91 — ONE pre-live gate. Step order + device inventory →
+// `PreWorkoutDeviceEligibility`. Watch join → `PhoneMirrorService` /
+// `HKHealthStore.startWatchApp` + `workoutSessionMirroringStartHandler`.
+// Reuses `RunPreStartFlow` and `ErgPreStartFlow` — no fourth door elsewhere.
 
 struct SessionStartGate: View {
     let sessionTitle: String
     let plan: WorkoutPlan
     let segments: [WorkoutSegment]
-    /// Warmup-as-run blocks need the run picker even without a `.running` segment.
     let calentamientoRun: Bool
     let isBenchmark: Bool
     let activityKind: String
     let hrZones: HRZoneProfile?
-    /// Stamps assignment / free metadata after the gate — container owns ids.
     var stampSession: ((WorkoutSession) -> Void)? = nil
     let onReleaseLive: (WorkoutSession) -> Void
     let onCancel: () -> Void
@@ -29,18 +27,26 @@ struct SessionStartGate: View {
     @State private var watchWaitStarted: Date? = nil
 
     private var recipe: SessionStartRecipe {
-        let devices = PreWorkoutDeviceEligibility.devices(for: segments)
-        let ergRoles = devices.compactMap { dev -> String? in
-            if case .erg(let r) = dev { return r.rawValue }
-            return nil
-        }
-        let needsRun = segments.contains { $0.kind == .running } || calentamientoRun
-        return SessionStartRecipe(
-            needsRunLocation: needsRun,
-            ergRoles: ergRoles,
-            needsUnscopedErg: devices.contains(.ergAny),
-            asksWatch: !devices.isEmpty,
+        PreWorkoutDeviceEligibility.startRecipe(
+            segments: segments,
+            calentamientoRun: calentamientoRun,
             isBenchmark: isBenchmark
+        )
+    }
+
+    private var connectedRoles: Set<ErgMachineRole> {
+        Set(PreWorkoutDeviceEligibility.namedErgRoles(in: segments)
+            .filter { pool.isRoleConnected($0) })
+    }
+
+    private var nextStep: PreWorkoutDeviceEligibility.StartStep? {
+        PreWorkoutDeviceEligibility.nextStartStep(
+            recipe: recipe,
+            segments: segments,
+            answers: answers,
+            roleConnected: connectedRoles,
+            anyConnected: pool.any.isConnected,
+            wristJoined: mirror.wristJoined
         )
     }
 
@@ -71,34 +77,18 @@ struct SessionStartGate: View {
 
     var body: some View {
         Group {
-            if let step = SessionStartPolicy.nextIncompleteStep(recipe: recipe, answers: syncedAnswers) {
+            if let step = nextStep {
                 stepBody(step)
             } else {
                 readyFooter
             }
         }
-        .onChange(of: mirror.wristJoined) { _, joined in
-            if joined { answers.wristJoined = true }
-        }
         .onChange(of: pool.epoch) { _, _ in }
         .onDisappear { cancelMirrorIfNeeded() }
     }
 
-    /// Device links read from live stores — merged into answers each render.
-    private var syncedAnswers: SessionStartAnswers {
-        var a = answers
-        a.connectedErgRoles = Set(recipe.ergRoles.filter { wire in
-            guard let role = ErgMachineRole(wire: wire) else { return false }
-            return pool.isRoleConnected(role)
-        })
-        a.unscopedErgConnected = pool.any.isConnected
-        a.wristJoined = mirror.wristJoined
-        if !watch.appAvailable { a.watchUnavailable = true }
-        return a
-    }
-
     @ViewBuilder
-    private func stepBody(_ step: SessionStartStep) -> some View {
+    private func stepBody(_ step: PreWorkoutDeviceEligibility.StartStep) -> some View {
         switch step {
         case .runLocation:
             RunPreStartFlow(
@@ -110,33 +100,27 @@ struct SessionStartGate: View {
                 },
                 onCancel: cancelAll
             )
-        case .erg(let roleWire):
-            ergStep(roleWire: roleWire)
+        case .erg(let role):
+            ErgPreStartFlow(
+                sessionTitle: sessionTitle,
+                machineWord: role?.machineWord ?? "el remo",
+                isBenchmark: isBenchmark,
+                store: role.map { pool.store(for: $0) } ?? pool.any,
+                roleTitle: role?.titleES,
+                onStart: {
+                    if let role {
+                        if !pool.store(for: role).isConnected {
+                            answers.skippedErgRoleWires.insert(role.rawValue)
+                        }
+                    } else if !pool.any.isConnected {
+                        answers.skippedUnscopedErg = true
+                    }
+                },
+                onCancel: cancelAll
+            )
         case .watch:
             watchStep
         }
-    }
-
-    @ViewBuilder
-    private func ergStep(roleWire: String?) -> some View {
-        let role = roleWire.flatMap { ErgMachineRole(wire: $0) }
-        ErgPreStartFlow(
-            sessionTitle: sessionTitle,
-            machineWord: role?.machineWord ?? "el remo",
-            isBenchmark: isBenchmark,
-            store: role.map { pool.store(for: $0) } ?? pool.any,
-            roleTitle: role?.titleES,
-            onStart: {
-                if let role {
-                    if !pool.store(for: role).isConnected {
-                        answers.skippedErgRoles.insert(role.rawValue)
-                    }
-                } else if !pool.any.isConnected {
-                    answers.skippedUnscopedErg = true
-                }
-            },
-            onCancel: cancelAll
-        )
     }
 
     private var watchStep: some View {
@@ -148,7 +132,7 @@ struct SessionStartGate: View {
                         .font(.system(size: 28, weight: .heavy, design: .default).italic())
                         .foregroundStyle(Theme.Color.foreground)
                     watchStatusCard
-                    if !syncedAnswers.wristJoined && !syncedAnswers.watchUnavailable {
+                    if !mirror.wristJoined && !answers.watchUnavailable {
                         SecondaryButton(title: "Continuar sin reloj conectado") {
                             answers.watchProceedWithoutWrist = true
                         }
@@ -156,11 +140,6 @@ struct SessionStartGate: View {
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
-            }
-            if syncedAnswers.wristJoined || syncedAnswers.watchUnavailable || answers.watchProceedWithoutWrist {
-                ExpertPrimaryButton(title: "Continuar", height: 56) { /* advance via empty next step */ }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.bottom, Theme.Spacing.l)
             }
         }
         .background(Theme.Color.background.ignoresSafeArea())
@@ -173,16 +152,19 @@ struct SessionStartGate: View {
     @ViewBuilder
     private var watchStatusCard: some View {
         CardSurface(padding: Theme.Spacing.m) {
-            if syncedAnswers.wristJoined {
+            if mirror.wristJoined {
                 statusRow(icon: "checkmark.circle.fill", color: Theme.Color.ok,
-                          title: "Reloj grabando", subtitle: "Pulso y distancia llegan desde la muñeca")
-            } else if syncedAnswers.watchUnavailable {
+                          title: "Reloj grabando",
+                          subtitle: "Espejo HealthKit activo en la muñeca")
+            } else if answers.watchUnavailable {
                 statusRow(icon: "applewatch.slash", color: Theme.Color.muted,
-                          title: "Sin Apple Watch", subtitle: "El teléfono graba lo que pueda; puedes usar banda de pulso")
+                          title: "Sin Apple Watch",
+                          subtitle: "El teléfono graba lo que pueda; puedes usar banda de pulso")
             } else if let started = watchWaitStarted,
                       Date().timeIntervalSince(started) > PhoneMirrorService.watchJoinHintSeconds {
                 statusRow(icon: "exclamationmark.triangle.fill", color: Theme.Color.warning,
-                          title: "El reloj no se unió", subtitle: "Abre la app en la muñeca o continúa sin reloj")
+                          title: "El reloj no se unió",
+                          subtitle: "Abre la app en la muñeca o continúa sin reloj")
             } else {
                 HStack(spacing: Theme.Spacing.m) {
                     ProgressView().tint(Theme.Color.accent)
@@ -289,11 +271,4 @@ struct SessionStartGate: View {
         PhoneMirrorService.shared.end(save: false)
         didBeginMirror = false
     }
-}
-
-// MARK: - PhoneMirrorService (watch step timing)
-
-extension PhoneMirrorService {
-    /// After this many seconds in the watch step, show honest "no se unió" copy.
-    static let watchJoinHintSeconds: TimeInterval = 9
 }

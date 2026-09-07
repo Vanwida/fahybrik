@@ -111,6 +111,9 @@ final class PhoneMirrorService {
     // of times, a few seconds apart, before giving up quietly.
     private static let watchLaunchAttempts = 3
     private static let watchLaunchRetrySeconds: TimeInterval = 3
+    /// Pre-live gate: after this, UI explains the wrist never joined (3 tries × 3 s).
+    static let watchJoinHintSeconds: TimeInterval =
+        TimeInterval(watchLaunchAttempts) * watchLaunchRetrySeconds
     // Bumped by begin()/end() so a stale retry loop from a previous session can't
     // launch the watch app after the workout it belonged to is gone.
     @ObservationIgnored private var watchLaunchGeneration = 0

@@ -242,6 +242,70 @@ enum PreWorkoutDeviceEligibility {
                                        skipped: skippedUnscoped)
     }
 
+    // MARK: - FH-91 · unified start gate (recipe + step — ONE inventory source)
+
+    /// Build the start recipe from the same device list the brief used to show.
+    static func startRecipe(
+        segments: [WorkoutSegment],
+        calentamientoRun: Bool,
+        isBenchmark: Bool = false
+    ) -> SessionStartRecipe {
+        let devices = devices(for: segments)
+        let ergRoles = devices.compactMap { dev -> String? in
+            if case .erg(let r) = dev { return r.rawValue }
+            return nil
+        }
+        let needsRun = segments.contains { $0.kind == .running } || calentamientoRun
+        return SessionStartRecipe(
+            needsRunLocation: needsRun,
+            ergRoles: ergRoles,
+            needsUnscopedErg: devices.contains(.ergAny),
+            asksWatch: !devices.isEmpty,
+            isBenchmark: isBenchmark
+        )
+    }
+
+    enum StartStep: Equatable {
+        case runLocation
+        case erg(ErgMachineRole?)
+        case watch
+    }
+
+    /// Next pre-live step, or nil when `SessionStartPolicy.watchResolved` is the only gate left.
+    static func nextStartStep(
+        recipe: SessionStartRecipe,
+        segments: [WorkoutSegment],
+        answers: SessionStartAnswers,
+        roleConnected: Set<ErgMachineRole>,
+        anyConnected: Bool,
+        wristJoined: Bool
+    ) -> StartStep? {
+        if recipe.needsRunLocation, answers.runEnvironment == nil {
+            return .runLocation
+        }
+        let skipped = Set(answers.skippedErgRoleWires.compactMap { ErgMachineRole(wire: $0) })
+        if let role = missingErgRoles(
+            in: segments,
+            roleConnected: roleConnected,
+            anyConnected: anyConnected,
+            skipped: skipped
+        ).first {
+            return .erg(role)
+        }
+        if needsUnscopedErgConnect(
+            in: segments,
+            anyConnected: anyConnected,
+            skipped: answers.skippedUnscopedErg
+        ) {
+            return .erg(nil)
+        }
+        if recipe.asksWatch,
+           !SessionStartPolicy.watchResolved(answers: answers, wristJoined: wristJoined) {
+            return .watch
+        }
+        return nil
+    }
+
     /// A cardiovascular segment — run, erg, or a conditioning/metcon/EMOM block,
     /// the work where a heart-rate strap earns its place.
     private static func isCardio(_ s: WorkoutSegment) -> Bool {

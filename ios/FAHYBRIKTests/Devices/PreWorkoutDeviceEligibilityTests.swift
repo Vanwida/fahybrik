@@ -228,4 +228,70 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
             in: segs, roleConnected: [.row], anyConnected: false, skipped: [.ski]))
     }
 
+    // MARK: - FH-91 · unified start gate (recipe + step order)
+
+    func testStartRecipeDetectsRunAndSki() {
+        let segs = [seg(.running), seg(.rowOrSki, ergKind: "ski")]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        XCTAssertTrue(r.needsRunLocation)
+        XCTAssertEqual(r.ergRoles, ["ski"])
+        XCTAssertTrue(r.asksWatch)
+    }
+
+    func testRunLocationIsFirstStartStep() {
+        let segs = [seg(.running)]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: .empty,
+                roleConnected: [], anyConnected: false, wristJoined: false),
+            .runLocation)
+    }
+
+    func testErgAfterRunLocation() {
+        let segs = [seg(.running), seg(.rowOrSki, ergKind: "row")]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        var a = SessionStartAnswers.empty
+        a.runEnvironment = .outdoor
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: a,
+                roleConnected: [], anyConnected: false, wristJoined: false),
+            .erg(.row))
+    }
+
+    func testWatchStepAfterRunAndErgResolved() {
+        let segs = [seg(.running), seg(.rowOrSki, ergKind: "ski")]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        var a = SessionStartAnswers.empty
+        a.runEnvironment = .indoor
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: a,
+                roleConnected: [.ski], anyConnected: false, wristJoined: false),
+            .watch)
+    }
+
+    func testPureStrengthSkipsAllStartSteps() {
+        let segs = [seg(.strength)]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        XCTAssertFalse(r.asksWatch)
+        XCTAssertNil(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: .empty,
+                roleConnected: [], anyConnected: false, wristJoined: false))
+    }
+
+    func testProceedWithoutWristClearsWatchStep() {
+        let segs = [seg(.running)]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        var a = SessionStartAnswers.empty
+        a.runEnvironment = .outdoor
+        a.watchProceedWithoutWrist = true
+        XCTAssertNil(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: a,
+                roleConnected: [], anyConnected: false, wristJoined: false))
+    }
+
 }
