@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FAHYBRID · Por qué el entreno es frágil · 7 sep 2026</title>
+  <style>
+    :root { color-scheme: light; --ink:#201F1B; --muted:#6b6860; --line:#e4e0d8; --bg:#FEFDFB; --card:#F1EFEB; --bad:#8a2f2f; --ok:#2f5d3a; }
+    body { margin: 2rem auto; max-width: 46rem; font: 16px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    h1 { font-size: 1.45rem; margin: 0 0 .35rem; letter-spacing: -0.02em; }
+    h2 { font-size: 1.08rem; margin: 2.1rem 0 .55rem; }
+    h3 { font-size: 1rem; margin: 1.3rem 0 .35rem; }
+    p, li { color: var(--ink); }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border-radius: 14px; padding: 1rem 1.15rem; margin: .8rem 0; }
+    .bad { border-left: 3px solid var(--bad); }
+    .ok { border-left: 3px solid var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; margin: .6rem 0 1rem; }
+    th, td { text-align: left; vertical-align: top; padding: .4rem .5rem .4rem 0; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+    code { font-size: .88em; }
+    ol.roots { padding-left: 1.2rem; }
+    ol.roots > li { margin: .7rem 0; }
+  </style>
+</head>
+<body>
+  <h1>El entreno no está roto en cincuenta sitios. Está roto en uno.</h1>
+  <p class="muted">7 sep 2026. Main al día con GitHub (<code>8c165d75</code>). Solo lectura. No se parcheó nada. Repo local iba 2 commits atrás; se adelantó antes de mirar.</p>
+
+  <div class="card bad">
+    <p><b>No hay un motor de sesión.</b> Hay carpetas: carrera, rondas, ski, remo, cinta, reloj. Cada una con su propio «dónde estoy», su propio reloj, su propio «pide la máquina», su propio botón. Cuando un día se arregla el ski, se toca el <i>if</i> del ski. El de carrera no se entera. Por eso lo que funcionaba ayer deja de funcionar hoy, y al día siguiente el arreglo del nuevo agujero rompe el de ayer.</p>
+    <p>Eso no es un bug. Es cómo se construyó: feature a feature, sin un objeto que ejecute <i>cualquier</i> prescripción.</p>
+  </div>
+
+  <h2>Lo que describiste es el mismo agujero</h2>
+  <p>Rondas que no piden cinta ni GPS. Ski que no cuenta. UI distinta en cada pantalla. Reloj que conecta cuando le da la gana. GPS que no va. Un entreno largo que se muere y pierde lo hecho. Cinco síntomas. Una raíz: <b>el arranque, el vivo, el reloj y el guardado no leen el mismo árbol.</b></p>
+
+  <table>
+    <thead><tr><th>Lo que pasa</th><th>Por qué, de verdad</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Un entreno por rondas no pregunta calle/cinta ni ski+remo</td>
+        <td>Los chips del brief <i>sí</i> recorren toda la receta (cinta + remo + ski). El botón Empezar no. Pregunta si el bloque es «una carrera» (<code>kind == running</code>). Un bloque mixto se pliega a «reps». Para el GO, no es carrera ni ergo: es otra cosa. El reloj, al Empezar, salta el setup entero.</td>
+      </tr>
+      <tr>
+        <td>Hay run y ski y remo, y solo pide uno (o ninguno)</td>
+        <td>El recolector bueno existe y no manda. El gate duro mira <b>el bloque de ahora</b>, no la sesión. Calentamiento primero = las máquinas del principal se piden tarde o nunca. «Empezar sin monitor» cierra ese rol para siempre.</td>
+      </tr>
+      <tr>
+        <td>El ski no funciona</td>
+        <td>Ski no es un protocolo distinto. Es un <i>rol</i> sobre el mismo PM5 que el remo. La radio permite N máquinas. La sesión solo alimenta <b>una</b> (la del tramo). Si el tramo no se clasifica como ski, el monitor está «conectado» y los metros no entran. Al cambiar de remo a ski nadie vuelve a preguntar.</td>
+      </tr>
+      <tr>
+        <td>El GPS del iPhone no va (sobre todo en un WOD)</td>
+        <td>Calle/cinta se elige solo si el bloque es <code>kind == running</code>. Sin esa respuesta, los sensores están apagados. El podómetro que debía contar metros en el teléfono <b>está escrito y no se monta</b>. El mapa puede moverse (GPS de pintura) y la distancia oficial quedar vacía. Los metros buenos los da el reloj, si está grabando.</td>
+      </tr>
+      <tr>
+        <td>El reloj se conecta cuando le da la gana</td>
+        <td>Hay dos apps de entreno. El teléfono lanza el reloj «a ver si entra» (3 intentos, silencio si falla). El reloj puede Empezar solo, con su propio motor. No hay puerta: no hay live hasta que los dos estén. El Timer del teléfono muere al bloquear; el reloj sigue grabando a ciegas.</td>
+      </tr>
+      <tr>
+        <td>Un entreno largo se muere y se pierde todo</td>
+        <td>HealthKit primary vive en el reloj. El motor (qué serie, qué ronda) vive en el teléfono, en un Timer de la <i>vista</i>. Fuerza o calentamiento sin BLE ni GPS: al bloquear, iOS suspende. Hay un JSON cada 5 s, pero no guarda metros vivos ni el reloj de estación. Al volver, la estación empieza otra vez en 0.</td>
+      </tr>
+      <tr>
+        <td>La UI es otra en cada pantalla</td>
+        <td>El diseño nuevo está escrito (contrato §10) y el rodaje de calle lo cumple. Cinta, remo, descanso, AMRAP, For Time, setup y cierre son de otra era: botones distintos, números distintos, el sujeto baila. Tabata / Death By / intervalos se pintan como For Time porque sus pantallas se borraron.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Cinco raíces (no cincuenta tickets)</h2>
+  <ol class="roots">
+    <li>
+      <b>No hay un cursor.</b> Hay siete: segmento, EMOM, estaciones fijas, rondas rotativas, piernas de carrera, series de fuerza, calentamiento. El «tramo» es una lectura para el HUD, no el dueño del avance. Un bloque de 4 rondas remo+ski+carrera es un For Time plegado: 12 golpes planos, no 4×3. El descanso entre rondas existe en la base y nadie lo lee.
+    </li>
+    <li>
+      <b>No hay un Start de sesión.</b> Hay un Start del brief (a veces), un Start del bloque, un Start del reloj, un Start del libre. Cada uno pregunta un predicado distinto. El inventario correcto de máquinas es una función pura con tests verdes. La puerta de Empezar no la llama.
+    </li>
+    <li>
+      <b>No hay un dueño del vivo entre teléfono y reloj.</b> La ley del 24-ago dice: el móvil manda, el reloj graba, un final. El binario sigue teniendo una app completa en la muñeca (cronómetro, resumen, envío al servidor). El enlace es un extra, no un prerrequisito.
+    </li>
+    <li>
+      <b>No hay un keep-alive para todos los formatos.</b> Carrera de calle: GPS de fondo. EMOM: audio mudo. Fuerza: nada. El reloj sí tiene <code>workout-processing</code>. El teléfono, dueño del script, no.
+    </li>
+    <li>
+      <b>El coach puede escribir un bloque que el móvil no ejecuta.</b> Tabata en el editor, For Time en el atleta (el tipo del bloque no se actualiza). Circuito por el asistente: estaciones sí, rondas y descansos no. Un kind desconocido se vuelve series de fuerza, en silencio. Un bloque mixto se guarda como un solo tramo «other».
+    </li>
+  </ol>
+
+  <h2>Lo que ya está escrito y no se cumple</h2>
+  <p>Esto no es un hueco de doctrina. Las leyes existen. El código las tiene al lado, no las ejecuta.</p>
+  <ul>
+    <li>Un entreno, un dueño, un final (24-ago). El segundo motor del reloj sigue.</li>
+    <li>Preguntar cinta / remo / ski / bici / banda según lo que hay en la sesión (4-ago). Los chips sí; el Empezar no.</li>
+    <li>El tramo decide la cara; el formato no suelta la franja (29-jul). Al entrar en remo o en carrera, la ronda desaparece.</li>
+    <li>Un numeral, zona que tiñe, acción que no compite (contrato §10). Solo lo habla el rodaje de calle — y EMOM/fuerza a medias.</li>
+    <li>La app lee las máquinas, no las conduce (28-jul). Sigue vigente.</li>
+    <li>Auditoría del 19-ago: «hoy no es un bug nuevo: la máquina se enlaza y el tramo no manda». Sigue siendo la frase.</li>
+  </ul>
+
+  <div class="card">
+    <p>El 19 de agosto el peor caso ya estaba nombrado: <b>4 rondas · remo 500 + ski 500 + run 400</b>. Es el mismo entreno que describes. No hace falta otro ejemplo para saber que ski, cinta y GPS del mixto están rotos igual.</p>
+  </div>
+
+  <h2>Qué hay que construir (no qué hay que parchear)</h2>
+  <p>Un runtime de sesión. Cuatro piezas. Sin ellas, cada card nueva vuelve a romper la anterior.</p>
+
+  <h3>1. Un árbol, un cursor, un cierre</h3>
+  <p>Bloque → ronda → estación/movimiento → fase (trabajo / descanso de estación / descanso de ronda). Cerrar es siempre «cierra el paso actual». Metros y calorías los cierra la máquina; el tiempo lo cierra el reloj; las reps las cierra el atleta. Remo, ski y carrera son la misma ley con distinto dueño de metros.</p>
+
+  <h3>2. Un Start</h3>
+  <p>Antes de que corra el reloj, una sola pregunta a la receta entera (calentamiento incluido):</p>
+  <ul>
+    <li>¿Hay alguna carrera? → calle / cinta / cinta tonta. Sin respuesta, no hay live de run.</li>
+    <li>¿Hay remo, ski, bici nombrados? → un PM5 por cada uno, no «el remo» para todos.</li>
+    <li>Luego Empezar. El reloj no puede saltarse esto.</li>
+  </ul>
+  <p>Eso es exactamente: si hay run se pide run; si hay ski y remo se piden los dos; si hay los tres, los tres.</p>
+
+  <h3>3. Reloj = mando + sensores. Teléfono = sesión. HealthKit = vida.</h3>
+  <p>El reloj no construye un segundo entreno ni lo manda al servidor. Empezar en la muñeca o espera al teléfono, o <i>es</i> el mismo arranque. No hay live hasta PRIMARY en el reloj + primer frame. Bloquear el iPhone no puede matar el script: o el reloj avanza el reloj, o el teléfono tiene un keep-alive de verdad en todos los formatos, no solo en calle.</p>
+
+  <h3>4. Una cara</h3>
+  <p>El rodaje de calle ya es la app. El resto entra en ese marco (zona, un numeral, sujeto anclado, acción abajo). Cinta, remo, descanso, rondas, AMRAP no son apps distintas. Setup y cierre usan el mismo botón. El doble deja de tener un correr viejo y un correr nuevo.</p>
+
+  <h2>Orden (si se hace al revés, se vuelve a parchear)</h2>
+  <ol>
+    <li><b>Parar el parche por síntoma.</b> «Arreglar el ski» o «arreglar el GPS de rondas» sin el Start de sesión es el mismo error de siempre.</li>
+    <li><b>El Start de sesión</b> (pieza 2). Es lo que sientes mañana: un WOD mixto pregunta las tres. Es también el primer API del runtime, no un apaño en la vista.</li>
+    <li><b>El cursor y el cierre</b> (pieza 1). Sin esto, el ski «conectado» sigue sin contar, y las rondas siguen siendo 12 golpes.</li>
+    <li><b>Dueño teléfono/reloj + no morir al bloquear</b> (pieza 3). Sin esto, un entreno de 70 min sigue siendo una lotería.</li>
+    <li><b>La cara</b> (pieza 4). Después, no antes: pintar el mixto bonito encima de siete cursores es otra capa de deuda.</li>
+  </ol>
+
+  <div class="card ok">
+    <p><b>Hecho</b> no es «el ski de hoy cuenta». Hecho es: cualquier receta que el coach pueda poner — run, ski, remo, los tres, fuerza, EMOM, rondas — arranca pidiendo lo que hay, mide el tramo que toca, no se muere al bloquear, se acaba una vez, y se ve como la misma app.</p>
+  </div>
+
+  <h2>Qué no hacer</h2>
+  <ul>
+    <li>Otro <code>if kind == running</code> en un sitio más.</li>
+    <li>Otro HUD de ski.</li>
+    <li>Otro «inténtalo 3 veces» en el reloj.</li>
+    <li>Otro campo de descanso que el motor no lee.</li>
+    <li>Tests que clavan el parche (el de «si no es kind running, sensores off» ya está verde — y es el bug).</li>
+  </ul>
+
+  <p class="muted">Hay ~600 tests unitarios del vivo y cero de «sesión mixta de cabo a rabo». El verde no dice que se pueda entrenar. Dice que el último parche no se ha revertido.</p>
+</body>
+</html>

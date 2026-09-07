@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (FH-91 — un solo Start antes del vivo)
+Última actualización: **2026-09-07** (FH-91 + catálogo libre reconciliado)
 
 ## Ahora
 
@@ -13,8 +13,16 @@ copy + honestidad reloj (`SessionStartPolicy`). Prescrito: brief → puerta →
 vivo. Libre: builder → puerta → vivo (ya no `begin` en `loadPlan`).
 `BlockPreviewGate` = solo preview; `requestBlockStart` = `beginBlock()`.
 Reloj: `begin` en puerta, `wristJoined` honesto, cancelar = `end(save:false)`.
-Plan: `docs/plan-fh-91-start.md`. Ley: DECISIONS 07-sep FH-91. **Pendiente:**
-smoke en dispositivo (libre run+ski GPS, atrás, repetir; prescrito run+ski).
+Plan: `docs/plan-fh-91-start.md`. Ley: DECISIONS 07-sep FH-91. Auditoría
+cuatro puertas (pre-fix): `docs/audit-start-libre.html`,
+`docs/audit-entreno-raiz.html`. **Pendiente:** smoke en dispositivo (libre
+run+ski GPS, atrás, repetir; prescrito run+ski; catálogo durante Start).
+
+**CATÁLOGO LIBRE — «Cargando…» infinito (reconciliado con FH-91).**
+Portado desde `backup/local-start-e4a99ae2` sin reintroducir cuatro puertas:
+picker = `fullScreenCover` (no sheet anidada en cover de Hoy); primera carga
+con `onAppear` + Task (no `.task` cancelable); decode tolerante Int|String +
+fila mala omitida. Tests: `FreeExerciseCatalogDecodeTests`. Build **63**.
 
 **GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
 Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El

@@ -50,7 +50,9 @@ struct FreeDeclareMovementsSheet: View {
             footer
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .sheet(isPresented: $showPicker) {
+        // Cover, not nested sheet: a sheet over this sheet is the same
+        // "only one presentation" refusal as the builder picker.
+        .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
                 preferredCategory: "functional",

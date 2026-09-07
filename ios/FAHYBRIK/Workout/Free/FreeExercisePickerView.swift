@@ -1,6 +1,12 @@
+import os
 import SwiftUI
 
-// MARK: - Entreno libre — exercise picker sheet
+private let catalogLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.fahybrid.app",
+    category: "catalog"
+)
+
+// MARK: - Entreno libre — exercise picker
 //
 // Reusable movement picker for the fuerza + funcional builders. A debounced
 // search field over GET /api/athlete/exercises, results grouped by ES category,
@@ -20,6 +26,7 @@ struct FreeExercisePickerView: View {
     @State private var all: [FreeExercise] = []
     @State private var phase: LoadPhase = .loading
     @State private var searchTask: Task<Void, Never>? = nil
+    @State private var didStartLoad = false
 
     /// Debounce window before a keystroke fires a fetch — long enough to coalesce a
     /// fast typist, short enough to feel live.
@@ -38,7 +45,15 @@ struct FreeExercisePickerView: View {
             content
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .task { await load(search: nil) }
+        // Unstructured Task, not `.task`: this picker lives inside Hoy's
+        // full-screen builder. SwiftUI cancels `.task` when that cover
+        // reshuffles, the GET still returns 200, and the spinner never
+        // leaves "Cargando…".
+        .onAppear {
+            guard !didStartLoad else { return }
+            didStartLoad = true
+            Task { await load(search: nil) }
+        }
     }
 
     // MARK: - Header
@@ -276,12 +291,22 @@ struct FreeExercisePickerView: View {
         if all.isEmpty { phase = .loading }
         do {
             let rows = try await FreeExerciseCatalogAPI.fetch(search: search, bearer: bearer)
-            guard !Task.isCancelled else { return }
+            // A cancelled *search* must not paint a stale query. The first
+            // load is unstructured (onAppear) so it is not cancelled by the
+            // cover. Never drop a successful first payload: that is the
+            // infinite "Cargando…" (GET 200, spinner stays).
+            if Task.isCancelled && !all.isEmpty { return }
             all = rows
             phase = .loaded
+        } catch is CancellationError {
+            if all.isEmpty { phase = .failed }
         } catch {
-            guard !Task.isCancelled else { return }
-            phase = .failed
+            if (error as? URLError)?.code == .cancelled {
+                if all.isEmpty { phase = .failed }
+                return
+            }
+            catalogLog.error("GET \(FreeExerciseCatalogAPI.path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            if all.isEmpty { phase = .failed }
         }
     }
 }

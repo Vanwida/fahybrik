@@ -17,10 +17,68 @@ struct FreeExercise: Codable, Identifiable, Equatable {
     /// Canonical modality when the catalog row carries one ("strength" | "functional"
     /// | "row" | …). Optional: many rows are only categorised, not modality-tagged.
     let modality: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, slug, category, modality
+    }
+
+    init(id: Int, name: String, slug: String, category: String, modality: String?) {
+        self.id = id
+        self.name = name
+        self.slug = slug
+        self.category = category
+        self.modality = modality
+    }
+
+    /// `id` is numeric on the wire. A `::text` id used to take the whole picker
+    /// down (JSON String vs Swift Int). Accept both so one bad row never blanks
+    /// the catalog.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let n = try? c.decode(Int.self, forKey: .id) {
+            id = n
+        } else if let s = try? c.decode(String.self, forKey: .id), let n = Int(s) {
+            id = n
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .id, in: c, debugDescription: "exercise id must be an Int")
+        }
+        name = try c.decode(String.self, forKey: .name)
+        slug = try c.decode(String.self, forKey: .slug)
+        category = try c.decode(String.self, forKey: .category)
+        modality = try c.decodeIfPresent(String.self, forKey: .modality)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(slug, forKey: .slug)
+        try c.encode(category, forKey: .category)
+        try c.encodeIfPresent(modality, forKey: .modality)
+    }
 }
 
-struct FreeExerciseListResponse: Codable {
+struct FreeExerciseListResponse: Decodable {
     let exercises: [FreeExercise]
+
+    /// One bad catalog row used to fail the whole `exercises` array (Swift
+    /// Codable is all-or-nothing). Skip the row; keep the rest.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let rows = try c.decode([LossyRow<FreeExercise>].self, forKey: .exercises)
+        exercises = rows.compactMap(\.value)
+    }
+
+    private enum CodingKeys: String, CodingKey { case exercises }
+}
+
+/// Decodes `T` or `nil` without failing the parent unkeyed container.
+private struct LossyRow<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) throws {
+        value = try? T(from: decoder)
+    }
 }
 
 extension FreeExercise {
