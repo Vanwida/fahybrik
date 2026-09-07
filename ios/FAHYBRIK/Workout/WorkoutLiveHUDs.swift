@@ -581,6 +581,114 @@ struct ConnectionStrip: View {
     }
 }
 
+// MARK: - Live recipe device bar
+//
+// Every device the session recipe needs — always on the live chrome, not only the
+// current tramo. Disconnect mid-workout → chip stays tappable; reconnect must not
+// reset block/set cursor (pickers only, never `beginBlock`).
+
+struct LiveRecipeDeviceBar: View {
+    let devices: [PreWorkoutDevice]
+    let pool: PM5Pool
+    let treadmillLink: DeviceLink
+    let hrLink: DeviceLink
+    let onTapErg: (PM5ConnectionStore, String) -> Void
+    let onTapTreadmill: () -> Void
+    let onTapHR: () -> Void
+
+    @State private var watch = WatchPresence.shared
+
+    var body: some View {
+        if devices.isEmpty {
+            EmptyView()
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(devices) { device in
+                        chip(for: device)
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Dispositivos del entreno")
+        }
+    }
+
+    @ViewBuilder
+    private func chip(for device: PreWorkoutDevice) -> some View {
+        if device == .heartRate, hrPresentation == .appleWatch {
+            Button(action: onTapHR) {
+                DeviceChip(icon: "applewatch", text: "Pulso · Apple Watch",
+                           link: .connected(name: "Apple Watch"))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Toca para conectar una banda de pecho")
+        } else {
+            let link = link(for: device)
+            Button {
+                Haptics.light()
+                tap(device, link: link)
+            } label: {
+                DeviceChip(icon: device.icon, text: chipText(device, link: link), link: link)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(device.titleES), \(link.isLive ? "conectado" : stateWord(link))")
+            .accessibilityHint("Toca para conectar o cambiar")
+        }
+    }
+
+    private var hrPresentation: HRChipPresentation {
+        HRChipPresentation.resolve(bandLink: hrLink, watchAvailable: watch.appAvailable)
+    }
+
+    private func link(for device: PreWorkoutDevice) -> DeviceLink {
+        switch device {
+        case .treadmill: return treadmillLink
+        case .heartRate: return hrLink
+        case .erg, .ergAny:
+            guard let store = pool.store(for: device) else { return .idle }
+            if case .streaming = store.connectionState {
+                return .connected(name: store.connectedDeviceName ?? device.titleES)
+            }
+            var mapped = store.connectionState.deviceLink
+            if case .connected = mapped, store.connectedDeviceName == nil {
+                mapped = .connected(name: device.titleES)
+            }
+            if store.connectionLost, !store.isConnected {
+                return .lost
+            }
+            return mapped
+        }
+    }
+
+    private func tap(_ device: PreWorkoutDevice, link: DeviceLink) {
+        switch device {
+        case .treadmill: onTapTreadmill()
+        case .heartRate: onTapHR()
+        case .erg, .ergAny:
+            guard let store = pool.store(for: device) else { return }
+            onTapErg(store, device.titleES)
+        }
+    }
+
+    private func chipText(_ device: PreWorkoutDevice, link: DeviceLink) -> String {
+        if let name = link.deviceName { return "\(device.titleES) · \(name)" }
+        return "\(device.titleES) · \(stateWord(link))"
+    }
+
+    private func stateWord(_ link: DeviceLink) -> String {
+        switch link {
+        case .connected:    return "listo"
+        case .connecting:   return "conectando"
+        case .scanning:     return "buscando"
+        case .lost:         return "se perdió · conectar"
+        case .idle:         return "conectar"
+        case .unavailable:  return "sin señal"
+        case .failed:       return "reintentar"
+        }
+    }
+}
+
 // MARK: - Structured block / interval strip
 //
 // Concept2-style interval list: the prescribed segments of the current block as

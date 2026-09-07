@@ -191,6 +191,8 @@ struct WorkoutContainer: View {
     }
 
     private func alSalirDelFlujo() {
+        session?.persistNow()
+        LiveWorkoutResume.shared.persistTracked()
         DeviceHub.shared.stopAll()
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -379,25 +381,7 @@ struct WorkoutContainer: View {
                         // de abajo, que es el mismo camino que ya usa un cierre
                         // inesperado de la app).
                         onLeaveAndResume: {
-                            let snapshot = session.leaveToResumeLater()
-                            Task {
-                                await WorkoutStateStore.shared.save(snapshot)
-                                // EL ESPEJO NO SE CIERRA AL SALIR, Y ESTO COSTÓ UN
-                                // ENTRENO. Cerrarlo con `end(save: true)` hace que la
-                                // muñeca envíe su entreno terminado, y el teléfono lo
-                                // trata como sesión ACABADA: marca la asignación
-                                // completada. Resultado: el atleta salía a descansar
-                                // entre bloques y al volver se encontraba el
-                                // calentamiento otra vez, porque para la app ya había
-                                // terminado.
-                                //
-                                // Salir es un descanso, no un final. El espejo se
-                                // queda vivo. Que la muñeca se autocierre a los cinco
-                                // minutos sin señal es un problema distinto y menor,
-                                // y tiene su propia card: perder el pulso de un rato
-                                // no se parece a perder el entreno entero.
-                                onClose()
-                            }
+                            navigateAway(session: session)
                         },
                         hrZones: hrZones,
                         bearer: bearer,
@@ -743,5 +727,16 @@ struct WorkoutContainer: View {
         let f = DateFormatter()
         f.dateFormat = "d MMM HH:mm"
         return f.string(from: d)
+    }
+
+    /// Soft leave: checkpoint on disk, mirror stays alive, cover closes. Never
+    /// discardAndClose — wrong-button / swipe-away must not kill the session.
+    private func navigateAway(session: WorkoutSession) {
+        let snapshot = session.leaveToResumeLater()
+        LiveWorkoutResume.shared.dismiss()
+        Task {
+            await WorkoutStateStore.shared.save(snapshot)
+            onClose()
+        }
     }
 }

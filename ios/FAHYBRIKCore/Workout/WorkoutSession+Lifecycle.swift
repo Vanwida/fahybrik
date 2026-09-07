@@ -617,6 +617,7 @@ extension WorkoutSession {
         lastTick = Date()
         Haptics.medium()
         onEnterSegment()
+        persistNow()
     }
 
     /// "Terminar bloque" — end the CURRENT block before it's complete (e.g. an
@@ -653,6 +654,7 @@ extension WorkoutSession {
             // the athlete cut the protocol short, so it's never marked 'completed'.
             finish(completeness: .partial)
         }
+        persistNow()
     }
 
     // Called whenever the current segment changes. Primes the manual load for

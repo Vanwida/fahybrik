@@ -203,9 +203,8 @@ struct AppShell: View {
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background {
+            if phase == .background || phase == .inactive {
                 LiveWorkoutResume.shared.persistTracked()
-                return
             }
             guard phase == .active else { return }
             Task {
