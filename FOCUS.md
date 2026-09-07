@@ -2,22 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (guardar sesión: un writer, identidad vs evidencia)
+Última actualización: **2026-09-07** (guardar sesión: un hecho, evidencia no aborta)
 
 ## Ahora
 
-**GUARDAR SESIÓN — el POST de terminar no puede morir por una medida.** Owner
-entrenaba y el historial no pintaba. Raíz: el contrato de escritura
-(`workoutExecutionSchema` / tramos) trataba cada campo como ticket de
-admisión. Un instante con offset, un `null` JSON, `source: pm5`, calorías
-negativas o notes largas devolvían 400 (flatten distinto cada día). El path
-prescrito además escribía ejecución y tramos sin transacción: si los tramos
-lanzaban, el assignment seguía `scheduled` y el historial (JOIN +
-`completed|partial`) no veía la fila. Un solo writer
-(`recordWorkoutExecution`). Identidad estricta (assignment, position,
-modality). Evidencia suelta + `sanitize*` al insertar. Pool → `begin`;
-tx libre se reutiliza. Sin segundo motor. Sin tocar iOS (no bump).
-Ley: DECISIONS 07-sep. Prueba: entrenar → GUARDAR → el día sale HECHO.
+**GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
+Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El
+historial no lee la fila de ejecución: INNER JOIN + `completed|partial`.
+En el path prescrito el flip iba después de INSERT + ingest, **sin
+transacción**. El throw cambiaba con el día: 400 Zod (offset, `null`,
+`pm5`, calorías, notes, tope de arrays), 500 FK de `template_segment_id`
+huérfano, 500 overflow `numeric`/`int4`, unique de `set_index`. Misma UI
+(REINTENTAR). Libre ya iba en `db.begin`. Un writer. Identidad estricta
+(assignment, position, modality). Evidencia: schema suelto; al persistir,
+imposible → null / recorte / omitido (FK no resuelto, overflow, surplus
+de tramos/series). Pool → `begin`; tx libre se reutiliza. Sin iOS (no
+bump). Ley: DECISIONS 07-sep. Prueba: entrenar → GUARDAR → el día HECHO.
 
 **Versión visible in-app (Guidelines §7):** `AppBundleMetadata` lee
 `CFBundleShortVersionString` + `CFBundleVersion` con

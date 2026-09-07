@@ -16,8 +16,18 @@ import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
 import { coerceWireInstant } from '@/lib/sync/wire-instant';
+import { deriveRepsStatus, persistSegmentSets } from '@/lib/sync/ingest-segment-sets';
 import {
+  CALORIES_MAX,
   clipText,
+  DISTANCE_M_MAX,
+  ERG_SPLITS_MAX,
+  PACE_S_MAX,
+  POWER_W_MAX,
+  SCALED_NOTE_MAX,
+  SEGMENTS_PER_EXECUTION_MAX,
+  STROKE_SPM_MAX,
+  WEIGHT_KG_MAX,
   sanitizeConfidence,
   sanitizeDurationSeconds,
   sanitizeHrBpm,
@@ -27,14 +37,13 @@ import {
   sanitizeLegRole,
   sanitizeNonNegative,
   sanitizeNonNegativeInt,
+  sanitizeNumericColumn,
   sanitizePositiveInt,
   sanitizeRepsSource,
   sanitizeRepsStatus,
-  sanitizeRpe,
   sanitizeRunCadenceSpm,
   sanitizeRxScaled,
   sanitizeSegmentSource,
-  SCALED_NOTE_MAX,
 } from '@/lib/sync/sanitize-measurement';
 import { type SegmentInput } from '@/lib/sync/segment-input-schema';
 
@@ -67,6 +76,8 @@ export {
   type SetInput,
 } from '@/lib/sync/segment-input-schema';
 
+export { deriveRepsStatus } from '@/lib/sync/ingest-segment-sets';
+
 /** Normalise a free-ish modality string from the client to the canonical set. */
 export function normalizeModality(raw: string | null | undefined): SegmentModality {
   if (!raw) return 'other';
@@ -97,22 +108,6 @@ export function normalizeModality(raw: string | null | undefined): SegmentModali
     default:
       return 'other';
   }
-}
-
-/**
- * Derive the honest reps status when the client omits it (locked contract rule):
- *   actual == null                          → 'skipped'
- *   prescribed != null && actual != presc.  → 'scaled'
- *   else                                    → 'done'
- * A wire-supplied status always wins; this only fills the gap.
- */
-export function deriveRepsStatus(
-  actual: number | null | undefined,
-  prescribed: number | null | undefined,
-): RepsStatus {
-  if (actual == null) return 'skipped';
-  if (prescribed != null && actual !== prescribed) return 'scaled';
-  return 'done';
 }
 
 /**
@@ -151,7 +146,7 @@ function priorWorkSeconds(segments: SegmentInput[], current: SegmentInput): numb
     if (d == null) return null;
     sum += d;
   }
-  return sum;
+  return sanitizeNonNegativeInt(sum);
 }
 
 /**
@@ -212,7 +207,8 @@ export async function ingestExecutionSegments(args: {
    */
   sessionFormat?: string | null;
 }): Promise<number> {
-  const { sql, executionId, executionStartedAt, segments, sessionFormat } = args;
+  const { sql, executionId, executionStartedAt, sessionFormat } = args;
+  const segments = args.segments.slice(0, SEGMENTS_PER_EXECUTION_MAX);
   if (segments.length === 0) return 0;
 
   // Session-format fallback, canonicalized ONCE through the shared catalog.
@@ -259,6 +255,9 @@ export async function ingestExecutionSegments(args: {
 
   let written = 0;
   for (const seg of segments) {
+    const position = sanitizeNonNegativeInt(seg.position);
+    if (position == null) continue;
+
     const durationSeconds = sanitizeDurationSeconds(seg.duration_seconds);
     const startedAt = coerceWireInstant(seg.started_at) ?? executionStartedAt;
     // If no explicit end, derive from start + duration so analytics that read
@@ -270,7 +269,11 @@ export async function ingestExecutionSegments(args: {
         : startedAt);
 
     const modality = normalizeModality(seg.modality);
-    const templateSegmentId = sanitizePositiveInt(seg.template_segment_id);
+    // Only persist a template link the lookup actually found. A stale / unknown
+    // id is not identity of the save — the FK used to 500 the whole POST.
+    const rawTemplateId = sanitizePositiveInt(seg.template_segment_id);
+    const templateSegmentId =
+      rawTemplateId != null && contextById.has(rawTemplateId) ? rawTemplateId : null;
     // raw_lap_data_json holds every jsonb-only signal for the segment: the HR
     // zone-seconds AND the erg detail (#33, PM5 aggregates + interval splits).
     // Only present keys are written (honest-null: an absent metric is an absent
@@ -281,7 +284,8 @@ export async function ingestExecutionSegments(args: {
     const ergSplits = (seg.erg_splits ?? [])
       .map((item) => ergSplitItemSchema.safeParse(item))
       .filter((p) => p.success)
-      .map((p) => p.data);
+      .map((p) => p.data)
+      .slice(0, ERG_SPLITS_MAX);
     const dragFactor = sanitizeNonNegative(seg.drag_factor);
     const avgCalH = sanitizeNonNegative(seg.avg_calories_per_hour);
     const peakForce = sanitizeNonNegative(seg.peak_drive_force_lbs);
@@ -356,23 +360,23 @@ export async function ingestExecutionSegments(args: {
       ) values (
         ${executionId}::bigint,
         ${templateSegmentId},
-        ${seg.position},
+        ${position},
         ${startedAt}::timestamptz,
         ${endedAt}::timestamptz,
         ${modality},
-        ${sanitizeNonNegative(seg.distance_meters)},
-        ${sanitizeNonNegative(seg.avg_pace_s_per_500m)},
-        ${sanitizeNonNegative(seg.avg_pace_s_per_km)},
-        ${sanitizeNonNegative(seg.avg_power_w)},
-        ${sanitizeNonNegative(seg.stroke_rate_spm)},
+        ${sanitizeNumericColumn(seg.distance_meters, DISTANCE_M_MAX)},
+        ${sanitizeNumericColumn(seg.avg_pace_s_per_500m, PACE_S_MAX)},
+        ${sanitizeNumericColumn(seg.avg_pace_s_per_km, PACE_S_MAX)},
+        ${sanitizeNumericColumn(seg.avg_power_w, POWER_W_MAX)},
+        ${sanitizeNumericColumn(seg.stroke_rate_spm, STROKE_SPM_MAX)},
         ${sanitizeRunCadenceSpm(seg.run_cadence_spm)},
         ${sanitizeInclinePct(seg.incline_pct)},
         ${sanitizeHrBpm(seg.avg_hr)},
         ${sanitizeHrBpm(seg.max_hr)},
         ${sanitizeHrSource(seg.hr_source)},
-        ${sanitizeNonNegative(seg.calories)},
+        ${sanitizeNumericColumn(seg.calories, CALORIES_MAX)},
         ${repsActual},
-        ${sanitizeNonNegative(seg.weight_used_kg)},
+        ${sanitizeNumericColumn(seg.weight_used_kg, WEIGHT_KG_MAX)},
         ${repsPrescribed},
         ${repsStatus},
         ${repsConfirmed},
@@ -465,52 +469,10 @@ export async function ingestExecutionSegments(args: {
     `;
     written += 1;
 
-    // Per-set strength detail. Delete-then-insert keyed on the parent segment so
-    // a retried sync replaces cleanly (no orphan/dupe sets). Only touched when
-    // the client sends a `sets` array for this segment.
     if (seg.sets && seg.sets.length > 0) {
       const segmentExecutionId = Number(rows[0]?.id);
       if (Number.isFinite(segmentExecutionId)) {
-        await sql`delete from set_executions where segment_execution_id = ${segmentExecutionId}`;
-        for (const s of seg.sets) {
-          const setIndex = sanitizePositiveInt(s.set_index);
-          if (setIndex == null) continue;
-          const setActual = sanitizeNonNegativeInt(s.reps_actual);
-          const setPrescribed = sanitizeNonNegativeInt(s.reps_prescribed);
-          const setStatus =
-            sanitizeRepsStatus(s.status) ?? deriveRepsStatus(setActual, setPrescribed);
-          await sql`
-            insert into set_executions (
-              segment_execution_id, set_index,
-              reps_prescribed, reps_actual,
-              load_prescribed_kg, load_actual_kg,
-              rpe, rir, status, confirmed, tempo, rest_s,
-              reps_source, reps_confidence,
-              mean_velocity_first_m_s, mean_velocity_last_m_s,
-              velocity_loss_pct, rom_m, velocity_confidence
-            ) values (
-              ${segmentExecutionId}::bigint,
-              ${setIndex},
-              ${setPrescribed},
-              ${setActual},
-              ${sanitizeNonNegative(s.load_prescribed_kg)},
-              ${sanitizeNonNegative(s.load_actual_kg)},
-              ${sanitizeRpe(s.rpe)},
-              ${sanitizeRpe(s.rir)},
-              ${setStatus},
-              ${s.confirmed ?? false},
-              ${clipText(s.tempo, 20)},
-              ${sanitizeNonNegativeInt(s.rest_s)},
-              ${sanitizeRepsSource(s.reps_source)},
-              ${sanitizeConfidence(s.reps_confidence)},
-              ${sanitizeNonNegative(s.mean_velocity_first_m_s)},
-              ${sanitizeNonNegative(s.mean_velocity_last_m_s)},
-              ${sanitizeNonNegative(s.velocity_loss_pct)},
-              ${sanitizeNonNegative(s.rom_m)},
-              ${sanitizeConfidence(s.velocity_confidence)}
-            )
-          `;
-        }
+        await persistSegmentSets({ sql, segmentExecutionId, sets: seg.sets });
       }
     }
   }

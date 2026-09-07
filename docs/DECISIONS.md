@@ -10,34 +10,42 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-09-07 · El guardado de sesión admite evidencia; solo la identidad es ticket
+## 2026-09-07 · Una sesión guardada es un solo hecho (ejecución + tramos + status)
 
-**El hueco:** terminar un entreno 400aba el POST entero cuando un campo de
-medida no cabía en Zod (`datetime()` sin offset, `.optional()` que rechaza
-`null`, `.nonnegative()` / `.int()`, enums de aparato, `source: pm5` fuera
-de `biometric_source`, notes > 4000). El campo que fallaba cambiaba con el
-entreno del día. Además el path prescrito no iba en transacción: el INSERT
-de `workout_executions` commiteaba; si los tramos lanzaban, no se llamaba
-`setAssignmentStatus`; el historial (INNER JOIN + `completed|partial`) no
-pintaba la fila. El libre ya iba en `db.begin`. Mismo writer, dos
-durabilidades.
+**El hueco (re-audit de main `926a47b1`, sin dar por buena una diagnosis
+previa):** el historial del atleta no lee «hay una fila en
+`workout_executions`». Lee INNER JOIN a `workout_assignments` con
+`status IN ('completed','partial')`. En el path prescrito
+(`POST /api/sync/workout-execution`) ese flip (`setAssignmentStatus`) iba
+DESPUÉS de insertar la ejecución y de ingerir tramos, y **sin transacción**.
+Cualquier throw en los tramos dejaba la ejecución commiteada y el
+assignment `scheduled` → el historial no pinta nada. El throw cambiaba
+con el día: 400 Zod (offset, `null`, `pm5`, calorías negativas, notes,
+tope de arrays), 500 FK de `template_segment_id` huérfano, 500 overflow
+de `numeric`/`int4`, unique de `set_index`, CHECK de enum/banda. Misma
+UI (REINTENTAR). El libre ya iba
+en `db.begin`. Mismo writer, dos durabilidades. `finish()` en iOS no
+persiste; solo GUARDAR hace el POST.
 
-**Decidido:** un solo writer (`recordWorkoutExecution`). Identidad estricta:
-`assignment_id`, `position ≥ 0`, `modality` no vacía. Todo lo demás es
-evidencia: el schema acepta; al insertar, imposible → `null` / recorte /
-omitido. Instante de cable = lo que iOS/`toISOString`/Postgres emiten (`Z`,
-offset, fracciones, `+0000`). `source` de ejecución desconocido se ignora;
-`deriveExecutionProvenance` decide. Completeness desconocido → `full`.
-Pool abre `begin`; si el caller ya pasa `tx`, se reutiliza. Historial no
-cambia de contrato: sigue exigiendo assignment `completed|partial`.
+**Decidido:** un solo writer (`recordWorkoutExecution`). Una sesión es un
+hecho: ejecución + tramos + status, o nada. Pool abre `begin`; si el
+caller ya pasa `tx`, se reutiliza. Identidad estricta: `assignment_id`,
+`position ≥ 0`, `modality` no vacía. Evidencia: el schema acepta; al
+insertar, imposible → `null` / recorte / omitido (instante de cable, FK
+de bloque no resuelto, overflow de columna, surplus de tramos/series,
+`set_index` duplicado, enum de aparato). `source`
+de ejecución desconocido se ignora; `deriveExecutionProvenance` decide.
+Completeness desconocido → `full`. Historial no cambia de contrato.
 
-**Se descarta:** un segundo motor de guardado; parchear campo a campo en
-iOS; bump de build (no se toca Swift); relajar identidad; tratar un
-assignment `scheduled` con fila de ejecución como «guardado» en historial.
+**Se descarta:** un segundo motor; parchear campo a campo en iOS; bump de
+build (no se toca Swift); relajar identidad; pintar en historial un
+assignment `scheduled` con fila de ejecución; tratar 42P10 de 0191 como
+el fallo de hoy (0203 ya está en main).
 
 **NO hacer:** no volver a poner bandas de aparato en el schema de entrada;
-no abrir otro POST que escriba `workout_executions`; no commitear ejecución
-sin tramos+status en la misma transacción cuando el cliente es el pool.
+no abrir otro POST que escriba `workout_executions`; no commitear
+ejecución sin tramos+status en la misma transacción cuando el cliente es
+el pool; no persistir un `template_segment_id` que el lookup no encontró.
 
 ---
 

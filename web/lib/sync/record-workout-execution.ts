@@ -65,7 +65,7 @@ export const executionMetricsSchema = z.object({
   started_at: wireInstantOrOmitted,
   ended_at: wireInstantOrOmitted,
   route_polyline: z.string().nullish(),
-  segments: z.array(segmentInputSchema).max(200).nullish(),
+  segments: z.array(segmentInputSchema).nullish(),
 });
 
 export const workoutExecutionSchema = executionMetricsSchema.extend({

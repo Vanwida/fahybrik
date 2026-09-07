@@ -56,22 +56,53 @@ export function sanitizeNonNegative(v: number | null | undefined): number | null
   return v;
 }
 
+/**
+ * Fit a non-negative measure into a Postgres `numeric(p,s)` column.
+ * Overflow (a GPS spike, a bogus calorie) used to 500 the INSERT after Zod
+ * had already accepted the number — another day's different error.
+ */
+export function sanitizeNumericColumn(
+  v: number | null | undefined,
+  maxAbs: number,
+): number | null {
+  const n = sanitizeNonNegative(v);
+  if (n == null || n > maxAbs) return null;
+  return n;
+}
+
+export const DISTANCE_M_MAX = 999_999.99; // numeric(8,2)
+export const CALORIES_MAX = 99_999.99; // numeric(7,2)
+export const WEIGHT_KG_MAX = 9_999.99; // numeric(6,2)
+export const PACE_S_MAX = 99_999.99; // numeric(7,2)
+export const POWER_W_MAX = 999_999.9; // numeric(7,1)
+export const STROKE_SPM_MAX = 9_999.9; // numeric(5,1)
+/** Postgres `integer` / `int4`. A 1e15 from a bad timer used to 500 the INSERT. */
+export const INT4_MAX = 2_147_483_647;
+/** Persist caps — extra rows are dropped, they do not 400 the POST. */
+export const SEGMENTS_PER_EXECUTION_MAX = 200;
+export const SETS_PER_SEGMENT_MAX = 60;
+export const ERG_SPLITS_MAX = 200;
+
+function int4OrNull(n: number): number | null {
+  return n > INT4_MAX ? null : n;
+}
+
 /** Whole seconds: finite, ≥ 0, rounded. A 2820.4 from a timer is 2820, not a 400. */
 export function sanitizeDurationSeconds(v: number | null | undefined): number | null {
   if (v == null || !Number.isFinite(v) || v < 0) return null;
-  return Math.round(v);
+  return int4OrNull(Math.round(v));
 }
 
-/** Count / integer column: finite, ≥ 0, rounded. Negatives and NaN → null. */
+/** Count / integer column: finite, ≥ 0, rounded. Negatives, NaN, overflow → null. */
 export function sanitizeNonNegativeInt(v: number | null | undefined): number | null {
   if (v == null || !Number.isFinite(v) || v < 0) return null;
-  return Math.round(v);
+  return int4OrNull(Math.round(v));
 }
 
 /** Positive integer identity (template id, set_index). Floats that aren't whole → null. */
 export function sanitizePositiveInt(v: number | null | undefined): number | null {
   if (v == null || !Number.isInteger(v) || v < 1) return null;
-  return v;
+  return int4OrNull(v);
 }
 
 export function sanitizeRpe(v: number | null | undefined): number | null {

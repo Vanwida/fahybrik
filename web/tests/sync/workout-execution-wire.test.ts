@@ -12,6 +12,8 @@ import { expect, test } from 'vitest';
 import { workoutExecutionSchema } from '@/lib/sync/record-workout-execution';
 import {
   clipText,
+  DISTANCE_M_MAX,
+  INT4_MAX,
   sanitizeCompleteness,
   sanitizeDeclaredSource,
   sanitizeDurationSeconds,
@@ -20,7 +22,9 @@ import {
   sanitizeNonNegative,
   sanitizeNonNegativeInt,
   sanitizeNotes,
+  sanitizeNumericColumn,
   sanitizePerceivedExertion,
+  sanitizePositiveInt,
   sanitizeSegmentSource,
 } from '@/lib/sync/sanitize-measurement';
 import { coerceWireInstant, isWireInstant } from '@/lib/sync/wire-instant';
@@ -173,4 +177,44 @@ test('emom o set_index imposibles no 400; el conteo se anula', () => {
 test('la identidad sigue estricta', () => {
   expect(parse({ segments: [{ position: -1, modality: 'run' }] }).success).toBe(false);
   expect(parse({ segments: [{ position: 0, modality: '' }] }).success).toBe(false);
+});
+
+test('un id de bloque o un GPS disparado no 400; no caben en columna → hueco', () => {
+  expect(
+    parse({
+      segments: [
+        {
+          position: 0,
+          modality: 'run',
+          template_segment_id: 9_999_999,
+          distance_meters: 1e10,
+        },
+      ],
+    }).success,
+  ).toBe(true);
+  expect(sanitizeNumericColumn(1e10, DISTANCE_M_MAX)).toBeNull();
+  expect(sanitizeNumericColumn(1000, DISTANCE_M_MAX)).toBe(1000);
+});
+
+test('un entero que no cabe en int4 cuesta el campo, no la sesión', () => {
+  expect(parse({ total_duration_seconds: 1e15 }).success).toBe(true);
+  expect(sanitizeDurationSeconds(1e15)).toBeNull();
+  expect(sanitizeNonNegativeInt(INT4_MAX)).toBe(INT4_MAX);
+  expect(sanitizeNonNegativeInt(INT4_MAX + 1)).toBeNull();
+  expect(sanitizePositiveInt(INT4_MAX + 1)).toBeNull();
+});
+
+test('más tramos o series de los que persistimos no 400', () => {
+  const segments = Array.from({ length: 201 }, (_, i) => ({
+    position: i,
+    modality: 'run',
+    duration_seconds: 10,
+  }));
+  expect(parse({ segments }).success).toBe(true);
+  const sets = Array.from({ length: 61 }, (_, i) => ({ set_index: i + 1, reps_actual: 5 }));
+  expect(
+    parse({
+      segments: [{ position: 0, modality: 'strength', sets }],
+    }).success,
+  ).toBe(true);
 });
