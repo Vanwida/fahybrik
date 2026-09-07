@@ -73,6 +73,13 @@ test('una confianza fuera de 0…1 cuesta su campo, no la sesión', () => {
   expect(sanitizeConfidence(0.62)).toBe(0.62);
 });
 
+test('calorías o metros imposibles ya no rechazan el envío', () => {
+  expect(segmentInputSchema.safeParse(runSegment({ calories: -1 })).success).toBe(true);
+  expect(segmentInputSchema.safeParse(runSegment({ distance_meters: -3 })).success).toBe(true);
+  expect(segmentInputSchema.safeParse(runSegment({ source: '' })).success).toBe(true);
+  expect(segmentInputSchema.safeParse(runSegment({ hr_source: 'watch' })).success).toBe(true);
+});
+
 test('lo que NO es medida de aparato sigue siendo estricto', () => {
   // La posición y la modalidad las pone nuestro propio cliente: un valor imposible
   // ahí es un fallo nuestro y tiene que chillar, no convertirse en un hueco.

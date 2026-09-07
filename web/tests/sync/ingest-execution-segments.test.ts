@@ -489,9 +489,9 @@ describe('normalizeModality + segmentInputSchema (pure)', () => {
     }
     // A non-EMOM segment simply omits them (both optional).
     expect(segmentInputSchema.safeParse({ position: 0, modality: 'run' }).success).toBe(true);
-    // Negatives are rejected (a count is never < 0).
+    // A negative count is not a 400: it is accepted and stored as a hole.
     expect(
       segmentInputSchema.safeParse({ position: 0, modality: 'other', emom_rounds_completed: -1 }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });

@@ -10,6 +10,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-07 · El guardado de sesión admite evidencia; solo la identidad es ticket
+
+**El hueco:** terminar un entreno 400aba el POST entero cuando un campo de
+medida no cabía en Zod (`datetime()` sin offset, `.optional()` que rechaza
+`null`, `.nonnegative()` / `.int()`, enums de aparato, `source: pm5` fuera
+de `biometric_source`, notes > 4000). El campo que fallaba cambiaba con el
+entreno del día. Además el path prescrito no iba en transacción: el INSERT
+de `workout_executions` commiteaba; si los tramos lanzaban, no se llamaba
+`setAssignmentStatus`; el historial (INNER JOIN + `completed|partial`) no
+pintaba la fila. El libre ya iba en `db.begin`. Mismo writer, dos
+durabilidades.
+
+**Decidido:** un solo writer (`recordWorkoutExecution`). Identidad estricta:
+`assignment_id`, `position ≥ 0`, `modality` no vacía. Todo lo demás es
+evidencia: el schema acepta; al insertar, imposible → `null` / recorte /
+omitido. Instante de cable = lo que iOS/`toISOString`/Postgres emiten (`Z`,
+offset, fracciones, `+0000`). `source` de ejecución desconocido se ignora;
+`deriveExecutionProvenance` decide. Completeness desconocido → `full`.
+Pool abre `begin`; si el caller ya pasa `tx`, se reutiliza. Historial no
+cambia de contrato: sigue exigiendo assignment `completed|partial`.
+
+**Se descarta:** un segundo motor de guardado; parchear campo a campo en
+iOS; bump de build (no se toca Swift); relajar identidad; tratar un
+assignment `scheduled` con fila de ejecución como «guardado» en historial.
+
+**NO hacer:** no volver a poner bandas de aparato en el schema de entrada;
+no abrir otro POST que escriba `workout_executions`; no commitear ejecución
+sin tramos+status en la misma transacción cuando el cliente es el pool.
+
+---
+
 ## 2026-09-01 · El unify no puede quedarse con callers de feat y tipos de un main viejo
 
 **El hueco:** el unify a main se quedó con los callers de feat

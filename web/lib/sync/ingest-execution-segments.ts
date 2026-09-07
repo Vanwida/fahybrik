@@ -10,13 +10,33 @@
 // so a retried sync never duplicates segments. Mirrors the conflict strategy
 // used for the parent workout_executions row.
 
-import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus } from '@fahybrid/shared/schema';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
-import { SEGMENT_LEG_PHASES, SEGMENT_LEG_ROLES } from '@/lib/execution/segment-work';
+import { coerceWireInstant } from '@/lib/sync/wire-instant';
+import {
+  clipText,
+  sanitizeConfidence,
+  sanitizeDurationSeconds,
+  sanitizeHrBpm,
+  sanitizeHrSource,
+  sanitizeInclinePct,
+  sanitizeLegPhase,
+  sanitizeLegRole,
+  sanitizeNonNegative,
+  sanitizeNonNegativeInt,
+  sanitizePositiveInt,
+  sanitizeRepsSource,
+  sanitizeRepsStatus,
+  sanitizeRpe,
+  sanitizeRunCadenceSpm,
+  sanitizeRxScaled,
+  sanitizeSegmentSource,
+  SCALED_NOTE_MAX,
+} from '@/lib/sync/sanitize-measurement';
+import { type SegmentInput } from '@/lib/sync/segment-input-schema';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -28,64 +48,24 @@ export { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus };
 // Re-exported here so every existing caller keeps its import path.
 export { SEGMENT_MODALITIES, type SegmentModality };
 
-// Physiological bands for the two running signals (mig 0124), mirroring the DB
-// CHECK constraints. The ingest layer range-gates device values to these bands
-// BEFORE insert so a stray reading (a walking break's cadence, a glitch) can
-// never make the CHECK reject a whole segment row — it lands as an honest null.
-export const RUN_CADENCE_MIN_SPM = 100; // below this is walking, not a run cadence
-export const RUN_CADENCE_MAX_SPM = 250; // generous sprint ceiling
-export const INCLINE_MAX_PCT = 30; // treadmill tops ~15; headroom for steep trail
-export const HR_MIN_BPM = 30; // below this is not a working pulse
-export const HR_MAX_BPM = 260; // above this is an artifact, not a heart
+export {
+  HR_MAX_BPM,
+  HR_MIN_BPM,
+  INCLINE_MAX_PCT,
+  RUN_CADENCE_MAX_SPM,
+  RUN_CADENCE_MIN_SPM,
+  sanitizeConfidence,
+  sanitizeHrBpm,
+  sanitizeInclinePct,
+  sanitizeRunCadenceSpm,
+} from '@/lib/sync/sanitize-measurement';
 
-/**
- * Gate a raw heart rate (bpm) to the stored band, rounding to the integer column.
- * Out-of-band or non-finite → null (honest "unknown", never a clamped fabrication).
- *
- * WHY THIS EXISTS AND THE SCHEMA NO LONGER ENFORCES THE BAND. A strap artifact —
- * a 300 bpm spike as the contact breaks — used to fail `segmentInputSchema`, and a
- * Zod failure rejects the WHOLE request: one bad number in one segment and the
- * athlete's entire 47-minute session came back 400 and was never stored. The band
- * belongs here, where an impossible reading costs its own field and nothing else,
- * exactly like cadence and incline above.
- */
-export function sanitizeHrBpm(v: number | null | undefined): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  const r = Math.round(v);
-  return r >= HR_MIN_BPM && r <= HR_MAX_BPM ? r : null;
-}
-
-/**
- * Gate a 0…1 confidence to its band. Out-of-band or non-finite → null. Same
- * reason as `sanitizeHrBpm`: a confidence is computed by the on-device sensor
- * pipeline, and an off-by-a-rounding value must cost its own field, never the
- * whole session.
- */
-export function sanitizeConfidence(v: number | null | undefined): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  return v >= 0 && v <= 1 ? v : null;
-}
-
-/**
- * Gate a raw running cadence (steps/min) to the stored band, rounding to the
- * integer column. Out-of-band or non-finite → null (honest "unknown", never a
- * clamped fabrication). Shared by every ingest channel (iOS / vision / Garmin).
- */
-export function sanitizeRunCadenceSpm(v: number | null | undefined): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  const r = Math.round(v);
-  return r >= RUN_CADENCE_MIN_SPM && r <= RUN_CADENCE_MAX_SPM ? r : null;
-}
-
-/**
- * Gate a raw incline/grade percent to the stored band [0, INCLINE_MAX_PCT],
- * rounding to one decimal (the numeric(4,1) column). Out-of-band → null.
- */
-export function sanitizeInclinePct(v: number | null | undefined): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  const r = Math.round(v * 10) / 10;
-  return r >= 0 && r <= INCLINE_MAX_PCT ? r : null;
-}
+export {
+  segmentInputSchema,
+  setInputSchema,
+  type SegmentInput,
+  type SetInput,
+} from '@/lib/sync/segment-input-schema';
 
 /** Normalise a free-ish modality string from the client to the canonical set. */
 export function normalizeModality(raw: string | null | undefined): SegmentModality {
@@ -135,119 +115,6 @@ export function deriveRepsStatus(
   return 'done';
 }
 
-// One working set of a strength segment. All optional except `set_index`; a NULL
-// `reps_actual` means the set was skipped (never a fabricated 0).
-export const setInputSchema = z.object({
-  set_index: z.number().int().min(1),
-  reps_prescribed: z.number().int().min(0).nullable().optional(),
-  reps_actual: z.number().int().min(0).nullable().optional(),
-  load_prescribed_kg: z.number().nonnegative().nullable().optional(),
-  load_actual_kg: z.number().nonnegative().nullable().optional(),
-  rpe: z.number().min(0).max(10).nullable().optional(),
-  rir: z.number().min(0).max(10).nullable().optional(),
-  status: z.enum(REPS_STATUSES).optional(),
-  confirmed: z.boolean().optional(),
-  tempo: z.string().max(20).optional(),
-  rest_s: z.number().int().min(0).optional(),
-  // Sensor fases 2–3 (mig 0175/0176). Optional: older clients omit.
-  reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
-  reps_confidence: z.number().nullish(),
-  mean_velocity_first_m_s: z.number().nonnegative().nullish(),
-  mean_velocity_last_m_s: z.number().nonnegative().nullish(),
-  velocity_loss_pct: z.number().nonnegative().nullish(),
-  rom_m: z.number().nonnegative().nullish(),
-  velocity_confidence: z.number().nullish(),
-});
-
-export type SetInput = z.infer<typeof setInputSchema>;
-
-// Exactly the shape iOS sends per segment on workout finish.
-export const segmentInputSchema = z.object({
-  template_segment_id: z.number().int().positive().optional(),
-  position: z.number().int().min(0),
-  modality: z.string().min(1).max(40),
-  started_at: z.string().datetime().optional(),
-  ended_at: z.string().datetime().optional(),
-  duration_seconds: z.number().int().min(0).optional(),
-  distance_meters: z.number().nonnegative().optional(),
-  avg_pace_s_per_500m: z.number().nonnegative().optional(),
-  avg_pace_s_per_km: z.number().nonnegative().optional(),
-  avg_power_w: z.number().nonnegative().optional(),
-  stroke_rate_spm: z.number().nonnegative().optional(),
-  // Running-native signals (mig 0124). run_cadence_spm = steps/min (a step is NOT
-  // an erg stroke → its own column, never stroke_rate_spm); incline_pct = average
-  // treadmill/uphill grade %. Both range-gated server-side (see sanitize*), so an
-  // out-of-band device value lands as null instead of tripping the DB CHECK.
-  // Tampoco se valida la banda de estos dos, por lo mismo. `incline_pct` además
-  // llega CON SIGNO: el estándar FTMS manda la pendiente como entero con signo, así
-  // que una cinta en bajada mandaba un negativo y el envío entero se caía. La
-  // bajada se guarda como hueco (la columna sólo admite de 0 a 30), que es una
-  // pérdida honesta y acotada — no un entreno perdido. Ver card 117.
-  run_cadence_spm: z.number().optional(),
-  incline_pct: z.number().optional(),
-  // NO SE VALIDA LA BANDA AQUÍ, A PROPÓSITO. Rechazar en el esquema tira la
-  // petición ENTERA: un pico de 300 ppm al despegarse la cinta del pecho borraba
-  // los 47 minutos del atleta. La banda la aplica `sanitizeHrBpm` al insertar, así
-  // que una lectura imposible se queda sin ese campo y no se lleva el entreno por
-  // delante. Igual que la cadencia y la pendiente.
-  avg_hr: z.number().optional(),
-  max_hr: z.number().optional(),
-  // Provenance of avg_hr/max_hr specifically (mig 0153) — which device measured
-  // the pulse, resolved client-side by the live engine's HR-ownership latch.
-  // Distinct from `source` below (the TRAMO's movement provenance). Nullish so a
-  // segment with no HR, or a pre-0153 client, omits it cleanly.
-  hr_source: z.enum(HR_SOURCES).nullish(),
-  calories: z.number().nonnegative().optional(),
-  // Legacy alias kept for back-compat: = ACTUAL reps (or null when skipped).
-  // Ingest prefers `reps_actual` when present; never coalesces a skip to 0.
-  reps_completed: z.number().int().min(0).optional(),
-  weight_used_kg: z.number().nonnegative().optional(),
-  // Honest-logging fields (all optional; see deriveRepsStatus for the fallback).
-  reps_prescribed: z.number().int().min(0).nullable().optional(),
-  // Canonical actual; NULL only when skipped.
-  reps_actual: z.number().int().min(0).nullable().optional(),
-  reps_status: z.enum(REPS_STATUSES).optional(),
-  reps_confirmed: z.boolean().optional(),
-  // Sensor fases 1–2 (mig 0174/0175).
-  sensor_work_s: z.number().nonnegative().nullish(),
-  sensor_rest_s: z.number().nonnegative().nullish(),
-  sensor_timing_confidence: z.number().nullish(),
-  reps_source: z.enum(['athlete_tap', 'sensor', 'sensor_corrected']).nullish(),
-  reps_confidence: z.number().nullish(),
-  is_structural: z.boolean().optional(),
-  // EMOM completion (mig 0134). How many of the EMOM's intervals the athlete
-  // completed the prescribed work in, and how many were prescribed — the honest
-  // "X/Y rondas" the finish dialog promises. Both NULL for non-EMOM segments; an
-  // EMOM interval is neither a rep nor a strength set, so it gets its own columns.
-  emom_rounds_completed: z.number().int().min(0).nullable().optional(),
-  emom_rounds_prescribed: z.number().int().min(0).nullable().optional(),
-  rx_scaled: z.enum(RX_SCALED_VALUES).optional(),
-  scaled_note: z.string().max(500).optional(),
-  // Per-set strength detail; delete-then-insert by segment on re-sync.
-  sets: z.array(setInputSchema).max(60).optional(),
-  zone_seconds_json: z.unknown().optional(),
-  // Concept2 PM5 erg detail (#33). NO new columns — these fold into the segment's
-  // `raw_lap_data_json` (alongside zone_seconds). `avg_pace_s_per_500m` above
-  // already carries the PM5's own average pace. Segment-level aggregates + the
-  // monitor's per-interval splits; all optional (a non-erg segment omits them).
-  drag_factor: z.number().finite().nonnegative().nullish(),
-  avg_calories_per_hour: z.number().finite().nonnegative().nullish(),
-  peak_drive_force_lbs: z.number().finite().nonnegative().nullish(),
-  avg_drive_force_lbs: z.number().finite().nonnegative().nullish(),
-  erg_splits: z.array(ergSplitItemSchema).max(200).nullish(),
-  // Atribución por tramo de una carrera estructurada (mig 0146). Los tres van
-  // JUNTOS o ninguno — describen un bout de la lista plana de tramos de la
-  // prescripción, y media atribución no sirve para nada (ver `legAttribution`).
-  // `leg_index` comparte espacio de índices con `flattenSegments()`, así que es la
-  // clave con la que lo hecho casa con lo prescrito sin zipear por orden.
-  leg_index: z.number().int().min(0).nullish(),
-  leg_role: z.enum(SEGMENT_LEG_ROLES).nullish(),
-  leg_phase: z.enum(SEGMENT_LEG_PHASES).nullish(),
-  source: z.string().min(1).max(40).optional(),
-});
-
-export type SegmentInput = z.infer<typeof segmentInputSchema>;
-
 /**
  * Honest per-segment duration in whole seconds: explicit `duration_seconds`
  * wins; else derive it from explicit started/ended timestamps; else UNKNOWN
@@ -258,9 +125,12 @@ export type SegmentInput = z.infer<typeof segmentInputSchema>;
  * rule, one place: a second definition would let the two disagree.
  */
 export function segmentDurationSeconds(seg: SegmentInput): number | null {
-  if (seg.duration_seconds != null) return seg.duration_seconds;
-  if (seg.started_at && seg.ended_at) {
-    const d = (new Date(seg.ended_at).getTime() - new Date(seg.started_at).getTime()) / 1000;
+  const explicit = sanitizeDurationSeconds(seg.duration_seconds);
+  if (explicit != null) return explicit;
+  const started = coerceWireInstant(seg.started_at);
+  const ended = coerceWireInstant(seg.ended_at);
+  if (started && ended) {
+    const d = (new Date(ended).getTime() - new Date(started).getTime()) / 1000;
     return Number.isFinite(d) && d >= 0 ? Math.round(d) : null;
   }
   return null;
@@ -297,9 +167,9 @@ function legAttribution(seg: SegmentInput): {
   role: string | null;
   phase: string | null;
 } {
-  const index = seg.leg_index ?? null;
-  const role = seg.leg_role ?? null;
-  const phase = seg.leg_phase ?? null;
+  const index = sanitizeNonNegativeInt(seg.leg_index);
+  const role = sanitizeLegRole(seg.leg_role);
+  const phase = sanitizeLegPhase(seg.leg_phase);
   if (index == null || role == null || phase == null) {
     return { index: null, role: null, phase: null };
   }
@@ -351,7 +221,11 @@ export async function ingestExecutionSegments(args: {
   // Batched context lookup for every linked segment (no N+1): one query resolves
   // block format / exercise / prescription for all `template_segment_id`s.
   const templateSegmentIds = Array.from(
-    new Set(segments.map((s) => s.template_segment_id).filter((x): x is number => x != null)),
+    new Set(
+      segments
+        .map((s) => sanitizePositiveInt(s.template_segment_id))
+        .filter((x): x is number => x != null),
+    ),
   );
   const contextById = new Map<number, SegmentContext>();
   if (templateSegmentIds.length > 0) {
@@ -385,37 +259,50 @@ export async function ingestExecutionSegments(args: {
 
   let written = 0;
   for (const seg of segments) {
-    const startedAt = seg.started_at ?? executionStartedAt;
+    const durationSeconds = sanitizeDurationSeconds(seg.duration_seconds);
+    const startedAt = coerceWireInstant(seg.started_at) ?? executionStartedAt;
     // If no explicit end, derive from start + duration so analytics that read
     // (ended_at - started_at) still work.
     const endedAt =
-      seg.ended_at ??
-      (seg.duration_seconds != null
-        ? new Date(new Date(startedAt).getTime() + seg.duration_seconds * 1000).toISOString()
+      coerceWireInstant(seg.ended_at) ??
+      (durationSeconds != null
+        ? new Date(new Date(startedAt).getTime() + durationSeconds * 1000).toISOString()
         : startedAt);
 
     const modality = normalizeModality(seg.modality);
+    const templateSegmentId = sanitizePositiveInt(seg.template_segment_id);
     // raw_lap_data_json holds every jsonb-only signal for the segment: the HR
     // zone-seconds AND the erg detail (#33, PM5 aggregates + interval splits).
     // Only present keys are written (honest-null: an absent metric is an absent
     // key, never a null-filled one). Passed through sql.json so the column stores
     // an OBJECT — NOT a double-encoded JSON string scalar — so it reads back as an
     // object for analytics and echoes verbatim on the coach/athlete detail.
+    // A split that fails its own schema is dropped (costs the split, not the session).
+    const ergSplits = (seg.erg_splits ?? [])
+      .map((item) => ergSplitItemSchema.safeParse(item))
+      .filter((p) => p.success)
+      .map((p) => p.data);
+    const dragFactor = sanitizeNonNegative(seg.drag_factor);
+    const avgCalH = sanitizeNonNegative(seg.avg_calories_per_hour);
+    const peakForce = sanitizeNonNegative(seg.peak_drive_force_lbs);
+    const avgForce = sanitizeNonNegative(seg.avg_drive_force_lbs);
     const lap: Record<string, unknown> = {};
     if (seg.zone_seconds_json !== undefined) lap.zone_seconds = seg.zone_seconds_json;
-    if (seg.drag_factor != null) lap.drag_factor = seg.drag_factor;
-    if (seg.avg_calories_per_hour != null) lap.avg_calories_per_hour = seg.avg_calories_per_hour;
-    if (seg.peak_drive_force_lbs != null) lap.peak_drive_force_lbs = seg.peak_drive_force_lbs;
-    if (seg.avg_drive_force_lbs != null) lap.avg_drive_force_lbs = seg.avg_drive_force_lbs;
-    if (seg.erg_splits != null && seg.erg_splits.length > 0) lap.erg_splits = seg.erg_splits;
+    if (dragFactor != null) lap.drag_factor = dragFactor;
+    if (avgCalH != null) lap.avg_calories_per_hour = avgCalH;
+    if (peakForce != null) lap.peak_drive_force_lbs = peakForce;
+    if (avgForce != null) lap.avg_drive_force_lbs = avgForce;
+    if (ergSplits.length > 0) lap.erg_splits = ergSplits;
     const rawLap =
       Object.keys(lap).length > 0 ? sql.json(lap as Parameters<typeof sql.json>[0]) : null;
 
     // Honest reps state. `reps_actual` is canonical; `reps_completed` is the
     // legacy alias for the SAME value. NULL means skipped — NEVER fabricate a 0.
     const repsActual =
-      seg.reps_actual !== undefined ? seg.reps_actual : (seg.reps_completed ?? null);
-    const repsPrescribed = seg.reps_prescribed ?? null;
+      seg.reps_actual !== undefined
+        ? sanitizeNonNegativeInt(seg.reps_actual)
+        : sanitizeNonNegativeInt(seg.reps_completed);
+    const repsPrescribed = sanitizeNonNegativeInt(seg.reps_prescribed);
     // Only rep-bearing segments carry a status — a pure run/erg leg (no reps at
     // all) must NOT be stamped 'skipped'. Derive only when the client omits it
     // AND the segment actually involves reps.
@@ -423,16 +310,17 @@ export async function ingestExecutionSegments(args: {
       seg.reps_actual !== undefined ||
       seg.reps_completed !== undefined ||
       repsPrescribed != null ||
-      seg.reps_status !== undefined;
+      seg.reps_status != null;
     const repsStatus =
-      seg.reps_status ?? (hasRepSignal ? deriveRepsStatus(repsActual, repsPrescribed) : null);
+      sanitizeRepsStatus(seg.reps_status) ??
+      (hasRepSignal ? deriveRepsStatus(repsActual, repsPrescribed) : null);
     const repsConfirmed = seg.reps_confirmed ?? false;
     const isStructural = seg.is_structural ?? false;
 
     // Effort CONTEXT (migration 0120), derived server-side. A live template link
     // → 'block' (format/exercise/prescription from that block); otherwise fall
     // back to the session format → 'session'.
-    const ctx = seg.template_segment_id != null ? contextById.get(seg.template_segment_id) : undefined;
+    const ctx = templateSegmentId != null ? contextById.get(templateSegmentId) : undefined;
     const contextSource: 'block' | 'session' = ctx ? 'block' : 'session';
     const contextFormat = ctx
       ? (normalizeFormat(ctx.block_format ?? ctx.scheme) ?? null)
@@ -467,42 +355,42 @@ export async function ingestExecutionSegments(args: {
         context_format, context_source, exercise_id, prescription_snapshot, prior_work_s
       ) values (
         ${executionId}::bigint,
-        ${seg.template_segment_id ?? null},
+        ${templateSegmentId},
         ${seg.position},
         ${startedAt}::timestamptz,
         ${endedAt}::timestamptz,
         ${modality},
-        ${seg.distance_meters ?? null},
-        ${seg.avg_pace_s_per_500m ?? null},
-        ${seg.avg_pace_s_per_km ?? null},
-        ${seg.avg_power_w ?? null},
-        ${seg.stroke_rate_spm ?? null},
+        ${sanitizeNonNegative(seg.distance_meters)},
+        ${sanitizeNonNegative(seg.avg_pace_s_per_500m)},
+        ${sanitizeNonNegative(seg.avg_pace_s_per_km)},
+        ${sanitizeNonNegative(seg.avg_power_w)},
+        ${sanitizeNonNegative(seg.stroke_rate_spm)},
         ${sanitizeRunCadenceSpm(seg.run_cadence_spm)},
         ${sanitizeInclinePct(seg.incline_pct)},
         ${sanitizeHrBpm(seg.avg_hr)},
         ${sanitizeHrBpm(seg.max_hr)},
-        ${seg.hr_source ?? null},
-        ${seg.calories ?? null},
+        ${sanitizeHrSource(seg.hr_source)},
+        ${sanitizeNonNegative(seg.calories)},
         ${repsActual},
-        ${seg.weight_used_kg ?? null},
+        ${sanitizeNonNegative(seg.weight_used_kg)},
         ${repsPrescribed},
         ${repsStatus},
         ${repsConfirmed},
         ${isStructural},
-        ${seg.rx_scaled ?? null},
-        ${seg.scaled_note ?? null},
-        ${seg.emom_rounds_completed ?? null},
-        ${seg.emom_rounds_prescribed ?? null},
+        ${sanitizeRxScaled(seg.rx_scaled)},
+        ${clipText(seg.scaled_note, SCALED_NOTE_MAX)},
+        ${sanitizeNonNegativeInt(seg.emom_rounds_completed)},
+        ${sanitizeNonNegativeInt(seg.emom_rounds_prescribed)},
         ${leg.index},
         ${leg.role},
         ${leg.phase},
-        ${seg.sensor_work_s ?? null},
-        ${seg.sensor_rest_s ?? null},
+        ${sanitizeNonNegative(seg.sensor_work_s)},
+        ${sanitizeNonNegative(seg.sensor_rest_s)},
         ${sanitizeConfidence(seg.sensor_timing_confidence)},
-        ${seg.reps_source ?? null},
+        ${sanitizeRepsSource(seg.reps_source)},
         ${sanitizeConfidence(seg.reps_confidence)},
         ${rawLap},
-        ${seg.source ?? null},
+        ${sanitizeSegmentSource(seg.source)},
         ${contextFormat},
         ${contextSource},
         ${exerciseId},
@@ -585,9 +473,12 @@ export async function ingestExecutionSegments(args: {
       if (Number.isFinite(segmentExecutionId)) {
         await sql`delete from set_executions where segment_execution_id = ${segmentExecutionId}`;
         for (const s of seg.sets) {
-          const setActual = s.reps_actual ?? null;
-          const setPrescribed = s.reps_prescribed ?? null;
-          const setStatus = s.status ?? deriveRepsStatus(setActual, setPrescribed);
+          const setIndex = sanitizePositiveInt(s.set_index);
+          if (setIndex == null) continue;
+          const setActual = sanitizeNonNegativeInt(s.reps_actual);
+          const setPrescribed = sanitizeNonNegativeInt(s.reps_prescribed);
+          const setStatus =
+            sanitizeRepsStatus(s.status) ?? deriveRepsStatus(setActual, setPrescribed);
           await sql`
             insert into set_executions (
               segment_execution_id, set_index,
@@ -599,23 +490,23 @@ export async function ingestExecutionSegments(args: {
               velocity_loss_pct, rom_m, velocity_confidence
             ) values (
               ${segmentExecutionId}::bigint,
-              ${s.set_index},
+              ${setIndex},
               ${setPrescribed},
               ${setActual},
-              ${s.load_prescribed_kg ?? null},
-              ${s.load_actual_kg ?? null},
-              ${s.rpe ?? null},
-              ${s.rir ?? null},
+              ${sanitizeNonNegative(s.load_prescribed_kg)},
+              ${sanitizeNonNegative(s.load_actual_kg)},
+              ${sanitizeRpe(s.rpe)},
+              ${sanitizeRpe(s.rir)},
               ${setStatus},
               ${s.confirmed ?? false},
-              ${s.tempo ?? null},
-              ${s.rest_s ?? null},
-              ${s.reps_source ?? null},
+              ${clipText(s.tempo, 20)},
+              ${sanitizeNonNegativeInt(s.rest_s)},
+              ${sanitizeRepsSource(s.reps_source)},
               ${sanitizeConfidence(s.reps_confidence)},
-              ${s.mean_velocity_first_m_s ?? null},
-              ${s.mean_velocity_last_m_s ?? null},
-              ${s.velocity_loss_pct ?? null},
-              ${s.rom_m ?? null},
+              ${sanitizeNonNegative(s.mean_velocity_first_m_s)},
+              ${sanitizeNonNegative(s.mean_velocity_last_m_s)},
+              ${sanitizeNonNegative(s.velocity_loss_pct)},
+              ${sanitizeNonNegative(s.rom_m)},
               ${sanitizeConfidence(s.velocity_confidence)}
             )
           `;
