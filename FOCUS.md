@@ -2,14 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (Start de sesión: receta entera, no el kind)
+Última actualización: **2026-09-07** (picker de ejercicios, build 64)
 
 ## Ahora
+
+**PICKER DE EJERCICIOS — no cargaba en el 63.** El Start de sesión colgó
+`RunPreStartFlow` (cover) al lado del sheet del catálogo en el builder
+funcional: UIKit solo deja una presentación. GET `/api/athlete/exercises`
+200; el picker no pintaba. Cover en el host; decode Int|String y una fila
+mala no tumba la lista. Build **64**.
 
 **START DE SESIÓN — pieza 1 del runtime.** Un WOD mixto pregunta calle/cinta y
 cada PM5 (remo, ski, bici) ANTES de que corra el reloj, aunque el bloque sea
 `.reps` o el primero sea un calentamiento. Ley: DECISIONS 07-sep «El Start
-pregunta la receta entera». Build **63**. Informe raíz: `docs/audit-entreno-raiz.html`.
+pregunta la receta entera». Informe raíz: `docs/audit-entreno-raiz.html`.
 Queda: cursor único, dueño teléfono/reloj, keep-alive, una cara.
 
 **AUDIT RAÍZ DEL VIVO — la app es frágil porque no hay un runtime de sesión.**

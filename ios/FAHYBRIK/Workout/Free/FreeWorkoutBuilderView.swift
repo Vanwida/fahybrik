@@ -25,6 +25,8 @@ struct FreeWorkoutBuilderView: View {
     /// #8 — a free RUN starts through the full-screen pre-start sequence
     /// (¿dónde corres? → cinta → conectar → GO); this presents it on Empezar.
     @State private var showRunPreStart = false
+    /// Functional Empezar that still needs calle/cinta. Measured uses `draft`.
+    @State private var pendingRunEnvContext: FreeWorkoutContext? = nil
     /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
     /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
     /// return a `FreeWorkoutContext` that runs through the SAME engine below.
@@ -47,20 +49,41 @@ struct FreeWorkoutBuilderView: View {
                 onCompleted: { _ in onCompleted(); onClose() }
             )
         } else {
-            switch track {
-            case .measured:
-                builder
-            case .strength:
-                FreeStrengthBuilderView(
-                    bearer: bearer,
-                    onBack: { track = .measured },
-                    onStart: { running = $0 }
-                )
-            case .functional:
-                FreeFunctionalBuilderView(
-                    bearer: bearer,
-                    onBack: { track = .measured },
-                    onStart: { running = $0 }
+            Group {
+                switch track {
+                case .measured:
+                    builder
+                case .strength:
+                    FreeStrengthBuilderView(
+                        bearer: bearer,
+                        onBack: { track = .measured },
+                        onStart: beginFreeContext
+                    )
+                case .functional:
+                    FreeFunctionalBuilderView(
+                        bearer: bearer,
+                        onBack: { track = .measured },
+                        onStart: beginFreeContext
+                    )
+                }
+            }
+            .fullScreenCover(isPresented: $showRunPreStart) {
+                RunPreStartFlow(
+                    sessionTitle: pendingRunEnvContext?.title ?? runFlowTitle,
+                    onStart: { env in
+                        showRunPreStart = false
+                        if var ctx = pendingRunEnvContext {
+                            ctx.runEnvironment = env
+                            pendingRunEnvContext = nil
+                            running = ctx
+                        } else {
+                            startNow(environment: env)
+                        }
+                    },
+                    onCancel: {
+                        showRunPreStart = false
+                        pendingRunEnvContext = nil
+                    }
                 )
             }
         }
@@ -84,17 +107,6 @@ struct FreeWorkoutBuilderView: View {
             if step == .bouts { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        // #8 — the run pre-start sequence (mockup): ¿dónde? → (cinta → conectar) → GO.
-        .fullScreenCover(isPresented: $showRunPreStart) {
-            RunPreStartFlow(
-                sessionTitle: runFlowTitle,
-                onStart: { env in
-                    showRunPreStart = false
-                    startNow(environment: env)
-                },
-                onCancel: { showRunPreStart = false }
-            )
-        }
         // Leaving the measured builder WITHOUT starting (back out, or switch to the
         // Fuerza/Funcional track) → release any belt/strap connected from the card.
         // When Empezar sets `running`, WorkoutContainer owns teardown, so skip here.
@@ -403,6 +415,19 @@ struct FreeWorkoutBuilderView: View {
         guard var ctx = draft.buildContext() else { return }
         ctx.runEnvironment = draft.modality == .run ? environment : nil
         Haptics.medium()
+        running = ctx
+    }
+
+    /// Functional (and any other list builder) lands here. Calle/cinta lives on
+    /// THIS host — never next to the exercise-picker sheet (a sheet inside or
+    /// beside a fullScreenCover is the gym-failure this file already documents).
+    private func beginFreeContext(_ ctx: FreeWorkoutContext) {
+        if ctx.runEnvironment == nil,
+           SessionStartPolicy.needsRunEnvironment(ctx.plan) {
+            pendingRunEnvContext = ctx
+            showRunPreStart = true
+            return
+        }
         running = ctx
     }
 

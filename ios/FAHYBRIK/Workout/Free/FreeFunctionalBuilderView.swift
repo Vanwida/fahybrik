@@ -16,7 +16,6 @@ struct FreeFunctionalBuilderView: View {
     @State private var draft = FreeFunctionalDraft()
     @State private var step: Step = .format
     @State private var showPicker = false
-    @State private var showRunPreStart = false
 
     enum Step { case format, config }
 
@@ -37,22 +36,15 @@ struct FreeFunctionalBuilderView: View {
             if step == .config { footer }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        // Sheet only. Calle/cinta is presented by the host
+        // (`FreeWorkoutBuilderView`). A cover next to this sheet is the
+        // gym-failure (DevicePickerSheet) — build 63 blanked the catalog.
         .sheet(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
                 preferredCategory: "functional",
                 onPick: { ex in draft.add(ex); showPicker = false; Haptics.medium() },
                 onClose: { showPicker = false }
-            )
-        }
-        .fullScreenCover(isPresented: $showRunPreStart) {
-            RunPreStartFlow(
-                sessionTitle: draft.titleEdited.isEmpty ? draft.defaultTitle : draft.titleEdited,
-                onStart: { env in
-                    showRunPreStart = false
-                    startWithEnvironment(env)
-                },
-                onCancel: { showRunPreStart = false }
             )
         }
     }
@@ -324,11 +316,7 @@ struct FreeFunctionalBuilderView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
             ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                if SessionStartPolicy.needsRunEnvironment(in: previewSegments) {
-                    showRunPreStart = true
-                } else {
-                    startWithEnvironment(nil)
-                }
+                startWithEnvironment(nil)
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)

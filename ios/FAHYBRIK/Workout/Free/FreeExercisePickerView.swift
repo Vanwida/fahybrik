@@ -1,4 +1,10 @@
+import os
 import SwiftUI
+
+private let catalogLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.fahybrid.app",
+    category: "catalog"
+)
 
 // MARK: - Entreno libre — exercise picker sheet
 //
@@ -281,6 +287,7 @@ struct FreeExercisePickerView: View {
             phase = .loaded
         } catch {
             guard !Task.isCancelled else { return }
+            catalogLog.error("GET \(FreeExerciseCatalogAPI.path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
             phase = .failed
         }
     }

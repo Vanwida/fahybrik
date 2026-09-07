@@ -31,7 +31,10 @@ llegar a cada estación como sustituto del inventario de sesión.
 
 **NO hacer:** no preguntar sólo el primer ejercicio; no dejar que el reloj
 salte el sitio de carrera; no apagar el podómetro porque el HUD de calle
-esté montado (eso ya era la ley de `RunPhoneSensorPlan`).
+esté montado (eso ya era la ley de `RunPhoneSensorPlan`). El cover de
+calle/cinta vive en el HOST del builder libre (`FreeWorkoutBuilderView`),
+nunca al lado del sheet del catálogo: build 63 lo colgó en
+`FreeFunctionalBuilderView` y el picker dejó de pintar (GET 200).
 
 ---
 
