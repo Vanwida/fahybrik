@@ -113,14 +113,14 @@ final class NoAutoConnectSourceGuardTests: XCTestCase {
 
     /// FH-72: one `CBCentralManager` per iOS process, in `DeviceCentral` only.
     func testProductHasExactlyOneCBCentralManagerInit() throws {
-        var hits: [(String, Int)] = []
+        var hits: [(name: String, count: Int)] = []
         for (name, text) in try swiftSources() {
             let n = code(text).components(separatedBy: "CBCentralManager(").count - 1
-            if n > 0 { hits.append((name, n)) }
+            if n > 0 { hits.append((name: name, count: n)) }
         }
         XCTAssertEqual(hits.count, 1, "exactly one product file may construct CBCentralManager")
         XCTAssertEqual(hits.first?.name, "DeviceCentral.swift")
-        XCTAssertEqual(hits.first?.1, 1)
+        XCTAssertEqual(hits.first?.count, 1)
     }
 
     /// Restore re-engages THIS session's peripheral. It is not reconnect-anyone:

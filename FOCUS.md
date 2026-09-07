@@ -2,16 +2,20 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (audit raíz del vivo: no hay motor de sesión)
+Última actualización: **2026-09-07** (Start de sesión: receta entera, no el kind)
 
 ## Ahora
 
+**START DE SESIÓN — pieza 1 del runtime.** Un WOD mixto pregunta calle/cinta y
+cada PM5 (remo, ski, bici) ANTES de que corra el reloj, aunque el bloque sea
+`.reps` o el primero sea un calentamiento. Ley: DECISIONS 07-sep «El Start
+pregunta la receta entera». Build **63**. Informe raíz: `docs/audit-entreno-raiz.html`.
+Queda: cursor único, dueño teléfono/reloj, keep-alive, una cara.
+
 **AUDIT RAÍZ DEL VIVO — la app es frágil porque no hay un runtime de sesión.**
-Informe: `docs/audit-entreno-raiz.html`. Main al día (`8c165d75`). Solo lectura.
-Cinco raíces: siete cursores; Start que pregunta el bloque/`kind` no la receta; dos apps
-teléfono+reloj; keep-alive solo en calle/EMOM; el coach escribe formatos que iOS finge.
-No se parchea. Hecho = cualquier receta pide lo que hay, mide el tramo, no muere al
-bloquear, se acaba una vez, misma cara.
+Informe: `docs/audit-entreno-raiz.html`. Cinco raíces: siete cursores; Start
+que preguntaba el bloque/`kind`; dos apps teléfono+reloj; keep-alive solo en
+calle/EMOM; el coach escribe formatos que iOS finge.
 
 **GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
 Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El

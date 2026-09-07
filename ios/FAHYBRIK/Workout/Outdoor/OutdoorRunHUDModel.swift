@@ -223,7 +223,7 @@ final class OutdoorRunHUDModel {
     /// structured TIME/recovery leg, where the session clock owns the timing and
     /// freezing it would gift un-prescribed rest.
     private var autoPauseEligible: Bool {
-        guard session.currentSegment?.kind == .running else { return false }
+        guard session.tramoIsRun else { return false }
         if isStructured { return session.currentRunLegIsDistance }
         return true
     }

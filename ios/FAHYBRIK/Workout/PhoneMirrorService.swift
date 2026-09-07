@@ -202,7 +202,9 @@ final class PhoneMirrorService {
     /// is immutable on `HKWorkoutConfiguration`.
     func launchWatchIfNeeded() {
         guard session != nil, HKHealthStore.isHealthDataAvailable() else { return }
-        if activityKind == "running", session?.runEnvironment == nil { return }
+        if let live = session,
+           SessionStartPolicy.needsRunEnvironment(live.plan),
+           live.runEnvironment == nil { return }
         guard !didLaunchWatch, !wristJoined else { return }
         didLaunchWatch = true
         watchLaunchGeneration += 1

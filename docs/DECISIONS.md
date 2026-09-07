@@ -10,6 +10,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-07 · El Start pregunta la receta entera, no el kind del bloque
+
+**El hueco:** un WOD por rondas remo+ski+carrera no pedía calle/cinta ni las
+tres máquinas. Los chips del brief sí recorrían `involvesRun` y los roles
+PM5. El GO preguntaba `kind == .running` del **bloque de ahora**. Un fold
+mixto es `.reps`. Calentamiento primero = las máquinas del principal se
+pedían tarde o nunca. El reloj llamaba `beginBlock()` sin inventario. El
+GPS del host leía el mismo `kind`, así que en la estación de correr de un
+mixto no había podómetro.
+
+**Decidido:** `SessionStartPolicy.needsRunEnvironment` (cualquier set/tramo
+de carrera) + `SessionStartGate.next` (calle/cinta, luego cada rol PM5) sobre
+`plan.segments`. Un Start. El reloj, si falta el sitio, pregunta Calle o
+Cinta antes de empezar. Los sensores de calle siguen el tramo (`tramoIsRun`),
+no el segmento plegado, y el podómetro de Apple se monta de verdad.
+
+**Se descarta:** otro `if kind == .running` en una vista; conectar máquina al
+llegar a cada estación como sustituto del inventario de sesión.
+
+**NO hacer:** no preguntar sólo el primer ejercicio; no dejar que el reloj
+salte el sitio de carrera; no apagar el podómetro porque el HUD de calle
+esté montado (eso ya era la ley de `RunPhoneSensorPlan`).
+
+---
+
 ## 2026-09-07 · Una sesión guardada es un solo hecho (ejecución + tramos + status)
 
 **El hueco (re-audit de main `926a47b1`, sin dar por buena una diagnosis

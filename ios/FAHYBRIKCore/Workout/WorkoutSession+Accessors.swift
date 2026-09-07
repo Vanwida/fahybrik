@@ -176,7 +176,7 @@ extension WorkoutSession {
     }
 
     private func regionHasRun(_ region: WorkoutBlockRegion) -> Bool {
-        plan.segments(in: region).contains { $0.kind == .running || $0.hasRunStructure }
+        plan.segments(in: region).contains { $0.involvesRun || $0.hasRunStructure }
     }
 
     /// The completeness lock (concept §B / decision F.2): TRUE when the session

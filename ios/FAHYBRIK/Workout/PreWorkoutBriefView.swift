@@ -109,7 +109,9 @@ struct PreWorkoutBriefView: View {
         PreWorkoutDeviceEligibility.devices(for: sortedSegments)
     }
 
-    private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
+    private var hasRunSegment: Bool {
+        SessionStartPolicy.needsRunEnvironment(in: sortedSegments)
+    }
 
     /// Mono pure-erg session (one PM5 slot, no cinta): keep the large ErgConnectCard
     /// at the top. Multi-machine functional (Remo + Ski + Cinta…) uses the shared

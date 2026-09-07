@@ -8,6 +8,11 @@ import SwiftUI
 struct BlockGateView: View {
     let session: WorkoutSession
 
+    private var needsRunSite: Bool {
+        session.runEnvironment == nil
+            && SessionStartPolicy.needsRunEnvironment(session.plan)
+    }
+
     var body: some View {
         LiveScaffold(status: "Bloque \(session.blockNumber) / \(session.blockCount)", statusColor: WatchTheme.dim) {
             VStack(spacing: 7) {
@@ -23,8 +28,21 @@ struct BlockGateView: View {
                 }
             }
         } bottom: {
-            BigTapButton(title: "Empezar bloque", systemImage: "play.fill") {
-                session.beginBlock()
+            if needsRunSite {
+                VStack(spacing: 6) {
+                    BigTapButton(title: "Calle", systemImage: "figure.run") {
+                        session.runEnvironment = .outdoor
+                        session.beginBlock()
+                    }
+                    BigTapButton(title: "Cinta", systemImage: "rectangle.split.2x1") {
+                        session.runEnvironment = .indoor
+                        session.beginBlock()
+                    }
+                }
+            } else {
+                BigTapButton(title: "Empezar bloque", systemImage: "play.fill") {
+                    session.beginBlock()
+                }
             }
         }
         .onAppear { WatchHaptics.transition() }

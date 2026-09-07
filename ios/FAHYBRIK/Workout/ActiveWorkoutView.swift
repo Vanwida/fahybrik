@@ -46,12 +46,11 @@ struct ActiveWorkoutView: View {
     // and double-fired togglePause → the session silently stuck paused.
     @State private var autoResumeGeneration: Int = 0
     @State private var showPM5Sheet: Bool = false
-    // Pre-block START gates — enforced HERE, the one choke point every launch path
-    // crosses (plan, libre, test, benchmark). Gating only the pre-workout brief was
-    // the bug Alex hit on the rower: the free/benchmark paths SKIP the brief
-    // (WorkoutContainer.loadPlan goes straight to .active), so his 500 m benchmark
-    // started with the PM5 never connected. A run block with no calle/cinta answer
-    // asks first; an erg block with no live monitor connects first.
+    // Session START gates — enforced HERE, the one choke every launch path crosses
+    // (plan, libre, test, benchmark). The inventory is the whole prescription:
+    // a folded rondas remo+ski+run asks calle/cinta AND each PM5 role, even if
+    // the first block is a warmup. Brief chips were already session-wide; the GO
+    // was not. Free/benchmark skip the brief, so this remains the choke.
     @State private var showRunGate: Bool = false
     @State private var showErgGate: Bool = false
     // The follow-up to run AFTER a gate cover finishes dismissing — presenting a
@@ -69,6 +68,8 @@ struct ActiveWorkoutView: View {
     /// Belt telemetry → session for the WHOLE workout, not only while the HUD
     /// cover is open. Twin of the PM5 store feed.
     @State private var treadmillFeeder: TreadmillSessionFeeder?
+    /// Metros oficiales de calle (Apple). El plan ya lo decidía; nadie lo montaba.
+    @State private var runPedometer = RunPedometer()
     /// Roles the athlete already chose «sin monitor» for this Empezar attempt.
     @State private var skippedErgRoles: Set<ErgMachineRole> = []
     @State private var skippedUnscopedErg: Bool = false
@@ -115,9 +116,9 @@ struct ActiveWorkoutView: View {
         if let role = gatingErgRole { return pool.store(for: role) }
         return pool.any
     }
-    private var isRunSegment: Bool {
-        session.currentSegment?.kind == .running
-    }
+    /// La ventana activa, no el kind del segmento plegado. Un run dentro de
+    /// rondas `.reps` es correr: GPS y podómetro tienen que vivir.
+    private var isRunSegment: Bool { session.tramoIsRun }
     // #60 — a RUN interval series (folded `.intervals` segment). The plain-run
     // treadmill entry lives inside RunLiveHUD, but a series routes to
     // IntervalsLiveHUD, so it needs its own "Correr en cinta" CTA here.
@@ -262,6 +263,7 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             session.stop()
             runGPS.stop()
+            runPedometer.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
@@ -272,6 +274,7 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
+                runPedometer.stop()
                 releaseDevicesOnFinish()
                 onFinish()
             }
@@ -314,6 +317,7 @@ struct ActiveWorkoutView: View {
             // again here so the monitor's counter is back at zero for it (Alex:
             // "cada ronda la app debe mandar el reinicio del pm5").
             attemptProgramPM5()
+            updateRunGPS()
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(store: pickerPM5, roleTitle: liveErgRole?.titleES)
@@ -581,22 +585,12 @@ struct ActiveWorkoutView: View {
     // MARK: - Pre-block start gates (run env → erg connect → count-in)
 
     /// Every EMPEZAR on the block gate lands here — the ONE enforcement point.
-    /// Order: a run block missing the calle/cinta answer asks it first (the answer
-    /// decides which HUD auto-opens); then an erg block with no live monitor runs
-    /// the connect sequence; only then the block's clock starts. Already answered /
-    /// already connected → straight through, no extra screens.
+    /// The inventory is the whole prescription, not this block: a warmup does not
+    /// hide run+ski+row in the principal. Run environment first, then each PM5 role.
     private func requestBlockStart() {
         skippedErgRoles = []
         skippedUnscopedErg = false
-        let segs = upcomingBlockSegments
-        if session.runEnvironment == nil,
-           segs.contains(where: { $0.kind == .running }) || session.calentamientoEnLaCarrera {
-            showRunGate = true
-        } else if presentErgGateIfNeeded() {
-            return
-        } else {
-            session.beginBlock()
-        }
+        presentNextSessionGateOrBegin()
     }
 
     private var upcomingBlockSegments: [WorkoutSegment] {
@@ -608,34 +602,30 @@ struct ActiveWorkoutView: View {
         Set(PreWorkoutDeviceEligibility.namedErgRoles(in: segs).filter { pool.isRoleConnected($0) })
     }
 
-    /// Present the next missing role's connect screen. Returns true if a cover
-    /// is up. «sin monitor» is recorded per role so the chain can continue.
-    @discardableResult
-    private func presentErgGateIfNeeded() -> Bool {
-        let segs = upcomingBlockSegments
-        if let role = PreWorkoutDeviceEligibility.missingErgRoles(
-            in: segs,
+    private func presentNextSessionGateOrBegin() {
+        let segs = session.plan.segments
+        switch SessionStartGate.next(
+            segments: segs,
+            runEnvironment: session.runEnvironment,
             roleConnected: connectedNamedRoles(in: segs),
             anyConnected: pool.any.isConnected,
-            skipped: skippedErgRoles
-        ).first {
+            skippedErgRoles: skippedErgRoles,
+            skippedUnscoped: skippedUnscopedErg
+        ) {
+        case .runEnvironment:
+            showRunGate = true
+        case .erg(let role):
             gatingErgRole = role
             let store = pool.store(for: role)
             store.excludePeripheralIds = pool.occupiedPeripheralIds
                 .subtracting([store.connectedIdentifier].compactMap { $0 })
             showErgGate = true
-            return true
-        }
-        if PreWorkoutDeviceEligibility.needsUnscopedErgConnect(
-            in: segs,
-            anyConnected: pool.any.isConnected,
-            skipped: skippedUnscopedErg
-        ) {
+        case .ergAny:
             gatingErgRole = nil
             showErgGate = true
-            return true
+        case .ready:
+            session.beginBlock()
         }
-        return false
     }
 
     /// "el remo" / "el SkiErg" / "la bici" for the connect header — the ROLE
@@ -650,8 +640,7 @@ struct ActiveWorkoutView: View {
     private func continueAfterRunGate() {
         guard gateContinuation == .checkErg else { return }
         gateContinuation = nil
-        if presentErgGateIfNeeded() { return }
-        session.beginBlock()
+        presentNextSessionGateOrBegin()
     }
 
     private func continueAfterErgGate() {
@@ -662,8 +651,7 @@ struct ActiveWorkoutView: View {
         } else if !pool.any.isConnected {
             skippedUnscopedErg = true
         }
-        if presentErgGateIfNeeded() { return }
-        session.beginBlock()
+        presentNextSessionGateOrBegin()
     }
 
     // Start phone GPS only on run segments (and only if not denied); stop it
@@ -682,6 +670,14 @@ struct ActiveWorkoutView: View {
             runGPS.start()
         } else {
             runGPS.stop()
+        }
+        if plan.pedometer {
+            runPedometer.onDistanceDelta = { [session] delta in
+                session.sampleRunDistance(deltaMeters: delta, source: .healthkit)
+            }
+            runPedometer.start()
+        } else {
+            runPedometer.stop()
         }
     }
 

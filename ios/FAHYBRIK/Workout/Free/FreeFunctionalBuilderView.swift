@@ -16,6 +16,7 @@ struct FreeFunctionalBuilderView: View {
     @State private var draft = FreeFunctionalDraft()
     @State private var step: Step = .format
     @State private var showPicker = false
+    @State private var showRunPreStart = false
 
     enum Step { case format, config }
 
@@ -42,6 +43,16 @@ struct FreeFunctionalBuilderView: View {
                 preferredCategory: "functional",
                 onPick: { ex in draft.add(ex); showPicker = false; Haptics.medium() },
                 onClose: { showPicker = false }
+            )
+        }
+        .fullScreenCover(isPresented: $showRunPreStart) {
+            RunPreStartFlow(
+                sessionTitle: draft.titleEdited.isEmpty ? draft.defaultTitle : draft.titleEdited,
+                onStart: { env in
+                    showRunPreStart = false
+                    startWithEnvironment(env)
+                },
+                onCancel: { showRunPreStart = false }
             )
         }
     }
@@ -147,13 +158,8 @@ struct FreeFunctionalBuilderView: View {
         }
     }
 
-    /// Devices this free functional draft will use, from its folded segment.
-    /// Does NOT call `buildContext()` (that remembers prefs as a side effect).
-    private var sessionDevices: [PreWorkoutDevice] {
-        guard draft.format != nil else { return [.heartRate] }
-        // Mirror the fold used at start: one segment whose sets carry each
-        // movement's modality — enough for eligibility without running the full
-        // free-save payload path.
+    private var previewSegments: [WorkoutSegment] {
+        guard draft.format != nil else { return [] }
         let sets = draft.movements.map { m in
             PrescriptionSet(
                 measure: m.doseMeasure,
@@ -169,12 +175,25 @@ struct FreeFunctionalBuilderView: View {
             rounds: nil, workS: nil, restS: nil, totalS: nil,
             target: nil, note: nil, start: nil, increment: nil
         )
-        let segment = WorkoutSegment(
+        return [WorkoutSegment(
             order: 1, title: "Funcional", kind: .reps,
             blockTitle: "Funcional", blockPosition: 1,
             prescription: presc
-        )
-        let devices = PreWorkoutDeviceEligibility.devices(for: [segment])
+        )]
+    }
+
+    private func startWithEnvironment(_ env: RunEnvironment?) {
+        guard var ctx = draft.buildContext() else { return }
+        ctx.runEnvironment = env
+        Haptics.medium()
+        onStart(ctx)
+    }
+
+    /// Devices this free functional draft will use, from its folded segment.
+    /// Does NOT call `buildContext()` (that remembers prefs as a side effect).
+    private var sessionDevices: [PreWorkoutDevice] {
+        guard draft.format != nil else { return [.heartRate] }
+        let devices = PreWorkoutDeviceEligibility.devices(for: previewSegments)
         return devices.isEmpty ? [.heartRate] : devices
     }
 
@@ -305,9 +324,11 @@ struct FreeFunctionalBuilderView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
             ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                guard let ctx = draft.buildContext() else { return }
-                Haptics.medium()
-                onStart(ctx)
+                if SessionStartPolicy.needsRunEnvironment(in: previewSegments) {
+                    showRunPreStart = true
+                } else {
+                    startWithEnvironment(nil)
+                }
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)

@@ -255,6 +255,45 @@ enum PreWorkoutDeviceEligibility {
     }
 }
 
+/// Qué falta aceptar ANTES de que corra el reloj de la sesión. Receta entera,
+/// no el bloque de la puerta. Carrera primero (locationType de HK es inmutable);
+/// luego cada rol PM5 que aún no está connected/skipped.
+enum SessionStartGate: Equatable {
+    case runEnvironment
+    case erg(ErgMachineRole)
+    case ergAny
+    case ready
+
+    static func next(
+        segments: [WorkoutSegment],
+        runEnvironment: RunEnvironment?,
+        roleConnected: Set<ErgMachineRole>,
+        anyConnected: Bool,
+        skippedErgRoles: Set<ErgMachineRole> = [],
+        skippedUnscoped: Bool = false
+    ) -> SessionStartGate {
+        if runEnvironment == nil, SessionStartPolicy.needsRunEnvironment(in: segments) {
+            return .runEnvironment
+        }
+        if let role = PreWorkoutDeviceEligibility.missingErgRoles(
+            in: segments,
+            roleConnected: roleConnected,
+            anyConnected: anyConnected,
+            skipped: skippedErgRoles
+        ).first {
+            return .erg(role)
+        }
+        if PreWorkoutDeviceEligibility.needsUnscopedErgConnect(
+            in: segments,
+            anyConnected: anyConnected,
+            skipped: skippedUnscoped
+        ) {
+            return .ergAny
+        }
+        return .ready
+    }
+}
+
 // MARK: - HR chip presentation (personal wearable vs chest strap)
 
 /// How the pre-workout HEART-RATE chip should read — the market-standard split
