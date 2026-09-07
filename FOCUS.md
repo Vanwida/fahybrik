@@ -24,6 +24,12 @@ picker = `fullScreenCover` (no sheet anidada en cover de Hoy); primera carga
 con `onAppear` + Task (no `.task` cancelable); decode tolerante Int|String +
 fila mala omitida. Tests: `FreeExerciseCatalogDecodeTests`. Build **63**.
 
+**Pack runtime live — build 64 (rama `cursor/live-runtime-pack-64-2f3b`).**
+Un bump, una smoke: resume a prueba de interrupciones (FH-48/FH-71), soft leave
+sin descartar, `LiveRecipeDeviceBar` (Connect por receta en live), guardas
+mirror reloj (157). Pendiente: smoke dispositivo (libre run+ski → call/Messages →
+back → kill → reconnect PM5/FTMS → finish → HECHO).
+
 **GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
 Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El
 historial no lee la fila de ejecución: INNER JOIN + `completed|partial`.

@@ -46,6 +46,8 @@ struct ActiveWorkoutView: View {
     // and double-fired togglePause → the session silently stuck paused.
     @State private var autoResumeGeneration: Int = 0
     @State private var showPM5Sheet: Bool = false
+    @State private var pm5SheetStore: PM5ConnectionStore?
+    @State private var pm5SheetRoleTitle: String?
     @State private var showSegmentVideo: Bool = false
     // True when opening the technique video actively paused the clock, so we know
     // to resume it when the sheet is dismissed (and not resume a session the
@@ -123,11 +125,19 @@ struct ActiveWorkoutView: View {
         RunLiveChrome.de(session) == .outdoor && !session.isAwaitingBlockStart
     }
 
+    /// Session recipe — every device the start gate would ask for, not only the
+    /// current tramo. Keeps Connect visible mid-live after a drop or station change.
+    private var recipeDevices: [PreWorkoutDevice] {
+        PreWorkoutDeviceEligibility.devices(for: session.plan.segments)
+    }
+
     private var liveScanPath: LiveDeviceScanPath {
         let store = pickerPM5
+        let recipe = Set(recipeDevices.map(\.id))
         return LiveDeviceScanPath.offer(
-            wantsCinta: wantsCinta,
-            wantsPM5: isErgSegment,
+            wantsCinta: wantsCinta || recipe.contains(PreWorkoutDevice.treadmill.id),
+            wantsPM5: isErgSegment
+                || recipe.contains(where: { $0.hasPrefix("erg") }),
             treadmillCoverOpen: cintaHudMontado,
             treadmillLink: hub.treadmill.link,
             pm5State: store.connectionState,
@@ -238,6 +248,7 @@ struct ActiveWorkoutView: View {
             UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear {
+            session.persistNow()
             session.stop()
             runGPS.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
@@ -294,7 +305,10 @@ struct ActiveWorkoutView: View {
             attemptProgramPM5()
         }
         .sheet(isPresented: $showPM5Sheet) {
-            PM5LiveStreamView(store: pickerPM5, roleTitle: liveErgRole?.titleES)
+            PM5LiveStreamView(
+                store: pm5SheetStore ?? pickerPM5,
+                roleTitle: pm5SheetRoleTitle ?? liveErgRole?.titleES
+            )
         }
         // Live scan path (FH-59): same pickers as the brief / HUD, presented from
         // the host so a drop can be recovered without the cover and without
@@ -308,7 +322,10 @@ struct ActiveWorkoutView: View {
                               batteryPercent: hub.hrBatteryPercent)
         }
         .sheet(isPresented: $mostrarBloques) {
-            BloquesDelEntreno(session: session) { mostrarBloques = false }
+            BloquesDelEntreno(session: session) {
+                session.persistNow()
+                mostrarBloques = false
+            }
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
             // Resume only if opening the video is what paused the clock.
@@ -344,7 +361,7 @@ struct ActiveWorkoutView: View {
                 canGoBack: session.canStepBack,
                 onEmpezar: { requestBlockStart() },
                 onBack: { requestBack() },
-                onExit: { requestExit() },
+                onExit: { navigateAway() },
                 alVerBloques: { mostrarBloques = true }
             )
         }
@@ -450,11 +467,13 @@ struct ActiveWorkoutView: View {
         session.captureErgSplits(store.splits)
     }
 
-    private func openPM5Picker() {
-        let store = pickerPM5
-        store.excludePeripheralIds = pool.occupiedPeripheralIds
-            .subtracting([store.connectedIdentifier].compactMap { $0 })
-        store.reconnectSessionMachineOrOpenSheet { showPM5Sheet = true }
+    private func openPM5Picker(store: PM5ConnectionStore? = nil, roleTitle: String? = nil) {
+        let target = store ?? pickerPM5
+        pm5SheetStore = target
+        pm5SheetRoleTitle = roleTitle ?? liveErgRole?.titleES
+        target.excludePeripheralIds = pool.occupiedPeripheralIds
+            .subtracting([target.connectedIdentifier].compactMap { $0 })
+        target.reconnectSessionMachineOrOpenSheet { showPM5Sheet = true }
     }
 
     private func openCintaPicker() {
@@ -583,11 +602,9 @@ struct ActiveWorkoutView: View {
 
     private var topStrip: some View {
         HStack {
-            // Exit (top-left): leave the workout without recording anything. The
-            // athlete is never trapped. Confirms only when there's unsaved captured
-            // work (a recorded lap, confirmed reps, live progress); a just-started
-            // run with nothing logged exits immediately.
-            Button(action: { requestExit() }) {
+            // Exit (top-left): navigate away — checkpoint + resume banner, never
+            // discard. Terminar / descartar live in the pause sheet.
+            Button(action: { navigateAway() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.Color.muted)
@@ -773,12 +790,12 @@ struct ActiveWorkoutView: View {
         switch RunLiveChrome.de(session) {
         case .outdoor:
             OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { requestExit() },
+                              alSalir: { navigateAway() },
                               alVerBloques: { mostrarBloques = true })
         case .treadmill(let sinCinta):
             TreadmillHUDView(session: session, hrZones: hrZones,
                              empiezaSinCinta: sinCinta,
-                             alSalir: { requestExit() },
+                             alSalir: { navigateAway() },
                              alVerBloques: { mostrarBloques = true })
         case .host:
             HostVivo(session: session, accion: accionDelHost) {
@@ -821,6 +838,15 @@ struct ActiveWorkoutView: View {
         VStack(spacing: Theme.Spacing.s) {
             DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
                             collapsed: $partnerStripCollapsed)
+            LiveRecipeDeviceBar(
+                devices: recipeDevices,
+                pool: pool,
+                treadmillLink: hub.treadmill.link,
+                hrLink: hub.heartRate.link,
+                onTapErg: { store, title in openPM5Picker(store: store, roleTitle: title) },
+                onTapTreadmill: { openCintaPicker() },
+                onTapHR: { openHRPicker() }
+            )
             ConnectionStrip(
                 session: session,
                 pm5: livePM5 ?? pickerPM5,
@@ -1062,16 +1088,17 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
-    // Exit affordance (preview gate + in-progress HUD) — the heart of "ABANDONAR ≠
-    // TERMINAR". With REAL recorded work, opens the 3-option decision sheet (seguir
-    // / terminar y guardar / descartar) and freezes the clock while the athlete
-    // decides. With nothing recorded (just started, or warmup-only), there's
-    // nothing to save → discard immediately and silently (§C.1): no execution, the
-    // session stays pending, no fake "done". The clock is left frozen at a preview
-    // gate (it isn't running there).
+    // Soft leave — checkpoint on disk, resume banner / auto-reopen. Never discard.
+    private func navigateAway() {
+        if !session.isPaused, !session.isAwaitingBlockStart, !session.isFinished {
+            session.pauseForVideo()
+        }
+        onLeaveAndResume?()
+    }
+
+    // Intentional end/discard — only from pause → «Salir del entreno».
     private func requestExit() {
-        guard session.hasRecordedWork else { onExit(); return }
-        if !session.isAwaitingBlockStart { session.pauseForVideo() }
+        if !session.isPaused, !session.isAwaitingBlockStart { session.pauseForVideo() }
         exitStep = .choose
     }
 
@@ -1328,13 +1355,8 @@ struct ActiveWorkoutView: View {
                         .buttonStyle(PressScaleStyle())
                         .accessibilityLabel("Terminar este bloque antes de tiempo")
                     }
-                    // Leave the workout. Routes to the SAME honest exit decision as
-                    // the top-left X — NOT a blind finish() (the old bug marked a
-                    // barely-started session 'completed'). With work, the 3-option
-                    // sheet (terminar y guardar / descartar) appears; with none, a
-                    // clean discard. The session stays paused underneath until the
-                    // athlete chooses.
-                    SecondaryButton(title: "Salir del entreno") {
+                    // Intentional end: terminar y guardar or descartar (never the X).
+                    SecondaryButton(title: "Terminar o descartar…") {
                         showPauseConfirm = false
                         requestExit()
                     }

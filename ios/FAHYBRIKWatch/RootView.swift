@@ -24,7 +24,8 @@ struct RootView: View {
             // The engine finishes itself when the last lap closes (or via Terminar);
             // catch that here (RootView is always mounted) and finalize once.
             .onChange(of: coordinator.session?.isFinished == true) { _, finished in
-                if finished { coordinator.finalize() }
+                // Mirror: phone POSTs; wrist enriches HK only (card 157).
+                if finished, mirror.mode != .mirror { coordinator.finalize() }
             }
             // Look for a resumable crash snapshot each time the pushed day changes.
             .task(id: plan.today?.assignmentId ?? "") {

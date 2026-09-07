@@ -167,7 +167,10 @@ final class PhoneWorkoutRun: NSObject {
     }
 
     func end() {
-        guard let session else { return }
+        guard let session else {
+            clear()
+            return
+        }
         let now = Date()
         session.stopActivity(with: now)
         session.end()

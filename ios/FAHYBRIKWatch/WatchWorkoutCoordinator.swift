@@ -294,6 +294,11 @@ final class WatchWorkoutCoordinator {
     /// the execution payload the way PostWorkoutSummaryView does, sends it to the
     /// phone, and marks the day done. Idempotent.
     func finalize() {
+        // Phone owns POST + summary in mirror mode — never stage a second execution.
+        if MirrorSessionController.shared.mode == .mirror {
+            Self.log.warning("finalize() skipped — phone is coach")
+            return
+        }
         guard phase == .active, !didFinalize, let engine = session, engine.isFinished else { return }
         didFinalize = true
 

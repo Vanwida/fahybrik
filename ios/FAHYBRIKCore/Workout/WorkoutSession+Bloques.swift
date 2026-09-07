@@ -54,5 +54,6 @@ extension WorkoutSession {
         repsCurrentSegment = 0
         armBlock()
         Haptics.medium()
+        persistNow()
     }
 }
