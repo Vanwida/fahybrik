@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FAHYBRID · El Start sigue siendo cuatro puertas · 7 sep 2026</title>
+  <style>
+    :root { color-scheme: light; --ink:#201F1B; --muted:#6b6860; --line:#e4e0d8; --bg:#FEFDFB; --card:#F1EFEB; --bad:#8a2f2f; }
+    body { margin: 2rem auto; max-width: 46rem; font: 16px/1.55 ui-sans-serif, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+    h1 { font-size: 1.45rem; margin: 0 0 .35rem; letter-spacing: -0.02em; }
+    h2 { font-size: 1.08rem; margin: 2.1rem 0 .55rem; }
+    p, li { color: var(--ink); }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border-radius: 14px; padding: 1rem 1.15rem; margin: .8rem 0; }
+    .bad { border-left: 3px solid var(--bad); }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; margin: .6rem 0 1rem; }
+    th, td { text-align: left; vertical-align: top; padding: .4rem .5rem .4rem 0; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+    ol { padding-left: 1.2rem; }
+    ol > li { margin: .55rem 0; }
+  </style>
+</head>
+<body>
+  <h1>El Start sigue siendo cuatro puertas. Por eso este entreno se siente roto.</h1>
+  <p class="muted">7 sep 2026. Solo lectura. Recorrido real: libre → funcional → rondas → run + ski → el botón naranja.</p>
+
+  <div class="card bad">
+    <p>El 7-sep ya se nombró la raíz: <b>no hay un Start de sesión</b>. Hay un Start del constructor, un Start de «dónde corres», un Start de la puerta del bloque, y un Start del reloj. Se pegó un inventario de receta entera en la <i>última</i> puerta y la pregunta de calle en la <i>primera</i>. Ski se quedó en la última. El reloj no es una puerta: es un intento en silencio.</p>
+    <p>Lo que hiciste hoy no es un bug nuevo. Es esa arquitectura, de punta a punta.</p>
+  </div>
+
+  <h2>Lo que hiciste, paso a paso, y por qué</h2>
+  <table>
+    <thead><tr><th>Tú</th><th>Qué hay de verdad</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Botón «Empezar entreno» con el entreno aún sin montar</td>
+        <td>Ese botón no empieza. Si hay carrera, abre «¿dónde corres?». Si no, salta al vivo. El nombre miente. «Crear» sería honesto: todavía faltan las preguntas.</td>
+      </tr>
+      <tr>
+        <td>«Calle · el reloj cuenta afuera»</td>
+        <td>La pregunta real es: ¿quién mide los metros? GPS (calle), la cinta enchufada, o el reloj en indoor. El copy habla del reloj para las dos cosas que no son la cinta. GPS no se nombra. De ahí lo estúpido.</td>
+      </tr>
+      <tr>
+        <td>Continuar → no ski, un «resumen», otro Empezar</td>
+        <td>El libre se salta la previa del plan y entra al vivo. El vivo no arranca el reloj: enseña la puerta del bloque (nombre, movimientos, EMPEZAR). Parece un resumen porque lo es: te enseña lo que vas a hacer. Ski no se ha preguntado porque esa pregunta vive en el <i>segundo</i> Empezar, no en el primero.</td>
+      </tr>
+      <tr>
+        <td>Le das a Empezar y <i>ahora</i> sale el ski</td>
+        <td>La puerta del bloque es el único sitio que recorre la receta entera: calle (si falta) y luego cada máquina. Calle ya estaba contestada, así que el siguiente hueco es ski. Un Start partido en dos toques.</td>
+      </tr>
+      <tr>
+        <td>El reloj no se ha conectado</td>
+        <td>El teléfono lanza el reloj al entrar al vivo, en cuanto hay calle/cinta. Tres intentos. Si falla, silencio. No hay puerta. No hay «sin reloj no hay live». El atleta no se entera.</td>
+      </tr>
+      <tr>
+        <td>Atrás y otra vez: el reloj ya no engancha</td>
+        <td>El lanzamiento es «a ver si entra». Apple no permite dos entrenos a la vez en la muñeca. Si te echas atrás, el cierre del reloj es un recado: a veces llega, a veces no. El siguiente lanzamiento choca con el anterior y vuelve a fallar en silencio. Por eso «a la mínima que va atrás» se rompe.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>No son seis fallos. Es uno.</h2>
+  <p>Falta <b>un sitio, antes de que exista sesión viva</b>, que pregunte todo lo que esa receta exige, y no suelte el vivo hasta tenerlo:</p>
+  <ol>
+    <li>Hay carrera → GPS / cinta enchufada / cinta sin enchufar. Una pregunta. Palabras de medición, no de paisaje.</li>
+    <li>Hay ski, remo, bici → cada uno, no «el remo» para todos.</li>
+    <li>El reloj: o está grabando, o se dice que no, o se espera. No un intento mudo.</li>
+    <li>Eso es la configuración del entreno. Un botón la abre. Cuando está completa, <i>entonces</i> Empezar hace lo que dice.</li>
+  </ol>
+  <p>Hoy esa lista está partida: calle en el constructor, ski en la puerta del bloque, reloj en un hilo paralelo que no manda. Pegar ski al lado de calle en el constructor sería el mismo parche de siempre. El vivo seguiría lanzando el reloj por su cuenta. Atrás seguiría dejando la muñeca a medias.</p>
+
+  <h2>Lo que ya se dijo el 7-sep y no se construyó</h2>
+  <p>El informe raíz pedía un runtime de sesión en cuatro piezas. La pieza 1 era <b>un Start</b>. Se entregó un inventario (la receta entera se puede preguntar) y se enganchó a las puertas viejas. El constructor libre sigue preguntando solo calle. El plan prescrito sigue teniendo su propia previa. El bloque sigue teniendo la suya. El reloj sigue siendo «si entra, bien».</p>
+  <p>Por eso un solo flujo —rondas, run, ski— ya basta para ver el fallo multi-órgano. No hace falta el resto de los mil: es la misma falta de dueño.</p>
+
+  <h2>Qué no es este documento</h2>
+  <p>No es un arreglo. No se ha tocado el botón, ni el copy, ni el ski, ni el reloj. Hasta que haya un Start de verdad, curar el copy de «calle» o el nombre del botón es el dedo.</p>
+</body>
+</html>

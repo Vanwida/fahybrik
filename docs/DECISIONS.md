@@ -26,9 +26,35 @@ Copy de metros = quién firma (`SessionStartPolicy.meterAuthoritySubtitle`), no
 «el reloj cuenta afuera».
 
 **NO hacer:** volver a poner `RunPreStartFlow` / erg gate en brief, builder o
-`requestBlockStart`; no `phase = .active` + `begin` en `loadPlan` libre.
+`requestBlockStart`; no `phase = .active` + `begin` en `loadPlan` libre. El
+picker del catálogo libre no es una *sheet* dentro del cover de Hoy: iOS
+cancela el `.task`, el GET vuelve 200 y el spinner se queda en «Cargando…».
+Usar cover propio para el picker; la primera carga con `onAppear` + Task
+estructurado, no `.task` cancelable por el cover padre. Decode tolerante
+(`Int|String` id, filas malas omitidas).
 
-Plan: `docs/plan-fh-91-start.md`.
+Plan: `docs/plan-fh-91-start.md`. Auditoría pre-FH-91 (cuatro puertas):
+`docs/audit-start-libre.html`, `docs/audit-entreno-raiz.html`.
+
+---
+
+## 2026-09-07 · Auditoría cuatro puertas (pre-FH-91, solo lectura)
+
+**El hueco:** libre → funcional → rondas → run+ski. Empezar abría «dónde
+corres» en el constructor; ski se preguntaba en la puerta del bloque; el reloj
+se lanzaba en silencio; atrás dejaba la muñeca a medias. No era un bug suelto:
+cuatro sitios distintos actuaban como Start.
+
+**Decidido:** documentar la raíz sin parchear síntomas. Informes:
+`docs/audit-start-libre.html` (recorrido libre + botón naranja),
+`docs/audit-entreno-raiz.html` (vivo sin motor de sesión, carpetas).
+
+**Resuelto por:** FH-91 (`SessionStartGate` + `SessionStartPolicy`). No
+reintroducir inventario de sesión en constructores libres ni `RunPreStartFlow`
+paralelo al gate.
+
+**Se descarta:** otro `if` en el constructor; renombrar Empezar sin unificar
+preguntas; lanzar el reloj «a ver si entra» como solución.
 
 ---
 
