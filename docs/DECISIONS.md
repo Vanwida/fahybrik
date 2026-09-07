@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-07 · FH-91 — Un solo Start antes del vivo
+
+**El hueco:** cuatro puertas (`PreWorkoutBriefView` / constructores libres /
+`ActiveWorkoutView.requestBlockStart` / reloj con reintentos mudos) preguntaban
+run, PM5 y muñeca en distinto orden. El libre llamaba `PhoneMirrorService.begin`
+en `loadPlan` → HealthKit vivo durante el GPS «Continuar», antes de ski y del
+Empezar real. Cancelar dejaba fantasma HK; el siguiente `startWatchApp` colisionaba.
+
+**Decidido:** `SessionStartPolicy` (Core) + `SessionStartGate` (UI) — una pantalla
+secuencial antes de `.active`. Inventario = `PreWorkoutDeviceEligibility`.
+`BlockPreviewGate` solo enseña el bloque (sin dispositivos). `begin` + motor solo
+cuando `canReleaseLive`. Cancelar = `end(save: false)` si el espejo arrancó.
+Copy de metros = quién firma (`SessionStartPolicy.meterAuthoritySubtitle`), no
+«el reloj cuenta afuera».
+
+**NO hacer:** volver a poner `RunPreStartFlow` / erg gate en brief, builder o
+`requestBlockStart`; no `phase = .active` + `begin` en `loadPlan` libre.
+
+Plan: `docs/plan-fh-91-start.md`.
+
+---
+
 ## 2026-09-07 · Una sesión guardada es un solo hecho (ejecución + tramos + status)
 
 **El hueco (re-audit de main `926a47b1`, sin dar por buena una diagnosis

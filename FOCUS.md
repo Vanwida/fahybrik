@@ -2,9 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (guardar sesión: un hecho, evidencia no aborta)
+Última actualización: **2026-09-07** (FH-91 — un solo Start antes del vivo)
 
 ## Ahora
+
+**FH-91 — UN SOLO START (estructural, en main).**
+Cuatro puertas sustituidas por `SessionStartGate` + `SessionStartPolicy`
+(Core). Prescrito: brief → puerta → vivo. Libre: builder → puerta → vivo
+(ya no `begin` en `loadPlan`). `BlockPreviewGate` = solo preview de bloque;
+`requestBlockStart` = `beginBlock()` directo. Reloj: `begin` en la puerta,
+cancelar = `end(save:false)`. Plan: `docs/plan-fh-91-start.md`. Ley:
+DECISIONS 07-sep FH-91. **Pendiente:** smoke en dispositivo (libre run+ski
+GPS, atrás, repetir; prescrito run+ski misma puerta).
 
 **GUARDAR SESIÓN — una sesión es un hecho; la evidencia no puede abortarlo.**
 Re-audit de main `926a47b1` (la diagnosis previa no se dio por buena). El
