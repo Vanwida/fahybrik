@@ -60,6 +60,8 @@ struct WorkoutContainer: View {
 
     enum Phase: Equatable {
         case brief
+        /// FH-91 — unified pre-live gate (devices + watch) before the engine runs.
+        case start
         case active
         // Tests guiados — a test whose contract asks for an `hrr` result holds
         // here for the post-effort recovery window (the app keeps measuring the
@@ -258,23 +260,8 @@ struct WorkoutContainer: View {
                 PreWorkoutBriefView(
                     plan: plan,
                     detail: detail,
-                    onStart: { runEnv in
-                        let new = WorkoutSession(plan: plan, hrZones: hrZones)
-                        new.assignmentId = assignmentId   // AUDIT-1 — stamp for honest recovery
-                        new.runEnvironment = runEnv       // #8 — auto-open the chosen run HUD
-                        stampFreeMetadata(on: new)
-                        session = new
-                        manualEntry = false
-                        // Mirror mode: remote-start the wrist recording alongside the
-                        // live engine. Non-blocking — the workout runs alone if the
-                        // watch never joins. Manual/capture flows never begin (below).
-                        PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: plan))
-                        // #56 — dobles en vivo: emit presence so the training partner's
-                        // phone sees this session live. Self-gates (no pair / private →
-                        // stops); a no-op for an ad-hoc session (no numeric assignment).
-                        DoblesLivePresence.shared.begin(session: new, assignmentId: assignmentId, bearer: bearer)
-                        Haptics.medium()
-                        phase = .active
+                    onStart: {
+                        phase = .start
                     },
                     onManualLog: {
                         // "Ya lo hice": skip ActiveWorkout entirely. Build a session
@@ -300,6 +287,40 @@ struct WorkoutContainer: View {
                     // gate — this brief never even shows for free/benchmark paths.)
                     isBenchmark: freeContext?.benchmark != nil,
                     onClose: onClose
+                )
+            case .start:
+                SessionStartGate(
+                    sessionTitle: plan.name,
+                    plan: plan,
+                    segments: plan.segments.sorted { $0.order < $1.order },
+                    calentamientoRun: false,
+                    isBenchmark: freeContext?.benchmark != nil,
+                    activityKind: mirrorActivityKind(for: plan),
+                    hrZones: hrZones,
+                    stampSession: { s in
+                        s.assignmentId = assignmentId
+                        stampFreeMetadata(on: s)
+                        if let env = freeContext?.runEnvironment, s.runEnvironment == nil {
+                            s.runEnvironment = env
+                        }
+                    },
+                    onReleaseLive: { live in
+                        session = live
+                        manualEntry = false
+                        DoblesLivePresence.shared.begin(
+                            session: live,
+                            assignmentId: assignmentId,
+                            bearer: bearer
+                        )
+                        phase = .active
+                    },
+                    onCancel: {
+                        if freeContext != nil {
+                            onClose()
+                        } else {
+                            phase = .brief
+                        }
+                    }
                 )
             case .active:
                 if let session {
@@ -617,18 +638,10 @@ struct WorkoutContainer: View {
     private func loadPlan() async {
         guard case .loading = loadState else { return }
 
-        // FREE MODE: the plan is already built (the athlete configured it). Skip the
-        // brief + the assignment fetch and go straight to the live engine.
+        // FREE MODE: the plan is already built — show the unified start gate, NOT live.
         if let free = freeContext {
             loadState = .ready(free.plan, nil)
-            let new = WorkoutSession(plan: free.plan, hrZones: hrZones)
-            new.runEnvironment = free.runEnvironment   // #8 — chosen in the free builder
-            stampFreeMetadata(on: new)
-            session = new
-            manualEntry = false
-            // Mirror the free workout to the wrist too (records HR + one HKWorkout).
-            PhoneMirrorService.shared.begin(session: new, activityKind: mirrorActivityKind(for: free.plan))
-            phase = .active
+            phase = .start
             return
         }
 

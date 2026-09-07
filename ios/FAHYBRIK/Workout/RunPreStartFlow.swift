@@ -127,11 +127,11 @@ struct RunPreStartFlow: View {
                         .font(.system(size: 28, weight: .heavy, design: .default).italic())
                         .foregroundStyle(Theme.Color.foreground)
                     bigCard(value: .outdoor, icon: "location.fill",
-                            title: "Calle", subtitle: "El reloj cuenta afuera")
+                            title: "Calle", subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .outdoor))
                     bigCard(value: .treadmill, icon: "figure.run",
-                            title: "Cinta con conexión", subtitle: "La máquina cuenta")
+                            title: "Cinta con conexión", subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .treadmill))
                     bigCard(value: .indoor, icon: "applewatch",
-                            title: "Cinta sin conexión", subtitle: "El reloj cuenta en indoor")
+                            title: "Cinta sin conexión", subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .indoor))
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }

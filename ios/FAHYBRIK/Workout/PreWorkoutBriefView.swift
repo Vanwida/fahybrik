@@ -33,9 +33,8 @@ struct PreWorkoutBriefView: View {
     /// exercises) the brief shows an honest "sin detalle" card, never a fabricated
     /// generic "Sesión".
     var detail: AssignmentDetail? = nil
-    /// Fired with the athlete's run-location choice (nil for a non-run session or if
-    /// unchosen) — the container stamps it on the session to auto-open the right HUD.
-    let onStart: (RunEnvironment?) -> Void
+    /// Opens the unified pre-live start gate (FH-91). Live begins only after the gate releases.
+    let onStart: () -> Void
     /// "Ya lo hice": the athlete trained without the live timer and registers it
     /// after the fact. Routes straight to manual entry (no ActiveWorkout).
     let onManualLog: () -> Void
@@ -62,15 +61,7 @@ struct PreWorkoutBriefView: View {
     /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
     @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
-    // #8 — a session with running work starts through the full-screen pre-start
-    // sequence (¿dónde corres? → cinta → conectar → GO); presented on "▶ EMPEZAR".
-    // The ERG connect sequence deliberately does NOT live here any more: the free
-    // and benchmark paths skip this brief entirely (WorkoutContainer.loadPlan goes
-    // straight to .active), so a brief-level erg gate silently missed them — Alex's
-    // 500 m rower benchmark started unconnected. It is enforced at the ONE choke
-    // point every path crosses: ActiveWorkoutView's pre-block gate. The card above
-    // the blocks (ErgConnectCard) stays as the optional early connect.
-    @State private var showRunPreStart = false
+    // FH-91 — devices + run env live in SessionStartGate, not here.
 
     // MARK: - Derived shape
 
@@ -100,33 +91,6 @@ struct PreWorkoutBriefView: View {
         let segs = sortedSegments
         guard !segs.isEmpty else { return false }
         return segs.allSatisfy { $0.kind == .strength }
-    }
-
-    /// The devices worth connecting BEFORE this session starts — derived from its
-    /// segments (a squat day offers none; a run day offers the belt + strap). Empty
-    /// → the card is hidden.
-    private var eligibleDevices: [PreWorkoutDevice] {
-        PreWorkoutDeviceEligibility.devices(for: sortedSegments)
-    }
-
-    private var hasRunSegment: Bool { sortedSegments.contains { $0.kind == .running } }
-
-    /// Mono pure-erg session (one PM5 slot, no cinta): keep the large ErgConnectCard
-    /// at the top. Multi-machine functional (Remo + Ski + Cinta…) uses the shared
-    /// DeviceConnectCard with every slot so the athlete can bind all three before GO.
-    private var showsMonoErgCard: Bool {
-        let machines = eligibleDevices.filter { $0 != .heartRate }
-        let ergs = machines.filter(\.isPM5)
-        return ergs.count == 1 && machines.count == 1
-    }
-
-    /// Devices for the Dispositivos card. Mono-erg leaves only HR here (PM5 has its
-    /// own card). Multi-machine / run-in-functional / mixed → every slot.
-    private var bottomDevices: [PreWorkoutDevice] {
-        if showsMonoErgCard {
-            return eligibleDevices.filter { $0 == .heartRate }
-        }
-        return eligibleDevices
     }
 
     // Meta line under the title: only the fields we genuinely have. Estimated
@@ -172,12 +136,6 @@ struct PreWorkoutBriefView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     header
                     coachNote
-                    // ErgData pattern: pure single-erg work puts the CONNECT card
-                    // first-class at the top. Multi-machine functional uses the
-                    // Dispositivos card with Remo / Ski / Cinta slots instead.
-                    if showsMonoErgCard {
-                        ErgConnectCard()
-                    }
                     if let blocks = structuredBlocks, !blocks.isEmpty {
                         // The brief renders the coach's structured prescription —
                         // the SAME authoritative `GET /assignments/{id}/detail`
@@ -195,12 +153,6 @@ struct PreWorkoutBriefView: View {
                         // freeform start + the retroactive "Ya lo hice" log.
                         detailUnavailableCard
                     }
-                    if !bottomDevices.isEmpty {
-                        // The strap connects BEFORE the clock starts, so the live
-                        // workout begins already streaming. Optional — starting
-                        // without connecting is unchanged.
-                        DeviceConnectCard(devices: bottomDevices)
-                    }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.s)
@@ -210,17 +162,6 @@ struct PreWorkoutBriefView: View {
             footer
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        // #8 — the run pre-start sequence (mockup): ¿dónde? → (cinta → conectar) → GO.
-        .fullScreenCover(isPresented: $showRunPreStart) {
-            RunPreStartFlow(
-                sessionTitle: plan.name,
-                onStart: { env in
-                    showRunPreStart = false
-                    onStart(env)
-                },
-                onCancel: { showRunPreStart = false }
-            )
-        }
         .sheet(item: $techniqueItem) { item in
             ExerciseDetailView(item: item)
         }
@@ -1025,16 +966,7 @@ struct PreWorkoutBriefView: View {
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
             ExpertPrimaryButton(title: ctaTitle) {
-                if hasRunSegment {
-                    // #8 — running work: the full-screen pre-start sequence decides
-                    // dónde + conexión, then fires `onStart` with the environment.
-                    showRunPreStart = true
-                } else {
-                    // Erg connect is NOT gated here (the free/benchmark paths never
-                    // see this brief) — ActiveWorkoutView's pre-block gate enforces
-                    // it for every path right before the piece starts.
-                    onStart(nil)
-                }
+                onStart()
             }
             if !isBenchmark {
             Button(action: { Haptics.light(); onManualLog() }) {

@@ -46,19 +46,6 @@ struct ActiveWorkoutView: View {
     // and double-fired togglePause → the session silently stuck paused.
     @State private var autoResumeGeneration: Int = 0
     @State private var showPM5Sheet: Bool = false
-    // Pre-block START gates — enforced HERE, the one choke point every launch path
-    // crosses (plan, libre, test, benchmark). Gating only the pre-workout brief was
-    // the bug Alex hit on the rower: the free/benchmark paths SKIP the brief
-    // (WorkoutContainer.loadPlan goes straight to .active), so his 500 m benchmark
-    // started with the PM5 never connected. A run block with no calle/cinta answer
-    // asks first; an erg block with no live monitor connects first.
-    @State private var showRunGate: Bool = false
-    @State private var showErgGate: Bool = false
-    // The follow-up to run AFTER a gate cover finishes dismissing — presenting a
-    // new cover (or starting the count-in) while the old one is mid-dismissal is
-    // the modal-fighting-modal UIKit trap; onDismiss is the safe handoff point.
-    @State private var gateContinuation: GateContinuation? = nil
-    private enum GateContinuation { case checkErg, begin }
     @State private var showSegmentVideo: Bool = false
     // True when opening the technique video actively paused the clock, so we know
     // to resume it when the sheet is dismissed (and not resume a session the
@@ -69,11 +56,6 @@ struct ActiveWorkoutView: View {
     /// Belt telemetry → session for the WHOLE workout, not only while the HUD
     /// cover is open. Twin of the PM5 store feed.
     @State private var treadmillFeeder: TreadmillSessionFeeder?
-    /// Roles the athlete already chose «sin monitor» for this Empezar attempt.
-    @State private var skippedErgRoles: Set<ErgMachineRole> = []
-    @State private var skippedUnscopedErg: Bool = false
-    /// Role the current erg gate is asking (nil = unscoped `any` / mono).
-    @State private var gatingErgRole: ErgMachineRole? = nil
     // A pending navigation awaiting confirmation (a forward skip that omits work,
     // or a back-step that would discard live-captured data). Nil = nothing to ask.
     @State private var pendingNav: PendingNav? = nil
@@ -111,10 +93,6 @@ struct ActiveWorkoutView: View {
         return ErgMachineRole(modality: session.currentTramo.modality)
     }
 
-    private var gatingStore: PM5ConnectionStore {
-        if let role = gatingErgRole { return pool.store(for: role) }
-        return pool.any
-    }
     private var isRunSegment: Bool {
         session.currentSegment?.kind == .running
     }
@@ -328,34 +306,6 @@ struct ActiveWorkoutView: View {
         .sheet(isPresented: livePickerBinding(hub.heartRate, enabled: !cintaHudMontado)) {
             DevicePickerSheet(channel: hub.heartRate,
                               batteryPercent: hub.hrBatteryPercent)
-        }
-        // Pre-block gates (see `requestBlockStart`). Continuations run in onDismiss
-        // so the next cover / the count-in never fights the dismissing one.
-        .fullScreenCover(isPresented: $showRunGate, onDismiss: { continueAfterRunGate() }) {
-            RunPreStartFlow(
-                sessionTitle: session.plan.name,
-                onStart: { env in
-                    session.runEnvironment = env
-                    session.ensurePhoneWorkoutRun()
-                    gateContinuation = .checkErg
-                    showRunGate = false
-                },
-                onCancel: { showRunGate = false }
-            )
-        }
-        .fullScreenCover(isPresented: $showErgGate, onDismiss: { continueAfterErgGate() }) {
-            ErgPreStartFlow(
-                sessionTitle: session.plan.name,
-                machineWord: ergMachineWord,
-                isBenchmark: isBenchmark,
-                store: gatingStore,
-                roleTitle: gatingErgRole?.titleES,
-                onStart: {
-                    gateContinuation = .begin
-                    showErgGate = false
-                },
-                onCancel: { showErgGate = false }
-            )
         }
         .sheet(isPresented: $mostrarBloques) {
             BloquesDelEntreno(session: session) { mostrarBloques = false }
@@ -578,95 +528,14 @@ struct ActiveWorkoutView: View {
         session.ensurePhoneWorkoutRun()
     }
 
-    // MARK: - Pre-block start gates (run env → erg connect → count-in)
+    // MARK: - Block start (preview only — devices answered in SessionStartGate)
 
-    /// Every EMPEZAR on the block gate lands here — the ONE enforcement point.
-    /// Order: a run block missing the calle/cinta answer asks it first (the answer
-    /// decides which HUD auto-opens); then an erg block with no live monitor runs
-    /// the connect sequence; only then the block's clock starts. Already answered /
-    /// already connected → straight through, no extra screens.
+    /// Block preview «Empezar» — the clock starts; run/erg/watch were gated before live.
     private func requestBlockStart() {
-        skippedErgRoles = []
-        skippedUnscopedErg = false
-        let segs = upcomingBlockSegments
-        if session.runEnvironment == nil,
-           segs.contains(where: { $0.kind == .running }) || session.calentamientoEnLaCarrera {
-            showRunGate = true
-        } else if presentErgGateIfNeeded() {
-            return
-        } else {
-            session.beginBlock()
-        }
-    }
-
-    private var upcomingBlockSegments: [WorkoutSegment] {
-        guard let region = session.currentBlockRegion else { return [] }
-        return session.plan.segments(in: region)
-    }
-
-    private func connectedNamedRoles(in segs: [WorkoutSegment]) -> Set<ErgMachineRole> {
-        Set(PreWorkoutDeviceEligibility.namedErgRoles(in: segs).filter { pool.isRoleConnected($0) })
-    }
-
-    /// Present the next missing role's connect screen. Returns true if a cover
-    /// is up. «sin monitor» is recorded per role so the chain can continue.
-    @discardableResult
-    private func presentErgGateIfNeeded() -> Bool {
-        let segs = upcomingBlockSegments
-        if let role = PreWorkoutDeviceEligibility.missingErgRoles(
-            in: segs,
-            roleConnected: connectedNamedRoles(in: segs),
-            anyConnected: pool.any.isConnected,
-            skipped: skippedErgRoles
-        ).first {
-            gatingErgRole = role
-            let store = pool.store(for: role)
-            store.excludePeripheralIds = pool.occupiedPeripheralIds
-                .subtracting([store.connectedIdentifier].compactMap { $0 })
-            showErgGate = true
-            return true
-        }
-        if PreWorkoutDeviceEligibility.needsUnscopedErgConnect(
-            in: segs,
-            anyConnected: pool.any.isConnected,
-            skipped: skippedUnscopedErg
-        ) {
-            gatingErgRole = nil
-            showErgGate = true
-            return true
-        }
-        return false
-    }
-
-    /// "el remo" / "el SkiErg" / "la bici" for the connect header — the ROLE
-    /// being asked, never the first `kind.isErg` title (a folded chipper is `.reps`).
-    private var ergMachineWord: String {
-        gatingErgRole?.machineWord ?? "el remo"
-    }
-
-    /// Run gate answered → the same block may still need the erg (a HYROX sim has
-    /// run + row): chain the connect gate, else start. A cancel leaves the athlete
-    /// on the block preview, nothing begun.
-    private func continueAfterRunGate() {
-        guard gateContinuation == .checkErg else { return }
-        gateContinuation = nil
-        if presentErgGateIfNeeded() { return }
         session.beginBlock()
     }
 
-    private func continueAfterErgGate() {
-        guard gateContinuation == .begin else { return }
-        gateContinuation = nil
-        if let role = gatingErgRole {
-            if !pool.store(for: role).isConnected { skippedErgRoles.insert(role) }
-        } else if !pool.any.isConnected {
-            skippedUnscopedErg = true
-        }
-        if presentErgGateIfNeeded() { return }
-        session.beginBlock()
-    }
-
-    // Start phone GPS only on run segments (and only if not denied); stop it
+    // Start phone GPS only on run segments
     // otherwise so we don't hold the location indicator during erg/strength work.
     private func updateRunGPS() {
         // Indoor / cinta: GPS off. Calle: GPS only when the street screen is not
