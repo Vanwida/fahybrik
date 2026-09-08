@@ -90,7 +90,7 @@ struct PlanView: View {
     @State private var showHistory = false
     @State private var showCiclo = false
     @State private var partner: PartnerInfo? = nil
-    @State private var freeEditAssignmentId: String? = nil
+    @State fileprivate var freeEditAssignmentId: String? = nil
 
     // ── Un solo mecanismo: qué día muestra la card, ahora mismo (Alex, 7-ago) ─
     // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO:

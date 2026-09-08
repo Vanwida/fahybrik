@@ -224,7 +224,7 @@ enum FreePlanHydration {
             draft.paceSeconds = unit == .per500m ? sec : (modality.resolvedPaceUnit == .per500m ? sec : sec)
         case let .hrZone(z, _, _):
             draft.targetKind = .hrZone
-            draft.hrZone = Int(z)
+            if let z { draft.hrZone = Int(z) }
         default:
             break
         }
@@ -276,7 +276,7 @@ enum FreePlanHydration {
                             break
                         }
                         row.restSeconds = first.restS ?? row.restSeconds
-                        if case let .kg(v, _, _) = first.target {
+                        if case let .kg(v, _, _, _) = first.target, let v {
                             row.loadKind = .kg
                             row.kgUnits = max(1, Int((v / FreeStrengthStep.kgIncrement).rounded()))
                         }
