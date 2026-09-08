@@ -27,6 +27,8 @@ struct HistoryView: View {
     /// historial y abre el chat, porque dos presentaciones no se levantan a la
     /// vez. Nil cuando el atleta no tiene coach: entonces la fila no existe.
     var onPreguntar: ((AthleteHistorySession, String) -> Void)? = nil
+    /// Tras borrar un libre del historial — refrescar plan en quien presenta.
+    var onFreeSessionDeleted: (() -> Void)? = nil
 
     @State private var viewed: YearMonth = .current()
     @State private var month: AthleteHistoryMonth? = nil
@@ -39,6 +41,7 @@ struct HistoryView: View {
     /// the list below narrows to it so they choose, instead of the calendar
     /// picking one for them. Nil = showing the whole month.
     @State private var selectedDay: String? = nil
+    @State private var deleteFreeTarget: AthleteHistorySession? = nil
 
     // Derived (pure)
     private var grid: [CalendarGridCell] { HistoryCalendar.grid(viewed) }
@@ -88,6 +91,36 @@ struct HistoryView: View {
                 // Stale id (404) → refetch this month so the day reflects its current id.
                 onStale: { Task { await load() } }
             )
+        }
+        .confirmationDialog(
+            "¿Borrar este entreno libre?",
+            isPresented: Binding(
+                get: { deleteFreeTarget != nil },
+                set: { if !$0 { deleteFreeTarget = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: deleteFreeTarget
+        ) { session in
+            Button("Borrar del todo", role: .destructive) {
+                Task { await confirmDeleteFree(session) }
+            }
+            Button("Cancelar", role: .cancel) { deleteFreeTarget = nil }
+        } message: { _ in
+            Text("Lo creaste tú: se borra el entreno y lo registrado. No volverá a aparecer.")
+        }
+    }
+
+    @MainActor
+    private func confirmDeleteFree(_ session: AthleteHistorySession) async {
+        deleteFreeTarget = nil
+        guard let token = bearer else { return }
+        do {
+            try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
+            Haptics.medium()
+            onFreeSessionDeleted?()
+            await load()
+        } catch {
+            Haptics.error()
         }
     }
 
@@ -332,7 +365,10 @@ struct HistoryView: View {
                     title: session.title
                 )
             },
-            onPreguntar: onPreguntar
+            onPreguntar: onPreguntar,
+            onRequestDeleteFree: { session in
+                deleteFreeTarget = session
+            }
         )
     }
 
@@ -380,6 +416,7 @@ struct HistorialDelMes: View {
     /// del menú no existe. Con defecto para no obligar a las pruebas de render
     /// —ni a ningún futuro llamador— a declarar algo que no les importa.
     var onPreguntar: ((AthleteHistorySession, String) -> Void)? = nil
+    var onRequestDeleteFree: ((AthleteHistorySession) -> Void)? = nil
 
     var body: some View {
         if loading {
@@ -515,6 +552,13 @@ struct HistorialDelMes: View {
                     onPreguntar(s, row.date)
                 } label: {
                     Label("Preguntar al coach", systemImage: "message")
+                }
+            }
+            if s.isSelfOrigin, let onRequestDeleteFree {
+                Button(role: .destructive) {
+                    onRequestDeleteFree(s)
+                } label: {
+                    Label("Borrar entreno libre", systemImage: "trash")
                 }
             }
         }

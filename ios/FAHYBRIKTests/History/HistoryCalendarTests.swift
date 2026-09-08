@@ -12,7 +12,8 @@ final class HistoryCalendarTests: XCTestCase {
         rpe: Double? = nil, partner: Bool = false, route: Bool = false
     ) -> AthleteHistorySession {
         AthleteHistorySession(assignmentId: id, title: "Sesión", totalDurationSeconds: dur,
-                              scoreTimeS: score, rpe: rpe, withPartner: partner, hasRoute: route)
+                              scoreTimeS: score, rpe: rpe, withPartner: partner, hasRoute: route,
+                              origin: nil)
     }
     private func day(_ date: String, rest: Bool = false, sessions: [AthleteHistorySession] = []) -> AthleteHistoryDay {
         AthleteHistoryDay(date: date, isRest: rest, sessions: sessions)

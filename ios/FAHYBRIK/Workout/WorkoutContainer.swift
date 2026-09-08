@@ -305,7 +305,6 @@ struct WorkoutContainer: View {
                     calentamientoRun: false,
                     isBenchmark: activeFreeContext?.benchmark != nil,
                     activityKind: mirrorActivityKind(for: plan),
-                    liveAlreadyCommitted: activeFreeContext != nil,
                     hrZones: hrZones,
                     stampSession: { s in
                         s.assignmentId = assignmentId

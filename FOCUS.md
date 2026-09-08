@@ -6,11 +6,10 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FH-93 — Start→Watch→Terminar estable (rama `cursor/fh-93-start-watch-stable-555a`, build 71).**
-Resta segunda puerta: watch inline en `SessionStartGate` (no pantalla «Grabación en la muñeca»).
-Mirror/HK solo en EMPEZAR (`releaseLive`); brief = Continuar; libre builder = único Empezar + auto-release.
-Plan libre hidrata `FreeWorkoutContext` → `FreeWorkoutAPI` al Terminar; borrar limpia cache + optimistic mark.
-Watch: timeout 8s en `.ending` (anti Guardando∞). Pendiente: smoke dispositivo Alex.
+**FH-93 — Start→Watch→Terminar estable (rama `cursor/fh93-start-watch-stable-555a`, build 72).**
+Un solo EMPEZAR: builder = Continuar; gate = única puerta ▶ EMPEZAR (sin auto-release).
+Mirror/HK solo en `releaseLive()`; Cancel limpia mirror. Watch: timeout 8s en `.ending`.
+Borrar libre: Plan + FreeInicio (context) + Historial (`origin` en API). Pendiente: smoke Alex.
 
 **Pack runtime phone↔Watch — build 66 (#155).** Reconcile, Terminar bilateral, preview gate, resume banner, launch conflict.
 

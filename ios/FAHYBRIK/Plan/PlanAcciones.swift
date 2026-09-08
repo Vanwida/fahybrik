@@ -287,12 +287,10 @@ extension PlanView {
 
     func confirmDeleteFree(_ session: AthleteWeekDaySession) {
         deleteFreeTarget = nil
-        guard let id = Int(session.assignmentId), let token = effectiveBearer else { return }
+        guard let token = effectiveBearer else { return }
         Task {
             do {
-                try await PlanService.deleteFreeSession(assignmentId: id, bearer: token)
-                CompletedAssignmentsStore.unmark(session.assignmentId)
-                AssignmentDetailCache.remove(session.assignmentId)
+                try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
                 Haptics.medium()
                 await store.planMutated()
                 await cargar(force: true)

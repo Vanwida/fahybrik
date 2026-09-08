@@ -32,8 +32,11 @@ struct AthleteHistorySession: Decodable, Equatable, Identifiable {
     let rpe: Double?             // perceived exertion 1–10; null when not logged
     let withPartner: Bool        // logged as a JOINT dobles session
     let hasRoute: Bool           // an outdoor GPS route exists
+    let origin: String?          // coach | self — only self may be deleted by athlete
 
     var id: String { assignmentId }
+
+    var isSelfOrigin: Bool { origin == "self" }
 
     /// The headline time: the scored final time when present (HYROX/For Time), else the
     /// session duration, else nil (never fabricated). Formatted M:SS / H:MM:SS.

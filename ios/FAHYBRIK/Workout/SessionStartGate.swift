@@ -1,9 +1,8 @@
 import SwiftUI
 
-// FH-91 / FH-93 — ONE pre-live gate. Device steps (run env, erg) then a single
-// EMPEZAR (or auto-release when the builder already committed). Watch join is
-// inline status — never a second full-screen gate. Mirror/HK begins ONLY on
-// releaseLive(), not on appear (no green pill before EMPEZAR).
+// FH-91 / FH-93 — ONE pre-live gate. Device steps (run env, erg) then the sole
+// ▶ EMPEZAR. Watch join is inline status — never a second full-screen gate.
+// Mirror/HK begins ONLY on releaseLive(), not on appear (no green pill before EMPEZAR).
 
 struct SessionStartGate: View {
     let sessionTitle: String
@@ -12,9 +11,6 @@ struct SessionStartGate: View {
     let calentamientoRun: Bool
     let isBenchmark: Bool
     let activityKind: String
-    /// True when the athlete already tapped Empezar in the free builder — this
-    /// gate only resolves devices/watch honesty, then auto-opens live.
-    let liveAlreadyCommitted: Bool
     let hrZones: HRZoneProfile?
     var stampSession: ((WorkoutSession) -> Void)? = nil
     let onReleaseLive: (WorkoutSession) -> Void
@@ -27,7 +23,6 @@ struct SessionStartGate: View {
     @State private var watch = WatchPresence.shared
     @State private var mirror = PhoneMirrorService.shared
     @State private var didBeginMirror = false
-    @State private var didAutoRelease = false
 
     private var recipe: SessionStartRecipe {
         PreWorkoutDeviceEligibility.startRecipe(
@@ -54,10 +49,8 @@ struct SessionStartGate: View {
     }
 
     /// Watch honesty is resolved inline on the ready screen — not a StartStep.
-    /// After the builder's Empezar, watch join is best-effort (never blocks live).
     private var watchResolved: Bool {
-        liveAlreadyCommitted
-            || !recipe.asksWatch
+        !recipe.asksWatch
             || SessionStartPolicy.watchResolved(answers: answers, wristJoined: mirror.wristJoined)
     }
 
@@ -68,7 +61,6 @@ struct SessionStartGate: View {
         calentamientoRun: Bool = false,
         isBenchmark: Bool = false,
         activityKind: String,
-        liveAlreadyCommitted: Bool = false,
         hrZones: HRZoneProfile? = nil,
         stampSession: ((WorkoutSession) -> Void)? = nil,
         onReleaseLive: @escaping (WorkoutSession) -> Void,
@@ -80,7 +72,6 @@ struct SessionStartGate: View {
         self.calentamientoRun = calentamientoRun
         self.isBenchmark = isBenchmark
         self.activityKind = activityKind
-        self.liveAlreadyCommitted = liveAlreadyCommitted
         self.hrZones = hrZones
         self.stampSession = stampSession
         self.onReleaseLive = onReleaseLive
@@ -149,7 +140,7 @@ struct SessionStartGate: View {
 
     private var readyFooter: some View {
         VStack(spacing: 0) {
-            gateTopBar(title: liveAlreadyCommitted ? "Listo" : "Listo")
+            gateTopBar(title: "Listo")
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     SessionStartGatePlanPreview(plan: plan, segments: segments)
@@ -161,25 +152,20 @@ struct SessionStartGate: View {
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
             }
-            if !liveAlreadyCommitted {
-                VStack(spacing: Theme.Spacing.s) {
-                    Text("Empieza cuando estés listo")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.faint)
-                    ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
-                        .disabled(!canReleaseLive)
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.bottom, Theme.Spacing.l)
+            VStack(spacing: Theme.Spacing.s) {
+                Text("Empieza cuando estés listo")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
+                    .disabled(!canReleaseLive)
             }
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.bottom, Theme.Spacing.l)
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .onAppear {
             if !watch.appAvailable { answers.watchUnavailable = true }
-            tryAutoReleaseIfNeeded()
         }
-        .onChange(of: watchResolved) { _, _ in tryAutoReleaseIfNeeded() }
-        .onChange(of: mirror.wristJoined) { _, _ in tryAutoReleaseIfNeeded() }
     }
 
     @ViewBuilder
@@ -219,7 +205,6 @@ struct SessionStartGate: View {
             if recipe.asksWatch && !mirror.wristJoined && !answers.watchUnavailable {
                 SecondaryButton(title: "Continuar sin reloj conectado") {
                     answers.watchProceedWithoutWrist = true
-                    tryAutoReleaseIfNeeded()
                 }
                 .padding(.top, Theme.Spacing.s)
             }
@@ -283,12 +268,6 @@ struct SessionStartGate: View {
         beginMirrorIfNeeded()
         Haptics.medium()
         onReleaseLive(stagingSession)
-    }
-
-    private func tryAutoReleaseIfNeeded() {
-        guard liveAlreadyCommitted, canReleaseLive, !didAutoRelease else { return }
-        didAutoRelease = true
-        releaseLive()
     }
 
     /// Live opens only after device steps resolve and watch honesty is settled.

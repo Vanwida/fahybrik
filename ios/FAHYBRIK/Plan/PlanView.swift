@@ -225,7 +225,10 @@ struct PlanView: View {
                 onPreguntar: hasCoach ? { sesion, iso in
                     showHistory = false
                     preguntarPorEntrenoPasado(sesion, iso: iso)
-                } : nil
+                } : nil,
+                onFreeSessionDeleted: {
+                    Task { await store.planMutated(); await cargar(force: true) }
+                }
             )
         }
         .fullScreenCover(isPresented: $showCiclo) {
