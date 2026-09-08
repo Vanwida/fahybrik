@@ -411,4 +411,21 @@ final class FreeWorkoutEncodeTests: XCTestCase {
         XCTAssertTrue(seg.involvesRun)
     }
 
+    func testFreePlanSavePayloadOmitsExecutionFields() throws {
+        let prescription = try XCTUnwrap(draftRow5x500().buildPrescription())
+        let payload = FreePlanSavePayload(
+            title: "Remo · 5×500",
+            modality: "row",
+            prescription: prescription,
+            items: nil
+        )
+        let data = try makeEncoder().encode(payload)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["title"] as? String, "Remo · 5×500")
+        XCTAssertEqual(json["modality"] as? String, "row")
+        XCTAssertNil(json["perceived_exertion"])
+        XCTAssertNil(json["started_at"])
+        XCTAssertNil(json["segments"])
+    }
+
 }

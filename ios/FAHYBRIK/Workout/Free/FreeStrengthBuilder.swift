@@ -232,6 +232,17 @@ final class FreeStrengthDraft {
         )
     }
 
+    func buildPlanPayload(assignmentId: Int? = nil) -> FreePlanSavePayload? {
+        guard let payloadItems = buildItems() else { return nil }
+        return FreePlanSavePayload(
+            title: resolvedTitle,
+            modality: PrescriptionModality.strength.rawValue,
+            prescription: nil,
+            items: payloadItems,
+            assignment_id: assignmentId
+        )
+    }
+
     var resolvedTitle: String {
         let t = titleEdited.trimmingCharacters(in: .whitespacesAndNewlines)
         if !t.isEmpty { return String(t.prefix(Self.maxTitle)) }
@@ -260,16 +271,35 @@ final class FreeStrengthDraft {
 
 struct FreeStrengthBuilderView: View {
     let bearer: String?
+    @Binding var draft: FreeStrengthDraft
+    var editingAssignmentId: Int? = nil
     /// Return to the modality grid (the athlete backs out of the fuerza track).
     let onBack: () -> Void
     /// Hand the built context up to the host, which runs it through the shared
     /// engine (WorkoutContainer, free mode) exactly like the measured path.
     let onStart: (FreeWorkoutContext) -> Void
+    var onSaved: () -> Void = {}
 
-    @State private var draft = FreeStrengthDraft()
     @State private var showPicker = false
     /// El picker abierto añade al calentamiento (true) o al principal (false).
     @State private var pickingForWarmup = false
+    @State private var isSavingPlan = false
+
+    init(
+        bearer: String?,
+        draft: Binding<FreeStrengthDraft> = .constant(FreeStrengthDraft()),
+        editingAssignmentId: Int? = nil,
+        onBack: @escaping () -> Void,
+        onStart: @escaping (FreeWorkoutContext) -> Void,
+        onSaved: @escaping () -> Void = {}
+    ) {
+        self.bearer = bearer
+        self._draft = draft
+        self.editingAssignmentId = editingAssignmentId
+        self.onBack = onBack
+        self.onStart = onStart
+        self.onSaved = onSaved
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -473,16 +503,36 @@ struct FreeStrengthBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                guard let ctx = draft.buildContext() else { return }
-                Haptics.medium()
-                onStart(ctx)
+            HStack(spacing: Theme.Spacing.m) {
+                SecondaryButton(title: "Guardar") {
+                    Task { await savePlan() }
+                }
+                ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
+                    guard let ctx = draft.buildContext() else { return }
+                    Haptics.medium()
+                    onStart(ctx)
+                }
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.m)
+            .opacity(isSavingPlan ? 0.6 : 1)
+            .disabled(isSavingPlan)
         }
         .background(Theme.Color.background)
+    }
+
+    private func savePlan() async {
+        guard !isSavingPlan, let payload = draft.buildPlanPayload(assignmentId: editingAssignmentId) else { return }
+        isSavingPlan = true
+        defer { isSavingPlan = false }
+        do {
+            try await FreePlanSaveAPI.save(payload, bearer: bearer)
+            Haptics.medium()
+            onSaved()
+        } catch {
+            Haptics.error()
+        }
     }
 
     // Index-safe binding into the draft's item array (ForEach over value copies).

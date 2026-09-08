@@ -10,12 +10,32 @@ import SwiftUI
 
 struct FreeFunctionalBuilderView: View {
     let bearer: String?
+    @Binding var draft: FreeFunctionalDraft
+    var editingAssignmentId: Int? = nil
     let onBack: () -> Void
     let onStart: (FreeWorkoutContext) -> Void
+    var onSaved: () -> Void = {}
 
-    @State private var draft = FreeFunctionalDraft()
     @State private var step: Step = .format
     @State private var showPicker = false
+    @State private var isSavingPlan = false
+
+    init(
+        bearer: String?,
+        draft: Binding<FreeFunctionalDraft> = .constant(FreeFunctionalDraft()),
+        editingAssignmentId: Int? = nil,
+        onBack: @escaping () -> Void,
+        onStart: @escaping (FreeWorkoutContext) -> Void,
+        onSaved: @escaping () -> Void = {}
+    ) {
+        self.bearer = bearer
+        self._draft = draft
+        self.editingAssignmentId = editingAssignmentId
+        self.onBack = onBack
+        self.onStart = onStart
+        self.onSaved = onSaved
+        _step = State(initialValue: draft.wrappedValue.format == nil ? .format : .config)
+    }
 
     enum Step { case format, config }
 
@@ -270,16 +290,36 @@ struct FreeFunctionalBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                guard let ctx = draft.buildContext() else { return }
-                Haptics.medium()
-                onStart(ctx)
+            HStack(spacing: Theme.Spacing.m) {
+                SecondaryButton(title: "Guardar") {
+                    Task { await savePlan() }
+                }
+                ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
+                    guard let ctx = draft.buildContext() else { return }
+                    Haptics.medium()
+                    onStart(ctx)
+                }
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.m)
+            .opacity(isSavingPlan ? 0.6 : 1)
+            .disabled(isSavingPlan)
         }
         .background(Theme.Color.background)
+    }
+
+    private func savePlan() async {
+        guard !isSavingPlan, let payload = draft.buildPlanPayload(assignmentId: editingAssignmentId) else { return }
+        isSavingPlan = true
+        defer { isSavingPlan = false }
+        do {
+            try await FreePlanSaveAPI.save(payload, bearer: bearer)
+            Haptics.medium()
+            onSaved()
+        } catch {
+            Haptics.error()
+        }
     }
 
     // MARK: Shared bits

@@ -10,6 +10,8 @@ import SwiftUI
 // routes to `FreeWorkoutAPI` instead of the prescribed sync.
 struct FreeWorkoutBuilderView: View {
     let bearer: String?
+    /// When set, opens the builder pre-filled to edit a scheduled self-origin plan.
+    var editingAssignmentId: Int? = nil
     /// The athlete's resolved max-HR source — threaded into WorkoutContainer so a
     /// FREE workout gets the same personal HR zones as a prescribed one (it was
     /// dropped here, leaving every free session zone-less regardless of profile).
@@ -22,10 +24,14 @@ struct FreeWorkoutBuilderView: View {
     @State private var draft = FreeWorkoutDraft()
     @State private var step: Step = .modality
     @State private var running: FreeWorkoutContext? = nil
+    @State private var isSavingPlan = false
+    @State private var editLoadFailed = false
     /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
     /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
     /// return a `FreeWorkoutContext` that runs through the SAME engine below.
     @State private var track: Track = .measured
+    @State private var strengthDraft = FreeStrengthDraft()
+    @State private var functionalDraft = FreeFunctionalDraft()
 
     enum Step: Int, CaseIterable { case modality, format, bouts }
     enum Track { case measured, strength, functional }
@@ -50,14 +56,20 @@ struct FreeWorkoutBuilderView: View {
             case .strength:
                 FreeStrengthBuilderView(
                     bearer: bearer,
+                    draft: $strengthDraft,
+                    editingAssignmentId: editingAssignmentId,
                     onBack: { track = .measured },
-                    onStart: { running = $0 }
+                    onStart: { running = $0 },
+                    onSaved: { completePlanSave() }
                 )
             case .functional:
                 FreeFunctionalBuilderView(
                     bearer: bearer,
+                    draft: $functionalDraft,
+                    editingAssignmentId: editingAssignmentId,
                     onBack: { track = .measured },
-                    onStart: { running = $0 }
+                    onStart: { running = $0 },
+                    onSaved: { completePlanSave() }
                 )
             }
         }
@@ -85,6 +97,33 @@ struct FreeWorkoutBuilderView: View {
         // Fuerza/Funcional track) → release any belt/strap connected from the card.
         // When Empezar sets `running`, WorkoutContainer owns teardown, so skip here.
         .onDisappear { if running == nil { DeviceHub.shared.stopAll() } }
+        .task(id: editingAssignmentId) {
+            await loadEditingPlanIfNeeded()
+        }
+    }
+
+    private func loadEditingPlanIfNeeded() async {
+        guard let id = editingAssignmentId, let bearer else { return }
+        guard let detail = try? await PlanService.fetchAssignmentDetail(String(id), bearer: bearer) else {
+            editLoadFailed = true
+            return
+        }
+        guard let hydrated = FreePlanHydration.editTrack(from: detail) else {
+            editLoadFailed = true
+            return
+        }
+        switch hydrated {
+        case let .measured(d):
+            draft = d
+            track = .measured
+            step = d.usaPlanDeCorrer || d.format != nil ? .bouts : .modality
+        case let .strength(d):
+            strengthDraft = d
+            track = .strength
+        case let .functional(d):
+            functionalDraft = d
+            track = .functional
+        }
     }
 
     // MARK: - Nav bar
@@ -349,14 +388,39 @@ struct FreeWorkoutBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
-                startNow()
+            HStack(spacing: Theme.Spacing.m) {
+                SecondaryButton(title: "Guardar") {
+                    Task { await saveMeasuredPlan() }
+                }
+                ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
+                    startNow()
+                }
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.m)
+            .opacity(isSavingPlan ? 0.6 : 1)
+            .disabled(isSavingPlan)
         }
         .background(Theme.Color.background)
+    }
+
+    private func saveMeasuredPlan() async {
+        guard !isSavingPlan, let payload = draft.buildPlanPayload(assignmentId: editingAssignmentId) else { return }
+        isSavingPlan = true
+        defer { isSavingPlan = false }
+        do {
+            try await FreePlanSaveAPI.save(payload, bearer: bearer)
+            Haptics.medium()
+            completePlanSave()
+        } catch {
+            Haptics.error()
+        }
+    }
+
+    private func completePlanSave() {
+        onCompleted()
+        onClose()
     }
 
     /// Build + launch through WorkoutContainer → SessionStartGate (FH-91).
