@@ -137,6 +137,12 @@ export interface AssignmentDetailResponse {
     store_results: AssignmentDetailStoreResult[];
   };
   workout: AssignmentDetailWorkout | null;
+  /** Segment-less entreno libre (box CLOCK): the folded prescription lives on
+   *  templates.meta_json because no exercise was named. Lets iOS launch/edit
+   *  saved cronómetro plans without inventing a fake segment. */
+  clock_prescription?: Prescription | null;
+  /** templates.format for a clock_prescription session (for_time, amrap, …). */
+  clock_format?: string | null;
   // The athlete's REAL executed result, when the session has been done. Powers
   // the read-only post-workout detail the athlete reaches by tapping a finished
   // session (closing the loop: they see what they logged — tiempo / score / RPE /
@@ -938,13 +944,17 @@ export function buildAssignmentDetail(input: {
 
   const blocks = buildBlocks(template, segments, zoneLookup, oneRms, input.circuitBlocks ?? [], input.anchors);
 
-  // A template that resolves to ZERO renderable blocks (no segments) is NOT a
-  // previewable / runnable / listable workout — it is the rest/empty state. We
-  // must NEVER emit `workout = { …, blocks: [] }`: that pathological shape is the
-  // single root cause of the cross-view inconsistency (see the file header).
-  // Keep `workout = null` so every iOS surface collapses to the same honest
-  // state. The execution (set on `base`) still drives the done-detail.
-  if (blocks.length === 0) return base;
+  // A template that resolves to ZERO renderable blocks (no segments) is normally
+  // the rest/empty state — EXCEPT the entreno-libre CLOCK, whose real shape lives
+  // on templates.meta_json.prescription (see create-free-workout.ts).
+  if (blocks.length === 0) {
+    const clockRx = parsePrescriptionJson(template.meta_json?.prescription);
+    if (clockRx) {
+      base.clock_prescription = clockRx;
+      base.clock_format = template.format;
+    }
+    return base;
+  }
 
   base.workout = {
     name: template.name,

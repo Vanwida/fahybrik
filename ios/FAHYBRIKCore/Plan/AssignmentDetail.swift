@@ -44,6 +44,9 @@ struct AssignmentDetail: Codable, Equatable {
     /// entonces), que es la única razón por la que es opcional — el servidor lo
     /// manda siempre, aunque venga vacío.
     let runCompliance: RunCompliance?
+    /// Segment-less entreno libre (box CLOCK): folded prescription from meta_json.
+    let clockPrescription: Prescription?
+    let clockFormat: String?
 }
 
 // What the athlete ACTUALLY did, for the read-only executed view. Mirrors the

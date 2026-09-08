@@ -75,6 +75,11 @@ extension PlanView {
         // Un LIBRE es del atleta: se borra del todo, en cualquier estado. Las del
         // coach no ofrecen esto — se deshacen, no se borran.
         if session.isSelfOrigin {
+            if marca(session) == .pending || marca(session) == .missed {
+                Button { freeEditAssignmentId = session.assignmentId } label: {
+                    Label("Editar entreno libre", systemImage: "pencil")
+                }
+            }
             Button(role: .destructive) { deleteFreeTarget = session } label: {
                 Label("Borrar entreno libre", systemImage: "trash")
             }

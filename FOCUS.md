@@ -6,6 +6,11 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**FH-54 — Guardar entreno libre sin arrancar (PR `cursor/fh-54-free-plan-save-781c`).**
+`POST /api/athlete/workouts/free/plan` = template + segments + assignment
+scheduled, sin `workout_executions`. iOS: **Guardar** junto a Empezar en los
+tres builders; editar/borrar/lanzar desde Plan (Libre). Build **65**.
+
 **Xcode Cloud Archive (exit 65):** post-clone en `ios/ci_scripts/ci_post_clone.sh`
 genera los tres `Generated-Info.plist` gitignorados. Pendiente: Rebuild en ASC.
 

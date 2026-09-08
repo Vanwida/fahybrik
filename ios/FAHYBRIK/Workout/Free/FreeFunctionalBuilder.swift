@@ -437,6 +437,19 @@ final class FreeFunctionalDraft {
         )
     }
 
+    func buildPlanPayload(assignmentId: Int? = nil) -> FreePlanSavePayload? {
+        guard let f = format else { return nil }
+        let payloadItems = buildItems()
+        let s = structural(f)
+        return FreePlanSavePayload(
+            title: resolvedTitle,
+            modality: PrescriptionModality.functional.rawValue,
+            prescription: payloadItems == nil ? foldedPrescription(f, s) : nil,
+            items: payloadItems,
+            assignment_id: assignmentId
+        )
+    }
+
     // The folded segment's title = the movements in order (the HUD movement label).
     // With nothing declared the FORMAT is the honest label — the athlete is running
     // a clock, and "EMOM" is what the top strip should say, not a generic "Funcional".

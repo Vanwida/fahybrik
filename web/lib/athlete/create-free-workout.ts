@@ -67,7 +67,7 @@ const SELF_ORIGIN = 'self' as const;
 /** A recoverable, request-mappable failure (→ 422 at the route boundary). */
 export class FreeWorkoutError extends Error {
   constructor(
-    public readonly code: 'exercise_not_found' | 'record_failed',
+    public readonly code: 'exercise_not_found' | 'record_failed' | 'plan_not_editable',
     message: string,
   ) {
     super(message);
@@ -116,21 +116,20 @@ interface ClockInput {
   prescription: Prescription;
 }
 
-export type CreateFreeWorkoutInput = {
+/** Shared plan shape — template + segments + assignment, WITHOUT execution metrics. */
+export type SaveFreeWorkoutPlanInput = {
   athleteId: number;
-  /** Null for a FREE athlete (athletes.coach_id null): the instance template is
-   *  athlete-owned (templates_owner_chk, mig 0141), exercise resolution falls
-   *  back to the BASE catalog (visibleToCoach) and the post-commit attention
-   *  recompute no-ops — there is no coach to surface the libre to. */
   coachId: number | null;
   title: string;
-  /** The `templates.format` to persist — an already-validated scheme. */
   scheme: string;
-  metrics: ExecutionMetricsInput;
-  /** Injectable client so a test can run against an ephemeral branch; the route
-   *  omits it and the module pool is used. */
+  /** Calendar day for the self-origin assignment (box tz, YYYY-MM-DD). Defaults to today. */
+  scheduledFor?: string;
   sql?: Sql;
 } & (MeasuredInput | ItemsInput | ClockInput);
+
+export type CreateFreeWorkoutInput = SaveFreeWorkoutPlanInput & {
+  metrics: ExecutionMetricsInput;
+};
 
 /**
  * Margen de reloj adelantado que se tolera antes de desconfiar de la hora que
@@ -166,10 +165,96 @@ export function freeWorkoutDay(startedAtIso: string | undefined, now: Date): str
   return isoDateString(startOfDayInBox(at));
 }
 
+/** Steps 1–3 only: instance template + ordered segments + self-origin assignment.
+ *  No workout_executions row — the athlete saves a plan to run later. */
+export async function saveFreeWorkoutPlan(
+  input: SaveFreeWorkoutPlanInput,
+): Promise<{ assignment_id: string }> {
+  const scheduledFor = input.scheduledFor ?? isoDateString(startOfDayInBox(new Date()));
+  const db = input.sql ?? defaultSql;
+  const assignmentId = await persistFreeWorkoutPlan(db, { ...input, scheduledFor });
+  void recomputeAthlete({ athlete_id: input.athleteId, client: db }).catch(() => {});
+  return { assignment_id: String(assignmentId) };
+}
+
+/** Replace the template body of a scheduled self-origin plan (no execution yet). */
+export async function updateFreeWorkoutPlan(
+  input: SaveFreeWorkoutPlanInput & { assignmentId: number },
+): Promise<{ assignment_id: string }> {
+  const db = input.sql ?? defaultSql;
+  const scheduledFor = input.scheduledFor ?? isoDateString(startOfDayInBox(new Date()));
+
+  const rows = await db<
+    Array<{ template_id: string; origin: string; status: string; exec_count: string }>
+  >`
+    select wa.template_id::text as template_id, wa.origin::text as origin,
+           wa.status::text as status,
+           (select count(*)::text from workout_executions we where we.assignment_id = wa.id) as exec_count
+    from workout_assignments wa
+    where wa.id = ${input.assignmentId}
+      and wa.athlete_id = ${input.athleteId}
+    limit 1
+  `;
+  const row = rows[0];
+  if (
+    !row ||
+    row.origin !== SELF_ORIGIN ||
+    row.status !== 'scheduled' ||
+    Number(row.exec_count) > 0
+  ) {
+    throw new FreeWorkoutError(
+      'plan_not_editable',
+      'Only a scheduled self-origin plan with no execution can be edited',
+    );
+  }
+
+  const segments = await resolveSegments(db, input);
+  const metaJson =
+    input.kind === 'clock'
+      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
+      : { origin: SELF_ORIGIN };
+  const templateId = Number(row.template_id);
+  const hasWarmup = segments.some((s) => s.part === 'warmup');
+
+  await db.begin(async (tx) => {
+    await tx`
+      update templates
+      set name = ${input.title}, format = ${input.scheme}::template_format,
+          meta_json = ${tx.json(metaJson)}
+      where id = ${templateId}
+    `;
+    await tx`delete from template_segments where template_id = ${templateId}`;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]!;
+      const isWarm = seg.part === 'warmup';
+      await tx`
+        insert into template_segments (
+          template_id, position, exercise_id, params_json,
+          block_position, block_format, block_title, prescription_json
+        )
+        values (
+          ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
+          ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${input.scheme},
+          ${hasWarmup ? (isWarm ? 'Calentamiento' : input.title) : input.title},
+          ${tx.json(seg.prescriptionForDb)}
+        )
+      `;
+    }
+    await tx`
+      update workout_assignments
+      set scheduled_for = ${scheduledFor}::date, template_version = 1
+      where id = ${input.assignmentId}
+    `;
+  });
+
+  void recomputeAthlete({ athlete_id: input.athleteId, client: db }).catch(() => {});
+  return { assignment_id: String(input.assignmentId) };
+}
+
 export async function createFreeWorkout(
   input: CreateFreeWorkoutInput,
 ): Promise<{ assignment_id: string; execution_id: string }> {
-  const { athleteId, coachId, title, scheme, metrics } = input;
+  const { athleteId, metrics } = input;
   const db = input.sql ?? defaultSql;
   const scheduledFor = freeWorkoutDay(metrics.started_at, new Date());
 
@@ -199,72 +284,10 @@ export async function createFreeWorkout(
     if (yaEntro[0]) return yaEntro[0];
   }
 
-  // Resolve the ordered segment list (exercise ids validated; modality coherence
-  // applied for item-built workouts) BEFORE opening the transaction.
-  const segments = await resolveSegments(db, input);
-
-  // The instance template's metadata. A CLOCK has no segments, so its shape (the
-  // scheme + structure the athlete actually ran, and with it the real modality)
-  // would be lost otherwise — it rides here, the same carrier `origin` uses.
-  const metaJson =
-    input.kind === 'clock'
-      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
-      : { origin: SELF_ORIGIN };
-
   const ids = await db.begin(async (tx) => {
-    // 1. Instance template (OUT of the coach library via instance_athlete_id).
-    const tplRows = await tx<Array<{ id: string }>>`
-      insert into templates (
-        coach_id, name, format, version,
-        is_draft, is_partner_workout, instance_athlete_id, meta_json
-      )
-      values (
-        ${coachId}, ${title}, ${scheme}::template_format, 1,
-        false, false, ${athleteId}, ${tx.json(metaJson)}
-      )
-      returning id::text as id
-    `;
-    const templateId = Number(tplRows[0]!.id);
+    const segments = await resolveSegments(db, input);
+    const assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
 
-    // 2. The ordered segments (position 1..N) carrying each structured prescription.
-    //    Calentamiento opcional (petición de Alex entrenando): los items marcados
-    //    part='warmup' van a su PROPIO bloque «Calentamiento» (posición 1) y el
-    //    trabajo al bloque 2 — así el coach lee calentar como calentar, nunca como
-    //    trabajo. Sin warmup, todo sigue en un bloque como siempre.
-    const hasWarmup = segments.some((s) => s.part === 'warmup');
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i]!;
-      const isWarm = seg.part === 'warmup';
-      await tx`
-        insert into template_segments (
-          template_id, position, exercise_id, params_json,
-          block_position, block_format, block_title, prescription_json
-        )
-        values (
-          ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
-          ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${scheme},
-          ${hasWarmup ? (isWarm ? 'Calentamiento' : title) : title},
-          ${tx.json(seg.prescriptionForDb)}
-        )
-      `;
-    }
-
-    // 3. Self-origin assignment for today (status defaults to 'scheduled'; the
-    //    recorder flips it to completed/partial in step 4). No microcycle — a
-    //    free workout is not part of the coach's periodization.
-    const asgRows = await tx<Array<{ id: string }>>`
-      insert into workout_assignments (
-        athlete_id, scheduled_for, template_id, template_version, microcycle_id, origin
-      )
-      values (
-        ${athleteId}, ${scheduledFor}::date, ${templateId}, 1, null, ${SELF_ORIGIN}::workout_origin
-      )
-      returning id::text as id
-    `;
-    const assignmentId = Number(asgRows[0]!.id);
-
-    // 4. REUSE the shared recorder (executions + segment actuals + status flip),
-    //    on the SAME transaction client. Do not fork it.
     const rec = await recordWorkoutExecution({
       athleteId,
       assignmentId,
@@ -291,6 +314,70 @@ export async function createFreeWorkout(
   return ids;
 }
 
+/** Steps 1–3 inside an open transaction (or standalone client). */
+async function persistFreeWorkoutPlan(
+  db: Sql,
+  input: SaveFreeWorkoutPlanInput & { scheduledFor: string },
+): Promise<number> {
+  const segments = await resolveSegments(db, input);
+  return db.begin(async (tx) => persistFreeWorkoutPlanInTx(tx, input, segments));
+}
+
+async function persistFreeWorkoutPlanInTx(
+  tx: Sql,
+  input: SaveFreeWorkoutPlanInput & { scheduledFor: string },
+  segments: ResolvedSegment[],
+): Promise<number> {
+  const { athleteId, coachId, title, scheme, scheduledFor } = input;
+
+  const metaJson =
+    input.kind === 'clock'
+      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
+      : { origin: SELF_ORIGIN };
+
+  const tplRows = await tx<Array<{ id: string }>>`
+    insert into templates (
+      coach_id, name, format, version,
+      is_draft, is_partner_workout, instance_athlete_id, meta_json
+    )
+    values (
+      ${coachId}, ${title}, ${scheme}::template_format, 1,
+      false, false, ${athleteId}, ${tx.json(metaJson)}
+    )
+    returning id::text as id
+  `;
+  const templateId = Number(tplRows[0]!.id);
+
+  const hasWarmup = segments.some((s) => s.part === 'warmup');
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]!;
+    const isWarm = seg.part === 'warmup';
+    await tx`
+      insert into template_segments (
+        template_id, position, exercise_id, params_json,
+        block_position, block_format, block_title, prescription_json
+      )
+      values (
+        ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
+        ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${scheme},
+        ${hasWarmup ? (isWarm ? 'Calentamiento' : title) : title},
+        ${tx.json(seg.prescriptionForDb)}
+      )
+    `;
+  }
+
+  const asgRows = await tx<Array<{ id: string }>>`
+    insert into workout_assignments (
+      athlete_id, scheduled_for, template_id, template_version, microcycle_id, origin
+    )
+    values (
+      ${athleteId}, ${scheduledFor}::date, ${templateId}, 1, null, ${SELF_ORIGIN}::workout_origin
+    )
+    returning id::text as id
+  `;
+  return Number(asgRows[0]!.id);
+}
+
 /**
  * Resolve the ordered `template_segments` to persist. MEASURED → the one canonical
  * exercise by slug (prescription verbatim). ITEM-built → each `items[]` exercise
@@ -300,7 +387,7 @@ export async function createFreeWorkout(
  * there is no exercise to resolve and no query to run. Throws `exercise_not_found`
  * for any unknown slug/id.
  */
-async function resolveSegments(db: Sql, input: CreateFreeWorkoutInput): Promise<ResolvedSegment[]> {
+async function resolveSegments(db: Sql, input: SaveFreeWorkoutPlanInput): Promise<ResolvedSegment[]> {
   if (input.kind === 'clock') return [];
 
   if (input.kind === 'measured') {

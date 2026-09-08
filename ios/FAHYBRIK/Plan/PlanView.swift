@@ -87,6 +87,7 @@ struct PlanView: View {
     @State private var showHistory = false
     @State private var showCiclo = false
     @State private var partner: PartnerInfo? = nil
+    @State private var freeEditAssignmentId: String? = nil
 
     // ── Un solo mecanismo: qué día muestra la card, ahora mismo (Alex, 7-ago) ─
     // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO:
@@ -158,6 +159,23 @@ struct PlanView: View {
                 onClose: { executedLaunch = nil },
                 onStale: { Task { await store.planMutated(); await cargar(force: true) } }
             )
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { freeEditAssignmentId != nil },
+            set: { if !$0 { freeEditAssignmentId = nil } }
+        )) {
+            if let editId = freeEditAssignmentId, let id = Int(editId) {
+                FreeWorkoutBuilderView(
+                    bearer: effectiveBearer,
+                    editingAssignmentId: id,
+                    hrZones: store.identity.value?.hrZones,
+                    onClose: { freeEditAssignmentId = nil },
+                    onCompleted: {
+                        freeEditAssignmentId = nil
+                        Task { await store.planMutated(); await cargar(force: true) }
+                    }
+                )
+            }
         }
         .fullScreenCover(isPresented: $showPartnerPlan) {
             DoblesPlanView(bearer: effectiveBearer)

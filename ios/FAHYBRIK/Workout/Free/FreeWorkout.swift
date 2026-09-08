@@ -480,6 +480,20 @@ final class FreeWorkoutDraft {
         )
     }
 
+    /// Plan-only save payload (no execution metrics).
+    func buildPlanPayload(assignmentId: Int? = nil) -> FreePlanSavePayload? {
+        guard modality != nil else { return nil }
+        guard usaPlanDeCorrer || format != nil else { return nil }
+        guard let prescription = buildPrescription(), let modality else { return nil }
+        return FreePlanSavePayload(
+            title: resolvedTitle,
+            modality: modality.wire,
+            prescription: prescription,
+            items: nil,
+            assignment_id: assignmentId
+        )
+    }
+
     // MARK: Title
 
     var resolvedTitle: String {
@@ -636,6 +650,47 @@ struct FreeWorkoutContext {
     /// the scheme + block params a post-hoc declaration must reuse, so movements
     /// named afterwards carry the SAME structure as ones named up front.
     var ranPrescription: Prescription? { plan.segments.first?.prescription }
+}
+
+// MARK: - FreePlanSavePayload — plan-only wire (no execution metrics)
+//
+// POST /api/athlete/workouts/free/plan. Exactly one of `prescription` / `items`
+// is present, mirroring the live free-save contract. `assignment_id` on update.
+
+struct FreePlanSavePayload: Codable {
+    let title: String
+    let modality: String
+    let prescription: Prescription?
+    let items: [FreeWorkoutItemPayload]?
+    let assignment_id: Int?
+
+    init(
+        title: String,
+        modality: String,
+        prescription: Prescription?,
+        items: [FreeWorkoutItemPayload]?,
+        assignment_id: Int? = nil
+    ) {
+        self.title = title
+        self.modality = modality
+        self.prescription = prescription
+        self.items = items
+        self.assignment_id = assignment_id
+    }
+}
+
+enum FreePlanSaveAPI {
+    static let path = "/api/athlete/workouts/free/plan"
+
+    private struct Response: Decodable {
+        let saved: Bool
+        let assignment_id: String
+        let origin: String
+    }
+
+    static func save(_ payload: FreePlanSavePayload, bearer: String?) async throws {
+        let _: Response = try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
+    }
 }
 
 /// #Marcas — what the post-workout save needs to turn a finished benchmark session

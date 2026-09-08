@@ -1291,6 +1291,41 @@ extension WorkoutPlan {
     /// title-only shell. Every value comes from the coach's prescription; nothing
     /// is invented. Returns nil for rest days (no workout body).
     static func from(detail: AssignmentDetail) -> WorkoutPlan? {
+        if let rx = detail.clockPrescription {
+            let name = detail.workout?.name ?? "Funcional"
+            let format = workoutFormat(from: detail.clockFormat ?? rx.scheme.rawValue)
+            let segment = WorkoutSegment(
+                order: 1,
+                title: name,
+                kind: .reps,
+                templateSegmentId: nil,
+                targetReps: nil,
+                targetDistanceMeters: nil,
+                targetDurationSeconds: nil,
+                targetPaceSecondsPerKm: nil,
+                targetPowerWatts: nil,
+                targetZone: nil,
+                loadKg: nil,
+                targetRpe: nil,
+                blockTitle: "Funcional",
+                blockPosition: 1,
+                videoUrl: nil,
+                prescription: rx
+            )
+            return WorkoutPlan(
+                id: UUID(),
+                name: name,
+                format: format,
+                estimatedDurationSeconds: rx.totalS ?? 0,
+                blockContext: "Libre · no prescrito",
+                zoneTargets: [],
+                equipment: [],
+                segments: [segment],
+                coachNote: nil,
+                demoVideoUrl: nil,
+                warmupChecklist: []
+            )
+        }
         guard let workout = detail.workout else { return nil }
         // A non-null workout with ZERO blocks is NOT a runnable/previewable body —
         // it is the rest/empty state, same as `workout == null`. The backend now
