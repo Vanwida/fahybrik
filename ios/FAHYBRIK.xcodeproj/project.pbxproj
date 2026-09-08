@@ -585,6 +585,11 @@
 		C17DD06A3868B1A2D5B5BD8E /* BlockPreviewGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */; };
 		FH910001A1B2C3D4E5F60001 /* SessionStartGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910002A1B2C3D4E5F60002 /* SessionStartGate.swift */; };
 		FH910003A1B2C3D4E5F60003 /* SessionStartPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910004A1B2C3D4E5F60004 /* SessionStartPolicy.swift */; };
+		FH910011A1B2C3D4E5F60011 /* PhoneWatchRuntimeReconcile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910010A1B2C3D4E5F60010 /* PhoneWatchRuntimeReconcile.swift */; };
+		FH910012A1B2C3D4E5F60012 /* PhoneWatchRuntimeReconcile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910010A1B2C3D4E5F60010 /* PhoneWatchRuntimeReconcile.swift */; };
+		FH910014A1B2C3D4E5F60014 /* LiveWorkoutLaunchConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910013A1B2C3D4E5F60013 /* LiveWorkoutLaunchConflict.swift */; };
+		FH910016A1B2C3D4E5F60016 /* SessionStartGatePlanPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910015A1B2C3D4E5F60015 /* SessionStartGatePlanPreview.swift */; };
+		FH910018A1B2C3D4E5F60018 /* PhoneWatchRuntimeReconcileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH910017A1B2C3D4E5F60017 /* PhoneWatchRuntimeReconcileTests.swift */; };
 		C1DCC98F74283E63D6F62D53 /* HistoryCalendarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883BD3BAFDC4853754FC7DD0 /* HistoryCalendarTests.swift */; };
 		C204405685656E11873630F1 /* CorrerLecturasViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F3C2C7C9DFD35998D553D5 /* CorrerLecturasViews.swift */; };
 		C28604D73FEC4F585D26C027 /* HeartRateParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188040B3F7869F27D1727ED5 /* HeartRateParserTests.swift */; };
@@ -1441,6 +1446,10 @@
 		D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPreviewGate.swift; sourceTree = "<group>"; };
 		FH910002A1B2C3D4E5F60002 /* SessionStartGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStartGate.swift; sourceTree = "<group>"; };
 		FH910004A1B2C3D4E5F60004 /* SessionStartPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStartPolicy.swift; sourceTree = "<group>"; };
+		FH910010A1B2C3D4E5F60010 /* PhoneWatchRuntimeReconcile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchRuntimeReconcile.swift; sourceTree = "<group>"; };
+		FH910013A1B2C3D4E5F60013 /* LiveWorkoutLaunchConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutLaunchConflict.swift; sourceTree = "<group>"; };
+		FH910015A1B2C3D4E5F60015 /* SessionStartGatePlanPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStartGatePlanPreview.swift; sourceTree = "<group>"; };
+		FH910017A1B2C3D4E5F60017 /* PhoneWatchRuntimeReconcileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchRuntimeReconcileTests.swift; sourceTree = "<group>"; };
 		D3302CBCD91530DF2423E668 /* TreadmillSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillSources.swift; sourceTree = "<group>"; };
 		D336180FA270E0624B5C3FB7 /* PlanHoyModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanHoyModelTests.swift; sourceTree = "<group>"; };
 		D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesLiveTests.swift; sourceTree = "<group>"; };
@@ -1745,8 +1754,10 @@
 				A5A47F3B4D9352A06DFF181D /* DoblesTurnHero.swift */,
 				481A9DF085A54E4501656B5E /* ErgPreStartFlow.swift */,
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
+				FH910013A1B2C3D4E5F60013 /* LiveWorkoutLaunchConflict.swift */,
 				9CF68730D8E80FDDCD198170 /* LiveWorkoutResume.swift */,
 				51BD96F7AFC982A6BCFF1075 /* PhoneMirrorService.swift */,
+				FH910015A1B2C3D4E5F60015 /* SessionStartGatePlanPreview.swift */,
 				9B00D23107962E7CAFF28FB1 /* PhoneWorkoutRun.swift */,
 				75DDC51C8464FE747D3B82FD /* PostWorkoutSummaryView.swift */,
 				C816F4FC18C7BB9DBABD7F0E /* PreWorkoutBriefView.swift */,
@@ -1994,6 +2005,7 @@
 				74E06CA535E229B097483A04 /* RunDistanceAuthority.swift */,
 				38A7E4B267878B9E411230B8 /* RunEnvironment.swift */,
 				FH910004A1B2C3D4E5F60004 /* SessionStartPolicy.swift */,
+				FH910010A1B2C3D4E5F60010 /* PhoneWatchRuntimeReconcile.swift */,
 				5B40F4812AF7896293AD5477 /* RunLiveHero.swift */,
 				314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */,
 				3A720378A9EB0DA597445F4E /* WorkoutAudio.swift */,
@@ -2455,6 +2467,7 @@
 				6454AAADEB7DDBDCBBF936BD /* WorkoutFinishPersistTests.swift */,
 				9E790AA296B1E01AEBD86E15 /* WorkoutLocationTypeTests.swift */,
 				8D9039B9DC0EF86C77A91572 /* WorkoutRecoveryTests.swift */,
+				FH910017A1B2C3D4E5F60017 /* PhoneWatchRuntimeReconcileTests.swift */,
 				C8B6B6CD04341024BAA31087 /* WorkoutRunClockTests.swift */,
 				2F2A08F21330D14F046C8981 /* WorkoutSessionAutoPauseTests.swift */,
 				07E792886BBADECB8096169D /* WorkoutSessionBloquesTests.swift */,
@@ -3341,6 +3354,9 @@
 				C17DD06A3868B1A2D5B5BD8E /* BlockPreviewGate.swift in Sources */,
 				FH910001A1B2C3D4E5F60001 /* SessionStartGate.swift in Sources */,
 				FH910003A1B2C3D4E5F60003 /* SessionStartPolicy.swift in Sources */,
+				FH910011A1B2C3D4E5F60011 /* PhoneWatchRuntimeReconcile.swift in Sources */,
+				FH910014A1B2C3D4E5F60014 /* LiveWorkoutLaunchConflict.swift in Sources */,
+				FH910016A1B2C3D4E5F60016 /* SessionStartGatePlanPreview.swift in Sources */,
 				AC17C34B3ED133A70AE5973D /* BloqueDeCarga.swift in Sources */,
 				EC3618C2145F63C63C184EBB /* BloquesDeLectura.swift in Sources */,
 				570A7A2CF8BE911194FF72F7 /* BloquesDelEntreno.swift in Sources */,
@@ -3848,6 +3864,7 @@
 				00A507E96D6129601C733A29 /* RunPiernasDerivadas.swift in Sources */,
 				13C08B9713D02E0A057AC1FA /* RunStructure.swift in Sources */,
 				EF1877BFFC1A6245FCC41E0B /* SegmentPayloadBuilder.swift in Sources */,
+				FH910012A1B2C3D4E5F60012 /* PhoneWatchRuntimeReconcile.swift in Sources */,
 				09E5A5B745FD26A96A1D87D8 /* SensorCapture.swift in Sources */,
 				66784178976A060D8608ACDE /* SensorConclusions.swift in Sources */,
 				4323E4EC2AA5930BE4E4D20F /* SensorDecimator.swift in Sources */,
@@ -4027,6 +4044,7 @@
 				73DA4A94BE09244002B8CBA3 /* PartnerInfoTests.swift in Sources */,
 				6016DD2AAD64F4A796967F5F /* PerfilMarcasHistorialRenderTests.swift in Sources */,
 				E8886F57E583B18BE689901C /* PhoneMirrorEndRetryTests.swift in Sources */,
+				FH910018A1B2C3D4E5F60018 /* PhoneWatchRuntimeReconcileTests.swift in Sources */,
 				98268CC10A1E9970008EC9EF /* PhoneMirrorRunStructureTests.swift in Sources */,
 				70E9FA7CDECA0EAEF029E5D7 /* PhoneMirrorTramoTests.swift in Sources */,
 				61476DEAAFEBE811EB1F3103 /* PlanCicloRenderTests.swift in Sources */,
@@ -4285,7 +4303,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4388,7 +4406,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;

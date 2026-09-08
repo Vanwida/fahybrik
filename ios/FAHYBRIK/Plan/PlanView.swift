@@ -78,6 +78,9 @@ struct PlanView: View {
     /// una instantánea que ofrecer, justo en el momento en que puede haber
     /// aparecido una tras un "Salir y seguir luego".
     @State private var resumeBannerRefresh = 0
+    @State private var showLaunchConflict = false
+    @State private var conflictSnapshotTitle: String?
+    @State private var pendingWorkoutLaunch: WorkoutLaunch? = nil
     @State var techniqueTarget: AthleteWeekDaySession? = nil
     @State var showChat = false
     /// Sobre qué se abre el chat cuando se abre desde el menú de una sesión o de
@@ -111,6 +114,21 @@ struct PlanView: View {
     var effectiveBearer: String? { bearer }
     private var isDobles: Bool { partner != nil }
 
+    @MainActor
+    func attemptWorkoutLaunch(_ launch: WorkoutLaunch) async {
+        let saved = await WorkoutStateStore.shared.load()
+        if LiveWorkoutLaunchConflict.shouldPrompt(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
+            snapshot: saved
+        ) {
+            conflictSnapshotTitle = saved?.plan.name ?? launch.title
+            pendingWorkoutLaunch = launch
+            showLaunchConflict = true
+        } else {
+            workoutLaunch = launch
+        }
+    }
+
     // MARK: - Cuerpo
 
     var body: some View {
@@ -130,6 +148,22 @@ struct PlanView: View {
             onUndo: confirmUndo,
             onDeleteFree: confirmDeleteFree
         ))
+        .liveWorkoutLaunchConflict(
+            isPresented: $showLaunchConflict,
+            snapshotTitle: conflictSnapshotTitle,
+            onResume: {
+                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones) }
+            },
+            onEndAndStart: {
+                Task {
+                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
+                    if let pending = pendingWorkoutLaunch {
+                        pendingWorkoutLaunch = nil
+                        workoutLaunch = pending
+                    }
+                }
+            }
+        )
         .fullScreenCover(item: $workoutLaunch) { launch in
             WorkoutContainer(
                 assignmentId: launch.assignmentId,
@@ -250,7 +284,7 @@ struct PlanView: View {
                 // atleta se acuerde. Autocargada: no pinta nada la mayoría del
                 // tiempo (no hay ninguna instantánea que ofrecer).
                 WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { launch in
-                    workoutLaunch = launch
+                    Task { await attemptWorkoutLaunch(launch) }
                 }
                 CabeceraDelBloque(
                     nombre: semanaVisible?.nombreBloque,
@@ -519,7 +553,7 @@ struct PlanView: View {
         if let sesion = sesionMostrada {
             return marca(sesion).isFinished
                 ? ("VER LO QUE HICISTE", { executedLaunch = launch(sesion) })
-                : ("▶ EMPEZAR", { workoutLaunch = launch(sesion) })
+                : ("▶ EMPEZAR", { Task { await attemptWorkoutLaunch(launch(sesion)) } })
         }
         if !verProximaSemana, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
             return ("VER LO DE MAÑANA", { abrir(manana.sesion) })
@@ -668,7 +702,7 @@ struct PlanView: View {
         if marca(session).isFinished {
             executedLaunch = launch(session)
         } else {
-            workoutLaunch = launch(session)
+            Task { await attemptWorkoutLaunch(launch(session)) }
         }
     }
 
