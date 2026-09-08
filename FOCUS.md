@@ -2,9 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-07** (FH-91 + catálogo libre reconciliado)
+Última actualización: **2026-09-08** (Xcode Cloud post-clone + xcodegen)
 
 ## Ahora
+
+**Xcode Cloud Archive (exit 65):** post-clone en `ios/ci_scripts/ci_post_clone.sh`
+genera los tres `Generated-Info.plist` gitignorados. Pendiente: Rebuild en ASC.
 
 **FH-91 — UN SOLO START (estructural, en main).**
 Cuatro puertas sustituidas por `SessionStartGate`. Recipe + orden de pasos
