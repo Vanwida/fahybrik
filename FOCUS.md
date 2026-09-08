@@ -6,10 +6,15 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FH-86 — COROS «Sincronizar ahora» (rama `cursor/coros-sync-feedback-8738`, build 73).**
-Fix silencio iOS: alerta siempre en sync manual (importados / nada nuevo / error).
-Pull-on-open muestra ask pendiente, imports y fallos; API expone `activities_found` +
-`skip_reason`. Pendiente: smoke Alex con cuenta COROS conectada.
+**FH-88 — Perfil compacto (rama `cursor/fh88-profile-nest-devices-32a9`, build 74).**
+Raíz Perfil ≈ una pantalla: puertas Identidad · Rendimiento (igual) · Entreno ·
+Dispositivos y apps · Cuenta · Ayuda y legal · Cerrar sesión. Wearables en
+`DeviceConnectionsView`; COROS conectada → detalle con **Sincronizar ahora** visible
+(FH-86 feedback de sync reutilizado). Pendiente: smoke Alex.
+
+**FH-86 — COROS «Sincronizar ahora» (main, build 73, #160).**
+Fix silencio iOS: alerta en sync manual y pull con imports/errores; API
+`activities_found` + `skip_reason`.
 
 **FH-93 — Start→Watch→Terminar estable (rama `cursor/fh93-start-watch-stable-555a`, build 72).**
 Un solo EMPEZAR: builder = Continuar; gate = única puerta ▶ EMPEZAR (sin auto-release).

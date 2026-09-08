@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FH8801A2B3C4D5E6F7080901 /* DeviceConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH8802A2B3C4D5E6F7080901 /* DeviceConnectionsView.swift */; };
+		FH8803A2B3C4D5E6F7080901 /* ProfileGroupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH8804A2B3C4D5E6F7080901 /* ProfileGroupViews.swift */; };
+		FH8805A2B3C4D5E6F7080901 /* ProfileNavRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH8806A2B3C4D5E6F7080901 /* ProfileNavRow.swift */; };
 		0008744763DD61C6C20B88C6 /* FreePlanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE6B684F6DD7656408A56D3A /* FreePlanService.swift */; };
 		003257B50533484BD181DEF8 /* FuerzaProgreso.swift in Sources */ = {isa = PBXBuildFile; fileRef = BADDA23DB46C948881C5F15A /* FuerzaProgreso.swift */; };
 		00A507E96D6129601C733A29 /* RunPiernasDerivadas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74A7836106423C0FF50731 /* RunPiernasDerivadas.swift */; };
@@ -860,6 +863,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FH8802A2B3C4D5E6F7080901 /* DeviceConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConnectionsView.swift; sourceTree = "<group>"; };
+		FH8804A2B3C4D5E6F7080901 /* ProfileGroupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGroupViews.swift; sourceTree = "<group>"; };
+		FH8806A2B3C4D5E6F7080901 /* ProfileNavRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileNavRow.swift; sourceTree = "<group>"; };
 		0136340F9BC49BAEDE3A7918 /* HealthHistoryImportPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryImportPanel.swift; sourceTree = "<group>"; };
 		0140CF589D2DF45B13A401B3 /* ComunicadosBandejaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadosBandejaView.swift; sourceTree = "<group>"; };
 		019DC3A76A9C68C6DD1A2FCD /* PhoneMirrorRunStructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorRunStructureTests.swift; sourceTree = "<group>"; };
@@ -1936,6 +1942,9 @@
 				BC4097FB089CB79FC0A55D1B /* PartnerRedeemView.swift */,
 				59549DD32CB054A2BCC770F6 /* PartnerService.swift */,
 				F620B06763EDA7D5B9BEF3C6 /* ProfileView.swift */,
+			FH8806A2B3C4D5E6F7080901 /* ProfileNavRow.swift */,
+			FH8804A2B3C4D5E6F7080901 /* ProfileGroupViews.swift */,
+			FH8802A2B3C4D5E6F7080901 /* DeviceConnectionsView.swift */,
 				E80E2A5DF5FC55B0532A4009 /* RendimientoSection.swift */,
 				26646F2B0505100B7B99C469 /* ReviewPrompt.swift */,
 				032FA1B5468960A7CFB64AE1 /* StrengthService.swift */,
@@ -3645,6 +3654,9 @@
 				4C37D35D23BC0E4DB7C6BFF8 /* Prescription.swift in Sources */,
 				AC2655E535ED92ABDCBA5808 /* PrescriptionRenderer.swift in Sources */,
 				D5C5573E6B1101905CC6377D /* PrimaryButton.swift in Sources */,
+				FH8801A2B3C4D5E6F7080901 /* DeviceConnectionsView.swift in Sources */,
+				FH8803A2B3C4D5E6F7080901 /* ProfileGroupViews.swift in Sources */,
+				FH8805A2B3C4D5E6F7080901 /* ProfileNavRow.swift in Sources */,
 				A005219334252AAE911F0EF6 /* ProfileView.swift in Sources */,
 				FC16E4E18EF95182B61CED5F /* ProgresoDeCarrera.swift in Sources */,
 				F159A50878F96250FD273F88 /* ProgressDots.swift in Sources */,
@@ -4313,7 +4325,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 73;
+				CURRENT_PROJECT_VERSION = 74;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -4416,7 +4428,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 73;
+				CURRENT_PROJECT_VERSION = 74;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
