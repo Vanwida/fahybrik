@@ -6,6 +6,11 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**FH-86 — COROS «Sincronizar ahora» (rama `cursor/coros-sync-feedback-8738`, build 73).**
+Fix silencio iOS: alerta siempre en sync manual (importados / nada nuevo / error).
+Pull-on-open muestra ask pendiente, imports y fallos; API expone `activities_found` +
+`skip_reason`. Pendiente: smoke Alex con cuenta COROS conectada.
+
 **FH-93 — Start→Watch→Terminar estable (rama `cursor/fh93-start-watch-stable-555a`, build 72).**
 Un solo EMPEZAR: builder = Continuar; gate = única puerta ▶ EMPEZAR (sin auto-release).
 Mirror/HK solo en `releaseLive()`; Cancel limpia mirror. Watch: timeout 8s en `.ending`.

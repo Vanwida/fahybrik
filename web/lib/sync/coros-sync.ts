@@ -6,6 +6,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { COROS_FIT_DAILY_CAP } from '@/lib/coros/config';
 import { corosUsesBasicAuth, resolveCorosRuntime } from '@/lib/coros/dcr';
 import { CorosMcpClient, type CorosMcpSurface } from '@/lib/coros/mcp-client';
+import { captureRouteError } from '@/lib/observability/capture';
 import {
   loadWearableConnection,
   markConnectionStatus,
@@ -24,6 +25,8 @@ export type CorosSyncResult = {
   errored: number;
   imported: number;
   asked: number;
+  activities_found: number;
+  skip_reason: string | null;
 };
 
 export async function buildCorosClientFor(
@@ -82,6 +85,8 @@ export async function runCorosSync(args: {
     errored: 0,
     imported: 0,
     asked: 0,
+    activities_found: 0,
+    skip_reason: null,
   };
 
   const conns = args.athleteId
@@ -99,6 +104,10 @@ export async function runCorosSync(args: {
         order by athlete_id
       `;
   result.connections = conns.length;
+  if (conns.length === 0) {
+    result.skip_reason = 'coros_not_connected';
+    return result;
+  }
 
   for (const row of conns) {
     const athlete_id = BigInt(row.athlete_id);
@@ -106,14 +115,21 @@ export async function runCorosSync(args: {
       const client = await clientFor(athlete_id, sql);
       if (!client) {
         result.skipped += 1;
+        result.skip_reason = 'coros_client_unavailable';
         continue;
       }
       const counts = await syncOneAthlete({ sql, athlete_id, client, now });
       result.imported += counts.imported;
       result.asked += counts.asked;
+      result.activities_found += counts.activities_found;
       result.synced += 1;
-    } catch {
+    } catch (err) {
       result.errored += 1;
+      result.skip_reason = 'coros_sync_failed';
+      captureRouteError(err, {
+        route: 'lib/sync/coros-sync',
+        meta: { athlete_id: row.athlete_id },
+      });
     }
   }
 
@@ -149,12 +165,13 @@ async function syncOneAthlete(args: {
   athlete_id: bigint;
   client: CorosMcpSurface;
   now: () => Date;
-}): Promise<{ imported: number; asked: number }> {
+}): Promise<{ imported: number; asked: number; activities_found: number }> {
   const { sql, athlete_id, client, now } = args;
   const today = startOfUtcDay(now());
   const fromDate = await resolveWindowStart(sql, athlete_id, today);
   const toDate = addDays(today, 1);
   const activities = await client.listActivities(toDateStr(fromDate), toDateStr(toDate));
+  const activities_found = activities.length;
   const quotaDay = toDateStr(today);
   let imported = 0;
   let asked = 0;
@@ -177,7 +194,7 @@ async function syncOneAthlete(args: {
     if (result.asked) asked += 1;
   }
 
-  return { imported, asked };
+  return { imported, asked, activities_found };
 }
 
 async function resolveWindowStart(sql: Sql, athlete_id: bigint, today: Date): Promise<Date> {

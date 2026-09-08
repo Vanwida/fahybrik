@@ -28,6 +28,12 @@ struct WearablePendingLink: Decodable, Equatable {
 struct WearablesResponse: Decodable {
     @LossyArray var providers: [WearableProvider]
     @LossyArray var pendingLinks: [WearablePendingLink]
+    /// Present on POST coros/sync only.
+    var imported: Int?
+    var asked: Int?
+    var activitiesFound: Int?
+    var skipReason: String?
+    var errored: Int?
 }
 
 /// The authorize URL the athlete opens to start the provider OAuth.
@@ -81,6 +87,58 @@ enum WearablesService {
             body: CorosConfirmBody(confirmationId: confirmationId, answer: yes ? "yes" : "no"),
             bearer: bearer
         )
+    }
+
+    /// Copy for a successful COROS pull («Sincronizar ahora»). Prefers server
+    /// `skip_reason` over a generic empty message.
+    static func corosSyncResultMessage(_ resp: WearablesResponse) -> String {
+        if let reason = resp.skipReason, !reason.isEmpty {
+            return corosSkipReasonMessage(reason)
+        }
+        let imported = resp.imported ?? 0
+        if imported == 1 {
+            return "Importado 1 entreno de COROS."
+        }
+        if imported > 1 {
+            return "Importados \(imported) entrenos de COROS."
+        }
+        return "Nada nuevo en COROS."
+    }
+
+    /// Maps API / transport failures to athlete-facing Spanish.
+    static func corosSyncErrorMessage(_ error: Error) -> String {
+        if let api = error as? APIError {
+            switch api {
+            case .offline:
+                return "Sin conexión. Vuelve a intentarlo cuando tengas red."
+            case .http(let status, let data) where status == 503:
+                let code = (try? APIClient.makeJSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
+                if code == "coros_not_configured" {
+                    return "COROS no está disponible todavía. Vuelve a intentarlo más adelante."
+                }
+                return "COROS no está disponible ahora mismo. Inténtalo en un momento."
+            case .http(let status, _) where status == 401:
+                return "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
+            case .http:
+                return "No pudimos sincronizar con COROS. Inténtalo de nuevo."
+            case .invalidResponse, .decoding:
+                return "No pudimos sincronizar con COROS. Inténtalo de nuevo."
+            }
+        }
+        return "No pudimos sincronizar con COROS. Revisa tu conexión e inténtalo de nuevo."
+    }
+
+    private static func corosSkipReasonMessage(_ reason: String) -> String {
+        switch reason {
+        case "coros_not_connected":
+            return "COROS no está conectada. Conéctala en Dispositivos e inténtalo de nuevo."
+        case "coros_client_unavailable":
+            return "No pudimos acceder a COROS. Prueba a desconectar y volver a conectar."
+        case "coros_sync_failed":
+            return "La sincronización con COROS falló. Inténtalo de nuevo."
+        default:
+            return "No pudimos sincronizar con COROS. Inténtalo de nuevo."
+        }
     }
 
     /// Email y código para vincular la app del reloj Garmin, para enseñárselos al
