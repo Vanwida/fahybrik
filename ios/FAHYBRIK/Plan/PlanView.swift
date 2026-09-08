@@ -169,6 +169,7 @@ struct PlanView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: effectiveBearer,
+                planSessionIsSelfOrigin: launch.isSelfOrigin,
                 hrZones: store.identity.value?.hrZones,
                 onClose: {
                     workoutLaunch = nil
@@ -686,7 +687,11 @@ struct PlanView: View {
     }
 
     func launch(_ session: AthleteWeekDaySession) -> WorkoutLaunch {
-        WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        WorkoutLaunch(
+            assignmentId: session.assignmentId,
+            title: session.title,
+            isSelfOrigin: session.isSelfOrigin
+        )
     }
 
     // MARK: - Abrir

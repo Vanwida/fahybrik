@@ -116,6 +116,7 @@ struct FreeInicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
+                planSessionIsSelfOrigin: launch.isSelfOrigin,
                 hrZones: identity?.hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
@@ -324,7 +325,11 @@ struct FreeInicioView: View {
     /// Tapping a session routes by STATE — the same single decision point the
     /// coached Plan uses: finished → what he logged; pending → the brief to do it.
     private func openSession(_ session: AthleteWeekDaySession) {
-        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        let launch = WorkoutLaunch(
+            assignmentId: session.assignmentId,
+            title: session.title,
+            isSelfOrigin: session.isSelfOrigin
+        )
         if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
             executedLaunch = launch
         } else {

@@ -291,6 +291,8 @@ extension PlanView {
         Task {
             do {
                 try await PlanService.deleteFreeSession(assignmentId: id, bearer: token)
+                CompletedAssignmentsStore.unmark(session.assignmentId)
+                AssignmentDetailCache.remove(session.assignmentId)
                 Haptics.medium()
                 await store.planMutated()
                 await cargar(force: true)

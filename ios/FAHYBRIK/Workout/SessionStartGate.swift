@@ -1,9 +1,9 @@
 import SwiftUI
 
-// FH-91 — ONE pre-live gate. Step order + device inventory →
-// `PreWorkoutDeviceEligibility`. Watch join → `PhoneMirrorService` /
-// `HKHealthStore.startWatchApp` + `workoutSessionMirroringStartHandler`.
-// Reuses `RunPreStartFlow` and `ErgPreStartFlow` — no fourth door elsewhere.
+// FH-91 / FH-93 — ONE pre-live gate. Device steps (run env, erg) then a single
+// EMPEZAR (or auto-release when the builder already committed). Watch join is
+// inline status — never a second full-screen gate. Mirror/HK begins ONLY on
+// releaseLive(), not on appear (no green pill before EMPEZAR).
 
 struct SessionStartGate: View {
     let sessionTitle: String
@@ -12,6 +12,9 @@ struct SessionStartGate: View {
     let calentamientoRun: Bool
     let isBenchmark: Bool
     let activityKind: String
+    /// True when the athlete already tapped Empezar in the free builder — this
+    /// gate only resolves devices/watch honesty, then auto-opens live.
+    let liveAlreadyCommitted: Bool
     let hrZones: HRZoneProfile?
     var stampSession: ((WorkoutSession) -> Void)? = nil
     let onReleaseLive: (WorkoutSession) -> Void
@@ -24,7 +27,7 @@ struct SessionStartGate: View {
     @State private var watch = WatchPresence.shared
     @State private var mirror = PhoneMirrorService.shared
     @State private var didBeginMirror = false
-    @State private var watchWaitStarted: Date? = nil
+    @State private var didAutoRelease = false
 
     private var recipe: SessionStartRecipe {
         PreWorkoutDeviceEligibility.startRecipe(
@@ -50,6 +53,14 @@ struct SessionStartGate: View {
         )
     }
 
+    /// Watch honesty is resolved inline on the ready screen — not a StartStep.
+    /// After the builder's Empezar, watch join is best-effort (never blocks live).
+    private var watchResolved: Bool {
+        liveAlreadyCommitted
+            || !recipe.asksWatch
+            || SessionStartPolicy.watchResolved(answers: answers, wristJoined: mirror.wristJoined)
+    }
+
     init(
         sessionTitle: String,
         plan: WorkoutPlan,
@@ -57,6 +68,7 @@ struct SessionStartGate: View {
         calentamientoRun: Bool = false,
         isBenchmark: Bool = false,
         activityKind: String,
+        liveAlreadyCommitted: Bool = false,
         hrZones: HRZoneProfile? = nil,
         stampSession: ((WorkoutSession) -> Void)? = nil,
         onReleaseLive: @escaping (WorkoutSession) -> Void,
@@ -68,6 +80,7 @@ struct SessionStartGate: View {
         self.calentamientoRun = calentamientoRun
         self.isBenchmark = isBenchmark
         self.activityKind = activityKind
+        self.liveAlreadyCommitted = liveAlreadyCommitted
         self.hrZones = hrZones
         self.stampSession = stampSession
         self.onReleaseLive = onReleaseLive
@@ -124,8 +137,6 @@ struct SessionStartGate: View {
                     onCancel: cancelAll
                 )
             }
-        case .watch:
-            watchStep
         }
     }
 
@@ -136,37 +147,45 @@ struct SessionStartGate: View {
             .padding(.top, Theme.Spacing.s)
     }
 
-    private var watchStep: some View {
+    private var readyFooter: some View {
         VStack(spacing: 0) {
-            gateTopBar(title: "Reloj")
+            gateTopBar(title: liveAlreadyCommitted ? "Listo" : "Listo")
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     SessionStartGatePlanPreview(plan: plan, segments: segments)
-                    Text("Grabación en la muñeca")
-                        .font(.system(size: 28, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                    watchStatusCard
-                    if !mirror.wristJoined && !answers.watchUnavailable {
-                        SecondaryButton(title: "Continuar sin reloj conectado") {
-                            answers.watchProceedWithoutWrist = true
-                        }
+                    if recipe.asksWatch {
+                        watchStatusCard
                     }
+                    Spacer(minLength: Theme.Spacing.m)
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
+            }
+            if !liveAlreadyCommitted {
+                VStack(spacing: Theme.Spacing.s) {
+                    Text("Empieza cuando estés listo")
+                        .scaledFont(12, relativeTo: .caption)
+                        .foregroundStyle(Theme.Color.faint)
+                    ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
+                        .disabled(!canReleaseLive)
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.bottom, Theme.Spacing.l)
             }
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .onAppear {
             if !watch.appAvailable { answers.watchUnavailable = true }
-            beginMirrorIfNeeded()
+            tryAutoReleaseIfNeeded()
         }
+        .onChange(of: watchResolved) { _, _ in tryAutoReleaseIfNeeded() }
+        .onChange(of: mirror.wristJoined) { _, _ in tryAutoReleaseIfNeeded() }
     }
 
     @ViewBuilder
     private var watchStatusCard: some View {
         CardSurface(padding: Theme.Spacing.m) {
-            if mirror.wristJoined {
+            if didBeginMirror, mirror.wristJoined {
                 statusRow(icon: "checkmark.circle.fill", color: Theme.Color.ok,
                           title: "Reloj grabando",
                           subtitle: "Espejo HealthKit activo en la muñeca")
@@ -174,12 +193,13 @@ struct SessionStartGate: View {
                 statusRow(icon: "applewatch.slash", color: Theme.Color.muted,
                           title: "Sin Apple Watch",
                           subtitle: "El teléfono graba lo que pueda; puedes usar banda de pulso")
-            } else if let started = watchWaitStarted,
+            } else if didBeginMirror, !mirror.wristJoined,
+                      let started = mirror.watchJoinStartedAt,
                       Date().timeIntervalSince(started) > PhoneMirrorService.watchJoinHintSeconds {
                 statusRow(icon: "exclamationmark.triangle.fill", color: Theme.Color.warning,
                           title: "El reloj no se unió",
                           subtitle: "Abre la app en la muñeca o continúa sin reloj")
-            } else {
+            } else if didBeginMirror {
                 HStack(spacing: Theme.Spacing.m) {
                     ProgressView().tint(Theme.Color.accent)
                     VStack(alignment: .leading, spacing: 4) {
@@ -191,6 +211,17 @@ struct SessionStartGate: View {
                             .foregroundStyle(Theme.Color.muted)
                     }
                 }
+            } else {
+                statusRow(icon: "applewatch", color: Theme.Color.muted,
+                          title: "Grabación en la muñeca",
+                          subtitle: "Al empezar, el Apple Watch firmará pulso y calorías")
+            }
+            if recipe.asksWatch && !mirror.wristJoined && !answers.watchUnavailable {
+                SecondaryButton(title: "Continuar sin reloj conectado") {
+                    answers.watchProceedWithoutWrist = true
+                    tryAutoReleaseIfNeeded()
+                }
+                .padding(.top, Theme.Spacing.s)
             }
         }
     }
@@ -210,30 +241,6 @@ struct SessionStartGate: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-    }
-
-    private var readyFooter: some View {
-        VStack(spacing: 0) {
-            gateTopBar(title: "Listo")
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    SessionStartGatePlanPreview(plan: plan, segments: segments)
-                    Spacer(minLength: Theme.Spacing.m)
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.m)
-            }
-            VStack(spacing: Theme.Spacing.s) {
-                Text("Empieza cuando estés listo")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.bottom, Theme.Spacing.l)
-        }
-        .background(Theme.Color.background.ignoresSafeArea())
-        .onAppear { beginMirrorIfNeeded() }
     }
 
     private func gateTopBar(title: String) -> some View {
@@ -267,23 +274,26 @@ struct SessionStartGate: View {
         stampSession?(stagingSession)
         PhoneMirrorService.shared.begin(session: stagingSession, activityKind: activityKind)
         didBeginMirror = true
-        watchWaitStarted = Date()
     }
 
     private func releaseLive() {
         guard canReleaseLive else { return }
         stagingSession.runEnvironment = answers.runEnvironment
         stampSession?(stagingSession)
-        if !didBeginMirror {
-            PhoneMirrorService.shared.begin(session: stagingSession, activityKind: activityKind)
-        }
+        beginMirrorIfNeeded()
         Haptics.medium()
         onReleaseLive(stagingSession)
     }
 
-    /// FH-91 — live opens only after recipe steps resolve (incl. watch honesty).
+    private func tryAutoReleaseIfNeeded() {
+        guard liveAlreadyCommitted, canReleaseLive, !didAutoRelease else { return }
+        didAutoRelease = true
+        releaseLive()
+    }
+
+    /// Live opens only after device steps resolve and watch honesty is settled.
     private var canReleaseLive: Bool {
-        nextStep == nil
+        nextStep == nil && watchResolved
     }
 
     private func cancelAll() {

@@ -6,13 +6,13 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**Pack runtime phone↔Watch — build 66 (rama `cursor/phone-watch-runtime-stability-7508`).**
-Reconcile huérfanos en foreground/launch (`PhoneWatchRuntimeReconcile` + `LiveWorkoutResume`).
-Terminar bilateral reforzado (liveEnd + reopen si la muñeca acaba sin cover).
-`SessionStartGate` enseña el plan real (preview) — gate nunca vacío; `canReleaseLive`.
-`WorkoutResumeBanner` también en Inicio y FreeInicio.
-Diálogo Seguir | Terminar y empezar | Cancelar al abrir segundo entreno con uno vivo/soft-leave.
-Pendiente: smoke dispositivo (libre funcional → Continuar → muñeca; Terminar bilateral; orphan recover).
+**FH-93 — Start→Watch→Terminar estable (rama `cursor/fh-93-start-watch-stable-555a`, build 71).**
+Resta segunda puerta: watch inline en `SessionStartGate` (no pantalla «Grabación en la muñeca»).
+Mirror/HK solo en EMPEZAR (`releaseLive`); brief = Continuar; libre builder = único Empezar + auto-release.
+Plan libre hidrata `FreeWorkoutContext` → `FreeWorkoutAPI` al Terminar; borrar limpia cache + optimistic mark.
+Watch: timeout 8s en `.ending` (anti Guardando∞). Pendiente: smoke dispositivo Alex.
+
+**Pack runtime phone↔Watch — build 66 (#155).** Reconcile, Terminar bilateral, preview gate, resume banner, launch conflict.
 
 **FH-54 — Guardar entreno libre sin arrancar (PR `cursor/fh-54-free-plan-save-781c`).**
 `POST /api/athlete/workouts/free/plan` = template + segments + assignment

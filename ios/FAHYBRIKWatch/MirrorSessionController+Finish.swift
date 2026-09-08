@@ -7,6 +7,7 @@ extension MirrorSessionController {
     func finish(save: Bool) {
         guard state == .recording, !isClosing else { return }
         state = .ending
+        armEndingTimeout()
         let reason = save ? MirrorWire.EndReason.phone : MirrorWire.EndReason.discarded
         Task { await closeRecording(save: save, reason: reason) }
     }
@@ -23,12 +24,14 @@ extension MirrorSessionController {
     func finishByAthlete() {
         guard state == .recording, !isClosing else { return }
         state = .ending
+        armEndingTimeout()
         Task { await closeRecording(save: true, reason: MirrorWire.EndReason.athlete) }
     }
 
     func discardLocally() {
         guard state == .recording, !isClosing else { return }
         state = .ending
+        armEndingTimeout()
         Task { await closeRecording(save: false, reason: MirrorWire.EndReason.discarded) }
     }
 
@@ -36,6 +39,7 @@ extension MirrorSessionController {
     func endPrimary(save: Bool) async -> String? {
         guard state == .recording, !isClosing else { return nil }
         state = .ending
+        armEndingTimeout()
         return await closeRecording(
             save: save,
             reason: save ? MirrorWire.EndReason.athlete : MirrorWire.EndReason.discarded
@@ -46,6 +50,7 @@ extension MirrorSessionController {
     func closeRecording(save: Bool, reason: String) async -> String? {
         isClosing = true
         stopWatchdog()
+        stopEndingTimeout()
 
         let now = Date()
         session?.stopActivity(with: now)
@@ -87,6 +92,7 @@ extension MirrorSessionController {
 
     func resetToIdle() {
         stopWatchdog()
+        stopEndingTimeout()
         session = nil
         builder = nil
         appliedPlan = nil
@@ -129,5 +135,23 @@ extension MirrorSessionController {
     func stopWatchdog() {
         watchdog?.invalidate()
         watchdog = nil
+    }
+
+    func armEndingTimeout() {
+        stopEndingTimeout()
+        let t = Timer.scheduledTimer(withTimeInterval: Self.endingTimeout, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.state == .ending else { return }
+                Self.log.warning("ending timeout — forcing idle")
+                self.resetToIdle()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        endingTimeoutTimer = t
+    }
+
+    func stopEndingTimeout() {
+        endingTimeoutTimer?.invalidate()
+        endingTimeoutTimer = nil
     }
 }

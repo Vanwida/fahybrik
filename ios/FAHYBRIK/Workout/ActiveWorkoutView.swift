@@ -227,6 +227,7 @@ struct ActiveWorkoutView: View {
         .allowsLandscape()
         .onAppear {
             session.start()
+            PhoneMirrorService.shared.kickFrame()
             DeviceCentral.shared.attachLiveIdentity(
                 planId: session.plan.id,
                 startedAt: session.startedAt
