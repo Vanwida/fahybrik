@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { sql as defaultSql, type Sql } from '@/lib/db';
+import { sql as defaultSql, type Sql, type TransactionClient } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import { visibleToCoach } from '@/lib/exercises/coach-override';
@@ -324,7 +324,7 @@ async function persistFreeWorkoutPlan(
 }
 
 async function persistFreeWorkoutPlanInTx(
-  tx: Sql,
+  tx: TransactionClient,
   input: SaveFreeWorkoutPlanInput & { scheduledFor: string },
   segments: ResolvedSegment[],
 ): Promise<number> {
