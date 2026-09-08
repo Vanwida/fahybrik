@@ -69,8 +69,8 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
 ## 4. First build upload — 🤖 agent-doable once signing is set
 
 - [x] **Xcode Cloud:** `ios/ci_scripts/ci_post_clone.sh` runs `xcodegen generate` after clone so the three gitignored `Generated-Info.plist` files exist (Apple requires `ci_scripts/` beside `FAHYBRIK.xcodeproj`, not at repo root). Without it, Archive fails with exit 65 on a clean clone.
-
-- [ ] Bump build number (Fastlane lane handles this automatically).
+- [ ] **Xcode Cloud — Manage Version and Build Number (🔒 Owner/Lingxi):** In App Store Connect → Xcode Cloud → **FAHYBRIK** workflow **Default** → **Edit Workflow** → **Archive** step → turn **OFF** **Manage Version and Build Number**. When ON, Apple overwrites `CFBundleVersion` with the Xcode Cloud build number (e.g. build 21) instead of `CURRENT_PROJECT_VERSION` in `ios/project.yml`. TestFlight shows the **highest** `CFBundleVersion` per marketing version — a Cloud upload at 21 is invisible while ASC still has 62. **Preferred:** leave Manage Version OFF so the repo (`CURRENT_PROJECT_VERSION`, currently **68+**) is the source of truth. **If it must stay ON:** every Archive must run with CI build number **>** latest TestFlight build (e.g. >62) — slow and error-prone; do not rely on this.
+- [ ] Bump build number: set `CURRENT_PROJECT_VERSION` in `ios/project.yml` (must be **>** latest TestFlight `CFBundleVersion` for `1.0`), then `cd ios && xcodegen generate` and commit the regenerated `project.pbxproj`. Fastlane `beta` lane can also bump from TestFlight when uploading locally.
 - [ ] Run `cd ios && bundle install` (one-time).
 - [ ] Run `cd ios && bundle exec fastlane beta` to archive + upload.
    - Alternative: open `FAHYBRIK.xcodeproj` in Xcode → Product → Archive → Distribute App → App Store Connect → Upload.
