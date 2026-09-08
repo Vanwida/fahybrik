@@ -68,6 +68,8 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
 
 ## 4. First build upload — 🤖 agent-doable once signing is set
 
+- [x] **Xcode Cloud:** `ios/ci_scripts/ci_post_clone.sh` runs `xcodegen generate` after clone so the three gitignored `Generated-Info.plist` files exist (Apple requires `ci_scripts/` beside `FAHYBRIK.xcodeproj`, not at repo root). Without it, Archive fails with exit 65 on a clean clone.
+
 - [ ] Bump build number (Fastlane lane handles this automatically).
 - [ ] Run `cd ios && bundle install` (one-time).
 - [ ] Run `cd ios && bundle exec fastlane beta` to archive + upload.

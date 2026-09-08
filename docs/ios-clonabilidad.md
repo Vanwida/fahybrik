@@ -210,7 +210,8 @@ cambiarlo obliga a mover los dos lectores de Swift sin ninguna ventaja.
 `ios/FAHYBRIK.xcodeproj/project.pbxproj` está commiteado pero **se genera**, y los
 `Generated-Info.plist` de los tres targets están gitignorados. En un checkout
 limpio la build falla hasta correr `xcodegen generate` — no es un fallo del
-código.
+código. **Xcode Cloud** lo hace en post-clone: `ios/ci_scripts/ci_post_clone.sh`
+(al lado del `.xcodeproj`; Apple no mira `ci_scripts/` en la raíz del monorepo).
 
 `project.yml` lleva `generateEmptyDirectories: true`, así que el `.pbxproj`
 contiene grupos de carpetas vacías. Git no versiona carpetas vacías: regenerar
