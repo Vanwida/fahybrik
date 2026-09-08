@@ -54,130 +54,137 @@ struct ProfileView: View {
     @State private var corosAlert: String? = nil
 
     var body: some View {
+        profileNavigationStack
+            .task { await profileOnAppear() }
+            .sheet(isPresented: $showEditProfile) {
+                EditProfileView(bearer: bearer, identity: identity) { updated in
+                    store.setIdentity(updated)
+                }
+            }
+            .sheet(isPresented: $showFotoPerfil) {
+                FotoPerfilSheet(
+                    bearer: bearer,
+                    iniciales: identity?.initials ?? "",
+                    fotoActual: identity?.avatarURLResuelta
+                ) { actualizada in
+                    store.setIdentity(actualizada)
+                }
+            }
+            .confirmationDialog(
+                "¿Esto es el entreno?",
+                isPresented: $showCorosLinkAsk,
+                titleVisibility: .visible
+            ) {
+                Button("Sí") { Task { await answerCorosLink(yes: true) } }
+                Button("No") { Task { await answerCorosLink(yes: false) } }
+                Button("Ahora no", role: .cancel) {}
+            } message: {
+                Text("Hay un entreno previsto hoy y una actividad nueva en COROS. Si dices que no, la actividad queda en el historial y el plan no se toca.")
+            }
+            .alert("COROS", isPresented: corosAlertBinding, presenting: corosAlert) { _ in
+                Button("Entendido", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await refreshCorosBackground() }
+            }
+    }
+
+    private var profileNavigationStack: some View {
         NavigationStack {
             ZStack(alignment: .top) {
                 Theme.Color.background.ignoresSafeArea()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        identityCard
-
-                        profileDoorSection(
-                            title: "Identidad",
-                            subtitle: identidadDoorSubtitle
-                        ) {
-                            ProfileIdentidadView(bearer: bearer, hasCoach: hasCoach)
-                        }
-
-                        RendimientoSection(
-                            bearer: bearer,
-                            hasCoach: hasCoach,
-                            fuerza: store.strengthMaxes.value,
-                            zonas: identity?.hrZones,
-                            identidadCargada: store.identity.hasLoaded,
-                            onSessionCompleted: { Task { await store.planMutated() } }
-                        )
-
-                        profileDoorSection(
-                            title: "Entreno",
-                            subtitle: "Días, molestias, avisos de voz y pruebas del reloj"
-                        ) {
-                            ProfileEntrenoView(
-                                bearer: bearer,
-                                hasCoach: hasCoach,
-                                coachName: coachName
-                            )
-                        }
-
-                        profileDoorSection(
-                            title: "Dispositivos y apps",
-                            subtitle: "Apple Health, reloj, Garmin, Polar, COROS y más"
-                        ) {
-                            DeviceConnectionsView(bearer: bearer)
-                        }
-
-                        profileDoorSection(
-                            title: "Cuenta",
-                            subtitle: hasCoach
-                                ? "Apariencia, metodología y privacidad de datos"
-                                : "Apariencia y privacidad de datos"
-                        ) {
-                            ProfileCuentaView(
-                                bearer: bearer,
-                                hasCoach: hasCoach,
-                                coachName: coachName,
-                                partnerName: store.partner.value?.partner?.firstName,
-                                onSignOut: onSignOut
-                            )
-                        }
-
-                        profileDoorSection(
-                            title: "Ayuda y legal",
-                            subtitle: "Sugerencias, privacidad y términos"
-                        ) {
-                            ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
-                        }
-
-                        signOutButton
-                        appVersionFooter
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
-                    // Cap the ScrollView's horizontal contentSize to the viewport so
-                    // no row can ever pan the Perfil page sideways. See
-                    // `clampedToContainerWidth()`.
-                    .clampedToContainerWidth()
+                    profileDoorList
                 }
             }
             .navigationBarHidden(true)
         }
-        .task {
-            store.activate(bearer: bearer)
-            HealthKitSyncService.shared.onAuthorizationDenied = {
-                UserDefaults.standard.set(false, forKey: HealthKitConnection.connectedKey)
+    }
+
+    private var profileDoorList: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            identityCard
+
+            profileDoorSection(
+                title: "Identidad",
+                subtitle: identidadDoorSubtitle
+            ) {
+                ProfileIdentidadView(bearer: bearer, hasCoach: hasCoach)
             }
-            await store.loadProfile()
-            await loadRaces()
-            await refreshCorosBackground()
-            if HealthKitConnection.isConnected {
-                let importer = HealthKitHistoryImporter.shared
-                importer.rebind(athleteId: AuthState.persistedAthleteId())
-                importer.consentAndStart()
-            }
-        }
-        .sheet(isPresented: $showEditProfile) {
-            EditProfileView(bearer: bearer, identity: identity) { updated in
-                store.setIdentity(updated)
-            }
-        }
-        .sheet(isPresented: $showFotoPerfil) {
-            FotoPerfilSheet(
+
+            RendimientoSection(
                 bearer: bearer,
-                iniciales: identity?.initials ?? "",
-                fotoActual: identity?.avatarURLResuelta
-            ) { actualizada in
-                store.setIdentity(actualizada)
+                hasCoach: hasCoach,
+                fuerza: store.strengthMaxes.value,
+                zonas: identity?.hrZones,
+                identidadCargada: store.identity.hasLoaded,
+                onSessionCompleted: { Task { await store.planMutated() } }
+            )
+
+            profileDoorSection(
+                title: "Entreno",
+                subtitle: "Días, molestias, avisos de voz y pruebas del reloj"
+            ) {
+                ProfileEntrenoView(
+                    bearer: bearer,
+                    hasCoach: hasCoach,
+                    coachName: coachName
+                )
             }
+
+            profileDoorSection(
+                title: "Dispositivos y apps",
+                subtitle: "Apple Health, reloj, Garmin, Polar, COROS y más"
+            ) {
+                DeviceConnectionsView(bearer: bearer)
+            }
+
+            profileDoorSection(
+                title: "Cuenta",
+                subtitle: hasCoach
+                    ? "Apariencia, metodología y privacidad de datos"
+                    : "Apariencia y privacidad de datos"
+            ) {
+                ProfileCuentaView(
+                    bearer: bearer,
+                    hasCoach: hasCoach,
+                    coachName: coachName,
+                    partnerName: store.partner.value?.partner?.firstName,
+                    onSignOut: onSignOut
+                )
+            }
+
+            profileDoorSection(
+                title: "Ayuda y legal",
+                subtitle: "Sugerencias, privacidad y términos"
+            ) {
+                ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
+            }
+
+            signOutButton
+            appVersionFooter
         }
-        .confirmationDialog(
-            "¿Esto es el entreno?",
-            isPresented: $showCorosLinkAsk,
-            titleVisibility: .visible
-        ) {
-            Button("Sí") { Task { await answerCorosLink(yes: true) } }
-            Button("No") { Task { await answerCorosLink(yes: false) } }
-            Button("Ahora no", role: .cancel) {}
-        } message: {
-            Text("Hay un entreno previsto hoy y una actividad nueva en COROS. Si dices que no, la actividad queda en el historial y el plan no se toca.")
+        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.top, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.xxl)
+        .clampedToContainerWidth()
+    }
+
+    private func profileOnAppear() async {
+        store.activate(bearer: bearer)
+        HealthKitSyncService.shared.onAuthorizationDenied = {
+            UserDefaults.standard.set(false, forKey: HealthKitConnection.connectedKey)
         }
-        .alert("COROS", isPresented: corosAlertBinding, presenting: corosAlert) { _ in
-            Button("Entendido", role: .cancel) {}
-        } message: { message in
-            Text(message)
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await refreshCorosBackground() }
+        await store.loadProfile()
+        await loadRaces()
+        await refreshCorosBackground()
+        if HealthKitConnection.isConnected {
+            let importer = HealthKitHistoryImporter.shared
+            importer.rebind(athleteId: AuthState.persistedAthleteId())
+            importer.consentAndStart()
         }
     }
 
@@ -455,202 +462,6 @@ struct SectionHeader: View {
     }
 }
 
-// MARK: - Theme mode segmented control
-//
-// On-brand segmented control for the appearance override — a recessed track with
-// the active segment lifted on the Fabrik-orange pill (accentOn text = the valid
-// 4.57:1 brown-on-orange pairing), inactive segments muted. Mirrors the AppTabBar's
-// active-pill language rather than the washed-out native `.segmented` Picker.
-private struct ThemeModePicker: View {
-    @Binding var selection: ThemeMode
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(ThemeMode.allCases) { mode in
-                segment(mode)
-            }
-        }
-        .padding(4)
-        .background(Theme.Color.surfaceSunken)
-        .clipShape(Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Apariencia")
-    }
-
-    private func segment(_ mode: ThemeMode) -> some View {
-        let active = selection == mode
-        return Button {
-            guard !active else { return }
-            Haptics.light()
-            withAnimation(.easeInOut(duration: 0.18)) { selection = mode }
-        } label: {
-            Text(mode.label)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .background {
-                    if active {
-                        Capsule().fill(Theme.Color.accent)
-                    }
-                }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(mode.label)
-        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
-    }
-}
-
-// MARK: - Sheet content
-
-private struct MethodologySheet: View {
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Cómo se construye tu plan")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu coach diseña tu entrenamiento en microciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada microciclo los decide tu coach según tu nivel y tu carrera.")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    principleCard(
-                        title: "Microciclos",
-                        text: "Bloques de varias semanas con un foco concreto. Avanzas de uno al siguiente conforme te acercas a tu carrera."
-                    )
-                    principleCard(
-                        title: "Semana a semana",
-                        text: "Cada semana se publica cuando le toca. Te centras en lo que tienes delante, no en el plan entero de golpe."
-                    )
-                    principleCard(
-                        title: "Se adapta a ti",
-                        text: "Tu coach revisa cómo respondes —carga, recuperación, resultados— y ajusta lo que viene."
-                    )
-                    Text("El nombre de tu microciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .padding(20)
-                // Same clamp as the Perfil tab: no descendant can pan the sheet.
-                .clampedToContainerWidth()
-            }
-        }
-        .dismissableSheet()
-    }
-
-    private func principleCard(title: String, text: String) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.accentText)
-                Text(text)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-    }
-}
-
-private struct CoachSheet: View {
-    /// Agnostic coach name from the athlete week API (nil until loaded / if unset).
-    let coachName: String?
-
-    /// Display name with a neutral, non-fabricated fallback.
-    private var displayName: String { coachName ?? "Tu coach" }
-
-    /// Single uppercased initial for the avatar; person glyph when unavailable.
-    private var initial: String? {
-        guard let first = coachName?.first else { return nil }
-        return String(first).uppercased()
-    }
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle().fill(Theme.Color.surface).frame(width: 64, height: 64)
-                            if let initial {
-                                Text(initial)
-                                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                                    .foregroundStyle(Theme.Color.foreground)
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 22, weight: .semibold))
-                                    .foregroundStyle(Theme.Color.muted)
-                            }
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(displayName)
-                                .font(Theme.Typography.headlineS)
-                                .foregroundStyle(Theme.Color.foreground)
-                                // Coach name is arbitrary length; this HStack has no
-                                // trailing Spacer, so wrap instead of forcing width.
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text("Coach")
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
-                    Text("\(displayName) escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por tu coach, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                .padding(20)
-                // Same clamp as the Perfil tab: no descendant can pan the sheet.
-                .clampedToContainerWidth()
-            }
-        }
-        .dismissableSheet()
-    }
-}
-
-private struct LegalSheet: View {
-    let title: String
-    let bodyText: String
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(title)
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(bodyText)
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(20)
-                // Same clamp as the Perfil tab: no descendant can pan the sheet.
-                .clampedToContainerWidth()
-            }
-        }
-        .dismissableSheet()
-    }
-}
-
-private enum LegalCopy {
-    static var privacy: String {
-        "\(Marca.nombre) procesa datos biométricos (HR, HRV, sueño, peso) para construir tu plan. No los compartimos con terceros sin tu consentimiento explícito.\n\nLa versión completa está disponible en \(Marca.privacidadTexto). Si tienes dudas, escribe a \(Marca.soporteEmail)."
-    }
-
-    /// FREE has no coach, no methodology ownership and nothing that renews —
-    /// its terms speak to the athlete alone. Coached keeps today's copy.
-    static func terms(hasCoach: Bool) -> String {
-        if hasCoach {
-            return "El uso de \(Marca.nombre) implica aceptar nuestros términos de servicio: la metodología es propiedad de tu coach. Tu suscripción se renueva mensualmente y puedes cancelarla desde la sección Suscripción.\n\nLa versión completa está disponible en \(Marca.terminosTexto)."
-        }
-        return "El uso de \(Marca.nombre) implica aceptar nuestros términos de servicio. Tu cuenta es gratuita y tus datos son tuyos: puedes exportarlos o eliminar tu cuenta cuando quieras desde Perfil.\n\nLa versión completa está disponible en \(Marca.terminosTexto)."
-    }
-}
-
 // MARK: - Export Share Sheet plumbing
 //
 // Identifiable wrapper so `.sheet(item:)` re-creates the Share Sheet for every
@@ -658,42 +469,6 @@ private enum LegalCopy {
 struct ExportShareItem: Identifiable {
     let id = UUID()
     let fileURL: URL
-}
-
-// MARK: - Goal-type + language label helpers (file-scope, shared by ProfileView and EditProfileView)
-
-// Single source of truth for the goal_type → Spanish label mapping.
-// Used for display in SettingValueRow and as the data source for the
-// picker in EditProfileView — no copy-paste between the two.
-private enum GoalTypeOption: String, CaseIterable {
-    case firstHyrox       = "first_hyrox"
-    case improveHyroxMark = "improve_hyrox_mark"
-    case improveRunning   = "improve_running"
-    case completeFun      = "complete_fun"
-    case other            = "other"
-
-    var label: String {
-        switch self {
-        case .firstHyrox:       return "Mi primer HYROX"
-        case .improveHyroxMark: return "Mejorar mi marca de HYROX"
-        case .improveRunning:   return "Mejorar mi carrera"
-        case .completeFun:      return "Completar y disfrutar"
-        case .other:            return "Otro"
-        }
-    }
-}
-
-private func goalTypeLabel(_ type: String?) -> String {
-    guard let type else { return "Sin definir" }
-    return GoalTypeOption(rawValue: type)?.label ?? "Sin definir"
-}
-
-private func languageLabel(_ code: String?) -> String? {
-    switch code {
-    case "es": return "Español"
-    case "en": return "English"
-    default:   return nil
-    }
 }
 
 // UIActivityViewController bridge for SwiftUI. Used by both the data-export
@@ -829,114 +604,139 @@ struct EditProfileView: View {
             ZStack {
                 Theme.Color.background.ignoresSafeArea()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-
-                        // ── IDENTIDAD ──────────────────────────────────────
-                        editSectionHeader("IDENTIDAD")
-                        CardSurface(padding: 0) {
-                            VStack(spacing: 0) {
-                                editTextRow(label: "Nombre", placeholder: "Tu nombre completo", text: $fullName)
-                                    .accessibilityLabel("Nombre")
-                                Hairline()
-                                dobRow
-                                Hairline()
-                                sexRow
-                            }
-                        }
-
-                        // ── CUERPO ─────────────────────────────────────────
-                        editSectionHeader("CUERPO")
-                        CardSurface(padding: 0) {
-                            VStack(spacing: 0) {
-                                editDecimalRow(label: "Altura (cm)", placeholder: "80–260", text: $heightCmText)
-                                    .accessibilityLabel("Altura en centímetros")
-                                Hairline()
-                                editDecimalRow(label: "Peso (kg)", placeholder: "25–250", text: $weightKgText)
-                                    .accessibilityLabel("Peso en kilogramos")
-                                Hairline()
-                                editDecimalRow(label: "Años entrenando", placeholder: "0–80", text: $experienceText)
-                                    .accessibilityLabel("Años de experiencia entrenando")
-                                Hairline()
-                                editDecimalRow(label: "FC máx (ppm)", placeholder: "100–230", text: $maxHrText)
-                                    .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
-                            }
-                        }
-                        Text("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                            .padding(.horizontal, 4)
-                        if hasBodyRangeWarning {
-                            bodyRangeHint
-                        }
-
-                        // ── OBJETIVO ───────────────────────────────────────
-                        editSectionHeader("OBJETIVO")
-                        CardSurface(padding: 0) {
-                            VStack(spacing: 0) {
-                                goalTypeRow
-                                if goalType == "other" {
-                                    Hairline()
-                                    editTextRow(
-                                        label: "Descripción",
-                                        placeholder: "Máx. 500 caracteres",
-                                        text: $goalOtherText
-                                    )
-                                    .accessibilityLabel("Descripción del objetivo")
-                                }
-                            }
-                        }
-
-                        // ── IDIOMA ─────────────────────────────────────────
-                        editSectionHeader("IDIOMA")
-                        CardSurface(padding: 0) {
-                            languageRow
-                        }
-                        Text("La app se está traduciendo; algunos textos seguirán en español por ahora. Se aplicará al reiniciar.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                            .padding(.horizontal, 4)
-
-                        // ── Error feedback ─────────────────────────────────
-                        if let err = saveError {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.Color.danger)
-                                Text(err)
-                                    .scaledFont(12, relativeTo: .caption)
-                                    .foregroundStyle(Theme.Color.danger)
-                            }
-                            .padding(.horizontal, 4)
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
-                    // Same clamp as the Perfil tab: no field row can pan the sheet.
-                    .clampedToContainerWidth()
+                    editProfileForm
                 }
             }
             .navigationTitle("Editar perfil")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
+            .toolbar { editProfileToolbar }
+        }
+    }
+
+    private var editProfileForm: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            editIdentidadSection
+            editCuerpoSection
+            editObjetivoSection
+            editIdiomaSection
+            editSaveErrorSection
+        }
+        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.top, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.xxl)
+        .clampedToContainerWidth()
+    }
+
+    private var editIdentidadSection: some View {
+        Group {
+            editSectionHeader("IDENTIDAD")
+            CardSurface(padding: 0) {
+                VStack(spacing: 0) {
+                    editTextRow(label: "Nombre", placeholder: "Tu nombre completo", text: $fullName)
+                        .accessibilityLabel("Nombre")
+                    Hairline()
+                    dobRow
+                    Hairline()
+                    sexRow
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Group {
-                        if saving {
-                            ProgressView().tint(Theme.Color.accentText)
-                        } else {
-                            Button("Guardar") {
-                                Haptics.light()
-                                Task { await save() }
-                            }
-                            .foregroundStyle(Theme.Color.accentText)
-                            .fontWeight(.semibold)
-                            .disabled(fullName.trimmingCharacters(in: .whitespaces).isEmpty || bearer == nil)
-                        }
+            }
+        }
+    }
+
+    private var editCuerpoSection: some View {
+        Group {
+            editSectionHeader("CUERPO")
+            CardSurface(padding: 0) {
+                VStack(spacing: 0) {
+                    editDecimalRow(label: "Altura (cm)", placeholder: "80–260", text: $heightCmText)
+                        .accessibilityLabel("Altura en centímetros")
+                    Hairline()
+                    editDecimalRow(label: "Peso (kg)", placeholder: "25–250", text: $weightKgText)
+                        .accessibilityLabel("Peso en kilogramos")
+                    Hairline()
+                    editDecimalRow(label: "Años entrenando", placeholder: "0–80", text: $experienceText)
+                        .accessibilityLabel("Años de experiencia entrenando")
+                    Hairline()
+                    editDecimalRow(label: "FC máx (ppm)", placeholder: "100–230", text: $maxHrText)
+                        .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
+                }
+            }
+            Text("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
+                .scaledFont(11, relativeTo: .caption2)
+                .foregroundStyle(Theme.Color.muted)
+                .padding(.horizontal, 4)
+            if hasBodyRangeWarning {
+                bodyRangeHint
+            }
+        }
+    }
+
+    private var editObjetivoSection: some View {
+        Group {
+            editSectionHeader("OBJETIVO")
+            CardSurface(padding: 0) {
+                VStack(spacing: 0) {
+                    goalTypeRow
+                    if goalType == "other" {
+                        Hairline()
+                        editTextRow(
+                            label: "Descripción",
+                            placeholder: "Máx. 500 caracteres",
+                            text: $goalOtherText
+                        )
+                        .accessibilityLabel("Descripción del objetivo")
                     }
+                }
+            }
+        }
+    }
+
+    private var editIdiomaSection: some View {
+        Group {
+            editSectionHeader("IDIOMA")
+            CardSurface(padding: 0) {
+                languageRow
+            }
+            Text("La app se está traduciendo; algunos textos seguirán en español por ahora. Se aplicará al reiniciar.")
+                .scaledFont(11, relativeTo: .caption2)
+                .foregroundStyle(Theme.Color.muted)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var editSaveErrorSection: some View {
+        if let err = saveError {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.Color.danger)
+                Text(err)
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.danger)
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var editProfileToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Cancelar") { dismiss() }
+                .foregroundStyle(Theme.Color.muted)
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Group {
+                if saving {
+                    ProgressView().tint(Theme.Color.accentText)
+                } else {
+                    Button("Guardar") {
+                        Haptics.light()
+                        Task { await save() }
+                    }
+                    .foregroundStyle(Theme.Color.accentText)
+                    .fontWeight(.semibold)
+                    .disabled(fullName.trimmingCharacters(in: .whitespaces).isEmpty || bearer == nil)
                 }
             }
         }
@@ -1614,21 +1414,3 @@ private struct FotoPerfilSheet: View {
     }
 }
 
-// MARK: - Horizontal container clamp
-//
-// A vertical `ScrollView` measures its content's WIDTH from the widest descendant.
-// If any descendant reports a minimum width past the viewport — an unbreakable
-// token in a `Text` (a long email, a bare URL, a BLE device name), an `HStack`
-// whose members' minimum widths sum past the screen, or a fixed-width frame — the
-// ScrollView's horizontal contentSize grows past the viewport and the whole page
-// pans sideways. Pinning the content to the container's exact width caps that
-// horizontal contentSize, so no descendant (present or future) can ever drag the
-// page again — the structural guarantee, independent of any single offender.
-//
-// Applied OUTSIDE the content's own `.padding(...)` so the padded content measures
-// exactly the viewport width (padding included), never wider.
-private extension View {
-    func clampedToContainerWidth() -> some View {
-        containerRelativeFrame(.horizontal)
-    }
-}

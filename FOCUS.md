@@ -6,11 +6,9 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FH-88 — Perfil compacto (rama `cursor/fh88-profile-nest-devices-32a9`, build 74).**
-Raíz Perfil ≈ una pantalla: puertas Identidad · Rendimiento (igual) · Entreno ·
-Dispositivos y apps · Cuenta · Ayuda y legal · Cerrar sesión. Wearables en
-`DeviceConnectionsView`; COROS conectada → detalle con **Sincronizar ahora** visible
-(FH-86 feedback de sync reutilizado). Pendiente: smoke Alex.
+**FH-88 — Perfil compacto (main, build 74, #161).** Archive build 73 falló (exit 65):
+tipos Profile `private`/`fileprivate` tras split FH-88 → **`ProfileShared.swift`**
+(internal). Build **74** pendiente re-Archive Xcode Cloud → TestFlight.
 
 **FH-86 — COROS «Sincronizar ahora» (main, build 73, #160).**
 Fix silencio iOS: alerta en sync manual y pull con imports/errores; API
