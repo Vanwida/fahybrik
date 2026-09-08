@@ -2,14 +2,22 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-08** (Xcode Cloud post-clone + xcodegen)
+Última actualización: **2026-09-08** (pack runtime phone↔Watch build 66)
 
 ## Ahora
+
+**Pack runtime phone↔Watch — build 66 (rama `cursor/phone-watch-runtime-stability-7508`).**
+Reconcile huérfanos en foreground/launch (`PhoneWatchRuntimeReconcile` + `LiveWorkoutResume`).
+Terminar bilateral reforzado (liveEnd + reopen si la muñeca acaba sin cover).
+`SessionStartGate` enseña el plan real (preview) — gate nunca vacío; `canReleaseLive`.
+`WorkoutResumeBanner` también en Inicio y FreeInicio.
+Diálogo Seguir | Terminar y empezar | Cancelar al abrir segundo entreno con uno vivo/soft-leave.
+Pendiente: smoke dispositivo (libre funcional → Continuar → muñeca; Terminar bilateral; orphan recover).
 
 **FH-54 — Guardar entreno libre sin arrancar (PR `cursor/fh-54-free-plan-save-781c`).**
 `POST /api/athlete/workouts/free/plan` = template + segments + assignment
 scheduled, sin `workout_executions`. iOS: **Guardar** junto a Empezar en los
-tres builders; editar/borrar/lanzar desde Plan (Libre). Build **65**.
+tres builders; editar/borrar/lanzar desde Plan (Libre). Build **66** (pack runtime).
 
 **Xcode Cloud Archive (exit 65):** post-clone en `ios/ci_scripts/ci_post_clone.sh`
 genera los tres `Generated-Info.plist` gitignorados. Pendiente: Rebuild en ASC.

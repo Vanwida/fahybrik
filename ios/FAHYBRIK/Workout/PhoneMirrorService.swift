@@ -27,6 +27,10 @@ final class PhoneMirrorService {
     /// (the wrist HR is fresher). Never blocks the workout when it stays false.
     private(set) var wristJoined: Bool = false
 
+    /// TRUE while an `HKWorkoutSession` mirror channel is retained (joined or
+    /// waiting for the wrist `ended` reply). Used by phone↔watch reconcile.
+    var hasMirroredHKSession: Bool { mirrored != nil }
+
     /// TRUE from the moment a wrist that WAS recording is told to save, until the
     /// next session begins. It answers one question: "is there going to be an
     /// HKWorkout for this session that the phone did not write?"

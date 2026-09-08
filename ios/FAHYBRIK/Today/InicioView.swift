@@ -34,6 +34,10 @@ struct InicioView: View {
     var onOpenTab: ((AppTab) -> Void)? = nil
 
     @State private var showFreeBuilder: Bool = false
+    @State private var resumeBannerRefresh = 0
+    @State private var showLaunchConflict = false
+    @State private var conflictSnapshotTitle: String?
+    @State private var pendingOpenFreeBuilder = false
     @State private var showCheckin: Bool = false
     // Presents the readiness detail sheet from the "¿Cómo llegas hoy?" card.
     @State private var showReadinessDetail: Bool = false
@@ -146,6 +150,21 @@ struct InicioView: View {
     /// CTA target = the hero's session). False on a rest / paused day.
     private var canStartToday: Bool { heroSession != nil && !isPaused }
 
+    @MainActor
+    private func attemptOpenFreeBuilder() async {
+        let saved = await WorkoutStateStore.shared.load()
+        if LiveWorkoutLaunchConflict.shouldPrompt(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
+            snapshot: saved
+        ) {
+            conflictSnapshotTitle = saved?.freeTitle ?? saved?.plan.name
+            pendingOpenFreeBuilder = true
+            showLaunchConflict = true
+        } else {
+            showFreeBuilder = true
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
@@ -153,6 +172,10 @@ struct InicioView: View {
                     .staggerReveal(revealed, index: 0)
                 greeting
                     .staggerReveal(revealed, index: 1)
+                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
+                    Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: identity?.hrZones) }
+                }
+                .staggerReveal(revealed, index: 1)
                 raceAnchorCard
                     .staggerReveal(revealed, index: 2)
                 readinessCard
@@ -218,7 +241,9 @@ struct InicioView: View {
         // que registraste son la MISMA acción que ya vive en la pestaña Plan, con
         // los mismos destinos; tenerlos aquí era la segunda puerta a la misma
         // habitación. El constructor de entreno libre se queda: es de Inicio.
-        .fullScreenCover(isPresented: $showFreeBuilder) {
+        .fullScreenCover(isPresented: $showFreeBuilder, onDismiss: {
+            resumeBannerRefresh += 1
+        }) {
             // P1 → builder → existing engine → free save. On finish the plan is
             // refreshed so the new self-origin session appears as a "Libre" row.
             FreeWorkoutBuilderView(
@@ -246,6 +271,22 @@ struct InicioView: View {
                 }
             )
         }
+        .liveWorkoutLaunchConflict(
+            isPresented: $showLaunchConflict,
+            snapshotTitle: conflictSnapshotTitle,
+            onResume: {
+                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: identity?.hrZones) }
+            },
+            onEndAndStart: {
+                Task {
+                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
+                    if pendingOpenFreeBuilder {
+                        pendingOpenFreeBuilder = false
+                        showFreeBuilder = true
+                    }
+                }
+            }
+        )
         .sheet(isPresented: $showCheckin) {
             CheckinView(
                 bearer: effectiveBearer,
@@ -1060,7 +1101,7 @@ struct InicioView: View {
                 }
                 Button {
                     Haptics.medium()
-                    showFreeBuilder = true
+                    Task { await attemptOpenFreeBuilder() }
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")

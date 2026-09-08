@@ -57,11 +57,11 @@ extension PlanView {
             Button { marcarHecha(session) } label: {
                 Label("Marcar como hecha", systemImage: "checkmark")
             }
-            Button { workoutLaunch = launch(session) } label: {
+            Button { Task { await attemptWorkoutLaunch(launch(session)) } } label: {
                 Label("Completar ahora", systemImage: "square.and.pencil")
             }
         case .partial:
-            Button { workoutLaunch = launch(session) } label: {
+            Button { Task { await attemptWorkoutLaunch(launch(session)) } } label: {
                 Label("Completar ahora", systemImage: "square.and.pencil")
             }
             Button(role: .destructive) { pedirDeshacer(session) } label: {

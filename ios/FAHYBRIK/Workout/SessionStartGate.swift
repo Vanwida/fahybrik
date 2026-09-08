@@ -91,36 +91,49 @@ struct SessionStartGate: View {
     private func stepBody(_ step: PreWorkoutDeviceEligibility.StartStep) -> some View {
         switch step {
         case .runLocation:
-            RunPreStartFlow(
-                sessionTitle: sessionTitle,
-                onStart: { env in
-                    answers.runEnvironment = env
-                    stagingSession.runEnvironment = env
-                    stagingSession.ensurePhoneWorkoutRun()
-                },
-                onCancel: cancelAll
-            )
+            VStack(spacing: 0) {
+                gatePlanPreviewStrip
+                RunPreStartFlow(
+                    sessionTitle: sessionTitle,
+                    onStart: { env in
+                        answers.runEnvironment = env
+                        stagingSession.runEnvironment = env
+                        stagingSession.ensurePhoneWorkoutRun()
+                    },
+                    onCancel: cancelAll
+                )
+            }
         case .erg(let role):
-            ErgPreStartFlow(
-                sessionTitle: sessionTitle,
-                machineWord: role?.machineWord ?? "el remo",
-                isBenchmark: isBenchmark,
-                store: role.map { pool.store(for: $0) } ?? pool.any,
-                roleTitle: role?.titleES,
-                onStart: {
-                    if let role {
-                        if !pool.store(for: role).isConnected {
-                            answers.skippedErgRoleWires.insert(role.rawValue)
+            VStack(spacing: 0) {
+                gatePlanPreviewStrip
+                ErgPreStartFlow(
+                    sessionTitle: sessionTitle,
+                    machineWord: role?.machineWord ?? "el remo",
+                    isBenchmark: isBenchmark,
+                    store: role.map { pool.store(for: $0) } ?? pool.any,
+                    roleTitle: role?.titleES,
+                    onStart: {
+                        if let role {
+                            if !pool.store(for: role).isConnected {
+                                answers.skippedErgRoleWires.insert(role.rawValue)
+                            }
+                        } else if !pool.any.isConnected {
+                            answers.skippedUnscopedErg = true
                         }
-                    } else if !pool.any.isConnected {
-                        answers.skippedUnscopedErg = true
-                    }
-                },
-                onCancel: cancelAll
-            )
+                    },
+                    onCancel: cancelAll
+                )
+            }
         case .watch:
             watchStep
         }
+    }
+
+    /// Compact plan strip on device steps so the gate never opens blank.
+    private var gatePlanPreviewStrip: some View {
+        SessionStartGatePlanPreview(plan: plan, segments: segments)
+            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.top, Theme.Spacing.s)
     }
 
     private var watchStep: some View {
@@ -128,6 +141,7 @@ struct SessionStartGate: View {
             gateTopBar(title: "Reloj")
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    SessionStartGatePlanPreview(plan: plan, segments: segments)
                     Text("Grabación en la muñeca")
                         .font(.system(size: 28, weight: .heavy, design: .default).italic())
                         .foregroundStyle(Theme.Color.foreground)
@@ -201,7 +215,14 @@ struct SessionStartGate: View {
     private var readyFooter: some View {
         VStack(spacing: 0) {
             gateTopBar(title: "Listo")
-            Spacer(minLength: 0)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    SessionStartGatePlanPreview(plan: plan, segments: segments)
+                    Spacer(minLength: Theme.Spacing.m)
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.m)
+            }
             VStack(spacing: Theme.Spacing.s) {
                 Text("Empieza cuando estés listo")
                     .scaledFont(12, relativeTo: .caption)
@@ -250,6 +271,7 @@ struct SessionStartGate: View {
     }
 
     private func releaseLive() {
+        guard canReleaseLive else { return }
         stagingSession.runEnvironment = answers.runEnvironment
         stampSession?(stagingSession)
         if !didBeginMirror {
@@ -257,6 +279,11 @@ struct SessionStartGate: View {
         }
         Haptics.medium()
         onReleaseLive(stagingSession)
+    }
+
+    /// FH-91 — live opens only after recipe steps resolve (incl. watch honesty).
+    private var canReleaseLive: Bool {
+        nextStep == nil
     }
 
     private func cancelAll() {

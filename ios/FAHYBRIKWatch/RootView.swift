@@ -37,6 +37,16 @@ struct RootView: View {
                     recoverable = nil
                 }
             }
+            .onChange(of: plan.today?.isDone) { _, isDone in
+                guard isDone == true else { return }
+                if PhoneWatchRuntimeReconcile.watchOrphanShouldEnd(
+                    modeIsOrphan: mirror.mode == .orphan,
+                    todayMarkedDone: true,
+                    standalonePhaseIdle: coordinator.phase == .idle
+                ) {
+                    mirror.finishFromPhone(save: true)
+                }
+            }
         #if DEBUG
             // Test seam: `simctl launch … --fahybrik-autostart` drives the app straight
             // into the live flow, exercising detail-decode ▸ plan-build ▸ engine start

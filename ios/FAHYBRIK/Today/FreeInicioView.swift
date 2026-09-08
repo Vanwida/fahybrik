@@ -32,6 +32,11 @@ struct FreeInicioView: View {
     // A still-pending session tapped in the week — the same brief the coached
     // app opens to do it.
     @State private var workoutLaunch: WorkoutLaunch? = nil
+    @State private var resumeBannerRefresh = 0
+    @State private var showLaunchConflict = false
+    @State private var conflictSnapshotTitle: String?
+    @State private var pendingOpenFreeBuilder = false
+    @State private var pendingWeekLaunch: WorkoutLaunch? = nil
     // The day of the strip the athlete is looking at. Nil = today (the default
     // on arrival); a tap pins another day.
     @State private var selectedIso: String? = nil
@@ -57,6 +62,10 @@ struct FreeInicioView: View {
                             .staggerReveal(revealed, index: 0)
                         greeting
                             .staggerReveal(revealed, index: 1)
+                        WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { launch in
+                            Task { await attemptWorkoutLaunch(launch) }
+                        }
+                        .staggerReveal(revealed, index: 1)
                         builderCard
                             .staggerReveal(revealed, index: 2)
                         marksCard
@@ -75,7 +84,9 @@ struct FreeInicioView: View {
             }
             .navigationBarHidden(true)
         }
-        .fullScreenCover(isPresented: $showFreeBuilder) {
+        .fullScreenCover(isPresented: $showFreeBuilder, onDismiss: {
+            resumeBannerRefresh += 1
+        }) {
             // The hero CTA → the existing free builder → existing live engine →
             // free save. On finish the plan refreshes so the new self-origin
             // session appears in "Hecho hoy" and the week strip.
@@ -96,7 +107,9 @@ struct FreeInicioView: View {
                 onStale: { Task { await store.planMutated() } }
             )
         }
-        .fullScreenCover(item: $workoutLaunch) { launch in
+        .fullScreenCover(item: $workoutLaunch, onDismiss: {
+            resumeBannerRefresh += 1
+        }) { launch in
             // A session of the week still pending — the same brief/execution flow
             // the coached Plan opens. Nothing free-specific is re-implemented.
             WorkoutContainer(
@@ -111,6 +124,25 @@ struct FreeInicioView: View {
                 }
             )
         }
+        .liveWorkoutLaunchConflict(
+            isPresented: $showLaunchConflict,
+            snapshotTitle: conflictSnapshotTitle,
+            onResume: {
+                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: identity?.hrZones) }
+            },
+            onEndAndStart: {
+                Task {
+                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
+                    if pendingOpenFreeBuilder {
+                        pendingOpenFreeBuilder = false
+                        showFreeBuilder = true
+                    } else if let pending = pendingWeekLaunch {
+                        pendingWeekLaunch = nil
+                        workoutLaunch = pending
+                    }
+                }
+            }
+        )
         .onAppear {
             revealed = false
             DispatchQueue.main.async { revealed = true }
@@ -191,7 +223,7 @@ struct FreeInicioView: View {
     private var builderCard: some View {
         Button {
             Haptics.medium()
-            showFreeBuilder = true
+            Task { await attemptOpenFreeBuilder() }
         } label: {
             CardSurface(padding: 18, topAccent: true, elevated: true) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -295,6 +327,36 @@ struct FreeInicioView: View {
         let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
         if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
             executedLaunch = launch
+        } else {
+            Task { await attemptWorkoutLaunch(launch) }
+        }
+    }
+
+    @MainActor
+    private func attemptOpenFreeBuilder() async {
+        let saved = await WorkoutStateStore.shared.load()
+        if LiveWorkoutLaunchConflict.shouldPrompt(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
+            snapshot: saved
+        ) {
+            conflictSnapshotTitle = saved?.freeTitle ?? saved?.plan.name
+            pendingOpenFreeBuilder = true
+            showLaunchConflict = true
+        } else {
+            showFreeBuilder = true
+        }
+    }
+
+    @MainActor
+    private func attemptWorkoutLaunch(_ launch: WorkoutLaunch) async {
+        let saved = await WorkoutStateStore.shared.load()
+        if LiveWorkoutLaunchConflict.shouldPrompt(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
+            snapshot: saved
+        ) {
+            conflictSnapshotTitle = saved?.plan.name ?? launch.title
+            pendingWeekLaunch = launch
+            showLaunchConflict = true
         } else {
             workoutLaunch = launch
         }

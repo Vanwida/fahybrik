@@ -33,10 +33,61 @@ final class LiveWorkoutResume {
     /// Cold launch AND `scenePhase.active`. Always. No bearer gate. Free included.
     /// Apple recover (iOS 26) is in addition to the disk plan, not instead of it.
     func recoverOnLaunch(hrZones: HRZoneProfile?) async {
-        if hasLiveSession || isRecovering { return }
+        if isRecovering { return }
         isRecovering = true
         defer { isRecovering = false }
         _ = await PhoneWorkoutRun.shared.recover()
+        if !hasLiveSession {
+            await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
+        }
+        await reconcilePhoneWatchAsymmetry(hrZones: hrZones)
+    }
+
+    /// Phone ↔ Watch asymmetry: wrist recording without a live phone owner.
+    func reconcilePhoneWatchAsymmetry(hrZones: HRZoneProfile?) async {
+        let mirror = PhoneMirrorService.shared
+        let wristActive = PhoneWatchRuntimeReconcile.wristClaimsActiveSession(
+            mirrorJoined: mirror.wristJoined,
+            hasMirroredHKSession: mirror.hasMirroredHKSession,
+            phoneRunSessionActive: PhoneWorkoutRun.shared.session != nil
+        )
+        let saved = await WorkoutStateStore.shared.load()
+        let fresh = saved.map { WorkoutRecoveryGate.isFresh($0) } ?? false
+        switch PhoneWatchRuntimeReconcile.phoneAction(
+            hasLiveCoverOrTracked: hasLiveSession,
+            wristClaimsActive: wristActive,
+            hasFreshSnapshot: fresh
+        ) {
+        case .none:
+            return
+        case .reopenFromSnapshot:
+            guard !hasLiveSession else { return }
+            await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
+        case .endWristCleanly:
+            await endWristSessionCleanly()
+        }
+    }
+
+    /// Wrist Terminar while the phone cover is gone — reopen from disk so the
+    /// bilateral finish can complete through WorkoutContainer.
+    func handleWristAthleteFinishWhenBackgrounded(hrZones: HRZoneProfile?) async {
+        guard PhoneMirrorService.shared.wristFinishedByAthlete else { return }
+        guard !hasLiveSession else { return }
+        await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
+    }
+
+    /// Idempotent bilateral teardown when the phone has no UI owner.
+    @MainActor
+    func endWristSessionCleanly() async {
+        PhoneMirrorService.shared.end(save: false)
+        WatchConnectivityiOSService.shared.endLiveWorkout(save: false)
+        PhoneWorkoutRun.shared.end()
+        await WorkoutStateStore.shared.close()
+        dismiss()
+    }
+
+    private func reopenFreshSnapshotIfNeeded(hrZones: HRZoneProfile?) async {
+        guard !hasLiveSession else { return }
         guard let saved = await WorkoutStateStore.shared.load(),
               WorkoutRecoveryGate.isFresh(saved) else { return }
         guard LiveWorkoutResumeGate.shouldReopenCoachPlan(

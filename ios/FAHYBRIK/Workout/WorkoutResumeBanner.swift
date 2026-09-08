@@ -32,15 +32,20 @@ struct WorkoutResumeBanner: View {
     }
 
     private func load() async {
-        guard let candidate = await WorkoutStateStore.shared.load(),
-              // La MISMA regla pura que usa el propio entreno para ofrecerse a
-              // sí mismo al reabrir (mismo assignment · plan real · fresco <6h),
-              // sin reescribirla: pasar el id del candidato como "actual" hace
-              // que la comprobación de "mismo assignment" sea trivial cuando lo
-              // hay, y siga rechazando un snapshot sin assignment (libre / ad-hoc)
-              // exactamente igual que hoy.
-              WorkoutRecoveryGate.shouldOffer(saved: candidate, currentAssignmentId: candidate.assignmentId)
-        else {
+        guard let candidate = await WorkoutStateStore.shared.load() else {
+            saved = nil
+            return
+        }
+        let offer: Bool = {
+            if let aid = candidate.assignmentId, !aid.isEmpty {
+                return WorkoutRecoveryGate.shouldOffer(
+                    saved: candidate,
+                    currentAssignmentId: aid
+                )
+            }
+            return WorkoutRecoveryGate.isFresh(candidate)
+        }()
+        guard offer else {
             saved = nil
             return
         }

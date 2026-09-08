@@ -208,11 +208,21 @@ struct AppShell: View {
             }
             guard phase == .active else { return }
             Task {
-                await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
+                let zones = store.identity.value?.hrZones
+                await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: zones)
+                await LiveWorkoutResume.shared.handleWristAthleteFinishWhenBackgrounded(hrZones: zones)
                 if let bearer {
                     await WorkoutTraceUploader.sweep(bearer: bearer)
                     await RequestQueue.shared.drain(bearer: bearer)
                 }
+            }
+        }
+        .onChange(of: PhoneMirrorService.shared.wristFinishedByAthlete) { _, finished in
+            guard finished else { return }
+            Task {
+                await LiveWorkoutResume.shared.handleWristAthleteFinishWhenBackgrounded(
+                    hrZones: store.identity.value?.hrZones
+                )
             }
         }
         .onAppear {
