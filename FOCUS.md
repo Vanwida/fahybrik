@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-08** (pack runtime phone↔Watch build 66)
+Última actualización: **2026-09-08** (fix Xcode Cloud Archive build 20 → build 67)
 
 ## Ahora
 
@@ -19,8 +19,9 @@ Pendiente: smoke dispositivo (libre funcional → Continuar → muñeca; Termina
 scheduled, sin `workout_executions`. iOS: **Guardar** junto a Empezar en los
 tres builders; editar/borrar/lanzar desde Plan (Libre). Build **66** (pack runtime).
 
-**Xcode Cloud Archive (exit 65):** post-clone en `ios/ci_scripts/ci_post_clone.sh`
-genera los tres `Generated-Info.plist` gitignorados. Pendiente: Rebuild en ASC.
+**Xcode Cloud Archive (build 20 → 67):** `PlanAcciones`/`PlanView` compile fixes
+(`freeEditAssignmentId` internal; `accionDelDia` reusa `abrir`). Build **67**.
+Pendiente: Rebuild Default workflow → TestFlight Internal.
 
 **FH-91 — UN SOLO START (estructural, en main).**
 Cuatro puertas sustituidas por `SessionStartGate`. Recipe + orden de pasos
