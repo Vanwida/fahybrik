@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-08** (fix Xcode Cloud Archive build 20 → build 67)
+Última actualización: **2026-09-08** (Xcode Cloud CFBundleVersion → build 70)
 
 ## Ahora
 
@@ -19,8 +19,10 @@ Pendiente: smoke dispositivo (libre funcional → Continuar → muñeca; Termina
 scheduled, sin `workout_executions`. iOS: **Guardar** junto a Empezar en los
 tres builders; editar/borrar/lanzar desde Plan (Libre). Build **66** (pack runtime).
 
-**Xcode Cloud Archive (build 20 → 67):** `PlanAcciones`/`PlanView` compile fixes
-(`freeEditAssignmentId` internal; `accionDelDia` reusa `abrir`). Build **67**.
+**Xcode Cloud Archive (build 20 → 70):** `PlanAcciones`/`PlanView` compile fixes
+(`freeEditAssignmentId` internal; `accionDelDia` reusa `abrir`). Build **70**.
+`ci_pre_xcodebuild.sh` fuerza `CURRENT_PROJECT_VERSION` del repo en archive;
+Manage Version ON en ASC sigue pisando en export → Lingxi: toggle OFF (checklist §4).
 Pendiente: Rebuild Default workflow → TestFlight Internal.
 
 **FH-91 — UN SOLO START (estructural, en main).**
