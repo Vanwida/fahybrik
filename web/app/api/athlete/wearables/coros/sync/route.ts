@@ -31,6 +31,9 @@ export async function POST(req: Request) {
     ok: true,
     imported: result.imported,
     asked: result.asked,
+    activities_found: result.activities_found,
+    skip_reason: result.skip_reason,
+    errored: result.errored,
     providers,
     pending_links,
   });

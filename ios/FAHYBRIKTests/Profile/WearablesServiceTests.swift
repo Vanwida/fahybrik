@@ -73,4 +73,81 @@ final class WearablesServiceTests: XCTestCase {
         let resp = try decode(#"{"providers":[{"provider":"coros","connected":false}]}"#)
         XCTAssertTrue(resp.pendingLinks.isEmpty)
     }
+
+    func testDecodesCorosSyncStats() throws {
+        let resp = try decode(#"""
+        {"ok":true,"imported":2,"asked":1,"activities_found":5,"skip_reason":null,"errored":0,
+         "providers":[{"provider":"coros","connected":true}],
+         "pending_links":[]}
+        """#)
+        XCTAssertEqual(resp.imported, 2)
+        XCTAssertEqual(resp.asked, 1)
+        XCTAssertEqual(resp.activitiesFound, 5)
+        XCTAssertNil(resp.skipReason)
+    }
+
+    func testCorosSyncResultMessageImported() {
+        let resp = WearablesResponse(
+            providers: [],
+            pendingLinks: [],
+            imported: 3,
+            asked: 0,
+            activitiesFound: 3,
+            skipReason: nil,
+            errored: 0
+        )
+        XCTAssertEqual(
+            WearablesService.corosSyncResultMessage(resp),
+            "Importados 3 entrenos de COROS."
+        )
+    }
+
+    func testCorosSyncResultMessageEmpty() {
+        let resp = WearablesResponse(
+            providers: [],
+            pendingLinks: [],
+            imported: 0,
+            asked: 0,
+            activitiesFound: 0,
+            skipReason: nil,
+            errored: 0
+        )
+        XCTAssertEqual(WearablesService.corosSyncResultMessage(resp), "Nada nuevo en COROS.")
+    }
+
+    func testCorosSyncResultMessageSkipReason() {
+        let resp = WearablesResponse(
+            providers: [],
+            pendingLinks: [],
+            imported: 0,
+            asked: 0,
+            activitiesFound: 0,
+            skipReason: "coros_client_unavailable",
+            errored: 0
+        )
+        XCTAssertTrue(
+            WearablesService.corosSyncResultMessage(resp)
+                .contains("desconectar")
+        )
+    }
+}
+
+private extension WearablesResponse {
+    init(
+        providers: [WearableProvider],
+        pendingLinks: [WearablePendingLink],
+        imported: Int?,
+        asked: Int?,
+        activitiesFound: Int?,
+        skipReason: String?,
+        errored: Int?
+    ) {
+        self.providers = LossyArray(wrappedValue: providers)
+        self.pendingLinks = LossyArray(wrappedValue: pendingLinks)
+        self.imported = imported
+        self.asked = asked
+        self.activitiesFound = activitiesFound
+        self.skipReason = skipReason
+        self.errored = errored
+    }
 }

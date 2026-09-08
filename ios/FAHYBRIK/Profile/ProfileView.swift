@@ -1097,10 +1097,10 @@ struct ProfileView: View {
 
     private func pullCorosIfConnected() async {
         guard corosConnected, !corosSyncing else { return }
-        await syncCoros()
+        await syncCoros(userInitiated: false)
     }
 
-    private func syncCoros() async {
+    private func syncCoros(userInitiated: Bool = true) async {
         guard let bearer, !corosSyncing else { return }
         corosSyncing = true
         defer { corosSyncing = false }
@@ -1110,11 +1110,18 @@ struct ProfileView: View {
             if let next = resp.pendingLinks.first(where: { $0.provider == WearablesService.coros }) {
                 corosPendingLink = next
                 showCorosLinkAsk = true
-            } else {
-                corosPendingLink = nil
-                await loadWearables()
+                return
+            }
+            corosPendingLink = nil
+            let shouldAlert = userInitiated
+                || (resp.imported ?? 0) > 0
+                || resp.skipReason != nil
+                || (resp.errored ?? 0) > 0
+            if shouldAlert {
+                corosAlert = WearablesService.corosSyncResultMessage(resp)
             }
         } catch {
+            corosAlert = WearablesService.corosSyncErrorMessage(error)
             await loadWearables()
         }
     }
