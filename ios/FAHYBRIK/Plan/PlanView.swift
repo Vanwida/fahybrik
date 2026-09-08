@@ -90,7 +90,7 @@ struct PlanView: View {
     @State private var showHistory = false
     @State private var showCiclo = false
     @State private var partner: PartnerInfo? = nil
-    @State fileprivate var freeEditAssignmentId: String? = nil
+    @State var freeEditAssignmentId: String? = nil
 
     // ── Un solo mecanismo: qué día muestra la card, ahora mismo (Alex, 7-ago) ─
     // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO:
@@ -551,9 +551,8 @@ struct PlanView: View {
     /// entrada al mismo sitio es ruido, no una salida (Alex, 7-ago).
     private var accionDelDia: (titulo: String, hacer: () -> Void)? {
         if let sesion = sesionMostrada {
-            return marca(sesion).isFinished
-                ? ("VER LO QUE HICISTE", { executedLaunch = launch(sesion) })
-                : ("▶ EMPEZAR", { Task { await attemptWorkoutLaunch(launch(sesion)) } })
+            let titulo = marca(sesion).isFinished ? "VER LO QUE HICISTE" : "▶ EMPEZAR"
+            return (titulo, { abrir(sesion) })
         }
         if !verProximaSemana, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
             return ("VER LO DE MAÑANA", { abrir(manana.sesion) })
