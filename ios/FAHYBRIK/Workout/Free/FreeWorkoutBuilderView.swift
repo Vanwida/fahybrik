@@ -392,7 +392,7 @@ struct FreeWorkoutBuilderView: View {
                 SecondaryButton(title: "Guardar") {
                     Task { await saveMeasuredPlan() }
                 }
-                ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
+                ExpertPrimaryButton(title: "Continuar", height: 52) {
                     startNow()
                 }
             }

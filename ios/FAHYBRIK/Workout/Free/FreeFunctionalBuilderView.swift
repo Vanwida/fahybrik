@@ -294,7 +294,7 @@ struct FreeFunctionalBuilderView: View {
                 SecondaryButton(title: "Guardar") {
                     Task { await savePlan() }
                 }
-                ExpertPrimaryButton(title: "▶ Empezar entreno", height: 52) {
+                ExpertPrimaryButton(title: "Continuar", height: 52) {
                     guard let ctx = draft.buildContext() else { return }
                     Haptics.medium()
                     onStart(ctx)

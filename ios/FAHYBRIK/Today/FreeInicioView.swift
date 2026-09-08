@@ -44,6 +44,7 @@ struct FreeInicioView: View {
     @State private var marks: [MarkView] = []
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed = false
+    @State private var deleteFreeTarget: AthleteWeekDaySession? = nil
 
     @Environment(AppDataStore.self) private var store
 
@@ -116,6 +117,7 @@ struct FreeInicioView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
+                planSessionIsSelfOrigin: launch.isSelfOrigin,
                 hrZones: identity?.hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
@@ -147,10 +149,39 @@ struct FreeInicioView: View {
             revealed = false
             DispatchQueue.main.async { revealed = true }
         }
+        .confirmationDialog(
+            "¿Borrar este entreno libre?",
+            isPresented: Binding(
+                get: { deleteFreeTarget != nil },
+                set: { if !$0 { deleteFreeTarget = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: deleteFreeTarget
+        ) { session in
+            Button("Borrar del todo", role: .destructive) {
+                Task { await confirmDeleteFree(session) }
+            }
+            Button("Cancelar", role: .cancel) { deleteFreeTarget = nil }
+        } message: { _ in
+            Text("Lo creaste tú: se borra el entreno y lo registrado. No volverá a aparecer.")
+        }
         .task(id: bearer) {
             store.activate(bearer: bearer)
             await store.loadFreeHome()
             await loadMarks()
+        }
+    }
+
+    @MainActor
+    private func confirmDeleteFree(_ session: AthleteWeekDaySession) async {
+        deleteFreeTarget = nil
+        guard let token = bearer else { return }
+        do {
+            try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
+            Haptics.medium()
+            await store.planMutated()
+        } catch {
+            Haptics.error()
         }
     }
 
@@ -324,7 +355,11 @@ struct FreeInicioView: View {
     /// Tapping a session routes by STATE — the same single decision point the
     /// coached Plan uses: finished → what he logged; pending → the brief to do it.
     private func openSession(_ session: AthleteWeekDaySession) {
-        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        let launch = WorkoutLaunch(
+            assignmentId: session.assignmentId,
+            title: session.title,
+            isSelfOrigin: session.isSelfOrigin
+        )
         if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
             executedLaunch = launch
         } else {
@@ -593,6 +628,15 @@ struct FreeInicioView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())
+        .contextMenu {
+            if session.isSelfOrigin {
+                Button(role: .destructive) {
+                    deleteFreeTarget = session
+                } label: {
+                    Label("Borrar entreno libre", systemImage: "trash")
+                }
+            }
+        }
         .accessibilityLabel("\(session.title), \(stateWord(state)). Ver detalle.")
     }
 

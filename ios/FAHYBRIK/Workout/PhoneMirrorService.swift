@@ -118,6 +118,8 @@ final class PhoneMirrorService {
     /// Pre-live gate: after this, UI explains the wrist never joined (3 tries × 3 s).
     static let watchJoinHintSeconds: TimeInterval =
         TimeInterval(watchLaunchAttempts) * watchLaunchRetrySeconds
+    /// When `begin()` last started the watch launch loop — drives inline join UI.
+    private(set) var watchJoinStartedAt: Date? = nil
     // Bumped by begin()/end() so a stale retry loop from a previous session can't
     // launch the watch app after the workout it belonged to is gone.
     @ObservationIgnored private var watchLaunchGeneration = 0
@@ -197,6 +199,7 @@ final class PhoneMirrorService {
         wristFinishedByAthlete = false // idem: el final de la sesión anterior no cuenta aquí
         pendingEndSave = nil           // a new session cancels any orphaned end intent
         didLaunchWatch = false
+        watchJoinStartedAt = Date()
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()
         launchWatchIfNeeded()

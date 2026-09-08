@@ -15,6 +15,8 @@ struct WorkoutLaunch: Identifiable, Equatable {
     let assignmentId: String
     /// Session title from the plan-week summary, shown while the body loads.
     let title: String?
+    /// Self-origin entreno libre scheduled on the plan — save via FreeWorkoutAPI.
+    var isSelfOrigin: Bool = false
     var id: String { assignmentId }
 }
 
@@ -43,6 +45,8 @@ struct WorkoutContainer: View {
     /// (title/modality/prescription + the engine's metrics) instead of the
     /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
     var freeContext: FreeWorkoutContext? = nil
+    /// When opening a self-origin row from Plan/FreeInicio without a builder context.
+    var planSessionIsSelfOrigin: Bool = false
     /// The athlete's HR zones as the SERVER resolved them (from the cached
     /// identity), threaded into the live engine and the treadmill/outdoor HUDs.
     /// Explicit param because the AppDataStore environment does not cross the
@@ -111,6 +115,8 @@ struct WorkoutContainer: View {
 
     @State private var phase: Phase = .brief
     @State private var session: WorkoutSession? = nil
+    /// Resolved free-save context — from the builder param or plan hydration (FH-93).
+    @State private var activeFreeContext: FreeWorkoutContext? = nil
     @State private var crashRecoveryPrompt: PersistedWorkoutState? = nil
     @State private var loadState: LoadState = .loading
     /// True when the athlete reached the summary via "Ya lo hice" (manual entry)
@@ -172,6 +178,7 @@ struct WorkoutContainer: View {
     var body: some View {
         conCubiertas
         .task {
+            activeFreeContext = freeContext
             await arranque()
         }
         // LA PANTALLA DESPIERTA tiene UN dueño: este contenedor, por fase (antes eran
@@ -287,7 +294,7 @@ struct WorkoutContainer: View {
                     // hice"/captura): a mark the app didn't measure doesn't exist.
                     // (The erg connect is enforced later, at the engine's pre-block
                     // gate — this brief never even shows for free/benchmark paths.)
-                    isBenchmark: freeContext?.benchmark != nil,
+                    isBenchmark: activeFreeContext?.benchmark != nil,
                     onClose: onClose
                 )
             case .start:
@@ -296,7 +303,7 @@ struct WorkoutContainer: View {
                     plan: plan,
                     segments: plan.segments.sorted { $0.order < $1.order },
                     calentamientoRun: false,
-                    isBenchmark: freeContext?.benchmark != nil,
+                    isBenchmark: activeFreeContext?.benchmark != nil,
                     activityKind: mirrorActivityKind(for: plan),
                     hrZones: hrZones,
                     stampSession: { s in
@@ -317,7 +324,7 @@ struct WorkoutContainer: View {
                         phase = .active
                     },
                     onCancel: {
-                        if freeContext != nil {
+                        if activeFreeContext != nil {
                             onClose()
                         } else {
                             phase = .brief
@@ -387,7 +394,7 @@ struct WorkoutContainer: View {
                         bearer: bearer,
                         // #Marcas — the engine's pre-block erg gate drops its manual
                         // escape for a benchmark (no monitor → no mark to save).
-                        isBenchmark: freeContext?.benchmark != nil
+                        isBenchmark: activeFreeContext?.benchmark != nil
                     )
                     .toolbar(.hidden, for: .tabBar)
                 }
@@ -416,7 +423,7 @@ struct WorkoutContainer: View {
                         assignmentId: assignmentId,
                         logTarget: logTarget,
                         manualEntry: manualEntry,
-                        freeContext: freeContext,
+                        freeContext: activeFreeContext,
                         onSave: {
                             // Record the optimistic mark BEFORE closing so the
                             // caller's refetch (driven by onCompleted) already sees
@@ -560,7 +567,7 @@ struct WorkoutContainer: View {
     }
 
     private func stampFreeMetadata(on session: WorkoutSession) {
-        guard let free = freeContext else { return }
+        guard let free = activeFreeContext else { return }
         session.isFreeRun = true
         session.freeTitle = free.title
         session.freeModalityWire = free.modalityWire
@@ -571,7 +578,7 @@ struct WorkoutContainer: View {
 
     private func applyRecovered(_ recovered: WorkoutSession) {
         stampFreeMetadata(on: recovered)
-        if recovered.isFreeRun, freeContext == nil {
+        if recovered.isFreeRun, activeFreeContext == nil {
             recovered.freeTitle = recovered.freeTitle ?? recovered.plan.name
         }
         session = recovered
@@ -597,7 +604,7 @@ struct WorkoutContainer: View {
         let modality: String
         if logTarget == .doublesJoint {
             modality = "hyrox"
-        } else if let free = freeContext {
+        } else if let free = activeFreeContext {
             modality = free.modalityWire
         } else {
             modality = plan.principalModalityWire
@@ -624,6 +631,7 @@ struct WorkoutContainer: View {
 
         // FREE MODE: the plan is already built — show the unified start gate, NOT live.
         if let free = freeContext {
+            activeFreeContext = free
             loadState = .ready(free.plan, nil)
             phase = .start
             return
@@ -638,7 +646,7 @@ struct WorkoutContainer: View {
             if cached.isJumpVideo {
                 loadState = .jump(cached)
             } else if let plan = WorkoutPlan.from(detail: cached) {
-                loadState = .ready(plan, cached)
+                applyLoadedDetail(plan: plan, detail: cached)
             }
         }
 
@@ -655,7 +663,7 @@ struct WorkoutContainer: View {
             if detail.isJumpVideo {
                 loadState = .jump(detail)
             } else if let plan = WorkoutPlan.from(detail: detail) {
-                loadState = .ready(plan, detail)
+                applyLoadedDetail(plan: plan, detail: detail)
             } else if case .loading = loadState {
                 // Fetched, but there is no runnable workout body (rest day / empty).
                 // Surface it honestly rather than inventing a fake session.
@@ -666,6 +674,17 @@ struct WorkoutContainer: View {
             // already gave us one; otherwise fail honestly with a retry.
             if case .loading = loadState { loadState = .failed }
         }
+    }
+
+    /// Self-origin plan rows hydrate a free-save context so Terminar hits FreeWorkoutAPI.
+    private func applyLoadedDetail(plan: WorkoutPlan, detail: AssignmentDetail) {
+        if planSessionIsSelfOrigin, let ctx = FreePlanHydration.runContext(from: detail) {
+            activeFreeContext = ctx
+            loadState = .ready(plan, detail)
+            phase = .start
+            return
+        }
+        loadState = .ready(plan, detail)
     }
 
     // Card 142 — este aviso lo ve tanto quien vuelve tras salir A PROPÓSITO

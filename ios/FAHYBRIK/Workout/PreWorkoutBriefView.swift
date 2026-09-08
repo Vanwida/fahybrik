@@ -1014,7 +1014,7 @@ struct PreWorkoutBriefView: View {
     }
 
     private var ctaTitle: String {
-        isStrengthSession ? "▶ EMPEZAR FUERZA" : "▶ EMPEZAR"
+        isStrengthSession ? "Continuar a preparación" : "Continuar"
     }
 
     // Kg formatter for the structured `lineFromParams` legacy-scalar fallback

@@ -51,6 +51,8 @@ export interface AthleteHistorySession {
   with_partner: boolean;
   /** True when an outdoor GPS route (workout_routes) exists for this execution. */
   has_route: boolean;
+  /** Who created the assignment — only `self` may be deleted by the athlete. */
+  origin: 'coach' | 'self';
 }
 
 export interface AthleteHistoryDay {
@@ -79,6 +81,7 @@ interface ExecRow {
   rpe: number | null;
   with_partner: boolean;
   has_route: boolean;
+  origin: 'coach' | 'self';
 }
 
 /**
@@ -121,7 +124,8 @@ export async function buildAthleteHistoryMonth(
         (we.partner_athlete_id is not null)        as with_partner,
         exists (
           select 1 from workout_routes wr where wr.execution_id = we.id
-        )                                          as has_route
+        )                                          as has_route,
+        wa.origin::text                            as origin
       from workout_executions we
       join workout_assignments wa on wa.id = we.assignment_id
       left join templates t on t.id = wa.template_id
@@ -163,6 +167,7 @@ export async function buildAthleteHistoryMonth(
       rpe: r.rpe,
       with_partner: r.with_partner,
       has_route: r.has_route,
+      origin: r.origin,
     });
     sessionsByDate.set(r.done_date, list);
   }

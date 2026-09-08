@@ -268,10 +268,10 @@ enum PreWorkoutDeviceEligibility {
     enum StartStep: Equatable {
         case runLocation
         case erg(ErgMachineRole?)
-        case watch
     }
 
-    /// Next pre-live step, or nil when `SessionStartPolicy.watchResolved` is the only gate left.
+    /// Next pre-live step, or nil when only inline watch honesty remains on the
+    /// ready screen (FH-93 — never a second full-screen gate).
     static func nextStartStep(
         recipe: SessionStartRecipe,
         segments: [WorkoutSegment],
@@ -280,6 +280,8 @@ enum PreWorkoutDeviceEligibility {
         anyConnected: Bool,
         wristJoined: Bool
     ) -> StartStep? {
+        _ = recipe.asksWatch
+        _ = wristJoined
         if recipe.needsRunLocation, answers.runEnvironment == nil {
             return .runLocation
         }
@@ -298,10 +300,6 @@ enum PreWorkoutDeviceEligibility {
             skipped: answers.skippedUnscopedErg
         ) {
             return .erg(nil)
-        }
-        if recipe.asksWatch,
-           !SessionStartPolicy.watchResolved(answers: answers, wristJoined: wristJoined) {
-            return .watch
         }
         return nil
     }

@@ -55,6 +55,8 @@ final class MirrorSessionController: NSObject {
     }
 
     static let connectionLostAfter: TimeInterval = 15
+    /// Hard exit from `.ending` if HealthKit save hangs (FH-93 Guardando soft-lock).
+    static let endingTimeout: TimeInterval = 8
     static let hrRelayMinInterval: TimeInterval = 1
     static let savedBeat: Duration = .milliseconds(900)
 
@@ -71,6 +73,7 @@ final class MirrorSessionController: NSObject {
     let locationGate = WatchRunLocationGate()
     var lastSignalAt: Date = .distantPast
     var watchdog: Timer?
+    var endingTimeoutTimer: Timer?
     /// Card 72 — leftover PRIMARY: `handle(_:)` is a NEW session. Finish first.
     var pendingStartConfiguration: HKWorkoutConfiguration?
     var pendingStartMode: Mode = .mirror

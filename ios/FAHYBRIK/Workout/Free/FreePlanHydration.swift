@@ -9,6 +9,18 @@ enum FreePlanEditTrack {
 }
 
 enum FreePlanHydration {
+    /// Runnable free context for a scheduled self-origin assignment (plan row → live).
+    static func runContext(from detail: AssignmentDetail) -> FreeWorkoutContext? {
+        guard detail.execution == nil else { return nil }
+        guard detail.assignment.status == "scheduled" else { return nil }
+        switch editTrack(from: detail) {
+        case let .measured(draft): return draft.buildContext()
+        case let .strength(draft): return draft.buildContext()
+        case let .functional(draft): return draft.buildContext()
+        case .none: return nil
+        }
+    }
+
     /// Which builder track + pre-filled draft to open for editing a scheduled libre.
     static func editTrack(from detail: AssignmentDetail) -> FreePlanEditTrack? {
         guard detail.execution == nil else { return nil }

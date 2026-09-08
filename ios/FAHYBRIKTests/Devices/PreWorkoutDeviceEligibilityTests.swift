@@ -260,7 +260,7 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
             .erg(.row))
     }
 
-    func testWatchStepAfterRunAndErgResolved() {
+    func testErgAfterRunLocation_resolvesToReady() {
         let segs = [seg(.running), seg(.rowOrSki, ergKind: "ski")]
         let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
         var a = SessionStartAnswers.empty
@@ -268,8 +268,14 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
         XCTAssertEqual(
             PreWorkoutDeviceEligibility.nextStartStep(
                 recipe: r, segments: segs, answers: a,
-                roleConnected: [.ski], anyConnected: false, wristJoined: false),
-            .watch)
+                roleConnected: [], anyConnected: false, wristJoined: false),
+            .erg(.ski))
+        var resolved = a
+        resolved.skippedErgRoleWires = []
+        XCTAssertNil(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: resolved,
+                roleConnected: [.ski], anyConnected: false, wristJoined: false))
     }
 
     func testPureStrengthSkipsAllStartSteps() {
@@ -282,7 +288,7 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
                 roleConnected: [], anyConnected: false, wristJoined: false))
     }
 
-    func testProceedWithoutWristClearsWatchStep() {
+    func testProceedWithoutWristIsInlineNotAStartStep() {
         let segs = [seg(.running)]
         let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
         var a = SessionStartAnswers.empty
