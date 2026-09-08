@@ -723,7 +723,6 @@ struct ProfileIdentidadView: View {
     }
 
     static func goalLabel(_ type: String?) -> String {
-        guard let type else { return "Sin definir" }
-        return GoalTypeOption(rawValue: type)?.label ?? "Sin definir"
+        goalTypeLabel(type)
     }
 }

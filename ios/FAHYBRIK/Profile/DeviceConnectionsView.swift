@@ -37,6 +37,35 @@ struct DeviceConnectionsView: View {
     @State private var showCorosLinkAsk: Bool = false
 
     var body: some View {
+        deviceConnectionsChrome
+            .task {
+                await loadWearables()
+                await pullCorosIfConnected()
+                await watchScheduler.refreshAuthorization()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await pullCorosIfConnected() }
+            }
+            .modifier(DeviceConnectionsPresentation(
+                polarSafari: $polarSafari,
+                corosSafari: $corosSafari,
+                polarAlert: $polarAlert,
+                corosAlert: $corosAlert,
+                showCorosDisconnectConfirm: $showCorosDisconnectConfirm,
+                showCorosLinkAsk: $showCorosLinkAsk,
+                showHealthDisconnectConfirm: $showHealthDisconnectConfirm,
+                showWatchWorkoutsDisconnectConfirm: $showWatchWorkoutsDisconnectConfirm,
+                onLoadWearables: { await loadWearables() },
+                onPullCoros: { await pullCorosIfConnected() },
+                onDisconnectCoros: { await disconnectCoros() },
+                onAnswerCorosLink: { yes in await answerCorosLink(yes: yes) },
+                onDisconnectAppleHealth: disconnectAppleHealth,
+                onDisconnectWatchWorkouts: disconnectWatchWorkouts
+            ))
+    }
+
+    private var deviceConnectionsChrome: some View {
         ZStack(alignment: .top) {
             Theme.Color.background.ignoresSafeArea()
             ScrollView {
@@ -57,72 +86,6 @@ struct DeviceConnectionsView: View {
         }
         .navigationTitle("Dispositivos y apps")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await loadWearables()
-            await pullCorosIfConnected()
-            await watchScheduler.refreshAuthorization()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await pullCorosIfConnected() }
-        }
-        .sheet(item: $polarSafari, onDismiss: { Task { await loadWearables() } }) { item in
-            SafariView(url: item.url).ignoresSafeArea()
-        }
-        .sheet(item: $corosSafari, onDismiss: { Task { await loadWearables(); await pullCorosIfConnected() } }) { item in
-            SafariView(url: item.url).ignoresSafeArea()
-        }
-        .alert("Polar", isPresented: polarAlertBinding, presenting: polarAlert) { _ in
-            Button("Entendido", role: .cancel) {}
-        } message: { message in
-            Text(message)
-        }
-        .alert("COROS", isPresented: corosAlertBinding, presenting: corosAlert) { _ in
-            Button("Entendido", role: .cancel) {}
-        } message: { message in
-            Text(message)
-        }
-        .confirmationDialog(
-            "¿Desconectar COROS?",
-            isPresented: $showCorosDisconnectConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Desconectar", role: .destructive) { Task { await disconnectCoros() } }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text("Revocamos el acceso a tu cuenta COROS. El historial ya importado se conserva.")
-        }
-        .confirmationDialog(
-            "¿Esto es el entreno?",
-            isPresented: $showCorosLinkAsk,
-            titleVisibility: .visible
-        ) {
-            Button("Sí") { Task { await answerCorosLink(yes: true) } }
-            Button("No") { Task { await answerCorosLink(yes: false) } }
-            Button("Ahora no", role: .cancel) {}
-        } message: {
-            Text("Hay un entreno previsto hoy y una actividad nueva en COROS. Si dices que no, la actividad queda en el historial y el plan no se toca.")
-        }
-        .confirmationDialog(
-            "¿Desconectar Apple Salud?",
-            isPresented: $showHealthDisconnectConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Desconectar", role: .destructive) { disconnectAppleHealth() }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text("Dejaremos de leer y sincronizar tus datos de salud. Podrás volver a conectarlos cuando quieras.")
-        }
-        .confirmationDialog(
-            "¿Quitar tus carreras del reloj?",
-            isPresented: $showWatchWorkoutsDisconnectConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Quitar", role: .destructive) { disconnectWatchWorkouts() }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text("Las quitaremos de la app Entrenamiento del reloj. Seguirás teniéndolas aquí, en \(Marca.nombre).")
-        }
     }
 
     private var headerBlock: some View {
@@ -319,10 +282,6 @@ struct DeviceConnectionsView: View {
         .accessibilityAddTraits(polarConnected ? [] : .isButton)
     }
 
-    private var polarAlertBinding: Binding<Bool> {
-        Binding(get: { polarAlert != nil }, set: { if !$0 { polarAlert = nil } })
-    }
-
     private func loadWearables() async {
         guard let bearer else { return }
         guard let resp = try? await WearablesService.fetch(bearer: bearer) else { return }
@@ -417,10 +376,6 @@ struct DeviceConnectionsView: View {
         if corosSyncing { return "Sincronizando tus entrenos…" }
         if corosConnected { return "Lee tus entrenos. El plan no baja al reloj." }
         return "Conecta tu cuenta para sincronizar tus entrenos"
-    }
-
-    private var corosAlertBinding: Binding<Bool> {
-        Binding(get: { corosAlert != nil }, set: { if !$0 { corosAlert = nil } })
     }
 
     private func connectCoros() async {
@@ -720,6 +675,125 @@ struct DeviceConnectionsView: View {
                 toast = nil
             }
         }
+    }
+}
+
+// MARK: - Sheets, alerts and confirmation dialogs (type-check split)
+
+private struct DeviceConnectionsPresentation: ViewModifier {
+    @Binding var polarSafari: SafariURL?
+    @Binding var corosSafari: SafariURL?
+    @Binding var polarAlert: String?
+    @Binding var corosAlert: String?
+    @Binding var showCorosDisconnectConfirm: Bool
+    @Binding var showCorosLinkAsk: Bool
+    @Binding var showHealthDisconnectConfirm: Bool
+    @Binding var showWatchWorkoutsDisconnectConfirm: Bool
+
+    let onLoadWearables: () async -> Void
+    let onPullCoros: () async -> Void
+    let onDisconnectCoros: () async -> Void
+    let onAnswerCorosLink: (Bool) async -> Void
+    let onDisconnectAppleHealth: () -> Void
+    let onDisconnectWatchWorkouts: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $polarSafari, onDismiss: { Task { await onLoadWearables() } }) { item in
+                SafariView(url: item.url).ignoresSafeArea()
+            }
+            .sheet(item: $corosSafari, onDismiss: { Task { await onLoadWearables(); await onPullCoros() } }) { item in
+                SafariView(url: item.url).ignoresSafeArea()
+            }
+            .modifier(DeviceConnectionsAlerts(
+                polarAlert: $polarAlert,
+                corosAlert: $corosAlert,
+                showCorosDisconnectConfirm: $showCorosDisconnectConfirm,
+                showCorosLinkAsk: $showCorosLinkAsk,
+                showHealthDisconnectConfirm: $showHealthDisconnectConfirm,
+                showWatchWorkoutsDisconnectConfirm: $showWatchWorkoutsDisconnectConfirm,
+                onDisconnectCoros: onDisconnectCoros,
+                onAnswerCorosLink: onAnswerCorosLink,
+                onDisconnectAppleHealth: onDisconnectAppleHealth,
+                onDisconnectWatchWorkouts: onDisconnectWatchWorkouts
+            ))
+    }
+}
+
+private struct DeviceConnectionsAlerts: ViewModifier {
+    @Binding var polarAlert: String?
+    @Binding var corosAlert: String?
+    @Binding var showCorosDisconnectConfirm: Bool
+    @Binding var showCorosLinkAsk: Bool
+    @Binding var showHealthDisconnectConfirm: Bool
+    @Binding var showWatchWorkoutsDisconnectConfirm: Bool
+
+    let onDisconnectCoros: () async -> Void
+    let onAnswerCorosLink: (Bool) async -> Void
+    let onDisconnectAppleHealth: () -> Void
+    let onDisconnectWatchWorkouts: () -> Void
+
+    private var polarAlertBinding: Binding<Bool> {
+        Binding(get: { polarAlert != nil }, set: { if !$0 { polarAlert = nil } })
+    }
+
+    private var corosAlertBinding: Binding<Bool> {
+        Binding(get: { corosAlert != nil }, set: { if !$0 { corosAlert = nil } })
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Polar", isPresented: polarAlertBinding, presenting: polarAlert) { _ in
+                Button("Entendido", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
+            .alert("COROS", isPresented: corosAlertBinding, presenting: corosAlert) { _ in
+                Button("Entendido", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
+            .confirmationDialog(
+                "¿Desconectar COROS?",
+                isPresented: $showCorosDisconnectConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Desconectar", role: .destructive) { Task { await onDisconnectCoros() } }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Revocamos el acceso a tu cuenta COROS. El historial ya importado se conserva.")
+            }
+            .confirmationDialog(
+                "¿Esto es el entreno?",
+                isPresented: $showCorosLinkAsk,
+                titleVisibility: .visible
+            ) {
+                Button("Sí") { Task { await onAnswerCorosLink(true) } }
+                Button("No") { Task { await onAnswerCorosLink(false) } }
+                Button("Ahora no", role: .cancel) {}
+            } message: {
+                Text("Hay un entreno previsto hoy y una actividad nueva en COROS. Si dices que no, la actividad queda en el historial y el plan no se toca.")
+            }
+            .confirmationDialog(
+                "¿Desconectar Apple Salud?",
+                isPresented: $showHealthDisconnectConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Desconectar", role: .destructive) { onDisconnectAppleHealth() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Dejaremos de leer y sincronizar tus datos de salud. Podrás volver a conectarlos cuando quieras.")
+            }
+            .confirmationDialog(
+                "¿Quitar tus carreras del reloj?",
+                isPresented: $showWatchWorkoutsDisconnectConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Quitar", role: .destructive) { onDisconnectWatchWorkouts() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Las quitaremos de la app Entrenamiento del reloj. Seguirás teniéndolas aquí, en \(Marca.nombre).")
+            }
     }
 }
 
