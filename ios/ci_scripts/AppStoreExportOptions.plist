@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Reference export options for App Store distribution.
+  Key: manageAppVersionAndBuildNumber=false keeps CFBundleVersion from the archive
+  (project.yml CURRENT_PROJECT_VERSION) instead of CI_BUILD_NUMBER.
+
+  Xcode Cloud: prefer turning OFF "Manage Version and Build Number" in the
+  workflow Archive step (same effect). If the workflow offers "Custom Export
+  Options Plist", point it at this file (Owner one-time in ASC).
+-->
+<plist version="1.0">
+<dict>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+	<key>method</key>
+	<string>app-store</string>
+	<key>teamID</key>
+	<string>S6W4459DDG</string>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

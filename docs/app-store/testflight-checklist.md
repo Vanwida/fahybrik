@@ -69,7 +69,24 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
 ## 4. First build upload — 🤖 agent-doable once signing is set
 
 - [x] **Xcode Cloud:** `ios/ci_scripts/ci_post_clone.sh` runs `xcodegen generate` after clone so the three gitignored `Generated-Info.plist` files exist (Apple requires `ci_scripts/` beside `FAHYBRIK.xcodeproj`, not at repo root). Without it, Archive fails with exit 65 on a clean clone.
-- [ ] **Xcode Cloud — Manage Version and Build Number (🔒 Owner/Lingxi):** In App Store Connect → Xcode Cloud → **FAHYBRIK** workflow **Default** → **Edit Workflow** → **Archive** step → turn **OFF** **Manage Version and Build Number**. When ON, Apple overwrites `CFBundleVersion` with the Xcode Cloud build number (e.g. build 21) instead of `CURRENT_PROJECT_VERSION` in `ios/project.yml`. TestFlight shows the **highest** `CFBundleVersion` per marketing version — a Cloud upload at 21 is invisible while ASC still has 62. **Preferred:** leave Manage Version OFF so the repo (`CURRENT_PROJECT_VERSION`, currently **68+**) is the source of truth. **If it must stay ON:** every Archive must run with CI build number **>** latest TestFlight build (e.g. >62) — slow and error-prone; do not rely on this.
+- [x] **Xcode Cloud — build number stamp:** `ios/ci_scripts/ci_pre_xcodebuild.sh` runs before Archive, reads `CURRENT_PROJECT_VERSION` from `project.yml`, syncs `project.pbxproj` + the three `Generated-Info.plist` files (app, watch, widgets), and optionally runs `agvtool new-version -all`. **Effective when Manage Version is OFF** (repo version lands in the IPA).
+- [ ] **Xcode Cloud — Manage Version and Build Number (🔒 Owner/Lingxi, one-time):** When **ON**, Apple **overwrites `CFBundleVersion` at export** with the Xcode Cloud build counter (`CI_BUILD_NUMBER`, e.g. 21–22), **not** `CURRENT_PROJECT_VERSION` from the repo. TestFlight keeps the **highest** `CFBundleVersion` per marketing version — upload at 22 stays invisible while ASC still has **62** for `1.0`. **`ci_pre_xcodebuild.sh` cannot override export** when this toggle is ON.
+
+  **Click-path to turn OFF (preferred):**
+  1. [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **FAHYBRIK** (bundle `com.fahybrid.app`)
+  2. **Xcode Cloud** tab (left sidebar, under the app)
+  3. Workflow **Default** → **Edit Workflow** (or ⋯ → Edit)
+  4. Under **Distribution preparation** / **Archive** (wording varies by ASC UI version): uncheck **Manage Version and Build Number**
+  5. **Save** → re-run Archive on `main`
+
+  After OFF: next Archive should upload **`CFBundleVersion` = repo value** (currently **70** via `project.yml` + `ci_pre_xcodebuild.sh`).
+
+  **If Manage Version must stay ON** (not recommended):
+  - Set workflow **Next Build Number** to **> latest TestFlight build** (e.g. **70**) in the same Edit Workflow screen — export then uses that counter, not 21/22.
+  - **Fallback:** bump `MARKETING_VERSION` in `project.yml` (e.g. `1.0` → `1.0.1`) so CI build 23 opens a **new TestFlight version lane** separate from `1.0 (62)`. Manage Version does **not** reset marketing to a useless value — it propagates the project's `MARKETING_VERSION`; only `CFBundleVersion` is replaced by the CI counter.
+
+  Reference export plist (same as toggle OFF): `ios/ci_scripts/AppStoreExportOptions.plist` sets `manageAppVersionAndBuildNumber` = false. Use only if the workflow exposes **Custom Export Options Plist**; otherwise use the toggle above.
+
 - [ ] Bump build number: set `CURRENT_PROJECT_VERSION` in `ios/project.yml` (must be **>** latest TestFlight `CFBundleVersion` for `1.0`), then `cd ios && xcodegen generate` and commit the regenerated `project.pbxproj`. Fastlane `beta` lane can also bump from TestFlight when uploading locally.
 - [ ] Run `cd ios && bundle install` (one-time).
 - [ ] Run `cd ios && bundle exec fastlane beta` to archive + upload.
