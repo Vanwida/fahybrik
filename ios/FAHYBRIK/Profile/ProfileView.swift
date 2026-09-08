@@ -108,12 +108,11 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             identityCard
 
-            profileDoorSection(
-                title: "Identidad",
-                subtitle: identidadDoorSubtitle
-            ) {
-                ProfileIdentidadView(bearer: bearer, hasCoach: hasCoach)
-            }
+                        profileDoorSection(
+                            title: "Identidad",
+                            subtitle: identidadDoorSubtitle,
+                            destination: ProfileIdentidadView(bearer: bearer, hasCoach: hasCoach)
+                        )
 
             RendimientoSection(
                 bearer: bearer,
@@ -124,45 +123,41 @@ struct ProfileView: View {
                 onSessionCompleted: { Task { await store.planMutated() } }
             )
 
-            profileDoorSection(
-                title: "Entreno",
-                subtitle: "Días, molestias, avisos de voz y pruebas del reloj"
-            ) {
-                ProfileEntrenoView(
-                    bearer: bearer,
-                    hasCoach: hasCoach,
-                    coachName: coachName
-                )
-            }
+                        profileDoorSection(
+                            title: "Entreno",
+                            subtitle: "Días, molestias, avisos de voz y pruebas del reloj",
+                            destination: ProfileEntrenoView(
+                                bearer: bearer,
+                                hasCoach: hasCoach,
+                                coachName: coachName
+                            )
+                        )
 
-            profileDoorSection(
-                title: "Dispositivos y apps",
-                subtitle: "Apple Health, reloj, Garmin, Polar, COROS y más"
-            ) {
-                DeviceConnectionsView(bearer: bearer)
-            }
+                        profileDoorSection(
+                            title: "Dispositivos y apps",
+                            subtitle: "Apple Health, reloj, Garmin, Polar, COROS y más",
+                            destination: DeviceConnectionsView(bearer: bearer)
+                        )
 
-            profileDoorSection(
-                title: "Cuenta",
-                subtitle: hasCoach
-                    ? "Apariencia, metodología y privacidad de datos"
-                    : "Apariencia y privacidad de datos"
-            ) {
-                ProfileCuentaView(
-                    bearer: bearer,
-                    hasCoach: hasCoach,
-                    coachName: coachName,
-                    partnerName: store.partner.value?.partner?.firstName,
-                    onSignOut: onSignOut
-                )
-            }
+                        profileDoorSection(
+                            title: "Cuenta",
+                            subtitle: hasCoach
+                                ? "Apariencia, metodología y privacidad de datos"
+                                : "Apariencia y privacidad de datos",
+                            destination: ProfileCuentaView(
+                                bearer: bearer,
+                                hasCoach: hasCoach,
+                                coachName: coachName,
+                                partnerName: store.partner.value?.partner?.firstName,
+                                onSignOut: onSignOut
+                            )
+                        )
 
-            profileDoorSection(
-                title: "Ayuda y legal",
-                subtitle: "Sugerencias, privacidad y términos"
-            ) {
-                ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
-            }
+                        profileDoorSection(
+                            title: "Ayuda y legal",
+                            subtitle: "Sugerencias, privacidad y términos",
+                            destination: ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
+                        )
 
             signOutButton
             appVersionFooter
@@ -201,12 +196,12 @@ struct ProfileView: View {
     private func profileDoorSection<Destination: View>(
         title: String,
         subtitle: String,
-        @ViewBuilder destination: () -> Destination
+        destination: Destination
     ) -> some View {
         SectionHeader(title: title)
         CardSurface(padding: 0) {
             NavigationLink {
-                destination()
+                destination
             } label: {
                 ProfileDoorRow(
                     icon: profileDoorIcon(title),

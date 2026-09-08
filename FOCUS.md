@@ -2,13 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-08** (Xcode Cloud CFBundleVersion → build 70)
+Última actualización: **2026-09-08** (Xcode Cloud build 75 — ProfileView escaping fix)
 
 ## Ahora
 
-**FH-88 — Perfil compacto (main, build 74, #161).** Archive build 73 falló (exit 65):
-tipos Profile `private`/`fileprivate` tras split FH-88 → **`ProfileShared.swift`**
-(internal). Build **74** pendiente re-Archive Xcode Cloud → TestFlight.
+**FH-88 — Perfil compacto (main, build 75).** Archive build 74 falló: `profileDoorSection`
+capturaba `@ViewBuilder destination` no-escaping dentro de `NavigationLink` → fix:
+parámetro `destination: Destination` (View value). Build **75** pendiente Archive → TestFlight.
+Build 73/74 previos: private/fileprivate (#162 ProfileShared) + escaping (#163).
 
 **FH-86 — COROS «Sincronizar ahora» (main, build 73, #160).**
 Fix silencio iOS: alerta en sync manual y pull con imports/errores; API
