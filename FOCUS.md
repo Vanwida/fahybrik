@@ -2,13 +2,21 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-08** (Xcode Cloud build 75 — ProfileView escaping fix)
+Última actualización: **2026-09-09** (FH-94 run gate + live Devices — build 76)
 
 ## Ahora
 
+**FH-94 — Run gate + live Devices (rama `cursor/fh94-run-gate-devices-720f`, build 76).**
+Root cause: `startRecipe` usaba `kind == .running` pero rounds/functional (Cario Mix
+Run·Row·Ski) llevan run en `involvesRun` → saltaba `RunPreStartFlow` → remo primero →
+CORRER EN CINTA/FUERA en mid-HUD. Fix: `needsRunLocation` = `involvesRun` (misma señal
+que `devices(for:)`). Live: sin CTAs cinta/fuera en `RunLiveHUD`; `BotonConectividad` en
+banda superior + `LiveConectividadSheet` (PM5/cinta/HR + cambio de entorno). Persist en
+`scenePhase` background. Pendiente: Archive → TestFlight smoke (Cario Mix).
+
 **FH-88 — Perfil compacto (main, build 75).** Archive build 74 falló: `profileDoorSection`
 capturaba `@ViewBuilder destination` no-escaping dentro de `NavigationLink` → fix:
-parámetro `destination: Destination` (View value). Build **75** pendiente Archive → TestFlight.
+parámetro `destination: Destination` (View value). Build **75** en main previo a FH-94.
 Build 73/74 previos: private/fileprivate (#162 ProfileShared) + escaping (#163).
 
 **FH-86 — COROS «Sincronizar ahora» (main, build 73, #160).**
