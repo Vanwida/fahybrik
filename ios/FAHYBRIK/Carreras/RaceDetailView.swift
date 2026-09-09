@@ -331,9 +331,8 @@ struct RaceDetailView: View {
         CardSurface(padding: 16, elevated: true) {
             VStack(alignment: .leading, spacing: 10) {
                 LabelText(text: "TU OBJETIVO")
-                if let goal = race.goalTimeSeconds, goal > 0,
-                   let clock = GoalGapFormat.raceClock(goal) {
-                    Text(clock)
+                if let goal = race.goalTimeSeconds, goal > 0 {
+                    Text(GoalGapFormat.raceClock(goal))
                         .font(.system(size: 32, weight: .heavy, design: .monospaced).italic().monospacedDigit())
                         .foregroundStyle(Theme.Color.foreground)
                 } else {

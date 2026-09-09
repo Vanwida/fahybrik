@@ -186,7 +186,7 @@ final class HealthKitHistoryImporter {
         source: HealthHistoryWindowImporting = HealthKitHistoryWindowReader.shared,
         athleteId: String? = AuthState.persistedAthleteId(),
         defaults: UserDefaults = .standard,
-        pauseBetweenWindows: Duration = Self.defaultPauseBetweenWindows
+        pauseBetweenWindows: Duration = .milliseconds(300)
     ) {
         self.source = source
         self.pauseBetweenWindows = pauseBetweenWindows
