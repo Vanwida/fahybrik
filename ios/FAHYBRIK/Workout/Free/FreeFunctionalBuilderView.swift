@@ -290,6 +290,9 @@ struct FreeFunctionalBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+            ProgramarDiaPicker(selectedISO: $draft.scheduledDayISO)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
             HStack(spacing: Theme.Spacing.m) {
                 SecondaryButton(title: "Guardar") {
                     Task { await savePlan() }

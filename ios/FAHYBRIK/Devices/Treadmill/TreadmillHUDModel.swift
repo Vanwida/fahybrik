@@ -560,6 +560,7 @@ final class TreadmillHUDModel {
     /// Metros del tramo que pinta el HUD: cinta si ella firma, si no lo que
     /// `RunDistanceAuthority` ya aceptó (HK indoor del reloj).
     var coveredMeters: Double {
+        if let official = session.officialRunDistanceMeters { return official }
         if session.lapBeltOwnsDistance { return legDistanceM }
         return session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters ?? 0
     }

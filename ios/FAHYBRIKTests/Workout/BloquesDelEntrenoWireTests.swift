@@ -43,7 +43,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         s.start(); s.beginBlock(); s.stop()
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
         let vista = OutdoorRunHUDView(session: s, hrZones: nil,
-                                      alSalir: {}, alVerBloques: {})
+                                      alSalir: {}, alVerBloques: {}, alConectividad: {})
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
                       "calle no hereda topStrip — el botón va en su cromo")
     }
@@ -55,7 +55,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         s.start(); s.beginBlock(); s.stop()
         XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
         let vista = TreadmillHUDView(session: s, hrZones: nil,
-                                     alSalir: {}, alVerBloques: {})
+                                     alSalir: {}, alVerBloques: {}, alConectividad: {})
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
                       "cinta no hereda topStrip — el botón va en su header")
     }

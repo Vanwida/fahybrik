@@ -425,6 +425,9 @@ final class WorkoutSession {
     // the ingest feeds it, but the HUD (reopen rehydration) and the mirror can read.
     var lapBeltDistanceMeters: Double = 0
 
+    /// Metres from prior run sources before the latest mid-session env switch (FH-102).
+    var _runDistanceCarryMeters: Double = 0
+
     var timer: Timer?
     var lastTick: Date = Date()
     var autoSaveTicker: Int = 0

@@ -306,6 +306,8 @@ extension WorkoutSession {
     /// sin reloj y sin cinta no hay cifra. Tramo-gated like the feed that fills it.
     var liveRunDistanceMeters: Double? {
         guard tramoIsRun, !lapBeltOwnsDistance else { return nil }
-        return lapGpsDistanceMeters ?? manualRunDistanceMeters
+        let active = lapGpsDistanceMeters ?? manualRunDistanceMeters
+        guard active != nil || runDistanceCarryMeters > 0 else { return nil }
+        return runDistanceCarryMeters + (active ?? 0)
     }
 }

@@ -145,6 +145,7 @@ final class FreeStrengthDraft {
     var includeWarmup: Bool = false
     var warmupItems: [FreeStrengthItem] = []
     var titleEdited: String = ""
+    var scheduledDayISO: String = RaceDate.todayISO()
 
     static let maxTitle = 80
 
@@ -239,7 +240,8 @@ final class FreeStrengthDraft {
             modality: PrescriptionModality.strength.rawValue,
             prescription: nil,
             items: payloadItems,
-            assignment_id: assignmentId
+            assignment_id: assignmentId,
+            scheduled_for: scheduledDayISO
         )
     }
 
@@ -503,6 +505,9 @@ struct FreeStrengthBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+            ProgramarDiaPicker(selectedISO: $draft.scheduledDayISO)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
             HStack(spacing: Theme.Spacing.m) {
                 SecondaryButton(title: "Guardar") {
                     Task { await savePlan() }

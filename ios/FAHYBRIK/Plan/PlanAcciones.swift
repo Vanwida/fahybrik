@@ -120,10 +120,11 @@ extension PlanView {
     }
 
     func diasDestino(de session: AthleteWeekDaySession) -> [DiaDelPlan] {
-        let origen = semana?.dias.first { dia in
+        let visible = semanaVisible
+        let origen = visible?.dias.first { dia in
             dia.sesiones.contains { $0.assignmentId == session.assignmentId }
         }
-        return (semana?.dias ?? []).filter { $0.isoDate != origen?.isoDate }
+        return (visible?.dias ?? []).filter { $0.isoDate != origen?.isoDate }
     }
 
     /// «Lunes 21 · libre» / «Hoy · 1 sesión» — el día, su fecha y su carga, para

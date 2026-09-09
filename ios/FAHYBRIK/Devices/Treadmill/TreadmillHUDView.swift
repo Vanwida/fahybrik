@@ -36,11 +36,13 @@ struct TreadmillHUDView: View {
     let alSalir: () -> Void
     /// Abre la hoja de bloques del padre. Un disparador: `mostrarBloques = true`.
     let alVerBloques: () -> Void
+    /// Abre conectividad (calle ↔ cinta) sin parar la sesión (FH-102).
+    let alConectividad: () -> Void
     /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
     /// HUD vivo (reloj indoor), no a la guía de conectar.
     init(session: WorkoutSession, hrZones: HRZoneProfile?,
          empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void,
-         alVerBloques: @escaping () -> Void) {
+         alVerBloques: @escaping () -> Void, alConectividad: @escaping () -> Void) {
         // The SHARED hub — so a belt connected in the brief is already live here (no
         // re-scan), and the connection outlives this surface going away and coming back.
         _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
@@ -48,6 +50,7 @@ struct TreadmillHUDView: View {
         _sinCinta = State(initialValue: empiezaSinCinta)
         self.alSalir = alSalir
         self.alVerBloques = alVerBloques
+        self.alConectividad = alConectividad
     }
 
     var body: some View {
@@ -157,6 +160,7 @@ struct TreadmillHUDView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
+            ControlFuenteCarrera(environment: model.session.runEnvironment, accion: alConectividad)
             headerChip(icon: "figure.run", text: cintaChipText,
                        link: model.treadmillLink, channel: model.treadmillChannel,
                        // MANTENIDO PULSADO en el chip de la cinta = "Modo de control",
@@ -935,8 +939,7 @@ struct TreadmillHUDView: View {
             // sin cinta enseña lo que sí se sabe. No hay otro HUD al que volver.
             onSkip: {
                 Haptics.light()
-                model.session.runEnvironment = .indoor
-                model.session.ensurePhoneWorkoutRun()
+                model.session.switchRunEnvironment(to: .indoor)
                 sinCinta = true
             },
             onShareDiagnostics: model.diagnosticsText != nil ? { showDiagnostics = true } : nil

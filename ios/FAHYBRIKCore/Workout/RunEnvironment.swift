@@ -36,6 +36,15 @@ enum RunEnvironment: String, Codable, Equatable, CaseIterable {
 
     /// Superficie de la lectura / marca: las dos cintas son cinta.
     var isTreadmillSurface: Bool { self != .outdoor }
+
+    /// Etiqueta corta y agnóstica para el cromo en vivo (FH-102).
+    var hudLabel: String {
+        switch self {
+        case .outdoor:   return "Calle"
+        case .treadmill: return "Cinta"
+        case .indoor:    return "Sin conexión"
+        }
+    }
 }
 
 /// Calle o cinta — la decisión de cromo, no un segundo presentador.

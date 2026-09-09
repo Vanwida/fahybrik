@@ -43,14 +43,18 @@ struct OutdoorRunHUDView: View {
     let alSalir: () -> Void
     /// Abre la hoja de bloques del padre. Un disparador: `mostrarBloques = true`.
     let alVerBloques: () -> Void
+    /// Abre conectividad (calle ↔ cinta) sin parar la sesión (FH-102).
+    let alConectividad: () -> Void
     /// "Avisos de voz" (#63) toggle — shares the key with ProfileView.
     @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
 
     init(session: WorkoutSession, hrZones: HRZoneProfile?,
-         alSalir: @escaping () -> Void, alVerBloques: @escaping () -> Void) {
+         alSalir: @escaping () -> Void, alVerBloques: @escaping () -> Void,
+         alConectividad: @escaping () -> Void) {
         _model = State(initialValue: OutdoorRunHUDModel(session: session, hrZones: hrZones))
         self.alSalir = alSalir
         self.alVerBloques = alVerBloques
+        self.alConectividad = alConectividad
     }
 
     var body: some View {
@@ -89,14 +93,7 @@ struct OutdoorRunHUDView: View {
 
     private var cromo: some View {
         HStack(spacing: 6) {
-            Image(systemName: "figure.run")
-                .font(.system(size: 13, weight: .heavy))
-                .foregroundStyle(Theme.Color.accentText)
-            Text("AL AIRE LIBRE")
-                .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
-                .tracking(0.8)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
+            ControlFuenteCarrera(environment: model.session.runEnvironment, accion: alConectividad)
             Spacer(minLength: 0)
             BotonVerBloques(accion: alVerBloques)
             botonRedondo(voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill",
@@ -563,7 +560,7 @@ private func zonasDePrueba() -> HRZoneProfile {
     let sesion = rodajeDePrueba()
     sesion.liveHRBpm = 145        // Z2 con el umbral de 170 → estás donde toca
     return OutdoorRunHUDView(session: sesion, hrZones: zonasDePrueba(),
-                             alSalir: {}, alVerBloques: {})
+                             alSalir: {}, alVerBloques: {}, alConectividad: {})
 }
 
 /// SIN ANCLA DE FC — el servidor no mandó zonas y no hay reloj. NO hay tinte, no
@@ -572,7 +569,7 @@ private func zonasDePrueba() -> HRZoneProfile {
 /// diseño (§6.3) — no la versión rota de la de arriba.
 #Preview("Correr en vivo · sin ancla de FC") {
     OutdoorRunHUDView(session: rodajeDePrueba(), hrZones: nil,
-                      alSalir: {}, alVerBloques: {})
+                      alSalir: {}, alVerBloques: {}, alConectividad: {})
 }
 #endif
 

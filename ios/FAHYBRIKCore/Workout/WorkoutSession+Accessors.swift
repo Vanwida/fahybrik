@@ -92,7 +92,7 @@ extension WorkoutSession {
     var runLegCoveredMeters: Double {
         let beltDelta = Swift.max(0, lapBeltDistanceMeters - runLegBeltStart)
         let gpsDelta = Swift.max(0, (lapGpsDistanceMeters ?? 0) - runLegGpsStart)
-        return beltDelta > 0 ? beltDelta : gpsDelta
+        return runDistanceCarryMeters + (beltDelta > 0 ? beltDelta : gpsDelta)
     }
 
     var liveCoveredPaceSecPerKm: Int? {
