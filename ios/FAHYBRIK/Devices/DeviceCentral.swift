@@ -260,14 +260,16 @@ final class DeviceCentral: NSObject, CBCentralManagerDelegate {
     private func refreshScan() {
         guard let manager else { return }
         let union = Array(Set(scanServices.values.flatMap { $0 }))
-        if union.isEmpty {
-            if manager.isScanning { manager.stopScan() }
-        } else {
-            manager.scanForPeripherals(
-                withServices: union,
-                options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
-            )
-        }
+        // FH-95: always stop before (re)starting. With allowDuplicates=false, peripherals
+        // discovered during a prior station's scan (e.g. Remo before Ski) are NOT
+        // re-reported when scanForPeripherals is called while already scanning — the
+        // second role's store stays empty even though SkiErgs are in the room.
+        if manager.isScanning { manager.stopScan() }
+        guard !union.isEmpty else { return }
+        manager.scanForPeripherals(
+            withServices: union,
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+        )
     }
 
     private func bind(_ peripheral: CBPeripheral, station: BLEStation) {

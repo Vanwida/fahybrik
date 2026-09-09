@@ -7,7 +7,7 @@ import Foundation
 //   · Cinta enchufada  → FTMS. Ya #47.
 //   · Cinta tonta      → HKWorkout indoor del reloj. Apple cuenta.
 //
-// Se elige en `RunPreStartFlow` (brief prescrito y constructor libre), viaja
+// Se elige en `PreWorkoutDevicesHubView` (antes del vivo), viaja
 // en la sesión y en el snapshot (`PersistedWorkoutState.runEnvironment`) para
 // reabrir el HUD correcto. `String` + `Codable`: Apple sintetiza encode/decode
 // con el raw value; sin esto el snapshot no es `Decodable`.

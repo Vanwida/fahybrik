@@ -10,6 +10,29 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-09 · FH-95 — Devices hub (resta StartStep secuencial)
+
+**El hueco:** FH-94 reforzó la máquina `StartStep` (calle → remo → ski → LISTO).
+En campo: scan Ski vacío tras conectar Remo (CoreBluetooth no re-entrega
+periféricos ya vistos si el central no para+arranca el scan al añadir el segundo
+`BLEStation`), y el atleta no controla el orden ni ve todas las máquinas a la vez.
+
+**Decidido:** brief (Continuar) → `PreWorkoutDevicesHubView` (todas las filas) →
+brief otra vez con `readyToStart` (único ▶ EMPEZAR vía `PreWorkoutReleaseLive`) →
+live. Run env en la fila Correr del hub. PM5: `beginPM5Scan` explícito al abrir
+sheet + `.id(device)` (onAppear no basta al remount remo→ski). `DeviceCentral.refreshScan`
+siempre `stopScan` antes de `scanForPeripherals`. Reloj: informativo en
+`PreWorkoutWatchCard`; Empezar nunca gris esperando `wristJoined` (chicken-and-egg:
+`begin` va en el tap). `BlockPreviewGate` = «▶ ARRANCAR BLOQUE», no Empezar.
+Borrados: `SessionStartGate`, `ErgPreStartFlow`, struct `RunPreStartFlow`
+(queda `TreadmillConnectGuide` solo HUD mid-live). Escapes = «Continuar sin monitor/reloj».
+
+**NO hacer:** otra máquina `nextStartStep` / pantallas full-screen por rol; ▶
+Empezar en hub, `TreadmillConnectGuide` ni `PM5LiveStreamView` pre-live (solo brief
+readyToStart). Mid-live reconnect sigue en toolbar Devices.
+
+---
+
 ## 2026-09-07 · FH-91 — Un solo Start antes del vivo
 
 **El hueco:** cuatro puertas (`PreWorkoutBriefView` / constructores libres /

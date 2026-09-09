@@ -50,12 +50,11 @@ enum SessionStartPolicy {
         wristJoined || answers.watchUnavailable || answers.watchProceedWithoutWrist
     }
 
-    /// LISTO footer — honest when ▶ EMPEZAR is blocked on watch honesty.
+    /// Pre-live footer — informational only; ▶ EMPEZAR is never disabled for watch.
     static func empezarFooterHint(asksWatch: Bool, watchResolved: Bool, canReleaseLive: Bool) -> String {
-        if canReleaseLive { return "Empieza cuando estés listo" }
         if asksWatch && !watchResolved {
-            return "Confirma el reloj abajo o pulsa «Continuar sin reloj»"
+            return "El reloj puede unirse en directo — o pulsa «Continuar sin reloj»"
         }
-        return "Empieza cuando estés listo"
+        return "Empieza cuando estés listo — el reloj puede unirse en directo"
     }
 }

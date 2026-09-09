@@ -4,13 +4,8 @@ import SwiftUI
 // `detalle` screen). A faithful hi-fi recreation in our warm near-black palette
 // with Fabrik orange as the brand accent (the handoff red is OURS = orange).
 //
-// The brief presents the prescription and lets the athlete register it. Two
-// completion paths stay reachable: the rich "▶ Empezar" launch into the live
-// ActiveWorkout (timed / erg / run sessions), and the handoff's quick "Marcar
-// completada ✓ + RPE" for sessions that don't need live tracking (e.g. strength
-// in the box). The footer offers both; the body never invents a value it
-// doesn't have — every field is rendered from the coach's real prescription and
-// absent fields are empty-stated.
+// FH-95 path: Plan (Continuar) → Devices hub → THIS brief again with tips +
+// the sole ▶ EMPEZAR (`readyToStart`). Manual log paths only on the first pass.
 //
 // DATA SOURCE: the body is rendered from the RICH `AssignmentDetail` — the same
 // authoritative `GET /api/athlete/assignments/{id}/detail` payload (blocks →
@@ -33,7 +28,7 @@ struct PreWorkoutBriefView: View {
     /// exercises) the brief shows an honest "sin detalle" card, never a fabricated
     /// generic "Sesión".
     var detail: AssignmentDetail? = nil
-    /// Opens the unified pre-live start gate (FH-91). Live begins only after the gate releases.
+    /// Continuar → Devices hub (first pass only).
     let onStart: () -> Void
     /// "Ya lo hice": the athlete trained without the live timer and registers it
     /// after the fact. Routes straight to manual entry (no ActiveWorkout).
@@ -49,6 +44,19 @@ struct PreWorkoutBriefView: View {
     var isBenchmark: Bool = false
     let onClose: () -> Void
 
+    // MARK: FH-95 · ready-to-start pass (after Devices — ONE ▶ EMPEZAR)
+    var readyToStart: Bool = false
+    var segments: [WorkoutSegment] = []
+    var activityKind: String = "mixed"
+    var hrZones: HRZoneProfile? = nil
+    var startAnswers: Binding<SessionStartAnswers>? = nil
+    var stampSession: ((WorkoutSession) -> Void)? = nil
+    var onReleaseLive: ((WorkoutSession) -> Void)? = nil
+    var onBackFromReady: (() -> Void)? = nil
+
+    @State private var stagingSession: WorkoutSession? = nil
+    @State private var mirror = PhoneMirrorService.shared
+
     // Ficha del ejercicio (vídeo + consejos + descripción + nota del día), abierta
     // desde el botón "Ver técnica" de una fila. Antes esto solo guardaba la URL y
     // abría un reproductor a solas: la descripción y los consejos del catálogo —
@@ -61,7 +69,9 @@ struct PreWorkoutBriefView: View {
     /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
     @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
-    // FH-91 — devices + run env live in SessionStartGate, not here.
+    private var asksWatch: Bool {
+        !PreWorkoutDeviceEligibility.devices(for: segments).isEmpty
+    }
 
     // MARK: - Derived shape
 
@@ -146,12 +156,14 @@ struct PreWorkoutBriefView: View {
                         // a fabricated generic "Sesión" and was removed).
                         structuredBody(blocks)
                     } else {
-                        // No detail blocks reached the brief: an offline first-open
-                        // with no cache, or a session with no detailed exercises.
-                        // We DON'T fabricate a placeholder warmup + a "Sesión"
-                        // series — we say so honestly. The footer still offers a
-                        // freeform start + the retroactive "Ya lo hice" log.
                         detailUnavailableCard
+                    }
+                    if readyToStart, asksWatch, let binding = startAnswers {
+                        PreWorkoutWatchCard(
+                            answers: binding,
+                            mirror: mirror,
+                            onPrepWatch: prepWatchRecording
+                        )
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -168,13 +180,50 @@ struct PreWorkoutBriefView: View {
         .sheet(item: $tarjetaParaCompartir) { tarjeta in
             CompartirSheet(tarjeta: tarjeta)
         }
+        .onAppear {
+            guard readyToStart else { return }
+            if stagingSession == nil {
+                stagingSession = WorkoutSession(plan: plan, hrZones: hrZones)
+            }
+            if !WatchPresence.shared.appAvailable, let answers = startAnswers {
+                answers.wrappedValue.watchUnavailable = true
+            }
+        }
+    }
+
+    private func prepWatchRecording() {
+        guard let staging = stagingSession, let answers = startAnswers?.wrappedValue else { return }
+        PreWorkoutReleaseLive.prepWatchRecording(
+            staging: staging,
+            answers: answers,
+            activityKind: activityKind,
+            stampSession: stampSession
+        )
+        Haptics.light()
+    }
+
+    private func releaseLive() {
+        guard let staging = stagingSession,
+              let answers = startAnswers?.wrappedValue,
+              let onReleaseLive else { return }
+        let live = PreWorkoutReleaseLive.release(
+            staging: staging,
+            answers: answers,
+            activityKind: activityKind,
+            stampSession: stampSession
+        )
+        Haptics.medium()
+        onReleaseLive(live)
     }
 
     // MARK: - Nav bar (stays visible — the athlete can always leave)
 
     private var topBar: some View {
         HStack(spacing: Theme.Spacing.m) {
-            Button(action: { Haptics.light(); onClose() }) {
+            Button(action: {
+                Haptics.light()
+                if readyToStart { onBackFromReady?() } else { onClose() }
+            }) {
                 ZStack {
                     Circle().fill(Theme.Color.surfaceElevated)
                     Image(systemName: "chevron.left")
@@ -965,6 +1014,13 @@ struct PreWorkoutBriefView: View {
     //    saves the by-hand result with source='manual'.
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
+            if readyToStart {
+                Text("Empieza cuando estés listo — el reloj puede unirse en directo")
+                    .scaledFont(12, relativeTo: .caption)
+                    .foregroundStyle(Theme.Color.faint)
+                    .multilineTextAlignment(.center)
+                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
+            } else {
             ExpertPrimaryButton(title: ctaTitle) {
                 onStart()
             }
@@ -999,6 +1055,7 @@ struct PreWorkoutBriefView: View {
                 .accessibilityLabel("Registrar con una captura de otra app.")
             }
             } // !isBenchmark — a benchmark has no manual paths: no measurement, no mark.
+            } // !readyToStart
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.top, Theme.Spacing.m)

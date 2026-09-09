@@ -13,6 +13,8 @@ struct PM5LiveStreamView: View {
     /// When set (Remo / SkiErg / BikeErg), the sheet titles the role so binding
     /// two PM5s in one session is unambiguous.
     var roleTitle: String? = nil
+    /// FH-95: hub calls `startScan()` before present — skip duplicate onAppear scan.
+    var startsScanOnAppear: Bool = true
 
     @Environment(\.dismiss) private var dismiss
 
@@ -55,11 +57,7 @@ struct PM5LiveStreamView: View {
             .padding(Theme.Spacing.l)
         }
         .onAppear {
-            // BUSCAR, NUNCA CONECTAR. Abrir esta hoja escanea y ya está: aquí había una
-            // reconexión al erg recordado que abría el enlace sin que nadie lo pidiera —
-            // y los ergs rotan (hoy remo, mañana ski, y el de ayer ya es de otro). El
-            // recordado sale el primero de la lista y marcado; el atleta lo toca.
-            store.startScan()
+            if startsScanOnAppear { store.startScan() }
         }
         .onChange(of: store.isConnected) { _, connected in
             // Tras conectar, relanza el escaneo por debajo para que "Cambiar de erg"

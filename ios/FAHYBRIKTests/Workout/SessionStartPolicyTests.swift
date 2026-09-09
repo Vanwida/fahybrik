@@ -22,12 +22,12 @@ final class SessionStartPolicyTests: XCTestCase {
         XCTAssertTrue(SessionStartPolicy.watchResolved(answers: skipped, wristJoined: false))
     }
 
-    func testEmpezarFooterHintWhenWatchBlocks() {
-        let blocked = SessionStartPolicy.empezarFooterHint(
+    func testEmpezarFooterHintNeverBlocks() {
+        let pendingWatch = SessionStartPolicy.empezarFooterHint(
             asksWatch: true, watchResolved: false, canReleaseLive: false)
-        XCTAssertTrue(blocked.contains("Continuar sin reloj"))
-        let ready = SessionStartPolicy.empezarFooterHint(
+        XCTAssertTrue(pendingWatch.contains("Continuar sin reloj"))
+        let joined = SessionStartPolicy.empezarFooterHint(
             asksWatch: true, watchResolved: true, canReleaseLive: true)
-        XCTAssertEqual(ready, "Empieza cuando estés listo")
+        XCTAssertTrue(joined.contains("listo"))
     }
 }

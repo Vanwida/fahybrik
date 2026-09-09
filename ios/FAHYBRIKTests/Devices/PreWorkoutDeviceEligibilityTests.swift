@@ -228,7 +228,7 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
             in: segs, roleConnected: [.row], anyConnected: false, skipped: [.ski]))
     }
 
-    // MARK: - FH-91 · unified start gate (recipe + step order)
+    // MARK: - FH-95 · unified Devices hub (no sequential StartStep machine)
 
     func testStartRecipeDetectsRunAndSki() {
         let segs = [seg(.running), seg(.rowOrSki, ergKind: "ski")]
@@ -238,91 +238,32 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
         XCTAssertTrue(r.asksWatch)
     }
 
-    func testRunLocationIsFirstStartStep() {
-        let segs = [seg(.running)]
-        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        XCTAssertEqual(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: .empty,
-                roleConnected: [], anyConnected: false, wristJoined: false),
-            .runLocation)
+    func testNeedsDevicesHubWhenCardioMachinesPresent() {
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsDevicesHub(for: [seg(.running)]))
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsDevicesHub(for: runSkiRow()))
     }
 
-    func testErgAfterRunLocation() {
-        let segs = [seg(.running), seg(.rowOrSki, ergKind: "row")]
-        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        var a = SessionStartAnswers.empty
-        a.runEnvironment = .outdoor
-        XCTAssertEqual(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: a,
-                roleConnected: [], anyConnected: false, wristJoined: false),
-            .erg(.row))
+    func testPureStrengthSkipsDevicesHub() {
+        XCTAssertFalse(PreWorkoutDeviceEligibility.needsDevicesHub(for: [seg(.strength)]))
     }
 
-    func testErgAfterRunLocation_resolvesToReady() {
-        let segs = [seg(.running), seg(.rowOrSki, ergKind: "ski")]
-        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        var a = SessionStartAnswers.empty
-        a.runEnvironment = .indoor
-        XCTAssertEqual(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: a,
-                roleConnected: [], anyConnected: false, wristJoined: false),
-            .erg(.ski))
-        var resolved = a
-        resolved.skippedErgRoleWires = []
-        XCTAssertNil(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: resolved,
-                roleConnected: [.ski], anyConnected: false, wristJoined: false))
-    }
-
-    func testPureStrengthSkipsAllStartSteps() {
-        let segs = [seg(.strength)]
-        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        XCTAssertFalse(r.asksWatch)
-        XCTAssertNil(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: .empty,
-                roleConnected: [], anyConnected: false, wristJoined: false))
-    }
-
-    func testProceedWithoutWristIsInlineNotAStartStep() {
-        let segs = [seg(.running)]
-        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        var a = SessionStartAnswers.empty
-        a.runEnvironment = .outdoor
-        a.watchProceedWithoutWrist = true
-        XCTAssertNil(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: a,
-                roleConnected: [], anyConnected: false, wristJoined: false))
-    }
-
-    // MARK: - FH-94 · folded run work must gate RunPreStartFlow before erg
-
-    func testFoldedRoundsRunSkiRowNeedsRunLocationBeforeErg() {
+    func testFoldedRoundsRunSkiRowListsAllMachinesOnOneHub() {
         let s = seg(.reps, prescription: chipperRunSkiRow())
         XCTAssertTrue(s.involvesRun)
-        XCTAssertFalse(s.kind == .running)
         let segs = [s]
         let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
-        XCTAssertTrue(r.needsRunLocation, "involvesRun must match devices(for:) treadmill chip")
+        XCTAssertTrue(r.needsRunLocation)
         XCTAssertEqual(r.ergRoles, ["row", "ski"])
-        XCTAssertEqual(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: .empty,
-                roleConnected: [], anyConnected: false, wristJoined: false),
-            .runLocation,
-            "RunPreStartFlow before Conecta el remo")
-        var a = SessionStartAnswers.empty
-        a.runEnvironment = .outdoor
-        XCTAssertEqual(
-            PreWorkoutDeviceEligibility.nextStartStep(
-                recipe: r, segments: segs, answers: a,
-                roleConnected: [], anyConnected: false, wristJoined: false),
-            .erg(.row))
+        let hub = PreWorkoutDeviceEligibility.devices(for: segs)
+        XCTAssertTrue(hub.contains(.treadmill))
+        XCTAssertTrue(hub.contains(.erg(.row)))
+        XCTAssertTrue(hub.contains(.erg(.ski)))
+        XCTAssertTrue(PreWorkoutDeviceEligibility.needsDevicesHub(for: segs))
+    }
+
+    func testRowAndSkiStoresAreDistinctForParallelScan() {
+        let pool = PM5Pool(any: PM5ConnectionStore(service: PM5Service()))
+        XCTAssertFalse(pool.store(for: .row) === pool.store(for: .ski))
     }
 
 }

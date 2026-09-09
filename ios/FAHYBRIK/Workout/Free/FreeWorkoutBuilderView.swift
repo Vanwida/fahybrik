@@ -423,7 +423,7 @@ struct FreeWorkoutBuilderView: View {
         onClose()
     }
 
-    /// Build + launch through WorkoutContainer → SessionStartGate (FH-91).
+    /// Build + launch through WorkoutContainer → Devices hub → prepare (FH-95).
     private func startNow() {
         guard let ctx = draft.buildContext() else { return }
         Haptics.medium()

@@ -389,7 +389,7 @@ struct ActiveWorkoutView: View {
                 formatLabel: blockFormatLabel(segs),
                 segments: segs,
                 canGoBack: session.canStepBack,
-                onEmpezar: { requestBlockStart() },
+                onStartBlock: { requestBlockStart() },
                 onBack: { requestBack() },
                 onExit: { navigateAway() },
                 alVerBloques: { mostrarBloques = true }
@@ -570,9 +570,9 @@ struct ActiveWorkoutView: View {
         session.beltConnected = hub.treadmillConnected
     }
 
-    // MARK: - Block start (preview only — devices answered in SessionStartGate)
+    // MARK: - Block start (preview only — devices answered before live)
 
-    /// Block preview «Empezar» — the clock starts; run/erg/watch were gated before live.
+    /// Block preview «Empezar» — the clock starts; run/erg/watch were set pre-live.
     private func requestBlockStart() {
         session.beginBlock()
     }
@@ -824,7 +824,7 @@ struct ActiveWorkoutView: View {
                              alSalir: { navigateAway() },
                              alVerBloques: { mostrarBloques = true })
         case .host:
-            // FH-94: calle/cinta se elige en RunPreStartFlow before EMPEZAR, or
+            // FH-95: calle/cinta se elige en PreWorkoutDevicesHubView before EMPEZAR, or
             // mid-session via BotonConectividad — never full-width mid-HUD CTAs.
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip

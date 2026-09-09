@@ -267,43 +267,9 @@ enum PreWorkoutDeviceEligibility {
         )
     }
 
-    enum StartStep: Equatable {
-        case runLocation
-        case erg(ErgMachineRole?)
-    }
-
-    /// Next pre-live step, or nil when only inline watch honesty remains on the
-    /// ready screen (FH-93 — never a second full-screen gate).
-    static func nextStartStep(
-        recipe: SessionStartRecipe,
-        segments: [WorkoutSegment],
-        answers: SessionStartAnswers,
-        roleConnected: Set<ErgMachineRole>,
-        anyConnected: Bool,
-        wristJoined: Bool
-    ) -> StartStep? {
-        _ = recipe.asksWatch
-        _ = wristJoined
-        if recipe.needsRunLocation, answers.runEnvironment == nil {
-            return .runLocation
-        }
-        let skipped = Set(answers.skippedErgRoleWires.compactMap { ErgMachineRole(wire: $0) })
-        if let role = missingErgRoles(
-            in: segments,
-            roleConnected: roleConnected,
-            anyConnected: anyConnected,
-            skipped: skipped
-        ).first {
-            return .erg(role)
-        }
-        if needsUnscopedErgConnect(
-            in: segments,
-            anyConnected: anyConnected,
-            skipped: answers.skippedUnscopedErg
-        ) {
-            return .erg(nil)
-        }
-        return nil
+    /// True when the athlete should see the unified Devices hub (FH-95) before prepare.
+    static func needsDevicesHub(for segments: [WorkoutSegment]) -> Bool {
+        !devices(for: segments).isEmpty
     }
 
     /// A cardiovascular segment — run, erg, or a conditioning/metcon/EMOM block,

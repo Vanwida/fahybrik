@@ -5,7 +5,7 @@ import SwiftUI
 // The "ready" screen shown BEFORE each coach block runs (and at the very first
 // block). Every block starts with the athlete's approval: they SEE what's coming
 // — the block name, its format, and the movements + targets — set up (load a bar,
-// read the WOD), and tap "Empezar" WHEN READY. Only then does that block's clock
+// read the WOD), and tap "Arrancar bloque" WHEN READY. Only then does that block's clock
 // start (an EMOM's 3-2-1 count-in fires AFTER this tap, never as an automatic
 // between-blocks transition). The session engine (`WorkoutSession`) holds the
 // clock frozen while this is on screen via `isAwaitingBlockStart`.
@@ -124,7 +124,7 @@ struct BlockPreviewGate: View {
     let segments: [WorkoutSegment]
     /// Whether stepping back to the previous block's preview is possible.
     let canGoBack: Bool
-    let onEmpezar: () -> Void
+    let onStartBlock: () -> Void
     let onBack: () -> Void
     /// Leave the workout from the gate WITHOUT recording anything (clean discard).
     /// The athlete is never trapped on the "ready" screen.
@@ -342,14 +342,14 @@ struct BlockPreviewGate: View {
             .padding(14)
     }
 
-    // MARK: Footer — the big "Empezar" gate
+    // MARK: Footer — block clock gate (not pre-live ▶ EMPEZAR)
 
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
-            Text("Empieza cuando estés listo")
+            Text("Arranca el bloque cuando estés listo")
                 .scaledFont(12, relativeTo: .caption)
                 .foregroundStyle(Theme.Color.faint)
-            ExpertPrimaryButton(title: "EMPEZAR", height: 64, action: onEmpezar)
+            ExpertPrimaryButton(title: "▶ ARRANCAR BLOQUE", height: 64, action: onStartBlock)
         }
         .frame(maxWidth: .infinity)
     }

@@ -2,15 +2,19 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-94 pack completo — build 77)
+Última actualización: **2026-09-09** (FH-95 Devices hub — build 78)
 
 ## Ahora
 
-**FH-94 — Run gate + live Devices + Empezar/idle (main, build 77).**
-Pack: (1) `needsRunLocation` = `involvesRun`; (2) sin CTAs cinta/fuera mid-HUD;
-`BotonConectividad` + `LiveConectividadSheet`; (3) LISTO: EMPEZAR `enabled:` + hint
-reloj cuando bloqueado; (4) `isIdleTimerDisabled` solo `WorkoutContainer` (.start/.active/.recovery).
-BLE: sin auto-connect — restore + toolbar Devices. Pendiente: Archive → TestFlight.
+**FH-95 — Devices hub + un solo Empezar (PR #166, build 78).**
+Reescritura Start (no parche FH-94): brief (Continuar) → `PreWorkoutDevicesHubView`
+(Run+erg+HR, orden libre, scan PM5 explícito + `.id(role)`) → brief `readyToStart`
+(único ▶ EMPEZAR → `PreWorkoutReleaseLive.release` → live). Reloj: nunca bloquea
+Empezar (`begin` en tap; join async). `BlockPreviewGate` = «▶ ARRANCAR BLOQUE».
+Borrados: `SessionStartGate`, `ErgPreStartFlow`, `RunPreStartFlow` struct. Pendiente:
+regenerar `project.pbxproj` (XcodeGen) + Archive → TestFlight en dispositivo.
+
+**FH-94 — Run gate + live Devices + Empezar/idle (main, build 77, superseded by FH-95).**
 
 **FH-88 — Perfil compacto (main, build 75).** Archive build 74 falló: `profileDoorSection`
 capturaba `@ViewBuilder destination` no-escaping dentro de `NavigationLink` → fix:

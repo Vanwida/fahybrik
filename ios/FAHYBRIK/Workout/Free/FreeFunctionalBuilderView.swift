@@ -58,7 +58,7 @@ struct FreeFunctionalBuilderView: View {
         .background(Theme.Color.background.ignoresSafeArea())
         // Cover, not sheet: this builder already sits inside Hoy's
         // fullScreenCover. A sheet there is the gym-failure — GET 200 and
-        // the picker stays on "Cargando…". Calle/cinta stays on SessionStartGate.
+        // the picker stays on "Cargando…". Calle/cinta stays on PreWorkoutDevicesHubView.
         .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
