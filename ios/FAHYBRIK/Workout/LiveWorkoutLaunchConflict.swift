@@ -19,7 +19,7 @@ enum LiveWorkoutLaunchConflict {
     /// End HK mirror + disk snapshot so a new workout can start cleanly.
     @MainActor
     static func terminateCurrentForNewStart() async {
-        PhoneMirrorService.shared.end(save: true)
+        PhoneLiveSession.shared.end(save: true)
         PhoneWorkoutRun.shared.end()
         await WorkoutStateStore.shared.close()
         LiveWorkoutResume.shared.dismiss()

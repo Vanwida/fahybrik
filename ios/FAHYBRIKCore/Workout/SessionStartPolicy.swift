@@ -45,7 +45,7 @@ enum SessionStartPolicy {
         }
     }
 
-    /// `wristJoined` comes from `PhoneMirrorService` (mirrored `HKWorkoutSession`).
+    /// `wristJoined` comes from `PhoneLiveSession` (mirrored `HKWorkoutSession`).
     static func watchResolved(answers: SessionStartAnswers, wristJoined: Bool) -> Bool {
         wristJoined || answers.watchUnavailable || answers.watchProceedWithoutWrist
     }

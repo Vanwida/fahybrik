@@ -145,7 +145,7 @@ struct AppRoot: View {
             #endif
             // Idempotent backup. First registration is FAHYBRIKApp.init /
             // PushAppDelegate.didFinishLaunching — not this onAppear.
-            PhoneMirrorService.shared.prepare()
+            PhoneLiveSession.shared.prepare()
             if auth.stage == .authenticated {
                 startHealthKitSync()
                 startPush()

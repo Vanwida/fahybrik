@@ -196,7 +196,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard let save = WatchLiveEnd.saveFlag(in: body) else { return false }
         WatchWorkoutCoordinator.shared.finishFromPhone()
-        MirrorSessionController.shared.finishFromPhone(save: save)
+        WatchPrimaryOwner.shared.finishFromPhone(save: save)
         return true
     }
 

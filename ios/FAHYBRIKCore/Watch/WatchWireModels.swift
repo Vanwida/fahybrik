@@ -207,7 +207,7 @@ enum WatchWireKeys {
 
 /// Phone → watch: the iPhone already finished this workout.
 ///
-/// Routes to whoever is actually recording (PRIMARY `MirrorSessionController`
+/// Routes to whoever is actually recording (PRIMARY `WatchPrimaryOwner`
 /// or standalone `WatchWorkoutCoordinator`). Each finish path no-ops if idle.
 /// Not a second HK teardown — callers invoke the existing `finish(save:)`.
 enum WatchLiveEnd {

@@ -4,9 +4,8 @@ import HealthKit
 import os
 
 // Glue between the wrist UI and the shared WorkoutSession coach engine.
-// PRIMARY create/adopt/recover/end lives on MirrorSessionController. This
-// coordinator asks that owner for the session and pipes builder HR / distance
-// into the engine.
+// PRIMARY create/adopt/recover/end lives on WatchPrimaryOwner. This coordinator
+// asks that owner for the session and pipes builder HR / distance into the engine.
 @MainActor
 @Observable
 final class WatchWorkoutCoordinator {
@@ -35,10 +34,9 @@ final class WatchWorkoutCoordinator {
     /// across the view being recreated by watchOS paging. Nil until a session starts.
     private(set) var runLegDriver: WatchRunLegDriver?
 
-    /// Facade over the one PRIMARY owner (auth + start/pause/end forwards).
-    let live = LiveWorkoutSession()
     /// Permission + accuracy only. Never integrates fixes into meters.
     private let locationGate = WatchRunLocationGate()
+    private var primary: WatchPrimaryOwner { WatchPrimaryOwner.shared }
     /// Day kind from the payload (`running` / `mixed` / `hyrox`…). The HK
     /// activity of a RUN PIECE is resolved against this, not instead of it.
     private var dayActivityKind: String?
@@ -50,7 +48,7 @@ final class WatchWorkoutCoordinator {
     /// Guards the finalize path so a natural finish + a Terminar can't double-send.
     private var didFinalize = false
 
-    /// Card 72 — same criterion as MirrorSessionController.start: a `guard … else
+    /// Card 72 — same criterion as WatchPrimaryOwner start: a `guard … else
     /// { return }` that silently blocks a start left the mirror bug undiagnosable for
     /// weeks. Console-inspectable, never `print` (stripped from release builds).
     private static let log = Logger(subsystem: Marca.subsistemaLog("standalone"), category: "watch-lifecycle")
@@ -116,7 +114,7 @@ final class WatchWorkoutCoordinator {
     /// back into a profile and, in doing so, hardcoded `isEstimated: false` on a
     /// number that was very often an estimate. Nil → no zones, which the engine
     /// handles by recording no zone time.
-    /// Card 72 — same self-heal criterion as MirrorSessionController.start(config:):
+    /// Card 72 — same self-heal criterion as WatchPrimaryOwner start:
     /// a blocked start must repair itself instead of failing forever. `phase` can't
     /// wedge across a process relaunch on its own (it resets to `.idle` with the
     /// app); the one gap possible WITHIN a running process is an engine that
@@ -134,14 +132,11 @@ final class WatchWorkoutCoordinator {
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
         repairStuckPhaseIfNeeded()
-        // Symmetric guard with MirrorSessionController.start (which yields to a live
-        // standalone session): a mirror recording driven by the phone must equally
-        // block a second, standalone engine here — the only path to a duplicate run.
         guard phase == .idle, payload.dayKind == WatchDayKind.session else {
             Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public)")
             return
         }
-        if MirrorSessionController.shared.mode == .mirror {
+        if WatchPrimaryOwner.shared.role == .mirror {
             Self.log.warning("start() declined — phone is coach")
             return
         }
@@ -159,13 +154,11 @@ final class WatchWorkoutCoordinator {
     /// the recovered elapsed.
     func resume(from snapshot: PersistedWorkoutState, payload: WatchTodayPayload) {
         repairStuckPhaseIfNeeded()
-        // Same symmetric guard as start: never resume a standalone engine while the
-        // phone is driving a mirror recording (the reverse of MirrorSessionController).
         guard phase == .idle else {
             Self.log.warning("resume() declined — phase=\(String(describing: self.phase), privacy: .public)")
             return
         }
-        if MirrorSessionController.shared.mode == .mirror {
+        if WatchPrimaryOwner.shared.role == .mirror {
             Self.log.warning("resume() declined — phone is coach")
             return
         }
@@ -198,12 +191,8 @@ final class WatchWorkoutCoordinator {
         // Pipe the HealthKit stream straight into the engine: HR feeds zone color +
         // the recorded avg/max; covered distance feeds run pace. The engine is the
         // single owner of capture state.
-        live.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
-        // La fuente va explícita: estos metros los pone `distanceWalkingRunning` de
-        // HealthKit (fusión de Apple). CoreLocation en la muñeca pide permiso y
-        // mira `horizontalAccuracy`; no cuenta metros. Sellarlos como «gps»
-        // etiquetaría el archivo con un aparato que no los midió.
-        live.onDistanceDelta = { [weak engine] meters in
+        primary.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
+        primary.onDistanceDelta = { [weak engine] meters in
             engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
         }
         dayActivityKind = payload.activityKind
@@ -224,8 +213,8 @@ final class WatchWorkoutCoordinator {
         startSensorTick()
 
         Task {
-            await live.requestAuthorization()
-            live.start(
+            await primary.requestAuthorization()
+            primary.startSolo(
                 activityType: payload.healthKitActivityType,
                 locationType: payload.healthKitLocationType,
                 reuseIfPresent: reusePrimary
@@ -256,7 +245,7 @@ final class WatchWorkoutCoordinator {
             dayActivityKind: dayActivityKind,
             environment: engine.runEnvironment
         )
-        live.syncActivity(plan)
+        primary.syncSoloActivity(plan)
         locationGate.apply(wantsGPS: plan.wantsGPS)
     }
 
@@ -286,7 +275,7 @@ final class WatchWorkoutCoordinator {
     func togglePause() {
         guard let session else { return }
         session.togglePause()
-        if session.isPaused { live.pause() } else { live.resume() }
+        if session.isPaused { primary.pause() } else { primary.resume() }
     }
 
     /// Called once the engine reports `isFinished` (a natural finish OR a Terminar).
@@ -295,7 +284,7 @@ final class WatchWorkoutCoordinator {
     /// phone, and marks the day done. Idempotent.
     func finalize() {
         // Phone owns POST + summary in mirror mode — never stage a second execution.
-        if MirrorSessionController.shared.mode == .mirror {
+        if WatchPrimaryOwner.shared.role == .mirror {
             Self.log.warning("finalize() skipped — phone is coach")
             return
         }
@@ -332,7 +321,7 @@ final class WatchWorkoutCoordinator {
         // a quick summary-dismiss can't drop the build.
         let capturedAssignmentId = assignmentId
         Task { [weak self, engine] in
-            let workoutRef = await self?.live.end()
+            let workoutRef = await self?.primary.endPrimary(save: true)
             // Fase 0 — stop the inertial stream and hand the archive to the phone
             // (consent is enforced on the phone before upload; transfer itself is cheap).
             SensorCapture.shared.stop()
@@ -405,7 +394,6 @@ final class WatchWorkoutCoordinator {
         WatchHaptics.success()
         Task { await WorkoutStateStore.shared.clear() }
         Task { [weak self] in
-            // PRIMARY teardown is MirrorSessionController.finishFromPhone (applyLiveEnd).
             self?.reset()
         }
     }
@@ -449,10 +437,8 @@ final class WatchWorkoutCoordinator {
         runLegDriver = nil
         stopSensorTick()
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
-        live.onHeartRate = nil
-        live.onDistanceDelta = nil
-        MirrorSessionController.shared.onHeartRate = nil
-        MirrorSessionController.shared.onDistanceDelta = nil
+        primary.onHeartRate = nil
+        primary.onDistanceDelta = nil
         locationGate.stop()
         dayActivityKind = nil
         session = nil

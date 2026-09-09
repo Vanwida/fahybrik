@@ -338,8 +338,8 @@ struct PostWorkoutSummaryView: View {
             // llegado su uuid o no. Que el relevo llegue tarde ya no duplica —
             // antes sí, porque el reloj que aún no ha contestado es el mismo que
             // el reloj cuyo HKWorkout todavía no se puede consultar.
-            let wristRef = PhoneMirrorService.shared.consumeWorkoutRef()
-            let wristRecorded = PhoneMirrorService.shared.wristRecordedWorkout
+            let wristRef = PhoneLiveSession.shared.consumeWorkoutRef()
+            let wristRecorded = PhoneLiveSession.shared.wristRecordedWorkout
             let treadmill = session.runEnvironment == .treadmill
             Task { @MainActor in
                 var ref = wristRef
@@ -396,7 +396,7 @@ struct PostWorkoutSummaryView: View {
         // copy of the SAME workout and never double-counts. Only when the payload
         // doesn't already carry a ref (manual flows simply get nil).
         if payload.source_workout_ref == nil {
-            payload.source_workout_ref = PhoneMirrorService.shared.consumeWorkoutRef()
+            payload.source_workout_ref = PhoneLiveSession.shared.consumeWorkoutRef()
         }
         let submitted = payload
         let target = logTarget

@@ -181,11 +181,11 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
     private func registerMirrorHandler() {
         if Thread.isMainThread {
             MainActor.assumeIsolated {
-                PhoneMirrorService.shared.prepare()
+                PhoneLiveSession.shared.prepare()
             }
         } else {
             DispatchQueue.main.sync {
-                PhoneMirrorService.shared.prepare()
+                PhoneLiveSession.shared.prepare()
             }
         }
     }

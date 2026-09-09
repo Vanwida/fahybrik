@@ -63,7 +63,7 @@ struct RecoveryCaptureView: View {
             // .active → .recovery el onAppear de esta vista podía ejecutarse ANTES
             // del onDisappear de ActiveWorkoutView, y su false final dejaba la
             // pantalla durmiéndose a mitad de la medición.
-            if !PhoneMirrorService.shared.wristJoined {
+            if !PhoneLiveSession.shared.wristJoined {
                 liveHR.onSample = { [weak session] bpm in
                     session?.injectLiveHR(bpm, source: .healthkit)
                 }

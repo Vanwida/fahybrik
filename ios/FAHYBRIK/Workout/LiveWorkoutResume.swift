@@ -45,7 +45,7 @@ final class LiveWorkoutResume {
 
     /// Phone ↔ Watch asymmetry: wrist recording without a live phone owner.
     func reconcilePhoneWatchAsymmetry(hrZones: HRZoneProfile?) async {
-        let mirror = PhoneMirrorService.shared
+        let mirror = PhoneLiveSession.shared
         let wristActive = PhoneWatchRuntimeReconcile.wristClaimsActiveSession(
             mirrorJoined: mirror.wristJoined,
             hasMirroredHKSession: mirror.hasMirroredHKSession,
@@ -71,7 +71,7 @@ final class LiveWorkoutResume {
     /// Wrist Terminar while the phone cover is gone — reopen from disk so the
     /// bilateral finish can complete through WorkoutContainer.
     func handleWristAthleteFinishWhenBackgrounded(hrZones: HRZoneProfile?) async {
-        guard PhoneMirrorService.shared.wristFinishedByAthlete else { return }
+        guard PhoneLiveSession.shared.wristFinishedByAthlete else { return }
         guard !hasLiveSession else { return }
         await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
     }
@@ -79,7 +79,7 @@ final class LiveWorkoutResume {
     /// Idempotent bilateral teardown when the phone has no UI owner.
     @MainActor
     func endWristSessionCleanly() async {
-        PhoneMirrorService.shared.end(save: false)
+        PhoneLiveSession.shared.end(save: false)
         WatchConnectivityiOSService.shared.endLiveWorkout(save: false)
         PhoneWorkoutRun.shared.end()
         await WorkoutStateStore.shared.close()

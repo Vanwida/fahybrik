@@ -5,7 +5,7 @@ import SwiftUI
 
 struct PreWorkoutWatchCard: View {
     @Binding var answers: SessionStartAnswers
-    let mirror: PhoneMirrorService
+    let mirror: PhoneLiveSession
     let onPrepWatch: (() -> Void)?
 
     var body: some View {
@@ -19,7 +19,7 @@ struct PreWorkoutWatchCard: View {
                           title: "Sin Apple Watch",
                           subtitle: "El teléfono graba lo que pueda")
             } else if let started = mirror.watchJoinStartedAt,
-                      Date().timeIntervalSince(started) > PhoneMirrorService.watchJoinHintSeconds,
+                      Date().timeIntervalSince(started) > PhoneLiveSession.watchJoinHintSeconds,
                       mirror.watchJoinStartedAt != nil {
                 statusRow(icon: "exclamationmark.triangle.fill", color: Theme.Color.warning,
                           title: "El reloj no se unió todavía",

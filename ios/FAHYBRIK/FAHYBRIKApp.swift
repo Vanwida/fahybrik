@@ -12,11 +12,11 @@ struct FAHYBRIKApp: App {
         // delivers a mirrored session. First registration — not `AppRoot.onAppear`.
         if Thread.isMainThread {
             MainActor.assumeIsolated {
-                PhoneMirrorService.shared.prepare()
+                PhoneLiveSession.shared.prepare()
             }
         } else {
             DispatchQueue.main.sync {
-                PhoneMirrorService.shared.prepare()
+                PhoneLiveSession.shared.prepare()
             }
         }
     }

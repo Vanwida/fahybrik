@@ -8,12 +8,12 @@ import XCTest
 // leg → its remaining, a DISTANCE leg → none), and a leg change flips the structural
 // key so a fresh frame is resent the instant the tramo advances.
 //
-// @MainActor because PhoneMirrorService is main-actor-isolated (the mirror runs on
+// @MainActor because PhoneLiveSession is main-actor-isolated (the mirror runs on
 // the phone's main actor); the engine it reads is not, so the calls are legal here.
 @MainActor
 final class PhoneMirrorRunStructureTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     // MARK: - Structure builders (mirror StructuredRunEngineTests)
 

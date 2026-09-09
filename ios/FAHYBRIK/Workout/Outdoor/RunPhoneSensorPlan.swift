@@ -42,7 +42,7 @@ enum RunPhoneSensorPlan {
     ///     .correrFuera`) es la que está pintando ahora mismo — sólo ella arranca
     ///     su propio proveedor de localización.
     ///   - wristIsRecording: hay una sesión espejo viva en la muñeca
-    ///     (`PhoneMirrorService.wristJoined`). El reloj mide con el MISMO motor de
+    ///     (`PhoneLiveSession.wristJoined`). El reloj mide con el MISMO motor de
     ///     Apple que el podómetro, pero sobre el cuerpo en vez de sobre el bolsillo,
     ///     así que sus metros mandan y el podómetro se aparta — si los dos entregan,
     ///     la sesión cuenta cada metro dos veces. Mismo reparto que ya tiene el

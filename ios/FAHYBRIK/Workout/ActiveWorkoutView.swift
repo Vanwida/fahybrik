@@ -238,7 +238,7 @@ struct ActiveWorkoutView: View {
         .allowsLandscape()
         .onAppear {
             session.start()
-            PhoneMirrorService.shared.kickFrame()
+            PhoneLiveSession.shared.kickFrame()
             DeviceCentral.shared.attachLiveIdentity(
                 planId: session.plan.id,
                 startedAt: session.startedAt
@@ -252,7 +252,7 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
-            if !PhoneMirrorService.shared.wristJoined {
+            if !PhoneLiveSession.shared.wristJoined {
                 liveHR.start(from: session.startedAt)
             }
             // Screen awake: WorkoutContainer.mantenerPantallaDespierta (FH-94) — not here.
@@ -284,7 +284,7 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             session.ensurePhoneWorkoutRun()
         }
-        .onChange(of: PhoneMirrorService.shared.wristJoined) { _, joined in
+        .onChange(of: PhoneLiveSession.shared.wristJoined) { _, joined in
             // Hand HR off to the wrist when it joins mid-run; take it back if it drops
             // so the phone keeps recording HR alone.
             if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
@@ -587,7 +587,7 @@ struct ActiveWorkoutView: View {
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
             streetScreenOwnsSurface: calleHudMontado,
-            wristIsRecording: PhoneMirrorService.shared.wristJoined
+            wristIsRecording: PhoneLiveSession.shared.wristJoined
         )
         if plan.ownGPS {
             runGPS.start()
@@ -700,7 +700,7 @@ struct ActiveWorkoutView: View {
             }
             // Wrist chip: the Apple Watch is recording this session in step (mirror
             // mode). Shown only while joined; green so "connected" reads at a glance.
-            if PhoneMirrorService.shared.wristJoined {
+            if PhoneLiveSession.shared.wristJoined {
                 Image(systemName: "applewatch")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.Color.ok)

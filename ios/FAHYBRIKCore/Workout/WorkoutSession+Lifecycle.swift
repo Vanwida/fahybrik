@@ -60,7 +60,7 @@ extension WorkoutSession {
                 environment: runEnvironment
             )
             if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
-            PhoneMirrorService.shared.launchWatchIfNeeded()
+            PhoneLiveSession.shared.launchWatchIfNeeded()
         }
     }
     #endif
@@ -205,7 +205,7 @@ extension WorkoutSession {
     /// FUERZA, cuyo escalón es LA SERIE y cuya regla («con series pendientes no se
     /// cierra el ejercicio») solo existía dentro de `FuerzaVivoView`. Cualquier otro
     /// mando que llame a este método —el botón «Siguiente» del reloj, vía
-    /// `PhoneMirrorService.applyCommand`— se la saltaba: un toque en la muñeca
+    /// `PhoneLiveSession.applyCommand`— se la saltaba: un toque en la muñeca
     /// durante la serie 1 de press de banca cerraba el ejercicio ENTERO y saltaba al
     /// curl. Y como los dos ejercicios comparten bloque, el salto era mudo (sin
     /// preview intermedia) y el descanso que sonaba ya era el del curl. Los dos

@@ -13,7 +13,7 @@ import XCTest
 @MainActor
 final class EspejoRelojDeParedTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     private func paginasEnLaMuneca(_ s: WorkoutSession) throws -> [WatchPagina] {
         let enviada = mirror.buildFrame(from: s)

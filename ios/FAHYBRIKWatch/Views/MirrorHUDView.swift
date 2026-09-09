@@ -4,7 +4,7 @@ import SwiftUI
 // distance. Phone frames decorate the coach script (title, next station, advance).
 // No local session → Conectando. PRIMARY without a frame → Grabando en la muñeca.
 struct MirrorHUDView: View {
-    let controller: MirrorSessionController
+    let owner: WatchPrimaryOwner
 
     // 0 = live (default) · 1 = controls (one swipe away).
     @State private var page = 0
@@ -37,20 +37,20 @@ struct MirrorHUDView: View {
             // la primera trama, o la perdió).
             WatchTheme.bg.ignoresSafeArea()
 
-            // SOLO el estado del controller enseña «Guardando…»: `.ending` es el
-            // único momento en que de verdad se está guardando (y su timeout de 8s
-            // garantiza salida). La fase `finished` del frame venía del MÓVIL y
+            // SOLO `isEnding` enseña «Guardando…» — FH-97: deadline 5s NUNCA se
+            // cancela al empezar el save; la UI vuelve a idle aunque finishWorkout cuelgue.
+            // La fase `finished` del frame venía del MÓVIL y
             // podía quedarse sin su `end` detrás (p.ej. la ventana de recuperación
             // de un test retrasa el cierre 90 s): el reloj mostraba un spinner
             // infinito que mentía, sin guardar nada y sin escape — los frames
             // seguían llegando y el watchdog nunca ofrecía la salida local. Con la
             // fase final y sin cierre, se sigue enseñando el último estado real.
-            if controller.state == .ending {
+            if owner.isEnding {
                 MirrorSavingOverlay()
-            } else if !controller.hasLocalSession {
+            } else if !owner.hasLocalSession {
                 MirrorWaitingForPhoneOverlay()
             } else if frame == nil {
-                MirrorRecordingOnWristOverlay(controller: controller)
+                MirrorRecordingOnWristOverlay(owner: owner)
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
             } else if phase == MirrorWire.Phase.countIn {
@@ -82,7 +82,7 @@ struct MirrorHUDView: View {
         }
         // Out-of-zone nudge — same throttle as the standalone continuous screen, and
         // only while actually working (never on a gate / pause / rest).
-        .onChange(of: controller.liveZone) { _, zone in
+        .onChange(of: owner.liveZone) { _, zone in
             guard phase == MirrorWire.Phase.active,
                   let target = targetZone, let zone, zone != target,
                   Date().timeIntervalSince(lastZoneHapticAt) >= WatchTheme.zoneExitHapticThrottle else { return }
@@ -175,14 +175,14 @@ struct MirrorHUDView: View {
                 WatchReloj(
                     paginas: GuionDelEspejo.paginas(
                         f,
-                        bpm: controller.liveHR,
+                        bpm: owner.liveHR,
                         elapsed: heroElapsed(context.date),
-                        avanzar: { controller.sendCommand(MirrorWire.CommandKind.advance) },
+                        avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
                         // Death by: «al fallar» no es un avance cualquiera —
                         // ver el comentario de `deathByFail` en MirrorWireModels.
-                        rendirse: { controller.sendCommand(MirrorWire.CommandKind.deathByFail) }
+                        rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
                     ),
-                    tinte: WatchTinte.color(for: controller.liveZone),
+                    tinte: WatchTinte.color(for: owner.liveZone),
                     bisel: bisel
                 )
                 .onChange(of: f.tramo?.enDescanso) { _, rest in
@@ -294,7 +294,7 @@ struct MirrorHUDView: View {
     var hrZoneRow: some View {
         VStack(spacing: 5) {
             HStack {
-                HRPill(bpm: controller.liveHR, zoneColor: controller.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim)
+                HRPill(bpm: owner.liveHR, zoneColor: owner.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim)
                 Spacer()
                 if let target = targetZone {
                     WatchLabel(text: "Obj \(target.label)")
@@ -312,7 +312,7 @@ struct MirrorHUDView: View {
                 HStack(spacing: 0) {
                     ForEach(HRZone.allCases, id: \.rawValue) { zone in
                         Rectangle()
-                            .fill(WatchTheme.zoneColor(zone).opacity(controller.liveZone == zone ? 1 : 0.34))
+                            .fill(WatchTheme.zoneColor(zone).opacity(owner.liveZone == zone ? 1 : 0.34))
                     }
                 }
                 if let target = targetZone {
@@ -346,7 +346,7 @@ struct MirrorHUDView: View {
             if final {
                 confirmingFinish = true
             } else {
-                controller.sendCommand(MirrorWire.CommandKind.advance)
+                owner.sendCommand(MirrorWire.CommandKind.advance)
             }
         }
         .confirmationDialog(
@@ -355,7 +355,7 @@ struct MirrorHUDView: View {
             titleVisibility: .visible
         ) {
             Button("Terminar", role: .destructive) {
-                controller.finishByAthlete()
+                owner.finishByAthlete()
             }
             Button("Seguir", role: .cancel) { }
         }
@@ -378,13 +378,13 @@ struct MirrorHUDView: View {
     // MARK: - Controls page
 
     private var controlsPage: some View {
-        MirrorHUDControlsPage(controller: controller, phase: phase)
+        MirrorHUDControlsPage(owner: owner, phase: phase)
     }
 
     // MARK: - Derived
 
-    private var frame: MirrorStateFrame? { controller.frame }
-    private var phase: String? { controller.frame?.phase }
+    private var frame: MirrorStateFrame? { owner.frame }
+    private var phase: String? { owner.frame?.phase }
     private var targetZone: HRZone? { frame?.targetZone.flatMap { HRZone(rawValue: $0) } }
 
     /// TIME Recupera aged to 0 → the same `advance` as «Toca · ya».
@@ -394,14 +394,14 @@ struct MirrorHUDView: View {
             tramo: frame.tramo, sinceFrame: since, alreadyFiredFor: firedTimedRest
         ), let t = frame.tramo else { return }
         firedTimedRest = MirrorTimedRest.window(of: t)
-        controller.sendCommand(MirrorWire.CommandKind.advance)
+        owner.sendCommand(MirrorWire.CommandKind.advance)
     }
 
     /// Seconds accrued since the last frame while the clock is running — the active
     /// live clock AND the count-in count-down (both re-based locally between frames);
     /// frozen on a gate / pause / rest-that-isn't-active.
     func sinceFrame(_ now: Date) -> Double {
-        guard let at = controller.frameReceivedAt,
+        guard let at = owner.frameReceivedAt,
               phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
         return max(0, now.timeIntervalSince(at))
     }

@@ -5,13 +5,13 @@ import WatchKit
 @main
 struct FAHYBRIKWatchApp: App {
     // Shared singletons pushed from the iPhone (plan + connectivity), plus the
-    // workout coordinator (coach plan). PRIMARY HK is MirrorSessionController.
+    // workout coordinator (coach plan). PRIMARY HK is WatchPrimaryOwner.
     @StateObject private var planModel = WatchPlanModel.shared
     @StateObject private var connectivity = WatchConnectivityService.shared
     @State private var coordinator = WatchWorkoutCoordinator.shared
     // Apple: Watch is PRIMARY. `startWatchApp` on the phone delivers a
     // configuration here; we create the session and mirror to the companion.
-    @WKApplicationDelegateAdaptor(MirrorAppDelegate.self) private var appDelegate
+    @WKApplicationDelegateAdaptor(WatchPrimaryAppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
@@ -35,7 +35,7 @@ struct FAHYBRIKWatchApp: App {
             .environmentObject(planModel)
             .environmentObject(connectivity)
             .environment(coordinator)
-            .environment(MirrorSessionController.shared)
+            .environment(WatchPrimaryOwner.shared)
             .onAppear {
                 connectivity.activate()
             }
@@ -45,7 +45,7 @@ struct FAHYBRIKWatchApp: App {
 /// Apple `startWatchApp(with:)` delivers a configuration via `handle(_:)`.
 /// Crash/relaunch recovery is `handleActiveWorkoutRecovery` + the same
 /// `recoverActiveWorkoutSession` as `applicationDidFinishLaunching`.
-final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
+final class WatchPrimaryAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
         recoverActiveWorkout()
     }
@@ -56,13 +56,13 @@ final class MirrorAppDelegate: NSObject, WKApplicationDelegate {
 
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
         Task { @MainActor in
-            MirrorSessionController.shared.startPrimary(configuration: workoutConfiguration)
+            WatchPrimaryOwner.shared.startFromPhone(configuration: workoutConfiguration)
         }
     }
 
     private func recoverActiveWorkout() {
         Task { @MainActor in
-            MirrorSessionController.shared.recoverActiveIfNeeded()
+            WatchPrimaryOwner.shared.recoverActiveIfNeeded()
         }
     }
 }

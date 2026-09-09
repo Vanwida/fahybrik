@@ -2,7 +2,7 @@ import XCTest
 @testable import FAHYBRIK
 
 // CARD 72/102 — el cierre del espejo (teléfono → reloj) era UN paquete, sin ACK ni
-// reintento (`PhoneMirrorService.deliverEnd`, antes de este fix). Perdido en
+// reintento (`PhoneLiveSession.deliverEnd`, antes de este fix). Perdido en
 // vuelo — típico corriendo, teléfono en el bolsillo — la muñeca se quedaba
 // grabando PARA SIEMPRE y el siguiente entreno arrancaba pillado en silencio.
 //
@@ -10,7 +10,7 @@ import XCTest
 // réplica) contra un seam de envío inyectado (`sendOverride`): no hay
 // HKWorkoutSession espejo — un tipo opaco del sistema — que fabricar en un test.
 //
-// El lado del RELOJ (MirrorSessionController: la idempotencia de `finish(save:)`
+// El lado del RELOJ (WatchPrimaryOwner: la idempotencia de `requestEnd`
 // ante un cierre repetido, el auto-reparo de cualquier estado sucio al arrancar,
 // el watchdog que autoguarda una grabación atascada) NO tiene target de test: vive
 // en FAHYBRIKWatch, y `FAHYBRIKTests` sólo compila contra el target `FAHYBRIK`
@@ -20,7 +20,7 @@ import XCTest
 @MainActor
 final class PhoneMirrorEndRetryTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     override func tearDown() {
         // Nunca dejar un Timer del handshake de cierre vivo entre tests — el

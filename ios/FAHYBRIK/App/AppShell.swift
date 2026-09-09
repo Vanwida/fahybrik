@@ -217,7 +217,7 @@ struct AppShell: View {
                 }
             }
         }
-        .onChange(of: PhoneMirrorService.shared.wristFinishedByAthlete) { _, finished in
+        .onChange(of: PhoneLiveSession.shared.wristFinishedByAthlete) { _, finished in
             guard finished else { return }
             Task {
                 await LiveWorkoutResume.shared.handleWristAthleteFinishWhenBackgrounded(

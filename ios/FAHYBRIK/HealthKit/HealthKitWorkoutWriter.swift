@@ -14,7 +14,7 @@ import HealthKit
 //  1. NEVER TWICE. If the wrist recorded the session it already wrote the
 //     HKWorkout, so the phone must not write another. `ensureSaved` is therefore
 //     told whether a wrist recorded this session (`wristRecorded`, latched by
-//     `PhoneMirrorService` when the wrist is asked to save) and writes nothing
+//     `PhoneLiveSession` when the wrist is asked to save) and writes nothing
 //     when it did. That flag is the guarantee.
 //
 //     It did NOT used to be. This file claimed the guarantee rested on the
@@ -98,7 +98,7 @@ enum HealthKitWorkoutWriter {
     /// mapped to Apple's activity types.
     ///
     /// This is DELIBERATELY finer than the four buckets the watch mirror uses
-    /// (`PhoneMirrorService.activityType(for:)`, which speaks the coarse
+    /// (`PhoneLiveSession.activityType(for:)`, which speaks the coarse
     /// running/strength/hyrox/mixed vocabulary the wrist needs): a rowing session
     /// written to Salud as "mixed cardio" is a session the athlete cannot find.
     /// Ski erg maps to cross-country skiing because that is what Apple's

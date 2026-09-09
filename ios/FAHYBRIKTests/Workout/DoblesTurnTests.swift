@@ -137,7 +137,7 @@ final class DoblesTurnTests: XCTestCase {
     @MainActor
     func testBuildFramePopulatesDoblesForSplit() {
         let s = session([station("Wall Balls", reps: 100, role: .split, share: 0.6)])
-        let f = PhoneMirrorService.shared.buildFrame(from: s)
+        let f = PhoneLiveSession.shared.buildFrame(from: s)
         XCTAssertEqual(f.dobles?.role, "split")
         XCTAssertEqual(f.dobles?.station, "Wall Balls")
         XCTAssertEqual(f.dobles?.selfReps, 60)
@@ -149,7 +149,7 @@ final class DoblesTurnTests: XCTestCase {
     func testBuildFrameNilDoblesForIndividualWork() {
         let s = session([WorkoutSegment(order: 1, title: "Run", kind: .running,
                                         targetDistanceMeters: 1000)])
-        XCTAssertNil(PhoneMirrorService.shared.buildFrame(from: s).dobles)
+        XCTAssertNil(PhoneLiveSession.shared.buildFrame(from: s).dobles)
     }
 
     // MARK: - Honest logging: a split station is prescribed/primed/recorded by the PACT
@@ -212,7 +212,7 @@ final class DoblesTurnTests: XCTestCase {
             station("SkiErg", reps: 80, role: .partner, share: 0.0, order: 1),
             station("Wall Balls", reps: 100, role: .mine, share: 1.0, order: 2),
         ])
-        let mirror = PhoneMirrorService.shared
+        let mirror = PhoneLiveSession.shared
         let key0 = mirror.structuralKey(mirror.buildFrame(from: s))
         s.currentSegmentIndex = 1
         let key1 = mirror.structuralKey(mirror.buildFrame(from: s))

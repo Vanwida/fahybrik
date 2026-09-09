@@ -19,25 +19,25 @@ struct MirrorWaitingForPhoneOverlay: View {
 }
 
 struct MirrorRecordingOnWristOverlay: View {
-    let controller: MirrorSessionController
+    let owner: WatchPrimaryOwner
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             VStack(spacing: 8) {
                 WatchLabel(text: "Grabando en la muñeca", accent: true)
-                GiantNumber(text: WatchFormat.clock(controller.builderElapsed), size: 44)
+                GiantNumber(text: WatchFormat.clock(owner.builderElapsed), size: 44)
                 HStack(spacing: 8) {
                     HRPill(
-                        bpm: controller.liveHR,
-                        zoneColor: controller.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim
+                        bpm: owner.liveHR,
+                        zoneColor: owner.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim
                     )
-                    if controller.activeKcal > 0 {
-                        Text("\(Int(controller.activeKcal.rounded())) kcal")
+                    if owner.activeKcal > 0 {
+                        Text("\(Int(owner.activeKcal.rounded())) kcal")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(WatchTheme.dim)
                     }
-                    if controller.distanceMeters > 0 {
-                        Text(Formato.distanciaCubierta(controller.distanceMeters) ?? "\(Int(controller.distanceMeters.rounded())) m")
+                    if owner.distanceMeters > 0 {
+                        Text(Formato.distanciaCubierta(owner.distanceMeters) ?? "\(Int(owner.distanceMeters.rounded())) m")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(WatchTheme.dim)
                     }
