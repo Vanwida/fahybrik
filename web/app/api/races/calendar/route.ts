@@ -19,13 +19,25 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = url.searchParams;
 
+  const familyRaw = q.get('family');
+  const family =
+    familyRaw === 'running' ||
+    familyRaw === 'hybrid' ||
+    familyRaw === 'crossfit' ||
+    familyRaw === 'ocr' ||
+    familyRaw === 'other'
+      ? familyRaw
+      : undefined;
+
   const [events, target] = await Promise.all([
     listRaceCalendar({
+      family,
       series: q.get('series') ?? undefined,
       country: q.get('country') ?? undefined,
       q: q.get('q') ?? undefined,
       from: q.get('from') ?? undefined,
       to: q.get('to') ?? undefined,
+      athlete_id: Number(auth.athlete_id),
     }),
     getTargetRaceRow(auth.athlete_id, sql),
   ]);

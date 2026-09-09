@@ -64,24 +64,26 @@ interface EventRow {
   name: string;
   series: string | null;
   type: EventType;
-  // Nullable since migration 0080: an undated catalog event targets to a null
-  // race_date (races.race_date is nullable). `${event.start_date}::date` casts
-  // null to null cleanly — no countdown is produced until a date is confirmed.
   start_date: string | null;
   location: string | null;
   is_visible_to_athletes: boolean;
+  athlete_id: number | null;
 }
 
 export interface SetTargetRaceParams {
   athlete_id: number;
   event_id: number;
-  format: RaceFormat;
-  division: RaceDivision;
-  gender_category: RaceGender;
+  format?: RaceFormat;
+  division?: RaceDivision;
+  gender_category?: RaceGender;
   goal_time_seconds?: number | null;
+  objective_variant?: string | null;
+  division_label?: string | null;
+  distance_meters?: number | null;
+  homologada?: boolean | null;
   /**
-   * Athlete path: the event must be visible to athletes (404 otherwise — never
-   * leak a hidden event). Coach path passes false (Pablo may target any event).
+   * Athlete path: the event must be visible to athletes OR owned by this athlete
+   * (private custom event). Coach path passes false.
    */
   require_visible: boolean;
   client?: Sql;
@@ -152,7 +154,8 @@ export async function setAthleteTargetRace(
       e.type                              as type,
       to_char(e.start_date, 'YYYY-MM-DD') as start_date,
       e.location                          as location,
-      e.is_visible_to_athletes            as is_visible_to_athletes
+      e.is_visible_to_athletes            as is_visible_to_athletes,
+      e.athlete_id::int                   as athlete_id
     from events e
     where e.id = ${params.event_id}
     limit 1
@@ -161,12 +164,20 @@ export async function setAthleteTargetRace(
   if (!event) {
     throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
   }
-  if (params.require_visible && !event.is_visible_to_athletes) {
-    // 404 (not 403) so a hidden event is indistinguishable from a missing one.
+  const ownedCustom =
+    event.athlete_id != null && event.athlete_id === params.athlete_id;
+  if (params.require_visible && !event.is_visible_to_athletes && !ownedCustom) {
     throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
   }
 
   const eventType = eventSeriesToRaceEventType(event.series, event.type);
+  const format: RaceFormat = params.format ?? 'singles';
+  const division: RaceDivision = params.division ?? 'open';
+  const gender: RaceGender = params.gender_category ?? 'men';
+  const objectiveVariant = params.objective_variant ?? null;
+  const divisionLabel = params.division_label ?? null;
+  const distanceMeters = params.distance_meters ?? null;
+  const homologada = params.homologada ?? null;
 
   const race_id = await client.begin(async (tx) => {
     // 1) Demote every current target to 'secondary' (single-target invariant).
@@ -194,17 +205,21 @@ export async function setAthleteTargetRace(
     if (existing[0]) {
       const updated = await tx<{ id: string }[]>`
         update races set
-          priority         = 'target'::race_priority,
-          status           = 'planned'::race_status,
-          name             = ${event.name},
-          event_type       = ${eventType}::race_event_type,
-          format           = ${params.format}::race_format,
-          division         = ${params.division}::race_division,
-          gender_category  = ${params.gender_category}::race_gender,
-          race_date        = ${event.start_date}::date,
-          location         = ${event.location},
-          goal_time_seconds= ${goal},
-          updated_at       = now()
+          priority          = 'target'::race_priority,
+          status            = 'planned'::race_status,
+          name              = ${event.name},
+          event_type        = ${eventType}::race_event_type,
+          format            = ${format}::race_format,
+          division          = ${division}::race_division,
+          gender_category   = ${gender}::race_gender,
+          race_date         = ${event.start_date}::date,
+          location          = ${event.location},
+          goal_time_seconds = ${goal},
+          objective_variant = ${objectiveVariant},
+          division_label    = ${divisionLabel},
+          distance_meters   = ${distanceMeters},
+          homologada        = ${homologada},
+          updated_at        = now()
         where id = ${Number(existing[0].id)}
         returning id::text as id
       `;
@@ -213,20 +228,25 @@ export async function setAthleteTargetRace(
       const inserted = await tx<{ id: string }[]>`
         insert into races (
           athlete_id, event_id, name, event_type, format, division,
-          gender_category, priority, race_date, location, goal_time_seconds, status
+          gender_category, priority, race_date, location, goal_time_seconds, status,
+          objective_variant, division_label, distance_meters, homologada
         ) values (
           ${params.athlete_id},
           ${params.event_id},
           ${event.name},
           ${eventType}::race_event_type,
-          ${params.format}::race_format,
-          ${params.division}::race_division,
-          ${params.gender_category}::race_gender,
+          ${format}::race_format,
+          ${division}::race_division,
+          ${gender}::race_gender,
           'target'::race_priority,
           ${event.start_date}::date,
           ${event.location},
           ${goal},
-          'planned'::race_status
+          'planned'::race_status,
+          ${objectiveVariant},
+          ${divisionLabel},
+          ${distanceMeters},
+          ${homologada}
         )
         returning id::text as id
       `;
@@ -241,7 +261,7 @@ export async function setAthleteTargetRace(
     //    tx: no partner / no matching row → nothing to mirror.
     await mirrorDoublesGoalToPartner(tx, {
       athlete_id: params.athlete_id,
-      format: params.format,
+      format,
       event_id: params.event_id,
       race_date: event.start_date,
       goal,

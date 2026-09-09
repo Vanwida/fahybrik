@@ -25,6 +25,10 @@ struct RaceCalendarEvent: Decodable, Identifiable, Hashable {
     let series: String?
     /// Event type, e.g. "hyrox". Optional.
     let type: String?
+    /// Picker family: running | hybrid | crossfit | ocr | other.
+    let family: String?
+    /// Private athlete-created catalog row.
+    let isCustom: Bool?
     /// City, e.g. "Barcelona". Optional.
     let location: String?
     /// ISO-2 country code, e.g. "ES". Optional — drives the PAÍS chip + flag.
@@ -102,10 +106,55 @@ struct RaceCalendarResponse: Decodable {
 /// nil `goalTimeSeconds` is omitted from the JSON (the server treats it as none).
 struct SetTargetRaceBody: Encodable {
     let eventId: Int
-    let format: String          // "singles" | "doubles" | "relay"
-    let division: String        // "open" | "pro" | "elite"
-    let genderCategory: String  // "men" | "women" | "mixed"
+    let format: String?          // HYROX/hybrid team attrs
+    let division: String?
+    let genderCategory: String?
     let goalTimeSeconds: Int?
+    let objectiveVariant: String?
+    let divisionLabel: String?
+    let distanceMeters: Int?
+    let homologada: Bool?
+
+    init(
+        eventId: Int,
+        format: String? = "singles",
+        division: String? = "open",
+        genderCategory: String? = "men",
+        goalTimeSeconds: Int? = nil,
+        objectiveVariant: String? = nil,
+        divisionLabel: String? = nil,
+        distanceMeters: Int? = nil,
+        homologada: Bool? = nil
+    ) {
+        self.eventId = eventId
+        self.format = format
+        self.division = division
+        self.genderCategory = genderCategory
+        self.goalTimeSeconds = goalTimeSeconds
+        self.objectiveVariant = objectiveVariant
+        self.divisionLabel = divisionLabel
+        self.distanceMeters = distanceMeters
+        self.homologada = homologada
+    }
+}
+
+/// POST /api/athlete/events/custom body.
+struct CreateCustomEventBody: Encodable {
+    let name: String
+    let type: String
+    let series: String?
+    let location: String?
+    let startDate: String?
+    let isTentative: Bool?
+    let sourceUrl: String?
+    let divisionLabel: String?
+    let homologada: Bool?
+    let distanceMeters: Int?
+}
+
+struct CreateCustomEventResponse: Decodable {
+    let eventId: String
+    let slug: String
 }
 
 /// `POST /api/athlete/races/target` response. `targetRace` is the SAME shape the

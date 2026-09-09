@@ -20,6 +20,11 @@ struct FijarObjetivoView: View {
     @State private var format: String = "singles"
     @State private var division: String = "open"
     @State private var gender: String = "men"
+    @State private var hunterVariant: HunterRaceVariant = .legend
+    @State private var distancePreset: RunningDistancePreset = .km10
+    @State private var customMeters: String = ""
+    @State private var homologada: Bool = false
+    @State private var divisionLabel: String = ""
 
     // Objetivo por rangos → goalTimeSeconds. Nothing chosen by default → nil (the
     // race can be fixed with no goal, exactly as before). A preset maps to its
@@ -50,21 +55,7 @@ struct FijarObjetivoView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     eventHeader
-                    picker(
-                        label: "FORMATO",
-                        options: [("singles", "Individual"), ("doubles", "Dobles"), ("relay", "Relevos")],
-                        selection: $format
-                    )
-                    picker(
-                        label: "DIVISIÓN",
-                        options: [("open", "Open"), ("pro", "Pro"), ("elite", "Elite")],
-                        selection: $division
-                    )
-                    picker(
-                        label: "CATEGORÍA",
-                        options: [("men", "Hombres"), ("women", "Mujeres"), ("mixed", "Mixto")],
-                        selection: $gender
-                    )
+                    participationSection
                     goalTimeSection
 
                     if let errorText {
@@ -112,6 +103,72 @@ struct FijarObjetivoView: View {
         }
     }
 
+    @ViewBuilder
+    private var participationSection: some View {
+        switch event.objectiveFamily {
+        case .hybrid where event.isHunterRace || event.series?.lowercased() == "hunter_race":
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(text: "FORMATO")
+                ForEach(HunterRaceVariant.allCases) { v in
+                    PillChip(title: v.label, selected: hunterVariant == v) {
+                        hunterVariant = v
+                    }
+                }
+            }
+        case .hybrid:
+            picker(
+                label: "FORMATO",
+                options: [("singles", "Individual"), ("doubles", "Dobles"), ("relay", "Relevos")],
+                selection: $format
+            )
+            picker(
+                label: "DIVISIÓN",
+                options: [("open", "Open"), ("pro", "Pro"), ("elite", "Elite")],
+                selection: $division
+            )
+            picker(
+                label: "CATEGORÍA",
+                options: [("men", "Hombres"), ("women", "Mujeres"), ("mixed", "Mixto")],
+                selection: $gender
+            )
+        case .running:
+            VStack(alignment: .leading, spacing: 10) {
+                LabelText(text: "DISTANCIA")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(RunningDistancePreset.allCases) { p in
+                            PillChip(title: p.label, selected: distancePreset == p) {
+                                distancePreset = p
+                            }
+                        }
+                    }
+                }
+                if distancePreset == .custom {
+                    TextField("Metros", text: $customMeters)
+                        .keyboardType(.numberPad)
+                        .font(.system(size: 15))
+                        .padding(12)
+                        .background(Theme.Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                }
+                Toggle(isOn: $homologada) {
+                    Text("Carrera homologada")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .tint(Theme.Color.accent)
+            }
+        case .crossfit, .other, .ocr:
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(text: "DIVISIÓN")
+                TextField("Ej. RX · Scaled · Masters", text: $divisionLabel)
+                    .font(.system(size: 15))
+                    .padding(12)
+                    .background(Theme.Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            }
+        }
+    }
+
     // MARK: - Attribute picker
 
     private func picker(
@@ -142,29 +199,51 @@ struct FijarObjetivoView: View {
                     .foregroundStyle(Theme.Color.muted)
             }
 
-            GoalPresetGrid(choice: $goalChoice)
-
-            GoalPresetChip(
-                title: "Acabarla bien",
-                descriptor: "primera carrera · sin reloj",
-                selected: goalChoice == .finish
-            ) {
-                goalChoice = .finish
-            }
-
-            if case .exact = goalChoice {
-                exactWheels
+            if event.isHyroxGoalGapEligible {
+                GoalPresetGrid(choice: $goalChoice)
+                GoalPresetChip(
+                    title: "Acabarla bien",
+                    descriptor: "primera carrera · sin reloj",
+                    selected: goalChoice == .finish
+                ) {
+                    goalChoice = .finish
+                }
+                if case .exact = goalChoice {
+                    exactWheels
+                } else {
+                    GoalExactLink {
+                        withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                    }
+                }
+                Text("El objetivo se traduce en tiempos por estación según datos reales de tu división.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.Color.faint)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
-                GoalExactLink {
-                    withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                GoalPresetChip(
+                    title: "Sin tiempo objetivo",
+                    descriptor: "solo fecha y tipo",
+                    selected: goalChoice == .finish
+                ) {
+                    goalChoice = .finish
+                }
+                if case .exact = goalChoice {
+                    exactWheels
+                } else {
+                    GoalExactLink {
+                        withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
+                    }
                 }
             }
-
-            Text("El objetivo se traduce en tiempos por estación según cómo reparten la carrera los atletas reales de tu división — no un promedio inventado.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var resolvedDistanceMeters: Int? {
+        guard event.objectiveFamily == .running else { return nil }
+        if distancePreset == .custom {
+            return Int(customMeters.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return distancePreset.meters
     }
 
     /// The exact h:mm:ss wheels — the fallback revealed by "Prefiero un tiempo
@@ -266,12 +345,17 @@ struct FijarObjetivoView: View {
         }
         submitting = true
         errorText = nil
+        let isHunter = event.isHunterRace || event.series?.lowercased() == "hunter_race"
         let body = SetTargetRaceBody(
             eventId: eventIdInt,
-            format: format,
-            division: division,
-            genderCategory: gender,
-            goalTimeSeconds: goalTotalSeconds
+            format: event.objectiveFamily == .hybrid && !isHunter ? format : nil,
+            division: event.objectiveFamily == .hybrid && !isHunter ? division : nil,
+            genderCategory: event.objectiveFamily == .hybrid && !isHunter ? gender : nil,
+            goalTimeSeconds: goalTotalSeconds,
+            objectiveVariant: isHunter ? hunterVariant.rawValue : nil,
+            divisionLabel: divisionLabel.isEmpty ? nil : divisionLabel,
+            distanceMeters: resolvedDistanceMeters,
+            homologada: event.objectiveFamily == .running ? homologada : nil
         )
         Task { @MainActor in
             do {

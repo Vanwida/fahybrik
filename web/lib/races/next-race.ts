@@ -118,7 +118,16 @@ export async function getUpcomingRaces(
 ): Promise<UpcomingRace[]> {
   const todayIso = isoDateString(startOfDayInBox(new Date()));
 
-  const rows = await client<UpcomingRaceRow[]>`
+  const rows = await client<
+    Array<
+      UpcomingRaceRow & {
+        objective_variant: string | null;
+        division_label: string | null;
+        distance_meters: number | null;
+        homologada: boolean | null;
+      }
+    >
+  >`
     select
       r.id::text,
       r.event_id::text as event_id,
@@ -132,13 +141,20 @@ export async function getUpcomingRaces(
       to_char(r.race_date, 'YYYY-MM-DD') as race_date,
       r.location,
       r.goal_time_seconds,
-      (r.race_date - ${todayIso}::date)::int as days_until
+      case
+        when r.race_date is null then null
+        else (r.race_date - ${todayIso}::date)::int
+      end as days_until,
+      r.objective_variant,
+      r.division_label,
+      r.distance_meters,
+      r.homologada
     from races r
     where r.athlete_id = ${athlete_id as number}
-      and r.race_date >= ${todayIso}::date
+      and (r.race_date is null or r.race_date >= ${todayIso}::date)
       and r.status in ('planned', 'registered')
       and r.result_time_seconds is null
-    order by r.race_date asc, r.id asc
+    order by r.race_date asc nulls last, r.id asc
   `;
 
   return rows.map((row) => ({
@@ -155,6 +171,10 @@ export async function getUpcomingRaces(
     location: row.location,
     goal_time_seconds: row.goal_time_seconds,
     days_until: row.days_until,
+    objective_variant: row.objective_variant,
+    division_label: row.division_label,
+    distance_meters: row.distance_meters,
+    homologada: row.homologada,
   }));
 }
 

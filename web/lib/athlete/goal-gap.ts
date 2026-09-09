@@ -39,6 +39,7 @@ import {
 } from '@fahybrid/shared/domain/goal-gap';
 import type { EvidenceSource } from '@fahybrid/shared/domain/evidence';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
+import { supportsHyroxGoalGap } from '@fahybrid/shared/domain/objectives/catalog';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 import { buildRaceTransfer } from './race-transfer';
 import { STATION_CATALOGUE } from './station-detail';
@@ -344,6 +345,26 @@ export async function buildGoalGap(
   if (!target) {
     return { availability: 'no_target_race', goal: null, ...EMPTY_READ, updated_at };
   }
+
+  // Non-HYROX objectives (Hunter, running, CF, …) never get fake 8-station splits.
+  if (!supportsHyroxGoalGap(target.event_type)) {
+    if (target.goal_time_seconds == null || target.goal_time_seconds <= 0) {
+      return { availability: 'no_goal', goal: null, ...EMPTY_READ, updated_at };
+    }
+    const goalDto = {
+      label: goalLabel(target.goal_time_seconds),
+      total_s: target.goal_time_seconds,
+      race_name: target.name,
+      race_date: target.race_date,
+    };
+    return {
+      availability: 'no_data',
+      goal: goalDto,
+      ...EMPTY_READ,
+      updated_at,
+    };
+  }
+
   if (target.goal_time_seconds == null || target.goal_time_seconds <= 0) {
     return { availability: 'no_goal', goal: null, ...EMPTY_READ, updated_at };
   }

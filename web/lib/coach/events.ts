@@ -39,7 +39,7 @@ export interface EventListItem {
   event_id: string;
   slug: string;
   name: string;
-  type: 'hyrox' | 'crossfit' | 'other';
+  type: 'hyrox' | 'crossfit' | 'running' | 'ocr' | 'other';
   location: string | null;
   country: string | null;
   region: EventRegion | null;
@@ -65,7 +65,7 @@ interface RawEventRow {
   id: string;
   slug: string;
   name: string;
-  type: 'hyrox' | 'crossfit' | 'other';
+  type: 'hyrox' | 'crossfit' | 'running' | 'ocr' | 'other';
   location: string | null;
   country: string | null;
   region: EventRegion | null;
@@ -85,7 +85,7 @@ interface RawEventRow {
 }
 
 export interface ListEventsOpts {
-  type?: 'hyrox' | 'crossfit' | 'other';
+  type?: 'hyrox' | 'crossfit' | 'running' | 'ocr' | 'other';
   region?: EventRegion;
   // 'upcoming' (default) hides past races. 'all' includes them. 'past' only past.
   scope?: 'upcoming' | 'past' | 'all';

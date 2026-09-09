@@ -3,26 +3,22 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { eventFamily, type EventFamily } from '@fahybrid/shared/domain/objectives/catalog';
 import type { EventType } from '@fahybrid/shared/schema';
 import type { RaceCalendarEvent } from '@fahybrid/shared/schema';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RACE CATALOG (phase 2d) — the athlete-facing "Buscar carrera" calendar.
+// RACE CATALOG (phase 2d + FH-77) — athlete "Buscar carrera" / objectives picker.
 //
-// Source of truth is the shared `events` table. The calendar lists VISIBLE,
-// FUTURE events (an event is "future/current" while its last day —
-// coalesce(end_date, start_date) — is >= today in the box tz). Optional facets
-// (series / country / q / from / to) are JS-filtered: the events table holds at
-// most a few hundred rows (HYROX worldwide), so the broad query + in-memory
-// filter keeps the SQL trivial — the same rationale as lib/coach/events.ts.
-//
-// This is DISTINCT from lib/coach/events.ts#listEvents (the coach admin listing):
-// the calendar carries the athlete-relevant `series` + `is_tentative` columns
-// that the coach EventListItem omits, and its default scope is visible+future.
+// Source: shared `events` table. Lists VISIBLE future catalog rows PLUS the
+// athlete's private custom events (events.athlete_id). Optional facets:
+// family / series / country / q / from / to.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface RaceCalendarFilters {
-  /** Competition family soft-whitelist: 'hyrox'|'deka'|'athx'|'deadly_dozen'|'other'. */
+  /** Picker family facet: running | hybrid | crossfit | ocr | other. */
+  family?: EventFamily;
+  /** Competition family soft-whitelist series token. */
   series?: string;
   /** ISO 3166-1 alpha-2 (case-insensitive). */
   country?: string;
@@ -32,9 +28,10 @@ export interface RaceCalendarFilters {
   from?: string;
   /** Inclusive upper bound on start_date (YYYY-MM-DD). */
   to?: string;
+  /** When set, include this athlete's private custom events. */
+  athlete_id?: number;
   /**
-   * Coach picker only: include events not yet flagged visible to athletes. The
-   * athlete calendar always leaves this false (visible-only).
+   * Coach picker only: include events not yet flagged visible to athletes.
    */
   include_hidden?: boolean;
 }
@@ -48,20 +45,22 @@ interface RawCalendarRow {
   location: string | null;
   country: string | null;
   region: string | null;
-  // Nullable since migration 0080 (honest-null dates for undated/tentative venues).
   start_date: string | null;
   end_date: string | null;
   is_tentative: boolean;
   division_options: string[] | null;
+  athlete_id: string | null;
 }
 
 function toCalendarEvent(row: RawCalendarRow): RaceCalendarEvent {
+  const isCustom = row.athlete_id != null;
   return {
     event_id: row.event_id,
     slug: row.slug,
     name: row.name,
     series: row.series,
     type: row.type,
+    family: eventFamily(row.type, row.series),
     location: row.location,
     country: row.country,
     region: row.region,
@@ -69,12 +68,12 @@ function toCalendarEvent(row: RawCalendarRow): RaceCalendarEvent {
     end_date: row.end_date,
     is_tentative: row.is_tentative,
     division_options: row.division_options ?? [],
+    is_custom: isCustom,
   };
 }
 
 /**
- * The visible, future race catalog ordered soonest-first. `include_hidden`
- * (coach picker) drops the visibility filter. Optional facets are applied in JS.
+ * Future catalog (+ optional athlete custom rows), soonest-first. Facets in JS.
  */
 export async function listRaceCalendar(
   filters: RaceCalendarFilters = {},
@@ -82,6 +81,7 @@ export async function listRaceCalendar(
 ): Promise<RaceCalendarEvent[]> {
   const today = isoDateString(startOfDayInBox(new Date()));
   const includeHidden = filters.include_hidden === true;
+  const athleteId = filters.athlete_id ?? null;
 
   const rows = await client<RawCalendarRow[]>`
     select
@@ -96,14 +96,23 @@ export async function listRaceCalendar(
       to_char(e.start_date, 'YYYY-MM-DD') as start_date,
       to_char(e.end_date,   'YYYY-MM-DD') as end_date,
       e.is_tentative                      as is_tentative,
-      e.division_options                  as division_options
+      e.division_options                  as division_options,
+      e.athlete_id::text                  as athlete_id
     from events e
-    where coalesce(e.end_date, e.start_date) >= ${today}::date
-      and (${includeHidden}::boolean = true or e.is_visible_to_athletes = true)
+    where (
+        e.start_date is null
+        or coalesce(e.end_date, e.start_date) >= ${today}::date
+      )
+      and (
+        (${includeHidden}::boolean = true and e.athlete_id is null)
+        or e.is_visible_to_athletes = true
+        or (e.athlete_id is not null and e.athlete_id = ${athleteId})
+      )
     order by e.start_date asc nulls last, e.name asc
     limit 1000
   `;
 
+  const familyFilter = filters.family;
   const series = filters.series?.trim().toLowerCase() || undefined;
   const country = filters.country?.trim().toUpperCase() || undefined;
   const q = filters.q?.trim().toLowerCase() || undefined;
@@ -113,10 +122,9 @@ export async function listRaceCalendar(
   return rows
     .map(toCalendarEvent)
     .filter((e) => {
+      if (familyFilter && e.family !== familyFilter) return false;
       if (series && (e.series ?? '').toLowerCase() !== series) return false;
       if (country && (e.country ?? '').toUpperCase() !== country) return false;
-      // An undated event (start_date null) can't satisfy a date-window facet —
-      // NULL fails a range predicate (same semantics as lib/coach/events.ts).
       if (from && (e.start_date == null || e.start_date < from)) return false;
       if (to && (e.start_date == null || e.start_date > to)) return false;
       if (q) {
