@@ -1,9 +1,10 @@
 import SwiftUI
 
-// FH-95 — the ONE pre-live ▶ EMPEZAR action. Called only from PreWorkoutBriefView
-// in readyToStart mode (after Devices hub). Mirror/HK `begin` runs ON tap — the
-// wrist joins asynchronously per Apple (startWatchApp → mirrored session); it
-// must NEVER grey out Empezar waiting for wristJoined first.
+// FH-95 / FH-96 — the ONE pre-live ▶ EMPEZAR action. Called only from
+// PreWorkoutBriefView in readyToStart mode (after Devices hub).
+// Apple: one workout intent → one PRIMARY → one mirror channel. Only `release`
+// calls `PhoneMirrorService.begin` / `startWatchApp`. `prepWatchRecording` is
+// UI-only (watch card spinner) — a second `begin` on ▶ EMPEZAR must never re-mint.
 
 enum PreWorkoutReleaseLive {
 
@@ -22,7 +23,8 @@ enum PreWorkoutReleaseLive {
         return staging
     }
 
-    /// Optional early watch prep — same HK path, does not start the live engine.
+    /// Optional early watch prep — stamps run env for release, drives the watch
+    /// card UI, does NOT call `begin` / `startWatchApp` (FH-96).
     @MainActor
     static func prepWatchRecording(
         staging: WorkoutSession,
@@ -32,6 +34,6 @@ enum PreWorkoutReleaseLive {
     ) {
         staging.runEnvironment = answers.runEnvironment
         stampSession?(staging)
-        PhoneMirrorService.shared.begin(session: staging, activityKind: activityKind)
+        PhoneMirrorService.shared.noteWatchPrepIntent()
     }
 }

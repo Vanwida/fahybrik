@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-09 · FH-96 — Un intent → un PRIMARY (double-begin mirror)
+
+**El hueco:** build 78 — «Preparar grabación en el reloj» y ▶ EMPEZAR llamaban
+ambos a `PhoneMirrorService.begin`. Cada `begin` ponía `didLaunchWatch = false` y
+relanzaba `startWatchApp` con el Watch ya en `.recording` (Grabando, sin frame).
+Watch `queueOrBegin` hacía `finish(save: true)` del PRIMARY vivo → teléfono
+`teardown` → watchdog «Sin conexión con el iPhone».
+
+**Decidido:** Apple — un workout intent → un PRIMARY → un canal mirror.
+`PreWorkoutReleaseLive.prepWatchRecording` = UI-only (`noteWatchPrepIntent`, sin HK).
+Único `begin`/`startWatchApp` en `release`. Latch `primaryRequested` + `boundSessionId`:
+segundo `begin` misma sesión no resetea `didLaunchWatch` ni bump
+`watchLaunchGeneration`. Watch: `MirrorPrimaryLaunchPolicy` — `startPrimary` con
+config compatible en `.recording` → ignore; `finish` solo leftover/orphan distinto.
+Transiciones de pieza siguen en `beginNewActivity` (frames), nunca remint day session
+en ARRANCAR / Outdoor HUD.
+
+**NO hacer:** `begin` en prep; segundo `startWatchApp` por la misma sesión staging;
+`finish` de un PRIMARY vivo por launch redundante.
+
+---
+
 ## 2026-09-09 · FH-95 — Devices hub (resta StartStep secuencial)
 
 **El hueco:** FH-94 reforzó la máquina `StartStep` (calle → remo → ski → LISTO).

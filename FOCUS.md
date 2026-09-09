@@ -2,9 +2,15 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-95 Devices hub — build 78)
+Última actualización: **2026-09-09** (FH-96 double-begin mirror — build 79)
 
 ## Ahora
+
+**FH-96 — double-begin mirror fix (build 79).**
+Prep reloj = UI-only (`noteWatchPrepIntent`); único `begin`/`startWatchApp` en
+`PreWorkoutReleaseLive.release`. Latch `primaryRequested` idempotente en
+`PhoneMirrorService.begin`. Watch: `startPrimary` compatible → ignore, no finish.
+Tests: `PhoneMirrorDoubleBeginTests` + `MirrorPrimaryLaunchPolicy`.
 
 **FH-95 — Devices hub + un solo Empezar (PR #166, build 78).**
 Reescritura Start (no parche FH-94): brief (Continuar) → `PreWorkoutDevicesHubView`
