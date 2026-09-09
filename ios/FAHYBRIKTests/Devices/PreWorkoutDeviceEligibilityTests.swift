@@ -300,4 +300,29 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
                 roleConnected: [], anyConnected: false, wristJoined: false))
     }
 
+    // MARK: - FH-94 · folded run work must gate RunPreStartFlow before erg
+
+    func testFoldedRoundsRunSkiRowNeedsRunLocationBeforeErg() {
+        let s = seg(.reps, prescription: chipperRunSkiRow())
+        XCTAssertTrue(s.involvesRun)
+        XCTAssertFalse(s.kind == .running)
+        let segs = [s]
+        let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
+        XCTAssertTrue(r.needsRunLocation, "involvesRun must match devices(for:) treadmill chip")
+        XCTAssertEqual(r.ergRoles, ["row", "ski"])
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: .empty,
+                roleConnected: [], anyConnected: false, wristJoined: false),
+            .runLocation,
+            "RunPreStartFlow before Conecta el remo")
+        var a = SessionStartAnswers.empty
+        a.runEnvironment = .outdoor
+        XCTAssertEqual(
+            PreWorkoutDeviceEligibility.nextStartStep(
+                recipe: r, segments: segs, answers: a,
+                roleConnected: [], anyConnected: false, wristJoined: false),
+            .erg(.row))
+    }
+
 }

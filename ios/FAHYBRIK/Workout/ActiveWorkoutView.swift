@@ -38,6 +38,8 @@ struct ActiveWorkoutView: View {
     // #8 — Outdoor/Treadmill ya no son `fullScreenCover`. El cromo se monta
     // en sitio (`RunLiveChrome`). Las tapas apiladas sobre HostVivo eran FH-55.
     @State private var mostrarBloques = false
+    @State private var mostrarConectividad = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showPauseConfirm: Bool = false
     @State private var pauseAutoResume: Int = 10
     // AUDIT-4 — generation token for the pause auto-resume chain: each time the pause
@@ -129,6 +131,15 @@ struct ActiveWorkoutView: View {
     /// current tramo. Keeps Connect visible mid-live after a drop or station change.
     private var recipeDevices: [PreWorkoutDevice] {
         PreWorkoutDeviceEligibility.devices(for: session.plan.segments)
+    }
+
+    private var sessionInvolvesRun: Bool {
+        session.plan.segments.contains { $0.involvesRun }
+    }
+
+    /// Top-strip Devices control when the session can bind machines or change run env.
+    private var muestraConectividadEnBanda: Bool {
+        !recipeDevices.isEmpty || sessionInvolvesRun
     }
 
     private var liveScanPath: LiveDeviceScanPath {
@@ -326,6 +337,27 @@ struct ActiveWorkoutView: View {
             BloquesDelEntreno(session: session) {
                 session.persistNow()
                 mostrarBloques = false
+            }
+        }
+        .sheet(isPresented: $mostrarConectividad) {
+            LiveConectividadSheet(
+                session: session,
+                devices: recipeDevices,
+                pool: pool,
+                treadmillLink: hub.treadmill.link,
+                hrLink: hub.heartRate.link,
+                onTapErg: { store, title in openPM5Picker(store: store, roleTitle: title) },
+                onTapTreadmill: { openCintaPicker() },
+                onTapHR: { openHRPicker() },
+                onDismiss: { mostrarConectividad = false }
+            )
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // FH-94: pocket/lock must not drop the live snapshot or tear down BLE.
+            // `UIBackgroundModes` bluetooth-central + `isIdleTimerDisabled` keep the
+            // radio streaming; persist here mirrors AppShell's background hook.
+            if phase == .background || phase == .inactive {
+                session.persistNow()
             }
         }
         .sheet(isPresented: $showSegmentVideo, onDismiss: {
@@ -541,13 +573,6 @@ struct ActiveWorkoutView: View {
         session.beltConnected = hub.treadmillConnected
     }
 
-    /// Calle/cinta se elige en sitio. No hay tapa: `runEnvironment` monta
-    /// `RunLiveChrome` (la misma asignación que `RunPreStartFlow`).
-    private func elegirSitioDeCarrera(_ env: RunEnvironment) {
-        session.runEnvironment = env
-        session.ensurePhoneWorkoutRun()
-    }
-
     // MARK: - Block start (preview only — devices answered in SessionStartGate)
 
     /// Block preview «Empezar» — the clock starts; run/erg/watch were gated before live.
@@ -615,6 +640,9 @@ struct ActiveWorkoutView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Salir del entreno")
             BotonVerBloques { mostrarBloques = true }
+            if muestraConectividadEnBanda {
+                BotonConectividad { mostrarConectividad = true }
+            }
             Button(action: {
                 session.togglePause()
                 if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
@@ -799,12 +827,12 @@ struct ActiveWorkoutView: View {
                              alSalir: { navigateAway() },
                              alVerBloques: { mostrarBloques = true })
         case .host:
+            // FH-94: calle/cinta se elige en RunPreStartFlow before EMPEZAR, or
+            // mid-session via BotonConectividad — never full-width mid-HUD CTAs.
             HostVivo(session: session, accion: accionDelHost) {
                 topStrip
             } sujeto: {
-                RunLiveHUD(session: session, gpsActive: gpsActive,
-                           onTapTreadmill: { elegirSitioDeCarrera(.treadmill) },
-                           onTapOutdoor: { elegirSitioDeCarrera(.outdoor) })
+                RunLiveHUD(session: session, gpsActive: gpsActive)
             } apoyos: {
                 apoyosDelHost
             }

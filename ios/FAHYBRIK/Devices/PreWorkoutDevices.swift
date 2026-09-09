@@ -255,7 +255,9 @@ enum PreWorkoutDeviceEligibility {
             if case .erg(let r) = dev { return r.rawValue }
             return nil
         }
-        let needsRun = segments.contains { $0.kind == .running } || calentamientoRun
+        // Same signal as `devices(for:)` — folded rounds/functional (Run·Row·Ski)
+        // carry run in set.modality, not segment.kind.
+        let needsRun = segments.contains { $0.involvesRun } || calentamientoRun
         return SessionStartRecipe(
             needsRunLocation: needsRun,
             ergRoles: ergRoles,
