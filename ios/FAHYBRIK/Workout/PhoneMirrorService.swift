@@ -259,9 +259,15 @@ final class PhoneMirrorService {
     /// A running session waits until the athlete answers calle/cinta: locationType
     /// is immutable on `HKWorkoutConfiguration`.
     func launchWatchIfNeeded() {
-        guard session != nil, HKHealthStore.isHealthDataAvailable() else { return }
-        if activityKind == "running", session?.runEnvironment == nil { return }
-        guard !didLaunchWatch, !wristJoined else { return }
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        let needsRunEnv = activityKind == "running" && session?.runEnvironment == nil
+        guard PhoneLiveHandoffPolicy.shouldLaunchWatch(
+            didLaunch: didLaunchWatch,
+            wristJoined: wristJoined,
+            hasSession: session != nil,
+            runEnvironmentResolved: !needsRunEnv,
+            activityKindIsRunning: activityKind == "running"
+        ) else { return }
         didLaunchWatch = true
         watchLaunchGeneration += 1
         let generation = watchLaunchGeneration
@@ -332,9 +338,7 @@ final class PhoneMirrorService {
     /// wrist instead of leaving it recording until reboot.
     func end(save: Bool) {
         watchLaunchGeneration += 1   // cancel any in-flight launch retries
-        // The wrist already tore down the PRIMARY (`MirrorEnded` reason=athlete).
-        // Staging a late `pendingEndSave` would kill the next session on adopt.
-        if wristFinishedByAthlete { return }
+        if PhoneLiveHandoffPolicy.phoneEndIsNoOp(wristFinishedByAthlete: wristFinishedByAthlete) { return }
         // EL AVISO SALE SIEMPRE, HAYA ESPEJO O NO. El canal del espejo solo existe
         // mientras el reloj refleja al teléfono; si el reloj llevaba el entreno por
         // su cuenta, este `end` no llegaba a ninguna parte y el atleta se
@@ -409,8 +413,11 @@ final class PhoneMirrorService {
             deliverEnd(save: pending)
             return
         }
-        if session == nil || session?.isFinished == true {
-            // No active engine to mirror — discard the wrist recording.
+        if PhoneLiveHandoffPolicy.adoptShouldDiscardImmediately(
+            pendingEndSave: nil,
+            sessionFinished: session?.isFinished == true,
+            hasLiveEngine: session != nil
+        ) {
             deliverEnd(save: false)
             return
         }

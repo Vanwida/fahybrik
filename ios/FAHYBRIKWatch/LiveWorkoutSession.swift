@@ -1,8 +1,8 @@
 import Foundation
 import HealthKit
 
-// Auth + facade. Does not mint `HKWorkoutSession`. The Watch PRIMARY owner is
-// `MirrorSessionController` (create / adopt / recover / end).
+// FH-97 — auth + solo facade. HK PRIMARY mint/recover/end lives on WatchPrimaryOwner.
+
 @MainActor
 final class LiveWorkoutSession: ObservableObject {
     var onHeartRate: ((Int) -> Void)?
@@ -10,8 +10,6 @@ final class LiveWorkoutSession: ObservableObject {
 
     private let store = HKHealthStore()
 
-    /// The HealthKit types the live recording reads and shares — single source so
-    /// solo and mirror request identical permissions.
     static let workoutDataTypes: Set<HKSampleType> = [
         HKObjectType.workoutType(),
         HKQuantityType(.heartRate),
@@ -28,7 +26,6 @@ final class LiveWorkoutSession: ObservableObject {
         await Self.requestWorkoutAuthorization(store: store)
     }
 
-    /// Asks the one PRIMARY owner. Does not call `HKWorkoutSession(...)`.
     func start(
         activityType: HKWorkoutActivityType,
         locationType: HKWorkoutSessionLocationType,
@@ -37,26 +34,26 @@ final class LiveWorkoutSession: ObservableObject {
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
         config.locationType = locationType
-        let owner = MirrorSessionController.shared
+        let owner = WatchPrimaryOwner.shared
         owner.onHeartRate = onHeartRate
         owner.onDistanceDelta = onDistanceDelta
         owner.startSolo(configuration: config, reuseIfPresent: reuseIfPresent)
     }
 
     func pause() {
-        MirrorSessionController.shared.pausePrimary()
+        WatchPrimaryOwner.shared.pause()
     }
 
     func resume() {
-        MirrorSessionController.shared.resumePrimary()
+        WatchPrimaryOwner.shared.resume()
     }
 
     func syncActivity(_ plan: WatchHKActivityPlan) {
-        MirrorSessionController.shared.syncSoloActivity(plan)
+        WatchPrimaryOwner.shared.syncSoloActivity(plan)
     }
 
     @discardableResult
     func end() async -> String? {
-        await MirrorSessionController.shared.endPrimary(save: true)
+        await WatchPrimaryOwner.shared.endPrimary(save: true)
     }
 }

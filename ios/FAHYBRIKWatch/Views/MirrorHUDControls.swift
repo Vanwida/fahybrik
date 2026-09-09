@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct MirrorHUDControlsPage: View {
-    let controller: MirrorSessionController
+    let owner: WatchPrimaryOwner
     let phase: String?
 
     var body: some View {
         ZStack {
             WatchTheme.bg.ignoresSafeArea()
-            if controller.isConnectionLost {
+            if owner.isConnectionLost {
                 connectionLostControls
             } else {
                 normalControls
@@ -31,11 +31,11 @@ struct MirrorHUDControlsPage: View {
         return Button {
             WatchHaptics.tap()
             if paused {
-                controller.resumePrimary()
-                controller.sendCommand(MirrorWire.CommandKind.resume)
+                owner.resume()
+                owner.sendCommand(MirrorWire.CommandKind.resume)
             } else {
-                controller.pausePrimary()
-                controller.sendCommand(MirrorWire.CommandKind.pause)
+                owner.pause()
+                owner.sendCommand(MirrorWire.CommandKind.pause)
             }
         } label: {
             HStack(spacing: 12) {
@@ -63,11 +63,11 @@ struct MirrorHUDControlsPage: View {
                 .foregroundStyle(WatchTheme.dim)
             Spacer(minLength: 0)
             BigTapButton(title: "Terminar y guardar aquí", systemImage: "checkmark") {
-                controller.finishLocally()
+                owner.finishByAthlete()
             }
             Button {
                 WatchHaptics.tap()
-                controller.discardLocally()
+                owner.discardByAthlete()
             } label: {
                 Text("Descartar")
                     .font(.system(size: 13, weight: .heavy))

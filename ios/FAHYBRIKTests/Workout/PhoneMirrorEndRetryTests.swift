@@ -10,7 +10,7 @@ import XCTest
 // réplica) contra un seam de envío inyectado (`sendOverride`): no hay
 // HKWorkoutSession espejo — un tipo opaco del sistema — que fabricar en un test.
 //
-// El lado del RELOJ (MirrorSessionController: la idempotencia de `finish(save:)`
+// El lado del RELOJ (WatchPrimaryOwner: la idempotencia de `requestEnd`
 // ante un cierre repetido, el auto-reparo de cualquier estado sucio al arrancar,
 // el watchdog que autoguarda una grabación atascada) NO tiene target de test: vive
 // en FAHYBRIKWatch, y `FAHYBRIKTests` sólo compila contra el target `FAHYBRIK`

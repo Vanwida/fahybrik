@@ -12,7 +12,7 @@ struct RootView: View {
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
     // Mirror / orphan HUD: phone is coach, or recover without a coach motor.
     // `has PRIMARY` is not this switch — solo recording keeps LiveFlowView.
-    @Environment(MirrorSessionController.self) private var mirror
+    @Environment(WatchPrimaryOwner.self) private var primary
 
     /// A fresh, matching crash snapshot for today's session, if one is on disk — the
     /// idle state then offers to resume it instead of starting fresh. Loaded off the
@@ -25,7 +25,7 @@ struct RootView: View {
             // catch that here (RootView is always mounted) and finalize once.
             .onChange(of: coordinator.session?.isFinished == true) { _, finished in
                 // Mirror: phone POSTs; wrist enriches HK only (card 157).
-                if finished, mirror.mode != .mirror { coordinator.finalize() }
+                if finished, primary.role != .mirror { coordinator.finalize() }
             }
             // Look for a resumable crash snapshot each time the pushed day changes.
             .task(id: plan.today?.assignmentId ?? "") {
@@ -39,12 +39,12 @@ struct RootView: View {
             }
             .onChange(of: plan.today?.isDone) { _, isDone in
                 guard isDone == true else { return }
-                if PhoneWatchRuntimeReconcile.watchOrphanShouldEnd(
-                    modeIsOrphan: mirror.mode == .orphan,
+                if WatchPrimaryLifecycle.orphanShouldEnd(
+                    role: primary.role,
                     todayMarkedDone: true,
                     standalonePhaseIdle: coordinator.phase == .idle
                 ) {
-                    mirror.finishFromPhone(save: true)
+                    primary.finishFromPhone(save: true)
                 }
             }
         #if DEBUG
@@ -63,8 +63,8 @@ struct RootView: View {
 
     @ViewBuilder
     private var content: some View {
-        if mirror.showsMirrorHUD {
-            MirrorHUDView(controller: mirror)
+        if primary.showsMirrorHUD {
+            MirrorHUDView(owner: primary)
         } else {
             standaloneContent
         }
