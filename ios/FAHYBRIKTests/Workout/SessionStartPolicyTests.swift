@@ -8,18 +8,18 @@ final class SessionStartPolicyTests: XCTestCase {
         XCTAssertTrue(SessionStartPolicy.meterAuthoritySubtitle(for: .treadmill).contains("cinta"))
     }
 
-    func testWatchResolvedWhenWristJoined() {
-        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: .empty, wristJoined: true))
+    func testWatchResolvedWhenMirrorLive() {
+        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: .empty, wristMirrorLive: true))
     }
 
     func testWatchResolvedWhenUnavailableOrSkipped() {
         var unavailable = SessionStartAnswers.empty
         unavailable.watchUnavailable = true
-        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: unavailable, wristJoined: false))
+        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: unavailable, wristMirrorLive: false))
 
         var skipped = SessionStartAnswers.empty
         skipped.watchProceedWithoutWrist = true
-        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: skipped, wristJoined: false))
+        XCTAssertTrue(SessionStartPolicy.watchResolved(answers: skipped, wristMirrorLive: false))
     }
 
     func testEmpezarFooterHintNeverBlocks() {

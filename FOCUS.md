@@ -2,13 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-97 build 81 — compile fix Cloud 80)
+Última actualización: **2026-09-09** (FH-99 build 83 — live ownership rewrite)
 
 ## Ahora
 
-**FH-97 — build 81 compile fix (PR pendiente).**
-Cloud build 80: `finish(save:)` leftover + Swift 6 `WatchRunLocationGate` delegate.
-**FH-97 — Watch PRIMARY rewrite (PR #168, build 80).**
+**FH-99 — live session ownership rewrite (PR pendiente, build 83).**
+Verdad reloj (`wristMirrorLive`), create≠start (`LiveLaunchPolicy`), tramo hecho
+con auto-pausa, X→Terminar/soft-leave, resume banner→recoverOnLaunch, programar día
+en builder libre. Diseño: `docs/pr/fh99-live-ownership.md`.
+
+**FH-97 — Watch PRIMARY rewrite (main, build 80–82).**
 Delete-first: `MirrorSessionController*` → `WatchPrimaryOwner`; `PhoneMirrorService` →
 `PhoneLiveSession` + `PhoneMirrorFrameBuilder`. Teardown deadline 5s nunca se cancela
 al guardar — GUARDANDO no puede quedarse pegado. Rebase sobre FH-95/96 Start UX.

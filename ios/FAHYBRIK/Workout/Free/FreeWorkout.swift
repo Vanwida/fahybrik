@@ -240,6 +240,8 @@ final class FreeWorkoutDraft {
     /// can never disagree.
     var benchmark: BenchmarkFraming? = nil
     var isBenchmark: Bool { benchmark != nil }
+    /// YYYY-MM-DD for plan-only save — defaults to today; athlete can pick another day.
+    var scheduledDayISO: String = RaceDate.todayISO()
 
     /// Read-only on purpose: `selectModality` is the ONLY way in because choosing a
     /// discipline is also what seeds its pace. Assigning this directly is what left
@@ -490,7 +492,8 @@ final class FreeWorkoutDraft {
             modality: modality.wire,
             prescription: prescription,
             items: nil,
-            assignment_id: assignmentId
+            assignment_id: assignmentId,
+            scheduled_for: scheduledDayISO
         )
     }
 
@@ -663,19 +666,22 @@ struct FreePlanSavePayload: Codable {
     let prescription: Prescription?
     let items: [FreeWorkoutItemPayload]?
     let assignment_id: Int?
+    let scheduled_for: String?
 
     init(
         title: String,
         modality: String,
         prescription: Prescription?,
         items: [FreeWorkoutItemPayload]?,
-        assignment_id: Int? = nil
+        assignment_id: Int? = nil,
+        scheduled_for: String? = nil
     ) {
         self.title = title
         self.modality = modality
         self.prescription = prescription
         self.items = items
         self.assignment_id = assignment_id
+        self.scheduled_for = scheduled_for
     }
 }
 

@@ -251,6 +251,9 @@ extension WorkoutSession {
     }
 
     func primaryAdvance(fromAthleteTap: Bool = false) {
+        // FH-99 — athlete tap closes a tramo even under GPS auto-pause; manual
+        // pause still blocks (athlete must resume or use exit sheet).
+        if fromAthleteTap, autoPaused { autoResume() }
         guard !isPaused, !isFinished, !isAwaitingBlockStart, let seg = currentSegment else { return }
         if fromAthleteTap {
             let ahora = Date()

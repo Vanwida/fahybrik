@@ -153,9 +153,8 @@ struct InicioView: View {
     @MainActor
     private func attemptOpenFreeBuilder() async {
         let saved = await WorkoutStateStore.shared.load()
-        if LiveWorkoutLaunchConflict.shouldPrompt(
-            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
-            snapshot: saved
+        if LiveWorkoutLaunchConflict.shouldPromptStartingLive(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession
         ) {
             conflictSnapshotTitle = saved?.freeTitle ?? saved?.plan.name
             pendingOpenFreeBuilder = true

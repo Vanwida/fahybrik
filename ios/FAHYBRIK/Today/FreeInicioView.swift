@@ -63,8 +63,12 @@ struct FreeInicioView: View {
                             .staggerReveal(revealed, index: 0)
                         greeting
                             .staggerReveal(revealed, index: 1)
-                        WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { launch in
-                            Task { await attemptWorkoutLaunch(launch) }
+                        WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
+                            Task {
+                                await LiveWorkoutResume.shared.recoverOnLaunch(
+                                    hrZones: identity?.hrZones
+                                )
+                            }
                         }
                         .staggerReveal(revealed, index: 1)
                         builderCard
@@ -369,11 +373,10 @@ struct FreeInicioView: View {
 
     @MainActor
     private func attemptOpenFreeBuilder() async {
-        let saved = await WorkoutStateStore.shared.load()
-        if LiveWorkoutLaunchConflict.shouldPrompt(
-            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
-            snapshot: saved
+        if LiveWorkoutLaunchConflict.shouldPromptStartingLive(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession
         ) {
+            let saved = await WorkoutStateStore.shared.load()
             conflictSnapshotTitle = saved?.freeTitle ?? saved?.plan.name
             pendingOpenFreeBuilder = true
             showLaunchConflict = true
@@ -385,9 +388,8 @@ struct FreeInicioView: View {
     @MainActor
     private func attemptWorkoutLaunch(_ launch: WorkoutLaunch) async {
         let saved = await WorkoutStateStore.shared.load()
-        if LiveWorkoutLaunchConflict.shouldPrompt(
-            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
-            snapshot: saved
+        if LiveWorkoutLaunchConflict.shouldPromptStartingLive(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession
         ) {
             conflictSnapshotTitle = saved?.plan.name ?? launch.title
             pendingWeekLaunch = launch

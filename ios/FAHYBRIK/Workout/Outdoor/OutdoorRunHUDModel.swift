@@ -129,7 +129,7 @@ final class OutdoorRunHUDModel {
     /// acción (contrato §10.5): así el toque se siente igual en las diez vistas en
     /// vivo en vez de depender de que cada modelo se acuerde. Aquí sonaba dos
     /// veces desde que la vista pasó a hablar el lenguaje del §10.
-    func endLegNow() { session.primaryAdvance() }
+    func endLegNow() { session.primaryAdvance(fromAthleteTap: true) }
 
     // MARK: - Leg display context (shared resolvers → reads like the belt HUD)
 

@@ -5,15 +5,19 @@ import SwiftUI
 
 enum LiveWorkoutLaunchConflict {
 
-    /// True when a live cover, tracked engine, or fresh soft-leave snapshot blocks
-    /// launching another session without an explicit choice.
+    /// FH-99 — only STARTING another live session is gated. A soft-leave snapshot
+    /// alone does not block create/save; `WorkoutResumeBanner` handles return.
+    static func shouldPromptStartingLive(hasLiveCoverOrTracked: Bool) -> Bool {
+        LiveLaunchPolicy.blocksStartingLive(hasLiveCoverOrTracked: hasLiveCoverOrTracked)
+    }
+
+    /// Deprecated alias — pass `hasLiveCoverOrTracked` only; snapshot ignored.
     static func shouldPrompt(
         hasLiveCoverOrTracked: Bool,
         snapshot: PersistedWorkoutState?
     ) -> Bool {
-        if hasLiveCoverOrTracked { return true }
-        guard let snapshot else { return false }
-        return WorkoutRecoveryGate.isFresh(snapshot)
+        _ = snapshot
+        return shouldPromptStartingLive(hasLiveCoverOrTracked: hasLiveCoverOrTracked)
     }
 
     /// End HK mirror + disk snapshot so a new workout can start cleanly.

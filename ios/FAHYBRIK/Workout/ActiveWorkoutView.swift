@@ -252,7 +252,7 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
-            if !PhoneLiveSession.shared.wristJoined {
+            if !PhoneLiveSession.shared.wristMirrorLive {
                 liveHR.start(from: session.startedAt)
             }
             // Screen awake: WorkoutContainer.mantenerPantallaDespierta (FH-94) — not here.
@@ -284,10 +284,9 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             session.ensurePhoneWorkoutRun()
         }
-        .onChange(of: PhoneLiveSession.shared.wristJoined) { _, joined in
-            // Hand HR off to the wrist when it joins mid-run; take it back if it drops
-            // so the phone keeps recording HR alone.
-            if joined { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
+        .onChange(of: PhoneLiveSession.shared.wristMirrorLive) { _, live in
+            // Hand HR off to the wrist when mirror is live; take it back if it drops.
+            if live { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
         }
         .onChange(of: pool.epoch) { _, _ in
             // Role stores are not the `@State` this view holds — `epoch` is the
@@ -391,7 +390,7 @@ struct ActiveWorkoutView: View {
                 canGoBack: session.canStepBack,
                 onStartBlock: { requestBlockStart() },
                 onBack: { requestBack() },
-                onExit: { navigateAway() },
+                onExit: { requestExitOrLeave() },
                 alVerBloques: { mostrarBloques = true }
             )
         }
@@ -587,7 +586,7 @@ struct ActiveWorkoutView: View {
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
             streetScreenOwnsSurface: calleHudMontado,
-            wristIsRecording: PhoneLiveSession.shared.wristJoined
+            wristIsRecording: PhoneLiveSession.shared.wristMirrorLive
         )
         if plan.ownGPS {
             runGPS.start()
@@ -627,7 +626,7 @@ struct ActiveWorkoutView: View {
         HStack {
             // Exit (top-left): navigate away — checkpoint + resume banner, never
             // discard. Terminar / descartar live in the pause sheet.
-            Button(action: { navigateAway() }) {
+            Button(action: { requestExitOrLeave() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.Color.muted)
@@ -698,9 +697,8 @@ struct ActiveWorkoutView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Ver vídeo de técnica, pausa el cronómetro")
             }
-            // Wrist chip: the Apple Watch is recording this session in step (mirror
-            // mode). Shown only while joined; green so "connected" reads at a glance.
-            if PhoneLiveSession.shared.wristJoined {
+            // Wrist chip — only when mirror is actually live (recent wrist signal).
+            if PhoneLiveSession.shared.wristMirrorLive {
                 Image(systemName: "applewatch")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.Color.ok)
@@ -816,12 +814,12 @@ struct ActiveWorkoutView: View {
         switch RunLiveChrome.de(session) {
         case .outdoor:
             OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { navigateAway() },
+                              alSalir: { requestExitOrLeave() },
                               alVerBloques: { mostrarBloques = true })
         case .treadmill(let sinCinta):
             TreadmillHUDView(session: session, hrZones: hrZones,
                              empiezaSinCinta: sinCinta,
-                             alSalir: { navigateAway() },
+                             alSalir: { requestExitOrLeave() },
                              alVerBloques: { mostrarBloques = true })
         case .host:
             // FH-95: calle/cinta se elige en PreWorkoutDevicesHubView before EMPEZAR, or
@@ -953,7 +951,7 @@ struct ActiveWorkoutView: View {
         if session.currentBlockIsStructural {
             session.completeStructuralBlock()
         } else {
-            session.primaryAdvance()
+            session.primaryAdvance(fromAthleteTap: true)
         }
     }
 
@@ -1112,6 +1110,15 @@ struct ActiveWorkoutView: View {
     private func jumpTargetTitle(_ index: Int) -> String? {
         guard index >= 0, index < session.plan.segments.count else { return nil }
         return session.plan.segments[index].title
+    }
+
+    /// FH-99 — recorded work → Terminar/Guardar/Descartar; otherwise soft leave.
+    private func requestExitOrLeave() {
+        if session.hasRecordedWork {
+            requestExit()
+        } else {
+            navigateAway()
+        }
     }
 
     // Soft leave — checkpoint on disk, resume banner / auto-reopen. Never discard.

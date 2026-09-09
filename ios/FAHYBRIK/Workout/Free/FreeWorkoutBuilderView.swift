@@ -388,6 +388,9 @@ struct FreeWorkoutBuilderView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+            scheduleDayPicker
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.top, Theme.Spacing.s)
             HStack(spacing: Theme.Spacing.m) {
                 SecondaryButton(title: "Guardar") {
                     Task { await saveMeasuredPlan() }
@@ -403,6 +406,52 @@ struct FreeWorkoutBuilderView: View {
             .disabled(isSavingPlan)
         }
         .background(Theme.Color.background)
+    }
+
+    /// Seven-day strip — save schedules on any day; one live max at run time.
+    private var scheduleDayPicker: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            LabelText(text: "Programar en", size: 10)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.s) {
+                    ForEach(scheduleDayOptions, id: \.iso) { day in
+                        Button {
+                            Haptics.light()
+                            draft.scheduledDayISO = day.iso
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(day.weekday)
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(day.dom)
+                                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
+                            }
+                            .foregroundStyle(draft.scheduledDayISO == day.iso
+                                             ? Theme.Color.background : Theme.Color.foreground)
+                            .frame(width: 44, height: 44)
+                            .background(draft.scheduledDayISO == day.iso
+                                        ? Theme.Color.accentText : Theme.Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var scheduleDayOptions: [(iso: String, weekday: String, dom: String)] {
+        let cal = Calendar.current
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "es_ES")
+        fmt.dateFormat = "EEE"
+        let domFmt = DateFormatter()
+        domFmt.dateFormat = "d"
+        return (0..<7).compactMap { offset in
+            guard let date = cal.date(byAdding: .day, value: offset, to: Date()) else { return nil }
+            let c = cal.dateComponents([.year, .month, .day], from: date)
+            let iso = String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+            return (iso, fmt.string(from: date).uppercased(), domFmt.string(from: date))
+        }
     }
 
     private func saveMeasuredPlan() async {
