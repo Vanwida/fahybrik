@@ -135,7 +135,7 @@ final class WatchPrimaryOwner: NSObject {
             Self.log.warning("PRIMARY leftover phase=\(String(describing: self.phase), privacy: .public) — finishing then starting")
             pendingStartConfiguration = configuration
             pendingStartRole = role
-            if phase == .recording { finish(save: true) }
+            if phase == .recording { requestEnd(save: true, reason: MirrorWire.EndReason.athlete) }
             return
         }
         let standaloneActive = WatchWorkoutCoordinator.shared.phase != .idle

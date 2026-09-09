@@ -6,8 +6,9 @@ import CoreLocation
 /// an outdoor running activity. Fixes are classified with `GPSSignalQuality`;
 /// they never enter `RunDistanceAuthority`.
 @MainActor
-final class WatchRunLocationGate: NSObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
+final class WatchRunLocationGate: NSObject, @preconcurrency CLLocationManagerDelegate {
+    /// Created on MainActor; CoreLocation delivers delegate callbacks on that thread.
+    nonisolated(unsafe) private let manager = CLLocationManager()
     private var wantsGPS = false
     private(set) var horizontalAccuracyM: Double?
 
