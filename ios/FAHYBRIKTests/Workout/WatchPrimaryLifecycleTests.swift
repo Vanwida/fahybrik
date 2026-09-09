@@ -3,18 +3,40 @@ import XCTest
 
 final class WatchPrimaryLifecycleTests: XCTestCase {
 
-    func testAcceptsStartOnlyWhenIdleAndNoStandaloneConflict() {
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(current: .idle, standaloneActive: false, role: .mirror))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(current: .idle, standaloneActive: true, role: .mirror))
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(current: .idle, standaloneActive: true, role: .solo))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(current: .recording, standaloneActive: false, role: .mirror))
+    func testCleanIdleRequiresNoSessionHandle() {
+        XCTAssertTrue(WatchPrimaryLifecycle.isCleanIdle(phase: .idle, hasSession: false))
+        XCTAssertFalse(WatchPrimaryLifecycle.isCleanIdle(phase: .idle, hasSession: true))
+        XCTAssertFalse(WatchPrimaryLifecycle.isCleanIdle(phase: .recording, hasSession: true))
     }
 
-    func testAcceptsEndOnlyWhileRecordingAndNotAlreadyTeardown() {
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsEnd(current: .recording, isTeardownRunning: false))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsEnd(current: .recording, isTeardownRunning: true))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsEnd(current: .ending, isTeardownRunning: false))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsEnd(current: .idle, isTeardownRunning: false))
+    func testAcceptsStartOnlyWhenCleanIdleAndNoStandaloneConflict() {
+        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
+            current: .idle, hasSession: false, standaloneActive: false, role: .mirror
+        ))
+        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
+            current: .idle, hasSession: true, standaloneActive: false, role: .mirror
+        ))
+        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
+            current: .idle, hasSession: false, standaloneActive: true, role: .mirror
+        ))
+        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
+            current: .idle, hasSession: false, standaloneActive: true, role: .solo
+        ))
+        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
+            current: .recording, hasSession: true, standaloneActive: false, role: .mirror
+        ))
+    }
+
+    func testAcceptsEndOnlyWhileRecording() {
+        XCTAssertTrue(WatchPrimaryLifecycle.acceptsEnd(current: .recording))
+        XCTAssertFalse(WatchPrimaryLifecycle.acceptsEnd(current: .ending))
+        XCTAssertFalse(WatchPrimaryLifecycle.acceptsEnd(current: .idle))
+    }
+
+    func testStuckEndingWithoutSessionForcesIdle() {
+        XCTAssertTrue(WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding(phase: .ending, hasSession: false))
+        XCTAssertFalse(WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding(phase: .ending, hasSession: true))
+        XCTAssertFalse(WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding(phase: .recording, hasSession: true))
     }
 
     func testTeardownDeadlineIsHardAndShort() {

@@ -2,11 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-99 build 83 — live ownership rewrite)
+Última actualización: **2026-09-09** (FH-100 build 84 — watch idle cleanup)
 
 ## Ahora
 
-**FH-99 — live session ownership rewrite (PR pendiente, build 83).**
+**FH-100 — watch zombie after Terminar (PR pendiente, build 84).**
+Segundo Empezar sin force-quit: `reconcileIdleBeforeLaunch`, `forceIdle` idempotente,
+`enterIdle` en phone, mirror zombie no ignora `startWatchApp`. Diseño:
+`docs/pr/fh100-watch-idle-cleanup.md`. No regresión FH-99 `wristMirrorLive`.
+
+**FH-99 — live session ownership rewrite (main, build 83).**
 Verdad reloj (`wristMirrorLive`), create≠start (`LiveLaunchPolicy`), tramo hecho
 con auto-pausa, X→Terminar/soft-leave, resume banner→recoverOnLaunch, programar día
 en builder libre. Diseño: `docs/pr/fh99-live-ownership.md`.

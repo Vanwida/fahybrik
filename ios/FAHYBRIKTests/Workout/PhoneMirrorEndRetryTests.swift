@@ -28,6 +28,7 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
+        mirror.resetPrimaryBindingForTests()
         super.tearDown()
     }
 
@@ -106,6 +107,54 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         mirror.sendOverride = { sends.append($0) }
         mirror.end(save: true)
         XCTAssertEqual(sends, [], "el Primary ya cerró en la muñeca — no reenviar MirrorEnd")
+    }
+
+    /// FH-100 — Terminar debe dejar idle y el siguiente Empezar vuelve a lanzar el reloj.
+    func testEndThenSecondBeginLaunchesWatchAgain() {
+        let first = WorkoutSession(plan: .minimal(title: "FH-100-a"))
+        first.runEnvironment = .outdoor
+        mirror.startWatchAppOverride = { _ in true }
+
+        mirror.begin(session: first, activityKind: "running")
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1)
+        let genAfterFirst = mirror.launchGenerationForTests
+
+        mirror.end(save: true)
+        mirror.teardown()
+
+        let second = WorkoutSession(plan: .minimal(title: "FH-100-b"))
+        second.runEnvironment = .outdoor
+        mirror.begin(session: second, activityKind: "running")
+
+        XCTAssertEqual(mirror.startWatchAppCallCount, 2,
+                       "second workout must call startWatchApp after clean idle")
+        XCTAssertGreaterThan(mirror.launchGenerationForTests, genAfterFirst,
+                             "idle must bump launch generation to cancel stale loops")
+        XCTAssertTrue(mirror.primaryRequestedForTests)
+        XCTAssertFalse(mirror.wristMirrorLive,
+                       "UI must not claim live until wrist signal returns")
+    }
+
+    func testAthleteEndedPacketLeavesIdleForNextBegin() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-100-athlete-end"))
+        s.runEnvironment = .indoor
+        mirror.startWatchAppOverride = { _ in true }
+        mirror.begin(session: s, activityKind: "running")
+
+        let ended = MirrorEnvelope.encoding(
+            type: MirrorWire.MessageType.ended,
+            MirrorEnded(workoutUuid: "uuid-1", reason: MirrorWire.EndReason.athlete)
+        )
+        XCTAssertNotNil(ended)
+        mirror.handleIncoming([ended!])
+
+        XCTAssertFalse(mirror.wristMirrorLive)
+        XCTAssertFalse(mirror.primaryRequestedForTests)
+
+        let next = WorkoutSession(plan: .minimal(title: "FH-100-next"))
+        next.runEnvironment = .indoor
+        mirror.begin(session: next, activityKind: "running")
+        XCTAssertEqual(mirror.startWatchAppCallCount, 2)
     }
 
     func testEndedWithoutReasonDoesNotFinishThePhoneEngine() {

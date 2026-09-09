@@ -53,5 +53,7 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart"))
         XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart"))
         XCTAssertTrue(policy.contains("shouldIgnoreRedundantStart"))
+        XCTAssertTrue(policy.contains("mirrorChannelAlive"))
+        XCTAssertTrue(owner.contains("reconcileIdleBeforeLaunch"))
     }
 }
