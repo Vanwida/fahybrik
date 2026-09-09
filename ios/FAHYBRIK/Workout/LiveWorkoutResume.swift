@@ -132,6 +132,12 @@ final class LiveWorkoutResume {
         cover = nil
         tracked = nil
     }
+
+    /// Close live UI without wiping the on-disk snapshot (soft leave / X).
+    func clearUIOnly() {
+        cover = nil
+        tracked = nil
+    }
 }
 
 /// Apple has no `HKWorkoutSession` uuid. Reopen unless this process already

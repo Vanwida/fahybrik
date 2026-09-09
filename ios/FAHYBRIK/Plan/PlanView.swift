@@ -117,9 +117,8 @@ struct PlanView: View {
     @MainActor
     func attemptWorkoutLaunch(_ launch: WorkoutLaunch) async {
         let saved = await WorkoutStateStore.shared.load()
-        if LiveWorkoutLaunchConflict.shouldPrompt(
-            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession,
-            snapshot: saved
+        if LiveWorkoutLaunchConflict.shouldPromptStartingLive(
+            hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession
         ) {
             conflictSnapshotTitle = saved?.plan.name ?? launch.title
             pendingWorkoutLaunch = launch
@@ -287,8 +286,12 @@ struct PlanView: View {
                 // adrede; esta es la forma de VOLVER que no depende de que el
                 // atleta se acuerde. Autocargada: no pinta nada la mayoría del
                 // tiempo (no hay ninguna instantánea que ofrecer).
-                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { launch in
-                    Task { await attemptWorkoutLaunch(launch) }
+                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
+                    Task {
+                        await LiveWorkoutResume.shared.recoverOnLaunch(
+                            hrZones: store.identity.value?.hrZones
+                        )
+                    }
                 }
                 CabeceraDelBloque(
                     nombre: semanaVisible?.nombreBloque,

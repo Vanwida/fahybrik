@@ -14,7 +14,16 @@ final class PhoneLiveSession {
     enum Phase: Equatable { case idle, coaching, ending }
 
     private(set) var phase: Phase = .idle
+    /// HK mirror channel bound — internal; UI must use `wristMirrorLive`.
     private(set) var wristJoined: Bool = false
+    /// FH-99 — honest UI truth: recent wrist signal on a live mirror channel.
+    var wristMirrorLive: Bool {
+        WristMirrorTruth.mirrorIsLive(
+            channelBound: channel.session != nil,
+            boundAt: mirrorBoundAt,
+            lastSignalAt: lastWristSignalAt
+        )
+    }
     var hasMirroredHKSession: Bool { channel.session != nil }
     private(set) var wristRecordedWorkout: Bool = false
     private(set) var wristFinishedByAthlete: Bool = false
@@ -46,6 +55,8 @@ final class PhoneLiveSession {
     @ObservationIgnored private var lastSentAt: Date = .distantPast
     @ObservationIgnored private var endDelivery: PhoneMirrorEndDelivery?
     @ObservationIgnored private var didRegisterHandler = false
+    @ObservationIgnored private var mirrorBoundAt: Date?
+    @ObservationIgnored private var lastWristSignalAt: Date?
     @ObservationIgnored private let healthStore = HKHealthStore()
 
     private static let frameInterval: TimeInterval = 1
@@ -74,8 +85,17 @@ final class PhoneLiveSession {
         startWatchAppOverride = nil
         watchJoinStartedAt = nil
         watchLaunchGeneration = 0
+        mirrorBoundAt = nil
+        lastWristSignalAt = nil
         engine = nil
         phase = .idle
+    }
+
+    var mirrorBoundAtForTests: Date? { mirrorBoundAt }
+    var lastWristSignalAtForTests: Date? { lastWristSignalAt }
+
+    func noteWristSignalForTests(at date: Date = Date()) {
+        lastWristSignalAt = date
     }
 
     var launchGenerationForTests: Int { watchLaunchGeneration }
@@ -233,6 +253,8 @@ final class PhoneLiveSession {
     }
 
     func handleIncoming(_ payloads: [Data]) {
+        guard !payloads.isEmpty else { return }
+        lastWristSignalAt = Date()
         for data in payloads {
             guard let env = MirrorEnvelope.decoding(data) else { continue }
             switch env.type {
@@ -276,6 +298,8 @@ final class PhoneLiveSession {
     private func adopt(_ incoming: HKWorkoutSession) {
         channel.bind(incoming)
         wristJoined = true
+        mirrorBoundAt = Date()
+        lastWristSignalAt = nil
         if let pending = pendingEndSave {
             pendingEndSave = nil
             deliverEnd(save: pending)
@@ -299,6 +323,8 @@ final class PhoneLiveSession {
         stopFrameLoop()
         channel.unbind()
         wristJoined = false
+        mirrorBoundAt = nil
+        lastWristSignalAt = nil
         primaryRequested = false
         boundSessionId = nil
         didLaunchWatch = false
@@ -340,6 +366,13 @@ final class PhoneLiveSession {
     }
 
     private func tickFrame() {
+        if WristMirrorTruth.mirrorIsStale(
+            channelBound: channel.session != nil,
+            lastSignalAt: lastWristSignalAt
+        ) {
+            releaseChannel()
+            return
+        }
         guard let engine, channel.session != nil else { return }
         let frame = buildFrame(from: engine)
         let key = PhoneMirrorFrameBuilder.structuralKey(frame)

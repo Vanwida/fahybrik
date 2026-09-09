@@ -51,7 +51,7 @@ final class PhoneWatchRuntimeReconcileTests: XCTestCase {
         ))
     }
 
-    func testLaunchConflictWhenFreshSnapshotOnly() {
+    func testLaunchNotBlockedByFreshSnapshotAlone() {
         let snap = PersistedWorkoutState(
             plan: WorkoutPlan(id: UUID(), name: "S", format: .forTime,
                               estimatedDurationSeconds: 0, blockContext: "", zoneTargets: [],
@@ -60,7 +60,7 @@ final class PhoneWatchRuntimeReconcileTests: XCTestCase {
             laps: [], repsByCurrentSegment: 0, isPaused: false, savedAt: Date(),
             assignmentId: "42"
         )
-        XCTAssertTrue(LiveWorkoutLaunchConflict.shouldPrompt(
+        XCTAssertFalse(LiveWorkoutLaunchConflict.shouldPrompt(
             hasLiveCoverOrTracked: false,
             snapshot: snap
         ))

@@ -10,7 +10,7 @@ struct PreWorkoutWatchCard: View {
 
     var body: some View {
         CardSurface(padding: Theme.Spacing.m) {
-            if mirror.wristJoined {
+            if mirror.wristMirrorLive {
                 statusRow(icon: "checkmark.circle.fill", color: Theme.Color.ok,
                           title: "Reloj grabando",
                           subtitle: "Espejo HealthKit activo en la muñeca")
@@ -42,7 +42,7 @@ struct PreWorkoutWatchCard: View {
                           subtitle: "Opcional — firma pulso y calorías en la muñeca")
             }
 
-            if let onPrepWatch, !answers.watchUnavailable, !mirror.wristJoined {
+            if let onPrepWatch, !answers.watchUnavailable, !mirror.wristMirrorLive {
                 SecondaryButton(title: "Preparar grabación en el reloj") {
                     onPrepWatch()
                 }

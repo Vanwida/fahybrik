@@ -797,11 +797,11 @@ struct WorkoutContainer: View {
         return f.string(from: d)
     }
 
-    /// Soft leave: checkpoint on disk, mirror stays alive, cover closes. Never
-    /// discardAndClose — wrong-button / swipe-away must not kill the session.
+    /// Soft leave: checkpoint on disk, cover closes, snapshot drives resume banner.
+    /// Never discardAndClose — wrong-button / swipe-away must not kill the session.
     private func navigateAway(session: WorkoutSession) {
         let snapshot = session.leaveToResumeLater()
-        LiveWorkoutResume.shared.dismiss()
+        LiveWorkoutResume.shared.clearUIOnly()
         Task {
             await WorkoutStateStore.shared.save(snapshot)
             onClose()

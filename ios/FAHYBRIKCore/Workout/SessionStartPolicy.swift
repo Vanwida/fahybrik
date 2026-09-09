@@ -45,9 +45,9 @@ enum SessionStartPolicy {
         }
     }
 
-    /// `wristJoined` comes from `PhoneLiveSession` (mirrored `HKWorkoutSession`).
-    static func watchResolved(answers: SessionStartAnswers, wristJoined: Bool) -> Bool {
-        wristJoined || answers.watchUnavailable || answers.watchProceedWithoutWrist
+    /// `wristMirrorLive` — recent wrist signal on a bound HK mirror (`PhoneLiveSession`).
+    static func watchResolved(answers: SessionStartAnswers, wristMirrorLive: Bool) -> Bool {
+        wristMirrorLive || answers.watchUnavailable || answers.watchProceedWithoutWrist
     }
 
     /// Pre-live footer — informational only; ▶ EMPEZAR is never disabled for watch.
