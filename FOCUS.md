@@ -6,13 +6,13 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FH-95 — Devices hub + un solo Empezar (PR, build 78).**
-Resta la máquina secuencial `StartStep` (FH-94). Flujo: brief (Continuar) →
-`PreWorkoutDevicesHubView` (Run+erg+HR a la vez, orden libre) → `PreWorkoutPrepareView`
-(único ▶ EMPEZAR) → live. Ski scan vacío: `DeviceCentral.refreshScan` para+arranca
-(allowDuplicates=false no re-entrega PM5 ya vistos al segundo rol). Borrados:
-`ErgPreStartFlow`, `RunPreStartFlow` (queda `TreadmillConnectGuide` HUD). Pendiente:
-Archive → TestFlight.
+**FH-95 — Devices hub + un solo Empezar (PR #166, build 78).**
+Reescritura Start (no parche FH-94): brief (Continuar) → `PreWorkoutDevicesHubView`
+(Run+erg+HR, orden libre, scan PM5 explícito + `.id(role)`) → brief `readyToStart`
+(único ▶ EMPEZAR → `PreWorkoutReleaseLive.release` → live). Reloj: nunca bloquea
+Empezar (`begin` en tap; join async). `BlockPreviewGate` = «▶ ARRANCAR BLOQUE».
+Borrados: `SessionStartGate`, `ErgPreStartFlow`, `RunPreStartFlow` struct. Pendiente:
+regenerar `project.pbxproj` (XcodeGen) + Archive → TestFlight en dispositivo.
 
 **FH-94 — Run gate + live Devices + Empezar/idle (main, build 77, superseded by FH-95).**
 

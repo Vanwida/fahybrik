@@ -389,7 +389,7 @@ struct ActiveWorkoutView: View {
                 formatLabel: blockFormatLabel(segs),
                 segments: segs,
                 canGoBack: session.canStepBack,
-                onEmpezar: { requestBlockStart() },
+                onStartBlock: { requestBlockStart() },
                 onBack: { requestBack() },
                 onExit: { navigateAway() },
                 alVerBloques: { mostrarBloques = true }

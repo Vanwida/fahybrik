@@ -4,7 +4,7 @@ import SwiftUI
 //
 // Shared between the treadmill HUD's not-connected state and mid-run reconnect.
 // Same heading, how-to, "Buscar mi cinta" primary, "Correr sin conectar" escape.
-// FH-95: no ▶ Empezar here — live starts only on PreWorkoutPrepareView.
+// FH-95: no ▶ Empezar here — live starts only on PreWorkoutBriefView (readyToStart).
 struct TreadmillConnectGuide: View {
     let link: DeviceLink
     /// "Buscar mi cinta" — scan + the shared picker (or reopen it while busy).

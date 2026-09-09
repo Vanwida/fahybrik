@@ -324,15 +324,18 @@ struct WorkoutContainer: View {
                     }
                 )
             case .prepare:
-                PreWorkoutPrepareView(
-                    sessionTitle: plan.name,
+                PreWorkoutBriefView(
                     plan: plan,
-                    segments: plan.segments.sorted { $0.order < $1.order },
-                    calentamientoRun: false,
+                    detail: detail,
+                    onStart: {},
+                    onManualLog: {},
                     isBenchmark: activeFreeContext?.benchmark != nil,
+                    onClose: onClose,
+                    readyToStart: true,
+                    segments: plan.segments.sorted { $0.order < $1.order },
                     activityKind: mirrorActivityKind(for: plan),
                     hrZones: hrZones,
-                    answers: $startAnswers,
+                    startAnswers: $startAnswers,
                     stampSession: { s in
                         s.assignmentId = assignmentId
                         stampFreeMetadata(on: s)
@@ -350,7 +353,7 @@ struct WorkoutContainer: View {
                         )
                         phase = .active
                     },
-                    onBack: {
+                    onBackFromReady: {
                         if visitedDevicesHub {
                             phase = .devices
                         } else if activeFreeContext != nil {

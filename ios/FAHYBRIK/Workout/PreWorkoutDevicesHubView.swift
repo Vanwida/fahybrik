@@ -63,8 +63,18 @@ struct PreWorkoutDevicesHubView: View {
             if let id = openPM5DeviceId,
                let device = devices.first(where: { $0.id == id }),
                let store = pool.store(for: device) {
-                PM5LiveStreamView(store: store, roleTitle: device.isPM5 ? device.titleES : nil)
+                PM5LiveStreamView(
+                    store: store,
+                    roleTitle: device.isPM5 ? device.titleES : nil,
+                    startsScanOnAppear: false
+                )
+                .id(device.id)
             }
+        }
+        .onChange(of: openPM5DeviceId) { _, newId in
+            guard let newId,
+                  let device = devices.first(where: { $0.id == newId }) else { return }
+            beginPM5Scan(for: device)
         }
     }
 
@@ -278,7 +288,7 @@ struct PreWorkoutDevicesHubView: View {
                         openPM5(device)
                     }
                     if !isBenchmark, !store.isConnected {
-                        Button("Sin monitor") {
+                        Button("Continuar sin monitor") {
                             Haptics.light()
                             answers.skippedErgRoleWires.insert(role.rawValue)
                         }
@@ -307,7 +317,7 @@ struct PreWorkoutDevicesHubView: View {
                         openPM5(device)
                     }
                     if !isBenchmark, !store.isConnected {
-                        Button("Sin monitor") {
+                        Button("Continuar sin monitor") {
                             Haptics.light()
                             answers.skippedUnscopedErg = true
                         }
@@ -374,19 +384,29 @@ struct PreWorkoutDevicesHubView: View {
 
     private func openPM5(_ device: PreWorkoutDevice) {
         Haptics.light()
-        guard let store = pool.store(for: device) else {
-            openPM5DeviceId = device.id
-            return
-        }
-        store.excludePeripheralIds = pool.occupiedPeripheralIds
-            .subtracting([store.connectedIdentifier].compactMap { $0 })
         if let role = device.ergRole {
             answers.skippedErgRoleWires.remove(role.rawValue)
         }
         if case .ergAny = device {
             answers.skippedUnscopedErg = false
         }
+        beginPM5Scan(for: device)
+        guard let store = pool.store(for: device) else {
+            openPM5DeviceId = device.id
+            return
+        }
         store.reconnectSessionMachineOrOpenSheet { openPM5DeviceId = device.id }
+    }
+
+    /// Explicit scan before sheet present — remount without onAppear must still see PM5s.
+    private func beginPM5Scan(for device: PreWorkoutDevice) {
+        for d in devices where d.isPM5 {
+            pool.store(for: d)?.stopScan()
+        }
+        guard let store = pool.store(for: device) else { return }
+        store.excludePeripheralIds = pool.occupiedPeripheralIds
+            .subtracting([store.connectedIdentifier].compactMap { $0 })
+        store.startScan()
     }
 
     private func startErgScansIfNeeded() {

@@ -29,7 +29,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
             title: "Calentamiento", phaseTag: nil,
             blockNumber: 1, blockCount: 2, formatLabel: nil,
             segments: Array(s.plan.segments.prefix(1)),
-            canGoBack: false, onEmpezar: {}, onBack: {}, onExit: {},
+            canGoBack: false, onStartBlock: {}, onBack: {}, onExit: {},
             alVerBloques: {}
         )
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
