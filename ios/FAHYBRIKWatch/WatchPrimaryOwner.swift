@@ -471,6 +471,10 @@ final class WatchPrimaryOwner: NSObject {
         if let session, let endedPacket {
             try? await session.sendToRemoteWorkoutSession(data: endedPacket)
         }
+        let ended = MirrorEnded(workoutUuid: workoutUuid, reason: reason)
+        if reason == MirrorWire.EndReason.athlete {
+            WatchConnectivityService.shared.notifyPhoneLiveEnded(ended)
+        }
         WatchHaptics.success()
     }
 

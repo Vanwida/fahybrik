@@ -78,6 +78,21 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         transfer(data)
     }
 
+    /// FH-101 — durable athlete-finish aviso when the HK mirror is unreachable.
+    /// `sendMessage` when paired + reachable; always `transferUserInfo` as backup.
+    func notifyPhoneLiveEnded(_ ended: MirrorEnded) {
+        guard let body = WatchLiveEnded.encode(ended) else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        if session.isReachable {
+            session.sendMessage(body, replyHandler: nil) { _ in
+                session.transferUserInfo(body)
+            }
+        } else {
+            session.transferUserInfo(body)
+        }
+    }
+
     // MARK: - Sensor archive (fase 0)
 
     /// Hand a finished sensor capture file to the phone for archive (only when the

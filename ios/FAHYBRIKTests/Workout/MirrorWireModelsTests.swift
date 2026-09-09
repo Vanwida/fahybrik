@@ -169,4 +169,18 @@ final class MirrorWireModelsTests: XCTestCase {
         // Older phones sent a dummy `true`; a stray non-Bool must not drop the aviso.
         XCTAssertEqual(WatchLiveEnd.saveFlag(in: [WatchWireKeys.liveEnd: 1]), true)
     }
+
+    // FH-101 — liveEnded roundtrip (watch → phone durable athlete finish).
+    func testLiveEndedEncodeDecodeRoundTrips() throws {
+        let ended = MirrorEnded(workoutUuid: "WC-1", reason: MirrorWire.EndReason.athlete)
+        let body = try XCTUnwrap(WatchLiveEnded.encode(ended))
+        let back = try XCTUnwrap(WatchLiveEnded.decode(from: body))
+        XCTAssertEqual(back.workoutUuid, "WC-1")
+        XCTAssertEqual(back.reason, MirrorWire.EndReason.athlete)
+    }
+
+    func testLiveEndedAbsentIsNotAnEndedAviso() {
+        XCTAssertNil(WatchLiveEnded.decode(from: [:]))
+        XCTAssertNil(WatchLiveEnded.decode(from: [WatchWireKeys.liveEnd: true]))
+    }
 }

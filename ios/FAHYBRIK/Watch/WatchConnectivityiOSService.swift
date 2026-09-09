@@ -480,9 +480,27 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         WCSession.default.activate()
     }
 
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in
+            if Self.applyLiveEnded(message) { return }
+        }
+    }
+
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
-        guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
-        Task { @MainActor in await self.handleIncomingExecution(data) }
+        Task { @MainActor in
+            if Self.applyLiveEnded(userInfo) { return }
+            guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
+            await self.handleIncomingExecution(data)
+        }
+    }
+
+    /// Reloj → teléfono: el atleta terminó en la muñeca. Misma semántica que el
+    /// paquete HK `MirrorEnded` — la vía durable para reconexión tardía.
+    @MainActor
+    private static func applyLiveEnded(_ body: [String: Any]) -> Bool {
+        guard let ended = WatchLiveEnded.decode(from: body) else { return false }
+        PhoneLiveSession.shared.applyWristEnded(ended)
+        return true
     }
 
     /// Un fichero de la muñeca. HOY cruzan dos, y se distinguen por la metadata, no por

@@ -188,6 +188,19 @@ final class PhoneLiveSession {
         return endedWorkoutUuid
     }
 
+    /// FH-101 — single sink for wrist `MirrorEnded` (HK mirror or WCSession).
+    /// Idempotent: a duplicate packet must not flip flags back or re-idle mid-workout.
+    func applyWristEnded(_ ended: MirrorEnded) {
+        if let uuid = ended.workoutUuid { endedWorkoutUuid = uuid }
+        guard ended.reason == MirrorWire.EndReason.athlete else {
+            enterIdle()
+            return
+        }
+        wristRecordedWorkout = true
+        wristFinishedByAthlete = true
+        enterIdle()
+    }
+
     func attachRecovered(_ incoming: HKWorkoutSession) { adopt(incoming) }
 
     func launchWatchIfNeeded() {
@@ -269,13 +282,9 @@ final class PhoneLiveSession {
             case MirrorWire.MessageType.command:
                 if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind) }
             case MirrorWire.MessageType.ended:
-                let ended = env.body(as: MirrorEnded.self)
-                endedWorkoutUuid = ended?.workoutUuid
-                if ended?.reason == MirrorWire.EndReason.athlete {
-                    wristRecordedWorkout = true
-                    wristFinishedByAthlete = true
+                if let ended = env.body(as: MirrorEnded.self) {
+                    applyWristEnded(ended)
                 }
-                enterIdle()
             case MirrorWire.MessageType.sensor:
                 if let c = env.body(as: MirrorSensorConclusions.self) {
                     engine?.applySensorConclusions(c)

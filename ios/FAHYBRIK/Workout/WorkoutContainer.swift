@@ -626,6 +626,11 @@ struct WorkoutContainer: View {
             bearer: bearer
         )
         phase = .active
+        // FH-101 — la muñeca pudo terminar mientras el cover estaba cerrado;
+        // `.onChange` no repite un valor ya true al reabrir.
+        if PhoneLiveSession.shared.wristFinishedByAthlete {
+            cerrarPorqueTerminoLaMuneca(true)
+        }
     }
 
     // The wrist recording's activity kind (mirror mode), in the watch vocabulary
