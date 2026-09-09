@@ -8,12 +8,14 @@ enum MirrorPrimaryLaunchPolicy {
 
     /// TRUE when a live PRIMARY already matches the incoming launch — redundant
     /// `startWatchApp` / `handle(_:)` must be ignored, never finish the live session.
+    /// FH-100 — mirror must still be alive; a phone-disconnected zombie is NOT redundant.
     static func shouldIgnoreRedundantStart(
         isRecording: Bool,
         current: HKWorkoutConfiguration?,
-        incoming: HKWorkoutConfiguration
+        incoming: HKWorkoutConfiguration,
+        mirrorChannelAlive: Bool
     ) -> Bool {
-        guard isRecording, let current else { return false }
+        guard isRecording, mirrorChannelAlive, let current else { return false }
         return configurationsCompatible(current, incoming)
     }
 
@@ -21,13 +23,15 @@ enum MirrorPrimaryLaunchPolicy {
     static func shouldFinishBeforeRestart(
         isRecording: Bool,
         current: HKWorkoutConfiguration?,
-        incoming: HKWorkoutConfiguration
+        incoming: HKWorkoutConfiguration,
+        mirrorChannelAlive: Bool
     ) -> Bool {
         guard isRecording else { return false }
         return !shouldIgnoreRedundantStart(
             isRecording: true,
             current: current,
-            incoming: incoming
+            incoming: incoming,
+            mirrorChannelAlive: mirrorChannelAlive
         )
     }
 

@@ -20,17 +20,26 @@ enum WatchPrimaryLifecycle {
     /// Hard UI deadline: athlete ALWAYS leaves recording chrome within this window.
     static let teardownDeadlineSeconds: TimeInterval = 5
 
-    /// Idempotent start: only `.idle` accepts a new PRIMARY.
-    static func acceptsStart(current: Phase, standaloneActive: Bool, role: Role) -> Bool {
-        guard current == .idle else { return false }
+    /// FH-100 — one idle: no HK session handle and not mid-teardown.
+    static func isCleanIdle(phase: Phase, hasSession: Bool) -> Bool {
+        phase == .idle && !hasSession
+    }
+
+    /// Idempotent start: only clean idle accepts a new PRIMARY.
+    static func acceptsStart(current: Phase, hasSession: Bool, standaloneActive: Bool, role: Role) -> Bool {
+        guard isCleanIdle(phase: current, hasSession: hasSession) else { return false }
         if role == .mirror, standaloneActive { return false }
         return true
     }
 
-    /// End is idempotent while already ending or idle-without-session.
-    static func acceptsEnd(current: Phase, isTeardownRunning: Bool) -> Bool {
-        guard current == .recording else { return false }
-        return !isTeardownRunning
+    /// End only from live recording — `.ending` is owned by teardown until idle.
+    static func acceptsEnd(current: Phase) -> Bool {
+        current == .recording
+    }
+
+    /// Stuck `.ending` without progress — force idle so the next `startWatchApp` can land.
+    static func shouldForceIdleFromStuckEnding(phase: Phase, hasSession: Bool) -> Bool {
+        phase == .ending && !hasSession
     }
 
     /// Mirror HUD vs solo live flow.

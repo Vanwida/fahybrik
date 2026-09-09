@@ -93,12 +93,14 @@ final class MirrorPrimaryLaunchPolicyTests: XCTestCase {
         XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
             isRecording: true,
             current: current,
-            incoming: incoming
+            incoming: incoming,
+            mirrorChannelAlive: true
         ))
         XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
             isRecording: true,
             current: current,
-            incoming: incoming
+            incoming: incoming,
+            mirrorChannelAlive: true
         ))
     }
 
@@ -113,12 +115,36 @@ final class MirrorPrimaryLaunchPolicyTests: XCTestCase {
         XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
             isRecording: true,
             current: current,
-            incoming: incoming
+            incoming: incoming,
+            mirrorChannelAlive: true
         ))
         XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
             isRecording: true,
             current: current,
-            incoming: incoming
+            incoming: incoming,
+            mirrorChannelAlive: true
+        ))
+    }
+
+    func testZombieMirrorDoesNotIgnoreCompatibleRestart() {
+        let current = HKWorkoutConfiguration()
+        current.activityType = .running
+        current.locationType = .outdoor
+        let incoming = HKWorkoutConfiguration()
+        incoming.activityType = .running
+        incoming.locationType = .outdoor
+
+        XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
+            isRecording: true,
+            current: current,
+            incoming: incoming,
+            mirrorChannelAlive: false
+        ))
+        XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
+            isRecording: true,
+            current: current,
+            incoming: incoming,
+            mirrorChannelAlive: false
         ))
     }
 }

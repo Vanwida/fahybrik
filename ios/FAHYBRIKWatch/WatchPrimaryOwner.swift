@@ -62,7 +62,6 @@ final class WatchPrimaryOwner: NSObject {
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
     private var hkPaused = false
-    private var isTeardownRunning = false
     private var lastHRRelayAt: Date = .distantPast
     private var lastReportedDistance: Double = 0
     private var appliedPlan: WatchHKActivityPlan?
@@ -119,10 +118,14 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     private func requestStart(configuration: HKWorkoutConfiguration, role: Role) {
+        if reconcileIdleBeforeLaunch(incoming: configuration, role: role) { return }
+
+        let mirrorAlive = role != .mirror || !isConnectionLost
         if MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
             isRecording: phase == .recording,
             current: session?.workoutConfiguration,
-            incoming: configuration
+            incoming: configuration,
+            mirrorChannelAlive: mirrorAlive
         ) {
             Self.log.info("startPrimary ignored — already recording compatible PRIMARY")
             return
@@ -130,26 +133,58 @@ final class WatchPrimaryOwner: NSObject {
         if MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
             isRecording: phase == .recording,
             current: session?.workoutConfiguration,
-            incoming: configuration
+            incoming: configuration,
+            mirrorChannelAlive: mirrorAlive
         ) {
             Self.log.warning("PRIMARY leftover phase=\(String(describing: self.phase), privacy: .public) — finishing then starting")
             pendingStartConfiguration = configuration
             pendingStartRole = role
-            if phase == .recording { requestEnd(save: true, reason: MirrorWire.EndReason.athlete) }
+            if phase == .recording { requestEnd(save: false, reason: MirrorWire.EndReason.discarded) }
             return
         }
         let standaloneActive = WatchWorkoutCoordinator.shared.phase != .idle
         guard WatchPrimaryLifecycle.acceptsStart(
             current: phase,
+            hasSession: session != nil,
             standaloneActive: standaloneActive,
             role: role
         ) else {
-            if phase != .idle {
-                Self.log.warning("start declined — phase=\(String(describing: self.phase), privacy: .public)")
+            if !WatchPrimaryLifecycle.isCleanIdle(phase: phase, hasSession: session != nil) {
+                Self.log.warning("start declined — phase=\(String(describing: self.phase), privacy: .public) hasSession=\(self.session != nil, privacy: .public)")
             }
             return
         }
         Task { await begin(configuration: configuration, role: role) }
+    }
+
+    /// FH-100 — every `startWatchApp` delivery must see clean idle or queue after teardown.
+    /// Returns true when this call was fully handled (queued end, forced idle, or ignored).
+    private func reconcileIdleBeforeLaunch(
+        incoming: HKWorkoutConfiguration,
+        role: Role
+    ) -> Bool {
+        if WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding(
+            phase: phase,
+            hasSession: session != nil
+        ) {
+            Self.log.warning("stuck ending without session — forcing idle before launch")
+            forceIdle()
+        }
+        if WatchPrimaryLifecycle.isCleanIdle(phase: phase, hasSession: session != nil) {
+            return false
+        }
+        if phase == .idle, session != nil {
+            Self.log.warning("orphan session ref at idle — forcing idle before launch")
+            forceIdle()
+            return false
+        }
+        if phase == .ending {
+            pendingStartConfiguration = incoming
+            pendingStartRole = role
+            Self.log.info("launch queued — teardown in progress")
+            return true
+        }
+        return false
     }
 
     private func begin(configuration: HKWorkoutConfiguration, role: Role) async {
@@ -208,7 +243,6 @@ final class WatchPrimaryOwner: NSObject {
         distanceMeters = 0
         isConnectionLost = false
         hkPaused = false
-        isTeardownRunning = false
         session = incoming
         incoming.delegate = self
         let liveBuilder = incoming.associatedWorkoutBuilder()
@@ -376,9 +410,8 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     private func requestEnd(save: Bool, reason: String) {
-        guard WatchPrimaryLifecycle.acceptsEnd(current: phase, isTeardownRunning: isTeardownRunning) else { return }
+        guard WatchPrimaryLifecycle.acceptsEnd(current: phase) else { return }
         phase = .ending
-        isTeardownRunning = true
         armTeardownDeadline()
         let capturedSession = session
         let capturedBuilder = builder
@@ -389,7 +422,6 @@ final class WatchPrimaryOwner: NSObject {
                 save: save,
                 reason: reason
             )
-            isTeardownRunning = false
             forceIdle()
         }
     }
@@ -452,9 +484,8 @@ final class WatchPrimaryOwner: NSObject {
         }
     }
 
-    /// Idempotent — safe from deadline and from teardown completion.
+    /// FH-100 — single idle sink. Idempotent: always drops HK handles and latches.
     func forceIdle() {
-        guard phase != .idle else { return }
         stopConnectionWatchdog()
         teardownDeadlineTimer?.invalidate()
         teardownDeadlineTimer = nil
@@ -473,7 +504,6 @@ final class WatchPrimaryOwner: NSObject {
         distanceMeters = 0
         isConnectionLost = false
         hkPaused = false
-        isTeardownRunning = false
         role = nil
         phase = .idle
         if let pending = pendingStartConfiguration {
@@ -590,7 +620,9 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         date: Date
     ) {
         Task { @MainActor [weak self] in
-            guard let self, toState == .ended, self.phase == .recording else { return }
+            guard let self else { return }
+            guard toState == .ended || toState == .stopped else { return }
+            guard self.phase != .idle else { return }
             self.forceIdle()
         }
     }

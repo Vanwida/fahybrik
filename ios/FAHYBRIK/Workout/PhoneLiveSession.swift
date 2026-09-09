@@ -175,13 +175,13 @@ final class PhoneLiveSession {
         let delivery = PhoneMirrorEndDelivery { [weak self] in
             self?.send(type: MirrorWire.MessageType.end, MirrorEnd(save: save))
         } onRelease: { [weak self] in
-            self?.releaseChannel()
+            self?.enterIdle()
         }
         endDelivery = delivery
         delivery.start()
     }
 
-    func teardown() { releaseChannel() }
+    func teardown() { enterIdle() }
 
     func consumeWorkoutRef() -> String? {
         defer { endedWorkoutUuid = nil }
@@ -275,7 +275,7 @@ final class PhoneLiveSession {
                     wristRecordedWorkout = true
                     wristFinishedByAthlete = true
                 }
-                releaseChannel()
+                enterIdle()
             case MirrorWire.MessageType.sensor:
                 if let c = env.body(as: MirrorSensorConclusions.self) {
                     engine?.applySensorConclusions(c)
@@ -317,6 +317,8 @@ final class PhoneLiveSession {
         tickFrame()
     }
 
+    /// Drops the mirrored HK channel only — mid-workout stale watchdog uses this
+    /// without tearing down the coaching engine or bumping launch generation.
     private func releaseChannel() {
         endDelivery?.cancel()
         endDelivery = nil
@@ -328,7 +330,15 @@ final class PhoneLiveSession {
         primaryRequested = false
         boundSessionId = nil
         didLaunchWatch = false
-        if phase == .ending { phase = .idle }
+    }
+
+    /// FH-100 — post-workout idle: channel released + latches cleared + in-flight
+    /// `startWatchApp` loops cancelled so the next Empezar is a cold launch.
+    private func enterIdle() {
+        releaseChannel()
+        watchLaunchGeneration += 1
+        pendingEndSave = nil
+        phase = .idle
     }
 
     private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
