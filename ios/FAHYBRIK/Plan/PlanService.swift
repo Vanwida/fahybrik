@@ -106,9 +106,11 @@ struct AthleteWeekPayload: Codable {
     /// THIS week is about (no per-day detail). Nil when the coach set none / the
     /// week wasn't materialized from a month template (honest: no focus shown).
     let focus: String?
-    /// True when a NEXT week with published content exists — drives the "Próxima
-    /// semana" peek affordance. Nil/false → no next week to preview.
+    /// True when a NEXT week with published content exists within the club
+    /// horizon — drives the peek affordance. Nil/false → no next week to preview.
     let hasNextWeek: Bool?
+    /// FH-27 — published week at offset+1 exists but the club horizon blocks peek.
+    let peekBlockedByHorizon: Bool?
     /// True when the coach has PAUSED this athlete's plan (lesión / vacaciones /
     /// parón / otro). The week structure still ships, but the client shows a paused
     /// state instead of the day list — a paused athlete never sees stale sessions.
@@ -249,6 +251,14 @@ struct AthleteMacroProgressResponse: Codable {
     let macroProgress: AthleteMacroProgressPayload?
 }
 
+/// FH-27 — server-authoritative plan peek limits for this athlete/club.
+struct AthletePlanWeekVisibility: Codable {
+    let maxWeekOffset: Int
+    let horizon: String?
+    let peekBlockedByHorizon: Bool
+    let wallMessage: String?
+}
+
 struct AthletePlanWeekResponse: Codable {
     let week: AthleteWeekPayload
     let macroSummary: AthleteMacroSummary
@@ -263,6 +273,8 @@ struct AthletePlanWeekResponse: Codable {
     /// Surfaced on the "Tu semana" subtitle. Nil when the athlete has no coach —
     /// callers fall back to generic copy.
     let coachName: String?
+    /// FH-27 — how far the athlete may page forward; nil on older backends → legacy +1.
+    let planVisibility: AthletePlanWeekVisibility?
 
     enum CodingKeys: String, CodingKey {
         case week
@@ -270,6 +282,7 @@ struct AthletePlanWeekResponse: Codable {
         case targetRace
         case nextRace
         case coachName
+        case planVisibility
     }
 
     init(from decoder: Decoder) throws {
@@ -279,6 +292,7 @@ struct AthletePlanWeekResponse: Codable {
         targetRace = try c.decodeIfPresent(AthleteNextRace.self, forKey: .targetRace)
         nextRace = try c.decodeIfPresent(AthleteNextRace.self, forKey: .nextRace)
         coachName = try c.decodeIfPresent(String.self, forKey: .coachName)
+        planVisibility = try c.decodeIfPresent(AthletePlanWeekVisibility.self, forKey: .planVisibility)
     }
 }
 
@@ -307,9 +321,9 @@ struct APIErrorBody: Decodable {
 }
 
 enum PlanService {
-    /// Fetch a week of the plan. `weekOffset` is bounded to the weekly-delivery
-    /// model: 0 = this week (default), 1 = the NEXT-week peek (the one that
-    /// unlocks Saturday). The backend clamps anything beyond [0, 1].
+    /// Fetch a week of the plan. `weekOffset` = 0 is this week; positive values
+    /// peek forward. The backend enforces the club horizon (FH-27) and returns
+    /// 403 with wall copy when the offset exceeds `plan_visibility.max_week_offset`.
     static func fetchWeek(bearer: String, weekOffset: Int = 0) async throws -> AthletePlanWeekResponse {
         let path = weekOffset > 0
             ? "api/athlete/plan/week?week_offset=\(weekOffset)"

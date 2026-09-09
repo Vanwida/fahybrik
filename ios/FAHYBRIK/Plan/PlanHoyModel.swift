@@ -131,6 +131,10 @@ struct SemanaDelPlan: Equatable {
     /// «empieza el lunes 10» en vez de «tu coach no ha publicado», que era falso
     /// (docs/DECISIONS.md, 7-ago).
     let planStartsOn: String?
+    /// FH-27 — puede hojear +1 desde esta semana (contenido + horizonte del club).
+    let hasNextWeek: Bool
+    /// FH-27 — hay semana publicada más adelante pero el club lo bloquea.
+    let peekBlockedByHorizon: Bool
 
     var hoy: DiaDelPlan? { indiceHoy.flatMap { dias.indices.contains($0) ? dias[$0] : nil } }
 
@@ -184,7 +188,9 @@ struct SemanaDelPlan: Equatable {
             // servidor (`buildAthleteMacroSummary` lo fija a null), así que
             // leerlo de ahí pintaría un hueco permanente.
             nombreBloque: Self.limpio(resp.week.microcicloName),
-            planStartsOn: resp.week.planStartsOn
+            planStartsOn: resp.week.planStartsOn,
+            hasNextWeek: resp.week.hasNextWeek ?? false,
+            peekBlockedByHorizon: resp.week.peekBlockedByHorizon ?? false
         )
     }
 

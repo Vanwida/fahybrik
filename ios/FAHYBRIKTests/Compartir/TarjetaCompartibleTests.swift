@@ -128,7 +128,8 @@ final class TarjetaCompartibleTests: XCTestCase {
                 dia("J", estado: .saltada, sesiones: 1),
                 dia("V", estado: .pendiente, sesiones: 1),
             ],
-            indiceHoy: nil, intencion: "Semana de carga", nombreBloque: "Carga · 3", planStartsOn: nil
+            indiceHoy: nil, intencion: "Semana de carga", nombreBloque: "Carga · 3", planStartsOn: nil,
+            hasNextWeek: false, peekBlockedByHorizon: false
         )
         let tarjeta = TarjetaCompartibleBuilder.semana(semana)
 
