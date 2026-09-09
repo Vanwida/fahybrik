@@ -34,6 +34,10 @@ import {
 } from '@fahybrid/shared/domain/prescription';
 import { sql, type Sql } from '@/lib/db';
 import { weekStates, type WeekPublishState } from '@/lib/mcp/shape-write';
+import {
+  resolveAthletePlanWeekVisibility,
+  type ResolvedPlanWeekVisibility,
+} from '@/lib/athlete/plan-week-visibility';
 
 export interface AthleteWeekDaySession {
   assignment_id: string;
@@ -100,6 +104,11 @@ export interface AthleteWeekPlan {
   microciclo_name: string | null;
   focus: string | null;
   has_next_week: boolean;
+  /**
+   * FH-27 — hay semana publicada en offset+1 pero el tope del club impide hojearla.
+   * El cliente muestra el muro al intentar deslizar más allá.
+   */
+  peek_blocked_by_horizon: boolean;
   days: AthleteWeekDay[];
   // #13 — lifecycle freeze. `paused` = the athlete is frozen (lifecycle_status !=
   // 'activo'); the client renders an "en pausa" state instead of an empty/failed
@@ -130,6 +139,7 @@ export interface AthleteWeekPlan {
 export async function buildAthleteWeekPlan(
   athlete_id: number | bigint,
   weekOffset = 0,
+  visibility?: ResolvedPlanWeekVisibility,
 ): Promise<AthleteWeekPlan> {
   // "Today" must resolve in the box timezone (Europe/Madrid), not UTC —
   // otherwise between 00:00–02:00 BCN the athlete is shown yesterday's week.
@@ -213,7 +223,9 @@ export async function buildAthleteWeekPlan(
   // The week's microcycle name (periodization phase). All assignments in a week
   // share one microcycle; we resolve the first non-null microcycle_id.
   const microcycleId = rows.find((r) => r.microcycle_id)?.microcycle_id ?? null;
-  const [microciclo_name, weekMeta, weekState, has_next_week, pausedState, plan_starts_on] =
+  const nextWeekStartIso = isoDateString(addDays(weekStart, 7));
+
+  const [microciclo_name, weekMeta, weekState, nextWeekPublished, pausedState, plan_starts_on] =
     await Promise.all([
       resolveMicrocicloName(microcycleId),
       // Coach-authored week meta from the source week template, resolved through the
@@ -225,15 +237,28 @@ export async function buildAthleteWeekPlan(
       // esto no es una consulta nueva y aislada: es la misma fila que ya se mira
       // para saber si la semana está en borrador, ahora también por su `focus`.
       weekStates({ athlete_id, week_starts: [weekStartIso] }),
-      // Whether the athlete can peek a NEXT week with real, published content
-      // (drives the "Próxima semana" affordance). Relative to the returned week.
-      hasPublishedWeek(athlete_id, isoDateString(addDays(weekStart, 7))),
+      // Whether a NEXT week with real, published content exists — before the club
+      // horizon gate (FH-27). Relative to the returned week.
+      hasPublishedWeek(athlete_id, nextWeekStartIso),
       // #13 — lifecycle freeze state (paused/baja + the open pause's since/reason).
       loadPausedState(athlete_id),
       // Cuándo empieza lo ya programado, si cae después de esta ventana — para que
       // un estado vacío pueda decir «empieza el lunes 10» en vez de mentir.
       firstScheduledAfter(athlete_id, weekEndIso),
     ]);
+
+  const resolvedVisibility =
+    visibility ??
+    (await resolveAthletePlanWeekVisibility(athlete_id, {
+      weekOffset,
+      nextWeekPublished,
+    }));
+
+  // Peek affordance = published content at offset+1 AND within the club horizon.
+  const has_next_week =
+    nextWeekPublished && weekOffset + 1 <= resolvedVisibility.max_week_offset;
+  const peek_blocked_by_horizon =
+    nextWeekPublished && weekOffset + 1 > resolvedVisibility.max_week_offset;
   // El foco de LA SEMANA DEL ATLETA manda; el de la plantilla es el defecto
   // heredado (docs/DECISIONS.md — el foco vive en la semana, no solo en la
   // plantilla). Una semana en 'draft' no adelanta su foco por esta puerta: el
@@ -312,8 +337,9 @@ export async function buildAthleteWeekPlan(
     // Athlete-facing week focus (a short coach line, no per-day detail). Null
     // when the week wasn't materialized from a month template / has no focus.
     focus,
-    // True when a next week with published content exists (peek affordance).
+    // True when a next week with published content exists within the club horizon.
     has_next_week,
+    peek_blocked_by_horizon,
     days,
     // #13 — the client shows "en pausa" when paused; the week structure is still
     // returned (no invented sessions), the flag just frames it.
