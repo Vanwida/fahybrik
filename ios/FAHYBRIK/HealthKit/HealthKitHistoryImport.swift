@@ -186,7 +186,8 @@ final class HealthKitHistoryImporter {
         source: HealthHistoryWindowImporting = HealthKitHistoryWindowReader.shared,
         athleteId: String? = AuthState.persistedAthleteId(),
         defaults: UserDefaults = .standard,
-        pauseBetweenWindows: Duration = Self.defaultPauseBetweenWindows
+        // Literal, not `Self.defaultPauseBetweenWindows`: Swift 6 forbids `Self` in default args.
+        pauseBetweenWindows: Duration = .milliseconds(300)
     ) {
         self.source = source
         self.pauseBetweenWindows = pauseBetweenWindows
