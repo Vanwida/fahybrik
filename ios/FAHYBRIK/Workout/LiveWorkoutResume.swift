@@ -45,6 +45,10 @@ final class LiveWorkoutResume {
 
     /// Phone ↔ Watch asymmetry: wrist recording without a live phone owner.
     func reconcilePhoneWatchAsymmetry(hrZones: HRZoneProfile?) async {
+        if PhoneLiveSession.shared.wristFinishedByAthlete {
+            await handleWristAthleteFinishWhenBackgrounded(hrZones: hrZones)
+            return
+        }
         let mirror = PhoneLiveSession.shared
         let wristActive = PhoneWatchRuntimeReconcile.wristClaimsActiveSession(
             mirrorJoined: mirror.wristJoined,
@@ -72,7 +76,10 @@ final class LiveWorkoutResume {
     /// bilateral finish can complete through WorkoutContainer.
     func handleWristAthleteFinishWhenBackgrounded(hrZones: HRZoneProfile?) async {
         guard PhoneLiveSession.shared.wristFinishedByAthlete else { return }
-        guard !hasLiveSession else { return }
+        if cover != nil { return }
+        if let tracked, !tracked.isFinished {
+            tracked.finish(completeness: .partial)
+        }
         await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
     }
 
@@ -87,7 +94,7 @@ final class LiveWorkoutResume {
     }
 
     private func reopenFreshSnapshotIfNeeded(hrZones: HRZoneProfile?) async {
-        guard !hasLiveSession else { return }
+        guard cover == nil else { return }
         guard let saved = await WorkoutStateStore.shared.load(),
               WorkoutRecoveryGate.isFresh(saved) else { return }
         guard LiveWorkoutResumeGate.shouldReopenCoachPlan(

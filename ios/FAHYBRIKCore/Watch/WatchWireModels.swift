@@ -203,6 +203,11 @@ enum WatchWireKeys {
     /// por su cuenta, el aviso del espejo no llega a ninguna parte y el atleta se
     /// queda con el entreno abierto en la muñeca.
     static let liveEnd = "live_end_v1"
+    /// Reloj → teléfono: «acabé el entreno en la muñeca». El payload es un
+    /// `MirrorEnded` codificado (`Data`). Va por `transferUserInfo` — el mismo
+    /// canal durable que `executionResult` — porque el espejo HK puede no existir
+    /// o no ser alcanzable cuando el atleta termina lejos del móvil.
+    static let liveEnded = "live_ended_v1"
 }
 
 /// Phone → watch: the iPhone already finished this workout.
@@ -215,6 +220,21 @@ enum WatchLiveEnd {
     static func saveFlag(in body: [String: Any]) -> Bool? {
         guard let raw = body[WatchWireKeys.liveEnd] else { return nil }
         return (raw as? Bool) ?? true
+    }
+}
+
+/// Watch → phone: the wrist closed its PRIMARY recording. Same semantics as the
+/// HK mirror `MirrorEnded` packet — this is the durable WCSession copy.
+enum WatchLiveEnded {
+    /// `nil` = not this aviso. Otherwise the decoded `MirrorEnded`.
+    static func decode(from body: [String: Any]) -> MirrorEnded? {
+        guard let data = body[WatchWireKeys.liveEnded] as? Data else { return nil }
+        return try? MirrorWire.decoder.decode(MirrorEnded.self, from: data)
+    }
+
+    static func encode(_ ended: MirrorEnded) -> [String: Any]? {
+        guard let data = try? MirrorWire.encoder.encode(ended) else { return nil }
+        return [WatchWireKeys.liveEnded: data]
     }
 }
 
