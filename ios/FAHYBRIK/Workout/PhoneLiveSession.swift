@@ -380,7 +380,7 @@ final class PhoneLiveSession {
 
     private func send<P: Encodable>(type: String, _ payload: P) {
         if let sendOverride { sendOverride(type); return }
-        guard let data = MirrorEnvelope.encoding(type: type, payload: payload) else { return }
+        guard let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         channel.send(data)
     }
 }
