@@ -7,7 +7,7 @@ import HealthKit
 @MainActor
 final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     override func tearDown() {
         mirror.sendOverride = nil

@@ -1,7 +1,7 @@
 import Foundation
 
 // #56 — the SINGLE live descriptor of a running session (block name + format
-// progress), read by BOTH the Apple-Watch mirror frame (PhoneMirrorService) and the
+// progress), read by BOTH the Apple-Watch mirror frame (PhoneLiveSession) and the
 // dobles-live heartbeat (DoblesLivePresence). Extracted here so there is ONE
 // derivation of "RONDA n/m" / "TRAMO n/m" / "SERIE n/m": a new format that teaches
 // the mirror its progress teaches the partner's live strip the same, never a second
@@ -14,8 +14,8 @@ extension WorkoutSession {
 
     /// Round / set / tramo progress within the current format ("TRAMO 2/3",
     /// "RONDA 3/5", "SERIE 2/4"), or nil when the format has no counter. THE single
-    /// source both PhoneMirrorService's frame and the dobles-live heartbeat read.
-    /// (Moved verbatim from PhoneMirrorService.progressText — `self` for `session`.)
+    /// source both PhoneLiveSession's frame and the dobles-live heartbeat read.
+    /// (Moved verbatim from PhoneLiveSession.progressText — `self` for `session`.)
     var liveProgressText: String? {
         // A structured run counts TRAMOS off the leg cursor (mirror of the phone HUD),
         // NOT the rotating machine — whose rotRoundIndex stays frozen at 0 here.

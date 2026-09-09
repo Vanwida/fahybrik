@@ -9,7 +9,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 **FH-97 — Watch PRIMARY rewrite (PR #168, build 80).**
 Delete-first: `MirrorSessionController*` → `WatchPrimaryOwner`; `PhoneMirrorService` →
 `PhoneLiveSession` + `PhoneMirrorFrameBuilder`. Teardown deadline 5s nunca se cancela
-al guardar — GUARDANDO no puede quedarse pegado. Sobre FH-95/96 Start UX.
+al guardar — GUARDANDO no puede quedarse pegado. Rebase sobre FH-95/96 Start UX.
 
 **FH-96 — one PRIMARY per intent (main, build 79).**
 Prep reloj = UI-only (`noteWatchPrepIntent`); único `begin`/`startWatchApp` en

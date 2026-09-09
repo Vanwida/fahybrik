@@ -16,7 +16,7 @@ import XCTest
 @MainActor
 final class EspejoDeCaboARaboTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     /// El viaje entero, como lo hace el cable de verdad.
     private func paginasEnLaMuneca(_ s: WorkoutSession, bpm: Int? = nil) throws -> [WatchPagina] {

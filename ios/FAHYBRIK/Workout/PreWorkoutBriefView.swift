@@ -55,7 +55,7 @@ struct PreWorkoutBriefView: View {
     var onBackFromReady: (() -> Void)? = nil
 
     @State private var stagingSession: WorkoutSession? = nil
-    @State private var mirror = PhoneMirrorService.shared
+    @State private var mirror = PhoneLiveSession.shared
 
     // Ficha del ejercicio (vídeo + consejos + descripción + nota del día), abierta
     // desde el botón "Ver técnica" de una fila. Antes esto solo guardaba la URL y

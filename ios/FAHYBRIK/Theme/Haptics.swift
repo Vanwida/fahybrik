@@ -38,7 +38,7 @@ enum Haptics {
     // MARK: - Workout cues (felt from the floor, mid-effort)
 
     /// Optional fan-out: when the wrist is mirroring, the phone's engine cues must
-    /// also reach the watch (the engine only runs here). `PhoneMirrorService`
+    /// also reach the watch (the engine only runs here). `PhoneLiveSession`
     /// installs this in `prepare()`. Cue names = `MirrorWire.HapticCue`.
     static var relayWorkoutCue: ((String) -> Void)?
 

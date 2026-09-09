@@ -16,7 +16,7 @@ import XCTest
 @MainActor
 final class PhoneMirrorTramoTests: XCTestCase {
 
-    private var mirror: PhoneMirrorService { PhoneMirrorService.shared }
+    private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     // MARK: - El caso real: «Correr · Series» del constructor de entreno libre
 

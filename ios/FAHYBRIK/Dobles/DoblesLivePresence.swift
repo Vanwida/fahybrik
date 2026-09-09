@@ -4,7 +4,7 @@ import Observation
 // #56 — the EMITTER side of dobles en vivo: while the athlete works out, POST their
 // heartbeat to /api/athlete/dobles/live ~every 5 s so the partner's phone can render
 // their live strip. Best-effort and silent — a workout is NEVER blocked or slowed by
-// presence. Mirrors the PhoneMirrorService lifecycle (begin on start, one final beat on
+// presence. Mirrors the PhoneLiveSession lifecycle (begin on start, one final beat on
 // finish/leave), driven off its own light 5 s timer (the engine tick is 0.25 s and the
 // pure engine must not learn networking).
 //

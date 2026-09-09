@@ -75,7 +75,7 @@ final class PhoneWorkoutRun: NSObject {
 
     /// Retain the hang-off UUID. Does not construct `HKWorkoutSession`.
     /// The Watch creates the primary; iPhone adopts via
-    /// `workoutSessionMirroringStartHandler` (`PhoneMirrorService`).
+    /// `workoutSessionMirroringStartHandler` (`PhoneLiveSession`).
     func startIfNeeded(
         activityKind: String,
         diskOffset: TimeInterval = 0,
@@ -128,7 +128,7 @@ final class PhoneWorkoutRun: NSObject {
             healthStore.recoverActiveWorkoutSession { session, _ in
                 Task { @MainActor in
                     if let session {
-                        PhoneMirrorService.shared.attachRecovered(session)
+                        PhoneLiveSession.shared.attachRecovered(session)
                     }
                     cont.resume(returning: session)
                 }
@@ -142,7 +142,7 @@ final class PhoneWorkoutRun: NSObject {
         guard pauseBeganAt == nil else { return }
         pauseBeganAt = Date()
         // Clock only. `HKWorkoutSession.pause()` belongs to the Watch PRIMARY.
-        PhoneMirrorService.shared.pauseRemote()
+        PhoneLiveSession.shared.pauseRemote()
     }
 
     func resume() {
@@ -150,7 +150,7 @@ final class PhoneWorkoutRun: NSObject {
             pausedAccumulated += Date().timeIntervalSince(began)
             pauseBeganAt = nil
         }
-        PhoneMirrorService.shared.resumeRemote()
+        PhoneLiveSession.shared.resumeRemote()
     }
 
     /// No-op on iOS. Apple: `startMirroringToCompanionDevice` is watchOS 10.
@@ -219,7 +219,7 @@ private final class PhoneWorkoutRunDelegate: NSObject, HKWorkoutSessionDelegate 
     ) {
         Task { @MainActor [weak self] in
             guard self?.owner?.hasPrimarySession == true else { return }
-            PhoneMirrorService.shared.handleIncoming(data)
+            PhoneLiveSession.shared.handleIncoming(data)
         }
     }
 }

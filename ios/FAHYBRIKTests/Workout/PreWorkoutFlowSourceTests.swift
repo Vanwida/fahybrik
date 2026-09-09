@@ -32,7 +32,7 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
 
     func testReleaseLiveLivesInOnePlace() throws {
         let release = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutReleaseLive.swift"))
-        XCTAssertTrue(release.contains("PhoneMirrorService.shared.begin"))
+        XCTAssertTrue(release.contains("PhoneLiveSession.shared.begin"))
         let brief = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutBriefView.swift"))
         XCTAssertTrue(brief.contains("PreWorkoutReleaseLive.release"))
     }
@@ -43,13 +43,15 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         let prepBody = release
             .components(separatedBy: "static func prepWatchRecording").last?
             .components(separatedBy: "static func release").first ?? ""
-        XCTAssertFalse(prepBody.contains("PhoneMirrorService.shared.begin"),
+        XCTAssertFalse(prepBody.contains("PhoneLiveSession.shared.begin"),
                        "prep must not call begin — sole HK owner is release")
     }
 
     func testWatchQueueOrBeginIgnoresCompatibleRedundantStart() throws {
-        let primary = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKWatch/MirrorSessionController+Primary.swift"))
-        XCTAssertTrue(primary.contains("shouldIgnoreRedundantStart"))
-        XCTAssertTrue(primary.contains("shouldFinishBeforeRestart"))
+        let owner = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKWatch/WatchPrimaryOwner.swift"))
+        let policy = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKCore/Watch/MirrorPrimaryLaunchPolicy.swift"))
+        XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart"))
+        XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart"))
+        XCTAssertTrue(policy.contains("shouldIgnoreRedundantStart"))
     }
 }

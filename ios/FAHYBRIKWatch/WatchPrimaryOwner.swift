@@ -42,6 +42,20 @@ final class WatchPrimaryOwner: NSObject {
 
     static let connectionLostAfter: TimeInterval = 15
     static let hrRelayMinInterval: TimeInterval = 1
+
+    static let workoutDataTypes: Set<HKSampleType> = [
+        HKObjectType.workoutType(),
+        HKQuantityType(.heartRate),
+        HKQuantityType(.activeEnergyBurned),
+        HKQuantityType(.distanceWalkingRunning)
+    ]
+
+    static func requestWorkoutAuthorization() async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        let store = HKHealthStore()
+        try? await store.requestAuthorization(toShare: workoutDataTypes, read: workoutDataTypes)
+    }
+
     private static let log = Logger(subsystem: Marca.subsistemaLog("primary"), category: "watch-lifecycle")
 
     let store = HKHealthStore()
@@ -80,6 +94,21 @@ final class WatchPrimaryOwner: NSObject {
         requestStart(configuration: configuration, role: .mirror)
     }
 
+    func requestAuthorization() async {
+        await Self.requestWorkoutAuthorization()
+    }
+
+    func startSolo(
+        activityType: HKWorkoutActivityType,
+        locationType: HKWorkoutSessionLocationType,
+        reuseIfPresent: Bool = false
+    ) {
+        let config = HKWorkoutConfiguration()
+        config.activityType = activityType
+        config.locationType = locationType
+        startSolo(configuration: config, reuseIfPresent: reuseIfPresent)
+    }
+
     func startSolo(configuration: HKWorkoutConfiguration, reuseIfPresent: Bool) {
         if reuseIfPresent, phase == .recording, session != nil {
             role = .solo
@@ -90,6 +119,25 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     private func requestStart(configuration: HKWorkoutConfiguration, role: Role) {
+        if MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
+            isRecording: phase == .recording,
+            current: session?.workoutConfiguration,
+            incoming: configuration
+        ) {
+            Self.log.info("startPrimary ignored — already recording compatible PRIMARY")
+            return
+        }
+        if MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
+            isRecording: phase == .recording,
+            current: session?.workoutConfiguration,
+            incoming: configuration
+        ) {
+            Self.log.warning("PRIMARY leftover phase=\(String(describing: self.phase), privacy: .public) — finishing then starting")
+            pendingStartConfiguration = configuration
+            pendingStartRole = role
+            if phase == .recording { finish(save: true) }
+            return
+        }
         let standaloneActive = WatchWorkoutCoordinator.shared.phase != .idle
         guard WatchPrimaryLifecycle.acceptsStart(
             current: phase,
@@ -107,7 +155,7 @@ final class WatchPrimaryOwner: NSObject {
     private func begin(configuration: HKWorkoutConfiguration, role: Role) async {
         guard phase == .idle else { return }
         if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle { return }
-        await LiveWorkoutSession.requestWorkoutAuthorization(store: store)
+        await Self.requestWorkoutAuthorization()
         guard phase == .idle else { return }
         do {
             let created = try HKWorkoutSession(healthStore: store, configuration: configuration)

@@ -122,7 +122,7 @@ final class RunDistanceAuthorityTests: XCTestCase {
     func testThePhoneFeedsTheMirrorDistanceIntoTheEngine() {
         let s = armedRun()
         s.runEnvironment = .indoor   // cinta tonta: los metros sólo pueden venir de la muñeca
-        let mirror = PhoneMirrorService.shared
+        let mirror = PhoneLiveSession.shared
         defer { mirror.teardown() }
         mirror.begin(session: s, activityKind: "run")
 

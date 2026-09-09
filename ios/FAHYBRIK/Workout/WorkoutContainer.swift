@@ -194,7 +194,7 @@ struct WorkoutContainer: View {
         // entreno del móvil se cierra aquí y va al resumen. No se le pide un
         // segundo final con su propio guardado — eso era hacer dos veces el mismo
         // trabajo sin saber cuál de los dos contaba.
-        .onChange(of: PhoneMirrorService.shared.wristFinishedByAthlete) { _, terminado in
+        .onChange(of: PhoneLiveSession.shared.wristFinishedByAthlete) { _, terminado in
             cerrarPorqueTerminoLaMuneca(terminado)
         }
         // EL ÚNICO punto de desmontaje de los aparatos (cinta + banda + remo). Salta
@@ -390,7 +390,7 @@ struct WorkoutContainer: View {
                                 // HKWorkout). The wrist replies with its UUID while the
                                 // athlete fills the summary; PostWorkoutSummaryView
                                 // stamps source_workout_ref.
-                                PhoneMirrorService.shared.end(save: true)
+                                PhoneLiveSession.shared.end(save: true)
                                 phase = trasElEsfuerzo(session)
                             }
                         },
@@ -401,7 +401,7 @@ struct WorkoutContainer: View {
                         // crash-recovery trace of the discarded run.
                         onExit: {
                             // Discard: tell the wrist to drop its recording (no HKWorkout).
-                            PhoneMirrorService.shared.end(save: false)
+                            PhoneLiveSession.shared.end(save: false)
                             // #56 — one "ha salido" beat so the partner's strip reflects it.
                             DoblesLivePresence.shared.leave()
                             // AUDIT-3 — stop the engine + latch-close persistence in order,
@@ -437,7 +437,7 @@ struct WorkoutContainer: View {
                         onDone: {
                             // The window is over (skip / continue / 90 s auto-close):
                             // NOW close the wrist recording, then the normal summary.
-                            PhoneMirrorService.shared.end(save: true)
+                            PhoneLiveSession.shared.end(save: true)
                             phase = trasElEsfuerzo(session)
                         }
                     )
@@ -616,7 +616,7 @@ struct WorkoutContainer: View {
         session = recovered
         manualEntry = false
         loadState = .ready(recovered.plan, nil)
-        PhoneMirrorService.shared.begin(
+        PhoneLiveSession.shared.begin(
             session: recovered,
             activityKind: mirrorActivityKind(for: recovered.plan)
         )
@@ -775,7 +775,7 @@ struct WorkoutContainer: View {
                         // lo reengancha a la sesión recuperada, que es la que ahora
                         // manda; y si la muñeca se había autocerrado por su cuenta,
                         // esto vuelve a ponerla en marcha.
-                        PhoneMirrorService.shared.begin(
+                        PhoneLiveSession.shared.begin(
                             session: recovered,
                             activityKind: mirrorActivityKind(for: saved.plan)
                         )
