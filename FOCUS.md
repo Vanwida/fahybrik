@@ -2,17 +2,15 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-94 run gate + live Devices — build 76)
+Última actualización: **2026-09-09** (FH-94 pack completo — build 77)
 
 ## Ahora
 
-**FH-94 — Run gate + live Devices (rama `cursor/fh94-run-gate-devices-720f`, build 76).**
-Root cause: `startRecipe` usaba `kind == .running` pero rounds/functional (Cario Mix
-Run·Row·Ski) llevan run en `involvesRun` → saltaba `RunPreStartFlow` → remo primero →
-CORRER EN CINTA/FUERA en mid-HUD. Fix: `needsRunLocation` = `involvesRun` (misma señal
-que `devices(for:)`). Live: sin CTAs cinta/fuera en `RunLiveHUD`; `BotonConectividad` en
-banda superior + `LiveConectividadSheet` (PM5/cinta/HR + cambio de entorno). Persist en
-`scenePhase` background. Pendiente: Archive → TestFlight smoke (Cario Mix).
+**FH-94 — Run gate + live Devices + Empezar/idle (main, build 77).**
+Pack: (1) `needsRunLocation` = `involvesRun`; (2) sin CTAs cinta/fuera mid-HUD;
+`BotonConectividad` + `LiveConectividadSheet`; (3) LISTO: EMPEZAR `enabled:` + hint
+reloj cuando bloqueado; (4) `isIdleTimerDisabled` solo `WorkoutContainer` (.start/.active/.recovery).
+BLE: sin auto-connect — restore + toolbar Devices. Pendiente: Archive → TestFlight.
 
 **FH-88 — Perfil compacto (main, build 75).** Archive build 74 falló: `profileDoorSection`
 capturaba `@ViewBuilder destination` no-escaping dentro de `NavigationLink` → fix:

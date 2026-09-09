@@ -153,11 +153,16 @@ struct SessionStartGate: View {
                 .padding(.top, Theme.Spacing.m)
             }
             VStack(spacing: Theme.Spacing.s) {
-                Text("Empieza cuando estés listo")
+                Text(empezarFooterHint)
                     .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-                ExpertPrimaryButton(title: "▶ EMPEZAR", height: 64, action: releaseLive)
-                    .disabled(!canReleaseLive)
+                    .foregroundStyle(canReleaseLive ? Theme.Color.faint : Theme.Color.warning)
+                    .multilineTextAlignment(.center)
+                ExpertPrimaryButton(
+                    title: "▶ EMPEZAR",
+                    height: 64,
+                    enabled: canReleaseLive,
+                    action: releaseLive
+                )
             }
             .padding(.horizontal, Theme.Spacing.xl)
             .padding(.bottom, Theme.Spacing.l)
@@ -273,6 +278,14 @@ struct SessionStartGate: View {
     /// Live opens only after device steps resolve and watch honesty is settled.
     private var canReleaseLive: Bool {
         nextStep == nil && watchResolved
+    }
+
+    private var empezarFooterHint: String {
+        SessionStartPolicy.empezarFooterHint(
+            asksWatch: recipe.asksWatch,
+            watchResolved: watchResolved,
+            canReleaseLive: canReleaseLive
+        )
     }
 
     private func cancelAll() {

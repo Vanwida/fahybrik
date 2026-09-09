@@ -184,6 +184,7 @@ struct WorkoutContainer: View {
         // LA PANTALLA DESPIERTA tiene UN dueño: este contenedor, por fase (antes eran
         // booleanos repartidos entre vistas y el relevo .active → .recovery podía
         // dormir la pantalla a mitad de la medición de un test).
+        .onAppear { mantenerPantallaDespierta(phase) }
         .onChange(of: phase) { _, nueva in mantenerPantallaDespierta(nueva) }
         // ACABAR EN UN SITIO ES ACABAR. El atleta pulsó Terminar en la muñeca: el
         // entreno del móvil se cierra aquí y va al resumen. No se le pide un
@@ -205,7 +206,10 @@ struct WorkoutContainer: View {
     }
 
     private func mantenerPantallaDespierta(_ nueva: Phase) {
-        UIApplication.shared.isIdleTimerDisabled = (nueva == .active || nueva == .recovery)
+        // FH-94: single owner — gate (.start), live (.active), HRR (.recovery).
+        // ActiveWorkoutView must not clear this on sheet/cover disappear.
+        UIApplication.shared.isIdleTimerDisabled =
+            nueva == .start || nueva == .active || nueva == .recovery
     }
 
     private var conCubiertas: some View {
