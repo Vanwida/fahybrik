@@ -17,6 +17,7 @@ enum RaceCalendarService {
     /// `events` array (which is a real "no matches" result).
     static func fetchCalendar(
         bearer: String?,
+        family: String? = nil,
         series: String? = nil,
         country: String? = nil,
         q: String? = nil,
@@ -31,6 +32,7 @@ enum RaceCalendarService {
             let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
             items.append("\(key)=\(encoded)")
         }
+        add("family", family)
         add("series", series)
         add("country", country)
         add("q", q)
@@ -51,6 +53,27 @@ enum RaceCalendarService {
         do {
             return try await APIClient.shared.post(
                 path: "api/athlete/races/target",
+                body: body,
+                bearer: bearer
+            )
+        } catch let error as APIError {
+            throw RaceTargetError(apiError: error)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw RaceTargetError.generic
+        }
+    }
+
+    /// Creates a private custom catalog event. Returns nil on failure.
+    static func createCustomEvent(
+        bearer: String?,
+        body: CreateCustomEventBody
+    ) async throws -> CreateCustomEventResponse {
+        guard let bearer else { throw RaceTargetError.unauthorized }
+        do {
+            return try await APIClient.shared.post(
+                path: "api/athlete/events/custom",
                 body: body,
                 bearer: bearer
             )

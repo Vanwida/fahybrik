@@ -37,7 +37,7 @@ export type TargetRaceRow = {
   gender_category: RaceGender;
   priority: RacePriority;
   age_group: string | null;
-  /** YYYY-MM-DD — always present (filtered to upcoming). */
+  /** YYYY-MM-DD — always present (countdown requires a confirmed date). */
   race_date: string;
   location: string | null;
   goal_time_seconds: number | null;
@@ -92,10 +92,11 @@ export async function getTargetRaceRow(
       (r.race_date - ${todayIso}::date)::int   as days_until
     from races r
     where r.athlete_id = ${athlete_id as number}
+      and r.race_date is not null
       and r.race_date >= ${todayIso}::date
       and r.status in ('planned', 'registered')
       and r.priority = 'target'
-    order by r.race_date asc, r.id asc
+    order by r.race_date asc nulls last, r.id asc
     limit 1
   `;
 

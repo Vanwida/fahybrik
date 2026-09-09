@@ -19,7 +19,22 @@ export type EventRegion = z.infer<typeof eventRegion>;
 // closed hardcoded enum — adding a series later is a one-line constraint bump
 // plus this list. `type` (hyrox/crossfit/other) stays the broad category;
 // `series` is the finer brand label the scraper + catalog curation fill.
-export const eventSeries = z.enum(['hyrox', 'deka', 'athx', 'deadly_dozen', 'other']);
+export const eventSeries = z.enum([
+  'hyrox',
+  'deka',
+  'athx',
+  'deadly_dozen',
+  'hunter_race',
+  'rfea',
+  'spartan',
+  'cf_open',
+  'cf_quarterfinals',
+  'cf_semifinals',
+  'cf_games',
+  'cf_throwdown',
+  'wodapalooza',
+  'other',
+]);
 export type EventSeries = z.infer<typeof eventSeries>;
 
 export const hyroxDivision = z.enum([
@@ -102,6 +117,23 @@ export type EventCreateInput = z.infer<typeof eventCreateInput>;
 // PATCH /api/coach/events/[id] — Pablo edits attributes / toggles visibility
 export const eventUpdateInput = eventCreateInput.partial();
 export type EventUpdateInput = z.infer<typeof eventUpdateInput>;
+
+// POST /api/athlete/events/custom — athlete creates a private catalog row when
+// their objective isn't in the shared calendar. Becomes visible ONLY to them
+// (events.athlete_id); never enters the global athlete-visible catalog.
+export const athleteCustomEventInput = z.object({
+  name: z.string().min(1).max(200),
+  type: eventType,
+  series: eventSeries.nullable().optional(),
+  location: z.string().max(200).nullable().optional(),
+  start_date: isoDate.nullable().optional(),
+  is_tentative: z.boolean().optional(),
+  source_url: z.string().url().nullable().optional(),
+  division_label: z.string().max(80).nullable().optional(),
+  homologada: z.boolean().nullable().optional(),
+  distance_meters: z.number().int().positive().max(500_000).nullable().optional(),
+});
+export type AthleteCustomEventInput = z.infer<typeof athleteCustomEventInput>;
 
 // =============================================================================
 // Admin race-catalog curation (phase 2c) — owner/admin only

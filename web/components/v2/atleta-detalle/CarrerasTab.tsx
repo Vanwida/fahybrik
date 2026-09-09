@@ -222,7 +222,7 @@ function UpcomingCard({
   onConfirmRemove: () => void;
 }) {
   const badge = priorityBadge(race.priority);
-  const days = Math.max(0, race.days_until);
+  const days = Math.max(0, race.days_until ?? 0);
   const dateLine = [formatRaceDate(race.race_date), race.location]
     .filter((v): v is string => !!v)
     .join(' · ');

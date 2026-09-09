@@ -31,7 +31,7 @@ export type Discipline = z.infer<typeof discipline>;
 export const equipmentAccess = z.enum(['full_gym', 'home_gym', 'minimal', 'travel']);
 export type EquipmentAccess = z.infer<typeof equipmentAccess>;
 
-export const eventType = z.enum(['hyrox', 'crossfit', 'other']);
+export const eventType = z.enum(['hyrox', 'crossfit', 'running', 'ocr', 'other']);
 export type EventType = z.infer<typeof eventType>;
 
 export const exerciseCategory = z.enum([

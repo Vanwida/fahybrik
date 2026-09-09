@@ -30,6 +30,7 @@ struct BuscarCarreraSheet: View {
 
     // Query / filters
     @State private var query: String = ""
+    @State private var selectedFamily: ObjectiveFamily? = nil
     @State private var selectedSeries: String? = nil   // raw series token, nil = all
     @State private var selectedCountry: String? = nil  // ISO-2 code, nil = all
     @State private var dateFilter: RaceDateFilter = .any
@@ -44,6 +45,7 @@ struct BuscarCarreraSheet: View {
     // Navigation
     @State private var selected: RaceCalendarEvent? = nil
     @State private var showRequestRace = false
+    @State private var showCustom = false
 
     @FocusState private var fieldFocused: Bool
 
@@ -84,6 +86,12 @@ struct BuscarCarreraSheet: View {
                     dismiss()
                 }
             }
+            .navigationDestination(isPresented: $showCustom) {
+                CrearObjetivoCustomView(bearer: bearer) { event in
+                    selected = event
+                    showCustom = false
+                }
+            }
             .navigationDestination(isPresented: $showRequestRace) {
                 // A future objective can't be a pasted PAST result link. When the
                 // race isn't in the official calendar, the athlete asks their coach
@@ -108,10 +116,10 @@ struct BuscarCarreraSheet: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Elige tu carrera objetivo")
+            Text("Elige tu objetivo")
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Busca en el calendario oficial y fíjala como tu objetivo. Tu cuenta atrás y tu plan se enfocan en ella.")
+            Text("Running, híbrida, CrossFit u OCR — elige del calendario o créalo si no está.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -162,6 +170,18 @@ struct BuscarCarreraSheet: View {
     @ViewBuilder
     private var filters: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            chipRow(label: "FAMILIA") {
+                PillChip(title: "Todas", selected: selectedFamily == nil) {
+                    selectedFamily = nil
+                    scheduleReload(immediate: true)
+                }
+                ForEach(ObjectiveFamily.allCases) { fam in
+                    PillChip(title: fam.label, selected: selectedFamily == fam) {
+                        selectedFamily = (selectedFamily == fam) ? nil : fam
+                        scheduleReload(immediate: true)
+                    }
+                }
+            }
             if availableSeries.count > 1 {
                 chipRow(label: "SERIE") {
                     PillChip(title: "Todas", selected: selectedSeries == nil) {
@@ -285,22 +305,42 @@ struct BuscarCarreraSheet: View {
     }
 
     private var manualFallback: some View {
-        Button {
-            Haptics.light()
-            showRequestRace = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "paperplane")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("¿No encuentras tu carrera? Pídesela a tu coach")
-                    .font(.system(size: 13, weight: .semibold))
-                    .multilineTextAlignment(.center)
+        VStack(spacing: Theme.Spacing.s) {
+            Button {
+                Haptics.light()
+                showCustom = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Crear objetivo personalizado")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(Theme.Color.accentText)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, Theme.Spacing.s)
             }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, Theme.Spacing.s)
+            .buttonStyle(PressScaleStyle())
+
+            if hasCoach {
+                Button {
+                    Haptics.light()
+                    showRequestRace = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Pedir al coach que lo añada al calendario")
+                            .font(.system(size: 13, weight: .semibold))
+                            .multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(PressScaleStyle())
+            }
         }
-        .buttonStyle(PressScaleStyle())
         .padding(.top, Theme.Spacing.s)
     }
 
@@ -370,7 +410,13 @@ struct BuscarCarreraSheet: View {
             to = RaceDate.isoMonthsAhead(months)
         }
 
-        let resp = await RaceCalendarService.fetchCalendar(bearer: bearer, q: q, from: from, to: to)
+        let resp = await RaceCalendarService.fetchCalendar(
+            bearer: bearer,
+            family: selectedFamily?.rawValue,
+            q: q,
+            from: from,
+            to: to
+        )
         if Task.isCancelled { return }
 
         loading = false

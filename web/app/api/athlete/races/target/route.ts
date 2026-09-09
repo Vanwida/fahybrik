@@ -36,6 +36,10 @@ export async function POST(request: Request) {
       division: parsed.data.division,
       gender_category: parsed.data.gender_category,
       goal_time_seconds: parsed.data.goal_time_seconds ?? null,
+      objective_variant: parsed.data.objective_variant ?? null,
+      division_label: parsed.data.division_label ?? null,
+      distance_meters: parsed.data.distance_meters ?? null,
+      homologada: parsed.data.homologada ?? null,
       require_visible: true,
     });
     return jsonOk(result);

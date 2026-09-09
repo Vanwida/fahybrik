@@ -22,6 +22,15 @@ const SERIES_LABEL: Record<string, string> = {
   deka: 'DEKA',
   athx: 'AthX',
   deadly_dozen: 'Deadly Dozen',
+  hunter_race: 'Hunter Race',
+  rfea: 'RFEA',
+  spartan: 'Spartan',
+  cf_open: 'CrossFit Open',
+  cf_quarterfinals: 'Quarterfinals',
+  cf_semifinals: 'Semifinals',
+  cf_games: 'Games',
+  cf_throwdown: 'Throwdown',
+  wodapalooza: 'Wodapalooza',
   other: 'Otra',
 };
 
@@ -116,12 +125,20 @@ export function RaceFormModal({ race, onClose, onSaved }: RaceFormModalProps) {
 
     // `type` is the broad category; derive it from the series brand, preserving a
     // pre-existing non-HYROX type (e.g. crossfit) when the series doesn't imply one.
-    const derivedType: 'hyrox' | 'crossfit' | 'other' =
+    const derivedType: 'hyrox' | 'crossfit' | 'running' | 'ocr' | 'other' =
       series === 'hyrox'
         ? 'hyrox'
-        : race?.type && race.type !== 'hyrox'
-          ? race.type
-          : 'other';
+        : series === 'hunter_race' || series === 'deka' || series === 'athx' || series === 'deadly_dozen'
+          ? 'hyrox'
+          : series.startsWith('cf_') || series === 'wodapalooza'
+            ? 'crossfit'
+            : series === 'rfea'
+              ? 'running'
+              : series === 'spartan'
+                ? 'ocr'
+                : race?.type && race.type !== 'hyrox'
+                  ? race.type
+                  : 'other';
 
     const payload: Record<string, unknown> = {
       slug: finalSlug,

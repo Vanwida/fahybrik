@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { eventFamilyValues } from '../domain/objectives/catalog';
 import { eventType, idSchema, isoDate, isoDateTime } from './_primitives';
 // Single source of truth for the HYROX 16-element layout (8 runs + 8 stations).
 import { HYROX_ELEMENT_COUNT } from './hyrox-layout';
@@ -93,10 +94,17 @@ export type NextRace = z.infer<typeof nextRaceSchema>;
 // athlete can hold several upcoming objectives at once (target + tune-ups), so
 // this is a list — race_date is always non-null here (only dated future rows
 // surface), hence the non-nullable nextRaceSchema.race_date carries through.
-export const upcomingRaceSchema = nextRaceSchema.extend({
-  race_id: z.number().int().nonnegative(),
-  event_id: z.number().int().nonnegative().nullable(),
-});
+export const upcomingRaceSchema = nextRaceSchema
+  .extend({
+    race_date: isoDate.nullable(),
+    days_until: z.number().int().nullable(),
+    race_id: z.number().int().nonnegative(),
+    event_id: z.number().int().nonnegative().nullable(),
+    objective_variant: z.string().nullable().optional(),
+    division_label: z.string().nullable().optional(),
+    distance_meters: z.number().int().positive().nullable().optional(),
+    homologada: z.boolean().nullable().optional(),
+  });
 export type UpcomingRace = z.infer<typeof upcomingRaceSchema>;
 
 // Compact summary for the coach athletes-LIST and ficha headers — just enough to
@@ -136,6 +144,8 @@ export const raceCalendarEventSchema = z.object({
   name: z.string(),
   series: z.string().nullable(),
   type: eventType,
+  /** Picker facet — derived server-side from type + series. */
+  family: z.enum(eventFamilyValues),
   location: z.string().nullable(),
   country: z.string().nullable(),
   region: z.string().nullable(),
@@ -146,6 +156,8 @@ export const raceCalendarEventSchema = z.object({
   end_date: isoDate.nullable(),
   is_tentative: z.boolean(),
   division_options: z.array(z.string()),
+  /** true when this row is the athlete's private custom event. */
+  is_custom: z.boolean(),
 });
 export type RaceCalendarEvent = z.infer<typeof raceCalendarEventSchema>;
 
@@ -164,10 +176,16 @@ export type RaceCalendarResponse = z.infer<typeof raceCalendarResponseSchema>;
 // client only chooses the orthogonal participation attributes + optional goal.
 export const athleteTargetRaceInput = z.object({
   event_id: z.coerce.number().int().positive(),
-  format: raceFormat,
-  division: raceDivision,
-  gender_category: raceGender,
+  format: raceFormat.optional(),
+  division: raceDivision.optional(),
+  gender_category: raceGender.optional(),
   goal_time_seconds: z.number().int().positive().max(36000).nullable().optional(),
+  /** Hunter legend/alpha/sprinter; CF stage token when not in series. */
+  objective_variant: z.string().max(40).nullable().optional(),
+  /** Free-text division (CrossFit, running category, etc.). */
+  division_label: z.string().max(80).nullable().optional(),
+  distance_meters: z.number().int().positive().max(500_000).nullable().optional(),
+  homologada: z.boolean().nullable().optional(),
 });
 export type AthleteTargetRaceInput = z.infer<typeof athleteTargetRaceInput>;
 

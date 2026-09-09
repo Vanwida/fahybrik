@@ -71,7 +71,7 @@ struct RaceDetailView: View {
             // A doubles race self-fetches inside DoblesRaceGapSection; only the
             // individual target race has a goal-gap to fetch here. Everything else
             // renders immediately from the race object.
-            if isDoubles || !isTargetRace {
+            if isDoubles || !isTargetRace || !race.supportsHyroxGoalGap {
                 loadingGap = false
             } else {
                 await loadGap()
@@ -164,10 +164,12 @@ struct RaceDetailView: View {
         }
     }
 
-    // Target: the full picture, gated on the live goal-gap availability.
+    // Target: HYROX gets goal-gap; other formats stay date + type + optional time.
     @ViewBuilder
     private var targetContent: some View {
-        if loadingGap {
+        if !race.supportsHyroxGoalGap {
+            nonHyroxTargetCard
+        } else if loadingGap {
             ProgressView()
                 .tint(Theme.Color.accentText)
                 .frame(maxWidth: .infinity)
@@ -322,6 +324,31 @@ struct RaceDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var nonHyroxTargetCard: some View {
+        CardSurface(padding: 16, elevated: true) {
+            VStack(alignment: .leading, spacing: 10) {
+                LabelText(text: "TU OBJETIVO")
+                if let goal = race.goalTimeSeconds, goal > 0,
+                   let clock = GoalGapFormat.raceClock(goal) {
+                    Text(clock)
+                        .font(.system(size: 32, weight: .heavy, design: .monospaced).italic().monospacedDigit())
+                        .foregroundStyle(Theme.Color.foreground)
+                } else {
+                    Text("Sin tiempo objetivo")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                Text("Para este formato el plan se ancla a la fecha y al tipo de competición. El desglose por estaciones solo está disponible en HYROX.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                ExpertPrimaryButton(title: "CAMBIAR TIEMPO OBJETIVO") {
+                    showGoalSheet = true
+                }
+            }
         }
     }
 

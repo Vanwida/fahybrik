@@ -35,7 +35,7 @@ function parseRegion(raw: string | null): EventRegion | undefined {
   const r = eventRegion.safeParse(raw);
   return r.success ? r.data : undefined;
 }
-function parseType(raw: string | null): 'hyrox' | 'crossfit' | 'other' | undefined {
+function parseType(raw: string | null): 'hyrox' | 'crossfit' | 'running' | 'ocr' | 'other' | undefined {
   if (!raw) return undefined;
   const r = eventType.safeParse(raw);
   return r.success ? r.data : undefined;
