@@ -2,10 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-09** (FH-97 Watch PRIMARY rewrite — build 80)
+Última actualización: **2026-09-09** (FH-97 build 81 — compile fix Cloud 80)
 
 ## Ahora
 
+**FH-97 — build 81 compile fix (PR pendiente).**
+Cloud build 80: `finish(save:)` leftover + Swift 6 `WatchRunLocationGate` delegate.
 **FH-97 — Watch PRIMARY rewrite (PR #168, build 80).**
 Delete-first: `MirrorSessionController*` → `WatchPrimaryOwner`; `PhoneMirrorService` →
 `PhoneLiveSession` + `PhoneMirrorFrameBuilder`. Teardown deadline 5s nunca se cancela
