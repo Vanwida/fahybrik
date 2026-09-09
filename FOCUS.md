@@ -9,7 +9,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 **FH-105 — Archive Swift 6 compile green (PR pendiente, build 91).**
 Build 90 (FH-104 merge) seguía en exit 65: `if let` sobre `GoalGapFormat.raceClock`
 (no opcional) en `RaceDetailView`, y `Self.` en default arg de
-`HealthKitHistoryImporter.init`. Diseño: `docs/pr/fh105-archive-compile-green.md`.
+`HealthKitHistoryImporter.init`. Barrido exhaustivo 712 ficheros Swift — sin más
+fixes. Diseño: `docs/pr/fh105-archive-compile-green.md`.
 
 **FH-77 — goals catalog (main, build 88).** Diseño: `docs/pr/fh77-goals-catalog.md`.
 
