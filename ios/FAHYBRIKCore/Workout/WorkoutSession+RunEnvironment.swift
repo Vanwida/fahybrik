@@ -16,7 +16,9 @@ extension WorkoutSession {
         guard runEnvironment != env else { return }
         commitRunDistanceBeforeEnvironmentSwitch()
         runEnvironment = env
+        #if os(iOS)
         ensurePhoneWorkoutRun()
+        #endif
     }
 
     private func commitRunDistanceBeforeEnvironmentSwitch() {
