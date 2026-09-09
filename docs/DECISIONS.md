@@ -10,6 +10,25 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-09 · FH-95 — Devices hub (resta StartStep secuencial)
+
+**El hueco:** FH-94 reforzó la máquina `StartStep` (calle → remo → ski → LISTO).
+En campo: scan Ski vacío tras conectar Remo (CoreBluetooth no re-entrega
+periféricos ya vistos si el central no para+arranca el scan al añadir el segundo
+`BLEStation`), y el atleta no controla el orden ni ve todas las máquinas a la vez.
+
+**Decidido:** brief (Continuar) → `PreWorkoutDevicesHubView` (todas las filas) →
+`PreWorkoutPrepareView` (único ▶ EMPEZAR) → live. Run env en la fila Correr del
+hub. `DeviceCentral.refreshScan` siempre `stopScan` antes de `scanForPeripherals`.
+Borrado `ErgPreStartFlow` y el struct `RunPreStartFlow` (queda `TreadmillConnectGuide`
+solo para HUD mid-live).
+
+**NO hacer:** otra máquina `nextStartStep` / pantallas full-screen por rol; ▶
+Empezar en hub, brief, `TreadmillConnectGuide` ni `PM5LiveStreamView` pre-live
+(solo en prepare). Mid-live reconnect sigue en toolbar Devices.
+
+---
+
 ## 2026-09-07 · FH-91 — Un solo Start antes del vivo
 
 **El hueco:** cuatro puertas (`PreWorkoutBriefView` / constructores libres /

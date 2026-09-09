@@ -1,10 +1,11 @@
 import SwiftUI
 
-// FH-91 / FH-93 — ONE pre-live gate. Device steps (run env, erg) then the sole
-// ▶ EMPEZAR. Watch join is inline status — never a second full-screen gate.
-// Mirror/HK begins ONLY on releaseLive(), not on appear (no green pill before EMPEZAR).
+// FH-95 — ONE pre-live prepare screen. Devices were handled on
+// PreWorkoutDevicesHubView (or skipped when none needed). This view is the ONLY
+// place with ▶ EMPEZAR before live. Watch join is inline status — never a gate step.
+// Mirror/HK begins ONLY on releaseLive(), not on appear.
 
-struct SessionStartGate: View {
+struct PreWorkoutPrepareView: View {
     let sessionTitle: String
     let plan: WorkoutPlan
     let segments: [WorkoutSegment]
@@ -12,15 +13,13 @@ struct SessionStartGate: View {
     let isBenchmark: Bool
     let activityKind: String
     let hrZones: HRZoneProfile?
+    @Binding var answers: SessionStartAnswers
     var stampSession: ((WorkoutSession) -> Void)? = nil
     let onReleaseLive: (WorkoutSession) -> Void
-    let onCancel: () -> Void
+    let onBack: () -> Void
 
-    @State private var answers = SessionStartAnswers.empty
     @State private var stagingSession: WorkoutSession
     @State private var pool = PM5Pool.shared
-    @State private var hub = DeviceHub.shared
-    @State private var watch = WatchPresence.shared
     @State private var mirror = PhoneMirrorService.shared
     @State private var didBeginMirror = false
 
@@ -32,23 +31,6 @@ struct SessionStartGate: View {
         )
     }
 
-    private var connectedRoles: Set<ErgMachineRole> {
-        Set(PreWorkoutDeviceEligibility.namedErgRoles(in: segments)
-            .filter { pool.isRoleConnected($0) })
-    }
-
-    private var nextStep: PreWorkoutDeviceEligibility.StartStep? {
-        PreWorkoutDeviceEligibility.nextStartStep(
-            recipe: recipe,
-            segments: segments,
-            answers: answers,
-            roleConnected: connectedRoles,
-            anyConnected: pool.any.isConnected,
-            wristJoined: mirror.wristJoined
-        )
-    }
-
-    /// Watch honesty is resolved inline on the ready screen — not a StartStep.
     private var watchResolved: Bool {
         !recipe.asksWatch
             || SessionStartPolicy.watchResolved(answers: answers, wristJoined: mirror.wristJoined)
@@ -62,9 +44,10 @@ struct SessionStartGate: View {
         isBenchmark: Bool = false,
         activityKind: String,
         hrZones: HRZoneProfile? = nil,
+        answers: Binding<SessionStartAnswers>,
         stampSession: ((WorkoutSession) -> Void)? = nil,
         onReleaseLive: @escaping (WorkoutSession) -> Void,
-        onCancel: @escaping () -> Void
+        onBack: @escaping () -> Void
     ) {
         self.sessionTitle = sessionTitle
         self.plan = plan
@@ -73,77 +56,20 @@ struct SessionStartGate: View {
         self.isBenchmark = isBenchmark
         self.activityKind = activityKind
         self.hrZones = hrZones
+        _answers = answers
         self.stampSession = stampSession
         self.onReleaseLive = onReleaseLive
-        self.onCancel = onCancel
+        self.onBack = onBack
         _stagingSession = State(initialValue: WorkoutSession(plan: plan, hrZones: hrZones))
     }
 
     var body: some View {
-        Group {
-            if let step = nextStep {
-                stepBody(step)
-            } else {
-                readyFooter
-            }
-        }
-        .onChange(of: pool.epoch) { _, _ in }
-        .onDisappear { cancelMirrorIfNeeded() }
-    }
-
-    @ViewBuilder
-    private func stepBody(_ step: PreWorkoutDeviceEligibility.StartStep) -> some View {
-        switch step {
-        case .runLocation:
-            VStack(spacing: 0) {
-                gatePlanPreviewStrip
-                RunPreStartFlow(
-                    sessionTitle: sessionTitle,
-                    onStart: { env in
-                        answers.runEnvironment = env
-                        stagingSession.runEnvironment = env
-                        stagingSession.ensurePhoneWorkoutRun()
-                    },
-                    onCancel: cancelAll
-                )
-            }
-        case .erg(let role):
-            VStack(spacing: 0) {
-                gatePlanPreviewStrip
-                ErgPreStartFlow(
-                    sessionTitle: sessionTitle,
-                    machineWord: role?.machineWord ?? "el remo",
-                    isBenchmark: isBenchmark,
-                    store: role.map { pool.store(for: $0) } ?? pool.any,
-                    roleTitle: role?.titleES,
-                    onStart: {
-                        if let role {
-                            if !pool.store(for: role).isConnected {
-                                answers.skippedErgRoleWires.insert(role.rawValue)
-                            }
-                        } else if !pool.any.isConnected {
-                            answers.skippedUnscopedErg = true
-                        }
-                    },
-                    onCancel: cancelAll
-                )
-            }
-        }
-    }
-
-    /// Compact plan strip on device steps so the gate never opens blank.
-    private var gatePlanPreviewStrip: some View {
-        SessionStartGatePlanPreview(plan: plan, segments: segments)
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.s)
-    }
-
-    private var readyFooter: some View {
         VStack(spacing: 0) {
-            gateTopBar(title: "Listo")
+            gateTopBar
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     SessionStartGatePlanPreview(plan: plan, segments: segments)
+                    coachNote
                     if recipe.asksWatch {
                         watchStatusCard
                     }
@@ -152,25 +78,49 @@ struct SessionStartGate: View {
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.m)
             }
-            VStack(spacing: Theme.Spacing.s) {
-                Text(empezarFooterHint)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(canReleaseLive ? Theme.Color.faint : Theme.Color.warning)
-                    .multilineTextAlignment(.center)
-                ExpertPrimaryButton(
-                    title: "▶ EMPEZAR",
-                    height: 64,
-                    enabled: canReleaseLive,
-                    action: releaseLive
-                )
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.bottom, Theme.Spacing.l)
+            empezarFooter
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .onAppear {
-            if !watch.appAvailable { answers.watchUnavailable = true }
+            if !WatchPresence.shared.appAvailable { answers.watchUnavailable = true }
         }
+        .onDisappear { cancelMirrorIfNeeded() }
+    }
+
+    @ViewBuilder
+    private var coachNote: some View {
+        if let note = plan.coachNote, !note.isEmpty {
+            CardSurface(padding: Theme.Spacing.m) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Del coach")
+                        .font(.system(size: 11, weight: .heavy, design: .default).italic())
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.Color.muted)
+                    Text(note)
+                        .scaledFont(13, relativeTo: .footnote)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var empezarFooter: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            Text(empezarFooterHint)
+                .scaledFont(12, relativeTo: .caption)
+                .foregroundStyle(canReleaseLive ? Theme.Color.faint : Theme.Color.warning)
+                .multilineTextAlignment(.center)
+            ExpertPrimaryButton(
+                title: "▶ EMPEZAR",
+                height: 64,
+                enabled: canReleaseLive,
+                action: releaseLive
+            )
+        }
+        .padding(.horizontal, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.l)
     }
 
     @ViewBuilder
@@ -233,10 +183,10 @@ struct SessionStartGate: View {
         }
     }
 
-    private func gateTopBar(title: String) -> some View {
+    private var gateTopBar: some View {
         HStack(spacing: Theme.Spacing.m) {
-            Button(action: cancelAll) {
-                Image(systemName: "xmark")
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.Color.foreground)
                     .frame(width: 34, height: 34)
@@ -244,13 +194,13 @@ struct SessionStartGate: View {
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Cancelar")
+            .accessibilityLabel("Atrás")
             Text(sessionTitle)
                 .font(Theme.Typography.caption)
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
-            Text(title.uppercased())
+            Text("LISTO")
                 .font(.system(size: 10, weight: .heavy, design: .default).italic())
                 .foregroundStyle(Theme.Color.faint)
         }
@@ -270,15 +220,13 @@ struct SessionStartGate: View {
         guard canReleaseLive else { return }
         stagingSession.runEnvironment = answers.runEnvironment
         stampSession?(stagingSession)
+        stagingSession.ensurePhoneWorkoutRun()
         beginMirrorIfNeeded()
         Haptics.medium()
         onReleaseLive(stagingSession)
     }
 
-    /// Live opens only after device steps resolve and watch honesty is settled.
-    private var canReleaseLive: Bool {
-        nextStep == nil && watchResolved
-    }
+    private var canReleaseLive: Bool { watchResolved }
 
     private var empezarFooterHint: String {
         SessionStartPolicy.empezarFooterHint(
@@ -286,13 +234,6 @@ struct SessionStartGate: View {
             watchResolved: watchResolved,
             canReleaseLive: canReleaseLive
         )
-    }
-
-    private func cancelAll() {
-        Haptics.light()
-        cancelMirrorIfNeeded()
-        hub.stopAll()
-        onCancel()
     }
 
     private func cancelMirrorIfNeeded() {

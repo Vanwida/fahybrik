@@ -61,7 +61,7 @@ struct PreWorkoutBriefView: View {
     /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
     @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
-    // FH-91 — devices + run env live in SessionStartGate, not here.
+    // FH-95 — devices + run env live on PreWorkoutDevicesHubView after Continuar.
 
     // MARK: - Derived shape
 

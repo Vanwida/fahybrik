@@ -64,8 +64,10 @@ struct WorkoutContainer: View {
 
     enum Phase: Equatable {
         case brief
-        /// FH-91 — unified pre-live gate (devices + watch) before the engine runs.
-        case start
+        /// FH-95 — optional unified Devices hub (all machines at once).
+        case devices
+        /// FH-95 — ONE prepare screen with the sole ▶ EMPEZAR before live.
+        case prepare
         case active
         // Tests guiados — a test whose contract asks for an `hrr` result holds
         // here for the post-effort recovery window (the app keeps measuring the
@@ -114,6 +116,8 @@ struct WorkoutContainer: View {
     }
 
     @State private var phase: Phase = .brief
+    @State private var startAnswers = SessionStartAnswers.empty
+    @State private var visitedDevicesHub = false
     @State private var session: WorkoutSession? = nil
     /// Resolved free-save context — from the builder param or plan hydration (FH-93).
     @State private var activeFreeContext: FreeWorkoutContext? = nil
@@ -206,10 +210,10 @@ struct WorkoutContainer: View {
     }
 
     private func mantenerPantallaDespierta(_ nueva: Phase) {
-        // FH-94: single owner — gate (.start), live (.active), HRR (.recovery).
+        // FH-95: single owner — devices/prepare (.devices/.prepare), live (.active), HRR (.recovery).
         // ActiveWorkoutView must not clear this on sheet/cover disappear.
         UIApplication.shared.isIdleTimerDisabled =
-            nueva == .start || nueva == .active || nueva == .recovery
+            nueva == .devices || nueva == .prepare || nueva == .active || nueva == .recovery
     }
 
     private var conCubiertas: some View {
@@ -274,7 +278,7 @@ struct WorkoutContainer: View {
                     plan: plan,
                     detail: detail,
                     onStart: {
-                        phase = .start
+                        advanceFromBrief(segments: plan.segments.sorted { $0.order < $1.order })
                     },
                     onManualLog: {
                         // "Ya lo hice": skip ActiveWorkout entirely. Build a session
@@ -301,8 +305,26 @@ struct WorkoutContainer: View {
                     isBenchmark: activeFreeContext?.benchmark != nil,
                     onClose: onClose
                 )
-            case .start:
-                SessionStartGate(
+            case .devices:
+                PreWorkoutDevicesHubView(
+                    sessionTitle: plan.name,
+                    devices: PreWorkoutDeviceEligibility.devices(
+                        for: plan.segments.sorted { $0.order < $1.order }
+                    ),
+                    segments: plan.segments.sorted { $0.order < $1.order },
+                    isBenchmark: activeFreeContext?.benchmark != nil,
+                    answers: $startAnswers,
+                    onContinue: { phase = .prepare },
+                    onBack: {
+                        if activeFreeContext != nil {
+                            onClose()
+                        } else {
+                            phase = .brief
+                        }
+                    }
+                )
+            case .prepare:
+                PreWorkoutPrepareView(
                     sessionTitle: plan.name,
                     plan: plan,
                     segments: plan.segments.sorted { $0.order < $1.order },
@@ -310,6 +332,7 @@ struct WorkoutContainer: View {
                     isBenchmark: activeFreeContext?.benchmark != nil,
                     activityKind: mirrorActivityKind(for: plan),
                     hrZones: hrZones,
+                    answers: $startAnswers,
                     stampSession: { s in
                         s.assignmentId = assignmentId
                         stampFreeMetadata(on: s)
@@ -327,8 +350,10 @@ struct WorkoutContainer: View {
                         )
                         phase = .active
                     },
-                    onCancel: {
-                        if activeFreeContext != nil {
+                    onBack: {
+                        if visitedDevicesHub {
+                            phase = .devices
+                        } else if activeFreeContext != nil {
                             onClose()
                         } else {
                             phase = .brief
@@ -637,7 +662,7 @@ struct WorkoutContainer: View {
         if let free = freeContext {
             activeFreeContext = free
             loadState = .ready(free.plan, nil)
-            phase = .start
+            advanceToPreLive(segments: free.plan.segments.sorted { $0.order < $1.order })
             return
         }
 
@@ -685,10 +710,27 @@ struct WorkoutContainer: View {
         if planSessionIsSelfOrigin, let ctx = FreePlanHydration.runContext(from: detail) {
             activeFreeContext = ctx
             loadState = .ready(plan, detail)
-            phase = .start
+            advanceToPreLive(segments: plan.segments.sorted { $0.order < $1.order })
             return
         }
         loadState = .ready(plan, detail)
+    }
+
+    private func advanceFromBrief(segments: [WorkoutSegment]) {
+        startAnswers = .empty
+        advanceToPreLive(segments: segments)
+    }
+
+    /// Brief (or libre builder) → optional Devices hub → prepare (sole ▶ EMPEZAR).
+    private func advanceToPreLive(segments: [WorkoutSegment]) {
+        let devs = PreWorkoutDeviceEligibility.devices(for: segments)
+        if devs.isEmpty {
+            visitedDevicesHub = false
+            phase = .prepare
+        } else {
+            visitedDevicesHub = true
+            phase = .devices
+        }
     }
 
     // Card 142 — este aviso lo ve tanto quien vuelve tras salir A PROPÓSITO
