@@ -147,21 +147,23 @@ enum HealthHistoryImportError: Error, Equatable {
 @MainActor
 @Observable
 final class HealthKitHistoryImporter {
+    /// Singleton — first access must be from the main actor (SwiftUI / @MainActor tests).
     static let shared = HealthKitHistoryImporter()
 
     /// TECHO DECLARADO: diez años. El «antes» de una comparativa de planificación
     /// necesita toda la carrera que el teléfono tenga, no dos temporadas. Si un
     /// techo anterior era más corto, consentAndStart alarga el suelo y reanuda.
-    static let floorDays = 3650
+    nonisolated static let floorDays = 3650
 
     /// Tamaño de lote del barrido. Noventa días es el equilibrio: pocas ventanas que
     /// persistir (ocho por año) y una cantidad de muestras por ventana que cabe en
     /// memoria antes de trocearse en páginas de subida.
-    static let windowDays = 90
+    nonisolated static let windowDays = 90
 
     /// Respiro entre ventanas, para no monopolizar ni el disco de HealthKit ni la
-    /// API mientras el atleta usa la app.
-    static let defaultPauseBetweenWindows: Duration = .milliseconds(300)
+    /// API mientras el atleta usa la app. `nonisolated` so default init args and
+    /// tests can read it without crossing the MainActor boundary.
+    nonisolated static let defaultPauseBetweenWindows: Duration = .milliseconds(300)
 
     private let source: HealthHistoryWindowImporting
     private let pauseBetweenWindows: Duration
@@ -184,7 +186,7 @@ final class HealthKitHistoryImporter {
         source: HealthHistoryWindowImporting = HealthKitHistoryWindowReader.shared,
         athleteId: String? = AuthState.persistedAthleteId(),
         defaults: UserDefaults = .standard,
-        pauseBetweenWindows: Duration = HealthKitHistoryImporter.defaultPauseBetweenWindows
+        pauseBetweenWindows: Duration = Self.defaultPauseBetweenWindows
     ) {
         self.source = source
         self.pauseBetweenWindows = pauseBetweenWindows
@@ -263,6 +265,7 @@ final class HealthKitHistoryImporter {
     /// reconexión de Apple Salud), que no saben qué atleta hay en sesión: el
     /// singleton nace antes que la sesión, así que sin este enganche miraría para
     /// siempre la clave anónima y no reanudaría nada.
+    @MainActor
     static func resumeForCurrentAthlete() {
         let importer = shared
         importer.rebind(athleteId: AuthState.persistedAthleteId())
@@ -329,13 +332,13 @@ final class HealthKitHistoryImporter {
 
     // MARK: Etiquetas
 
-    static func yearLabel(for date: Date) -> String {
+    nonisolated static func yearLabel(for date: Date) -> String {
         String(Calendar.current.component(.year, from: date))
     }
 
     /// El mediodía de ese día (o el anterior si aún no ha llegado), que es donde
     /// caen todos los cortes de ventana.
-    static func noonBoundary(onOrBefore date: Date) -> Date {
+    nonisolated static func noonBoundary(onOrBefore date: Date) -> Date {
         let calendar = Calendar.current
         guard let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) else {
             return date
@@ -344,7 +347,7 @@ final class HealthKitHistoryImporter {
     }
 
     /// El fallo, en palabras del atleta: qué pasó y qué puede hacer.
-    static func message(for error: Error) -> String {
+    nonisolated static func message(for error: Error) -> String {
         switch error {
         case HealthHistoryImportError.offline:
             return "Se cortó la conexión. Seguimos donde lo dejamos cuando vuelvas a tener red."

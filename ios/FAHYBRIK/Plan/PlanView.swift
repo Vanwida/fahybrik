@@ -336,7 +336,8 @@ struct PlanView: View {
     /// La semana que la pantalla enseña AHORA: la actual, o la que viene si se
     /// deslizó el carril. TODO lo de abajo lee de aquí — es la MISMA
     /// composición siempre, solo cambia el dato (Alex, 7-ago).
-    private var semanaVisible: SemanaDelPlan? {
+    /// Internal (not `private`): `PlanAcciones.diasDestino` reads this across files.
+    var semanaVisible: SemanaDelPlan? {
         semanasPorOffset[offsetVisible] ?? (offsetVisible == 0 ? semana : nil)
     }
     private var posicionVisible: PosicionEnBloque? {
@@ -345,7 +346,7 @@ struct PlanView: View {
     /// Puede deslizar +1 semana desde el offset actual (contenido + horizonte).
     private var puedeAvanzarSemana: Bool {
         guard let vis = semanaVisible else { return false }
-        return vis.hasNextWeek ?? false
+        return vis.hasNextWeek
     }
     /// Hay semana publicada más adelante pero el club lo bloquea (FH-27).
     private var peekBloqueadoPorHorizonte: Bool {

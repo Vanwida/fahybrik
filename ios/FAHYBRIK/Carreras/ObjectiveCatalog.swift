@@ -110,7 +110,7 @@ enum ObjectiveEventKind: String, CaseIterable, Identifiable {
 
 extension RaceCalendarEvent {
     var objectiveFamily: ObjectiveFamily {
-        if let family, let parsed = ObjectiveFamily(rawValue: family) {
+        if let familyRaw = family, let parsed = ObjectiveFamily(rawValue: familyRaw) {
             return parsed
         }
         if type == "crossfit" { return .crossfit }
