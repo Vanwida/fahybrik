@@ -54,6 +54,11 @@ struct FreePlanView: View {
     @State private var showImport = false
     @State private var showBuscarCarrera = false
     @State private var revealed = false
+    @State private var showFreeBuilder = false
+    @State private var freeEditAssignmentId: String? = nil
+    @State private var selectedIso: String? = nil
+    @State private var workoutLaunch: WorkoutLaunch? = nil
+    @State private var executedLaunch: WorkoutLaunch? = nil
 
     private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
     /// The athlete's resolved max-HR source — every «Probarme» door threads it in
@@ -122,6 +127,54 @@ struct FreePlanView: View {
             revealed = false
             DispatchQueue.main.async { revealed = true }
         }
+        .fullScreenCover(isPresented: $showFreeBuilder) {
+            FreeWorkoutBuilderView(
+                bearer: bearer,
+                hrZones: hrZones,
+                onClose: { showFreeBuilder = false },
+                onCompleted: { Task { await store.planMutated() } }
+            )
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { freeEditAssignmentId != nil },
+            set: { if !$0 { freeEditAssignmentId = nil } }
+        )) {
+            if let editId = freeEditAssignmentId, let id = Int(editId) {
+                FreeWorkoutBuilderView(
+                    bearer: bearer,
+                    editingAssignmentId: id,
+                    hrZones: hrZones,
+                    onClose: { freeEditAssignmentId = nil },
+                    onCompleted: {
+                        freeEditAssignmentId = nil
+                        Task { await store.planMutated() }
+                    }
+                )
+            }
+        }
+        .fullScreenCover(item: $executedLaunch) { launch in
+            ExecutedWorkoutView(
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
+                bearer: bearer,
+                onClose: { executedLaunch = nil },
+                onStale: { Task { await store.planMutated() } }
+            )
+        }
+        .fullScreenCover(item: $workoutLaunch) { launch in
+            WorkoutContainer(
+                assignmentId: launch.assignmentId,
+                fallbackTitle: launch.title,
+                bearer: bearer,
+                planSessionIsSelfOrigin: launch.isSelfOrigin,
+                hrZones: hrZones,
+                onClose: { workoutLaunch = nil },
+                onCompleted: { _ in
+                    workoutLaunch = nil
+                    Task { await store.planMutated() }
+                }
+            )
+        }
         .task(id: bearer) {
             store.activate(bearer: bearer)
             await load()
@@ -149,6 +202,8 @@ struct FreePlanView: View {
             .staggerReveal(revealed, index: 5)
         freeNote
             .staggerReveal(revealed, index: 6)
+        operationalWeekSection
+            .staggerReveal(revealed, index: 7)
     }
 
     // With evidence the order is the mockup's and it is not casual: his goal
@@ -171,6 +226,50 @@ struct FreePlanView: View {
             .staggerReveal(revealed, index: 5)
         coachCard
             .staggerReveal(revealed, index: 6)
+        operationalWeekSection
+            .staggerReveal(revealed, index: 7)
+    }
+
+    /// FH-102 — real week the athlete programs (not the marketing demo above).
+    private var operationalWeekSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Button {
+                Haptics.medium()
+                showFreeBuilder = true
+            } label: {
+                CardSurface(padding: 14, topAccent: true) {
+                    HStack {
+                        Text("Programar entreno")
+                            .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+                            .foregroundStyle(Theme.Color.foreground)
+                        Spacer(minLength: 8)
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(Theme.Color.accentText)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            SemanaAtletaOperativa(
+                bearer: bearer,
+                selectedIso: $selectedIso,
+                onOpenSession: openSession,
+                onEditFree: { freeEditAssignmentId = $0 },
+                onMutated: { Task { await store.planMutated() } }
+            )
+        }
+    }
+
+    private func openSession(_ session: AthleteWeekDaySession) {
+        let launch = WorkoutLaunch(
+            assignmentId: session.assignmentId,
+            title: session.title,
+            isSelfOrigin: session.isSelfOrigin
+        )
+        if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
+            executedLaunch = launch
+        } else {
+            workoutLaunch = launch
+        }
     }
 
     /// Lo que sus carreras ya demuestran. Sin carreras no hay tarjeta.

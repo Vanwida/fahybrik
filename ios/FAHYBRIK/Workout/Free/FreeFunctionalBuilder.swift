@@ -270,6 +270,7 @@ final class FreeFunctionalDraft {
     var restSeconds: Int = FreeFunctionalStep.defaultRest
     var movements: [FreeFunctionalMovement] = []
     var titleEdited: String = ""
+    var scheduledDayISO: String = RaceDate.todayISO()
 
     static let maxTitle = 80
 
@@ -446,7 +447,8 @@ final class FreeFunctionalDraft {
             modality: PrescriptionModality.functional.rawValue,
             prescription: payloadItems == nil ? foldedPrescription(f, s) : nil,
             items: payloadItems,
-            assignment_id: assignmentId
+            assignment_id: assignmentId,
+            scheduled_for: scheduledDayISO
         )
     }
 

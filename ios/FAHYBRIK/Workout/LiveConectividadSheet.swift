@@ -63,8 +63,7 @@ struct LiveConectividadSheet: View {
             ForEach(RunEnvironment.allCases, id: \.self) { env in
                 Button {
                     Haptics.light()
-                    session.runEnvironment = env
-                    session.ensurePhoneWorkoutRun()
+                    session.switchRunEnvironment(to: env)
                 } label: {
                     HStack(spacing: Theme.Spacing.m) {
                         Image(systemName: icon(for: env))
@@ -106,10 +105,6 @@ struct LiveConectividadSheet: View {
     }
 
     private func label(for env: RunEnvironment) -> String {
-        switch env {
-        case .outdoor:   return "Calle"
-        case .treadmill: return "Cinta con conexión"
-        case .indoor:    return "Cinta sin conexión"
-        }
+        env.hudLabel
     }
 }

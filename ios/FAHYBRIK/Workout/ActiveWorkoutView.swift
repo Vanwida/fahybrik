@@ -815,12 +815,14 @@ struct ActiveWorkoutView: View {
         case .outdoor:
             OutdoorRunHUDView(session: session, hrZones: hrZones,
                               alSalir: { requestExitOrLeave() },
-                              alVerBloques: { mostrarBloques = true })
+                              alVerBloques: { mostrarBloques = true },
+                              alConectividad: { mostrarConectividad = true })
         case .treadmill(let sinCinta):
             TreadmillHUDView(session: session, hrZones: hrZones,
                              empiezaSinCinta: sinCinta,
                              alSalir: { requestExitOrLeave() },
-                             alVerBloques: { mostrarBloques = true })
+                             alVerBloques: { mostrarBloques = true },
+                             alConectividad: { mostrarConectividad = true })
         case .host:
             // FH-95: calle/cinta se elige en PreWorkoutDevicesHubView before EMPEZAR, or
             // mid-session via BotonConectividad — never full-width mid-HUD CTAs.

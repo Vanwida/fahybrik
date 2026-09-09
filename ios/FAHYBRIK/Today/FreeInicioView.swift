@@ -44,12 +44,11 @@ struct FreeInicioView: View {
     @State private var marks: [MarkView] = []
     // Drives the one orchestrated staggered reveal of the cards on appear.
     @State private var revealed = false
-    @State private var deleteFreeTarget: AthleteWeekDaySession? = nil
+    @State private var freeEditAssignmentId: String? = nil
 
     @Environment(AppDataStore.self) private var store
 
     private var identity: AthleteIdentity? { store.identity.value }
-    private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
 
     var body: some View {
         // Own NavigationStack so «¿Te pruebas?» pushes MarksLibraryView within
@@ -75,8 +74,14 @@ struct FreeInicioView: View {
                             .staggerReveal(revealed, index: 2)
                         marksCard
                             .staggerReveal(revealed, index: 3)
-                        weekCard
-                            .staggerReveal(revealed, index: 4)
+                        SemanaAtletaOperativa(
+                            bearer: bearer,
+                            selectedIso: $selectedIso,
+                            onOpenSession: openSession,
+                            onEditFree: { freeEditAssignmentId = $0 },
+                            onMutated: { Task { await store.planMutated() } }
+                        )
+                        .staggerReveal(revealed, index: 4)
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.s)
@@ -153,39 +158,27 @@ struct FreeInicioView: View {
             revealed = false
             DispatchQueue.main.async { revealed = true }
         }
-        .confirmationDialog(
-            "¿Borrar este entreno libre?",
-            isPresented: Binding(
-                get: { deleteFreeTarget != nil },
-                set: { if !$0 { deleteFreeTarget = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: deleteFreeTarget
-        ) { session in
-            Button("Borrar del todo", role: .destructive) {
-                Task { await confirmDeleteFree(session) }
+        .fullScreenCover(isPresented: Binding(
+            get: { freeEditAssignmentId != nil },
+            set: { if !$0 { freeEditAssignmentId = nil } }
+        )) {
+            if let editId = freeEditAssignmentId, let id = Int(editId) {
+                FreeWorkoutBuilderView(
+                    bearer: bearer,
+                    editingAssignmentId: id,
+                    hrZones: identity?.hrZones,
+                    onClose: { freeEditAssignmentId = nil },
+                    onCompleted: {
+                        freeEditAssignmentId = nil
+                        Task { await store.planMutated() }
+                    }
+                )
             }
-            Button("Cancelar", role: .cancel) { deleteFreeTarget = nil }
-        } message: { _ in
-            Text("Lo creaste tú: se borra el entreno y lo registrado. No volverá a aparecer.")
         }
         .task(id: bearer) {
             store.activate(bearer: bearer)
             await store.loadFreeHome()
             await loadMarks()
-        }
-    }
-
-    @MainActor
-    private func confirmDeleteFree(_ session: AthleteWeekDaySession) async {
-        deleteFreeTarget = nil
-        guard let token = bearer else { return }
-        do {
-            try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
-            Haptics.medium()
-            await store.planMutated()
-        } catch {
-            Haptics.error()
         }
     }
 
@@ -347,15 +340,6 @@ struct FreeInicioView: View {
         }
     }
 
-    // MARK: - Sessions of a day (shared by the strip's selected-day panel)
-
-    /// The REAL sessions of a day, in slot order (AM before PM).
-    private func sessions(of day: AthleteWeekDay) -> [AthleteWeekDaySession] {
-        day.sessions
-            .filter { !$0.assignmentId.isEmpty }
-            .sorted { slotRank($0.slot) < slotRank($1.slot) }
-    }
-
     /// Tapping a session routes by STATE — the same single decision point the
     /// coached Plan uses: finished → what he logged; pending → the brief to do it.
     private func openSession(_ session: AthleteWeekDaySession) {
@@ -399,304 +383,4 @@ struct FreeInicioView: View {
         }
     }
 
-    private func slotRank(_ slot: String) -> Int {
-        switch slot.lowercased() {
-        case "am": return 0
-        case "pm": return 1
-        default:   return 2
-        }
-    }
-
-    // MARK: - 3 · Tu semana (real executions from the week payload)
-
-    /// One day of the strip, derived from the athlete's real week.
-    private enum DayLoad {
-        case done       // at least one finished session that day
-        case pending    // sessions exist, none finished yet
-        case none
-    }
-
-    private func dayLoad(_ day: AthleteWeekDay) -> DayLoad {
-        let real = day.sessions.filter { !$0.assignmentId.isEmpty }
-        guard !real.isEmpty else { return .none }
-        let anyDone = real.contains {
-            SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
-        }
-        return anyDone ? .done : .pending
-    }
-
-    /// All FINISHED sessions of the week (the real executions the strip sums).
-    private var weekDoneSessions: [AthleteWeekDaySession] {
-        (planWeek?.week.days ?? [])
-            .flatMap { $0.sessions }
-            .filter { !$0.assignmentId.isEmpty }
-            .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
-    }
-
-    /// «3 sesiones · desde 2 h 40 · 1 sin tiempo previsto» — cuántas cerraste y
-    /// cuánto reloj escriben, con el hueco declarado al lado.
-    ///
-    /// Antes esto era `compactMap { estDurationMinutes }.reduce(0, +)`: la suma de
-    /// las que traían número, presentada como el tiempo de la semana. Con la mayoría
-    /// de las plantillas llegando sin duración, era subreportar en silencio. La
-    /// cuenta la hace `VolumenPrevisto`, la misma que la semana del plan — tener dos
-    /// sumas fue lo que permitió que esta se quedara atrás.
-    private var weekSummaryLine: String? {
-        let done = weekDoneSessions
-        guard !done.isEmpty else { return nil }
-        var parts = ["\(done.count) \(done.count == 1 ? "sesión" : "sesiones")"]
-        if let linea = VolumenPrevisto.lee(done.map(\.estDurationMinutes)).linea {
-            parts.append(linea)
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    /// Narrow ES weekday letter for the strip ("L M X J V S D").
-    private func dayLetter(forIso iso: String) -> String {
-        let parse = DateFormatter()
-        parse.locale = Locale(identifier: "en_US_POSIX")
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: iso) else { return "·" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "es_ES")
-        out.dateFormat = "EEEEE"
-        return out.string(from: date).uppercased()
-    }
-
-    /// The day the panel is showing: the one the athlete pinned, else today.
-    private func selectedDay(in week: AthleteWeekPayload) -> AthleteWeekDay? {
-        let iso = selectedIso ?? week.todayIso
-        return week.days.first { $0.isoDate == iso } ?? week.days.first { $0.isoDate == week.todayIso }
-    }
-
-    @ViewBuilder
-    private var weekCard: some View {
-        if let week = planWeek?.week {
-            CardSurface(padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline) {
-                        LabelText(text: "Tu semana")
-                        Spacer(minLength: 8)
-                        Text("toca un día")
-                            .scaledFont(10, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.faint)
-                            .accessibilityHidden(true)
-                    }
-                    HStack(alignment: .bottom, spacing: 6) {
-                        ForEach(week.days) { day in
-                            dayColumn(
-                                day,
-                                isToday: day.isoDate == week.todayIso,
-                                isSelected: day.isoDate == (selectedIso ?? week.todayIso)
-                            )
-                        }
-                    }
-                    if let day = selectedDay(in: week) {
-                        Hairline()
-                        selectedDayPanel(day, isToday: day.isoDate == week.todayIso)
-                    }
-                    Text(weekSummaryLine ?? "Aún nada esta semana. Tu primera sesión la construyes tú.")
-                        .scaledFont(11, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .animation(.easeOut(duration: 0.18), value: selectedIso)
-        } else if store.planWeek.hasLoaded || store.planWeek.loadFailed {
-            // Loaded empty (brand-new account) or failed with no cache — the
-            // honest quiet state; the strip appears with their first session.
-            CardSurface(padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Tu semana")
-                    Text("Aún nada esta semana. Tu primera sesión la construyes tú.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        // else: cold start mid-load → nothing (no skeleton flash for one card).
-    }
-
-    private func dayColumn(_ day: AthleteWeekDay, isToday: Bool, isSelected: Bool) -> some View {
-        let load = dayLoad(day)
-        return Button {
-            Haptics.light()
-            selectedIso = day.isoDate
-        } label: {
-            VStack(spacing: 4) {
-                Text(dayLetter(forIso: day.isoDate))
-                    .scaledFont(10, weight: isToday ? .heavy : .semibold, relativeTo: .caption2)
-                    .foregroundStyle(isToday ? Theme.Color.accentText : Theme.Color.faint)
-                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                    .fill(barColor(load))
-                    .frame(height: barHeight(load))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 3)
-            .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                        .stroke(Theme.Color.accentText, lineWidth: 1.5)
-                        .padding(.horizontal, -3)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(dayAxLabel(day, isToday: isToday))
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-    }
-
-    /// "Lunes 21, 1 sesión hecha" — what VoiceOver reads for a day of the strip.
-    private func dayAxLabel(_ day: AthleteWeekDay, isToday: Bool) -> String {
-        var label = isToday ? "Hoy" : dayLongLabel(forIso: day.isoDate)
-        let done = sessions(of: day).filter {
-            SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
-        }.count
-        let total = sessions(of: day).count
-        if total == 0 {
-            label += ", sin entreno"
-        } else if done == total {
-            label += ", \(total) \(total == 1 ? "sesión hecha" : "sesiones hechas")"
-        } else {
-            label += ", \(total) \(total == 1 ? "sesión" : "sesiones"), \(done) \(done == 1 ? "hecha" : "hechas")"
-        }
-        return label
-    }
-
-    // MARK: - El día seleccionado (lo que entrenó ese día)
-
-    @ViewBuilder
-    private func selectedDayPanel(_ day: AthleteWeekDay, isToday: Bool) -> some View {
-        let list = sessions(of: day)
-        // ISO dates compare lexicographically, so a plain string compare tells
-        // past from future without parsing.
-        let isFuture = day.isoDate > (planWeek?.week.todayIso ?? day.isoDate)
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(
-                text: "\(isToday ? "Hoy" : dayLongLabel(forIso: day.isoDate)) · \(isFuture ? "lo que tienes" : "lo que hiciste")",
-                color: Theme.Color.faint,
-                size: 10
-            )
-            if list.isEmpty {
-                Text(emptyDayCopy(isToday: isToday, isFuture: isFuture))
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-            } else {
-                VStack(spacing: 7) {
-                    ForEach(list) { session in
-                        daySessionRow(session)
-                        if session.id != list.last?.id { Hairline().opacity(0.5) }
-                    }
-                }
-            }
-        }
-    }
-
-    private func emptyDayCopy(isToday: Bool, isFuture: Bool) -> String {
-        if isToday { return "Aún no has entrenado hoy." }
-        return isFuture ? "Nada programado ese día." : "Ese día no entrenaste."
-    }
-
-    private func daySessionRow(_ session: AthleteWeekDaySession) -> some View {
-        let state = SessionMarkState.of(status: session.status, assignmentId: session.assignmentId)
-        return Button {
-            Haptics.light()
-            openSession(session)
-        } label: {
-            HStack(spacing: Theme.Spacing.s) {
-                Circle()
-                    .fill(Theme.Modality.color(session.modality))
-                    .frame(width: 7, height: 7)
-                Text(session.title)
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                Spacer(minLength: Theme.Spacing.s)
-                // El reloj que escribió el PLAN, no lo que tardaste (esta carga no
-                // trae la ejecución). Por eso va con su «desde»: sin él se leía como
-                // el tiempo que hiciste.
-                if state.isFinished, let suelo = Formato.duracionPrevista(session.estDurationMinutes) {
-                    Text(suelo)
-                        .font(.system(size: 11, weight: .medium).monospacedDigit())
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                stateGlyph(state)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .contextMenu {
-            if session.isSelfOrigin {
-                Button(role: .destructive) {
-                    deleteFreeTarget = session
-                } label: {
-                    Label("Borrar entreno libre", systemImage: "trash")
-                }
-            }
-        }
-        .accessibilityLabel("\(session.title), \(stateWord(state)). Ver detalle.")
-    }
-
-    @ViewBuilder
-    private func stateGlyph(_ state: SessionMarkState) -> some View {
-        switch state {
-        case .done:
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.Color.ok)
-        case .partial:
-            Image(systemName: "circle.lefthalf.filled")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.Color.warning)
-        case .missed:
-            Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Theme.Color.danger)
-        case .pending:
-            EmptyView()
-        }
-    }
-
-    private func stateWord(_ state: SessionMarkState) -> String {
-        switch state {
-        case .done:    return "completada"
-        case .partial: return "parcial"
-        case .missed:  return "no hecha"
-        case .pending: return "pendiente"
-        }
-    }
-
-    /// "Miércoles 22" — the long ES label of a day of the strip.
-    private func dayLongLabel(forIso iso: String) -> String {
-        let parse = DateFormatter()
-        parse.locale = Locale(identifier: "en_US_POSIX")
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: iso) else { return "Ese día" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "es_ES")
-        out.dateFormat = "EEEE d"
-        let raw = out.string(from: date)
-        return raw.prefix(1).uppercased() + raw.dropFirst()
-    }
-
-    private func barColor(_ load: DayLoad) -> Color {
-        switch load {
-        case .done:    return Theme.Color.accent
-        case .pending: return Theme.Color.accent.opacity(0.35)
-        case .none:    return Theme.Color.surfaceSunken
-        }
-    }
-
-    private func barHeight(_ load: DayLoad) -> CGFloat {
-        switch load {
-        case .done:    return 34
-        case .pending: return 22
-        case .none:    return 8
-        }
-    }
 }
