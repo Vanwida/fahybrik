@@ -255,9 +255,7 @@ struct ActiveWorkoutView: View {
             if !PhoneMirrorService.shared.wristJoined {
                 liveHR.start(from: session.startedAt)
             }
-            // Keep the screen awake during the lock-in workout (no auto-lock
-            // mid-EMOM); locked-screen beeps are still covered by background audio.
-            UIApplication.shared.isIdleTimerDisabled = true
+            // Screen awake: WorkoutContainer.mantenerPantallaDespierta (FH-94) — not here.
         }
         .onDisappear {
             session.persistNow()
@@ -267,7 +265,6 @@ struct ActiveWorkoutView: View {
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
             releaseDevicesOnFinish()
-            UIApplication.shared.isIdleTimerDisabled = false
         }
         .task { await pollPartnerLive() }
         .onChange(of: session.isFinished) { _, finished in
@@ -354,8 +351,8 @@ struct ActiveWorkoutView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             // FH-94: pocket/lock must not drop the live snapshot or tear down BLE.
-            // `UIBackgroundModes` bluetooth-central + `isIdleTimerDisabled` keep the
-            // radio streaming; persist here mirrors AppShell's background hook.
+            // `UIBackgroundModes` bluetooth-central keeps the radio streaming; idle
+            // timer is owned by WorkoutContainer. Persist mirrors AppShell's hook.
             if phase == .background || phase == .inactive {
                 session.persistNow()
             }
