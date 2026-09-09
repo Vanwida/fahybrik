@@ -36,4 +36,20 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         let brief = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutBriefView.swift"))
         XCTAssertTrue(brief.contains("PreWorkoutReleaseLive.release"))
     }
+
+    func testPrepIsUIONlyNoBegin() throws {
+        let release = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutReleaseLive.swift"))
+        XCTAssertTrue(release.contains("noteWatchPrepIntent"))
+        let prepBody = release
+            .components(separatedBy: "static func prepWatchRecording").last?
+            .components(separatedBy: "static func release").first ?? ""
+        XCTAssertFalse(prepBody.contains("PhoneMirrorService.shared.begin"),
+                       "prep must not call begin — sole HK owner is release")
+    }
+
+    func testWatchQueueOrBeginIgnoresCompatibleRedundantStart() throws {
+        let primary = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKWatch/MirrorSessionController+Primary.swift"))
+        XCTAssertTrue(primary.contains("shouldIgnoreRedundantStart"))
+        XCTAssertTrue(primary.contains("shouldFinishBeforeRestart"))
+    }
 }

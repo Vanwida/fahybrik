@@ -79,6 +79,21 @@ final class PhoneMirrorService {
         pendingEndSave = nil
         endedWorkoutUuid = nil
     }
+
+    /// Test seam — clears PRIMARY binding so the singleton can begin again cleanly.
+    func resetPrimaryBindingForTests() {
+        primaryRequested = false
+        boundSessionId = nil
+        didLaunchWatch = false
+        startWatchAppCallCount = 0
+        startWatchAppOverride = nil
+        watchJoinStartedAt = nil
+        watchLaunchGeneration = 0
+        session = nil
+    }
+
+    var launchGenerationForTests: Int { watchLaunchGeneration }
+    var primaryRequestedForTests: Bool { primaryRequested }
     // The last frame's STRUCTURAL signature (phase / titles / progress / zone /
     // presence of a countdown or rest) — the free-running clocks are excluded so a
     // 1 Hz elapsed tick alone never forces a resend (the wrist ticks them locally).
@@ -135,8 +150,16 @@ final class PhoneMirrorService {
     @ObservationIgnored private var pendingEndSave: Bool? = nil
     /// Watch vocabulary from `begin` — `startWatchApp` waits for run environment.
     @ObservationIgnored private var activityKind: String = "mixed"
-    /// One launch per `begin`. Reset when a new session binds.
+    /// One launch per bound session. Reset when a new session binds or teardown runs.
     @ObservationIgnored private var didLaunchWatch = false
+    /// FH-96 — sticky latch: one workout intent → one PRIMARY. Survives a second
+    /// `begin` on the same staging session (prep UI + ▶ EMPEZAR) without clearing
+    /// `didLaunchWatch` or bumping `watchLaunchGeneration`.
+    @ObservationIgnored private var primaryRequested = false
+    @ObservationIgnored private var boundSessionId: ObjectIdentifier?
+    /// Test seam — counts actual `startWatchApp` attempts (not guarded-out calls).
+    @ObservationIgnored private(set) var startWatchAppCallCount = 0
+    @ObservationIgnored var startWatchAppOverride: ((HKWorkoutConfiguration) async -> Bool)?
 
     private init() {}
 
@@ -187,13 +210,38 @@ final class PhoneMirrorService {
         }
     }
 
+    /// UI-only prep before ▶ EMPEZAR — drives the watch card spinner without
+    /// `startWatchApp`. The sole HK owner remains `begin` on release.
+    func noteWatchPrepIntent() {
+        watchJoinStartedAt = watchJoinStartedAt ?? Date()
+    }
+
     /// Remote-start the wrist recording for `session`. Non-blocking and silent on
     /// failure: if the watch app never joins, the phone runs the workout alone.
     /// `activityKind` is the watch vocabulary ("running" | "strength" | "hyrox" |
     /// "mixed") — the same string WatchConnectivityiOSService.activityKind emits.
+    ///
+    /// Idempotent for the same bound session while `primaryRequested` is live —
+    /// a second call must NOT re-mint PRIMARY (FH-96 double-begin bug).
     func begin(session: WorkoutSession, activityKind: String) {
+        let sessionId = ObjectIdentifier(session)
+        let continuingSamePrimary =
+            boundSessionId == sessionId && primaryRequested
+
         self.session = session
         self.activityKind = activityKind
+
+        if continuingSamePrimary {
+            guard HKHealthStore.isHealthDataAvailable() else { return }
+            prepare()
+            launchWatchIfNeeded()
+            startFrameLoop()
+            if mirrored != nil { tickFrame() }
+            return
+        }
+
+        boundSessionId = sessionId
+        primaryRequested = true
         endedWorkoutUuid = nil
         wristRecordedWorkout = false   // one flag per session; the previous one is over
         wristFinishedByAthlete = false // idem: el final de la sesión anterior no cuenta aquí
@@ -238,9 +286,15 @@ final class PhoneMirrorService {
     private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
         for attempt in 1...Self.watchLaunchAttempts {
             guard generation == watchLaunchGeneration, !wristJoined else { return }
-            let launched: Bool = await withCheckedContinuation { cont in
-                healthStore.startWatchApp(with: config) { ok, _ in
-                    cont.resume(returning: ok)
+            startWatchAppCallCount += 1
+            let launched: Bool
+            if let override = startWatchAppOverride {
+                launched = await override(config)
+            } else {
+                launched = await withCheckedContinuation { cont in
+                    healthStore.startWatchApp(with: config) { ok, _ in
+                        cont.resume(returning: ok)
+                    }
                 }
             }
             if launched || wristJoined { return }
@@ -392,6 +446,9 @@ final class PhoneMirrorService {
         endRetryTimer = nil
         mirrored = nil
         wristJoined = false
+        primaryRequested = false
+        boundSessionId = nil
+        didLaunchWatch = false
     }
 
     private func tickFrame() {

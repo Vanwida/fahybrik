@@ -40,7 +40,19 @@ extension MirrorSessionController {
     }
 
     private func queueOrBegin(_ configuration: HKWorkoutConfiguration, mode: Mode) {
-        if state != .idle {
+        if MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
+            isRecording: state == .recording,
+            current: session?.workoutConfiguration,
+            incoming: configuration
+        ) {
+            Self.log.info("startPrimary ignored — already recording compatible PRIMARY")
+            return
+        }
+        if MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
+            isRecording: state == .recording,
+            current: session?.workoutConfiguration,
+            incoming: configuration
+        ) {
             Self.log.warning("PRIMARY leftover state=\(String(describing: self.state), privacy: .public) — finishing then starting")
             pendingStartConfiguration = configuration
             pendingStartMode = mode
