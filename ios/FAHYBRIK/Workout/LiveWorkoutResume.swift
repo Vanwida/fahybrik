@@ -11,8 +11,11 @@ final class LiveWorkoutResume {
     static let shared = LiveWorkoutResume()
 
     var cover: RecoveredLiveCover?
-    /// Weak so a finished container can deallocate. Used to persist on background
-    /// and to skip a second cover while the live is already up.
+    /// Strong hold while the live UI is dismissed but the engine stays running
+    /// (FH-111 minimize / ✕). Keeps `WorkoutSession` + `PhoneLiveSession.engine`
+    /// alive until reopen or finish/discard.
+    private(set) var parkedCover: RecoveredLiveCover?
+    /// Weak while the cover is on screen — `parkedCover` owns after minimize.
     @ObservationIgnored private weak var tracked: WorkoutSession?
     /// `.task` and `scenePhase.active` can enter together on cold launch.
     @ObservationIgnored private var isRecovering = false
@@ -23,11 +26,15 @@ final class LiveWorkoutResume {
         tracked = session
     }
 
-    var hasLiveSession: Bool { cover != nil || tracked != nil }
+    /// True when the athlete minimized live chrome (✕) — UI gone, session ACTIVE.
+    var isUIMinimized: Bool { parkedCover != nil && cover == nil }
+
+    var hasLiveSession: Bool { cover != nil || parkedCover != nil || tracked != nil }
 
     func persistTracked() {
         tracked?.persistNow()
         cover?.session.persistNow()
+        parkedCover?.session.persistNow()
     }
 
     /// Cold launch AND `scenePhase.active`. Always. No bearer gate. Free included.
@@ -37,6 +44,7 @@ final class LiveWorkoutResume {
         isRecovering = true
         defer { isRecovering = false }
         _ = await PhoneWorkoutRun.shared.recover()
+        presentParkedCoverIfNeeded()
         if !hasLiveSession {
             await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
         }
@@ -77,6 +85,11 @@ final class LiveWorkoutResume {
     func handleWristAthleteFinishWhenBackgrounded(hrZones: HRZoneProfile?) async {
         guard PhoneLiveSession.shared.wristFinishedByAthlete else { return }
         if cover != nil { return }
+        if let parked = parkedCover, !parked.session.isFinished {
+            presentParkedCoverIfNeeded()
+            parked.session.finish(completeness: .partial)
+            return
+        }
         if let tracked, !tracked.isFinished {
             tracked.finish(completeness: .partial)
         }
@@ -94,7 +107,7 @@ final class LiveWorkoutResume {
     }
 
     private func reopenFreshSnapshotIfNeeded(hrZones: HRZoneProfile?) async {
-        guard cover == nil else { return }
+        guard cover == nil, parkedCover == nil else { return }
         guard let saved = await WorkoutStateStore.shared.load(),
               WorkoutRecoveryGate.isFresh(saved) else { return }
         guard LiveWorkoutResumeGate.shouldReopenCoachPlan(
@@ -131,19 +144,37 @@ final class LiveWorkoutResume {
             title: saved.freeTitle ?? saved.plan.name,
             isFree: session.isFreeRun,
             freeModalityWire: saved.freeModalityWire,
-            freeItemsJSON: saved.freeItemsJSON
+            freeItemsJSON: saved.freeItemsJSON,
+            mirrorActivityKind: WatchConnectivityiOSService.activityKind(
+                from: saved.freeModalityWire ?? saved.plan.principalModalityWire
+            )
         )
     }
 
     func dismiss() {
         cover = nil
+        parkedCover = nil
         tracked = nil
     }
 
-    /// Close live UI without wiping the on-disk snapshot (soft leave / X).
-    func clearUIOnly() {
+    /// FH-111 — ✕ minimize: dismiss live chrome, keep the SAME engine + HK mirror.
+    func minimizeUI(parked: RecoveredLiveCover) {
+        parkedCover = parked
         cover = nil
         tracked = nil
+        PhoneLiveSession.shared.kickFrame()
+    }
+
+    /// Re-present the live cover for a parked session (Plan banner / foreground).
+    func presentParkedCoverIfNeeded() {
+        guard cover == nil, let parked = parkedCover else { return }
+        cover = parked
+        parkedCover = nil
+        tracked = parked.session
+        PhoneLiveSession.shared.begin(
+            session: parked.session,
+            activityKind: parked.mirrorActivityKind
+        )
     }
 }
 
@@ -166,6 +197,8 @@ struct RecoveredLiveCover: Identifiable {
     let isFree: Bool
     let freeModalityWire: String?
     let freeItemsJSON: Data?
+    /// Watch PRIMARY vocabulary (`running` | `strength` | `hyrox` | `mixed`).
+    let mirrorActivityKind: String
 
     var freeContext: FreeWorkoutContext? {
         guard isFree else { return nil }

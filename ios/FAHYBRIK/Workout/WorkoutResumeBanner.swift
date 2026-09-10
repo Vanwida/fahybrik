@@ -1,13 +1,9 @@
 import SwiftUI
 
-// Card 142 — "el móvil se queda secuestrado". Entre fuerza y cardio el atleta
-// descansa de verdad, y hasta ahora la única salida de la pantalla del entreno
-// era terminar o descartar. Ahora "Salir y seguir luego" pausa, guarda YA y
-// cierra la pantalla (ver `WorkoutSession.leaveToResumeLater` y
-// `WorkoutContainer`'s `onLeaveAndResume`) — pero salir así solo sirve de algo
-// si VOLVER no depende de que se acuerde. Esta tira es esa vuelta: aparece en
-// Plan mientras la instantánea autoguardada siga siendo válida y, al tocarla,
-// abre el mismo entreno, que ya ofrece "Seguir donde lo dejé".
+// Card 142 / FH-111 — la ✕ del vivo MINIMIZA (sesión ACTIVE, espejo intacto).
+// Esta tira es la vuelta cuando el chrome está cerrado: aparece en Plan mientras
+// la instantánea siga siendo válida y, al tocarla, reabre el MISMO motor vivo
+// (`LiveWorkoutResume.presentParkedCoverIfNeeded`), no un entreno nuevo.
 //
 // Autocargada como el resto de tarjetas de esta familia (ver `DoblesLiveBanner`
 // en Inicio): no pinta nada cuando no hay nada que retomar.

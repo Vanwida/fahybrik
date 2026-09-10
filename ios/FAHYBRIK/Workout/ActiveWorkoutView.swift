@@ -260,6 +260,8 @@ struct ActiveWorkoutView: View {
         }
         .onDisappear {
             session.persistNow()
+            // FH-111 — minimize (✕) only hides chrome; engine + mirror keep running.
+            if LiveWorkoutResume.shared.isUIMinimized { return }
             session.stop()
             runGPS.stop()
             runPedometer.stop()
@@ -844,16 +846,9 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
-    /// FH-107 — X always soft-leaves (checkpoint + resume). Terminar lives in pause sheet.
+    /// FH-111 — ✕ minimizes: dismiss live chrome, session stays ACTIVE. Terminar
+    /// lives in pause sheet; never pause/stop/end here.
     private func requestExitOrLeave() {
-        navigateAway()
-    }
-
-    // Soft leave — checkpoint on disk, resume banner / auto-reopen. Never discard.
-    private func navigateAway() {
-        if !session.isPaused, !session.isAwaitingBlockStart, !session.isFinished {
-            session.pauseForVideo()
-        }
         onLeaveAndResume?()
     }
 
