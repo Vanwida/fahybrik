@@ -31,13 +31,6 @@ final class PhoneWorkoutRun: NSObject {
     @ObservationIgnored private var pauseBeganAt: Date?
     @ObservationIgnored private var pausedAccumulated: TimeInterval = 0
 
-    /// True only if this process minted a primary — which we no longer do.
-    /// Kept so older call sites compile; always false after `startIfNeeded`.
-    var hasPrimarySession: Bool {
-        guard let session else { return false }
-        return session.type != .mirrored
-    }
-
     /// Apple's clock. One formula — see `WorkoutRunClock`.
     var elapsedTime: TimeInterval {
         WorkoutRunClock.elapsed(
@@ -153,14 +146,6 @@ final class PhoneWorkoutRun: NSObject {
         PhoneLiveSession.shared.resumeRemote()
     }
 
-    /// No-op on iOS. Apple: `startMirroringToCompanionDevice` is watchOS 10.
-    func startMirroring() {
-        #if os(watchOS)
-        guard let session, session.type != .mirrored else { return }
-        session.startMirroringToCompanionDevice { _, _ in }
-        #endif
-    }
-
     func sendToWatch(_ data: Data) {
         guard let session, session.type != .mirrored else { return }
         Task { try? await session.sendToRemoteWorkoutSession(data: data) }
@@ -217,8 +202,7 @@ private final class PhoneWorkoutRunDelegate: NSObject, HKWorkoutSessionDelegate 
         _ workoutSession: HKWorkoutSession,
         didReceiveDataFromRemoteWorkoutSession data: [Data]
     ) {
-        Task { @MainActor [weak self] in
-            guard self?.owner?.hasPrimarySession == true else { return }
+        Task { @MainActor in
             PhoneLiveSession.shared.handleIncoming(data)
         }
     }

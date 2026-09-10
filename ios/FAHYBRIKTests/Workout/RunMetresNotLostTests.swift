@@ -55,48 +55,6 @@ final class RunMetresNotLostTests: XCTestCase {
         XCTAssertFalse(s.isManuallyPaused)
     }
 
-    // MARK: - La autopausa tiene salida
-
-    // Soltar la autopausa exige velocidad fiable, y la velocidad se degrada JUSTO
-    // donde uno se para: pegado a un edificio, bajo un puente. Sin salida, la sesión
-    // se quedaba congelada indefinidamente con el atleta ya corriendo.
-    func testAutoPauseReleasesItselfWhenItGoesBlind() {
-        var pause = RunAutoPause()
-        // Se engancha: parado y confirmado.
-        for t in stride(from: 0.0, through: RunAutoPause.engageDwellSeconds, by: 0.5) {
-            _ = pause.step(speedMps: 0.1, eligible: true, isManualPause: false, now: t)
-        }
-        XCTAssertTrue(pause.isEngaged)
-
-        // Y ahora la señal muere del todo. Al principio aguanta (no puede confirmar
-        // movimiento), pero no para siempre.
-        let blind = RunAutoPause.engageDwellSeconds
-        var action = pause.step(speedMps: nil, eligible: true, isManualPause: false, now: blind + 1)
-        XCTAssertEqual(action, RunAutoPause.Action.none, "aguanta mientras sea razonable")
-
-        action = pause.step(
-            speedMps: nil, eligible: true, isManualPause: false,
-            now: blind + RunAutoPause.blindReleaseSeconds + 1
-        )
-        XCTAssertEqual(action, RunAutoPause.Action.release, "pero acaba soltando")
-        XCTAssertFalse(pause.isEngaged)
-    }
-
-    // Una velocidad de confianza que vuelve reinicia la cuenta a ciegas: no se suelta
-    // por acumular silencio a trozos.
-    func testATrustworthyReadingResetsTheBlindTimer() {
-        var pause = RunAutoPause()
-        for t in stride(from: 0.0, through: RunAutoPause.engageDwellSeconds, by: 0.5) {
-            _ = pause.step(speedMps: 0.1, eligible: true, isManualPause: false, now: t)
-        }
-        let base = RunAutoPause.engageDwellSeconds
-        _ = pause.step(speedMps: nil, eligible: true, isManualPause: false, now: base + 15)
-        // Vuelve una lectura fiable de "sigue parado" → el reloj de ceguera se reinicia.
-        _ = pause.step(speedMps: 0.1, eligible: true, isManualPause: false, now: base + 16)
-        let action = pause.step(speedMps: nil, eligible: true, isManualPause: false, now: base + 25)
-        XCTAssertEqual(action, RunAutoPause.Action.none, "sólo cuentan los 20 s SEGUIDOS")
-    }
-
     // MARK: - El cuentakilómetros de la cinta
 
     /// Una muestra de cinta con lo justo para el cálculo.

@@ -205,22 +205,17 @@ final class WatchWorkoutCoordinator {
             isShareable: payload.isDoublesShareable
         )
 
-        // Pipe the HealthKit stream straight into the engine: HR feeds zone color +
-        // the recorded avg/max; covered distance feeds run pace. The engine is the
-        // single owner of capture state.
+        let driver = WatchRunLegDriver(session: engine)
+        runLegDriver = driver
+
         primary.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
-        primary.onDistanceDelta = { [weak engine] meters in
+        primary.onDistanceDelta = { [weak engine, weak self] meters in
             engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
+            self?.runLegDriver?.noteHealthKitDistanceSample()
         }
         dayActivityKind = payload.activityKind
 
         engine.start()
-        // #68 — the per-leg distance driver runs for the WHOLE session: it reads the
-        // covered distance the HK stream feeds into the engine and closes a DISTANCE
-        // tramo via the same primaryAdvance() the treadmill uses. Owning it here (not
-        // in the view) makes the auto-close independent of which page is on screen.
-        let driver = WatchRunLegDriver(session: engine)
-        runLegDriver = driver
         driver.start()
         WatchHaptics.start()
 

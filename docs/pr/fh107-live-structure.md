@@ -65,8 +65,35 @@ Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — 
 
 **Not removed (legitimate Apple usage):**
 
-- `WatchRunLegDriver` — reads `HKLiveWorkoutBuilder` cumulative distance via engine; auto-closes DISTANCE legs on standalone wrist (same role as treadmill odometer on phone). Not a GPS calibrator.
-- `WatchRunLocationGate` — `CLLocationManager` permission + accuracy only; enables Apple distance collection for outdoor run activities.
+- `WatchRunLegDriver` — DISTANCE-leg auto-close on HK distance deltas (no 0.5 s timer). Pure structured RUN → `AppleWorkoutMapper` / `AppleWatchWorkoutScheduler` (WorkoutKit).
+- `WatchRunLocationGate` — `CLLocationManager` permission only; enables Apple distance collection for outdoor run activities.
+- `RunDistanceAuthority` — rejects `.gps` as official meters; HealthKit only.
+- `PolylineCodec` — **decode/display only** for legacy `workout_routes` rows; live capture SoT → `HKWorkoutRouteBuilder` (next slice).
+
+### Inventiveness audit — deleted / thinned (build 93)
+
+| Killed or thinned | Replaced by |
+|-------------------|-------------|
+| `RunPaceSmoother.swift` | `WorkoutSession.liveCoveredPaceSecPerKm` (HK / pedometer distance ÷ elapsed) |
+| `RunAutoPause.swift` + outdoor auto-pause UI | Manual pause + HK session pause on wrist; no homemade speed hysteresis on phone GPS |
+| `GPSSignalQuality.isFixUsable` gating fixes | Display badge only; all valid CLLocation fixes feed map coords |
+| `WatchRunLegDriver` 0.5 s timer | `noteHealthKitDistanceSample()` on builder distance deltas |
+| `PhoneWorkoutRun.hasPrimarySession` / `startMirroring()` stub | Phone never mints PRIMARY; mirror only via `PhoneLiveSession` |
+| `PostWorkoutSummary.closedTraces` `.gps` distance branch | Always adopt `HealthKitDistanceProbe` when available |
+| Dual `CountdownFormat` implementations | One `format(_:style:)` owner (standalone CEIL vs mirrored ROUND) |
+| Outdoor pace fork (smoother vs covered) | Single pace derivation in `WorkoutSession+Accessors` |
+
+**Kept direction (Owner):**
+
+- `WatchPrimaryOwner` — one `HKWorkoutSession` + `HKLiveWorkoutBuilder` PRIMARY
+- `AppleWorkoutMapper` / `AppleWatchWorkoutScheduler` — structured RUN on native Entrenamiento app
+- `CLLocation` — map coordinates only, not meter SoT
+
+**Deferred (documented, not blocking TF 93):**
+
+- `MirrorStateFrame` / `PhoneMirrorFrameBuilder` full thin → builder stats + minimal commands
+- `HKWorkoutRouteBuilder` replaces `capturedRoutePolyline` as route SoT in execution POST
+- Pure RUN wrist sessions without phone → WorkoutKit start instead of dual `WorkoutSession` + coordinator (hybrid/fuerza still need coach engine)
 
 ### Apple APIs (single PRIMARY path)
 

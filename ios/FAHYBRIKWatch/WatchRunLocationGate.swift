@@ -3,8 +3,7 @@ import CoreLocation
 /// GPS permission + accuracy for the Watch. Does not count meters.
 ///
 /// Apple emits `distanceWalkingRunning` only after location is authorized on
-/// an outdoor running activity. Fixes are classified with `GPSSignalQuality`;
-/// they never enter `RunDistanceAuthority`.
+/// an outdoor running activity. Coordinates enable HK distance; never meter SoT.
 @MainActor
 final class WatchRunLocationGate: NSObject, @preconcurrency CLLocationManagerDelegate {
     /// Created on MainActor; CoreLocation delivers delegate callbacks on that thread.

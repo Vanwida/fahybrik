@@ -361,10 +361,9 @@ struct OutdoorRunHUDView: View {
             }
             objetivoDelTramo
             referenciaDeGuia
-            if model.isAutoPaused { avisoAutoPausa }
             RunRouteMapView(coordinates: model.coordinates,
                             quality: model.gpsQuality,
-                            paused: model.isAutoPaused)
+                            paused: model.session.isPaused)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
@@ -420,23 +419,6 @@ struct OutdoorRunHUDView: View {
                 .foregroundStyle(Theme.Color.muted)
                 .frame(maxWidth: .infinity)
         }
-    }
-
-    private var avisoAutoPausa: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            Image(systemName: "pause.circle.fill").font(.system(size: 16, weight: .bold))
-            Text("Auto-pausa · sin movimiento")
-                .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
-                .tracking(0.4)
-            Spacer(minLength: 0)
-            Text("Se reanuda solo").scaledFont(11, weight: .medium, relativeTo: .caption2)
-        }
-        .foregroundStyle(Theme.Color.warning)
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(Theme.Color.warningTint, in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .accessibilityLabel("Auto-pausa activada, sin movimiento; se reanuda al moverte")
     }
 
     // MARK: - La acción
