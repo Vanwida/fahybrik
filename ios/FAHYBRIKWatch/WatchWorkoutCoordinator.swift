@@ -141,6 +141,7 @@ final class WatchWorkoutCoordinator {
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         primary.onHeartRate = nil
         primary.onDistanceDelta = nil
+        WatchWorkoutClock.appleElapsed = nil
         dayActivityKind = nil
         session = nil
         assignmentId = nil
@@ -212,6 +213,11 @@ final class WatchWorkoutCoordinator {
         primary.onDistanceDelta = { [weak engine, weak self] meters in
             engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
             self?.runLegDriver?.noteHealthKitDistanceSample()
+        }
+        WatchWorkoutClock.appleElapsed = { [weak self] in
+            guard let self, self.primary.role == .solo, self.primary.phase == .recording else { return nil }
+            let t = self.primary.builderElapsed
+            return t > 0 ? t : nil
         }
         dayActivityKind = payload.activityKind
 
@@ -450,11 +456,18 @@ final class WatchWorkoutCoordinator {
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         primary.onHeartRate = nil
         primary.onDistanceDelta = nil
+        WatchWorkoutClock.appleElapsed = nil
         dayActivityKind = nil
         session = nil
         assignmentId = nil
         didFinalize = false
         phase = .idle
+    }
+
+    /// Terminar desde la lámina de controles: cierra el motor; `RootView` llama
+    /// `finalize()` al ver `isFinished` y ahí se guarda el HKWorkout.
+    func finishWorkout(completeness: WorkoutCompleteness = .partial) {
+        session?.finish(completeness: completeness)
     }
 
 }

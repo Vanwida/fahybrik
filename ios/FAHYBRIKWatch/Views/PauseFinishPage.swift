@@ -91,7 +91,7 @@ struct PauseFinishPage: View {
             Spacer(minLength: 4)
             VStack(spacing: 8) {
                 botonLamina("Terminar", alto: 48, fondo: WatchTheme.zoneRed, tinta: Color(red: 42/255, green: 0, blue: 0)) {
-                    session.finish(completeness: .partial)
+                    coordinator.finishWorkout(completeness: .partial)
                 }
                 botonLamina("Seguir", alto: 44, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
                     confirmingFinish = false
