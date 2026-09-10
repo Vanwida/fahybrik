@@ -69,12 +69,15 @@ struct EmomLiveView: View {
                 zonaObjetivo: session.currentSegment?.targetZone,
                 zonaViva: session.liveZone,
                 bpm: session.liveHRBpm,
-                ritmoSecPorKm: session.liveCoveredPaceSecPerKm.map { Double($0) },
+                ritmoSecPorKm: session.liveCoveredPaceSecPerKm,
                 metros: session.liveRunDistanceMeters,
                 objetivoMetros: session.currentSegment?.targetDistanceMeters.map { Double($0) },
                 segundos: session.lapElapsedSeconds
             )
-            let runPages = GuionRodaje.paginas(runEstado, GuionRodaje.gestosSolitario(session))
+            // Métricas de rodaje en ojeada: avanzar la ronda EMOM lo lleva
+            // `GuionEmom.gestosSolitario` en las páginas principales (misma regla
+            // que `ContinuousLiveView` — `GuionRodaje` no tiene gestosSolitario).
+            let runPages = GuionRodaje.paginas(runEstado)
                 .filter { $0.id != "tiempo" }
             pages.append(contentsOf: runPages)
         }
