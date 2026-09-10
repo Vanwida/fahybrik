@@ -72,6 +72,7 @@ struct ActiveWorkoutView: View {
     // run distance/pace and HealthKit/Apple-Watch HR. Both stay dormant until a
     // segment needs them and never block the workout.
     @State private var runGPS = RunLocationProvider()
+    @State private var runPedometer = RunPedometer()
     @State private var liveHR = LiveHeartRateProvider()
     /// Is an erg measuring what the athlete is doing RIGHT NOW? Pairing every named
     /// role happens at Empezar (sequential gates), not via a leftover shared chip.
@@ -261,6 +262,8 @@ struct ActiveWorkoutView: View {
             session.persistNow()
             session.stop()
             runGPS.stop()
+            runPedometer.stop()
+            RunAltimeter.shared.stop()
             // Backstop for every exit that is NOT a finish (abandon, brief-back):
             // `releaseDevicesOnFinish` already ran on the finish path, and both are
             // idempotent.
@@ -270,6 +273,8 @@ struct ActiveWorkoutView: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished {
                 runGPS.stop()
+                runPedometer.stop()
+                RunAltimeter.shared.stop()
                 releaseDevicesOnFinish()
                 onFinish()
             }
@@ -287,6 +292,7 @@ struct ActiveWorkoutView: View {
         .onChange(of: PhoneLiveSession.shared.hasMirroredHKSession) { _, bound in
             // Hand HR off to the wrist while the HK mirror channel is bound.
             if bound { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
+            updateRunGPS()
         }
         .onChange(of: pool.epoch) { _, _ in
             // Role stores are not the `@State` this view holds — `epoch` is the
@@ -311,6 +317,7 @@ struct ActiveWorkoutView: View {
             // again here so the monitor's counter is back at zero for it (Alex:
             // "cada ronda la app debe mandar el reinicio del pm5").
             attemptProgramPM5()
+            updateRunGPS()
         }
         .sheet(isPresented: $showPM5Sheet) {
             PM5LiveStreamView(
@@ -540,8 +547,20 @@ struct ActiveWorkoutView: View {
     // Hook the optional providers' callbacks into the session. Done once on
     // appear; the closures capture `session`, which is stable for the screen.
     private func wireLiveSources() {
-        // Distancia de carrera: la cuenta Apple (`RunPedometer`) en la vista
-        // activa / HUD outdoor. RunLocationProvider ya no emite onDistanceDelta.
+        // Metros oficiales de calle: `CMPedometer` → `.healthkit` vía
+        // `RunDistanceAuthority`. El GPS propio de esta vista NUNCA cuenta distancia.
+        runPedometer.onDistanceDelta = { delta in
+            session.sampleRunDistance(deltaMeters: delta, source: .healthkit)
+        }
+        runGPS.onSpeed = { speed, acc in
+            session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: acc)
+        }
+        runGPS.onAltitude = { meters, accuracy in
+            RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
+        }
+        RunAltimeter.shared.onAltitude = { meters, at in
+            session.sampleAltitude(metersAboveSeaLevel: meters, at: at)
+        }
         liveHR.onSample = { bpm in
             session.injectLiveHR(bpm, source: .healthkit)
         }
@@ -576,14 +595,11 @@ struct ActiveWorkoutView: View {
         session.beginBlock()
     }
 
-    // Start phone GPS only on run segments
-    // otherwise so we don't hold the location indicator during erg/strength work.
+    // Phone run sensors (pedometer / own GPS / altimeter) — `RunPhoneSensorPlan`
+    // decides each independently; only apply what the plan says.
     private func updateRunGPS() {
-        // Indoor / cinta: GPS off. Calle: GPS only when the street screen is not
-        // already owning the stream. Wrist recording does not change ownGPS here —
-        // `RunPhoneSensorPlan` already encodes that split.
         let plan = RunPhoneSensorPlan.decide(
-            isRunSegment: isRunSegment,
+            isRunSegment: session.tramoIsRun,
             environment: session.runEnvironment,
             streetScreenOwnsSurface: calleHudMontado,
             wristChannelBound: PhoneLiveSession.shared.hasMirroredHKSession
@@ -592,6 +608,16 @@ struct ActiveWorkoutView: View {
             runGPS.start()
         } else {
             runGPS.stop()
+        }
+        if plan.pedometer {
+            runPedometer.start()
+        } else {
+            runPedometer.stop()
+        }
+        if plan.altimeter {
+            RunAltimeter.shared.start()
+        } else {
+            RunAltimeter.shared.stop()
         }
     }
 
