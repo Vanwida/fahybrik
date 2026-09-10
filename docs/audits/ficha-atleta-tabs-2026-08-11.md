@@ -149,7 +149,7 @@ Archivos: `AthleteDetalle.tsx`, `PerfilTab.tsx`, `ClasificacionCard.tsx`, `Targe
 ### Lo que SÍ está bien conectado
 
 - `ClasificacionCard`: PATCH nivel + días, optimistic + `router.refresh()`.  
-- `TargetRaceCard` + `SetTargetRaceModal`: set/change real.  
+- `TargetRaceCard`: read-only (FH-106); athlete owns target selection.  
 - `TestsPanel` → `ProgramarTestSheet` → `POST /api/coach/tests/{id}/apply`.  
 - `InjuryPanel`: state machine, evolución, adaptar sesiones, sugerir pausa.  
 - Zonas leídas de `athlete_zone_profiles` (no se inventan).  
