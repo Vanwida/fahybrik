@@ -186,6 +186,48 @@ Owner smoke: “Always see round/series/station lines.”
 
 ---
 
+## Devil’s advocate product audit (owner reframe)
+
+### Hard questions answered
+
+**1. Does this make sense mid-session?** No. A HYROX or EMOM athlete changes **entire screen grammar** every station: ski → `ErgHUDContent`, run → `OutdoorRunHUDView`, wall balls → `StationSubject`, rest → blue `RestSurface`. Same workout, four different apps. Mid-EMOM, burpee minute uses `EmomVivoView`; ski minute **deliberately** switches to `.ergo` (`SuperficieVivaTests.testElMinutoDeSkiDeUnEmomEsErgoNoEmomNiCromoC`) — the athlete loses the EMOM clock layout on the machine they care about most.
+
+**2. Does it hit Alex’s goals?** Partial engine work only. Dual rests + station≠rest + X leave/resume: **engine yes, UI no**. ONE Run shell for all modalities: **not started** (zero diff on `SuperficieViva.swift`, `ErgHUDContent.swift`, `OutdoorRunHUDView.swift`). Watch Apple-first: **watch layer patched**, wrist live families untouched. No invent GPS: **violated on phone** (`RunPaceSmoother`, `RunLocationProvider`) and **risk on stale mirror** (below).
+
+**3. What’s MISSING?** Collapse all live entry points into `cromoDeCarrera` / `OutdoorRunHUDView` with modality metric injectors. Delete or stop routing `HostVivo`, `ErgHUDContent`, `EmomVivoView`, `FuerzaVivoView`, `RestSurface` as top-level surfaces. Watch `LiveFlowView.familyView` unification. Remove `connectPM5CTA` from apoyos. Fix sensor authority to follow HK channel bound, not `wristMirrorLive` UI flag.
+
+**4. What’s EXTRA (scope creep / invented UX)?** `LiveOrientationStrip` pasted on Rounds/Rest only — spec claims HostVivo too (`fh107-live-structure.md:46`) but code doesn’t; **doc lies**. X always soft-leaves even with recorded work (FH-99 regression) without proving athlete understands checkpoint vs Terminar. iOS Free builder dual-rest fields — coach web already had circuit rests; PR repackages as FH-107 win. `docs/pr/fh107-live-structure.md` narrates “deleted patterns” while **all old view files remain**.
+
+**5. Deep vs surface?** **Surface + engine patch.** PR touches 25 files; **UI routing unchanged.** `ActiveWorkoutView` diff = remove device bar (~21 lines), rest button label, X behavior. No shared component extraction. Old trees **100% still exist** and are still the live path. Tests **encode the wrong product** (EMOM ski → erg fork is asserted as correct).
+
+---
+
+### P0 — ship-stoppers
+
+| ID | Issue | Evidence |
+|----|-------|----------|
+| P0-1 | **Alex’s #1 goal not implemented.** Every non-Run modality uses its own live tree. | `ActiveWorkoutView.superficieMontada` switch: only `.run`/`.runStructure` → `cromoDeCarrera`. Ski/Row → `ErgHUDContent`. **0 lines changed** in `SuperficieViva.swift`, `ErgHUDContent.swift`, `OutdoorRunHUDView.swift` on PR branch. |
+| P0-2 | **Mid-session chrome roulette.** HYROX / mixed WOD = full UI swap per station. | `SuperficieViva.de`: `.ergo` before `.emom` (line 42–43) forces erg layout inside EMOM. |
+| P0-3 | **Stale mirror → double measurement risk.** HK channel stays bound; phone re-enables pedometer + `liveHR` when `wristMirrorLive` false. | `WristMirrorTruth` + `RunPhoneSensorPlan.decide(wristIsRecording: PhoneLiveSession.shared.wristMirrorLive)` + `ActiveWorkoutView` onChange lines 287–289. Watch still recording via `HKLiveWorkoutBuilder`; phone may count meters/HR again after 15 s silence. **Opposite of Apple-first single source.** |
+| P0-4 | **Phone still invents pace/distance path.** | `RunPaceSmoother.swift`, `OutdoorRunHUDModel`, `RunLocationProvider` untouched. Not watch-only debt. |
+| P0-5 | **Implementer spec contradicts owner.** Doc says metrics = one erg row + Run shell; code = full-page `ErgHUDContent`. Doc says orientation on HostVivo; `HostVivo.swift` has no `LiveOrientationStrip`. | `docs/pr/fh107-live-structure.md:46–51` vs grep. |
+| P0-6 | **Rest is a different app, not Run shell with rest subject.** | `.rest` → `HostVivo` + `RestSurface` (blue field layout), not `cromoDeCarrera`. Station≠rest is engine-only; athlete still **changes chrome** at rest. |
+
+### P1 — serious, fix before owner smoke
+
+| ID | Issue | Evidence |
+|----|-------|----------|
+| P1-1 | **Partial pill fix.** Removed `LiveRecipeDeviceBar`/`ConnectionStrip` from apoyos but left `connectPM5CTA`. | `ActiveWorkoutView.swift:883–884` |
+| P1-2 | **Orientation half-shipped.** Strip on Rounds/Rest/ForTime only; absent on erg, EMOM, fuerza, run treadmill. `liveOrientation` gated on `isConditioningTimer`. | `WorkoutSession+Tramo.swift:695–698` |
+| P1-3 | **Watch live still 10+ forks.** PR did not touch `LiveFlowView`, `ErgoLiveView`, `EmomLiveView`, etc. | `git diff main...HEAD -- ios/FAHYBRIKWatch/Views/LiveFlowView.swift` empty |
+| P1-4 | **Even Run isn’t one tree.** Treadmill = bespoke `TreadmillHUDView` without `MarcoVivo`; outdoor = `OutdoorRunHUDView`; undecided = `HostVivo`+`RunLiveHUD`. | `cromoDeCarrera` switch |
+| P1-5 | **Dual rests: create path iOS-only in PR.** Engine fixed; coach dashboard not in diff. Free libre builder got steppers — verify coach-authored HYROX blocks, not assumed. | PR file list — no `web/` changes |
+| P1-6 | **X always soft-leave removes recorded-work guard.** Fat-finger X after 45 min no longer opens Terminar/Guardar/Descartar. | FH-107 diff removes `hasRecordedWork` branch in `requestExitOrLeave` |
+| P1-7 | **Tests bless wrong UX.** `SuperficieVivaTests` requires EMOM ski = `.ergo`, cementing chrome swap as “correct”. | `SuperficieVivaTests.swift:32–37` |
+| P1-8 | **Old UI inventory untouched.** `HostVivo`, `ErgHUDContent`, `EmomVivoView`, `FuerzaVivoView`, `RestSurface`, `RoundsLiveHUD`, `AmrapLiveHUD`, 8+ watch views — **no deletions** in PR. | `git diff --stat` |
+
+---
+
 ## References
 
 - Implementer spec: `docs/pr/fh107-live-structure.md`
