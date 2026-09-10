@@ -70,7 +70,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         XCTAssertEqual(PresentadorVivo.de(s), .live(.fuerza))
         let vista = ActiveWorkoutView(session: s, onFinish: {}, onExit: {})
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "HostVivo / fuerza / EMOM leen el botón de topStrip")
+                      "fuerza / EMOM usan CromoVivoEntreno compartido")
         UIApplication.shared.isIdleTimerDisabled = false
     }
 

@@ -33,18 +33,21 @@ import SwiftUI
 
 /// El EMOM en vivo, dentro del marco del §10.
 ///
-/// El CROMO lo pone el anfitrión (`ActiveWorkoutView`): salir, pausa, atrás, el
-/// vídeo de técnica y en qué tramo vas siguen siendo suyos, y esta vista solo los
-/// coloca en la primera fila del marco. Así el ancla del §10.3 es EXACTA — las
-/// filas se reservan aquí, no las estima nadie — sin que la pantalla pierda la
-/// navegación que ya tenía.
-struct EmomVivoView<Cromo: View>: View {
+/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire. Solo cambia
+/// la lectura del sujeto (el minuto manda).
+struct EmomVivoView: View {
     let session: WorkoutSession
     /// El rótulo del botón, tal y como lo decide el anfitrión (SALTAR durante la
     /// cuenta atrás, SIGUIENTE, TERMINAR en el último intervalo).
     let accionTitulo: String
     let alTocarAccion: () -> Void
-    @ViewBuilder var cromo: Cromo
+    let alSalir: () -> Void
+    let alVerBloques: () -> Void
+    let alConectividad: () -> Void
+    let alTapHR: () -> Void
+    let alPausa: () -> Void
+    let hrLink: DeviceLink
+    var muestraConectividad: Bool = true
 
     private var plan: EmomPlan? { session.currentSegment?.emomPlan }
     private var enCuentaAtras: Bool { session.emomCountInRemaining > 0 }
@@ -56,7 +59,12 @@ struct EmomVivoView<Cromo: View>: View {
 
     var body: some View {
         MarcoVivo {
-            cromo
+            CromoVivoEntreno(session: session,
+                             muestraConectividad: muestraConectividad,
+                             alSalir: alSalir,
+                             alVerBloques: alVerBloques,
+                             alConectividad: alConectividad,
+                             alPausa: alPausa)
         } contexto: {
             contexto
         } sujeto: {
@@ -88,21 +96,12 @@ struct EmomVivoView<Cromo: View>: View {
     /// La franja que no desaparece jamás: cada cuánto suena el reloj, cuántas
     /// rondas son, y el pulso cuando de verdad hay reloj en la muñeca.
     private var contexto: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tituloFormato)
-                    .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.Color.accentText)
-                    .lineLimit(1)
-                Text(cadencia)
-                    .scaledFont(12, weight: .medium, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-            ChipPulsoVivo(session: session)
-        }
+        ContextoVivoEntreno(session: session,
+                            titulo: tituloFormato,
+                            subtitulo: cadencia,
+                            pm5: nil,
+                            hrLink: hrLink,
+                            alTapHR: alTapHR)
     }
 
     private var tituloFormato: String {
@@ -356,16 +355,9 @@ private func lienzoEmom(_ sesion: WorkoutSession) -> some View {
     ZStack {
         Theme.Color.background.ignoresSafeArea()
         Ambiente(zona: sesion.liveZone)
-        EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {}) {
-            HStack {
-                Image(systemName: "xmark").foregroundStyle(Theme.Color.muted)
-                Text("‖").foregroundStyle(Theme.Color.muted)
-                Spacer()
-                MonoText(text: "EMOM 12", size: 11, color: Theme.Color.muted)
-                Spacer()
-                MonoText(text: "1/1", size: 11, color: Theme.Color.muted)
-            }
-        }
+        EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {},
+                     alSalir: {}, alVerBloques: {}, alConectividad: {},
+                     alTapHR: {}, alPausa: {}, hrLink: .idle)
     }
 }
 

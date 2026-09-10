@@ -37,14 +37,18 @@ import SwiftUI
 
 /// El hierro en vivo, dentro del marco del §10.
 ///
-/// El CROMO lo pone el anfitrión (`ActiveWorkoutView`) y esta vista solo lo coloca
-/// en la primera fila: así el ancla del §10.3 es EXACTA sin que la pantalla pierda
-/// la navegación que ya tenía.
-struct FuerzaVivoView<Cromo: View>: View {
+/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire.
+struct FuerzaVivoView: View {
     let session: WorkoutSession
     let accionTitulo: String
     let alTocarAccion: () -> Void
-    @ViewBuilder var cromo: Cromo
+    let alSalir: () -> Void
+    let alVerBloques: () -> Void
+    let alConectividad: () -> Void
+    let alTapHR: () -> Void
+    let alPausa: () -> Void
+    let hrLink: DeviceLink
+    var muestraConectividad: Bool = true
 
     /// La serie que el atleta está editando. Nil = ninguna, que es el estado
     /// normal: ajustar es la excepción, no el camino.
@@ -62,7 +66,12 @@ struct FuerzaVivoView<Cromo: View>: View {
 
     var body: some View {
         MarcoVivo {
-            cromo
+            CromoVivoEntreno(session: session,
+                             muestraConectividad: muestraConectividad,
+                             alSalir: alSalir,
+                             alVerBloques: alVerBloques,
+                             alConectividad: alConectividad,
+                             alPausa: alPausa)
         } contexto: {
             contexto
         } sujeto: {
@@ -155,23 +164,12 @@ struct FuerzaVivoView<Cromo: View>: View {
     /// La franja que no desaparece jamás: qué te pidió el coach (`4×5 · 100 kg ·
     /// descanso 1:30`) y si hay reloj midiéndote.
     private var contexto: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(seg?.title ?? "Fuerza")
-                    .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.Color.accentText)
-                    .lineLimit(1)
-                if let plan = lineaDelPlan {
-                    Text(plan)
-                        .scaledFont(12, weight: .medium, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-            ChipPulsoVivo(session: session)
-        }
+        ContextoVivoEntreno(session: session,
+                            titulo: seg?.title ?? "Fuerza",
+                            subtitulo: lineaDelPlan,
+                            pm5: nil,
+                            hrLink: hrLink,
+                            alTapHR: alTapHR)
     }
 
     /// Lo que pidió el coach, en una línea. Solo lo que de verdad escribió: una
@@ -685,16 +683,9 @@ private func lienzoFuerza(_ sesion: WorkoutSession) -> some View {
     ZStack {
         Theme.Color.background.ignoresSafeArea()
         Ambiente(zona: sesion.liveZone)
-        FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {}) {
-            HStack {
-                Image(systemName: "xmark").foregroundStyle(Theme.Color.muted)
-                Text("‖").foregroundStyle(Theme.Color.muted)
-                Spacer()
-                MonoText(text: "BACK SQUAT", size: 11, color: Theme.Color.muted)
-                Spacer()
-                MonoText(text: "1/1", size: 11, color: Theme.Color.muted)
-            }
-        }
+        FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {},
+                       alSalir: {}, alVerBloques: {}, alConectividad: {},
+                       alTapHR: {}, alPausa: {}, hrLink: .idle)
     }
 }
 

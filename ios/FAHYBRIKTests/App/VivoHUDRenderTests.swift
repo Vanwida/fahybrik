@@ -36,9 +36,9 @@ final class VivoHUDRenderTests: XCTestCase {
         let sesion = sesionDeEmom(zonas: Self.zonas())
         sesion.liveHRBpm = 165        // Z4 con el umbral de 170 — donde vive un EMOM
         let imagen = render(lienzo(sesion) {
-            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {}) {
-                Self.cromo("EMOM 12")
-            }
+            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {},
+                         alSalir: {}, alVerBloques: {}, alConectividad: {},
+                         alTapHR: {}, alPausa: {}, hrLink: .idle)
         }, nombre: "emom-vivo-con-pulso")
         XCTAssertNotNil(imagen, "El EMOM en vivo tiene que renderizar con pulso")
     }
@@ -49,9 +49,9 @@ final class VivoHUDRenderTests: XCTestCase {
         // no el pulso. Lo único que desaparece es el tinte y el chip (§7).
         let sesion = sesionDeEmom(zonas: nil)
         let imagen = render(lienzo(sesion) {
-            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {}) {
-                Self.cromo("EMOM 12")
-            }
+            EmomVivoView(session: sesion, accionTitulo: "SIGUIENTE", alTocarAccion: {},
+                         alSalir: {}, alVerBloques: {}, alConectividad: {},
+                         alTapHR: {}, alPausa: {}, hrLink: .idle)
         }, nombre: "emom-vivo-sin-ancla-fc")
         XCTAssertNotNil(imagen, "Sin ancla de FC el EMOM no se rompe: el minuto sigue mandando")
     }
@@ -63,9 +63,9 @@ final class VivoHUDRenderTests: XCTestCase {
         let sesion = sesionDeFuerza(zonas: Self.zonas())
         sesion.liveHRBpm = 142        // Z2: en fuerza el pulso baja entre series
         let imagen = render(lienzo(sesion) {
-            FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {}) {
-                Self.cromo("BACK SQUAT")
-            }
+            FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {},
+                           alSalir: {}, alVerBloques: {}, alConectividad: {},
+                           alTapHR: {}, alPausa: {}, hrLink: .idle)
         }, nombre: "fuerza-vivo-con-pulso")
         XCTAssertNotNil(imagen, "El hierro en vivo tiene que renderizar con pulso")
     }
@@ -74,9 +74,9 @@ final class VivoHUDRenderTests: XCTestCase {
     func testFuerzaSinAnclaDeFCSigueTeniendoSujeto() {
         let sesion = sesionDeFuerza(zonas: nil)
         let imagen = render(lienzo(sesion) {
-            FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {}) {
-                Self.cromo("BACK SQUAT")
-            }
+            FuerzaVivoView(session: sesion, accionTitulo: "HECHO", alTocarAccion: {},
+                           alSalir: {}, alVerBloques: {}, alConectividad: {},
+                           alTapHR: {}, alPausa: {}, hrLink: .idle)
         }, nombre: "fuerza-vivo-sin-ancla-fc")
         XCTAssertNotNil(imagen, "Sin ancla de FC el hierro no se rompe: la serie se sabe igual")
     }
