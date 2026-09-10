@@ -7,7 +7,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **FH-107 — Live session structure rewrite (PR #181, build 93).**
-Dual rests, orientation, **live UI unificado** (EMOM run → cromo carrera; erg → `ErgVivoHUDView`), X soft leave + Watch Apple-first + inventiveness audit.
+Dual rests, orientation, **live UI global shell** (`EntrenoVivoShellView` + `CromoVivoEntreno` para todas las modalidades), X soft leave + Watch Apple-first + inventiveness audit.
 Diseño: `docs/pr/fh107-live-structure.md`. Pendiente: Archive + TF 93 (Lingxi).
 
 **FH-106 — Goals owner alignment (build 92).** Diseño: `docs/pr/fh106-goals-athlete-owns.md`.

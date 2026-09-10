@@ -52,10 +52,11 @@ Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — 
 
 ## Live UI unification (FH-55 / owner override)
 
-- **`SuperficieViva.de`**: machine and run tramos win before format. EMOM ski minute → `.ergo`; EMOM run minute → `.run` (meters, pace, belt speed) — not `EmomVivoView` (FC + TOTAL only).
-- **Erg stations**: `ErgVivoHUDView` — same `MarcoVivo` tree as `OutdoorRunHUDView`. PM5 + HR chips in **contexto**; `ErgHUDContent` owns split / s·min⁻¹ / watts. No `connectPM5CTA` stacked on metrics.
-- **Run stations**: unchanged full chrome (`OutdoorRunHUDView` / `TreadmillHUDView` / `RunLiveHUD`).
-- **EMOM without machine** (burpees only): still `EmomVivoView`.
+- **`SuperficieViva.de`**: machine and run tramos win before format. EMOM ski → `.ergo`; EMOM run → `.run` (meters, pace, belt speed).
+- **`EntrenoVivoShellView`**: ONE live tree for every modality except outdoor/treadmill run. Same `MarcoVivo` + `CromoVivoEntreno`; only the **subject** changes.
+- **`CromoVivoEntreno` + `ContextoVivoEntreno`**: shared chrome; PM5/GPS/HR chips in contexto — never on metrics. Deleted `topStrip`, `HostVivo` mounts, `connectPM5CTA` apoyos.
+- **Subject by modality**: Run → `RunLiveHUD`; erg → `ErgHUDContent`; EMOM → clock; fuerza → series; conditioning → format HUD; rest → `RestSurface`.
+- **Run outdoor/treadmill**: unchanged (`OutdoorRunHUDView` / `TreadmillHUDView`); run `.host` uses global shell.
 
 ## Watch — Apple-first rewrite (FH-107 build 93)
 
