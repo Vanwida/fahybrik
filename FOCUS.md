@@ -6,7 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FH-30 — Cara rodaje muñeca (PR build 97).** Cromo lámina Datos←Vivo→Controles + números HK reales (distancia/ritmo/tiempo/FC vía `HKLiveWorkoutBuilder` + GPS) + Pausar/Reanudar/Terminar ejecutando (`WatchWorkoutCoordinator` ↔ HK). Plan: Notion FH-30.
+**FH-30 — Cara rodaje muñeca (PR build 97).** Cromo lámina Datos←Vivo→Controles + números HK reales + Pausar/Reanudar/Terminar ejecutando. «Nuevo tramo» oculto hasta FH-31 (sin motor = sin control muerto). Plan: Notion FH-30.
 
 **FH-110 — Archive compile fix (main, build 96).** Mergeado.
 

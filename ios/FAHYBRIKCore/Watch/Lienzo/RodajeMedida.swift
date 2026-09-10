@@ -100,10 +100,10 @@ enum RodajeVivoToca {
         session.isRunStructureActive && !session.isPaused && !session.isFinished
     }
 
-    /// Controls: a new cut only when the athlete owns the cuts.
+    /// Controls: athlete-initiated lap cut on free run.
+    /// Hidden until FH-31 wires `applyCommand(.newLap)` end-to-end — a dead tap is worse than no control.
     static func muestraNuevoTramo(_ session: WorkoutSession) -> Bool {
-        session.isFreeRun
-            && session.currentSegment?.kind == .running
-            && !session.isRunStructureActive
+        _ = session
+        return false
     }
 }
