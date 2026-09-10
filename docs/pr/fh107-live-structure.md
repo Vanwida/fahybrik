@@ -50,11 +50,46 @@ Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — 
 - **One erg stats row** (`ErgLiveStrip`) in the subject band.
 - **Device connection** only in top strip (`BotonConectividad` → sheet) — removed duplicate `LiveRecipeDeviceBar` + redundant `ConnectionStrip` from apoyos when it overlapped stats.
 
-## Watch (FH-99/100/101 preserved)
+## Watch — Apple-first rewrite (FH-107 build 93)
 
-- Unexpected HK session end during **mirror/orphan** → stay on `MirrorHUDView` + connection banner; **no** `forceIdle` → Readiness.
-- Pause/resume: `applyPhase` syncs `hkPaused` with phone frame; resume button idempotent.
-- Terminar / idle cleanup unchanged (FH-100/101).
+**Owner mandate:** stop patching invented mirror/connect layers; one Apple workout path.
+
+### Deleted / abandoned patterns
+
+| Removed behavior | Why |
+|------------------|-----|
+| `PhoneLiveSession.tickFrame` → `releaseChannel()` on `mirrorIsStale` | Invented watchdog tore down `HKWorkoutSession` mid-workout when HR/frame paused briefly (treadmill join, BLE, phone background). |
+| `WatchPrimaryLifecycle` blocking mirror when `WatchWorkoutCoordinator.phase != .idle` | Two competing session owners — `startWatchApp` silently failed if wrist had standalone active. |
+| Duplicate `WatchRunLocationGate` on coordinator | GPS permission/accuracy belongs on the one PRIMARY owner (`WatchPrimaryOwner.locationGate`); distance comes from `HKLiveWorkoutBuilder`, not custom integration. |
+| `forceIdle()` on mirror HK `didFailWithError` | Dropped athlete to Readiness; phone session still live. |
+
+**Not removed (legitimate Apple usage):**
+
+- `WatchRunLegDriver` — reads `HKLiveWorkoutBuilder` cumulative distance via engine; auto-closes DISTANCE legs on standalone wrist (same role as treadmill odometer on phone). Not a GPS calibrator.
+- `WatchRunLocationGate` — `CLLocationManager` permission + accuracy only; enables Apple distance collection for outdoor run activities.
+
+### Apple APIs (single PRIMARY path)
+
+| Concern | API |
+|---------|-----|
+| Phone launches wrist | `HKHealthStore.startWatchApp(with:)` |
+| Wrist creates PRIMARY | `HKWorkoutSession.init(healthStore:configuration:)` + `startMirroringToCompanionDevice()` |
+| Phone receives mirror | `HKHealthStore.workoutSessionMirroringStartHandler` → adopt session |
+| Live metrics | `HKLiveWorkoutBuilder` + `HKLiveWorkoutDataSource` (HR, kcal, `distanceWalkingRunning`) |
+| Coach script phone → wrist | `HKWorkoutSession.sendToRemoteWorkoutSession` (`MirrorWire` frames) |
+| Wrist → phone durable end | `WCSession.transferUserInfo` (`WatchLiveEnded`, FH-101) |
+| Crash recovery | `HKHealthStore.recoverActiveWorkoutSession` + `WKApplicationDelegate.handleActiveWorkoutRecovery` |
+| Run piece activity switch | `HKWorkoutSession.beginNewActivity` / `endCurrentActivity` |
+
+### Structural fixes
+
+1. **Mirror preempts standalone** — `WatchWorkoutCoordinator.yieldForPhoneMirror()` clears wrist coach engine when phone is PRIMARY; mirror start never blocked.
+2. **HK channel survives blips** — stale signal → UI `wristMirrorLive = false` + sync ping; channel stays bound until explicit end or post-workout idle.
+3. **Mid-workout HK end** — `handleMirrorSessionEnded()` relaunches `startWatchApp` without clearing `primaryRequested`.
+4. **Mirror HUD stays mounted** — HK `ended`/`stopped`/`didFailWithError` on mirror/orphan → connection banner + `sync`, not `forceIdle` → Readiness.
+5. **Pause/resume** — frame phase syncs `hkPaused`; wrist controls idempotent (`resumeIfPaused`).
+
+FH-100/101 preserved: teardown deadline, athlete Terminar ownership, bilateral end sync.
 
 ## Live X (FH-99 extension)
 

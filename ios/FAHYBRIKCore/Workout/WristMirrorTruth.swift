@@ -1,8 +1,9 @@
 import Foundation
 
-// FH-99 — ONE honest criterion for «reloj unido / grabando» on the phone.
+// FH-99 / FH-107 — honest UI for «reloj unido / grabando» on the phone.
 // A bound HK mirror channel is NOT live until the wrist sends a recent signal.
 // UI reads `mirrorIsLive`; never infer recording from `startWatchApp` success alone.
+// Stale signal does NOT tear down the HK channel — Apple session stays until explicit end.
 
 enum WristMirrorTruth {
 

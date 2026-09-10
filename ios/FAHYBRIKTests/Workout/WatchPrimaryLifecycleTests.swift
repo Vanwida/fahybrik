@@ -16,9 +16,9 @@ final class WatchPrimaryLifecycleTests: XCTestCase {
         XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
             current: .idle, hasSession: true, standaloneActive: false, role: .mirror
         ))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
+        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
             current: .idle, hasSession: false, standaloneActive: true, role: .mirror
-        ))
+        ), "phone mirror preempts wrist standalone — never block startWatchApp")
         XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
             current: .idle, hasSession: false, standaloneActive: true, role: .solo
         ))

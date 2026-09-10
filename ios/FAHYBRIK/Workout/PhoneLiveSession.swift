@@ -66,7 +66,7 @@ final class PhoneLiveSession {
 
     private init() {
         channel.onIncoming = { [weak self] data in self?.handleIncoming(data) }
-        channel.onSessionEnded = { [weak self] in self?.releaseChannel() }
+        channel.onSessionEnded = { [weak self] in self?.handleMirrorSessionEnded() }
     }
 
     func resetAthleteEndFlagsForTests() {
@@ -326,8 +326,24 @@ final class PhoneLiveSession {
         tickFrame()
     }
 
-    /// Drops the mirrored HK channel only — mid-workout stale watchdog uses this
-    /// without tearing down the coaching engine or bumping launch generation.
+    /// HK mirror channel dropped mid-workout — keep coaching intent and relaunch wrist.
+    private func handleMirrorSessionEnded() {
+        endDelivery?.cancel()
+        endDelivery = nil
+        stopFrameLoop()
+        channel.unbind()
+        wristJoined = false
+        mirrorBoundAt = nil
+        lastWristSignalAt = nil
+        guard phase == .coaching, engine?.isFinished != true else {
+            releaseChannel()
+            return
+        }
+        didLaunchWatch = false
+        launchWatchIfNeeded()
+    }
+
+    /// Drops the mirrored HK channel and PRIMARY latches — post-workout idle only.
     private func releaseChannel() {
         endDelivery?.cancel()
         endDelivery = nil
@@ -385,11 +401,8 @@ final class PhoneLiveSession {
     }
 
     private func tickFrame() {
-        if WristMirrorTruth.mirrorIsStale(
-            channelBound: channel.session != nil,
-            lastSignalAt: lastWristSignalAt
-        ) {
-            releaseChannel()
+        if channel.session == nil, phase == .coaching, engine?.isFinished != true {
+            launchWatchIfNeeded()
             return
         }
         guard let engine, channel.session != nil else { return }

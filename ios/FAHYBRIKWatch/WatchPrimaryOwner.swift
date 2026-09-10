@@ -120,6 +120,14 @@ final class WatchPrimaryOwner: NSObject {
     private func requestStart(configuration: HKWorkoutConfiguration, role: Role) {
         if reconcileIdleBeforeLaunch(incoming: configuration, role: role) { return }
 
+        if role == .mirror, phase == .recording, self.role == .solo {
+            Self.log.info("solo PRIMARY yielding to phone mirror")
+            pendingStartConfiguration = configuration
+            pendingStartRole = .mirror
+            requestEnd(save: true, reason: MirrorWire.EndReason.discarded)
+            return
+        }
+
         let mirrorAlive = role != .mirror || !isConnectionLost
         if MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
             isRecording: phase == .recording,
@@ -142,11 +150,13 @@ final class WatchPrimaryOwner: NSObject {
             if phase == .recording { requestEnd(save: false, reason: MirrorWire.EndReason.discarded) }
             return
         }
-        let standaloneActive = WatchWorkoutCoordinator.shared.phase != .idle
+        if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle {
+            WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
+        }
         guard WatchPrimaryLifecycle.acceptsStart(
             current: phase,
             hasSession: session != nil,
-            standaloneActive: standaloneActive,
+            standaloneActive: false,
             role: role
         ) else {
             if !WatchPrimaryLifecycle.isCleanIdle(phase: phase, hasSession: session != nil) {
@@ -189,7 +199,6 @@ final class WatchPrimaryOwner: NSObject {
 
     private func begin(configuration: HKWorkoutConfiguration, role: Role) async {
         guard phase == .idle else { return }
-        if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle { return }
         await Self.requestWorkoutAuthorization()
         guard phase == .idle else { return }
         do {
@@ -219,7 +228,9 @@ final class WatchPrimaryOwner: NSObject {
 
     func adopt(_ incoming: HKWorkoutSession, role: Role = .orphan) {
         guard phase == .idle, session == nil else { return }
-        if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle { return }
+        if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle {
+            WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
+        }
         bind(incoming, role: role, configuration: incoming.workoutConfiguration)
         lastSignalAt = Date()
         if role == .mirror || role == .orphan {
@@ -589,7 +600,11 @@ final class WatchPrimaryOwner: NSObject {
 
     private func checkConnection() {
         guard phase == .recording else { return }
-        isConnectionLost = Date().timeIntervalSince(lastSignalAt) > Self.connectionLostAfter
+        let lost = Date().timeIntervalSince(lastSignalAt) > Self.connectionLostAfter
+        if lost, !isConnectionLost {
+            sendCommand(MirrorWire.CommandKind.sync)
+        }
+        isConnectionLost = lost
     }
 
     private func stopConnectionWatchdog() {
@@ -653,6 +668,12 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
     ) {
         Task { @MainActor [weak self] in
             guard let self, self.phase != .idle else { return }
+            if self.role == .mirror || self.role == .orphan {
+                Self.log.warning("HK session error during mirror — staying on HUD: \(error.localizedDescription, privacy: .public)")
+                self.isConnectionLost = true
+                self.sendCommand(MirrorWire.CommandKind.sync)
+                return
+            }
             self.forceIdle()
         }
     }

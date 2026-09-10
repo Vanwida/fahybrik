@@ -34,8 +34,6 @@ final class WatchWorkoutCoordinator {
     /// across the view being recreated by watchOS paging. Nil until a session starts.
     private(set) var runLegDriver: WatchRunLegDriver?
 
-    /// Permission + accuracy only. Never integrates fixes into meters.
-    private let locationGate = WatchRunLocationGate()
     private var primary: WatchPrimaryOwner { WatchPrimaryOwner.shared }
     /// Day kind from the payload (`running` / `mixed` / `hyrox`…). The HK
     /// activity of a RUN PIECE is resolved against this, not instead of it.
@@ -128,6 +126,25 @@ final class WatchWorkoutCoordinator {
             Self.log.warning("found a finished engine still in .active phase — self-healing via finalize()")
             finalize()
         }
+    }
+
+    /// Phone `startWatchApp` is coach — drop wrist standalone without POST/summary.
+    func yieldForPhoneMirror() {
+        guard phase == .active else { return }
+        Self.log.info("yielding standalone — phone mirror is PRIMARY")
+        didFinalize = true
+        phase = .idle
+        session?.stop()
+        runLegDriver?.stop()
+        runLegDriver = nil
+        stopSensorTick()
+        if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
+        primary.onHeartRate = nil
+        primary.onDistanceDelta = nil
+        dayActivityKind = nil
+        session = nil
+        assignmentId = nil
+        Task { await WorkoutStateStore.shared.clear() }
     }
 
     func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
@@ -246,7 +263,6 @@ final class WatchWorkoutCoordinator {
             environment: engine.runEnvironment
         )
         primary.syncSoloActivity(plan)
-        locationGate.apply(wantsGPS: plan.wantsGPS)
     }
 
     private func tickSensorIntoEngine() {
@@ -439,7 +455,6 @@ final class WatchWorkoutCoordinator {
         if SensorCapture.shared.isRunning { SensorCapture.shared.stop() }
         primary.onHeartRate = nil
         primary.onDistanceDelta = nil
-        locationGate.stop()
         dayActivityKind = nil
         session = nil
         assignmentId = nil
