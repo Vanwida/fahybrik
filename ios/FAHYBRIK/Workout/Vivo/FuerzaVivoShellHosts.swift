@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Bandas de fuerza inyectables en `EntrenoVivoShellView` — mismo MarcoVivo global.
+// Bandas de fuerza inyectables en `RunLiveShellView` — mismo MarcoVivo global.
 // El estado vive en `FuerzaVivoShellState` (Environment) para compartir sujeto,
 // apoyos y acción sin un segundo árbol de cromo.
 

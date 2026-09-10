@@ -3,8 +3,8 @@ import XCTest
 
 // EL ÁRBOL DEL LIVE — una superficie, nunca nil, nunca el cromo C.
 //
-// Quien gana pinta la pantalla entera. Correr (`.run` / `.runStructure`) monta
-// Outdoor/Treadmill EN SITIO (`RunLiveChrome`); no hay tapa encima de otro HUD.
+// Quien gana pinta la banda sujeto. Todo monta `RunLiveShellView`; outdoor/cinta
+// son bandas inyectadas (`RunLiveChrome`), no entry points paralelos.
 
 final class SuperficieVivaTests: XCTestCase {
 
@@ -37,12 +37,13 @@ final class SuperficieVivaTests: XCTestCase {
                        "mismo shell EMOM; métricas erg inyectadas en el sujeto")
     }
 
-    /// Owner EMOM cinta/calle: metros, ritmo, velocidad — no EmomVivoView (FC + TOTAL).
-    func testElMinutoDeRunDeUnEmomEsRunNoEmom() {
+    /// EMOM run minute: mismo shell `.emom`; métricas run inyectadas (no otro árbol).
+    func testElMinutoDeRunDeUnEmomSigueEnEmomNoRun() {
         let s = sesionDeEmom(runPrimero: true)
         XCTAssertTrue(s.currentSegment?.isEMOM == true)
-        XCTAssertTrue(s.tramoIsRun, "El tramo decide la lectura: este minuto es carrera")
-        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertTrue(s.tramoIsRun, "El tramo es carrera, pero el formato EMOM manda el cromo")
+        XCTAssertEqual(SuperficieViva.de(s), .emom,
+                       "mismo shell EMOM; banda run outdoor/cinta inyectada en sujeto")
         XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
     }
 

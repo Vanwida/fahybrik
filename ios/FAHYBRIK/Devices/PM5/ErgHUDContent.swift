@@ -26,6 +26,8 @@ import UIKit
 struct ErgHUDContent: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
+    /// Dentro de `RunLiveShellView` el contexto lo pinta el shell — no repetir strip.
+    var incluyeContexto: Bool = true
     /// The workout's manual close, LANDSCAPE ONLY (portrait keeps its own bottom
     /// button outside this view). It used to live in a 132 pt column of its own,
     /// which squeezed this HUD sideways — the hero split sat off-centre and the
@@ -45,8 +47,8 @@ struct ErgHUDContent: View {
         VStack(spacing: isLandscape ? 8 : Theme.Spacing.m) {
             // Landscape hides the workout chrome so the numbers own the screen —
             // the leg title has to travel with the HUD there.
-            if isLandscape { header }
-            contextStrip
+            if isLandscape, incluyeContexto { header }
+            if incluyeContexto { contextStrip }
             // The programming banner first (it explains a silent monitor better than
             // the generic hint); the no-data hint only when nothing is in flight.
             PM5ProgramBanner(pm5: pm5)

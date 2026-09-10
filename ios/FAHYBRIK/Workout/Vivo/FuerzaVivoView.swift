@@ -35,9 +35,7 @@ import SwiftUI
 // siendo los mismos. FH-46 solo cambia el CUÁNDO: al cerrar el ejercicio se
 // declara un kg con la `KgWheel` que ya existía.
 
-/// El hierro en vivo, dentro del marco del §10.
-///
-/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire.
+/// Wrapper de preview/test — el live real monta `RunLiveShellView`.
 struct FuerzaVivoView: View {
     let session: WorkoutSession
     let accionTitulo: String
@@ -50,356 +48,25 @@ struct FuerzaVivoView: View {
     let hrLink: DeviceLink
     var muestraConectividad: Bool = true
 
-    /// La serie que el atleta está editando. Nil = ninguna, que es el estado
-    /// normal: ajustar es la excepción, no el camino.
-    @State private var editando: SerieEnEdicion?
-    /// Espejo local de la carga de un tramo de UNA serie, cebado de la
-    /// prescripción. Mismo contrato que tenía `StrengthLiveHUD`.
-    @State private var cargaKg: Double?
-    /// Rueda al CERRAR el ejercicio (FH-46): un kg para este tramo, no por serie.
-    @State private var cierreDeCarga: CierreDeCarga?
-
-    private var seg: WorkoutSegment? { session.currentSegment }
-    private var descansando: Bool { session.restRemainingSeconds > 0 }
-    private var porSeries: Bool { seg?.usesMultiSetStrength == true }
-    private var admiteCarga: Bool { seg?.kind == .strength || seg?.kind == .sled }
+    @State private var partnerStripCollapsed = false
 
     var body: some View {
-        MarcoVivo {
-            CromoVivoEntreno(session: session,
-                             muestraConectividad: muestraConectividad,
-                             alSalir: alSalir,
-                             alVerBloques: alVerBloques,
-                             alConectividad: alConectividad,
-                             alPausa: alPausa)
-        } contexto: {
-            contexto
-        } sujeto: {
-            BandaSujeto { sujeto }
-        } apoyos: {
-            apoyos
-        } accion: {
-            // LA FUERZA LA CIERRAS TÚ: el toque es lo único que puede cerrar la
-            // serie, y por eso aquí —y no en el EMOM— se gana el relleno (§10.5).
-            FranjaAccion(titulo: tituloDeAccion,
-                         unicaSalida: true,
-                         nota: notaDeAccion,
-                         accion: ejecutarAccion)
-        }
-        .onAppear { cebarCarga() }
-        .onChange(of: session.currentSegmentIndex) { _, _ in
-            editando = nil
-            cierreDeCarga = nil
-            cargaKg = nil
-            cebarCarga()
-        }
-        // AJUSTAR ES LA EXCEPCIÓN, y por eso vive en una hoja y no en la pantalla:
-        // el editor de una serie (reps, carga, RPE, RIR) mide más que la banda de
-        // apoyos entera, así que metido en la vista o la desbordaba o la obligaba a
-        // rodar — y un `ScrollView` en la superficie que manejas entre series, con
-        // las manos sudadas, es justo lo que no quieres tocar.
-        .sheet(item: $editando) { serie in
-            EditorDeSerie(session: session, indice: serie.indice)
-                .presentationDetents([.medium])
-        }
-        .sheet(item: $cierreDeCarga) { cierre in
-            HojaCargaAlCerrar(semillaKg: cierre.kg) { kg in
-                session.confirmExerciseLoad(kg)
-                cierreDeCarga = nil
-                alTocarAccion()
-            }
-        }
-    }
-
-    // MARK: - La acción — una sola, y hace lo que dice
-
-    /// EL ATLETA GOBIERNA: mientras queden series, el botón CIERRA LA SERIE que
-    /// tienes delante; cuando ya no quedan, cierra el ejercicio y lo dice.
-    ///
-    /// Antes esto vivía en un botón «HECHO» de 12 pt dentro de una fila de lista,
-    /// mientras el botón grande de abajo —el que se alcanza con el pulgar— cerraba
-    /// el EJERCICIO entero. El gesto que haces cuatro veces era el pequeño y el que
-    /// haces una vez, el grande.
-    ///
-    /// El motor no cambia: son las MISMAS llamadas (`confirmSet`, que dispara el
-    /// descanso, y el avance del anfitrión). Lo que cambia es cuál las dispara.
-    private var seriePendiente: Int? {
-        guard porSeries else { return nil }
-        return session.setRecords.firstIndex { !$0.confirmed && $0.status != "skipped" }
-    }
-
-    private var tituloDeAccion: String {
-        if descansando { return "SALTAR DESCANSO" }
-        guard let i = seriePendiente else { return accionTitulo }
-        return "SERIE \(session.setRecords[i].setIndex) HECHA"
-    }
-
-    private var notaDeAccion: String? {
-        if descansando { return "el descanso también es dosis" }
-        guard seriePendiente == nil, porSeries else { return nil }
-        return "todas las series cerradas"
-    }
-
-    private func ejecutarAccion() {
-        if descansando { session.dismissRest(); return }
-        if let i = seriePendiente { session.confirmSet(i); return }
-        if let kg = kgAlCerrarEjercicio {
-            cierreDeCarga = CierreDeCarga(kg: kg)
-            return
-        }
-        alTocarAccion()
-    }
-
-    /// Fuerza/sled con kg resuelto o prescrito, y al menos una serie no saltada.
-    /// El skip de todas las series es FH-47: aquí solo el cruce, no el botón.
-    private var kgAlCerrarEjercicio: Double? {
-        guard admiteCarga else { return nil }
-        if !session.setRecords.isEmpty,
-           session.setRecords.allSatisfy({ $0.status == "skipped" }) { return nil }
-        return cargaKg ?? session.manualLoadKg ?? seg?.loadKg
-    }
-
-    // MARK: - Contexto — el pacto del coach para este ejercicio
-
-    /// La franja que no desaparece jamás: qué te pidió el coach (`4×5 · 100 kg ·
-    /// descanso 1:30`) y si hay reloj midiéndote.
-    private var contexto: some View {
-        ContextoVivoEntreno(session: session,
-                            titulo: seg?.title ?? "Fuerza",
-                            subtitulo: lineaDelPlan,
-                            pm5: nil,
-                            hrLink: hrLink,
-                            alTapHR: alTapHR)
-    }
-
-    /// Lo que pidió el coach, en una línea. Solo lo que de verdad escribió: una
-    /// prescripción sin repeticiones no inventa un «×5» (§7).
-    private var lineaDelPlan: String? {
-        var partes: [String] = []
-        if porSeries, let dosis = Formato.dosisDeSeries(series: session.setRecords.count,
-                                                        reps: session.setRecords.first?.repsPrescribed) {
-            partes.append(dosis)
-        }
-        if let kg = seg?.loadKg, kg > 0 { partes.append(Formato.kg(kg)) }
-        if let d = descansoPrescrito {
-            partes.append("\(Vocab.descanso.lowercased()) \(Formato.clock(d, subMinuto: .segundos))")
-        }
-        return partes.isEmpty ? nil : partes.joined(separator: " · ")
-    }
-
-    private var descansoPrescrito: Int? {
-        session.setRecords.compactMap(\.restS).first
-    }
-
-    // MARK: - El sujeto
-
-    @ViewBuilder
-    private var sujeto: some View {
-        if descansando {
-            sujetoDescanso
-        } else if porSeries, let i = indiceSerieActual {
-            sujetoDeSerie(i)
-        } else if seg?.repsArePrimable == true {
-            sujetoPrescrito
-        } else {
-            sujetoContado
-        }
-    }
-
-    /// EL DESCANSO ES DOSIS, y mientras corre es lo que está pasando. No una
-    /// banderita en una esquina: el reloj manda la banda, como en cualquier otra
-    /// vista donde el tiempo gobierna.
-    private var sujetoDescanso: some View {
-        Group {
-            EtiquetaSujeto(texto: Vocab.descanso, tono: Theme.Color.info)
-            Numeral(texto: Formato.clock(max(0, session.restRemainingSeconds), anchoFijo: true),
-                    tono: Theme.Color.info)
-            if let siguiente = textoSerieSiguiente {
-                Text("Luego · \(siguiente)")
-                    .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-        }
-    }
-
-    /// LA SERIE QUE TIENES DELANTE. `5 × 100` es UNA cosa y así se lee — la cifra
-    /// no se parte en dos peldaños, que invertiría la jerarquía; de que quepa se
-    /// encarga el presupuesto de ancho de `EscalaNumeral` (§10.2).
-    ///
-    /// Y cuando el plan no trae medida, el sujeto DEGRADA a lo que sí hay: la
-    /// carga sola (el circuito real del coach llega con 30 kg y ninguna
-    /// repetición), y si tampoco, el nombre. Nunca un cero ni un guion (§7).
-    @ViewBuilder
-    private func sujetoDeSerie(_ i: Int) -> some View {
-        let rec = session.setRecords[i]
-        EtiquetaSujeto(texto: "\(Vocab.serie) \(rec.setIndex) de \(session.setRecords.count)")
-        if let dosis = Formato.serie(reps: rec.repsActual ?? rec.repsPrescribed,
-                                     cargaKg: rec.loadActualKg ?? rec.loadPrescribedKg) {
-            Numeral(texto: dosis.cifra, unidad: dosis.unidad)
-            NombreDelTrabajo(texto: seg?.title ?? "")
-        } else {
-            // Sin ninguna cifra el sujeto ES el nombre, y va en la voz de titular:
-            // el mono es para lo que se compara columna a columna (§4).
-            Text(seg?.title ?? "")
-                .scaledFont(34, weight: .heavy, relativeTo: .largeTitle, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-                .lineLimit(2).minimumScaleFactor(0.6)
-        }
-        if let pastilla = pastillaIntensidad(i) {
-            Text(pastilla)
-                .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.accentText)
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, 5)
-                .background(Theme.Color.accent.opacity(0.16), in: Capsule())
-        }
-    }
-
-    /// Un tramo de UNA serie con dosis escrita: el sujeto es lo prescrito, y
-    /// confirmarlo cuesta cero toques (lo sella el botón de abajo). Ajustar es la
-    /// excepción y vive en los apoyos.
-    @ViewBuilder
-    private var sujetoPrescrito: some View {
-        EtiquetaSujeto(texto: session.repsSkipped ? "Saltado" : Vocab.objetivo)
-        if session.repsSkipped {
-            // Saltado: no hay cifra que enseñar y no se finge una. Manda el nombre.
-            Text(seg?.title ?? "")
-                .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
-                .foregroundStyle(Theme.Color.muted)
-                .lineLimit(2).minimumScaleFactor(0.6)
-        } else if let dosis = Formato.serie(reps: session.repsCurrentSegment,
-                                            cargaKg: admiteCarga ? (cargaKg ?? seg?.loadKg) : nil) {
-            Numeral(texto: dosis.cifra, unidad: dosis.unidad)
-            NombreDelTrabajo(texto: seg?.title ?? "")
-            if let p = seg?.prescribedRepsForLog, p != session.repsCurrentSegment {
-                DeltaPastilla(delta: Delta(valor: Double(session.repsCurrentSegment - p),
-                                           unidad: Vocab.reps,
-                                           sentido: .mas,
-                                           sufijo: "vs lo prescrito",
-                                           textoNulo: "como estaba escrito"))
-            }
-        }
-    }
-
-    /// Puntuación abierta: las repeticiones SON el marcador y suben desde un cero
-    /// legal. Aquí el cero sí es un dato — alguien está contando, y es el atleta.
-    @ViewBuilder
-    private var sujetoContado: some View {
-        Button(action: { session.tap(); Haptics.light() }) {
-            VStack(spacing: 6) {
-                EtiquetaSujeto(texto: Vocab.reps, tono: Theme.Color.accentText)
-                Numeral(texto: "\(session.repsCurrentSegment)", tono: Theme.Color.accentText)
-                NombreDelTrabajo(texto: seg?.title ?? "")
-                Text("toca para sumar una")
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Sumar repetición. Llevas \(session.repsCurrentSegment)")
-    }
-
-    /// Lo que el coach pidió de intensidad, traducido. El número solo no dice qué
-    /// hacer, y el atleta que entra hoy no ha visto la escala nunca.
-    ///
-    /// La serie manda sobre el bloque, pero el bloque es el caso NORMAL: el coach
-    /// escribe «RIR 2» una vez para el ejercicio entero y solo lo baja en la serie
-    /// que quiere distinta. Mirando solo la serie, el 4×5 @ RIR 2 real se quedaba
-    /// sin pastilla — el dato estaba escrito y la pantalla no lo enseñaba.
-    private func pastillaIntensidad(_ i: Int) -> String? {
-        let p = seg?.prescription
-        let deLaSerie = p?.sets.flatMap { $0.indices.contains(i) ? $0[i] : nil }
-        if let rir = deLaSerie?.prescribedRir ?? bloqueRir { return Vocab.rirTraducido(Int(rir.rounded())) }
-        if let rpe = deLaSerie?.prescribedRpe ?? bloqueRpe { return "\(Vocab.rpe) \(Formato.esDecimal(rpe))" }
-        return nil
-    }
-
-    private var bloqueRir: Double? {
-        if case let .rir(valor, minimo, _) = seg?.prescription?.target { return valor ?? minimo }
-        return nil
-    }
-
-    private var bloqueRpe: Double? {
-        if case let .rpe(valor, minimo, _) = seg?.prescription?.target { return valor ?? minimo }
-        return nil
-    }
-
-    /// La serie que viene, para el descanso. Nil cuando esta era la última.
-    private var textoSerieSiguiente: String? {
-        guard let i = indiceSerieActual else { return nil }
-        let rec = session.setRecords[i]
-        guard !rec.confirmed else { return nil }
-        return Formato.serie(reps: rec.repsPrescribed, cargaKg: rec.loadActualKg ?? rec.loadPrescribedKg)?.linea
-    }
-
-    /// La serie que toca: la primera sin confirmar y sin saltar. Cuando están
-    /// todas hechas manda la última, porque es la que el atleta acaba de cerrar.
-    private var indiceSerieActual: Int? {
-        guard !session.setRecords.isEmpty else { return nil }
-        let pendiente = session.setRecords.firstIndex { !$0.confirmed && $0.status != "skipped" }
-        return pendiente ?? session.setRecords.indices.last
-    }
-
-    // MARK: - Los apoyos
-
-    private var apoyos: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            FilaApoyos {
-                ApoyoVivo(etiqueta: Vocab.fc,
-                          valor: session.liveHRBpm.map { "\($0)" },
-                          unidad: Vocab.ppm,
-                          tono: session.liveZone?.color ?? Theme.Color.foreground,
-                          ausente: "sin reloj")
-                ApoyoVivo(etiqueta: Vocab.vuelta,
-                          valor: Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
-                ApoyoVivo(etiqueta: Vocab.total,
-                          valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
-            }
-            if porSeries {
-                RielDeSeries(series: session.setRecords,
-                             actual: indiceSerieActual,
-                             alTocar: { editando = SerieEnEdicion(indice: $0) })
-            } else {
-                ajustesDeTramo
-            }
-            Spacer(minLength: 0)
-            SiguienteTramoChip(siguiente: session.nextSegment)
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-    }
-
-    // MARK: - Los ajustes de un tramo de UNA serie
-
-    @ViewBuilder
-    private var ajustesDeTramo: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            if seg?.repsArePrimable == true, !session.repsSkipped {
-                PasoEntero(etiqueta: Vocab.reps,
-                           valor: session.repsCurrentSegment,
-                           alCambiar: { session.setReps($0) })
-            }
-            if admiteCarga {
-                RuedaDeCarga(valor: cargaKg ?? seg?.loadKg ?? 20,
-                             alCambiar: { cargaKg = $0; session.manualLoadKg = $0 })
-            }
-            if seg?.repsArePrimable == true {
-                Button(action: { session.setRepsSkipped(!session.repsSkipped); Haptics.light() }) {
-                    Text(session.repsSkipped ? "Deshacer salto" : "Saltar ejercicio")
-                        .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(session.repsSkipped ? Theme.Color.accentText : Theme.Color.muted)
-                        .underline()
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func cebarCarga() {
-        guard admiteCarga else { cargaKg = nil; return }
-        session.primeManualLoadIfNeeded()
-        cargaKg = session.manualLoadKg
+        RunLiveShellView(
+            session: session,
+            hrZones: session.hrZones,
+            accionTitulo: accionTitulo,
+            alTocarAccion: alTocarAccion,
+            alSalir: alSalir,
+            alVerBloques: alVerBloques,
+            alConectividad: alConectividad,
+            alTapPM5: {},
+            alTapHR: alTapHR,
+            alPausa: alPausa,
+            pm5: PM5Pool.shared.any,
+            hrLink: hrLink,
+            muestraConectividad: muestraConectividad,
+            partnerStripCollapsed: $partnerStripCollapsed
+        )
     }
 }
 
@@ -599,7 +266,7 @@ private struct RuedaDeCarga: View {
 
 /// Hoja al cerrar el ejercicio: la misma `KgWheel`, semilla = kg propuesto.
 /// HECHO sin girar guarda ese propuesto. `Measurement<UnitMass>` no es un control.
-private struct HojaCargaAlCerrar: View {
+struct HojaCargaAlCerrar: View {
     let alConfirmar: (Double) -> Void
     @State private var units: Int
 

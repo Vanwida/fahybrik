@@ -50,14 +50,14 @@ Shown on `LiveOrientationStrip` (shell apoyos, Rounds HUD, outdoor/treadmill apo
 - **One erg stats row** (`ErgLiveStrip`) in the subject band.
 - **Device connection** only in top strip (`BotonConectividad` → sheet) — removed duplicate `LiveRecipeDeviceBar` + redundant `ConnectionStrip` from apoyos when it overlapped stats.
 
-## Live UI unification (FH-55 / owner override)
+## Live UI unification (FH-107 build 93 — one Run tree)
 
-- **`SuperficieViva.de`**: run tramos win before format; **EMOM format wins over ergo** (ski minute stays `.emom` — same chrome, erg metrics injected). EMOM run minute → `.run`.
-- **`EntrenoVivoShellView`**: ONE `MarcoVivo` + `CromoVivoEntreno` for every non-outdoor/treadmill modality. EMOM/fuerza/rest are **subject bands**, not separate top-level views.
-- **`CromoVivoEntreno` + `ContextoVivoEntreno`**: shared chrome; PM5/GPS/HR chips in contexto — never on metrics.
-- **Subject by modality**: Run → `RunLiveHUD`; erg → `ErgHUDContent`; EMOM → `EmomVivoSubjectBand` (+ `ErgLiveStrip` when machine); fuerza → `FuerzaVivoSubjectBand`; conditioning → format HUD; rest → `RestSubjectBand` (blue field inside shell).
-- **Run outdoor/treadmill**: `OutdoorRunHUDView` / `TreadmillHUDView` (Run shell family); both mount `LiveOrientationStrip` in apoyos.
-- **Sensor authority**: `RunPhoneSensorPlan` uses `hasMirroredHKSession` (HK channel bound), not `wristMirrorLive` UI flag — avoids double pedometer/HR when mirror stale.
+- **`RunLiveShellView`**: único entry en `ActiveWorkoutView.superficieMontada`. Un `MarcoVivo` + `CromoVivoEntreno` para run, erg, EMOM, fuerza, descanso, conditioning.
+- **`SuperficieViva.de`**: decide **solo la banda sujeto**. **EMOM gana sobre ergo y sobre run tramo** — ski↔run↔rest no cambian de shell; solo métricas.
+- **Run outdoor/cinta**: bandas `RunOutdoorBands` / `TreadmillHUDView(embebidoEnShell:)` inyectadas dentro del mismo shell — no `OutdoorRunHUDView` ni árbol treadmill paralelo.
+- **Subject by modality**: EMOM → `EmomVivoSubjectBand` (+ `ErgHUDContent` o bandas run cuando tramoIsErg/tramoIsRun); erg → `ErgHUDContent`; fuerza → `FuerzaVivoShellHosts`; rest → `RestSubjectBand`; run → bandas outdoor/cinta.
+- **Previews/tests**: `OutdoorRunHUDView`, `EmomVivoView`, `FuerzaVivoView` son wrappers finos sobre `RunLiveShellView` — no montan MarcoVivo propio.
+- **Sensor authority**: `RunPhoneSensorPlan` uses `hasMirroredHKSession` (HK channel bound), not `wristMirrorLive` UI flag.
 
 ## Watch — Apple-first rewrite (FH-107 build 93)
 

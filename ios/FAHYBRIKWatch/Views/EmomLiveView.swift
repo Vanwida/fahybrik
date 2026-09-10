@@ -58,10 +58,27 @@ struct EmomLiveView: View {
             }
             return list
         }
-        return GuionEmom.paginas(
+        var pages = GuionEmom.paginas(
             GuionEmom.estadoSolitario(session),
             GuionEmom.gestosSolitario(session)
         )
+        // Minuto run dentro del EMOM: mismas páginas de rodaje, mismo shell EMOM.
+        if session.tramoIsRun, session.emomPhase == .work {
+            let runEstado = GuionRodaje.Estado(
+                esCorrer: true,
+                zonaObjetivo: session.currentSegment?.targetZone,
+                zonaViva: session.liveZone,
+                bpm: session.liveHRBpm,
+                ritmoSecPorKm: session.liveCoveredPaceSecPerKm.map { Double($0) },
+                metros: session.liveRunDistanceMeters,
+                objetivoMetros: session.currentSegment?.targetDistanceMeters.map { Double($0) },
+                segundos: session.lapElapsedSeconds
+            )
+            let runPages = GuionRodaje.paginas(runEstado, GuionRodaje.gestosSolitario(session))
+                .filter { $0.id != "tiempo" }
+            pages.append(contentsOf: runPages)
+        }
+        return pages
     }
 
     private var statusText: String {

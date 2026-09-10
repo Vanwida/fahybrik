@@ -38,22 +38,34 @@ struct TreadmillHUDView: View {
     let alVerBloques: () -> Void
     /// Abre conectividad (calle ↔ cinta) sin parar la sesión (FH-102).
     let alConectividad: () -> Void
+    /// Dentro de `RunLiveShellView`: solo sujeto/apoyos, sin cromo/header propio.
+    var embebidoEnShell: Bool = false
     /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
     /// HUD vivo (reloj indoor), no a la guía de conectar.
     init(session: WorkoutSession, hrZones: HRZoneProfile?,
-         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void,
-         alVerBloques: @escaping () -> Void, alConectividad: @escaping () -> Void) {
-        // The SHARED hub — so a belt connected in the brief is already live here (no
-        // re-scan), and the connection outlives this surface going away and coming back.
-        _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
-                                                       hub: .shared))
+         empiezaSinCinta: Bool = false, embebidoEnShell: Bool = false,
+         injectedModel: TreadmillHUDModel? = nil,
+         alSalir: @escaping () -> Void, alVerBloques: @escaping () -> Void,
+         alConectividad: @escaping () -> Void) {
+        // Embebido en `RunLiveShellView`: el shell posee el modelo y su ciclo de vida.
+        _model = State(initialValue: injectedModel
+            ?? TreadmillHUDModel(session: session, hrZones: hrZones, hub: .shared))
         _sinCinta = State(initialValue: empiezaSinCinta)
+        self.embebidoEnShell = embebidoEnShell
         self.alSalir = alSalir
         self.alVerBloques = alVerBloques
         self.alConectividad = alConectividad
     }
 
     var body: some View {
+        if embebidoEnShell {
+            cuerpoVivoEmbebido
+        } else {
+            pantallaCompleta
+        }
+    }
+
+    private var pantallaCompleta: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea().instrumentCanvas()
             VStack(spacing: Theme.Spacing.m) {
@@ -91,11 +103,11 @@ struct TreadmillHUDView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
         .onAppear {
-            model.start()
-            // La pantalla despierta la lleva WorkoutContainer por fase (dueño
-            // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
+            if !embebidoEnShell { model.start() }
         }
-        .onDisappear { model.teardown() }
+        .onDisappear {
+            if !embebidoEnShell { model.teardown() }
+        }
         // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
         // bloque). Sólo servían para bajar el cover cuando la sesión salía de correr;
         // ahora el reparto lo hace `ActiveWorkoutView.superficieViva`, que deja de
@@ -109,6 +121,32 @@ struct TreadmillHUDView: View {
             TreadmillControlDebugSheet(model: model)
         }
         #endif
+    }
+
+    /// Sujeto de cinta dentro de `RunLiveShellView` — sin header/cromo duplicado.
+    private var cuerpoVivoEmbebido: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            if model.treadmillLink.isLive, !model.isCountIn {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    if model.telemetrySilent { treadmillNoDataHint }
+                }
+            }
+            if !model.treadmillLink.isLive && !sinCinta {
+                connectingState
+            } else if model.isCountIn {
+                countInState
+            } else if model.session.calentamientoEsListaEnLaCarrera {
+                calentamientoEnCinta
+            } else if isLandscape {
+                landscapeLiveHUD
+            } else {
+                liveHUD
+            }
+        }
+        .overlay {
+            if let n = model.startCountdown { countdownOverlay(n) }
+        }
+        .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
     }
 
     /// Movilidad del calentamiento: el mismo cromo de cinta, no otra pantalla.

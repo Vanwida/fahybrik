@@ -99,6 +99,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // Antes salían «—:—» de media y «—» de % de zona; ahora cada celda dice por
         // qué está vacía, que es lo único accionable (§7).
         let sesion = sesionDeRodaje()
+        sesion.runEnvironment = .outdoor
         let imagen = render(lienzo(sesion) {
             OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {}, alVerBloques: {}, alConectividad: {})
         }, nombre: "formato-sostenido-sin-medida")
@@ -113,6 +114,7 @@ final class VivoHUDRenderTests: XCTestCase {
         // «/km» debajo. Lo único que los separaba era el color, y corriendo el color
         // no se lee. Ahora el sujeto degrada al RELOJ y la etiqueta lo dice.
         let sesion = sesionDeSeries()
+        sesion.runEnvironment = .outdoor
         let imagen = render(lienzo(sesion) {
             OutdoorRunHUDView(session: sesion, hrZones: nil, alSalir: {}, alVerBloques: {}, alConectividad: {})
         }, nombre: "formato-series-sin-ritmo-medido")

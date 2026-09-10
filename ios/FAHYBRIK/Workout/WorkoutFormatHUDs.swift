@@ -23,7 +23,7 @@ import SwiftUI
 // pintan `OutdoorRunHUDView` y `TreadmillHUDView`, y ahora son superficies vivas
 // (`ActiveWorkoutView.superficieViva`), no covers: la serie, el rodaje y el tramo
 // estructurado son la MISMA pantalla, elegida por dónde contestaste que corres.
-// El descanso de cualquier motor sigue siendo `RestSurface`, y el ergo
+// El descanso de cualquier motor sigue siendo `RestSubjectBand` en el shell, y el ergo
 // `ErgHUDContent`.
 
 // MARK: - Shared building blocks
@@ -70,7 +70,7 @@ struct FormatClockHero: View {
 // trabajo/descanso), `RotatingWorkCard` (la tarjeta «esta serie · luego…») y
 // `PaceTargetBar` (el ritmo objetivo). Eran atajos de los formatos rotativos, y
 // los dos que quedan —AMRAP y la ruta— no los usan: su descanso ya es
-// `RestSurface` y su objetivo lo pinta la superficie que mide.
+// `RestSubjectBand` y su objetivo lo pinta la banda sujeto del shell.
 
 /// A 3-cell metric row matching the EMOM HUD's grid (total / progress / HR).
 struct MetricRow3: View {

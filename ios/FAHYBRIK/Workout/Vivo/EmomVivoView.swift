@@ -29,9 +29,9 @@ import SwiftUI
 //
 // LA VENTANA DE CAMBIO NO SE PINTA AQUÍ: es una fase con su propio sujeto
 // (cuánto queda, hacia qué andas, cómo baja el pulso) y tiene pantalla propia —
-// `RestSurface`, a la que `ActiveWorkoutView` enruta antes que a esta vista.
+// `RestSubjectBand` dentro de `RunLiveShellView` cuando `SuperficieViva` es `.rest`.
 
-// MARK: - Bandas inyectables en `EntrenoVivoShellView` (un solo MarcoVivo)
+// MARK: - Bandas inyectables en `RunLiveShellView` (un solo MarcoVivo)
 
 struct EmomVivoContextoBand: View {
     let session: WorkoutSession
@@ -171,14 +171,9 @@ enum EmomVivoAccionNota {
     }
 }
 
-/// El EMOM en vivo, dentro del marco del §10.
-///
-/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire. Solo cambia
-/// la lectura del sujeto (el minuto manda).
+/// Wrapper de preview/test — el live real monta `RunLiveShellView`.
 struct EmomVivoView: View {
     let session: WorkoutSession
-    /// El rótulo del botón, tal y como lo decide el anfitrión (SALTAR durante la
-    /// cuenta atrás, SIGUIENTE, TERMINAR en el último intervalo).
     let accionTitulo: String
     let alTocarAccion: () -> Void
     let alSalir: () -> Void
@@ -189,32 +184,25 @@ struct EmomVivoView: View {
     let hrLink: DeviceLink
     var muestraConectividad: Bool = true
 
+    @State private var partnerStripCollapsed = false
+
     var body: some View {
-        MarcoVivo {
-            CromoVivoEntreno(session: session,
-                             muestraConectividad: muestraConectividad,
-                             alSalir: alSalir,
-                             alVerBloques: alVerBloques,
-                             alConectividad: alConectividad,
-                             alPausa: alPausa)
-        } contexto: {
-            EmomVivoContextoBand(session: session, hrLink: hrLink, alTapHR: alTapHR)
-        } sujeto: {
-            BandaSujeto { EmomVivoSubjectBand(session: session) }
-        } apoyos: {
-            VStack(spacing: Theme.Spacing.s) {
-                LiveOrientationStrip(orientation: session.liveOrientation)
-                EmomVivoApoyosBand(session: session)
-                Spacer(minLength: 0)
-                SiguienteTramoChip(siguiente: session.nextSegment)
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
-        } accion: {
-            FranjaAccion(titulo: accionTitulo,
-                         unicaSalida: false,
-                         nota: EmomVivoAccionNota.de(session),
-                         accion: alTocarAccion)
-        }
+        RunLiveShellView(
+            session: session,
+            hrZones: nil,
+            accionTitulo: accionTitulo,
+            alTocarAccion: alTocarAccion,
+            alSalir: alSalir,
+            alVerBloques: alVerBloques,
+            alConectividad: alConectividad,
+            alTapPM5: {},
+            alTapHR: alTapHR,
+            alPausa: alPausa,
+            pm5: PM5Pool.shared.any,
+            hrLink: hrLink,
+            muestraConectividad: muestraConectividad,
+            partnerStripCollapsed: $partnerStripCollapsed
+        )
     }
 }
 

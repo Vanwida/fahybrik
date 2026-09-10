@@ -1,25 +1,15 @@
 import SwiftUI
 
-// LA CÁSCARA GLOBAL DEL LIVE — un solo árbol MarcoVivo + cromo Run para todo.
+// UN SOLO ÁRBOL LIVE — el patrón `OutdoorRunHUDView` / `MarcoVivo` para TODO.
 //
-// Outdoor / cinta montan sus propias superficies cuando el entorno de carrera
-// ya está elegido; el resto entra aquí. La modalidad solo elige el SUJETO; el
-// cromo y el contexto son los mismos componentes que correr al aire.
+// Carrera al aire, cinta, erg, EMOM, fuerza, descanso, formatos: mismo cromo
+// (`CromoVivoEntreno`), mismo marco. Solo cambia la banda sujeto inyectada.
+// OutdoorRunHUDView y TreadmillHUDView ya no son entry points — solo bandas
+// (`RunOutdoorBands`, `TreadmillHUDView` embebido).
 
-enum LecturaVivoEntreno {
-    case emom
-    case fuerza
-    case ergo
-    case relay
-    case structural
-    case rest
-    case conditioning
-    case runHost
-}
-
-struct EntrenoVivoShellView: View {
+struct RunLiveShellView: View {
     let session: WorkoutSession
-    let lectura: LecturaVivoEntreno
+    let hrZones: HRZoneProfile?
     let accionTitulo: String
     let alTocarAccion: () -> Void
     let alSalir: () -> Void
@@ -38,6 +28,13 @@ struct EntrenoVivoShellView: View {
     var accionDelHost: AccionDelHost? = nil
     var alSaltarTramo: ((Int) -> Void)? = nil
 
+    @State private var outdoorModel: OutdoorRunHUDModel?
+    @State private var treadmillModel: TreadmillHUDModel?
+    @State private var sinCinta = false
+
+    private var sujeto: SuperficieViva { SuperficieViva.de(session) }
+    private var runChrome: RunLiveChrome { RunLiveChrome.de(session) }
+
     private var liveErgRole: ErgMachineRole? {
         guard session.tramoIsErg else { return nil }
         return ErgMachineRole(modality: session.currentTramo.modality)
@@ -45,7 +42,7 @@ struct EntrenoVivoShellView: View {
 
     var body: some View {
         Group {
-            if lectura == .fuerza {
+            if sujeto == .fuerza {
                 FuerzaVivoShellScope(session: session,
                                      accionTitulo: accionTitulo,
                                      alTocarAccion: alTocarAccion) {
@@ -55,40 +52,45 @@ struct EntrenoVivoShellView: View {
                 shellBody
             }
         }
+        .onAppear { syncRunModels() }
+        .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels() }
+        .onChange(of: session.runEnvironment) { _, _ in syncRunModels() }
+        .onChange(of: sujeto) { _, _ in syncRunModels() }
+        .onDisappear {
+            outdoorModel?.teardown()
+            treadmillModel?.teardown()
+        }
     }
 
     private var shellBody: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea().instrumentCanvas()
             Ambiente(zona: session.liveZone)
-            marcoGenerico
+            MarcoVivo {
+                CromoVivoEntreno(session: session,
+                                 runEnvironment: session.runEnvironment,
+                                 muestraConectividad: muestraConectividad,
+                                 muestraVozCoach: session.runEnvironment != nil,
+                                 alSalir: alSalir,
+                                 alVerBloques: alVerBloques,
+                                 alConectividad: alConectividad,
+                                 alPausa: alPausa)
+            } contexto: {
+                contextoBand
+            } sujeto: {
+                BandaSujeto { sujetoBand }
+            } apoyos: {
+                apoyosBand
+            } accion: {
+                accionBand
+            }
         }
         .allowsLandscape()
     }
 
     @ViewBuilder
-    private var marcoGenerico: some View {
-        MarcoVivo {
-            CromoVivoEntreno(session: session,
-                             runEnvironment: lectura == .runHost ? session.runEnvironment : nil,
-                             muestraConectividad: muestraConectividad,
-                             alSalir: alSalir,
-                             alVerBloques: alVerBloques,
-                             alConectividad: alConectividad,
-                             alPausa: alPausa)
-        } contexto: {
-            contextoGenerico
-        } sujeto: {
-            BandaSujeto { sujetoGenerico }
-        } apoyos: {
-            apoyosComunes
-        } accion: {
-            franjaGenerica
-        }
-    }
-
-    private var contextoGenerico: some View {
-        switch lectura {
+    private var contextoBand: some View {
+        switch sujeto {
         case .emom:
             EmomVivoContextoBand(session: session, hrLink: hrLink, alTapHR: alTapHR)
         case .fuerza:
@@ -101,7 +103,7 @@ struct EntrenoVivoShellView: View {
                 pm5: pm5,
                 pm5RoleTitle: liveErgRole?.titleES,
                 muestraPM5: session.tramoIsErg || liveScanPath.showPM5Chip,
-                muestraGPS: lectura == .runHost,
+                muestraGPS: sujeto.esCarrera && runChrome == .outdoor,
                 gpsActive: gpsActive,
                 hrLink: hrLink,
                 alTapPM5: alTapPM5,
@@ -112,12 +114,17 @@ struct EntrenoVivoShellView: View {
 
     private var tituloDeContexto: String {
         if session.tramoIsErg { return session.currentTramo.label }
+        if sujeto.esCarrera, let m = outdoorModel, m.isStructured {
+            return "Tramo \(m.legNumber) de \(m.legTotal) · \(m.currentSegment?.title ?? "Correr")"
+        }
         return session.currentSegment?.title ?? session.currentTramo.label
     }
 
     private var subtituloDeContexto: String? {
-        if session.currentSegment?.isEMOM == true, session.tramoIsErg {
-            return session.currentSegment?.title
+        if session.currentSegment?.isEMOM == true {
+            if session.tramoIsErg || session.tramoIsRun {
+                return session.currentTramo.label
+            }
         }
         if let nombre = session.currentSegment?.formatScheme?.displayName,
            nombre.caseInsensitiveCompare(tituloDeContexto) != .orderedSame {
@@ -131,7 +138,7 @@ struct EntrenoVivoShellView: View {
             wantsCinta: session.tramoIsRun || session.runEnvironment != nil,
             wantsPM5: session.tramoIsErg,
             treadmillCoverOpen: false,
-            treadmillLink: .idle,
+            treadmillLink: treadmillModel?.treadmillLink ?? .idle,
             pm5State: pm5.connectionState,
             pm5ConnectionLost: pm5.connectionLost,
             hrLink: hrLink,
@@ -140,32 +147,58 @@ struct EntrenoVivoShellView: View {
     }
 
     @ViewBuilder
-    private var sujetoGenerico: some View {
-        switch lectura {
+    private var sujetoBand: some View {
+        switch sujeto {
         case .emom:
             EmomVivoSubjectBand(session: session)
             if session.tramoIsErg, pm5.isConnected {
-                ErgLiveStrip(session: session, pm5: pm5)
+                ErgHUDContent(session: session, pm5: pm5, incluyeContexto: false)
+            } else if session.tramoIsRun {
+                emomRunMetrics
             }
         case .fuerza:
             FuerzaVivoSubjectHost()
         case .ergo:
-            ErgHUDContent(session: session, pm5: pm5)
+            ErgHUDContent(session: session, pm5: pm5, incluyeContexto: false)
         case .relay:
-            relaySurface
+            relaySubject
         case .structural:
-            structuralWorkSurface
+            structuralSubject
         case .rest:
             RestSubjectBand(session: session)
         case .conditioning:
-            sujetoDeConditioning
-        case .runHost:
+            conditioningSubject
+        case .run, .runStructure:
+            runSubject
+        }
+    }
+
+    @ViewBuilder
+    private var runSubject: some View {
+        switch runChrome {
+        case .outdoor:
+            if let m = outdoorModel {
+                RunOutdoorSubjectBand(model: m)
+            } else {
+                RunLiveHUD(session: session, gpsActive: gpsActive)
+            }
+        case .treadmill:
+            if let m = treadmillModel {
+                TreadmillHUDView(session: session, hrZones: hrZones,
+                                 empiezaSinCinta: sinCinta, embebidoEnShell: true,
+                                 injectedModel: m,
+                                 alSalir: alSalir, alVerBloques: alVerBloques,
+                                 alConectividad: alConectividad)
+            } else {
+                RunLiveHUD(session: session, gpsActive: gpsActive)
+            }
+        case .host:
             RunLiveHUD(session: session, gpsActive: gpsActive)
         }
     }
 
     @ViewBuilder
-    private var sujetoDeConditioning: some View {
+    private var conditioningSubject: some View {
         VStack(spacing: Theme.Spacing.s) {
             conditioningHUD
             if pm5.isConnected, !session.isStationTramo {
@@ -188,7 +221,7 @@ struct EntrenoVivoShellView: View {
     }
 
     @ViewBuilder
-    private var relaySurface: some View {
+    private var relaySubject: some View {
         VStack(spacing: 16) {
             if let turn = session.currentSegment?.doblesTurn {
                 DoblesTurnHero(turn: turn,
@@ -217,7 +250,7 @@ struct EntrenoVivoShellView: View {
     }
 
     @ViewBuilder
-    private var structuralWorkSurface: some View {
+    private var structuralSubject: some View {
         if let region = session.currentBlockRegion {
             ScrollView(showsIndicators: false) {
                 StructuralBlockChecklist(
@@ -230,14 +263,23 @@ struct EntrenoVivoShellView: View {
     }
 
     @ViewBuilder
-    private var apoyosComunes: some View {
+    private var apoyosBand: some View {
         VStack(spacing: Theme.Spacing.s) {
             LiveOrientationStrip(orientation: session.liveOrientation)
-            switch lectura {
+            switch sujeto {
             case .emom:
                 EmomVivoApoyosBand(session: session)
+                if session.tramoIsRun, runChrome == .outdoor, let m = outdoorModel {
+                    RunOutdoorApoyosBand(model: m)
+                }
             case .fuerza:
                 FuerzaVivoApoyosHost(session: session)
+            case .run, .runStructure:
+                if runChrome == .outdoor, let m = outdoorModel {
+                    RunOutdoorApoyosBand(model: m)
+                } else {
+                    apoyosGenericos
+                }
             default:
                 apoyosGenericos
             }
@@ -264,29 +306,31 @@ struct EntrenoVivoShellView: View {
             )
         }
         if let turn = session.currentSegment?.doblesTurn,
-           !session.currentSegmentIsPartnerRelay, lectura != .relay {
+           !session.currentSegmentIsPartnerRelay, sujeto != .relay {
             DoblesTurnHero(turn: turn,
                            next: session.plan.segments.nextDoblesTurn(
                                after: session.currentSegmentIndex),
                            compact: true,
                            partnerFallback: partnerFirstName)
         }
-        if session.currentSegmentIsMetcon, lectura != .emom {
+        if session.currentSegmentIsMetcon, sujeto != .emom {
             RxScaledToggle(session: session)
         }
     }
 
     @ViewBuilder
-    private var franjaGenerica: some View {
-        if lectura == .fuerza {
+    private var accionBand: some View {
+        if sujeto == .fuerza {
             FuerzaVivoAccionHost(session: session,
                                  accionTitulo: accionTitulo,
                                  alTocarAccion: alTocarAccion)
-        } else if lectura == .emom {
+        } else if sujeto == .emom {
             FranjaAccion(titulo: accionTitulo,
                          unicaSalida: false,
                          nota: EmomVivoAccionNota.de(session),
                          accion: alTocarAccion)
+        } else if sujeto.esCarrera, runChrome == .outdoor, let m = outdoorModel {
+            RunOutdoorAccionBand(model: m)
         } else if let host = accionDelHost {
             switch host {
             case let .una(titulo, unica, nota, act):
@@ -310,7 +354,7 @@ struct EntrenoVivoShellView: View {
                     BotonVivo(titulo: "LO LOGRÉ", unicaSalida: false, accion: logre)
                 }
             }
-        } else if lectura == .rest {
+        } else if sujeto == .rest {
             FranjaAccion(titulo: accionTitulo,
                          unicaSalida: false,
                          nota: "el descanso también es dosis",
@@ -321,4 +365,64 @@ struct EntrenoVivoShellView: View {
                          accion: alTocarAccion)
         }
     }
+
+    @ViewBuilder
+    private var emomRunMetrics: some View {
+        switch runChrome {
+        case .outdoor:
+            if let m = outdoorModel {
+                RunOutdoorSubjectBand(model: m)
+            } else {
+                RunLiveHUD(session: session, gpsActive: gpsActive)
+            }
+        case .treadmill:
+            if let m = treadmillModel {
+                TreadmillHUDView(session: session, hrZones: hrZones,
+                                 empiezaSinCinta: sinCinta, embebidoEnShell: true,
+                                 injectedModel: m,
+                                 alSalir: alSalir, alVerBloques: alVerBloques,
+                                 alConectividad: alConectividad)
+            } else {
+                RunLiveHUD(session: session, gpsActive: gpsActive)
+            }
+        case .host:
+            RunLiveHUD(session: session, gpsActive: gpsActive)
+        }
+    }
+
+    private func syncRunModels() {
+        let needsRun = sujeto.esCarrera || (sujeto == .emom && session.tramoIsRun)
+        guard needsRun else {
+            outdoorModel?.teardown()
+            outdoorModel = nil
+            treadmillModel?.teardown()
+            treadmillModel = nil
+            return
+        }
+        switch runChrome {
+        case .outdoor:
+            treadmillModel?.teardown()
+            treadmillModel = nil
+            if outdoorModel == nil {
+                let m = OutdoorRunHUDModel(session: session, hrZones: hrZones)
+                outdoorModel = m
+                m.start()
+            }
+        case .treadmill(let empiezaSinCinta):
+            sinCinta = empiezaSinCinta
+            outdoorModel?.teardown()
+            outdoorModel = nil
+            if treadmillModel == nil {
+                let m = TreadmillHUDModel(session: session, hrZones: hrZones, hub: .shared)
+                treadmillModel = m
+                m.start()
+            }
+        case .host:
+            outdoorModel?.teardown()
+            outdoorModel = nil
+            treadmillModel?.teardown()
+            treadmillModel = nil
+        }
+    }
 }
+

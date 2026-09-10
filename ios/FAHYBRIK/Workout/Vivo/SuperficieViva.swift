@@ -39,13 +39,11 @@ enum SuperficieViva: Equatable, Hashable {
         }
         if session.isRunStructureActive { return .runStructure }
         if session.isTramoResting { return .rest }
-        // Carrera manda sobre el formato. Un minuto de cinta/calle en un EMOM es
-        // `.run` con metros, ritmo y velocidad — no el reloj EMOM (FC + TOTAL).
+        // El FORMATO manda sobre el tramo: EMOM/HYROX no cambian de cromo al pasar
+        // ski → run → descanso; solo cambia la banda sujeto dentro del mismo shell.
+        if session.currentSegment?.isEMOM == true { return .emom }
         if session.tramoIsRun { return .run }
         if session.calentamientoEnLaCarrera { return .run }
-        // El FORMATO EMOM manda sobre la máquina: el minuto de ski sigue en el
-        // mismo cromo (reloj + traza), con métricas erg inyectadas en el sujeto.
-        if session.currentSegment?.isEMOM == true { return .emom }
         if session.tramoIsErg { return .ergo }
         // Un rodaje es `.running` + `.steady`. `isConditioningTimer` es verdad
         // porque `.steady` es `presentation.continuous` (el motor del timer).
@@ -83,8 +81,12 @@ enum RunLiveChrome: Equatable {
     case host
 
     static func de(_ session: WorkoutSession) -> RunLiveChrome {
-        guard SuperficieViva.de(session).esCarrera || session.calentamientoEnLaCarrera,
-              let env = session.runEnvironment else { return .host }
+        // Métricas de carrera (outdoor/cinta) cuando el tramo mide run — también
+        // dentro de EMOM/HYROX, sin cambiar la superficie `.emom`.
+        let runMetrics = session.tramoIsRun
+            || session.calentamientoEnLaCarrera
+            || SuperficieViva.de(session).esCarrera
+        guard runMetrics, let env = session.runEnvironment else { return .host }
         switch RunCoverAutoOpen.decide(environment: env) {
         case .outdoor: return .outdoor
         case .treadmill(let sinCinta): return .treadmill(empiezaSinCinta: sinCinta)

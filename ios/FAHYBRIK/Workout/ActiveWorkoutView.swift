@@ -598,21 +598,11 @@ struct ActiveWorkoutView: View {
     // UN MARCO. El tramo decide la LECTURA; el cromo y la acción son siempre
     // `MarcoVivo` + `BotonVivo`. El árbol que devolvía nil (y pintaba phaseRail
     // PRINCIPAL naranja + ExpertActionButton 40 pt) ya no existe.
-    @ViewBuilder
+    /// UN árbol live — `RunLiveShellView` para run, erg, EMOM, fuerza, descanso…
     private var superficieMontada: some View {
-        switch SuperficieViva.de(session) {
-        case .run, .runStructure:
-            cromoDeCarrera
-        default:
-            cajaVivaGlobal
-        }
-    }
-
-    /// UN árbol de live para todas las modalidades que no son cinta/calle en sitio.
-    private var cajaVivaGlobal: some View {
-        EntrenoVivoShellView(
+        RunLiveShellView(
             session: session,
-            lectura: lecturaVivaGlobal,
+            hrZones: hrZones,
             accionTitulo: primaryTitle,
             alTocarAccion: { primaryAction() },
             alSalir: { requestExitOrLeave() },
@@ -636,49 +626,13 @@ struct ActiveWorkoutView: View {
         )
     }
 
-    private var lecturaVivaGlobal: LecturaVivoEntreno {
-        switch SuperficieViva.de(session) {
-        case .emom:         return .emom
-        case .fuerza:       return .fuerza
-        case .ergo:         return .ergo
-        case .relay:        return .relay
-        case .structural:   return .structural
-        case .rest:         return .rest
-        case .conditioning: return .conditioning
-        case .run, .runStructure: return .runHost
-        }
-    }
-
     /// Death By y relevo llevan acción dual o especial; el resto usa `primaryAction`.
     private var accionDelHostSiAplica: AccionDelHost? {
-        switch lecturaVivaGlobal {
+        switch SuperficieViva.de(session) {
         case .relay, .structural, .conditioning:
             return accionDelHost
         default:
             return nil
-        }
-    }
-
-    /// One live for correr. Outdoor / cinta mount in place once calle/cinta
-    /// is known — including the warmup block that opens that run. HostVivo
-    /// only while the gate still holds. Never a second cover on top (FH-55).
-    @ViewBuilder
-    private var cromoDeCarrera: some View {
-        switch RunLiveChrome.de(session) {
-        case .outdoor:
-            OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { requestExitOrLeave() },
-                              alVerBloques: { mostrarBloques = true },
-                              alConectividad: { mostrarConectividad = true })
-        case .treadmill(let sinCinta):
-            TreadmillHUDView(session: session, hrZones: hrZones,
-                             empiezaSinCinta: sinCinta,
-                             alSalir: { requestExitOrLeave() },
-                             alVerBloques: { mostrarBloques = true },
-                             alConectividad: { mostrarConectividad = true })
-        case .host:
-            // Sin calle/cinta elegida: mismo shell global que el resto de modalidades.
-            cajaVivaGlobal
         }
     }
 

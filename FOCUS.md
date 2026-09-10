@@ -7,7 +7,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **FH-107 — Live session structure rewrite (PR #181, build 93).**
-Dual rests, orientation, **live UI global shell** (un `MarcoVivo`; EMOM/fuerza/rest = bandas sujeto; EMOM gana sobre ergo; sensores HK channel-bound), X soft leave + Watch Apple-first.
+Dual rests, orientation, **`RunLiveShellView` único** (un MarcoVivo para todo; EMOM/fuerza/rest/erg/run = bandas sujeto; EMOM gana sobre ergo/run tramo — sin chrome roulette), X soft leave + Watch Apple-first.
 Diseño: `docs/pr/fh107-live-structure.md`. PR #181 — pendiente Archive + TF 93 (Lingxi).
 
 **FH-106 — Goals owner alignment (build 92).** Diseño: `docs/pr/fh106-goals-athlete-owns.md`.
