@@ -50,6 +50,13 @@ Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — 
 - **One erg stats row** (`ErgLiveStrip`) in the subject band.
 - **Device connection** only in top strip (`BotonConectividad` → sheet) — removed duplicate `LiveRecipeDeviceBar` + redundant `ConnectionStrip` from apoyos when it overlapped stats.
 
+## Live UI unification (FH-55 / owner override)
+
+- **`SuperficieViva.de`**: machine and run tramos win before format. EMOM ski minute → `.ergo`; EMOM run minute → `.run` (meters, pace, belt speed) — not `EmomVivoView` (FC + TOTAL only).
+- **Erg stations**: `ErgVivoHUDView` — same `MarcoVivo` tree as `OutdoorRunHUDView`. PM5 + HR chips in **contexto**; `ErgHUDContent` owns split / s·min⁻¹ / watts. No `connectPM5CTA` stacked on metrics.
+- **Run stations**: unchanged full chrome (`OutdoorRunHUDView` / `TreadmillHUDView` / `RunLiveHUD`).
+- **EMOM without machine** (burpees only): still `EmomVivoView`.
+
 ## Watch — Apple-first rewrite (FH-107 build 93)
 
 **Owner mandate:** stop patching invented mirror/connect layers; one Apple workout path.

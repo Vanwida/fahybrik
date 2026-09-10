@@ -40,6 +40,11 @@ enum SuperficieViva: Equatable, Hashable {
         if session.isRunStructureActive { return .runStructure }
         if session.isTramoResting { return .rest }
         if session.tramoIsErg { return .ergo }
+        // La máquina y la carrera mandan ANTES del formato. Un minuto de ski en
+        // un EMOM es `.ergo`; un minuto de cinta/calle en un EMOM es `.run` con
+        // metros, ritmo y velocidad — no `EmomVivoView` (FC + TOTAL).
+        if session.tramoIsRun { return .run }
+        if session.calentamientoEnLaCarrera { return .run }
         if session.currentSegment?.isEMOM == true { return .emom }
         // Un rodaje es `.running` + `.steady`. `isConditioningTimer` es verdad
         // porque `.steady` es `presentation.continuous` (el motor del timer).
@@ -53,11 +58,6 @@ enum SuperficieViva: Equatable, Hashable {
             default: return .run
             }
         }
-        // Inner run station of a folded .reps block (Libre rondas remo+run): the
-        // tramo is running even though the segment kind is not. Existing RunLiveHUD
-        // / Watch indoor / manual — not a remo strip.
-        if session.tramoIsRun { return .run }
-        if session.calentamientoEnLaCarrera { return .run }
         if session.currentSegment?.isConditioningTimer == true { return .conditioning }
         return .fuerza
     }

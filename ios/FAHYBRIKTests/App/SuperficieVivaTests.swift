@@ -36,6 +36,15 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .ergo)
     }
 
+    /// Owner EMOM cinta/calle: metros, ritmo, velocidad — no EmomVivoView (FC + TOTAL).
+    func testElMinutoDeRunDeUnEmomEsRunNoEmom() {
+        let s = sesionDeEmom(runPrimero: true)
+        XCTAssertTrue(s.currentSegment?.isEMOM == true)
+        XCTAssertTrue(s.tramoIsRun, "El tramo decide la lectura: este minuto es carrera")
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
+    }
+
     func testCerrarLaTapaDeLaCintaNoCambiaLaSuperficie() {
         let s = sesionDeRodaje()
         // La trampa: `.steady` dispara el timer continuo. El rodaje no es un
@@ -426,6 +435,27 @@ final class SuperficieVivaTests: XCTestCase {
             order: 1, title: "EMOM 12", kind: .reps, targetReps: 10,
             blockTitle: "Principal", blockPosition: 1, prescription: p
         ), nombre: "EMOM 12", formato: .emom)
+    }
+
+    private func sesionDeEmom(runPrimero: Bool) -> WorkoutSession {
+        func setRun(_ m: Int) -> PrescriptionSet {
+            PrescriptionSet(measure: .distance(meters: Double(m)), target: nil, modality: .run,
+                            restS: nil, tempo: nil, note: "Run")
+        }
+        func setReps(_ reps: Int, _ nombre: String) -> PrescriptionSet {
+            PrescriptionSet(measure: .reps(reps), target: nil, modality: .functional,
+                            restS: nil, tempo: nil, note: nombre)
+        }
+        let sets = runPrimero
+            ? [setRun(400), setReps(10, "Burpees")]
+            : [setReps(10, "Burpees"), setRun(400)]
+        let p = Prescription(scheme: .emom, modality: nil, sets: sets, rounds: 12,
+                             workS: 60, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        return sesion(tramo: WorkoutSegment(
+            order: 1, title: "EMOM Run", kind: .reps,
+            blockTitle: "Principal", blockPosition: 1, prescription: p
+        ), nombre: "EMOM Run", formato: .emom)
     }
 
     private func sesion(tramo: WorkoutSegment, nombre: String,

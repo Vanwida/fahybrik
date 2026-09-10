@@ -784,13 +784,7 @@ struct ActiveWorkoutView: View {
                 apoyosDelHost
             }
         case .ergo:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                ErgHUDContent(session: session, pm5: livePM5 ?? pool.any)
-            } apoyos: {
-                apoyosDelHost
-            }
+            cromoDeErg
         case .runStructure:
             cromoDeCarrera
         case .conditioning:
@@ -804,6 +798,27 @@ struct ActiveWorkoutView: View {
         case .run:
             cromoDeCarrera
         }
+    }
+
+    /// UN live para ergo — mismo marco que correr al aire. Dispositivos en
+    /// contexto, métricas PM5 en el sujeto, sin pills apilados (FH-107).
+    @ViewBuilder
+    private var cromoDeErg: some View {
+        ErgVivoHUDView(
+            session: session,
+            pm5: livePM5 ?? pool.any,
+            hrLink: hub.heartRate.link,
+            accionTitulo: primaryTitle,
+            alTocarAccion: { primaryAction() },
+            alSalir: { requestExitOrLeave() },
+            alVerBloques: { mostrarBloques = true },
+            alConectividad: { mostrarConectividad = true },
+            alTapPM5: { openPM5Picker() },
+            alTapHR: { openHRPicker() },
+            partnerStrip: DoblesLiveStripState.from(partnerLive),
+            partnerStripCollapsed: $partnerStripCollapsed,
+            partnerFirstName: partnerFirstName
+        )
     }
 
     /// One live for correr. Outdoor / cinta mount in place once calle/cinta
