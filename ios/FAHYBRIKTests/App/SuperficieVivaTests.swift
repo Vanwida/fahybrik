@@ -199,7 +199,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .run)
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
         XCTAssertNotEqual(SuperficieViva.de(s), .structural,
-                          "un jog de calentamiento no pinta HostVivo debajo")
+                          "un jog de calentamiento no cae a superficie estructural")
     }
 
     func testCalentamientoSinCarreraSigueSiendoEstructural() {
@@ -252,7 +252,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(s.currentSegment?.title, "Run Technique")
     }
 
-    /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
+    /// Libre + calentamiento: UN cromo (calle/cinta) en `RunLiveShellView`, sin tapa
     /// encima. El calentamiento es la primera pierna de la misma estructura.
     func testLibreRunConCalentamientoEsUnSoloCromoEnSitio() {
         let s = sesionLibreConCalentamiento(blockTitle: "Principal")
@@ -282,7 +282,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(PresentadorVivo.de(s), .puerta,
                        "la puerta es el único canal — el cromo no vive debajo")
         XCTAssertEqual(SuperficieViva.de(s), .runStructure,
-                       "el árbol ya sabe que es carrera; no pinta HostVivo estructural")
+                       "el árbol ya sabe que es carrera; no cae a superficie estructural")
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
         XCTAssertTrue(SuperficieViva.de(s).esCarrera)
         s.beginBlock()

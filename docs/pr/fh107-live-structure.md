@@ -27,7 +27,7 @@ Block (format: Rondas | For Time route | …)
 | **Route rest** | `PrescriptionSet.restS` only | Chipper / one-pass For Time: between stations; block `restS` never auto-applied mid-route. |
 | **Homogeneous rounds** | `Prescription.restS` (fallback set) | Single movement × N rounds: rest after each round tap. |
 
-**Estación hecha** closes the work window only. Rest is a **separate phase** (`fixedRestRemaining > 0` → `RestSurface`). Primary button during rest = **SALTAR DESCANSO** (`skipFixedRest`), never another strike.
+**Estación hecha** closes the work window only. Rest is a **separate phase** (`fixedRestRemaining > 0` → `RestSubjectBand` in `RunLiveShellView`). Primary button during rest = **SALTAR DESCANSO** (`skipFixedRest`), never another strike.
 
 ## Create UI (funcional · Rondas)
 
