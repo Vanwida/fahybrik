@@ -19,11 +19,9 @@ import SwiftUI
 // vez, una debajo del `fullScreenCover` de la otra—, así que el atleta veía datos
 // distintos según por dónde entrase.
 //
-// La regla que lo hace imposible: UNA VISTA POR LO QUE ESTÁS HACIENDO. Correr lo
-// pintan `OutdoorRunHUDView` y `TreadmillHUDView`, y ahora son superficies vivas
-// (`ActiveWorkoutView.superficieViva`), no covers: la serie, el rodaje y el tramo
-// estructurado son la MISMA pantalla, elegida por dónde contestaste que corres.
-// El descanso de cualquier motor sigue siendo `RestSubjectBand` en el shell, y el ergo
+// La regla que lo hace imposible: UNA VISTA POR LO QUE ESTÁS HACIENDO. Todo el live
+// monta `RunLiveShellView`; correr outdoor/cinta son bandas sujeto inyectadas, no
+// árboles paralelos. El descanso es `RestSubjectBand` en el shell; el ergo,
 // `ErgHUDContent`.
 
 // MARK: - Shared building blocks

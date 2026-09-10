@@ -87,13 +87,14 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .conditioning)
     }
 
-    func testElDescansoTieneSuperficiePropiaDentroDelMismoMarco() {
+    func testElDescansoIntraEmomSigueEnSuperficieEmom() {
         let s = sesionDeEmom(skiPrimero: false, conTransicion: true)
         s.emomCountInRemaining = 0
         s.emomPhase = .rest
         s.emomPhaseRemaining = 15
         XCTAssertTrue(s.isTramoResting)
-        XCTAssertEqual(SuperficieViva.de(s), .rest)
+        // El formato EMOM gana: descanso intra-minuto mantiene contexto EMOM + banda descanso.
+        XCTAssertEqual(SuperficieViva.de(s), .emom)
     }
 
     func testAmrapEligeElSujetoNoUnCromo() {

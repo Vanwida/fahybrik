@@ -183,7 +183,7 @@
 		367C42749D875BD70FE3F8ED /* HealthKitHistoryWindowReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110D0DB2E64AEB960DDDAC21 /* HealthKitHistoryWindowReader.swift */; };
 		367E19CFF9D503E286D23A3E /* GoalGapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72E7448666C10232EE2F84A /* GoalGapService.swift */; };
 		36B2CB151B1C23F7542CC485 /* CarrerasService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1746871F83CAA0B2483927DB /* CarrerasService.swift */; };
-		36DB06142124CDD39C717755 /* HostVivo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E7D52B10A0731F2BA3E50D3 /* HostVivo.swift */; };
+		36DB06142124CDD39C717755 /* AccionDelHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E7D52B10A0731F2BA3E50D3 /* AccionDelHost.swift */; };
 		36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24621B92CC17784D41A5DEB7 /* AppLinks.swift */; };
 		37208648AF74F8596FED8D3C /* FAHYBRIKWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		378976EA0FA3257DAF0AC5B8 /* WorkoutSession+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FDBC70E3810E619004CA42E /* WorkoutSession+Lifecycle.swift */; };
@@ -1168,7 +1168,7 @@
 		6D2E75E984F49494B00884F3 /* TarjetaCompartibleBuilders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TarjetaCompartibleBuilders.swift; sourceTree = "<group>"; };
 		6E2F276A687B40AFFD1FE476 /* FreeWorkoutEncodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeWorkoutEncodeTests.swift; sourceTree = "<group>"; };
 		6E7C23D30FD4E5D3A428A77D /* Day1Flow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day1Flow.swift; sourceTree = "<group>"; };
-		6E7D52B10A0731F2BA3E50D3 /* HostVivo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostVivo.swift; sourceTree = "<group>"; };
+		6E7D52B10A0731F2BA3E50D3 /* AccionDelHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccionDelHost.swift; sourceTree = "<group>"; };
 		6E996007C0E035EF597F9CD7 /* ProgressDots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDots.swift; sourceTree = "<group>"; };
 		6EAFCCDADC8DDC255E7DC5A1 /* WorkoutSessionTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionTraceTests.swift; sourceTree = "<group>"; };
 		6F6340EA1FB69D4CA6920238 /* EjeDelRitmoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EjeDelRitmoTests.swift; sourceTree = "<group>"; };
@@ -2629,7 +2629,7 @@
 				7F7388DEA38285E98E239125 /* EditorDeSerie.swift */,
 				CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */,
 				61CB129472FF891F9C5BB0BB /* FuerzaVivoView.swift */,
-				6E7D52B10A0731F2BA3E50D3 /* HostVivo.swift */,
+				6E7D52B10A0731F2BA3E50D3 /* AccionDelHost.swift */,
 				289F5B93DF2287BB13B6C122 /* SiguienteTramoChip.swift */,
 				25B4C24D3C7CAE120D72D916 /* SuperficieViva.swift */,
 			);
@@ -3549,7 +3549,7 @@
 				C3D049B376C0CE832D341785 /* HistoryModels.swift in Sources */,
 				D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */,
 				4DB86F3236C11593F201290B /* HistoryView.swift in Sources */,
-				36DB06142124CDD39C717755 /* HostVivo.swift in Sources */,
+				36DB06142124CDD39C717755 /* AccionDelHost.swift in Sources */,
 				A477410C61DF6DFC872C0151 /* HyresultImport.swift in Sources */,
 				87E5649DFF688211A1AAFA2C /* HyroxStations.swift in Sources */,
 				8055A515F3145EC2FC6423FA /* HyroxStationsStep.swift in Sources */,

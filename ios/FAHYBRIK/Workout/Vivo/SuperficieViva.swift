@@ -38,10 +38,11 @@ enum SuperficieViva: Equatable, Hashable {
             return .structural
         }
         if session.isRunStructureActive { return .runStructure }
-        if session.isTramoResting { return .rest }
         // El FORMATO manda sobre el tramo: EMOM/HYROX no cambian de cromo al pasar
         // ski → run → descanso; solo cambia la banda sujeto dentro del mismo shell.
+        // El descanso intra-EMOM sigue en `.emom` (contexto EMOM + banda descanso).
         if session.currentSegment?.isEMOM == true { return .emom }
+        if session.isTramoResting { return .rest }
         if session.tramoIsRun { return .run }
         if session.calentamientoEnLaCarrera { return .run }
         if session.tramoIsErg { return .ergo }
@@ -70,11 +71,8 @@ enum SuperficieViva: Equatable, Hashable {
     }
 }
 
-/// Quién pinta el live de correr — EN SITIO, no una tapa encima de otro HUD.
-///
-/// `OutdoorRunHUDView` / `TreadmillHUDView` ya se declararon superficie viva
-/// el 5-ago (no cover). El calentamiento que abre una carrera vive en ESTE
-/// cromo (FH-55): no hay HostVivo debajo ni tapa encima.
+/// Qué bandas outdoor/cinta inyecta `RunLiveShellView` cuando el tramo mide run.
+/// No es un entry point — solo elige sujeto/apoyos dentro del shell único.
 enum RunLiveChrome: Equatable {
     case outdoor
     case treadmill(empiezaSinCinta: Bool)

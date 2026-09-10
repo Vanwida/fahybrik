@@ -42,10 +42,9 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         s.runEnvironment = .outdoor
         s.start(); s.beginBlock(); s.stop()
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
-        let vista = OutdoorRunHUDView(session: s, hrZones: nil,
-                                      alSalir: {}, alVerBloques: {}, alConectividad: {})
+        let vista = ShellDePrueba(session: s)
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "calle no hereda topStrip — el botón va en su cromo")
+                      "calle monta RunLiveShellView — el botón va en CromoVivoEntreno")
     }
 
     @MainActor
@@ -54,10 +53,9 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         s.runEnvironment = .treadmill
         s.start(); s.beginBlock(); s.stop()
         XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
-        let vista = TreadmillHUDView(session: s, hrZones: nil,
-                                     alSalir: {}, alVerBloques: {}, alConectividad: {})
+        let vista = ShellDePrueba(session: s)
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "cinta no hereda topStrip — el botón va en su header")
+                      "cinta monta RunLiveShellView — el botón va en CromoVivoEntreno, no en TreadmillHUDView")
     }
 
     @MainActor
@@ -75,6 +73,30 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
     }
 
     // MARK: - Andamio
+
+    /// El único árbol live — misma forma que `ActiveWorkoutView.superficieMontada`.
+    private struct ShellDePrueba: View {
+        let session: WorkoutSession
+        @State private var partnerStripCollapsed = false
+
+        var body: some View {
+            RunLiveShellView(
+                session: session,
+                hrZones: nil,
+                accionTitulo: "HECHO",
+                alTocarAccion: {},
+                alSalir: {},
+                alVerBloques: {},
+                alConectividad: {},
+                alTapPM5: {},
+                alTapHR: {},
+                alPausa: {},
+                pm5: PM5Pool.shared.any,
+                hrLink: .idle,
+                partnerStripCollapsed: $partnerStripCollapsed
+            )
+        }
+    }
 
     private func sesionDosBloques() -> WorkoutSession {
         let wu = WorkoutSegment(order: 1, title: "Movilidad", kind: .reps,

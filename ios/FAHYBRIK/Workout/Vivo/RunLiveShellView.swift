@@ -1,11 +1,11 @@
 import SwiftUI
 
-// UN SOLO ÁRBOL LIVE — el patrón `OutdoorRunHUDView` / `MarcoVivo` para TODO.
+// UN SOLO ÁRBOL LIVE — `ActiveWorkoutView` monta solo esta vista.
 //
 // Carrera al aire, cinta, erg, EMOM, fuerza, descanso, formatos: mismo cromo
 // (`CromoVivoEntreno`), mismo marco. Solo cambia la banda sujeto inyectada.
-// OutdoorRunHUDView y TreadmillHUDView ya no son entry points — solo bandas
-// (`RunOutdoorBands`, `TreadmillHUDView` embebido).
+// `OutdoorRunHUDView` / previews son wrappers finos; `TreadmillHUDView` es banda
+// sujeto de cinta dentro del shell — no monta cromo ni header propio.
 
 struct RunLiveShellView: View {
     let session: WorkoutSession
@@ -150,11 +150,15 @@ struct RunLiveShellView: View {
     private var sujetoBand: some View {
         switch sujeto {
         case .emom:
-            EmomVivoSubjectBand(session: session)
-            if session.tramoIsErg, pm5.isConnected {
-                ErgHUDContent(session: session, pm5: pm5, incluyeContexto: false)
-            } else if session.tramoIsRun {
-                emomRunMetrics
+            if session.isTramoResting {
+                RestSubjectBand(session: session)
+            } else {
+                EmomVivoSubjectBand(session: session)
+                if session.tramoIsErg, pm5.isConnected {
+                    ErgHUDContent(session: session, pm5: pm5, incluyeContexto: false)
+                } else if session.tramoIsRun {
+                    emomRunMetrics
+                }
             }
         case .fuerza:
             FuerzaVivoSubjectHost()
@@ -185,10 +189,7 @@ struct RunLiveShellView: View {
         case .treadmill:
             if let m = treadmillModel {
                 TreadmillHUDView(session: session, hrZones: hrZones,
-                                 empiezaSinCinta: sinCinta, embebidoEnShell: true,
-                                 injectedModel: m,
-                                 alSalir: alSalir, alVerBloques: alVerBloques,
-                                 alConectividad: alConectividad)
+                                 empiezaSinCinta: sinCinta, injectedModel: m)
             } else {
                 RunLiveHUD(session: session, gpsActive: gpsActive)
             }
@@ -378,10 +379,7 @@ struct RunLiveShellView: View {
         case .treadmill:
             if let m = treadmillModel {
                 TreadmillHUDView(session: session, hrZones: hrZones,
-                                 empiezaSinCinta: sinCinta, embebidoEnShell: true,
-                                 injectedModel: m,
-                                 alSalir: alSalir, alVerBloques: alVerBloques,
-                                 alConectividad: alConectividad)
+                                 empiezaSinCinta: sinCinta, injectedModel: m)
             } else {
                 RunLiveHUD(session: session, gpsActive: gpsActive)
             }

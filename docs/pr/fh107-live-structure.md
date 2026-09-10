@@ -54,8 +54,9 @@ Shown on `LiveOrientationStrip` (shell apoyos, Rounds HUD, outdoor/treadmill apo
 
 - **`RunLiveShellView`**: único entry en `ActiveWorkoutView.superficieMontada`. Un `MarcoVivo` + `CromoVivoEntreno` para run, erg, EMOM, fuerza, descanso, conditioning.
 - **`SuperficieViva.de`**: decide **solo la banda sujeto**. **EMOM gana sobre ergo y sobre run tramo** — ski↔run↔rest no cambian de shell; solo métricas.
-- **Run outdoor/cinta**: bandas `RunOutdoorBands` / `TreadmillHUDView(embebidoEnShell:)` inyectadas dentro del mismo shell — no `OutdoorRunHUDView` ni árbol treadmill paralelo.
-- **Subject by modality**: EMOM → `EmomVivoSubjectBand` (+ `ErgHUDContent` o bandas run cuando tramoIsErg/tramoIsRun); erg → `ErgHUDContent`; fuerza → `FuerzaVivoShellHosts`; rest → `RestSubjectBand`; run → bandas outdoor/cinta.
+- **Run outdoor/cinta**: bandas `RunOutdoorSubjectBand` / `TreadmillHUDView` (solo sujeto FTMS+métricas) inyectadas en el mismo shell — sin `pantallaCompleta` ni header propio en cinta.
+- **Subject by modality**: EMOM → `EmomVivoSubjectBand` (+ erg/run metrics); descanso intra-EMOM → `RestSubjectBand` con contexto EMOM (`.emom` gana sobre `.rest`); erg → `ErgHUDContent`; fuerza → `FuerzaVivoShellHosts`; rest → `RestSubjectBand`; run → bandas outdoor/cinta.
+- **Outdoor autopausa**: restaurada vía `RunAutoPause` + velocidad CoreLocation cruda en `OutdoorRunHUDModel` (sin `RunPaceSmoother`).
 - **Previews/tests**: `OutdoorRunHUDView`, `EmomVivoView`, `FuerzaVivoView` son wrappers finos sobre `RunLiveShellView` — no montan MarcoVivo propio.
 - **Sensor authority**: `RunPhoneSensorPlan` uses `hasMirroredHKSession` (HK channel bound), not `wristMirrorLive` UI flag.
 
@@ -84,7 +85,7 @@ Shown on `LiveOrientationStrip` (shell apoyos, Rounds HUD, outdoor/treadmill apo
 | Killed or thinned | Replaced by |
 |-------------------|-------------|
 | `RunPaceSmoother.swift` | `WorkoutSession.liveCoveredPaceSecPerKm` (HK / pedometer distance ÷ elapsed) |
-| `RunAutoPause.swift` + outdoor auto-pause UI | Manual pause + HK session pause on wrist; no homemade speed hysteresis on phone GPS |
+| `RunPaceSmoother` como fuente de autopausa | `RunAutoPause` + velocidad CoreLocation cruda (Apple GPS); ritmo display sigue en `liveCoveredPaceSecPerKm` |
 | `GPSSignalQuality.isFixUsable` gating fixes | Display badge only; all valid CLLocation fixes feed map coords |
 | `WatchRunLegDriver` 0.5 s timer | `noteHealthKitDistanceSample()` on builder distance deltas |
 | `PhoneWorkoutRun.hasPrimarySession` / `startMirroring()` stub | Phone never mints PRIMARY; mirror only via `PhoneLiveSession` |

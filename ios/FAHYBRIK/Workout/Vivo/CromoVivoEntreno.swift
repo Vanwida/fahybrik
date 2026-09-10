@@ -1,11 +1,10 @@
 import SwiftUI
 
-// UN CROMO PARA TODO EL LIVE — el de correr al aire (`OutdoorRunHUDView`).
+// UN CROMO PARA TODO EL LIVE — montado por `RunLiveShellView` / `MarcoVivo`.
 //
-// Antes cada modalidad montaba su propio árbol: `topStrip` (HostVivo, EMOM,
-// fuerza), header suelto de cinta, o `ErgVivoHUDView`. El atleta veía tres
-// familias de botones para la misma sesión. FH-55 / FH-107: un solo cromo;
-// la modalidad solo cambia la LECTURA del sujeto.
+// Antes cada modalidad montaba su propio árbol: `topStrip`, header suelto de
+// cinta, o `ErgVivoHUDView`. FH-55 / FH-107: un solo cromo; la modalidad solo
+// cambia la LECTURA del sujeto.
 
 /// La banda superior compartida: conectividad, bloques, pausa, salir.
 struct CromoVivoEntreno: View {

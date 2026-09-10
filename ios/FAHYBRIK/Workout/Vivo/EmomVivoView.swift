@@ -28,8 +28,8 @@ import SwiftUI
 // auto-avance. Lo que cambia es el idioma.
 //
 // LA VENTANA DE CAMBIO NO SE PINTA AQUÍ: es una fase con su propio sujeto
-// (cuánto queda, hacia qué andas, cómo baja el pulso) y tiene pantalla propia —
-// `RestSubjectBand` dentro de `RunLiveShellView` cuando `SuperficieViva` es `.rest`.
+// (cuánto queda, hacia qué andas, cómo baja el pulso) — `RestSubjectBand` dentro
+// de `RunLiveShellView` cuando `.emom` + `isTramoResting` (contexto EMOM intacto).
 
 // MARK: - Bandas inyectables en `RunLiveShellView` (un solo MarcoVivo)
 

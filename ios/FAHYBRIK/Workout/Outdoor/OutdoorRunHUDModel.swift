@@ -16,6 +16,7 @@ final class OutdoorRunHUDModel {
     private(set) var legCoveredMeters: Double = 0
 
     private let gps: RunLocationProvider
+    private var autoPauseCtl = RunAutoPause()
     private var legProgress = RunLegProgress()
     private let liveActivity = RunLiveActivityController()
 
@@ -23,6 +24,9 @@ final class OutdoorRunHUDModel {
     private var displayTimer: Timer?
     private var lastLegKey = ""
     private var lastPaused = false
+    /// Velocidad instantánea de CoreLocation (m/s) — entrada Apple para autopausa (#64).
+    private var latestSpeedMps: Double?
+    private var latestSpeedTrustworthy = false
 
     private static let tickSeconds: TimeInterval = 0.5
 
@@ -42,6 +46,12 @@ final class OutdoorRunHUDModel {
         gps.onSpeed = { [weak self] speed, acc in
             guard let self else { return }
             self.session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: acc)
+            if speed >= 0, acc >= 0 {
+                self.latestSpeedMps = speed
+                self.latestSpeedTrustworthy = true
+            } else {
+                self.latestSpeedTrustworthy = false
+            }
         }
         gps.onAltitude = { meters, accuracy in
             RunAltimeter.shared.noteGPSAltitude(meters, verticalAccuracy: accuracy)
@@ -56,9 +66,11 @@ final class OutdoorRunHUDModel {
         displayTimer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        session.beginAutoPauseEvaluation()
     }
 
     func teardown() {
+        session.endAutoPauseEvaluation()
         displayTimer?.invalidate(); displayTimer = nil
         gps.setBackgroundUpdates(false)
         gps.stop()
@@ -130,11 +142,31 @@ final class OutdoorRunHUDModel {
     // MARK: - Tick
 
     private func tick() {
+        let t = ProcessInfo.processInfo.systemUptime
         gpsQuality = GPSSignalQuality.from(horizontalAccuracyM: gps.latestHorizontalAccuracyM)
         legCoveredMeters = coveredLegMeters()
+        evaluateAutoPause(now: t)
         evaluateLegClose()
         feedAudioCoach()
-        refreshLiveActivity(now: ProcessInfo.processInfo.systemUptime)
+        refreshLiveActivity(now: t)
+    }
+
+    private var autoPauseEligible: Bool {
+        guard session.currentSegment?.kind == .running else { return false }
+        if isStructured { return session.currentRunLegIsDistance }
+        return true
+    }
+
+    private func evaluateAutoPause(now t: TimeInterval) {
+        guard !session.isFinished, !session.isAwaitingBlockStart, !isCountIn else { return }
+        let isManual = session.isPaused && !session.autoPaused
+        let speed = latestSpeedTrustworthy ? latestSpeedMps : nil
+        switch autoPauseCtl.step(speedMps: speed, eligible: autoPauseEligible,
+                                 isManualPause: isManual, now: t) {
+        case .engage: session.autoPause(); Haptics.medium()
+        case .release: session.autoResume(); Haptics.light()
+        case .none: break
+        }
     }
 
     private func coveredLegMeters() -> Double {
