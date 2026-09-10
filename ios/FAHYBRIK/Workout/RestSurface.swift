@@ -27,6 +27,7 @@ struct RestSurface: View {
 
     var body: some View {
         VStack(spacing: isLandscape ? 6 : 14) {
+            LiveOrientationStrip(orientation: session.liveOrientation)
             phaseTag
             countdown
             if let next = session.nextTramoLine { nextUp(next) }
@@ -71,7 +72,9 @@ struct RestSurface: View {
     /// REST (stand and breathe). Naming them the same would flatten the difference
     /// the format exists to create.
     private var phaseWord: String {
-        session.currentSegment?.isEMOM == true ? "CAMBIO" : "DESCANSO"
+        if session.currentSegment?.isEMOM == true { return "CAMBIO" }
+        if let label = session.fixedRestKind.labelES { return label.uppercased() }
+        return "DESCANSO"
     }
 
     // MARK: - 2 · The subject: how long is left

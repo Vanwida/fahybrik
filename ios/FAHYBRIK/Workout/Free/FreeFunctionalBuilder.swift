@@ -48,7 +48,7 @@ enum FreeFunctionalFormat: String, CaseIterable, Identifiable {
     var usesCap: Bool { self == .forTime }           // optional time cap
     var usesWindow: Bool { self == .amrap }          // total AMRAP window
     var usesCadence: Bool { self == .emom }          // seconds "on the minute"
-    var usesRest: Bool { self == .rounds }           // rest between rounds
+    var usesRest: Bool { self == .rounds }           // rest between rounds + series
 
     var roundsLabel: String {
         switch self {
@@ -186,6 +186,8 @@ struct FunctionalStructural {
     let workS: Int?
     let restS: Int?
     let totalS: Int?
+    /// FH-107 — between stations within a round (`PrescriptionSet.restS`).
+    let seriesRestS: Int?
 
     /// Read the structure back OUT of a built prescription — the folded block the
     /// live engine ran. Lets the post-workout declaration rebuild items with the
@@ -195,13 +197,15 @@ struct FunctionalStructural {
         workS = p.workS
         restS = p.restS
         totalS = p.totalS
+        seriesRestS = p.sets?.compactMap(\.restS).first
     }
 
-    init(rounds: Int?, workS: Int?, restS: Int?, totalS: Int?) {
+    init(rounds: Int?, workS: Int?, restS: Int?, totalS: Int?, seriesRestS: Int? = nil) {
         self.rounds = rounds
         self.workS = workS
         self.restS = restS
         self.totalS = totalS
+        self.seriesRestS = seriesRestS
     }
 }
 
@@ -225,7 +229,7 @@ enum FreeFunctionalItems {
         // never offers a PM5 or routes meters to the right machine.
         let mod = m.exercise.prescriptionModality ?? .functional
         let set = PrescriptionSet(measure: m.doseMeasure, target: nil, modality: mod,
-                                  restS: nil, tempo: nil, note: nil)
+                                  restS: structure.seriesRestS, tempo: nil, note: nil)
         return Prescription(
             scheme: scheme,
             modality: mod,
@@ -268,6 +272,8 @@ final class FreeFunctionalDraft {
     /// > 0 = a station interval, and the engine then cues the end of the work.
     var transitionSeconds: Int = 0
     var restSeconds: Int = FreeFunctionalStep.defaultRest
+    /// FH-107 — rest between stations/movements within one outer round (`set.restS`).
+    var seriesRestSeconds: Int = 0
     var movements: [FreeFunctionalMovement] = []
     var titleEdited: String = ""
     var scheduledDayISO: String = RaceDate.todayISO()
@@ -351,8 +357,13 @@ final class FreeFunctionalDraft {
                                         restS: transitionSeconds > 0 ? transitionSeconds : nil,
                                         totalS: nil)
         case .rounds:
-            return FunctionalStructural(rounds: max(1, rounds),
-                                        workS: nil, restS: restSeconds > 0 ? restSeconds : nil, totalS: nil)
+            return FunctionalStructural(
+                rounds: max(1, rounds),
+                workS: nil,
+                restS: restSeconds > 0 ? restSeconds : nil,
+                totalS: nil,
+                seriesRestS: seriesRestSeconds > 0 ? seriesRestSeconds : nil
+            )
         }
     }
 
@@ -365,12 +376,13 @@ final class FreeFunctionalDraft {
         // Each movement keeps its machine modality (row/ski/bike/run/…) so the
         // pre-start device card, LiveTramo routing and ErgCounterPolicy can see
         // which PM5 / cinta owns each round — not a single "functional" blob.
+        let seriesRest = f == .rounds && seriesRestSeconds > 0 ? seriesRestSeconds : nil
         let sets = movements.map { m in
             PrescriptionSet(
                 measure: m.doseMeasure,
                 target: nil,
                 modality: m.exercise.prescriptionModality ?? .functional,
-                restS: nil,
+                restS: seriesRest,
                 tempo: nil,
                 note: m.exercise.name
             )

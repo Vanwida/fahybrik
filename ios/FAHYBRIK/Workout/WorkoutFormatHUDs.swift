@@ -398,6 +398,7 @@ private struct StationSubject: View {
 
     var body: some View {
         VStack(spacing: 2) {
+            LiveOrientationStrip(orientation: session.liveOrientation)
             LabelText(text: "Ahora", size: 10)
             Text(tramo.workLine ?? tramo.label)
                 .font(.system(size: 64, weight: .heavy, design: .default).italic())

@@ -864,29 +864,8 @@ struct ActiveWorkoutView: View {
         VStack(spacing: Theme.Spacing.s) {
             DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
                             collapsed: $partnerStripCollapsed)
-            LiveRecipeDeviceBar(
-                devices: recipeDevices,
-                pool: pool,
-                treadmillLink: hub.treadmill.link,
-                hrLink: hub.heartRate.link,
-                onTapErg: { store, title in openPM5Picker(store: store, roleTitle: title) },
-                onTapTreadmill: { openCintaPicker() },
-                onTapHR: { openHRPicker() }
-            )
-            ConnectionStrip(
-                session: session,
-                pm5: livePM5 ?? pickerPM5,
-                gpsActive: gpsActive,
-                segmentIsErg: isErgSegment,
-                segmentIsRun: isRunSegment || session.tramoIsRun,
-                onTapPM5: { openPM5Picker() },
-                roleTitle: liveErgRole?.titleES,
-                path: liveScanPath,
-                treadmillLink: hub.treadmill.link,
-                hrLink: hub.heartRate.link,
-                onTapCinta: { openCintaPicker() },
-                onTapHR: { openHRPicker() }
-            )
+            // FH-107 — device pills live in top-strip Conectividad; duplicating them
+            // here stacked on erg stats (S/MIN · vatios · pulso) in landscape.
             if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
                 BlockIntervalStrip(
                     segments: session.plan.segments,
@@ -1004,6 +983,7 @@ struct ActiveWorkoutView: View {
     // uses dual BotonVivo (FALLÉ / LO LOGRÉ) — this label is for accessibility.
     private var conditioningPrimaryTitle: String {
         if session.condCountInRemaining > 0 { return "SALTAR" }
+        if session.fixedRestRemaining > 0 { return "SALTAR DESCANSO" }
         switch session.currentSegment?.formatScheme {
         case .amrap:     return "+ RONDA"
         case .tabata:    return "+ REPS"
@@ -1114,13 +1094,9 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
-    /// FH-99 — recorded work → Terminar/Guardar/Descartar; otherwise soft leave.
+    /// FH-107 — X always soft-leaves (checkpoint + resume). Terminar lives in pause sheet.
     private func requestExitOrLeave() {
-        if session.hasRecordedWork {
-            requestExit()
-        } else {
-            navigateAway()
-        }
+        navigateAway()
     }
 
     // Soft leave — checkpoint on disk, resume banner / auto-reopen. Never discard.

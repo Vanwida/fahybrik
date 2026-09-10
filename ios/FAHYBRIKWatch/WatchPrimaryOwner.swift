@@ -290,8 +290,10 @@ final class WatchPrimaryOwner: NSObject {
 
     private func applyPhase(_ phaseWire: String) {
         switch phaseWire {
-        case MirrorWire.Phase.paused: pause()
-        case MirrorWire.Phase.active, MirrorWire.Phase.gate, MirrorWire.Phase.countIn: resume()
+        case MirrorWire.Phase.paused:
+            if !hkPaused { pause() }
+        case MirrorWire.Phase.active, MirrorWire.Phase.gate, MirrorWire.Phase.countIn:
+            if hkPaused { resume() }
         default: break
         }
     }
@@ -378,8 +380,16 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     func resume() {
-        guard phase == .recording, hkPaused else { return }
+        guard phase == .recording else { return }
+        guard hkPaused else { return }
         session?.resume()
+        hkPaused = false
+    }
+
+    /// FH-107 — resume even when local latch desynced from phone frame.
+    func resumeIfPaused() {
+        guard phase == .recording else { return }
+        if hkPaused { session?.resume() }
         hkPaused = false
     }
 
@@ -627,6 +637,12 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
             guard let self else { return }
             guard toState == .ended || toState == .stopped else { return }
             guard self.phase != .idle else { return }
+            // FH-107 — phone session may still be live; stay on mirror HUD, not Readiness.
+            if self.role == .mirror || self.role == .orphan {
+                self.isConnectionLost = true
+                self.sendCommand(MirrorWire.CommandKind.sync)
+                return
+            }
             self.forceIdle()
         }
     }

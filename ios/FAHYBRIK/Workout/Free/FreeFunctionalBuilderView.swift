@@ -197,6 +197,10 @@ struct FreeFunctionalBuilderView: View {
             }
         }
         if f.usesRest {
+            FreeStepper(label: "Descanso entre series", value: $draft.seriesRestSeconds,
+                        step: FreeFunctionalStep.restStep, minValue: 0) {
+                $0 == 0 ? "sin pausa" : Formato.clock($0, subMinuto: .segundos)
+            }
             FreeStepper(label: "Descanso entre rondas", value: $draft.restSeconds,
                         step: FreeFunctionalStep.restStep, minValue: 0) {
                 $0 == 0 ? "sin pausa" : Formato.clock($0, subMinuto: .segundos)

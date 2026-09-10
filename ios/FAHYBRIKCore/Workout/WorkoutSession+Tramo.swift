@@ -651,3 +651,73 @@ private extension RunSegmentMeasure {
         return nil
     }
 }
+
+// MARK: - FH-107 Live orientation (Round → Station → work window)
+
+extension WorkoutSession {
+
+    enum FixedRestKind: Equatable {
+        case none
+        case betweenSeries
+        case betweenRounds
+
+        var wireValue: String {
+            switch self {
+            case .none:            return "none"
+            case .betweenSeries:   return "series"
+            case .betweenRounds:   return "rounds"
+            }
+        }
+
+        init?(wireValue: String) {
+            switch wireValue {
+            case "series":  self = .betweenSeries
+            case "rounds":  self = .betweenRounds
+            default:        self = .none
+            }
+        }
+
+        var labelES: String? {
+            switch self {
+            case .none:            return nil
+            case .betweenSeries:   return "Descanso entre series"
+            case .betweenRounds:   return "Descanso entre rondas"
+            }
+        }
+    }
+
+    struct LiveOrientation: Equatable {
+        var roundLine: String?
+        var stationLine: String?
+        var restKind: FixedRestKind
+    }
+
+    var liveOrientation: LiveOrientation {
+        guard let seg = currentSegment, seg.isConditioningTimer, condCountInRemaining <= 0 else {
+            return LiveOrientation(roundLine: nil, stationLine: nil, restKind: .none)
+        }
+        let restKind: FixedRestKind = fixedRestRemaining > 0 ? fixedRestKind : .none
+
+        if seg.fixedListIsStations {
+            let stations = fixedStationCount
+            let roundLine: String? = fixedHasOuterRounds
+                ? "Ronda \(min(fixedOuterRoundIndex + 1, fixedOuterRoundTotal))/\(fixedOuterRoundTotal)"
+                : nil
+            let innerIdx = fixedRoundsDone % stations
+            let stationLine = "Estación \(innerIdx + 1)/\(stations)"
+            return LiveOrientation(roundLine: roundLine, stationLine: stationLine, restKind: restKind)
+        }
+
+        if (seg.formatRounds ?? 0) > 0 || fixedListTotal > 1 {
+            let total = roundsHUDTotal
+            let done = roundsHUDDone
+            return LiveOrientation(
+                roundLine: "Ronda \(min(done + 1, total))/\(total)",
+                stationLine: nil,
+                restKind: restKind
+            )
+        }
+
+        return LiveOrientation(roundLine: nil, stationLine: nil, restKind: restKind)
+    }
+}

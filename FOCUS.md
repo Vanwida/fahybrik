@@ -2,22 +2,18 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-10** (FH-106 build 92 — goals athlete owns)
+Última actualización: **2026-09-10** (FH-107 build 93 — live structure)
 
 ## Ahora
 
-**FH-106 — Goals owner alignment (PR pendiente, build 92).**
-Atleta dueño de objetivos; coach solo lectura. Mismo bloque «Para cuándo es» en custom + catálogo.
-Eliminado ask-coach + `SetTargetRaceModal` + MCP `set_target_race`.
-Diseño: `docs/pr/fh106-goals-athlete-owns.md`.
+**FH-107 — Live session structure rewrite (PR, build 93).**
+Dual rests (series + round), orientation chrome, metrics/device strip fix, watch mirror stays live, X = soft leave.
+Diseño: `docs/pr/fh107-live-structure.md`.
 
-**FH-105 — Archive Swift 6 compile green (main, build 91).**
-Diseño: `docs/pr/fh105-archive-compile-green.md`.
+**FH-106 — Goals owner alignment (build 92).** Diseño: `docs/pr/fh106-goals-athlete-owns.md`.
 
-**FH-77 — goals catalog (main, build 88).** Diseño: `docs/pr/fh77-goals-catalog.md`.
-
-**Xcode Cloud / TestFlight:** Internal atascado en **85**. Objetivo TF **92** tras Archive verde. ASC Manage Version OFF.
+**Xcode Cloud / TestFlight:** Objetivo TF **93** tras Archive verde. ASC Manage Version OFF.
 
 ## Pendiente decisión Alex
 
-Confirmar TF build **92** cuando ASC Archive pase.
+Confirmar TF build **93** cuando ASC Archive pase (owner smoke FH-107).

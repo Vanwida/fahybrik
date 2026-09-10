@@ -82,4 +82,29 @@ final class DescansoEntreEstacionesTests: XCTestCase {
         XCTAssertEqual(s.fixedRestRemaining, 0)
         XCTAssertFalse(s.isTramoResting)
     }
+
+    /// FH-107 — one-pass route: block restS must not auto-fire between stations.
+    func testFH107RutaSinBlockRestEntreEstaciones() {
+        func set(_ nota: String) -> PrescriptionSet {
+            PrescriptionSet(measure: .duration(seconds: 60), target: nil, modality: .functional,
+                            restS: nil, tempo: nil, note: nota)
+        }
+        let p = Prescription(
+            scheme: .forTime, modality: nil,
+            sets: [set("Remo"), set("Burpees")],
+            rounds: nil, workS: nil, restS: 120, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil
+        )
+        let seg = WorkoutSegment(order: 1, title: "Chip", kind: .reps,
+                                 blockTitle: "Chip", blockPosition: 1, prescription: p)
+        let plan = WorkoutPlan(id: UUID(), name: "Chip", format: .forTime,
+                               estimatedDurationSeconds: 600, blockContext: "Chip",
+                               zoneTargets: [], equipment: [], segments: [seg],
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+        let s = WorkoutSession(plan: plan)
+        s.start(); s.beginBlock(); s.primaryAdvance()
+        s.markRoundDone()
+        XCTAssertEqual(s.fixedRestRemaining, 0,
+                       "block rest must not fire mid-route without per-set rest")
+    }
 }
