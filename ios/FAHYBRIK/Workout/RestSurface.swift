@@ -27,7 +27,6 @@ struct RestSurface: View {
 
     var body: some View {
         VStack(spacing: isLandscape ? 6 : 14) {
-            LiveOrientationStrip(orientation: session.liveOrientation)
             phaseTag
             countdown
             if let next = session.nextTramoLine { nextUp(next) }

@@ -28,8 +28,8 @@ enum SuperficieViva: Equatable, Hashable {
     /// `liveSurface` + `modalityHUD` (relevo y estructural antes del HUD;
     /// carrera estructurada antes del descanso; la máquina antes del EMOM).
     ///
-    /// El minuto de ski/bici de un EMOM es `.ergo`: la lectura la pone
-    /// `ErgHUDContent` dentro de `MarcoVivo`, no `EmomVivoView` ni el cromo C.
+    /// EMOM gana sobre ergo: el minuto de ski/bici sigue en `.emom` (mismo cromo);
+    /// las métricas PM5 entran como sujeto inyectado, no como otro árbol.
     static func de(_ session: WorkoutSession) -> SuperficieViva {
         if session.currentSegmentIsPartnerRelay { return .relay }
         // Warmup that opens a run lives in the run chrome (same view). A mobility
@@ -39,13 +39,14 @@ enum SuperficieViva: Equatable, Hashable {
         }
         if session.isRunStructureActive { return .runStructure }
         if session.isTramoResting { return .rest }
-        if session.tramoIsErg { return .ergo }
-        // La máquina y la carrera mandan ANTES del formato. Un minuto de ski en
-        // un EMOM es `.ergo`; un minuto de cinta/calle en un EMOM es `.run` con
-        // metros, ritmo y velocidad — no `EmomVivoView` (FC + TOTAL).
+        // Carrera manda sobre el formato. Un minuto de cinta/calle en un EMOM es
+        // `.run` con metros, ritmo y velocidad — no el reloj EMOM (FC + TOTAL).
         if session.tramoIsRun { return .run }
         if session.calentamientoEnLaCarrera { return .run }
+        // El FORMATO EMOM manda sobre la máquina: el minuto de ski sigue en el
+        // mismo cromo (reloj + traza), con métricas erg inyectadas en el sujeto.
         if session.currentSegment?.isEMOM == true { return .emom }
+        if session.tramoIsErg { return .ergo }
         // Un rodaje es `.running` + `.steady`. `isConditioningTimer` es verdad
         // porque `.steady` es `presentation.continuous` (el motor del timer).
         // Eso no lo convierte en un metcon: la lectura es el ritmo, la misma
@@ -62,14 +63,8 @@ enum SuperficieViva: Equatable, Hashable {
         return .fuerza
     }
 
-    /// EMOM y hierro ya montan `MarcoVivo` ellos. El resto entra por `HostVivo`.
-    var montaMarcoPropio: Bool {
-        switch self {
-        case .emom, .fuerza: return true
-        case .relay, .structural, .runStructure, .rest, .ergo, .conditioning, .run:
-            return false
-        }
-    }
+    /// Todas las ramas montan el mismo `MarcoVivo` global; solo cambia el sujeto.
+    var montaMarcoPropio: Bool { false }
 
     /// Carrera estructurada o rodaje: estas dos ramas son UN live.
     var esCarrera: Bool {

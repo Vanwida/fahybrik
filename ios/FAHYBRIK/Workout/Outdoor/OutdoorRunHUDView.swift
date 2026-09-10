@@ -340,6 +340,7 @@ struct OutdoorRunHUDView: View {
     /// en un tramo con mucho que decir se encoge solo.
     private var apoyos: some View {
         VStack(spacing: Theme.Spacing.s) {
+            LiveOrientationStrip(orientation: model.session.liveOrientation)
             FilaApoyos {
                 if model.currentBpm != nil, esObjetivoDeZona {
                     // El pulso ya ES el sujeto: aquí sería decir dos veces lo mismo.

@@ -43,7 +43,7 @@ Block (format: Rondas | For Time route | …)
 - `stationLine` — e.g. `Estación 2/4` (nil when homogeneous)
 - `restKind` — `.none | .betweenSeries | .betweenRounds`
 
-Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — always consistent with engine cursor.
+Shown on `LiveOrientationStrip` (shell apoyos, Rounds HUD, outdoor/treadmill apoyos) — always consistent with engine cursor.
 
 ## Metrics layout
 
@@ -52,11 +52,12 @@ Shown on `LiveOrientationStrip` (Rounds HUD, RestSurface, HostVivo context) — 
 
 ## Live UI unification (FH-55 / owner override)
 
-- **`SuperficieViva.de`**: machine and run tramos win before format. EMOM ski → `.ergo`; EMOM run → `.run` (meters, pace, belt speed).
-- **`EntrenoVivoShellView`**: ONE live tree for every modality except outdoor/treadmill run. Same `MarcoVivo` + `CromoVivoEntreno`; only the **subject** changes.
-- **`CromoVivoEntreno` + `ContextoVivoEntreno`**: shared chrome; PM5/GPS/HR chips in contexto — never on metrics. Deleted `topStrip`, `HostVivo` mounts, `connectPM5CTA` apoyos.
-- **Subject by modality**: Run → `RunLiveHUD`; erg → `ErgHUDContent`; EMOM → clock; fuerza → series; conditioning → format HUD; rest → `RestSurface`.
-- **Run outdoor/treadmill**: unchanged (`OutdoorRunHUDView` / `TreadmillHUDView`); run `.host` uses global shell.
+- **`SuperficieViva.de`**: run tramos win before format; **EMOM format wins over ergo** (ski minute stays `.emom` — same chrome, erg metrics injected). EMOM run minute → `.run`.
+- **`EntrenoVivoShellView`**: ONE `MarcoVivo` + `CromoVivoEntreno` for every non-outdoor/treadmill modality. EMOM/fuerza/rest are **subject bands**, not separate top-level views.
+- **`CromoVivoEntreno` + `ContextoVivoEntreno`**: shared chrome; PM5/GPS/HR chips in contexto — never on metrics.
+- **Subject by modality**: Run → `RunLiveHUD`; erg → `ErgHUDContent`; EMOM → `EmomVivoSubjectBand` (+ `ErgLiveStrip` when machine); fuerza → `FuerzaVivoSubjectBand`; conditioning → format HUD; rest → `RestSubjectBand` (blue field inside shell).
+- **Run outdoor/treadmill**: `OutdoorRunHUDView` / `TreadmillHUDView` (Run shell family); both mount `LiveOrientationStrip` in apoyos.
+- **Sensor authority**: `RunPhoneSensorPlan` uses `hasMirroredHKSession` (HK channel bound), not `wristMirrorLive` UI flag — avoids double pedometer/HR when mirror stale.
 
 ## Watch — Apple-first rewrite (FH-107 build 93)
 

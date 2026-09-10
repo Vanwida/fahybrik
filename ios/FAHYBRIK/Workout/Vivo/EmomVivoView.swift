@@ -31,71 +31,16 @@ import SwiftUI
 // (cuánto queda, hacia qué andas, cómo baja el pulso) y tiene pantalla propia —
 // `RestSurface`, a la que `ActiveWorkoutView` enruta antes que a esta vista.
 
-/// El EMOM en vivo, dentro del marco del §10.
-///
-/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire. Solo cambia
-/// la lectura del sujeto (el minuto manda).
-struct EmomVivoView: View {
+// MARK: - Bandas inyectables en `EntrenoVivoShellView` (un solo MarcoVivo)
+
+struct EmomVivoContextoBand: View {
     let session: WorkoutSession
-    /// El rótulo del botón, tal y como lo decide el anfitrión (SALTAR durante la
-    /// cuenta atrás, SIGUIENTE, TERMINAR en el último intervalo).
-    let accionTitulo: String
-    let alTocarAccion: () -> Void
-    let alSalir: () -> Void
-    let alVerBloques: () -> Void
-    let alConectividad: () -> Void
-    let alTapHR: () -> Void
-    let alPausa: () -> Void
     let hrLink: DeviceLink
-    var muestraConectividad: Bool = true
+    let alTapHR: () -> Void
 
     private var plan: EmomPlan? { session.currentSegment?.emomPlan }
-    private var enCuentaAtras: Bool { session.emomCountInRemaining > 0 }
-    /// Los últimos segundos, que es cuando el reloj deja de ser información y pasa
-    /// a ser una orden.
-    private var apura: Bool {
-        !enCuentaAtras && session.emomPhaseRemaining <= WorkoutSession.emomUrgentThreshold
-    }
 
     var body: some View {
-        MarcoVivo {
-            CromoVivoEntreno(session: session,
-                             muestraConectividad: muestraConectividad,
-                             alSalir: alSalir,
-                             alVerBloques: alVerBloques,
-                             alConectividad: alConectividad,
-                             alPausa: alPausa)
-        } contexto: {
-            contexto
-        } sujeto: {
-            BandaSujeto { sujeto }
-        } apoyos: {
-            apoyos
-        } accion: {
-            // EN UN EMOM EL TOQUE NO ES LA SALIDA: la ronda la cierra el reloj, y
-            // este botón solo se adelanta. Por eso va en CONTORNO (§10.5) — antes
-            // eran 96 pt de naranja macizo gritando más que el trabajo que
-            // anunciaban.
-            FranjaAccion(titulo: accionTitulo,
-                         unicaSalida: false,
-                         nota: notaDeAccion,
-                         accion: alTocarAccion)
-        }
-    }
-
-    /// Lo que el botón sella de verdad, cuando no es obvio. Sin esto «SIGUIENTE»
-    /// parece que adelanta el reloj, y el reloj no lo adelanta nadie.
-    private var notaDeAccion: String? {
-        if enCuentaAtras { return nil }
-        guard session.emomIntervalsRemaining > 0 else { return nil }
-        return "el minuto se cierra solo"
-    }
-
-    // MARK: - Contexto — la cadencia, y con qué te está midiendo la app
-
-    /// La franja que no desaparece jamás: cada cuánto suena el reloj, cuántas
-    /// rondas son, y el pulso cuando de verdad hay reloj en la muñeca.
-    private var contexto: some View {
         ContextoVivoEntreno(session: session,
                             titulo: tituloFormato,
                             subtitulo: cadencia,
@@ -109,19 +54,24 @@ struct EmomVivoView: View {
         return "EMOM \(plan.intervalCount)"
     }
 
-    /// Un EMOM llano se lee por su cadencia; un interval se lee por su reparto,
-    /// que es el número contra el que el atleta se administra de verdad.
     private var cadencia: String {
         guard let plan else { return "" }
         let cada = "cada \(Formato.clock(plan.intervalSeconds, subMinuto: .segundos))"
         guard plan.hasTransition else { return cada }
         return "\(Formato.clock(plan.workSeconds, subMinuto: .segundos)) de trabajo · \(cada)"
     }
+}
 
-    // MARK: - El sujeto — el minuto, y pegado a él lo que de verdad haces
+struct EmomVivoSubjectBand: View {
+    let session: WorkoutSession
 
-    @ViewBuilder
-    private var sujeto: some View {
+    private var plan: EmomPlan? { session.currentSegment?.emomPlan }
+    private var enCuentaAtras: Bool { session.emomCountInRemaining > 0 }
+    private var apura: Bool {
+        !enCuentaAtras && session.emomPhaseRemaining <= WorkoutSession.emomUrgentThreshold
+    }
+
+    var body: some View {
         if enCuentaAtras {
             EtiquetaSujeto(texto: "Prepárate")
             Numeral(texto: "\(Int(session.emomCountInRemaining.rounded(.up)))",
@@ -136,9 +86,6 @@ struct EmomVivoView: View {
                     tono: apura ? Theme.Color.accentText : Theme.Color.foreground)
                 .scaleEffect(apura ? 1.02 : 1)
                 .animation(.easeOut(duration: 0.2), value: apura)
-            // §10.6 — el trabajo entra EN LA BANDA. Un cronómetro pelado (un
-            // entreno libre arrancado como reloj de box) no tiene qué nombrar, y
-            // entonces no se pinta una ronda fantasma de guiones.
             if let actual = plan?.interval(session.emomIntervalIndex),
                session.currentSegment?.hasDeclaredWork == true {
                 TrabajoVista(trabajo: trabajo(actual))
@@ -150,9 +97,6 @@ struct EmomVivoView: View {
         "\(Vocab.ronda) \(session.emomIntervalIndex + 1) de \(plan?.intervalCount ?? 0)"
     }
 
-    /// EL TRABAJO DE ESTE MINUTO. Sin máquina, la dosis («12 cal»). Con máquina
-    /// (cinta en un EMOM cuyo sitio aún no se eligió, o un remo que no robó la
-    /// pantalla) se ve 0 → objetivo, nunca un «0 de 12» inventado.
     private func trabajo(_ itv: EmomInterval) -> Trabajo {
         let tramo = session.currentTramo
         if let target = tramo.targetDistanceMeters {
@@ -178,21 +122,14 @@ struct EmomVivoView: View {
                        unidad: nil,
                        dosis: itv.work)
     }
+}
 
-    // MARK: - Los apoyos — la traza de rondas, y lo que viene
+struct EmomVivoApoyosBand: View {
+    let session: WorkoutSession
 
-    /// DOS GRUPOS, y el sobrante entre ellos.
-    ///
-    /// Arriba lo que se mira MIENTRAS trabajas (la traza, lo que viene, el pulso);
-    /// abajo lo que se toca ENTRE rondas (el sello Rx, lo que hay después del
-    /// bloque), pegado a la acción porque es de la misma familia de gestos.
-    ///
-    /// El hueco va EN MEDIO y no al final a propósito. Es la parte del §10.3 que
-    /// este formato no puede cumplir: su escalera del sobrante se queda sin
-    /// peldaños —la traza y las lecturas no ganan nada creciendo, y el numeral ya
-    /// está en su techo—, así que el espacio que sobra se usa para SEPARAR dos
-    /// grupos de gestos en vez de quedarse como una banda muerta encima del botón.
-    private var apoyos: some View {
+    private var plan: EmomPlan? { session.currentSegment?.emomPlan }
+
+    var body: some View {
         VStack(spacing: Theme.Spacing.s) {
             TrazaDeRondas(total: plan?.intervalCount ?? 0,
                           actual: session.emomIntervalIndex,
@@ -200,9 +137,6 @@ struct EmomVivoView: View {
             if let luego = siguienteMovimiento {
                 AnuncioSiguiente(rotulo: "Luego", texto: luego)
             }
-            // «Hechas N de M» NO está aquí: la traza ya lo dibuja y el rótulo del
-            // sujeto ya lo dice con palabras. Tres respuestas a la misma pregunta
-            // es lo que dejaba sin sitio a los números que sí faltaban.
             FilaApoyos {
                 ApoyoVivo(etiqueta: Vocab.fc,
                           valor: session.liveHRBpm.map { "\($0)" },
@@ -212,19 +146,12 @@ struct EmomVivoView: View {
                 ApoyoVivo(etiqueta: Vocab.total,
                           valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
             }
-            Spacer(minLength: 0)
-            // Un EMOM es familia metcon: el eje Rx / escalado se sella aquí, como
-            // antes. Se queda en los apoyos porque es un registro, no el trabajo.
             if session.currentSegmentIsMetcon {
                 RxScaledToggle(session: session)
             }
-            SiguienteTramoChip(siguiente: session.nextSegment)
         }
-        .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// El movimiento que viene, SOLO cuando el EMOM alterna y de verdad cambia —
-    /// así un EMOM uniforme no repite doce veces lo que ya está en la banda.
     private var siguienteMovimiento: String? {
         guard let plan, plan.isAlternating else { return nil }
         let i = session.emomIntervalIndex
@@ -233,6 +160,61 @@ struct EmomVivoView: View {
               sig.movement != act.movement else { return nil }
         guard let work = sig.work else { return sig.movement }
         return "\(work) · \(sig.movement)"
+    }
+}
+
+enum EmomVivoAccionNota {
+    static func de(_ session: WorkoutSession) -> String? {
+        guard session.emomCountInRemaining <= 0 else { return nil }
+        guard session.emomIntervalsRemaining > 0 else { return nil }
+        return "el minuto se cierra solo"
+    }
+}
+
+/// El EMOM en vivo, dentro del marco del §10.
+///
+/// El cromo es `CromoVivoEntreno` — el mismo que correr al aire. Solo cambia
+/// la lectura del sujeto (el minuto manda).
+struct EmomVivoView: View {
+    let session: WorkoutSession
+    /// El rótulo del botón, tal y como lo decide el anfitrión (SALTAR durante la
+    /// cuenta atrás, SIGUIENTE, TERMINAR en el último intervalo).
+    let accionTitulo: String
+    let alTocarAccion: () -> Void
+    let alSalir: () -> Void
+    let alVerBloques: () -> Void
+    let alConectividad: () -> Void
+    let alTapHR: () -> Void
+    let alPausa: () -> Void
+    let hrLink: DeviceLink
+    var muestraConectividad: Bool = true
+
+    var body: some View {
+        MarcoVivo {
+            CromoVivoEntreno(session: session,
+                             muestraConectividad: muestraConectividad,
+                             alSalir: alSalir,
+                             alVerBloques: alVerBloques,
+                             alConectividad: alConectividad,
+                             alPausa: alPausa)
+        } contexto: {
+            EmomVivoContextoBand(session: session, hrLink: hrLink, alTapHR: alTapHR)
+        } sujeto: {
+            BandaSujeto { EmomVivoSubjectBand(session: session) }
+        } apoyos: {
+            VStack(spacing: Theme.Spacing.s) {
+                LiveOrientationStrip(orientation: session.liveOrientation)
+                EmomVivoApoyosBand(session: session)
+                Spacer(minLength: 0)
+                SiguienteTramoChip(siguiente: session.nextSegment)
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        } accion: {
+            FranjaAccion(titulo: accionTitulo,
+                         unicaSalida: false,
+                         nota: EmomVivoAccionNota.de(session),
+                         accion: alTocarAccion)
+        }
     }
 }
 

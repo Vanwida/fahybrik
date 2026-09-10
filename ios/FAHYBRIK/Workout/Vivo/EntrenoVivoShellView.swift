@@ -3,9 +3,8 @@ import SwiftUI
 // LA CÁSCARA GLOBAL DEL LIVE — un solo árbol MarcoVivo + cromo Run para todo.
 //
 // Outdoor / cinta montan sus propias superficies cuando el entorno de carrera
-// ya está elegido; el resto (erg, EMOM sin máquina, fuerza, descanso, formatos)
-// entra aquí. La modalidad solo elige el SUJETO; el cromo y el contexto son los
-// mismos componentes que correr al aire.
+// ya está elegido; el resto entra aquí. La modalidad solo elige el SUJETO; el
+// cromo y el contexto son los mismos componentes que correr al aire.
 
 enum LecturaVivoEntreno {
     case emom
@@ -45,35 +44,24 @@ struct EntrenoVivoShellView: View {
     }
 
     var body: some View {
+        Group {
+            if lectura == .fuerza {
+                FuerzaVivoShellScope(session: session,
+                                     accionTitulo: accionTitulo,
+                                     alTocarAccion: alTocarAccion) {
+                    shellBody
+                }
+            } else {
+                shellBody
+            }
+        }
+    }
+
+    private var shellBody: some View {
         ZStack {
             Theme.Color.background.ignoresSafeArea().instrumentCanvas()
             Ambiente(zona: session.liveZone)
-            switch lectura {
-            case .emom:
-                EmomVivoView(session: session,
-                             accionTitulo: accionTitulo,
-                             alTocarAccion: alTocarAccion,
-                             alSalir: alSalir,
-                             alVerBloques: alVerBloques,
-                             alConectividad: alConectividad,
-                             alTapHR: alTapHR,
-                             alPausa: alPausa,
-                             hrLink: hrLink,
-                             muestraConectividad: muestraConectividad)
-            case .fuerza:
-                FuerzaVivoView(session: session,
-                               accionTitulo: accionTitulo,
-                               alTocarAccion: alTocarAccion,
-                               alSalir: alSalir,
-                               alVerBloques: alVerBloques,
-                               alConectividad: alConectividad,
-                               alTapHR: alTapHR,
-                               alPausa: alPausa,
-                               hrLink: hrLink,
-                               muestraConectividad: muestraConectividad)
-            default:
-                marcoGenerico
-            }
+            marcoGenerico
         }
         .allowsLandscape()
     }
@@ -100,19 +88,26 @@ struct EntrenoVivoShellView: View {
     }
 
     private var contextoGenerico: some View {
-        ContextoVivoEntreno(
-            session: session,
-            titulo: tituloDeContexto,
-            subtitulo: subtituloDeContexto,
-            pm5: pm5,
-            pm5RoleTitle: liveErgRole?.titleES,
-            muestraPM5: session.tramoIsErg || liveScanPath.showPM5Chip,
-            muestraGPS: lectura == .runHost,
-            gpsActive: gpsActive,
-            hrLink: hrLink,
-            alTapPM5: alTapPM5,
-            alTapHR: alTapHR
-        )
+        switch lectura {
+        case .emom:
+            EmomVivoContextoBand(session: session, hrLink: hrLink, alTapHR: alTapHR)
+        case .fuerza:
+            FuerzaVivoContextoBand(session: session, hrLink: hrLink, alTapHR: alTapHR)
+        default:
+            ContextoVivoEntreno(
+                session: session,
+                titulo: tituloDeContexto,
+                subtitulo: subtituloDeContexto,
+                pm5: pm5,
+                pm5RoleTitle: liveErgRole?.titleES,
+                muestraPM5: session.tramoIsErg || liveScanPath.showPM5Chip,
+                muestraGPS: lectura == .runHost,
+                gpsActive: gpsActive,
+                hrLink: hrLink,
+                alTapPM5: alTapPM5,
+                alTapHR: alTapHR
+            )
+        }
     }
 
     private var tituloDeContexto: String {
@@ -147,6 +142,13 @@ struct EntrenoVivoShellView: View {
     @ViewBuilder
     private var sujetoGenerico: some View {
         switch lectura {
+        case .emom:
+            EmomVivoSubjectBand(session: session)
+            if session.tramoIsErg, pm5.isConnected {
+                ErgLiveStrip(session: session, pm5: pm5)
+            }
+        case .fuerza:
+            FuerzaVivoSubjectHost()
         case .ergo:
             ErgHUDContent(session: session, pm5: pm5)
         case .relay:
@@ -154,13 +156,11 @@ struct EntrenoVivoShellView: View {
         case .structural:
             structuralWorkSurface
         case .rest:
-            RestSurface(session: session)
+            RestSubjectBand(session: session)
         case .conditioning:
             sujetoDeConditioning
         case .runHost:
             RunLiveHUD(session: session, gpsActive: gpsActive)
-        case .emom, .fuerza:
-            EmptyView()
         }
     }
 
@@ -233,27 +233,13 @@ struct EntrenoVivoShellView: View {
     private var apoyosComunes: some View {
         VStack(spacing: Theme.Spacing.s) {
             LiveOrientationStrip(orientation: session.liveOrientation)
-            if let strip = partnerStrip {
-                DoblesLiveStrip(state: strip, collapsed: $partnerStripCollapsed)
-            }
-            if session.plan.segments.count > 1, session.tramoRoundTotal <= 1,
-               let alSaltarTramo {
-                BlockIntervalStrip(
-                    segments: session.plan.segments,
-                    currentIndex: session.currentSegmentIndex,
-                    onTap: alSaltarTramo
-                )
-            }
-            if let turn = session.currentSegment?.doblesTurn,
-               !session.currentSegmentIsPartnerRelay, lectura != .relay {
-                DoblesTurnHero(turn: turn,
-                               next: session.plan.segments.nextDoblesTurn(
-                                   after: session.currentSegmentIndex),
-                               compact: true,
-                               partnerFallback: partnerFirstName)
-            }
-            if session.currentSegmentIsMetcon {
-                RxScaledToggle(session: session)
+            switch lectura {
+            case .emom:
+                EmomVivoApoyosBand(session: session)
+            case .fuerza:
+                FuerzaVivoApoyosHost(session: session)
+            default:
+                apoyosGenericos
             }
             Spacer(minLength: 0)
             if !session.isTramoResting {
@@ -265,8 +251,43 @@ struct EntrenoVivoShellView: View {
     }
 
     @ViewBuilder
+    private var apoyosGenericos: some View {
+        if let strip = partnerStrip {
+            DoblesLiveStrip(state: strip, collapsed: $partnerStripCollapsed)
+        }
+        if session.plan.segments.count > 1, session.tramoRoundTotal <= 1,
+           let alSaltarTramo {
+            BlockIntervalStrip(
+                segments: session.plan.segments,
+                currentIndex: session.currentSegmentIndex,
+                onTap: alSaltarTramo
+            )
+        }
+        if let turn = session.currentSegment?.doblesTurn,
+           !session.currentSegmentIsPartnerRelay, lectura != .relay {
+            DoblesTurnHero(turn: turn,
+                           next: session.plan.segments.nextDoblesTurn(
+                               after: session.currentSegmentIndex),
+                           compact: true,
+                           partnerFallback: partnerFirstName)
+        }
+        if session.currentSegmentIsMetcon, lectura != .emom {
+            RxScaledToggle(session: session)
+        }
+    }
+
+    @ViewBuilder
     private var franjaGenerica: some View {
-        if let host = accionDelHost {
+        if lectura == .fuerza {
+            FuerzaVivoAccionHost(session: session,
+                                 accionTitulo: accionTitulo,
+                                 alTocarAccion: alTocarAccion)
+        } else if lectura == .emom {
+            FranjaAccion(titulo: accionTitulo,
+                         unicaSalida: false,
+                         nota: EmomVivoAccionNota.de(session),
+                         accion: alTocarAccion)
+        } else if let host = accionDelHost {
             switch host {
             case let .una(titulo, unica, nota, act):
                 FranjaAccion(titulo: titulo, unicaSalida: unica, nota: nota, accion: act)
@@ -289,6 +310,11 @@ struct EntrenoVivoShellView: View {
                     BotonVivo(titulo: "LO LOGRÉ", unicaSalida: false, accion: logre)
                 }
             }
+        } else if lectura == .rest {
+            FranjaAccion(titulo: accionTitulo,
+                         unicaSalida: false,
+                         nota: "el descanso también es dosis",
+                         accion: alTocarAccion)
         } else {
             FranjaAccion(titulo: accionTitulo,
                          unicaSalida: session.currentBlockIsStructural,

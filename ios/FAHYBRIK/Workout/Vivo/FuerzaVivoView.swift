@@ -407,7 +407,7 @@ struct FuerzaVivoView: View {
 
 /// Identidad de la hoja de kg al cerrar el ejercicio. `kg` es la semilla
 /// (resuelto o prescrito); girar o no, HECHO declara ese valor.
-private struct CierreDeCarga: Identifiable {
+struct CierreDeCarga: Identifiable {
     let id = UUID()
     let kg: Double
 }

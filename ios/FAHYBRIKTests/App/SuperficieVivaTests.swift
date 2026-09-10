@@ -26,14 +26,15 @@ final class SuperficieVivaTests: XCTestCase {
     func testEmomDeBurpeesSigueSiendoEmom() {
         let s = sesionDeEmom(skiPrimero: false)
         XCTAssertEqual(SuperficieViva.de(s), .emom)
-        XCTAssertTrue(SuperficieViva.de(s).montaMarcoPropio)
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
     }
 
-    func testElMinutoDeSkiDeUnEmomEsErgoNoEmomNiCromoC() {
+    func testElMinutoDeSkiDeUnEmomSigueEnEmomNoErgo() {
         let s = sesionDeEmom(skiPrimero: true)
         XCTAssertTrue(s.currentSegment?.isEMOM == true)
-        XCTAssertTrue(s.tramoIsErg, "El tramo decide la lectura: este minuto es máquina")
-        XCTAssertEqual(SuperficieViva.de(s), .ergo)
+        XCTAssertTrue(s.tramoIsErg, "El tramo es máquina, pero el formato EMOM manda el cromo")
+        XCTAssertEqual(SuperficieViva.de(s), .emom,
+                       "mismo shell EMOM; métricas erg inyectadas en el sujeto")
     }
 
     /// Owner EMOM cinta/calle: metros, ritmo, velocidad — no EmomVivoView (FC + TOTAL).
@@ -42,6 +43,19 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertTrue(s.currentSegment?.isEMOM == true)
         XCTAssertTrue(s.tramoIsRun, "El tramo decide la lectura: este minuto es carrera")
         XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
+    }
+
+    func testFuerzaUsaElMarcoGlobal() {
+        let s = sesion(tramo: WorkoutSegment(
+            order: 1, title: "Back Squat", kind: .strength,
+            targetReps: 5, loadKg: 100,
+            blockTitle: "Fuerza", blockPosition: 1,
+            prescription: Prescription(scheme: .sets, modality: nil, sets: nil,
+                                       rounds: nil, workS: nil, restS: nil, totalS: nil,
+                                       target: nil, note: nil, start: nil, increment: nil)
+        ), nombre: "Fuerza", formato: .sets)
+        XCTAssertEqual(SuperficieViva.de(s), .fuerza)
         XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
     }
 
@@ -93,17 +107,6 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .conditioning)
     }
 
-    func testFuerzaSigueEnSuMarco() {
-        let s = sesion(tramo: WorkoutSegment(
-            order: 1, title: "Back Squat", kind: .strength,
-            targetReps: 5, loadKg: 100,
-            blockTitle: "Fuerza", blockPosition: 1,
-            prescription: Prescription(scheme: .sets, modality: nil, sets: nil,
-                                       rounds: nil, workS: nil, restS: nil, totalS: nil,
-                                       target: nil, note: nil, start: nil, increment: nil)
-        ), nombre: "Fuerza", formato: .sets)
-        XCTAssertEqual(SuperficieViva.de(s), .fuerza)
-    }
 
     func testCalentamientoEsEstructuralDentroDelMarco() {
         let s = sesion(tramo: WorkoutSegment(

@@ -94,13 +94,14 @@ struct LiveFlowView: View {
             // de arriba), y sin ellos el rodaje. Las dos miden GPS, que es lo único
             // que corriendo contesta la pregunta.
             ContinuousLiveView(session: session)
+        } else if session.currentSegment?.isEMOM == true {
+            // EMOM gana sobre ergo: mismo cromo de reloj durante todo el bloque.
+            EmomLiveView(session: session)
         } else if session.currentSegment?.fixedListIsStations == true {
             // Ruta / HYROX: el formato manda sobre la modalidad — un ski de
             // estación es `GuionEstaciones`, no `GuionErgo`. Misma regla que
             // `GuionDelEspejo.guionPara`.
             FixedLiveView(session: session)
-        } else if session.currentSegment?.isEMOM == true {
-            EmomLiveView(session: session)
         } else if session.currentTramo.isErg {
             // Ski / remo / bici: el sujeto son los metros (o cal) de la
             // máquina, no el crono de pared ni `liveRunDistanceMeters`.

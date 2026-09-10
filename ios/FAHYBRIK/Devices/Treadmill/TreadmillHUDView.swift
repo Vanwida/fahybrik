@@ -285,6 +285,7 @@ struct TreadmillHUDView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Theme.Spacing.m) {
                     legHeader
+                    LiveOrientationStrip(orientation: model.session.liveOrientation)
                     heroSection
                     controlPanel
                     hrAndZoneRow

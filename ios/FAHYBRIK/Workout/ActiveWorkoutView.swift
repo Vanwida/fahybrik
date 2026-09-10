@@ -252,7 +252,7 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
-            if !PhoneLiveSession.shared.wristMirrorLive {
+            if !PhoneLiveSession.shared.hasMirroredHKSession {
                 liveHR.start(from: session.startedAt)
             }
             // Screen awake: WorkoutContainer.mantenerPantallaDespierta (FH-94) — not here.
@@ -284,9 +284,9 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             session.ensurePhoneWorkoutRun()
         }
-        .onChange(of: PhoneLiveSession.shared.wristMirrorLive) { _, live in
-            // Hand HR off to the wrist when mirror is live; take it back if it drops.
-            if live { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
+        .onChange(of: PhoneLiveSession.shared.hasMirroredHKSession) { _, bound in
+            // Hand HR off to the wrist while the HK mirror channel is bound.
+            if bound { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
         }
         .onChange(of: pool.epoch) { _, _ in
             // Role stores are not the `@State` this view holds — `epoch` is the
@@ -586,7 +586,7 @@ struct ActiveWorkoutView: View {
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
             streetScreenOwnsSurface: calleHudMontado,
-            wristIsRecording: PhoneLiveSession.shared.wristMirrorLive
+            wristChannelBound: PhoneLiveSession.shared.hasMirroredHKSession
         )
         if plan.ownGPS {
             runGPS.start()
