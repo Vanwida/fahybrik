@@ -7,7 +7,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **FH-106 — Goals owner alignment (PR pendiente, build 92).**
-Atleta dueño de objetivos; coach solo lectura. Fecha obligatoria en custom/TBD.
+Atleta dueño de objetivos; coach solo lectura. Mismo bloque «Para cuándo es» en custom + catálogo.
 Eliminado ask-coach + `SetTargetRaceModal` + MCP `set_target_race`.
 Diseño: `docs/pr/fh106-goals-athlete-owns.md`.
 
