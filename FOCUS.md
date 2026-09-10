@@ -7,8 +7,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **FH-106 — Goals owner alignment (PR pendiente, build 92).**
-Atleta dueño de objetivos; coach solo lectura en ficha. Eliminado ask-coach iOS +
-`SetTargetRaceModal` + MCP `set_target_race`; coach POST/DELETE target → 403.
+Atleta dueño de objetivos; coach solo lectura. Fecha obligatoria en custom/TBD.
+Eliminado ask-coach + `SetTargetRaceModal` + MCP `set_target_race`.
 Diseño: `docs/pr/fh106-goals-athlete-owns.md`.
 
 **FH-105 — Archive Swift 6 compile green (main, build 91).**

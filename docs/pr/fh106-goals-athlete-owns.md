@@ -31,6 +31,8 @@ Lista de objetivos ordenada por tiempo (soonest-first), misma proyección en app
 ### API / MCP
 - `POST/DELETE /api/coach/athletes/[id]/races/target` → **403**.
 - MCP `set_target_race` eliminado.
+- `POST /api/athlete/events/custom`: `start_date` obligatorio (400 si falta).
+- `POST /api/athlete/races/target`: `start_date` obligatorio cuando el evento es undated/tentative; persiste en `events` + `races`.
 
 ## Preservado
 - FH-77 familias/custom del catálogo.
