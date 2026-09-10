@@ -14,7 +14,7 @@ Owner mandate (build 93) checked against code + tests on disk. This is a harsh r
 
 | # | Criterion | Verdict | Evidence |
 |---|-----------|---------|----------|
-| 1 | One global live UI; Run chrome reused for Ski/Row; no overlapping pills | **FAIL** | See §1 |
+| 1 | **Global shell = Run chrome tree only**; Ski/Row/all others mount same shell; metrics differ inside; no overlapping pills | **FAIL** | See §1 |
 | 2 | Station metrics (Run / Ski·Row / other) | **PASS** (with watch caveat) | See §2 |
 | 3 | Watch: Apple HK PRIMARY, no invented GPS engine, no Readiness mid-live, stay connected | **PARTIAL PASS** | See §3 |
 | 4 | Dual rests (series + rounds); station ≠ rest; X leave+resume | **PASS** | See §4 |
@@ -22,33 +22,52 @@ Owner mandate (build 93) checked against code + tests on disk. This is a harsh r
 
 ---
 
-## §1 — One global live UI
+## §1 — Global shell = Run chrome tree only (owner correction)
 
-### What improved (not enough for PASS)
+**Owner rule (authoritative):** Only **Run** live UI is correct today. That shell is the **global** live chrome. Ski, Row, and **every other modality** must mount the **same Run component tree**; only the **metrics/subject band** swaps inside that shell. `HostVivo`, `ErgHUDContent`, `EmomVivoView`, `FuerzaVivoView`, `RestSurface`, format HUDs, etc. are **separate/old UIs** → **FAIL** until deleted or folded into the Run tree.
 
-- `SuperficieViva` + `PresentadorVivo` centralise routing; old `phaseRail` / `ExpertActionButton` fork is gone from `ActiveWorkoutView` (comments only — no live references).
-- Device recipe pills removed from `apoyosDelHost` apoyos band (FH-107 comment at `ActiveWorkoutView.swift:867`).
-- Ergo work uses `ErgHUDContent` inside `HostVivo` → `MarcoVivo` (`SuperficieViva.ergo`).
+### Canonical PASS reference (Run)
 
-### FAIL — forks remain (not “one global live UI”)
+Gold path: `ActiveWorkoutView.cromoDeCarrera` → `OutdoorRunHUDView` — full `MarcoVivo { cromo / contexto / sujeto / apoyos / accion }` + `Ambiente` (`OutdoorRunHUDView.swift:60–76`). Treadmill run (`TreadmillHUDView`) and undecided-env (`HostVivo` + `RunLiveHUD`) are Run-family variants owner already accepts as “Run correct today”.
 
-| Surface | Chrome | Shared with Run? |
-|---------|--------|----------------|
-| Run outdoor | `OutdoorRunHUDView` → `MarcoVivo` | Own full-screen chrome |
-| Run treadmill | `TreadmillHUDView` | **No `MarcoVivo`** — bespoke VStack/header |
-| Run undecided env | `HostVivo` + `RunLiveHUD` | Partial |
-| Ski/Row/erg | `HostVivo` + `ErgHUDContent` | Same **MarcoVivo shell**, different **subject** (correct for PM5) |
-| EMOM | `EmomVivoView` (own `MarcoVivo`) | Separate entry |
-| Strength | `FuerzaVivoView` (own `MarcoVivo`) | Separate entry |
+```752:806:ios/FAHYBRIK/Workout/ActiveWorkoutView.swift
+    private var superficieMontada: some View {
+        switch SuperficieViva.de(session) {
+        case .emom:      EmomVivoView(...)           // FAIL — not Run tree
+        case .fuerza:    FuerzaVivoView(...)         // FAIL
+        case .relay:     HostVivo(...)               // FAIL
+        case .structural: HostVivo(...)              // FAIL
+        case .rest:      HostVivo + RestSurface      // FAIL
+        case .ergo:      HostVivo + ErgHUDContent    // FAIL — Ski/Row MUST use Run tree
+        case .runStructure, .run: cromoDeCarrera     // PASS
+        case .conditioning: HostVivo + format HUDs   // FAIL
+        }
+    }
+```
 
-Owner wording (“Run live chrome reused for Ski/Row **stations**”) is **not** met if interpreted as one chrome tree. If the intent was “one MarcoVivo family, no stacked covers”, treadmill is still out of family and run/erg/emom/fuerza are four presenters.
+### FAIL inventory — every non-Run surface still on a separate UI
 
-### FAIL — overlapping pills not fully gone
+| `SuperficieViva` | What mounts today | vs Run tree |
+|------------------|-------------------|-------------|
+| `.run` / `.runStructure` | `cromoDeCarrera` → outdoor / treadmill / `RunLiveHUD` | **PASS** |
+| `.ergo` (Ski / Row / bike) | `HostVivo` + **`ErgHUDContent`** (standalone subject layout) | **FAIL** |
+| `.emom` | **`EmomVivoView`** (own `MarcoVivo` entry) | **FAIL** |
+| `.fuerza` | **`FuerzaVivoView`** | **FAIL** |
+| `.rest` | `HostVivo` + **`RestSurface`** (blue field, own layout) | **FAIL** |
+| `.conditioning` | `HostVivo` + **`RoundsLiveHUD` / `AmrapLiveHUD` / `ForTimeLiveHUD` / …** | **FAIL** |
+| `.relay` | `HostVivo` + custom relay VStack | **FAIL** |
+| `.structural` | `HostVivo` + structural surface | **FAIL** |
 
-- `connectPM5CTA` still renders in `apoyosDelHost` when PM5 disconnected (`ActiveWorkoutView.swift:883–884`) — stacks on erg stats in landscape (exact bug owner cited in `docs/pr/fh107-live-structure.md` §Metrics layout).
-- `ConnectionStrip` / `LiveRecipeDeviceBar` still exist; moved to `LiveConectividadSheet`, not deleted.
+**Ski/Row explicitly FAIL:** `ErgHUDContent` is a separate full-screen erg layout (`Devices/PM5/ErgHUDContent.swift`), wired only through `HostVivo` — not through `cromoDeCarrera` / `OutdoorRunHUDView`. PM5 split · s/min · W must become the **subject** inside the Run shell, not a different view.
 
-**Implementer must:** unify treadmill into `MarcoVivo`/`HostVivo` OR document explicit exception; remove bottom PM5 CTA when top-strip Conectividad is visible; prove one presenter path for station transitions (HYROX ski → run → ski) without chrome swap.
+**Watch (same rule):** `LiveFlowView.familyView` still forks to `ErgoLiveView`, `EmomLiveView`, `FixedLiveView`, `RelojDeParedLiveView`, `SetTableLiveView`, … — all **FAIL** until they render inside the Run wrist chrome (mirror HUD is a separate phone-primary path).
+
+### FAIL — overlapping pills (secondary, still open)
+
+- `connectPM5CTA` in `apoyosDelHost` when PM5 disconnected (`ActiveWorkoutView.swift:883–884`) — stacks on stats in landscape.
+- `ConnectionStrip` / `LiveRecipeDeviceBar` live on in `LiveConectividadSheet`.
+
+**Implementer must:** one entry point = Run chrome (`cromoDeCarrera` / `OutdoorRunHUDView` pattern) for **all** modalities; swap metric readers only; delete or stop routing to `HostVivo`/`ErgHUDContent`/format vivo views as top-level surfaces; HYROX station transitions must not swap chrome.
 
 ---
 
@@ -155,10 +174,10 @@ Owner smoke: “Always see round/series/station lines.”
 
 ## Blocking FAIL list (merge gate)
 
-1. **Treadmill + outdoor run chrome still outside unified presenter** — not one global live UI.
-2. **`connectPM5CTA` still in apoyos** — overlaps erg metrics (owner-reported layout bug).
-3. **`LiveOrientationStrip` missing on erg/HostVivo/EMOM/fuerza/treadmill** — orientation smoke fails.
-4. **`RunPaceSmoother` still on phone outdoor** — call out in DECISIONS or remove if wrist HK is sole distance authority for mirrored runs.
+1. **Every non-Run modality still on a separate live UI** — Ski/Row (`ErgHUDContent`), EMOM, fuerza, rest, conditioning, relay, structural all bypass the Run chrome tree (`superficieMontada` switch above). **Hard FAIL per owner.**
+2. **`connectPM5CTA` still in apoyos** — overlaps metrics in landscape.
+3. **`LiveOrientationStrip` missing** on surfaces that will move into Run shell (and on Run treadmill path).
+4. **`RunPaceSmoother` still on phone outdoor** — document or remove.
 
 ## Non-blocking / verify on device
 
