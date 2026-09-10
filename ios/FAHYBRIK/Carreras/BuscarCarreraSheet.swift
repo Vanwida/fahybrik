@@ -16,11 +16,6 @@ struct BuscarCarreraSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var bearer: String?
-    /// FREE tier switch (athlete without coach). False hides the manual
-    /// fallback ("¿No encuentras tu carrera? Pídesela a tu coach") and its
-    /// request flow — there is no coach curating the calendar for a free
-    /// athlete, so the app must not promise one.
-    var hasCoach: Bool = true
     /// Called after the athlete fixes a target so the caller reloads (countdown).
     let onTargetSet: () -> Void
 
@@ -44,7 +39,6 @@ struct BuscarCarreraSheet: View {
 
     // Navigation
     @State private var selected: RaceCalendarEvent? = nil
-    @State private var showRequestRace = false
     @State private var showCustom = false
 
     @FocusState private var fieldFocused: Bool
@@ -63,9 +57,7 @@ struct BuscarCarreraSheet: View {
                         searchField
                         filters
                         content
-                        if hasCoach {
-                            manualFallback
-                        }
+                        manualFallback
                     }
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.top, Theme.Spacing.l)
@@ -90,17 +82,6 @@ struct BuscarCarreraSheet: View {
                 CrearObjetivoCustomView(bearer: bearer) { event in
                     selected = event
                     showCustom = false
-                }
-            }
-            .navigationDestination(isPresented: $showRequestRace) {
-                // A future objective can't be a pasted PAST result link. When the
-                // race isn't in the official calendar, the athlete asks their coach
-                // to add it — the coach curates the calendar, then it's fixable.
-                // COACHED-only: the fallback that raises this is hidden for free.
-                if hasCoach {
-                    SolicitarCarreraView(bearer: bearer) {
-                        dismiss()
-                    }
                 }
             }
         }
@@ -245,15 +226,7 @@ struct BuscarCarreraSheet: View {
                 symbol: "flag.checkered",
                 title: "Sin carreras",
                 message: "No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas.",
-                // Two real ways out. Coached: ask the coach to add the race (they
-                // curate the calendar). Free: no coach to ask — so the honest exit
-                // is the filters themselves, cleared in one tap.
-                exit: hasCoach
-                    ? .action(title: "Pedir mi carrera al coach") {
-                        fieldFocused = false
-                        showRequestRace = true
-                    }
-                    : .action(title: "Quitar los filtros") { clearFilters() }
+                exit: .action(title: "Quitar los filtros") { clearFilters() }
             )
             .padding(.top, Theme.Spacing.l)
         } else {
@@ -305,42 +278,21 @@ struct BuscarCarreraSheet: View {
     }
 
     private var manualFallback: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            Button {
-                Haptics.light()
-                showCustom = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Crear objetivo personalizado")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundStyle(Theme.Color.accentText)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, Theme.Spacing.s)
+        Button {
+            Haptics.light()
+            showCustom = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Crear objetivo personalizado")
+                    .font(.system(size: 13, weight: .semibold))
             }
-            .buttonStyle(PressScaleStyle())
-
-            if hasCoach {
-                Button {
-                    Haptics.light()
-                    showRequestRace = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "paperplane")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Pedir al coach que lo añada al calendario")
-                            .font(.system(size: 13, weight: .semibold))
-                            .multilineTextAlignment(.center)
-                    }
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 4)
-                }
-                .buttonStyle(PressScaleStyle())
-            }
+            .foregroundStyle(Theme.Color.accentText)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, Theme.Spacing.s)
         }
+        .buttonStyle(PressScaleStyle())
         .padding(.top, Theme.Spacing.s)
     }
 

@@ -54,7 +54,7 @@ struct CrearObjetivoCustomView: View {
             Text("Tu evento no está en el calendario")
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Créalo aquí y fíjalo como objetivo. Solo tú lo verás hasta que un coach lo verifique.")
+            Text("Créalo aquí y fíjalo como objetivo.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)

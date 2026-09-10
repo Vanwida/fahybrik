@@ -113,7 +113,7 @@ struct CarrerasView: View {
             // Reuse the target-race picker (→ FijarObjetivoView); on a successful
             // set we force-refresh the hub + plan so the new objective appears in
             // PRÓXIMAS and Inicio's countdown follows.
-            BuscarCarreraSheet(bearer: effectiveBearer, hasCoach: hasCoach) {
+            BuscarCarreraSheet(bearer: effectiveBearer) {
                 Task { await store.racesMutated() }
             }
         }

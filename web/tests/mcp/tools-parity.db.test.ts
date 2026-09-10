@@ -15,15 +15,12 @@ import {
 } from '../utils/db-fixtures';
 import { call, connectAs, errorText, payload, seedCoachLogin } from '../utils/mcp-client';
 
-type Json = Record<string, unknown>;
-
 const START = '2026-09-07';
 
 describeWithDb('MCP · paridad de escrituras (DB real)', () => {
   const sql = getTestSql();
   const cleanups: Array<() => Promise<void>> = [];
   const userIds: number[] = [];
-  const eventIds: number[] = [];
   const levelIds: number[] = [];
   const communicationIds: string[] = [];
 
@@ -32,7 +29,6 @@ describeWithDb('MCP · paridad de escrituras (DB real)', () => {
   let coachAClerkId = '';
   let coachBClerkId = '';
   let monthId = 0;
-  let eventId = 0;
   let levelId = 0;
 
   beforeAll(async () => {
@@ -53,20 +49,6 @@ describeWithDb('MCP · paridad de escrituras (DB real)', () => {
     });
     monthId = month.monthId;
 
-    const events = await sql<Array<{ id: string }>>`
-      insert into events (slug, name, type, start_date, is_visible_to_athletes)
-      values (
-        ${`mcp-parity-${Date.now()}`},
-        'HYROX Valencia',
-        'hyrox',
-        '2026-11-14'::date,
-        true
-      )
-      returning id::text as id
-    `;
-    eventId = Number(events[0]!.id);
-    eventIds.push(eventId);
-
     const levels = await sql<Array<{ id: string }>>`
       insert into athlete_levels (coach_id, name, label, sort_order)
       values (${clubA.coachId}, 'N2', 'Desarrollo', 2)
@@ -79,10 +61,6 @@ describeWithDb('MCP · paridad de escrituras (DB real)', () => {
   afterAll(async () => {
     if (communicationIds.length > 0) {
       await sql`delete from coach_communications where id = any(${communicationIds}::bigint[])`;
-    }
-    if (eventIds.length > 0) {
-      await sql`delete from races where event_id = any(${eventIds}::bigint[])`;
-      await sql`delete from events where id = any(${eventIds}::bigint[])`;
     }
     if (levelIds.length > 0) {
       await sql`update athletes set level_id = null where level_id = any(${levelIds}::bigint[])`;
@@ -223,43 +201,6 @@ describeWithDb('MCP · paridad de escrituras (DB real)', () => {
         await call(other, 'archive_communication', { communication_id: Number(created.id) }),
       );
       expect(text).toContain('comunicado tuyo');
-    } finally {
-      await closeB();
-    }
-  });
-
-  test('set_target_race: fija el objetivo; el club B no toca al atleta de A', async () => {
-    const { client, close } = await connectAs(coachAClerkId);
-    try {
-      const body = payload(
-        await call(client, 'set_target_race', {
-          athlete_id: clubA.athleteId,
-          event_id: eventId,
-          format: 'singles',
-          division: 'open',
-          gender_category: 'men',
-          goal_time_seconds: 3600,
-        }),
-      );
-      expect(body.race_id).toBeTruthy();
-      const target = body.target_race as Json | null;
-      expect(target?.name).toBe('HYROX Valencia');
-    } finally {
-      await close();
-    }
-
-    const { client: other, close: closeB } = await connectAs(coachBClerkId);
-    try {
-      const text = errorText(
-        await call(other, 'set_target_race', {
-          athlete_id: clubA.athleteId,
-          event_id: eventId,
-          format: 'singles',
-          division: 'open',
-          gender_category: 'men',
-        }),
-      );
-      expect(text).toContain('No hay ningún atleta tuyo con ese identificador');
     } finally {
       await closeB();
     }

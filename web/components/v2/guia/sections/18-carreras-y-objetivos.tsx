@@ -1,6 +1,6 @@
 // GUÍA · 18 Carreras y objetivos — área "Seguimiento". La carrera objetivo que
-// ancla la periodización + el historial de resultados. Bridge: tú fijas la carrera
-// objetivo → el atleta ve la cuenta atrás y su hub de carreras en el móvil.
+// ancla la periodización + el historial de resultados. Bridge: el atleta fija la
+// carrera objetivo → tú la ves en su ficha y él ve la cuenta atrás en el móvil.
 
 import {
   DocSection,
@@ -21,8 +21,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       lead={
         <>
           Todo plan necesita un <b>para qué</b>. La <b>carrera objetivo</b> es esa fecha: la que
-          ancla la periodización, marca la cuenta atrás y ordena el resto del trabajo. Aquí la fijas,
-          añades carreras intermedias, y consultas el historial de lo que tu atleta ya ha corrido,
+          ancla la periodización, marca la cuenta atrás y ordena el resto del trabajo. Tu atleta la
+          fija desde su app; aquí ves sus objetivos y consultas el historial de lo que ya ha corrido,
           con sus tiempos, su percentil y sus parciales.
         </>
       }
@@ -37,9 +37,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         como={
           <>
-            En la ficha del atleta, <b>Fijar carrera objetivo</b> te deja buscarla y fijarla. Quitas
-            un objetivo con una confirmación. Las pasadas llegan solas cuando tu atleta importa su
-            historial de HYROX.
+            En la pestaña <b>Carreras</b> de la ficha ves los objetivos que el atleta ha fijado en su
+            app (cuenta atrás incluida). Las pasadas llegan solas cuando importa su historial de HYROX.
           </>
         }
         porque={
@@ -52,9 +51,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · La carrera que ancla el plan</h3>
       <p>
-        Al fijar la carrera objetivo le das un destino al plan: la cuenta atrás aparece en su ficha y
-        en su móvil, y la periodización se ordena hacia esa fecha. Puedes <b>cambiarla</b> cuando el
-        calendario cambie, y sumar carreras <b>intermedias</b> que sirvan de ensayo en el camino.
+        Cuando el atleta fija su carrera objetivo, la cuenta atrás aparece en su ficha y en su móvil, y
+        la periodización se ordena hacia esa fecha. Puede <b>cambiarla</b> o sumar carreras{' '}
+        <b>intermedias</b> desde su app cuando el calendario cambie.
       </p>
 
       <h3>2 · El historial, sin inventar nada</h3>

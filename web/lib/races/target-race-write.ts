@@ -15,9 +15,8 @@ import { getTargetRace } from './next-race';
 // ─────────────────────────────────────────────────────────────────────────────
 // TARGET-RACE WRITE PATH (phase 2d) — the single source of truth for "pick a
 // catalog event as the athlete's objective" and "remove it". Used by BOTH the
-// athlete bearer endpoints (POST/DELETE /api/athlete/races/target) AND the coach
-// picker (POST /api/coach/athletes/[id]/races/target). Auth + ownership live in
-// the routes; the domain logic lives here once.
+// athlete bearer endpoints (POST/DELETE /api/athlete/races/target). Auth +
+// ownership live in the routes; the domain logic lives here once.
 //
 // Picking an event = a `races` row {event_id, priority='target', status='planned'}
 // whose name/event_type/race_date/location are DERIVED from the catalog event

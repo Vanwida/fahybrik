@@ -170,7 +170,7 @@ export const raceCalendarResponseSchema = z.object({
 });
 export type RaceCalendarResponse = z.infer<typeof raceCalendarResponseSchema>;
 
-// POST /api/athlete/races/target (and POST /api/coach/athletes/[id]/races/target)
+// POST /api/athlete/races/target
 // — set the athlete's TARGET race from a catalog event. name/event_type/race_date/
 // location are DERIVED server-side from the event (never client-supplied); the
 // client only chooses the orthogonal participation attributes + optional goal.
