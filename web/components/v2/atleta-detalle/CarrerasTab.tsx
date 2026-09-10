@@ -1,27 +1,20 @@
 'use client';
 
-// CARRERAS — the coach's race hub for one athlete, symmetric to the iOS athlete
+// CARRERAS — read-only race hub for one athlete, symmetric to the iOS athlete
 // Carreras hub. Two honest sections, split in time:
 //   • PRÓXIMAS · objetivos — every future objective (target + secundaria/
-//     intermedia) with a live countdown + priority badge. The coach sets/changes
-//     the target (SetTargetRaceModal) and removes an objective (confirm-gated
-//     DELETE /api/coach/athletes/[id]/races/target/[raceId]).
-//   • PASADAS · resultados — imported/finished races (the rich
-//     raceHistoryItemSchema: result, percentile/rank, doubles teammates from
-//     race_partners, expandable HYROX splits).
+//     intermedia) with a live countdown + priority badge. The athlete owns
+//     set/change/remove; the coach only sees the list.
+//   • PASADAS · resultados — imported/finished races (raceHistoryItemSchema).
 //
-// Source of truth = GET /api/coach/athletes/[id]/races, whose upcoming/past come
-// from the SAME getUpcomingRaces + listAthletePastRaces projections the athlete
-// hub renders, so the two surfaces never drift. Fetched on mount, re-fetched
-// after a set/remove. No mock data — every state (loading/error/empty/data) is
-// real.
+// Source of truth = GET /api/coach/athletes/[id]/races (same projections as the
+// athlete hub). Upcoming ordered soonest-first.
 
 import { useCallback, useEffect, useState } from 'react';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill, type PillTone } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { SectionHeading } from './parts';
-import { SetTargetRaceModal } from './SetTargetRaceModal';
 import {
   RACE_FORMAT_LABEL,
   RACE_PRIORITY_LABEL,
@@ -45,7 +38,6 @@ interface RacesResponse {
   error?: { message?: string };
 }
 
-// Priority → badge tone + Spanish label (single source = RACE_PRIORITY_LABEL).
 function priorityBadge(priority: RacePriority): { tone: PillTone; label: string } {
   return {
     tone: priority === 'target' ? 'accent' : 'neutral',
@@ -57,12 +49,6 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
   const [data, setData] = useState<RacesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  // Confirm-gated removal: which objective is pending + which is mid-delete.
-  const [pendingRemove, setPendingRemove] = useState<number | null>(null);
-  const [removingId, setRemovingId] = useState<number | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoadError(null);
@@ -82,58 +68,17 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
   }, [athleteId]);
 
   useEffect(() => {
-    // Carga inicial real desde red (no hay forma de saberla en el primer
-    // render): no cabe evitar el efecto, así que se silencia la regla aquí.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
 
-  const handleRemove = useCallback(
-    async (raceId: number) => {
-      setRemovingId(raceId);
-      setRemoveError(null);
-      try {
-        const res = await fetch(
-          `/api/coach/athletes/${athleteId}/races/target/${raceId}`,
-          { method: 'DELETE' },
-        );
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as
-            | { error?: { message?: string } }
-            | null;
-          setRemoveError(body?.error?.message ?? 'No se pudo quitar el objetivo.');
-          return;
-        }
-        setPendingRemove(null);
-        await reload();
-      } catch {
-        setRemoveError('No se pudo quitar el objetivo. Inténtalo de nuevo.');
-      } finally {
-        setRemovingId(null);
-      }
-    },
-    [athleteId, reload],
-  );
-
   const upcoming = data?.upcoming ?? [];
   const past = data?.past ?? [];
 
-  const fijarButton = (
-    <button
-      type="button"
-      onClick={() => setModalOpen(true)}
-      className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-    >
-      <MIcon name={upcoming.length > 0 ? 'add' : 'sports_score'} size={15} />
-      {upcoming.length > 0 ? 'Buscar carrera' : 'Fijar carrera objetivo'}
-    </button>
-  );
-
   return (
     <div className="flex flex-col gap-6">
-      {/* ── PRÓXIMAS · objetivos ───────────────────────────────────────────── */}
       <section className="flex flex-col gap-2.5">
-        <SectionHeading action={loading ? null : fijarButton}>Próximas · objetivos</SectionHeading>
+        <SectionHeading>Próximas · objetivos</SectionHeading>
 
         {loading ? (
           <LoadingRow />
@@ -143,34 +88,17 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
           <EmptyState
             icon="sports_score"
             title="Sin carreras objetivo"
-            description="Fija la carrera que ancla la periodización del plan y verás aquí la cuenta atrás."
-            action={fijarButton}
+            description="Cuando el atleta fije su carrera desde la app verás aquí la cuenta atrás y sus objetivos intermedios."
           />
         ) : (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {upcoming.map((race) => (
-              <UpcomingCard
-                key={race.race_id}
-                race={race}
-                pendingRemove={pendingRemove === race.race_id}
-                removing={removingId === race.race_id}
-                removeError={pendingRemove === race.race_id ? removeError : null}
-                onRequestRemove={() => {
-                  setRemoveError(null);
-                  setPendingRemove(race.race_id);
-                }}
-                onCancelRemove={() => {
-                  setRemoveError(null);
-                  setPendingRemove(null);
-                }}
-                onConfirmRemove={() => void handleRemove(race.race_id)}
-              />
+              <UpcomingCard key={race.race_id} race={race} />
             ))}
           </ul>
         )}
       </section>
 
-      {/* ── PASADAS · resultados ───────────────────────────────────────────── */}
       <section className="flex flex-col gap-2.5">
         <SectionHeading>Pasadas · resultados</SectionHeading>
 
@@ -190,37 +118,11 @@ export function CarrerasTab({ athleteId }: { athleteId: string }) {
           </ul>
         )}
       </section>
-
-      {modalOpen ? (
-        <SetTargetRaceModal
-          athleteId={athleteId}
-          onClose={() => setModalOpen(false)}
-          onSuccess={() => void reload()}
-        />
-      ) : null}
     </div>
   );
 }
 
-// ── PRÓXIMA · one future objective (countdown + confirm-gated remove) ──────────
-
-function UpcomingCard({
-  race,
-  pendingRemove,
-  removing,
-  removeError,
-  onRequestRemove,
-  onCancelRemove,
-  onConfirmRemove,
-}: {
-  race: UpcomingRace;
-  pendingRemove: boolean;
-  removing: boolean;
-  removeError: string | null;
-  onRequestRemove: () => void;
-  onCancelRemove: () => void;
-  onConfirmRemove: () => void;
-}) {
+function UpcomingCard({ race }: { race: UpcomingRace }) {
   const badge = priorityBadge(race.priority);
   const days = Math.max(0, race.days_until ?? 0);
   const dateLine = [formatRaceDate(race.race_date), race.location]
@@ -230,7 +132,6 @@ function UpcomingCard({
 
   return (
     <li className="relative flex flex-col gap-2 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
-      {/* top accent rule */}
       <span
         aria-hidden
         className="absolute inset-x-0 top-0 h-0.5 rounded-t-[var(--v2-r-l)]"
@@ -241,15 +142,6 @@ function UpcomingCard({
         <Pill tone={badge.tone} variant="soft">
           {badge.label}
         </Pill>
-        <span className="flex-1" />
-        <button
-          type="button"
-          aria-label={`Quitar objetivo ${race.name}`}
-          onClick={onRequestRemove}
-          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)]"
-        >
-          <MIcon name="close" size={16} />
-        </button>
       </div>
 
       <div className="flex items-baseline gap-1.5">
@@ -274,47 +166,9 @@ function UpcomingCard({
           </span>
         ) : null}
       </div>
-
-      {pendingRemove ? (
-        <div className="mt-1 flex flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
-          <span className="text-label font-medium text-[color:var(--v2-fg)]">
-            ¿Quitar este objetivo de la cuenta atrás?
-          </span>
-          {removeError ? (
-            <span className="text-label font-medium text-[color:var(--v2-danger)]">
-              {removeError}
-            </span>
-          ) : null}
-          <div className="flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={onCancelRemove}
-              disabled={removing}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={onConfirmRemove}
-              disabled={removing}
-              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] bg-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {removing ? (
-                <MIcon name="progress_activity" size={13} className="animate-spin" />
-              ) : (
-                <MIcon name="delete" size={13} />
-              )}
-              Quitar
-            </button>
-          </div>
-        </div>
-      ) : null}
     </li>
   );
 }
-
-// ── PASADA · one finished/imported race (result + percentile + splits) ─────────
 
 function PastRaceCard({ race }: { race: RaceHistoryItem }) {
   const [expanded, setExpanded] = useState(false);
@@ -389,9 +243,6 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
   );
 }
 
-// Expanded HYROX splits: an optional run-total / RoxZone summary, the 8 run laps,
-// and the 8 stations by canonical label. Team races note that splits are the
-// team's, not the athlete's individual performance.
 function SplitsPanel({ race }: { race: RaceHistoryItem }) {
   const runTotal = formatRaceTime(race.run_total_seconds);
   const roxzone = formatClock(race.roxzone_seconds);

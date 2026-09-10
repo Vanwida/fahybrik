@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       division_label: parsed.data.division_label ?? null,
       distance_meters: parsed.data.distance_meters ?? null,
       homologada: parsed.data.homologada ?? null,
+      start_date: parsed.data.start_date,
       require_visible: true,
     });
     return jsonOk(result);

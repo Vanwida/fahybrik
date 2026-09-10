@@ -52,7 +52,15 @@ export async function createAthleteCustomEvent(
   const client = params.client ?? defaultSql;
   const input = params.input;
 
-  const tentative = input.is_tentative ?? input.start_date == null;
+  if (!input.start_date) {
+    throw new CustomObjectiveError(
+      'validation_error',
+      'Indica la fecha del objetivo.',
+      400,
+    );
+  }
+
+  const tentative = false;
   const series = input.series ?? 'other';
   const family = eventFamily(input.type, series);
 
@@ -76,7 +84,7 @@ export async function createAthleteCustomEvent(
       ${type}::event_type,
       ${series},
       ${input.location ?? null},
-      ${input.start_date ?? null}::date,
+      ${input.start_date}::date,
       ${tentative},
       ${input.division_label ?? null},
       ${input.source_url ?? null},

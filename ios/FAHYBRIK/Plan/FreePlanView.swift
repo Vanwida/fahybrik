@@ -119,7 +119,7 @@ struct FreePlanView: View {
         }
         .sheet(isPresented: $showBuscarCarrera) {
             // Free: the picker hides its "pídesela a tu coach" fallback on its own.
-            BuscarCarreraSheet(bearer: bearer, hasCoach: false) {
+            BuscarCarreraSheet(bearer: bearer) {
                 Task { await store.racesMutated() }
             }
         }

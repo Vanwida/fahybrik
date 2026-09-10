@@ -114,6 +114,8 @@ struct SetTargetRaceBody: Encodable {
     let divisionLabel: String?
     let distanceMeters: Int?
     let homologada: Bool?
+    /// The athlete-confirmed when (YYYY-MM-DD) — required on every set-target call.
+    let startDate: String
 
     init(
         eventId: Int,
@@ -124,7 +126,8 @@ struct SetTargetRaceBody: Encodable {
         objectiveVariant: String? = nil,
         divisionLabel: String? = nil,
         distanceMeters: Int? = nil,
-        homologada: Bool? = nil
+        homologada: Bool? = nil,
+        startDate: String
     ) {
         self.eventId = eventId
         self.format = format
@@ -135,6 +138,7 @@ struct SetTargetRaceBody: Encodable {
         self.divisionLabel = divisionLabel
         self.distanceMeters = distanceMeters
         self.homologada = homologada
+        self.startDate = startDate
     }
 }
 

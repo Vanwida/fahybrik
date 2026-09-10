@@ -36,6 +36,19 @@ struct FijarObjetivoView: View {
 
     @State private var submitting = false
     @State private var errorText: String? = nil
+    @State private var eventDate: Date
+
+    init(event: RaceCalendarEvent, bearer: String?, onTargetSet: @escaping () -> Void) {
+        self.event = event
+        self.bearer = bearer
+        self.onTargetSet = onTargetSet
+        _eventDate = State(initialValue: ObjectiveWhenDate.fromEventStart(event.startDate))
+    }
+
+    /// Catalog rows without a confirmed date show an extra hint under the label.
+    private var catalogUndated: Bool {
+        event.startDate == nil || event.tentative
+    }
 
     private var goalTotalSeconds: Int? {
         switch goalChoice {
@@ -55,6 +68,7 @@ struct FijarObjetivoView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     eventHeader
+                    ObjectiveWhenSection(date: $eventDate, showUndatedCatalogHint: catalogUndated)
                     participationSection
                     goalTimeSection
 
@@ -355,7 +369,8 @@ struct FijarObjetivoView: View {
             objectiveVariant: isHunter ? hunterVariant.rawValue : nil,
             divisionLabel: divisionLabel.isEmpty ? nil : divisionLabel,
             distanceMeters: resolvedDistanceMeters,
-            homologada: event.objectiveFamily == .running ? homologada : nil
+            homologada: event.objectiveFamily == .running ? homologada : nil,
+            startDate: ObjectiveWhenDate.isoString(from: eventDate)
         )
         Task { @MainActor in
             do {
@@ -584,7 +599,8 @@ struct FijarTiempoObjetivoSheet: View {
             format: race.format ?? "singles",
             division: race.division ?? "open",
             genderCategory: race.genderCategory ?? "men",
-            goalTimeSeconds: goalTotalSeconds
+            goalTimeSeconds: goalTotalSeconds,
+            startDate: race.raceDate ?? ObjectiveWhenDate.isoString(from: Date())
         )
         Task { @MainActor in
             do {

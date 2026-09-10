@@ -126,7 +126,8 @@ export const athleteCustomEventInput = z.object({
   type: eventType,
   series: eventSeries.nullable().optional(),
   location: z.string().max(200).nullable().optional(),
-  start_date: isoDate.nullable().optional(),
+  /** Required — goals are ordered by time; undated custom objectives are rejected. */
+  start_date: isoDate,
   is_tentative: z.boolean().optional(),
   source_url: z.string().url().nullable().optional(),
   division_label: z.string().max(80).nullable().optional(),

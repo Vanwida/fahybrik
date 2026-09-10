@@ -170,12 +170,13 @@ export const raceCalendarResponseSchema = z.object({
 });
 export type RaceCalendarResponse = z.infer<typeof raceCalendarResponseSchema>;
 
-// POST /api/athlete/races/target (and POST /api/coach/athletes/[id]/races/target)
-// — set the athlete's TARGET race from a catalog event. name/event_type/race_date/
-// location are DERIVED server-side from the event (never client-supplied); the
-// client only chooses the orthogonal participation attributes + optional goal.
+// POST /api/athlete/races/target
+// — set the athlete's TARGET race from a catalog event. name/event_type/location
+// are DERIVED from the event; the athlete always confirms `start_date` (the when).
 export const athleteTargetRaceInput = z.object({
   event_id: z.coerce.number().int().positive(),
+  /** Athlete-confirmed race date — always required (catalog pre-fill or custom). */
+  start_date: isoDate,
   format: raceFormat.optional(),
   division: raceDivision.optional(),
   gender_category: raceGender.optional(),
