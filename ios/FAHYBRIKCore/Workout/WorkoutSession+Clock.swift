@@ -34,6 +34,14 @@ extension WorkoutSession {
             dt = bruto
             elapsedSeconds += dt
         }
+        #elseif os(watchOS)
+        if let apple = WatchWorkoutClock.appleElapsed?(), apple > 0 {
+            dt = max(0, apple - elapsedSeconds)
+            elapsedSeconds = apple
+        } else {
+            dt = now.timeIntervalSince(lastTick)
+            elapsedSeconds += dt
+        }
         #else
         dt = now.timeIntervalSince(lastTick)
         elapsedSeconds += dt

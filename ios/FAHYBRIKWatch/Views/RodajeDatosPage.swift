@@ -62,8 +62,14 @@ struct RodajeDatosPage: View {
         return (WatchDistancia.cifra(m), WatchDistancia.unidad(m))
     }
 
+    /// Ritmo medio de la sesión (distancia cubierta ÷ tiempo total), no el instantáneo.
     private var ritmo: (cifra: String, unidad: String) {
-        guard let s = session.liveCoveredPaceSecPerKm else { return ("—", "") }
+        guard let pace = WorkoutSession.paceSecPerKm(
+            meters: session.liveRunDistanceMeters,
+            seconds: session.elapsedSeconds
+        ) else { return ("—", "") }
+        let s = Int(pace.rounded())
+        guard s <= RunLegDisplay.maxPaceSecPerKm else { return ("—", "") }
         return (WatchFormat.pace(s), Formato.UnidadRitmo.porKm.rawValue)
     }
 

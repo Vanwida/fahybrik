@@ -1,10 +1,9 @@
 import SwiftUI
 
 // Pausar / Siguiente bloque / Terminar — one horizontal swipe away from the live
-// screen. FH-30: en rodaje el cromo ES la lámina (Pausar naranja grande, Nuevo
-// tramo, Terminar rojo abajo). La confirmación es página «¿Terminar y guardar?»,
-// no un confirmationDialog. Los botones de motor ya existentes se quedan;
-// «Nuevo tramo» no ejecuta motor (FH-31).
+// screen. FH-30: en rodaje el cromo ES la lámina (Pausar naranja grande, Terminar
+// rojo abajo). La confirmación es página «¿Terminar y guardar?», no un
+// confirmationDialog. «Nuevo tramo» oculto hasta FH-31 (motor de corte parcial).
 struct PauseFinishPage: View {
     let session: WorkoutSession
     var driver: WatchRunLegDriver? = nil
@@ -91,7 +90,7 @@ struct PauseFinishPage: View {
             Spacer(minLength: 4)
             VStack(spacing: 8) {
                 botonLamina("Terminar", alto: 48, fondo: WatchTheme.zoneRed, tinta: Color(red: 42/255, green: 0, blue: 0)) {
-                    session.finish(completeness: .partial)
+                    coordinator.finishWorkout(completeness: .partial)
                 }
                 botonLamina("Seguir", alto: 44, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
                     confirmingFinish = false

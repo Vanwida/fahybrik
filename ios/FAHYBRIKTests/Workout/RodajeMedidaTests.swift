@@ -117,11 +117,11 @@ final class RodajeMedidaTests: XCTestCase {
         XCTAssertFalse(s.isRunLegWork)
     }
 
-    func testLibreElToqueNoAvanzaYNuevoTramoSoloSiEsLibre() {
+    func testLibreElToqueNoAvanzaYNuevoTramoOcultoSinMotor() {
         let s = continuousSession(free: true)
         XCTAssertTrue(s.isFreeRun)
         XCTAssertFalse(RodajeVivoToca.avanza(s))
-        XCTAssertTrue(RodajeVivoToca.muestraNuevoTramo(s))
+        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(s), "FH-31: sin motor no se muestra el control")
         let prescrito = continuousSession(free: false)
         XCTAssertFalse(RodajeVivoToca.avanza(prescrito))
         XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(prescrito))
