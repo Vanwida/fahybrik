@@ -19,7 +19,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: .outdoor,
             streetScreenOwnsSurface: true,
-            wristIsRecording: false
+            wristChannelBound: false
         )
         XCTAssertTrue(plan.pedometer, "los metros de calle no pueden depender de qué pantalla está montada")
         XCTAssertFalse(plan.ownGPS, "la pantalla de calle ya tiene su propio GPS vivo — dos duplicarían la velocidad")
@@ -35,7 +35,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: .outdoor,
             streetScreenOwnsSurface: false,
-            wristIsRecording: false
+            wristChannelBound: false
         )
         XCTAssertTrue(plan.pedometer)
         XCTAssertTrue(plan.ownGPS, "sin la pantalla de calle, nadie más alimenta la velocidad")
@@ -49,7 +49,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: .treadmill,
             streetScreenOwnsSurface: false,
-            wristIsRecording: false
+            wristChannelBound: false
         )
         XCTAssertEqual(plan, .allOff)
     }
@@ -61,7 +61,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: .indoor,
             streetScreenOwnsSurface: false,
-            wristIsRecording: false
+            wristChannelBound: false
         )
         XCTAssertEqual(plan, .allOff)
     }
@@ -74,7 +74,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
                 isRunSegment: false,
                 environment: env,
                 streetScreenOwnsSurface: false,
-                wristIsRecording: false
+                wristChannelBound: false
             )
             XCTAssertEqual(plan, .allOff, "sin tramo de correr, \(String(describing: env)) no enciende nada")
         }
@@ -87,7 +87,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: nil,
             streetScreenOwnsSurface: false,
-            wristIsRecording: false
+            wristChannelBound: false
         )
         XCTAssertEqual(plan, .allOff)
     }
@@ -98,12 +98,12 @@ final class RunPhoneSensorPlanTests: XCTestCase {
     // exactamente lo mismo con el mismo motor de Apple, así que dejarlo vivo haría
     // que la carrera contase cada metro dos veces. La velocidad y el desnivel NO se
     // tocan: de eso sigue encargándose el teléfono.
-    func testStreetRunWithTheWristRecordingStandsThePedometerDown() {
+    func testStreetRunWithHKMirrorChannelBoundStandsThePedometerDown() {
         let plan = RunPhoneSensorPlan.decide(
             isRunSegment: true,
             environment: .outdoor,
             streetScreenOwnsSurface: false,
-            wristIsRecording: true
+            wristChannelBound: true
         )
         XCTAssertFalse(plan.pedometer, "con la muñeca emitiendo metros, el podómetro sumaría los mismos otra vez")
         XCTAssertTrue(plan.ownGPS, "la velocidad la sigue midiendo el teléfono")
@@ -119,7 +119,7 @@ final class RunPhoneSensorPlanTests: XCTestCase {
             isRunSegment: true,
             environment: .indoor,
             streetScreenOwnsSurface: false,
-            wristIsRecording: true
+            wristChannelBound: true
         )
         XCTAssertEqual(plan, .allOff)
     }

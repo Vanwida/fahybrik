@@ -18,7 +18,7 @@ enum FreeFunctionalPrefs {
     /// One remembered axis. The raw key is `<prefix>.<format>.<axis>`, so formats can
     /// never read each other's numbers.
     private enum Axis: String, CaseIterable {
-        case rounds, cadence, transition, window, cap, rest
+        case rounds, cadence, transition, window, cap, rest, seriesRest
     }
 
     private static let prefix = "free.functional"
@@ -40,6 +40,7 @@ enum FreeFunctionalPrefs {
         if let w = stored(format, .window, defaults), w > 0 { draft.windowSeconds = w }
         if let cap = stored(format, .cap, defaults), cap >= 0 { draft.capSeconds = cap }
         if let rest = stored(format, .rest, defaults), rest >= 0 { draft.restSeconds = rest }
+        if let sr = stored(format, .seriesRest, defaults), sr >= 0 { draft.seriesRestSeconds = sr }
         // Guard against a stored pair that no longer makes sense (a cadence lowered
         // below a previously stored change): the work window must stay positive.
         if draft.transitionSeconds >= draft.cadenceSeconds { draft.transitionSeconds = 0 }
@@ -56,6 +57,7 @@ enum FreeFunctionalPrefs {
         defaults.set(draft.windowSeconds, forKey: key(format, .window))
         defaults.set(draft.capSeconds, forKey: key(format, .cap))
         defaults.set(draft.restSeconds, forKey: key(format, .rest))
+        defaults.set(draft.seriesRestSeconds, forKey: key(format, .seriesRest))
     }
 
     /// `nil` when the axis was never stored — `UserDefaults.integer(forKey:)` cannot

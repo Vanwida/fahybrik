@@ -48,4 +48,17 @@ final class WristMirrorTruthTests: XCTestCase {
         mirror.resetAthleteEndFlagsForTests()
         XCTAssertFalse(mirror.wristMirrorLive)
     }
+
+    /// FH-107 — stale wrist signal is UI-only; never tear down the HK mirror mid-coaching.
+    func testFh107StaleDoesNotReleaseChannelInTickFrame() throws {
+        let path = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("FAHYBRIK/Workout/PhoneLiveSession.swift")
+        let src = try String(contentsOf: path)
+        XCTAssertFalse(src.contains("mirrorIsStale"),
+                       "tickFrame must not release HK channel on stale — Apple session stays until end")
+        XCTAssertTrue(src.contains("handleMirrorSessionEnded"),
+                      "HK delegate end must distinguish mid-workout vs post-workout")
+    }
 }

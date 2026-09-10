@@ -252,7 +252,7 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             // The wrist streams fresher HR while mirroring — only run the phone's
             // own sparse HealthKit reader when no watch is recording this session.
-            if !PhoneLiveSession.shared.wristMirrorLive {
+            if !PhoneLiveSession.shared.hasMirroredHKSession {
                 liveHR.start(from: session.startedAt)
             }
             // Screen awake: WorkoutContainer.mantenerPantallaDespierta (FH-94) — not here.
@@ -284,9 +284,9 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
             session.ensurePhoneWorkoutRun()
         }
-        .onChange(of: PhoneLiveSession.shared.wristMirrorLive) { _, live in
-            // Hand HR off to the wrist when mirror is live; take it back if it drops.
-            if live { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
+        .onChange(of: PhoneLiveSession.shared.hasMirroredHKSession) { _, bound in
+            // Hand HR off to the wrist while the HK mirror channel is bound.
+            if bound { liveHR.stop() } else { liveHR.start(from: session.startedAt) }
         }
         .onChange(of: pool.epoch) { _, _ in
             // Role stores are not the `@State` this view holds — `epoch` is the
@@ -586,7 +586,7 @@ struct ActiveWorkoutView: View {
             isRunSegment: isRunSegment,
             environment: session.runEnvironment,
             streetScreenOwnsSurface: calleHudMontado,
-            wristIsRecording: PhoneLiveSession.shared.wristMirrorLive
+            wristChannelBound: PhoneLiveSession.shared.hasMirroredHKSession
         )
         if plan.ownGPS {
             runGPS.start()
@@ -595,244 +595,44 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    private var connectPM5CTA: some View {
-        Button(action: { openPM5Picker() }) {
-            HStack(spacing: Theme.Spacing.s) {
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(liveErgRole.map { "CONECTAR \($0.titleES.uppercased())" } ?? "CONECTAR PM5")
-                    .scaledFont(11, weight: .heavy, relativeTo: .caption2, italic: true)
-                    .tracking(1.2)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.vertical, 10)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.accentText.opacity(0.6), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .foregroundStyle(Theme.Color.accentText)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 4)
-        .padding(.bottom, 4)
-    }
-
-    private var topStrip: some View {
-        HStack {
-            // Exit (top-left): navigate away — checkpoint + resume banner, never
-            // discard. Terminar / descartar live in the pause sheet.
-            Button(action: { requestExitOrLeave() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 26, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Salir del entreno")
-            BotonVerBloques { mostrarBloques = true }
-            if muestraConectividadEnBanda {
-                BotonConectividad { mostrarConectividad = true }
-            }
-            Button(action: {
-                session.togglePause()
-                if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
-            }) {
-                Text("‖")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(session.isPaused ? "Reanudar entreno" : "Pausar entreno")
-            // Back: a LOW-emphasis chevron (smaller + muted, never the weight of
-            // the primary button) so it can't be fat-fingered under load. Steps the
-            // EMOM interval back mid-block, else reopens the previous segment.
-            Button(action: { requestBack() }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(session.canStepBack ? Theme.Color.muted : Theme.Color.muted.opacity(0.3))
-                    .frame(width: 26, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!session.canStepBack)
-            .accessibilityLabel("Volver atrás")
-            Spacer()
-            VStack(spacing: 1) {
-                // Block phase (Calentamiento / Principal / Vuelta a la calma) so the
-                // athlete always knows which part of the session they're in.
-                if let phase = currentPhaseLabel {
-                    Text(phase.uppercased())
-                        .font(.system(size: 9, weight: .heavy, design: .default).italic())
-                        .tracking(0.8)
-                        .foregroundStyle(Theme.Color.accentText)
-                        .lineLimit(1)
-                }
-                // Sin tramo abierto (el entreno acaba de cerrarse) no hay título que
-                // dar: la línea desaparece, igual que la fase de arriba (§7).
-                if let titulo = session.currentSegment?.title {
-                    MonoText(text: titulo.uppercased(), size: 11, color: Theme.Color.muted)
-                        .lineLimit(1)
-                }
-            }
-            if segmentHasVideo {
-                Button(action: {
-                    Haptics.light()
-                    // Pause the clock while the video is open; resume on dismiss.
-                    resumeAfterVideo = session.pauseForVideo()
-                    showSegmentVideo = true
-                }) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Ver vídeo de técnica, pausa el cronómetro")
-            }
-            // Wrist chip — only when mirror is actually live (recent wrist signal).
-            if PhoneLiveSession.shared.wristMirrorLive {
-                Image(systemName: "applewatch")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.ok)
-                    .frame(width: 20, height: 28)
-                    .accessibilityLabel("Reloj conectado")
-            }
-            MonoText(
-                text: "\(session.currentSegmentIndex + 1)/\(session.plan.segments.count)",
-                size: 11,
-                color: Theme.Color.muted
-            )
-        }
-        .padding(.horizontal, 4)
-    }
-
-    // #23 · #56 — HYROX dobles RELAY surface: the partner works this station while the
-    // athlete recovers. The turn HERO names the partner (blue), the station and the reps
-    // they carry, plus the "Después: tú" preview; below it the recovery clock + live HR.
-    // "Relevo ▸" advances to the athlete's own next station. Nothing is logged here.
-    @ViewBuilder
-    private var relaySurface: some View {
-        VStack(spacing: 16) {
-            if let turn = currentDoblesTurn {
-                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
-                               compact: false, partnerFallback: partnerFirstName)
-            }
-            Text("Recupera")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.top, 2)
-            Text(Formato.clock(session.lapElapsedSeconds, anchoFijo: true))
-                .font(.system(size: 52, weight: .heavy, design: .monospaced))
-                .foregroundStyle(Theme.Color.foreground)
-            if let bpm = session.liveHRBpm {
-                HStack(spacing: 6) {
-                    Image(systemName: "heart.fill").foregroundStyle(Theme.Color.danger)
-                    Text("\(bpm) ppm")
-                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.m)
-    }
-
     // UN MARCO. El tramo decide la LECTURA; el cromo y la acción son siempre
     // `MarcoVivo` + `BotonVivo`. El árbol que devolvía nil (y pintaba phaseRail
     // PRINCIPAL naranja + ExpertActionButton 40 pt) ya no existe.
-    @ViewBuilder
+    /// UN árbol live — `RunLiveShellView` para run, erg, EMOM, fuerza, descanso…
     private var superficieMontada: some View {
-        switch SuperficieViva.de(session) {
-        case .emom:
-            EmomVivoView(session: session,
-                         accionTitulo: primaryTitle,
-                         alTocarAccion: { primaryAction() }) { topStrip }
-        case .fuerza:
-            FuerzaVivoView(session: session,
-                           accionTitulo: primaryTitle,
-                           alTocarAccion: { primaryAction() }) { topStrip }
-        case .relay:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                relaySurface
-            } apoyos: {
-                EmptyView()
-            }
-        case .structural:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                structuralWorkSurface
-            } apoyos: {
-                EmptyView()
-            }
-        case .rest:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                RestSurface(session: session)
-            } apoyos: {
-                apoyosDelHost
-            }
-        case .ergo:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                ErgHUDContent(session: session, pm5: livePM5 ?? pool.any)
-            } apoyos: {
-                apoyosDelHost
-            }
-        case .runStructure:
-            cromoDeCarrera
-        case .conditioning:
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                sujetoDeConditioning
-            } apoyos: {
-                apoyosDelHost
-            }
-        case .run:
-            cromoDeCarrera
-        }
+        RunLiveShellView(
+            session: session,
+            hrZones: hrZones,
+            accionTitulo: primaryTitle,
+            alTocarAccion: { primaryAction() },
+            alSalir: { requestExitOrLeave() },
+            alVerBloques: { mostrarBloques = true },
+            alConectividad: { mostrarConectividad = true },
+            alTapPM5: { openPM5Picker() },
+            alTapHR: { openHRPicker() },
+            alPausa: {
+                session.togglePause()
+                if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
+            },
+            pm5: livePM5 ?? pool.any,
+            hrLink: hub.heartRate.link,
+            gpsActive: gpsActive,
+            muestraConectividad: muestraConectividadEnBanda,
+            partnerStrip: DoblesLiveStripState.from(partnerLive),
+            partnerStripCollapsed: $partnerStripCollapsed,
+            partnerFirstName: partnerFirstName,
+            accionDelHost: accionDelHostSiAplica,
+            alSaltarTramo: { requestJump(to: $0) }
+        )
     }
 
-    /// One live for correr. Outdoor / cinta mount in place once calle/cinta
-    /// is known — including the warmup block that opens that run. HostVivo
-    /// only while the gate still holds. Never a second cover on top (FH-55).
-    @ViewBuilder
-    private var cromoDeCarrera: some View {
-        switch RunLiveChrome.de(session) {
-        case .outdoor:
-            OutdoorRunHUDView(session: session, hrZones: hrZones,
-                              alSalir: { requestExitOrLeave() },
-                              alVerBloques: { mostrarBloques = true },
-                              alConectividad: { mostrarConectividad = true })
-        case .treadmill(let sinCinta):
-            TreadmillHUDView(session: session, hrZones: hrZones,
-                             empiezaSinCinta: sinCinta,
-                             alSalir: { requestExitOrLeave() },
-                             alVerBloques: { mostrarBloques = true },
-                             alConectividad: { mostrarConectividad = true })
-        case .host:
-            // FH-95: calle/cinta se elige en PreWorkoutDevicesHubView before EMPEZAR, or
-            // mid-session via BotonConectividad — never full-width mid-HUD CTAs.
-            HostVivo(session: session, accion: accionDelHost) {
-                topStrip
-            } sujeto: {
-                RunLiveHUD(session: session, gpsActive: gpsActive)
-            } apoyos: {
-                apoyosDelHost
-            }
+    /// Death By y relevo llevan acción dual o especial; el resto usa `primaryAction`.
+    private var accionDelHostSiAplica: AccionDelHost? {
+        switch SuperficieViva.de(session) {
+        case .relay, .structural, .conditioning:
+            return accionDelHost
+        default:
+            return nil
         }
     }
 
@@ -849,104 +649,7 @@ struct ActiveWorkoutView: View {
                     act: { primaryAction() })
     }
 
-    @ViewBuilder
-    private var sujetoDeConditioning: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            conditioningHUD
-            if let store = livePM5, store.isConnected, !session.isStationTramo {
-                ErgLiveStrip(session: session, pm5: store)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var apoyosDelHost: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            DoblesLiveStrip(state: DoblesLiveStripState.from(partnerLive),
-                            collapsed: $partnerStripCollapsed)
-            LiveRecipeDeviceBar(
-                devices: recipeDevices,
-                pool: pool,
-                treadmillLink: hub.treadmill.link,
-                hrLink: hub.heartRate.link,
-                onTapErg: { store, title in openPM5Picker(store: store, roleTitle: title) },
-                onTapTreadmill: { openCintaPicker() },
-                onTapHR: { openHRPicker() }
-            )
-            ConnectionStrip(
-                session: session,
-                pm5: livePM5 ?? pickerPM5,
-                gpsActive: gpsActive,
-                segmentIsErg: isErgSegment,
-                segmentIsRun: isRunSegment || session.tramoIsRun,
-                onTapPM5: { openPM5Picker() },
-                roleTitle: liveErgRole?.titleES,
-                path: liveScanPath,
-                treadmillLink: hub.treadmill.link,
-                hrLink: hub.heartRate.link,
-                onTapCinta: { openCintaPicker() },
-                onTapHR: { openHRPicker() }
-            )
-            if session.plan.segments.count > 1, session.tramoRoundTotal <= 1 {
-                BlockIntervalStrip(
-                    segments: session.plan.segments,
-                    currentIndex: session.currentSegmentIndex,
-                    onTap: { requestJump(to: $0) }
-                )
-            }
-            if let turn = currentDoblesTurn, !session.currentSegmentIsPartnerRelay {
-                DoblesTurnHero(turn: turn, next: nextDoblesTurn,
-                               compact: true, partnerFallback: partnerFirstName)
-            }
-            if session.currentSegmentIsMetcon {
-                RxScaledToggle(session: session)
-            }
-            if liveScanPath.showPM5Chip && livePM5?.isConnected != true {
-                connectPM5CTA
-            }
-            Spacer(minLength: 0)
-            if !session.isTramoResting, !isErgSegment {
-                SiguienteTramoChip(siguiente: session.nextSegment)
-                    .padding(.bottom, 6)
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-    }
-
-    @ViewBuilder
-    private var conditioningHUD: some View {
-        switch session.currentSegment?.formatScheme {
-        case .amrap:     AmrapLiveHUD(session: session)
-        // Tabata / intervals / deathBy / steady HUDs were removed 5-ago
-        // (WorkoutFormatHUDs). Same remaining face as For Time / rounds.
-        case .tabata, .intervals, .deathBy, .steady:
-            ForTimeLiveHUD(session: session)
-        case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            ForTimeLiveHUD(session: session)
-        case .emom, .sets, .warmup, .cooldown, .superset, .none:
-            // Inalcanzable por construcción: `isConditioningTimer` ya excluye estos
-            // cuatro esquemas y el nil. Se escriben en vez de un `default` para que
-            // un esquema NUEVO no caiga aquí en silencio — que el compilador avise.
-            EmptyView()
-        }
-    }
-
     // MARK: - Primary action
-
-    // Warmup / cooldown checklist surface — every movement + a rounds guide,
-    // scrollable for a long block. The single "hecho" button below closes it.
-    @ViewBuilder
-    private var structuralWorkSurface: some View {
-        if let region = session.currentBlockRegion {
-            ScrollView(showsIndicators: false) {
-                StructuralBlockChecklist(
-                    segments: session.plan.segments(in: region),
-                    phaseName: region.phase.displayName
-                )
-                .padding(.top, 4)
-            }
-        }
-    }
 
     // A structural block closes as ONE completion; everything else advances.
     private func primaryAction() {
@@ -1004,6 +707,7 @@ struct ActiveWorkoutView: View {
     // uses dual BotonVivo (FALLÉ / LO LOGRÉ) — this label is for accessibility.
     private var conditioningPrimaryTitle: String {
         if session.condCountInRemaining > 0 { return "SALTAR" }
+        if session.fixedRestRemaining > 0 { return "SALTAR DESCANSO" }
         switch session.currentSegment?.formatScheme {
         case .amrap:     return "+ RONDA"
         case .tabata:    return "+ REPS"
@@ -1114,13 +818,9 @@ struct ActiveWorkoutView: View {
         return session.plan.segments[index].title
     }
 
-    /// FH-99 — recorded work → Terminar/Guardar/Descartar; otherwise soft leave.
+    /// FH-107 — X always soft-leaves (checkpoint + resume). Terminar lives in pause sheet.
     private func requestExitOrLeave() {
-        if session.hasRecordedWork {
-            requestExit()
-        } else {
-            navigateAway()
-        }
+        navigateAway()
     }
 
     // Soft leave — checkpoint on disk, resume banner / auto-reopen. Never discard.

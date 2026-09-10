@@ -26,9 +26,10 @@ enum WatchPrimaryLifecycle {
     }
 
     /// Idempotent start: only clean idle accepts a new PRIMARY.
+    /// Mirror from the phone preempts a wrist standalone session — the phone is coach.
     static func acceptsStart(current: Phase, hasSession: Bool, standaloneActive: Bool, role: Role) -> Bool {
         guard isCleanIdle(phase: current, hasSession: hasSession) else { return false }
-        if role == .mirror, standaloneActive { return false }
+        _ = standaloneActive
         return true
     }
 

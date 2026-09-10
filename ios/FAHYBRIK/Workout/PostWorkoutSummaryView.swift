@@ -485,10 +485,10 @@ struct PostWorkoutSummaryView: View {
         recorder: WorkoutTraceRecorder,
         startedAt: Date
     ) async -> [WorkoutTraceDTO] {
-        if !recorder.points(of: .distance, source: .gps).isEmpty {
-            let reference = await HealthKitDistanceProbe.cumulativeSeries(
-                startedAt: startedAt, endedAt: Date()
-            )
+        let reference = await HealthKitDistanceProbe.cumulativeSeries(
+            startedAt: startedAt, endedAt: Date()
+        )
+        if !reference.isEmpty {
             recorder.adopt(reference, as: .distance, source: .healthkit)
         }
         return recorder.traces(startedAt: startedAt)

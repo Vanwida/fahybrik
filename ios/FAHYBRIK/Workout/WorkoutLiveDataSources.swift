@@ -127,8 +127,7 @@ final class RunLocationProvider: NSObject, CLLocationManagerDelegate {
         guard isRunning else { return }
         for loc in locations {
             latestHorizontalAccuracyM = loc.horizontalAccuracy
-            // Un fix flojo no se mira: ni pinta recorrido ni da velocidad de fiar.
-            guard GPSSignalQuality.isFixUsable(horizontalAccuracyM: loc.horizontalAccuracy) else { continue }
+            guard loc.horizontalAccuracy >= 0 else { continue }
             status = .active
             // Speed fires for EVERY good fix (auto-pause needs the standstill reading
             // that the min-step distance gate below would swallow).

@@ -48,4 +48,55 @@ final class DescansoTodosLosFormatosTests: XCTestCase {
         s.markRoundDone()
         XCTAssertEqual(s.fixedRestRemaining, 0, accuracy: 0.01)
     }
+
+    // MARK: FH-107 — dual rests (series vs round)
+
+    private func rondasMulti(
+        movements: Int,
+        outerRounds: Int,
+        seriesRest: Int?,
+        roundRest: Int?
+    ) -> WorkoutSession {
+        let sets = (0..<movements).map { i in
+            PrescriptionSet(
+                measure: .reps(10), target: nil, modality: .functional,
+                restS: seriesRest, tempo: nil, note: "M\(i + 1)"
+            )
+        }
+        let p = Prescription(
+            scheme: .rounds, modality: .functional,
+            sets: sets, rounds: outerRounds, workS: nil,
+            restS: roundRest, totalS: nil,
+            target: nil, note: nil, start: nil, increment: nil
+        )
+        let seg = WorkoutSegment(order: 1, title: "WOD", kind: .reps,
+                                 blockTitle: "WOD", blockPosition: 1, prescription: p)
+        let plan = WorkoutPlan(id: UUID(), name: "WOD", format: .rounds,
+                               estimatedDurationSeconds: 900, blockContext: "WOD",
+                               zoneTargets: [], equipment: [], segments: [seg],
+                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
+        let s = WorkoutSession(plan: plan)
+        s.start(); s.beginBlock(); s.primaryAdvance()
+        return s
+    }
+
+    func testFH107SeriesRestEntreEstacionesRoundRestAlCerrarRonda() {
+        let s = rondasMulti(movements: 2, outerRounds: 3, seriesRest: 30, roundRest: 60)
+        s.markRoundDone()
+        XCTAssertEqual(s.fixedRestRemaining, 30, accuracy: 0.01)
+        XCTAssertEqual(s.fixedRestKind, .betweenSeries)
+        s.skipFixedRest()
+        s.markRoundDone()
+        XCTAssertEqual(s.fixedRestRemaining, 60, accuracy: 0.01)
+        XCTAssertEqual(s.fixedRestKind, .betweenRounds)
+    }
+
+    func testFH107PrimaryDuranteDescansoSaltaNoMarca() {
+        let s = rondas(5, descansoDelEjercicio: 45)
+        s.markRoundDone()
+        XCTAssertEqual(s.fixedRoundsDone, 1)
+        s.conditioningPrimary(s.currentSegment!)
+        XCTAssertEqual(s.fixedRestRemaining, 0)
+        XCTAssertEqual(s.fixedRoundsDone, 1)
+    }
 }

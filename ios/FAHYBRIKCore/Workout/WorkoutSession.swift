@@ -280,6 +280,8 @@ final class WorkoutSession {
     /// correcto: en carrera el reloj no para.
     var fixedRestRemaining: Double = 0
     var fixedRestTotal: Double = 0
+    /// FH-107 — which prescribed rest is counting down (series vs round).
+    var fixedRestKind: FixedRestKind = .none
 
     /// ROTATING formats (Tabata / Intervals / Death By) — the work/rest phase, the
     /// 0-based round index, the count-DOWN remaining in the current phase, and the

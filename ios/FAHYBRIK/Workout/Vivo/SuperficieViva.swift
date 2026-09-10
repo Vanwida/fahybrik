@@ -28,8 +28,8 @@ enum SuperficieViva: Equatable, Hashable {
     /// `liveSurface` + `modalityHUD` (relevo y estructural antes del HUD;
     /// carrera estructurada antes del descanso; la máquina antes del EMOM).
     ///
-    /// El minuto de ski/bici de un EMOM es `.ergo`: la lectura la pone
-    /// `ErgHUDContent` dentro de `MarcoVivo`, no `EmomVivoView` ni el cromo C.
+    /// EMOM gana sobre ergo: el minuto de ski/bici sigue en `.emom` (mismo cromo);
+    /// las métricas PM5 entran como sujeto inyectado, no como otro árbol.
     static func de(_ session: WorkoutSession) -> SuperficieViva {
         if session.currentSegmentIsPartnerRelay { return .relay }
         // Warmup that opens a run lives in the run chrome (same view). A mobility
@@ -38,9 +38,14 @@ enum SuperficieViva: Equatable, Hashable {
             return .structural
         }
         if session.isRunStructureActive { return .runStructure }
-        if session.isTramoResting { return .rest }
-        if session.tramoIsErg { return .ergo }
+        // El FORMATO manda sobre el tramo: EMOM/HYROX no cambian de cromo al pasar
+        // ski → run → descanso; solo cambia la banda sujeto dentro del mismo shell.
+        // El descanso intra-EMOM sigue en `.emom` (contexto EMOM + banda descanso).
         if session.currentSegment?.isEMOM == true { return .emom }
+        if session.isTramoResting { return .rest }
+        if session.tramoIsRun { return .run }
+        if session.calentamientoEnLaCarrera { return .run }
+        if session.tramoIsErg { return .ergo }
         // Un rodaje es `.running` + `.steady`. `isConditioningTimer` es verdad
         // porque `.steady` es `presentation.continuous` (el motor del timer).
         // Eso no lo convierte en un metcon: la lectura es el ritmo, la misma
@@ -53,23 +58,12 @@ enum SuperficieViva: Equatable, Hashable {
             default: return .run
             }
         }
-        // Inner run station of a folded .reps block (Libre rondas remo+run): the
-        // tramo is running even though the segment kind is not. Existing RunLiveHUD
-        // / Watch indoor / manual — not a remo strip.
-        if session.tramoIsRun { return .run }
-        if session.calentamientoEnLaCarrera { return .run }
         if session.currentSegment?.isConditioningTimer == true { return .conditioning }
         return .fuerza
     }
 
-    /// EMOM y hierro ya montan `MarcoVivo` ellos. El resto entra por `HostVivo`.
-    var montaMarcoPropio: Bool {
-        switch self {
-        case .emom, .fuerza: return true
-        case .relay, .structural, .runStructure, .rest, .ergo, .conditioning, .run:
-            return false
-        }
-    }
+    /// Todas las ramas montan el mismo `MarcoVivo` global; solo cambia el sujeto.
+    var montaMarcoPropio: Bool { false }
 
     /// Carrera estructurada o rodaje: estas dos ramas son UN live.
     var esCarrera: Bool {
@@ -77,19 +71,20 @@ enum SuperficieViva: Equatable, Hashable {
     }
 }
 
-/// Quién pinta el live de correr — EN SITIO, no una tapa encima de otro HUD.
-///
-/// `OutdoorRunHUDView` / `TreadmillHUDView` ya se declararon superficie viva
-/// el 5-ago (no cover). El calentamiento que abre una carrera vive en ESTE
-/// cromo (FH-55): no hay HostVivo debajo ni tapa encima.
+/// Qué bandas outdoor/cinta inyecta `RunLiveShellView` cuando el tramo mide run.
+/// No es un entry point — solo elige sujeto/apoyos dentro del shell único.
 enum RunLiveChrome: Equatable {
     case outdoor
     case treadmill(empiezaSinCinta: Bool)
     case host
 
     static func de(_ session: WorkoutSession) -> RunLiveChrome {
-        guard SuperficieViva.de(session).esCarrera || session.calentamientoEnLaCarrera,
-              let env = session.runEnvironment else { return .host }
+        // Métricas de carrera (outdoor/cinta) cuando el tramo mide run — también
+        // dentro de EMOM/HYROX, sin cambiar la superficie `.emom`.
+        let runMetrics = session.tramoIsRun
+            || session.calentamientoEnLaCarrera
+            || SuperficieViva.de(session).esCarrera
+        guard runMetrics, let env = session.runEnvironment else { return .host }
         switch RunCoverAutoOpen.decide(environment: env) {
         case .outdoor: return .outdoor
         case .treadmill(let sinCinta): return .treadmill(empiezaSinCinta: sinCinta)

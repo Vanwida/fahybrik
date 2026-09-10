@@ -41,21 +41,19 @@ enum RunPhoneSensorPlan {
     ///   - streetScreenOwnsSurface: la pantalla de calle (`superficieViva ==
     ///     .correrFuera`) es la que está pintando ahora mismo — sólo ella arranca
     ///     su propio proveedor de localización.
-    ///   - wristIsRecording: hay una sesión espejo viva en la muñeca
-    ///     (`PhoneLiveSession.wristJoined`). El reloj mide con el MISMO motor de
-    ///     Apple que el podómetro, pero sobre el cuerpo en vez de sobre el bolsillo,
-    ///     así que sus metros mandan y el podómetro se aparta — si los dos entregan,
-    ///     la sesión cuenta cada metro dos veces. Mismo reparto que ya tiene el
-    ///     pulso: cuando la muñeca emite, el lector del teléfono calla.
+    ///   - wristChannelBound: canal HK espejo enlazado (`PhoneLiveSession.hasMirroredHKSession`).
+    ///     No usar `wristMirrorLive` (flag UI con ventana de señal): si el canal sigue
+    ///     vivo pero el teléfono cree que la muñeca calló, reactivar podómetro/HR duplica
+    ///     la medición mientras el reloj sigue grabando.
     static func decide(
         isRunSegment: Bool,
         environment: RunEnvironment?,
         streetScreenOwnsSurface: Bool,
-        wristIsRecording: Bool
+        wristChannelBound: Bool
     ) -> Decision {
         guard isRunSegment else { return .allOff }
         return Decision(
-            pedometer: !wristIsRecording && environment?.usesPhonePedometer == true,
+            pedometer: !wristChannelBound && environment?.usesPhonePedometer == true,
             ownGPS: !streetScreenOwnsSurface && environment?.usesPhoneGPS == true,
             altimeter: environment?.usesPhoneGPS == true
         )

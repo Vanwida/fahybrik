@@ -3,8 +3,8 @@ import XCTest
 
 // EL ÁRBOL DEL LIVE — una superficie, nunca nil, nunca el cromo C.
 //
-// Quien gana pinta la pantalla entera. Correr (`.run` / `.runStructure`) monta
-// Outdoor/Treadmill EN SITIO (`RunLiveChrome`); no hay tapa encima de otro HUD.
+// Quien gana pinta la banda sujeto. Todo monta `RunLiveShellView`; outdoor/cinta
+// son bandas inyectadas (`RunLiveChrome`), no entry points paralelos.
 
 final class SuperficieVivaTests: XCTestCase {
 
@@ -26,14 +26,38 @@ final class SuperficieVivaTests: XCTestCase {
     func testEmomDeBurpeesSigueSiendoEmom() {
         let s = sesionDeEmom(skiPrimero: false)
         XCTAssertEqual(SuperficieViva.de(s), .emom)
-        XCTAssertTrue(SuperficieViva.de(s).montaMarcoPropio)
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
     }
 
-    func testElMinutoDeSkiDeUnEmomEsErgoNoEmomNiCromoC() {
+    func testElMinutoDeSkiDeUnEmomSigueEnEmomNoErgo() {
         let s = sesionDeEmom(skiPrimero: true)
         XCTAssertTrue(s.currentSegment?.isEMOM == true)
-        XCTAssertTrue(s.tramoIsErg, "El tramo decide la lectura: este minuto es máquina")
-        XCTAssertEqual(SuperficieViva.de(s), .ergo)
+        XCTAssertTrue(s.tramoIsErg, "El tramo es máquina, pero el formato EMOM manda el cromo")
+        XCTAssertEqual(SuperficieViva.de(s), .emom,
+                       "mismo shell EMOM; métricas erg inyectadas en el sujeto")
+    }
+
+    /// EMOM run minute: mismo shell `.emom`; métricas run inyectadas (no otro árbol).
+    func testElMinutoDeRunDeUnEmomSigueEnEmomNoRun() {
+        let s = sesionDeEmom(runPrimero: true)
+        XCTAssertTrue(s.currentSegment?.isEMOM == true)
+        XCTAssertTrue(s.tramoIsRun, "El tramo es carrera, pero el formato EMOM manda el cromo")
+        XCTAssertEqual(SuperficieViva.de(s), .emom,
+                       "mismo shell EMOM; banda run outdoor/cinta inyectada en sujeto")
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
+    }
+
+    func testFuerzaUsaElMarcoGlobal() {
+        let s = sesion(tramo: WorkoutSegment(
+            order: 1, title: "Back Squat", kind: .strength,
+            targetReps: 5, loadKg: 100,
+            blockTitle: "Fuerza", blockPosition: 1,
+            prescription: Prescription(scheme: .sets, modality: nil, sets: nil,
+                                       rounds: nil, workS: nil, restS: nil, totalS: nil,
+                                       target: nil, note: nil, start: nil, increment: nil)
+        ), nombre: "Fuerza", formato: .sets)
+        XCTAssertEqual(SuperficieViva.de(s), .fuerza)
+        XCTAssertFalse(SuperficieViva.de(s).montaMarcoPropio)
     }
 
     func testCerrarLaTapaDeLaCintaNoCambiaLaSuperficie() {
@@ -63,13 +87,14 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .conditioning)
     }
 
-    func testElDescansoTieneSuperficiePropiaDentroDelMismoMarco() {
+    func testElDescansoIntraEmomSigueEnSuperficieEmom() {
         let s = sesionDeEmom(skiPrimero: false, conTransicion: true)
         s.emomCountInRemaining = 0
         s.emomPhase = .rest
         s.emomPhaseRemaining = 15
         XCTAssertTrue(s.isTramoResting)
-        XCTAssertEqual(SuperficieViva.de(s), .rest)
+        // El formato EMOM gana: descanso intra-minuto mantiene contexto EMOM + banda descanso.
+        XCTAssertEqual(SuperficieViva.de(s), .emom)
     }
 
     func testAmrapEligeElSujetoNoUnCromo() {
@@ -84,17 +109,6 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .conditioning)
     }
 
-    func testFuerzaSigueEnSuMarco() {
-        let s = sesion(tramo: WorkoutSegment(
-            order: 1, title: "Back Squat", kind: .strength,
-            targetReps: 5, loadKg: 100,
-            blockTitle: "Fuerza", blockPosition: 1,
-            prescription: Prescription(scheme: .sets, modality: nil, sets: nil,
-                                       rounds: nil, workS: nil, restS: nil, totalS: nil,
-                                       target: nil, note: nil, start: nil, increment: nil)
-        ), nombre: "Fuerza", formato: .sets)
-        XCTAssertEqual(SuperficieViva.de(s), .fuerza)
-    }
 
     func testCalentamientoEsEstructuralDentroDelMarco() {
         let s = sesion(tramo: WorkoutSegment(
@@ -185,7 +199,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .run)
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
         XCTAssertNotEqual(SuperficieViva.de(s), .structural,
-                          "un jog de calentamiento no pinta HostVivo debajo")
+                          "un jog de calentamiento no cae a superficie estructural")
     }
 
     func testCalentamientoSinCarreraSigueSiendoEstructural() {
@@ -238,7 +252,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(s.currentSegment?.title, "Run Technique")
     }
 
-    /// Libre + calentamiento: UN cromo (calle/cinta), no HostVivo debajo y tapa
+    /// Libre + calentamiento: UN cromo (calle/cinta) en `RunLiveShellView`, sin tapa
     /// encima. El calentamiento es la primera pierna de la misma estructura.
     func testLibreRunConCalentamientoEsUnSoloCromoEnSitio() {
         let s = sesionLibreConCalentamiento(blockTitle: "Principal")
@@ -268,7 +282,7 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(PresentadorVivo.de(s), .puerta,
                        "la puerta es el único canal — el cromo no vive debajo")
         XCTAssertEqual(SuperficieViva.de(s), .runStructure,
-                       "el árbol ya sabe que es carrera; no pinta HostVivo estructural")
+                       "el árbol ya sabe que es carrera; no cae a superficie estructural")
         XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
         XCTAssertTrue(SuperficieViva.de(s).esCarrera)
         s.beginBlock()
@@ -426,6 +440,27 @@ final class SuperficieVivaTests: XCTestCase {
             order: 1, title: "EMOM 12", kind: .reps, targetReps: 10,
             blockTitle: "Principal", blockPosition: 1, prescription: p
         ), nombre: "EMOM 12", formato: .emom)
+    }
+
+    private func sesionDeEmom(runPrimero: Bool) -> WorkoutSession {
+        func setRun(_ m: Int) -> PrescriptionSet {
+            PrescriptionSet(measure: .distance(meters: Double(m)), target: nil, modality: .run,
+                            restS: nil, tempo: nil, note: "Run")
+        }
+        func setReps(_ reps: Int, _ nombre: String) -> PrescriptionSet {
+            PrescriptionSet(measure: .reps(reps), target: nil, modality: .functional,
+                            restS: nil, tempo: nil, note: nombre)
+        }
+        let sets = runPrimero
+            ? [setRun(400), setReps(10, "Burpees")]
+            : [setReps(10, "Burpees"), setRun(400)]
+        let p = Prescription(scheme: .emom, modality: nil, sets: sets, rounds: 12,
+                             workS: 60, restS: nil, totalS: nil,
+                             target: nil, note: nil, start: nil, increment: nil)
+        return sesion(tramo: WorkoutSegment(
+            order: 1, title: "EMOM Run", kind: .reps,
+            blockTitle: "Principal", blockPosition: 1, prescription: p
+        ), nombre: "EMOM Run", formato: .emom)
     }
 
     private func sesion(tramo: WorkoutSegment, nombre: String,

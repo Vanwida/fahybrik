@@ -89,6 +89,10 @@ struct PersistedWorkoutState: Codable {
     var condStartElapsed: Double? = nil
     var condSegmentIndex: Int? = nil
     var fixedRoundsDone: Int? = nil
+    /// FH-107 — conditioning fixed-list rest phase (series vs round).
+    var fixedRestRemaining: Double? = nil
+    var fixedRestTotal: Double? = nil
+    var fixedRestKind: String? = nil
     var rotPhase: String? = nil
     var rotRoundIndex: Int? = nil
     var rotPhaseRemaining: Double? = nil

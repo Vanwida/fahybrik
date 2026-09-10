@@ -1,27 +1,10 @@
 import SwiftUI
 
-// THE REST SCREEN — a screen with its own subject, not a tinted pause.
-//
-// Between two work windows the athlete's questions change completely, and in this
-// order: how long is left, what am I walking to, am I recovering, how did that one
-// go. So the rest gets its own surface built on those four, instead of the old
-// treatment (a 30 pt countdown in the corner of the work layout, a 10% blue wash).
-//
-// The blue is the IDENTITY of the phase, not a hint: a real field, a real border,
-// and the countdown as the largest number the app ever draws — this is read from
-// the floor, three metres away, sweating. Everything that helped while working
-// (split, watts, stroke rate) is gone, because none of it is true any more.
-//
-// Shared by every engine that rests: an EMOM change window, a Tabata / interval
-// rest. The structured-run engine keeps its own recovery leg surface.
-struct RestSurface: View {
+// Sujeto de descanso dentro del shell Run global — no una app aparte.
+// `LiveOrientationStrip` vive en los apoyos del shell (`RunLiveShellView`).
+
+struct RestSubjectBand: View {
     let session: WorkoutSession
-    /// The workout's action, LANDSCAPE ONLY (portrait keeps its own bottom button
-    /// outside this view). At rest the action IS the subject — SALTAR DESCANSO is
-    /// the normal path, not an emergency — so it goes big INSIDE the field, at the
-    /// bottom right with the cards, instead of in a side column that squeezed the
-    /// countdown off-centre.
-    var accion: AnyView? = nil
     @Environment(\.verticalSizeClass) private var vSizeClass
     private var isLandscape: Bool { vSizeClass == .compact }
 
@@ -31,11 +14,10 @@ struct RestSurface: View {
             countdown
             if let next = session.nextTramoLine { nextUp(next) }
             Spacer(minLength: 0)
-            if hrRecovery != nil || lastEffort != nil || accion != nil {
+            if hrRecovery != nil || lastEffort != nil {
                 HStack(alignment: .center, spacing: 10) {
                     if let hr = hrRecovery { recoveryCard(hr) }
                     if let effort = lastEffort { effortCard(effort) }
-                    if let accion { accion.frame(width: 216) }
                 }
             }
         }
@@ -49,8 +31,6 @@ struct RestSurface: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
-
-    // MARK: - 1 · Which phase this is (one word, so no one has to infer it)
 
     private var phaseTag: some View {
         HStack(spacing: 8) {
@@ -67,14 +47,11 @@ struct RestSurface: View {
         }
     }
 
-    /// An EMOM's gap is a CHANGE (walk to the next station), an interval's is a
-    /// REST (stand and breathe). Naming them the same would flatten the difference
-    /// the format exists to create.
     private var phaseWord: String {
-        session.currentSegment?.isEMOM == true ? "CAMBIO" : "DESCANSO"
+        if session.currentSegment?.isEMOM == true { return "CAMBIO" }
+        if let label = session.fixedRestKind.labelES { return label.uppercased() }
+        return "DESCANSO"
     }
-
-    // MARK: - 2 · The subject: how long is left
 
     private var countdown: some View {
         Text(Formato.clock(session.tramoRestRemaining, anchoFijo: true))
@@ -88,11 +65,7 @@ struct RestSurface: View {
             .accessibilityLabel("\(phaseWord.lowercased()), quedan \(Int(session.tramoRestRemaining.rounded())) segundos")
     }
 
-    /// The last three seconds go accent — the same threshold the audible ticks use,
-    /// so eyes and ears say the same thing.
     private var isUrgent: Bool { session.tramoRestRemaining <= 3 }
-
-    // MARK: - 3 · What comes next
 
     private func nextUp(_ next: String) -> some View {
         VStack(spacing: 3) {
@@ -109,12 +82,6 @@ struct RestSurface: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - 4 · Am I recovering? (real data, or nothing at all)
-
-    /// Current bpm plus the drop from the peak of the window just finished — the
-    /// only thing on this screen that says whether the rest is working. Shown only
-    /// when HR is actually streaming; a rest with no belt shows no HR card rather
-    /// than an em-dash pretending to be a measurement.
     private var hrRecovery: (bpm: Int, peak: Int?)? {
         guard let bpm = session.liveHRBpm else { return nil }
         return (bpm, session.lastTramoHRPeak)
@@ -144,17 +111,8 @@ struct RestSurface: View {
         .padding(.vertical, 10)
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(hr.peak.map { p in
-            p > hr.bpm ? "Pulso \(hr.bpm), ha bajado \(p - hr.bpm) desde \(p)" : "Pulso \(hr.bpm)"
-        } ?? "Pulso \(hr.bpm)")
     }
 
-    // MARK: - 5 · How the window just closed went
-
-    /// The just-finished bout as it really happened: how long it took, and what the
-    /// monitor measured when there was a monitor. Nil when nothing was recorded, so
-    /// the card never invents closure that didn't exist.
     private var lastEffort: (time: String, work: String?)? {
         guard let seconds = session.lastTramoElapsedSeconds, seconds > 0 else { return nil }
         return (Formato.clock(seconds), session.lastTramoWorkLine)
@@ -175,7 +133,5 @@ struct RestSurface: View {
         .padding(.vertical, 10)
         .background(Theme.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("La serie que acabas de hacer: \(effort.work.map { $0 + ", " } ?? "")\(effort.time)")
     }
 }

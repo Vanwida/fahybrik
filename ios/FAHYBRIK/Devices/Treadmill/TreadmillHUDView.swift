@@ -1,13 +1,9 @@
 import SwiftUI
 import UIKit
 
-// LA PANTALLA DEL ENTRENO CUANDO CORRES EN CINTA (Bluetooth/FTMS). Hasta el 5-ago
-// era un `fullScreenCover` que se abría encima de otro HUD del mismo tramo; ahora es
-// una superficie viva más (`ActiveWorkoutView.superficieViva`) y es la ÚNICA que
-// pinta ese tramo. Recorre la estructura de tramos con avance AUTOMÁTICO — un tramo
-// por distancia se cierra solo cuando la cinta llega al objetivo y encadena con la
-// recuperación / el siguiente; el botón manual sólo se adelanta. Reutiliza la
-// progresión del propio entreno a través del modelo.
+// BANDA SUJETO de cinta — solo dentro de `RunLiveShellView`. El cromo/contexto/acción
+// viven en el shell; aquí FTMS + métricas + guía de conexión. Recorre tramos con
+// avance automático por distancia; el botón manual solo adelanta.
 struct TreadmillHUDView: View {
     @State private var model: TreadmillHUDModel
     @State private var showDiagnostics = false
@@ -27,88 +23,42 @@ struct TreadmillHUDView: View {
     /// HUD en vivo, que sin cinta degrada solo (reloj del tramo + objetivo + pulso,
     /// controles manuales) en vez de dejar al atleta atrapado en la guía de conexión.
     @State private var sinCinta = false
-    /// Quick "Avisos de voz" (#63) toggle — shares the key with ProfileView, so the
-    /// athlete can mute/unmute the coach without leaving the run.
-    @AppStorage(AudioCoachSettings.enabledKey) private var voiceCoachEnabled = true
-    /// SALIR DEL ENTRENO, no «cerrar la pantalla» — misma razón que en
-    /// `OutdoorRunHUDView`: sin cover propio, un `dismiss()` desde aquí se llevaría
-    /// la presentación del entreno entero sin cerrar la sesión.
-    let alSalir: () -> Void
-    /// Abre la hoja de bloques del padre. Un disparador: `mostrarBloques = true`.
-    let alVerBloques: () -> Void
-    /// Abre conectividad (calle ↔ cinta) sin parar la sesión (FH-102).
-    let alConectividad: () -> Void
-    /// Cinta tonta: el atleta ya dijo que no hay Bluetooth. Se entra directo al
-    /// HUD vivo (reloj indoor), no a la guía de conectar.
+    /// El shell posee el modelo y su ciclo de vida — no recrear aquí.
     init(session: WorkoutSession, hrZones: HRZoneProfile?,
-         empiezaSinCinta: Bool = false, alSalir: @escaping () -> Void,
-         alVerBloques: @escaping () -> Void, alConectividad: @escaping () -> Void) {
-        // The SHARED hub — so a belt connected in the brief is already live here (no
-        // re-scan), and the connection outlives this surface going away and coming back.
-        _model = State(initialValue: TreadmillHUDModel(session: session, hrZones: hrZones,
-                                                       hub: .shared))
+         empiezaSinCinta: Bool = false,
+         injectedModel: TreadmillHUDModel) {
+        _model = State(initialValue: injectedModel)
         _sinCinta = State(initialValue: empiezaSinCinta)
-        self.alSalir = alSalir
-        self.alVerBloques = alVerBloques
-        self.alConectividad = alConectividad
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea().instrumentCanvas()
-            VStack(spacing: Theme.Spacing.m) {
-                header
-                // Honest "connected but silent" state, above the hero: many FTMS
-                // belts emit NOTHING until the band moves, and the readouts alone
-                // can only say "esperando a la cinta" — this says what to DO about
-                // it, which is the part the athlete needs. The 1 s TimelineView
-                // re-evaluates the time-based staleness check; the banner drops the
-                // instant a sample lands (the model's `latest` mutation re-renders).
-                if model.treadmillLink.isLive, !model.isCountIn {
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        if model.telemetrySilent { treadmillNoDataHint }
-                    }
-                }
-                if !model.treadmillLink.isLive && !sinCinta {
-                    connectingState
-                } else if model.isCountIn {
-                    countInState
-                } else if model.session.calentamientoEsListaEnLaCarrera {
-                    calentamientoEnCinta
-                } else if isLandscape {
-                    landscapeLiveHUD
-                } else {
-                    liveHUD
+        cuerpoVivo
+    }
+
+    /// Sujeto de cinta — sin cromo/header propio (vive en `RunLiveShellView`).
+    private var cuerpoVivo: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            if model.treadmillLink.isLive, !model.isCountIn {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    if model.telemetrySilent { treadmillNoDataHint }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, 10)
+            if !model.treadmillLink.isLive && !sinCinta {
+                connectingState
+            } else if model.isCountIn {
+                countInState
+            } else if model.session.calentamientoEsListaEnLaCarrera {
+                calentamientoEnCinta
+            } else if isLandscape {
+                landscapeLiveHUD
+            } else {
+                liveHUD
+            }
         }
-        .allowsLandscape()
         .overlay {
             if let n = model.startCountdown { countdownOverlay(n) }
         }
         .animation(.easeInOut(duration: 0.2), value: model.startCountdown)
-        .onAppear {
-            model.start()
-            // La pantalla despierta la lleva WorkoutContainer por fase (dueño
-            // único); el flag suelto que se re-afirmaba aquí ya no hace falta.
-        }
-        .onDisappear { model.teardown() }
-        // AQUÍ VIVÍAN TRES AUTO-CIERRES (`dismissIfLeftRun`, terminar, puerta de
-        // bloque). Sólo servían para bajar el cover cuando la sesión salía de correr;
-        // ahora el reparto lo hace `ActiveWorkoutView.superficieViva`, que deja de
-        // resolver a esta vista en ese mismo instante y su desmontaje ya llama a
-        // `teardown()`.
-        .sheet(isPresented: $showDiagnostics) {
-            if let text = model.diagnosticsText { ShareSheet(items: [text]) }
-        }
-        #if DEBUG
-        .sheet(isPresented: $showControlDebug) {
-            TreadmillControlDebugSheet(model: model)
-        }
-        #endif
     }
 
     /// Movilidad del calentamiento: el mismo cromo de cinta, no otra pantalla.
@@ -156,107 +106,6 @@ struct TreadmillHUDView: View {
         return ahora ? "TERMINAR TRAMO AHORA" : "TERMINAR TRAMO"
     }
 
-    // MARK: - Header (chips + close)
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            ControlFuenteCarrera(environment: model.session.runEnvironment, accion: alConectividad)
-            headerChip(icon: "figure.run", text: cintaChipText,
-                       link: model.treadmillLink, channel: model.treadmillChannel,
-                       // MANTENIDO PULSADO en el chip de la cinta = "Modo de control",
-                       // el diagnóstico de campo. SÓLO EN DEBUG: en la app del atleta
-                       // una pulsación larga de 0,6 s abría un volcado FTMS crudo, que
-                       // no es una pantalla de producto (5-ago).
-                       onLongPress: gestoDeDiagnostico)
-            headerChip(icon: "heart.fill", text: pulseChipText,
-                       link: model.effectiveHRLink, channel: model.hrChannel)
-            Spacer(minLength: 0)
-            BotonVerBloques(accion: alVerBloques)
-            Button(action: { Haptics.light(); voiceCoachEnabled.toggle(); if !voiceCoachEnabled { AudioCoach.shared.stopSpeaking() } }) {
-                Image(systemName: voiceCoachEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundStyle(voiceCoachEnabled ? Theme.Color.accentText : Theme.Color.muted)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel(voiceCoachEnabled ? "Silenciar avisos de voz" : "Activar avisos de voz")
-            Button(action: { alSalir() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Salir del entreno")
-        }
-    }
-
-    /// El gesto de diagnóstico, o nada. En Release devuelve nil y el chip se queda
-    /// sin pulsación larga: la hoja de depuración no se compila.
-    private var gestoDeDiagnostico: (() -> Void)? {
-        #if DEBUG
-        return model.controlCapability.hasControlPoint ? { showControlDebug = true } : nil
-        #else
-        return nil
-        #endif
-    }
-
-    /// A header device chip that opens the picker on tap — so mid-run the athlete can
-    /// switch machines or DISCONNECT one that latched onto the wrong device.
-    private func headerChip(icon: String, text: String,
-                            link: DeviceLink, channel: DeviceChannel,
-                            onLongPress: (() -> Void)? = nil) -> some View {
-        Button {
-            Haptics.light()
-            channel.reconnectSessionMachineOrOpenPicker()
-        } label: {
-            DeviceChip(icon: icon, text: text, link: link)
-        }
-        .buttonStyle(PressScaleStyle())
-        .onLongPressGesture(minimumDuration: 0.6) {
-            guard let onLongPress else { return }
-            Haptics.medium()
-            onLongPress()
-        }
-        .sheet(isPresented: Binding(get: { channel.isPresentingPicker },
-                                    set: { channel.isPresentingPicker = $0 })) {
-            DevicePickerSheet(channel: channel)
-        }
-    }
-
-    private var cintaChipText: String {
-        "Cinta · " + (model.treadmillLink.deviceName ?? cintaStateWord)
-    }
-    /// La palabra del chip cuando no hay nombre de aparato que enseñar. `.connected`
-    /// SIEMPRE trae nombre (`deviceName`), así que sólo cae aquí por `.idle`: nadie ha
-    /// empezado a buscar todavía. Eso se dice, no se pinta un guion — y el chip es
-    /// además el sitio donde se arregla, que se abre de un toque.
-    private var cintaStateWord: String {
-        switch model.treadmillLink {
-        case .scanning, .connecting: return "buscando"
-        case .lost:                  return "se perdió"
-        case .unavailable, .failed:  return "sin señal"
-        case .idle, .connected:      return "sin conectar"
-        }
-    }
-    private var pulseChipText: String {
-        // Single source of truth: whatever the engine says is recording HR (strap →
-        // its name/"banda", watch → "reloj", PM5 → "remo"), else the channel state.
-        "Pulso · " + (model.effectiveHRLink.deviceName ?? pulseStateWord)
-    }
-    private var pulseStateWord: String {
-        switch model.effectiveHRLink {
-        case .scanning, .connecting: return "buscando"
-        case .lost:                  return "se perdió"
-        case .unavailable, .failed:  return "sin señal"
-        case .idle, .connected:      return "sin conectar"
-        }
-    }
-
     // MARK: - Count-in
 
     private var countInState: some View {
@@ -285,6 +134,7 @@ struct TreadmillHUDView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Theme.Spacing.m) {
                     legHeader
+                    LiveOrientationStrip(orientation: model.session.liveOrientation)
                     heroSection
                     controlPanel
                     hrAndZoneRow

@@ -18,8 +18,8 @@ import CoreMotion
 //
 // Así que el barómetro pone la FORMA de la curva y el GPS le pone el CERO.
 //
-// El reparto de este fichero es el mismo que el de `RunPaceSmoother` /
-// `RunAutoPause` / `HeartRateParser`: el ALGORITMO va en un tipo puro que se prueba
+// El reparto de este fichero es el mismo que el de `HeartRateParser`: el ALGORITMO
+// va en un tipo puro que se prueba
 // con números, y la carcasa sólo habla con CoreMotion.
 
 /// El cero de la serie de altitud: qué hay que sumarle a lo que dice el barómetro.

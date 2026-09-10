@@ -132,8 +132,8 @@ struct RoundsLiveHUD: View {
     // con un «1/4» sería gastar el sitio bueno en el dato fácil.
     private var caraLista: some View {
         VStack(spacing: 12) {
-            RoundsContextStrip(session: session,
-                               posicion: "Ronda \(min(session.roundsHUDDone + 1, session.roundsHUDTotal)) de \(session.roundsHUDTotal)")
+            RoundsContextStrip(session: session)
+            LiveOrientationStrip(orientation: session.liveOrientation)
             SujetoTrabajoRonda(seg: seg, grande: true, interiorActivo: session.roundsHUDInnerIndex)
             RoundRowsList(session: session)
         }
@@ -166,9 +166,8 @@ struct RoundsLiveHUD: View {
     // Interno para que el test mida el suelo: el ultimo candidato TIENE que caber.
     var contadorSuelo: some View {
         VStack(spacing: 12) {
-            RoundsContextStrip(
-                session: session,
-                posicion: "Ronda \(min(session.roundsHUDDone + 1, session.roundsHUDTotal))/\(session.roundsHUDTotal)")
+            RoundsContextStrip(session: session)
+            LiveOrientationStrip(orientation: session.liveOrientation)
             // El deshacer NO se recorta (verif3 cazó al suelo recortándolo):
             // con una cerrada, su chip tachado viaja también aquí — 19 pt que
             // el peor cromo real (~187) sigue absorbiendo.
@@ -201,7 +200,8 @@ struct RoundsLiveHUD: View {
         VStack(spacing: 12) {
             // Con el contador la cuenta ya gobierna la banda: ahí el cromo dice
             // el BLOQUE, que no está en ningún otro sitio (contrato §cromo).
-            RoundsContextStrip(session: session, posicion: seg?.blockTitle)
+            RoundsContextStrip(session: session)
+            LiveOrientationStrip(orientation: session.liveOrientation)
             SujetoContadorRonda(session: session, seg: seg, compacto: compacto)
             if conHilo { HiloDeRondas(session: session) }
             MetricRow3(cells: [
@@ -279,7 +279,6 @@ struct RoundsLiveHUD: View {
 /// que hacía el reloj grande.
 private struct RoundsContextStrip: View {
     let session: WorkoutSession
-    let posicion: String?
 
     private var cap: Int? { session.currentSegment?.formatTotalSeconds }
     private var capRemaining: Double? {
@@ -294,20 +293,6 @@ private struct RoundsContextStrip: View {
                 .font(.system(size: 10, weight: .heavy)).tracking(1.0)
                 .foregroundStyle(Theme.Color.accentText)
                 .fixedSize()
-            if let posicion {
-                // NUNCA `.fixedSize()`: un título de bloque largo comprimía al
-                // vecino y el reloj del For Time — el score — acababa partido
-                // un dígito por línea (verif2). El título cede; el reloj no.
-                // `muted`, no `faint`: en el SUELO esta línea es la ÚNICA
-                // mención de la ronda, y faint da 3,08:1 sobre surface — bajo
-                // AA (verif3). La misma regla que el chip del deshacer.
-                Text(posicion)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(-1)
-            }
             Spacer(minLength: 6)
             Text(Formato.clock(capRemaining ?? session.condElapsed, anchoFijo: true))
                 .font(.system(size: 17, weight: .semibold, design: .monospaced))
@@ -626,5 +611,42 @@ struct RotatingClockHUD: View {
                             sub: cap.map { "cap \(Formato.clock(Double($0)))" },
                             color: Theme.Color.foreground)
         }
+    }
+}
+
+// MARK: - FH-107 orientation chrome
+
+struct LiveOrientationStrip: View {
+    let orientation: WorkoutSession.LiveOrientation
+
+    var body: some View {
+        if orientation.roundLine == nil && orientation.stationLine == nil { EmptyView() }
+        else {
+            HStack(spacing: 8) {
+                if let round = orientation.roundLine {
+                    orientationChip(round, accent: true)
+                }
+                if let station = orientation.stationLine {
+                    orientationChip(station, accent: false)
+                }
+                Spacer(minLength: 0)
+                if let rest = orientation.restKind.labelES {
+                    Text(rest.uppercased())
+                        .font(.system(size: 9, weight: .heavy)).tracking(0.6)
+                        .foregroundStyle(Theme.Color.info)
+                        .lineLimit(1)
+                }
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func orientationChip(_ text: String, accent: Bool) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 10, weight: .heavy, design: .default).italic())
+            .tracking(0.5)
+            .foregroundStyle(accent ? Theme.Color.accentText : Theme.Color.foreground)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
 }

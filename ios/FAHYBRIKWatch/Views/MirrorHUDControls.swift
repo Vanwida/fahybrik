@@ -43,7 +43,7 @@ struct MirrorHUDControlsPage: View {
         return Button {
             WatchHaptics.tap()
             if paused {
-                owner.resume()
+                owner.resumeIfPaused()
                 owner.sendCommand(MirrorWire.CommandKind.resume)
             } else {
                 owner.pause()

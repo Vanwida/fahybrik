@@ -59,6 +59,9 @@ extension WorkoutSession {
             condStartElapsed: condStartElapsed,
             condSegmentIndex: condSegmentIndex,
             fixedRoundsDone: fixedRoundsDone,
+            fixedRestRemaining: fixedRestRemaining > 0 ? fixedRestRemaining : nil,
+            fixedRestTotal: fixedRestTotal > 0 ? fixedRestTotal : nil,
+            fixedRestKind: fixedRestRemaining > 0 ? fixedRestKind.wireValue : nil,
             rotPhase: condSegmentIndex == nil ? nil : rotPhase.rawValue,
             rotRoundIndex: rotRoundIndex,
             rotPhaseRemaining: rotPhaseRemaining,
@@ -133,6 +136,11 @@ extension WorkoutSession {
         condStartElapsed = snapshot.condStartElapsed ?? 0
         condSegmentIndex = snapshot.condSegmentIndex
         fixedRoundsDone = snapshot.fixedRoundsDone ?? 0
+        fixedRestRemaining = snapshot.fixedRestRemaining ?? 0
+        fixedRestTotal = snapshot.fixedRestTotal ?? 0
+        if let kind = snapshot.fixedRestKind {
+            fixedRestKind = FixedRestKind(wireValue: kind) ?? .none
+        }
         if let phase = snapshot.rotPhase { rotPhase = RotatingPhase(rawValue: phase) ?? .work }
         rotRoundIndex = snapshot.rotRoundIndex ?? 0
         rotPhaseRemaining = snapshot.rotPhaseRemaining ?? 0

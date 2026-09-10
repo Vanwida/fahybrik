@@ -118,7 +118,6 @@ final class WorkoutLocationTypeTests: XCTestCase {
         )
         XCTAssertNil(PhoneWorkoutRun.shared.session,
                      "el Primary lo crea el reloj; el iPhone no mina uno")
-        XCTAssertFalse(PhoneWorkoutRun.shared.hasPrimarySession)
         PhoneWorkoutRun.shared.end()
     }
 

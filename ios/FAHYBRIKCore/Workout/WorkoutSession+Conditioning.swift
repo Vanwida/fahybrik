@@ -75,6 +75,7 @@ extension WorkoutSession {
         condStartElapsed = 0
         fixedRoundsDone = 0
         fixedRoundSplits = []
+        fixedRestKind = .none
         // Do NOT zero ergIntervalBoutsRecorded here — closeConditioningAndAdvance
         // calls clearConditioning BEFORE closeCurrentSegmentLap, and the skip-aggregate
         // path needs the count to still be live. Zeroed in startConditioning and after
@@ -251,6 +252,7 @@ extension WorkoutSession {
             if after <= 0 {
                 fixedRestRemaining = 0
                 fixedRestTotal = 0
+                fixedRestKind = .none
                 WorkoutAudio.shared.playIntervalStart()
                 Haptics.cueGo()
             } else {
@@ -364,6 +366,8 @@ extension WorkoutSession {
     // The bottom primary button, routed by scheme.
     func conditioningPrimary(_ seg: WorkoutSegment) {
         if condCountInRemaining > 0 { skipCondCountIn(); return }
+        // FH-107 — rest is its own phase; never strike again while counting down.
+        if fixedRestRemaining > 0 { skipFixedRest(); return }
         switch seg.formatScheme {
         case .amrap:                                          bumpAmrapRound()
         case .tabata:                                         tabataAddRep()
@@ -477,28 +481,51 @@ extension WorkoutSession {
     ///
     /// Lo que NO cambia: sin descanso escrito no aparece ninguno. Un simulacro
     /// sigue yendo seguido.
+    /// FH-107 — resolve which rest applies after strike `closedStation`.
+    /// Round rest = block `restS` after the last station of an outer round.
+    /// Series rest = set `restS` between stations within a round.
+    /// One-pass routes never apply block rest mid-route.
     private func beginFixedRest(seg: WorkoutSegment?, closedStation: Int) {
-        let setRest = seg.flatMap { $0.rotationSet(at: closedStation)?.restS } ?? 0
-        let blockRest = seg?.prescription?.restS ?? 0
-        let n = max(1, seg?.declaredComponents.count ?? 1)
-        let repeating = seg?.fixedListIsStations == true && (seg?.formatRounds ?? 0) > 0
-        let rest: Int
-        if repeating {
-            // Inner stations of a repeating round: only a per-set rest between
-            // remo and run. The block's restS is BETWEEN ROUNDS, so it fires
-            // after the last movement of the cycle, not after every station.
-            let endOfRound = (closedStation + 1) % n == 0
-            rest = endOfRound ? (setRest > 0 ? setRest : blockRest) : setRest
-        } else {
-            rest = setRest > 0 ? setRest : blockRest
+        guard let seg else {
+            fixedRestRemaining = 0
+            fixedRestTotal = 0
+            fixedRestKind = .none
+            return
         }
+        let setRest = seg.rotationSet(at: closedStation)?.restS ?? 0
+        let blockRest = seg.prescription?.restS ?? 0
+        let stationCount = max(1, seg.declaredComponents.count)
+        let multiStation = seg.fixedListIsStations
+        let hasOuterRounds = multiStation && (seg.formatRounds ?? 0) > 0
+        let endOfOuterRound = hasOuterRounds && (closedStation + 1) % stationCount == 0
+
+        let rest: Int
+        let kind: FixedRestKind
+        if hasOuterRounds {
+            if endOfOuterRound {
+                rest = blockRest
+                kind = blockRest > 0 ? .betweenRounds : .none
+            } else {
+                rest = setRest
+                kind = setRest > 0 ? .betweenSeries : .none
+            }
+        } else if multiStation {
+            rest = setRest
+            kind = setRest > 0 ? .betweenSeries : .none
+        } else {
+            rest = blockRest > 0 ? blockRest : setRest
+            kind = rest > 0 ? .betweenRounds : .none
+        }
+
         guard rest > 0 else {
             fixedRestRemaining = 0
             fixedRestTotal = 0
+            fixedRestKind = .none
             return
         }
         fixedRestTotal = Double(rest)
         fixedRestRemaining = Double(rest)
+        fixedRestKind = kind
     }
 
     /// Cortar el descanso y entrar ya en la siguiente estación. El descanso de un
@@ -508,6 +535,7 @@ extension WorkoutSession {
         guard fixedRestRemaining > 0 else { return }
         fixedRestRemaining = 0
         fixedRestTotal = 0
+        fixedRestKind = .none
         Haptics.light()
     }
 
