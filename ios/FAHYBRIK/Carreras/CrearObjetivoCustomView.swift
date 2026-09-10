@@ -12,7 +12,6 @@ struct CrearObjetivoCustomView: View {
     @State private var name = ""
     @State private var city = ""
     @State private var kind: ObjectiveEventKind = .running
-    @State private var hasDate = false
     @State private var date = Date()
     @State private var sourceUrl = ""
     @State private var divisionLabel = ""
@@ -54,7 +53,7 @@ struct CrearObjetivoCustomView: View {
             Text("Tu evento no está en el calendario")
                 .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("Créalo aquí y fíjalo como objetivo.")
+            Text("Créalo aquí, indica para cuándo es y fíjalo como objetivo.")
                 .scaledFont(13, relativeTo: .footnote)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -120,19 +119,12 @@ struct CrearObjetivoCustomView: View {
     }
 
     private var dateSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle(isOn: $hasDate.animation(.easeInOut(duration: 0.18))) {
-                Text("Sé la fecha")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            .tint(Theme.Color.accent)
-            if hasDate {
-                DatePicker("", selection: $date, in: Date()..., displayedComponents: .date)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .tint(Theme.Color.accent)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText(text: "PARA CUÁNDO ES")
+            DatePicker("", selection: $date, in: Date()..., displayedComponents: .date)
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .tint(Theme.Color.accent)
         }
     }
 
@@ -178,7 +170,7 @@ struct CrearObjetivoCustomView: View {
         var series = kind.wireSeries
         if kind == .hybrid { series = "hunter_race" }
 
-        let isoDate: String? = hasDate ? Self.isoFormatter.string(from: date) : nil
+        let isoDate = Self.isoFormatter.string(from: date)
         let meters: Int? = {
             if kind != .running { return nil }
             if distancePreset == .custom {
@@ -193,7 +185,7 @@ struct CrearObjetivoCustomView: View {
             series: series,
             location: city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : city.trimmingCharacters(in: .whitespacesAndNewlines),
             startDate: isoDate,
-            isTentative: !hasDate,
+            isTentative: false,
             sourceUrl: sourceUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : sourceUrl.trimmingCharacters(in: .whitespacesAndNewlines),
             divisionLabel: divisionLabel.isEmpty ? nil : divisionLabel,
             homologada: kind == .running ? homologada : nil,
@@ -216,7 +208,7 @@ struct CrearObjetivoCustomView: View {
                     region: nil,
                     startDate: isoDate,
                     endDate: nil,
-                    isTentative: !hasDate,
+                    isTentative: false,
                     divisionOptions: nil,
                     isCustom: true
                 )

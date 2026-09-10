@@ -186,6 +186,8 @@ export const athleteTargetRaceInput = z.object({
   division_label: z.string().max(80).nullable().optional(),
   distance_meters: z.number().int().positive().max(500_000).nullable().optional(),
   homologada: z.boolean().nullable().optional(),
+  /** Required when the catalog event has no confirmed date (null or tentative). */
+  start_date: isoDate.optional(),
 });
 export type AthleteTargetRaceInput = z.infer<typeof athleteTargetRaceInput>;
 

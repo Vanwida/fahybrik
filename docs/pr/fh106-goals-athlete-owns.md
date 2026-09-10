@@ -13,12 +13,16 @@
 
 Lista de objetivos ordenada por tiempo (soonest-first), misma proyección en app y panel.
 
+**Fecha obligatoria:** un objetivo sin fecha no entra en el orden temporal. El atleta siempre indica *para cuándo es* — en custom, al fijar un evento TBD del catálogo, y el servidor rechaza custom sin `start_date`.
+
 ## Cambios
 
 ### iOS
 - Eliminado `SolicitarCarreraView.swift` y flujo ask-coach en `BuscarCarreraSheet`.
 - Conservado: catálogo + «Crear objetivo personalizado» (FH-77).
 - Copy custom sin implicar verificación del coach.
+- `CrearObjetivoCustomView`: fecha obligatoria (sin toggle «Sé la fecha»).
+- `FijarObjetivoView`: si el evento del catálogo no tiene fecha confirmada, pide «Para cuándo es» antes de fijar.
 
 ### Web coach
 - `CarrerasTab`, `TargetRaceCard`: solo lectura.

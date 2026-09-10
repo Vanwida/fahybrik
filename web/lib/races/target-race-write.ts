@@ -64,6 +64,7 @@ interface EventRow {
   series: string | null;
   type: EventType;
   start_date: string | null;
+  is_tentative: boolean;
   location: string | null;
   is_visible_to_athletes: boolean;
   athlete_id: number | null;
@@ -80,6 +81,8 @@ export interface SetTargetRaceParams {
   division_label?: string | null;
   distance_meters?: number | null;
   homologada?: boolean | null;
+  /** Athlete-supplied date when the catalog event is undated or tentative. */
+  start_date?: string | null;
   /**
    * Athlete path: the event must be visible to athletes OR owned by this athlete
    * (private custom event). Coach path passes false.
@@ -152,6 +155,7 @@ export async function setAthleteTargetRace(
       e.series                            as series,
       e.type                              as type,
       to_char(e.start_date, 'YYYY-MM-DD') as start_date,
+      e.is_tentative                      as is_tentative,
       e.location                          as location,
       e.is_visible_to_athletes            as is_visible_to_athletes,
       e.athlete_id::int                   as athlete_id
@@ -169,6 +173,17 @@ export async function setAthleteTargetRace(
     throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
   }
 
+  const needsDate = event.start_date == null || event.is_tentative;
+  const confirmedDate = params.start_date ?? null;
+  if (needsDate && !confirmedDate) {
+    throw new TargetRaceError(
+      'validation_error',
+      'Indica la fecha del objetivo.',
+      400,
+    );
+  }
+  const effectiveStartDate = needsDate ? confirmedDate! : event.start_date!;
+
   const eventType = eventSeriesToRaceEventType(event.series, event.type);
   const format: RaceFormat = params.format ?? 'singles';
   const division: RaceDivision = params.division ?? 'open';
@@ -179,6 +194,16 @@ export async function setAthleteTargetRace(
   const homologada = params.homologada ?? null;
 
   const race_id = await client.begin(async (tx) => {
+    if (needsDate) {
+      await tx`
+        update events set
+          start_date = ${effectiveStartDate}::date,
+          is_tentative = false,
+          updated_at = now()
+        where id = ${params.event_id}
+      `;
+    }
+
     // 1) Demote every current target to 'secondary' (single-target invariant).
     await tx`
       update races set priority = 'secondary'::race_priority, updated_at = now()
@@ -211,7 +236,7 @@ export async function setAthleteTargetRace(
           format            = ${format}::race_format,
           division          = ${division}::race_division,
           gender_category   = ${gender}::race_gender,
-          race_date         = ${event.start_date}::date,
+          race_date         = ${effectiveStartDate}::date,
           location          = ${event.location},
           goal_time_seconds = ${goal},
           objective_variant = ${objectiveVariant},
@@ -238,7 +263,7 @@ export async function setAthleteTargetRace(
           ${division}::race_division,
           ${gender}::race_gender,
           'target'::race_priority,
-          ${event.start_date}::date,
+          ${effectiveStartDate}::date,
           ${event.location},
           ${goal},
           'planned'::race_status,
@@ -262,7 +287,7 @@ export async function setAthleteTargetRace(
       athlete_id: params.athlete_id,
       format,
       event_id: params.event_id,
-      race_date: event.start_date,
+      race_date: effectiveStartDate,
       goal,
     });
 
