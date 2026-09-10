@@ -144,7 +144,7 @@ struct ContextoVivoEntreno: View {
 
     private func pm5Link(_ pm5: PM5ConnectionStore) -> DeviceLink {
         if pm5.isConnected, let id = pm5.connectedIdentifier {
-            return .connected(name: pm5RoleTitle ?? id)
+            return .connected(name: pm5RoleTitle ?? id.uuidString)
         }
         if pm5.connectionLost { return .lost }
         switch pm5.connectionState {

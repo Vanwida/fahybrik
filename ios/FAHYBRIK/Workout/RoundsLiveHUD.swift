@@ -165,8 +165,12 @@ struct RoundsLiveHUD: View {
 
     // Interno para que el test mida el suelo: el ultimo candidato TIENE que caber.
     var contadorSuelo: some View {
-        VStack(spacing: 12) {
-            RoundsContextStrip(session: session)
+        let activa = min(session.roundsHUDDone, max(0, session.roundsHUDTotal - 1))
+        return VStack(spacing: 12) {
+            RoundsContextStrip(
+                session: session,
+                posicion: "Ronda \(activa + 1)/\(session.roundsHUDTotal)"
+            )
             LiveOrientationStrip(orientation: session.liveOrientation)
             // El deshacer NO se recorta (verif3 cazó al suelo recortándolo):
             // con una cerrada, su chip tachado viaja también aquí — 19 pt que
@@ -279,6 +283,8 @@ struct RoundsLiveHUD: View {
 /// que hacía el reloj grande.
 private struct RoundsContextStrip: View {
     let session: WorkoutSession
+    /// Dónde vas, solo cuando el numeral no lo dice ya (p. ej. el suelo del contador).
+    var posicion: String? = nil
 
     private var cap: Int? { session.currentSegment?.formatTotalSeconds }
     private var capRemaining: Double? {
@@ -287,29 +293,28 @@ private struct RoundsContextStrip: View {
         return (r <= 60 && r > 0) ? r : nil
     }
 
+    private var vozPosicion: String {
+        posicion ?? "ronda \(session.roundsHUDDone + 1) de \(session.roundsHUDTotal)"
+    }
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(session.currentSegment?.formatScheme?.displayName.uppercased() ?? "")
-                .font(.system(size: 10, weight: .heavy)).tracking(1.0)
-                .foregroundStyle(Theme.Color.accentText)
-                .fixedSize()
-            Spacer(minLength: 6)
-            Text(Formato.clock(capRemaining ?? session.condElapsed, anchoFijo: true))
-                .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                .foregroundStyle(capRemaining != nil ? Theme.Color.danger : Theme.Color.foreground)
-                .monospacedDigit()
-            // El tope, SIEMPRE visible mientras corre: una lectura que dice «te
-            // comes el tope» sobre un tope invisible no se puede juzgar. En el
-            // último minuto el reloj ya ES la cuenta atrás roja y el cap sobra.
-            if let cap, capRemaining == nil {
-                Text("cap \(Formato.clock(Double(cap)))")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-        .stripChrome()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(session.currentSegment?.formatScheme?.displayName ?? "Formato"), \(posicion ?? "ronda \(session.roundsHUDDone + 1) de \(session.roundsHUDTotal)"). Tiempo \(Formato.clock(session.condElapsed))")
+        TiraFormatoVivo(
+            formato: session.currentSegment?.formatScheme?.displayName.uppercased() ?? "",
+            posicion: posicion,
+            reloj: Formato.clock(capRemaining ?? session.condElapsed, anchoFijo: true),
+            tonoReloj: capRemaining != nil ? Theme.Color.danger : Theme.Color.foreground,
+            cola: {
+                // El tope, SIEMPRE visible mientras corre: una lectura que dice «te
+                // comes el tope» sobre un tope invisible no se puede juzgar. En el
+                // último minuto el reloj ya ES la cuenta atrás roja y el cap sobra.
+                if let cap, capRemaining == nil {
+                    Text("cap \(Formato.clock(Double(cap)))")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            },
+            voz: "\(session.currentSegment?.formatScheme?.displayName ?? "Formato"), \(vozPosicion). Tiempo \(Formato.clock(session.condElapsed))"
+        )
     }
 }
 
