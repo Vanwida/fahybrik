@@ -42,19 +42,11 @@ struct FijarObjetivoView: View {
         self.event = event
         self.bearer = bearer
         self.onTargetSet = onTargetSet
-        if let raw = event.startDate, let parsed = RaceDate.parse(raw) {
-            var c = DateComponents()
-            c.year = parsed.year
-            c.month = parsed.month
-            c.day = parsed.day
-            _eventDate = State(initialValue: Calendar.current.date(from: c) ?? Date())
-        } else {
-            _eventDate = State(initialValue: Date())
-        }
+        _eventDate = State(initialValue: ObjectiveWhenDate.fromEventStart(event.startDate))
     }
 
-    /// Catalog rows without a confirmed date need the athlete to pick one.
-    private var needsConfirmedDate: Bool {
+    /// Catalog rows without a confirmed date show an extra hint under the label.
+    private var catalogUndated: Bool {
         event.startDate == nil || event.tentative
     }
 
@@ -76,9 +68,7 @@ struct FijarObjetivoView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     eventHeader
-                    if needsConfirmedDate {
-                        confirmedDateSection
-                    }
+                    ObjectiveWhenSection(date: $eventDate, showUndatedCatalogHint: catalogUndated)
                     participationSection
                     goalTimeSection
 
@@ -316,27 +306,6 @@ struct FijarObjetivoView: View {
         }
     }
 
-    private var confirmedDateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "PARA CUÁNDO ES")
-            Text("Este evento aún no tiene fecha confirmada en el calendario. Elige cuándo lo tienes previsto.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            DatePicker("", selection: $eventDate, in: Date()..., displayedComponents: .date)
-                .datePickerStyle(.compact)
-                .labelsHidden()
-                .tint(Theme.Color.accent)
-        }
-    }
-
-    private static let isoFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     // MARK: - Submit
 
     @ViewBuilder
@@ -391,9 +360,6 @@ struct FijarObjetivoView: View {
         submitting = true
         errorText = nil
         let isHunter = event.isHunterRace || event.series?.lowercased() == "hunter_race"
-        let confirmedStartDate = needsConfirmedDate
-            ? Self.isoFormatter.string(from: eventDate)
-            : nil
         let body = SetTargetRaceBody(
             eventId: eventIdInt,
             format: event.objectiveFamily == .hybrid && !isHunter ? format : nil,
@@ -404,7 +370,7 @@ struct FijarObjetivoView: View {
             divisionLabel: divisionLabel.isEmpty ? nil : divisionLabel,
             distanceMeters: resolvedDistanceMeters,
             homologada: event.objectiveFamily == .running ? homologada : nil,
-            startDate: confirmedStartDate
+            startDate: ObjectiveWhenDate.isoString(from: eventDate)
         )
         Task { @MainActor in
             do {
@@ -633,7 +599,8 @@ struct FijarTiempoObjetivoSheet: View {
             format: race.format ?? "singles",
             division: race.division ?? "open",
             genderCategory: race.genderCategory ?? "men",
-            goalTimeSeconds: goalTotalSeconds
+            goalTimeSeconds: goalTotalSeconds,
+            startDate: race.raceDate ?? ObjectiveWhenDate.isoString(from: Date())
         )
         Task { @MainActor in
             do {

@@ -119,13 +119,7 @@ struct CrearObjetivoCustomView: View {
     }
 
     private var dateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "PARA CUÁNDO ES")
-            DatePicker("", selection: $date, in: Date()..., displayedComponents: .date)
-                .datePickerStyle(.compact)
-                .labelsHidden()
-                .tint(Theme.Color.accent)
-        }
+        ObjectiveWhenSection(date: $date)
     }
 
     private func field(label: String, placeholder: String, text: Binding<String>) -> some View {
@@ -170,7 +164,7 @@ struct CrearObjetivoCustomView: View {
         var series = kind.wireSeries
         if kind == .hybrid { series = "hunter_race" }
 
-        let isoDate = Self.isoFormatter.string(from: date)
+        let isoDate = ObjectiveWhenDate.isoString(from: date)
         let meters: Int? = {
             if kind != .running { return nil }
             if distancePreset == .custom {
@@ -223,12 +217,6 @@ struct CrearObjetivoCustomView: View {
         }
     }
 
-    private static let isoFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
 }
 
 // Memberwise init for navigation stub (Decodable type without public init).

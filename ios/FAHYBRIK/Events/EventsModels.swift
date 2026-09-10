@@ -114,8 +114,8 @@ struct SetTargetRaceBody: Encodable {
     let divisionLabel: String?
     let distanceMeters: Int?
     let homologada: Bool?
-    /// When the catalog event is undated or tentative, the athlete must confirm YYYY-MM-DD.
-    let startDate: String?
+    /// The athlete-confirmed when (YYYY-MM-DD) — required on every set-target call.
+    let startDate: String
 
     init(
         eventId: Int,
@@ -127,7 +127,7 @@ struct SetTargetRaceBody: Encodable {
         divisionLabel: String? = nil,
         distanceMeters: Int? = nil,
         homologada: Bool? = nil,
-        startDate: String? = nil
+        startDate: String
     ) {
         self.eventId = eventId
         self.format = format

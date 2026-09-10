@@ -173,16 +173,18 @@ export async function setAthleteTargetRace(
     throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
   }
 
-  const needsDate = event.start_date == null || event.is_tentative;
-  const confirmedDate = params.start_date ?? null;
-  if (needsDate && !confirmedDate) {
+  if (!params.start_date) {
     throw new TargetRaceError(
       'validation_error',
       'Indica la fecha del objetivo.',
       400,
     );
   }
-  const effectiveStartDate = needsDate ? confirmedDate! : event.start_date!;
+  const effectiveStartDate = params.start_date;
+  const shouldPersistEventDate =
+    event.start_date == null ||
+    event.is_tentative ||
+    (event.athlete_id != null && event.athlete_id === params.athlete_id);
 
   const eventType = eventSeriesToRaceEventType(event.series, event.type);
   const format: RaceFormat = params.format ?? 'singles';
@@ -194,7 +196,7 @@ export async function setAthleteTargetRace(
   const homologada = params.homologada ?? null;
 
   const race_id = await client.begin(async (tx) => {
-    if (needsDate) {
+    if (shouldPersistEventDate) {
       await tx`
         update events set
           start_date = ${effectiveStartDate}::date,

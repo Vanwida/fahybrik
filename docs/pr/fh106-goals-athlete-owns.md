@@ -13,7 +13,7 @@
 
 Lista de objetivos ordenada por tiempo (soonest-first), misma proyección en app y panel.
 
-**Fecha obligatoria:** un objetivo sin fecha no entra en el orden temporal. El atleta siempre indica *para cuándo es* — en custom, al fijar un evento TBD del catálogo, y el servidor rechaza custom sin `start_date`.
+**Fecha obligatoria (un solo modelo mental):** todo objetivo tiene un *cuándo* concreto. Crear custom y fijar del catálogo usan el mismo bloque «Para cuándo es» (`ObjectiveWhenSection`). Catálogo con fecha → pre-rellena y el atleta confirma; TBD → el atleta elige; custom → obligatorio. `start_date` siempre viaja en `POST /api/athlete/races/target` y ordena la lista.
 
 ## Cambios
 
@@ -22,7 +22,8 @@ Lista de objetivos ordenada por tiempo (soonest-first), misma proyección en app
 - Conservado: catálogo + «Crear objetivo personalizado» (FH-77).
 - Copy custom sin implicar verificación del coach.
 - `CrearObjetivoCustomView`: fecha obligatoria (sin toggle «Sé la fecha»).
-- `FijarObjetivoView`: si el evento del catálogo no tiene fecha confirmada, pide «Para cuándo es» antes de fijar.
+- `ObjectiveWhenSection`: UX compartida custom + catálogo; siempre visible al fijar.
+- `FijarObjetivoView`: pre-rellena fecha del catálogo; hint extra solo si TBD.
 
 ### Web coach
 - `CarrerasTab`, `TargetRaceCard`: solo lectura.
@@ -32,7 +33,7 @@ Lista de objetivos ordenada por tiempo (soonest-first), misma proyección en app
 - `POST/DELETE /api/coach/athletes/[id]/races/target` → **403**.
 - MCP `set_target_race` eliminado.
 - `POST /api/athlete/events/custom`: `start_date` obligatorio (400 si falta).
-- `POST /api/athlete/races/target`: `start_date` obligatorio cuando el evento es undated/tentative; persiste en `events` + `races`.
+- `POST /api/athlete/races/target`: `start_date` **siempre** obligatorio; `races.race_date` = confirmación del atleta; persiste en `events` si TBD o custom privado.
 
 ## Preservado
 - FH-77 familias/custom del catálogo.
