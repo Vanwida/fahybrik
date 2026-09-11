@@ -12,7 +12,7 @@ final class FH111LiveMinimizeTests: XCTestCase {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
-        resume.dismiss()
+        resume.dismissFully()
         super.tearDown()
     }
 
@@ -92,5 +92,82 @@ final class FH111LiveMinimizeTests: XCTestCase {
             hasFreshSnapshot: true
         )
         XCTAssertEqual(action, .none)
+    }
+
+    /// P0 — AppShell `onClose` → `dismiss()` after ✕ must not wipe `parkedCover`.
+    func testDismissAfterMinimizePreservesParkedCover() {
+        let session = WorkoutSession(plan: .minimal(title: "FH-111-dismiss"))
+        session.start()
+        mirror.begin(session: session, activityKind: "mixed")
+
+        let parked = RecoveredLiveCover(
+            session: session,
+            assignmentId: "9",
+            title: "FH-111-dismiss",
+            isFree: false,
+            freeModalityWire: nil,
+            freeItemsJSON: nil,
+            mirrorActivityKind: "mixed"
+        )
+        resume.minimizeUI(parked: parked)
+        resume.dismiss()
+
+        XCTAssertTrue(resume.isUIMinimized)
+        XCTAssertTrue(resume.hasLiveSession)
+        XCTAssertNil(resume.cover)
+        XCTAssertIdentical(resume.parkedCover?.session, session)
+        XCTAssertEqual(mirror.phase, .coaching)
+    }
+
+    /// minimize → dismiss (AppShell path) → reopen = same ACTIVE session, not snapshot clone.
+    func testDismissThenReopenSameActiveSession() {
+        let session = WorkoutSession(plan: .minimal(title: "FH-111-reopen-dismiss"))
+        session.start()
+        mirror.begin(session: session, activityKind: "running")
+
+        resume.minimizeUI(parked: RecoveredLiveCover(
+            session: session,
+            assignmentId: "11",
+            title: "FH-111-reopen-dismiss",
+            isFree: false,
+            freeModalityWire: nil,
+            freeItemsJSON: nil,
+            mirrorActivityKind: "running"
+        ))
+        resume.dismiss()
+        resume.presentParkedCoverIfNeeded()
+
+        XCTAssertFalse(resume.isUIMinimized)
+        XCTAssertNotNil(resume.cover)
+        XCTAssertIdentical(resume.cover?.session, session)
+        XCTAssertEqual(mirror.phase, .coaching)
+    }
+
+    /// Second ✕ cycle: minimize → dismiss → reopen → minimize → dismiss → reopen.
+    func testSecondMinimizeAfterReopen() {
+        let session = WorkoutSession(plan: .minimal(title: "FH-111-twice"))
+        session.start()
+        mirror.begin(session: session, activityKind: "hyrox")
+
+        func minimizeAndDismiss() {
+            resume.minimizeUI(parked: RecoveredLiveCover(
+                session: session,
+                assignmentId: "12",
+                title: "FH-111-twice",
+                isFree: false,
+                freeModalityWire: nil,
+                freeItemsJSON: nil,
+                mirrorActivityKind: "hyrox"
+            ))
+            resume.dismiss()
+        }
+
+        minimizeAndDismiss()
+        resume.presentParkedCoverIfNeeded()
+        minimizeAndDismiss()
+        resume.presentParkedCoverIfNeeded()
+
+        XCTAssertIdentical(resume.cover?.session, session)
+        XCTAssertEqual(mirror.phase, .coaching)
     }
 }

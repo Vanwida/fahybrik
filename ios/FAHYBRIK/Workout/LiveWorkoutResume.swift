@@ -103,7 +103,7 @@ final class LiveWorkoutResume {
         WatchConnectivityiOSService.shared.endLiveWorkout(save: false)
         PhoneWorkoutRun.shared.end()
         await WorkoutStateStore.shared.close()
-        dismiss()
+        dismissFully()
     }
 
     private func reopenFreshSnapshotIfNeeded(hrZones: HRZoneProfile?) async {
@@ -151,7 +151,17 @@ final class LiveWorkoutResume {
         )
     }
 
+    /// Drop the live chrome only. After FH-111 ✕ minimize, `parkedCover` holds the
+    /// ACTIVE session — AppShell `onClose` must not wipe it (Devil's Advocate P0).
     func dismiss() {
+        cover = nil
+        tracked = nil
+        guard !isUIMinimized else { return }
+        parkedCover = nil
+    }
+
+    /// Finish, discard, conflict terminate, wrist cleanup — full teardown.
+    func dismissFully() {
         cover = nil
         parkedCover = nil
         tracked = nil

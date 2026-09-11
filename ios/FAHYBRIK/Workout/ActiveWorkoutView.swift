@@ -15,6 +15,8 @@ struct ActiveWorkoutView: View {
     /// closure returns the athlete to a still-pending session.
     let onExit: () -> Void
     var onLeaveAndResume: (() -> Void)? = nil
+    /// Card 142 — «Guardar para luego»: pausa + instantánea, distinto de ✕ minimize (FH-111).
+    var onSoftLeave: (() -> Void)? = nil
     /// #23 — partner first name for the dobles RELAY screen ("{name} hace SkiErg").
     /// Nil falls back to "Tu compañero". Passed by WorkoutContainer, which holds
     /// the partner identity.
@@ -940,9 +942,39 @@ struct ActiveWorkoutView: View {
                 .font(Theme.Typography.small)
                 .foregroundStyle(Theme.Color.muted)
             ExpertPrimaryButton(title: "Seguir entrenando") { dismissExitAndResume() }
+            if onSoftLeave != nil { guardarParaLuegoButton }
             terminarYGuardarButton
             descartarButton
         }
+    }
+
+    // Card 142 — pause + disk snapshot; session stops (≠ FH-111 ✕ minimize, which
+    // keeps the engine ACTIVE in `parkedCover`).
+    private var guardarParaLuegoButton: some View {
+        Button {
+            exitStep = nil
+            onSoftLeave?()
+        } label: {
+            VStack(spacing: 2) {
+                Text("Guardar para luego")
+                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
+                    .tracking(0.5)
+                Text("Pausa y guarda el progreso. Retómalo cuando quieras.")
+                    .font(.system(size: 11, weight: .semibold))
+                    .multilineTextAlignment(.center)
+            }
+            .foregroundStyle(Theme.Color.foreground)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Theme.Color.surfaceRaised)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Guardar para luego. Pausa y guarda el progreso.")
     }
 
     // "Terminar y guardar" — the honest partial save. finish(.partial) closes the

@@ -418,6 +418,9 @@ struct WorkoutContainer: View {
                         onLeaveAndResume: {
                             navigateAway(session: session)
                         },
+                        onSoftLeave: {
+                            softLeave(session: session)
+                        },
                         hrZones: hrZones,
                         bearer: bearer,
                         // #Marcas — the engine's pre-block erg gate drops its manual
@@ -796,6 +799,21 @@ struct WorkoutContainer: View {
         let f = DateFormatter()
         f.dateFormat = "d MMM HH:mm"
         return f.string(from: d)
+    }
+
+    /// Card 142 — «Guardar para luego»: pausa + instantánea, cierra vivo. Distinto
+    /// de FH-111 ✕ minimize (sesión ACTIVE en `parkedCover`).
+    private func softLeave(session: WorkoutSession) {
+        let snapshot = session.leaveToResumeLater()
+        PhoneLiveSession.shared.end(save: false)
+        DoblesLivePresence.shared.leave()
+        PhoneWorkoutRun.shared.pause()
+        session.stop()
+        Task {
+            await WorkoutStateStore.shared.save(snapshot)
+            LiveWorkoutResume.shared.dismissFully()
+            onClose()
+        }
     }
 
     /// FH-111 — ✕ minimize: checkpoint on disk, park the live engine, dismiss UI.

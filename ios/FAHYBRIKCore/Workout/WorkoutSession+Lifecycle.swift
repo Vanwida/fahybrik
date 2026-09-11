@@ -482,7 +482,7 @@ extension WorkoutSession {
         #if os(iOS)
         MainActor.assumeIsolated {
             PhoneWorkoutRun.shared.end()
-            LiveWorkoutResume.shared.dismiss()
+            LiveWorkoutResume.shared.dismissFully()
         }
         #endif
         // AUDIT-2/3 — CLOSE (clear + latch) instead of saving: a finished session must
@@ -499,7 +499,7 @@ extension WorkoutSession {
         #if os(iOS)
         MainActor.assumeIsolated {
             PhoneWorkoutRun.shared.end()
-            LiveWorkoutResume.shared.dismiss()
+            LiveWorkoutResume.shared.dismissFully()
         }
         #endif
         Task { await WorkoutStateStore.shared.close() }
