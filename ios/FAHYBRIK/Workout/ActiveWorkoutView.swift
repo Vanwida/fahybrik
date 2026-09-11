@@ -966,7 +966,7 @@ struct ActiveWorkoutView: View {
             .foregroundStyle(Theme.Color.foreground)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(Theme.Color.surfaceRaised)
+            .background(Theme.Color.surfaceElevated)
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
                     .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
