@@ -1,13 +1,11 @@
 import SwiftUI
 
-// Card 142 — "el móvil se queda secuestrado". Entre fuerza y cardio el atleta
-// descansa de verdad, y hasta ahora la única salida de la pantalla del entreno
-// era terminar o descartar. Ahora "Salir y seguir luego" pausa, guarda YA y
-// cierra la pantalla (ver `WorkoutSession.leaveToResumeLater` y
-// `WorkoutContainer`'s `onLeaveAndResume`) — pero salir así solo sirve de algo
-// si VOLVER no depende de que se acuerde. Esta tira es esa vuelta: aparece en
-// Plan mientras la instantánea autoguardada siga siendo válida y, al tocarla,
-// abre el mismo entreno, que ya ofrece "Seguir donde lo dejé".
+// Card 142 / FH-111 — la ✕ del vivo MINIMIZA (sesión ACTIVE, espejo intacto).
+// Esta tira es la vuelta cuando el chrome está cerrado: aparece en Plan mientras
+// la instantánea siga siendo válida y, al tocarla, reabre el MISMO motor vivo
+// (`LiveWorkoutResume.presentParkedCoverIfNeeded`), no un entreno nuevo.
+//
+// Copy distingue minimize ACTIVE (reloj sigue) de soft-leave pausado (Card 142).
 //
 // Autocargada como el resto de tarjetas de esta familia (ver `DoblesLiveBanner`
 // en Inicio): no pinta nada cuando no hay nada que retomar.
@@ -53,7 +51,9 @@ struct WorkoutResumeBanner: View {
     }
 
     private func card(_ saved: PersistedWorkoutState) -> some View {
-        Button {
+        let isLiveActive = LiveWorkoutResume.shared.isUIMinimized
+            || (!saved.isPaused && LiveWorkoutResume.shared.hasLiveSession)
+        return Button {
             Haptics.medium()
             onResume(WorkoutLaunch(assignmentId: saved.assignmentId ?? "", title: saved.plan.name))
         } label: {
@@ -63,15 +63,17 @@ struct WorkoutResumeBanner: View {
             // chevron ya dice que la fila es tocable, como el resto de filas de
             // esta pantalla.
             HStack(spacing: 12) {
-                Image(systemName: "pause.circle.fill")
+                Image(systemName: isLiveActive ? "figure.run.circle.fill" : "pause.circle.fill")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(Theme.Color.accentText)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tienes un entreno a medias")
+                    Text(isLiveActive ? "Entreno en curso" : "Tienes un entreno a medias")
                         .font(.system(size: 15, weight: .heavy))
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(1)
-                    Text("\(saved.plan.name) · desde las \(horaDesde(saved.savedAt))")
+                    Text(isLiveActive
+                         ? "\(saved.plan.name) · sigue activo"
+                         : "\(saved.plan.name) · desde las \(horaDesde(saved.savedAt))")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1)
@@ -91,7 +93,17 @@ struct WorkoutResumeBanner: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Tienes un entreno a medias: \(saved.plan.name), desde las \(horaDesde(saved.savedAt)). Toca para continuar")
+        .accessibilityLabel(bannerAccessibilityLabel(saved: saved, isLiveActive: isLiveActive))
+    }
+
+    private func bannerAccessibilityLabel(
+        saved: PersistedWorkoutState,
+        isLiveActive: Bool
+    ) -> String {
+        if isLiveActive {
+            return "Entreno en curso: \(saved.plan.name), sigue activo. Toca para volver"
+        }
+        return "Tienes un entreno a medias: \(saved.plan.name), desde las \(horaDesde(saved.savedAt)). Toca para continuar"
     }
 
     private func horaDesde(_ d: Date) -> String {

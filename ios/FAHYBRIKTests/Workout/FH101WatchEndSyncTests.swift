@@ -11,7 +11,7 @@ final class FH101WatchEndSyncTests: XCTestCase {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
-        LiveWorkoutResume.shared.dismiss()
+        LiveWorkoutResume.shared.dismissFully()
         super.tearDown()
     }
 
@@ -81,13 +81,13 @@ final class FH101WatchEndSyncTests: XCTestCase {
         await WorkoutStateStore.shared.open()
 
         mirror.applyWristEnded(MirrorEnded(workoutUuid: "reopen", reason: MirrorWire.EndReason.athlete))
-        LiveWorkoutResume.shared.dismiss()
+        LiveWorkoutResume.shared.dismissFully()
 
         await LiveWorkoutResume.shared.handleWristAthleteFinishWhenBackgrounded(hrZones: nil)
 
         XCTAssertNotNil(LiveWorkoutResume.shared.cover)
         await WorkoutStateStore.shared.clear()
-        LiveWorkoutResume.shared.dismiss()
+        LiveWorkoutResume.shared.dismissFully()
     }
 
     /// After wrist end + idle, second begin launches watch again (no zombie).

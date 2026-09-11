@@ -166,7 +166,7 @@ struct AppShell: View {
                 recoveredSession: cover.session,
                 onClose: { liveResume.dismiss() },
                 onCompleted: { _ in
-                    liveResume.dismiss()
+                    liveResume.dismissFully()
                     Task { await store.planMutated() }
                 }
             )

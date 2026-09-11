@@ -26,7 +26,7 @@ enum LiveWorkoutLaunchConflict {
         PhoneLiveSession.shared.end(save: true)
         PhoneWorkoutRun.shared.end()
         await WorkoutStateStore.shared.close()
-        LiveWorkoutResume.shared.dismiss()
+        LiveWorkoutResume.shared.dismissFully()
     }
 }
 

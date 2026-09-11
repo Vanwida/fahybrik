@@ -205,6 +205,9 @@ struct WorkoutContainer: View {
     private func alSalirDelFlujo() {
         session?.persistNow()
         LiveWorkoutResume.shared.persistTracked()
+        // FH-111 — minimize (✕) keeps the engine + wrist mirror; only tear down
+        // devices when the session truly ends or is discarded.
+        if LiveWorkoutResume.shared.isUIMinimized { return }
         DeviceHub.shared.stopAll()
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -409,18 +412,14 @@ struct WorkoutContainer: View {
                             session.discardAndClose()
                             onClose()
                         },
-                        // Card 142 — "Salir y seguir luego": ni termina ni descarta. Se
-                        // fuerza el guardado YA (no el tick de 5 s) y SOLO entonces se
-                        // cierra la pantalla — el orden importa, si `onClose` cerrase
-                        // antes de que el `await` termine, un cierre de app justo detrás
-                        // podría llevarse por delante el guardado que veníamos a
-                        // garantizar. NUNCA se toca `clear()/close()` aquí: la
-                        // instantánea es lo que hace posible volver (ver
-                        // `WorkoutResumeBanner` en Plan y el aviso de recuperación
-                        // de abajo, que es el mismo camino que ya usa un cierre
-                        // inesperado de la app).
+                        // FH-111 — ✕ minimize: ni termina ni descarta ni pausa. Se
+                        // aparca el motor en `LiveWorkoutResume`, se guarda YA y se
+                        // cierra el chrome. NUNCA `clear()/close()` aquí.
                         onLeaveAndResume: {
                             navigateAway(session: session)
+                        },
+                        onSoftLeave: {
+                            softLeave(session: session)
                         },
                         hrZones: hrZones,
                         bearer: bearer,
@@ -802,11 +801,36 @@ struct WorkoutContainer: View {
         return f.string(from: d)
     }
 
-    /// Soft leave: checkpoint on disk, cover closes, snapshot drives resume banner.
-    /// Never discardAndClose — wrong-button / swipe-away must not kill the session.
-    private func navigateAway(session: WorkoutSession) {
+    /// Card 142 — «Guardar para luego»: pausa + instantánea, cierra vivo. Distinto
+    /// de FH-111 ✕ minimize (sesión ACTIVE en `parkedCover`).
+    private func softLeave(session: WorkoutSession) {
         let snapshot = session.leaveToResumeLater()
-        LiveWorkoutResume.shared.clearUIOnly()
+        PhoneLiveSession.shared.end(save: false)
+        DoblesLivePresence.shared.leave()
+        PhoneWorkoutRun.shared.pause()
+        session.stop()
+        Task {
+            await WorkoutStateStore.shared.save(snapshot)
+            LiveWorkoutResume.shared.dismissFully()
+            onClose()
+        }
+    }
+
+    /// FH-111 — ✕ minimize: checkpoint on disk, park the live engine, dismiss UI.
+    /// Session stays ACTIVE (no pause, no stop, no HK end). Resume banner / tap
+    /// reopens the SAME `WorkoutSession` via `LiveWorkoutResume.presentParkedCoverIfNeeded`.
+    private func navigateAway(session: WorkoutSession) {
+        let snapshot = session.checkpointForMinimize()
+        let parked = RecoveredLiveCover(
+            session: session,
+            assignmentId: assignmentId,
+            title: activeFreeContext?.title ?? fallbackTitle ?? session.plan.name,
+            isFree: activeFreeContext != nil || session.isFreeRun,
+            freeModalityWire: activeFreeContext?.modalityWire ?? session.freeModalityWire,
+            freeItemsJSON: session.freeItemsJSON,
+            mirrorActivityKind: mirrorActivityKind(for: session.plan)
+        )
+        LiveWorkoutResume.shared.minimizeUI(parked: parked)
         Task {
             await WorkoutStateStore.shared.save(snapshot)
             onClose()

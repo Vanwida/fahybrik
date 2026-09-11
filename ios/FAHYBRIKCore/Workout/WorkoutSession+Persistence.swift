@@ -171,4 +171,13 @@ extension WorkoutSession {
         Task { await WorkoutStateStore.shared.open() }
         return persistedSnapshot()
     }
+
+    /// FH-111 — live ✕ minimize: checkpoint on disk but keep the clock running.
+    /// Distinct from `leaveToResumeLater` (Card 142 «Salir y seguir luego»), which
+    /// pauses. Minimize must NOT pause — meters/time/HR continue on wrist + engine.
+    @discardableResult
+    func checkpointForMinimize() -> PersistedWorkoutState {
+        Task { await WorkoutStateStore.shared.open() }
+        return persistedSnapshot()
+    }
 }
