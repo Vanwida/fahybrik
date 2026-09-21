@@ -1,30 +1,23 @@
 import XCTest
 @testable import FAHYBRIK
 
-// CARD 72/102 — el cierre del espejo (teléfono → reloj) era UN paquete, sin ACK ni
-// reintento (`PhoneLiveSession.deliverEnd`, antes de este fix). Perdido en
-// vuelo — típico corriendo, teléfono en el bolsillo — la muñeca se quedaba
-// grabando PARA SIEMPRE y el siguiente entreno arrancaba pillado en silencio.
+// FH-56 — el cierre del espejo (teléfono → reloj) es UN `MirrorEnd` por HK más
+// el aviso durable por WCSession (`live_end_v1`, FH-101). Antes (card 72/102)
+// había un reintento ×5 cada 2 s: un motor casero de «conexión» encima del
+// canal de Apple. Lo que queda es un plazo de UI (10 s) para no bloquear el
+// resumen si la muñeca está fuera de alcance; el handle HK lo suelta Apple con
+// `.ended`, o ese plazo.
 //
-// Esto verifica la cadencia de reintento REAL (Timer + RunLoop de verdad, no una
-// réplica) contra un seam de envío inyectado (`sendOverride`): no hay
-// HKWorkoutSession espejo — un tipo opaco del sistema — que fabricar en un test.
-//
-// El lado del RELOJ (WatchPrimaryOwner: la idempotencia de `requestEnd`
-// ante un cierre repetido, el auto-reparo de cualquier estado sucio al arrancar,
-// el watchdog que autoguarda una grabación atascada) NO tiene target de test: vive
-// en FAHYBRIKWatch, y `FAHYBRIKTests` sólo compila contra el target `FAHYBRIK`
-// (iOS) — ver project.yml, sección FAHYBRIKTests, y el comentario de
-// FAHYBRIKCore sobre por qué no hay target de watchOS. Verificado por lectura +
-// build de los dos targets; documentado en el informe de esta tarea.
+// Esto verifica la cadencia REAL (Timer + RunLoop de verdad, no una réplica)
+// contra un seam de envío inyectado (`sendOverride`): no hay HKWorkoutSession
+// espejo — un tipo opaco del sistema — que fabricar en un test. El lado del
+// RELOJ no tiene target de test (ver project.yml, FAHYBRIKTests).
 @MainActor
-final class PhoneMirrorEndRetryTests: XCTestCase {
+final class PhoneMirrorEndTests: XCTestCase {
 
     private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
     override func tearDown() {
-        // Nunca dejar un Timer del handshake de cierre vivo entre tests — el
-        // singleton es compartido con el resto del target de tests.
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
@@ -32,8 +25,7 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         super.tearDown()
     }
 
-    /// El primer envío es INMEDIATO — sin esto la muñeca esperaría de más en el
-    /// caso normal (sin ninguna pérdida) sólo por existir el reintento.
+    /// El único envío es INMEDIATO.
     func testFirstAttemptIsImmediate() {
         var sends: [String] = []
         mirror.sendOverride = { type in sends.append(type) }
@@ -41,48 +33,32 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         XCTAssertEqual(sends, [MirrorWire.MessageType.end])
     }
 
-    /// Si el ACK de la muñeca llega (aquí, directamente: `teardown()`, que es lo
-    /// que `handleIncoming` hace al decodificar un `ended`) ANTES de agotar el
-    /// presupuesto de reintentos, NINGÚN reintento más debe salir — perder esto
-    /// reabre exactamente el bug original en sentido contrario: paquetes de más
-    /// después de que la muñeca ya cerró.
-    func testAckStopsFurtherRetries() {
+    /// FH-56 — sin reintentos: pasada la ventana del viejo reintento (2 s) no
+    /// sale ni un paquete más. El durable es WCSession, no un bucle sobre HK.
+    func testNoRetryAfterTheOneSend() {
         var sendCount = 0
         mirror.sendOverride = { _ in sendCount += 1 }
         mirror.deliverEnd(save: true)
         XCTAssertEqual(sendCount, 1)
 
-        // El ACK llega antes del primer reintento (a los 2 s).
-        mirror.teardown()
-
-        let exp = expectation(description: "esperar más allá de la ventana del primer reintento")
+        let exp = expectation(description: "esperar más allá de la ventana del viejo reintento")
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { exp.fulfill() }
         wait(for: [exp], timeout: 5)
 
-        XCTAssertEqual(sendCount, 1, "el ACK debe cortar el reintento — ni un paquete más")
+        XCTAssertEqual(sendCount, 1, "un MirrorEnd por final — ni un paquete más")
     }
 
-    /// Sin ACK, el reintento se agota en un número FIJO de intentos — no reintenta
-    /// para siempre — y todos caen dentro de la ventana de gracia del teardown
-    /// final (`endGraceSeconds`), así que el último intento real llega antes del
-    /// abandono forzado.
-    func testRetriesExhaustWithoutAckAndStayBounded() {
-        var sendCount = 0
-        mirror.sendOverride = { _ in sendCount += 1 }
-        mirror.deliverEnd(save: true)
-
-        // 5 envíos totales a t=0,2,4,6,8 s (primer envío + 4 reintentos).
-        let exp = expectation(description: "esperar todo el presupuesto de reintentos")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8.8) { exp.fulfill() }
-        wait(for: [exp], timeout: 10)
-
-        XCTAssertEqual(sendCount, 5, "primer envío + 4 reintentos, ni uno más")
-
-        // Y no debe seguir reintentando pasado el presupuesto.
-        let exp2 = expectation(description: "confirmar que no hay un sexto envío")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { exp2.fulfill() }
-        wait(for: [exp2], timeout: 4)
-        XCTAssertEqual(sendCount, 5)
+    /// FH-56 — `end` es idempotente mientras el cierre está en vuelo.
+    func testEndWhileEndingIsANoOp() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-end-twice"))
+        mirror.startWatchAppOverride = { _ in true }
+        mirror.begin(session: s, activityKind: "mixed")
+        mirror.end(save: true)
+        XCTAssertEqual(mirror.phase, .ending)
+        mirror.end(save: false)
+        XCTAssertEqual(mirror.phase, .ending)
+        XCTAssertEqual(mirror.pendingEndSaveForTests, true,
+                       "el segundo end no pisa al primero: sigue en cola con save: true")
     }
 
     /// FH-31 — Terminar en la muñeca manda `reason=athlete`. El teléfono cierra
@@ -109,7 +85,8 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
         XCTAssertEqual(sends, [], "el Primary ya cerró en la muñeca — no reenviar MirrorEnd")
     }
 
-    /// FH-100 — Terminar debe dejar idle y el siguiente Empezar vuelve a lanzar el reloj.
+    /// FH-100 — Terminar debe dejar idle y el siguiente Empezar vuelve a pedir el
+    /// Primary al reloj: arranque frío, UN `startWatchApp` por intent.
     func testEndThenSecondBeginLaunchesWatchAgain() {
         let first = WorkoutSession(plan: .minimal(title: "FH-100-a"))
         first.runEnvironment = .outdoor
@@ -117,10 +94,10 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
 
         mirror.begin(session: first, activityKind: "running")
         XCTAssertEqual(mirror.startWatchAppCallCount, 1)
-        let genAfterFirst = mirror.launchGenerationForTests
 
         mirror.end(save: true)
         mirror.teardown()
+        XCTAssertEqual(mirror.phase, .idle)
 
         let second = WorkoutSession(plan: .minimal(title: "FH-100-b"))
         second.runEnvironment = .outdoor
@@ -128,11 +105,9 @@ final class PhoneMirrorEndRetryTests: XCTestCase {
 
         XCTAssertEqual(mirror.startWatchAppCallCount, 2,
                        "second workout must call startWatchApp after clean idle")
-        XCTAssertGreaterThan(mirror.launchGenerationForTests, genAfterFirst,
-                             "idle must bump launch generation to cancel stale loops")
         XCTAssertTrue(mirror.primaryRequestedForTests)
         XCTAssertFalse(mirror.wristMirrorLive,
-                       "UI must not claim live until wrist signal returns")
+                       "UI must not claim live until Apple binds the mirror")
     }
 
     func testAthleteEndedPacketLeavesIdleForNextBegin() {

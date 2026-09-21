@@ -3,14 +3,6 @@ import XCTest
 
 final class PhoneWatchRuntimeReconcileTests: XCTestCase {
 
-    func testWristClaimsActiveWhenMirrorJoined() {
-        XCTAssertTrue(PhoneWatchRuntimeReconcile.wristClaimsActiveSession(
-            mirrorJoined: true,
-            hasMirroredHKSession: false,
-            phoneRunSessionActive: false
-        ))
-    }
-
     func testPhoneReopensWhenFreshSnapshotAndWristActive() {
         XCTAssertEqual(
             PhoneWatchRuntimeReconcile.phoneAction(
@@ -63,19 +55,6 @@ final class PhoneWatchRuntimeReconcileTests: XCTestCase {
         XCTAssertFalse(LiveWorkoutLaunchConflict.shouldPrompt(
             hasLiveCoverOrTracked: false,
             snapshot: snap
-        ))
-    }
-
-    func testWatchOrphanEndsWhenDayDone() {
-        XCTAssertTrue(PhoneWatchRuntimeReconcile.watchOrphanShouldEnd(
-            modeIsOrphan: true,
-            todayMarkedDone: true,
-            standalonePhaseIdle: true
-        ))
-        XCTAssertFalse(PhoneWatchRuntimeReconcile.watchOrphanShouldEnd(
-            modeIsOrphan: false,
-            todayMarkedDone: true,
-            standalonePhaseIdle: true
         ))
     }
 }

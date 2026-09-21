@@ -1,5 +1,4 @@
 import XCTest
-import HealthKit
 @testable import FAHYBRIK
 
 // FH-96 — one workout intent → one PRIMARY. Prep + ▶ EMPEZAR must not double-launch
@@ -23,15 +22,13 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
         mirror.startWatchAppOverride = { _ in true }
 
         mirror.begin(session: s, activityKind: "running")
-        let genAfterFirst = mirror.launchGenerationForTests
         let callsAfterFirst = mirror.startWatchAppCallCount
+        XCTAssertEqual(callsAfterFirst, 1)
 
         mirror.begin(session: s, activityKind: "running")
 
         XCTAssertEqual(mirror.startWatchAppCallCount, callsAfterFirst,
                        "second begin on same session must not call startWatchApp again")
-        XCTAssertEqual(mirror.launchGenerationForTests, genAfterFirst,
-                       "second begin must not bump watchLaunchGeneration")
         XCTAssertTrue(mirror.primaryRequestedForTests)
     }
 
@@ -75,76 +72,5 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
         XCTAssertEqual(mirror.startWatchAppCallCount, 1)
         XCTAssertTrue(mirror.primaryRequestedForTests)
-    }
-}
-
-// MARK: - Watch policy (no watchOS test target — pure HealthKit policy)
-
-final class MirrorPrimaryLaunchPolicyTests: XCTestCase {
-
-    func testRedundantStartIgnoredWhenCompatible() {
-        let current = HKWorkoutConfiguration()
-        current.activityType = .running
-        current.locationType = .outdoor
-        let incoming = HKWorkoutConfiguration()
-        incoming.activityType = .running
-        incoming.locationType = .outdoor
-
-        XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: true
-        ))
-        XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: true
-        ))
-    }
-
-    func testIncompatibleStartRequiresFinishBeforeRestart() {
-        let current = HKWorkoutConfiguration()
-        current.activityType = .running
-        current.locationType = .outdoor
-        let incoming = HKWorkoutConfiguration()
-        incoming.activityType = .functionalStrengthTraining
-        incoming.locationType = .indoor
-
-        XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: true
-        ))
-        XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: true
-        ))
-    }
-
-    func testZombieMirrorDoesNotIgnoreCompatibleRestart() {
-        let current = HKWorkoutConfiguration()
-        current.activityType = .running
-        current.locationType = .outdoor
-        let incoming = HKWorkoutConfiguration()
-        incoming.activityType = .running
-        incoming.locationType = .outdoor
-
-        XCTAssertFalse(MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: false
-        ))
-        XCTAssertTrue(MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
-            isRecording: true,
-            current: current,
-            incoming: incoming,
-            mirrorChannelAlive: false
-        ))
     }
 }
