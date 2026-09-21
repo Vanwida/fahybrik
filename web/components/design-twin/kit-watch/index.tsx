@@ -72,6 +72,14 @@ export interface RelojProps {
    */
   tinte: string | null;
   /**
+   * Cuánto tinte, en %. El 38 % es el tope general —por encima el aro y las
+   * versales pierden contraste—, pero la LÁMINA DE CORRER va al 45 %: ahí el
+   * tinte es el fondo entero, no compite con ningún cromo y el sujeto se lee
+   * igual. Espejo de `RodajeTipo.tinteMax` (Swift), que por eso mismo no vive
+   * en `WatchTinte`.
+   */
+  tintePct?: number;
+  /**
    * Un lienzo PROPIO en vez del tinte plano. Lo usa la página de zona, cuyo
    * fondo no es un color sino un dato: la pantalla se llena del color de tu
    * zona conforme te acercas a la siguiente. Cuando viene, `tinte` se ignora —
@@ -99,7 +107,15 @@ export function tinte(color: string, pct = TINTE_MAX): string {
 /** Deslizamiento mínimo, en px, para que un arrastre cuente como cambio de página. */
 const DESLIZ_MIN = 24;
 
-export function Reloj({ paginas, tinte: color, fondo, bisel, destello, onLog }: RelojProps) {
+export function Reloj({
+  paginas,
+  tinte: color,
+  tintePct,
+  fondo,
+  bisel,
+  destello,
+  onLog,
+}: RelojProps) {
   const [i, setI] = useState(0);
   // La página activa se acota en vez de indexar a lo loco: una vista puede
   // reducir sus páginas en marcha (se desempareja la máquina, se acaba el
@@ -132,7 +148,7 @@ export function Reloj({ paginas, tinte: color, fondo, bisel, destello, onLog }: 
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundColor: color ? tinte(color) : W.bg,
+            backgroundColor: color ? tinte(color, tintePct) : W.bg,
             transition: 'background-color 700ms ease',
           }}
         />

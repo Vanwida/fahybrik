@@ -1,136 +1,304 @@
-// (1) RODAJE — la modalidad más rica de las nueve, y la única sin una sola
-// decisión dentro.
+// (1) LA LÁMINA DE CORRER — rodaje y serie de calle, UNA sola cara.
+//
+// ── QUÉ CAMBIÓ, Y POR QUÉ ESTA VISTA SE REHIZO (FH-30) ─────────────────────
+// Esta pantalla era cuatro páginas de métricas —pulso, ritmo, distancia,
+// tiempo—: el reloj enseñaba TODO lo que mide y dejaba al atleta la resta. La
+// lámina invierte eso. Corriendo sólo hay una pregunta —«¿cuánto me falta?»—
+// así que el sujeto es LO QUE FALTA de la pieza en curso, el ritmo baja al
+// segundo nivel y el resto de las medidas se van a su propia página (`datos`).
+// El pager de la app es Datos | Vivo | Controles, y el vivo —esto— es el que
+// se mira corriendo.
+//
+// ── Y LA MISMA CARA SIRVE LAS DOS COSAS ────────────────────────────────────
+// Rodaje y serie de calle no son dos pantallas: son la MISMA con otro sujeto.
+// En un rodaje la pieza es el rodaje entero; en una serie, la serie. Lo único
+// que cambia es de qué se resta y qué dice el contexto. Y lo mismo vale con el
+// móvil conectado: el reloj en espejo pinta esta lámina, no una pantalla
+// genérica — es lo que FH-30 cerró (`RodajeLamina` decide, las dos vistas
+// pintan).
 //
 // ── QUÉ MIDE EL RELOJ AQUÍ ─────────────────────────────────────────────────
-// Todo lo suyo: pulso, ritmo y distancia. Corriendo al aire libre el GPS y el
-// sensor óptico son del reloj — no de una máquina, no del móvil— así que en
-// esta vista no hay un solo dato repetido ni un solo dato declarado. Es, con
-// las series de calle, la única de las nueve donde la muñeca puede PROMETER
-// ritmo y distancia.
-//
-// Con una excepción, y es el escenario mínimo: hasta que el GPS no fija, ni el
-// ritmo ni la distancia existen. No se pintan a cero — un «0,00 km» es un dato
-// falso con cara de medida (§7) —: sus páginas DESAPARECEN, y el rodaje se
-// queda en las dos cosas que el reloj mide pase lo que pase, tu pulso y el
-// tiempo que llevas.
+// Todo lo suyo: pulso, ritmo y distancia. Con una excepción, y es el escenario
+// mínimo: hasta que el GPS no fija no hay ritmo ni distancia. No se pintan a
+// cero —un «0,00 km» es un dato falso con cara de medida (§7)—: el sujeto cae
+// al crono de la pieza y la nota dice por qué.
 //
 // ── QUÉ PUEDE HACER EL ATLETA ──────────────────────────────────────────────
-// Correr. Y se acaba ahí. Un rodaje no tiene ninguna decisión dentro: no hay
-// series que cerrar, ni descansos que adelantar, ni tareas que marcar. Por eso
-// esta vista es `ojeada` DE PRINCIPIO A FIN y no declara ni una `accion` en
-// ninguna página — terminar el rodaje es un gesto largo o la corona, no un
-// toque que el brazo pueda disparar solo a cinco kilómetros de casa.
-//
-// Es la única de las nueve sin gestos, y por eso su guion no tiene `Gestos`:
-// una interfaz vacía sería fingir que aquí hay algo que tocar.
-//
-// ── EL SUJETO, Y CÓMO DEGRADA ──────────────────────────────────────────────
-// El sujeto del rodaje es TU ZONA, y eso son dos cosas a la vez: el lienzo
-// teñido y el pulso como numeral en la primera página. Pero la zona cuelga de
-// un ancla de FC que hoy NO TIENE NADIE (`datos-reloj.ts`, hecho 1), así que
-// el sujeto tiene que saber degradar — y lo que gobierna un rodaje cuando el
-// pulso no es interpretable es el RITMO. El pulso no desaparece: baja de sitio
-// y se pinta en ppm crudos, con la nota que dice por qué no hay zona.
+// Corriendo, nada: `ojeada` de principio a fin, ni una acción anunciada. En la
+// RECUPERACIÓN sí — ahí está parado o trotando y puede salir antes de tiempo,
+// así que la fase cambia a `mando` y la única decisión del entreno se anuncia:
+// «toca · empezar ya».
 
 import {
   NOTA,
+  clock,
+  countdown,
   distanciaMedida,
   pace,
-  paginaPulso,
-  paginaTiempo,
   unidadDistancia,
-  type Ancla,
+  W,
   type PaginaReloj,
 } from '../../kit-watch';
-import { ANCLA_MEDIDA, RODAJE, SIN_ANCLA, rampa } from '../../datos-reloj';
+import { RODAJE, SERIES_CALLE } from '../../datos-reloj';
+
+// ---------------------------------------------------------------------------
+// La ventana — el dato plano del que sale la lámina (espejo de RodajeLamina)
+// ---------------------------------------------------------------------------
+
+export interface Ventana {
+  /** La pieza es un tramo de una carrera estructurada, no un rodaje de corrido. */
+  esSerie: boolean;
+  enRecupera: boolean;
+  /** Calle: al aire libre, sin señal se dice. En cinta nunca. */
+  esCalle: boolean;
+  /** Metros MEDIDOS de la pieza. `null` = nadie los ha contado todavía. */
+  metros: number | null;
+  objetivoMetros: number | null;
+  objetivoSegundos: number | null;
+  segundosPieza: number;
+  /** Lo que queda de la recuperación cuando la cierra un reloj. */
+  quedaRecupera: number | null;
+  ritmoSecKm: number | null;
+  /** El veredicto del motor sobre el ritmo prescrito, ya juzgado. */
+  enObjetivo: boolean;
+  serieN: number;
+  serieTotal: number;
+  /** Lo que viene después de la recuperación, ya redactado. */
+  siguiente: string | null;
+}
+
+/** Por debajo de esto un ritmo no describe un esfuerzo: describe un GPS fijando. */
+const METROS_MIN_RITMO = 10;
+
+interface Medida {
+  sujeto: string;
+  unidad?: string;
+  /** El sujeto es lo que FALTA (y no lo que llevas). */
+  quedan: boolean;
+  sinSenal: boolean;
+}
+
+/**
+ * LO QUE FALTA DE LA PIEZA, por orden de evidencia: los metros si hay hito y
+ * alguien los mide, el reloj si lo cierra un reloj, y lo que llevas si no lo
+ * cierra ninguno de los dos. El objetivo prescrito NUNCA hace de medida — así
+ * es como un 5×500 enseñaba «500 m hechos» antes de la primera muestra.
+ */
+export function medida(v: Ventana): Medida {
+  const hayGps = v.metros != null;
+  const sinSenal = v.esCalle && !hayGps;
+
+  if (v.objetivoMetros != null && v.objetivoMetros > 0) {
+    if (v.metros == null) {
+      return { sujeto: clock(v.segundosPieza), quedan: false, sinSenal };
+    }
+    const faltan = Math.max(0, v.objetivoMetros - v.metros);
+    // En una serie los metros se cuentan enteros: son cientos, no kilómetros.
+    if (v.esSerie) {
+      return { sujeto: String(Math.ceil(faltan)), unidad: 'm', quedan: true, sinSenal: false };
+    }
+    return {
+      sujeto: distanciaMedida(faltan),
+      unidad: unidadDistancia(faltan),
+      quedan: true,
+      sinSenal: false,
+    };
+  }
+
+  if (v.objetivoSegundos != null && v.objetivoSegundos > 0) {
+    return {
+      sujeto: countdown(Math.max(0, v.objetivoSegundos - v.segundosPieza)),
+      quedan: true,
+      sinSenal: sinSenal,
+    };
+  }
+
+  return { sujeto: clock(v.segundosPieza), quedan: false, sinSenal };
+}
+
+/** El ritmo, con el suelo de honestidad puesto: sin metros suficientes, nada. */
+export function ritmoDe(v: Ventana): string | null {
+  if (v.ritmoSecKm == null || v.ritmoSecKm <= 0) return null;
+  if (v.metros == null || v.metros < METROS_MIN_RITMO) return null;
+  return `${pace(v.ritmoSecKm)}/km`;
+}
+
+// ---------------------------------------------------------------------------
+// La lámina — una página, tres estados
+// ---------------------------------------------------------------------------
+
+export interface Gestos {
+  /** Sólo existe en la recuperación: salir antes de que el reloj la agote. */
+  empezarYa: () => void;
+}
+
+export function paginas(v: Ventana, g?: Gestos): PaginaReloj[] {
+  const m = medida(v);
+  const ritmo = ritmoDe(v);
+
+  // RODAJE DE CORRIDO. Sin decisión dentro: se mira y no se toca.
+  if (!v.esSerie) {
+    // Sin señal el sujeto es el crono, así que el contexto dice «llevas»: sólo
+    // se promete «te quedan» cuando hay de qué restar.
+    const contexto = m.quedan && !m.sinSenal ? 'rodaje · te quedan' : 'rodaje · llevas';
+    return [
+      {
+        id: 'vivo',
+        contexto,
+        modo: 'ojeada',
+        sujeto: { texto: m.sujeto, unidad: m.unidad },
+        // Sin señal no hay ritmo que pintar, y la nota dice por qué.
+        segundo: m.sinSenal || ritmo == null ? undefined : { etiqueta: 'ritmo', valor: ritmo },
+        nota: m.sinSenal ? NOTA.sinSenal : undefined,
+      },
+    ];
+  }
+
+  // LA RECUPERACIÓN. Aquí sí se decide: el reloj la agota solo, pero el atleta
+  // puede salir antes — y esa es la única acción de toda la vista.
+  if (v.enRecupera) {
+    const viene = Math.max(1, Math.min(v.serieTotal, v.serieN + 1));
+    return [
+      {
+        id: 'recupera',
+        contexto: `recupera · viene la ${viene}`,
+        modo: 'mando',
+        sujeto: sujetoRecupera(v, m),
+        // El segundo nivel de la recuperación NO es el ritmo: es lo que viene.
+        // Trotando no se hace ninguna otra pregunta.
+        segundo: v.siguiente == null ? undefined : { etiqueta: 'luego', valor: v.siguiente },
+        accion: { etiqueta: 'toca · empezar ya', onToca: () => g?.empezarYa() },
+      },
+    ];
+  }
+
+  // LA SERIE. Lo que falta de ESTA, y el veredicto del ritmo si hay uno.
+  const veredicto = v.enObjetivo ? 'en objetivo' : null;
+  const base = `serie ${v.serieN} de ${v.serieTotal}`;
+  return [
+    {
+      id: 'serie',
+      contexto: m.quedan ? `${base} · te quedan` : base,
+      modo: 'ojeada',
+      sujeto: { texto: m.sujeto, unidad: m.unidad },
+      segundo:
+        m.sinSenal || ritmo == null
+          ? undefined
+          : { etiqueta: veredicto ?? 'ritmo', valor: ritmo, tono: veredicto ? W.ink : undefined },
+      nota: m.sinSenal ? NOTA.sinSenal : undefined,
+    },
+  ];
+}
+
+/**
+ * EL SUJETO DE LA RECUPERACIÓN, por orden de evidencia: si la serie iba por
+ * metros y nadie los midió, lo que dijera la medida; si la cierra un reloj, lo
+ * que queda, en verde; y si no la cierra nadie, lo que llevas trotando.
+ */
+function sujetoRecupera(v: Ventana, m: Medida): PaginaReloj['sujeto'] {
+  if (v.objetivoMetros != null && v.metros == null) {
+    return { texto: m.sujeto, unidad: m.unidad };
+  }
+  if (v.objetivoSegundos != null && v.objetivoSegundos > 0) {
+    const queda = v.quedaRecupera ?? Math.max(0, v.objetivoSegundos - v.segundosPieza);
+    return { texto: countdown(queda), tono: W.zoneGreen };
+  }
+  return { texto: clock(v.segundosPieza), tono: W.zoneGreen };
+}
+
+// ---------------------------------------------------------------------------
+// La reproducción — el rodaje y la serie, con datos reales
+// ---------------------------------------------------------------------------
+
+export type Escena = 'rodaje' | 'serie';
 
 export interface Estado {
-  ancla: Ancla;
-  /** ¿Ha fijado el GPS? Sin fijar no hay ritmo ni distancia — ni sus páginas. */
+  escena: Escena;
+  /** ¿Ha fijado el GPS? Sin fijar no hay ritmo ni distancia. */
   gps: boolean;
-  /** Segundos dentro del rodaje. */
+  /** En la serie: trabajando o recuperando. */
+  recupera: boolean;
+  /** La serie en curso (1…5). */
+  serie: number;
+  /** Segundos dentro de la pieza. */
   t: number;
 }
 
 /** Los metros por segundo del rodaje: 1.000 m cada 312 s. */
 export const VELOCIDAD_MS = 1000 / RODAJE.ritmoSecKm;
 
-/**
- * Lo que dura el rodaje entero: 10.000 m a 5:12/km son 52:00. La reproducción
- * se para ahí por dos razones que apuntan al mismo sitio — el rodaje se acabó,
- * y un crono que pasa de la hora son SIETE glifos y deja de ser un sujeto (en
- * la muñeca manda el ancho, `modelo.ts`).
- */
+/** 10.000 m a 5:12/km son 52:00 — lo que dura el rodaje entero. */
 export const DURACION_S = Math.round((RODAJE.distanciaM / 1000) * RODAJE.ritmoSecKm);
 
 /** El segundo en el que arranca la reproducción: el metro 5.240, a mitad. */
 export const DESDE_S = Math.round(RODAJE.desdeM / VELOCIDAD_MS);
 
-/**
- * El objetivo, escrito con la MISMA grafía que tendrá la medida al llegar: si
- * el contexto dice «de 10,00 km», cuando llegues el sujeto dirá exactamente
- * eso. Dos grafías del mismo número en la misma pantalla es justo lo que el
- * CONTRATO-UI §2 vino a matar.
- */
-const OBJETIVO = `${distanciaMedida(RODAJE.distanciaM)} ${unidadDistancia(RODAJE.distanciaM)}`;
+/** Los metros de la serie: 4,0 m/s, el ritmo real de este atleta (4:10/km). */
+export const SERIE_VELOCIDAD_MS = SERIES_CALLE.velocidadMs;
 
-function transcurrido(t: number): number {
-  return Math.min(Math.max(0, t), DURACION_S);
+/** El segundo de la serie en el que arranca: 780 m dentro de los 1.200. */
+export const SERIE_DESDE_S = Math.round(780 / SERIE_VELOCIDAD_MS);
+
+function transcurrido(t: number, tope: number): number {
+  return Math.min(Math.max(0, t), tope);
 }
 
-/** Los metros cubiertos, a ritmo constante. Al llegar a los 10.000 se quedan. */
 export function metrosDe(e: Estado): number {
-  return transcurrido(e.t) * VELOCIDAD_MS;
+  if (e.escena === 'rodaje') return transcurrido(e.t, DURACION_S) * VELOCIDAD_MS;
+  return e.t * SERIE_VELOCIDAD_MS;
 }
 
 /**
- * El pulso deriva despacio de la media a la máxima a lo largo del rodaje: 150
- * al salir, 158 al final. Son los dos únicos valores de FC que la ejecución
- * 145 dejó, y no se inventa una tercera cifra entre medias.
+ * El pulso deriva despacio a lo largo de la pieza: 150 → 158 en el rodaje (los
+ * dos únicos valores que dejó la ejecución 145), 138 → 178 en la serie (los de
+ * la 104). No se inventa una tercera cifra entre medias.
  */
 export function bpmDe(e: Estado): number {
-  return rampa(RODAJE.fcMedia, RODAJE.fcMax, transcurrido(e.t), DURACION_S);
+  if (e.escena === 'rodaje') {
+    return Math.round(
+      RODAJE.fcMedia + (RODAJE.fcMax - RODAJE.fcMedia) * (transcurrido(e.t, DURACION_S) / DURACION_S),
+    );
+  }
+  const avance = (e.serie - 1) / Math.max(1, SERIES_CALLE.total - 1);
+  return Math.round(SERIES_CALLE.fcDesde + (SERIES_CALLE.fcHasta - SERIES_CALLE.fcDesde) * avance);
 }
 
-export function paginas(e: Estado): PaginaReloj[] {
-  const t = transcurrido(e.t);
-  // El pulso se mide siempre: el sensor es del reloj y no depende de que el
-  // GPS fije ni de que haya una máquina emparejada.
-  const pulso = paginaPulso({ bpm: bpmDe(e), ancla: e.ancla });
-  const tiempo = paginaTiempo({ segundos: t, nota: e.gps ? undefined : NOTA.sinSenal });
-
-  // EL MÍNIMO: sin señal quedan dos páginas, y la nota dice por qué son dos.
-  if (!e.gps) return pulso ? [pulso, tiempo] : [tiempo];
-
+/** El estado de la reproducción, traducido a la ventana que lee la lámina. */
+export function ventanaDe(e: Estado): Ventana {
+  if (e.escena === 'rodaje') {
+    return {
+      esSerie: false,
+      enRecupera: false,
+      esCalle: true,
+      metros: e.gps ? metrosDe(e) : null,
+      objetivoMetros: e.gps ? RODAJE.distanciaM : null,
+      objetivoSegundos: null,
+      segundosPieza: transcurrido(e.t, DURACION_S),
+      quedaRecupera: null,
+      ritmoSecKm: RODAJE.ritmoSecKm,
+      enObjetivo: false,
+      serieN: 1,
+      serieTotal: 1,
+      siguiente: null,
+    };
+  }
   const metros = metrosDe(e);
-  const ritmo: PaginaReloj = {
-    id: 'ritmo',
-    contexto: 'Ritmo',
-    modo: 'ojeada',
-    // La unidad se queda pegada al numeral porque el ritmo de un rodaje son
-    // SIEMPRE cuatro glifos («5:12»), y ahí la cifra clava los 45 pt de alto.
-    // Sólo se manda la unidad al segundo nivel cuando el estado más ancho de
-    // esa página se caería por debajo del suelo, que no es el caso.
-    sujeto: { texto: pace(RODAJE.ritmoSecKm), unidad: '/km' },
+  return {
+    esSerie: true,
+    enRecupera: e.recupera,
+    esCalle: true,
+    metros: e.recupera ? null : metros,
+    objetivoMetros: e.recupera ? null : SERIES_CALLE.objetivoM,
+    objetivoSegundos: e.recupera ? SERIES_CALLE.recuperacionS : null,
+    segundosPieza: e.t,
+    quedaRecupera: e.recupera ? Math.max(0, SERIES_CALLE.recuperacionS - e.t) : null,
+    ritmoSecKm: e.recupera ? null : SERIES_CALLE.ritmoSecKm,
+    // El ritmo real de la serie (4:10/km) contra el prescrito: en banda.
+    enObjetivo: !e.recupera,
+    serieN: e.serie,
+    serieTotal: SERIES_CALLE.total,
+    siguiente: `${SERIES_CALLE.objetivoM} m`,
   };
-  const distancia: PaginaReloj = {
-    id: 'distancia',
-    // Un «5,24» sin decir de cuánto no informa de nada. El objetivo va arriba
-    // y lo que falta lo dibuja el aro, así que ninguno de los dos gasta la
-    // línea del segundo nivel.
-    contexto: `De ${OBJETIVO}`,
-    modo: 'ojeada',
-    sujeto: { texto: distanciaMedida(metros), unidad: unidadDistancia(metros) },
-  };
-
-  // CON zona, el pulso gobierna el rodaje y va primero: es el sujeto que da
-  // identidad al entreno en vivo. SIN ancla no hay zona que gobernar, así que
-  // manda el ritmo y el pulso baja al tercer sitio, detrás de la distancia:
-  // un número de ppm que no se puede comparar con nada informa menos que
-  // cuánto llevas corrido.
-  return e.ancla != null && pulso
-    ? [pulso, ritmo, distancia, tiempo]
-    : [ritmo, distancia, ...(pulso ? [pulso] : []), tiempo];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,14 +306,27 @@ export function paginas(e: Estado): PaginaReloj[] {
 // ---------------------------------------------------------------------------
 
 function caso(nombre: string, e: Estado) {
-  return { nombre, paginas: paginas(e) };
+  return { nombre, paginas: paginas(ventanaDe(e)) };
 }
 
 export const CASOS = [
-  caso('sin señal · el mínimo', { ancla: SIN_ANCLA, gps: false, t: 0 }),
-  caso('sin umbral · a mitad', { ancla: SIN_ANCLA, gps: true, t: DESDE_S }),
-  // Al llegar, el sujeto más ancho de la vista: «10,00 km» y un crono de cinco
-  // glifos. Si algo de este rodaje no cabe, cae aquí.
-  caso('sin umbral · al llegar', { ancla: SIN_ANCLA, gps: true, t: DURACION_S }),
-  caso('con umbral · a mitad', { ancla: ANCLA_MEDIDA, gps: true, t: DESDE_S }),
+  caso('rodaje · sin señal', { escena: 'rodaje', gps: false, recupera: false, serie: 1, t: 0 }),
+  caso('rodaje · a mitad', { escena: 'rodaje', gps: true, recupera: false, serie: 1, t: DESDE_S }),
+  // Al salir, el sujeto más ancho de la vista: «10,00 km» por cubrir. Si algo
+  // de este rodaje no cabe, cae aquí.
+  caso('rodaje · al salir', { escena: 'rodaje', gps: true, recupera: false, serie: 1, t: 0 }),
+  caso('serie · en marcha', {
+    escena: 'serie',
+    gps: true,
+    recupera: false,
+    serie: SERIES_CALLE.actual,
+    t: SERIE_DESDE_S,
+  }),
+  caso('serie · recuperando', {
+    escena: 'serie',
+    gps: true,
+    recupera: true,
+    serie: SERIES_CALLE.actual,
+    t: 18,
+  }),
 ] as const;

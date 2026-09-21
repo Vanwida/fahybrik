@@ -40,7 +40,7 @@ export const meta: TwinMeta = {
   titulo: 'Correr, la mitad de la carrera',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-07-29',
+  actualizado: '2026-09-21',
   descripcion:
     'Cuatro sujetos, no cuatro pantallas: la zona te tiñe el aire en el rodaje, los metros que faltan mandan en las series, el descanso es pantalla propia y sin señal no se inventa un ritmo. Gira el marco: el readout se va a columnas.',
   fuentes: [],

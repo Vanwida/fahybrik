@@ -158,41 +158,65 @@ struct MirrorHUDView: View {
     }
 
     /// EL VIVO DEL ESPEJO — ahora es el MISMO lienzo y los MISMOS guiones que sin
-    /// móvil (`GuionDelEspejo`). Antes esta pantalla tenía lenguaje propio (título
-    /// + un crono de 56 pt + dos líneas + un botón de 52 pt), y como el reloj corre
-    /// en espejo casi siempre, eso convertía en genérico todo el diseño por formato:
-    /// el atleta veía la pantalla buena en el 10 % de sus entrenos.
-    ///
-    /// El botón de abajo desaparece con él: en este lenguaje **la pantalla ES el
-    /// botón**, y el rótulo lo pone el guion según lo que de verdad cierre este
-    /// toque — no un booleano precocinado que en la ronda 1 de 5 decía «Terminar».
+    /// móvil (`GuionDelEspejo`). Rodaje uses the lámina face (FH-30: solo ≡ mirror).
     @ViewBuilder
     private var activeContent: some View {
-        // `frame == nil` se filtra en `livePage` (waiting overlay). Aquí siempre hay trama.
         if let f = frame {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let since = sinceFrame(context.date)
-                WatchReloj(
-                    paginas: GuionDelEspejo.paginas(
-                        f,
-                        bpm: owner.liveHR,
-                        elapsed: heroElapsed(context.date),
-                        avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
-                        // Death by: «al fallar» no es un avance cualquiera —
-                        // ver el comentario de `deathByFail` en MirrorWireModels.
-                        rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
-                    ),
-                    tinte: WatchTinte.color(for: owner.liveZone),
-                    bisel: bisel
-                )
-                .onChange(of: f.tramo?.enDescanso) { _, rest in
-                    if rest != true { firedTimedRest = nil }
-                }
-                .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
-                    fireTimedRestAdvanceIfNeeded(frame: f, since: since)
-                }
-                .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
+            if GuionDelEspejo.esRodajeLamina(f) {
+                mirrorRodajeContent(f)
+            } else {
+                mirrorGuionContent(f)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func mirrorRodajeContent(_ f: MirrorStateFrame) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let since = sinceFrame(context.date)
+            let elapsed = heroElapsed(context.date)
+            MirrorRodajeFace(
+                frame: f,
+                zone: owner.liveZone,
+                elapsed: elapsed,
+                desdeTrama: since,
+                bisel: bisel,
+                // El motor está en el móvil: el toque de «empezar ya» / cerrar
+                // tramo VIAJA, exactamente igual que el de los demás guiones.
+                onAvanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) }
+            )
+            .onChange(of: f.tramo?.enDescanso) { _, rest in
+                if rest != true { firedTimedRest = nil }
+            }
+            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
+                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
+            }
+            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
+        }
+    }
+
+    @ViewBuilder
+    private func mirrorGuionContent(_ f: MirrorStateFrame) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let since = sinceFrame(context.date)
+            WatchReloj(
+                paginas: GuionDelEspejo.paginas(
+                    f,
+                    bpm: owner.liveHR,
+                    elapsed: heroElapsed(context.date),
+                    avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
+                    rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
+                ),
+                tinte: WatchTinte.color(for: owner.liveZone),
+                bisel: bisel
+            )
+            .onChange(of: f.tramo?.enDescanso) { _, rest in
+                if rest != true { firedTimedRest = nil }
+            }
+            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
+                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
+            }
+            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
         }
     }
 
@@ -415,5 +439,117 @@ struct MirrorHUDView: View {
             return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
         }
         return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
+    }
+}
+
+// MARK: - Mirror rodaje face (FH-30: solo ≡ mirror)
+
+/// LA LÁMINA, PINTADA DESDE LA TRAMA. Mismo cromo (tinte, viñeta, bisel, fondo
+/// de recuperación) y —esto es lo que importa— LA MISMA DECISIÓN: el contenido
+/// sale de `RodajeLamina.lectura`, el mismo que lee `RodajeVivoPage` sin móvil.
+/// Rodaje de corrido, serie de trabajo y recuperación: los tres estados, no uno.
+/// Que esta vista no decida nada es la única forma de que no vuelva a divergir.
+private struct MirrorRodajeFace: View {
+    let frame: MirrorStateFrame
+    let zone: HRZone?
+    let elapsed: Double
+    /// Segundos desde que aterrizó la trama, para envejecer la cuenta atrás de
+    /// la recuperación igual que la envejece `MirrorTimedRest` al decidir cuándo
+    /// mandar el avance (los timers del iPhone mueren en el bolsillo).
+    let desdeTrama: TimeInterval
+    let bisel: AnyView?
+    let onAvanzar: () -> Void
+
+    @Environment(\.isLuminanceReduced) private var atenuado
+    @State private var medidaLienzo = RodajeLienzoSize()
+
+    var body: some View {
+        ZStack {
+            WatchTheme.bg.ignoresSafeArea()
+            if let fondo = fondoSolido, !atenuado {
+                fondo.ignoresSafeArea()
+            } else if let tinte = tinteZona, !atenuado {
+                tinte.opacity(RodajeTipo.tinteMax)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.7), value: zone)
+            }
+            WatchViñeta().ignoresSafeArea()
+            if let bisel { bisel.ignoresSafeArea() }
+            vivoContent
+                .environment(\.rodajeLienzo, medidaLienzo)
+                .opacity(isPaused ? 0.42 : 1)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 6)
+                .mideElLienzo($medidaLienzo)
+        }
+    }
+
+    private var lectura: RodajeLamina.Lectura {
+        RodajeLamina.lectura(ventana)
+    }
+
+    private var ventana: RodajeLamina.Ventana {
+        RodajeLamina.Ventana(trama: frame, elapsed: elapsed, desdeTrama: desdeTrama)
+    }
+
+    private var isPaused: Bool { frame.phase == MirrorWire.Phase.paused }
+
+    /// Recuperación de serie: `restBg`, no un tinte de zona — la MISMA regla que
+    /// `RodajeMarco` en solitario.
+    private var fondoSolido: Color? {
+        ventana.enRecupera ? WatchTheme.restBg : nil
+    }
+
+    private var tinteZona: Color? {
+        WatchTinte.color(for: zone)
+    }
+
+    @ViewBuilder
+    private var vivoContent: some View {
+        let l = lectura
+        VStack(spacing: 0) {
+            RodajeVersales(texto: l.contexto, tono: RodajeTipo.contexto)
+            Spacer(minLength: 4)
+            RodajeNumeral(
+                texto: l.sujeto,
+                unidad: l.unidad,
+                alto: RodajeNumeral.altoSujeto(
+                    l.sujeto,
+                    unidad: l.unidad,
+                    segundo: l.ritmo != nil,
+                    nota: l.nota != nil,
+                    accion: l.accion,
+                    anchoUtil: medidaLienzo.ancho,
+                    altoUtil: medidaLienzo.alto
+                ),
+                color: l.tonoSujeto
+            )
+            Spacer(minLength: 4)
+            if let ritmo = l.ritmo {
+                RodajeSegundo(
+                    valor: ritmo,
+                    etiqueta: l.etiquetaSegundo,
+                    etiquetaTinta: l.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
+                )
+            }
+            if let nota = l.nota {
+                RodajeVersales(
+                    texto: nota,
+                    tono: l.notaEnTinta ? WatchTheme.ink : RodajeTipo.dim,
+                    arriba: 4
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            TapGesture().onEnded {
+                guard l.toca else { return }
+                WatchHaptics.tap()
+                onAvanzar()
+            }
+        )
+        .accessibilityAddTraits(l.toca ? .isButton : [])
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 // Pausar / Siguiente bloque / Terminar — one horizontal swipe away from the live
 // screen. FH-30: en rodaje el cromo ES la lámina (Pausar naranja grande, Terminar
 // rojo abajo). La confirmación es página «¿Terminar y guardar?», no un
-// confirmationDialog. «Nuevo tramo» oculto hasta FH-31 (motor de corte parcial).
+// confirmationDialog. «Nuevo tramo» only for free runs (athlete-owned cuts).
 struct PauseFinishPage: View {
     let session: WorkoutSession
     var driver: WatchRunLegDriver? = nil
@@ -52,7 +52,7 @@ struct PauseFinishPage: View {
                         }
                         if muestraNuevoTramo {
                             botonLamina("Nuevo tramo", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                                // FH-31: el motor no se toca. El botón existe para el cromo.
+                                session.applyCommand(MirrorWire.CommandKind.newLap)
                             }
                         }
                         if session.canEndBlockEarly && session.hasBlockAfterCurrent {

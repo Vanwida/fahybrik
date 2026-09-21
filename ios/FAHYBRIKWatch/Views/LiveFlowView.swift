@@ -8,13 +8,10 @@ import SwiftUI
 // El resto de modalidades se quedan mapa / familia / pause.
 struct LiveFlowView: View {
     let session: WorkoutSession
+    @Binding var page: Int
     // #68 — the structured-run driver lives on the coordinator (workout lifetime); the
     // tramo screen reads it. Pulled from the environment so paging never recreates it.
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
-
-    // Rodaje: 0 = datos · 1 = vivo (default) · 2 = controles.
-    // Otras: 0 = map · 1 = live (default) · 2 = pause/finish.
-    @State private var page = 1
 
     var body: some View {
         TabView(selection: $page) {
@@ -31,12 +28,10 @@ struct LiveFlowView: View {
             PauseFinishPage(session: session, driver: esRodaje ? coordinator.runLegDriver : nil)
                 .tag(2)
         }
-        .tabViewStyle(.page(indexDisplayMode: esRodaje ? .never : .automatic))
-        // Parking on a block gate (auto block end, or "Siguiente bloque" fired from
-        // the pause page) pulls the athlete back to the live area so the gate — and
-        // the next block's Empezar — is what they see, not a stale side page.
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        // Block gate yank: only for non-rodaje. Rodaje pager is sticky (FH-30).
         .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
-            if awaiting { page = 1 }
+            if awaiting, !esRodaje { page = 1 }
         }
     }
 

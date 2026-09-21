@@ -261,7 +261,7 @@ enum PhoneMirrorFrameBuilder {
             objetivoLabel: objetivo?.label ?? objetivoFuncional,
             objetivoEstado: objetivo.map { estadoWire($0.status) },
             zonaViva: session.liveZone?.rawValue,
-            siguiente: session.nextTramoLine,
+            siguiente: siguienteDelTramo(session),
             cargaKg: set.flatMap { $0.loadActualKg ?? $0.loadPrescribedKg },
             // `reps` es fuerza cuando hay serie en curso, y las repeticiones DEL
             // MINUTO en un death by cuando no la hay — los dos formatos son
@@ -277,6 +277,24 @@ enum PhoneMirrorFrameBuilder {
             formaIndice: forma?.enCurso,
             parte: session.currentRunLeg?.phaseRole.rawValue
         )
+    }
+
+    /// LO QUE VIENE, DICHO COMO LO DICE EL RELOJ SIN MÓVIL.
+    ///
+    /// En una carrera estructurada la lámina anuncia la MEDIDA del tramo que
+    /// viene («500 m», «rec. 2:00 suave») con la función que ya comparten el
+    /// móvil y el reloj en solitario (`RunLegDisplay.nextLegPreview`).
+    /// `nextTramoLine` contesta con la POSICIÓN («tramo 3»), que es lo que
+    /// necesitan los demás formatos —y lo que hacía que la MISMA recuperación se
+    /// leyera distinta en espejo que sin móvil, que es justo lo que FH-30 vino a
+    /// cerrar. Fuera de una carrera estructurada no cambia absolutamente nada.
+    private static func siguienteDelTramo(_ session: WorkoutSession) -> String? {
+        guard session.isRunStructureActive, let legs = session.currentRunLegs else {
+            return session.nextTramoLine
+        }
+        let i = session.runLegIndex + 1
+        guard legs.indices.contains(i) else { return nil }
+        return RunLegDisplay.nextLegPreview(legs[i])
     }
 
     /// QUIÉN CIERRA esta ventana, sea de la modalidad que sea.
