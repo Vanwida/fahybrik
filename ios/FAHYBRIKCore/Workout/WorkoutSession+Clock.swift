@@ -22,19 +22,10 @@ extension WorkoutSession {
         }
         let now = Date()
         var dt: Double
-        #if os(iOS)
-        let appleElapsed: TimeInterval? = MainActor.assumeIsolated {
-            PhoneWorkoutRun.shared.session == nil ? nil : PhoneWorkoutRun.shared.elapsedTime
-        }
-        if let apple = appleElapsed {
-            dt = max(0, apple - elapsedSeconds)
-            elapsedSeconds = apple
-        } else {
-            let bruto = now.timeIntervalSince(lastTick)
-            dt = bruto
-            elapsedSeconds += dt
-        }
-        #elseif os(watchOS)
+        // FH-56 — the iPhone mints no `HKWorkoutSession` (the wrist is PRIMARY),
+        // so on iOS the session clock is the coach engine's own latido. Only the
+        // wrist reads Apple's builder elapsed.
+        #if os(watchOS)
         if let apple = WatchWorkoutClock.appleElapsed?(), apple > 0 {
             dt = max(0, apple - elapsedSeconds)
             elapsedSeconds = apple
