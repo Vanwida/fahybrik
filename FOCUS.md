@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-21** (FH-56 build — PR abierto, pendiente code gate)
+Última actualización: **2026-09-21** (FH-56 — code gate A+B cerrados en PR #190, pendiente re-gate)
 
 ## Ahora
 
@@ -17,8 +17,11 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - Handle HK hasta `.ended` (`finishing`); deadline 5 s sólo UI; start encolado dispara en `.ended`
 - Borrado: `PhoneWorkoutRun`, `WorkoutRunClock`, `WristMirrorTruth`, `.orphan`,
   reintento ×5 de `MirrorEnd`, overlay «Conectando…»
-- **No compilado aquí** (sin toolchain Swift en la máquina de build): el code gate
-  y el primer `xcodebuild` del Owner son la verificación de compilación
+- Code gate NO (P0 A+B) cerrado: `project.pbxproj` regenerado con xcodegen 2.46.0
+  (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
+  `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
+- **Swift sin compilar aquí** (hay toolchain Linux para xcodegen, no Xcode): el
+  primer `xcodebuild` del Owner es la verificación de compilación
 
 **FH-30 — Cara rodaje muñeca (PR #189, mergeado).** Lámina redo cerrada.
 

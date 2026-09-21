@@ -26,9 +26,20 @@ sí lo sabe (`didDisconnectFromRemoteDeviceWithError`), no era consultada.
 
 ## Verificado (sin aparato, sin toolchain)
 
-- grep en `ios/`: `didDisconnectFromRemoteDeviceWithError` en los dos delegates;
-  0 `PhoneWorkoutRun`, 0 `.orphan`, 0 `isConnectionLost`, 0 `WristMirrorTruth`,
-  0 «Conectando…» en el HUD, 0 `watchLaunchAttempts`.
+- grep en `ios/` (fuentes **y** `project.pbxproj`): `didDisconnectFromRemoteDeviceWithError`
+  en los dos delegates; 0 `PhoneWorkoutRun`, 0 `WorkoutRunClock`, 0 `.orphan`,
+  0 `isConnectionLost`, 0 `WristMirrorTruth`, 0 «Conectando…» en el HUD,
+  0 `watchLaunchAttempts`.
+- `project.pbxproj` regenerado con `xcodegen generate` (2.46.0, compilado desde
+  fuente en Linux; dos pasadas byte-idénticas). El pbxproj anterior estaba editado
+  a mano: fuera 5 referencias a ficheros que no existen (`PhoneWorkoutRun`,
+  `WorkoutRunClock`, `WorkoutRunClockTests`, `PhoneMirrorEndRetryTests`,
+  `ErgPreStartFlow`), dentro 33 fuentes que faltaban (entre ellas
+  `FH56AppleLinkTests`, `PhoneMirrorEndTests`, `MirrorPrimaryLaunchPolicy`,
+  `LiveLaunchPolicy`, `RunOutdoorBands`); `CURRENT_PROJECT_VERSION = 100`.
+- `PreWorkoutFlowSourceTests` afirma las APIs vivas (`startAction`,
+  `configurationsCompatible`, `shouldForceIdleFromStuckEnding`) y la ausencia de
+  `shouldIgnoreRedundantStart` / `shouldFinishBeforeRestart` / `mirrorChannelAlive`.
 - Tests Core nuevos: `FH56AppleLinkTests` (startAction matrix, adoptAction,
   un `startWatchApp` por begin, disconnect sin relanzar, adopt sin plan guarda,
   scan de fuente), `PhoneMirrorEndTests` (un envío, sin reintento, end idempotente).
