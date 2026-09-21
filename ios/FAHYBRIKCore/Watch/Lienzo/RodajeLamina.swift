@@ -229,11 +229,13 @@ extension RodajeLamina.Ventana {
         let serie = s.isRunStructureActive
         let leg = s.currentRunLeg
         let cuenta = RunLegDisplay.serie(legs: s.currentRunLegs ?? [], indice: s.runLegIndex)
-        let metros = serie ? s.tramoRunCoveredMeters : s.liveRunDistanceMeters
+        let metros: Double? = serie ? s.tramoRunCoveredMeters : s.liveRunDistanceMeters
         let ritmo: Int? = serie
             ? metros.flatMap { RunLegDisplay.legPaceSecPerKm(coveredMeters: $0, elapsedS: s.runLegElapsed) }
             : s.liveCoveredPaceSecPerKm
-        let objetivo = serie ? leg.flatMap { RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo) } : nil
+        let objetivo: (label: String, status: TargetStatus)? = serie
+            ? leg.flatMap { RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmo) }
+            : nil
         let siguiente: RunLeg? = {
             guard serie, let legs = s.currentRunLegs else { return nil }
             let i = s.runLegIndex + 1
@@ -286,14 +288,16 @@ extension RodajeLamina.Ventana {
         // Las calorías nunca son metros: un tramo medido en calorías no tiene
         // distancia que restar (`objetivoEsCalorias`).
         let porMetros = (t?.objetivoEsCalorias ?? false) == false
+        let hecho: Double? = porMetros ? t?.hechoMedida : nil
+        let objetivo: Double? = porMetros ? t?.objetivoMedida : nil
 
         self.init(
             esSerie: serie,
             enRecupera: serie && (t?.enDescanso ?? false),
             enPausa: f.phase == MirrorWire.Phase.paused,
             esCalle: RodajeMedida.esCalle(environment: f.runEnvironment),
-            metros: f.beltDistanceM ?? (porMetros ? t?.hechoMedida : nil),
-            objetivoMetros: f.beltTargetM ?? (porMetros ? t?.objetivoMedida : nil),
+            metros: f.beltDistanceM ?? hecho,
+            objetivoMetros: f.beltTargetM ?? objetivo,
             objetivoSegundos: t?.ventanaTotal,
             segundosPieza: t?.enTramoS ?? elapsed,
             quedaRecupera: MirrorTimedRest.quedaViva(tramo: t, sinceFrame: desdeTrama) ?? t?.ventanaQueda,
