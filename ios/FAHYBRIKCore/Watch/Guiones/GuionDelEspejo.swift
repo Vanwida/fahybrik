@@ -69,12 +69,27 @@ enum GuionDelEspejo {
         }
     }
 
-    /// FH-30: true when the mirror should show the lámina face (RodajeVivoPage)
-    /// instead of the old GuionRodaje / WatchReloj path.
+    /// FH-30 · MISMA CARA: true cuando el espejo tiene que pintar la LÁMINA
+    /// (`RodajeVivoPage`), que es lo que el reloj pinta sin móvil para TODO lo
+    /// que se corre por la calle — de corrido o a series.
+    ///
+    /// La regla de antes cortaba por `rondaTotal <= 1`, y esa es justo la línea
+    /// que NO separa nada: una serie del coach («3x1000m») y un fartlek libre
+    /// cuentan rondas, así que caían al reparto viejo (`GuionSeries`) y el
+    /// atleta veía una pantalla en solitario y otra distinta con el móvil
+    /// conectado — el 90 % de las sesiones, además, es la segunda.
+    ///
+    /// EL FORMATO MANDA PRIMERO, igual que en `guionPara`: un EMOM de cinta y
+    /// una estación de correr de un HYROX son del reloj de pared y de la ruta,
+    /// no de la lámina — ahí lo que gobierna es el crono del formato, no los
+    /// metros de la pieza. Debajo de eso, correr es la lámina, cuente rondas o
+    /// no. Que la lámina sea de rodaje o de serie lo decide luego el DATO
+    /// (`RodajeLamina.Ventana(trama:)`), no esta puerta.
     static func esRodajeLamina(_ f: MirrorStateFrame) -> Bool {
         guard let t = f.tramo else { return false }
+        if t.formato == PrescriptionScheme.emom.rawValue { return false }
+        if esRuta(t.formato) { return false }
         return t.modalidad == PrescriptionModality.run.rawValue
-            && (t.rondaTotal ?? 0) <= 1
     }
 
     // MARK: - Qué guion sirve este tramo

@@ -72,17 +72,7 @@ struct RodajeMarco<Content: View>: View {
                 .opacity(apagado)
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.onAppear {
-                            let w = geo.size.width - 20
-                            let h = geo.size.height - 6
-                            if w > 0, h > 0 {
-                                medidaLienzo = RodajeLienzoSize(ancho: w, alto: h)
-                            }
-                        }
-                    }
-                )
+                .mideElLienzo($medidaLienzo)
             destello.color
                 .opacity(destelloOpacity)
                 .ignoresSafeArea()
@@ -165,6 +155,36 @@ struct RodajeMarco<Content: View>: View {
 struct RodajeLienzoSize: Equatable {
     var ancho: CGFloat = 188
     var alto: CGFloat = 212
+}
+
+extension View {
+    /// MIDE EL LIENZO DE VERDAD, y lo vuelve a medir si cambia de tamaño.
+    ///
+    /// Con la medida sólo en `onAppear` bastaba un primer layout a cero —una
+    /// pantalla que se compone antes de tener tamaño, un 41 mm entrando por el
+    /// espejo— para que el numeral se quedara toda la sesión con el 188×212 por
+    /// defecto: en un SE eso desborda por ancho y el sujeto encoge con
+    /// `minimumScaleFactor` en vez de calcularse. `onChange` cierra ese agujero
+    /// sin tocar el caso bueno (misma medida ⇒ no reescribe el estado).
+    func mideElLienzo(_ medida: Binding<RodajeLienzoSize>) -> some View {
+        background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { anotaElLienzo(geo.size, en: medida) }
+                    .onChange(of: geo.size) { _, nueva in anotaElLienzo(nueva, en: medida) }
+            }
+        )
+    }
+}
+
+/// El relleno de la lámina (10 pt a cada lado, 6 abajo) se descuenta aquí: lo
+/// que el numeral puede ocupar es el hueco de dentro, no el de fuera.
+private func anotaElLienzo(_ size: CGSize, en medida: Binding<RodajeLienzoSize>) {
+    let w = size.width - 20
+    let h = size.height - 6
+    guard w > 0, h > 0 else { return }
+    let nueva = RodajeLienzoSize(ancho: w, alto: h)
+    if medida.wrappedValue != nueva { medida.wrappedValue = nueva }
 }
 
 private struct RodajeLienzoKey: EnvironmentKey {
@@ -307,6 +327,11 @@ struct RodajeSegundo: View {
 
 /// Lo que FALTA de la pieza. No reutiliza GuionRodaje: aquel ponía la zona
 /// como sujeto. Aquí el sujeto es el restante (o el reloj de la pieza).
+///
+/// QUÉ se pinta lo decide `RodajeLamina` con el motor proyectado a dato; esta
+/// vista sólo PINTA y cuelga el gesto. La misma decisión sirve al espejo
+/// (`MirrorRodajeFace`), que es lo que hace que sea la misma cara y no una
+/// parecida.
 struct RodajeVivoPage: View {
     let session: WorkoutSession
     var driver: WatchRunLegDriver? = nil
@@ -315,7 +340,7 @@ struct RodajeVivoPage: View {
     @Environment(\.rodajeLienzo) private var lienzo
 
     var body: some View {
-        let lectura = Self.lectura(session: session, driver: driver)
+        let lectura = RodajeLamina.lectura(RodajeLamina.Ventana(sesion: session))
         RodajeMarco(session: session, driver: driver, destello: destello,
                     apagado: session.isPaused ? 0.42 : 1) {
             VStack(spacing: 0) {
@@ -346,7 +371,7 @@ struct RodajeVivoPage: View {
                 if let nota = lectura.nota {
                     RodajeVersales(
                         texto: nota,
-                        tono: lectura.notaTinta,
+                        tono: lectura.notaEnTinta ? WatchTheme.ink : RodajeTipo.dim,
                         arriba: 4
                     )
                 }
@@ -357,179 +382,12 @@ struct RodajeVivoPage: View {
             .contentShape(Rectangle())
             .highPriorityGesture(
                 TapGesture().onEnded {
-                    guard let toca = lectura.onToca else { return }
+                    guard lectura.toca else { return }
                     WatchHaptics.tap()
-                    toca()
+                    session.applyCommand(MirrorWire.CommandKind.advance)
                 }
             )
-            .accessibilityAddTraits(lectura.onToca != nil ? .isButton : [])
+            .accessibilityAddTraits(lectura.toca ? .isButton : [])
         }
-    }
-
-    struct Lectura {
-        var contexto: String
-        var sujeto: String
-        var unidad: String = ""
-        var tonoSujeto: Color = WatchTheme.ink
-        var ritmo: String? = nil
-        /// Verdict label shown in ink (e.g. "en objetivo"). Nil = no verdict.
-        var veredicto: String? = nil
-        /// Label for the second level shown in dim (e.g. "ritmo", "luego").
-        var etiquetaSegundo: String = "ritmo"
-        var accion: Bool = false
-        var nota: String? = nil
-        var notaTinta: Color = RodajeTipo.dim
-        var onToca: (() -> Void)? = nil
-    }
-
-    static func lectura(session: WorkoutSession, driver: WatchRunLegDriver?) -> Lectura {
-        if session.isRunStructureActive {
-            return lecturaSerie(session: session, driver: driver)
-        }
-        return lecturaRodaje(session: session)
-    }
-
-    private static func lecturaRodaje(session: WorkoutSession) -> Lectura {
-        let medida = RodajeMedida.vivo(entradaRodaje(session))
-        return pintar(medida, pausa: session.isPaused, base: "rodaje")
-    }
-
-    private static func entradaRodaje(_ session: WorkoutSession) -> RodajeMedida.Entrada {
-        RodajeMedida.Entrada(
-            esCalle: RodajeMedida.esCalle(environment: session.runEnvironment),
-            metrosApple: session.liveRunDistanceMeters,
-            ritmoSecPorKm: session.liveCoveredPaceSecPerKm,
-            objetivoMetros: session.currentSegment?.targetDistanceMeters.map { Double($0) },
-            objetivoSegundos: session.currentSegment?.targetDurationSeconds.map { Double($0) },
-            segundosPieza: session.condElapsed,
-            esSerie: false
-        )
-    }
-
-    static func pintar(
-        _ medida: RodajeMedida.Lectura,
-        pausa: Bool,
-        base: String
-    ) -> Lectura {
-        let ritmo: String? = medida.ritmoSecPorKm.map {
-            "\(WatchFormat.pace($0)) \(Formato.UnidadRitmo.porKm.rawValue)"
-        }
-        if pausa {
-            return Lectura(
-                contexto: medida.quedan ? "en pausa · te quedan" : "en pausa · llevas",
-                sujeto: medida.sujeto,
-                unidad: medida.unidad,
-                ritmo: ritmo
-            )
-        }
-        if medida.notaSinSenal {
-            return Lectura(
-                contexto: "\(base) · llevas",
-                sujeto: medida.sujeto,
-                nota: WatchNota.sinSenal
-            )
-        }
-        return Lectura(
-            contexto: medida.quedan ? "\(base) · te quedan" : "\(base) · llevas",
-            sujeto: medida.sujeto,
-            unidad: medida.unidad,
-            ritmo: ritmo
-        )
-    }
-
-    private static func lecturaSerie(session: WorkoutSession, driver _: WatchRunLegDriver?) -> Lectura {
-        let avanza: (() -> Void)? = RodajeVivoToca.avanza(session)
-            ? { session.applyCommand(MirrorWire.CommandKind.advance) }
-            : nil
-        let isRecovery = !(session.currentRunLeg?.isWork ?? true)
-        let serie = RunLegDisplay.serie(
-            legs: session.currentRunLegs ?? [],
-            indice: session.runLegIndex
-        )
-        let cubiertos = session.tramoRunCoveredMeters
-        let ritmoSec = cubiertos.flatMap {
-            RunLegDisplay.legPaceSecPerKm(coveredMeters: $0, elapsedS: session.runLegElapsed)
-        }
-        let ritmo: String? = ritmoSec.map {
-            "\(WatchFormat.pace($0)) \(Formato.UnidadRitmo.porKm.rawValue)"
-        }
-        let objetivo = session.currentRunLeg.flatMap {
-            RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmoSec)
-        }
-        let veredicto: String? = (objetivo?.status == .inTarget) ? "en objetivo" : nil
-
-        if isRecovery {
-            let (sujeto, unidad, tono) = sujetoRecupera(session)
-            let next: RunLeg? = {
-                guard let legs = session.currentRunLegs else { return nil }
-                let i = session.runLegIndex + 1
-                return i < legs.count ? legs[i] : nil
-            }()
-            let viene = RunLegDisplay.nextLegPreview(next)
-            let nViene = min(serie.total, serie.n + 1)
-            return Lectura(
-                contexto: "recupera · viene la \(max(1, nViene))",
-                sujeto: sujeto,
-                unidad: unidad,
-                tonoSujeto: tono,
-                ritmo: viene,
-                etiquetaSegundo: "luego",
-                accion: true,
-                nota: "toca · empezar ya",
-                notaTinta: WatchTheme.ink,
-                onToca: avanza
-            )
-        }
-
-        if session.isPaused {
-            let medida = medidaSerie(session)
-            return Lectura(
-                contexto: medida.quedan ? "en pausa · te quedan" : "en pausa · llevas",
-                sujeto: medida.sujeto,
-                unidad: medida.unidad,
-                ritmo: ritmo,
-                veredicto: veredicto,
-                etiquetaSegundo: veredicto ?? "ritmo"
-            )
-        }
-
-        let parte = RunLegDisplay.nombreDeParte(session.currentRunLeg?.phaseRole ?? .main)
-        let medida = medidaSerie(session)
-        let base = parte ?? "serie \(serie.n) de \(serie.total)"
-        return Lectura(
-            contexto: medida.quedan ? "\(base) · te quedan" : base,
-            sujeto: medida.sujeto,
-            unidad: medida.unidad,
-            ritmo: medida.notaSinSenal ? nil : ritmo,
-            veredicto: medida.notaSinSenal ? nil : veredicto,
-            etiquetaSegundo: medida.notaSinSenal ? "ritmo" : (veredicto ?? "ritmo"),
-            nota: medida.notaSinSenal ? WatchNota.sinSenal : nil,
-            onToca: avanza
-        )
-    }
-
-    private static func medidaSerie(_ session: WorkoutSession) -> RodajeMedida.Lectura {
-        RodajeMedida.vivo(RodajeMedida.Entrada(
-            esCalle: RodajeMedida.esCalle(environment: session.runEnvironment),
-            metrosApple: session.tramoRunCoveredMeters,
-            ritmoSecPorKm: session.tramoRunCoveredMeters.flatMap {
-                RunLegDisplay.legPaceSecPerKm(coveredMeters: $0, elapsedS: session.runLegElapsed)
-            },
-            objetivoMetros: session.currentRunLeg?.distanceMeters.map { Double($0) },
-            objetivoSegundos: session.currentRunLeg?.durationSeconds.map { Double($0) },
-            segundosPieza: session.runLegElapsed,
-            esSerie: true
-        ))
-    }
-
-    private static func sujetoRecupera(_ session: WorkoutSession) -> (String, String, Color) {
-        let medida = medidaSerie(session)
-        if session.currentRunLeg?.distanceMeters != nil, session.tramoRunCoveredMeters == nil {
-            return (medida.sujeto, medida.unidad, WatchTheme.ink)
-        }
-        if (session.currentRunLeg?.durationSeconds ?? 0) > 0 {
-            return (WatchFormat.countdown(session.runLegRemaining), "", WatchTheme.zoneGreen)
-        }
-        return (WatchFormat.clock(session.runLegElapsed), "", WatchTheme.zoneGreen)
     }
 }
