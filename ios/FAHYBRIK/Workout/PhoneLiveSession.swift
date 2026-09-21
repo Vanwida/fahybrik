@@ -1,10 +1,17 @@
 import Foundation
 import Observation
 import HealthKit
+import os
 
-// FH-97 — ONE phone-side live session owner.
-// Coach engine = WorkoutSession. Wrist PRIMARY = WatchPrimaryOwner.
-// This object owns: startWatchApp, mirrored HK channel, frame loop, end delivery.
+// FH-97 / FH-56 — ONE phone-side live session owner.
+// Coach engine = WorkoutSession. Wrist PRIMARY = WatchPrimaryOwner (watchOS).
+// This object owns: ONE `startWatchApp` per intent, the mirrored HK channel
+// Apple hands over, the frame loop, and ONE end delivery.
+//
+// The link is Apple's. `link` is written ONLY by the mirroring start handler /
+// recover (bound), `didDisconnectFromRemoteDeviceWithError` (disconnected) and
+// `didChangeTo .ended` (none). No retry loop, no launch generation, no
+// «recent signal» window: the phone is coach, not connector.
 
 @MainActor
 @Observable
@@ -13,18 +20,30 @@ final class PhoneLiveSession {
 
     enum Phase: Equatable { case idle, coaching, ending }
 
-    private(set) var phase: Phase = .idle
-    /// HK mirror channel bound — internal; UI must use `wristMirrorLive`.
-    private(set) var wristJoined: Bool = false
-    /// FH-99 — honest UI truth: recent wrist signal on a live mirror channel.
-    var wristMirrorLive: Bool {
-        WristMirrorTruth.mirrorIsLive(
-            channelBound: channel.session != nil,
-            boundAt: mirrorBoundAt,
-            lastSignalAt: lastWristSignalAt
-        )
+    /// Apple's mirrored-session link.
+    enum Link: Equatable {
+        case none
+        case bound
+        /// Apple reported the remote device disconnected. The wrist PRIMARY
+        /// keeps recording; the handle stays until Apple ends it.
+        case disconnected(String?)
     }
-    var hasMirroredHKSession: Bool { channel.session != nil }
+
+    /// Result of the ONE `startWatchApp` of this intent — surfaced, never looped.
+    enum WatchLaunch: Equatable {
+        case notRequested
+        case requesting
+        case launched
+        case failed(String?)
+    }
+
+    private(set) var phase: Phase = .idle
+    private(set) var link: Link = .none
+    private(set) var watchLaunch: WatchLaunch = .notRequested
+    /// UI truth: Apple says the mirror is bound. Nothing homemade on top.
+    var wristMirrorLive: Bool { link == .bound }
+    /// A mirrored HK session is held (bound or disconnected) — the wrist is recording.
+    var hasMirroredHKSession: Bool { hk.session != nil }
     private(set) var wristRecordedWorkout: Bool = false
     private(set) var wristFinishedByAthlete: Bool = false
     private(set) var watchJoinStartedAt: Date?
@@ -35,17 +54,17 @@ final class PhoneLiveSession {
     @ObservationIgnored var isTreadmillLive: () -> Bool = { DeviceHub.shared.treadmillLink.isLive }
 
     @ObservationIgnored private weak var engine: WorkoutSession?
-    @ObservationIgnored private let channel = PhoneMirrorHKChannel()
+    @ObservationIgnored private let hk = PhoneMirrorHKChannel()
     @ObservationIgnored private var activityKind: String = "mixed"
-    @ObservationIgnored private var didLaunchWatch = false
-    @ObservationIgnored private var watchLaunchGeneration = 0
-    /// FH-96 — one workout intent → one PRIMARY. Survives a second `begin` on the
-    /// same staging session (prep UI + ▶ EMPEZAR) without clearing `didLaunchWatch`.
+    /// FH-96 — one workout intent → one PRIMARY. A second `begin` on the same
+    /// staging session (prep UI + ▶ EMPEZAR) must not re-request the wrist.
     @ObservationIgnored private var primaryRequested = false
     @ObservationIgnored private var boundSessionId: ObjectIdentifier?
     @ObservationIgnored private(set) var startWatchAppCallCount = 0
     @ObservationIgnored var startWatchAppOverride: ((HKWorkoutConfiguration) async -> Bool)?
     @ObservationIgnored private var pendingEndSave: Bool?
+    /// Save flag of the end in flight — re-sent if the wrist re-mirrors mid-teardown.
+    @ObservationIgnored private var endingSave: Bool?
     @ObservationIgnored private var endedWorkoutUuid: String?
     @ObservationIgnored private var hapticSeq = 0
     @ObservationIgnored private var pendingHapticCue: String?
@@ -53,53 +72,50 @@ final class PhoneLiveSession {
     @ObservationIgnored private var frameTimer: Timer?
     @ObservationIgnored private var lastSentKey = ""
     @ObservationIgnored private var lastSentAt: Date = .distantPast
-    @ObservationIgnored private var endDelivery: PhoneMirrorEndDelivery?
+    @ObservationIgnored private var releaseTimer: Timer?
     @ObservationIgnored private var didRegisterHandler = false
-    @ObservationIgnored private var mirrorBoundAt: Date?
-    @ObservationIgnored private var lastWristSignalAt: Date?
     @ObservationIgnored private let healthStore = HKHealthStore()
+    @ObservationIgnored private(set) var lastMirrorEndSaveForTests: Bool?
 
     private static let frameInterval: TimeInterval = 1
     private static let heartbeatInterval: TimeInterval = 5
-    private static let watchLaunchAttempts = 3
-    private static let watchLaunchRetrySeconds: TimeInterval = 3
+    private static let log = Logger(subsystem: Marca.subsistemaLog("primary"), category: "phone-live")
 
     private init() {
-        channel.onIncoming = { [weak self] data in self?.handleIncoming(data) }
-        channel.onSessionEnded = { [weak self] in self?.handleMirrorSessionEnded() }
+        hk.onIncoming = { [weak self] data in self?.handleIncoming(data) }
+        hk.onSessionEnded = { [weak self] in self?.handleMirrorSessionEnded() }
+        hk.onDisconnected = { [weak self] error in self?.handleRemoteDisconnect(error) }
     }
 
     func resetAthleteEndFlagsForTests() {
         wristFinishedByAthlete = false
         wristRecordedWorkout = false
         pendingEndSave = nil
+        endingSave = nil
         endedWorkoutUuid = nil
+        lastMirrorEndSaveForTests = nil
     }
 
     /// Test seam — clears PRIMARY binding so the singleton can begin again cleanly.
     func resetPrimaryBindingForTests() {
         primaryRequested = false
         boundSessionId = nil
-        didLaunchWatch = false
+        watchLaunch = .notRequested
         startWatchAppCallCount = 0
         startWatchAppOverride = nil
         watchJoinStartedAt = nil
-        watchLaunchGeneration = 0
-        mirrorBoundAt = nil
-        lastWristSignalAt = nil
+        link = .none
         engine = nil
         phase = .idle
     }
 
-    var mirrorBoundAtForTests: Date? { mirrorBoundAt }
-    var lastWristSignalAtForTests: Date? { lastWristSignalAt }
-
-    func noteWristSignalForTests(at date: Date = Date()) {
-        lastWristSignalAt = date
-    }
-
-    var launchGenerationForTests: Int { watchLaunchGeneration }
     var primaryRequestedForTests: Bool { primaryRequested }
+    var pendingEndSaveForTests: Bool? { pendingEndSave }
+
+    /// Test seam — Apple's `didDisconnectFromRemoteDeviceWithError` path.
+    func simulateRemoteDisconnectForTests(error: String?) {
+        handleRemoteDisconnect(error.map { PhoneMirrorLinkError(description: $0) })
+    }
 
     /// FH-96 — prep UI only; drives watch card spinner without `startWatchApp`.
     func noteWatchPrepIntent() {
@@ -122,45 +138,42 @@ final class PhoneLiveSession {
 
     func begin(session: WorkoutSession, activityKind: String) {
         let sessionId = ObjectIdentifier(session)
-        let continuingSamePrimary =
-            boundSessionId == sessionId && primaryRequested
+        let continuingSamePrimary = boundSessionId == sessionId && primaryRequested
 
         engine = session
         self.activityKind = activityKind
         phase = .coaching
+        cancelRelease()
 
-        if continuingSamePrimary {
-            guard HKHealthStore.isHealthDataAvailable() else { return }
-            prepare()
-            launchWatchIfNeeded()
-            startFrameLoop()
-            if channel.session != nil { tickFrame() }
-            return
+        if !continuingSamePrimary {
+            boundSessionId = sessionId
+            primaryRequested = true
+            endedWorkoutUuid = nil
+            wristRecordedWorkout = false
+            wristFinishedByAthlete = false
+            pendingEndSave = nil
+            endingSave = nil
+            watchLaunch = .notRequested
+            watchJoinStartedAt = Date()
         }
-
-        boundSessionId = sessionId
-        primaryRequested = true
-        endedWorkoutUuid = nil
-        wristRecordedWorkout = false
-        wristFinishedByAthlete = false
-        pendingEndSave = nil
-        didLaunchWatch = false
-        watchJoinStartedAt = Date()
-        endDelivery?.cancel()
-        endDelivery = nil
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()
-        launchWatchIfNeeded()
+        requestWatchPrimaryIfNeeded()
         startFrameLoop()
-        tickFrame()
+        if hk.session != nil { tickFrame() }
     }
 
+    /// ONE `MirrorEnd` over HK + the durable WCSession aviso (FH-101). The
+    /// mirrored handle is released when Apple reports `.ended`, or at the UI
+    /// deadline (`PhoneMirrorEndPolicy`) if the wrist is out of reach.
     func end(save: Bool) {
-        watchLaunchGeneration += 1
         if PhoneLiveHandoffPolicy.phoneEndIsNoOp(wristFinishedByAthlete: wristFinishedByAthlete) { return }
+        guard phase != .ending else { return }
         WatchConnectivityiOSService.shared.endLiveWorkout(save: save)
         phase = .ending
-        if channel.session == nil {
+        endingSave = save
+        stopFrameLoop()
+        if PhoneLiveHandoffPolicy.shouldStagePendingEnd(mirroredSessionPresent: hk.session != nil) {
             pendingEndSave = save
             return
         }
@@ -170,15 +183,10 @@ final class PhoneLiveSession {
 
     func deliverEnd(save: Bool) {
         if save { wristRecordedWorkout = true }
+        lastMirrorEndSaveForTests = save
         stopFrameLoop()
-        endDelivery?.cancel()
-        let delivery = PhoneMirrorEndDelivery { [weak self] in
-            self?.send(type: MirrorWire.MessageType.end, MirrorEnd(save: save))
-        } onRelease: { [weak self] in
-            self?.enterIdle()
-        }
-        endDelivery = delivery
-        delivery.start()
+        send(type: MirrorWire.MessageType.end, MirrorEnd(save: save))
+        scheduleRelease()
     }
 
     func teardown() { enterIdle() }
@@ -201,21 +209,39 @@ final class PhoneLiveSession {
         enterIdle()
     }
 
-    func attachRecovered(_ incoming: HKWorkoutSession) { adopt(incoming) }
+    /// Apple `recoverActiveWorkoutSession` (iOS 26) — reattach a mirrored
+    /// session the wrist is still running. On iOS 18 the handler is the only path.
+    func recoverMirroredSessionIfNeeded() async {
+        guard hk.session == nil, HKHealthStore.isHealthDataAvailable() else { return }
+        guard #available(iOS 26.0, *) else { return }
+        prepare()
+        let log = Self.log
+        let recovered: HKWorkoutSession? = await withCheckedContinuation { cont in
+            healthStore.recoverActiveWorkoutSession { session, error in
+                if let error {
+                    log.warning("recoverActiveWorkoutSession: \(error.localizedDescription, privacy: .public)")
+                }
+                cont.resume(returning: session)
+            }
+        }
+        guard let recovered, hk.session == nil else { return }
+        adopt(recovered)
+    }
 
-    func launchWatchIfNeeded() {
+    /// ONE `startWatchApp` per intent. Result lands in `watchLaunch`; a failure
+    /// is said on the watch card, never retried by timer.
+    func requestWatchPrimaryIfNeeded() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
-        let needsRunEnv = activityKind == "running" && engine?.runEnvironment == nil
-        guard PhoneLiveHandoffPolicy.shouldLaunchWatch(
-            didLaunch: didLaunchWatch,
-            wristJoined: wristJoined,
-            hasSession: engine != nil,
-            runEnvironmentResolved: !needsRunEnv,
-            activityKindIsRunning: activityKind == "running"
+        let isRunning = activityKind == "running"
+        guard PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: watchLaunch != .notRequested,
+            channelBound: hk.session != nil,
+            hasEngine: engine != nil && phase == .coaching,
+            runEnvironmentResolved: !(isRunning && engine?.runEnvironment == nil),
+            activityKindIsRunning: isRunning
         ) else { return }
-        didLaunchWatch = true
-        watchLaunchGeneration += 1
-        let generation = watchLaunchGeneration
+        watchLaunch = .requesting
+        startWatchAppCallCount += 1
         let config = HKWorkoutConfiguration()
         config.activityType = PhoneMirrorFrameBuilder.activityType(for: activityKind)
         config.locationType = WorkoutLocationType.resolve(
@@ -224,23 +250,17 @@ final class PhoneLiveSession {
         )
         Task { [weak self] in
             guard let self else { return }
-            try? await self.healthStore.requestAuthorization(
-                toShare: [HKObjectType.workoutType()], read: []
-            )
-            await self.launchWatchApp(config, generation: generation)
+            await self.startWatchApp(config)
         }
     }
 
-    func pauseRemote() { kickFrame() }
-    func resumeRemote() { kickFrame() }
-
     func kickFrame() {
-        guard channel.session != nil, engine != nil else { return }
+        guard hk.session != nil, engine != nil else { return }
         tickFrame()
     }
 
     func sendHapticCue(_ cue: String) {
-        guard channel.session != nil else { return }
+        guard hk.session != nil else { return }
         hapticSeq += 1
         pendingHapticCue = cue
         pendingHapticSeq = hapticSeq
@@ -267,7 +287,12 @@ final class PhoneLiveSession {
 
     func handleIncoming(_ payloads: [Data]) {
         guard !payloads.isEmpty else { return }
-        lastWristSignalAt = Date()
+        // Data from the wrist is Apple's proof the link is up again (after a
+        // disconnect Apple recovered on its own).
+        if hk.session != nil, link != .bound {
+            link = .bound
+            if phase == .coaching { startFrameLoop() }
+        }
         for data in payloads {
             guard let env = MirrorEnvelope.decoding(data) else { continue }
             switch env.type {
@@ -294,6 +319,95 @@ final class PhoneLiveSession {
         }
     }
 
+    // MARK: - Adopt (Apple handed us the wrist PRIMARY)
+
+    /// Links and does not decide — except to find the coach plan. Never
+    /// `save: false` from here: the recording is the athlete's (FH-56).
+    private func adopt(_ incoming: HKWorkoutSession) {
+        hk.bind(incoming)
+        link = .bound
+        watchJoinStartedAt = nil
+        cancelRelease()
+        Self.log.info("adopted mirrored session state=\(incoming.state.rawValue, privacy: .public) type=\(incoming.type.rawValue, privacy: .public) phase=\(String(describing: self.phase), privacy: .public) engine=\(self.engine != nil, privacy: .public)")
+        if let pending = pendingEndSave {
+            pendingEndSave = nil
+            deliverEnd(save: pending)
+            return
+        }
+        if phase == .ending {
+            deliverEnd(save: endingSave ?? true)
+            return
+        }
+        if engine != nil {
+            applyAdoptAction(PhoneLiveHandoffPolicy.adoptAction(
+                hasEngine: true,
+                engineFinished: engine?.isFinished == true,
+                hasFreshSnapshot: false
+            ))
+            return
+        }
+        Task { await resolveAdoptWithoutEngine() }
+    }
+
+    private func resolveAdoptWithoutEngine() async {
+        let saved = await WorkoutStateStore.shared.load()
+        let fresh = saved.map { WorkoutRecoveryGate.isFresh($0) } ?? false
+        guard hk.session != nil else { return }
+        // A `begin` may have landed while we read the disk.
+        if engine != nil {
+            applyAdoptAction(.coach)
+            return
+        }
+        applyAdoptAction(PhoneLiveHandoffPolicy.adoptAction(
+            hasEngine: false,
+            engineFinished: false,
+            hasFreshSnapshot: fresh
+        ))
+    }
+
+    func applyAdoptAction(_ action: PhoneLiveHandoffPolicy.AdoptAction) {
+        switch action {
+        case .coach:
+            startFrameLoop()
+            tickFrame()
+        case .reopenFromDisk:
+            Self.log.info("adopt without engine — reopening coach plan from disk")
+            Task {
+                // Reconcile inside `recoverOnLaunch` ends SAVING if the plan is gone.
+                await LiveWorkoutResume.shared.recoverOnLaunch(
+                    hrZones: LiveWorkoutResume.shared.lastKnownHRZones
+                )
+            }
+        case .endSaving:
+            Self.log.warning("adopt without coach plan — ending wrist recording SAVING")
+            end(save: true)
+        }
+    }
+
+    // MARK: - Apple link events
+
+    /// Apple `didChangeTo .ended` (or `didFailWithError`) on the mirrored session.
+    /// Mid-coaching: keep the coach, drop the handle, do NOT relaunch — a wrist
+    /// that relaunches re-mirrors on its own and lands in the handler again.
+    private func handleMirrorSessionEnded() {
+        stopFrameLoop()
+        hk.unbind()
+        link = .none
+        if phase == .coaching, engine?.isFinished != true {
+            Self.log.warning("mirrored session ended mid-coaching — coach continues without wrist")
+            return
+        }
+        enterIdle()
+    }
+
+    /// Apple `didDisconnectFromRemoteDeviceWithError`. Coaching continues; the
+    /// wrist still records; the handle stays until Apple ends it.
+    private func handleRemoteDisconnect(_ error: Error?) {
+        link = .disconnected(error?.localizedDescription)
+        stopFrameLoop()
+        Self.log.warning("remote device disconnected: \(error?.localizedDescription ?? "sin error", privacy: .public)")
+    }
+
     // MARK: - Private
 
     private var frameContext: PhoneMirrorFrameContext {
@@ -304,84 +418,66 @@ final class PhoneLiveSession {
         )
     }
 
-    private func adopt(_ incoming: HKWorkoutSession) {
-        channel.bind(incoming)
-        wristJoined = true
-        mirrorBoundAt = Date()
-        lastWristSignalAt = nil
-        if let pending = pendingEndSave {
-            pendingEndSave = nil
-            deliverEnd(save: pending)
-            return
-        }
-        if PhoneLiveHandoffPolicy.adoptShouldDiscardImmediately(
-            pendingEndSave: nil,
-            sessionFinished: engine?.isFinished == true,
-            hasLiveEngine: engine != nil
-        ) {
-            deliverEnd(save: false)
-            return
-        }
-        startFrameLoop()
-        tickFrame()
-    }
-
-    /// HK mirror channel dropped mid-workout — keep coaching intent and relaunch wrist.
-    private func handleMirrorSessionEnded() {
-        endDelivery?.cancel()
-        endDelivery = nil
-        stopFrameLoop()
-        channel.unbind()
-        wristJoined = false
-        mirrorBoundAt = nil
-        lastWristSignalAt = nil
-        guard phase == .coaching, engine?.isFinished != true else {
-            releaseChannel()
-            return
-        }
-        didLaunchWatch = false
-        launchWatchIfNeeded()
-    }
-
     /// Drops the mirrored HK channel and PRIMARY latches — post-workout idle only.
     private func releaseChannel() {
-        endDelivery?.cancel()
-        endDelivery = nil
+        cancelRelease()
         stopFrameLoop()
-        channel.unbind()
-        wristJoined = false
-        mirrorBoundAt = nil
-        lastWristSignalAt = nil
+        hk.unbind()
+        link = .none
         primaryRequested = false
         boundSessionId = nil
-        didLaunchWatch = false
+        watchLaunch = .notRequested
     }
 
-    /// FH-100 — post-workout idle: channel released + latches cleared + in-flight
-    /// `startWatchApp` loops cancelled so the next Empezar is a cold launch.
+    /// FH-100 — post-workout idle: channel released + latches cleared so the
+    /// next Empezar is a cold launch.
     private func enterIdle() {
         releaseChannel()
-        watchLaunchGeneration += 1
         pendingEndSave = nil
+        endingSave = nil
         phase = .idle
     }
 
-    private func launchWatchApp(_ config: HKWorkoutConfiguration, generation: Int) async {
-        for attempt in 1...Self.watchLaunchAttempts {
-            guard generation == watchLaunchGeneration, !wristJoined else { return }
-            startWatchAppCallCount += 1
-            let launched: Bool
-            if let override = startWatchAppOverride {
-                launched = await override(config)
-            } else {
-                launched = await withCheckedContinuation { cont in
-                    healthStore.startWatchApp(with: config) { ok, _ in cont.resume(returning: ok) }
+    private func startWatchApp(_ config: HKWorkoutConfiguration) async {
+        try? await healthStore.requestAuthorization(
+            toShare: [HKObjectType.workoutType()], read: []
+        )
+        let outcome: (ok: Bool, error: Error?)
+        if let override = startWatchAppOverride {
+            outcome = (await override(config), nil)
+        } else {
+            outcome = await withCheckedContinuation { cont in
+                healthStore.startWatchApp(with: config) { ok, error in
+                    cont.resume(returning: (ok, error))
                 }
             }
-            if launched || wristJoined { return }
-            guard attempt < Self.watchLaunchAttempts else { return }
-            try? await Task.sleep(for: .seconds(Self.watchLaunchRetrySeconds))
         }
+        guard watchLaunch == .requesting else { return }
+        if outcome.ok {
+            watchLaunch = .launched
+            Self.log.info("startWatchApp ok")
+        } else {
+            let why = outcome.error?.localizedDescription
+            watchLaunch = .failed(why)
+            Self.log.error("startWatchApp failed: \(why ?? "sin error", privacy: .public)")
+        }
+    }
+
+    private func scheduleRelease() {
+        cancelRelease()
+        let t = Timer(
+            timeInterval: PhoneMirrorEndPolicy.releaseChannelAfterSeconds,
+            repeats: false
+        ) { [weak self] _ in
+            Task { @MainActor in self?.enterIdle() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        releaseTimer = t
+    }
+
+    private func cancelRelease() {
+        releaseTimer?.invalidate()
+        releaseTimer = nil
     }
 
     private func startFrameLoop() {
@@ -401,11 +497,7 @@ final class PhoneLiveSession {
     }
 
     private func tickFrame() {
-        if channel.session == nil, phase == .coaching, engine?.isFinished != true {
-            launchWatchIfNeeded()
-            return
-        }
-        guard let engine, channel.session != nil else { return }
+        guard let engine, hk.session != nil, link == .bound else { return }
         let frame = buildFrame(from: engine)
         let key = PhoneMirrorFrameBuilder.structuralKey(frame)
         let now = Date()
@@ -446,11 +538,17 @@ final class PhoneLiveSession {
     private func send<P: Encodable>(type: String, _ payload: P) {
         if let sendOverride { sendOverride(type); return }
         guard let data = MirrorEnvelope.encoding(type: type, payload) else { return }
-        channel.send(data)
+        hk.send(data)
     }
 }
 
-// MARK: - HK channel + end delivery (phone internals)
+/// Test-only stand-in for Apple's disconnect error.
+struct PhoneMirrorLinkError: LocalizedError {
+    let description: String
+    var errorDescription: String? { description }
+}
+
+// MARK: - HK channel (phone internals)
 
 @MainActor
 final class PhoneMirrorHKChannel {
@@ -458,6 +556,7 @@ final class PhoneMirrorHKChannel {
     private lazy var delegate = PhoneMirrorHKDelegate(channel: self)
     var onIncoming: (([Data]) -> Void)?
     var onSessionEnded: (() -> Void)?
+    var onDisconnected: ((Error?) -> Void)?
 
     func bind(_ incoming: HKWorkoutSession) {
         incoming.delegate = delegate
@@ -473,13 +572,31 @@ final class PhoneMirrorHKChannel {
         Task { try? await session.sendToRemoteWorkoutSession(data: data) }
     }
 
-    fileprivate func handleStateChange(to state: HKWorkoutSessionState) {
-        if state == .ended || state == .stopped { onSessionEnded?() }
+    /// Events from a session that is no longer ours (a late `.ended` after the
+    /// next Empezar already bound a new one) must not touch the live channel.
+    fileprivate func isCurrent(_ candidate: HKWorkoutSession) -> Bool {
+        session === candidate
     }
 
-    fileprivate func handleFailure() { onSessionEnded?() }
+    fileprivate func handleStateChange(of candidate: HKWorkoutSession, to state: HKWorkoutSessionState) {
+        guard isCurrent(candidate) else { return }
+        if state == .ended { onSessionEnded?() }
+    }
 
-    fileprivate func handleIncoming(_ data: [Data]) { onIncoming?(data) }
+    fileprivate func handleFailure(of candidate: HKWorkoutSession) {
+        guard isCurrent(candidate) else { return }
+        onSessionEnded?()
+    }
+
+    fileprivate func handleDisconnect(of candidate: HKWorkoutSession, error: Error?) {
+        guard isCurrent(candidate) else { return }
+        onDisconnected?(error)
+    }
+
+    fileprivate func handleIncoming(from candidate: HKWorkoutSession, _ data: [Data]) {
+        guard isCurrent(candidate) else { return }
+        onIncoming?(data)
+    }
 }
 
 private final class PhoneMirrorHKDelegate: NSObject, HKWorkoutSessionDelegate {
@@ -493,74 +610,31 @@ private final class PhoneMirrorHKDelegate: NSObject, HKWorkoutSessionDelegate {
         from fromState: HKWorkoutSessionState,
         date: Date
     ) {
-        Task { @MainActor [weak self] in self?.channel?.handleStateChange(to: toState) }
+        Task { @MainActor [weak self] in
+            self?.channel?.handleStateChange(of: workoutSession, to: toState)
+        }
     }
 
     func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
-        Task { @MainActor [weak self] in self?.channel?.handleFailure() }
+        Task { @MainActor [weak self] in self?.channel?.handleFailure(of: workoutSession) }
+    }
+
+    /// Apple's only «conexión perdida» (iOS 17) — the mirrored session lost its primary.
+    func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didDisconnectFromRemoteDeviceWithError error: (any Error)?
+    ) {
+        Task { @MainActor [weak self] in
+            self?.channel?.handleDisconnect(of: workoutSession, error: error)
+        }
     }
 
     func workoutSession(
         _ workoutSession: HKWorkoutSession,
         didReceiveDataFromRemoteWorkoutSession data: [Data]
     ) {
-        Task { @MainActor [weak self] in self?.channel?.handleIncoming(data) }
-    }
-}
-
-@MainActor
-final class PhoneMirrorEndDelivery {
-    private let sendEnd: () -> Void
-    private let onRelease: () -> Void
-    private var retryTimer: Timer?
-    private var releaseTimer: Timer?
-    private var sentCount = 0
-    private let startedAt = Date()
-
-    init(sendEnd: @escaping () -> Void, onRelease: @escaping () -> Void) {
-        self.sendEnd = sendEnd
-        self.onRelease = onRelease
-    }
-
-    func start() {
-        fireSend()
-        scheduleRelease()
-    }
-
-    func cancel() {
-        retryTimer?.invalidate()
-        retryTimer = nil
-        releaseTimer?.invalidate()
-        releaseTimer = nil
-    }
-
-    private func fireSend() {
-        sentCount += 1
-        sendEnd()
-        retryTimer?.invalidate()
-        guard PhoneMirrorEndPolicy.shouldScheduleRetry(sentCount: sentCount) else { return }
-        let t = Timer(
-            timeInterval: PhoneMirrorEndPolicy.retryIntervalSeconds,
-            repeats: false
-        ) { [weak self] _ in
-            Task { @MainActor in self?.fireSend() }
+        Task { @MainActor [weak self] in
+            self?.channel?.handleIncoming(from: workoutSession, data)
         }
-        RunLoop.main.add(t, forMode: .common)
-        retryTimer = t
-    }
-
-    private func scheduleRelease() {
-        releaseTimer?.invalidate()
-        let t = Timer(
-            timeInterval: PhoneMirrorEndPolicy.releaseChannelAfterSeconds,
-            repeats: false
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.cancel()
-                self?.onRelease()
-            }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        releaseTimer = t
     }
 }

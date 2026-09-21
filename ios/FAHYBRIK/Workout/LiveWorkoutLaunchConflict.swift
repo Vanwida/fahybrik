@@ -24,7 +24,6 @@ enum LiveWorkoutLaunchConflict {
     @MainActor
     static func terminateCurrentForNewStart() async {
         PhoneLiveSession.shared.end(save: true)
-        PhoneWorkoutRun.shared.end()
         await WorkoutStateStore.shared.close()
         LiveWorkoutResume.shared.dismissFully()
     }
