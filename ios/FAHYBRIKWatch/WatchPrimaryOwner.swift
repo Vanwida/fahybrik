@@ -3,10 +3,16 @@ import Observation
 import HealthKit
 import os
 
-// FH-97 — ONE Watch PRIMARY owner. Apple pattern:
-// watchOS creates PRIMARY (`handle(_:)` / solo) → `startMirroringToCompanionDevice`;
-// iOS receives mirrored session via `workoutSessionMirroringStartHandler`.
+// FH-97 / FH-56 — ONE Watch PRIMARY owner. Apple pattern:
+// watchOS creates PRIMARY (`handle(_:)` / solo / recover) → `startMirroringToCompanionDevice`;
+// iOS receives the mirrored session via `workoutSessionMirroringStartHandler`.
 // Solo coach motor lives on WatchWorkoutCoordinator; this object owns HK only.
+//
+// The link to the phone is Apple's (`link`): written only by the result of
+// `startMirroringToCompanionDevice`, by `didDisconnectFromRemoteDeviceWithError`
+// and by the first packet received. No watchdog, no «connection lost» timer.
+// A recovered PRIMARY re-mirrors; a redundant `handle(_:)` re-mirrors; a
+// launch never discards the athlete's recording.
 
 @MainActor
 @Observable
@@ -16,13 +22,23 @@ final class WatchPrimaryOwner: NSObject {
 
     typealias Phase = WatchPrimaryLifecycle.Phase
     typealias Role = WatchPrimaryLifecycle.Role
+    typealias Link = WatchPrimaryLifecycle.Link
 
     private(set) var phase: Phase = .idle
     private(set) var role: Role?
+    /// Apple's link to the phone. Meaningful while `role == .mirror`.
+    private(set) var link: Link = .unlinked(nil)
+    /// Last error Apple gave when creating the PRIMARY — never swallowed.
+    private(set) var lastStartError: String?
 
     var showsMirrorHUD: Bool { WatchPrimaryLifecycle.showsMirrorHUD(role: role) }
-    var hasLocalSession: Bool { session != nil }
     var isEnding: Bool { phase == .ending }
+    /// «Sin conexión con el iPhone» — from Apple, not from missing frames.
+    var phoneUnlinked: Bool { WatchPrimaryLifecycle.phoneUnlinked(role: role, link: link) }
+    var linkErrorDescription: String? {
+        if case .unlinked(let why) = link { return why }
+        return nil
+    }
 
     var frame: MirrorStateFrame?
     var frameReceivedAt: Date?
@@ -30,7 +46,6 @@ final class WatchPrimaryOwner: NSObject {
     var activeKcal: Double = 0
     var distanceMeters: Double = 0
     var builderElapsed: TimeInterval { builder?.elapsedTime ?? 0 }
-    var isConnectionLost = false
 
     var onHeartRate: ((Int) -> Void)?
     var onDistanceDelta: ((Double) -> Void)?
@@ -40,7 +55,6 @@ final class WatchPrimaryOwner: NSObject {
         return liveHR.flatMap { zones.zone(forBpm: $0) }
     }
 
-    static let connectionLostAfter: TimeInterval = 15
     static let hrRelayMinInterval: TimeInterval = 1
 
     static let workoutDataTypes: Set<HKSampleType> = [
@@ -61,6 +75,10 @@ final class WatchPrimaryOwner: NSObject {
     let store = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    /// FH-56 — the HK handle of a session we asked to end, kept until Apple
+    /// reports `.ended` (or fails). The UI leaves at the 5 s deadline; the
+    /// handle does not. A queued start fires when this clears.
+    private var finishing: HKWorkoutSession?
     private var hkPaused = false
     private var lastHRRelayAt: Date = .distantPast
     private var lastReportedDistance: Double = 0
@@ -68,8 +86,6 @@ final class WatchPrimaryOwner: NSObject {
     private var startedPlan: WatchHKActivityPlan?
     private var pendingPlan: WatchHKActivityPlan?
     private let locationGate = WatchRunLocationGate()
-    private var lastSignalAt: Date = .distantPast
-    private var connectionWatchdog: Timer?
     private var teardownDeadlineTimer: Timer?
     private var pendingStartConfiguration: HKWorkoutConfiguration?
     private var pendingStartRole: Role = .mirror
@@ -79,12 +95,19 @@ final class WatchPrimaryOwner: NSObject {
 
     // MARK: - Start (idempotent)
 
+    /// Launch / `handleActiveWorkoutRecovery`: Apple hands back the live PRIMARY.
+    /// It is adopted as PRIMARY (no orphan role) and asked to mirror again.
     func recoverActiveIfNeeded() {
-        guard phase == .idle, session == nil else { return }
-        store.recoverActiveWorkoutSession { [weak self] incoming, _ in
-            guard let incoming else { return }
+        guard phase == .idle, session == nil, finishing == nil else { return }
+        store.recoverActiveWorkoutSession { [weak self] incoming, error in
             Task { @MainActor in
-                self?.adopt(incoming, role: .orphan)
+                guard let self else { return }
+                if let error {
+                    Self.log.warning("recoverActiveWorkoutSession: \(error.localizedDescription, privacy: .public)")
+                }
+                guard let incoming else { return }
+                Self.log.info("recovered PRIMARY state=\(incoming.state.rawValue, privacy: .public) type=\(incoming.type.rawValue, privacy: .public)")
+                self.adopt(incoming)
             }
         }
     }
@@ -117,126 +140,108 @@ final class WatchPrimaryOwner: NSObject {
         requestStart(configuration: configuration, role: .solo)
     }
 
-    private func requestStart(configuration: HKWorkoutConfiguration, role: Role) {
-        if reconcileIdleBeforeLaunch(incoming: configuration, role: role) { return }
-
-        if role == .mirror, phase == .recording, self.role == .solo {
-            Self.log.info("solo PRIMARY yielding to phone mirror")
-            pendingStartConfiguration = configuration
-            pendingStartRole = .mirror
-            requestEnd(save: true, reason: MirrorWire.EndReason.discarded)
-            return
-        }
-
-        let mirrorAlive = role != .mirror || !isConnectionLost
-        if MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart(
-            isRecording: phase == .recording,
-            current: session?.workoutConfiguration,
-            incoming: configuration,
-            mirrorChannelAlive: mirrorAlive
-        ) {
-            Self.log.info("startPrimary ignored — already recording compatible PRIMARY")
-            return
-        }
-        if MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart(
-            isRecording: phase == .recording,
-            current: session?.workoutConfiguration,
-            incoming: configuration,
-            mirrorChannelAlive: mirrorAlive
-        ) {
-            Self.log.warning("PRIMARY leftover phase=\(String(describing: self.phase), privacy: .public) — finishing then starting")
-            pendingStartConfiguration = configuration
-            pendingStartRole = role
-            if phase == .recording { requestEnd(save: false, reason: MirrorWire.EndReason.discarded) }
-            return
-        }
-        if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle {
-            WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
-        }
-        guard WatchPrimaryLifecycle.acceptsStart(
-            current: phase,
-            hasSession: session != nil,
-            standaloneActive: false,
-            role: role
-        ) else {
-            if !WatchPrimaryLifecycle.isCleanIdle(phase: phase, hasSession: session != nil) {
-                Self.log.warning("start declined — phase=\(String(describing: self.phase), privacy: .public) hasSession=\(self.session != nil, privacy: .public)")
-            }
-            return
-        }
-        Task { await begin(configuration: configuration, role: role) }
-    }
-
-    /// FH-100 — every `startWatchApp` delivery must see clean idle or queue after teardown.
-    /// Returns true when this call was fully handled (queued end, forced idle, or ignored).
-    private func reconcileIdleBeforeLaunch(
-        incoming: HKWorkoutConfiguration,
-        role: Role
-    ) -> Bool {
+    private func requestStart(configuration: HKWorkoutConfiguration, role incomingRole: Role) {
         if WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding(
             phase: phase,
-            hasSession: session != nil
+            hasSession: session != nil || finishing != nil
         ) {
-            Self.log.warning("stuck ending without session — forcing idle before launch")
+            Self.log.warning("stuck ending without any handle — forcing idle before launch")
             forceIdle()
-        }
-        if WatchPrimaryLifecycle.isCleanIdle(phase: phase, hasSession: session != nil) {
-            return false
         }
         if phase == .idle, session != nil {
-            Self.log.warning("orphan session ref at idle — forcing idle before launch")
+            Self.log.warning("stale session ref at idle — forcing idle before launch")
             forceIdle()
-            return false
         }
-        if phase == .ending {
-            pendingStartConfiguration = incoming
-            pendingStartRole = role
-            Self.log.info("launch queued — teardown in progress")
-            return true
+        let compatible = session.map {
+            MirrorPrimaryLaunchPolicy.configurationsCompatible($0.workoutConfiguration, configuration)
+        } ?? false
+        let action = WatchPrimaryLifecycle.startAction(
+            phase: phase,
+            hasSession: session != nil,
+            isFinishing: finishing != nil,
+            currentRole: role,
+            incomingRole: incomingRole,
+            compatible: compatible
+        )
+        Self.log.info("start(\(String(describing: incomingRole), privacy: .public)) → \(String(describing: action), privacy: .public) phase=\(String(describing: self.phase), privacy: .public) role=\(String(describing: self.role), privacy: .public)")
+        switch action {
+        case .begin:
+            Task { await begin(configuration: configuration, role: incomingRole) }
+        case .remirror:
+            guard let session else { return }
+            Task { await mirror(session) }
+        case .finishThenQueue:
+            pendingStartConfiguration = configuration
+            pendingStartRole = incomingRole
+            // Never `save: false` for a launch — the recording is the athlete's.
+            requestEnd(save: true, reason: MirrorWire.EndReason.phone)
+        case .queue:
+            pendingStartConfiguration = configuration
+            pendingStartRole = incomingRole
+        case .decline:
+            break
         }
-        return false
     }
 
     private func begin(configuration: HKWorkoutConfiguration, role: Role) async {
-        guard phase == .idle else { return }
+        guard phase == .idle, session == nil, finishing == nil else { return }
         await Self.requestWorkoutAuthorization()
-        guard phase == .idle else { return }
+        guard phase == .idle, session == nil, finishing == nil else { return }
+        let created: HKWorkoutSession
         do {
-            let created = try HKWorkoutSession(healthStore: store, configuration: configuration)
-            bind(created, role: role, configuration: configuration)
-            do {
-                try await created.startMirroringToCompanionDevice()
-            } catch {
-                // Phone unreachable; wrist PRIMARY still records.
-            }
-            let start = Date()
-            created.startActivity(with: start)
-            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                builder?.beginCollection(withStart: start) { _, _ in cont.resume() }
-            }
-            lastSignalAt = start
-            if let pending = pendingPlan { syncSoloActivity(pending) }
-            if role == .mirror || role == .orphan {
-                startConnectionWatchdog()
-                requestSyncUntilFirstFrame()
-            }
-            if role == .mirror { WatchHaptics.start() }
+            created = try HKWorkoutSession(healthStore: store, configuration: configuration)
         } catch {
+            // Never mute: the error is state + log. The phone learns it at its
+            // next `handle(_:)` (Apple serializes; we do not).
+            lastStartError = error.localizedDescription
+            Self.log.error("HKWorkoutSession init failed: \(error.localizedDescription, privacy: .public)")
             forceIdle()
+            return
         }
-    }
-
-    func adopt(_ incoming: HKWorkoutSession, role: Role = .orphan) {
-        guard phase == .idle, session == nil else { return }
+        lastStartError = nil
         if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle {
             WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
         }
-        bind(incoming, role: role, configuration: incoming.workoutConfiguration)
-        lastSignalAt = Date()
-        if role == .mirror || role == .orphan {
-            startConnectionWatchdog()
-            requestSyncUntilFirstFrame()
+        bind(created, role: role, configuration: configuration)
+        if role == .mirror {
+            await mirror(created)
         }
+        let start = Date()
+        created.startActivity(with: start)
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            builder?.beginCollection(withStart: start) { _, _ in cont.resume() }
+        }
+        if let pending = pendingPlan { syncSoloActivity(pending) }
+        if role == .mirror { WatchHaptics.start() }
+    }
+
+    /// `startMirroringToCompanionDevice` — at create, at recover, and on a
+    /// redundant `handle(_:)`. The result is the link; the wrist records either way.
+    private func mirror(_ target: HKWorkoutSession) async {
+        do {
+            try await target.startMirroringToCompanionDevice()
+            guard target === session else { return }
+            link = .mirroring
+            Self.log.info("mirroring to companion")
+            sendCommand(MirrorWire.CommandKind.sync)
+        } catch {
+            guard target === session else { return }
+            link = .unlinked(error.localizedDescription)
+            Self.log.warning("startMirroringToCompanionDevice failed: \(error.localizedDescription, privacy: .public) — wrist keeps recording")
+        }
+    }
+
+    /// Recovered PRIMARY — adopted as `.mirror` and asked to mirror again. If
+    /// Apple rejects re-mirroring a recovered session the link stays unlinked
+    /// with Apple's reason; the HUD says so and the athlete keeps Terminar.
+    func adopt(_ incoming: HKWorkoutSession) {
+        guard phase == .idle, session == nil, finishing == nil else { return }
+        if WatchWorkoutCoordinator.shared.phase != .idle {
+            WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
+        }
+        bind(incoming, role: .mirror, configuration: incoming.workoutConfiguration)
+        hkPaused = incoming.state == .paused
+        Task { await mirror(incoming) }
         WatchHaptics.start()
     }
 
@@ -247,12 +252,12 @@ final class WatchPrimaryOwner: NSObject {
     ) {
         self.role = role
         phase = .recording
+        link = .unlinked(nil)
         frame = nil
         frameReceivedAt = nil
         liveHR = nil
         activeKcal = 0
         distanceMeters = 0
-        isConnectionLost = false
         hkPaused = false
         session = incoming
         incoming.delegate = self
@@ -292,9 +297,6 @@ final class WatchPrimaryOwner: NSObject {
     private func applyFrame(_ f: MirrorStateFrame) {
         frame = f
         frameReceivedAt = Date()
-        lastSignalAt = frameReceivedAt ?? Date()
-        isConnectionLost = false
-        if role == .orphan { role = .mirror }
         applyPhase(f.phase)
         syncRunActivity(from: f)
     }
@@ -404,7 +406,7 @@ final class WatchPrimaryOwner: NSObject {
         hkPaused = false
     }
 
-    // MARK: - End (always leaves UI within teardown deadline)
+    // MARK: - End (UI always leaves within the deadline; the HK handle waits for `.ended`)
 
     func finishFromPhone(save: Bool) {
         requestEnd(save: save, reason: save ? MirrorWire.EndReason.phone : MirrorWire.EndReason.discarded)
@@ -436,6 +438,7 @@ final class WatchPrimaryOwner: NSObject {
         armTeardownDeadline()
         let capturedSession = session
         let capturedBuilder = builder
+        finishing = capturedSession
         Task {
             await performTeardown(
                 session: capturedSession,
@@ -448,13 +451,14 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     /// NEVER cancelled when save starts — athlete freedom beats perfect persistence.
+    /// FH-56: releases the UI only; the HK handle lives in `finishing` until `.ended`.
     private func armTeardownDeadline() {
         teardownDeadlineTimer?.invalidate()
         let deadline = WatchPrimaryLifecycle.teardownDeadlineSeconds
         let timer = Timer.scheduledTimer(withTimeInterval: deadline, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.phase == .ending else { return }
-                Self.log.warning("teardown deadline — forcing idle")
+                Self.log.warning("teardown deadline — releasing UI; HK handle waits for .ended")
                 self.forceIdle()
             }
         }
@@ -468,7 +472,6 @@ final class WatchPrimaryOwner: NSObject {
         save: Bool,
         reason: String
     ) async {
-        stopConnectionWatchdog()
         let now = Date()
         session?.stopActivity(with: now)
 
@@ -481,6 +484,8 @@ final class WatchPrimaryOwner: NSObject {
             lastSavedWorkoutUuid = nil
         }
 
+        // ONE `MirrorEnded` over HK, awaited before `end()` tears the channel;
+        // the durable WCSession aviso (FH-101) is the backup for an athlete end.
         let endedPacket = MirrorEnvelope.encoding(
             type: MirrorWire.MessageType.ended,
             MirrorEnded(workoutUuid: workoutUuid, reason: reason)
@@ -489,9 +494,6 @@ final class WatchPrimaryOwner: NSObject {
             try? await session.sendToRemoteWorkoutSession(data: endedPacket)
         }
         session?.end()
-        if let session, let endedPacket {
-            try? await session.sendToRemoteWorkoutSession(data: endedPacket)
-        }
         let ended = MirrorEnded(workoutUuid: workoutUuid, reason: reason)
         if reason == MirrorWire.EndReason.athlete {
             WatchConnectivityService.shared.notifyPhoneLiveEnded(ended)
@@ -505,16 +507,18 @@ final class WatchPrimaryOwner: NSObject {
             let workout = try await builder.finishWorkout()
             return workout?.uuid.uuidString
         } catch {
+            Self.log.error("finishWorkout failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
 
-    /// FH-100 — single idle sink. Idempotent: always drops HK handles and latches.
+    /// FH-100 — single idle sink for the UI + latches. Idempotent. A session
+    /// that is not in `finishing` (nobody else will end it) is ended here; the
+    /// `finishing` handle is Apple's until `.ended`.
     func forceIdle() {
-        stopConnectionWatchdog()
         teardownDeadlineTimer?.invalidate()
         teardownDeadlineTimer = nil
-        session?.end()
+        if let live = session, live !== finishing { live.end() }
         session = nil
         builder = nil
         appliedPlan = nil
@@ -527,16 +531,32 @@ final class WatchPrimaryOwner: NSObject {
         liveHR = nil
         activeKcal = 0
         distanceMeters = 0
-        isConnectionLost = false
         hkPaused = false
+        link = .unlinked(nil)
         role = nil
         phase = .idle
-        if let pending = pendingStartConfiguration {
-            pendingStartConfiguration = nil
-            let nextRole = pendingStartRole
-            pendingStartRole = .mirror
-            Task { await begin(configuration: pending, role: nextRole) }
-        }
+        firePendingStartIfClean()
+    }
+
+    /// A queued `handle(_:)` starts only when no handle is left — live or finishing.
+    private func firePendingStartIfClean() {
+        guard let pending = pendingStartConfiguration,
+              WatchPrimaryLifecycle.canFirePendingStart(
+                phase: phase,
+                hasSession: session != nil,
+                isFinishing: finishing != nil
+              ) else { return }
+        pendingStartConfiguration = nil
+        let nextRole = pendingStartRole
+        pendingStartRole = .mirror
+        Task { await begin(configuration: pending, role: nextRole) }
+    }
+
+    private func releaseFinishing(_ ended: HKWorkoutSession) {
+        guard finishing === ended else { return }
+        finishing = nil
+        Self.log.info("finishing handle released (.ended)")
+        firePendingStartIfClean()
     }
 
     // MARK: - Metrics relay
@@ -548,14 +568,14 @@ final class WatchPrimaryOwner: NSObject {
         ) else { return }
         lastReportedDistance = meters
         onDistanceDelta?(delta)
-        if role == .mirror || role == .orphan {
+        if role == .mirror {
             send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: delta))
         }
     }
 
     func relayHR(_ bpm: Int) {
         onHeartRate?(bpm)
-        guard role == .mirror || role == .orphan else { return }
+        guard role == .mirror else { return }
         let now = Date()
         guard now.timeIntervalSince(lastHRRelayAt) >= Self.hrRelayMinInterval else { return }
         lastHRRelayAt = now
@@ -578,38 +598,6 @@ final class WatchPrimaryOwner: NSObject {
     func send<P: Encodable>(type: String, _ payload: P) {
         guard let session, let data = MirrorEnvelope.encoding(type: type, payload) else { return }
         Task { try? await session.sendToRemoteWorkoutSession(data: data) }
-    }
-
-    private func requestSyncUntilFirstFrame() {
-        for delay in [0.5, 2.0, 5.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, self.phase == .recording, self.frame == nil else { return }
-                self.sendCommand(MirrorWire.CommandKind.sync)
-            }
-        }
-    }
-
-    private func startConnectionWatchdog() {
-        stopConnectionWatchdog()
-        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.checkConnection() }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        connectionWatchdog = t
-    }
-
-    private func checkConnection() {
-        guard phase == .recording else { return }
-        let lost = Date().timeIntervalSince(lastSignalAt) > Self.connectionLostAfter
-        if lost, !isConnectionLost {
-            sendCommand(MirrorWire.CommandKind.sync)
-        }
-        isConnectionLost = lost
-    }
-
-    private func stopConnectionWatchdog() {
-        connectionWatchdog?.invalidate()
-        connectionWatchdog = nil
     }
 
     private static func dayKind(from type: HKWorkoutActivityType) -> String? {
@@ -638,7 +626,10 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         didReceiveDataFromRemoteWorkoutSession data: [Data]
     ) {
         Task { @MainActor [weak self] in
-            for packet in data { self?.handleRemote(packet) }
+            guard let self, workoutSession === self.session else { return }
+            // A packet from the phone is Apple's proof the link is up.
+            if self.link != .mirroring { self.link = .mirroring }
+            for packet in data { self.handleRemote(packet) }
         }
     }
 
@@ -650,15 +641,31 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
     ) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard toState == .ended || toState == .stopped else { return }
-            guard self.phase != .idle else { return }
-            // FH-107 — phone session may still be live; stay on mirror HUD, not Readiness.
-            if self.role == .mirror || self.role == .orphan {
-                self.isConnectionLost = true
-                self.sendCommand(MirrorWire.CommandKind.sync)
+            Self.log.info("session state \(fromState.rawValue, privacy: .public) → \(toState.rawValue, privacy: .public)")
+            guard toState == .ended else { return }
+            if workoutSession === self.finishing {
+                self.releaseFinishing(workoutSession)
                 return
             }
+            guard workoutSession === self.session, self.phase != .idle else { return }
+            // Apple ended the live PRIMARY on its own: nothing records any more,
+            // so the HUD must not claim it does. The phone keeps coaching.
+            Self.log.warning("live PRIMARY ended by Apple — leaving HUD")
             self.forceIdle()
+        }
+    }
+
+    /// Apple's only «conexión perdida» (watchOS 10). The wrist keeps recording;
+    /// the HUD says the phone is gone; nothing is retried by timer — the phone
+    /// re-requests (`startWatchApp`) or Apple re-mirrors.
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didDisconnectFromRemoteDeviceWithError error: (any Error)?
+    ) {
+        Task { @MainActor [weak self] in
+            guard let self, workoutSession === self.session else { return }
+            self.link = .unlinked(error?.localizedDescription)
+            Self.log.warning("remote device disconnected: \(error?.localizedDescription ?? "sin error", privacy: .public)")
         }
     }
 
@@ -667,11 +674,16 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         didFailWithError error: Error
     ) {
         Task { @MainActor [weak self] in
-            guard let self, self.phase != .idle else { return }
-            if self.role == .mirror || self.role == .orphan {
-                Self.log.warning("HK session error during mirror — staying on HUD: \(error.localizedDescription, privacy: .public)")
-                self.isConnectionLost = true
-                self.sendCommand(MirrorWire.CommandKind.sync)
+            guard let self else { return }
+            Self.log.error("HK session error: \(error.localizedDescription, privacy: .public)")
+            if workoutSession === self.finishing {
+                self.releaseFinishing(workoutSession)
+                return
+            }
+            guard workoutSession === self.session, self.phase != .idle else { return }
+            if self.role == .mirror {
+                // Stay on the HUD with Terminar; Apple's `.ended` (if it follows) leaves it.
+                self.link = .unlinked(error.localizedDescription)
                 return
             }
             self.forceIdle()

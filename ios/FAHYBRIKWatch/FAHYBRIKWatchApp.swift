@@ -36,17 +36,18 @@ struct FAHYBRIKWatchApp: App {
             .environmentObject(connectivity)
             .environment(coordinator)
             .environment(WatchPrimaryOwner.shared)
-            .onAppear {
-                connectivity.activate()
-            }
     }
 }
 
 /// Apple `startWatchApp(with:)` delivers a configuration via `handle(_:)`.
 /// Crash/relaunch recovery is `handleActiveWorkoutRecovery` + the same
 /// `recoverActiveWorkoutSession` as `applicationDidFinishLaunching`.
+/// FH-56 — WCSession activates HERE, not in a view's `onAppear`: a background
+/// relaunch for `handleActiveWorkoutRecovery` has no view, and the durable
+/// `live_ended_v1` aviso (FH-101) needs an activated session.
 final class WatchPrimaryAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
+        WatchConnectivityService.shared.activate()
         recoverActiveWorkout()
     }
 

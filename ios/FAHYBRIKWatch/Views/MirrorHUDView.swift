@@ -1,8 +1,10 @@
 import SwiftUI
 
-// The wrist HUD for MIRROR / orphan mode. Builder owns elapsed / HR / kcal /
-// distance. Phone frames decorate the coach script (title, next station, advance).
-// No local session → Conectando. PRIMARY without a frame → Grabando en la muñeca.
+// The wrist HUD for MIRROR mode. Builder owns elapsed / HR / kcal / distance.
+// Phone frames decorate the coach script (title, next station, advance).
+// States = Apple's `session.state × link`: PRIMARY without a frame → Grabando
+// en la muñeca (with «Sin conexión» when Apple says the phone is gone). There
+// is no HUD without a session and no «Conectando…» (FH-56).
 struct MirrorHUDView: View {
     let owner: WatchPrimaryOwner
 
@@ -47,8 +49,6 @@ struct MirrorHUDView: View {
             // fase final y sin cierre, se sigue enseñando el último estado real.
             if owner.isEnding {
                 MirrorSavingOverlay()
-            } else if !owner.hasLocalSession {
-                MirrorWaitingForPhoneOverlay()
             } else if frame == nil {
                 MirrorRecordingOnWristOverlay(owner: owner)
             } else if phase == MirrorWire.Phase.gate {
