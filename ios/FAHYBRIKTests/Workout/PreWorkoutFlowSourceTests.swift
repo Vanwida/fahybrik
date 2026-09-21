@@ -47,13 +47,24 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
                        "prep must not call begin — sole HK owner is release")
     }
 
-    func testWatchQueueOrBeginIgnoresCompatibleRedundantStart() throws {
+    // FH-56 — a redundant/compatible `handle(_:)` is decided by ONE pure policy
+    // (`WatchPrimaryLifecycle.startAction` → re-mirror, never ignore, never end);
+    // the homemade «mirror channel alive» watchdog behind the old
+    // `shouldIgnoreRedundantStart` / `shouldFinishBeforeRestart` is gone.
+    func testWatchStartIsDecidedByStartActionNotByHomemadeWatchdog() throws {
         let owner = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKWatch/WatchPrimaryOwner.swift"))
+        let lifecycle = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKCore/Workout/WatchPrimaryLifecycle.swift"))
         let policy = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKCore/Watch/MirrorPrimaryLaunchPolicy.swift"))
-        XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart"))
-        XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.shouldFinishBeforeRestart"))
-        XCTAssertTrue(policy.contains("shouldIgnoreRedundantStart"))
-        XCTAssertTrue(policy.contains("mirrorChannelAlive"))
-        XCTAssertTrue(owner.contains("reconcileIdleBeforeLaunch"))
+        XCTAssertTrue(owner.contains("WatchPrimaryLifecycle.startAction("))
+        XCTAssertTrue(owner.contains("MirrorPrimaryLaunchPolicy.configurationsCompatible("))
+        XCTAssertTrue(owner.contains("WatchPrimaryLifecycle.shouldForceIdleFromStuckEnding("))
+        XCTAssertTrue(owner.contains("case .remirror:"), "compatible redundant start re-mirrors")
+        XCTAssertTrue(lifecycle.contains("static func startAction("))
+        XCTAssertTrue(lifecycle.contains("enum Link"), "the link is Apple's, not a watchdog")
+        XCTAssertFalse(policy.contains("static func shouldIgnoreRedundantStart"))
+        XCTAssertFalse(policy.contains("static func shouldFinishBeforeRestart"))
+        XCTAssertFalse(policy.contains("mirrorChannelAlive"))
+        XCTAssertFalse(owner.contains("mirrorChannelAlive"))
+        XCTAssertFalse(owner.contains("reconcileIdleBeforeLaunch"))
     }
 }

@@ -10,6 +10,89 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-21 · FH-56 — El enlace muñeca↔móvil lo dice Apple: qué se borra y por qué
+
+**El hueco:** el enlace lo gobernaban tres máquinas caseras — bucle
+`startWatchApp` ×3 cada 3 s con `watchLaunchGeneration` y un latch
+`didLaunchWatch` que cortaba para siempre; watchdog de 15 s en el reloj
+(`checkConnection` + `requestSyncUntilFirstFrame` 0.5/2/5 s) que deducía «sin
+conexión» de la ausencia de tramas; ventana de 15/12 s en el móvil
+(`WristMirrorTruth`) que deducía «reloj vivo» del tráfico HR. Ninguna consultaba
+a Apple, que sí sabe el estado del espejo
+(`workoutSession(_:didDisconnectFromRemoteDeviceWithError:)`, iOS 17 /
+watchOS 10, cero usos en `ios/`). Cuatro estados absorbentes (plan FH-56 §2.4):
+espejo que falla al arrancar y nadie reintenta; primario recuperado como
+«huérfano» que no vuelve a espejar y `MirrorPrimaryLaunchPolicy` ignoraba el
+siguiente `startWatchApp`; móvil que relanza y **descarta** la grabación de la
+muñeca (`adoptShouldDiscardImmediately(hasLiveEngine: false) = true`); reloj que
+suelta el handle HK a los 5 s con `finishWorkout` en vuelo y el siguiente
+`HKWorkoutSession(...)` colisiona en un `catch` mudo.
+
+**Decidido:**
+
+1. **Apple posee el run y el enlace; FAHYBRID posee el plan del coach.** Una
+   `HKWorkoutSession` en el reloj (PRIMARY); el móvil ADOPTA por
+   `workoutSessionMirroringStartHandler`. El estado del enlace se escribe SÓLO
+   desde Apple: resultado de `startMirroringToCompanionDevice`,
+   `didDisconnectFromRemoteDeviceWithError`, primer paquete recibido,
+   `didChangeTo .ended`. `WatchPrimaryLifecycle.Link` (reloj) y
+   `PhoneLiveSession.Link` (móvil) son tri-estado y no llevan timer.
+2. **UN `startWatchApp` por intent.** `PhoneLiveSession.watchLaunch` guarda el
+   resultado de Apple (`.launched` / `.failed(error)`) y la card del reloj lo
+   dice. Sin bucle, sin generación, sin reintento por timer. Relanzar es acción
+   del atleta o del sistema (Apple re-espeja; el reloj relanzado re-espeja solo).
+3. **Adoptar sin plan = GUARDAR.** `PhoneLiveHandoffPolicy.adoptAction` →
+   `.coach` (motor vivo) · `.reopenFromDisk` (sin motor, plan fresco en disco →
+   `LiveWorkoutResume` reabre el MISMO cover) · `.endSaving` (sin motor y sin
+   plan, o motor ya terminado → `MirrorEnd(save: true)`). El móvil nunca manda
+   `save: false` desde adopt ni desde un reconcile de arranque. La grabación es
+   del atleta; el backend deduplica por `source_workout_ref`.
+4. **Un primario recuperado en el reloj es `.mirror` y se re-espeja.**
+   `recoverActiveWorkoutSession` → `adopt` → `startMirroringToCompanionDevice`
+   otra vez. Un `handle(_:)` mientras graba lo MISMO = «vuelve a espejarme»
+   (`StartAction.remirror`); otra actividad = terminar GUARDANDO y encolar.
+   Nunca ignorar, nunca terminar sin guardar por un launch.
+5. **El handle HK vive hasta `.ended`.** El deadline de 5 s (FH-97) libera la
+   UI; la sesión en cierre pasa a la ranura `finishing` y un start encolado
+   dispara cuando Apple reporta `.ended`, no al deadline. Cada error de Apple
+   (`HKWorkoutSession(...)`, `startMirroringToCompanionDevice`, `finishWorkout`,
+   `startWatchApp`) acaba en estado + `Logger` (`primary` / `phone-live`).
+6. **`WCSession.activate()` en el app delegate del reloj**, no en `onAppear`:
+   un relanzamiento en background por `handleActiveWorkoutRecovery` no tiene
+   vista y el `live_ended_v1` durable (FH-101) lo necesita.
+
+**Se borra (y no se reconstruye):** `PhoneWorkoutRun` + `WorkoutRunClock`
+(código muerto: `session` nunca se asignaba; el iPhone no acuña ninguna
+`HKWorkoutSession`); `WristMirrorTruth`; el rol `.orphan`;
+`MirrorPrimaryLaunchPolicy.shouldIgnoreRedundantStart / shouldFinishBeforeRestart`
+(queda `configurationsCompatible`); `PhoneMirrorEndDelivery` y el reintento ×5
+de `PhoneMirrorEndPolicy` (queda el plazo de UI de 10 s); el watchdog y el
+triple `sync` del reloj; `isConnectionLost`; el overlay «Conectando…»
+(inalcanzable desde FH-97); `orphanShouldEnd` / `watchOrphanShouldEnd`;
+`LiveWorkoutResumeGate` (comparaba con un UUID que ya nadie ataba).
+
+**En consecuencia, no hacer:** no volver a deducir «conexión perdida» de tramas
+o HR ausentes; no reintentar `startWatchApp` por timer; no mandar
+`MirrorEnd(save: false)` por un relanzamiento o un launch redundante; no soltar
+el handle HK antes de `.ended`; no tragar un error de Apple en un `catch`
+vacío; no añadir una fila «terminar sesión del reloj» en Perfil (decidido: NO).
+**Deuda conocida (FH-107, a decidir):** cuando Apple reporta `.ended` sobre el
+primario vivo del reloj sin que lo pidiéramos, el HUD se va (antes se quedaba
+con «sin conexión»); un HUD que dice «sigue grabando» sobre una sesión que
+Apple dio por terminada mentía. Se mide en el paso 0 con aparato.
+
+**Dónde vive:** `ios/FAHYBRIKCore/Workout/WatchPrimaryLifecycle.swift`
+(`Link`, `StartAction`, `startAction`), `PhoneLiveHandoffPolicy.swift`
+(`adoptAction`, `shouldRequestWatchPrimary`), `PhoneMirrorEndPolicy.swift`;
+`ios/FAHYBRIKWatch/WatchPrimaryOwner.swift`;
+`ios/FAHYBRIK/Workout/PhoneLiveSession.swift`, `LiveWorkoutResume.swift`.
+Tests: `ios/FAHYBRIKTests/Workout/FH56AppleLinkTests.swift`,
+`PhoneMirrorEndTests.swift`, `WatchPrimaryLifecycleTests.swift`. Nota de PR:
+`docs/pr/fh56-apple-link.md`. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`
+(ticket Notion 3ce4164765c18192bbd9cb6c12878e47).
+
+---
+
 ## 2026-09-21 · FH-30 — La lámina de correr se decide UNA vez (solitario ≡ espejo)
 
 **El hueco:** la cara de correr de la muñeca la decidían DOS sitios —

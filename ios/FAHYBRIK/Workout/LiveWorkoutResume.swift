@@ -17,8 +17,12 @@ final class LiveWorkoutResume {
     private(set) var parkedCover: RecoveredLiveCover?
     /// Weak while the cover is on screen — `parkedCover` owns after minimize.
     @ObservationIgnored private weak var tracked: WorkoutSession?
-    /// `.task` and `scenePhase.active` can enter together on cold launch.
-    @ObservationIgnored private var isRecovering = false
+    /// `.task`, `scenePhase.active` and an adopt from the mirroring handler can
+    /// enter together — passes run one after another, never interleaved.
+    @ObservationIgnored private var recovering: Task<Void, Never>?
+    /// Last zones a caller handed us — an adopt-driven reopen (FH-56) has no
+    /// identity store at hand and reuses them.
+    @ObservationIgnored private(set) var lastKnownHRZones: HRZoneProfile?
 
     private init() {}
 
@@ -37,13 +41,21 @@ final class LiveWorkoutResume {
         parkedCover?.session.persistNow()
     }
 
-    /// Cold launch AND `scenePhase.active`. Always. No bearer gate. Free included.
-    /// Apple recover (iOS 26) is in addition to the disk plan, not instead of it.
+    /// Cold launch AND `scenePhase.active` AND adopt-without-engine. Always. No
+    /// bearer gate. Free included. Apple recover (iOS 26) is in addition to the
+    /// disk plan, not instead of it. Serialized: a second caller waits for the
+    /// pass in flight and then runs its own (cheap when nothing is left to do).
     func recoverOnLaunch(hrZones: HRZoneProfile?) async {
-        if isRecovering { return }
-        isRecovering = true
-        defer { isRecovering = false }
-        _ = await PhoneWorkoutRun.shared.recover()
+        if let hrZones { lastKnownHRZones = hrZones }
+        if let running = recovering { await running.value }
+        let pass = Task { await self.performRecover(hrZones: hrZones ?? lastKnownHRZones) }
+        recovering = pass
+        await pass.value
+        if recovering == pass { recovering = nil }
+    }
+
+    private func performRecover(hrZones: HRZoneProfile?) async {
+        await PhoneLiveSession.shared.recoverMirroredSessionIfNeeded()
         presentParkedCoverIfNeeded()
         if !hasLiveSession {
             await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
@@ -57,17 +69,11 @@ final class LiveWorkoutResume {
             await handleWristAthleteFinishWhenBackgrounded(hrZones: hrZones)
             return
         }
-        let mirror = PhoneLiveSession.shared
-        let wristActive = PhoneWatchRuntimeReconcile.wristClaimsActiveSession(
-            mirrorJoined: mirror.wristJoined,
-            hasMirroredHKSession: mirror.hasMirroredHKSession,
-            phoneRunSessionActive: PhoneWorkoutRun.shared.session != nil
-        )
         let saved = await WorkoutStateStore.shared.load()
         let fresh = saved.map { WorkoutRecoveryGate.isFresh($0) } ?? false
         switch PhoneWatchRuntimeReconcile.phoneAction(
             hasLiveCoverOrTracked: hasLiveSession,
-            wristClaimsActive: wristActive,
+            wristClaimsActive: PhoneLiveSession.shared.hasMirroredHKSession,
             hasFreshSnapshot: fresh
         ) {
         case .none:
@@ -96,12 +102,11 @@ final class LiveWorkoutResume {
         await reopenFreshSnapshotIfNeeded(hrZones: hrZones)
     }
 
-    /// Idempotent bilateral teardown when the phone has no UI owner.
+    /// Idempotent bilateral teardown when the phone has no UI owner. SAVING:
+    /// the wrist recording is the athlete's, the phone never discards it (FH-56).
     @MainActor
     func endWristSessionCleanly() async {
-        PhoneLiveSession.shared.end(save: false)
-        WatchConnectivityiOSService.shared.endLiveWorkout(save: false)
-        PhoneWorkoutRun.shared.end()
+        PhoneLiveSession.shared.end(save: true)
         await WorkoutStateStore.shared.close()
         dismissFully()
     }
@@ -110,32 +115,9 @@ final class LiveWorkoutResume {
         guard cover == nil, parkedCover == nil else { return }
         guard let saved = await WorkoutStateStore.shared.load(),
               WorkoutRecoveryGate.isFresh(saved) else { return }
-        guard LiveWorkoutResumeGate.shouldReopenCoachPlan(
-            boundRunUUID: PhoneWorkoutRun.shared.runUUID,
-            snapshotUUID: saved.hkSessionUUID
-        ) else { return }
         await WorkoutStateStore.shared.open()
-        PhoneWorkoutRun.shared.bindRunUUID(saved.hkSessionUUID)
         let session = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
         session.restore(from: saved)
-        let kind = WatchConnectivityiOSService.activityKind(from: saved.plan.principalModalityWire)
-        if PhoneWorkoutRun.shared.session == nil {
-            PhoneWorkoutRun.shared.startIfNeeded(
-                activityKind: kind,
-                diskOffset: saved.elapsedSeconds,
-                startPaused: saved.isPaused || (saved.isAwaitingBlockStart ?? false),
-                runUUID: saved.hkSessionUUID,
-                environment: saved.runEnvironment
-            )
-            session.hkSessionUUID = PhoneWorkoutRun.shared.runUUID ?? saved.hkSessionUUID
-        } else {
-            PhoneWorkoutRun.shared.adoptDiskElapsed(saved.elapsedSeconds, isPaused: saved.isPaused)
-            if saved.isPaused || (saved.isAwaitingBlockStart ?? false) {
-                PhoneWorkoutRun.shared.pause()
-            } else {
-                PhoneWorkoutRun.shared.resume()
-            }
-        }
         session.isFreeRun = saved.isFree == true || saved.assignmentId == nil
         track(session)
         cover = RecoveredLiveCover(
@@ -185,15 +167,6 @@ final class LiveWorkoutResume {
             session: parked.session,
             activityKind: parked.mirrorActivityKind
         )
-    }
-}
-
-/// Apple has no `HKWorkoutSession` uuid. Reopen unless this process already
-/// bound a different hang-off than the snapshot (26 recover vs leftover plan).
-enum LiveWorkoutResumeGate {
-    static func shouldReopenCoachPlan(boundRunUUID: UUID?, snapshotUUID: UUID?) -> Bool {
-        guard let bound = boundRunUUID, let snap = snapshotUUID else { return true }
-        return bound == snap
     }
 }
 

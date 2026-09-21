@@ -1,17 +1,13 @@
 import Foundation
 
-// FH-97 — one end-delivery state machine (phone → watch MirrorEnd). Pure policy.
+// FH-97 / FH-56 — phone-side end. ONE `MirrorEnd` over HK (plus the durable
+// WCSession `live_end_v1`, FH-101). No resend cadence: the retry loop was a
+// homemade link engine. What remains is a UI deadline — the phone leaves
+// `.ending` on its own if Apple never reports `.ended` (wrist out of range).
 
 enum PhoneMirrorEndPolicy {
-    /// First send + retries (t=0,2,4,6,8).
-    static let retryIntervalSeconds: TimeInterval = 2
-    static let maxSendCount = 5
-    /// Phone releases mirrored HK handle after this — wrist teardown is wrist-owned.
+    /// Phone releases mirrored HK handle + UI after this — wrist teardown is wrist-owned.
     static let releaseChannelAfterSeconds: TimeInterval = 10
-
-    static func shouldScheduleRetry(sentCount: Int) -> Bool {
-        sentCount < maxSendCount
-    }
 
     static func shouldReleaseChannel(elapsedSeconds: TimeInterval) -> Bool {
         elapsedSeconds >= releaseChannelAfterSeconds

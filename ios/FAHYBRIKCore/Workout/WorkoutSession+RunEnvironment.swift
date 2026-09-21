@@ -17,7 +17,7 @@ extension WorkoutSession {
         commitRunDistanceBeforeEnvironmentSwitch()
         runEnvironment = env
         #if os(iOS)
-        ensurePhoneWorkoutRun()
+        requestWatchPrimaryIfNeeded()
         #endif
     }
 

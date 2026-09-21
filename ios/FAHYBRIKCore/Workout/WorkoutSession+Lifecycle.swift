@@ -12,7 +12,7 @@ extension WorkoutSession {
         #if os(iOS)
         MainActor.assumeIsolated {
             LiveWorkoutResume.shared.track(self)
-            ensurePhoneWorkoutRun()
+            requestWatchPrimaryIfNeeded()
         }
         #endif
         guard timer == nil else { return }
@@ -39,7 +39,7 @@ extension WorkoutSession {
             if emomSegmentIndex == nil { armBlock() }
             #if os(iOS)
             if isAwaitingBlockStart {
-                MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+                MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
             }
             #endif
         }
@@ -47,20 +47,13 @@ extension WorkoutSession {
     }
 
     #if os(iOS)
-    /// Bind the hang-off UUID and launch the Watch to create the PRIMARY
-    /// (`startWatchApp`) once calle/cinta is known. Idempotent.
-    func ensurePhoneWorkoutRun() {
+    /// FH-56 — stamp the coach-plan hang-off id and ask the wrist for the PRIMARY
+    /// (`startWatchApp`) once calle/cinta is known. ONE request per intent —
+    /// `PhoneLiveSession` holds the latch; this is idempotent.
+    func requestWatchPrimaryIfNeeded() {
         MainActor.assumeIsolated {
-            let kind = WatchConnectivityiOSService.activityKind(from: plan.principalModalityWire)
-            PhoneWorkoutRun.shared.startIfNeeded(
-                activityKind: kind,
-                diskOffset: elapsedSeconds,
-                startPaused: isPaused || isAwaitingBlockStart || !hasArmedInitial,
-                runUUID: hkSessionUUID,
-                environment: runEnvironment
-            )
-            if let uuid = PhoneWorkoutRun.shared.runUUID { hkSessionUUID = uuid }
-            PhoneLiveSession.shared.launchWatchIfNeeded()
+            if hkSessionUUID == nil { hkSessionUUID = UUID() }
+            PhoneLiveSession.shared.requestWatchPrimaryIfNeeded()
         }
     }
     #endif
@@ -81,12 +74,12 @@ extension WorkoutSession {
             isPaused = false
             lastTick = Date()
             #if os(iOS)
-            MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+            MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
             #endif
         } else {
             isPaused = true
             #if os(iOS)
-            MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+            MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
             #endif
         }
         persistNow()
@@ -113,7 +106,7 @@ extension WorkoutSession {
         isPaused = true
         autoPaused = true
         #if os(iOS)
-        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
         #endif
         persistNow()
     }
@@ -127,7 +120,7 @@ extension WorkoutSession {
         autoPaused = false
         lastTick = Date()
         #if os(iOS)
-        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
         #endif
         persistNow()
     }
@@ -142,7 +135,7 @@ extension WorkoutSession {
         guard !isPaused, !isFinished else { return false }
         isPaused = true
         #if os(iOS)
-        MainActor.assumeIsolated { PhoneWorkoutRun.shared.pause() }
+        MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
         #endif
         return true
     }
@@ -154,7 +147,7 @@ extension WorkoutSession {
         isPaused = false
         lastTick = Date()
         #if os(iOS)
-        MainActor.assumeIsolated { PhoneWorkoutRun.shared.resume() }
+        MainActor.assumeIsolated { PhoneLiveSession.shared.kickFrame() }
         #endif
     }
 
@@ -483,7 +476,6 @@ extension WorkoutSession {
         stop()
         #if os(iOS)
         MainActor.assumeIsolated {
-            PhoneWorkoutRun.shared.end()
             LiveWorkoutResume.shared.dismissFully()
         }
         #endif
@@ -500,7 +492,6 @@ extension WorkoutSession {
         stop()
         #if os(iOS)
         MainActor.assumeIsolated {
-            PhoneWorkoutRun.shared.end()
             LiveWorkoutResume.shared.dismissFully()
         }
         #endif

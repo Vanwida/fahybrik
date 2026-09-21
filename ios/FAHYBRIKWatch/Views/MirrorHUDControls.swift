@@ -10,12 +10,12 @@ struct MirrorHUDControlsPage: View {
         ZStack {
             WatchTheme.bg.ignoresSafeArea()
             VStack(spacing: 11) {
-                if owner.isConnectionLost {
+                if owner.phoneUnlinked {
                     connectionLostBanner
                 }
                 pauseResumeButton
                 terminarButton
-                if owner.isConnectionLost {
+                if owner.phoneUnlinked {
                     discardButton
                 } else {
                     Text("El entreno se controla desde el iPhone")

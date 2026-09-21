@@ -18,6 +18,11 @@ struct PreWorkoutWatchCard: View {
                 statusRow(icon: "applewatch.slash", color: Theme.Color.muted,
                           title: "Sin Apple Watch",
                           subtitle: "El teléfono graba lo que pueda")
+            } else if case .failed(let why) = mirror.watchLaunch {
+                // FH-56 — Apple's answer to the ONE `startWatchApp`, said as is.
+                statusRow(icon: "exclamationmark.triangle.fill", color: Theme.Color.warning,
+                          title: "El reloj no respondió",
+                          subtitle: why ?? "Puedes empezar igual — abre la app en la muñeca o sigue sin reloj")
             } else if let started = mirror.watchJoinStartedAt,
                       Date().timeIntervalSince(started) > PhoneLiveSession.watchJoinHintSeconds,
                       mirror.watchJoinStartedAt != nil {

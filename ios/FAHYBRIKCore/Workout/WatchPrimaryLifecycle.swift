@@ -1,7 +1,12 @@
 import Foundation
 
-// FH-97 — pure lifecycle policy for the one Watch PRIMARY owner.
+// FH-97 / FH-56 — pure lifecycle policy for the one Watch PRIMARY owner.
 // Mecanismo = código; tested here because watchOS has no unit-test target.
+//
+// FH-56: the link to the phone is Apple's, not ours. `Link` is written ONLY by
+// `startMirroringToCompanionDevice` (ok / throw), by
+// `workoutSession(_:didDisconnectFromRemoteDeviceWithError:)` and by the first
+// packet received from the phone. No watchdog, no «connection lost» timer.
 
 enum WatchPrimaryLifecycle {
 
@@ -11,13 +16,41 @@ enum WatchPrimaryLifecycle {
         case ending
     }
 
+    /// `.orphan` is gone (FH-56): a recovered PRIMARY is a `.mirror` that
+    /// re-mirrors to the phone; whether the phone is there is `Link`, not a role.
     enum Role: Equatable, Sendable {
         case mirror
         case solo
-        case orphan
+    }
+
+    /// Apple's answer to «is the phone attached to this PRIMARY?».
+    enum Link: Equatable, Sendable {
+        case mirroring
+        /// Not mirroring. The payload is Apple's error description when there is
+        /// one (`startMirroringToCompanionDevice` threw, or the remote device
+        /// disconnected with an error); nil when Apple gave no reason.
+        case unlinked(String?)
+    }
+
+    /// What `handle(_:)` / solo start must do with the PRIMARY it finds.
+    enum StartAction: Equatable, Sendable {
+        /// Clean idle — create the PRIMARY.
+        case begin
+        /// Compatible PRIMARY already recording for the phone — mirror it again;
+        /// never ignore, never end. (States A/B of the FH-56 plan.)
+        case remirror
+        /// Incompatible recording (other activity / location) or a solo yielding
+        /// to the phone — finish SAVING and queue the incoming start.
+        case finishThenQueue
+        /// Teardown in flight (UI `.ending` or the HK handle still `finishing`)
+        /// — queue; fires when Apple reports `.ended`.
+        case queue
+        /// A solo start cannot preempt a live PRIMARY.
+        case decline
     }
 
     /// Hard UI deadline: athlete ALWAYS leaves recording chrome within this window.
+    /// FH-56: this releases the UI only — the HK handle is kept until `.ended`.
     static let teardownDeadlineSeconds: TimeInterval = 5
 
     /// FH-100 — one idle: no HK session handle and not mid-teardown.
@@ -25,12 +58,33 @@ enum WatchPrimaryLifecycle {
         phase == .idle && !hasSession
     }
 
-    /// Idempotent start: only clean idle accepts a new PRIMARY.
-    /// Mirror from the phone preempts a wrist standalone session — the phone is coach.
-    static func acceptsStart(current: Phase, hasSession: Bool, standaloneActive: Bool, role: Role) -> Bool {
-        guard isCleanIdle(phase: current, hasSession: hasSession) else { return false }
-        _ = standaloneActive
-        return true
+    /// One decision for every incoming start (phone `handle(_:)` or wrist solo).
+    static func startAction(
+        phase: Phase,
+        hasSession: Bool,
+        isFinishing: Bool,
+        currentRole: Role?,
+        incomingRole: Role,
+        compatible: Bool
+    ) -> StartAction {
+        switch phase {
+        case .ending:
+            return .queue
+        case .idle:
+            return isFinishing ? .queue : .begin
+        case .recording:
+            guard hasSession else { return .begin }
+            switch incomingRole {
+            case .solo:
+                return .decline
+            case .mirror:
+                switch currentRole {
+                case .solo: return .finishThenQueue
+                case .mirror: return compatible ? .remirror : .finishThenQueue
+                case nil: return .begin
+                }
+            }
+        }
     }
 
     /// End only from live recording — `.ending` is owned by teardown until idle.
@@ -38,23 +92,24 @@ enum WatchPrimaryLifecycle {
         current == .recording
     }
 
-    /// Stuck `.ending` without progress — force idle so the next `startWatchApp` can land.
+    /// Stuck `.ending` without any handle (live or finishing) — force idle so the
+    /// next `startWatchApp` can land.
     static func shouldForceIdleFromStuckEnding(phase: Phase, hasSession: Bool) -> Bool {
         phase == .ending && !hasSession
     }
 
     /// Mirror HUD vs solo live flow.
     static func showsMirrorHUD(role: Role?) -> Bool {
-        role == .mirror || role == .orphan
+        role == .mirror
     }
 
-    /// Orphan PRIMARY should stop when the phone marked the day done.
-    static func orphanShouldEnd(
-        role: Role?,
-        todayMarkedDone: Bool,
-        standalonePhaseIdle: Bool
-    ) -> Bool {
-        guard role == .orphan, standalonePhaseIdle else { return false }
-        return todayMarkedDone
+    /// «Sin conexión con el iPhone» — only from Apple's link, only while mirroring.
+    static func phoneUnlinked(role: Role?, link: Link) -> Bool {
+        role == .mirror && link != .mirroring
+    }
+
+    /// A queued start fires only when there is no handle left, live or finishing.
+    static func canFirePendingStart(phase: Phase, hasSession: Bool, isFinishing: Bool) -> Bool {
+        isCleanIdle(phase: phase, hasSession: hasSession) && !isFinishing
     }
 }

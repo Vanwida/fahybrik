@@ -18,7 +18,9 @@ enum PreWorkoutReleaseLive {
     ) -> WorkoutSession {
         staging.runEnvironment = answers.runEnvironment
         stampSession?(staging)
-        staging.ensurePhoneWorkoutRun()
+        // FH-56 — the coach-plan hang-off id is stamped here, once; the iPhone
+        // mints no HK session (the wrist is PRIMARY, adopted via the handler).
+        if staging.hkSessionUUID == nil { staging.hkSessionUUID = UUID() }
         PhoneLiveSession.shared.begin(session: staging, activityKind: activityKind)
         return staging
     }

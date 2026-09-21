@@ -9,22 +9,15 @@ final class WatchPrimaryLifecycleTests: XCTestCase {
         XCTAssertFalse(WatchPrimaryLifecycle.isCleanIdle(phase: .recording, hasSession: true))
     }
 
-    func testAcceptsStartOnlyWhenCleanIdleAndNoStandaloneConflict() {
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
-            current: .idle, hasSession: false, standaloneActive: false, role: .mirror
-        ))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
-            current: .idle, hasSession: true, standaloneActive: false, role: .mirror
-        ))
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
-            current: .idle, hasSession: false, standaloneActive: true, role: .mirror
-        ), "phone mirror preempts wrist standalone — never block startWatchApp")
-        XCTAssertTrue(WatchPrimaryLifecycle.acceptsStart(
-            current: .idle, hasSession: false, standaloneActive: true, role: .solo
-        ))
-        XCTAssertFalse(WatchPrimaryLifecycle.acceptsStart(
-            current: .recording, hasSession: true, standaloneActive: false, role: .mirror
-        ))
+    func testCleanIdleBegins() {
+        XCTAssertEqual(WatchPrimaryLifecycle.startAction(
+            phase: .idle, hasSession: false, isFinishing: false,
+            currentRole: nil, incomingRole: .mirror, compatible: false
+        ), .begin)
+        XCTAssertEqual(WatchPrimaryLifecycle.startAction(
+            phase: .idle, hasSession: false, isFinishing: false,
+            currentRole: nil, incomingRole: .solo, compatible: false
+        ), .begin)
     }
 
     func testAcceptsEndOnlyWhileRecording() {
@@ -43,34 +36,61 @@ final class WatchPrimaryLifecycleTests: XCTestCase {
         XCTAssertEqual(WatchPrimaryLifecycle.teardownDeadlineSeconds, 5)
     }
 
-    func testOrphanEndsWhenDayMarkedDone() {
-        XCTAssertTrue(WatchPrimaryLifecycle.orphanShouldEnd(
-            role: .orphan, todayMarkedDone: true, standalonePhaseIdle: true
-        ))
-        XCTAssertFalse(WatchPrimaryLifecycle.orphanShouldEnd(
-            role: .mirror, todayMarkedDone: true, standalonePhaseIdle: true
-        ))
+    func testMirrorHUDOnlyForMirrorRole() {
+        XCTAssertTrue(WatchPrimaryLifecycle.showsMirrorHUD(role: .mirror))
+        XCTAssertFalse(WatchPrimaryLifecycle.showsMirrorHUD(role: .solo))
+        XCTAssertFalse(WatchPrimaryLifecycle.showsMirrorHUD(role: nil))
+    }
+
+    func testPhoneUnlinkedIsAppleLinkOnly() {
+        XCTAssertTrue(WatchPrimaryLifecycle.phoneUnlinked(role: .mirror, link: .unlinked(nil)))
+        XCTAssertTrue(WatchPrimaryLifecycle.phoneUnlinked(role: .mirror, link: .unlinked("error 3")))
+        XCTAssertFalse(WatchPrimaryLifecycle.phoneUnlinked(role: .mirror, link: .mirroring))
+        XCTAssertFalse(WatchPrimaryLifecycle.phoneUnlinked(role: .solo, link: .unlinked(nil)))
     }
 }
 
 final class PhoneLiveHandoffPolicyTests: XCTestCase {
 
-    func testLaunchOncePerBegin() {
-        XCTAssertTrue(PhoneLiveHandoffPolicy.shouldLaunchWatch(
-            didLaunch: false, wristJoined: false, hasSession: true,
+    func testRequestOncePerIntent() {
+        XCTAssertTrue(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: false, channelBound: false, hasEngine: true,
             runEnvironmentResolved: true, activityKindIsRunning: false
         ))
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldLaunchWatch(
-            didLaunch: true, wristJoined: false, hasSession: true,
+        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: true, channelBound: false, hasEngine: true,
+            runEnvironmentResolved: true, activityKindIsRunning: false
+        ), "one startWatchApp per intent — never a second by timer")
+        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: false, channelBound: true, hasEngine: true,
+            runEnvironmentResolved: true, activityKindIsRunning: false
+        ), "a bound channel means the wrist is already there")
+        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: false, channelBound: false, hasEngine: false,
             runEnvironmentResolved: true, activityKindIsRunning: false
         ))
     }
 
     func testRunningWaitsForEnvironment() {
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldLaunchWatch(
-            didLaunch: false, wristJoined: false, hasSession: true,
+        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+            alreadyRequested: false, channelBound: false, hasEngine: true,
             runEnvironmentResolved: false, activityKindIsRunning: true
         ))
+    }
+
+    func testAdoptLinksAndNeverDiscards() {
+        XCTAssertEqual(PhoneLiveHandoffPolicy.adoptAction(
+            hasEngine: true, engineFinished: false, hasFreshSnapshot: false
+        ), .coach)
+        XCTAssertEqual(PhoneLiveHandoffPolicy.adoptAction(
+            hasEngine: false, engineFinished: false, hasFreshSnapshot: true
+        ), .reopenFromDisk, "process died, plan on disk → same cover, same recording")
+        XCTAssertEqual(PhoneLiveHandoffPolicy.adoptAction(
+            hasEngine: false, engineFinished: false, hasFreshSnapshot: false
+        ), .endSaving, "no plan → end SAVING; the recording is the athlete's")
+        XCTAssertEqual(PhoneLiveHandoffPolicy.adoptAction(
+            hasEngine: true, engineFinished: true, hasFreshSnapshot: true
+        ), .endSaving)
     }
 
     func testAthleteEndBlocksPhoneEnd() {

@@ -291,7 +291,7 @@ struct ActiveWorkoutView: View {
         }
         .onChange(of: session.runEnvironment) { _, _ in
             updateRunGPS()
-            session.ensurePhoneWorkoutRun()
+            session.requestWatchPrimaryIfNeeded()
         }
         .onChange(of: PhoneLiveSession.shared.hasMirroredHKSession) { _, bound in
             // Hand HR off to the wrist while the HK mirror channel is bound.

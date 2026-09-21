@@ -1,22 +1,8 @@
 import SwiftUI
 
-// MirrorHUD chrome that is not the coach script. Conectando = no local session.
-// PRIMARY without a phone frame = builder metrics, not a spinner.
-
-struct MirrorWaitingForPhoneOverlay: View {
-    var body: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .tint(WatchTheme.orange)
-            WatchLabel(text: "Conectando…", accent: true)
-            Text("El entreno se controla\ndesde el iPhone")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
+// MirrorHUD chrome that is not the coach script. PRIMARY without a phone
+// frame = builder metrics, not a spinner; whether the phone is there is
+// Apple's link (`owner.phoneUnlinked`), never a missing-frames timer.
 
 struct MirrorRecordingOnWristOverlay: View {
     let owner: WatchPrimaryOwner
@@ -25,6 +11,9 @@ struct MirrorRecordingOnWristOverlay: View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             VStack(spacing: 8) {
                 WatchLabel(text: "Grabando en la muñeca", accent: true)
+                Text(owner.phoneUnlinked ? "Sin conexión con el iPhone" : "Esperando al iPhone")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(WatchTheme.dim)
                 GiantNumber(text: WatchFormat.clock(owner.builderElapsed), size: 44)
                 HStack(spacing: 8) {
                     HRPill(

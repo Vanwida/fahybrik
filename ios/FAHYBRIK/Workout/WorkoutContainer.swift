@@ -807,7 +807,6 @@ struct WorkoutContainer: View {
         let snapshot = session.leaveToResumeLater()
         PhoneLiveSession.shared.end(save: false)
         DoblesLivePresence.shared.leave()
-        PhoneWorkoutRun.shared.pause()
         session.stop()
         Task {
             await WorkoutStateStore.shared.save(snapshot)

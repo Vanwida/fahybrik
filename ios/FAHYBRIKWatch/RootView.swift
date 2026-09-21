@@ -10,7 +10,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var plan: WatchPlanModel
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
-    // Mirror / orphan HUD: phone is coach, or recover without a coach motor.
+    // Mirror HUD: phone is coach (or a recovered PRIMARY re-mirroring to it).
     // `has PRIMARY` is not this switch — solo recording keeps LiveFlowView.
     @Environment(WatchPrimaryOwner.self) private var primary
 
@@ -41,16 +41,6 @@ struct RootView: View {
                     )
                 } else {
                     recoverable = nil
-                }
-            }
-            .onChange(of: plan.today?.isDone) { _, isDone in
-                guard isDone == true else { return }
-                if WatchPrimaryLifecycle.orphanShouldEnd(
-                    role: primary.role,
-                    todayMarkedDone: true,
-                    standalonePhaseIdle: coordinator.phase == .idle
-                ) {
-                    primary.finishFromPhone(save: true)
                 }
             }
         #if DEBUG

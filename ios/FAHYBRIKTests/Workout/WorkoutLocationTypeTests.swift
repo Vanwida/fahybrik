@@ -109,40 +109,44 @@ final class WorkoutLocationTypeTests: XCTestCase {
 
     // El escritor del teléfono ya lo tenía bien y esta prueba lo deja clavado: la
     // respuesta del atleta decide, y sólo correr admite exterior.
-    @MainActor
-    func testPhoneDoesNotMintAPrimaryWorkoutSession() {
-        PhoneWorkoutRun.shared.end()
-        PhoneWorkoutRun.shared.startIfNeeded(
-            activityKind: "running",
-            environment: .outdoor
-        )
-        XCTAssertNil(PhoneWorkoutRun.shared.session,
-                     "el Primary lo crea el reloj; el iPhone no mina uno")
-        PhoneWorkoutRun.shared.end()
+    /// FH-56 — el iPhone no acuña ningún `HKWorkoutSession`: el Primary lo crea
+    /// el reloj y el teléfono lo adopta por `workoutSessionMirroringStartHandler`.
+    func testPhoneDoesNotMintAPrimaryWorkoutSession() throws {
+        let phoneDir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("FAHYBRIK")
+        let files = try FileManager.default.subpathsOfDirectory(atPath: phoneDir.path)
+            .filter { $0.hasSuffix(".swift") }
+        for file in files {
+            let src = try String(contentsOf: phoneDir.appendingPathComponent(file))
+            XCTAssertFalse(src.contains("HKWorkoutSession(healthStore"),
+                           "\(file): el Primary lo crea el reloj; el iPhone no mina uno")
+        }
     }
 
-    @MainActor
-    func testPhoneWorkoutRunHonorsIndoorEnvironment() {
+    func testPhoneLocationHonorsIndoorEnvironment() {
         XCTAssertEqual(
-            PhoneWorkoutRun.locationType(for: "running", environment: .indoor),
+            WorkoutLocationType.resolve(activityKind: "running", environment: .indoor),
             .indoor,
             "cinta tonta: HKWorkout indoor, no GPS de calle"
         )
         XCTAssertEqual(
-            PhoneWorkoutRun.locationType(for: "running", environment: .treadmill),
+            WorkoutLocationType.resolve(activityKind: "running", environment: .treadmill),
             .indoor
         )
         XCTAssertEqual(
-            PhoneWorkoutRun.locationType(for: "running", environment: .outdoor),
+            WorkoutLocationType.resolve(activityKind: "running", environment: .outdoor),
             .outdoor
         )
         XCTAssertEqual(
-            PhoneWorkoutRun.locationType(for: "running", environment: nil),
+            WorkoutLocationType.resolve(activityKind: "running", environment: nil),
             .outdoor,
             "sin respuesta el defecto de resolve sigue siendo calle"
         )
         XCTAssertEqual(
-            PhoneWorkoutRun.locationType(for: "strength", environment: .outdoor),
+            WorkoutLocationType.resolve(activityKind: "strength", environment: .outdoor),
             .indoor
         )
     }
