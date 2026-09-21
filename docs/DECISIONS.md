@@ -10,6 +10,48 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-21 · FH-30 — La lámina de correr se decide UNA vez (solitario ≡ espejo)
+
+**El hueco:** la cara de correr de la muñeca la decidían DOS sitios —
+`RodajeVivoPage` leyendo el motor y `MirrorRodajeFace` leyendo la trama—, y con
+la decisión duplicada el espejo sólo aprendió uno de los tres estados. La puerta
+del espejo (`GuionDelEspejo.esRodajeLamina`) cortaba además por `rondaTotal <= 1`,
+así que toda serie de calle —la del coach (`sets`, plantilla 314) y la del
+constructor libre (`intervals`)— caía al reparto viejo (`GuionSeries`): el atleta
+veía DOS pantallas distintas del mismo entreno según llevara el móvil encima, y
+lo lleva el 90 % de los días.
+
+**Decidido:**
+
+1. **Un decisor, dos proyecciones.** `RodajeLamina` (FAHYBRIKCore) define
+   `Ventana` —la pieza de carrera en dato plano, sin motor y sin cable— y
+   `lectura(_:)`. El motor proyecta `Ventana(sesion:)`, el cable proyecta
+   `Ventana(trama:)`, y las vistas SÓLO pintan. Que las dos proyecciones del
+   mismo entreno den la misma `Lectura` es un test, no una intención.
+2. **La puerta del espejo la decide el FORMATO primero**, igual que `guionPara`:
+   EMOM y ruta (`forTime`/`chipper`/`hyroxSim`/`rounds`/`ladder`) mandan sobre la
+   modalidad; debajo de eso, correr es lámina, cuente rondas o no.
+3. **La marca de «carrera estructurada» en el cable es `parte`, no la cuenta de
+   rondas** (mismo criterio que `MirrorTimedRest`): un bloque rotatorio con una
+   pieza de correr manda `rondaTotal > 1` y en solitario NO es una serie.
+4. **El suelo de honestidad del ritmo (10 m, §7) vive en la lectura**, no en cada
+   vía: el cable manda el ritmo del accesor del motor, que sólo lleva el techo.
+5. **`siguiente` de una carrera estructurada viaja como MEDIDA** («500 m»,
+   `RunLegDisplay.nextLegPreview`), no como posición («tramo 3»). Fuera de una
+   carrera estructurada, `nextTramoLine` como siempre.
+
+**Consecuencia — lo que queda muerto:** con la lámina sirviendo todo lo que se
+corre, la rama `.series` de `GuionDelEspejo` (y con ella `GuionSeries` en la vía
+del espejo) deja de ser alcanzable en producción; sólo la sostiene
+`GuionEscaparate`. No se borra en este PR: se deja dicho aquí para que quien la
+retire sepa que es una retirada y no un descuido.
+
+**NO hacer:** decidir qué pinta la lámina en una vista; cortar la puerta del
+espejo por `rondaTotal`; deducir «esto es una serie» de la cuenta de rondas;
+reimplantar la lectura en el pintor del espejo «para ir más rápido».
+
+---
+
 ## 2026-09-09 · FH-96 — Un intent → un PRIMARY (double-begin mirror)
 
 **El hueco:** build 78 — «Preparar grabación en el reloj» y ▶ EMPEZAR llamaban
