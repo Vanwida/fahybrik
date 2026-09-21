@@ -69,6 +69,14 @@ enum GuionDelEspejo {
         }
     }
 
+    /// FH-30: true when the mirror should show the lámina face (RodajeVivoPage)
+    /// instead of the old GuionRodaje / WatchReloj path.
+    static func esRodajeLamina(_ f: MirrorStateFrame) -> Bool {
+        guard let t = f.tramo else { return false }
+        return t.modalidad == PrescriptionModality.run.rawValue
+            && (t.rondaTotal ?? 0) <= 1
+    }
+
     // MARK: - Qué guion sirve este tramo
 
     private enum Cual { case fuerza, rodaje, series, emom, ruta, ergo, relojDePared, ninguno }

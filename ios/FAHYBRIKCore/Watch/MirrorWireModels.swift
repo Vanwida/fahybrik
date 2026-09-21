@@ -104,6 +104,10 @@ enum MirrorWire {
         /// el motor ya avanza solo). Confundir los dos marcaría como superado el
         /// minuto en el que el atleta acaba de fallar.
         static let deathByFail = "deathByFail"
+        /// FH-30: free-run partial cut. Closes the current measurement lap and
+        /// starts a new one within the SAME segment. NOT advance (that would
+        /// skip to the next segment — a lying control on a free run).
+        static let newLap = "newLap"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in

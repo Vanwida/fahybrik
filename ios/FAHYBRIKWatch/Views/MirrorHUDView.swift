@@ -158,41 +158,62 @@ struct MirrorHUDView: View {
     }
 
     /// EL VIVO DEL ESPEJO — ahora es el MISMO lienzo y los MISMOS guiones que sin
-    /// móvil (`GuionDelEspejo`). Antes esta pantalla tenía lenguaje propio (título
-    /// + un crono de 56 pt + dos líneas + un botón de 52 pt), y como el reloj corre
-    /// en espejo casi siempre, eso convertía en genérico todo el diseño por formato:
-    /// el atleta veía la pantalla buena en el 10 % de sus entrenos.
-    ///
-    /// El botón de abajo desaparece con él: en este lenguaje **la pantalla ES el
-    /// botón**, y el rótulo lo pone el guion según lo que de verdad cierre este
-    /// toque — no un booleano precocinado que en la ronda 1 de 5 decía «Terminar».
+    /// móvil (`GuionDelEspejo`). Rodaje uses the lámina face (FH-30: solo ≡ mirror).
     @ViewBuilder
     private var activeContent: some View {
-        // `frame == nil` se filtra en `livePage` (waiting overlay). Aquí siempre hay trama.
         if let f = frame {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let since = sinceFrame(context.date)
-                WatchReloj(
-                    paginas: GuionDelEspejo.paginas(
-                        f,
-                        bpm: owner.liveHR,
-                        elapsed: heroElapsed(context.date),
-                        avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
-                        // Death by: «al fallar» no es un avance cualquiera —
-                        // ver el comentario de `deathByFail` en MirrorWireModels.
-                        rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
-                    ),
-                    tinte: WatchTinte.color(for: owner.liveZone),
-                    bisel: bisel
-                )
-                .onChange(of: f.tramo?.enDescanso) { _, rest in
-                    if rest != true { firedTimedRest = nil }
-                }
-                .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
-                    fireTimedRestAdvanceIfNeeded(frame: f, since: since)
-                }
-                .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
+            if GuionDelEspejo.esRodajeLamina(f) {
+                mirrorRodajeContent(f)
+            } else {
+                mirrorGuionContent(f)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func mirrorRodajeContent(_ f: MirrorStateFrame) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let since = sinceFrame(context.date)
+            let elapsed = heroElapsed(context.date)
+            MirrorRodajeFace(
+                frame: f,
+                bpm: owner.liveHR,
+                zone: owner.liveZone,
+                elapsed: elapsed,
+                bisel: bisel
+            )
+            .onChange(of: f.tramo?.enDescanso) { _, rest in
+                if rest != true { firedTimedRest = nil }
+            }
+            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
+                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
+            }
+            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
+        }
+    }
+
+    @ViewBuilder
+    private func mirrorGuionContent(_ f: MirrorStateFrame) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let since = sinceFrame(context.date)
+            WatchReloj(
+                paginas: GuionDelEspejo.paginas(
+                    f,
+                    bpm: owner.liveHR,
+                    elapsed: heroElapsed(context.date),
+                    avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
+                    rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
+                ),
+                tinte: WatchTinte.color(for: owner.liveZone),
+                bisel: bisel
+            )
+            .onChange(of: f.tramo?.enDescanso) { _, rest in
+                if rest != true { firedTimedRest = nil }
+            }
+            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
+                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
+            }
+            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
         }
     }
 
@@ -415,5 +436,125 @@ struct MirrorHUDView: View {
             return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
         }
         return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
+    }
+}
+
+// MARK: - Mirror rodaje face (FH-30: solo ≡ mirror)
+
+/// Renders the lámina face from a mirror frame. Same chrome (tinte + viñeta +
+/// bisel) and same content layout as `RodajeVivoPage` — the athlete sees
+/// identical output whether the phone is connected or not.
+private struct MirrorRodajeFace: View {
+    let frame: MirrorStateFrame
+    let bpm: Int?
+    let zone: HRZone?
+    let elapsed: Double
+    let bisel: AnyView?
+
+    @Environment(\.isLuminanceReduced) private var atenuado
+    @Environment(\.rodajeLienzo) private var lienzo
+    @State private var medidaLienzo = RodajeLienzoSize()
+
+    var body: some View {
+        ZStack {
+            WatchTheme.bg.ignoresSafeArea()
+            if let tinte = tinteZona, !atenuado {
+                tinte.opacity(RodajeTipo.tinteMax)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.7), value: zone)
+            }
+            WatchViñeta().ignoresSafeArea()
+            if let bisel { bisel.ignoresSafeArea() }
+            vivoContent
+                .environment(\.rodajeLienzo, medidaLienzo)
+                .opacity(isPaused ? 0.42 : 1)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 6)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear {
+                            let w = geo.size.width - 20
+                            let h = geo.size.height - 6
+                            if w > 0, h > 0 {
+                                medidaLienzo = RodajeLienzoSize(ancho: w, alto: h)
+                            }
+                        }
+                    }
+                )
+        }
+    }
+
+    private var isPaused: Bool { frame.phase == MirrorWire.Phase.paused }
+
+    private var tinteZona: Color? {
+        zone.map { WatchTinte.color(for: $0) }
+    }
+
+    @ViewBuilder
+    private var vivoContent: some View {
+        let lectura = Self.lectura(frame: frame, elapsed: elapsed)
+        VStack(spacing: 0) {
+            RodajeVersales(texto: lectura.contexto, tono: RodajeTipo.contexto)
+            Spacer(minLength: 4)
+            RodajeNumeral(
+                texto: lectura.sujeto,
+                unidad: lectura.unidad,
+                alto: RodajeNumeral.altoSujeto(
+                    lectura.sujeto,
+                    unidad: lectura.unidad,
+                    segundo: lectura.ritmo != nil,
+                    nota: lectura.nota != nil,
+                    accion: lectura.accion,
+                    anchoUtil: medidaLienzo.ancho,
+                    altoUtil: medidaLienzo.alto
+                ),
+                color: lectura.tonoSujeto
+            )
+            Spacer(minLength: 4)
+            if let ritmo = lectura.ritmo {
+                RodajeSegundo(
+                    valor: ritmo,
+                    etiqueta: lectura.etiquetaSegundo,
+                    etiquetaTinta: lectura.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
+                )
+            }
+            if let nota = lectura.nota {
+                RodajeVersales(texto: nota, tono: lectura.notaTinta, arriba: 4)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+    }
+
+    static func lectura(frame: MirrorStateFrame, elapsed: Double) -> RodajeVivoPage.Lectura {
+        let esCalle = RodajeMedida.esCalle(environment: frame.runEnvironment)
+        let metros: Double? = {
+            if let belt = frame.beltDistanceM { return belt }
+            if let t = frame.tramo, !t.objetivoEsCalorias { return t.hechoMedida }
+            return nil
+        }()
+        let ritmoSec: Int? = frame.beltPaceSecPerKm ?? frame.tramo?.ritmoSecPorKm
+        let objetivoM: Double? = {
+            if let belt = frame.beltTargetM { return belt }
+            if let t = frame.tramo, !t.objetivoEsCalorias { return t.objetivoMedida }
+            return nil
+        }()
+        let objetivoS: Double? = frame.tramo?.ventanaTotal
+        let pieza = frame.tramo?.enTramoS ?? elapsed
+
+        let medida = RodajeMedida.vivo(RodajeMedida.Entrada(
+            esCalle: esCalle,
+            metrosApple: metros,
+            ritmoSecPorKm: ritmoSec,
+            objetivoMetros: objetivoM,
+            objetivoSegundos: objetivoS,
+            segundosPieza: pieza,
+            esSerie: false
+        ))
+        return RodajeVivoPage.pintar(
+            medida,
+            pausa: frame.phase == MirrorWire.Phase.paused,
+            base: "rodaje"
+        )
     }
 }

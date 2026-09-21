@@ -53,6 +53,7 @@ struct RodajeMarco<Content: View>: View {
 
     @Environment(\.isLuminanceReduced) private var atenuado
     @State private var destelloOpacity: Double = 0
+    @State private var medidaLienzo = RodajeLienzoSize()
 
     var body: some View {
         ZStack {
@@ -67,9 +68,21 @@ struct RodajeMarco<Content: View>: View {
             WatchViñeta().ignoresSafeArea()
             if let bisel { bisel.ignoresSafeArea() }
             content()
+                .environment(\.rodajeLienzo, medidaLienzo)
                 .opacity(apagado)
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear {
+                            let w = geo.size.width - 20
+                            let h = geo.size.height - 6
+                            if w > 0, h > 0 {
+                                medidaLienzo = RodajeLienzoSize(ancho: w, alto: h)
+                            }
+                        }
+                    }
+                )
             destello.color
                 .opacity(destelloOpacity)
                 .ignoresSafeArea()
@@ -147,6 +160,24 @@ struct RodajeMarco<Content: View>: View {
     }
 }
 
+// MARK: - Adaptive canvas (FH-30: all Watch sizes incl. SE)
+
+struct RodajeLienzoSize: Equatable {
+    var ancho: CGFloat = 188
+    var alto: CGFloat = 212
+}
+
+private struct RodajeLienzoKey: EnvironmentKey {
+    static let defaultValue = RodajeLienzoSize()
+}
+
+extension EnvironmentValues {
+    var rodajeLienzo: RodajeLienzoSize {
+        get { self[RodajeLienzoKey.self] }
+        set { self[RodajeLienzoKey.self] = newValue }
+    }
+}
+
 // MARK: - Versales / numeral / segundo (medidas de la lámina)
 
 enum RodajeTipo {
@@ -162,13 +193,12 @@ enum RodajeTipo {
     static let avanceMono: CGFloat = 0.60
     static let unidadEm: CGFloat = 0.30
     static let decimalEm: CGFloat = 0.42
-    static let anchoUtil: CGFloat = 188
-    static let altoUtil: CGFloat = 212
     static let techo: CGFloat = 150
     static let suelo: CGFloat = 43
     static let aire: CGFloat = 10
     static let filaContexto: CGFloat = 14
     static let filaSegundo: CGFloat = 26
+    static let filaAccion: CGFloat = 15
     static let filaNota: CGFloat = 13
     static let filaPuntos: CGFloat = 14
     static let filaDatos: CGFloat = 24
@@ -235,17 +265,20 @@ struct RodajeNumeral: View {
     }
 
     static func altoSujeto(_ texto: String, unidad: String = "",
-                           segundo: Bool, nota: Bool) -> CGFloat {
+                           segundo: Bool, nota: Bool, accion: Bool = false,
+                           anchoUtil: CGFloat = 188,
+                           altoUtil: CGFloat = 212) -> CGFloat {
         let ocupado = RodajeTipo.filaContexto
             + (segundo ? RodajeTipo.filaSegundo : 0)
+            + (accion ? RodajeTipo.filaAccion : 0)
             + (nota ? RodajeTipo.filaNota : 0)
             + RodajeTipo.filaPuntos
         let porPresupuesto = min(
             RodajeTipo.techo,
-            RodajeTipo.altoUtil - ocupado - 2 * RodajeTipo.aire
+            altoUtil - ocupado - 2 * RodajeTipo.aire
         )
         let glifos = max(1, anchoEnGlifos(texto, unidad: unidad))
-        let porAncho = (RodajeTipo.anchoUtil / (glifos * RodajeTipo.avanceMono)) * RodajeTipo.capEm
+        let porAncho = (anchoUtil / (glifos * RodajeTipo.avanceMono)) * RodajeTipo.capEm
         return max(RodajeTipo.suelo, min(porPresupuesto, porAncho))
     }
 }
@@ -279,6 +312,8 @@ struct RodajeVivoPage: View {
     var driver: WatchRunLegDriver? = nil
     var destello: WatchDestello = WatchDestello()
 
+    @Environment(\.rodajeLienzo) private var lienzo
+
     var body: some View {
         let lectura = Self.lectura(session: session, driver: driver)
         RodajeMarco(session: session, driver: driver, destello: destello,
@@ -293,7 +328,10 @@ struct RodajeVivoPage: View {
                         lectura.sujeto,
                         unidad: lectura.unidad,
                         segundo: lectura.ritmo != nil,
-                        nota: lectura.nota != nil
+                        nota: lectura.nota != nil,
+                        accion: lectura.accion,
+                        anchoUtil: lienzo.ancho,
+                        altoUtil: lienzo.alto
                     ),
                     color: lectura.tonoSujeto
                 )
@@ -301,15 +339,15 @@ struct RodajeVivoPage: View {
                 if let ritmo = lectura.ritmo {
                     RodajeSegundo(
                         valor: ritmo,
-                        etiqueta: lectura.juicio ?? "ritmo",
-                        etiquetaTinta: lectura.juicio == nil ? RodajeTipo.dim : WatchTheme.ink
+                        etiqueta: lectura.etiquetaSegundo,
+                        etiquetaTinta: lectura.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
                     )
                 }
                 if let nota = lectura.nota {
                     RodajeVersales(
                         texto: nota,
                         tono: lectura.notaTinta,
-                        arriba: 3
+                        arriba: 4
                     )
                 }
                 RodajePuntos(activa: 1)
@@ -317,8 +355,6 @@ struct RodajeVivoPage: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .multilineTextAlignment(.center)
             .contentShape(Rectangle())
-            // TabView page swipe eats a plain onTapGesture. The screen is the
-            // button — no Button, no WKTapGestureRecognizer.
             .highPriorityGesture(
                 TapGesture().onEnded {
                     guard let toca = lectura.onToca else { return }
@@ -336,7 +372,11 @@ struct RodajeVivoPage: View {
         var unidad: String = ""
         var tonoSujeto: Color = WatchTheme.ink
         var ritmo: String? = nil
-        var juicio: String? = nil
+        /// Verdict label shown in ink (e.g. "en objetivo"). Nil = no verdict.
+        var veredicto: String? = nil
+        /// Label for the second level shown in dim (e.g. "ritmo", "luego").
+        var etiquetaSegundo: String = "ritmo"
+        var accion: Bool = false
         var nota: String? = nil
         var notaTinta: Color = RodajeTipo.dim
         var onToca: (() -> Void)? = nil
@@ -366,7 +406,7 @@ struct RodajeVivoPage: View {
         )
     }
 
-    private static func pintar(
+    static func pintar(
         _ medida: RodajeMedida.Lectura,
         pausa: Bool,
         base: String
@@ -416,7 +456,7 @@ struct RodajeVivoPage: View {
         let objetivo = session.currentRunLeg.flatMap {
             RunLegDisplay.objetivo(for: $0, livePaceSecPerKm: ritmoSec)
         }
-        let juicio: String? = (objetivo?.status == .inTarget) ? "en objetivo" : nil
+        let veredicto: String? = (objetivo?.status == .inTarget) ? "en objetivo" : nil
 
         if isRecovery {
             let (sujeto, unidad, tono) = sujetoRecupera(session)
@@ -426,14 +466,15 @@ struct RodajeVivoPage: View {
                 return i < legs.count ? legs[i] : nil
             }()
             let viene = RunLegDisplay.nextLegPreview(next)
-            let nViene = min(serie.total, serie.n + (isRecovery ? 1 : 0))
+            let nViene = min(serie.total, serie.n + 1)
             return Lectura(
                 contexto: "recupera · viene la \(max(1, nViene))",
                 sujeto: sujeto,
                 unidad: unidad,
                 tonoSujeto: tono,
                 ritmo: viene,
-                juicio: viene == nil ? nil : "luego",
+                etiquetaSegundo: "luego",
+                accion: true,
                 nota: "toca · empezar ya",
                 notaTinta: WatchTheme.ink,
                 onToca: avanza
@@ -447,7 +488,8 @@ struct RodajeVivoPage: View {
                 sujeto: medida.sujeto,
                 unidad: medida.unidad,
                 ritmo: ritmo,
-                juicio: juicio
+                veredicto: veredicto,
+                etiquetaSegundo: veredicto ?? "ritmo"
             )
         }
 
@@ -459,7 +501,8 @@ struct RodajeVivoPage: View {
             sujeto: medida.sujeto,
             unidad: medida.unidad,
             ritmo: medida.notaSinSenal ? nil : ritmo,
-            juicio: medida.notaSinSenal ? nil : juicio,
+            veredicto: medida.notaSinSenal ? nil : veredicto,
+            etiquetaSegundo: medida.notaSinSenal ? "ritmo" : (veredicto ?? "ritmo"),
             nota: medida.notaSinSenal ? WatchNota.sinSenal : nil,
             onToca: avanza
         )

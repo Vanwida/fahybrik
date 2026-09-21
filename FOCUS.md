@@ -2,16 +2,19 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-11** (hotfix compile post-FH-111, build 98)
+Última actualización: **2026-09-21** (FH-30 lámina redo — PR pendiente)
 
 ## Ahora
 
-**Hotfix iOS build 98 (post-FH-111).** Xcode Cloud falló: `Theme.Color.surfaceRaised` inexistente en `guardarParaLuegoButton` → `surfaceElevated`. `CURRENT_PROJECT_VERSION` 97→98 (iOS + Watch). PR pendiente merge.
-
-**FH-111 — Live ✕ minimize (PR #187, main).** P0 dismiss fix mergeado. Smoke TF build 98 pendiente Alex.
-
-**FH-30 — Cara rodaje muñeca.** Cromo lámina Datos←Vivo→Controles.
+**FH-30 — Cara rodaje muñeca (PR pendiente a main).** Lámina redo completa:
+- Canvas adaptativo todas las tallas Watch incl. SE (GeometryReader measure-once + EnvironmentKey)
+- Pager sticky (page @State en RootView, no en LiveFlowView)
+- Mirror same-face: rodaje en espejo usa la misma lámina que en solitario (MirrorRodajeFace)
+- `.newLap` command: motor + controles para cortes libres del atleta (NUNCA bound a advance)
+- Pixel B/C/D: juicio → veredicto + etiquetaSegundo, recupera con "luego" dim
+- Twin actualizado (watch-rodaje, vivo-correr)
 
 ## Pendiente decisión Alex
 
 Smoke TF build **98** (rodaje muñeca + FH-111: ✕ → banner → reabrir, muñeca sigue espejo).
+Review del PR de FH-30.

@@ -17,7 +17,7 @@ export const meta: TwinMeta = {
   titulo: 'Muñeca · rodaje',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-08-03',
+  actualizado: '2026-09-21',
   descripcion:
     'La modalidad donde el reloj mide todo lo suyo (pulso, ritmo y distancia) y la única sin una sola decisión dentro: se mira y no se toca de principio a fin.',
   fuentes: [],
