@@ -63,7 +63,8 @@ describeWithDb('session report authorship (#43, real DB)', () => {
 
   async function seedLead(tag: string): Promise<number> {
     const lead = await sql<Array<{ id: string }>>`
-      insert into leads (email, nombre, status) values (${email(tag)}, 'SR Lead', 'agendado'::lead_status)
+      insert into leads (email, nombre, status, coach_id)
+      values (${email(tag)}, 'SR Lead', 'agendado'::lead_status, ${Number(coachId)})
       returning id::text as id
     `;
     const id = Number(lead[0]!.id);
