@@ -269,6 +269,28 @@ const REST_CUE_SRC = '(?:rest|descanso|recuperaci[oó]n|recovery)';
  *  → seconds. Conservative: needs an explicit rest cue OR the "c/" (cada) form.
  *  The cada seconds part requires its own `''` so "c/2': 3 Power Clean" reads
  *  120s, never 123. */
+/**
+ * La señal de descanso PREFIJA de `parseRest`: «r», «rec», «cada», y las
+ * palabras «descanso»/«desc»/«rest»/«recuperación» cuando van DELANTE del reloj
+ * («descanso 2'»). Nunca pegada detrás de un dígito («5r» son rondas) ni seguida
+ * de letra («rounds», «remo»).
+ */
+const REST_PREFIX_CUE =
+  String.raw`(?<![\dA-Za-zÁÉÍÓÚÑáéíóúñ])(?:descanso|desc|rest|recuperaci[oó]n|recovery|cada|rec|r)(?![a-záéíóúñ])`;
+
+/**
+ * El texto sin los relojes que son DESCANSO por llevar una señal delante
+ * («r2'», «rec 1'30''», «descanso 90''»): lo que queda es el trabajo. Lo usan la
+ * fuerza (un reloj que no se consume es trabajo perdido → no es fuerza) y los
+ * bouts (el descanso no es la duración de un rodaje) — sin esto «sentadilla
+ * 5x5 r2'» no se leía y «hip thrust 3x10 RPE8 r2'» salía como 2' a RPE 8.
+ */
+export function stripRestClocks(raw: string): string {
+  return raw
+    .replace(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*\d+\s*'(?:\s*\d+\s*'')?`, 'gi'), ' ')
+    .replace(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*\d+\s*''`, 'gi'), ' ');
+}
+
 export function parseRest(raw: string): number | undefined {
   const cada = raw.match(/c\/\s*(\d+)\s*'\s*(?:(\d+)\s*'')?/i);
   if (cada) return parseInt(cada[1]!, 10) * 60 + (cada[2] ? parseInt(cada[2], 10) : 0);
@@ -295,9 +317,7 @@ export function parseRest(raw: string): number | undefined {
   // misma letra al otro lado del número: «5r 10-10-8-8-6» son 5 rondas, no un
   // descanso. Por eso la señal no puede ir precedida de dígito. Y no puede ir
   // seguida de letra, o «rounds» y «rest» se comerían la `r`.
-  const prefixCue = raw.match(
-    /(?<![\dA-Za-zÁÉÍÓÚÑáéíóúñ])(?:cada|rec|r)(?![a-záéíóúñ])\s*:?\s*(?=\d)/i,
-  );
+  const prefixCue = raw.match(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*(?=\d)`, 'i'));
   if (prefixCue) {
     const cueText = prefixCue[0].trim().toLowerCase();
     const tail = raw.slice(prefixCue.index! + prefixCue[0].length);
