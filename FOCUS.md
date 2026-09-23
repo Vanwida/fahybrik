@@ -19,8 +19,8 @@ el plan entero de la auditoría (`docs/auditoria-panel-coach/`, plan de obra en
   estado, una cuenta de «te necesitan»; umbrales = dato del coach (0211–0243).
 - Tests: sin regresiones frente a la base (27 ficheros fallan igual: dependen de la rama
   demo de Neon).
-- Falta: cerrar la migración de UI a primitivos (regla lint `panel/no-raw-styled-control`
-  a error), QA visual final, revisión completa para FLEXR (petición de Alex).
+- UI toda sobre primitivos: `panel/no-raw-styled-control` es ya error (v2 + media).
+- Falta: QA visual final, revisión completa para FLEXR (petición de Alex).
 - PROD: aplicar migraciones 0211–0243 en Neon; fila de entitlement 'negocio' para el club.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
@@ -44,8 +44,11 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Pendiente decisión Alex
 
-- Panel coach: borrar ficheros muertos que el clasificador de permisos no deja borrar a
-  los agentes (`components/v2/orientacion/**`, `lib/dashboard/v2/orientacion*.ts`, …).
+- Panel coach: borrar código muerto (sin importadores) que el clasificador de permisos no
+  deja borrar a los agentes: `web/components/v2/orientacion/**`,
+  `web/lib/dashboard/v2/orientacion{,-types}.ts`, `web/components/v2/{SegmentedControl,
+  InlineSave,OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`,
+  `v2/tests/chrome.tsx`. Al borrarlos, quitarlos de los `ignores` de eslint.config.mjs.
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
   falta Terminar+Empezar (no se inventa un segundo motor).

@@ -71,10 +71,21 @@ const eslintConfig = defineConfig([
     rules: { "no-restricted-syntax": ["error", NO_COLLIDING_MAXW] },
   },
   {
-    files: ["components/v2/**/*.{ts,tsx}", "app/\\[locale\\]/\\(v2\\)/**/*.{ts,tsx}"],
-    ignores: ["components/v2/ui/**"],
+    files: [
+      "components/v2/**/*.{ts,tsx}",
+      "components/media/**/*.{ts,tsx}",
+      "app/\\[locale\\]/\\(v2\\)/**/*.{ts,tsx}",
+    ],
+    ignores: [
+      "components/v2/ui/**",
+      // Código muerto sin importadores, pendiente de borrar (ver FOCUS.md).
+      "components/v2/orientacion/**",
+      "components/v2/SegmentedControl.tsx",
+      "components/v2/periodizacion/SidePanel.tsx",
+      "components/v2/tests/chrome.tsx",
+    ],
     plugins: { panel: panelPlugin },
-    rules: { "panel/no-raw-styled-control": "warn" },
+    rules: { "panel/no-raw-styled-control": "error" },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
