@@ -17,6 +17,7 @@ import { computeAcr, computeLoadSeries, getDailyTssSeries, readLoadCoverage, sum
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import { loadHistory, type LoadHistory } from './ficha-load-history';
 
 export interface StrengthMaxView {
   exercise_slug: string;
@@ -45,6 +46,8 @@ export interface LoadView {
   days_with_load: number;
   /** Frase honesta de cobertura si falta parte de la carga. */
   coverage_note: string | null;
+  /** Cuánta historia hay: sin 42 días, CTL/TSB/ACWR no se pintan. */
+  history: LoadHistory;
 }
 
 type Part<T> = { ok: true; data: T } | { ok: false };
@@ -109,6 +112,7 @@ async function loadLoad(athlete_id: number, client: Sql): Promise<LoadView> {
     acr: computeAcr(daily).acr,
     days_with_load: daily.slice(-PMC_DAYS).filter((d) => d.tss > 0).length,
     coverage_note: coverage.state === 'partial' ? coverage.note_es : null,
+    history: loadHistory(daily),
   };
 }
 

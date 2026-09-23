@@ -3,10 +3,14 @@
 // Fisiología: VFC y pulso en reposo frente a SU base, sueño, VO₂ y los check-ins
 // (agujetas, ánimo, motivación, fatiga, calidad de sueño). Sin datos: una línea
 // que dice de dónde llegan (reloj conectado o check-ins), sin marcas de terceros.
+// El readiness es EL MISMO que la columna Estado del Plan (el del estado del
+// atleta, `shell.readiness`): una sola fuente, así que nunca «sin datos» aquí
+// mientras el Plan enseña un número.
 
 import { EmptyState, List, ListRow, Sparkline } from '@/components/v2/ui';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import { formatHours } from '@/lib/dashboard/v2/ficha-format';
+import { ReadinessMini, type ReadinessMiniValue } from '@/components/v2/shared/ReadinessMini';
 
 const TREND_ES = { up: 'subiendo', down: 'bajando', flat: 'estable' } as const;
 
@@ -17,8 +21,16 @@ function vs(value: number | null, base: number | null, unit: string): string | n
   return `${d > 0 ? '+' : '−'}${Math.abs(d)} ${unit} vs su base ${Math.round(base)}`;
 }
 
-export function FisiologiaBlock({ body }: { body: BodyPayload }) {
-  if (!body.has_any_data) {
+export function FisiologiaBlock({
+  body,
+  readiness,
+  today,
+}: {
+  body: BodyPayload;
+  readiness: ReadinessMiniValue | null;
+  today: string;
+}) {
+  if (!body.has_any_data && !readiness) {
     return (
       <EmptyState
         title="Sin datos de salud todavía"
@@ -29,6 +41,18 @@ export function FisiologiaBlock({ body }: { body: BodyPayload }) {
   const hrv = body.hrv;
   const rhr = body.rhr;
   const rows: React.ReactNode[] = [];
+
+  if (readiness) {
+    rows.push(
+      <ListRow
+        key="readiness"
+        density="compact"
+        title="Readiness"
+        detail="frente a su base de 28 días"
+        trailing={<ReadinessMini readiness={readiness} today={today} />}
+      />,
+    );
+  }
 
   if (hrv.last_value_ms != null) {
     rows.push(
@@ -94,7 +118,9 @@ export function FisiologiaBlock({ body }: { body: BodyPayload }) {
         detail={`check-ins · ${m.trend ? TREND_ES[m.trend] : 'sin tendencia'}`}
         trailing={
           <span className="flex items-center gap-3">
-            <Sparkline values={m.series.map((p) => p.value)} width={80} height={20} aria-label={`${m.label} por día`} />
+            {m.series.filter((p) => p.value != null).length >= 2 ? (
+              <Sparkline values={m.series.map((p) => p.value)} width={80} height={20} aria-label={`${m.label} por día`} />
+            ) : null}
             <span className="w-16 text-right t-body font-semibold text-v2-fg t-tnum">{m.avg.toFixed(1).replace('.', ',')} / 5</span>
           </span>
         }

@@ -6,6 +6,7 @@
 
 import { Card, CardHeader, EmptyState, KPI, KPIRow } from '@/components/v2/ui';
 import type { LoadView } from '@/lib/dashboard/v2/ficha-rendimiento';
+import { loadHistoryLine } from '@/lib/dashboard/v2/ficha-load-history';
 import { PmcChart } from './PmcChart';
 
 function signed(n: number): string {
@@ -20,6 +21,21 @@ export function LoadBlock({ load }: { load: LoadView }) {
         title="Carga: sin entrenos con esfuerzo registrado en 90 días"
         description="sale del RPE o del pulso/ritmo de cada entreno hecho"
       />
+    );
+  }
+  // Sin 42 días de historia el fitness (CTL) sale bajo por construcción y lo
+  // que cuelga de él (TSB, ACWR, la curva) exagera: no se pinta. La fatiga de
+  // 7 días sí dice algo en cuanto hay una semana.
+  if (!load.history.enough) {
+    return (
+      <Card>
+        <CardHeader title="Carga" subtitle={loadHistoryLine(load.history)} />
+        {load.history.atl_ready ? (
+          <KPIRow>
+            <KPI label="Fatiga · ATL" value={Math.round(load.atl)} caption="lo que ha metido estos días (7 d)" />
+          </KPIRow>
+        ) : null}
+      </Card>
     );
   }
   return (

@@ -110,7 +110,7 @@ export function RendimientoView({ data, seccion }: { data: FichaRendimiento; sec
 
       <Section id="fisiologia" title="Fisiología">
         {data.body.ok ? (
-          <FisiologiaBlock body={data.body.data} />
+          <FisiologiaBlock body={data.body.data} readiness={shell.readiness} today={shell.today} />
         ) : (
           <ErrorState title="No se han podido cargar sus datos de salud" onRetry={retry} />
         )}

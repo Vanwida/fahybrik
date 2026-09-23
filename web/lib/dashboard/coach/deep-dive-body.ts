@@ -492,7 +492,11 @@ async function loadWellness(
   now: Date,
   days: number,
 ): Promise<WellnessSection> {
-  const startIso = addDays(now, -(days - 1)).toISOString();
+  const startDay = isoDate(addDays(now, -(days - 1)));
+  // UNA fuente de check-ins: `daily_checkins` (lo que escribe la app y lo que
+  // leen la columna Estado de la ficha, el vistazo y las señales). Antes esto
+  // leía `notifications` con `kind = 'daily_checkin'`, que nadie escribe: la
+  // ficha enseñaba «agujetas 2/5» en Plan y «sin datos» en Rendimiento.
   const rows = await client<
     Array<{
       d: string;
@@ -503,18 +507,15 @@ async function loadWellness(
       sleep: number | null;
     }>
   >`
-    select to_char((n.created_at)::date, 'YYYY-MM-DD') as d,
-           avg((n.payload_json -> 'metrics' ->> 'soreness')::float)   as soreness,
-           avg((n.payload_json -> 'metrics' ->> 'mood')::float)       as mood,
-           avg((n.payload_json -> 'metrics' ->> 'motivation')::float) as motivation,
-           avg((n.payload_json -> 'metrics' ->> 'fatigue')::float)    as fatigue,
-           avg((n.payload_json -> 'metrics' ->> 'sleep_quality')::float) as sleep
-    from notifications n
-    where n.type = 'system'
-      and n.payload_json ->> 'kind' = 'daily_checkin'
-      and (n.payload_json ->> 'athlete_id')::bigint = ${athlete_id}
-      and n.created_at >= ${startIso}::timestamptz
-    group by 1
+    select to_char(dc.recorded_for, 'YYYY-MM-DD') as d,
+           dc.soreness::float8 as soreness,
+           dc.mood::float8 as mood,
+           dc.motivation::float8 as motivation,
+           dc.fatigue::float8 as fatigue,
+           dc.sleep_quality::float8 as sleep
+    from daily_checkins dc
+    where dc.athlete_id = ${athlete_id}
+      and dc.recorded_for >= ${startDay}::date
     order by 1
   `;
   const byDate = new Map(rows.map((r) => [r.d, r]));
@@ -533,11 +534,11 @@ async function loadWellness(
   };
 
   const labels: Record<WellnessMetric['key'], string> = {
-    soreness: 'Soreness',
+    soreness: 'Agujetas',
     mood: 'Ánimo',
     motivation: 'Motivación',
     fatigue: 'Fatiga',
-    sleep_quality: 'Calidad sueño',
+    sleep_quality: 'Calidad del sueño',
   };
 
   const metrics: WellnessMetric[] = (
@@ -722,11 +723,11 @@ function emptyComposition(now: Date, days: number): CompositionSection {
 
 function emptyWellness(now: Date, days: number): WellnessSection {
   const labels: Record<WellnessMetric['key'], string> = {
-    soreness: 'Soreness',
+    soreness: 'Agujetas',
     mood: 'Ánimo',
     motivation: 'Motivación',
     fatigue: 'Fatiga',
-    sleep_quality: 'Calidad sueño',
+    sleep_quality: 'Calidad del sueño',
   };
   const metrics: WellnessMetric[] = (
     ['soreness', 'mood', 'motivation', 'fatigue', 'sleep_quality'] as const
