@@ -1,0 +1,295 @@
+<title>FLEXR Readiness Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F4F4F2; --surface:#FFFFFF; --surface-2:#ECECEA; --border:#DCDCD7;
+  --fg:#141413; --muted:#52524D; --faint:#67675F;
+  --ok:#1D7447; --ok-soft:rgba(29,116,71,.10);
+  --warn:#8F5400; --warn-soft:rgba(143,84,0,.10);
+  --danger:#BF3128; --danger-soft:rgba(191,49,40,.09);
+  --info:#2C5F9E; --info-soft:rgba(44,95,158,.10);
+  --font:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+    --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+    --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+    --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+    --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+    --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+  --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+  --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+  --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+  --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+  --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;padding-inline:20px}
+.wrap{max-width:1100px;margin:0 auto;padding-block:48px 96px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;letter-spacing:-.02em}
+h2{font-size:26px;line-height:1.2;margin-top:80px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:19px;line-height:1.3;margin-top:40px}
+p,ul,ol{margin:14px 0 0;max-width:72ch}
+li{margin-top:6px}
+a{color:var(--fg);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:4px;word-break:break-word}
+strong{font-weight:600}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.lede{font-size:19px;line-height:1.55;max-width:66ch;margin-top:20px}
+.meta{font-size:13px;color:var(--muted);margin-top:16px}
+.muted{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:32px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat b{display:block;font-size:28px;line-height:1.1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat s{color:var(--faint);font-size:15px;font-weight:500;margin-right:6px;text-decoration-thickness:1px}
+.stat span{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.35}
+.tablewrap{overflow-x:auto;margin-top:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45}
+th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.what{min-width:260px}
+td.st{white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.fixed{color:var(--ok);background:var(--ok-soft)}
+.left{color:var(--warn);background:var(--warn-soft)}
+.yours{color:var(--info);background:var(--info-soft)}
+.sev{font-size:11px;font-weight:700;padding:3px 6px;border-radius:4px}
+.p0{color:var(--danger);background:var(--danger-soft)}
+.p1{color:var(--warn);background:var(--warn-soft)}
+.p2{color:var(--muted);background:var(--surface-2)}
+.decisions{display:grid;gap:16px;margin-top:24px}
+.decision{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.decision h3{margin-top:0;font-size:17px}
+.decision ol{margin-top:10px;padding-left:20px}
+.decision li{margin-top:4px}
+.rec{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--info-soft);font-size:15px;max-width:none}
+.rec strong{color:var(--info)}
+.why{color:var(--muted);font-size:14px;margin-top:8px}
+.checklist{list-style:none;padding:0}
+.checklist li{padding-left:26px;position:relative}
+.checklist li::before{content:"";position:absolute;left:0;top:.45em;width:12px;height:12px;border:1.5px solid var(--faint);border-radius:3px}
+.cols{display:grid;gap:16px;grid-template-columns:1fr}
+@media (min-width:860px){.cols{grid-template-columns:1fr 1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.panel h3{margin-top:0;font-size:16px}
+.panel ul{padding-left:18px;font-size:15px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">FAHYBRID → FLEXR · coach panel · 23 Sept 2026</div>
+  <h1>Is the panel ready to be sold to other coaches?</h1>
+  <p class="lede">The rebuilt panel is done and, after a second review through four lenses, the objective problems it found are fixed. What stands between this and coach #2 is no longer the panel: it is a handful of business and platform decisions that are yours — which app athletes install, who takes the money, how a coach signs up.</p>
+  <p class="meta">Branch <code>claude/focused-bardeen-u9zz33</code> · 169 commits since the audit · migrations 0211–0260 · tested locally with 100 synthetic athletes. Previous document: the audit (<code>docs/auditoria-panel-coach/</code>).</p>
+
+  <div class="stats">
+    <div class="stat"><b><s>92</s>55</b><span>Hoy asked for 92 decisions on 114 cards; now 55 athletes need you — one number shared by Hoy, Atletas and the sidebar</span></div>
+    <div class="stat"><b><s>~500</s>4</b><span>clicks to give a 4-week program to a 20-athlete group, with conflict preview and undo</span></div>
+    <div class="stat"><b><s>9</s>0</b><span>«critical» athletes flagged on no evidence (a readiness with no baseline)</span></div>
+    <div class="stat"><b>3 → 0</b><span>cross-club data holes found and closed, each with a two-coach test that fails on the old code</span></div>
+    <div class="stat"><b>21+</b><span>method numbers that were code and are now the coach's data, each with an editor in Ajustes</span></div>
+  </div>
+
+  <h2>How it was reviewed</h2>
+  <p>After the rebuild, four independent read-only reviewers looked at it as if FLEXR launched tomorrow. Everything objective they found was fixed in three more rounds of work; everything that is a business choice is in <a href="#decisions">your decisions</a> below.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Lens</th><th>Question</th><th>Verdict before fixes</th><th>Now</th></tr></thead>
+    <tbody>
+      <tr><td>Isolation</td><td class="what">Can one coach see or change another coach's athletes, messages, plans, leads, files?</td><td class="what">Mostly isolated, but 3 real holes: copy another club's workouts by id; write session reports onto another club's athlete and email their lead; one Google Calendar for the whole platform.</td><td class="st"><span class="badge fixed">Closed</span></td></tr>
+      <tr><td>Method</td><td class="what">What is still one coach's way of training, or one club's identity, written as code?</td><td class="what">The daily loop was already the coach's data; ~7 secondary engines, 5 unreachable method tables and the coach's time zone were not. Brand literals in pushes, calendar and emails.</td><td class="st"><span class="badge fixed">Fixed</span></td></tr>
+      <tr><td>Product</td><td class="what">Would a demanding coach with 100 athletes trust it and use it daily?</td><td class="what">Big step up, not yet showable: screens contradicted each other, Hoy flagged «critical» on no evidence, «r2» was read as 2 seconds, a new coach faced 6 mandatory setup steps.</td><td class="st"><span class="badge fixed">Fixed</span></td></tr>
+      <tr><td>Platform</td><td class="what">What stands between «one club's app» and «a product any coach signs up for»?</td><td class="what">Data layer is multi-tenant; the business layer is not: no sign-up path creates a club, one Stripe merchant, legal names tenant #1, crons loop over every coach.</td><td class="st"><span class="badge yours">Your decisions</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>What was fixed after the review</h2>
+  <h3>Isolation between clubs</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Sev</th><th>Finding</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td><span class="sev p0">P0</span></td><td class="what">Any coach could clone another coach's workouts or blocks by numeric id into their own athlete's plan.</td><td class="what">Ownership checked when cloning, when saving a week, and when reading. Rule written for every id that arrives in a request or in saved JSON.</td></tr>
+      <tr><td><span class="sev p0">P0</span></td><td class="what">Session reports could be written onto another club's athlete or lead, and the summary emailed to that lead.</td><td class="what">Athlete, lead and appointment must belong to the coach; lists filtered by coach.</td></tr>
+      <tr><td><span class="sev p0">P0</span></td><td class="what">One Google Calendar connection for the whole platform — every club's appointments landed in whoever connected last.</td><td class="what">One connection per coach (0254), OAuth bound to the coach, each appointment uses its own coach's calendar.</td></tr>
+      <tr><td><span class="sev p1">P1</span></td><td class="what">Pending monthly-block proposals readable by any coach; shared race catalogue editable by everyone; athletes could target another club's race and rewrite a shared race's date.</td><td class="what">Scoped reads; the shared catalogue is read-only for coaches; targets limited to the catalogue, the athlete's club and their own races.</td></tr>
+      <tr><td><span class="sev p1">P1</span></td><td class="what">The public lead funnel could overwrite any club's lead and return its booking link.</td><td class="what">Leads unique per club (0253); only the browser that created a lead can update it; no token returned to anyone else.</td></tr>
+      <tr><td><span class="sev p1">P1</span></td><td class="what">Negocio pages checked the add-on; its 14 APIs did not.</td><td class="what">One gate on every Negocio route.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Numbers you can trust</h3>
+  <ul>
+    <li>A readiness reading with no baseline can be <em>Vigilar</em> at most, never <em>Acción</em>, and says so in one sentence everywhere: «38 hoy · aún sin su base (0 de 7 lecturas)».</li>
+    <li>«Proponer descarga» reads the signal that asked for it; when its engine says «keep», the row says why instead of claiming a deload was proposed.</li>
+    <li>One vocabulary (Acción / Vigilar / Al día), one definition of «Sin plan», «Empieza pronto» separate, one source for where an athlete is in a program — Hoy, Atletas, groups and the athlete page now agree.</li>
+    <li>«Todo» on Hoy includes the athletes waiting for a reply; the weekly verdict and the daily notifications come from the same signals as Hoy (a test builds one athlete-week and checks they agree).</li>
+    <li>Load numbers (CTL/ACWR/TSB) are hidden until there are 42 days of history; Fisiología reads the real check-ins.</li>
+  </ul>
+
+  <h3>Programming</h3>
+  <ul>
+    <li>«r2» in the quick line is 2 minutes; 11–14 asks; the unit is always shown in bold.</li>
+    <li>A new club's catalogue now contains the main lifts — in production they had been inserted by hand, so every fresh database (a new FLEXR tenant included) started with 71 mobility exercises and no squat (0247).</li>
+    <li>Groups say plainly that each athlete continues at their own week, and assigning offers «everyone starts Monday».</li>
+  </ul>
+
+  <h3>The coach's method is the coach's data</h3>
+  <p>Following Hard Rule Nº0, each of these was a constant and is now a coach setting whose default is today's value — a coach who touches nothing behaves exactly as before:</p>
+  <div class="cols">
+    <div class="panel"><h3>Engines that now read the coach</h3><ul>
+      <li>Weekly verdict and AI progression read</li>
+      <li>Daily notifications (and no more training advice in the coach's name, e.g. «Considera Z2 hoy»)</li>
+      <li>Readiness composite weights, sleep target, adherence penalty</li>
+      <li>Race-readiness index weights</li>
+      <li>«Listo para progresar» thresholds</li>
+      <li>Missed-sessions share, renewal alert, pause days per year, intake warnings</li>
+      <li>Level suggestions — from the coach's own ladder and cut points</li>
+    </ul></div>
+    <div class="panel"><h3>New editors in Ajustes</h3><ul>
+      <li>Levels: create, rename, reorder, retire; what opens each level</li>
+      <li>Heart-rate zones and pace zones (Z6 now prescribable)</li>
+      <li>Running thresholds, test cadence, program length</li>
+      <li>The coach's time zone — Hoy, auto-publish, Negocio, emails and panel clocks follow it</li>
+      <li>First run: «start with one athlete» is the only required track</li>
+    </ul></div>
+  </div>
+
+  <h2 id="decisions">Your decisions</h2>
+  <p>These are not correctness problems; each is a business or product choice with real consequences. For each one I give the options and what I would do, but the call is yours. Nothing below is built until you decide.</p>
+
+  <div class="decisions">
+    <div class="decision">
+      <h3>1 · Which app do other clubs' athletes install?</h3>
+      <ol>
+        <li>One FLEXR app; clubs are skins inside it — new App Store listing, FAHYBRID's athletes reinstall once.</li>
+        <li>The FAHYBRID app for everyone — nothing to build; club #2's athletes install a competitor's brand.</li>
+        <li>One shared app plus white-label builds per club as a premium tier — Apple's template-app rule (4.2.6) applies: each build must ship from the client's own developer account, and push, Sign in with Apple, universal links and watch workouts need per-build work.</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 1</strong>, before coach #2 — it matches the decision already written (FLEXR as the umbrella, 2026-08-19) and keeps option 3 open for later.</p>
+    </div>
+    <div class="decision">
+      <h3>2 · Who takes the athletes' money?</h3>
+      <ol>
+        <li>Our platform account, attributed per club — we hold other clubs' money; accounting and tax per club are ours.</li>
+        <li>Stripe Connect — each club has its own account, we take a platform fee; most work, cleanest legally.</li>
+        <li>Clubs bill outside the app; Cobros only shows status — fastest, no payment revenue.</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 2</strong>; if speed matters, launch coach #2 on 3 and move to Connect. Until decided, paid sign-up must stay off for any club but FAHYBRID — today it charges FAHYBRID's Stripe.</p>
+    </div>
+    <div class="decision">
+      <h3>3 · How does a coach get in?</h3>
+      <ol>
+        <li>Open self-serve sign-up with a trial.</li>
+        <li>Request plus our approval — the allowlist exists; the step that creates the club does not.</li>
+        <li>Invite-only, created by us.</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 2</strong> for the first 20 coaches: quality control while the product is young, and the smallest amount of new sign-up code.</p>
+    </div>
+    <div class="decision">
+      <h3>4 · What does FLEXR charge a coach?</h3>
+      <ol>
+        <li>A flat plan plus add-ons (Negocio, the assistant connector).</li>
+        <li>Per active athlete.</li>
+        <li>Free core, pay for add-ons only.</li>
+      </ol>
+      <p class="rec"><strong>Pricing is yours.</strong> Mechanically, 1 fits what exists (add-ons are already entitlements). Nothing bills a coach today in any option.</p>
+    </div>
+    <div class="decision">
+      <h3>5 · One deployment for everyone, or one per club?</h3>
+      <ol>
+        <li>One multi-tenant deployment — today's direction; background jobs must be split per coach before ~20 coaches.</li>
+        <li>A deployment and database per club — strongest isolation, N× operations, and a fresh database must first migrate cleanly (it doesn't today).</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 1</strong>, plus decision 10 for defence in depth.</p>
+    </div>
+    <div class="decision">
+      <h3>6 · Domains</h3>
+      <ol>
+        <li>One panel domain for all clubs, public funnels at <code>/c/&lt;club&gt;</code>.</li>
+        <li>A subdomain per club — tenant-by-host must be built.</li>
+        <li>Custom domain per club.</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 1</strong>; 3 can be a premium extra later. Also yours: does fahybrid.com stay FAHYBRID's own site, and where does FLEXR's marketing live?</p>
+    </div>
+    <div class="decision">
+      <h3>7 · Which sports?</h3>
+      <ol>
+        <li>HYROX / hybrid only — the default tests, race catalogue and methodology groups are right as they are.</li>
+        <li>Any coach — those become optional starter packs.</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 1</strong> at launch. Because the method is now the coach's data, 2 stays possible without a redesign.</p>
+    </div>
+    <div class="decision">
+      <h3>8 · Language of the panel</h3>
+      <ol>
+        <li>Spanish only at launch.</li>
+        <li>English before the first non-Spanish coach — about 420 files to translate.</li>
+      </ol>
+      <p class="rec"><strong>Depends on your first market.</strong> Spain and Latin America first → 1; anyone else → start the translation now.</p>
+    </div>
+    <div class="decision">
+      <h3>9 · What does a new club start with?</h3>
+      <ol>
+        <li>Empty, with the setup checklist.</li>
+        <li>A neutral starter pack we write (levels N1–N5 already exist as a one-click start).</li>
+        <li>A copy of FAHYBRID's content — needs Pablo's consent, and it is tenant #1 leaking in as «defaults».</li>
+      </ol>
+      <p class="rec"><strong>I'd pick 2.</strong></p>
+    </div>
+    <div class="decision">
+      <h3>10 · Database-level isolation (row-level security)</h3>
+      <p>Today every query must remember to filter by coach; the three holes above were exactly that failure. Postgres can enforce it instead: a policy per table, and the app sets the coach once per request.</p>
+      <ol>
+        <li>Full row-level security — about 40 tables of policies, 2–4 days threading the request's coach through the loaders, slightly slower queries.</li>
+        <li>Cheaper first step — a check in CI that flags queries on club tables without a coach filter, plus the two-coach test pattern on every route with an id.</li>
+      </ol>
+      <p class="rec"><strong>I'd do 2 now and 1 before coach #20.</strong></p>
+    </div>
+    <div class="decision">
+      <h3>11 · Legal and the landing</h3>
+      <p>Terms and privacy name Pablo (Fabrik) as the data controller for every athlete. For FLEXR each club must be the controller and FLEXR the processor, with a data-processing agreement. The public pages (booking, invite, payment, unsubscribe) still say FAHYBRID; what they should say follows from decision 1. This needs a lawyer, not code.</p>
+    </div>
+    <div class="decision">
+      <h3>12 · Permission to delete dead files</h3>
+      <p>The permission system blocks agents from deleting files, and I won't do it on their behalf. About 20 files have no importers (listed in <code>FOCUS.md</code>); they are excluded from lint meanwhile. One «yes» and they go.</p>
+    </div>
+  </div>
+
+  <h2>Before production</h2>
+  <ul class="checklist">
+    <li>Apply migrations 0211–0260 in Neon (the rebuilt panel needs them).</li>
+    <li>Add the <code>negocio</code> entitlement row for FAHYBRID's club.</li>
+    <li>Reconnect Google Calendar from the panel (it is now per coach); if the old calendar was not the account's primary one, set its id once.</li>
+    <li>Keep paid sign-up off for any club except FAHYBRID until decision 2.</li>
+  </ul>
+
+  <h2>Known and not done</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>What</th><th>Why it isn't done</th><th>When it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="what">Sign-up path that creates a club; admin toggle for add-ons</td><td class="what">Shape depends on decisions 3 and 4</td><td>Coach #2</td></tr>
+      <tr><td class="what">Per-club public funnel (today one funnel, set by an env var)</td><td class="what">Depends on decisions 1, 6</td><td>Coach #2 with Negocio</td></tr>
+      <tr><td class="what">Background jobs process every coach one after another</td><td class="what">Architecture; decision 5</td><td>~20 coaches</td></tr>
+      <tr><td class="what">Row-level security</td><td class="what">Decision 10</td><td>Before ~20 coaches</td></tr>
+      <tr><td class="what">Panel translation</td><td class="what">Decision 8</td><td>First non-Spanish coach</td></tr>
+      <tr><td class="what">A fresh database does not migrate cleanly (0051 in a transaction; tenant #1 data in old migrations)</td><td class="what">Only matters for a silo per club or a clean staging</td><td>Decision 5 (option 2)</td></tr>
+      <tr><td class="what">27 files over the 500-line rule; ~27 test files need a Neon demo branch to pass locally</td><td class="what">Hygiene, no user impact</td><td>Before more people work on the code</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="meta">Full reviewer reports and every fix are in the repo history and <code>docs/DECISIONS.md</code> (entries of 23 Sept 2026).</p>
+</div>
