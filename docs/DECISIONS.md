@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · «Ajustes masivos» (`mass-adjustments`) se retira
+
+**El hueco:** `/api/coach/mass-adjustments` (+ preview, historial, rollback; servicio `lib/coach/mass-adjustments.ts`, esquema `shared/schema/coach-mass-adjustments.ts`, migración 0006) aplicaba un ajuste a varios atletas escribiendo un prefijo `[mass-adj …]` en `workout_assignments.notes`. Ese campo es la **identidad del hueco** para el materializador (`slot:am`, `slot:pm`… en `instantiate-program.ts`): una nota reescrita hace que el re-sync de una semana no reconozca el hueco y lo duplique o lo borre. Y el tipo «carga %» nunca cambiaba una carga: solo dejaba texto. Ninguna pantalla lo usaba desde el rehacer del panel.
+
+**Decidido:** se retira entero — rutas, servicio, esquema compartido, su test y las cadenas de i18n. **Las tablas `coach_mass_adjustments` / `coach_mass_adjustment_targets` se quedan** (historial; no se borra dato de nadie; en local no había ni una fila ni ninguna nota con el prefijo). Lo que el coach necesita ya existe con su modelo: escalar volumen / descarga de una semana desde la ficha (`progress-ops`, cambia la prescripción de verdad), «Progresar selección» en el editor de programas y asignar/publicar a varios (`/api/coach/assign`, `/api/coach/weeks/publish`).
+
+**Queda (a propósito):** la revisión semanal (`lib/coach/weekly-review.ts`, sin pantalla) sigue calculando «oportunidades de ajuste en bloque» como sugerencia y su historial guarda `mass_adjustment_applied`; es texto, no toca prescripciones. Si esa revisión vuelve a tener pantalla, sus oportunidades deben apuntar a las acciones de arriba, no a este flujo.
+
+**NO hacer:** no volver a guardar ajustes en `workout_assignments.notes` (es identidad de hueco); un ajuste de carga que no cambia la carga no es un ajuste. Si hace falta «ajustar a varios», se construye sobre `progress-ops` por atleta y semana, con deshacer por lote.
+
+---
+
 ## 2026-09-23 · Una sola cuenta de quién te necesita (Hoy = Atletas) y «Por responder» = Mensajes
 
 **El hueco:** la cifra de Hoy (22) contaba FILAS (grupos + filas de atleta) y «Necesitan algo» de Atletas (23) contaba estados `accion`+`vigilar`: dos unidades y dos definiciones que no podían casar. Además, 38 atletas salían «Al día» con la semana oculta (Hoy los contaba en «47 no ven su semana»); atletas con entrenos sueltos sin programa asignado salían «Sin plan» con un próximo entreno al lado; señales de plan persistidas por el barrido («sin programa») seguían vivas después de asignar; y el filtro «Por responder» de Hoy decía 0 con 15 hilos esperando en Mensajes, porque solo miraba la señal del motor (que espera 12 h).

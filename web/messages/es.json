@@ -203,21 +203,6 @@
     "draft": "Borrador",
     "submitted": "Enviado"
   },
-  "mass_adjustments": {
-    "title": "Ajustes masivos",
-    "shift_days": "Shift días (-14..+14)",
-    "day_offset": "Día offset (0..28)",
-    "override_day": "Override día",
-    "split": "División",
-    "position": "Posición",
-    "tabs_label": "Pestañas",
-    "warning_destructive": "Se desharán todos los cambios · atletas serán notificados",
-    "history": "Historial de ajustes",
-    "preview": "Previsualizar",
-    "apply": "Aplicar a {count} atletas",
-    "applied": "Aplicado",
-    "rolled_back": "Revertido"
-  },
   "methodology": {
     "title": "Metodología",
     "documents": "Documentos",

@@ -203,21 +203,6 @@
     "draft": "Draft",
     "submitted": "Sent"
   },
-  "mass_adjustments": {
-    "title": "Mass adjustments",
-    "shift_days": "Shift days (-14..+14)",
-    "day_offset": "Day offset (0..28)",
-    "override_day": "Override day",
-    "split": "Split",
-    "position": "Position",
-    "tabs_label": "Tabs",
-    "warning_destructive": "All changes will be undone · athletes will be notified",
-    "history": "Adjustment history",
-    "preview": "Preview",
-    "apply": "Apply to {count} athletes",
-    "applied": "Applied",
-    "rolled_back": "Rolled back"
-  },
   "methodology": {
     "title": "Methodology",
     "documents": "Documents",

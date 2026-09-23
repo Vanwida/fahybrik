@@ -15,7 +15,6 @@ export * from './methodology-system';
 export * from './blocks';
 export * from './audit';
 export * from './coach-weekly-review';
-export * from './coach-mass-adjustments';
 export * from './coach-intake';
 export * from './hyrox-layout';
 export * from './races';
