@@ -15,8 +15,10 @@ import { describe, expect, it } from 'vitest';
 import {
   PAUSE_BUDGET_DAYS,
   computePauseBudget,
+  pauseBudgetDaysOf,
   pauseSpanLength,
 } from '../../../shared/domain/coach/pause-budget';
+import { mergeCoachThresholds } from '../../../shared/domain/coach/signal-thresholds';
 
 const TODAY = '2026-07-26';
 
@@ -114,5 +116,16 @@ describe('pauseSpanLength', () => {
 
   it('spans a month boundary without drifting', () => {
     expect(pauseSpanLength('2026-01-30', '2026-02-02')).toBe(3);
+  });
+});
+
+describe('los días de pausa son del coach (0256)', () => {
+  it('28 por defecto; el número del coach manda', () => {
+    expect(PAUSE_BUDGET_DAYS).toBe(28);
+    expect(pauseBudgetDaysOf(mergeCoachThresholds(null))).toBe(28);
+    const days = pauseBudgetDaysOf(mergeCoachThresholds({ pause_budget_days: 14 }));
+    const b = computePauseBudget([{ start_date: '2026-06-01', end_date: '2026-06-08' }], TODAY, days);
+    expect(b.budget_days).toBe(14);
+    expect(b.available_days).toBe(7);
   });
 });
