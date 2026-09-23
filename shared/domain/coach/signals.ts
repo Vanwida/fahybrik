@@ -138,16 +138,43 @@ export interface SignalFacts {
   hrv_baseline_days: number | null;
   /** Minutes since the most recent wearable sample of any kind. */
   sync_minutes_ago: number | null;
-  /** Sessions with status='missed' in the trailing 7 days. */
+  /**
+   * Plan sessions of the trailing 7 days that were DUE and not done (due-only,
+   * `shared/domain/coach/adherence.ts`: today counts only if done, future never,
+   * pauses / injury rest / hidden-week-not-done excluded).
+   */
   missed_sessions_7d: number;
-  /** Max perceived_exertion logged yesterday (0–10), or null if none. */
-  rpe_yesterday: number | null;
+  /** Plan sessions DUE in the trailing 7 days (the denominator of the above). */
+  due_sessions_7d: number;
+  /** YYYY-MM-DD of the most recent due-and-not-done session, or null. */
+  last_missed_on: string | null;
+  /** Executed sessions of the trailing 7 days with their RPE (null = not logged). */
+  sessions_7d_rpe: Array<{ on: string; rpe: number | null }>;
   /** Most recent daily check-in timestamp (drives "skipped" age). */
   last_checkin_at: Date | null;
-  /** Age in minutes of the oldest unanswered athlete message, or null. */
+  /** Check-ins in the 14 days up to (and including) the last one — the habit. */
+  checkins_prior_14d: number;
+  /**
+   * Minutes the athlete has been waiting for a reply: since their oldest message
+   * after the coach's last one, when the LAST message in the thread is theirs.
+   * null = nothing awaiting a reply (read-but-unanswered still counts).
+   */
   unread_message_age_min: number | null;
+  /** Athlete messages awaiting a reply (the count behind the age above). */
+  awaiting_reply_count: number;
+  /** The newest of those messages — writing again after a «hecho» is a new wait. */
+  awaiting_reply_last_at: Date | null;
   /** Latest daily readiness score (0–100), or null if uncomputed. */
   readiness_score: number | null;
+  /**
+   * Readiness snapshots of the recent history (athlete-local days, ascending),
+   * enough for the 28-day baseline + persistence + recency (READINESS_HISTORY_DAYS).
+   */
+  readiness_series: Array<{ on: string; score: number }>;
+  /** The athlete's own "today" (YYYY-MM-DD, their timezone). */
+  today_iso: string;
+  /** The athlete's IANA timezone (fallback: the box's) — for "hoy/ayer" of an instant. */
+  timezone: string;
 
   // Structured session feedback (#58). The athlete's most recent reported body-area
   // discomfort — a generic area token, when it was reported, and any note. Absent
@@ -172,6 +199,10 @@ export interface SignalFacts {
   programming_detail: string | null;
   /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */
   current_microcycle_end_iso: string | null;
+  /** Start (YYYY-MM-DD) of a programa assigned AFTER today, or null (none next). */
+  next_program_start_iso: string | null;
+  /** End (YYYY-MM-DD) of the athlete's last programa ever, or null. */
+  last_program_end_iso: string | null;
   /** Current microciclo NAME (coach data), null when none active. */
   current_block_type: string | null;
   /** Readiness engine says 'advance' → ready to move to the next microciclo. */
@@ -277,8 +308,12 @@ export interface SignalResult {
   trend: SignalTrend | null;
   /** Short human label for the card chip (e.g. "HRV crash"). */
   label: string;
-  /** One-line evidence detail (e.g. "▼ 14 ms vs baseline 60d"). */
+  /** One-line evidence detail: value, baseline, window and date (plan §4.1). */
   detail: string;
+  /** ISO instant of what the signal describes (the reading, the message…), or null. */
+  observed_at?: string | null;
+  /** The window the evidence is measured over («7 d», «28 d»), or null. */
+  window_label?: string | null;
   /**
    * Stable identity within (athlete, kind). For value-only signals this is just
    * `${kind}:${athlete_id}`; for proposal-backed signals it includes the proposal

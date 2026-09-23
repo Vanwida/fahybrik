@@ -1,43 +1,55 @@
-// POST /api/coach/inbox/bulk — apply one override action to N attention signals
-// in a single transaction (SPEC §9 "acciones en bloque").
+// POST /api/coach/inbox/bulk — posponer / hecho / deshacer sobre VARIOS atletas
+// (o señales) en una transacción (plan §4.3, selección múltiple de Hoy).
 //
-//   action 'resolve' = dismiss (resurface_on_new_signal=true)
-//   action 'snooze'  = snooze every item until snooze_until
+//   { athlete_ids: [...], action: 'snooze', until: '1d' | '3d' | 'signal' }
+//   { athlete_ids: [...], action: 'done' }
+//   { items: [{ athlete_id, signal_kind? }], action: ... }   ← por señal
+//   { action: 'undo', restore: [...] }                        ← lo que devolvió
 //
-// Every item is validated to belong to the calling coach before any write.
+// Un atleta sin `signal_kind` = su fila entera (sus señales accionables, menos
+// las que resuelve un grupo). Compatibilidad: `action: 'resolve'` (= hecho) y
+// `snooze_until` (instante exacto). Si algún atleta no es del coach, 403 y no se
+// escribe nada.
 
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { sql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
-import { updateTag } from 'next/cache';
-import { attentionTag } from '@/lib/coach/attention/queue';
-import { SIGNAL_KINDS } from '@fahybrid/shared/domain/coach/signals';
+import {
+  OverrideForbiddenError,
+  SNOOZE_UNTIL,
+  applyOverrides,
+  overrideSnapshotSchema,
+  overrideTargetSchema,
+  restoreOverrides,
+} from '@/lib/coach/attention/overrides';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const signalKindEnum = z.enum(SIGNAL_KINDS);
+const athleteId = z.string().regex(/^\d+$/);
 
-const bulkBodySchema = z
-  .object({
-    items: z
-      .array(
-        z.object({
-          athlete_id: z.string().regex(/^\d+$/),
-          signal_kind: signalKindEnum,
-        }),
-      )
-      .min(1)
-      .max(100),
-    action: z.enum(['resolve', 'snooze']),
+const targetsShape = {
+  items: z.array(overrideTargetSchema).min(1).max(500).optional(),
+  athlete_ids: z.array(athleteId).min(1).max(500).optional(),
+};
+
+const bulkBodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('snooze'),
+    ...targetsShape,
+    until: z.enum(SNOOZE_UNTIL).optional(),
     snooze_until: z.string().datetime().optional(),
-  })
-  .refine((b) => b.action !== 'snooze' || b.snooze_until != null, {
-    message: 'snooze_until is required when action is "snooze"',
-    path: ['snooze_until'],
-  });
+  }),
+  z.object({
+    action: z.enum(['done', 'resolve']),
+    ...targetsShape,
+  }),
+  z.object({
+    action: z.literal('undo'),
+    restore: z.array(overrideSnapshotSchema).min(1).max(5000),
+  }),
+]);
 
 export async function POST(req: Request): Promise<Response> {
   const session = await getCoachSession();
@@ -54,77 +66,36 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return jsonError('bad_request', 'invalid payload', 400, parsed.error.flatten());
   }
-
-  const athleteIds = [...new Set(parsed.data.items.map((i) => Number(i.athlete_id)))];
+  const data = parsed.data;
 
   try {
-    // Validate every referenced athlete belongs to the coach.
-    const owned = await sql<Array<{ id: string }>>`
-      select id::text
-      from athletes
-      where coach_id = ${session.coach_id}
-        and id = any(${athleteIds}::bigint[])
-    `;
-    const ownedSet = new Set(owned.map((r) => r.id));
-    if (athleteIds.some((id) => !ownedSet.has(String(id)))) {
-      return jsonError('forbidden', 'Uno o más atletas no pertenecen al coach', 403);
+    if (data.action === 'undo') {
+      return jsonOk(await restoreOverrides({ coach_id: session.coach_id, restore: data.restore }));
     }
 
-    const snoozeUntil = parsed.data.action === 'snooze' ? parsed.data.snooze_until! : null;
+    const targets = [
+      ...(data.items ?? []),
+      ...(data.athlete_ids ?? []).map((id) => ({ athlete_id: id })),
+    ];
+    if (targets.length === 0) {
+      return jsonError('bad_request', 'items or athlete_ids is required', 400);
+    }
+    if (data.action === 'snooze' && !data.until && !data.snooze_until) {
+      return jsonError('bad_request', 'until is required when action is "snooze"', 400);
+    }
 
-    const applied = await sql.begin(async (tx) => {
-      let count = 0;
-      for (const item of parsed.data.items) {
-        const athleteId = Number(item.athlete_id);
-        const itemRows = await tx<Array<{ value_numeric: number | null }>>`
-          select value_numeric
-          from coach_attention_items
-          where athlete_id = ${athleteId} and signal_kind = ${item.signal_kind}
-          limit 1
-        `;
-        const baseline = itemRows[0]?.value_numeric ?? null;
-
-        if (parsed.data.action === 'snooze') {
-          await tx`
-            insert into coach_alert_overrides (
-              coach_id, athlete_id, signal_kind,
-              snoozed_until, dismissed_at, resurface_on_new_signal,
-              baseline_value_at_override, created_at
-            )
-            values (
-              ${session.coach_id}, ${athleteId}, ${item.signal_kind},
-              ${snoozeUntil}::timestamptz, null, true, ${baseline}, now()
-            )
-            on conflict (athlete_id, signal_kind) do update set
-              snoozed_until = excluded.snoozed_until,
-              dismissed_at = null,
-              baseline_value_at_override = excluded.baseline_value_at_override
-          `;
-        } else {
-          await tx`
-            insert into coach_alert_overrides (
-              coach_id, athlete_id, signal_kind,
-              snoozed_until, dismissed_at, resurface_on_new_signal,
-              baseline_value_at_override, created_at
-            )
-            values (
-              ${session.coach_id}, ${athleteId}, ${item.signal_kind},
-              null, now(), true, ${baseline}, now()
-            )
-            on conflict (athlete_id, signal_kind) do update set
-              dismissed_at = now(),
-              snoozed_until = null,
-              baseline_value_at_override = excluded.baseline_value_at_override
-          `;
-        }
-        count += 1;
-      }
-      return count;
+    const res = await applyOverrides({
+      coach_id: session.coach_id,
+      targets,
+      action: data.action === 'snooze' ? 'snooze' : 'done',
+      until: data.action === 'snooze' ? data.until : undefined,
+      snooze_until: data.action === 'snooze' ? data.snooze_until : undefined,
     });
-
-    updateTag(attentionTag(session.coach_id));
-    return jsonOk({ applied });
+    return jsonOk(res);
   } catch (err) {
+    if (err instanceof OverrideForbiddenError) {
+      return jsonError('forbidden', 'Uno o más atletas no pertenecen al coach', 403);
+    }
     captureRouteError(err, { route: 'api/coach/inbox/bulk.POST' });
     return jsonError('internal', 'No se pudo aplicar la acción en bloque', 500);
   }

@@ -61,11 +61,14 @@ interface QueueRow {
   trend: SignalTrend | null;
   label: string;
   detail: string;
+  dedupe_key: string;
   computed_at: Date;
   snoozed_until: Date | null;
   dismissed_at: Date | null;
   resurface_on_new_signal: boolean | null;
   baseline_value_at_override: number | null;
+  severity_at_override: SignalSeverity | null;
+  override_dedupe_key: string | null;
   coach_note: string | null;
 }
 
@@ -99,14 +102,17 @@ export async function loadAttentionQueue(params: {
         i.trend                     as trend,
         i.label                     as label,
         i.detail                    as detail,
+        i.dedupe_key                as dedupe_key,
         i.computed_at               as computed_at,
         o.snoozed_until             as snoozed_until,
         o.dismissed_at              as dismissed_at,
         o.resurface_on_new_signal   as resurface_on_new_signal,
         o.baseline_value_at_override as baseline_value_at_override,
+        o.severity_at_override      as severity_at_override,
+        o.dedupe_key                as override_dedupe_key,
         o.coach_note                as coach_note
       from coach_attention_items i
-      join athletes a on a.id = i.athlete_id
+      join athletes a on a.id = i.athlete_id and a.lifecycle_status = 'activo'
       left join coach_alert_overrides o
         on o.athlete_id = i.athlete_id and o.signal_kind = i.signal_kind
       where i.coach_id = ${params.coach_id as number}
@@ -234,5 +240,7 @@ function toOverride(row: QueueRow): SuppressionOverride | null {
     // Column default is true; treat a present override row with null flag as true.
     resurface_on_new_signal: row.resurface_on_new_signal ?? true,
     baseline_value_at_override: row.baseline_value_at_override,
+    severity_at_override: row.severity_at_override,
+    dedupe_key: row.override_dedupe_key,
   };
 }

@@ -10,6 +10,11 @@ import {
   dedupeKey,
 } from '@fahybrid/shared/domain/coach/signals';
 
+/** «5 h» / «3 d». */
+function waited(hours: number): string {
+  return hours < 24 ? `${Math.max(1, Math.floor(hours))} h` : `${Math.floor(hours / 24)} d`;
+}
+
 export const intakePendingEvaluator: SignalEvaluator = {
   kind: 'intake_pending',
   default_severity: 'warning',
@@ -25,10 +30,11 @@ export const intakePendingEvaluator: SignalEvaluator = {
       value: hours,
       baseline: thresholds.intake_critical_hours,
       trend: null,
-      label: critical ? `Intake ${Math.floor(hours / 24)}d` : 'Intake pendiente',
+      label: 'Alta pendiente',
       detail: facts.intake_a_event_name
-        ? `${facts.intake_a_event_name} · ${facts.intake_a_event_days}d`
-        : 'sin plan tras onboarding',
+        ? `terminó el cuestionario hace ${waited(hours)} · ${facts.intake_a_event_name} en ${facts.intake_a_event_days} d`
+        : `terminó el cuestionario hace ${waited(hours)}`,
+      window_label: null,
       // No suffix — at most one intake is pending per athlete at a time.
       dedupe_key: dedupeKey('intake_pending', facts.athlete_id),
     };
@@ -49,8 +55,8 @@ export const weekAdjustmentPendingEvaluator: SignalEvaluator = {
       value: null,
       baseline: null,
       trend: null,
-      label: 'Ajuste semanal IA',
-      detail: facts.week_adjustment_summary ?? 'Propuesta pendiente de revisión',
+      label: 'Ajuste de semana propuesto',
+      detail: facts.week_adjustment_summary ?? 'pendiente de revisar',
       dedupe_key: dedupeKey('week_adjustment_pending', facts.athlete_id, id),
     };
   },
@@ -70,10 +76,10 @@ export const monthlyBlockPendingEvaluator: SignalEvaluator = {
       value: null,
       baseline: null,
       trend: null,
-      label: 'Bloque mensual',
+      label: 'Programa propuesto',
       detail: facts.monthly_block_month_name
-        ? `${facts.monthly_block_month_name} pendiente`
-        : 'Propuesta de bloque pendiente',
+        ? `${facts.monthly_block_month_name} · pendiente de validar`
+        : 'pendiente de validar',
       dedupe_key: dedupeKey('monthly_block_pending', facts.athlete_id, id),
     };
   },
@@ -95,21 +101,23 @@ export const billingAtRiskEvaluator: SignalEvaluator = {
         value: null,
         baseline: null,
         trend: null,
-        label: 'Pago fallido',
-        detail: 'suscripción vencida',
+        label: 'Pago vencido',
+        detail: 'la suscripción está impagada',
         dedupe_key: dedupeKey('billing_at_risk', facts.athlete_id),
       };
     }
-    // renewal_soon
+    // renewal_soon = canceló y no renueva: informativo (el atleta ya decidió y
+    // nada se rompe hoy; es trabajo de Cobros, no de la bandeja diaria).
+    const d = facts.billing_days_to_period_end ?? 0;
     return {
       kind: 'billing_at_risk',
       fires: true,
-      severity: 'warning',
+      severity: 'info',
       value: facts.billing_days_to_period_end,
       baseline: null,
       trend: null,
-      label: 'Renovación próxima',
-      detail: `vence en ${facts.billing_days_to_period_end}d`,
+      label: 'Cancela la suscripción',
+      detail: d === 0 ? 'termina hoy' : `termina en ${d} d`,
       dedupe_key: dedupeKey('billing_at_risk', facts.athlete_id),
     };
   },

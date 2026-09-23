@@ -185,14 +185,85 @@ export async function getAthleteProgrammingStatus(params: {
   }
 }
 
+/**
+ * El estado de programación de N atletas en UNA consulta (subconsultas
+ * correlacionadas en una sola ida y vuelta). Sustituye al bucle `for … await`
+ * de 1–5 consultas por atleta que costaba ≈310 consultas en serie a 100 atletas
+ * (auditoría del panel, informe B §2.5). Misma clasificación
+ * (`classifyProgrammingStatus`) y mismas tablas que `getAthleteProgrammingStatus`.
+ */
 export async function loadProgrammingStatusMap(params: {
   athlete_ids: Array<number | bigint>;
+  on_date?: Date;
   client: Sql;
 }): Promise<Map<string, AthleteProgrammingStatus>> {
   const map = new Map<string, AthleteProgrammingStatus>();
-  for (const id of params.athlete_ids) {
-    const s = await getAthleteProgrammingStatus({ athlete_id: id, client: params.client });
-    map.set(String(id), s);
+  const ids = [...new Set(params.athlete_ids.map((id) => Number(id)))];
+  if (ids.length === 0) return map;
+
+  const today = startOfDayInBox(params.on_date ?? new Date());
+  const todayIso = isoDateString(today);
+  const weekStart = isoDateString(mondayOfWeek(today));
+  const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));
+
+  try {
+    const rows = await params.client<
+      Array<{
+        athlete_id: string;
+        n_months: number;
+        last_end: string | null;
+        pending_month: boolean;
+        pending_week: boolean;
+        week_sessions: number;
+      }>
+    >`
+      select
+        a.id::text as athlete_id,
+        (select count(*) from athlete_month_assignments m where m.athlete_id = a.id)::int as n_months,
+        (
+          select to_char(max(m.end_date), 'YYYY-MM-DD')
+          from athlete_month_assignments m where m.athlete_id = a.id
+        ) as last_end,
+        exists (
+          select 1 from monthly_block_proposals p
+          where p.athlete_id = a.id and p.status = 'pending'
+        ) as pending_month,
+        exists (
+          select 1 from week_adjustment_proposals p
+          where p.athlete_id = a.id and p.status = 'pending' and p.verdict = 'needs_adjustment'
+        ) as pending_week,
+        (
+          select count(*) from workout_assignments w
+          where w.athlete_id = a.id
+            and w.scheduled_for >= ${weekStart}::date
+            and w.scheduled_for <= ${weekEnd}::date
+        )::int as week_sessions
+      from athletes a
+      where a.id = any(${ids}::bigint[])
+    `;
+    for (const r of rows) {
+      map.set(r.athlete_id, {
+        athlete_id: r.athlete_id,
+        ...classifyProgrammingStatus({
+          has_month_plan: r.n_months > 0,
+          has_pending_month_proposal: r.pending_month,
+          has_pending_week_proposal: r.pending_week,
+          week_session_count: r.week_sessions,
+          last_month_end: r.last_end,
+          today: todayIso,
+        }),
+      });
+    }
+  } catch (err) {
+    if (
+      isPgMissingRelation(err, 'athlete_month_assignments') ||
+      isPgMissingRelation(err, 'monthly_block_proposals') ||
+      isPgMissingRelation(err, 'week_adjustment_proposals')
+    ) {
+      for (const id of ids) map.set(String(id), { athlete_id: String(id), ...viewed('ok') });
+      return map;
+    }
+    throw err;
   }
   return map;
 }
