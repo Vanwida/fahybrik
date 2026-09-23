@@ -14,7 +14,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
 import {
   ProgramMonthError,
@@ -349,7 +349,8 @@ export async function retirePersonalPlan(params: {
     );
   }
 
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Lo ya pasado se conserva: «hoy» es el del coach que retira el plan (su huso).
+  const todayIso = await loadCoachToday(coach_id, { client: tx });
 
   // Normalmente hay 0 (nunca activado) o 1 recibo, pero se procesan todos por
   // si un estado histórico dejó más de uno.

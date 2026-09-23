@@ -12,7 +12,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import { weekStates } from '@/lib/mcp/shape-write';
 import { athleteSeesItFromWeeklyStatus } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 
@@ -118,7 +118,8 @@ export async function loadMicrocicloPublishState(params: {
 }): Promise<MicrocicloPublishState | null> {
   const client = params.client ?? defaultSql;
   const athleteId = Number(params.athlete_id);
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Qué microciclo puede publicar el coach: «hoy» es el suyo (su huso).
+  const todayIso = await loadCoachTodayOfAthlete(athleteId, { client });
 
   // Prefer the soonest current-or-future microciclo that has at least one draft
   // (hidden) week — that's the actionable one for the Publicar button.

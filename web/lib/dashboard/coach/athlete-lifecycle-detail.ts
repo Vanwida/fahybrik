@@ -19,7 +19,8 @@ import {
   type AthleteLifecycleStatus,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
-import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { diffDays, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import {
   PAUSE_BUDGET_WINDOW_DAYS,
   computePauseBudget,
@@ -59,7 +60,8 @@ export async function loadAthleteLifecycleDetail(params: {
   client?: Sql;
 }): Promise<DetalleLifecycle> {
   const client = params.client ?? defaultSql;
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Pausas y bajas van en el calendario del club (el huso de su coach), como al crearlas.
+  const todayIso = await loadCoachTodayOfAthlete(params.athlete_id, { client });
 
   const rows = await client<
     {

@@ -14,6 +14,7 @@ export type { AthleteProgrammingStatus, ProgrammingStatus };
 export async function getAthleteProgrammingStatus(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  tz?: string;
   client?: Sql;
 }): Promise<AthleteProgrammingStatus> {
   return _getAthleteProgrammingStatus({ ...params, client: params.client ?? defaultSql });
@@ -21,10 +22,13 @@ export async function getAthleteProgrammingStatus(params: {
 
 export async function loadProgrammingStatusMap(params: {
   athlete_ids: Array<number | bigint>;
+  /** El huso del coach («esta semana» de su calendario). */
+  tz?: string;
   client?: Sql;
 }): Promise<Map<string, AthleteProgrammingStatus>> {
   return _loadProgrammingStatusMap({
     athlete_ids: params.athlete_ids,
+    tz: params.tz,
     client: params.client ?? defaultSql,
   });
 }

@@ -24,11 +24,11 @@ import {
   type PauseReason,
 } from '@/lib/coach/athlete-lifecycle';
 import { alertCoachAthleteReturned } from '@/lib/athlete/lifecycle-coach-alerts';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export interface LifecycleRunReport {
-  /** The box-local day the sweep ran for. */
-  day: string;
+  /** The day the sweep ran for, per coach (each club's own timezone). */
+  days: Record<string, string>;
   resumed: number;
   bajas_applied: number;
   failures: number;
@@ -41,12 +41,13 @@ export interface LifecycleRunReport {
  * back ON it: the condition is `end_date <= today`. An indefinite pause (end_date null)
  * is never touched here; only a human ends one of those.
  */
-async function resumeDuePauses(todayIso: string): Promise<{ done: number; failed: number }> {
+async function resumeDuePauses(coachId: number, todayIso: string): Promise<{ done: number; failed: number }> {
   const due = await sql<{ athlete_id: string }[]>`
     select distinct a.id::text as athlete_id
     from athletes a
     join athlete_pauses p on p.athlete_id = a.id
-    where a.lifecycle_status = 'pausado'
+    where a.coach_id = ${coachId}
+      and a.lifecycle_status = 'pausado'
       and p.end_date is not null
       and p.end_date <= ${todayIso}::date
   `;
@@ -70,13 +71,14 @@ async function resumeDuePauses(todayIso: string): Promise<{ done: number; failed
 }
 
 /** Apply every baja whose day has come. The reason + author were stamped when it was asked for. */
-async function applyDueBajas(todayIso: string): Promise<{ done: number; failed: number }> {
+async function applyDueBajas(coachId: number, todayIso: string): Promise<{ done: number; failed: number }> {
   const due = await sql<
     { athlete_id: string; reason: string | null; by_user_id: string | null }[]
   >`
     select id::text as athlete_id, baja_reason as reason, baja_by_user_id::text as by_user_id
     from athletes
-    where lifecycle_status <> 'baja'
+    where coach_id = ${coachId}
+      and lifecycle_status <> 'baja'
       and baja_scheduled_for is not null
       and baja_scheduled_for <= ${todayIso}::date
   `;
@@ -104,15 +106,39 @@ async function applyDueBajas(todayIso: string): Promise<{ done: number; failed: 
   return { done, failed };
 }
 
-/** Run both sweeps for the box-local today. */
-export async function runDueLifecycleTransitions(): Promise<LifecycleRunReport> {
-  const day = isoDateString(startOfDayInBox(new Date()));
-  const resumed = await resumeDuePauses(day);
-  const bajas = await applyDueBajas(day);
-  return {
-    day,
-    resumed: resumed.done,
-    bajas_applied: bajas.done,
-    failures: resumed.failed + bajas.failed,
-  };
+/**
+ * Run both sweeps, coach by coach: «due today» is each CLUB's today (its
+ * timezone, `coaches.timezone`), the same calendar the pause and the baja were
+ * set in. Only coaches with something pending are visited.
+ */
+export async function runDueLifecycleTransitions(
+  params: {
+    now?: Date;
+    /** Solo este coach (pruebas, relanzar un club). */
+    coach_id?: number | bigint;
+  } = {},
+): Promise<LifecycleRunReport> {
+  const now = params.now ?? new Date();
+  const onlyCoach = params.coach_id == null ? null : Number(params.coach_id);
+  const coaches = await sql<{ coach_id: string }[]>`
+    select distinct a.coach_id::text as coach_id
+    from athletes a
+    where a.coach_id is not null
+      and (${onlyCoach}::bigint is null or a.coach_id = ${onlyCoach}::bigint)
+      and ((a.lifecycle_status = 'pausado'
+            and exists (select 1 from athlete_pauses p where p.athlete_id = a.id and p.end_date is not null))
+        or (a.lifecycle_status <> 'baja' and a.baja_scheduled_for is not null))
+  `;
+  const report: LifecycleRunReport = { days: {}, resumed: 0, bajas_applied: 0, failures: 0 };
+  for (const { coach_id } of coaches) {
+    const coachId = Number(coach_id);
+    const day = await loadCoachToday(coachId, { now });
+    report.days[coach_id] = day;
+    const resumed = await resumeDuePauses(coachId, day);
+    const bajas = await applyDueBajas(coachId, day);
+    report.resumed += resumed.done;
+    report.bajas_applied += bajas.done;
+    report.failures += resumed.failed + bajas.failed;
+  }
+  return report;
 }

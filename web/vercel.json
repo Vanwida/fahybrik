@@ -52,7 +52,7 @@
     },
     {
       "path": "/api/cron/lifecycle",
-      "schedule": "30 5 * * *"
+      "schedule": "30 * * * *"
     }
   ]
 }

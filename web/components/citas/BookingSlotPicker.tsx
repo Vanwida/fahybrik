@@ -6,9 +6,10 @@
 // The token IS the credential: on mount it fetches the public booking context
 // and then renders exactly one of four honest states — an existing
 // appointment's status, a live slot picker, a booked-confirmation, or the
-// "<coach> te escribirá" fallback (NEVER an empty calendar). All times are
-// Europe/Madrid, formatted for humans with Intl es-ES. Backend contract is
-// fixed; this only reads/writes it.
+// "<coach> te escribirá" fallback (NEVER an empty calendar). All times are in
+// the coach's timezone (the context carries it; the product default only as a
+// fallback), formatted for humans with Intl es-ES. Backend contract is fixed;
+// this only reads/writes it.
 //
 // El coach se nombra con lo que devuelve el contexto (`coach_name`, el coach de ESE
 // lead), nunca con un nombre escrito aquí.
@@ -21,6 +22,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowIcon } from '@/components/onboarding/icons';
 import { coachVoice } from '@/lib/coach/voice';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import './citas.css';
 
 // ── Contract types (mirror /api/citas/context + /api/citas/book) ──────────────
@@ -48,7 +50,7 @@ interface Appointment {
 interface Slot {
   start: string; // ISO instant
   ms: number;
-  time: string; // 'HH:MM' (Europe/Madrid)
+  time: string; // 'HH:MM' (coach's timezone)
 }
 interface DaySlots {
   date: string; // 'YYYY-MM-DD'
@@ -91,7 +93,7 @@ const CONFIRM_NOTE: Record<Modality, string> = {
 
 // ── Time formatting — every human-facing time is in the COACH's timezone ─────
 // (the agenda computes the slots in it since 0241; the context carries it).
-const DEFAULT_TZ = 'Europe/Madrid';
+const DEFAULT_TZ = BOX_TIMEZONE;
 const LOCALE = 'es-ES';
 
 function partsOf(iso: string, opts: Intl.DateTimeFormatOptions, tz: string): Intl.DateTimeFormatPart[] {

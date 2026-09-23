@@ -1,7 +1,8 @@
 // GET /api/cron/lifecycle
 //
-// Vercel Cron entry-point — daily at 05:30 UTC (see vercel.json), before the athlete's
-// morning. Applies the two lifecycle transitions that fall due on a date: pauses whose
+// Vercel Cron entry-point — hourly at :30 (see vercel.json), so each club's due
+// transitions land within the hour after ITS midnight (the day is the coach's, per
+// timezone). Applies the two lifecycle transitions that fall due on a date: pauses whose
 // planned return has elapsed, and bajas the athlete scheduled for the end of their paid
 // period. Both sweeps are idempotent — see lib/cron/lifecycle-runner.ts.
 //

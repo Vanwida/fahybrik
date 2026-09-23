@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
@@ -198,6 +199,7 @@ async function buildHeuristicProposal(params: {
   client: Sql;
 }): Promise<WeekAdjustmentProposalJson> {
   const weekEnd = isoDateString(addDays(parseIsoDate(params.week_start), 6));
+  const athleteToday = await loadAthleteLocalDay({ athlete_id: params.athlete_id, client: params.client });
 
   const assignments = await params.client<
     Array<{ iso_date: string; template_id: string; notes: string | null }>
@@ -208,7 +210,7 @@ async function buildHeuristicProposal(params: {
       wa.notes
     from workout_assignments wa
     where wa.athlete_id = ${params.athlete_id as number}
-      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd)}::date
+      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd, athleteToday)}::date
       and wa.scheduled_for <= ${weekEnd}::date
       and wa.status = 'scheduled'
     order by wa.scheduled_for asc

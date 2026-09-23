@@ -38,7 +38,7 @@ import {
 } from '@/lib/coach/billing-actions';
 import { reanchorPlanAfterResume } from '@/lib/coach/athlete-lifecycle-plan';
 import { dissolvePairOnBaja } from '@/lib/dashboard/coach/doubles-pairs';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday, loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import {
   type AthleteLifecycleStatus,
   type PauseReason,
@@ -127,9 +127,13 @@ export {
 } from './athlete-lifecycle-reads';
 export type { PauseInterval, OpenPauseInterval, AthleteLifecycle } from './athlete-lifecycle-reads';
 
-/** The coach's "today" as an ISO calendar day in the box timezone (Europe/Madrid). */
-function boxTodayIso(): string {
-  return isoDateString(startOfDayInBox(new Date()));
+/**
+ * "Today" for a lifecycle transition: the CLUB's day (the athlete's coach's
+ * timezone). Pauses and bajas are roster dates the coach sets and reads; the
+ * athlete's self-service path and the daily runner use the same calendar.
+ */
+function clubTodayIso(athlete_id: bigint): Promise<string> {
+  return loadCoachTodayOfAthlete(athlete_id);
 }
 
 // ── Core mutations (private, run inside a caller-provided transaction) ────────────
@@ -224,7 +228,7 @@ async function closeCurrentPauseTx(
  * the human override and can park an athlete for as long as the situation needs.
  */
 export async function pauseAthlete(input: PauseAthleteInput): Promise<LifecycleTransitionResult> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   await sql.begin((tx) => applyPauseTx(tx, input, todayIso));
   // #15(billing): pause Stripe collection so a paused athlete is not charged.
   // POST-COMMIT + guarded — a Stripe failure must never break the pause.
@@ -241,7 +245,7 @@ export async function pauseAthlete(input: PauseAthleteInput): Promise<LifecycleT
  * back to activo. The plan re-anchor is NOT done here — it is the plan-freeze agent's.
  */
 export async function resumeAthlete(input: { athlete_id: bigint }): Promise<LifecycleTransitionResult> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   await sql.begin(async (tx) => {
     const rows = await tx<{ lifecycle_status: AthleteLifecycleStatus }[]>`
       select lifecycle_status from athletes where id = ${input.athlete_id} for update
@@ -291,7 +295,7 @@ export async function resumeAthlete(input: { athlete_id: bigint }): Promise<Life
  * The freed plaza passes to the waitlist post-commit.
  */
 export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTransitionResult> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   // El coach cuyo cupo se libera: el del atleta (la cola es por coach, 0220).
   let coachId: bigint | null = null;
   await sql.begin(async (tx) => {
@@ -468,7 +472,7 @@ export async function confirmPauseRequest(input: {
   request_id: bigint;
   coach_id: bigint;
 }): Promise<LifecycleTransitionResult> {
-  const todayIso = boxTodayIso();
+  const todayIso = await loadCoachToday(input.coach_id);
   let pausedAthleteId: bigint | null = null;
   const result = await sql.begin(async (tx) => {
     const reqRows = await tx<

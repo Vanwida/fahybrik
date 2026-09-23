@@ -1,6 +1,6 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import type {
   NextRace,
@@ -28,8 +28,9 @@ import type {
 //                            countdown). May equal getNextRace when the target
 //                            is also the soonest.
 //
-// "today" resolves in Europe/Madrid (box tz), matching every other day/countdown
-// calc in the app — never UTC, or 00:00–02:00 BCN would shift the day.
+// "today" is the ATHLETE's day (athletes.timezone, `loadAthleteLocalDay`) — it is
+// their race — shared by every race reader (past, upcoming, target) so a race
+// never falls between two lists. Never UTC, or the evening would shift the day.
 // `days_until` = race_date - today (0 = today; never negative since we filter to
 // upcoming).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ export async function getNextRace(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<NextRace | null> {
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadAthleteLocalDay({ athlete_id, client });
 
   // Ordering by race_date then id makes the pick deterministic when two races
   // share a date. (The TARGET variant lives in the shared getTargetRaceRow so
@@ -105,7 +106,7 @@ interface UpcomingRaceRow extends RaceRow {
 /**
  * ALL upcoming races (not just the soonest) — the athlete's full list of future
  * objectives for GET /api/athlete/races. Same predicate as getNextRace
- * (race_date >= today-in-box, status in planned/registered) PLUS
+ * (race_date >= the athlete's today, status in planned/registered) PLUS
  * result_time_seconds is null, so a future-dated row that already has a result
  * (an early-logged finish) drops to `past` instead of double-counting here.
  * Ordered race_date ASC, id ASC; carries race_id + the catalog event_id so the
@@ -116,7 +117,7 @@ export async function getUpcomingRaces(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<UpcomingRace[]> {
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadAthleteLocalDay({ athlete_id, client });
 
   const rows = await client<
     Array<

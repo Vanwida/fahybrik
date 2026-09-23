@@ -6,7 +6,7 @@
 //
 // Puro y sin base de datos.
 
-import { BOX_TIMEZONE, parseIsoDate, zonedDayString } from '../dates';
+import { BOX_TIMEZONE, mondayOfWeek, parseIsoDate, zonedDayString } from '../dates';
 
 /** ¿Es una zona IANA que el motor de fechas entiende? */
 export function isValidTimezone(tz: string): boolean {
@@ -31,6 +31,11 @@ export function effectiveCoachTimezone(stored: string | null | undefined): strin
  */
 export function startOfDayInTz(instant: Date, tz: string): Date {
   return parseIsoDate(zonedDayString(instant, tz));
+}
+
+/** El lunes de la semana en que cae `instant` en el huso `tz` (medianoche UTC). */
+export function mondayOfWeekInTz(instant: Date, tz: string): Date {
+  return mondayOfWeek(startOfDayInTz(instant, tz));
 }
 
 /** «Hoy» del coach como `YYYY-MM-DD`. */

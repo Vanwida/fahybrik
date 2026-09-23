@@ -22,7 +22,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import type { AdherenceBand } from '@fahybrid/shared/domain/adherence';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 
@@ -120,7 +120,7 @@ export async function loadActivityToday(params: {
 }): Promise<ActivityToday> {
   const client = params.client ?? defaultSql;
   const limit = Math.min(Math.max(params.limit ?? ACTIVITY_GLANCE_LIMIT, 1), ACTIVITY_DRAWER_LIMIT);
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadCoachToday(params.coach_id, { client });
 
   // Count + page in one round-trip: total over the window (for the header) and
   // the newest `limit` rows (for the render). `logged_at` coalesces the most

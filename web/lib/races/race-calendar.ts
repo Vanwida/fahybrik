@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 import { eventFamily, type EventFamily } from '@fahybrid/shared/domain/objectives/catalog';
 import type { EventType } from '@fahybrid/shared/schema';
 import type { RaceCalendarEvent } from '@fahybrid/shared/schema';
@@ -28,6 +28,9 @@ export interface RaceCalendarFilters {
   from?: string;
   /** Inclusive upper bound on start_date (YYYY-MM-DD). */
   to?: string;
+  /** «Hoy» de quien mira (YYYY-MM-DD): el del atleta en su app, el del coach en el
+   *  panel. Sin él, el del huso por defecto. */
+  today?: string;
   /** When set, include this athlete's private custom events. */
   athlete_id?: number;
   /**
@@ -79,7 +82,7 @@ export async function listRaceCalendar(
   filters: RaceCalendarFilters = {},
   client: Sql = defaultSql,
 ): Promise<RaceCalendarEvent[]> {
-  const today = isoDateString(startOfDayInBox(new Date()));
+  const today = filters.today ?? zonedDayString(new Date(), BOX_TIMEZONE);
   const includeHidden = filters.include_hidden === true;
   const athleteId = filters.athlete_id ?? null;
 

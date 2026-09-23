@@ -16,7 +16,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { listPendingIntake } from '@/lib/coach/intake';
 import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustments';
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
@@ -175,7 +175,7 @@ export async function loadCoachInbox(params: {
   }
   const templateNames = await loadTemplateNames({ ids: [...templateIds], coach_id: params.coach_id, client });
 
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadCoachToday(params.coach_id, { client });
 
   const intakeItems: InboxIntakeItem[] = intakes.map((a) => ({
     id: `intake_pending:${a.athlete_id}`,
@@ -295,7 +295,7 @@ async function listInboxAlerts(params: {
   coach_id: number | bigint;
   client: Sql;
 }): Promise<AlertItem[]> {
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadCoachToday(params.coach_id, { client: params.client });
   const out: AlertItem[] = [];
 
   try {

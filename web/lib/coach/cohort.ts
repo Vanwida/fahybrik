@@ -14,6 +14,8 @@ import {
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import { loadCompliancePct } from './compliance-window';
+import { loadCoachTimezone } from './coach-timezone';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
@@ -60,7 +62,9 @@ async function loadRealCohort(
   coach_id: bigint | number,
   now: Date,
 ): Promise<CohortRow[]> {
-  const todayIso = now.toISOString().slice(0, 10);
+  // El roster es la vista del COACH: su «hoy» en su huso (no el día UTC).
+  const coachTz = await loadCoachTimezone(coach_id, client);
+  const todayIso = zonedDayString(now, coachTz);
 
   const athletes = await client<AthleteRow[]>`
     with hrv_recent as (
@@ -144,8 +148,10 @@ async function loadRealCohort(
         to_char(r.race_date, 'YYYY-MM-DD') as iso,
         r.name as name
       from races r
+      join athletes ax on ax.id = r.athlete_id
       where r.priority = 'target'
-        and r.race_date >= ${todayIso}::date
+        -- «Hoy» del ATLETA (su huso), como getTargetRaceRow.
+        and r.race_date >= (${now.toISOString()}::timestamptz at time zone coalesce(ax.timezone, ${BOX_TIMEZONE}))::date
         and r.status in ('planned', 'registered')
       order by r.athlete_id, r.race_date asc
     ),
@@ -207,7 +213,7 @@ async function loadRealCohort(
   const raceMethod = raceReadinessMethodOf(await loadCoachThresholds(client, coach_id));
   const rows: CohortRow[] = [];
   for (const a of athletes) {
-    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null, raceMethod));
+    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null, raceMethod, coachTz));
   }
   return rows;
 }
@@ -218,6 +224,7 @@ async function rollupAthlete(
   now: Date,
   restingHr: ResolvedRestingHr | null,
   raceMethod: RaceReadinessMethod,
+  coachTz: string,
 ): Promise<CohortRow> {
   const athlete_id_num = Number(a.athlete_id);
 
@@ -300,7 +307,7 @@ async function rollupAthlete(
   };
 
   const [programming, readiness, progress] = await Promise.all([
-    getAthleteProgrammingStatus({ athlete_id: athlete_id_num, on_date: now, client }),
+    getAthleteProgrammingStatus({ athlete_id: athlete_id_num, on_date: now, tz: coachTz, client }),
     getLatestReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
     assessAthleteProgressReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
   ]);

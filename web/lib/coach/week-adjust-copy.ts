@@ -4,8 +4,6 @@
 // (lib/coach/ai-propose-week-adjustment.ts). Vocabulario del panel: adherencia
 // con su ventana, «entreno», nunca «cumplimiento» ni «sesión dura».
 
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
-
 /** «Mantener» dicho con su motivo, en una línea (Hoy la enseña tal cual). */
 export function keepSummary(summary: string): string {
   return summary && summary !== 'Datos limitados esta semana'
@@ -23,9 +21,9 @@ export function heuristicNoChangeReason(sessionsLeft: number, recoveryId: string
 /**
  * Desde qué día se puede suavizar un entreno de la semana `week_start…week_end`:
  * si la semana es la de hoy, desde hoy (lo pasado ya no se cambia); si no, la
- * semana entera.
+ * semana entera. `today` es el día del ATLETA (su huso): lo que ya no se cambia
+ * es lo que él ya tenía que haber hecho.
  */
-export function suggestFrom(week_start: string, week_end: string, now: Date = new Date()): string {
-  const today = isoDateString(startOfDayInBox(now));
+export function suggestFrom(week_start: string, week_end: string, today: string): string {
   return today >= week_start && today <= week_end ? today : week_start;
 }

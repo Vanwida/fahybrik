@@ -1,6 +1,7 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { BOX_TIMEZONE, isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { ADHERENCE_WINDOW_DAYS } from '@fahybrid/shared/domain/adherence';
 import { loadAdherenceBatch } from '@fahybrid/shared/domain/coach/adherence';
 import {
@@ -113,11 +114,16 @@ export async function fetchAthletesForCoach(params: {
   coach_id: number | bigint;
   modality?: AthleteModality | null;
   client?: Sql;
+  now?: Date;
 }): Promise<AthleteRow[]> {
   const client = params.client ?? defaultSql;
-  // Race countdown resolves "today" in the box timezone (Europe/Madrid), matching
-  // getNextRace — never UTC, or the countdown shifts a day late in the evening.
-  const raceTodayIso = isoDateString(startOfDayInBox(new Date()));
+  const now = params.now ?? new Date();
+  // Two «todays», on purpose: the plan week and the open pause are the CLUB's
+  // calendar (the coach's timezone); the race countdown is the ATHLETE's (their
+  // timezone, per row), matching getNextRace / getTargetRaceRow.
+  const coachTz = await loadCoachTimezone(params.coach_id, client);
+  const coachTodayIso = zonedDayString(now, coachTz);
+  const athleteToday = client`(${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date`;
 
   const modalityFilter = params.modality ?? null;
 
@@ -187,13 +193,13 @@ export async function fetchAthletesForCoach(params: {
         m.name as block_type,
         greatest(
           1,
-          (floor((${raceTodayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+          (floor((${coachTodayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
         ) as block_week,
         coalesce(array_length(ama.microcycle_ids, 1), 0)::int as block_total
       from athlete_month_assignments ama
       join program_month_templates m on m.id = ama.month_template_id
       where ama.athlete_id = a.id
-        and ${raceTodayIso}::date between ama.start_date and ama.end_date
+        and ${coachTodayIso}::date between ama.start_date and ama.end_date
       order by ama.start_date desc
       limit 1
     ) ab on true
@@ -213,10 +219,10 @@ export async function fetchAthletesForCoach(params: {
         r.name,
         r.priority,
         to_char(r.race_date, 'YYYY-MM-DD') as race_date_iso,
-        (r.race_date - ${raceTodayIso}::date)::int as days_until
+        (r.race_date - ${athleteToday})::int as days_until
       from races r
       where r.athlete_id = a.id
-        and r.race_date >= ${raceTodayIso}::date
+        and r.race_date >= ${athleteToday}
         and r.status in ('planned', 'registered')
         and r.priority = 'target'
       order by r.race_date asc, r.id asc
@@ -235,7 +241,7 @@ export async function fetchAthletesForCoach(params: {
       -- future "vuelve el" date). Mirrors the closeCurrentPauseTx predicate so a
       -- planned-return pause still threads its motivo into the roster badge.
       select reason from athlete_pauses
-      where athlete_id = a.id and (end_date is null or end_date > ${raceTodayIso}::date)
+      where athlete_id = a.id and (end_date is null or end_date > ${coachTodayIso}::date)
       order by start_date desc
       limit 1
     ) op on true
@@ -281,10 +287,10 @@ export async function fetchAthletesForCoach(params: {
   // Atletas y la ficha — ya no umbrales propios de esta lista.
   const [statusMap, orderAlteredMap, readinessMap, weekChipMap, adherenceMap, signalsMap] =
     await Promise.all([
-      loadProgrammingStatusMap({ athlete_ids: ids, client }),
+      loadProgrammingStatusMap({ athlete_ids: ids, tz: coachTz, client }),
       getOrderAlteredByAthlete(ids, client),
       getLatestReadinessBatch({ athlete_ids: ids, client }),
-      loadAthleteWeekChipMap({ athlete_ids: ids, client }),
+      loadAthleteWeekChipMap({ athlete_ids: ids, today: coachTodayIso, client }),
       loadAdherenceBatch({ client, athlete_ids: ids, window_days: ADHERENCE_WINDOW_DAYS }),
       loadAthleteSignals({ coach_id: params.coach_id, athlete_ids: ids, client }),
     ]);

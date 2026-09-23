@@ -1,6 +1,7 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { listRaceCalendar } from '@/lib/races/race-calendar';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import type { RaceCalendarEvent } from '@fahybrid/shared/schema';
 
 export const runtime = 'nodejs';
@@ -8,7 +9,8 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/coach/races/calendar — the race catalog for the coach's target-race
 // picker. Same lib as the athlete calendar, but includes events not yet visible
-// to athletes (Pablo may target any future event). Filters: series/country/q/from/to.
+// to athletes (a coach may target any future event). «Future» = from the coach's
+// today (their timezone). Filters: series/country/q/from/to.
 export async function GET(request: Request) {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
     from: q.get('from') ?? undefined,
     to: q.get('to') ?? undefined,
     include_hidden: true,
+    today: await loadCoachToday(session.coach_id),
   });
   return jsonOk({ events });
 }

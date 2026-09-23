@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
 import { isoDateString, startOfDayInBox } from '../dates';
+import { loadAthleteLocalDay } from '../db/athlete-timezone';
 import type {
   RaceEventType,
   RaceFormat,
@@ -57,7 +58,9 @@ export async function getTargetRaceRow(
   client: Sql,
   on_date?: Date,
 ): Promise<TargetRaceRow | null> {
-  const todayIso = isoDateString(startOfDayInBox(on_date ?? new Date()));
+  // Sin fecha dada, el hoy del ATLETA (su huso), como el resto de lectores de
+  // carreras (lib/races). Quien pasa `on_date` ya resolvió su día.
+  const todayIso = on_date ? isoDateString(startOfDayInBox(on_date)) : await loadAthleteLocalDay({ athlete_id, client });
 
   const rows = await client<
     Array<{

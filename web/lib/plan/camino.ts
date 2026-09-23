@@ -40,8 +40,9 @@ import {
   longDateEs,
   mondayOfWeek,
   parseIsoDate,
-  startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   planPathTone,
   weeksLabel,
@@ -92,7 +93,8 @@ export async function resolvePlanPath(args: {
   sql?: Sql;
 }): Promise<PlanPathDTO | null> {
   const client = args.sql ?? defaultSql;
-  const today = startOfDayInBox(args.on_date ?? new Date());
+  // El camino es del ATLETA (lo lee él y el coach mirándole): su «hoy» es el de su huso.
+  const today = startOfDayInTz(args.on_date ?? new Date(), await loadAthleteTimezone(client, args.athlete_id));
 
   const asignaciones = await client<AsignacionRow[]>`
     select

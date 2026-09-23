@@ -19,8 +19,9 @@
 //     `baja_scheduled_for` (0137), leave them activo, and the lifecycle cron applies
 //     it on the day. Until then, one button takes it back.
 //
-// Dates are box-local (Europe/Madrid): a pause that starts "today" has to mean the
-// athlete's today, not UTC's.
+// Dates are the CLUB's calendar (the coach's timezone, `coaches.timezone`): a pause
+// that starts "today" has to mean the same day here, in the coach's panel and in the
+// daily runner that brings the athlete back — not UTC's, and not another city's.
 
 import { sql } from '@/lib/db';
 import { recordAudit } from '@/lib/audit/record-edit';
@@ -48,11 +49,12 @@ import {
   type PauseBudget,
 } from '@fahybrid/shared/domain/coach/pause-budget';
 import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
-import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { diffDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 
-/** The athlete's "today" as an ISO calendar day in the box timezone. */
-function boxTodayIso(): string {
-  return isoDateString(startOfDayInBox(new Date()));
+/** "Today" for a pause or a baja: the club's day (the athlete's coach's timezone). */
+function clubTodayIso(athlete_id: bigint): Promise<string> {
+  return loadCoachTodayOfAthlete(athlete_id);
 }
 
 // ── The state the app renders ────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ export async function getSelfServiceState(input: {
   athlete_id: bigint;
   user_id: bigint;
 }): Promise<SelfServiceState> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   const [lifecycle, spans, scheduled, sub] = await Promise.all([
     getAthleteLifecycle(input.athlete_id),
     getAthletePauseIntervals(input.athlete_id),
@@ -157,7 +159,7 @@ export interface PauseSelfInput {
  * return day is not itself a paused day — see shared/domain/coach/pause-budget.ts.
  */
 export async function pauseSelf(input: PauseSelfInput): Promise<{ status: 'pausado'; days: number }> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   const returnDate = parseIsoDate(input.return_date);
   const today = parseIsoDate(todayIso);
   if (returnDate <= today) {
@@ -236,7 +238,7 @@ export interface ScheduleBajaResult {
  * (their invoices are being voided, so there is no paid runway to run out).
  */
 export async function scheduleBajaSelf(input: ScheduleBajaInput): Promise<ScheduleBajaResult> {
-  const todayIso = boxTodayIso();
+  const todayIso = await clubTodayIso(input.athlete_id);
   const lifecycle = await getAthleteLifecycle(input.athlete_id);
   if (!lifecycle) throw new LifecycleError('not_found', 'Atleta no encontrado', 404);
   if (lifecycle.lifecycle_status === 'baja') {

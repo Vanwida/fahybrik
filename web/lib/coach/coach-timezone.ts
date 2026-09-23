@@ -1,17 +1,46 @@
 // El huso del coach desde la base (`coaches.timezone`, mig 0241), ya con su
 // defecto (`effectiveCoachTimezone`). Una consulta por índice primario.
 
-import type { Sql } from '@/lib/db';
+import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { effectiveCoachTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 
-export async function loadCoachTimezone(coach_id: bigint | number, client: Sql = defaultSql): Promise<string> {
+export async function loadCoachTimezone(coach_id: bigint | number, client: Sql | TransactionClient = defaultSql): Promise<string> {
   const rows = await client<Array<{ tz: string | null }>>`
     -- to_jsonb: tolera un entorno sin la columna (mig 0241) → defecto.
     select to_jsonb(c) ->> 'timezone' as tz from coaches c where c.id = ${Number(coach_id)} limit 1
   `;
   return effectiveCoachTimezone(rows[0]?.tz ?? null);
+}
+
+/** El huso del coach de un atleta (lo que el coach decide para él va en el calendario del club). */
+export async function loadCoachTimezoneOfAthlete(
+  athlete_id: bigint | number,
+  client: Sql | TransactionClient = defaultSql,
+): Promise<string> {
+  const rows = await client<Array<{ tz: string | null }>>`
+    select to_jsonb(c) ->> 'timezone' as tz
+    from athletes a join coaches c on c.id = a.coach_id
+    where a.id = ${Number(athlete_id)} limit 1
+  `;
+  return effectiveCoachTimezone(rows[0]?.tz ?? null);
+}
+
+/** «Hoy» del coach (YYYY-MM-DD en su huso). */
+export async function loadCoachToday(
+  coach_id: bigint | number,
+  opts: { now?: Date; client?: Sql | TransactionClient } = {},
+): Promise<string> {
+  return zonedDayString(opts.now ?? new Date(), await loadCoachTimezone(coach_id, opts.client ?? defaultSql));
+}
+
+/** «Hoy» del coach de un atleta (YYYY-MM-DD en el huso del club). */
+export async function loadCoachTodayOfAthlete(
+  athlete_id: bigint | number,
+  opts: { now?: Date; client?: Sql | TransactionClient } = {},
+): Promise<string> {
+  return zonedDayString(opts.now ?? new Date(), await loadCoachTimezoneOfAthlete(athlete_id, opts.client ?? defaultSql));
 }
 
 export interface CoachTimezoneSetting {

@@ -44,7 +44,7 @@ import {
   type OwnRace,
   type TrainedLevel,
 } from '@fahybrid/shared/domain/goal-gap';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   storedToReaderCarrier,
   type DoblesEditorKind,
@@ -320,7 +320,8 @@ export async function buildDoblesRaceGap(
   client: Sql = defaultSql,
 ): Promise<DoblesRaceGapDTO> {
   const { self_athlete_id, self_user_id, race } = args;
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // El hoy del ATLETA que mira (su huso), como el resto de lectores de carreras.
+  const todayIso = await loadAthleteLocalDay({ athlete_id: self_athlete_id, client });
   const segments = buildSegments();
   const goal = race.goal_time_seconds != null && race.goal_time_seconds > 0 ? race.goal_time_seconds : null;
 

@@ -15,7 +15,9 @@
 import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeekInBox } from '@fahybrid/shared/domain/dates';
+import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { loadSequenceById, materializeItem } from '@/lib/dashboard/coach/assign-sequence';
 
 /**
@@ -59,9 +61,9 @@ export async function reanchorPlanAfterResume(
   if (!item) return; // cursor drifted past the items → nothing to re-anchor
   const monthTemplateId = Number(item.month_template_id);
 
-  // 3) Start next Monday (box tz) — the "no elapsed days" discipline the initial
-  //    assign + the sequence walk use (assign-sequence.ts nextMicrocicloStartDate).
-  const startDate = isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+  // 3) Start next Monday in the COACH's calendar — the "no elapsed days" discipline
+  //    the initial assign + the sequence walk use (assign-sequence.ts nextMicrocicloStartDate).
+  const startDate = isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezone(coachId, client)), 7));
 
   // Idempotency-ish guard: a receipt for this position already starting at/after
   // next Monday means we re-anchored already → don't double-materialize.

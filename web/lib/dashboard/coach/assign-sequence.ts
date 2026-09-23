@@ -6,10 +6,10 @@ import {
   addDays,
   isoDateString,
   mondayOfWeek,
-  mondayOfWeekInBox,
   parseIsoDate,
-  startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone, loadCoachTimezoneOfAthlete, loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import type {
   ProgramSequence,
   ProgramSequenceItem,
@@ -340,7 +340,8 @@ export async function assignSequenceToAthlete(
     };
   }
 
-  const start = startDate ?? isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+  // Next Monday in the COACH's calendar (the group's plan runs on the club's weeks).
+  const start = startDate ?? isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezone(coachId, client)), 7));
 
   // Materialize the first microciclo via the EXISTING pipeline + stagger its weeks
   // (materializeItem: materialize → markFutureWeeksDraft → faithful error mapping;
@@ -470,8 +471,8 @@ async function isCurrentMicrocicloFinished(
   const receipt = receipts[0];
   if (!receipt) return false; // never materialized → not "finished", just not started
 
-  // Time-done: the whole dated window is in the past (box tz).
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Time-done: the whole dated window is in the past (the club's day, its coach's timezone).
+  const todayIso = await loadCoachTodayOfAthlete(athleteId, { client });
   if (receipt.end_date < todayIso) return true;
 
   // Work-done: every workout_assignment of this receipt's microcycles is terminal
@@ -515,7 +516,7 @@ async function nextMicrocicloStartDate(
     from athlete_month_assignments
     where athlete_id = ${athleteId}
   `;
-  const nextMonday = isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+  const nextMonday = isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezoneOfAthlete(athleteId, client)), 7));
   const end = receipts[0]?.end_date;
   if (!end) return nextMonday;
   const afterTail = isoDateString(mondayOfWeek(addDays(parseIsoDate(end), 7)));
@@ -707,7 +708,7 @@ async function resolveEndPolicy(params: {
 
   const startDate = currentMonthTemplateId
     ? await nextMicrocicloStartDate(athleteId, currentMonthTemplateId, client)
-    : isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+    : isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezone(coachId, client)), 7));
 
   if (policy === 'repeat') {
     const firstItem = itemAtPosition(sequence, 1) ?? sequence.items[0]!;

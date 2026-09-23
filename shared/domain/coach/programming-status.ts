@@ -1,6 +1,7 @@
 import type { Sql } from 'postgres';
 import { isPgMissingRelation } from '../db/pg-errors';
-import { addDays, isoDateString, mondayOfWeek, startOfDayInBox } from '../dates';
+import { addDays, BOX_TIMEZONE, isoDateString, mondayOfWeek } from '../dates';
+import { startOfDayInTz } from './coach-timezone';
 
 export type ProgrammingStatus =
   | 'ok'
@@ -157,6 +158,8 @@ function maxIso(a: string | null, b: string | null): string | null {
 export async function getAthleteProgrammingStatus(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** El huso del coach: «esta semana» es la de su calendario (como `loadPlanFacts`). */
+  tz?: string;
   client: Sql;
 }): Promise<AthleteProgrammingStatus> {
   // Un atleta = el lote de uno: misma consulta y misma clasificación que el
@@ -164,6 +167,7 @@ export async function getAthleteProgrammingStatus(params: {
   const map = await loadProgrammingStatusMap({
     athlete_ids: [params.athlete_id],
     on_date: params.on_date,
+    tz: params.tz,
     client: params.client,
   });
   const athlete_id = String(params.athlete_id);
@@ -179,14 +183,17 @@ export async function getAthleteProgrammingStatus(params: {
  */
 export async function loadProgrammingStatusMap(params: {
   athlete_ids: Array<number | bigint>;
-  on_date?: Date;
+  on_date?: Date | undefined;
+  /** El huso del coach: «esta semana» es la de su calendario (como `loadPlanFacts`).
+   *  Sin él, el defecto del producto. */
+  tz?: string | undefined;
   client: Sql;
 }): Promise<Map<string, AthleteProgrammingStatus>> {
   const map = new Map<string, AthleteProgrammingStatus>();
   const ids = [...new Set(params.athlete_ids.map((id) => Number(id)))];
   if (ids.length === 0) return map;
 
-  const today = startOfDayInBox(params.on_date ?? new Date());
+  const today = startOfDayInTz(params.on_date ?? new Date(), params.tz ?? BOX_TIMEZONE);
   const todayIso = isoDateString(today);
   const weekStart = isoDateString(mondayOfWeek(today));
   const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));

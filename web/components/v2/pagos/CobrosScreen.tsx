@@ -29,20 +29,22 @@ import {
 } from '@/components/v2/ui';
 import type { CoachBilling } from '@/lib/coach/billing';
 import { formatCents, formatDayShort } from '@/components/v2/metricas/format';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 import { readApiError } from '@/components/v2/ajustes/autosave';
 import { buildCobros, type CobroRow } from './cobros-model';
 import { paymentReminderText, personalizePaymentReminder } from '@/components/v2/hoy/payment-reminder';
 
-const REASON: Record<NonNullable<CobroRow['reason']>, { tone: StatusTone; label: (r: CobroRow) => string }> = {
+// Las fechas de un cobro (instantes de Stripe) se dicen en el huso del club.
+const REASON: Record<NonNullable<CobroRow['reason']>, { tone: StatusTone; label: (r: CobroRow, tz: string) => string }> = {
   vencido: { tone: 'danger', label: () => 'Pago vencido' },
   pendiente: { tone: 'warn', label: () => 'Sin pagar aún' },
   se_va: {
     tone: 'warn',
-    label: (r) => `Se da de baja el ${r.row.current_period_end ? formatDayShort(r.row.current_period_end) : '—'}`,
+    label: (r, tz) => `Se da de baja el ${r.row.current_period_end ? formatDayShort(r.row.current_period_end, tz) : '—'}`,
   },
   renueva: {
     tone: 'info',
-    label: (r) => `Renueva el ${r.row.current_period_end ? formatDayShort(r.row.current_period_end) : '—'}`,
+    label: (r, tz) => `Renueva el ${r.row.current_period_end ? formatDayShort(r.row.current_period_end, tz) : '—'}`,
   },
 };
 
@@ -58,6 +60,7 @@ export function CobrosScreen({
   stripeBase: string | null;
 }) {
   const locale = useLocale();
+  const tz = useCoachTimeZone();
   const view = useMemo(() => buildCobros(data), [data]);
   const [query, setQuery] = useState('');
   const [showAlDia, setShowAlDia] = useState(false);
@@ -93,9 +96,9 @@ export function CobrosScreen({
       detail={
         <>
           {r.reason ? (
-            <StatusBadge tone={REASON[r.reason].tone} label={REASON[r.reason].label(r)} size="sm" />
+            <StatusBadge tone={REASON[r.reason].tone} label={REASON[r.reason].label(r, tz)} size="sm" />
           ) : (
-            <span>{stateLabel(r)}</span>
+            <span>{stateLabel(r, tz)}</span>
           )}
           {r.partnerName ? <span className="truncate">con {r.partnerName}</span> : null}
         </>
@@ -185,10 +188,10 @@ export function CobrosScreen({
   );
 }
 
-function stateLabel(r: CobroRow): string {
+function stateLabel(r: CobroRow, tz: string): string {
   switch (r.state) {
     case 'al_dia':
-      return r.row.current_period_end ? `Al día · renueva el ${formatDayShort(r.row.current_period_end)}` : 'Al día';
+      return r.row.current_period_end ? `Al día · renueva el ${formatDayShort(r.row.current_period_end, tz)}` : 'Al día';
     case 'cortesia':
       return 'Cortesía';
     case 'cancelado':

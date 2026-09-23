@@ -12,7 +12,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { materializeTestForAthlete } from '@/lib/coach/schedule-calibration';
-import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 
 export type StartTestError = 'no_coach' | 'test_not_found' | 'test_not_ready';
 
@@ -72,7 +72,8 @@ export async function startCalibrationTest(params: {
     optional: r.optional,
   }));
 
-  const scheduled_for = isoDateString(startOfDayInBox(params.now ?? new Date()));
+  // The athlete starts it from their app, now: it lands on THEIR today (athletes.timezone).
+  const scheduled_for = await loadAthleteLocalDay({ athlete_id, now: params.now, client });
 
   // The fork + the per-day idempotency + the calibration FK all live in one shared
   // place, so this path and the coach's "Aplicar" can never drift apart.

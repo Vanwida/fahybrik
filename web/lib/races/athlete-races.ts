@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { RaceHistoryItem } from '@fahybrid/shared/schema';
 import {
   toHistoryItem,
@@ -24,8 +24,8 @@ import {
 // never diverge. A row that fails the contract degrades to OMISSION (toHistoryItem
 // → null, filtered out), never a 500 — matching the hub's honest-data behavior.
 //
-// "today" resolves in Europe/Madrid (box tz) via the same helper every countdown
-// uses, so a race never falls between `upcoming` and `past`.
+// "today" is the ATHLETE's day (athletes.timezone, `loadAthleteLocalDay`), the same
+// one every race reader uses, so a race never falls between `upcoming` and `past`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -37,7 +37,7 @@ export async function listAthletePastRaces(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<RaceHistoryItem[]> {
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadAthleteLocalDay({ athlete_id, client });
 
   const rows = await client<RaceHistoryRow[]>`
     select
