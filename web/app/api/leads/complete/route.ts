@@ -79,7 +79,7 @@ export async function POST(req: Request) {
         : Promise.resolve(),
     ]);
     // Position = how many leads are actively waiting (this one just joined, so it's last).
-    const waitlist_position = await countWaitlist();
+    const waitlist_position = await countWaitlist(coachId ?? undefined);
     // Back-compat: always include `waitlisted`. NO token — a waitlisted lead can't book yet.
     return jsonOk(
       { ok: true, lead_id: res.id, status: res.status, waitlisted: true, waitlist_position },

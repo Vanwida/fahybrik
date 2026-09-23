@@ -23,10 +23,10 @@ export default async function V2LeadsPage({ params }: { params: Promise<{ locale
   // Each source is independently guarded (mirrors hoy/page.tsx): a dead capacity or
   // waitlist read degrades ITS widget (chip hidden / card absent), never 500s the page.
   const [data, upcomingCalls, capacity, waitlist] = await Promise.all([
-    listLeadsForCoach(),
-    listUpcomingCalls(),
+    listLeadsForCoach(session.coach_id),
+    listUpcomingCalls(session.coach_id),
     getCapacityState(session.coach_id).catch(() => null),
-    listWaitlist().catch(() => []),
+    listWaitlist(session.coach_id).catch(() => []),
   ]);
 
   return (

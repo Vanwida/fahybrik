@@ -18,7 +18,7 @@ export default async function DisponibilidadPage({ params }: { params: Promise<{
   if (!session) return null;
 
   const [{ windows, exceptions }, maxAthletes] = await Promise.all([
-    getAvailability(),
+    getAvailability(session.coach_id),
     getMaxAthletes(session.coach_id),
   ]);
 

@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const coach_id = await coachIdForLead(sql, BigInt(res.lead.id));
 
     // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
-    const studio = modality === 'presencial' ? await getStudioLocation() : null;
+    const studio = modality === 'presencial' ? await getStudioLocation(res.coach_id) : null;
     const locationStr = studio
       ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
       : null;

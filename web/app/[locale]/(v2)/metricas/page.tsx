@@ -39,10 +39,10 @@ export default async function V2MetricasPage({
   const range = parseMetricsRange((await searchParams).rango);
 
   const [snapshot, outcomes, weekly, by_objetivo] = await Promise.all([
-    loadFunnelSnapshot(range).catch(() => emptyFunnelSnapshot(range)),
-    loadCallOutcomes(range).catch(() => EMPTY_CALL_OUTCOMES),
-    loadWeeklySeries().catch(() => EMPTY_WEEKLY_SERIES),
-    loadByObjetivo(range).catch(() => []),
+    loadFunnelSnapshot(session.coach_id, range).catch(() => emptyFunnelSnapshot(range)),
+    loadCallOutcomes(session.coach_id, range).catch(() => EMPTY_CALL_OUTCOMES),
+    loadWeeklySeries(session.coach_id).catch(() => EMPTY_WEEKLY_SERIES),
+    loadByObjetivo(session.coach_id, range).catch(() => []),
   ]);
 
   const data: FunnelMetrics = { snapshot, outcomes, weekly, by_objetivo };
