@@ -1,111 +1,64 @@
-// v2 · TRIAGE · HOY — the flagship screen. Server component: loads the SAME real
-// sources v1 uses (roster, threads, inbox alerts) via the existing loaders, then
-// maps them into the 4-lane board (lib/dashboard/v2/hoy-lanes). Each source is
-// wrapped so one failure degrades its contribution, never 500s the page. The
-// computed board flows to the client <HoyBoard> for search + interactivity.
+// /hoy — la casa del coach: UNA bandeja que tiende a cero (plan §6 «Hoy»,
+// informe B §4). Grupos de causa compartida primero, luego una fila por atleta
+// (crítico, vigilar), peor primero. Todo se resuelve, se pospone o se marca hecho
+// desde aquí; la cifra de cabecera baja al actuar.
+//
+// Datos: la bandeja es `loadHoy` (vía `loadHoyForRequest`, la misma cuenta que la
+// insignia de la barra lateral, calculada una vez por render) + lo de alrededor
+// (`loadHoyExtras`: quiénes hay en cada grupo, lo resuelto hoy, la línea de
+// actividad). Si la bandeja no carga, error con reintento (error.tsx); si cae lo
+// de alrededor, la bandeja sigue sin ello.
 
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
-import { listPendingIntake } from '@/lib/coach/intake';
-import { listThreadsForCoach } from '@/lib/chat/service';
-import { loadCoachInbox, type CoachInbox } from '@/lib/dashboard/coach/inbox';
-import {
-  loadActivityToday,
-  ACTIVITY_GLANCE_LIMIT,
-  type ActivityToday,
-} from '@/lib/dashboard/coach/activity-today';
-import {
-  buildHoyLanes,
-  fetchNivelSugeridoCards,
-  fetchAsignacionSugeridaCards,
-  fetchSiguienteMicrocicloCards,
-  fetchTransitionReadyAthleteIds,
-} from '@/lib/dashboard/v2/hoy-lanes';
-import { HoyBoard } from '@/components/v2/hoy/HoyBoard';
-import { withAltaLife } from '@/lib/coach/load-alta-life';
-import { ALTA_LIFE_UNVERIFIED } from '@fahybrid/shared/domain/coach/alta-stance';
-import { clubWeekCensus } from '@fahybrid/shared/domain/coach/club-hoy';
-import { getCoachMethodInterview } from '@/lib/coach/method-interview';
-import { INTERVIEW_QUESTION_COUNT } from '@fahybrid/shared/domain/coach/method-interview';
+import { loadSetupChecklist } from '@/lib/coach/setup-checklist';
+import { hasNegocioForRequest, loadHoyForRequest } from '@/components/v2/shell/shell-counts';
+import { HoyInbox } from '@/components/v2/hoy/HoyInbox';
+import { parseVista } from '@/components/v2/hoy/hoy-model';
+import { longDateLabel } from '@/components/v2/hoy/hoy-format';
+import { loadHoyExtras } from './_data/hoy-extras';
 
 export const dynamic = 'force-dynamic';
 
-/** Today's date as a Spanish display string, e.g. "jueves 19 jun". */
-function todayLabel(): string {
-  const fmt = new Intl.DateTimeFormat('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'Europe/Madrid',
-  });
-  return fmt.format(new Date()).replace(/\.$/, '');
-}
-
-export default async function V2HoyPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function HoyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const query = await searchParams;
 
   const session = await getCoachSession();
   if (!session) return null;
+  const coach_id = Number(session.coach_id);
 
-  // Independent safe loads — a dead loader contributes nothing, never throws.
-  const [
-    athletes,
-    threads,
-    inbox,
-    nivel_sugerido_cards,
-    asignacion_sugerida_cards,
-    siguiente_microciclo_cards,
-    pending_intakes,
-    transition_ready_ids,
-    activity,
-    method_interview,
-  ] = await Promise.all([
-    fetchAthletesForCoach({ coach_id: session.coach_id }).catch(() => []),
-    listThreadsForCoach({ coach_id: session.coach_id }).catch(() => []),
-    loadCoachInbox({ coach_id: session.coach_id }).catch((): CoachInbox | null => null),
-    fetchNivelSugeridoCards(session.coach_id).catch(() => []),
-    fetchAsignacionSugeridaCards(session.coach_id).catch(() => []),
-    fetchSiguienteMicrocicloCards(session.coach_id).catch(() => []),
-    listPendingIntake({ coach_id: session.coach_id }).catch(() => []),
-    fetchTransitionReadyAthleteIds(session.coach_id).catch(() => new Set<string>()),
-    // "Actividad de hoy" — what the roster actually logged today (SABER glance).
-    // Newest-first, capped to the rail limit; degrades to empty, never 500s.
-    loadActivityToday({ coach_id: session.coach_id, limit: ACTIVITY_GLANCE_LIMIT }).catch(
-      (): ActivityToday => ({ sessions: [], total: 0, off_target_count: 0 }),
-    ),
-    // Cobertura de «Cómo entrenas». Hoy no puede decir «el sistema sigue tu
-    // método» con la entrevista a medias; si el loader cae, 0 respondidas — el
-    // fallo NUNCA se degrada a afirmar el método.
-    getCoachMethodInterview(session.coach_id)
-      .then((i) => ({ answered: i.answered_count, total: i.question_count }))
-      .catch(() => ({ answered: 0, total: INTERVIEW_QUESTION_COUNT })),
+  const view = await loadHoyForRequest(coach_id);
+  const groupIds = view.systemic.flatMap((g) => g.athlete_ids);
+  const [extras, negocio] = await Promise.all([
+    loadHoyExtras({ coach_id, athlete_ids: groupIds }),
+    hasNegocioForRequest(coach_id),
   ]);
 
-  const data = buildHoyLanes({
-    athletes,
-    threads,
-    inbox,
-    nivel_sugerido_cards,
-    asignacion_sugerida_cards,
-    siguiente_microciclo_cards,
-    transition_ready_ids,
-  });
-
-  const altas = await withAltaLife(pending_intakes).catch(() =>
-    pending_intakes.map((p) => ({ ...p, life: ALTA_LIFE_UNVERIFIED })),
-  );
+  // Primeros pasos: sin atletas, o con la bandeja vacía y la puesta en marcha a
+  // medias (con filas que atender, basta el «Setup n/9» de la barra lateral).
+  const inboxEmpty = view.counts.needs_you === 0;
+  const setup =
+    view.week_visibility.total === 0 || inboxEmpty
+      ? await loadSetupChecklist(coach_id).catch(() => null)
+      : null;
 
   return (
-    <HoyBoard
-      data={data}
-      today={todayLabel()}
-      coachKey={String(session.coach_id)}
-      pending_intakes={altas}
-      activity={activity}
-      week_census={clubWeekCensus(athletes.map((a) => a.week_chip.kind))}
-      method_coverage={method_interview}
+    <HoyInbox
+      view={view}
+      extras={extras}
+      negocio={negocio}
+      setup={setup && !setup.complete ? setup : null}
+      noAthletes={view.week_visibility.total === 0}
+      initialVista={parseVista(query.vista)}
+      dateLabel={longDateLabel(new Date())}
     />
   );
 }
