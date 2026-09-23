@@ -9,11 +9,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { LibraryRow } from '@/lib/dashboard/programming/library';
 import { Button, ErrorState, Menu, PageHeader, SegmentedControl } from '@/components/v2/ui';
-import { LibraryTable, type LibFilter } from './LibraryTable';
+import { LibraryTable } from './LibraryTable';
+import { parseLibFilter, type LibFilter } from './library-filter';
 import { EjerciciosTable } from './EjerciciosTable';
 
 type Ver = 'entrenos' | 'bloques' | 'ejercicios';
-const FILTERS: LibFilter[] = ['listos', 'sin_dosis', 'revisar', 'duplicados', 'archivados'];
 
 export function BibliotecaView({ data }: { data: { entrenos: LibraryRow[]; bloques: LibraryRow[] } | null }) {
   const locale = useLocale();
@@ -21,8 +21,7 @@ export function BibliotecaView({ data }: { data: { entrenos: LibraryRow[]; bloqu
   const path = usePathname() ?? '';
   const params = useSearchParams();
   const ver: Ver = params?.get('ver') === 'entrenos' ? 'entrenos' : params?.get('ver') === 'ejercicios' ? 'ejercicios' : 'bloques';
-  const rawFilter = params?.get('filtro') as LibFilter | null;
-  const filter: LibFilter = rawFilter && FILTERS.includes(rawFilter) ? rawFilter : 'listos';
+  const filter = parseLibFilter(params?.get('filtro'));
   const [createExercise, setCreateExercise] = useState(0);
 
   const go = (next: { ver?: Ver; filtro?: LibFilter }) => {

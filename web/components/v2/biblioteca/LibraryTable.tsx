@@ -29,8 +29,7 @@ import { localToday, relativeDayLabel } from '@/components/v2/shared/format';
 import { matchesQuery, searchIndex } from '@/lib/dashboard/programming/search-key';
 import { TagDialog } from './TagDialog';
 import { LibraryPreview } from './LibraryPreview';
-
-export type LibFilter = 'listos' | 'sin_dosis' | 'revisar' | 'duplicados' | 'archivados';
+import { defaultLibFilter, type LibFilter } from './library-filter';
 
 const STATUS: Record<LibraryStatus, { tone: StatusTone; label: string }> = {
   listo: { tone: 'ok', label: 'Listo' },
@@ -52,7 +51,18 @@ async function bulk(body: unknown): Promise<boolean> {
   return !!res?.ok;
 }
 
-export function LibraryTable({ rows, noun, filter, onFilter }: { rows: LibraryRow[]; noun: 'entreno' | 'bloque'; filter: LibFilter; onFilter: (f: LibFilter) => void }) {
+export function LibraryTable({
+  rows,
+  noun,
+  filter: asked,
+  onFilter,
+}: {
+  rows: LibraryRow[];
+  noun: 'entreno' | 'bloque';
+  /** null = la URL no pide ninguno: se abre en el de por defecto (defaultLibFilter). */
+  filter: LibFilter | null;
+  onFilter: (f: LibFilter) => void;
+}) {
   const locale = useLocale();
   const router = useRouter();
   const { toast } = useToast();
@@ -82,6 +92,7 @@ export function LibraryTable({ rows, noun, filter, onFilter }: { rows: LibraryRo
     duplicados: live.filter((x) => (dupTitles.get(titleKey(x.r.title)) ?? 0) > 1).length,
     archivados: indexed.length - live.length,
   };
+  const filter = asked ?? defaultLibFilter(counts);
   const visible = indexed
     .filter(({ r }) => {
       if (filter === 'archivados') return r.archived;
@@ -181,12 +192,18 @@ export function LibraryTable({ rows, noun, filter, onFilter }: { rows: LibraryRo
             Archivados
           </FilterChip>
         ) : null}
-        {filter === 'revisar' && visible[0] ? (
-          <Button size="sm" className="ml-auto" onClick={() => router.push(hrefOf(visible[0]!))}>
-            Revisar en fila
-          </Button>
-        ) : null}
       </div>
+      {filter === 'revisar' && visible[0] && q === '' ? (
+        <p className="flex items-center gap-2 t-body-sm text-v2-muted">
+          <span className="t-tnum">
+            {counts.revisar} {noun === 'entreno' ? (counts.revisar === 1 ? 'entreno' : 'entrenos') : counts.revisar === 1 ? 'bloque' : 'bloques'} por revisar
+          </span>
+          <span aria-hidden>·</span>
+          <Button size="sm" variant="primary" onClick={() => router.push(hrefOf(visible[0]!))}>
+            Empezar
+          </Button>
+        </p>
+      ) : null}
       <div className="flex min-w-0 gap-4">
         <div className="min-w-0 flex-1">
           <DataTable
