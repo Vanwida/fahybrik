@@ -31,7 +31,9 @@ export function PageHeader({
       {back ? (
         <Link
           href={back.href}
-          className="-ml-1 inline-flex w-fit items-center gap-0.5 rounded-ctl px-1 t-meta text-v2-muted outline-none hover:text-v2-fg focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]"
+          /* En el móvil, 44 px de zona táctil con relleno (no un enlace más grande):
+             los márgenes negativos devuelven el espacio, el texto no se mueve. */
+          className="-my-3.5 -ml-1 inline-flex min-h-11 w-fit min-w-11 items-center gap-0.5 rounded-ctl px-1 t-meta text-v2-muted outline-none hover:text-v2-fg focus-visible:shadow-[0_0_0_2px_var(--v2-accent)] sm:my-0 sm:min-h-0 sm:min-w-0"
         >
           <ChevronLeft aria-hidden className="size-3.5" strokeWidth={2} />
           {back.label}

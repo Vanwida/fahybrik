@@ -8,6 +8,7 @@
 
 import { Check, Lock, Rocket, TriangleAlert } from 'lucide-react';
 import {
+  BOTTOM_BAR_ATTR,
   Button,
   Card,
   CardHeader,
@@ -209,7 +210,7 @@ export function AssignBar({
   onAssign: () => void;
 }) {
   return (
-    <div className="sticky bottom-[calc(var(--v2-tabbar-h,0px)+env(safe-area-inset-bottom)+8px)] z-10 flex flex-col gap-2 rounded-panel border border-v2-border bg-v2-elevated p-3 shadow-pop sm:flex-row sm:items-center sm:gap-4 lg:bottom-4">
+    <div {...{ [BOTTOM_BAR_ATTR]: '' }} className="sticky bottom-[calc(var(--v2-tabbar-h,0px)+env(safe-area-inset-bottom)+8px)] z-10 flex flex-col gap-2 rounded-panel border border-v2-border bg-v2-elevated p-3 shadow-pop sm:flex-row sm:items-center sm:gap-4 lg:bottom-4">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {error ? (
           <p role="alert" className="t-body-sm font-medium text-v2-danger">

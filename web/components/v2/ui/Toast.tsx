@@ -53,6 +53,60 @@ const TONE: Record<ToastTone, { icon: LucideIcon | null; cls: string }> = {
 
 const MAX_VISIBLE = 3;
 
+/**
+ * Marca de una barra de acciones pegada abajo (barra de selección, pie fijo de
+ * un formulario, «Guardar» del editor). Los avisos se levantan por encima de
+ * cualquier barra marcada que esté a la vista: un aviso nunca tapa el botón que
+ * el coach acaba de pulsar ni el siguiente. `<div {...{ [BOTTOM_BAR_ATTR]: '' }}>`.
+ */
+export const BOTTOM_BAR_ATTR = 'data-v2-bottom-bar';
+
+/** Una barra solo levanta los avisos si está pegada a la parte baja de la pantalla. */
+const BOTTOM_ZONE_PX = 200;
+
+/**
+ * Cuánto hay que levantar los avisos (px desde el borde inferior de la ventana)
+ * para quedar por encima de las barras marcadas. Pura: recibe los rectángulos.
+ */
+export function bottomBarLift(rects: ReadonlyArray<{ top: number; bottom: number; height: number }>, viewportH: number): number {
+  let lift = 0;
+  for (const r of rects) {
+    if (r.height === 0) continue;
+    // Fuera de la pantalla o lejos del borde de abajo: no estorba.
+    if (r.top >= viewportH || r.bottom < viewportH - BOTTOM_ZONE_PX) continue;
+    lift = Math.max(lift, Math.ceil(viewportH - r.top));
+  }
+  return lift;
+}
+
+/** Sigue las barras marcadas (aparecen, cambian de tamaño, se despegan al hacer scroll). */
+function useBottomBarLift(active: boolean): number {
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const bars = document.querySelectorAll<HTMLElement>(`[${BOTTOM_BAR_ATTR}]`);
+        setLift(bottomBarLift([...bars].map((b) => b.getBoundingClientRect()), window.innerHeight));
+      });
+    };
+    measure();
+    const mo = new MutationObserver(measure);
+    mo.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      mo.disconnect();
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [active]);
+  return active ? lift : 0;
+}
+
 function isTyping(el: Element | null): boolean {
   if (!el) return false;
   const tag = el.tagName;
@@ -172,14 +226,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [latestUndo]);
 
   const api = useMemo(() => ({ toast, dismiss }), [toast, dismiss]);
+  // Solo se mide mientras hay avisos a la vista.
+  const lift = useBottomBarLift(items.length > 0);
   return (
     <ToastContext.Provider value={api}>
       {children}
       <section
         aria-label="Avisos"
+        style={{ ['--v2-toast-lift' as string]: `${lift}px` }}
         className={cn(
           'pointer-events-none fixed inset-x-3 z-[95] flex flex-col items-stretch gap-2',
-          'bottom-[calc(var(--v2-tabbar-h)+12px)] lg:inset-x-auto lg:right-5 lg:bottom-5 lg:w-[380px]',
+          // Encima de la barra de pestañas y de cualquier barra de acciones marcada.
+          'bottom-[max(calc(var(--v2-tabbar-h)+12px),calc(var(--v2-toast-lift)+12px))]',
+          'lg:inset-x-auto lg:right-5 lg:bottom-[max(20px,calc(var(--v2-toast-lift)+12px))] lg:w-[380px]',
         )}
       >
         {items.map((item) => (

@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Kbd } from './Kbd';
+import { BOTTOM_BAR_ATTR } from './Toast';
 
 /**
  * Barra de acciones en bloque: aparece abajo, centrada, en cuanto hay algo
@@ -41,6 +42,7 @@ export function BulkBar({
     <div
       role="toolbar"
       aria-label="Acciones sobre la selección"
+      {...{ [BOTTOM_BAR_ATTR]: '' }}
       className={cn(
         'fixed left-1/2 z-[80] flex w-max max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-1',
         'rounded-panel border border-v2-border-strong bg-v2-elevated p-1.5 shadow-pop',

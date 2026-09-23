@@ -29,7 +29,7 @@ export { Dialog, Sheet } from './Dialog';
 export { Menu, Popover } from './Menu';
 export type { MenuEntry } from './Menu';
 export { Tooltip, TooltipProvider } from './Tooltip';
-export { ToastProvider, useToast } from './Toast';
+export { ToastProvider, useToast, BOTTOM_BAR_ATTR } from './Toast';
 export type { ToastOptions, ToastTone } from './Toast';
 export { Kbd } from './Kbd';
 export { EmptyState, ErrorState, Skeleton, SkeletonRows } from './States';
