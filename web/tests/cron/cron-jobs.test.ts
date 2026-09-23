@@ -2,10 +2,9 @@
 //
 // - weekly-evaluation: iterates active athletes, proposes only when the
 //   verdict is not 'ok', best-effort per athlete.
-// - publish-weekly-plans: publishes next-Monday drafts + notifies athletes.
 // - expire-invitations: expires pending invitations past expires_at.
 //
-// All three take an injected `client`, so we drive them with a fake tagged-
+// Both take an injected `client`, so we drive them with a fake tagged-
 // template sql that records queries and returns scripted rows. The coach/AI
 // + notification collaborators are mocked at module level.
 
@@ -28,7 +27,6 @@ vi.mock('@/lib/notifications/dispatch', () => ({
 
 import type { Sql } from '@/lib/db';
 import { loadActiveAthletes, runWeeklyEvaluation } from '@/lib/cron/weekly-evaluation';
-import { runPublishWeeklyPlans, nextMondayIso } from '@/lib/cron/publish-weekly-plans';
 import { runExpireInvitations } from '@/lib/cron/expire-invitations';
 
 type Call = { raw: string; values: unknown[] };
@@ -103,47 +101,6 @@ describe('weekly-evaluation cron', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatchObject({ athlete_id: '1' });
     expect(result.errors[0]!.message).toMatch(/context build failed/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// publish-weekly-plans
-// ---------------------------------------------------------------------------
-
-describe('publish-weekly-plans cron', () => {
-  it('targets the upcoming Monday', async () => {
-    // Saturday 2026-05-30 → next Monday is 2026-06-01.
-    expect(await nextMondayIso(new Date('2026-05-30T23:59:00Z'))).toBe('2026-06-01');
-  });
-
-  it('publishes drafts and notifies affected athletes', async () => {
-    const { sql, calls } = makeFakeSql([[{ athlete_id: '1' }, { athlete_id: '2' }]]);
-    notifyAthlete.mockResolvedValue({ id: 'n1' });
-
-    const result = await runPublishWeeklyPlans({
-      client: sql,
-      now: new Date('2026-05-30T23:59:00Z'),
-    });
-
-    expect(calls[0]!.raw).toMatch(/update weekly_plans/i);
-    expect(calls[0]!.raw).toMatch(/status = 'published'/);
-    expect(calls[0]!.raw).toMatch(/status = 'draft'/);
-    expect(result.published).toBe(2);
-    expect(result.notified).toBe(2);
-    expect(notifyAthlete).toHaveBeenCalledTimes(2);
-    expect(notifyAthlete.mock.calls[0]![0]).toMatchObject({ type: 'plan_published' });
-  });
-
-  it('notification failure does not break the publish', async () => {
-    const { sql } = makeFakeSql([[{ athlete_id: '1' }]]);
-    notifyAthlete.mockResolvedValue(Promise.reject(new Error('apns down')));
-
-    const result = await runPublishWeeklyPlans({
-      client: sql,
-      now: new Date('2026-05-30T23:59:00Z'),
-    });
-    expect(result.published).toBe(1);
-    expect(result.notified).toBe(0);
   });
 });
 

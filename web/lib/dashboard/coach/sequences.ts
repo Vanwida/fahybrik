@@ -8,13 +8,18 @@ import type {
 import { cloneMonthTemplateDeep } from '@fahybrid/shared/domain/coach/program-months';
 
 // =============================================================================
-// Program sequences server core (migration 0059).
+// Program sequences server core (migration 0059, 0215).
 //
-// A "Secuencia" = one matrix cell (coach × athlete_level × days_per_week): an
-// ORDERED list of microciclos (program_month_templates) + an end-policy + a
-// per-loop progression rule. This module is the single source of truth for
-// reading the matrix and atomically saving one cell, modelled on the
-// phases.ts atomic-save pattern (whole ordered set diffed in ONE transaction).
+// A sequence is a GROUP's plan (0215): an ORDERED list of programas
+// (program_month_templates) + an end-policy + a per-loop progression rule, with an
+// optional name. `level_id` + `days_per_week` are OPTIONAL since 0215; when both
+// are set the sequence is also a matrix cell (the level × days auto-membership
+// rule), unique per coach through a PARTIAL unique index — so every
+// `on conflict (coach_id, level_id, days_per_week)` below repeats its predicate.
+//
+// The matrix readers (`listCoachSequences`, `getCoachSequenceCell`) only see
+// sequences WITH the rule; the group-aware reader is `getSequenceById`. The group
+// service itself lives in web/lib/coach/groups.ts.
 //
 // Strictly coach-scoped: every read/write filters by coach_id from the session.
 // =============================================================================
@@ -35,8 +40,9 @@ export class SaveSequenceError extends Error {
 type SequenceRow = {
   id: string;
   coach_id: string;
-  level_id: string;
-  days_per_week: number;
+  name: string | null;
+  level_id: string | null;
+  days_per_week: number | null;
   end_policy: string;
   progression_pct: string | number | null;
   progression_applies_to: string | null;
@@ -60,11 +66,22 @@ function mapItemRow(r: ItemRow): ProgramSequenceItem {
   };
 }
 
-function mapSequenceRow(r: SequenceRow, items: ProgramSequenceItem[]): ProgramSequence {
+/**
+ * A sequence as a GROUP sees it: the rule (level × days) may be absent (0215).
+ * `ProgramSequence` (shared schema) is the matrix-cell shape, where both are set.
+ */
+export type GroupSequence = Omit<ProgramSequence, 'level_id' | 'days_per_week'> & {
+  name: string | null;
+  level_id: number | null;
+  days_per_week: number | null;
+};
+
+function mapSequenceRow(r: SequenceRow, items: ProgramSequenceItem[]): GroupSequence {
   return {
     id: Number(r.id),
     coach_id: Number(r.coach_id),
-    level_id: Number(r.level_id),
+    name: r.name,
+    level_id: r.level_id == null ? null : Number(r.level_id),
     days_per_week: r.days_per_week,
     end_policy: r.end_policy as ProgramSequence['end_policy'],
     progression_pct: r.progression_pct == null ? null : Number(r.progression_pct),
@@ -94,12 +111,14 @@ export async function listCoachSequences(
 ): Promise<ProgramSequence[]> {
   if (!(await tablesExist(client))) return [];
 
+  // Matrix cells only: a group without the level × days rule is not a cell.
   const seqRows = await client<SequenceRow[]>`
-    select id::text, coach_id::text, level_id::text, days_per_week,
+    select id::text, coach_id::text, name, level_id::text, days_per_week,
            end_policy, progression_pct, progression_applies_to,
            created_at, updated_at
     from program_sequences
     where coach_id = ${String(coachId)}
+      and level_id is not null and days_per_week is not null
     order by level_id asc, days_per_week asc
   `;
   if (seqRows.length === 0) return [];
@@ -120,7 +139,7 @@ export async function listCoachSequences(
     itemsBySeq.set(row.sequence_id, list);
   }
 
-  return seqRows.map((r) => mapSequenceRow(r, itemsBySeq.get(r.id) ?? []));
+  return seqRows.map((r) => mapSequenceRow(r, itemsBySeq.get(r.id) ?? []) as ProgramSequence);
 }
 
 // =============================================================================
@@ -136,7 +155,7 @@ export async function getCoachSequenceCell(
   if (!(await tablesExist(client))) return null;
 
   const seqRows = await client<SequenceRow[]>`
-    select id::text, coach_id::text, level_id::text, days_per_week,
+    select id::text, coach_id::text, name, level_id::text, days_per_week,
            end_policy, progression_pct, progression_applies_to,
            created_at, updated_at
     from program_sequences
@@ -147,15 +166,40 @@ export async function getCoachSequenceCell(
   `;
   const seq = seqRows[0];
   if (!seq) return null;
+  return mapSequenceRow(seq, await loadItems(client, seq.id)) as ProgramSequence;
+}
 
+async function loadItems(client: Sql, sequenceId: string): Promise<ProgramSequenceItem[]> {
   const itemRows = await client<ItemRow[]>`
     select id::text, sequence_id::text, position,
            month_template_id::text
     from program_sequence_items
-    where sequence_id = ${seq.id}
+    where sequence_id = ${sequenceId}
     order by position asc
   `;
-  return mapSequenceRow(seq, itemRows.map(mapItemRow));
+  return itemRows.map(mapItemRow);
+}
+
+// =============================================================================
+// getSequenceById — one sequence (a group's plan) by id, rule or not (0215).
+// Coach-scoped: another coach's id reads as absent.
+// =============================================================================
+export async function getSequenceById(
+  coachId: number | bigint,
+  sequenceId: number | bigint,
+  client: Sql = defaultSql,
+): Promise<GroupSequence | null> {
+  const seqRows = await client<SequenceRow[]>`
+    select id::text, coach_id::text, name, level_id::text, days_per_week,
+           end_policy, progression_pct, progression_applies_to,
+           created_at, updated_at
+    from program_sequences
+    where id = ${String(sequenceId)} and coach_id = ${String(coachId)}
+    limit 1
+  `;
+  const seq = seqRows[0];
+  if (!seq) return null;
+  return mapSequenceRow(seq, await loadItems(client, seq.id));
 }
 
 // =============================================================================
@@ -234,7 +278,9 @@ export async function saveCoachSequence(
         ${coach}, ${levelId}, ${payload.days_per_week}, ${payload.end_policy},
         ${progressionPct}, ${progressionAppliesTo}
       )
-      on conflict (coach_id, level_id, days_per_week) do update set
+      on conflict (coach_id, level_id, days_per_week)
+        where level_id is not null and days_per_week is not null
+      do update set
         end_policy = excluded.end_policy,
         progression_pct = excluded.progression_pct,
         progression_applies_to = excluded.progression_applies_to,
@@ -355,7 +401,9 @@ export async function duplicateSequenceCell(
         ${coach}, ${targetLevelId}, ${target.days_per_week}, ${src.end_policy},
         ${src.progression_pct}, ${src.progression_applies_to}
       )
-      on conflict (coach_id, level_id, days_per_week) do update set
+      on conflict (coach_id, level_id, days_per_week)
+        where level_id is not null and days_per_week is not null
+      do update set
         end_policy = excluded.end_policy,
         progression_pct = excluded.progression_pct,
         progression_applies_to = excluded.progression_applies_to,

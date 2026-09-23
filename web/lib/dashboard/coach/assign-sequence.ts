@@ -15,12 +15,8 @@ import type {
   ProgramSequenceItem,
   SequenceEndPolicy,
 } from '@fahybrid/shared/schema/program-sequences';
-import {
-  SEQUENCE_DAYS_MIN,
-  SEQUENCE_DAYS_MAX,
-} from '@fahybrid/shared/schema/program-sequences';
 import type { ProgressionSpec } from '@fahybrid/shared/domain/prescription';
-import { getCoachSequenceCell } from './sequences';
+import { getCoachSequenceCell, getSequenceById, type GroupSequence } from './sequences';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import {
   instantiateMonthFromTemplate,
@@ -47,6 +43,12 @@ import {
 //
 // AGNOSTIC: resolution is by athlete_levels.level_id + training_days_per_week →
 // program_sequences cell. The ORDER of the sequence items IS the periodization.
+//
+// GROUPS (0215): a sequence is a group's plan and may have NO level × days rule.
+// The resolver below only sees groups WITH the rule (the auto-membership path);
+// adding members to any group goes through web/lib/coach/groups.ts, which aligns
+// the new member with the group's calendar and records an undoable batch. Both
+// write the cursor through `enrollInSequence`, the one writer of an enrollment.
 // =============================================================================
 
 export class AssignSequenceError extends Error {
@@ -84,13 +86,12 @@ export type ResolvedAthlete = {
 export type ResolveFailureReason =
   | 'not_classified' // level_id is null
   | 'no_training_days' // training_days_per_week is null
-  | 'days_out_of_band' // training_days_per_week outside the 3-6 sequence band
-  | 'no_sequence_for_cell' // coach has no sequence for (level, days)
-  | 'empty_sequence'; // sequence exists but has zero microciclos
+  | 'days_out_of_band' // kept for callers' exhaustiveness; no longer returned (0215: 1–7)
+  | 'no_sequence_for_cell' // coach has no group with the rule (level, days)
+  | 'empty_sequence'; // the group exists but has zero programas
 
-// Sequences are only defined for a realistic 3-6 sessions/week band — the band
-// constants are single-sourced in shared/schema/program-sequences.ts (imported
-// above) so the resolver, the training-days endpoint and the selector agree.
+// The 3–6 days band is gone (0215): how many days a group trains is the coach's
+// method (HARD RULE Nº0). A cell resolves if a group has that exact rule.
 
 type AthleteRow = {
   athlete_id: string;
@@ -146,7 +147,7 @@ export async function resolveSequenceForAthlete(
     return {
       ok: false,
       reason: 'not_classified',
-      message: 'El atleta aún no está clasificado en un nivel.',
+      message: 'El atleta aún no tiene nivel: ponle uno o añádelo a un grupo a mano.',
       athlete,
     };
   }
@@ -154,18 +155,7 @@ export async function resolveSequenceForAthlete(
     return {
       ok: false,
       reason: 'no_training_days',
-      message: 'El atleta no tiene definidos los días de entrenamiento por semana.',
-      athlete,
-    };
-  }
-  if (
-    athlete.training_days_per_week < SEQUENCE_DAYS_MIN ||
-    athlete.training_days_per_week > SEQUENCE_DAYS_MAX
-  ) {
-    return {
-      ok: false,
-      reason: 'days_out_of_band',
-      message: `Las secuencias cubren ${SEQUENCE_DAYS_MIN}-${SEQUENCE_DAYS_MAX} días/semana; el atleta tiene ${athlete.training_days_per_week}.`,
+      message: 'El atleta no tiene días de entrenamiento por semana: pónselos o añádelo a un grupo a mano.',
       athlete,
     };
   }
@@ -176,21 +166,20 @@ export async function resolveSequenceForAthlete(
     athlete.training_days_per_week,
     client,
   );
+  const cell = `${athlete.level_name ?? `nivel ${athlete.level_id}`} · ${athlete.training_days_per_week} días`;
   if (!sequence) {
-    const cell = `${athlete.level_name ?? `nivel ${athlete.level_id}`}·${athlete.training_days_per_week}d`;
     return {
       ok: false,
       reason: 'no_sequence_for_cell',
-      message: `No hay secuencia para ${cell}.`,
+      message: `Ningún grupo tiene la regla ${cell}. Añádelo a un grupo a mano o crea uno con esa regla.`,
       athlete,
     };
   }
   if (sequence.items.length === 0) {
-    const cell = `${athlete.level_name ?? `nivel ${athlete.level_id}`}·${athlete.training_days_per_week}d`;
     return {
       ok: false,
       reason: 'empty_sequence',
-      message: `La secuencia de ${cell} no tiene microciclos definidos.`,
+      message: `El grupo de ${cell} todavía no tiene programas. Añádele al menos uno.`,
       athlete,
     };
   }
@@ -215,6 +204,84 @@ export async function resolveSequenceForAthlete(
 // This is the discipline that prevents the duplicate-workout / fake-assignment
 // failure mode.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// enrollInSequence — THE writer of a group enrollment (athlete_sequence_progress).
+//
+// An athlete walks at most ONE group (partial unique on status='active'). Entering
+// a different group marks the previous active row 'left' (0215) instead of
+// overwriting it, so the history says where they were. Re-entering the SAME group
+// restarts its row at `position`. `leave_detached` also closes a 'detached' cursor
+// (a personalized plan's way back): joining a group ends that way back.
+// Enrolling in a group means following the shared plan: `plan_mode = 'shared'`
+// (the column Hoy reads to stop proposing a group to someone on a personal plan).
+// Returns what it changed so an undoable batch can restore it exactly.
+// ---------------------------------------------------------------------------
+export interface EnrollResult {
+  progress_id: number;
+  /** Rows whose status this call changed (id + status before). */
+  changed: Array<{ progress_id: number; prior_status: string }>;
+  created: boolean;
+  prior_plan_mode: string | null;
+}
+
+export async function enrollInSequence(
+  client: Sql,
+  params: {
+    athlete_id: number;
+    coach_id: number | bigint;
+    sequence_id: number;
+    position: number;
+    leave_detached: boolean;
+  },
+): Promise<EnrollResult> {
+  const coach = String(params.coach_id);
+  const mode = await client<{ plan_mode: string | null }[]>`
+    select plan_mode from athletes where id = ${params.athlete_id} limit 1
+  `;
+  const statuses = params.leave_detached ? ['active', 'detached'] : ['active'];
+  const current = await client<{ id: string; sequence_id: string; status: string }[]>`
+    select id::text, sequence_id::text, status
+    from athlete_sequence_progress
+    where athlete_id = ${params.athlete_id} and status = any(${statuses}::text[])
+    for update
+  `;
+  const same = current.find((r) => r.status === 'active' && Number(r.sequence_id) === params.sequence_id);
+  const changed: EnrollResult['changed'] = [];
+  for (const row of current) {
+    if (row === same) continue;
+    await client`
+      update athlete_sequence_progress set status = 'left', updated_at = now() where id = ${row.id}
+    `;
+    changed.push({ progress_id: Number(row.id), prior_status: row.status });
+  }
+
+  let progressId: number;
+  let created = false;
+  if (same) {
+    await client`
+      update athlete_sequence_progress
+      set current_position = ${params.position}, loops_completed = 0, updated_at = now()
+      where id = ${same.id}
+    `;
+    progressId = Number(same.id);
+  } else {
+    const ins = await client<{ id: string }[]>`
+      insert into athlete_sequence_progress
+        (athlete_id, coach_id, sequence_id, current_position, status)
+      values (${params.athlete_id}, ${coach}, ${params.sequence_id}, ${params.position}, 'active')
+      returning id::text
+    `;
+    progressId = Number(ins[0]!.id);
+    created = true;
+  }
+
+  await client`
+    update athletes set plan_mode = 'shared', updated_at = now()
+    where id = ${params.athlete_id} and plan_mode is distinct from 'shared'
+  `;
+  return { progress_id: progressId, changed, created, prior_plan_mode: mode[0]?.plan_mode ?? null };
+}
+
 export type AssignSequenceResult = {
   sequence_id: number;
   position: number;
@@ -298,32 +365,16 @@ export async function assignSequenceToAthlete(
     client,
   });
 
-  // Upsert the enrollment cursor. If a different active sequence existed, move the
-  // athlete onto this one at position 1 (the partial-unique on status='active'
-  // guarantees a single active row; we update it in place via the partial-index
-  // conflict target).
-  const upserted = await client<{ id: string }[]>`
-    insert into athlete_sequence_progress
-      (athlete_id, coach_id, sequence_id, current_position, status)
-    values (${athleteId}, ${String(coachId)}, ${Number(sequence.id)}, 1, 'active')
-    on conflict (athlete_id) where status = 'active'
-    do update set
-      coach_id = excluded.coach_id,
-      sequence_id = excluded.sequence_id,
-      current_position = 1,
-      loops_completed = 0,
-      updated_at = now()
-    returning id::text
-  `;
-  const progressId = Number(upserted[0]!.id);
-
-  // Enrollar en la matriz ES dejar el plan personal. La columna es la que
-  // Hoy usa para no volver a proponerle secuencia a quien eligió personal.
-  await client`
-    update athletes
-    set plan_mode = 'shared', updated_at = now()
-    where id = ${athleteId}
-  `;
+  // Write the enrollment cursor (position 1). A previous active group is LEFT
+  // (0215) — or, if it is this same group, the walk restarts at position 1.
+  const enrolled = await enrollInSequence(client, {
+    athlete_id: athleteId,
+    coach_id: coachId,
+    sequence_id: Number(sequence.id),
+    position: 1,
+    leave_detached: false,
+  });
+  const progressId = enrolled.progress_id;
 
   return {
     sequence_id: Number(sequence.id),
@@ -446,31 +497,29 @@ async function isCurrentMicrocicloFinished(
 }
 
 /**
- * Start date for the NEXT microciclo. Prefer the Monday AFTER the current
- * microciclo's window (seamless continuation). If that Monday is already in the
- * past — the athlete finished EARLY (work-done before the calendar) — fall back to
- * next Monday so we never dump already-elapsed days (same discipline as the
- * initial assign). Always Monday-aligned (the materializer re-aligns downstream).
+ * Start date for the NEXT programa of the group: the Monday after the athlete's
+ * PLAN TAIL (the last day of any of their receipts), never before next Monday.
+ * The tail — not just the current programa's window — because the coach may have
+ * chained something else after it (assign-many «Encadenar detrás»); starting after
+ * the current window would collide with it (0166). Early finishers (work-done
+ * before the calendar) fall back to next Monday so no elapsed day is dumped.
+ * `_currentMonthTemplateId` is kept for the call sites' readability.
  */
 async function nextMicrocicloStartDate(
   athleteId: number,
-  currentMonthTemplateId: number,
+  _currentMonthTemplateId: number,
   client: Sql,
 ): Promise<string> {
-  const receipts = await client<{ end_date: string }[]>`
-    select to_char(end_date, 'YYYY-MM-DD') as end_date
+  const receipts = await client<{ end_date: string | null }[]>`
+    select to_char(max(end_date), 'YYYY-MM-DD') as end_date
     from athlete_month_assignments
     where athlete_id = ${athleteId}
-      and month_template_id = ${currentMonthTemplateId}
-    order by start_date desc
-    limit 1
   `;
   const nextMonday = isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
   const end = receipts[0]?.end_date;
   if (!end) return nextMonday;
-  // Monday after the current window's end.
-  const afterWindow = isoDateString(mondayOfWeek(addDays(parseIsoDate(end), 7)));
-  return afterWindow > nextMonday ? afterWindow : nextMonday;
+  const afterTail = isoDateString(mondayOfWeek(addDays(parseIsoDate(end), 7)));
+  return afterTail > nextMonday ? afterTail : nextMonday;
 }
 
 /**
@@ -480,7 +529,7 @@ async function nextMicrocicloStartDate(
  * the actual dose scaling lives in the agnostic domain helper (applyProgression).
  */
 function buildProgressionSpec(
-  sequence: ProgramSequence,
+  sequence: GroupSequence,
   loops: number,
 ): ProgressionSpec | undefined {
   if (loops <= 0) return undefined;
@@ -494,7 +543,7 @@ function buildProgressionSpec(
  *  Exported: revert-personal-plan.ts reuses this to resolve the sequence item a
  *  detached athlete_sequence_progress cursor points at. */
 export function itemAtPosition(
-  sequence: ProgramSequence,
+  sequence: Pick<GroupSequence, 'items'>,
   position: number,
 ): ProgramSequenceItem | null {
   return sequence.items.find((it) => it.position === position) ?? null;
@@ -522,7 +571,7 @@ export async function advanceSequenceForAthlete(
       position: null,
       materialized_month_template_id: null,
       materialization: null,
-      message: 'El atleta no está inscrito en ninguna secuencia activa.',
+      message: 'El atleta no está en ningún grupo.',
     };
   }
 
@@ -548,7 +597,7 @@ export async function advanceSequenceForAthlete(
       position: null,
       materialized_month_template_id: null,
       materialization: null,
-      message: 'La secuencia ya no existe o no tiene microciclos; inscripción cerrada.',
+      message: 'El grupo ya no existe o no tiene programas; el atleta sale de él.',
     };
   }
 
@@ -580,7 +629,7 @@ export async function advanceSequenceForAthlete(
       position: currentPosition,
       materialized_month_template_id: null,
       materialization: null,
-      message: 'El microciclo actual aún no ha terminado.',
+      message: 'El programa actual aún no ha terminado.',
     };
   }
 
@@ -614,7 +663,7 @@ export async function advanceSequenceForAthlete(
         position: currentPosition + 1,
         materialized_month_template_id: Number(nextItem.month_template_id),
         materialization,
-        message: `Avanzado al microciclo ${currentPosition + 1}.`,
+        message: `Pasa al programa ${currentPosition + 1} del grupo.`,
       };
     }
   }
@@ -637,7 +686,7 @@ export async function advanceSequenceForAthlete(
 async function resolveEndPolicy(params: {
   athleteId: number;
   coachId: number | bigint;
-  sequence: ProgramSequence;
+  sequence: GroupSequence;
   progressId: number;
   /** Loops completed BEFORE this resolution (the repeat branch increments it). */
   loopsCompleted: number;
@@ -687,7 +736,7 @@ async function resolveEndPolicy(params: {
       position: 1,
       materialized_month_template_id: Number(firstItem.month_template_id),
       materialization,
-      message: 'Secuencia terminada; reiniciando el ciclo desde el primer microciclo.',
+      message: 'Plan del grupo terminado; vuelve a empezar por el primer programa.',
     };
   }
 
@@ -711,18 +760,20 @@ async function resolveEndPolicy(params: {
         startDate,
         client,
       });
-      await client`
-        insert into athlete_sequence_progress
-          (athlete_id, coach_id, sequence_id, current_position, status)
-        values (${athleteId}, ${String(coachId)}, ${promotion.nextSequence.id}, 1, 'active')
-      `;
+      await enrollInSequence(client, {
+        athlete_id: athleteId,
+        coach_id: coachId,
+        sequence_id: Number(promotion.nextSequence.id),
+        position: 1,
+        leave_detached: false,
+      });
       return {
         outcome: 'leveled_up',
         sequence_id: Number(promotion.nextSequence.id),
         position: 1,
         materialized_month_template_id: Number(firstItem.month_template_id),
         materialization,
-        message: `Subido a ${promotion.nextLevelName}; empezando su primer microciclo.`,
+        message: `Sube a ${promotion.nextLevelName}; empieza el primer programa de ese grupo.`,
       };
     }
     // Fall back to `stop` with a clear reason (no next level / no sequence there).
@@ -734,7 +785,7 @@ async function resolveEndPolicy(params: {
       materialized_month_template_id: null,
       materialization: null,
       message:
-        'Secuencia terminada. No hay un nivel superior con secuencia definida; plan en pausa.',
+        'Plan del grupo terminado. No hay un nivel superior con grupo y programas; el atleta se queda sin plan.',
     };
   }
 
@@ -746,7 +797,7 @@ async function resolveEndPolicy(params: {
     position: null,
     materialized_month_template_id: null,
     materialization: null,
-    message: 'Secuencia terminada (política: detener).',
+    message: 'Plan del grupo terminado (al acabar: parar).',
   };
 }
 
@@ -758,9 +809,13 @@ async function resolveEndPolicy(params: {
 async function resolveLevelUp(
   athleteId: number,
   coachId: number | bigint,
-  currentSequence: ProgramSequence,
+  currentSequence: GroupSequence,
   client: Sql,
 ): Promise<{ nextLevelId: number; nextLevelName: string; nextSequence: ProgramSequence } | null> {
+  // Without the level × days rule there is no "next level" (0215; the DB also
+  // refuses end_policy='level_up' on a group without the rule).
+  if (currentSequence.level_id == null || currentSequence.days_per_week == null) return null;
+  const days = currentSequence.days_per_week;
   // The current level's sort_order (anchored on the enrolled sequence's level).
   const cur = await client<{ sort_order: number }[]>`
     select sort_order from athlete_levels
@@ -779,12 +834,7 @@ async function resolveLevelUp(
   `;
 
   for (const cand of candidates) {
-    const nextSequence = await getCoachSequenceCell(
-      coachId,
-      Number(cand.id),
-      currentSequence.days_per_week,
-      client,
-    );
+    const nextSequence = await getCoachSequenceCell(coachId, Number(cand.id), days, client);
     if (nextSequence && nextSequence.items.length > 0) {
       return {
         nextLevelId: Number(cand.id),
@@ -800,8 +850,8 @@ async function resolveLevelUp(
 // Small shared helpers (DRY across the advancement paths).
 // ---------------------------------------------------------------------------
 
-/** Load a sequence cell by its id (coach-scoped), reusing the existing cell
- *  loader. Exported: revert-personal-plan.ts loads the exact sequence a
+/** Load a group's sequence by its id (coach-scoped), with or without the level ×
+ *  days rule (0215). Exported: revert-personal-plan.ts loads the exact sequence a
  *  detached cursor's `sequence_id` points at (never re-resolved from the
  *  athlete's CURRENT level/days, which may have drifted since — same discipline
  *  advanceSequenceForAthlete already follows for this same reason). */
@@ -809,16 +859,8 @@ export async function loadSequenceById(
   sequenceId: number,
   coachId: number | bigint,
   client: Sql,
-): Promise<ProgramSequence | null> {
-  const rows = await client<{ level_id: string; days_per_week: number }[]>`
-    select level_id::text, days_per_week
-    from program_sequences
-    where id = ${sequenceId} and coach_id = ${String(coachId)}
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return null;
-  return getCoachSequenceCell(coachId, Number(row.level_id), row.days_per_week, client);
+): Promise<GroupSequence | null> {
+  return getSequenceById(coachId, sequenceId, client);
 }
 
 /**
