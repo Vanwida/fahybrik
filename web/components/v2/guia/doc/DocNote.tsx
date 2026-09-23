@@ -1,7 +1,7 @@
-// DocNote — a callout box. Three intents:
-//   · cue (orange) — a tip / how-to detail.
-//   · log (green)  — an honest note / "good to know".
-//   · bad (red)    — a guardrail / what NOT to do (the honest-save gate, etc.).
+// DocNote — una nota dentro del artículo. Tres intenciones:
+//   · cue — un truco o un detalle de cómo se hace.
+//   · log — «bueno saberlo», una nota honesta.
+//   · bad — un límite o lo que NO hacer (en ámbar: aviso, no error).
 // Children carry the body (a <ul> or <p>). Server-safe.
 
 import type { ReactNode } from 'react';

@@ -147,62 +147,36 @@
   color: var(--v2-bg);
 }
 
-/* qué/cómo/por qué triad */
+/* qué es / cómo / para qué: una tarjeta, tres filas */
 .guia-doc .triad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
   margin: 18px 0;
-}
-.guia-doc .qc {
-  background: var(--v2-surface);
   border: 1px solid var(--v2-border);
   border-radius: var(--v2-r-card);
-  padding: 15px 17px;
-  box-shadow: var(--v2-shadow-card);
+  background: var(--v2-surface);
 }
-.guia-doc .qc .h {
-  font-size: 10.5px;
+.guia-doc .qc {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--v2-border);
+}
+.guia-doc .qc:first-child {
+  border-top: 0;
+}
+.guia-doc .qc dt {
+  font-size: 11px;
+  line-height: 20px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 7px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  letter-spacing: 0.06em;
+  color: var(--v2-faint);
 }
-.guia-doc .qc .h .ic {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--v2-r-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-.guia-doc .qc.q .h {
-  color: var(--v2-info);
-}
-.guia-doc .qc.q .h .ic {
-  background: var(--v2-info-soft);
-}
-.guia-doc .qc.c .h {
-  color: var(--v2-fg);
-}
-.guia-doc .qc.c .h .ic {
-  background: var(--v2-surface-2);
-}
-.guia-doc .qc.w .h {
-  color: var(--v2-ok);
-}
-.guia-doc .qc.w .h .ic {
-  background: var(--v2-ok-soft);
-}
-.guia-doc .qc p {
-  font-size: 13px;
-  color: var(--v2-muted);
+.guia-doc .qc dd {
   margin: 0;
+  font-size: 14px;
   line-height: 1.55;
+  color: var(--v2-muted);
 }
 
 /* notes / callouts */
@@ -242,8 +216,8 @@
   color: var(--v2-ok);
 }
 .guia-doc .note.bad .h .ic {
-  background: var(--v2-danger-soft);
-  color: var(--v2-danger);
+  background: var(--v2-warn-soft);
+  color: var(--v2-warn);
 }
 .guia-doc .note ul {
   list-style: none;
@@ -265,8 +239,8 @@
   font-weight: 600;
 }
 .guia-doc .note.bad li::before {
-  content: '✕';
-  color: var(--v2-danger);
+  content: '!';
+  color: var(--v2-warn);
   font-weight: 600;
 }
 .guia-doc .note .k {
@@ -279,40 +253,6 @@
   color: var(--v2-muted);
 }
 
-/* flow strip */
-.guia-doc .flow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  background: var(--v2-surface);
-  border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-card);
-  padding: 15px 16px;
-  margin: 18px 0;
-  font-size: 12.5px;
-  box-shadow: var(--v2-shadow-card);
-}
-.guia-doc .flow .step {
-  font-weight: 600;
-  color: var(--v2-fg);
-  background: var(--v2-surface-2);
-  border: 1px solid var(--v2-border);
-  padding: 7px 12px;
-  border-radius: var(--v2-r-s);
-}
-.guia-doc .flow .step.app {
-  background: var(--v2-surface-2);
-  border-color: var(--v2-border-strong);
-  color: var(--v2-fg);
-}
-.guia-doc .flow .arr {
-  color: var(--v2-fg);
-  font-weight: 600;
-  font-size: 15px;
-}
-
-/* bridge legend (coach vs athlete) */
 .guia-doc .legend {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -442,44 +382,7 @@
   color: var(--v2-fg);
 }
 
-/* stub state for not-yet-written sections */
-.guia-doc .guia-stub {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  border: 1px dashed var(--v2-border);
-  border-radius: var(--v2-r-card);
-  background: var(--v2-surface-2);
-  padding: 40px 24px;
-  margin: 18px 0;
-}
-.guia-doc .guia-stub .ic {
-  width: 46px;
-  height: 46px;
-  border-radius: var(--v2-r-m);
-  background: var(--v2-surface-2);
-  color: var(--v2-fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.guia-doc .guia-stub .st {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--v2-fg);
-}
-.guia-doc .guia-stub .sd {
-  font-size: 12.5px;
-  color: var(--v2-muted);
-  max-width: 30rem;
-  line-height: 1.55;
-}
-
-/* ════════════════════════════════════════════════════════════════════════════
-   MOVIL BAND — the orange bridge band that hosts the athlete-app phones
-   ════════════════════════════════════════════════════════════════════════════ */
+/* «En el móvil del atleta» */
 .guia-doc .movil-band {
   background: linear-gradient(
     180deg,
@@ -1135,9 +1038,54 @@
    RESPONSIVE
    ════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1100px) {
-  .guia-doc .triad,
   .guia-doc .legend,
   .guia-doc .toc {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 520px) {
+  .guia-doc .qc {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .guia-doc .movil-band {
+    padding: 16px 12px 20px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   EN EL PANEL — trocitos de los primitivos de verdad (doc/PanelBits), inertes.
+   ════════════════════════════════════════════════════════════════════════════ */
+.guia-doc .guia-panel {
+  margin: 16px 0 18px;
+}
+.guia-doc .guia-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+  background: var(--v2-bg);
+  padding: 14px;
+  overflow: hidden;
+}
+.guia-doc .guia-panel-body.flush,
+.guia-doc .guia-panel-body > .flush {
+  padding: 0;
+}
+.guia-doc .guia-panel-cap {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--v2-muted);
+}
+.guia-doc .guia-panel-cap b {
+  color: var(--v2-fg);
+}
+
+/* La maqueta del móvil es un .v2-root (para sus tokens), que en el panel
+   ocupa toda la altura de la ventana: aquí mide lo que su contenido. */
+.v2-root.guia-phone {
+  min-height: 0;
 }
