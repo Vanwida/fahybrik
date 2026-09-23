@@ -30,7 +30,7 @@ import { LEAD_STATUS_META, LEAD_STATUS_ORDER, type LeadStatus } from '@/lib/dash
 import { formatRelative } from '@/lib/dashboard/relative-time';
 import { formatCitaDateTime } from '@/components/v2/citas/format';
 import { cn } from '@/lib/utils';
-import { LEAD_TONE, leadName, nextActionLabel } from './lead-ui';
+import { LEAD_TONE, leadName } from './lead-ui';
 import { WaitlistList } from './WaitlistList';
 
 type Filter = 'activos' | LeadStatus | 'archivados';
@@ -176,7 +176,7 @@ function LeadRow({ lead, active }: { lead: LeadListItem; active: boolean }) {
         <>
           <StatusBadge tone={LEAD_TONE[meta.tone]} label={meta.label} size="sm" />
           {lead.next_action && lead.next_action.text !== meta.label ? (
-            <span className="truncate text-v2-fg">{nextActionLabel(lead.next_action.text)}</span>
+            <span className="truncate text-v2-fg">{lead.next_action.text}</span>
           ) : null}
           {detail.length > 0 ? <span className="hidden truncate md:inline">{detail.join(' · ')}</span> : null}
         </>

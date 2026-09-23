@@ -59,7 +59,7 @@ export function deriveNextAction(input: NextActionInput): NextAction | null {
   if (alta_sent_at) return { text: 'Alta enviada · esperando', tone: 'info' };
 
   // ── The call outcome outranks the raw slot: the call happened, act on its result ─
-  if (latest_outcome === 'quiere_empezar') return { text: 'Dar de alta', tone: 'accent' };
+  if (latest_outcome === 'quiere_empezar') return { text: 'Convertir en atleta', tone: 'accent' };
 
   const apptIsFuture =
     appointment != null && Date.parse(appointment.requested_start) >= now.getTime();

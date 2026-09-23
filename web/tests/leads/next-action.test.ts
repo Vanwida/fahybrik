@@ -40,7 +40,7 @@ describe('deriveNextAction — the sales-workbench next step', () => {
     ).toEqual({ text: 'Alta enviada · esperando', tone: 'info' });
   });
 
-  it('quiere_empezar report → Dar de alta, and it OUTRANKS a future slot', () => {
+  it('quiere_empezar report → Convertir en atleta, and it OUTRANKS a future slot', () => {
     expect(
       deriveNextAction(
         input({
@@ -50,7 +50,7 @@ describe('deriveNextAction — the sales-workbench next step', () => {
           appointment: { status: 'aceptada', requested_start: FUTURE, when_short: 'jue 18:00' },
         }),
       ),
-    ).toEqual({ text: 'Dar de alta', tone: 'accent' });
+    ).toEqual({ text: 'Convertir en atleta', tone: 'accent' });
   });
 
   it('pending appointment → Aceptar cita', () => {
