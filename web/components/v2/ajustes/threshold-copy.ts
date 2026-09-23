@@ -72,6 +72,11 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
     unit: 'días antes',
     hint: 'Antelación con la que avisa de un protocolo que nadie ha abierto.',
   },
+  review_reproposal_days: {
+    label: 'Volver a proponer una revisión tras',
+    unit: 'días',
+    hint: 'Si el atleta no reservó la revisión 1:1 que le propusiste, cuánto esperar para proponerla otra vez.',
+  },
 };
 
 export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThresholdKey[] }> = [
@@ -97,4 +102,5 @@ export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThres
       'communication_protocol_unopened_days',
     ],
   },
+  { title: 'Revisiones 1:1', keys: ['review_reproposal_days'] },
 ];

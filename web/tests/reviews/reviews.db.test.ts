@@ -119,6 +119,24 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
     expect(after).toHaveLength(1);
   });
 
+  test('the re-proposal window is the coach\'s (review_reproposal_days, 0242)', async () => {
+    const coachId = await seedCoach();
+    const { athlete_id } = await seedAthlete(coachId);
+    const now = new Date();
+    expect((await proposeReview({ coach_id: coachId, athlete_id, now })).proposed).toBe(true);
+    const in3d = new Date(now.getTime() + 3 * 86_400_000);
+    // Default 14 days: three days later is still «recent».
+    expect((await proposeReview({ coach_id: coachId, athlete_id, now: in3d })).reason).toBe('recent_proposal');
+    // A coach who re-proposes after 2 days gets a new one on day 3.
+    await sql`insert into coach_signal_thresholds (coach_id, review_reproposal_days) values (${coachId}, 2)
+              on conflict (coach_id) do update set review_reproposal_days = 2`;
+    try {
+      expect((await proposeReview({ coach_id: coachId, athlete_id, now: in3d })).proposed).toBe(true);
+    } finally {
+      await sql`delete from coach_signal_thresholds where coach_id = ${coachId}`;
+    }
+  });
+
   test('bookAthleteReview creates a revision aceptada + one-active guard blocks a second', async () => {
     const coachId = await seedCoach();
     const { athlete_id } = await seedAthlete(coachId);

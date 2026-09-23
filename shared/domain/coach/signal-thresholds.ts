@@ -28,7 +28,7 @@
 export type ThresholdUnit = 'dias' | 'horas' | 'puntos' | 'checkins' | 'entrenos' | 'rpe' | 'pct';
 
 /** Para agrupar en la pantalla de Método sin repetir la lista a mano. */
-export type ThresholdGroup = 'readiness' | 'sesiones' | 'mensajes' | 'comunicados';
+export type ThresholdGroup = 'readiness' | 'sesiones' | 'mensajes' | 'comunicados' | 'revisiones';
 
 export interface ThresholdSpec {
   default: number;
@@ -65,6 +65,8 @@ export interface ThresholdSpec {
  * Mensajes: 12 horas esperando respuesta para subir a Hoy.
  * Comunicados (0161): 2 días sin responder una pregunta, 3 de retraso para que
  *   una tarea pase a crítica, 3 de antelación para un protocolo sin abrir.
+ * Revisiones 1:1 (0242): 14 días antes de volver a proponer una revisión al mismo
+ *   atleta que no reservó la anterior.
  */
 export const COACH_THRESHOLD_SPEC = {
   readiness_ok_min: { default: 67, min: 1, max: 100, unit: 'puntos', group: 'readiness' },
@@ -100,6 +102,7 @@ export const COACH_THRESHOLD_SPEC = {
     unit: 'dias',
     group: 'comunicados',
   },
+  review_reproposal_days: { default: 14, min: 1, max: 90, unit: 'dias', group: 'revisiones' },
 } as const satisfies Record<string, ThresholdSpec>;
 
 export type CoachThresholdKey = keyof typeof COACH_THRESHOLD_SPEC;

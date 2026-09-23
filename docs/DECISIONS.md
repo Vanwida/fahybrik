@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · La espera para volver a proponer una revisión 1:1 es del coach (0242)
+
+**El hueco:** `proposeReview` no volvía a proponer una revisión 1:1 al mismo atleta durante `const PROPOSAL_DEDUPE_DAYS = 14` (web/lib/citas/reviews.ts). Otro entrenador la re-propondría a la semana o al mes: es método.
+
+**Decidido:** nuevo umbral `review_reproposal_days` en `COACH_THRESHOLD_SPEC` (defecto 14, 1–90 días, grupo «revisiones»), columna nullable en `coach_signal_thresholds` (0242, CHECK con los mismos límites, sin `default`). `proposeReview` y `getAthleteReviewState` lo leen con `resolveCoachThresholds`; el PUT de umbrales y Ajustes › Método lo editan solos (sección «Revisiones 1:1»). Un coach que no toca nada sigue en 14.
+
+**NO hacer:** no volver a poner la ventana como `const`.
+
+---
+
 ## 2026-09-23 · Las bandas de FC del coach llegan también a la prescripción y al reloj
 
 **El hueco:** los cortes de las zonas de FC (0.81 / 0.82–0.88 / … de LTHR) ya eran dato del coach desde 0168 (`coach_hr_method`, defectos en `shared/domain/methodology/hr-zones.ts` vía `shared/domain/coach/hr-method.ts`) y el teléfono, la ficha y el tiempo en zona los leían. Pero el resolvedor de etiquetas de la prescripción (`resolveTarget` / `resolveSegmentTarget`) llamaba a `resolveHrZones` sin fracciones: una «Z2» de FC en el reloj (Garmin/Suunto/FIT) se cortaba siempre con los defectos, aunque el coach hubiera movido sus bandas.

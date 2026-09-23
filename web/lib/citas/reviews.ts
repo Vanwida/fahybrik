@@ -29,12 +29,19 @@ import {
   type ReviewCadence,
 } from '@fahybrid/shared/domain/coach/reviews';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
+import { resolveCoachThresholds } from '@/lib/coach/signal-thresholds';
+import { COACH_THRESHOLD_SPEC } from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 // Revisiones de 30 min (fijo en v1, igual que las citas de intro).
 const REVIEW_DURATION_MINUTES = 30;
-// No re-proponer una revisión al mismo atleta dentro de esta ventana (anti-spam): si hay
-// una propuesta reciente sin reservar, proposeReview no inserta otra notificación.
-const PROPOSAL_DEDUPE_DAYS = 14;
+// No re-proponer una revisión al mismo atleta dentro de una ventana (anti-spam): si hay
+// una propuesta reciente sin reservar, proposeReview no inserta otra notificación. La
+// ventana es MÉTODO del coach (`review_reproposal_days`, 0242; defecto en
+// COACH_THRESHOLD_SPEC), leída con `reproposalDays`.
+async function reproposalDays(coach_id: string | number | bigint | null): Promise<number> {
+  if (coach_id == null) return COACH_THRESHOLD_SPEC.review_reproposal_days.default;
+  return (await resolveCoachThresholds(Number(coach_id))).review_reproposal_days;
+}
 // Los umbrales de cadencia → días viven una sola vez en signal-config (cero magic numbers).
 const CADENCE_THRESHOLDS = {
   mensual: SIGNAL_THRESHOLDS.review_due_mensual_days,
@@ -157,7 +164,7 @@ export async function proposeReview(args: {
   if (active) return { proposed: false, reason: 'already_booked' };
 
   // Propuesta reciente sin reservar → no repetir (anti-spam).
-  const cutoff = new Date(now.getTime() - PROPOSAL_DEDUPE_DAYS * MS_PER_DAY).toISOString();
+  const cutoff = new Date(now.getTime() - (await reproposalDays(athlete.coach_id)) * MS_PER_DAY).toISOString();
   const recent = await sql<{ id: string }[]>`
     select id::text as id from notifications
     where user_id = ${Number(athlete.user_id)}
@@ -332,6 +339,7 @@ export async function getAthleteReviewState(args: {
   const now = args.now ?? new Date();
   const athlete = await loadAthlete(args.athlete_id, args.coach_id);
   if (!athlete) throw new CitasError('not_found', 'Atleta no encontrado', 404);
+  const reproposal = await reproposalDays(athlete.coach_id);
 
   const [lastRows, nextRows, proposalRows] = await Promise.all([
     sql<{ ts: Date | null }[]>`
@@ -352,7 +360,7 @@ export async function getAthleteReviewState(args: {
       where user_id = ${Number(athlete.user_id)}
         and type = 'system'
         and payload_json->>'kind' = ${REVIEW_PROPOSED_NOTIFICATION_KIND}
-        and created_at >= ${new Date(now.getTime() - PROPOSAL_DEDUPE_DAYS * MS_PER_DAY).toISOString()}::timestamptz
+        and created_at >= ${new Date(now.getTime() - reproposal * MS_PER_DAY).toISOString()}::timestamptz
       limit 1
     `,
   ]);
