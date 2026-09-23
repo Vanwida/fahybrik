@@ -9,8 +9,8 @@
 // Every mutation goes through the shared useLifecycleMutation hook (PATCH + refresh).
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { PauseCircle, PlayCircle, RotateCcw, UserX, type LucideIcon } from 'lucide-react';
+import type { MenuEntry } from '@/components/v2/ui';
 import type { PauseReason } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 import {
@@ -33,39 +33,12 @@ import {
 
 const NOTE_MAX = 1000;
 
-function ActionButton({
-  kind,
-  busy,
-  compact,
-  onClick,
-}: {
-  kind: LifecycleActionKind;
-  busy: boolean;
-  /** Sólo el icono por debajo de sm — ver el porqué en LifecycleControl. */
-  compact?: boolean;
-  onClick: () => void;
-}) {
-  const meta = LIFECYCLE_ACTION_META[kind];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      aria-label={meta.label}
-      title={meta.label}
-      className={cn(
-        'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-        compact ? 'px-2.5 sm:px-3' : 'px-3',
-        meta.tone === 'danger'
-          ? 'border-[color:var(--v2-border)] text-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]'
-          : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
-      )}
-    >
-      <MIcon name={busy ? 'progress_activity' : meta.icon} size={16} className={busy ? 'animate-spin' : undefined} />
-      <span className={compact ? 'hidden sm:inline' : undefined}>{meta.label}</span>
-    </button>
-  );
-}
+const ICON: Record<LifecycleActionKind, LucideIcon> = {
+  pause: PauseCircle,
+  resume: PlayCircle,
+  baja: UserX,
+  re_alta: RotateCcw,
+};
 
 // ── Pausar ──────────────────────────────────────────────────────────────────────
 function PauseDialog({ athleteId, onClose }: { athleteId: string; onClose: () => void }) {
@@ -105,7 +78,7 @@ function PauseDialog({ athleteId, onClose }: { athleteId: string; onClose: () =>
         </>
       }
     >
-      <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="t-body text-v2-muted">
         Congela su plan y excluye estos días de la adherencia. Podrás reactivarlo cuando quieras.
       </p>
       <DialogField label="Motivo" required>
@@ -170,13 +143,10 @@ function BajaDialog({ athleteId, onClose }: { athleteId: string; onClose: () => 
         </>
       }
     >
-      <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/30 bg-[color:var(--v2-warn-soft)] px-3.5 py-2.5">
-        <MIcon name="info" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-        <p className="text-body leading-relaxed text-[color:var(--v2-fg)]">
-          Congela el plan y la factura sigue hasta el fin del periodo. El historial se conserva y
-          podrás darle de re-alta más adelante.
-        </p>
-      </div>
+      <p className="t-body text-v2-muted">
+        Congela el plan y la factura sigue hasta el fin del periodo. El historial se conserva y
+        podrás darle de re-alta más adelante.
+      </p>
       <DialogField label="Motivo" required>
         <ReasonChips value={reason} onChange={setReason} disabled={busy} />
       </DialogField>
@@ -219,15 +189,12 @@ function ReAltaDialog({ athleteId, onClose }: { athleteId: string; onClose: () =
       }
     >
       {overCapacity ? (
-        <div className="flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-3.5 py-3">
-          <MIcon name="warning" size={18} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-          <p className="text-body leading-relaxed text-[color:var(--v2-fg)]">
-            El atleta ya vuelve a estar activo, pero has superado tu cupo. Libera una plaza o ajusta
-            tu capacidad cuando puedas.
-          </p>
-        </div>
+        <p className="t-body text-v2-warn">
+          El atleta ya vuelve a estar activo, pero has superado tu cupo. Libera una plaza o ajusta
+          tu capacidad cuando puedas.
+        </p>
       ) : (
-        <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="t-body text-v2-muted">
           Vuelve a activar al atleta y reanuda su plan. Si con esto superas tu cupo te avisaremos,
           pero podrás continuar igualmente.
         </p>
@@ -237,53 +204,35 @@ function ReAltaDialog({ athleteId, onClose }: { athleteId: string; onClose: () =
   );
 }
 
-export function LifecycleControl({
-  athleteId,
-  lifecycle,
-  compact,
-}: {
-  athleteId: string;
-  lifecycle: DetalleLifecycle;
-  /** Por debajo de sm deja sólo el icono. Pausar y Dar de baja son acciones RARAS
-   *  y en la banda de la ficha se comían una fila entera de las pocas que caben en
-   *  390 — lo secundario se pliega (§6 regla 4). El nombre no se pierde (va en
-   *  `aria-label` y en `title`) y ninguna de las dos hace nada sin pasar antes por
-   *  su diálogo de confirmación, que sí lo explica entero. */
-  compact?: boolean;
-}) {
-  const { mutate, busy, error, setError } = useLifecycleMutation(athleteId);
+/**
+ * Las acciones de ciclo de vida para el menú ··· de la cabecera: solo las válidas
+ * para el estado actual (activo → Pausar, Dar de baja · pausado → Reactivar, Dar
+ * de baja · baja → Re-alta). Pausar / Baja / Re-alta abren su diálogo; Reactivar
+ * va directa. Devuelve las entradas del menú y los diálogos a montar.
+ */
+export function useLifecycleMenu(athleteId: string, lifecycle: DetalleLifecycle) {
+  const { mutate, error, setError } = useLifecycleMutation(athleteId);
   const [dialog, setDialog] = useState<LifecycleActionKind | null>(null);
   const actions = lifecycleActionsFor(lifecycle.status);
 
-  function onAction(kind: LifecycleActionKind) {
-    setError(null);
-    if (LIFECYCLE_ACTION_META[kind].needsDialog) {
-      setDialog(kind);
-    } else {
-      // resume — auto-resume, no data to collect.
-      void mutate({ action: kind });
-    }
-  }
+  const items: MenuEntry[] = actions.map((kind) => ({
+    label: LIFECYCLE_ACTION_META[kind].label,
+    icon: ICON[kind],
+    danger: LIFECYCLE_ACTION_META[kind].tone === 'danger',
+    onSelect: () => {
+      setError(null);
+      if (LIFECYCLE_ACTION_META[kind].needsDialog) setDialog(kind);
+      else void mutate({ action: kind });
+    },
+  }));
 
-  return (
-    <div className="flex flex-col items-stretch gap-1.5 lg:items-end">
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-        {actions.map((k) => (
-          <ActionButton key={k} kind={k} busy={busy} compact={compact} onClick={() => onAction(k)} />
-        ))}
-      </div>
-      {/* Inline error for the direct (dialog-less) resume path. */}
-      {error && dialog === null ? <DialogError>{error}</DialogError> : null}
-
-      {dialog === 'pause' ? (
-        <PauseDialog athleteId={athleteId} onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === 'baja' ? (
-        <BajaDialog athleteId={athleteId} onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === 're_alta' ? (
-        <ReAltaDialog athleteId={athleteId} onClose={() => setDialog(null)} />
-      ) : null}
-    </div>
+  const dialogs = (
+    <>
+      {dialog === 'pause' ? <PauseDialog athleteId={athleteId} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'baja' ? <BajaDialog athleteId={athleteId} onClose={() => setDialog(null)} /> : null}
+      {dialog === 're_alta' ? <ReAltaDialog athleteId={athleteId} onClose={() => setDialog(null)} /> : null}
+    </>
   );
+
+  return { items, dialogs, error: dialog === null ? error : null };
 }

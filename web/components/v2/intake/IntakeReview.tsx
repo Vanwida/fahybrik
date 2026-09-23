@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { buttonVariants } from '@/components/v2/ui';
 import { MIcon } from '@/components/ui/MIcon';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { ClasificacionCard } from '@/components/v2/atleta-detalle/ClasificacionCard';
@@ -33,6 +34,12 @@ import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
 import { INTAKE_PLAN_MODE_DEFAULT, type IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
 
+/** La siguiente alta de la fila, con el resto de la fila detrás. */
+function nextHref(queue: string[]): string {
+  const [next, ...rest] = queue;
+  return `/atletas/${next}/intake${rest.length > 0 ? `?fila=${rest.join(',')}` : ''}`;
+}
+
 const EVENT_WARNING_KINDS = new Set(['a_event_invalid', 'a_event_close']);
 const SEX_LABEL: Record<string, string> = { male: 'Masculino', female: 'Femenino', other: 'Otro' };
 
@@ -47,9 +54,16 @@ function waitingLabel(onboardedAt: string | null): string | null {
 export function IntakeReview({
   review,
   athleteId,
+  embedded = false,
+  queue = [],
 }: {
   review: IntakeReviewPayload;
   athleteId: string;
+  /** Dentro de la ficha (el atleta «Nuevo»): sin ruta ni cabecera propias, y al
+   *  asignar se recarga la ficha en vez de navegar. */
+  embedded?: boolean;
+  /** «Revisar en fila» (Hoy): las altas que vienen detrás, en orden. */
+  queue?: string[];
 }) {
   const router = useRouter();
   const { profile, classification, month_proposal } = review;
@@ -135,8 +149,10 @@ export function IntakeReview({
         setSubmitting(false);
         return;
       }
-      // Intake committed → land on the athlete's plan (the new draft microciclo).
-      router.push(`/atletas/${athleteId}?tab=plan`);
+      // Alta cerrada → la ficha pasa a su calendario (el primer programa, oculto).
+      if (embedded) router.refresh();
+      else if (queue.length > 0) router.push(nextHref(queue));
+      else router.push(`/atletas/${athleteId}`);
     } catch {
       setError('No se pudo asignar. Inténtalo de nuevo.');
       setSubmitting(false);
@@ -158,18 +174,23 @@ export function IntakeReview({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/atletas/${athleteId}?tab=plan`}
+            href={`/atletas/${athleteId}`}
             className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
           >
             Ver plan del atleta
             <MIcon name="arrow_forward" size={15} />
           </Link>
           <Link
-            href="/altas"
+            href="/hoy?vista=altas"
             className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
           >
-            Volver a altas
+            Volver a Hoy
           </Link>
+          {queue.length > 0 ? (
+            <Link href={nextHref(queue)} className={buttonVariants({ size: 'md' })}>
+              Siguiente alta · quedan {queue.length}
+            </Link>
+          ) : null}
         </div>
       </div>
     );
@@ -179,9 +200,11 @@ export function IntakeReview({
 
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
+      {embedded ? null : (
+      <>
       {/* ── Breadcrumb ───────────────────────────────────────────────────────── */}
       <nav aria-label="Ruta" className="flex items-center gap-1 text-xs text-[color:var(--v2-muted)]">
-        <Link href="/altas" className="v2-focus hover:text-[color:var(--v2-fg)]">
+        <Link href="/hoy?vista=altas" className="v2-focus hover:text-[color:var(--v2-fg)]">
           Altas
         </Link>
         <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
@@ -192,7 +215,12 @@ export function IntakeReview({
           {athlete.full_name}
         </Link>
         <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
-        <span className="text-[color:var(--v2-fg)]">Intake</span>
+        <span className="text-[color:var(--v2-fg)]">Alta</span>
+        {queue.length > 0 ? (
+          <Link href={nextHref(queue)} className={buttonVariants({ size: 'sm', className: 'ml-auto' })}>
+            Siguiente alta · quedan {queue.length}
+          </Link>
+        ) : null}
       </nav>
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
@@ -218,6 +246,8 @@ export function IntakeReview({
           </div>
         </div>
       </header>
+      </>
+      )}
 
       {/* ── Two columns ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">

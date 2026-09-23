@@ -14,9 +14,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { EmptyState } from '@/components/v2/EmptyState';
 import { Panel } from '../parts';
-import { todayIsoLocal } from '../lifecycle/lifecycle-ui';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
-import type { AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
 import type { InjuryDTO } from '@fahybrid/shared/schema/injuries';
 import {
   INJURY_ZONE_LABEL,
@@ -57,27 +55,6 @@ type DialogState =
   | { kind: 'adapt'; injury: InjuryDTO }
   | { kind: 'pause'; injury: InjuryDTO }
   | null;
-
-/** Upcoming, still-scheduled coach sessions from the loaded plan — what a coach adapts. */
-function flattenAdaptable(plan: AthletePlanPayload | null): AdaptableSession[] {
-  if (!plan) return [];
-  const today = todayIsoLocal();
-  const out: AdaptableSession[] = [];
-  for (const week of plan.weeks) {
-    for (const day of week.days) {
-      for (const s of day.sessions) {
-        if (s.status !== 'scheduled' || s.iso_date < today) continue;
-        out.push({
-          assignment_id: s.assignment_id,
-          iso_date: s.iso_date,
-          title: s.title,
-          date_label: dateLabel(s.iso_date),
-        });
-      }
-    }
-  }
-  return out;
-}
 
 function dateLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -276,16 +253,22 @@ function ResolvedRow({ injury }: { injury: InjuryDTO }) {
 export function InjuryPanel({
   athleteId,
   lifecycle,
-  plan,
+  upcoming,
 }: {
   athleteId: string;
   lifecycle: DetalleLifecycle;
-  plan: AthletePlanPayload | null;
+  /** Entrenos del coach pendientes (hoy en adelante): lo que se puede adaptar. */
+  upcoming: { id: string; date: string; title: string }[];
 }) {
   const { injuries, loading, loadError, reload, create, update, adapt } = useInjuries(athleteId);
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  const adaptable = flattenAdaptable(plan);
+  const adaptable: AdaptableSession[] = upcoming.map((u) => ({
+    assignment_id: u.id,
+    iso_date: u.date,
+    title: u.title,
+    date_label: dateLabel(u.date),
+  }));
   const isActivo = lifecycle.status === 'activo';
 
   const open = (injuries ?? []).filter((i) => i.status !== 'resuelta');

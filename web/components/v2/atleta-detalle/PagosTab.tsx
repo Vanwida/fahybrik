@@ -245,7 +245,7 @@ export function PagosTab({
   // No subscription at all → honest empty state.
   if (!billing) {
     return (
-      <div className="mx-auto w-full max-w-[880px]">
+      <div className="w-full">
         <EmptyState
           icon="payments"
           title="Sin cobro configurado"
@@ -258,7 +258,7 @@ export function PagosTab({
   const state = paymentState({ status: billing.status, is_comp: billing.is_comp });
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <Panel title="Estado de cobro" action={<Pill tone={state.tone}>{state.label}</Pill>}>
         {billing.is_comp ? (
           <div className="flex flex-col gap-2">

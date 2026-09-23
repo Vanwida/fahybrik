@@ -72,6 +72,10 @@ function deriveStatus(review: AthleteReviewState, firstName: string): StatusView
   if (review.due) {
     return { tone: 'warn', label: 'Toca revisión', detail: lastLabel };
   }
+  // Sin ninguna revisión todavía no es «al día» (A3): es la primera, pendiente.
+  if (!review.last_review_at && review.cadence !== 'ninguna') {
+    return { tone: 'neutral', label: 'Primera revisión pendiente', detail: null };
+  }
   // Al día — muestra el contexto de la última revisión salvo que no haya cadencia ni historial.
   const detail = review.last_review_at || review.cadence !== 'ninguna' ? lastLabel : null;
   return { tone: 'ok', label: 'Al día', detail };
