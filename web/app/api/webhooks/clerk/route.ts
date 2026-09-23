@@ -1,6 +1,5 @@
 import { Webhook } from 'svix';
 import { sql } from '@/lib/db';
-import { deriveDisplayNameFromClerk } from '@/lib/identity/display-name';
 
 // Clerk → DB sync webhook.
 //
@@ -55,9 +54,8 @@ function resolvePrimaryEmail(data: ClerkUserData): string | null {
 }
 
 /**
- * UPSERT the user row keyed by clerk_user_id, and keep any linked coach's
- * full_name in sync with the derived display name. Returns nothing — side
- * effect only.
+ * UPSERT the user row keyed by clerk_user_id. Returns nothing — side effect
+ * only. It never touches `coaches` (the club row, whose name is the club's).
  */
 async function syncUser(data: ClerkUserData): Promise<void> {
   const clerk_user_id = data.id;
@@ -67,13 +65,6 @@ async function syncUser(data: ClerkUserData): Promise<void> {
     // doesn't, we can't satisfy users.email NOT NULL — skip rather than guess.
     return;
   }
-
-  const display_name = deriveDisplayNameFromClerk({
-    first_name: data.first_name,
-    last_name: data.last_name,
-    username: data.username,
-    primary_email: email,
-  });
 
   await sql.begin(async (tx) => {
     // LOOKUP-FIRST, not insert-first (same root as findOrCreateCoachByClerkUser):
@@ -143,18 +134,9 @@ async function syncUser(data: ClerkUserData): Promise<void> {
       user_id = inserted[0]?.id ?? null;
     }
 
-    if (!user_id) return;
-
-    // Keep a linked coach's full_name in sync with the derived display name.
-    // Only update when we have a non-empty name (never blank out an existing
-    // name with a fallback that resolved to '').
-    if (display_name) {
-      await tx`
-        update coaches
-        set full_name = ${display_name}, updated_at = now()
-        where user_id = ${BigInt(user_id)}
-      `;
-    }
+    // Nothing is written to `coaches` here. That row is the CLUB, and its name
+    // belongs to the club (edited in Ajustes): mirroring the owner's personal
+    // Clerk name into it on every profile update overwrote the club's name.
   });
 }
 
