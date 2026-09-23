@@ -2,21 +2,26 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-23** (auditoría del panel del coach entregada; esperando 7 decisiones de Alex)
+Última actualización: **2026-09-23** (panel del coach reconstruido; ola 3 de pulido en curso)
 
 ## Ahora
 
-**Auditoría del panel del coach (web `(v2)`) — entregada, esperando decisiones de Alex.**
-Documento: `docs/auditoria-panel-coach/index.html` (publicado:
-https://claude.ai/artifact/K1ow8BzisviftwYAJJnYG9); 5 informes de área en `informes/`.
-Probado en local con 100 atletas sintéticos. Veredicto: reconstruir Hoy, ficha,
-Programar, IA y sistema visual; conservar backend, tokens, piel del club y 6 pantallas.
-- 5 raíces: números que se contradicen · sin bandeja única (Hoy = 92 «decisiones»,
-  114 tarjetas) · no se actúa en lote (≈500 clics para dar un bloque a 20) · IA por
-  modelo de datos (15 destinos, 12 vistas en la ficha) · sin sistema de componentes
-- Orden propuesto: 0 cimientos (una señal, una adherencia, un estado, scope por coach,
-  primitivos) → 1 shell+Hoy+Atletas → 2 ficha → 3 Programar → 4 Negocio/Ajustes/móvil
-- NADA construido todavía (regla UX: maqueta → OK de Alex → construir)
+**Panel del coach (web `(v2)`) — RECONSTRUIDO, pulido final en curso.** Alex aprobó
+el plan entero de la auditoría (`docs/auditoria-panel-coach/`, plan de obra en
+`PLAN-CONSTRUCCION.md`; decisiones en DECISIONS 2026-09-23). Rama
+`claude/focused-bardeen-u9zz33`.
+- Hecho: shell nuevo (Hoy casa · Atletas · Mensajes · Programar · Negocio tras add-on),
+  Hoy = bandeja única (con 100 atletas: 42 «te necesitan», filas + grupos con acción en
+  lote), Atletas tabla densa con vistas, ficha = cockpit con 3 pestañas, Programar
+  (programas, biblioteca, grupos, tests, asignar a varios ≈15 clics para 20 atletas),
+  publicación por semana con auto N días, Negocio y Ajustes por coach, guía reescrita.
+- Motor: una señal vs la base del propio atleta, una adherencia (solo lo debido), un
+  estado, una cuenta de «te necesitan»; umbrales = dato del coach (0211–0243).
+- Tests: sin regresiones frente a la base (27 ficheros fallan igual: dependen de la rama
+  demo de Neon).
+- Falta: cerrar la migración de UI a primitivos (regla lint `panel/no-raw-styled-control`
+  a error), QA visual final, revisión completa para FLEXR (petición de Alex).
+- PROD: aplicar migraciones 0211–0243 en Neon; fila de entitlement 'negocio' para el club.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
 Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISIONS.md`
@@ -39,10 +44,8 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Pendiente decisión Alex
 
-- Panel coach (auditoría §Your decisions): 1 home = Hoy · 2 oscuro por defecto ·
-  3 «Programa» en vez de «Microciclo» · 4 Grupos antes que nivel×días · 5 ficha =
-  cockpit + 2 pestañas · 6 publicar por semana + auto N días · 7 Negocio tras add-on.
-  1, 2, 4 y 5 revocan DECISIONS 2026-08-19/20, 08-23 y 08-13.
+- Panel coach: borrar ficheros muertos que el clasificador de permisos no deja borrar a
+  los agentes (`components/v2/orientacion/**`, `lib/dashboard/v2/orientacion*.ts`, …).
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
   falta Terminar+Empezar (no se inventa un segundo motor).
@@ -51,11 +54,8 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Sabido y no hecho
 
-- Panel coach P0 (auditoría §Launch blockers): Negocio sin `coach_id` (leads, citas,
-  métricas, disponibilidad); «Pablo te escribirá» en copy; sin Stripe Connect;
-  Cuestionarios sin consumidor; «Descanso» borra el día sin confirmar; guardar bloque
-  nuevo → 404; «Responder» abre otro hilo y lo marca leído; `compliance_pct` 0–1
-  pintado como %.
+- Panel coach: sin Stripe Connect (Cobros lee, no cobra); huso del coach solo en
+  Agenda (el resto del «día» usa BOX_TIMEZONE, sin editor en Ajustes › Tu club).
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`); `0051` no corre en
   `migrate.ts` (CONCURRENTLY dentro de transacción).
 - FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
