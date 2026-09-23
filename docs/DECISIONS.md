@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Una sola cuenta de quién te necesita (Hoy = Atletas) y «Por responder» = Mensajes
+
+**El hueco:** la cifra de Hoy (22) contaba FILAS (grupos + filas de atleta) y «Necesitan algo» de Atletas (23) contaba estados `accion`+`vigilar`: dos unidades y dos definiciones que no podían casar. Además, 38 atletas salían «Al día» con la semana oculta (Hoy los contaba en «47 no ven su semana»); atletas con entrenos sueltos sin programa asignado salían «Sin plan» con un próximo entreno al lado; señales de plan persistidas por el barrido («sin programa») seguían vivas después de asignar; y el filtro «Por responder» de Hoy decía 0 con 15 hilos esperando en Mensajes, porque solo miraba la señal del motor (que espera 12 h).
+
+**Decidido:**
+- **«Te necesita» es UNA función** (`athleteNeedsYou`, `shared/domain/coach/athlete-state.ts`) y sale en el estado como `needs_you`. Atleta activo con: una señal crítica o de vigilar · el alta pendiente · hueco de plan (sin programa o terminado; el invitado sin cuestionario no) · su semana oculta (la de ahora, o la que viene cuando por la regla «N días antes» del coach ya debería verse). La cifra de Hoy, su insignia y la vista de serie «Necesitan algo» (`atencion=si`) cuentan **atletas** con esa función. Un grupo de 47 son 47 personas; un atleta con grupo y fila cuenta una vez. Leads y llamadas no entran (son de Negocio, con su insignia).
+- **Una semana oculta no es «Al día»:** el estado pasa a «Vigilar» con motivo «Su semana está oculta al atleta» / «retenida por ti» (una señal de vigilar gana el motivo).
+- **Entrenos sueltos también son plan:** `classifyProgrammingStatus` y `athleteWeekChip` reciben los entrenos del coach desde el lunes en adelante; sin programa pero con entrenos → no es «Sin plan»; programa terminado con entrenos más adelante → «Semana vacía», no «Terminado».
+- **El dato fresco gana al barrido** (`reconcileSignals`): una señal `programming_status` solo sigue viva si su estado coincide con el de ahora; `message_unanswered` cae si el hilo ya no está por responder. Hoy, el roster, el vistazo y la ficha leen igual.
+- **«Por responder» es el conjunto de Mensajes** (`loadReplyStates`: último mensaje del atleta, ni hecho ni pospuesto — `threadState`). El filtro de Hoy lo cuenta entero desde el primer minuto y enseña las esperas sin fila (informativas, «Hecho/Posponer» sobre `message_unanswered`); la insignia de Mensajes sale de la misma cuenta. **El umbral de horas del coach solo decide cuándo una espera pasa a ser fila de la bandeja y «te necesita»**, no si existe.
+
+**NO hacer:** no volver a contar filas como «te necesitan»; no definir «Necesitan algo» por claves de estado (`accion,vigilar`) — las vistas guardadas viejas siguen valiendo, pero no son la de serie; no leer una señal de plan o de mensaje persistida sin reconciliarla con el hecho de ahora; no usar el umbral de mensajes para decidir si un hilo está por responder.
+
+---
+
 ## 2026-09-23 · Cuestionarios de entrada: oculto hasta que algo lo lea
 
 **El hueco:** `/cuestionarios` editaba `coach_onboarding_forms` (migración 0201) con aspecto de pantalla terminada — lista, duplicar, editar, reordenar, correo de destino —, pero **nada lo consume**: ni el embudo público, ni la cola de altas, ni la app del atleta leen esas filas (auditoría A §2.8). Un coach que lo edita no cambia nada, y eso es peor que no tenerlo.
