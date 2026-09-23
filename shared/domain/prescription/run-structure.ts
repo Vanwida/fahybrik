@@ -32,6 +32,8 @@ import { z } from 'zod';
 // on this module). `resolved` is a per-athlete READ enrichment attached by the
 // athlete wire — see the field note on `Segment`.
 import type { ResolvedIntensity } from '../../schema/workouts';
+import { ZONE_ROLES } from '../methodology/zone-model';
+import { HR_ZONES } from '../methodology/hr-zones';
 
 // ── Bounds (named, not magic) ────────────────────────────────────────────────
 const MIN_PHASES = 1;
@@ -39,10 +41,14 @@ const MAX_PHASES = 3; // warmup? · main · cooldown?
 const REPEAT_MIN = 2; // a "Repetir" of 1 is just the segment itself
 const REPEAT_MAX = 20; // a single set never legitimately repeats more than this
 const MAX_REPEAT_DEPTH = 2; // 3×(4×400) enters; a third nested level does not
-const PACE_ZONE_MIN = 1;
-const PACE_ZONE_MAX = 5; // 5-zone pace model exposed to the coah editor
-const HR_ZONE_MIN = 1;
-const HR_ZONE_MAX = 5;
+// Las zonas que se pueden prescribir son las del MODELO, no un número del
+// editor: el modelo de ritmo del coach tiene seis zonas (`methodology_zones`,
+// Z1 recuperación … Z6 sprint; `ZONE_ROLES`) y el de FC cinco (`HR_ZONES`). Antes
+// esto paraba en Z5 y la Z6 del coach no se podía prescribir.
+export const PACE_ZONE_MIN = 1;
+export const PACE_ZONE_MAX = ZONE_ROLES.length;
+export const HR_ZONE_MIN = 1;
+export const HR_ZONE_MAX = HR_ZONES.length;
 const SEG_RPE_MIN = 1; // a prescribed segment RPE is 1..10 (0 is not a target)
 const SEG_RPE_MAX = 10;
 const INCLINE_MIN = 0;
@@ -61,13 +67,13 @@ export type SegmentMeasure =
   | { type: 'duration'; s: number }; // seconds, int > 0
 
 // ── Segment target — WHAT intensity the work targets (or null = free) ─────────
-// `pace` is always per km (running). `pace_zone` = a coach zona de ritmo (Z1..Z5)
+// `pace` is always per km (running). `pace_zone` = a coach zona de ritmo (Z1..Z6)
 // resolved per-athlete to an absolute pace band; `hr_zone` = a heart-rate zone.
 // `rpe` = perceived effort 1..10. A `null` target means "no explicit objetivo"
 // (e.g. a recovery jog, or a warm-up done by feel).
 export type SegmentTarget =
   | { type: 'pace'; value_s?: number; min_s?: number; max_s?: number } // seconds per km
-  | { type: 'pace_zone'; zone: number } // 1..5
+  | { type: 'pace_zone'; zone: number } // 1..6 (el modelo de ritmo)
   | { type: 'hr_zone'; zone: number } // 1..5
   | { type: 'rpe'; value?: number; min?: number; max?: number }; // 1..10, point OR band
 

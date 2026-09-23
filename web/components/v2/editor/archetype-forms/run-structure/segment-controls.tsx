@@ -6,6 +6,12 @@
 // (exacto o banda) · Sin objetivo, matching the closed grammar exactly.
 
 import type { SegmentMeasure, SegmentTarget } from '@fahybrid/shared/domain/prescription';
+import {
+  HR_ZONE_MAX,
+  HR_ZONE_MIN,
+  PACE_ZONE_MAX,
+  PACE_ZONE_MIN,
+} from '@fahybrid/shared/domain/prescription/run-structure';
 import { ClockCell, NumberCell } from '../../fields';
 import { InlineToggle } from '../form-controls';
 import { objetivoKindOf, targetOfKind, type ObjetivoKind } from './tree-ops';
@@ -19,7 +25,9 @@ const OBJETIVO_OPTIONS: { value: ObjetivoKind; label: string }[] = [
   { value: 'none', label: 'Libre' },
 ];
 
-const ZONES = [1, 2, 3, 4, 5];
+// Las zonas del modelo: seis de ritmo (Z6 = sprint) y cinco de FC.
+const PACE_ZONES = Array.from({ length: PACE_ZONE_MAX - PACE_ZONE_MIN + 1 }, (_, i) => PACE_ZONE_MIN + i);
+const HR_ZONE_LIST = Array.from({ length: HR_ZONE_MAX - HR_ZONE_MIN + 1 }, (_, i) => HR_ZONE_MIN + i);
 
 // ── Measure (Distancia ↔ Tiempo) ─────────────────────────────────────────────
 export function MeasureCell({
@@ -66,13 +74,23 @@ export function MeasureCell({
   );
 }
 
-// ── Zone 1..5 segmented picker ───────────────────────────────────────────────
-function ZonePicker({ zone, onChange, ariaLabel }: { zone: number; onChange: (z: number) => void; ariaLabel: string }) {
+// ── Zone segmented picker (las zonas del modelo) ─────────────────────────────
+function ZonePicker({
+  zone,
+  zones,
+  onChange,
+  ariaLabel,
+}: {
+  zone: number;
+  zones: number[];
+  onChange: (z: number) => void;
+  ariaLabel: string;
+}) {
   return (
     <SegmentedControl
       size="sm"
       aria-label={ariaLabel}
-      items={ZONES.map((z) => ({ value: String(z), label: `Z${z}` }))}
+      items={zones.map((z) => ({ value: String(z), label: `Z${z}` }))}
       value={String(zone)}
       onValueChange={(v) => onChange(Number(v))}
     />
@@ -99,10 +117,10 @@ export function ObjetivoCell({
       {target?.type === 'pace' ? <PaceValue target={target} onChange={onChange} /> : null}
       {target?.type === 'rpe' ? <RpeValue target={target} onChange={onChange} /> : null}
       {target?.type === 'pace_zone' ? (
-        <ZonePicker zone={target.zone} ariaLabel="Zona de ritmo" onChange={(z) => onChange({ type: 'pace_zone', zone: z })} />
+        <ZonePicker zone={target.zone} zones={PACE_ZONES} ariaLabel="Zona de ritmo" onChange={(z) => onChange({ type: 'pace_zone', zone: z })} />
       ) : null}
       {target?.type === 'hr_zone' ? (
-        <ZonePicker zone={target.zone} ariaLabel="Zona de frecuencia cardíaca" onChange={(z) => onChange({ type: 'hr_zone', zone: z })} />
+        <ZonePicker zone={Math.min(target.zone, HR_ZONE_MAX)} zones={HR_ZONE_LIST} ariaLabel="Zona de frecuencia cardíaca" onChange={(z) => onChange({ type: 'hr_zone', zone: z })} />
       ) : null}
     </div>
   );

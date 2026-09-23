@@ -74,7 +74,9 @@ describe('prescriptionSchema — Target validation', () => {
   });
 
   test('enforces per-kind numeric bounds', () => {
-    expect(safeParsePrescription(withTarget({ kind: 'hr_zone', value: 6 })).success).toBe(false); // > 5
+    // El canal de zona lleva el número de zona del modelo (6 de ritmo en carrera).
+    expect(safeParsePrescription(withTarget({ kind: 'hr_zone', value: 6 })).success).toBe(true);
+    expect(safeParsePrescription(withTarget({ kind: 'hr_zone', value: 7 })).success).toBe(false); // > 6
     expect(safeParsePrescription(withTarget({ kind: 'rpe', value: 11 })).success).toBe(false); // > 10
     expect(safeParsePrescription(withTarget({ kind: 'hr_bpm', value: 300 })).success).toBe(false); // > 250
     expect(safeParsePrescription(withTarget({ kind: 'percent_rm', value: 150 })).success).toBe(true); // supramax OK
