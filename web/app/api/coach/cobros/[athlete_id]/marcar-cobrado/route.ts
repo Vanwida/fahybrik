@@ -10,7 +10,7 @@
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { hasEntitlement } from '@/lib/coach/entitlements';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 import { findOpenInvoice, markInvoicePaidLocally } from '@/lib/coach/cobros';
 import { gatedResponse, getStripeOrThrow, loadStripeConfig } from '@/lib/stripe';
 import { captureRouteError } from '@/lib/observability/capture';
@@ -23,9 +23,8 @@ const paramsSchema = z.object({ athlete_id: z.string().regex(/^\d+$/) });
 export async function POST(_req: Request, ctx: { params: Promise<{ athlete_id: string }> }) {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
-  if (!(await hasEntitlement({ coach_id: session.coach_id, feature: 'negocio' }))) {
-    return jsonError('forbidden', 'Tu cuenta no tiene Negocio', 403);
-  }
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
   const parsed = paramsSchema.safeParse(await ctx.params);
   if (!parsed.success) return jsonError('bad_request', 'Atleta no válido', 400);
 

@@ -334,13 +334,19 @@ describeWithDb('Negocio: two coaches, zero cross-tenant rows (real DB)', () => {
 
   // ── Routes (real handlers, mocked session) ───────────────────────────────────────
   test('GET /api/coach/leads and /api/coach/citas/pending answer with the session coach\'s rows', async () => {
-    as(B);
-    const leads = await (await leadsRoute.GET()).json();
-    const ids = leads.leads.map((l: { id: string }) => Number(l.id));
-    expect(new Set(ids)).toEqual(new Set([lead.b_new, lead.b_call, lead.b_book]));
-    const calls = await (await callsRoute.GET()).json();
-    const callLeads = calls.calls.map((c: { lead_id: string }) => Number(c.lead_id));
-    expect(callLeads).not.toContain(lead.a_call);
+    // Las rutas de Negocio piden el add-on (tests/tenancy/negocio-gate).
+    await sql`insert into coach_entitlements (coach_id, feature, source) values (${B.coachId}, 'negocio', 'test')`;
+    try {
+      as(B);
+      const leads = await (await leadsRoute.GET()).json();
+      const ids = leads.leads.map((l: { id: string }) => Number(l.id));
+      expect(new Set(ids)).toEqual(new Set([lead.b_new, lead.b_call, lead.b_book]));
+      const calls = await (await callsRoute.GET()).json();
+      const callLeads = calls.calls.map((c: { lead_id: string }) => Number(c.lead_id));
+      expect(callLeads).not.toContain(lead.a_call);
+    } finally {
+      await sql`delete from coach_entitlements where coach_id = ${B.coachId} and source = 'test'`;
+    }
   });
 
   test('availability routes: PUT as B never touches A; DELETE of A\'s day as B is 404', async () => {

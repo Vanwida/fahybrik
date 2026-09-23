@@ -6,6 +6,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sessionReportInput } from '@fahybrid/shared/schema';
 import { createSessionReport, SessionReportError } from '@/lib/coach/session-reports';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,12 @@ export async function POST(req: Request) {
   const parsed = sessionReportInput.safeParse(raw);
   if (!parsed.success) {
     return jsonError('validation_error', 'Datos del parte inválidos', 400, parsed.error.flatten());
+  }
+
+  // Un parte sobre un LEAD es una llamada de venta: Negocio. Sobre un atleta, no.
+  if (parsed.data.lead_id != null) {
+    const noNegocio = await negocioForbidden(session.coach_id);
+    if (noNegocio) return noNegocio;
   }
 
   try {

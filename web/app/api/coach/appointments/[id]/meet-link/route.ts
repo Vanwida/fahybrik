@@ -7,6 +7,7 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { CitasError, setAppointmentMeetLink, getStudioLocation } from '@/lib/citas/store';
 import { sendAppointmentAccepted } from '@/lib/citas/email';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,8 @@ interface Ctx {
 export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
 
   const { id } = await ctx.params;
   if (!/^\d+$/.test(id)) return jsonError('invalid_id', 'id inválido', 400);
