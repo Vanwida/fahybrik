@@ -6,7 +6,9 @@ import { SignIn } from "@clerk/nextjs";
 export default function SignInPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-6 py-16">
-      <SignIn />
+      {/* Tras entrar, la puerta por rol decide (coach → Hoy); sin esto Clerk
+          devolvía a todos a la web pública. */}
+      <SignIn fallbackRedirectUrl="/auth/landing" />
     </main>
   );
 }
