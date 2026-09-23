@@ -14,7 +14,6 @@ import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
   anchorFromRequest,
-  groupAnchorFromMembers,
   type ExistingReceipt,
   type GroupAnchor,
   type OnConflict,
@@ -28,24 +27,22 @@ import type {
 } from '@fahybrid/shared/schema/assign-many';
 import { notifyAthlete } from '@/lib/notifications/dispatch';
 import { planPublishedPush } from '@/lib/notifications/plan-published';
-import { getSequenceById } from '@/lib/dashboard/coach/sequences';
 import { boxToday, getAutoPublishSetting } from './week-publishing';
 import {
   AssignManyError,
   assertStartNotPast,
   buildPreview,
   loadProgramOrThrow,
-  loadPrograms,
   loadReceipts,
   planAssignTarget,
   planGroupJoinTarget,
   requestHash,
   resolveRecipients,
-  type GroupPlanContext,
   type PlanTarget,
   type RecipientInfo,
 } from './assign-many-plan';
 import { applyTarget, type ApplyContext } from './assign-many-apply';
+import { loadGroupPlanContext } from './groups-read';
 
 export { AssignManyError } from './assign-many-plan';
 export { undoAssignBatch } from './assign-many-undo';
@@ -261,55 +258,6 @@ export async function runAssign(params: {
 }
 
 // ── Entrar en un grupo (alineado con su calendario) ──────────────────────────
-
-/** Contexto del grupo: cadena con sus programas, política y el ancla que votan sus miembros. */
-export async function loadGroupPlanContext(
-  client: Sql,
-  coach_id: number,
-  group_id: number,
-  excluding: number[] = [],
-): Promise<GroupPlanContext> {
-  const seq = await getSequenceById(coach_id, group_id, client);
-  if (!seq) throw new AssignManyError('group_not_found', 'No encuentro ese grupo entre los tuyos.', 404);
-  const programs = await loadPrograms(client, coach_id, seq.items.map((i) => Number(i.month_template_id)));
-  const chain = seq.items
-    .map((i) => ({ position: i.position, weeks: programs.get(Number(i.month_template_id))?.weeks ?? 0, program: programs.get(Number(i.month_template_id))! }))
-    .filter((c) => c.program && c.weeks > 0);
-
-  const members = await client<Array<{ athlete_id: string; position: number }>>`
-    select athlete_id::text, current_position as position from athlete_sequence_progress
-    where sequence_id = ${group_id} and coach_id = ${coach_id} and status = 'active'
-  `;
-  const voters = members.filter((m) => !excluding.includes(Number(m.athlete_id)));
-  const today = boxToday();
-  const votes = [];
-  if (voters.length > 0) {
-    const receiptRows = await client<Array<{ athlete_id: string; month_template_id: string; end_date: string }>>`
-      select distinct on (ama.athlete_id, ama.month_template_id)
-             ama.athlete_id::text, ama.month_template_id::text, to_char(ama.end_date, 'YYYY-MM-DD') as end_date
-      from athlete_month_assignments ama
-      where ama.athlete_id = any(${voters.map((v) => Number(v.athlete_id))}::bigint[])
-      order by ama.athlete_id, ama.month_template_id, ama.start_date desc
-    `;
-    const latest = new Map(receiptRows.map((r) => [`${r.athlete_id}|${r.month_template_id}`, r.end_date]));
-    for (const v of voters) {
-      const item = seq.items.find((i) => i.position === v.position);
-      const c = chain.find((x) => x.position === v.position);
-      const end = item ? latest.get(`${v.athlete_id}|${item.month_template_id}`) : undefined;
-      if (!c || !end) continue;
-      votes.push({ position: v.position, program_weeks: c.weeks, receipt_end: end, current: end >= today });
-    }
-  }
-  const displayName = seq.name ?? `Grupo ${seq.id}`;
-  return {
-    id: Number(seq.id),
-    name: displayName,
-    end_policy: seq.end_policy,
-    chain: chain.map(({ position, weeks, program }) => ({ position, weeks, program })),
-    anchor: groupAnchorFromMembers(votes),
-    members: new Set(members.map((m) => Number(m.athlete_id))),
-  };
-}
 
 /** El lunes que viene (día de caja). */
 export function nextMonday(): string {
