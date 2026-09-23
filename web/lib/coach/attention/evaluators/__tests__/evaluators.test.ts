@@ -506,6 +506,16 @@ describe('billing_at_risk', () => {
     expect(r.value).toBe(5);
   });
 
+  it('la baja se cuenta desde la fecha de fin en el día del atleta (no la resta UTC del barrido)', () => {
+    // El barrido dijo 5 d (UTC, antes de medianoche); en el día del atleta faltan 4.
+    const r = fired(
+      'billing_at_risk',
+      baseFacts({ billing_risk: 'renewal_soon', billing_days_to_period_end: 5, billing_period_end_iso: '2026-06-22' }),
+    );
+    expect(r.label).toBe('Se da de baja en 4 d');
+    expect(r.detail).toBe('canceló la suscripción · termina el 22 jun');
+  });
+
   it('renewal_soon más allá de los días del coach: solo contexto (informativa)', () => {
     const r = fired('billing_at_risk', baseFacts({ billing_risk: 'renewal_soon', billing_days_to_period_end: 20 }));
     expect(r.severity).toBe('info');

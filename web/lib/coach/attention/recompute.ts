@@ -198,6 +198,7 @@ async function assembleFacts(
     billing_risk: deriveBillingRisk(row),
     billing_days_to_period_end:
       deriveBillingRisk(row) === 'renewal_soon' ? row.billing_days_to_period_end : null,
+    billing_period_end_iso: deriveBillingRisk(row) === 'renewal_soon' ? row.billing_period_end_iso : null,
 
     latest_test_at: row.latest_test_at,
     latest_test_label: testLabel(row.latest_test_slug, row.latest_test_unit),

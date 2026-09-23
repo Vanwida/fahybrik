@@ -38,6 +38,7 @@ export interface BatchRow {
   billing_status: string | null;
   billing_cancel_at_period_end: boolean | null;
   billing_days_to_period_end: number | null;
+  billing_period_end_iso: string | null;
   // Progression / test events (KEYSTONE-fed)
   latest_test_at: Date | null;
   latest_test_slug: string | null;
@@ -198,7 +199,8 @@ export async function loadBatch(
         case
           when s.current_period_end is null then null
           else (s.current_period_end::date - ${todayIso}::date)::int
-        end as days_to_period_end
+        end as days_to_period_end,
+        to_char(s.current_period_end::date, 'YYYY-MM-DD') as period_end_iso
       from athletes a
       join subscriptions s
         on s.user_id = a.user_id or s.partner_user_id = a.user_id
@@ -380,6 +382,7 @@ export async function loadBatch(
       bl.status                           as billing_status,
       bl.cancel_at_period_end             as billing_cancel_at_period_end,
       bl.days_to_period_end               as billing_days_to_period_end,
+      bl.period_end_iso                   as billing_period_end_iso,
       rt.ts                               as latest_test_at,
       rt.slug                             as latest_test_slug,
       rt.unit                             as latest_test_unit,

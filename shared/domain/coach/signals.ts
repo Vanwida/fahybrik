@@ -224,6 +224,8 @@ export interface SignalFacts {
   billing_risk: 'past_due' | 'renewal_soon' | null;
   /** Days to period end when billing_risk === 'renewal_soon'. */
   billing_days_to_period_end: number | null;
+  /** YYYY-MM-DD del fin del periodo pagado (la fecha de la baja), si se conoce. */
+  billing_period_end_iso?: string | null;
 
   // Progression / test events (KEYSTONE-fed — real athlete_benchmarks history)
   /** Timestamp of the athlete's most recent POST-onboarding test (a coach/athlete

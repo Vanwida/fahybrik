@@ -112,14 +112,21 @@ export const billingAtRiskEvaluator: SignalEvaluator = {
     // (`renewal_alert_days`, defecto 7) es VIGILAR: «Se da de baja en N d», y la
     // acción es escribirle (`signalActionFor`: un pago no vencido no se
     // «recuerda»). Antes, informativa: la baja de la semana no salía en Hoy.
-    const d = facts.billing_days_to_period_end ?? 0;
+    // La fecha de la baja manda; los días se cuentan en el día del atleta (la
+    // resta del barrido va en UTC y de madrugada se corre uno).
+    const ends =
+      facts.billing_period_end_iso ??
+      isoDateString(addDays(parseIsoDate(facts.today_iso), facts.billing_days_to_period_end ?? 0));
+    const d = Math.max(
+      0,
+      Math.round((parseIsoDate(ends).getTime() - parseIsoDate(facts.today_iso).getTime()) / 86_400_000),
+    );
     const soon = d <= (thresholds.renewal_alert_days ?? 7);
-    const ends = isoDateString(addDays(parseIsoDate(facts.today_iso), d));
     return {
       kind: 'billing_at_risk',
       fires: true,
       severity: soon ? 'warning' : 'info',
-      value: facts.billing_days_to_period_end,
+      value: d,
       baseline: null,
       trend: null,
       label: d === 0 ? 'Se da de baja hoy' : `Se da de baja en ${d} d`,
