@@ -1,6 +1,7 @@
 // Eventos por club (obra 0 multi-coach): listEvents con coach_id devuelve el
 // catálogo compartido + los eventos PROPIOS del club, nunca los de otro; y
-// updateEvent exige owner DENTRO del WHERE (cross-club = 404, cero filas).
+// updateEvent exige owner DENTRO del WHERE (cross-club = 404, cero filas;
+// catálogo compartido = 403, solo lo cura el admin).
 //
 // DB real (Neon branch): lo que se prueba ES el SQL del scope. Se salta con
 // aviso cuando no hay TEST_DATABASE_URL.
@@ -96,7 +97,7 @@ describeWithDb('eventos — scope por club (DB real)', () => {
     expect(row[0]!.name).toBe('Privado club B');
   });
 
-  test('updateEvent propio y de catálogo: el coach sigue editando igual que siempre', async () => {
+  test('updateEvent propio: el coach edita sus carreras; el catálogo compartido es de solo lectura', async () => {
     const own = await updateEvent({
       event_id: BigInt(ownAId),
       owner: { kind: 'coach', coach_id: clubA.coachId },
@@ -105,14 +106,18 @@ describeWithDb('eventos — scope por club (DB real)', () => {
     });
     expect(own.name).toBe('Privado club A v2');
 
-    // El catálogo compartido sigue siendo curable por el coach (toggle visibilidad).
-    const cat = await updateEvent({
-      event_id: BigInt(catalogId),
-      owner: { kind: 'coach', coach_id: clubA.coachId },
-      input: { is_visible_to_athletes: false },
-      client: sql,
-    });
-    expect(cat.is_visible_to_athletes).toBe(false);
+    // El catálogo lo ven los atletas de TODOS los clubs: un coach no lo renombra
+    // ni lo oculta (DECISIONS 2026-09-23 «Catálogo de carreras»). 403 claro.
+    await expect(
+      updateEvent({
+        event_id: BigInt(catalogId),
+        owner: { kind: 'coach', coach_id: clubA.coachId },
+        input: { is_visible_to_athletes: false },
+        client: sql,
+      }),
+    ).rejects.toMatchObject({ code: 'catalog_read_only', status: 403 });
+    const row = await sql<{ v: boolean }[]>`select is_visible_to_athletes as v from events where id = ${catalogId}`;
+    expect(row[0]!.v).toBe(true);
   });
 
   test('updateEvent admin: el curador edita cualquier fila, incluida la de un club', async () => {

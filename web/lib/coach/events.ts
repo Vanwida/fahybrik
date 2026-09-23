@@ -95,6 +95,11 @@ export interface ListEventsOpts {
   // THIS club's own manual events — never another club's. Omit for the athlete
   // view (visible-only) and for the admin curator (sees everything).
   coach_id?: number | bigint;
+  // Athlete caller: the shared catalog plus the manual events of THEIR coach's
+  // club — never another club's, even if that club made its event visible.
+  athlete_id?: number | bigint;
+  // Anonymous caller: the shared catalog only.
+  catalog_only?: boolean;
   // Date range filter (ISO YYYY-MM-DD). Inclusive.
   from_date?: string;
   to_date?: string;
@@ -102,8 +107,11 @@ export interface ListEventsOpts {
 
 /**
  * Who is mutating an event. Admin (the catalog curator) may touch any row; a
- * coach may touch the shared catalog and their OWN manual events, never another
- * club's. The predicate goes INSIDE the WHERE of every mutation (no
+ * coach may touch ONLY their own manual events. The shared catalog
+ * (`created_by_coach_id is null`) is what every club's athletes see, so one
+ * coach renaming or hiding a HYROX race would do it for everyone: it is
+ * read-only for coaches and curated by admin (DECISIONS 2026-09-23 «Catálogo de
+ * carreras»). The predicate goes INSIDE the WHERE of every mutation (no
  * check-then-act window).
  */
 export type EventOwner =
@@ -113,7 +121,7 @@ export type EventOwner =
 function ownedEventPredicate(client: Sql, owner: EventOwner) {
   return owner.kind === 'admin'
     ? client`true`
-    : client`(created_by_coach_id is null or created_by_coach_id = ${Number(owner.coach_id)})`;
+    : client`created_by_coach_id = ${Number(owner.coach_id)}`;
 }
 
 function toListItem(row: RawEventRow, today: string): EventListItem {
@@ -167,8 +175,10 @@ export async function listEvents(
   // composition trivial. The narrow date / visibility filters that always
   // apply stay in SQL.
   const onlyVisibleClause = visibility === 'visible';
-  const scopeToCoach = opts.coach_id != null;
+  // Sin coach, atleta ni «solo catálogo» = el curador (admin): todo.
+  const scopeToClub = opts.coach_id != null || opts.athlete_id != null || opts.catalog_only === true;
   const coachIdParam = opts.coach_id != null ? Number(opts.coach_id) : 0;
+  const athleteIdParam = opts.athlete_id != null ? Number(opts.athlete_id) : 0;
   const rows = await client<RawEventRow[]>`
     select
       e.id::text                                              as id,
@@ -201,9 +211,10 @@ export async function listEvents(
     ) t on t.event_id = e.id
     where (${onlyVisibleClause}::boolean = false or e.is_visible_to_athletes = true)
       and (
-        ${scopeToCoach}::boolean = false
+        ${scopeToClub}::boolean = false
         or e.created_by_coach_id is null
         or e.created_by_coach_id = ${coachIdParam}
+        or e.created_by_coach_id = (select a.coach_id from athletes a where a.id = ${athleteIdParam})
       )
     order by e.start_date asc nulls last, e.name asc
     limit 1000
@@ -392,6 +403,20 @@ export async function updateEvent(args: {
     limit 1
   `;
   if (!owned[0]) {
+    // El catálogo compartido lo ven todos los coaches: decir que existe no filtra
+    // nada, y un 403 claro explica por qué no se puede tocar. Otro club → 404.
+    const catalog = await client<{ ok: boolean }[]>`
+      select true as ok from events
+      where id = ${args.event_id as unknown as number} and created_by_coach_id is null
+      limit 1
+    `;
+    if (catalog[0]) {
+      throw new EventsError(
+        'catalog_read_only',
+        'Esta carrera es del catálogo compartido: solo la edita el administrador.',
+        403,
+      );
+    }
     throw new EventsError('not_found', 'Evento no encontrado.', 404);
   }
 

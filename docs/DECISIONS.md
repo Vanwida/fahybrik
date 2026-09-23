@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Catálogo de carreras: se lee compartido, se escribe por club
+
+**El hueco (revisión de aislamiento, hallazgo 5):** `ownedEventPredicate` dejaba a cualquier coach editar las filas del catálogo compartido (`events.created_by_coach_id is null`), que ven los atletas de todos los clubs: un club podía renombrar, cambiar la fecha u ocultar una carrera HYROX para todos. Un test (`tests/races/events-scope.db.test.ts`) lo fijaba como correcto. Además, `/api/events` enseñaba al atleta TODAS las carreras visibles, también las manuales de otros clubs.
+
+**Decidido:** un coach edita solo sus carreras (`created_by_coach_id = el suyo`); una fila del catálogo le devuelve **403 «solo la edita el administrador»** (no 404: el catálogo lo ven todos, su existencia no es secreta) y la de otro club, 404. El catálogo lo cura el admin (`/admin/races`). El atleta ve el catálogo + las carreras de SU club; una llamada anónima, solo el catálogo. El test viejo se reescribe al revés.
+
+**Lo que no se hizo:** ocultar una carrera del catálogo solo para los atletas de un club (hoy nadie lo usa desde el panel; la vía sería una tabla `coach_event_overrides`, el mismo patrón que `coach_exercise_overrides`). El slug de `events` sigue siendo único global. `lib/races/target-race-write.ts` fija la fecha de una carrera «por confirmar» del catálogo cuando un atleta la elige como objetivo, sin mirar el club: queda anotado para su dueño.
+
+**NO hacer:** no volver a abrir la escritura del catálogo a los coaches; no listar carreras a un atleta sin su club.
+
+---
+
 ## 2026-09-23 · El catálogo base nace de las migraciones (0247)
 
 **Decidido:** las ~77 filas base del catálogo que 0178 traducía y clasificaba (sentadilla, peso muerto, press banca, dominadas, las estaciones de HYROX, ergómetros, core…) las crea ahora una migración, `0247_exercise_base_catalog.sql`, con los mismos slugs y nombres ES/EN de 0178, la categoría y modalidad que exige el esquema, y la posición de las 8 estaciones. Vuelve a pasar los alias de 0178. Globales (`coach_id` null), `on conflict do nothing`: en producción, donde esas filas ya existen, no cambia nada. Las siete filas que 0178 archiva no se crean. Un test (`tests/exercises/base-catalog.db.test.ts`) resuelve 45 nombres ES/EN contra el catálogo que dejan las migraciones.

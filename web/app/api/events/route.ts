@@ -1,9 +1,9 @@
 // GET /api/events
 //
 // Lists events. The athlete bearer is evaluated BEFORE the coach cookie. Returns:
-//   - For athletes (bearer auth): only events flagged is_visible_to_athletes
+//   - For athletes (bearer auth): visible events of the shared catalog + their club
 //   - For coaches (cookie session): the shared catalog + the club's own events
-//   - For unauthenticated callers: only visible events (treated as athlete view)
+//   - For unauthenticated callers: visible events of the shared catalog only
 //
 // Query params:
 //   type      = 'hyrox' | 'crossfit' | 'other'
@@ -70,6 +70,9 @@ export async function GET(req: Request): Promise<NextResponse> {
     visibility: coach ? 'all' : 'visible',
     // Coach view: shared catalog + THIS club's own events, never another club's.
     coach_id: coach?.coach_id,
+    // Athlete view: the catalog + their own club's events. Anonymous: catalog only.
+    athlete_id: athlete?.athlete_id,
+    catalog_only: !coach && !athlete,
   };
 
   try {
