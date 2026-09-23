@@ -24,8 +24,7 @@
 // convertiría un Base en Personalizado por el mero hecho de abrir y guardar.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { ModalPortal } from '@/components/v2/editor/ModalPortal';
+import { Button, Dialog, Input, Tag } from '@/components/v2/ui';
 import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
@@ -37,18 +36,15 @@ import {
   resolveModality,
 } from '@/lib/dashboard/exercises/catalog-ui';
 import {
+  FormRow,
   MAX_NAME,
   OverrideField,
   OwnIdentity,
   RestoreButton,
   SharedIdentity,
-  hintCls,
-  inputCls,
-  labelCls,
   parseList,
   sameList,
 } from '@/components/v2/biblioteca/EjercicioEditorFields';
-import { cn } from '@/lib/utils';
 
 /**
  * El movimiento de partida al crear desde "esto no lo puedo cambiar". Lleva la
@@ -223,192 +219,130 @@ export function EjercicioEditor({
     });
   };
 
+  const showNameError = Boolean(nameError && nameTouched);
+
   return (
-    // `escapeEnabled={!saving}` ya hace que el portal se COMA el Escape mientras
-    // se guarda (sin cerrar nada de debajo), así que onEscape no necesita guardia.
-    <ModalPortal onEscape={onClose} escapeEnabled={!saving}>
-      <div
-        className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 py-[6vh] backdrop-blur-sm"
-        onClick={saving ? undefined : onClose}
-        role="presentation"
-      >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={creating ? 'Nuevo ejercicio' : `Editar ${ex.name}`}
-          tabIndex={-1}
-          onClick={(e) => e.stopPropagation()}
-          className="v2-focus flex w-full max-w-[560px] flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-elevated)] shadow-[var(--v2-shadow-pop)]"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        // Mientras se guarda no se cierra nada (ni Escape ni clic fuera).
+        if (!open && !saving) onClose();
+      }}
+      title={title}
+      description={
+        ex ? <Tag>{EXERCISE_ORIGIN_META[ex.origin].label}</Tag> : 'Será tuyo: sólo tú lo verás.'
+      }
+      footer={
+        <>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" loading={saving} disabled={!canSave} onClick={submit}>
+            {creating ? 'Crear ejercicio' : 'Guardar'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Qué significa editar un Base — antes de tocar nada. */}
+        {shared ? (
+          <p className="t-body-sm text-v2-muted">
+            Es de la base: lo que escribas aquí se guarda <span className="font-medium text-v2-fg">sólo para ti</span>{' '}
+            y es lo que verán tus atletas. Lo que dejes vacío se hereda.
+          </p>
+        ) : null}
+
+        {/* Mismo trato que los otros tres campos forkeables: el valor es el override
+            CRUDO, el placeholder es el nombre de la base y vaciarlo la devuelve. */}
+        <FormRow
+          id="ej-name"
+          label="Nombre"
+          aside={shared && name.trim() !== '' ? <RestoreButton onClick={() => setName('')} /> : null}
+          error={showNameError ? nameError : null}
+          hint={
+            shared && name.trim() !== '' ? (
+              <>
+                En la base: <span className="text-v2-muted">“{ex.base_name}”</span>
+              </>
+            ) : shared ? (
+              'Vacío = usas el nombre de la base.'
+            ) : null
+          }
         >
-          {/* ── Cabecera ──────────────────────────────────────────────────── */}
-          <div className="flex items-start justify-between gap-3 border-b border-[color:var(--v2-border)] p-4">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-[color:var(--v2-fg)]">{title}</p>
-              {ex ? (
-                <span
-                  className="mt-1 inline-block rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em]"
-                  style={{
-                    background: `var(${EXERCISE_ORIGIN_META[ex.origin].bgVar})`,
-                    color: `var(${EXERCISE_ORIGIN_META[ex.origin].fgVar})`,
-                  }}
-                >
-                  {EXERCISE_ORIGIN_META[ex.origin].label}
-                </span>
-              ) : (
-                <p className="mt-0.5 text-xs text-[color:var(--v2-muted)]">
-                  Será tuyo: sólo tú lo verás.
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="v2-focus -mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-            >
-              <MIcon name="close" size={18} />
-            </button>
-          </div>
+          <Input
+            id="ej-name"
+            size="lg"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setNameTouched(true)}
+            maxLength={MAX_NAME}
+            autoComplete="off"
+            placeholder={shared ? ex.base_name : 'Sentadilla búlgara'}
+            invalid={showNameError}
+            aria-describedby={showNameError ? 'ej-name-err' : undefined}
+          />
+        </FormRow>
 
-          <div className="flex flex-col gap-4 p-4">
-            {/* Qué significa editar un Base — antes de tocar nada. */}
-            {shared ? (
-              <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5 text-xs leading-relaxed text-[color:var(--v2-fg)]">
-                <b>Este ejercicio es de la base.</b> Lo que escribas aquí se guarda{' '}
-                <b>sólo para ti</b> y es lo que verán tus atletas. Lo que dejes vacío se hereda.
-              </p>
-            ) : null}
+        {/* ── Claves + descripción + vídeo (lo que el coach AUTORA) ───── */}
+        <OverrideField
+          id="ej-cues"
+          label="Claves"
+          value={cues}
+          onChange={setCues}
+          baseValue={shared ? ex.base_cues : null}
+          inherits={shared}
+          rows={3}
+          placeholder="Pecho arriba, rodilla fuera…"
+        />
 
-            {/* ── Nombre ──────────────────────────────────────────────────── */}
-            <div>
-              <label className={labelCls} htmlFor="ej-name">
-                <span>Nombre</span>
-                {shared && name.trim() !== '' ? (
-                  <RestoreButton onClick={() => setName('')} />
-                ) : null}
-              </label>
-              <input
-                id="ej-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={() => setNameTouched(true)}
-                maxLength={MAX_NAME}
-                autoComplete="off"
-                placeholder={shared ? ex.base_name : 'Sentadilla búlgara'}
-                className={cn(inputCls, nameError && nameTouched && 'border-[color:var(--v2-danger)]')}
-                aria-invalid={nameError && nameTouched ? true : undefined}
-                aria-describedby={nameError && nameTouched ? 'ej-name-err' : undefined}
-              />
-              {nameError && nameTouched ? (
-                <p id="ej-name-err" className="mt-1 text-label text-[color:var(--v2-danger)]">
-                  {nameError}
-                </p>
-              ) : null}
-              {/* Mismo trato que los otros tres campos forkeables: el valor es el
-                  override CRUDO, el placeholder es el nombre de la base y vaciarlo
-                  la devuelve. Antes el nombre era la excepción rara (no se podía
-                  deshacer); build-ejercicios lo arregló en la raíz. */}
-              {shared && name.trim() !== '' ? (
-                <p className={hintCls}>
-                  En la base: <span className="text-[color:var(--v2-muted)]">“{ex.base_name}”</span>
-                </p>
-              ) : shared ? (
-                <p className={hintCls}>Vacío = usas el nombre de la base.</p>
-              ) : null}
-            </div>
+        <OverrideField
+          id="ej-desc"
+          label="Descripción"
+          value={description}
+          onChange={setDescription}
+          baseValue={shared ? ex.base_description : null}
+          inherits={shared}
+          rows={3}
+          placeholder="Cómo se ejecuta."
+        />
 
-            {/* ── Claves + descripción + vídeo (lo que el coach AUTORA) ───── */}
-            <OverrideField
-              id="ej-cues"
-              label="Claves"
-              value={cues}
-              onChange={setCues}
-              baseValue={shared ? ex.base_cues : null}
-              inherits={shared}
-              rows={3}
-              placeholder="Pecho arriba, rodilla fuera…"
-            />
+        {/* El vídeo SE VE aquí. Cuando hereda, lo que se reproduce es el de la
+            base, que es exactamente lo que verá el atleta. */}
+        <VideoUrlField
+          id="ej-video"
+          label={OVERRIDE_FIELD_LABEL.video_url}
+          value={video}
+          onChange={setVideo}
+          inheritedUrl={shared ? ex.base_video_url : null}
+          exerciseId={ex?.id ?? null}
+          onUploadingChange={setVideoUploading}
+        />
 
-            <OverrideField
-              id="ej-desc"
-              label="Descripción"
-              value={description}
-              onChange={setDescription}
-              baseValue={shared ? ex.base_description : null}
-              inherits={shared}
-              rows={3}
-              placeholder="Cómo se ejecuta."
-            />
+        {/* ── La identidad: compartida y bloqueada, o del coach ────────── */}
+        {shared ? (
+          <SharedIdentity
+            ex={ex}
+            onCreateOwn={() => onCreateOwn({ name: ex.name, category: ex.category, modality: ex.modality })}
+          />
+        ) : (
+          <OwnIdentity
+            creating={creating}
+            category={category}
+            onCategory={setCategory}
+            modality={modalityValue}
+            onModality={setModality}
+            modalitySuggested={modalitySuggested}
+            muscles={muscles}
+            onMuscles={setMuscles}
+            equipment={equipment}
+            onEquipment={setEquipment}
+          />
+        )}
 
-            {/* El vídeo SE VE aquí. Antes esto era un `input` y un enlace que abría
-                otra pestaña: para comprobar que había pegado lo que creía, el coach
-                tenía que salirse del panel. Cuando hereda, lo que se reproduce es el
-                de la base, que es exactamente lo que verá el atleta — y el propio
-                campo pone el verbo (Restaurar / Quitar) según haya base o no. */}
-            <VideoUrlField
-              id="ej-video"
-              label={OVERRIDE_FIELD_LABEL.video_url}
-              value={video}
-              onChange={setVideo}
-              inheritedUrl={shared ? ex.base_video_url : null}
-              exerciseId={ex?.id ?? null}
-              onUploadingChange={setVideoUploading}
-            />
-
-            {/* ── La identidad: compartida y bloqueada, o del coach ────────── */}
-            {shared ? (
-              <SharedIdentity
-                ex={ex}
-                onCreateOwn={() =>
-                  onCreateOwn({ name: ex.name, category: ex.category, modality: ex.modality })
-                }
-              />
-            ) : (
-              <OwnIdentity
-                creating={creating}
-                category={category}
-                onCategory={setCategory}
-                modality={modalityValue}
-                onModality={setModality}
-                modalitySuggested={modalitySuggested}
-                muscles={muscles}
-                onMuscles={setMuscles}
-                equipment={equipment}
-                onEquipment={setEquipment}
-              />
-            )}
-
-            {error ? (
-              <p
-                role="alert"
-                className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2 text-xs leading-relaxed text-[color:var(--v2-fg)]"
-              >
-                {error}
-              </p>
-            ) : null}
-          </div>
-
-          {/* ── Pie ───────────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-end gap-2 border-t border-[color:var(--v2-border)] p-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSave}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-            >
-              {saving ? <MIcon name="progress_activity" size={16} /> : null}
-              {saving ? 'Guardando…' : creating ? 'Crear ejercicio' : 'Guardar'}
-            </button>
-          </div>
-        </div>
+        {error ? (
+          <p role="alert" className="t-body-sm font-medium text-v2-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </ModalPortal>
+    </Dialog>
   );
 }
