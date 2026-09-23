@@ -18,6 +18,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 import {
   V2_THEME_STORAGE_KEY,
   V2_THEME_DEFAULT,
+  V2_THEME_CANVAS,
   resolveV2Theme,
   type V2Theme,
 } from './theme-config';
@@ -49,9 +51,11 @@ function subscribe(onChange: () => void): () => void {
 }
 
 function getClientTheme(): V2Theme {
-  const stored = window.localStorage.getItem(V2_THEME_STORAGE_KEY);
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-  return resolveV2Theme(stored, prefersDark);
+  try {
+    return resolveV2Theme(window.localStorage.getItem(V2_THEME_STORAGE_KEY));
+  } catch {
+    return V2_THEME_DEFAULT;
+  }
 }
 
 function getServerTheme(): V2Theme {
@@ -71,7 +75,11 @@ export function V2ThemeProvider({
 
   const persist = useCallback((next: V2Theme) => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(V2_THEME_STORAGE_KEY, next);
+    try {
+      window.localStorage.setItem(V2_THEME_STORAGE_KEY, next);
+    } catch {
+      // Almacenamiento bloqueado: el cambio vale para esta pestaña igualmente.
+    }
     window.dispatchEvent(new StorageEvent('storage', { key: V2_THEME_STORAGE_KEY, newValue: next }));
   }, []);
 
@@ -80,6 +88,13 @@ export function V2ThemeProvider({
     () => persist(theme === 'dark' ? 'light' : 'dark'),
     [persist, theme],
   );
+
+  // Barra de estado / splash de la PWA al color del lienzo elegido.
+  useEffect(() => {
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((m) => m.setAttribute('content', V2_THEME_CANVAS[theme]));
+  }, [theme]);
 
   // La piel del club sirve las DOS familias (clara y oscura) y es `v2-theme.css`
   // quien elige según `data-theme`. Así el acento correcto está pintado ya en el

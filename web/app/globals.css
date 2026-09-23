@@ -744,3 +744,68 @@
   --font-heading: var(--font-archivo);
   font-family: var(--font-geist-sans);
 }
+
+/* ── ESCALA DE TIPO DEL PANEL (8 pasos) ───────────────────────────────────────
+   Contrato: docs/auditoria-panel-coach/PLAN-CONSTRUCCION.md §3. Figtree (la
+   pone .v2-root). Nada por debajo de 12 px salvo t-label (mayúsculas). Pesos
+   400/500/600; 700 solo en cifras display. En @layer components para que una
+   utilidad (font-medium, text-[color:…]) pueda afinar sin pelear. */
+@layer components {
+  /* Cabeceras de tabla y cejas de sección — y NADA más. */
+  .t-label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .t-meta {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+  }
+  .t-body-sm {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+  .t-body {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+  .t-title-sm {
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  /* Título de página. */
+  .t-title {
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+  .t-num-l {
+    font-size: 28px;
+    line-height: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  /* Como mucho una por pantalla. */
+  .t-num-xl {
+    font-size: 40px;
+    line-height: 44px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .t-tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+}

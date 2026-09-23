@@ -11,18 +11,23 @@ export type V2Theme = 'dark' | 'light';
 /** localStorage key for the persisted v2 theme — single source of truth. */
 export const V2_THEME_STORAGE_KEY = 'fahybrid:v2-theme';
 
-/** Default when nothing is stored and the system is not asking for dark. */
-export const V2_THEME_DEFAULT: V2Theme = 'light';
+/** Tema por defecto del panel: OSCURO (DECISIONS 2026-09-23). */
+export const V2_THEME_DEFAULT: V2Theme = 'dark';
 
 /**
- * Qué tema pinta el panel: lo guardado gana; si no hay nada, el sistema;
- * si el sistema tampoco dice, el claro FLEXR.
+ * Lienzo de cada tema — lo que pinta la barra de estado / el splash de la PWA
+ * (`<meta name="theme-color">`). Igual que --v2-bg en v2-theme.css.
  */
-export function resolveV2Theme(
-  stored: string | null | undefined,
-  prefersDark: boolean,
-): V2Theme {
+export const V2_THEME_CANVAS: Record<V2Theme, string> = {
+  dark: '#0B0B0C',
+  light: '#F4F4F2',
+};
+
+/**
+ * Qué tema pinta el panel: lo guardado gana; si no hay nada, OSCURO. El sistema
+ * ya no decide (antes: sistema → claro); el claro es la alternativa del botón.
+ */
+export function resolveV2Theme(stored: string | null | undefined): V2Theme {
   if (stored === 'dark' || stored === 'light') return stored;
-  if (prefersDark) return 'dark';
   return V2_THEME_DEFAULT;
 }

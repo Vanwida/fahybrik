@@ -1,21 +1,16 @@
-// Fuentes del panel FLEXR — Bricolage Grotesque (display) + Figtree (cuerpo y
-// números tabulares). Scoped al dashboard: el layout (v2) añade estas variables
-// al wrapper `.v2-root`; el resto de la web sigue con las fuentes del root.
-// v2-theme.css las consume vía --v2-font-display / --v2-font-sans.
+// Fuente del panel del coach — SOLO Figtree (cuerpo, títulos y números
+// tabulares, que son la voz display). Bricolage salió con el rediseño de
+// 2026-09-23 (una sola familia). Scoped al dashboard: el layout (v2) añade la
+// variable al wrapper `.v2-root`; v2-theme.css la consume vía --v2-font-sans.
 
-import { Bricolage_Grotesque, Figtree } from 'next/font/google';
-
-const bricolage = Bricolage_Grotesque({
-  variable: '--font-bricolage',
-  subsets: ['latin'],
-  display: 'swap',
-});
+import { Figtree } from 'next/font/google';
 
 const figtree = Figtree({
   variable: '--font-figtree',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
 
-/** Clases que exponen --font-bricolage y --font-figtree al subárbol del panel. */
-export const flexrFontVars = `${bricolage.variable} ${figtree.variable}`;
+/** Clase que expone --font-figtree al subárbol del panel. */
+export const flexrFontVars = figtree.variable;
