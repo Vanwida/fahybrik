@@ -292,12 +292,15 @@ export async function resumeAthlete(input: { athlete_id: bigint }): Promise<Life
  */
 export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTransitionResult> {
   const todayIso = boxTodayIso();
+  // El coach cuyo cupo se libera: el del atleta (la cola es por coach, 0220).
+  let coachId: bigint | null = null;
   await sql.begin(async (tx) => {
-    const rows = await tx<{ lifecycle_status: AthleteLifecycleStatus; user_id: bigint }[]>`
-      select lifecycle_status, user_id from athletes where id = ${input.athlete_id} for update
+    const rows = await tx<{ lifecycle_status: AthleteLifecycleStatus; user_id: bigint; coach_id: bigint | null }[]>`
+      select lifecycle_status, user_id, coach_id from athletes where id = ${input.athlete_id} for update
     `;
     const current = rows[0];
     if (!current) throw new LifecycleError('not_found', 'Atleta no encontrado', 404);
+    coachId = current.coach_id;
     if (current.lifecycle_status === 'baja') {
       throw new LifecycleError('invalid_transition', 'El atleta ya está de baja', 409);
     }
@@ -350,7 +353,9 @@ export async function bajaAthlete(input: BajaAthleteInput): Promise<LifecycleTra
     // baja transaction so it's atomic. The shared-subscription split is #15.
     await dissolvePairOnBaja(input.athlete_id, tx);
   });
-  await releaseWaitlistToCapacity();
+  // Solo la cola de SU coach: liberar la de todos (el barrido sin coach) movía,
+  // en cada baja, las listas de espera de todos los clubes con cupo.
+  if (coachId != null) await releaseWaitlistToCapacity(coachId);
   // #15(billing): make the local cancel_at_period_end real in Stripe (cancel at
   // period end — access continues until the paid period elapses). POST-COMMIT +
   // guarded — a Stripe failure must never break the baja.
