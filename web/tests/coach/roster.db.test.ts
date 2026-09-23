@@ -142,10 +142,12 @@ describeWithDb('loadRoster — set-based', () => {
       return { rows, hoy };
     };
 
-    // El atleta escribió hace 2 h (bajo el umbral): por responder en Mensajes y
-    // en el filtro de Hoy, pero todavía no «te necesita».
+    // El atleta escribió hace 2 h (bajo el umbral): por responder en Mensajes, en
+    // el grupo «1 por responder» de Todo y en su filtro — y ya «te necesita» (en
+    // Hoy y en Atletas: alguien espera respuesta, DECISIONS «Todo es todo»).
     const first = await check();
-    expect(first.hoy.counts.needs_you).toBe(0);
+    expect(first.hoy.counts.needs_you).toBe(1);
+    expect(first.hoy.systemic.map((g) => g.kind)).toEqual(['awaiting_reply']);
     expect(first.hoy.counts.awaiting_reply).toBe(1);
     expect(first.hoy.replies.map((r) => r.athlete_id)).toEqual([String(fx.athleteId)]);
     expect(first.hoy.replies[0]!.primary).toMatchObject({ kind: 'message_unanswered', severity: 'info', lens: 'mensajes' });
@@ -205,9 +207,10 @@ describeWithDb('loadRoster — set-based', () => {
     queries = 0;
     await loadHoy({ coach_id: fx.coachId, now: NOW, client: counting });
     expect(queries).toBe(hoyOne);
-    // Los invitados sin cuestionario salen como «nuevo» (Invitado), no «sin plan».
+    // Los invitados sin cuestionario salen como «nuevo» (Invitado), no «sin plan»: ni en el
+    // estado ni en su semana (el chip «Sin plan» es la misma definición que Hoy).
     const extra = rows.find((r) => r.name === 'Extra 0')!;
-    expect(extra).toMatchObject({ lifecycle: 'nuevo', week_visibility: 'sin_plan', adherence_14d: null, readiness: null });
+    expect(extra).toMatchObject({ lifecycle: 'nuevo', week_visibility: 'vacia', adherence_14d: null, readiness: null });
     expect(extra.status).toMatchObject({ key: 'nuevo', label: 'Invitado' });
   });
 });

@@ -9,6 +9,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { groupAnchorFromMembers, windowEnd, type MemberAnchorVote } from '@fahybrid/shared/domain/coach/plan-placement';
+import { programPosition } from '@fahybrid/shared/domain/coach/program-position';
 import type {
   GroupCalendarItem,
   GroupDetail,
@@ -185,13 +186,9 @@ export async function getGroup(
   const memberRows: GroupMember[] = members.map((m) => {
     const item = summary!.programs.find((p) => p.position === m.position) ?? null;
     const rec = item ? receiptOf.get(`${m.athlete_id}|${item.program_id}`) : undefined;
-    const programStart =
-      rec && item ? isoDateString(addDays(parseIsoDate(rec.end_date), 1 - item.weeks * 7)) : null;
-    const inside = rec != null && today >= rec.start_date && today <= rec.end_date;
-    const week =
-      inside && programStart
-        ? Math.floor((parseIsoDate(today).getTime() - parseIsoDate(programStart).getTime()) / 604_800_000) + 1
-        : null;
+    // UNA regla para «dónde está y cuándo empieza» (la misma que el roster):
+    // empieza = el primer día de SU recibo; la semana se cuenta en el programa.
+    const pos = rec && item ? programPosition(rec, item.weeks, today) : null;
     return {
       athlete_id: m.athlete_id,
       name: m.name,
@@ -200,8 +197,8 @@ export async function getGroup(
       lifecycle: m.lifecycle,
       position: m.position,
       program: item ? { id: item.program_id, name: item.name, weeks: item.weeks } : null,
-      week,
-      program_start: programStart,
+      week: pos?.week ?? null,
+      program_start: pos?.athlete_start ?? null,
       program_end: rec?.end_date ?? null,
       plan_end: m.plan_end,
       joined_at: m.joined_at,

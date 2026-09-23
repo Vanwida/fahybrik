@@ -155,3 +155,54 @@ describe('classifyProgrammingStatus — entrenos sueltos también son plan', () 
     ).toBe('no_month');
   });
 });
+
+describe('classifyProgrammingStatus — «nunca» es nunca; «empieza pronto» no es un hueco', () => {
+  test('sin programa pero con entrenos del coach en el pasado: se le acabó, no «nunca»', () => {
+    const r = classifyProgrammingStatus(
+      facts({ has_month_plan: false, upcoming_session_count: 0, last_month_end: null, last_coach_session: '2026-08-15' }),
+    );
+    expect(r.status).toBe('block_ended');
+  });
+
+  test('sin programa y sin entrenos del coach nunca: «no_month»', () => {
+    const r = classifyProgrammingStatus(
+      facts({ has_month_plan: false, upcoming_session_count: 0, last_month_end: null, last_coach_session: null }),
+    );
+    expect(r.status).toBe('no_month');
+  });
+
+  test('semana vacía y su programa empieza la semana que viene: «empieza pronto»', () => {
+    const r = classifyProgrammingStatus(
+      facts({
+        week_session_count: 0,
+        upcoming_session_count: 5,
+        last_month_end: '2026-09-13',
+        next_start: '2026-08-24',
+        next_week_end: '2026-08-30',
+        has_current_program: false,
+      }),
+    );
+    expect(r.status).toBe('starts_soon');
+    expect(r.label).toBe('Empieza pronto');
+  });
+
+  test('si empieza más tarde que la semana que viene, sigue siendo una semana vacía', () => {
+    const r = classifyProgrammingStatus(
+      facts({ week_session_count: 0, upcoming_session_count: 5, next_start: '2026-09-07', next_week_end: '2026-08-30' }),
+    );
+    expect(r.status).toBe('empty_week');
+  });
+
+  test('una semana vacía DENTRO de un programa no es «empieza pronto»', () => {
+    const r = classifyProgrammingStatus(
+      facts({
+        week_session_count: 0,
+        upcoming_session_count: 5,
+        next_start: '2026-08-24',
+        next_week_end: '2026-08-30',
+        has_current_program: true,
+      }),
+    );
+    expect(r.status).toBe('empty_week');
+  });
+});

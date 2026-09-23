@@ -8,7 +8,8 @@
 //   estado=accion,vigilar | estado=todos     estado del atleta (§4.1)
 //   nivel=3,4 | nivel=sin                     id de athlete_levels del coach
 //   grupo=7 | grupo=sin                        id del grupo (program_sequences)
-//   semana=visible,oculta,sin_plan,terminado  su semana en curso (§4.4)
+//   semana=visible,oculta,sin_plan,empieza,vacia  su semana en curso (§4.4;
+//                                              `terminado` de las vistas viejas = sin_plan)
 //   carrera=30                                 carrera objetivo en ≤ N días
 //   q=ber                                      búsqueda (nombre, email, grupo, nivel)
 //   orden=readiness&dir=asc                    columna y sentido (sin orden: peor primero;
@@ -30,7 +31,7 @@ export type WeekVisibility = RosterRow['week_visibility'];
 export type Density = 'tabla' | 'tarjetas';
 
 export const STATUS_KEYS: readonly AthleteStatusKey[] = ['accion', 'vigilar', 'nuevo', 'sin_plan', 'al_dia', 'pausado'];
-export const WEEK_KEYS: readonly WeekVisibility[] = ['visible', 'oculta', 'sin_plan', 'terminado'];
+export const WEEK_KEYS: readonly WeekVisibility[] = ['visible', 'oculta', 'sin_plan', 'empieza', 'vacia'];
 /** Opciones del filtro «Carrera en menos de…». Rejilla de la interfaz, no método. */
 export const RACE_WINDOWS: readonly number[] = [14, 30, 60, 90];
 export const NONE = 'sin';
@@ -48,7 +49,8 @@ export const WEEK_LABEL: Record<WeekVisibility, string> = {
   visible: 'Visible',
   oculta: 'Oculta',
   sin_plan: 'Sin plan',
-  terminado: 'Terminado',
+  empieza: 'Empieza pronto',
+  vacia: 'Semana vacía',
 };
 
 export interface RosterFilter {
@@ -89,6 +91,11 @@ function idList(raw: string | null): string[] | null {
   return kept.length > 0 ? kept : null;
 }
 
+/** Vistas guardadas de antes: «terminado» ya es parte de «Sin plan» (una definición). */
+function legacyWeek(raw: string | null): string | null {
+  return raw == null ? null : raw.replace(/\bterminado\b/g, 'sin_plan');
+}
+
 function toParams(search: string | URLSearchParams): URLSearchParams {
   return typeof search === 'string' ? new URLSearchParams(search.replace(/^\?/, '')) : search;
 }
@@ -105,7 +112,7 @@ function parseFilter(p: URLSearchParams): RosterFilter {
     estado: estadoRaw === 'todos' ? null : list(estadoRaw, STATUS_KEYS),
     nivel: idList(p.get('nivel')),
     grupo: idList(p.get('grupo')),
-    semana: list(p.get('semana'), WEEK_KEYS),
+    semana: list(legacyWeek(p.get('semana')), WEEK_KEYS),
     carrera: Number.isFinite(carrera) && carrera > 0 && carrera <= 999 ? carrera : null,
   };
 }
@@ -200,7 +207,7 @@ const STATUS_RANK: Record<AthleteStatusKey, number> = {
   pausado: 5,
 };
 
-const WEEK_RANK: Record<WeekVisibility, number> = { oculta: 0, sin_plan: 1, terminado: 2, visible: 3 };
+const WEEK_RANK: Record<WeekVisibility, number> = { oculta: 0, sin_plan: 1, vacia: 2, empieza: 3, visible: 4 };
 
 /** Qué valor ordena cada columna. Las columnas de la tabla usan ESTE mapa. */
 export const SORT_VALUES: Record<string, (r: RosterRow) => SortValue> = {

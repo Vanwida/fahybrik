@@ -21,6 +21,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
   compareSignals,
+  isWithoutPlan,
   type AthleteStatus,
   type AthleteStatusKey,
 } from '@fahybrid/shared/domain/coach/athlete-state';
@@ -30,7 +31,6 @@ import {
 } from '@fahybrid/shared/domain/coach/adherence';
 import { readinessBandOf, type ReadinessBand } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
-import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
@@ -55,8 +55,18 @@ export interface RosterRow {
   group: { id: string; name: string } | null;
   lifecycle: 'activo' | 'pausado' | 'baja' | 'nuevo';
   status: AthleteStatus;
-  /** Semana en curso. Una semana vacía con programa (hueco) cuenta como `sin_plan`. */
-  week_visibility: 'visible' | 'oculta' | 'sin_plan' | 'terminado';
+  /**
+   * Su semana en curso, en UNA palabra por concepto:
+   *   visible · oculta — tiene entrenos esta semana y los ve / no los ve;
+   *   sin_plan  — LA definición de «Sin plan» (`isWithoutPlan`, la misma que el
+   *               grupo «N sin programa» de Hoy): nunca tuvo o se le acabó;
+   *   empieza   — su programa empieza la semana que viene («Empieza pronto»);
+   *   vacia     — no tiene nada esta semana por otra razón (un hueco dentro de
+   *               su plan, o un alta que aún no tiene programa).
+   */
+  week_visibility: 'visible' | 'oculta' | 'sin_plan' | 'empieza' | 'vacia';
+  /** YYYY-MM-DD de lo siguiente que ya tiene asignado (para «Empieza lun 28»). */
+  next_start: string | null;
   readiness: {
     value: number;
     baseline: number | null;
@@ -168,13 +178,14 @@ function groupName(e: ExtrasRow): string {
   );
 }
 
-const WEEK_VISIBILITY: Record<AthleteWeekChipKind, RosterRow['week_visibility']> = {
-  visible: 'visible',
-  no_lo_ve: 'oculta',
-  semana_vacia: 'sin_plan',
-  bloque_terminado: 'terminado',
-  sin_plan: 'sin_plan',
-};
+/** La palabra de su semana (ver `RosterRow.week_visibility`). */
+export function weekVisibilityOf(f: AthletePlanFacts): RosterRow['week_visibility'] {
+  if (f.week_chip.kind === 'visible') return 'visible';
+  if (f.week_chip.kind === 'no_lo_ve') return 'oculta';
+  if (isWithoutPlan(f)) return 'sin_plan';
+  if (f.programming.status === 'starts_soon') return 'empieza';
+  return 'vacia';
+}
 
 function lifecycleOf(f: AthletePlanFacts): RosterRow['lifecycle'] {
   if (f.lifecycle !== 'activo') return f.lifecycle;
@@ -254,7 +265,8 @@ export async function loadRoster(params: {
       group: e?.group_id ? { id: e.group_id, name: groupName(e) } : null,
       lifecycle: lifecycleOf(f),
       status: buildAthleteStatus(f, signals.get(f.athlete_id), now, aw?.open ?? false),
-      week_visibility: WEEK_VISIBILITY[f.week_chip.kind],
+      week_visibility: weekVisibilityOf(f),
+      next_start: f.programming.status === 'starts_soon' ? (f.next_program_start ?? e?.next_date ?? null) : null,
       readiness:
         latest && h
           ? {

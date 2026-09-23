@@ -53,7 +53,8 @@ export function PublishWeekDialog({
   const [busy, setBusy] = useState(false);
   const isThis = week === weekStart;
   const visible = athletes.filter((a) => a.week_visibility === 'visible').length;
-  const empty = athletes.filter((a) => a.week_visibility === 'sin_plan' || a.week_visibility === 'terminado').length;
+  // Sin entrenos esta semana (sin plan, empieza la que viene o semana vacía): nada que publicar.
+  const empty = athletes.filter((a) => a.week_visibility !== 'visible' && a.week_visibility !== 'oculta').length;
   const toPublish = isThis ? athletes.length - visible - empty : athletes.length;
 
   const run = async () => {

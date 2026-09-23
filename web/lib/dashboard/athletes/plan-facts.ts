@@ -18,7 +18,6 @@ import {
   addDays,
   isoDateString,
   mondayOfWeek,
-  parseIsoDate,
   startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
 import {
@@ -33,6 +32,13 @@ import {
 import type { AthleteLifecycleStatus, PauseReason } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { PlanState } from '@fahybrid/shared/domain/coach/athlete-state';
 import { autoPublishDate, effectiveAutoPublishDays } from '@fahybrid/shared/domain/coach/week-publishing';
+import { programPosition } from '@fahybrid/shared/domain/coach/program-position';
+
+function maxIso(a: string | null, b: string | null): string | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return a > b ? a : b;
+}
 
 export interface CurrentProgram {
   /** El programa (program_month_templates.id). */
@@ -113,6 +119,8 @@ interface Row {
   cur_end: string | null;
   cur_weeks: number | null;
   next_start: string | null;
+  last_coach_session: string | null;
+  next_after_week: string | null;
 }
 
 /** «Hoy» del coach (día de caja) y sus lunes, en YYYY-MM-DD. */
@@ -196,6 +204,21 @@ export async function loadPlanFacts(params: {
       cur.end_iso                                  as cur_end,
       cur.weeks                                    as cur_weeks,
       (
+        -- El último entreno del coach antes de esta semana: quien lo tuvo no
+        -- «nunca ha tenido programa» (se le acabó).
+        select to_char(max(w.scheduled_for), 'YYYY-MM-DD') from workout_assignments w
+        where w.athlete_id = a.id and w.origin = 'coach' and w.scheduled_for < ${cal.week_start}::date
+      )                                            as last_coach_session,
+      (
+        -- Lo siguiente que ya tiene después de esta semana (programa o entreno suelto).
+        select to_char(least(
+          (select min(m.start_date) from athlete_month_assignments m
+            where m.athlete_id = a.id and m.start_date > ${cal.week_end}::date),
+          (select min(w.scheduled_for) from workout_assignments w
+            where w.athlete_id = a.id and w.origin = 'coach' and w.scheduled_for > ${cal.week_end}::date)
+        ), 'YYYY-MM-DD')
+      )                                            as next_after_week,
+      (
         select to_char(min(m.start_date), 'YYYY-MM-DD') from athlete_month_assignments m
         where m.athlete_id = a.id and m.start_date > ${cal.today}::date
       )                                            as next_start
@@ -215,10 +238,10 @@ export async function loadPlanFacts(params: {
         t.name                                     as name,
         to_char(m.start_date, 'YYYY-MM-DD')        as start_iso,
         to_char(m.end_date, 'YYYY-MM-DD')          as end_iso,
-        greatest(
-          coalesce(array_length(m.microcycle_ids, 1), 0),
-          ceil((m.end_date - m.start_date + 1) / 7.0)::int
-        )                                          as weeks
+        -- Las semanas del PROGRAMA (no las del recibo: quien entra a mitad
+        -- de programa recibe menos). La posición sale de programPosition.
+        (select count(*) from program_month_weeks pw
+          where pw.month_template_id = m.month_template_id)::int as weeks
       from athlete_month_assignments m
       join program_month_templates t on t.id = m.month_template_id
       where m.athlete_id = a.id
@@ -242,13 +265,6 @@ export async function loadPlanFacts(params: {
   return rows.map((r) => toFacts(r, cal));
 }
 
-/** Semana 1-based de `today` dentro de un programa que arranca `startIso` (por lunes). */
-function weekOf(startIso: string, todayIso: string): number {
-  const monday = mondayOfWeek(parseIsoDate(startIso)).getTime();
-  const today = parseIsoDate(todayIso).getTime();
-  return Math.max(1, Math.floor((today - monday) / (7 * 86_400_000)) + 1);
-}
-
 function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFacts {
   const programming = {
     athlete_id: r.athlete_id,
@@ -260,6 +276,10 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
       week_session_count: r.week_sessions,
       last_month_end: r.last_end,
       today: cal.today,
+      last_coach_session: r.last_coach_session,
+      next_start: r.next_after_week,
+      next_week_end: cal.next_week_end,
+      has_current_program: r.cur_template_id != null,
     }),
   };
   const plan: PlanState =
@@ -278,15 +298,20 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
     today: cal.today,
   });
 
+  // Dónde está y cuándo empezó: LA regla (la misma que la página del grupo).
+  const pos =
+    r.cur_start && r.cur_end
+      ? programPosition({ start_date: r.cur_start, end_date: r.cur_end }, r.cur_weeks ?? 0, cal.today)
+      : null;
   const current_program: CurrentProgram | null =
-    r.cur_template_id && r.cur_name && r.cur_start && r.cur_end
+    r.cur_template_id && r.cur_name && pos
       ? {
           id: r.cur_template_id,
           name: r.cur_name,
-          week: Math.min(weekOf(r.cur_start, cal.today), Math.max(1, r.cur_weeks ?? 1)),
-          weeks: Math.max(1, r.cur_weeks ?? 1),
-          start: r.cur_start,
-          end: r.cur_end,
+          week: pos.week ?? 1,
+          weeks: pos.weeks,
+          start: pos.athlete_start,
+          end: pos.end,
         }
       : null;
 
@@ -306,7 +331,7 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
     onboarded_at: r.onboarded_at ? r.onboarded_at.toISOString() : null,
     programming,
     plan,
-    last_program_end: r.last_end,
+    last_program_end: maxIso(r.last_end, r.last_coach_session),
     current_program,
     next_program_start: r.next_start,
     week_chip,

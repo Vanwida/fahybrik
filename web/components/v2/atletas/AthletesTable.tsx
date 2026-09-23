@@ -29,7 +29,11 @@ export interface AthletesTableProps {
   empty: React.ReactNode;
 }
 
-/** «Próximo» solo cuando cabe sin estrujar el motivo (≈ 1400 px con la barra lateral). */
+/**
+ * «Próximo» solo cuando cabe sin estrujar el motivo (≈ 1400 px con la barra
+ * lateral). El ancho sobrante es para «Estado · motivo»: es la columna que
+ * decide qué hacer; las demás van a su medida.
+ */
 const WIDE_MIN = 1400;
 
 function useWide(): boolean {
@@ -95,9 +99,9 @@ export function AthletesTable({
       {
         id: 'semana',
         header: 'Semana',
-        width: '100px',
+        width: '116px',
         sortValue: SORT_VALUES.semana,
-        cell: (r) => <WeekChip week={r.week_visibility} />,
+        cell: (r) => <WeekChip week={r.week_visibility} nextStart={r.next_start} />,
       },
       {
         id: 'readiness',
@@ -129,9 +133,9 @@ export function AthletesTable({
             {
               id: 'proximo',
               header: 'Próximo',
-              width: '120px',
+              width: '72px',
               sortValue: SORT_VALUES.proximo,
-              cell: (r: RosterRow) => <NextSessionCell row={r} today={today} />,
+              cell: (r: RosterRow) => <NextSessionCell row={r} today={today} compact />,
             },
           ]
         : []),
@@ -151,7 +155,7 @@ export function AthletesTable({
             <span className="sr-only">Por responder</span>
           </span>
         ),
-        width: '76px',
+        width: '60px',
         sortValue: SORT_VALUES.responder,
         defaultDir: DEFAULT_DIR.responder,
         hideBelow: 'lg',

@@ -23,7 +23,7 @@ export function AthleteListMobile({ rows, onOpen }: { rows: RosterRow[]; onOpen:
             </span>
           }
           detail={<StatusBadgeFor status={r.status} withReason size="sm" className="max-w-full" />}
-          trailing={<WeekChip week={r.week_visibility} />}
+          trailing={<WeekChip week={r.week_visibility} nextStart={r.next_start} />}
           onClick={() => onOpen(r)}
         />
       ))}

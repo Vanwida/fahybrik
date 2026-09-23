@@ -1,9 +1,9 @@
 import 'server-only';
 
 // El estado de los atletas de un coach (plan §4.1) — la capa con base de datos
-// sobre el derivador puro `deriveAthleteStatus`. Dos consultas para N atletas:
+// sobre el derivador puro `deriveAthleteStatus`. Tres lecturas para N atletas:
 // los hechos de plan y ciclo de vida (`loadPlanFacts`) y las señales vivas
-// (`loadAthleteSignals`). Hoy y el roster ya cargan esas dos cosas para lo suyo
+// (`loadAthleteSignals`), más los hilos por responder. Hoy y el roster ya cargan esas dos cosas para lo suyo
 // y llaman a `buildAthleteStatus` directamente, sin repetir consultas.
 
 import type { Sql } from '@/lib/db';
@@ -18,6 +18,7 @@ import {
 import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import { loadPlanFacts, type AthletePlanFacts } from '@/lib/dashboard/athletes/plan-facts';
 import { loadAthleteSignals, type AthleteSignalsRead } from '@/lib/coach/attention/signals-read';
+import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
 
 export type { AthleteStatus };
 
@@ -64,6 +65,7 @@ export function buildAthleteStatus(
     week_hidden,
     week_held: week_hidden === 'actual' ? facts.week_held : week_hidden === 'siguiente' ? facts.next_week_held : false,
     snoozed_until: signals?.snoozed_until ?? null,
+    awaiting_reply: awaiting_reply === true,
     now,
   });
 }
@@ -77,12 +79,16 @@ export async function loadAthleteStates(params: {
 }): Promise<Map<string, AthleteStatus>> {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
-  const [facts, signals] = await Promise.all([
+  const [facts, signals, replies] = await Promise.all([
     loadPlanFacts({ coach_id: params.coach_id, athlete_ids: params.athlete_ids, now, client }),
     loadAthleteSignals({ coach_id: params.coach_id, athlete_ids: params.athlete_ids, now, client }),
+    loadReplyStates({ coach_id: params.coach_id, athlete_ids: params.athlete_ids, now, client }),
   ]);
   const out = new Map<string, AthleteStatus>();
-  for (const f of facts) out.set(f.athlete_id, buildAthleteStatus(f, signals.get(f.athlete_id), now));
+  for (const f of facts) {
+    const open = replies.get(f.athlete_id)?.open ?? false;
+    out.set(f.athlete_id, buildAthleteStatus(f, signals.get(f.athlete_id), now, open));
+  }
   return out;
 }
 

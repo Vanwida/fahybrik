@@ -25,8 +25,16 @@
 //   - el alta pendiente,
 //   - hueco de plan (sin programa o terminado; no el invitado sin cuestionario),
 //   - su semana oculta (la de ahora, o la que viene cuando por la regla del
-//     coach ya debería verse).
+//     coach ya debería verse),
+//   - un mensaje suyo por responder (la regla de Mensajes, desde el primer
+//     minuto y en cualquier estado del atleta: alguien espera respuesta).
 // Hoy pinta eso como grupos + filas; la cifra cuenta ATLETAS, no filas.
+//
+// «Sin plan» es UNA definición (`isWithoutPlan`), la misma para el grupo de Hoy
+// «N sin programa», el estado y el chip «Sin plan» de Atletas: atleta activo,
+// con el alta ya revisada, sin programa ni entrenos del coach de esta semana en
+// adelante. Quien tiene su programa empezando la semana que viene NO está sin
+// plan («Empieza pronto»).
 //
 // Puro: sin base de datos.
 
@@ -240,7 +248,9 @@ export function sortSignals(signals: ReadonlyArray<AthleteSignal>): AthleteSigna
  * ¿La señal la cubre un GRUPO de Hoy (causa compartida) en vez de una fila?
  *   - el alta pendiente → «N altas pendientes»;
  *   - el pago vencido → «N pagos vencidos»;
- *   - sin programa / programa terminado → «N atletas sin programa».
+ *   - sin programa / programa terminado → «N atletas sin programa»;
+ *   - el mensaje por responder → «N por responder» (cada espera se cierra en su
+ *     hilo o en el filtro «Por responder», no con el «Hecho» de otra fila).
  * Una semana vacía con programa NO: es de ese atleta. Lo usan Hoy (no repetir
  * como fila) y posponer/hecho de una fila (no silenciar el grupo sin querer).
  */
@@ -248,6 +258,7 @@ export function isGroupOwnedSignal(
   s: Pick<AthleteSignal, 'kind' | 'severity' | 'dedupe_key'>,
 ): boolean {
   if (s.kind === 'intake_pending') return true;
+  if (s.kind === 'message_unanswered') return true;
   if (s.kind === 'billing_at_risk') return s.severity === 'critical';
   return isPlanGapSignal(s);
 }
@@ -292,6 +303,8 @@ export interface AthleteStateInput {
   /** Esa semana la retuvo el coach a mano. */
   week_held?: boolean;
   snoozed_until?: string | null;
+  /** Tiene un mensaje por responder (la regla de Mensajes: ni hecho ni pospuesto). */
+  awaiting_reply?: boolean;
   /** Para decir «hace 2 d». */
   now: Date;
 }
@@ -313,15 +326,33 @@ function signalReason(s: AthleteSignal): string {
 }
 
 /**
+ * ¿Está sin plan? LA definición de «Sin plan» (Hoy «N sin programa», el estado y
+ * el chip de Atletas): activo, alta revisada (ni invitado ni alta pendiente) y
+ * sin programa ni entrenos del coach de esta semana en adelante.
+ */
+export function isWithoutPlan(
+  input: Pick<AthleteStateInput, 'lifecycle' | 'intake_pending' | 'not_onboarded' | 'plan'>,
+): boolean {
+  return (
+    input.lifecycle === 'activo' &&
+    input.plan !== 'con_programa' &&
+    !input.intake_pending &&
+    !input.not_onboarded
+  );
+}
+
+/**
  * ¿Te necesita este atleta? LA definición (Hoy, su insignia y «Necesitan algo»).
  * Pura; las señales ya vivas y reconciliadas (`reconcileSignals`).
  */
 export function athleteNeedsYou(
   input: Pick<
     AthleteStateInput,
-    'lifecycle' | 'intake_pending' | 'not_onboarded' | 'plan' | 'signals' | 'week_hidden'
+    'lifecycle' | 'intake_pending' | 'not_onboarded' | 'plan' | 'signals' | 'week_hidden' | 'awaiting_reply'
   >,
 ): boolean {
+  // Alguien que espera respuesta te necesita, esté como esté (Mensajes lo cuenta igual).
+  if (input.awaiting_reply) return true;
   if (input.lifecycle !== 'activo') return false;
   // El alta y el hueco de plan se juzgan por los hechos (abajo), no por la señal:
   // así un invitado sin cuestionario no «necesita» un programa todavía.
@@ -330,7 +361,7 @@ export function athleteNeedsYou(
   );
   if (bySignal) return true;
   if (input.intake_pending) return true;
-  if (input.plan !== 'con_programa' && !input.not_onboarded) return true;
+  if (isWithoutPlan(input)) return true;
   return input.week_hidden != null;
 }
 

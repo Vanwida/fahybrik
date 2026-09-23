@@ -18,20 +18,33 @@ const WEEK_TONE: Record<WeekVisibility, StatusTone> = {
   visible: 'ok',
   oculta: 'warn',
   sin_plan: 'neutral',
-  terminado: 'neutral',
+  empieza: 'info',
+  vacia: 'neutral',
 };
 
 const WEEK_TITLE: Record<WeekVisibility, string> = {
   visible: 'Ve su semana',
   oculta: 'Su semana está oculta: todavía no la ve',
-  sin_plan: 'No tiene nada programado esta semana',
-  terminado: 'Su programa terminó y no tiene siguiente',
+  sin_plan: 'No tiene programa: nunca lo tuvo o se le acabó',
+  empieza: 'Su programa empieza la semana que viene',
+  vacia: 'No tiene entrenos esta semana',
 };
 
-export function WeekChip({ week, size = 'sm' }: { week: WeekVisibility; size?: 'sm' | 'md' }) {
+export function WeekChip({
+  week,
+  nextStart,
+  size = 'sm',
+}: {
+  week: WeekVisibility;
+  /** YYYY-MM-DD de su inicio, para «Empieza lun 28». */
+  nextStart?: string | null;
+  size?: 'sm' | 'md';
+}) {
+  const label = week === 'empieza' && nextStart ? `Empieza ${weekdayShort(nextStart)} ${Number(nextStart.slice(8, 10))}` : WEEK_LABEL[week];
+  const title = week === 'empieza' && nextStart ? `Su programa empieza el ${shortDate(nextStart)}` : WEEK_TITLE[week];
   return (
-    <span title={WEEK_TITLE[week]} className="inline-flex">
-      <StatusBadge tone={WEEK_TONE[week]} label={WEEK_LABEL[week]} variant="soft" size={size} />
+    <span title={title} className="inline-flex">
+      <StatusBadge tone={WEEK_TONE[week]} label={label} variant="soft" size={size} />
     </span>
   );
 }
@@ -73,12 +86,15 @@ export function nextSessionLabel(next: RosterRow['next_session'], today: string)
   return `${when} · ${next.title}`;
 }
 
-export function NextSessionCell({ row, today }: { row: RosterRow; today: string }) {
+export function NextSessionCell({ row, today, compact = false }: { row: RosterRow; today: string; compact?: boolean }) {
   const label = nextSessionLabel(row.next_session, today);
   if (!label || !row.next_session) return <Dash title="Nada programado" />;
+  // En la tabla, solo el día («hoy», «vie»): el entreno va en el título. El
+  // ancho es para «Estado · motivo».
+  const shown = compact ? (row.next_session.date === today ? 'hoy' : weekdayShort(row.next_session.date)) : label;
   return (
     <span className="block truncate t-body-sm text-v2-muted" title={`${shortDate(row.next_session.date)} · ${row.next_session.title}`}>
-      {label}
+      {shown}
     </span>
   );
 }

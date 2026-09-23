@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import type { AthleteStatusKey } from '@fahybrid/shared/domain/coach/athlete-state';
 import { BUILTIN_SAVED_VIEWS } from '@fahybrid/shared/schema/saved-views';
 import type { RosterRow } from '@/lib/dashboard/athletes/roster';
@@ -26,6 +26,7 @@ function row(id: string, over: Partial<RosterRow> & { key?: AthleteStatusKey } =
     lifecycle: 'activo',
     status: { key, tone: 'ok', label: key, reason: null, signals: [], snoozed_until: null, needs_you: key === 'accion' || key === 'vigilar' },
     week_visibility: 'visible',
+    next_start: null,
     readiness: null,
     adherence_14d: null,
     last_session_at: null,
@@ -166,3 +167,21 @@ describe('ficha: K/J con ?desde=', () => {
     expect(fichaHref('9', parseRosterQuery('estado=todos&densidad=tarjetas'))).toBe('/atletas/9?desde=estado%3Dtodos');
   });
 });
+
+describe('«Sin plan» es una sola definición; «Empieza pronto» no es «Sin plan»', () => {
+  it('las vistas guardadas con «terminado» leen «Sin plan» (lo terminado es parte de él)', () => {
+    expect(parseRosterQuery('semana=terminado').semana).toEqual(['sin_plan']);
+    expect(parseRosterQuery('semana=oculta,terminado').semana).toEqual(['oculta', 'sin_plan']);
+  });
+
+  it('quien empieza la semana que viene no entra en «Sin plan»', () => {
+    const r = [
+      row('a', { week_visibility: 'sin_plan' }),
+      row('b', { week_visibility: 'empieza', next_start: '2026-09-28' }),
+      row('c', { week_visibility: 'vacia' }),
+    ];
+    expect(countForQuery(r, 'semana=sin_plan')).toBe(1);
+    expect(countForQuery(r, 'semana=empieza')).toBe(1);
+  });
+});
+

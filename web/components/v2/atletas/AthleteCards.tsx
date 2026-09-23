@@ -74,7 +74,7 @@ export function AthleteCards({
               >
                 <AthleteCell row={r} />
               </Link>
-              <WeekChip week={r.week_visibility} />
+              <WeekChip week={r.week_visibility} nextStart={r.next_start} />
             </div>
             <StatusCell row={r} />
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
