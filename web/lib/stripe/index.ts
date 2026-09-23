@@ -22,6 +22,8 @@ export {
   createSubscriptionCheckoutAdHoc,
   buildAdHocSubscriptionLineItems,
   ALTA_PRODUCT_NAME,
+  altaProductName,
+  resolveAltaProductName,
   type CreateSubscriptionCheckoutAdHocArgs,
   type CreateSubscriptionCheckoutAdHocResult,
 } from './checkout';

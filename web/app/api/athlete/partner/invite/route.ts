@@ -61,6 +61,7 @@ export async function POST(req: Request) {
   const emailResult = await sendPartnerInvitationEmail({
     to: invitation.invitee_email,
     inviter_name: inviter.full_name,
+    inviter_user_id: session.user_id,
     token: invitation.token,
     expires_at: invitation.expires_at,
   });

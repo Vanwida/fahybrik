@@ -27,6 +27,10 @@ vi.mock('@/lib/citas/google-tokens', () => ({
 const resolveClubNotifyEmail = vi.fn(async () => null as string | null);
 vi.mock('@/lib/coach/club-notify', () => ({ resolveClubNotifyEmail }));
 
+// La piel del club de ESTA cita: el título del evento lleva SU nombre.
+const resolveClubEmailSkin = vi.fn(async () => ({ wordmark: 'Club Norte' }));
+vi.mock('@/lib/coach/club-skin', () => ({ resolveClubEmailSkin }));
+
 import { createMeeting } from '@/lib/citas/meeting';
 import { getGoogleConnection } from '@/lib/citas/google-tokens';
 
@@ -157,8 +161,9 @@ describe('createMeeting — connected', () => {
     // 30-min window off the requested start.
     expect(body.start.dateTime).toBe('2026-07-15T09:00:00.000Z');
     expect(body.end.dateTime).toBe('2026-07-15T09:30:00.000Z');
-    // Summary carries the lead name.
-    expect(body.summary).toBe('Videollamada FAHYBRID · Ana Ruiz');
+    // Summary: el club de la cita (su piel) + el nombre del lead. Nunca otra marca.
+    expect(resolveClubEmailSkin).toHaveBeenCalledWith(BigInt(7));
+    expect(body.summary).toBe('Videollamada Club Norte · Ana Ruiz');
     // Meet conference requested via hangoutsMeet with a unique requestId.
     expect(body.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet');
     expect(typeof body.conferenceData.createRequest.requestId).toBe('string');

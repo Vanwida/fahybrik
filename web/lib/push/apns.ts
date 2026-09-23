@@ -22,6 +22,7 @@
 
 import { createPrivateKey, createSign } from 'node:crypto';
 import type { Sql } from '@/lib/db';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 const APNS_PRODUCTION_HOST = 'https://api.push.apple.com';
 const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
@@ -205,7 +206,7 @@ export async function smokeTestPush(args: {
   return sendPush({
     sql: args.sql,
     user_id: args.user_id,
-    title: 'FAHYBRID',
+    title: BRAND_WORDMARK,
     body: 'Test push',
     category: 'system',
   });

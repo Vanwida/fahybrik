@@ -19,8 +19,34 @@
 import { getGoogleConnection, type GoogleConnection } from './google-tokens';
 import { createCalendarEventWithMeet, createCalendarEventInPerson } from './google';
 import type { CitaModality } from '@fahybrid/shared/schema';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 const DEFAULT_DURATION_MINUTES = 30;
+
+/**
+ * El título del evento de calendario de una cita. Habla el CLUB (el evento vive en
+ * el calendario del coach y le llega al lead/atleta como invitado), así que lleva
+ * el wordmark de SU piel — nunca la marca de otro club escrita a mano.
+ */
+export function meetingSummary(
+  kind: 'video' | 'presencial' | 'review',
+  wordmark: string,
+  who: string,
+): string {
+  const noun = kind === 'presencial' ? 'Sesión presencial' : kind === 'review' ? 'Revisión' : 'Videollamada';
+  return `${noun} ${wordmark} · ${who}`;
+}
+
+/** El wordmark del club de esta cita; ante cualquier fallo, la marca de este binario. */
+async function clubWordmark(coach_id: bigint | number | null | undefined): Promise<string> {
+  if (coach_id == null) return BRAND_WORDMARK;
+  try {
+    const { resolveClubEmailSkin } = await import('@/lib/coach/club-skin');
+    return (await resolveClubEmailSkin(coach_id)).wordmark;
+  } catch {
+    return BRAND_WORDMARK;
+  }
+}
 
 export interface MeetingResult {
   meet_link: string | null;
@@ -39,8 +65,9 @@ async function createAttendeeMeeting(args: {
   attendee: MeetingAttendee;
   start: Date;
   durationMinutes: number;
-  /** Event title, e.g. "Videollamada FAHYBRID · Ana" or "Revisión FAHYBRID · Ana". */
-  summary: string;
+  /** Event title from the club's wordmark (`meetingSummary`). Resolved only once the
+   *  coach is connected, so a not-connected cita never reads the skin. */
+  summary: (wordmark: string) => string;
   /** #40: video → Calendar event with a Meet room; presencial → event with a location, no Meet. */
   modality: CitaModality;
   /** #40: presencial address string (box name + street). Ignored for video. */
@@ -62,6 +89,7 @@ async function createAttendeeMeeting(args: {
   if (!conn) return { meet_link: null };
 
   const end = new Date(args.start.getTime() + args.durationMinutes * 60 * 1000);
+  const summary = args.summary(await clubWordmark(args.coach_id));
   let clubInbox: string | null = null;
   try {
     const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
@@ -79,7 +107,7 @@ async function createAttendeeMeeting(args: {
     if (args.modality === 'presencial') {
       if (!args.location) return { meet_link: null };
       const { event_id } = await createCalendarEventInPerson(conn, {
-        summary: args.summary,
+        summary,
         startIso: args.start.toISOString(),
         endIso: end.toISOString(),
         attendeeEmails,
@@ -90,7 +118,7 @@ async function createAttendeeMeeting(args: {
     }
 
     const { event_id, meet_link } = await createCalendarEventWithMeet(conn, {
-      summary: args.summary,
+      summary,
       startIso: args.start.toISOString(),
       endIso: end.toISOString(),
       attendeeEmails,
@@ -123,15 +151,11 @@ export interface MeetingRequest {
  *  returns a meet_link (event_id may still be set for the cancel-hook). */
 export async function createMeeting(req: MeetingRequest): Promise<MeetingResult> {
   const who = req.leadName ?? req.leadEmail;
-  const summary =
-    req.modality === 'presencial'
-      ? `Sesión presencial FAHYBRID · ${who}`
-      : `Videollamada FAHYBRID · ${who}`;
   return createAttendeeMeeting({
     attendee: { email: req.leadEmail, name: req.leadName },
     start: req.start,
     durationMinutes: req.durationMinutes,
-    summary,
+    summary: (wordmark) => meetingSummary(req.modality === 'presencial' ? 'presencial' : 'video', wordmark, who),
     modality: req.modality,
     location: req.location,
     coach_id: req.coach_id,
@@ -155,7 +179,7 @@ export async function createReviewMeeting(req: ReviewMeetingRequest): Promise<Me
     attendee: { email: req.athleteEmail, name: req.athleteName },
     start: req.start,
     durationMinutes: req.durationMinutes ?? DEFAULT_DURATION_MINUTES,
-    summary: `Revisión FAHYBRID · ${req.athleteName ?? req.athleteEmail}`,
+    summary: (wordmark) => meetingSummary('review', wordmark, req.athleteName ?? req.athleteEmail),
     modality: 'video',
     coach_id: req.coach_id,
   });

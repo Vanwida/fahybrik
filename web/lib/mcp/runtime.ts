@@ -31,6 +31,7 @@ import { CoachRacesError } from '@/lib/races/coach-races';
 import { CommunicationError } from '@/lib/communications/store';
 import type { CoachSession } from '@/lib/auth/coach-session';
 import { McpNotACoachError, coachFromAuthInfo } from './auth';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 /**
  * A QUIÉN se refiere la pregunta. Uno solo, y siempre el que salió de
@@ -76,8 +77,7 @@ export const NO_SUCH_ATHLETE_MESSAGE =
  * la cuenta es la correcta y lo que falta es el add-on. Confundirlos mandaría al
  * coach a reconectar con otra cuenta para nada.
  */
-export const NO_CONNECTOR_MESSAGE =
-  'Tu club no tiene el conector activado, así que no puedo ver ni tocar nada de tus atletas. El conector se activa desde FAHYBRID.';
+export const NO_CONNECTOR_MESSAGE = `Tu club no tiene el conector activado, así que no puedo ver ni tocar nada de tus atletas. El conector se activa desde ${BRAND_WORDMARK}.`;
 
 /**
  * Every answer is JSON plus `_resumen`, the one line a person would have said.

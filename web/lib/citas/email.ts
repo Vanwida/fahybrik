@@ -21,6 +21,7 @@ import type { CitaModality } from '@fahybrid/shared/schema';
 import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin, type ClubEmailSkin } from '@/lib/coach/club-skin';
 import { emailFromSender } from '@fahybrid/shared/domain/coach/club-notify';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 export interface CitaEmailResult {
   sent: boolean;
@@ -97,16 +98,33 @@ function presentAddress(location: { name: string | null; address: string | null 
   };
 }
 
+/**
+ * UID del evento `.ics`: único y estable por cita (un reenvío actualiza el mismo
+ * evento). El dominio es el del host que lo emite — la plataforma —, no una marca
+ * escrita a mano que vería el calendario de cualquier club.
+ */
+export function citaIcsUid(appointmentId: string, appUrl: string = AUTH_CONFIG.appUrl()): string {
+  let host = 'localhost';
+  try {
+    host = new URL(appUrl).hostname || host;
+  } catch {
+    // appUrl mal formada: el UID sigue siendo único por id.
+  }
+  return `appt-${appointmentId}@${host}`;
+}
+
+/** Nombre del adjunto `.ics`: neutro, lo ve el lead en su correo. */
+export const CITA_ICS_FILENAME = 'cita.ics';
+
 /** The noun for the cita in copy: "sesión presencial" vs "videollamada" (#40). */
 function citaNoun(modality: CitaModality): string {
   return modality === 'presencial' ? 'sesión presencial' : 'videollamada';
 }
 
 // `skin` es la piel del club de ESTA cita (`resolveClubEmailSkin`, superficie `light`
-// — este shell es de fondo blanco). Sin skin, pinta exactamente lo de hoy: wordmark
-// "FAHYBRID" en el naranja fijo.
+// — este shell es de fondo blanco). Sin skin, la marca de este binario en el naranja fijo.
 const shell = (inner: string, skin?: ClubEmailSkin) => {
-  const wordmark = skin?.wordmark ?? 'FAHYBRID';
+  const wordmark = skin?.wordmark ?? BRAND_WORDMARK;
   const textColor = skin?.light.text ?? '#F06A2A';
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${textColor};">${escapeHtml(wordmark)}</p>${inner}
@@ -220,7 +238,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
       : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">${escapeHtml(v.subject)} te confirmará el sitio antes de la cita.</p>`;
 
     const ics = buildIcs({
-      uid: `appt-${appt.id}@fahybrid.com`,
+      uid: citaIcsUid(appt.id),
       start: new Date(appt.requested_start),
       durationMinutes: appt.duration_minutes,
       summary: `Sesión${v.withCoach} (presencial) · ${skin.wordmark}`,
@@ -247,7 +265,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
          <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
         skin,
       ),
-      ics: { filename: 'cita-fahybrid.ics', content: Buffer.from(ics, 'utf8').toString('base64') },
+      ics: { filename: CITA_ICS_FILENAME, content: Buffer.from(ics, 'utf8').toString('base64') },
     });
   }
 
@@ -260,7 +278,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
     : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">El enlace de la videollamada te llegará antes de la cita.</p>`;
 
   const ics = buildIcs({
-    uid: `appt-${appt.id}@fahybrid.com`,
+    uid: citaIcsUid(appt.id),
     start: new Date(appt.requested_start),
     durationMinutes: appt.duration_minutes,
     summary: `Videollamada${v.withCoach} · ${skin.wordmark}`,
@@ -285,7 +303,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
        <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
       skin,
     ),
-    ics: { filename: 'cita-fahybrid.ics', content: Buffer.from(ics, 'utf8').toString('base64') },
+    ics: { filename: CITA_ICS_FILENAME, content: Buffer.from(ics, 'utf8').toString('base64') },
   });
 }
 

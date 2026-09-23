@@ -16,6 +16,7 @@
 import type Stripe from 'stripe';
 import { getStripeOrThrow } from './client';
 import { priceIdForPlan, type PlanType } from './prices';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 // ---------------------------------------------------------------------------
 // Ad-hoc subscription Checkout (#15 — athlete alta)
@@ -30,8 +31,28 @@ import { priceIdForPlan, type PlanType } from './prices';
 // (stored on subscriptions.checkout_session_id), never by the customer id.
 // ---------------------------------------------------------------------------
 
-/** Default product name shown on the Stripe Checkout + invoices. */
-export const ALTA_PRODUCT_NAME = 'FAHYBRID · Entrenamiento personalizado';
+/**
+ * El producto que ve el atleta en el Checkout y en sus facturas. Quien cobra es su
+ * CLUB, así que lleva el nombre de SU piel («Club Norte · Entrenamiento
+ * personalizado»), nunca la marca de otro club escrita a mano.
+ */
+export function altaProductName(wordmark: string): string {
+  return `${wordmark.trim() || BRAND_WORDMARK} · Entrenamiento personalizado`;
+}
+
+/** Sin club conocido: la marca de este binario. */
+export const ALTA_PRODUCT_NAME = altaProductName(BRAND_WORDMARK);
+
+/** El nombre del producto para el club `coach_id` (su piel); sin club o si falla, el del binario. */
+export async function resolveAltaProductName(coach_id: bigint | number | null | undefined): Promise<string> {
+  if (coach_id == null) return ALTA_PRODUCT_NAME;
+  try {
+    const { resolveClubEmailSkin } = await import('@/lib/coach/club-skin');
+    return altaProductName((await resolveClubEmailSkin(coach_id)).wordmark);
+  } catch {
+    return ALTA_PRODUCT_NAME;
+  }
+}
 
 /**
  * Plan FUNDADOR coupon id (100% off, duration=forever — created in Stripe).
@@ -49,8 +70,10 @@ export type CreateSubscriptionCheckoutAdHocArgs = {
   currency: string;
   /** Traceability stamped on the Session + the created Subscription. */
   metadata: Record<string, string>;
-  /** Product name override (defaults to ALTA_PRODUCT_NAME). */
+  /** Product name override. Without it, the club's (`coach_id`) product name. */
   product_name?: string;
+  /** The club that charges: names the product from its skin. */
+  coach_id?: bigint | number | null;
   /**
    * Plan FUNDADOR: apply the FOUNDER_COUPON_ID (100%-off-forever) so the total is
    * 0 € and no payment method is collected. The line item keeps the real price.
@@ -101,7 +124,7 @@ export async function createSubscriptionCheckoutAdHoc(
     line_items: buildAdHocSubscriptionLineItems({
       amount_cents: args.amount_cents,
       currency: args.currency,
-      product_name: args.product_name,
+      product_name: args.product_name ?? (await resolveAltaProductName(args.coach_id)),
     }),
     success_url: config.checkout_success_url,
     cancel_url: config.checkout_cancel_url,

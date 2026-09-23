@@ -196,6 +196,7 @@ async function altaStripe(params: {
       amount_cents,
       currency: ALTA_CURRENCY,
       founder,
+      coach_id,
       metadata: {
         fahybrik_flow: 'athlete_alta',
         fahybrik_lead_id: String(lead_id),

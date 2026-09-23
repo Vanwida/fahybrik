@@ -19,7 +19,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { ALTA_PRODUCT_NAME, getStripeOrThrow, loadStripeConfig } from '@/lib/stripe';
+import { getStripeOrThrow, loadStripeConfig, resolveAltaProductName } from '@/lib/stripe';
 
 /** Why a Stripe-side action did not run (the local state is still authoritative). */
 export type BillingActionSkipReason = 'not_configured' | 'no_live_sub' | 'stripe_error';
@@ -38,6 +38,8 @@ interface AthleteSubRow {
   stripe_subscription_id: string | null;
   /** ISO 4217 lowercase currency of the agreed price. */
   currency: string;
+  /** The athlete's club — names the Stripe product from its skin. */
+  coach_id: number | null;
 }
 
 /**
@@ -51,10 +53,11 @@ async function loadAthleteSubscription(
   client: Sql,
 ): Promise<AthleteSubRow | null> {
   const rows = await client<
-    { id: string; stripe_subscription_id: string | null; currency: string | null }[]
+    { id: string; stripe_subscription_id: string | null; currency: string | null; coach_id: string | null }[]
   >`
     select
       s.id::text                as id,
+      a.coach_id::text          as coach_id,
       s.stripe_subscription_id  as stripe_subscription_id,
       s.currency                as currency
     from athletes a
@@ -71,6 +74,7 @@ async function loadAthleteSubscription(
     sub_id: BigInt(r.id),
     stripe_subscription_id: r.stripe_subscription_id,
     currency: r.currency ?? 'eur',
+    coach_id: r.coach_id == null ? null : Number(r.coach_id),
   };
 }
 
@@ -123,7 +127,7 @@ export async function updateAgreedPrice(args: {
       currency: sub.currency,
       unit_amount: args.amount_cents,
       recurring: { interval: 'month' },
-      product_data: { name: ALTA_PRODUCT_NAME },
+      product_data: { name: await resolveAltaProductName(sub.coach_id) },
     });
     // Swap the item to the new price. proration_behavior 'none' → the new price
     // applies from the next cycle; the coach's edit never surprise-charges the
