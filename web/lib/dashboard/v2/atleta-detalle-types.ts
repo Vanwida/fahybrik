@@ -333,6 +333,8 @@ export interface FichaEstado {
   readiness: {
     value: number;
     baseline: number | null;
+    /** Lecturas previas de su base — la del vistazo: «aún sin su base (1 de 7 lecturas)». */
+    baseline_readings: number;
     trend_14d: (number | null)[];
     observed_at: string;
     band: 'ok' | 'caution' | 'low';

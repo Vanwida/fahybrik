@@ -209,6 +209,7 @@ export async function loadFichaShell(params: {
       ? {
           value: peek.readiness.value,
           baseline: peek.readiness.baseline,
+          baseline_readings: peek.readiness.baseline_readings,
           trend_14d: peek.readiness.trend_14d,
           observed_at: peek.readiness.observed_at,
           band: peek.readiness.band,
