@@ -218,18 +218,6 @@
   --font-sans-stack:    "Geist", "SF Pro Text", system-ui, sans-serif;
   --font-mono-stack:    "Geist Mono", "SF Mono", ui-monospace, monospace;
 
-  /* ----- type scale (matches Theme.Typography) ----- */
-  --type-display:     900 italic 56px/1.0   var(--font-display, var(--font-display-stack));
-  --type-headline-l:  900 italic 38px/1.05  var(--font-display, var(--font-display-stack));
-  --type-headline-m:  900 italic 28px/1.1   var(--font-display, var(--font-display-stack));
-  --type-headline-s:  700 italic 20px/1.2   var(--font-display, var(--font-display-stack));
-  --type-body:        400 16px/1.4          var(--font-sans, var(--font-sans-stack));
-  --type-body-emph:   600 16px/1.4          var(--font-sans, var(--font-sans-stack));
-  --type-small:       500 13px/1.4          var(--font-sans, var(--font-sans-stack));
-  --type-caption:     500 12px/1.3          var(--font-sans, var(--font-sans-stack));
-  --type-data-digit:  900 italic 36px/1.0   var(--font-display, var(--font-display-stack));
-  --type-data-hero:   900 italic 96px/0.95  var(--font-display, var(--font-display-stack));
-  --type-data-label:  600 11px/1.0          var(--font-sans, var(--font-sans-stack));
 
   /* ----- shadcn/ui semantic mappings (use canonical brand vars) ----- */
   --background: var(--bg);
@@ -301,9 +289,6 @@
   --border-subtle: #222222;
   --text-muted: var(--muted);
 
-  /* Display family layers Archivo Narrow ahead of Archivo for the
-     dashboard's narrow athletic headings. */
-  --font-display: var(--font-archivo-narrow), var(--font-archivo), system-ui, sans-serif;
 
   /* Semantic status aliases — bridge the dashboard's Material-derived names
      to the canonical FAHYBRIK semantic tokens so status colors actually
@@ -726,20 +711,36 @@
   }
 }
 
-/* ── Material Symbols Outlined icon font ── */
-.material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+/* ── Fuentes de marca (landing, doble, páginas públicas, admin, mockups) ──
+   Geist / Archivo ya no se cargan en el layout raíz: cada layout que las usa las
+   pone con <BrandFonts> (components/brand/BrandFonts.tsx), que lleva esta clase.
+   Las variables que DEPENDEN de esas fuentes se resuelven donde se declaran, así
+   que en :root quedan sin fuente (el panel no las quiere) y aquí se recalculan
+   con las fuentes ya presentes. Mismos valores que tenía :root: la landing no
+   cambia un píxel. */
+:root,
+.brand-fonts {
+  /* Display family layers Archivo Narrow ahead of Archivo for the
+     dashboard's narrow athletic headings. */
+  --font-display: var(--font-archivo-narrow), var(--font-archivo), system-ui, sans-serif;
+
+  /* ----- type scale (matches Theme.Typography) ----- */
+  --type-display:     900 italic 56px/1.0   var(--font-display, var(--font-display-stack));
+  --type-headline-l:  900 italic 38px/1.05  var(--font-display, var(--font-display-stack));
+  --type-headline-m:  900 italic 28px/1.1   var(--font-display, var(--font-display-stack));
+  --type-headline-s:  700 italic 20px/1.2   var(--font-display, var(--font-display-stack));
+  --type-body:        400 16px/1.4          var(--font-sans, var(--font-sans-stack));
+  --type-body-emph:   600 16px/1.4          var(--font-sans, var(--font-sans-stack));
+  --type-small:       500 13px/1.4          var(--font-sans, var(--font-sans-stack));
+  --type-caption:     500 12px/1.3          var(--font-sans, var(--font-sans-stack));
+  --type-data-digit:  900 italic 36px/1.0   var(--font-display, var(--font-display-stack));
+  --type-data-hero:   900 italic 96px/0.95  var(--font-display, var(--font-display-stack));
+  --type-data-label:  600 11px/1.0          var(--font-sans, var(--font-sans-stack));
+}
+
+.brand-fonts {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-archivo);
+  font-family: var(--font-geist-sans);
 }

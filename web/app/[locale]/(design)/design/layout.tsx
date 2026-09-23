@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/auth/admin-session';
 import './twin.css';
 import './studio.css';
+import { BrandFonts } from '@/components/brand/BrandFonts';
 
 // El doble — réplica viva de la app iOS para dirigir UX (docs/DECISIONS.md).
 // Puerta ADMIN-ONLY + noindex: es la mesa de trabajo de Alex, no una superficie
@@ -32,5 +33,9 @@ export default async function DesignLayout({
     if (!session) redirect('/sign-in');
   }
 
-  return <div className="studio-root">{children}</div>;
+  return (
+    <BrandFonts>
+      <div className="studio-root">{children}</div>
+    </BrandFonts>
+  );
 }

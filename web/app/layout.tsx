@@ -1,5 +1,4 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Archivo, Archivo_Narrow } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { getLocale } from "next-intl/server";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
@@ -19,35 +18,24 @@ const clerkAppearance = {
   },
 } as const;
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const archivo = Archivo({
-  variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["800", "900"],
-  style: ["italic", "normal"],
-});
-
-// Narrow athletic headings for the coach dashboard. Layered ahead of
-// Archivo in the --font-display stack (see globals.css dashboard block).
-const archivoNarrow = Archivo_Narrow({
-  variable: "--font-archivo-narrow",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  style: ["normal"],
-});
+// Las fuentes de marca (Geist, Archivo) NO se cargan aquí: las pone cada layout
+// que las usa con <BrandFonts> (app/brand-fonts.ts). El panel del coach es solo
+// Figtree ((v2)/fonts.ts) y los iconos son SVG de Lucide (MIcon), así que este
+// layout ya no mete fuentes ni la hoja de Material Symbols en ninguna página.
 
 export const metadata: Metadata = {
   title: "FAHYBRID",
   description: "FAHYBRID — Coach dashboard",
+};
+
+// Barra de estado / splash de la PWA: oscuro por defecto (panel y landing lo
+// son). El panel repinta estas metas al tema elegido (V2ThemeScript /
+// V2ThemeProvider), así que en claro la barra también va clara.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0B0B0C" },
+    { media: "(prefers-color-scheme: light)", color: "#0B0B0C" },
+  ],
 };
 
 export default async function RootLayout({
@@ -60,26 +48,8 @@ export default async function RootLayout({
     <ClerkProvider appearance={clerkAppearance}>
       <html
         lang={locale}
-        className={`dark ${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${archivoNarrow.variable} h-full`}
+        className="dark h-full"
       >
-        <head>
-          {/* Material Symbols Outlined — icon font used across the coach
-              dashboard. Loaded globally so dashboard pages render icons.
-              display=block: without it Google omits font-display and the
-              browser paints the raw ligature names ("today", "groups") as
-              fallback text while the ~4 MB variable woff2 downloads — visible
-              on any cold-cache origin (e.g. every fresh preview deploy). */}
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link
-            rel="preconnect"
-            href="https://fonts.gstatic.com"
-            crossOrigin="anonymous"
-          />
-          <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
-          />
-        </head>
         <body className="min-h-full flex flex-col">{children}</body>
       </html>
     </ClerkProvider>
