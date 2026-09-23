@@ -22,6 +22,8 @@
 // como segundo argumento, con la marca de este binario como valor por defecto.
 
 /** Sujeto neutro a principio de frase cuando no hay nombre resoluble. */
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
+
 export const COACH_FALLBACK_SUBJECT = 'Tu entrenador';
 
 /** El mismo sujeto en medio de una frase, donde la mayúscula sería un error. */
@@ -57,7 +59,7 @@ export interface CoachVoice {
 }
 
 /** La marca de este binario — el wordmark por defecto cuando el coach no tiene piel. */
-const DEFAULT_WORDMARK = 'FAHYBRID';
+const DEFAULT_WORDMARK = BRAND_WORDMARK;
 
 /**
  * Los fragmentos con los que una plantilla nombra al coach.
