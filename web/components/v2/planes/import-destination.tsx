@@ -10,7 +10,8 @@
 // Vive aparte de `ImportSourceForm` porque lo comparten tres de sus cuatro modos y
 // porque aquel se pasaba de 500 líneas.
 
-import { MIcon } from '@/components/ui/MIcon';
+import { Info } from 'lucide-react';
+import { Select } from '@/components/v2/ui';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
 import type { MicroWeekRef } from '@/lib/dashboard/v2/import-review';
 
@@ -27,23 +28,19 @@ export function WeekSelect({
   ariaLabel?: string;
 }) {
   return (
-    <select
+    <Select
       aria-label={ariaLabel}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
-    >
-      {microWeeks.length === 0 ? (
-        <option value="">(sin semanas)</option>
-      ) : (
-        microWeeks.map((mw) => (
-          <option key={mw.id} value={mw.id}>
-            Semana {mw.index + 1}
-            {mw.label ? ` · ${mw.label}` : ''}
-          </option>
-        ))
-      )}
-    </select>
+      size="lg"
+      className="w-full"
+      placeholder="(sin semanas)"
+      disabled={microWeeks.length === 0}
+      value={microWeeks.some((mw) => mw.id === value) ? value : null}
+      onValueChange={onChange}
+      options={microWeeks.map((mw) => ({
+        value: mw.id,
+        label: `Semana ${mw.index + 1}${mw.label ? ` · ${mw.label}` : ''}`,
+      }))}
+    />
   );
 }
 
@@ -66,40 +63,35 @@ export function ImportPhotoDestination({
   onWeekday: (v: number | null) => void;
 }) {
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-accent)]/35 bg-[color:var(--v2-accent-soft)] p-3.5">
-      <p className="v2-micro text-[color:var(--v2-accent-text)]">Dónde empieza</p>
-      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+    <div className="rounded-panel border border-v2-border bg-v2-surface-2 p-3">
+      <p className="t-label text-v2-faint">Dónde empieza</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <WeekSelect
           microWeeks={microWeeks}
           value={weekId}
           onChange={onWeekId}
           ariaLabel="Semana del programa por la que empieza"
         />
-        {/* El día va en trazo discontinuo porque es SECUNDARIO: vacío significa la
-            semana entera, que es lo que pasa casi siempre. */}
-        <select
+        {/* El día es SECUNDARIO: «toda la semana» es lo que pasa casi siempre. */}
+        <Select
           aria-label="Día por el que empieza (opcional)"
-          value={weekday ?? ''}
-          onChange={(e) => onWeekday(e.target.value ? Number(e.target.value) : null)}
-          className="v2-focus w-full rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] outline-none focus:border-[color:var(--v2-accent)]"
-        >
-          <option value="">Día: toda la semana</option>
-          {DAY_LABELS_FULL.map((label, i) => (
-            <option key={label} value={i + 1}>
-              Día: {label}
-            </option>
-          ))}
-        </select>
+          size="lg"
+          className="w-full"
+          value={weekday == null ? 'all' : String(weekday)}
+          onValueChange={(v) => onWeekday(v === 'all' ? null : Number(v))}
+          options={[
+            { value: 'all', label: 'Día: toda la semana' },
+            ...DAY_LABELS_FULL.map((label, i) => ({ value: String(i + 1), label: `Día: ${label}` })),
+          ]}
+        />
       </div>
-      <p className="mt-2.5 text-xs leading-snug text-[color:var(--v2-muted)]">
-        Si las capturas traen más días, se colocan a partir de ahí. Luego lo verás colocado y podrás
-        moverlo.
+      <p className="mt-2 t-body-sm text-v2-muted">
+        Si las capturas traen más días, se colocan a partir de ahí. Luego podrás moverlo.
       </p>
       {microWeeks.length === 0 ? (
-        <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-warn)]">
-          <MIcon name="info" size={14} className="mt-px shrink-0" />
-          Este microciclo todavía no tiene semanas. Crea una y vuelve, que si no no hay dónde meter
-          las fotos.
+        <p className="mt-2 flex items-start gap-1.5 t-body-sm text-v2-warn">
+          <Info aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
+          Este programa todavía no tiene semanas: crea una y vuelve.
         </p>
       ) : null}
     </div>

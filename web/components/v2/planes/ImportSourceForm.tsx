@@ -12,8 +12,8 @@
 // subidas sin volver a subirlas.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { CircleAlert, CircleCheck, FileUp, Info, ScanText, Camera, Lightbulb, PenLine } from 'lucide-react';
+import { Button, Input, SegmentedControl, Select, Textarea } from '@/components/v2/ui';
 import type { MicroWeekRef } from '@/lib/dashboard/v2/import-review';
 import { looksLikeInstruction } from '@/lib/import/instruction-detect';
 import { getLlmConfigured } from '@/components/v2/editor/ai-suggest-workout';
@@ -234,26 +234,23 @@ export function ImportSourceForm({
     });
   };
 
+  const label = (text: string, hint?: string) => (
+    <span className="flex flex-col gap-0.5">
+      <span className="t-meta text-v2-muted">{text}</span>
+      {hint ? <span className="t-meta text-v2-faint">{hint}</span> : null}
+    </span>
+  );
+  const hint = (text: string) => <p className="t-meta text-v2-faint">{text}</p>;
+
   return (
     <div hidden={hidden} className="space-y-4 overflow-y-auto p-5">
-      {/* Source toggle */}
-      <div className="inline-flex flex-wrap rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] p-0.5">
-        {(['file', 'paste', 'photo', 'generate'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => selectSource(m)}
-            className={cn(
-              'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1.5 text-xs font-semibold transition-colors',
-              sourceMode === m
-                ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-            )}
-          >
-            {SOURCE_LABEL[m]}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        aria-label="De dónde sale"
+        value={sourceMode}
+        onValueChange={selectSource}
+        className="max-w-full flex-wrap"
+        items={(['file', 'paste', 'photo', 'generate'] as const).map((m) => ({ value: m, label: SOURCE_LABEL[m] }))}
+      />
 
       {sourceMode === 'file' ? (
         <div className="space-y-1.5">
@@ -261,25 +258,19 @@ export function ImportSourceForm({
             ref={fileInputRef}
             type="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="sr-only"
+            hidden
             onChange={(e) => onFile(e.target.files?.[0])}
           />
-          <button
-            type="button"
+          <Button
+            size="lg"
+            icon={FileUp}
             onClick={() => fileInputRef.current?.click()}
-            className="v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-3 text-left text-sm text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)]"
+            className="w-full justify-start border-dashed font-normal"
           >
-            <MIcon name="upload_file" size={18} className="text-[color:var(--v2-accent-text)]" />
-            <span className="min-w-0 flex-1 truncate">
-              {fileName ?? 'Elige tu Plantilla_HYROX (.xlsx)'}
-            </span>
-            {fileName ? (
-              <MIcon name="check_circle" size={16} className="text-[color:var(--v2-ok)]" />
-            ) : null}
-          </button>
-          <p className="v2-micro text-[color:var(--v2-faint)]">
-            Sin archivo se usa la plantilla de ejemplo.
-          </p>
+            <span className="min-w-0 flex-1 truncate text-left">{fileName ?? 'Elige la hoja (.xlsx)'}</span>
+            {fileName ? <CircleCheck aria-hidden strokeWidth={2} className="text-v2-ok" /> : null}
+          </Button>
+          {hint('Sin archivo se usa la plantilla de ejemplo.')}
         </div>
       ) : sourceMode === 'photo' ? (
         <div className="space-y-3">
@@ -294,8 +285,8 @@ export function ImportSourceForm({
         </div>
       ) : sourceMode === 'paste' ? (
         <label className="block space-y-1.5">
-          <span className="v2-micro">Pega la sesión de un día</span>
-          <textarea
+          {label('Pega el entreno de un día')}
+          <Textarea
             value={pastedText}
             onChange={(e) => {
               setPastedText(e.target.value);
@@ -306,58 +297,41 @@ export function ImportSourceForm({
             placeholder={
               'Martes\nFUERZA: Tren inferior\n5 rounds Back Squat c/2\'30": 10/10/8/8/6 al 60/65/70/70/75% RM'
             }
-            className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
           />
           {pasteInstructionHint ? (
-            <div className="flex flex-col gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-3 py-2.5">
-              <p className="flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-fg)]">
-                <MIcon
-                  name="lightbulb"
-                  size={15}
-                  className="mt-px shrink-0 text-[color:var(--v2-warn)]"
-                />
-                Esto parece una instrucción, no una sesión pegada. Para que la IA te la genere usa
-                «Generar con IA».
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-ctl bg-v2-warn-soft px-3 py-2">
+              <p className="flex min-w-0 flex-1 items-start gap-1.5 t-body-sm text-v2-fg">
+                <Lightbulb aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-warn" />
+                Parece una instrucción, no un entreno pegado.
               </p>
-              <button
-                type="button"
-                onClick={switchToGenerateWithText}
-                className="v2-focus inline-flex w-fit items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-              >
-                <MIcon name="draw" size={14} /> Generar con IA
-              </button>
+              <Button size="sm" icon={PenLine} onClick={switchToGenerateWithText}>
+                Generar con IA
+              </Button>
             </div>
           ) : null}
         </label>
       ) : (
         <div className="space-y-3">
           <label className="block space-y-1.5">
-            <span className="v2-micro">¿Qué semana quieres? (foco, sesiones, modalidades)</span>
-            <textarea
+            {label('¿Qué semana quieres?', 'Foco, entrenos, modalidades.')}
+            <Textarea
               value={generateFocus}
               onChange={(e) => setGenerateFocus(e.target.value)}
               rows={4}
               maxLength={400}
               disabled={llmConfigured === false}
-              placeholder={
-                'p. ej. Semana de doble sesión combinando running e híbrido, foco HYROX. 6 días, domingo descanso.'
-              }
-              className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)] disabled:opacity-50"
+              placeholder="p. ej. Semana de doble sesión combinando running e híbrido. 6 días, domingo descanso."
             />
           </label>
           <div className="space-y-1.5">
-            <span className="v2-micro">¿En qué semana del programa la meto?</span>
+            {label('¿En qué semana del programa la meto?')}
             <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
-            <p className="v2-micro text-[color:var(--v2-faint)]">
-              La IA compone la semana entera con tu biblioteca. La revisas antes de guardar, nada
-              entra sin ejercicio del catálogo.
-            </p>
+            {hint('La IA compone la semana con tu biblioteca. La revisas antes de guardar.')}
           </div>
           {llmConfigured === false ? (
-            <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-xs leading-snug text-[color:var(--v2-muted)]">
-              <MIcon name="info" size={14} className="mt-px shrink-0 text-[color:var(--v2-warn)]" />
-              La generación con IA está pendiente de configurar. Mientras tanto usa «Subir Excel» o
-              «Pegar texto».
+            <p className="flex items-start gap-1.5 t-body-sm text-v2-muted">
+              <Info aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-warn" />
+              La generación con IA está pendiente de configurar. Mientras tanto usa «Subir Excel» o «Pegar texto».
             </p>
           ) : null}
         </div>
@@ -368,106 +342,68 @@ export function ImportSourceForm({
           brings whole weeks and the coach maps them one by one in the review. */}
       {sourceMode === 'paste' ? (
         <div className="space-y-1.5">
-          <span className="v2-micro">¿En qué día del programa lo meto?</span>
+          {label('¿En qué día del programa lo meto?')}
           <div className="grid grid-cols-2 gap-2">
             <WeekSelect microWeeks={microWeeks} value={targetWeekId} onChange={setTargetWeekId} />
-            <select
+            <Select
               aria-label="Día de la semana"
-              value={pasteWeekday}
-              onChange={(e) => setPasteWeekday(Number(e.target.value))}
-              className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
-            >
-              {DAY_LABELS_FULL.map((label, i) => (
-                <option key={label} value={i + 1}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              size="lg"
+              className="w-full"
+              value={String(pasteWeekday)}
+              onValueChange={(v) => setPasteWeekday(Number(v))}
+              options={DAY_LABELS_FULL.map((l, i) => ({ value: String(i + 1), label: l }))}
+            />
           </div>
-          <p className="v2-micro text-[color:var(--v2-faint)]">
-            La sesión entra en ese día. El resto de la semana no se toca.
-          </p>
+          {hint('El entreno entra en ese día. El resto de la semana no se toca.')}
         </div>
       ) : sourceMode === 'file' ? (
         <label className="block space-y-1.5">
-          <span className="v2-micro">¿Qué rango meto en este programa?</span>
-          <input
+          {label('¿Qué rango meto en este programa?')}
+          <Input
             type="text"
+            size="lg"
             value={rangeText}
             onChange={(e) => setRangeText(e.target.value)}
             maxLength={200}
             placeholder="de la semana 1 a la 4"
-            className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
           />
-          <p className="v2-micro text-[color:var(--v2-faint)]">
-            Ej.: «solo la semana 1» · «de la 4 a la 9» · «semanas 1, 3 y 5»
-          </p>
+          {hint('Ej.: «solo la semana 1» · «de la 4 a la 9» · «semanas 1, 3 y 5»')}
         </label>
       ) : null}
 
       {/* Variant (Fork D) — only the Excel sheet has variants; paste has none. */}
       {sourceMode === 'file' ? (
         <div className="space-y-1.5">
-          <span className="v2-micro">Variante de la hoja</span>
-          <div className="flex flex-wrap gap-1.5">
-            {VARIANTS.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => setVariant(v.value)}
-                className={cn(
-                  'v2-focus rounded-[var(--v2-r-pill)] px-3 py-1 text-xs font-semibold transition-colors',
-                  variant === v.value
-                    ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                    : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-                )}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
+          {label('Variante de la hoja')}
+          <SegmentedControl
+            aria-label="Variante de la hoja"
+            value={variant}
+            onValueChange={setVariant}
+            items={VARIANTS}
+          />
         </div>
       ) : null}
 
       {error ? (
-        <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-          <MIcon name="error" size={14} />
+        <p role="alert" className="flex items-center gap-1.5 t-body-sm text-v2-danger">
+          <CircleAlert aria-hidden strokeWidth={2} className="size-3.5 shrink-0" />
           {error}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--v2-border)] pt-3">
-        {sourceMode === 'photo' ? (
-          <span className="mr-auto text-xs text-[color:var(--v2-faint)]">
-            No se guarda nada todavía.
-          </span>
-        ) : null}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="v2-focus rounded-[var(--v2-r-pill)] px-3.5 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-v2-border pt-3">
+        {sourceMode === 'photo' ? <span className="mr-auto t-meta text-v2-faint">No se guarda nada todavía.</span> : null}
+        <Button size="lg" variant="ghost" onClick={onCancel}>
           Cancelar
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          size="lg"
+          variant="primary"
           onClick={submit}
           disabled={!canExtract}
-          className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+          loading={busy}
+          icon={sourceMode === 'generate' ? PenLine : sourceMode === 'photo' ? Camera : ScanText}
         >
-          <MIcon
-            name={
-              busy
-                ? 'progress_activity'
-                : sourceMode === 'generate'
-                  ? 'draw'
-                  : sourceMode === 'photo'
-                    ? 'photo_camera'
-                    : 'document_scanner'
-            }
-            size={17}
-            className={busy ? 'animate-spin' : undefined}
-          />
           {uploading
             ? 'Subiendo fotos…'
             : extracting
@@ -479,7 +415,7 @@ export function ImportSourceForm({
               : sourceMode === 'generate'
                 ? 'Generar y revisar'
                 : 'Extraer y revisar'}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -30,7 +30,8 @@ import {
   type ReviewDay,
   type ReviewWeek,
 } from '@/lib/dashboard/v2/import-review';
-import { MIcon } from '@/components/ui/MIcon';
+import { ArrowLeft, CircleAlert, CircleMinus, CirclePlus, Info, ListPlus, Wand2, CheckCheck } from 'lucide-react';
+import { Button, IconButton, Select, StatusBadge, Tag, type StatusTone } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { ImportDayReviewDrawer } from './ImportDayReviewDrawer';
 import { ImportMissingExercisesPanel } from './ImportMissingExercisesPanel';
@@ -52,20 +53,20 @@ import type { ScoredCandidate } from '@/lib/dashboard/exercises/near-match';
 // it, which is a lie. The TAG carries the distinction: which of the two things
 // this day is missing, and therefore what he has to go do.
 const TONE_CELL: Record<DayTone, string> = {
-  rest: 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]',
-  skipped: 'border-dashed border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
-  ok: 'border-[color:var(--v2-ok)]/50 hover:border-[color:var(--v2-ok)]',
-  review: 'border-[color:var(--v2-warn)]/60 hover:border-[color:var(--v2-warn)]',
-  incomplete: 'border-[color:var(--v2-danger)]/60 hover:border-[color:var(--v2-danger)]',
-  unresolved: 'border-[color:var(--v2-danger)]/60 hover:border-[color:var(--v2-danger)]',
+  rest: 'border-dashed border-v2-border text-v2-faint',
+  skipped: 'border-dashed border-v2-border',
+  ok: 'border-v2-border',
+  review: 'border-v2-border',
+  incomplete: 'border-v2-border',
+  unresolved: 'border-v2-border',
 };
 
-const TONE_TAG: Record<Exclude<DayTone, 'rest'>, { label: string; className: string }> = {
-  ok: { label: 'tipado', className: 'bg-[color:var(--v2-ok)]/15 text-[color:var(--v2-ok)]' },
-  review: { label: 'revisar', className: 'bg-[color:var(--v2-warn)]/15 text-[color:var(--v2-warn)]' },
-  incomplete: { label: 'sin cantidad', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
-  unresolved: { label: 'ejercicio?', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
-  skipped: { label: 'no entra', className: 'bg-[color:var(--v2-faint)]/15 text-[color:var(--v2-muted)]' },
+const TONE_TAG: Record<Exclude<DayTone, 'rest'>, { label: string; tone: StatusTone }> = {
+  ok: { label: 'tipado', tone: 'ok' },
+  review: { label: 'revisar', tone: 'warn' },
+  incomplete: { label: 'sin cantidad', tone: 'danger' },
+  unresolved: { label: 'ejercicio?', tone: 'danger' },
+  skipped: { label: 'no entra', tone: 'neutral' },
 };
 
 /** The clickable (or inert) content area of a day cell. Rendered as a SIBLING of
@@ -81,17 +82,17 @@ function CellBody({
   ariaLabel?: string;
   children: React.ReactNode;
 }) {
-  const layout = 'flex flex-1 flex-col gap-1 px-2 py-2 text-left';
+  const layout = 'flex flex-1 flex-col items-start gap-1 px-2 py-2 text-left';
   if (as === 'button') {
     return (
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={onClick}
         aria-label={ariaLabel}
-        className={cn('v2-focus cursor-pointer rounded-[inherit]', layout)}
+        className={cn('h-auto justify-start whitespace-normal rounded-[inherit] font-normal', layout)}
       >
         {children}
-      </button>
+      </Button>
     );
   }
   return <div className={layout}>{children}</div>;
@@ -338,61 +339,45 @@ export function ImportReviewGrid({
           <section key={`${week.sheet}-${weekIdx}`} className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[color:var(--v2-fg)]">
-                  Semana <span className="v2-num">{week.week}</span>
+                <h3 className="t-title-sm text-v2-fg">
+                  Semana <span className="t-tnum">{week.week}</span>
                 </h3>
-                <span className="text-label text-[color:var(--v2-faint)]">· {week.sheet}</span>
-                {week.fell_back ? (
-                  <span
-                    title="No existe la hoja de esa variante para esta semana; se leyó la estándar."
-                    className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-warn)]/12 px-2 py-0.5 text-eyebrow font-semibold text-[color:var(--v2-warn)]"
-                  >
-                    <MIcon name="info" size={11} />
-                    estándar
-                  </span>
-                ) : null}
+                <span className="t-body-sm text-v2-faint">· {week.sheet}</span>
+                {week.fell_back ? <Tag icon={Info}>se leyó la estándar</Tag> : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* Include/exclude the whole imported week. */}
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant={week.included ? 'ghost' : 'secondary'}
+                  icon={week.included ? CircleMinus : CirclePlus}
                   onClick={() => setWeekIncluded(weekIdx, !week.included)}
                   aria-label={
-                    week.included
-                      ? `No importar la semana ${week.week}`
-                      : `Importar la semana ${week.week}`
+                    week.included ? `No importar la semana ${week.week}` : `Importar la semana ${week.week}`
                   }
-                  className={cn(
-                    'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2.5 py-1 text-label font-semibold transition-colors',
-                    week.included
-                      ? 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]'
-                      : 'border-[color:var(--v2-accent)]/50 text-[color:var(--v2-accent-text)] hover:border-[color:var(--v2-accent)]',
-                  )}
                 >
-                  <MIcon name={week.included ? 'do_not_disturb_on' : 'add_circle'} size={13} />
                   {week.included ? 'No importar' : 'Importar esta semana'}
-                </button>
+                </Button>
 
                 {/* Fork B — explicit mapping (an excluded week needs no destination). */}
-                <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-                  <MIcon name="arrow_forward" size={13} className="text-[color:var(--v2-accent-text)]" />
+                <label className="flex items-center gap-1.5 t-body-sm text-v2-muted">
                   <span>Meter en</span>
-                  <select
-                    value={week.target_week_id ?? ''}
-                    onChange={(e) => setTarget(weekIdx, e.target.value || null)}
+                  <Select
+                    size="sm"
+                    aria-label={`Semana del programa para la semana ${week.week}`}
+                    value={week.target_week_id ?? 'none'}
+                    onValueChange={(v) => setTarget(weekIdx, v === 'none' ? null : v)}
                     disabled={!week.included}
-                    className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-50"
-                  >
-                    <option value="">(elige semana)</option>
-                    {microWeeks.map((mw) => (
-                      <option key={mw.id} value={mw.id}>
-                        S{mw.index + 1}
-                        {mw.label ? ` · ${mw.label}` : ''}
-                        {mw.session_count > 0 ? ` (${mw.session_count} ses)` : ' (vacía)'}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: 'none', label: 'Elige semana' },
+                      ...microWeeks.map((mw) => ({
+                        value: mw.id,
+                        label: `Semana ${mw.index + 1}${mw.label ? ` · ${mw.label}` : ''}`,
+                        hint: mw.session_count > 0 ? `${mw.session_count} entrenos` : 'vacía',
+                      })),
+                    ]}
+                  />
                 </label>
               </div>
             </div>
@@ -443,24 +428,20 @@ export function ImportReviewGrid({
                   <div
                     key={day.day_of_week}
                     className={cn(
-                      'relative flex min-h-[68px] flex-col rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] transition-colors',
+                      'relative flex min-h-[68px] flex-col rounded-ctl border bg-v2-surface',
                       TONE_CELL[tone],
                     )}
                   >
                     {clickable ? (
                       /* Small include/exclude toggle, top-right (sibling of the main
                          button — never nested). */
-                      <button
-                        type="button"
+                      <IconButton
+                        icon={day.included ? CircleMinus : CirclePlus}
+                        size="sm"
                         onClick={() => setDayIncluded(weekIdx, dayIdx, !day.included)}
-                        aria-label={
-                          day.included ? `No importar ${cellLabel}` : `Importar ${cellLabel}`
-                        }
-                        title={day.included ? 'No importar este día' : 'Importar este día'}
-                        className="v2-focus absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-                      >
-                        <MIcon name={day.included ? 'do_not_disturb_on' : 'add_circle'} size={14} />
-                      </button>
+                        label={day.included ? `No importar ${cellLabel}` : `Importar ${cellLabel}`}
+                        className="absolute right-0.5 top-0.5 z-10 size-6 w-6"
+                      />
                     ) : null}
 
                     <CellBody
@@ -468,29 +449,16 @@ export function ImportReviewGrid({
                       onClick={clickable ? () => setEditing({ weekIdx, dayIdx }) : undefined}
                       ariaLabel={clickable ? `Revisar ${cellLabel}` : undefined}
                     >
-                      <span className="v2-micro uppercase tracking-wide text-[color:var(--v2-faint)]">
-                        {day.dow.slice(0, 3)}
-                      </span>
+                      <span className="t-label text-v2-faint">{day.dow.slice(0, 3)}</span>
                       <span
                         className={cn(
-                          'line-clamp-2 flex-1 text-label font-medium',
-                          tone === 'skipped'
-                            ? 'text-[color:var(--v2-faint)] line-through'
-                            : 'text-[color:var(--v2-muted)]',
+                          'line-clamp-2 flex-1 t-meta',
+                          tone === 'skipped' ? 'text-v2-faint line-through' : 'text-v2-muted',
                         )}
                       >
                         {headline}
                       </span>
-                      {tone !== 'rest' ? (
-                        <span
-                          className={cn(
-                            'inline-flex w-fit items-center rounded-[var(--v2-r-pill)] px-1.5 py-px text-nano font-bold',
-                            TONE_TAG[tone].className,
-                          )}
-                        >
-                          {tagLabel}
-                        </span>
-                      ) : null}
+                      {tone !== 'rest' ? <StatusBadge size="sm" tone={TONE_TAG[tone].tone} label={tagLabel} /> : null}
                     </CellBody>
                   </div>
                 );
@@ -500,105 +468,83 @@ export function ImportReviewGrid({
         ))}
       </div>
 
-      <footer className="space-y-2 border-t border-[color:var(--v2-border)] px-5 py-3">
+      <footer className="space-y-2 border-t border-v2-border px-5 py-3">
         {error || gapError ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-            <MIcon name="error" size={14} />
+          <p role="alert" className="flex items-center gap-1.5 t-body-sm text-v2-danger">
+            <CircleAlert aria-hidden strokeWidth={2} className="size-3.5 shrink-0" />
             {error ?? gapError}
           </p>
         ) : unresolved > 0 || incomplete > 0 ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-danger)]">
-              <MIcon name="error" size={14} />
-              {unresolved > 0
-                ? unresolved === 1
-                  ? '1 línea sin ejercicio del catálogo.'
-                  : `${unresolved} líneas sin ejercicio del catálogo.`
-                : incomplete === 1
-                  ? '1 línea sin cantidad.'
-                  : `${incomplete} líneas sin cantidad.`}
-            </p>
+            <StatusBadge
+              tone="danger"
+              label={
+                unresolved > 0
+                  ? unresolved === 1
+                    ? '1 línea sin ejercicio del catálogo'
+                    : `${unresolved} líneas sin ejercicio del catálogo`
+                  : incomplete === 1
+                    ? '1 línea sin cantidad'
+                    : `${incomplete} líneas sin cantidad`
+              }
+            />
             <div className="flex flex-wrap items-center gap-2">
               {canCompleteGaps ? (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  icon={Wand2}
+                  loading={completingGaps}
+                  disabled={confirming}
                   onClick={() => void completeGaps()}
-                  disabled={completingGaps || confirming}
-                  title="Crea o une ejercicios y rellena cantidades genéricas. Las cambias después en el programa."
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
                 >
-                  <MIcon
-                    name={completingGaps ? 'progress_activity' : 'auto_fix'}
-                    size={14}
-                    className={completingGaps ? 'animate-spin' : undefined}
-                  />
                   {completingGaps ? 'Completando…' : 'Completar huecos'}
-                </button>
+                </Button>
               ) : null}
               {missingCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setCreatingMissing(true)}
-                  disabled={completingGaps}
-                  className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/50 px-3 py-1 text-label font-semibold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent)]/10 disabled:opacity-50"
-                >
-                  <MIcon name="library_add" size={14} />
-                  {missingCount === 1
-                    ? 'Elegir a mano'
-                    : `Elegir a mano (${missingCount})`}
-                </button>
+                <Button size="sm" variant="ghost" icon={ListPlus} onClick={() => setCreatingMissing(true)} disabled={completingGaps}>
+                  {missingCount === 1 ? 'Elegir a mano' : `Elegir a mano (${missingCount})`}
+                </Button>
               ) : null}
             </div>
             {canCompleteGaps ? (
-              <p className="w-full text-nano text-[color:var(--v2-muted)]">
-                Rellena ejercicios y dosis de forma genérica. Entran marcados como
-                propuestos, los ajustas en el microciclo cuando quieras.
+              <p className="w-full t-meta text-v2-faint">
+                Completar rellena ejercicios y cantidades genéricas, marcados como propuestos; los ajustas luego en
+                el programa.
               </p>
             ) : null}
           </div>
         ) : unmapped > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
-            <MIcon name="info" size={14} />
-            Asigna cada semana importada a una semana del microciclo.
-          </p>
+          <StatusBadge tone="warn" label="Asigna cada semana importada a una semana del programa." />
         ) : writable === 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
-            <MIcon name="info" size={14} />
-            No queda ningún día seleccionado. Incluye al menos uno para poder confirmar.
-          </p>
+          <StatusBadge tone="warn" label="No queda ningún día seleccionado. Incluye al menos uno." />
         ) : null}
 
         <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={confirming || completingGaps}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
-          >
-            <MIcon name="arrow_back" size={16} />
+          <Button variant="ghost" size="lg" icon={ArrowLeft} onClick={onBack} disabled={confirming || completingGaps}>
             Atrás
-          </button>
-          <span className="ml-auto text-label text-[color:var(--v2-muted)]">
+          </Button>
+          <span className="ml-auto t-body-sm text-v2-muted">
             {excluded > 0 ? (
               <>
-                Se deja{excluded === 1 ? '' : 'n'} fuera <span className="v2-num">{excluded}</span>{' '}
-                día{excluded === 1 ? '' : 's'}
+                Se deja{excluded === 1 ? '' : 'n'} fuera <span className="t-tnum">{excluded}</span> día
+                {excluded === 1 ? '' : 's'}
               </>
             ) : null}
           </span>
-          <button
-            type="button"
-            onClick={onConfirm}
+          <Button
+            variant="primary"
+            size="lg"
+            icon={CheckCheck}
+            loading={confirming}
             disabled={!canConfirm || completingGaps}
-            className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
+            onClick={onConfirm}
           >
-            <MIcon name={confirming ? 'progress_activity' : 'download_done'} size={17} />
             {confirming
               ? 'Guardando…'
               : writable > 0
                 ? `Confirmar ${writable} día${writable === 1 ? '' : 's'}`
                 : 'Confirmar'}
-          </button>
+          </Button>
         </div>
       </footer>
 

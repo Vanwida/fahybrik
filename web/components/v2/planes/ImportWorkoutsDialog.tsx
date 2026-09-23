@@ -17,7 +17,8 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
+import { X } from 'lucide-react';
+import { IconButton } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import {
   buildConfirmBody,
@@ -209,7 +210,7 @@ export function ImportWorkoutsDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-v2-scrim p-4"
       onClick={onClose}
     >
       <div
@@ -218,7 +219,7 @@ export function ImportWorkoutsDialog({
         aria-label="Importar entrenos"
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]',
+          'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-panel border border-v2-border bg-v2-elevated text-v2-fg shadow-pop',
           isReview
             ? 'h-[min(90vh,900px)] max-w-[1080px]'
             : // Las miniaturas necesitan ancho para que quepan cuatro por fila.
@@ -227,23 +228,16 @@ export function ImportWorkoutsDialog({
               : 'max-w-md',
         )}
       >
-        <header className="flex items-center justify-between gap-3 border-b border-[color:var(--v2-border)] px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl">Importar entrenos</h2>
-            <p className="v2-micro mt-0.5">
+        <header className="flex items-start justify-between gap-3 border-b border-v2-border px-5 py-3">
+          <div className="min-w-0 pt-1">
+            <h2 className="t-title-sm text-v2-fg">Importar entrenos</h2>
+            <p className="mt-0.5 t-body-sm text-v2-muted">
               {isReview
-                ? 'Revisa y elige qué entra, nada se guarda sin ejercicio del catálogo'
-                : 'De tu metodología a este programa, ya escrito'}
+                ? 'Revisa y elige qué entra; nada se guarda sin ejercicio del catálogo.'
+                : 'De tu metodología a este programa, ya escrito.'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={20} />
-          </button>
+          <IconButton icon={X} label="Cerrar" onClick={onClose} className="-mr-2" />
         </header>
 
         {isReview ? (
