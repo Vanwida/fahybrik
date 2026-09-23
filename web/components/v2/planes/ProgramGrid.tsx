@@ -128,7 +128,7 @@ export const ProgramGrid = forwardRef<HTMLDivElement, ProgramGridProps>(function
                   {time}
                 </span>
               ) : (
-                <span className="t-meta text-v2-faint">{v.sessions > 0 ? `${v.sessions} entrenos` : '—'}</span>
+                <span className="t-meta text-v2-faint">{v.sessions > 0 ? `${v.sessions} ${v.sessions === 1 ? 'entreno' : 'entrenos'}` : '—'}</span>
               )}
               {parts.map((part) => (
                 <span key={part.key} className="flex items-center gap-1.5 t-meta text-v2-muted t-tnum">

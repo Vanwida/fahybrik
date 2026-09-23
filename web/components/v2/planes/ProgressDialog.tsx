@@ -11,8 +11,7 @@ import type { ProgressionSteps } from '@fahybrid/shared/domain/coach/progression
 import { Button, Dialog, Field, Input, SegmentedControl } from '@/components/v2/ui';
 import type { CellWrite, GridBounds, GridRange } from '@/lib/dashboard/programming/grid-model';
 import { countChangedLines, progressRange, type ProgressOp } from '@/lib/dashboard/programming/progress-ops';
-
-type Mode = 'load' | 'sets' | 'deload';
+import { noChangeReason, type ProgressMode as Mode } from './progress-reason';
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1)).replace('.', ',');
 
@@ -47,6 +46,8 @@ export function ProgressDialog({
   const changed = useMemo(() => countChangedLines(grid, writes), [grid, writes]);
 
   const rows = range.r1 - range.r0 + 1;
+  const days = range.c1 - range.c0 + 1;
+  const why = valid && changed === 0 ? noChangeReason(grid, range, bounds, mode) : null;
   const weeks = Array.from({ length: rows }, (_, i) => range.r0 + i);
   const perWeek = (i: number) => {
     if (!valid) return '—';
@@ -65,7 +66,7 @@ export function ProgressDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Progresar selección"
-      description={`${rows === 1 ? 'Semana' : 'Semanas'} ${rows === 1 ? range.r0 + 1 : `${range.r0 + 1}–${range.r1 + 1}`} · ${range.c1 - range.c0 + 1 === 7 ? 'toda la semana' : `${range.c1 - range.c0 + 1} días`}`}
+      description={`${rows === 1 ? 'Semana' : 'Semanas'} ${rows === 1 ? range.r0 + 1 : `${range.r0 + 1}–${range.r1 + 1}`} · ${days === 7 ? 'toda la semana' : days === 1 ? '1 día' : `${days} días`}`}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -122,6 +123,11 @@ export function ProgressDialog({
             </div>
           ))}
         </dl>
+        {why ? (
+          <p role="status" className="t-body-sm text-v2-muted">
+            {why}
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

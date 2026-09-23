@@ -44,6 +44,7 @@ import { ProgramGrid } from './ProgramGrid';
 import { CellQuickEditor } from './CellQuickEditor';
 import { CellDetailSheet } from './CellDetailSheet';
 import { ProgressDialog } from './ProgressDialog';
+import { useModKey } from './mod-key';
 import { AthletePreview } from './AthletePreview';
 import { LIB_DRAG_TYPE, LibraryPanel } from './LibraryPanel';
 import { SaveIndicator } from './SaveIndicator';
@@ -66,6 +67,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
   const locale = useLocale();
   const router = useRouter();
   const { toast, dismiss } = useToast();
+  const mod = useModKey();
   const g = useProgramGrid(program.id, weeks);
   const bounds = useMemo(() => ({ rows: g.grid.length, cols: 7 }), [g.grid.length]);
   const [focusById, setFocusById] = useState<Record<string, string | null>>({});
@@ -272,9 +274,9 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
   const weekMenu = useCallback(
     (row: number): MenuEntry[] => [
       { label: 'Seleccionar semana', onSelect: () => { setAnchor({ row, col: 0 }); setCursor({ row, col: 6 }); focusGrid(); } },
-      { label: 'Copiar semana', shortcut: '⌘C', onSelect: () => { clipboard.current = copyRange(g.grid, rowRange(row, bounds)); toast({ title: `Semana ${row + 1} copiada` }); } },
-      { label: 'Pegar aquí', shortcut: '⌘V', disabled: !clipboard.current, onSelect: () => { if (clipboard.current) commitWithUndo(pasteInto(clipboard.current, rowRange(row, bounds), bounds), 'Pegado', `Pegado en la semana ${row + 1}`); } },
-      { label: 'Duplicar en la siguiente', shortcut: '⌘D', disabled: row === bounds.rows - 1, onSelect: () => commitWithUndo(duplicateDown(g.grid, rowRange(row, bounds), bounds), 'Duplicado', `Semana ${row + 1} duplicada en la ${row + 2}`) },
+      { label: 'Copiar semana', shortcut: mod('C'), onSelect: () => { clipboard.current = copyRange(g.grid, rowRange(row, bounds)); toast({ title: `Semana ${row + 1} copiada` }); } },
+      { label: 'Pegar aquí', shortcut: mod('V'), disabled: !clipboard.current, onSelect: () => { if (clipboard.current) commitWithUndo(pasteInto(clipboard.current, rowRange(row, bounds), bounds), 'Pegado', `Pegado en la semana ${row + 1}`); } },
+      { label: 'Duplicar en la siguiente', shortcut: mod('D'), disabled: row === bounds.rows - 1, onSelect: () => commitWithUndo(duplicateDown(g.grid, rowRange(row, bounds), bounds), 'Duplicado', `Semana ${row + 1} duplicada en la ${row + 2}`) },
       { type: 'separator' },
       { label: 'Progresar…', icon: TrendingUp, onSelect: () => { setAnchor({ row, col: 0 }); setCursor({ row, col: 6 }); setProgress('load'); } },
       { label: 'Descarga…', onSelect: () => { setAnchor({ row, col: 0 }); setCursor({ row, col: 6 }); setProgress('deload'); } },
@@ -282,7 +284,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
       { label: 'Vaciar semana', danger: true, onSelect: () => commitWithUndo(clearRange(rowRange(row, bounds), bounds), 'Vaciado', `Semana ${row + 1} vaciada`) },
       { label: 'Quitar semana…', danger: true, disabled: bounds.rows <= 1, onSelect: () => setRemoveWeek(row) },
     ],
-    [g.grid, bounds, toast, commitWithUndo],
+    [g.grid, bounds, toast, commitWithUndo, mod],
   );
 
   const cursorDay = cellAt(g.grid, cursor.row, cursor.col);
