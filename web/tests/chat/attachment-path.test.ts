@@ -29,8 +29,12 @@ describe('athleteIdFromPathname (A3 ownership boundary)', () => {
     expect(athleteIdFromPathname('')).toBeNull();
   });
 
-  it('is robust to leading/trailing slashes', () => {
-    expect(athleteIdFromPathname('/chat/7/2026/05/x.png')).toBe(BigInt(7));
+  // Una ruta absoluta o con tramos vacíos no es una ruta que escribamos nosotros:
+  // se rechaza en vez de «arreglarla» (tests/tenancy/upload-paths).
+  it('rejects absolute paths and empty segments', () => {
+    expect(athleteIdFromPathname('/chat/7/2026/05/x.png')).toBeNull();
+    expect(athleteIdFromPathname('chat/7/2026/05/x.png/')).toBeNull();
+    expect(athleteIdFromPathname('chat//7/2026/05/x.png')).toBeNull();
   });
 });
 
