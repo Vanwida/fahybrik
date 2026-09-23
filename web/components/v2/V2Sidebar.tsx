@@ -1,182 +1,158 @@
 'use client';
 
-// V2Sidebar — el rail FLEXR: panel flotante SIEMPRE expandido (w-[236px]) con la
-// marca del tenant arriba, los tres grupos de la IA con sus cabeceras visibles,
-// Guía + Ajustes anclados abajo y el sello FLEXR al pie. El estado activo es la
-// pastilla de tinta (--v2-accent). Mensajes y Leads llevan badge. El antiguo
-// rail colapsado-que-expande-al-hover murió con el rediseño FLEXR: el coach ve
-// siempre dónde está y qué hay (día uno sin manual).
+// La barra lateral del panel (escritorio): el club arriba, cinco destinos, el
+// progreso de puesta en marcha mientras falte algo y Ajustes anclado abajo.
+// Se pliega a una tira de iconos de 64 px con «[» o con el botón de la barra
+// superior (lo recuerda este navegador).
+//
+// La selección es NEUTRA (superficie + barra de tinta de 2 px), nunca el color
+// del club: el acento solo pinta el botón primario, el anillo de foco y el logo.
+// Las cifras son exactas hasta 99.
 
+import type { ReactNode } from 'react';
 import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { Link, usePathname } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
 import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
+import { Tooltip } from '@/components/v2/ui';
 import {
-  V2_NAV_CLUB,
-  V2_NAV_GROUP_LABELS,
-  V2_NAV_GROUP_ORDER,
-  V2_NAV_GUIDE,
-  V2_NAV_SETTINGS,
-  isV2NavActive,
-  v2NavItemsForGroup,
-  type V2NavItem,
+  HOME_HREF,
+  NAV_SETTINGS,
+  badgeLabel,
+  isNavActive,
+  visibleNavItems,
+  type NavBadge,
+  type NavItem,
 } from '@/components/v2/nav';
 import { cn } from '@/lib/utils';
 
-/**
- * Marca por defecto del binario (FHP tile). El cromo pinta ClubLockup con los
- * datos del club del coach (vacío = este src): la marca es DATO, no código.
- */
-export function HexMark({ className }: { className?: string }) {
-  return (
-    <img
-      src="/brand/fh-icon-300.png"
-      alt="FAHYBRID"
-      className={cn('rounded-[var(--v2-r-s)] object-contain', className)}
-    />
-  );
-}
+export type ShellCounts = Record<NavBadge, number | null>;
 
-/** Shared classes — used by both the primary nav links and the pinned Ajustes. */
-const NAV_LINK_BASE =
-  'group/nav relative flex h-10 items-center gap-3 rounded-[var(--v2-r-nav)] px-3 whitespace-nowrap text-sm font-medium transition-colors v2-focus';
+/** Ancho del menú desplegado (plegado: w-16). El contenido se aparta lo mismo (V2Shell). */
+export const RAIL_W = 'w-[216px]';
 
-function navLinkClass(active: boolean): string {
-  return cn(
-    NAV_LINK_BASE,
-    active
-      ? 'bg-[color:var(--v2-accent)] font-semibold text-[color:var(--v2-accent-fg)]'
-      : 'text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-accent-soft)] hover:text-[color:var(--v2-fg)]',
-  );
-}
-
-/** One nav row — icon + label + optional count badge (Mensajes → unread,
- *  Leads → new leads). El badge invierte color sobre la pastilla activa. */
 function NavLink({
   item,
   active,
-  badgeCount,
+  count,
+  collapsed,
 }: {
-  item: V2NavItem;
+  item: NavItem;
   active: boolean;
-  badgeCount: number;
+  count: number | null;
+  collapsed: boolean;
 }) {
-  const showBadge = !!item.badge && badgeCount > 0;
-  return (
+  const Icon = item.icon;
+  const badge = badgeLabel(count);
+  const link = (
     <Link
       href={item.href}
-      aria-label={item.label}
       aria-current={active ? 'page' : undefined}
-      className={navLinkClass(active)}
+      aria-label={badge ? `${item.label}, ${badge}` : item.label}
+      className={cn(
+        'relative flex h-9 items-center gap-2.5 rounded-ctl px-2.5 t-body outline-none',
+        'transition-colors duration-[var(--v2-dur-fast)]',
+        'focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]',
+        'group-data-[rail=collapsed]/shell:justify-center group-data-[rail=collapsed]/shell:px-0',
+        active
+          ? "bg-v2-select font-semibold text-v2-select-fg before:absolute before:-left-2 before:inset-y-2 before:w-0.5 before:rounded-full before:bg-v2-select-bar before:content-['']"
+          : 'font-medium text-v2-muted hover:bg-v2-hover hover:text-v2-fg',
+      )}
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-        <MIcon name={item.icon} filled={active} size={20} />
-      </span>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      {showBadge ? (
-        <span
-          className={cn(
-            'flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-nano font-bold',
-            active
-              ? 'bg-[color:var(--v2-accent-fg)] text-[color:var(--v2-accent)]'
-              : 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]',
-          )}
-        >
-          {badgeCount > 9 ? '9+' : badgeCount}
-        </span>
+      <Icon aria-hidden strokeWidth={active ? 2 : 1.75} className="size-[18px] shrink-0" />
+      <span className="min-w-0 flex-1 truncate group-data-[rail=collapsed]/shell:hidden">{item.label}</span>
+      {badge ? (
+        <>
+          <span
+            aria-hidden
+            className={cn(
+              't-meta t-tnum group-data-[rail=collapsed]/shell:hidden',
+              active ? 'text-v2-fg' : 'text-v2-muted',
+            )}
+          >
+            {badge}
+          </span>
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-1 hidden h-[18px] min-w-[18px] items-center justify-center rounded-full bg-v2-fg px-1 t-meta leading-none font-semibold text-v2-bg t-tnum group-data-[rail=collapsed]/shell:flex"
+          >
+            {badge}
+          </span>
+        </>
       ) : null}
     </Link>
+  );
+  if (!collapsed) return link;
+  return (
+    <Tooltip content={badge ? `${item.label} · ${badge}` : item.label} side="right">
+      {link}
+    </Tooltip>
   );
 }
 
 export function V2Sidebar({
   club,
-  unread_messages = 0,
-  leads_nuevo = 0,
+  counts,
+  negocio,
+  collapsed,
+  setup,
 }: {
   club: ClubSkin;
-  unread_messages?: number;
-  leads_nuevo?: number;
+  counts: ShellCounts;
+  negocio: boolean;
+  collapsed: boolean;
+  /** Progreso de puesta en marcha («Setup 5/9»); null cuando está completo. */
+  setup?: ReactNode;
 }) {
   const pathname = usePathname();
-  // Per-badge counts, keyed by the item's `badge` source.
-  const badgeCounts: Record<NonNullable<V2NavItem['badge']>, number> = {
-    mensajes: unread_messages,
-    leads: leads_nuevo,
-  };
-  const badgeFor = (item: V2NavItem) => (item.badge ? badgeCounts[item.badge] : 0);
+  const items = visibleNavItems({ negocio });
+  const brand = clubBrandLabel(club.name);
 
   return (
     <aside
+      aria-label="Menú principal"
       className={cn(
-        'fixed bottom-4 left-4 top-4 z-20 hidden w-[236px] lg:flex',
-        'flex-col overflow-y-auto',
-        'rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)]',
-        'bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-card)]',
-        'px-3 py-4',
+        'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-v2-border bg-v2-surface lg:flex',
+        RAIL_W,
+        'group-data-[rail=collapsed]/shell:w-16',
+        'transition-[width] duration-[var(--v2-dur)] ease-[var(--v2-ease)] motion-reduce:transition-none',
       )}
     >
-      {/* Slot de marca del club — lockup con datos del coach; vacío = marca del binario. */}
-      <Link
-        href="/atletas"
-        aria-label={clubBrandLabel(club.name)}
-        title={clubBrandLabel(club.name)}
-        className="v2-focus flex shrink-0 items-center gap-2.5 rounded-[var(--v2-r-nav)] px-2 pb-4 pt-1"
-      >
-        <ClubLockup
-          name={club.name}
-          logo_url={club.logo_url}
-          markClassName="h-8 w-8 shrink-0"
-          wordmarkClassName="min-w-0 truncate text-[1.05rem]"
-        />
-      </Link>
+      {/* El club: logo + nombre (dato del coach; vacío = la marca del producto). */}
+      <div className="flex h-12 shrink-0 items-center border-b border-v2-border px-3 group-data-[rail=collapsed]/shell:justify-center group-data-[rail=collapsed]/shell:px-0">
+        <Link
+          href={HOME_HREF}
+          aria-label={brand}
+          className="flex min-w-0 items-center gap-2.5 rounded-ctl p-1 outline-none focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]"
+        >
+          <ClubLockup
+            name={club.name}
+            logo_url={club.logo_url}
+            markClassName="size-7 shrink-0"
+            wordmarkClassName="min-w-0 truncate text-[15px] group-data-[rail=collapsed]/shell:hidden"
+          />
+        </Link>
+      </div>
 
-      {/* Primary nav — the three coach hats, headers always visible. */}
-      <nav className="flex flex-1 flex-col gap-1">
-        {V2_NAV_GROUP_ORDER.map((group) => {
-          const items = v2NavItemsForGroup(group);
-          if (items.length === 0) return null;
-          return (
-            <div key={group} className="flex flex-col gap-1 first:mt-0 [&:not(:first-child)]:mt-4">
-              <span aria-hidden className="v2-micro px-3 pb-1">
-                {V2_NAV_GROUP_LABELS[group]}
-              </span>
-              {items.map((item) => (
-                <NavLink
-                  key={item.href}
-                  item={item}
-                  active={isV2NavActive(pathname, item.href)}
-                  badgeCount={badgeFor(item)}
-                />
-              ))}
-            </div>
-          );
-        })}
+      <nav aria-label="Secciones" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-3">
+        {items.map((item) => (
+          <NavLink
+            key={item.key}
+            item={item}
+            active={isNavActive(pathname, item.href)}
+            count={item.badge ? counts[item.badge] : null}
+            collapsed={collapsed}
+          />
+        ))}
       </nav>
 
-      {/* Guía + Club + Ajustes + sello FLEXR — pinned bottom */}
-      <div className="mt-auto flex flex-col gap-1 border-t border-[color:var(--v2-border)] pt-3">
+      <div className="flex shrink-0 flex-col gap-0.5 px-2 pb-3">
+        {setup ? <div className="mb-2 group-data-[rail=collapsed]/shell:hidden">{setup}</div> : null}
         <NavLink
-          item={V2_NAV_GUIDE}
-          active={isV2NavActive(pathname, V2_NAV_GUIDE.href)}
-          badgeCount={0}
+          item={NAV_SETTINGS}
+          active={isNavActive(pathname, NAV_SETTINGS.href)}
+          count={null}
+          collapsed={collapsed}
         />
-        <NavLink
-          item={V2_NAV_CLUB}
-          active={isV2NavActive(pathname, V2_NAV_CLUB.href)}
-          badgeCount={0}
-        />
-        <NavLink
-          item={V2_NAV_SETTINGS}
-          active={isV2NavActive(pathname, V2_NAV_SETTINGS.href)}
-          badgeCount={0}
-        />
-        <span
-          aria-hidden
-          className="px-3 pt-3 text-[10.5px] font-bold tracking-[0.15em] text-[color:var(--v2-faint)]"
-        >
-          FLEXR
-        </span>
       </div>
     </aside>
   );

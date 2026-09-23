@@ -41,8 +41,8 @@ export async function GET(req: Request) {
 
   await setCoachSessionCookie({ token: session.token, expires_at: session.expires_at });
 
-  // Coach home: /atletas (la casa del panel desde el rediseño FLEXR; /hoy sigue
-  // viva como cola de triage). next-intl prefixes the locale on the redirect.
-  const home = new URL('/atletas', AUTH_CONFIG.appUrl());
+  // La casa del panel es Hoy, la bandeja única (DECISIONS 2026-09-23). next-intl
+  // pone el locale al redirigir.
+  const home = new URL('/hoy', AUTH_CONFIG.appUrl());
   return NextResponse.redirect(home);
 }

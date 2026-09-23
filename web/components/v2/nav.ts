@@ -1,89 +1,77 @@
-// Coach dashboard sidebar nav (IA). Routes are locale-relative (/hoy, /atletas,
-// …); the next-intl Link prefixes /es|/en. `badge: 'mensajes'` renders the
-// unread count.
+// La navegación del panel del coach — UNA fuente para la barra lateral, la barra
+// de pestañas del móvil, los atajos «G …» y el «Ir a» del ⌘K.
 //
-// The primary nav is split into three GROUPS that mirror the three hats of the coach:
-//   · "entrenar" — the daily loop with his athletes: triage, roster, messages.
-//   · "negocio"  — running the business: capture leads, get paid, watch the funnel.
-//   · "metodo"   — build the method: periodization framework + reusable library.
-// Ajustes stays pinned to the bottom (see V2_NAV_SETTINGS).
+// Cinco destinos + Ajustes (PLAN-CONSTRUCCION §5, DECISIONS 2026-09-23): Hoy es la
+// casa; Negocio solo existe para quien tiene el add-on. Lo que se configura una
+// vez vive dentro de Ajustes; la Guía sale de la barra (el «?» de arriba).
+// Las rutas son relativas al locale (/hoy); el Link de next-intl pone /es|/en.
 
-/** The three sidebar groups; `null` = no group header (e.g. pinned Ajustes). */
-export type V2NavGroup = 'entrenar' | 'negocio' | 'metodo';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Briefcase,
+  CalendarRange,
+  Inbox,
+  MessageSquare,
+  Settings,
+  Users,
+} from 'lucide-react';
 
-export interface V2NavItem {
-  /** Locale-relative href, e.g. "/hoy". */
+export type NavKey = 'hoy' | 'atletas' | 'mensajes' | 'programar' | 'negocio' | 'ajustes';
+
+/** De dónde sale la cifra de un destino (la pone el layout, con dueño). */
+export type NavBadge = 'hoy' | 'mensajes' | 'negocio';
+
+export interface NavItem {
+  key: NavKey;
+  /** Ruta relativa al locale. */
   href: string;
   label: string;
-  /** Material Symbols Outlined icon name. */
-  icon: string;
-  /** Which sidebar group this item belongs to. */
-  group: V2NavGroup;
-  /** Optional badge source key (Mensajes → unread count, Leads → new-leads count). */
-  badge?: 'mensajes' | 'leads';
+  icon: LucideIcon;
+  /** Segunda tecla del atajo «G …» (G H, G A…). */
+  go?: string;
+  badge?: NavBadge;
+  /** Solo se enseña con este add-on contratado. */
+  requires?: 'negocio';
 }
 
-/** Human label for each group header (small uppercase in the rail). */
-export const V2_NAV_GROUP_LABELS: Record<V2NavGroup, string> = {
-  entrenar: 'Entrenar',
-  negocio: 'Negocio',
-  metodo: 'Método',
-};
+/** La casa del panel: login, la marca y «Volver» aterrizan aquí. */
+export const HOME_HREF = '/hoy';
 
-/** Render order of the groups in the sidebar. */
-export const V2_NAV_GROUP_ORDER: readonly V2NavGroup[] = ['entrenar', 'negocio', 'metodo'] as const;
+/** La guía del entrenador — fuera de la barra, detrás del «?». */
+export const GUIA_HREF = '/guia';
 
-/** Primary nav (top of the sidebar), in render order within each group. */
-export const V2_NAV_ITEMS: readonly V2NavItem[] = [
-  // Entrenar — the daily loop with his athletes. Atletas va primero: es la CASA
-  // del panel (rediseño FLEXR); /hoy sigue viva como la cola completa de triage.
-  { href: '/atletas', label: 'Atletas', icon: 'groups', group: 'entrenar' },
-  { href: '/hoy', label: 'Hoy', icon: 'today', group: 'entrenar' },
-  { href: '/mensajes', label: 'Mensajes', icon: 'forum', group: 'entrenar', badge: 'mensajes' },
-  // Negocio — capture leads, get paid, watch the funnel.
-  { href: '/leads', label: 'Leads', icon: 'person_add', group: 'negocio', badge: 'leads' },
-  { href: '/pagos', label: 'Pagos', icon: 'payments', group: 'negocio' },
-  { href: '/metricas', label: 'Métricas', icon: 'monitoring', group: 'negocio' },
-  { href: '/disponibilidad', label: 'Disponibilidad', icon: 'event_available', group: 'negocio' },
-  // Método — el oficio primero (cómo entrena), luego el marco, la biblioteca y los tests.
-  { href: '/como-entrenas', label: 'Cómo entrenas', icon: 'tune', group: 'metodo' },
-  { href: '/periodizacion', label: 'Periodización', icon: 'view_timeline', group: 'metodo' },
-  { href: '/biblioteca', label: 'Biblioteca', icon: 'menu_book', group: 'metodo' },
-  { href: '/tests', label: 'Tests', icon: 'timer', group: 'metodo' },
-  { href: '/cuestionarios', label: 'Cuestionarios', icon: 'assignment', group: 'metodo' },
-] as const;
+/** Destinos principales, en orden. Ajustes va aparte, anclado abajo. */
+export const NAV_ITEMS: readonly NavItem[] = [
+  { key: 'hoy', href: '/hoy', label: 'Hoy', icon: Inbox, go: 'h', badge: 'hoy' },
+  { key: 'atletas', href: '/atletas', label: 'Atletas', icon: Users, go: 'a' },
+  { key: 'mensajes', href: '/mensajes', label: 'Mensajes', icon: MessageSquare, go: 'm', badge: 'mensajes' },
+  { key: 'programar', href: '/programar', label: 'Programar', icon: CalendarRange, go: 'p' },
+  { key: 'negocio', href: '/negocio', label: 'Negocio', icon: Briefcase, go: 'n', badge: 'negocio', requires: 'negocio' },
+];
 
-/** Items belonging to a given group, in declaration order. */
-export function v2NavItemsForGroup(group: V2NavGroup): V2NavItem[] {
-  return V2_NAV_ITEMS.filter((item) => item.group === group);
+export const NAV_SETTINGS: NavItem = { key: 'ajustes', href: '/ajustes', label: 'Ajustes', icon: Settings };
+
+/** Lo que el coach puede ver: Negocio desaparece sin el add-on. */
+export function visibleNavItems(opts: { negocio: boolean }): NavItem[] {
+  return NAV_ITEMS.filter((item) => item.requires !== 'negocio' || opts.negocio);
 }
 
-/** Pinned to the bottom of the sidebar, above Ajustes — the in-dashboard coach
- *  guide (docs site at /guia). */
-export const V2_NAV_GUIDE: V2NavItem = {
-  href: '/guia',
-  label: 'Guía',
-  icon: 'school',
-  group: 'entrenar',
-};
+/** Pestañas del móvil: los cuatro primeros destinos + «Más». */
+export const MOBILE_TAB_KEYS: readonly NavKey[] = ['hoy', 'atletas', 'mensajes', 'programar'];
 
-/** Pinned with Guía + Ajustes — the club lockup (name, logo, accent). */
-export const V2_NAV_CLUB: V2NavItem = {
-  href: '/club',
-  label: 'Club',
-  icon: 'storefront',
-  group: 'entrenar',
-};
-
-/** Pinned to the bottom of the sidebar. */
-export const V2_NAV_SETTINGS: V2NavItem = {
-  href: '/ajustes',
-  label: 'Ajustes',
-  icon: 'settings',
-  group: 'entrenar',
-};
-
-/** Active when the path is the item or a descendant of it. */
-export function isV2NavActive(pathname: string, href: string): boolean {
+/** Activo cuando la ruta es la del destino o cuelga de ella. */
+export function isNavActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Cifra de una insignia: exacta hasta 99; más allá, «99+». null = sin insignia. */
+export function badgeLabel(count: number | null | undefined): string | null {
+  if (count == null || !Number.isFinite(count) || count <= 0) return null;
+  return count > 99 ? '99+' : String(Math.floor(count));
+}
+
+/** Destino de un atajo «G <tecla>». */
+export function navForGoKey(key: string, opts: { negocio: boolean }): NavItem | null {
+  const k = key.toLowerCase();
+  return visibleNavItems(opts).find((item) => item.go === k) ?? null;
 }

@@ -34,17 +34,11 @@ const isProtectedRoute = createRouteMatcher([
   // cada sección, protegemos las APIs explícitas y las páginas del dashboard
   // por sus segmentos reales.
   '/:locale/atletas/:path*',
-  // /biblioteca y /programacion ya no existen como páginas: next.config los
-  // redirige (antes del middleware) a /programar.
   '/:locale/programar/:path*',
-  '/:locale/review/:path*',
   '/:locale/ajustes/:path*',
-  '/:locale/club',
-  '/:locale/club/:path*',
-  '/:locale/metodologia/:path*',
-  '/:locale/como-entrenas/:path*',
-  '/:locale/cuestionarios',
-  '/:locale/cuestionarios/:path*',
+  // Las rutas viejas (/biblioteca, /club, /como-entrenas, /cuestionarios…) ya no
+  // llegan aquí: next.config las redirige ANTES del middleware (panel-redirects.ts)
+  // a su sitio nuevo, que es el que se protege. /review y /metodologia no existen.
   '/:locale/admin/:path*',
   // El doble (grupo (design)): herramienta interna de UX. El middleware exige
   // login Clerk; su layout estrecha después a ADMIN-ONLY (getAdminSession) —

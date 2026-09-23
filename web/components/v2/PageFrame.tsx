@@ -33,10 +33,10 @@ export type EstrategiaAltura = 'llena' | 'centra';
 // V2Shell.tsx.
 const CANCELA_PADDING_DE_MAIN = '-mx-4 -mt-4 -mb-24 sm:-mx-6 sm:-mt-6 sm:-mb-24 lg:-mb-6';
 
-// Alto útil = ventana − barra superior (h-14) − barra de pestañas móvil, que por
-// debajo de lg es fija y tapa el final de la pantalla. Es la MISMA cuenta que ya
-// hacía /mensajes; ahora en un solo sitio.
-const ALTO_UTIL = 'h-[calc(100dvh-3.5rem-var(--v2-tabbar-h))] lg:h-[calc(100dvh-3.5rem)]';
+// Alto útil = ventana − barra superior (--v2-topbar-h, la pone V2Shell) − barra de
+// pestañas móvil, que por debajo de lg es fija y tapa el final de la pantalla.
+const ALTO_UTIL =
+  'h-[calc(100dvh-var(--v2-topbar-h,3rem)-var(--v2-tabbar-h))] lg:h-[calc(100dvh-var(--v2-topbar-h,3rem))]';
 
 const PADDING_PROPIO = 'px-4 pt-4 sm:px-6 sm:pt-6';
 
@@ -104,6 +104,34 @@ export function FillPanel({
       {head ? <div className="shrink-0">{head}</div> : null}
       <div className={cn('min-h-0 flex-1 overflow-y-auto', bodyClassName)}>{children}</div>
       {foot ? <div className="shrink-0">{foot}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * La columna de una página: dos anchos y nada más. `lista` (tablas, bandejas,
+ * editores) = el ancho del panel; `ajustes` (formularios, un solo hilo de lectura)
+ * = 720 px. La cabecera (PageHeader) va dentro, así el borde izquierdo no salta
+ * al cambiar de pantalla.
+ */
+export function PageContainer({
+  width = 'lista',
+  children,
+  className,
+}: {
+  width?: 'lista' | 'ajustes';
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'mx-auto flex w-full min-w-0 flex-col gap-4 sm:gap-5',
+        width === 'ajustes' ? 'max-w-[720px]' : 'max-w-[var(--v2-container)]',
+        className,
+      )}
+    >
+      {children}
     </div>
   );
 }
