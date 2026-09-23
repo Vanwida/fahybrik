@@ -9,6 +9,8 @@ import {
   type SignalResult,
   dedupeKey,
 } from '@fahybrid/shared/domain/coach/signals';
+import { shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 /** «5 h» / «3 d». */
 function waited(hours: number): string {
@@ -89,7 +91,7 @@ export const billingAtRiskEvaluator: SignalEvaluator = {
   kind: 'billing_at_risk',
   default_severity: 'critical',
   enabled: true,
-  evaluate(facts): SignalResult | null {
+  evaluate(facts, thresholds): SignalResult | null {
     const risk = facts.billing_risk;
     if (risk == null) return null;
 
@@ -106,18 +108,24 @@ export const billingAtRiskEvaluator: SignalEvaluator = {
         dedupe_key: dedupeKey('billing_at_risk', facts.athlete_id),
       };
     }
-    // renewal_soon = canceló y no renueva: informativo (el atleta ya decidió y
-    // nada se rompe hoy; es trabajo de Cobros, no de la bandeja diaria).
+    // renewal_soon = canceló y su periodo termina. A partir de los días del coach
+    // (`renewal_alert_days`, defecto 7) es VIGILAR: «Se da de baja en N d», y la
+    // acción es escribirle (`signalActionFor`: un pago no vencido no se
+    // «recuerda»). Antes, informativa: la baja de la semana no salía en Hoy.
     const d = facts.billing_days_to_period_end ?? 0;
+    const soon = d <= (thresholds.renewal_alert_days ?? 7);
+    const ends = isoDateString(addDays(parseIsoDate(facts.today_iso), d));
     return {
       kind: 'billing_at_risk',
       fires: true,
-      severity: 'info',
+      severity: soon ? 'warning' : 'info',
       value: facts.billing_days_to_period_end,
       baseline: null,
       trend: null,
-      label: 'Cancela la suscripción',
-      detail: d === 0 ? 'termina hoy' : `termina en ${d} d`,
+      label: d === 0 ? 'Se da de baja hoy' : `Se da de baja en ${d} d`,
+      detail: `canceló la suscripción · termina el ${shortDate(ends)}`,
+      observed_at: `${ends}T12:00:00.000Z`,
+      window_label: `${thresholds.renewal_alert_days ?? 7} d`,
       dedupe_key: dedupeKey('billing_at_risk', facts.athlete_id),
     };
   },

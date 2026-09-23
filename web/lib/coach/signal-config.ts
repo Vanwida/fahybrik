@@ -73,8 +73,6 @@ export const SIGNAL_THRESHOLDS = {
   intake_critical_hours: 48,
   /** Days without a completed session NOR check-in before the inactivity alert fires. */
   inactivity_alert_days: 2,
-  /** Subscription ends (cancel_at_period_end) within this many days → renewal alert. */
-  renewal_alert_days: 7,
   /** Max diff rows surfaced inline on a week-adjustment card. */
   max_diff_rows: 3,
 
@@ -138,7 +136,6 @@ export const signalThresholdsSchema = z
     checkin_skipped_hours: z.number().positive(),
     intake_critical_hours: z.number().positive(),
     inactivity_alert_days: z.number().int().positive(),
-    renewal_alert_days: z.number().int().positive(),
     max_diff_rows: z.number().int().positive(),
     compliance_attention_max_pct: z.number().min(0).max(100),
     microcycle_ending_days: z.number().int().positive(),

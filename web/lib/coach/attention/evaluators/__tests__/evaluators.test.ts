@@ -498,12 +498,23 @@ describe('billing_at_risk', () => {
     expect(r.value).toBeNull();
   });
 
-  it("is informative on 'renewal_soon' (cancels at period end)", () => {
+  it("renewal_soon dentro de los días del coach: Vigilar «Se da de baja en N d»", () => {
     const r = fired('billing_at_risk', baseFacts({ billing_risk: 'renewal_soon', billing_days_to_period_end: 5 }));
-    expect(r.severity).toBe('info');
-    expect(r.label).toBe('Cancela la suscripción');
-    expect(r.detail).toBe('termina en 5 d');
+    expect(r.severity).toBe('warning');
+    expect(r.label).toBe('Se da de baja en 5 d');
+    expect(r.detail).toBe('canceló la suscripción · termina el 23 jun');
     expect(r.value).toBe(5);
+  });
+
+  it('renewal_soon más allá de los días del coach: solo contexto (informativa)', () => {
+    const r = fired('billing_at_risk', baseFacts({ billing_risk: 'renewal_soon', billing_days_to_period_end: 20 }));
+    expect(r.severity).toBe('info');
+    // Con el umbral del coach en 30, ya es Vigilar.
+    const wide = fired('billing_at_risk', baseFacts({ billing_risk: 'renewal_soon', billing_days_to_period_end: 20 }), {
+      ...THRESHOLDS,
+      renewal_alert_days: 30,
+    });
+    expect(wide.severity).toBe('warning');
   });
 
   it('does NOT fire when null', () => {

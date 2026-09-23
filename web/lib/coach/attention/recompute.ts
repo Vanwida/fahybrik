@@ -17,7 +17,6 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
-import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
 import { resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
 import { evaluateAll } from '@/lib/coach/attention/evaluators';
 import { communicationClaims } from './communication-claims';
@@ -246,9 +245,10 @@ function deriveBillingRisk(row: BatchRow): SignalFacts['billing_risk'] {
     row.billing_status === 'active' &&
     row.billing_cancel_at_period_end === true &&
     row.billing_days_to_period_end != null &&
-    row.billing_days_to_period_end >= 0 &&
-    row.billing_days_to_period_end <= SIGNAL_THRESHOLDS.renewal_alert_days
+    row.billing_days_to_period_end >= 0
   ) {
+    // Cuántos días antes pasa a Hoy lo decide el evaluador con el umbral del
+    // coach (`renewal_alert_days`, mig 0244); aquí solo el hecho.
     return 'renewal_soon';
   }
   return null;

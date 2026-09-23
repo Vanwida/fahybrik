@@ -28,7 +28,7 @@
 export type ThresholdUnit = 'dias' | 'horas' | 'puntos' | 'checkins' | 'entrenos' | 'rpe' | 'pct';
 
 /** Para agrupar en la pantalla de Método sin repetir la lista a mano. */
-export type ThresholdGroup = 'readiness' | 'sesiones' | 'mensajes' | 'comunicados' | 'revisiones';
+export type ThresholdGroup = 'readiness' | 'sesiones' | 'mensajes' | 'comunicados' | 'revisiones' | 'cobros';
 
 export interface ThresholdSpec {
   default: number;
@@ -69,6 +69,8 @@ export interface ThresholdSpec {
  *   2 de 10 es una semana normal; 2 de 4 no.
  * Revisiones 1:1 (0242): 14 días antes de volver a proponer una revisión al mismo
  *   atleta que no reservó la anterior.
+ * Bajas (0244): quien canceló y se va en 7 días o menos pasa a Vigilar («Se da de
+ *   baja en N d»), para que el coach le escriba antes de que termine.
  */
 export const COACH_THRESHOLD_SPEC = {
   readiness_ok_min: { default: 67, min: 1, max: 100, unit: 'puntos', group: 'readiness' },
@@ -106,6 +108,7 @@ export const COACH_THRESHOLD_SPEC = {
     group: 'comunicados',
   },
   review_reproposal_days: { default: 14, min: 1, max: 90, unit: 'dias', group: 'revisiones' },
+  renewal_alert_days: { default: 7, min: 1, max: 60, unit: 'dias', group: 'cobros' },
 } as const satisfies Record<string, ThresholdSpec>;
 
 export type CoachThresholdKey = keyof typeof COACH_THRESHOLD_SPEC;

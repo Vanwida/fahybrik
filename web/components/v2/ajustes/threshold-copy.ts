@@ -60,7 +60,7 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
   message_unanswered_hours: {
     label: 'Mensaje sin responder tras',
     unit: 'horas',
-    hint: 'Entonces pasa a Hoy como «Por responder».',
+    hint: 'Por responder está en Hoy desde el primer minuto; tras estas horas, el atleta pasa a Vigilar.',
   },
   communication_question_unanswered_days: {
     label: 'Pregunta sin respuesta tras',
@@ -81,6 +81,11 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
     label: 'Volver a proponer una revisión tras',
     unit: 'días',
     hint: 'Si el atleta no reservó la revisión 1:1 que le propusiste, cuánto esperar para proponerla otra vez.',
+  },
+  renewal_alert_days: {
+    label: 'Avisar de una baja',
+    unit: 'días antes',
+    hint: 'Quien canceló pasa a Vigilar («Se da de baja en N d») para que le escribas antes de que se vaya.',
   },
 };
 
@@ -108,4 +113,5 @@ export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThres
     ],
   },
   { title: 'Revisiones 1:1', keys: ['review_reproposal_days'] },
+  { title: 'Bajas', keys: ['renewal_alert_days'] },
 ];
