@@ -24,18 +24,54 @@ import { adherencePct } from '../adherence/completion';
 import { hrvDeltaMs, type HrvSample } from '../biometrics/hrv-baseline';
 import { summarizeLoad, type DailyTss } from '../training-load/banister';
 import { readLoadCoverage, type LoadCoverage } from '../training-load/coverage';
+import {
+  DEFAULT_COACH_THRESHOLDS,
+  normalizedWeights,
+  type CoachThresholds,
+} from './signal-thresholds';
 
 /** The four scored bands. Order = the order every surface renders them in. */
 export const RACE_READINESS_BANDS = ['freshness', 'compliance', 'hrv', 'activity'] as const;
 export type RaceReadinessBand = (typeof RACE_READINESS_BANDS)[number];
 
-/** Point budget — the four ceilings add up to 100. THE single source of it. */
-export const RACE_READINESS_BAND_MAX: Record<RaceReadinessBand, number> = {
-  freshness: 40,
-  compliance: 30,
-  hrv: 20,
-  activity: 10,
+/**
+ * The coach's METHOD for the index (HARD RULE Nº0 — «qué pesos lleva un índice de
+ * disposición» is the textbook example; migration 0256): how the 100 points are
+ * split across the four bands, and the TSB window the freshness band spans. The
+ * weights are relative in the coach's row and normalised here, so the ceilings
+ * always add up to 100. A band with ceiling 0 does not score AND is not missed:
+ * a coach who sets VFC to 0 gets an index for athletes without a watch.
+ */
+export type RaceReadinessMethod = {
+  band_max: Record<RaceReadinessBand, number>;
+  /** Freshness scores 0 at TSB −span and full at +span. */
+  tsb_span: number;
 };
+
+/** The method of a coach, from their effective thresholds. */
+export function raceReadinessMethodOf(t: CoachThresholds): RaceReadinessMethod {
+  // `thresholdIssues` refuses an all-zero group; if one ever arrives, the default split.
+  const w =
+    normalizedWeights(t, 'race_readiness') ??
+    normalizedWeights(DEFAULT_COACH_THRESHOLDS, 'race_readiness')!;
+  return {
+    band_max: {
+      freshness: w.race_readiness_weight_freshness * 100,
+      compliance: w.race_readiness_weight_adherence * 100,
+      hrv: w.race_readiness_weight_hrv * 100,
+      activity: w.race_readiness_weight_activity * 100,
+    },
+    tsb_span: t.race_readiness_tsb_span,
+  };
+}
+
+/** The system's method (a coach who touches nothing): 40 / 30 / 20 / 10, TSB ±10. */
+export const DEFAULT_RACE_READINESS_METHOD: RaceReadinessMethod =
+  raceReadinessMethodOf(DEFAULT_COACH_THRESHOLDS);
+
+/** Point budget of the DEFAULT method — the four ceilings add up to 100. */
+export const RACE_READINESS_BAND_MAX: Record<RaceReadinessBand, number> =
+  DEFAULT_RACE_READINESS_METHOD.band_max;
 
 /** Athlete-facing Spanish, owned here so two screens cannot name a band twice. */
 export const RACE_READINESS_BAND_LABEL_ES: Record<RaceReadinessBand, string> = {
@@ -45,9 +81,6 @@ export const RACE_READINESS_BAND_LABEL_ES: Record<RaceReadinessBand, string> = {
   activity: 'Actividad',
 };
 
-/** TSB range mapped across the freshness band: −10 scores 0, +10 scores full. */
-const TSB_FLOOR = -10;
-const TSB_CEILING = 10;
 
 /**
  * There is NO neutral credit. A band with nothing behind it does not score a
@@ -64,8 +97,13 @@ const TSB_CEILING = 10;
  * The scale is unchanged, so a number that IS given still means what it meant.
  */
 
-/** Each active day is worth this much, so the band saturates at ~7 days. */
-const ACTIVITY_PTS_PER_DAY = 1.5;
+/**
+ * Days of activity that fill the activity band (mechanism: the band saturates at
+ * ~7 days of a 7-day window whatever its weight — 1,5 of 10 points per day).
+ */
+const ACTIVITY_FULL_DAYS = 10 / 1.5;
+/** HRV band: each ms of delta moves this share of the band (1 point of 20). */
+const HRV_BAND_PER_MS = 1 / 20;
 
 /** Trailing window of the compliance band, in days. */
 export const READINESS_COMPLIANCE_DAYS = 7;
@@ -149,7 +187,11 @@ const MISSING_ACTION_ES: Record<RaceReadinessMissing, string> = {
  *    coverage.ts raises against TSB, and it does not get weaker because the band
  *    is smaller.
  */
-export function readRaceReadiness(input: RaceReadinessInput): RaceReadinessResult {
+export function readRaceReadiness(
+  input: RaceReadinessInput,
+  method: RaceReadinessMethod = DEFAULT_RACE_READINESS_METHOD,
+): RaceReadinessResult {
+  const max = method.band_max;
   const noSignal =
     input.active_days_7d === 0 && input.hrv_delta_ms == null && input.compliance_pct == null;
   if (noSignal) {
@@ -164,7 +206,7 @@ export function readRaceReadiness(input: RaceReadinessInput): RaceReadinessResul
       },
     };
   }
-  if (input.tsb != null && !input.load_coverage.allows_verdict) {
+  if (max.freshness > 0 && input.tsb != null && !input.load_coverage.allows_verdict) {
     return {
       reading: null,
       gap: {
@@ -178,33 +220,28 @@ export function readRaceReadiness(input: RaceReadinessInput): RaceReadinessResul
     };
   }
 
+  // Only a band that scores can be missing: a band the coach weighs 0 is not asked for.
   const missing: RaceReadinessMissing[] = [];
-  if (input.tsb == null) missing.push('load');
-  if (input.compliance_pct == null) missing.push('compliance');
-  if (input.hrv_delta_ms == null) missing.push('hrv');
+  if (max.freshness > 0 && input.tsb == null) missing.push('load');
+  if (max.compliance > 0 && input.compliance_pct == null) missing.push('compliance');
+  if (max.hrv > 0 && input.hrv_delta_ms == null) missing.push('hrv');
   if (missing.length > 0) {
-    return { reading: null, gap: missingInputsGap(missing) };
+    return { reading: null, gap: missingInputsGap(missing, method) };
   }
 
-  const span = TSB_CEILING - TSB_FLOOR;
-  const freshness = clamp(
-    ((input.tsb! - TSB_FLOOR) / span) * RACE_READINESS_BAND_MAX.freshness,
-    0,
-    RACE_READINESS_BAND_MAX.freshness,
-  );
-  const compliance = (input.compliance_pct! / 100) * RACE_READINESS_BAND_MAX.compliance;
+  const span = 2 * method.tsb_span;
+  const freshness =
+    max.freshness > 0
+      ? clamp(((input.tsb! + method.tsb_span) / span) * max.freshness, 0, max.freshness)
+      : 0;
+  const compliance = max.compliance > 0 ? (input.compliance_pct! / 100) * max.compliance : 0;
   // A delta of 0 ms means "exactly as usual", which sits mid-band; each ms of
-  // suppression or rebound moves it one point either way. This is a MEASUREMENT
-  // of the mid-band, not the old unconditional 10 that never looked at a row.
-  const hrv = clamp(
-    RACE_READINESS_BAND_MAX.hrv / 2 + input.hrv_delta_ms!,
-    0,
-    RACE_READINESS_BAND_MAX.hrv,
-  );
-  const activity = Math.min(
-    RACE_READINESS_BAND_MAX.activity,
-    input.active_days_7d * ACTIVITY_PTS_PER_DAY,
-  );
+  // suppression or rebound moves it a twentieth of the band either way (one point
+  // of the default 20). This is a MEASUREMENT of the mid-band, not the old
+  // unconditional 10 that never looked at a row.
+  const hrv =
+    max.hrv > 0 ? clamp(max.hrv / 2 + input.hrv_delta_ms! * max.hrv * HRV_BAND_PER_MS, 0, max.hrv) : 0;
+  const activity = Math.min(max.activity, (input.active_days_7d / ACTIVITY_FULL_DAYS) * max.activity);
 
   // Round the BANDS, then sum — so the four numbers printed under the bar always
   // add up to the headline. Rounding the total instead let the split disagree
@@ -220,7 +257,7 @@ export function readRaceReadiness(input: RaceReadinessInput): RaceReadinessResul
   return { reading: { score, bands }, gap: null };
 }
 
-function missingInputsGap(missing: RaceReadinessMissing[]): RaceReadinessGap {
+function missingInputsGap(missing: RaceReadinessMissing[], method: RaceReadinessMethod): RaceReadinessGap {
   const names = missing.map((m) => MISSING_LABEL_ES[m]);
   const list =
     names.length === 1
@@ -231,8 +268,8 @@ function missingInputsGap(missing: RaceReadinessMissing[]): RaceReadinessGap {
     missing,
     note_es:
       names.length === 1
-        ? `Falta ${list}: sin ella el índice saldría con hasta ${missingWeight(missing)} puntos de incertidumbre, así que no se da.`
-        : `Faltan ${list}: sin ellas el índice saldría con hasta ${missingWeight(missing)} puntos de incertidumbre, así que no se da.`,
+        ? `Falta ${list}: sin ella el índice saldría con hasta ${missingWeight(missing, method)} puntos de incertidumbre, así que no se da.`
+        : `Faltan ${list}: sin ellas el índice saldría con hasta ${missingWeight(missing, method)} puntos de incertidumbre, así que no se da.`,
     // Heaviest band first (they are pushed in band order, which is also weight
     // order): fixing the 40-point hole is what unblocks the reading soonest.
     action_es: MISSING_ACTION_ES[missing[0]!],
@@ -240,18 +277,21 @@ function missingInputsGap(missing: RaceReadinessMissing[]): RaceReadinessGap {
 }
 
 /** How many of the 100 points the missing bands are worth. */
-function missingWeight(missing: RaceReadinessMissing[]): number {
+function missingWeight(missing: RaceReadinessMissing[], method: RaceReadinessMethod): number {
   const weight: Record<RaceReadinessMissing, number> = {
-    load: RACE_READINESS_BAND_MAX.freshness,
-    compliance: RACE_READINESS_BAND_MAX.compliance,
-    hrv: RACE_READINESS_BAND_MAX.hrv,
+    load: method.band_max.freshness,
+    compliance: method.band_max.compliance,
+    hrv: method.band_max.hrv,
   };
-  return missing.reduce((s, m) => s + weight[m], 0);
+  return Math.round(missing.reduce((s, m) => s + weight[m], 0));
 }
 
 /** The composite as a bare number. Null = not scoreable, never zero readiness. */
-export function estimateRaceReadiness(input: RaceReadinessInput): number | null {
-  return readRaceReadiness(input).reading?.score ?? null;
+export function estimateRaceReadiness(
+  input: RaceReadinessInput,
+  method: RaceReadinessMethod = DEFAULT_RACE_READINESS_METHOD,
+): number | null {
+  return readRaceReadiness(input, method).reading?.score ?? null;
 }
 
 // ── The 90-day history ───────────────────────────────────────────────────────
@@ -298,6 +338,8 @@ export function buildRaceReadinessHistory(params: {
   hrv: ReadonlyArray<HrvSample>;
   /** Ascending. Samples whose day is outside `series` are skipped, not invented. */
   samples: ReadonlyArray<RaceReadinessSample>;
+  /** The coach's method (defaults: 40/30/20/10, TSB ±10). */
+  method?: RaceReadinessMethod;
 }): RaceReadinessPoint[] {
   const indexByDate = new Map(params.series.map((p, i) => [p.date, i]));
   const out: RaceReadinessPoint[] = [];
@@ -330,7 +372,7 @@ export function buildRaceReadinessHistory(params: {
       hrv_delta_ms: hrvDeltaMs(params.hrv, at),
       active_days_7d,
       load_coverage: coverage,
-    });
+    }, params.method);
     out.push({ iso_date, ...result });
   }
 
