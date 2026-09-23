@@ -21,14 +21,8 @@ import type { HoyView } from './hoy-types';
 
 export type { HoyView, HoyRow, SystemicGroup, HoySnoozedRow } from './hoy-types';
 
-/**
- * El add-on de Negocio (leads, cobros, embudo — DECISIONS 2026-09-23, decisión 7).
- * `EntitlementFeature` aún no lo declara: el cast desaparece cuando
- * `web/lib/coach/entitlements.ts` añada 'negocio' a la unión. Se lee por
- * `hasEntitlement` igualmente, para que el portón (lista blanca de estados) viva
- * en un solo sitio.
- */
-const NEGOCIO_FEATURE = 'negocio' as EntitlementFeature;
+/** El add-on de Negocio (leads, cobros, embudo — DECISIONS 2026-09-23, decisión 7). */
+const NEGOCIO_FEATURE: EntitlementFeature = 'negocio';
 
 async function loadCoachScalars(
   client: Sql,

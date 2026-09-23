@@ -30,6 +30,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Una señal compara al atleta consigo mismo; una adherencia; un estado
+
+**El hueco:** con 100 atletas el motor marcaba 93: el readiness disparaba con una sola lectura bajo 67 sin base ni fecha, «sesiones fallidas» contaba días sin actividad, la adherencia contaba sesiones futuras (un miércoles perfecto salía 40 % en rojo) y había tres definiciones de «Atención».
+
+**Decidido (mecanismo en código, números en `coach_signal_thresholds`, migraciones 0211–0212; NULL = defecto de `shared/domain/coach/signal-thresholds.ts`):**
+- **Readiness** contra la mediana propia de 28 días (con ≥7 lecturas): crítico si la última está bajo el suelo del coach (40); vigilar si está ≥15 puntos bajo su base 3 días seguidos (un día sin lectura rompe la racha); nada si la última lectura tiene más de 2 días. La evidencia dice valor, base, ventana y fecha. El episodio se identifica por su primer día, así que uno nuevo vuelve aunque se marcara «hecho».
+- **Adherencia due-only** (`shared/domain/coach/adherence.ts`): cuenta lo que ya tocaba (antes de hoy, u hoy si ya está hecho); completada o a medias = hecha; sin nada debido = sin dato, nunca 0.
+- **Sesiones sin hacer** = debidas en 7 días en semanas visibles; **RPE alto** = ≥50 % de la semana a RPE ≥9 (mín. 2); **check-in saltado** solo en quien tiene el hábito (10 de 14 días); **por responder** = el último mensaje es del atleta, leído o no.
+- Fuera de la bandeja diaria (informativas): listo para progresar, carrera cerca, tests, entreno libre, cancelación programada; reloj sin sincronizar nunca es crítico.
+- **Un estado del atleta** (`shared/domain/coach/athlete-state.ts`), en este orden: pausado > acción (alguna crítica) > nuevo > sin plan > vigilar > al día. Lo leen Hoy, Atletas, Mensajes y la ficha.
+- **Posponer / hecho** guardan tipo, severidad y clave del momento: «hecho» no vuelve por lo mismo; un episodio nuevo sí; un posponer con fecha se rompe si la señal escala a crítica.
+- Guardar umbrales es **por campo** (`PUT` de uno; `null` restaura el defecto), no «reemplaza el conjunto» como decía 0161.
+
+**NO hacer:** no pintar un número de readiness sin base ni fecha; no contar sesiones futuras en ninguna adherencia; no escribir otra definición de «Atención» en una pantalla — se lee el estado.
+
+---
+
 ## 2026-09-23 · El panel del coach se rehace alrededor del día del entrenador (auditoría aprobada)
 
 **El hueco:** la auditoría con 100 atletas (`docs/auditoria-panel-coach/index.html`) mostró que el panel está organizado por el modelo de datos y por acumulación de funciones, no por los tres trabajos del coach (saber quién le necesita hoy, actuar sobre muchos a la vez, construir y cambiar el plan donde lo mira). Hoy decía «92 decisiones» para 100 atletas, los números se contradecían entre pantallas y dar un bloque a 20 atletas costaba ~500 clics. Alex aprobó la propuesta entera («plan approved 100 %, every decision you recommended»).
