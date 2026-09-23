@@ -40,6 +40,8 @@ import {
   PaceCell,
   ScalarTargetCell,
 } from './form-controls';
+import { CircleMinus, CirclePlus, RotateCcw } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 // A leg is "present" in the block when an item exists for its exercise_id. We key
 // items to legs by exercise_id (each load station + the ergs has a unique id; runs
@@ -121,22 +123,17 @@ export function SimulacionHyroxForm({
           />
         </Field>
         <div className="flex items-center gap-3">
-          <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+          <span className="t-meta text-v2-muted t-tnum">
             {presentCount} / {HYROX_LEGS.length} tramos
           </span>
-          <button
-            type="button"
-            onClick={resetTemplate}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-          >
-            <MIcon name="restart_alt" size={13} />
+          <Button size="sm" icon={RotateCcw} onClick={resetTemplate}>
             Restablecer plantilla
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Race info strip */}
-      <p className="text-label leading-snug text-[color:var(--v2-muted)]">
+      <p className="t-meta leading-snug text-[color:var(--v2-muted)]">
         Formato oficial: 8 × 1 km de carrera intercalados con las 8 estaciones en
         orden. La secuencia es fija: editas la dosis de cada tramo, no el orden.
         Cargas estándar {variant ? HYROX_VARIANTS.find((v) => v.value === variant)?.hint?.toLowerCase() : 'personalizadas'}.
@@ -189,7 +186,7 @@ function LegRow({
   return (
     <div
       className={cn(
-        'relative flex items-stretch gap-3 overflow-hidden rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface-2)] py-2.5 pl-3.5 pr-3 transition-opacity',
+        'relative flex items-stretch gap-3 overflow-hidden rounded-panel border bg-[color:var(--v2-surface-2)] py-2.5 pl-3.5 pr-3 transition-opacity',
         skipped ? 'border-dashed border-[color:var(--v2-border)] opacity-55' : 'border-[color:var(--v2-border)]',
       )}
     >
@@ -200,7 +197,7 @@ function LegRow({
       />
 
       {/* Order number */}
-      <span className="v2-num mt-0.5 w-5 shrink-0 text-center text-xs font-bold text-[color:var(--v2-faint)]">
+      <span className="t-tnum mt-0.5 w-5 shrink-0 text-center text-xs font-semibold text-[color:var(--v2-faint)]">
         {index + 1}
       </span>
 
@@ -208,7 +205,7 @@ function LegRow({
         <div className="flex items-center gap-2">
           <span
             aria-hidden
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-ctl"
             style={{
               background: `var(--v2-mod-${slug}-soft)`,
               color: `var(--v2-mod-${slug})`,
@@ -220,7 +217,7 @@ function LegRow({
             {isRun ? 'Run 1 km' : `Estación ${leg.stationNumber} · ${leg.exercise_name}`}
           </span>
           {skipped ? (
-            <span className="v2-micro rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface)] px-1.5 py-0.5 text-[color:var(--v2-faint)]">
+            <span className="rounded-[4px] bg-v2-surface px-1.5 py-0.5 t-meta text-v2-faint">
               omitido
             </span>
           ) : null}
@@ -238,19 +235,13 @@ function LegRow({
       </div>
 
       {/* Skip / restore toggle */}
-      <button
-        type="button"
+      <IconButton
+        icon={skipped ? CirclePlus : CircleMinus}
+        size="sm"
         onClick={onToggle}
-        aria-label={skipped ? `Incluir ${leg.exercise_name}` : `Omitir ${leg.exercise_name}`}
-        className={cn(
-          'v2-focus mt-0.5 shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors',
-          skipped
-            ? 'text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]'
-            : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]',
-        )}
-      >
-        <MIcon name={skipped ? 'add_circle' : 'remove_circle_outline'} size={16} />
-      </button>
+        label={skipped ? `Incluir ${leg.exercise_name}` : `Omitir ${leg.exercise_name}`}
+        className={cn('shrink-0', skipped ? 'text-v2-fg' : 'hover:text-v2-danger')}
+      />
     </div>
   );
 }

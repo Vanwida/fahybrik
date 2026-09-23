@@ -32,10 +32,11 @@ import type {
 import { formatMeta, formatsByFamily } from '@fahybrid/shared/domain/prescription';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/ui/MIcon';
 import { CircuitConfigFields } from './circuit-config-fields';
 import { ComponentStationRow, FormatParamField } from './component-stations';
 import { Field, InlineToggle } from './form-controls';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 // The conditioning formats this WOD/components form offers: the full metcon
 // family (minus the dedicated HYROX-sim template, which has its own archetype +
@@ -275,7 +276,7 @@ export function ComponentsForm({
 
       {/* Estaciones, en el orden en que se hacen */}
       <div className="space-y-1.5">
-        <span className="v2-micro">
+        <span className="t-meta text-v2-muted">
           Estaciones · en orden{' '}
           {isCircuit || format === 'amrap' || format === 'rounds' ? '(cada ronda)' : ''}
         </span>
@@ -292,19 +293,14 @@ export function ComponentsForm({
             />
           ))}
           {block.items.length === 0 ? (
-            <p className="px-1 py-2 text-xs text-[color:var(--v2-muted)]">
+            <p className="px-1 py-2 t-body-sm text-v2-muted">
               Sin estaciones: añade el primer movimiento.
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={addComponent}
-          className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="add" size={13} />
+        <Button size="sm" icon={Plus} onClick={addComponent} className="self-start">
           Añadir estación
-        </button>
+        </Button>
       </div>
     </div>
   );

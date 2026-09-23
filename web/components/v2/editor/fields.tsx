@@ -9,8 +9,9 @@
 // PrescriptionFields and the type-specific item tables.
 
 import { useState } from 'react';
+import { Lightbulb, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MIcon } from '@/components/ui/MIcon';
+import { Button, IconButton, Input, Textarea } from '@/components/v2/ui';
 import {
   formatClock,
   kmToMeters,
@@ -18,31 +19,9 @@ import {
   parseClock,
 } from '@/lib/programming/prescription-model';
 
-export const v2FieldCell = cn(
-  'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-  'bg-[color:var(--v2-surface-2)] px-2 py-1.5 text-sm text-[color:var(--v2-fg)]',
-  'v2-num placeholder:font-sans placeholder:text-[color:var(--v2-faint)]',
-  'outline-none focus:border-[color:var(--v2-border-strong)]',
-);
-
-export const v2SelectCell = cn(
-  'v2-focus shrink-0 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-  'bg-[color:var(--v2-surface-2)] px-2 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)]',
-  'outline-none focus:border-[color:var(--v2-border-strong)]',
-);
-
-// Prosa, no cifra: mismo lienzo que `v2FieldCell` pero SIN `v2-num` (una nota se
-// escribe en la cara del texto, no en la monoespaciada de datos) y con alto
-// ajustable por el coach.
-export const v2NoteCell = cn(
-  'v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-  'bg-[color:var(--v2-surface-2)] px-2.5 py-2 text-body leading-relaxed text-[color:var(--v2-fg)]',
-  'placeholder:text-[color:var(--v2-faint)]',
-  'outline-none focus:border-[color:var(--v2-border-strong)]',
-);
-
+/** Etiqueta de un campo del compositor: la misma voz que `Field` (12 px, gris). */
 export function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="v2-micro">{children}</span>;
+  return <span className="t-meta text-v2-muted">{children}</span>;
 }
 
 /**
@@ -106,76 +85,60 @@ export function NoteField({
   const panelId = `${id}-drafts`;
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="v2-micro block">
+    <div className="space-y-1.5">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <label htmlFor={id} className="t-meta text-v2-muted">
           {label}
         </label>
         {onSuggest ? (
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Lightbulb}
+            loading={busy}
             onClick={askForDrafts}
-            disabled={busy}
             aria-expanded={drafts.length > 0}
             aria-controls={panelId}
-            title="Propone borradores de esta nota a partir del entreno"
-            className="v2-focus inline-flex h-6 shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-fg)] hover:text-[color:var(--v2-fg)] disabled:opacity-60"
+            className="-my-1"
           >
-            <MIcon
-              name={busy ? 'progress_activity' : 'lightbulb'}
-              size={13}
-              className={busy ? 'animate-spin' : undefined}
-            />
             {busy ? 'Escribiendo…' : 'Ayuda IA'}
-          </button>
+          </Button>
         ) : null}
       </div>
-      <textarea
+      <Textarea
         id={id}
         rows={rows}
         value={value}
         maxLength={maxLength}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={v2NoteCell}
+        className="min-h-14"
       />
       {drafts.length > 0 ? (
-        <div
-          id={panelId}
-          className="space-y-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] p-1.5"
-        >
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="v2-micro">Elige un borrador y edítalo</span>
-            <button
-              type="button"
-              onClick={() => setDrafts([])}
-              aria-label="Descartar los borradores"
-              className="v2-focus shrink-0 rounded-[var(--v2-r-2xs)] p-0.5 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-            >
-              <MIcon name="close" size={14} />
-            </button>
+        <div id={panelId} className="space-y-1 rounded-ctl border border-v2-border-strong p-1.5">
+          <div className="flex items-center justify-between gap-2 pl-1">
+            <span className="t-meta text-v2-muted">Elige un borrador y edítalo</span>
+            <IconButton icon={X} size="sm" label="Descartar los borradores" onClick={() => setDrafts([])} />
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {drafts.map((draft) => (
               <li key={draft}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     onChange(draft);
                     setDrafts([]);
                   }}
-                  className="v2-focus w-full rounded-[var(--v2-r-2xs)] px-1.5 py-1 text-left text-label leading-relaxed text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface)] hover:text-[color:var(--v2-fg)]"
+                  className="h-auto w-full justify-start whitespace-normal px-2 py-1.5 text-left font-normal"
                 >
                   {draft}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
-      {hint ? (
-        <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">{hint}</p>
-      ) : null}
+      {hint ? <p className="t-meta text-v2-faint">{hint}</p> : null}
     </div>
   );
 }
@@ -201,7 +164,7 @@ export function NumberCell({
 }) {
   return (
     <div className={cn('relative min-w-0', className)}>
-      <input
+      <Input
         type="number"
         inputMode="decimal"
         aria-label={ariaLabel}
@@ -219,10 +182,10 @@ export function NumberCell({
           if (max !== undefined && clamped > max) clamped = max;
           onChange(clamped);
         }}
-        className={cn(v2FieldCell, suffix && 'pr-7')}
+        className={cn('t-tnum', suffix && 'pr-7')}
       />
       {suffix ? (
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-label text-[color:var(--v2-muted)]">
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center t-meta text-v2-muted">
           {suffix}
         </span>
       ) : null}
@@ -245,7 +208,7 @@ export function ClockCell({
   onChange: (seconds: number | null) => void;
 }) {
   return (
-    <input
+    <Input
       type="text"
       inputMode="numeric"
       aria-label={ariaLabel}
@@ -256,7 +219,7 @@ export function ClockCell({
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
       }}
-      className={cn(v2FieldCell, 'text-center', className)}
+      className={cn('text-center t-tnum', className)}
     />
   );
 }
@@ -277,14 +240,14 @@ export function TextCell({
   onChange: (v: string) => void;
 }) {
   return (
-    <input
+    <Input
       type="text"
       aria-label={ariaLabel}
       value={value}
       placeholder={placeholder}
       maxLength={maxLength}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(v2FieldCell, 'min-w-0 flex-1', className)}
+      className={cn('min-w-0 flex-1', className)}
     />
   );
 }

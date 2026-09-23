@@ -31,7 +31,7 @@ export function SetsTableForm({
   showRest?: boolean;
 }) {
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+    <div className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
       <StrengthFields value={value} onChange={onChange} scheme={scheme} showRest={showRest} />
     </div>
   );

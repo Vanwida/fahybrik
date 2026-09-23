@@ -17,6 +17,8 @@ import { segmentSentence } from '@/lib/dashboard/v2/run-structure-view';
 import { PaceRuler } from '../../run-zones-context';
 import { MeasureCell, ObjetivoCell } from './segment-controls';
 import { canWrapInRepeat } from './tree-ops';
+import { ArrowDown, ArrowUp, ChevronUp, ChevronsUpDown, Repeat, Trash2, X, type LucideIcon } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 const RECOVERY_MODES: { value: RecoveryMode; label: string }[] = [
   { value: 'trote', label: 'Trote' },
@@ -36,32 +38,28 @@ export interface RowHandlers {
   wrap: (path: number[]) => void;
 }
 
+const ICONS: Record<string, LucideIcon> = {
+  arrow_upward: ArrowUp,
+  arrow_downward: ArrowDown,
+  delete: Trash2,
+  repeat: Repeat,
+  unfold_more: ChevronsUpDown,
+  expand_less: ChevronUp,
+  close: X,
+};
+
 export function IconBtn({
   icon,
   label,
   onClick,
   disabled,
 }: {
-  icon: string;
+  icon: keyof typeof ICONS;
   label: string;
   onClick: () => void;
   disabled?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors',
-        disabled ? 'opacity-30' : 'hover:bg-[color:var(--v2-elevated)] hover:text-[color:var(--v2-fg)]',
-      )}
-    >
-      <MIcon name={icon} size={15} />
-    </button>
-  );
+  return <IconButton icon={ICONS[icon] ?? X} size="sm" label={label} disabled={disabled} onClick={onClick} className="size-6 w-6" />;
 }
 
 export function SegmentRow({
@@ -89,24 +87,24 @@ export function SegmentRow({
     return (
       <div
         className={cn(
-          'group flex items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
+          'group flex items-center gap-3 rounded-ctl border border-v2-border bg-v2-surface px-3 py-1.5',
         )}
       >
         <span
           aria-hidden
           className={cn(
             'h-6 w-1 shrink-0 rounded-full',
-            isWork ? 'bg-[color:var(--v2-accent)]' : 'bg-[color:var(--v2-info)] opacity-50',
+            isWork ? 'bg-v2-fg' : 'bg-v2-info opacity-50',
           )}
         />
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={onOpen}
-          className="v2-focus min-w-0 flex-1 truncate text-left font-mono text-body text-[color:var(--v2-fg)]"
           aria-label={`Editar tramo: ${segmentSentence(segment)}`}
+          className="min-w-0 flex-1 justify-start px-1 font-normal text-v2-fg t-tnum"
         >
-          {segmentSentence(segment)}
-        </button>
+          <span className="truncate">{segmentSentence(segment)}</span>
+        </Button>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           <IconBtn icon="arrow_upward" label="Subir" onClick={() => handlers.move(path, -1)} />
           <IconBtn icon="arrow_downward" label="Bajar" onClick={() => handlers.move(path, 1)} />
@@ -121,8 +119,8 @@ export function SegmentRow({
   return (
     <div
       className={cn(
-        'rounded-[var(--v2-r-m)] border bg-[color:var(--v2-surface)] p-3',
-        'border-[color:var(--v2-accent)]/45',
+        'rounded-panel border bg-[color:var(--v2-surface)] p-3',
+        'border-v2-border-strong',
       )}
     >
       <div className="mb-2.5 flex items-center gap-2">
@@ -130,7 +128,7 @@ export function SegmentRow({
           aria-hidden
           className={cn(
             'h-6 w-1 shrink-0 rounded-full',
-            isWork ? 'bg-[color:var(--v2-accent)]' : 'bg-[color:var(--v2-info)] opacity-50',
+            isWork ? 'bg-v2-fg' : 'bg-v2-info opacity-50',
           )}
         />
         <InlineToggle
@@ -174,7 +172,7 @@ export function SegmentRow({
         />
       ) : (
         <div className="mt-2 flex items-center gap-2">
-          <span className="v2-micro">Recuperación</span>
+          <span className="t-meta text-v2-muted">Recuperación</span>
           <InlineToggle
             ariaLabel="Modo de recuperación"
             value={segment.recovery_mode ?? 'parado'}
@@ -203,7 +201,7 @@ function WorkExtras({
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {hasIncline ? (
         <label className="flex items-center gap-1.5">
-          <span className="v2-micro">Inclin.</span>
+          <span className="t-meta text-v2-muted">Inclin.</span>
           <NumberCell value={segment.incline_pct ?? null} ariaLabel="Inclinación (%)" min={0} max={15} step={0.5} suffix="%" className="w-16" onChange={(v) => onPatch({ incline_pct: v ?? 0 })} />
           <IconBtn icon="close" label="Quitar inclinación" onClick={() => onRemoveField('incline_pct')} />
         </label>
@@ -212,7 +210,7 @@ function WorkExtras({
       )}
       {hasCadence ? (
         <label className="flex items-center gap-1.5">
-          <span className="v2-micro">Cadencia</span>
+          <span className="t-meta text-v2-muted">Cadencia</span>
           <NumberCell value={segment.cadence_spm ?? null} ariaLabel="Cadencia (spm)" min={120} max={220} suffix="spm" className="w-20" onChange={(v) => onPatch({ cadence_spm: v ?? 120 })} />
           <IconBtn icon="close" label="Quitar cadencia" onClick={() => onRemoveField('cadence_spm')} />
         </label>
@@ -225,13 +223,9 @@ function WorkExtras({
 
 function AddChip({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-    >
-      <MIcon name={icon} size={13} />
+    <Button size="sm" variant="ghost" onClick={onClick}>
+      <MIcon name={icon} size={14} />
       {label}
-    </button>
+    </Button>
   );
 }

@@ -88,7 +88,7 @@ export const QuickLineInput = forwardRef<
         autoComplete="off"
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="font-mono"
+        className="t-tnum"
         trailing={<Kbd>↵</Kbd>}
       />
       <LineFeedback

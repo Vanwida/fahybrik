@@ -16,12 +16,13 @@ import type {
   TargetKind,
 } from '@fahybrid/shared/domain/prescription';
 import { formatDuration, setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/ui/MIcon';
 import { cn } from '@/lib/utils';
 import { useHoldRepeat } from '@/components/v2/controls/useHoldRepeat';
 import { parseClock } from './fields';
 import { PROPOSED_CELL, proposedAria } from './dose-controls';
 import { scalarBounds } from './target-cell';
+import { ChevronsDown, Minus, Plus, X } from 'lucide-react';
+import { Button, IconButton, Input } from '@/components/v2/ui';
 
 // Paso de cada celda según lo que mide/apunta — percepción, no metodología: el
 // hold-repeat recorre el rango cómodo sin pasarse (el teclado cubre el resto).
@@ -174,12 +175,12 @@ export function StrengthPyramid({
 
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)]">
+      <div className="overflow-hidden rounded-panel border border-[color:var(--v2-border)]">
         <div className={cn('grid items-center gap-1 bg-[color:var(--v2-surface-2)] px-1 py-2', cols)}>
-          <span className="v2-micro text-center">#</span>
-          <span className="v2-micro text-center">Reps</span>
-          <span className="v2-micro text-center">{cargaLabel}</span>
-          {showRest ? <span className="v2-micro text-center">Desc</span> : null}
+          <span className="t-label text-center text-v2-faint">#</span>
+          <span className="t-label text-center text-v2-faint">Reps</span>
+          <span className="t-label text-center text-v2-faint">{cargaLabel}</span>
+          {showRest ? <span className="t-label text-center text-v2-faint">Desc</span> : null}
           <span aria-hidden />
         </div>
         {sets.map((set, i) => (
@@ -203,13 +204,9 @@ export function StrengthPyramid({
           />
         ))}
       </div>
-      <button
-        type="button"
-        onClick={onAddSet}
-        className="v2-focus inline-flex h-[34px] items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-      >
-        ＋ serie <span className="font-medium text-[color:var(--v2-faint)]">(copia la última)</span>
-      </button>
+      <Button size="sm" icon={Plus} onClick={onAddSet} className="self-start">
+        serie <span className="font-normal text-v2-faint">(copia la última)</span>
+      </Button>
     </div>
   );
 }
@@ -258,11 +255,11 @@ function PyramidRow({
   return (
     <div
       className={cn(
-        'group/row grid items-center gap-1 border-t border-[color:var(--v2-border)] px-1 py-1',
+        'group/row grid items-center gap-1 border-t border-v2-border px-1 py-1',
         cols,
       )}
     >
-      <span className="v2-num text-center text-xs font-bold text-[color:var(--v2-faint)]">{n}</span>
+      <span className="text-center t-meta text-v2-faint t-tnum">{n}</span>
 
       <PyramidCell
         display={measureDisplay(measure)}
@@ -273,7 +270,7 @@ function PyramidRow({
       />
 
       {targetKind === 'bodyweight' ? (
-        <span className="text-center text-xs text-[color:var(--v2-muted)]">corporal</span>
+        <span className="text-center t-meta text-v2-muted">corporal</span>
       ) : (
         <PyramidCell
           display={rangeText(lo, hi)}
@@ -305,25 +302,22 @@ function PyramidRow({
 
       <span className="flex items-center justify-end gap-0.5 pr-1">
         {onApplyDown ? (
-          <button
-            type="button"
+          <IconButton
+            icon={ChevronsDown}
+            size="sm"
             onClick={onApplyDown}
-            aria-label={`Aplicar la serie ${n} hacia abajo`}
-            title="Aplicar hacia abajo"
-            className="v2-focus rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-[color:var(--v2-accent-soft)] hover:text-[color:var(--v2-accent-text)]"
-          >
-            <MIcon name="keyboard_double_arrow_down" size={15} />
-          </button>
+            label={`Aplicar la serie ${n} hacia abajo`}
+            className="opacity-0 [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100"
+          />
         ) : null}
         {onRemove ? (
-          <button
-            type="button"
+          <IconButton
+            icon={X}
+            size="sm"
             onClick={onRemove}
-            aria-label={`Quitar la serie ${n}`}
-            className="v2-focus rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:text-[color:var(--v2-danger)]"
-          >
-            <MIcon name="close" size={14} />
-          </button>
+            label={`Quitar la serie ${n}`}
+            className="opacity-0 [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:text-v2-danger"
+          />
         ) : null}
       </span>
     </div>
@@ -351,15 +345,15 @@ function PyramidCell({
 }) {
   const dec = useHoldRepeat(() => onStep(-1));
   const inc = useHoldRepeat(() => onStep(1));
-  const btn =
-    'v2-focus grid h-6 w-6 shrink-0 select-none place-items-center rounded-[var(--v2-r-2xs)] text-sm text-[color:var(--v2-faint)] opacity-0 transition-all [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]';
+  const btn = 'size-6 w-6 px-0 opacity-0 [@media(hover:none)]:opacity-100 group-focus-within/row:opacity-100 group-hover/row:opacity-100';
 
   return (
     <span className="flex min-w-0 items-center justify-center gap-0.5">
-      <button type="button" {...dec} aria-label={`${ariaLabel}: menos`} className={btn}>
-        −
-      </button>
-      <input
+      <Button variant="ghost" size="sm" {...dec} aria-label={`${ariaLabel}: menos`} className={btn}>
+        <Minus aria-hidden strokeWidth={2} />
+      </Button>
+      <Input
+        size="sm"
         type="text"
         inputMode="decimal"
         aria-label={ariaLabel}
@@ -375,13 +369,13 @@ function PyramidCell({
         className={cn(
           // w fluida con tope: en 390 la rejilla encoge sin desbordar (los −/＋
           // táctiles siempre visibles caben junto a la cifra).
-          'v2-focus v2-num w-full min-w-8 max-w-14 rounded-[var(--v2-r-2xs)] bg-transparent py-1 text-center text-sm font-bold text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:bg-[color:var(--v2-surface-2)]',
+          'w-full min-w-8 max-w-14 border-transparent bg-transparent px-1 text-center font-semibold t-tnum focus-visible:bg-v2-surface',
           proposed && PROPOSED_CELL,
         )}
       />
-      <button type="button" {...inc} aria-label={`${ariaLabel}: más`} className={btn}>
-        ＋
-      </button>
+      <Button variant="ghost" size="sm" {...inc} aria-label={`${ariaLabel}: más`} className={btn}>
+        <Plus aria-hidden strokeWidth={2} />
+      </Button>
     </span>
   );
 }

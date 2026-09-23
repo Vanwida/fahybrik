@@ -65,7 +65,7 @@ export function TargetCell({
           className="flex-1"
           onChange={(s) => onChange({ kind: 'pace', unit, value_s: s ?? undefined })}
         />
-        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
+        <span className="shrink-0 t-meta font-semibold text-[color:var(--v2-muted)]">
           {unitLabel}
         </span>
       </div>
@@ -101,7 +101,7 @@ export function TargetCell({
         onChange={(val) => onChange(build(val, hi))}
       />
       <span
-        className="shrink-0 text-label font-semibold text-[color:var(--v2-faint)]"
+        className="shrink-0 t-meta font-semibold text-[color:var(--v2-faint)]"
         aria-hidden
       >
         –
@@ -115,7 +115,7 @@ export function TargetCell({
         onChange={(val) => onChange(build(lo, val))}
       />
       {suffix ? (
-        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
+        <span className="shrink-0 t-meta font-semibold text-[color:var(--v2-muted)]">
           {suffix}
         </span>
       ) : null}

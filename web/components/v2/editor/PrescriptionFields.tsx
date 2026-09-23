@@ -37,7 +37,7 @@ import {
   OBJETIVO_LABEL,
   objetivosForModalidad,
 } from '@/lib/dashboard/v2/editor-axes';
-import { v2SelectCell } from './fields';
+import { Select } from '@/components/v2/ui';
 import { ConditioningFields, StrengthFields } from './prescription-field-groups';
 
 // Conditioning format options (CÓMO se estructura el trabajo) — the metcon axis.
@@ -159,26 +159,21 @@ export function PrescriptionFields({
       {/* ── Conditioning format (only for circuito/metcon-style blocks) ──── */}
       {!isStrength ? (
         <div className="flex items-center justify-between gap-2">
-          <label htmlFor={formatId} className="v2-micro">
+          <label htmlFor={formatId} className="t-meta text-v2-muted">
             Formato
           </label>
-          <select
+          <Select
             id={formatId}
+            size="sm"
             value={value.scheme === 'sets' ? 'steady' : value.scheme}
-            onChange={(e) => onChange(applyScheme(value, e.target.value as PrescriptionScheme))}
-            className={v2SelectCell}
-          >
-            {FORMAT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v: PrescriptionScheme) => onChange(applyScheme(value, v))}
+            options={FORMAT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          />
         </div>
       ) : null}
 
       {/* ── Adaptive CAMPOS card ─────────────────────────────────────────── */}
-      <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+      <div className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
         {isStrength ? (
           <StrengthFields value={value} onChange={onChange} proposedPaths={proposedPaths} />
         ) : (
@@ -192,7 +187,7 @@ export function PrescriptionFields({
 function Axis({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <span className="v2-micro">{label}</span>
+      <span className="t-meta text-v2-muted">{label}</span>
       <div className="flex flex-wrap items-center gap-1">{children}</div>
     </div>
   );

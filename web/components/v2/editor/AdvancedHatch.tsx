@@ -9,7 +9,8 @@
 
 import { useState } from 'react';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
-import { MIcon } from '@/components/ui/MIcon';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 import { PrescriptionFields } from './PrescriptionFields';
 
 export function AdvancedHatch({
@@ -22,25 +23,22 @@ export function AdvancedHatch({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
-      <button
-        type="button"
+    <div className="overflow-hidden rounded-panel border border-v2-border">
+      <Button
+        variant="ghost"
+        size="lg"
+        icon={open ? ChevronDown : ChevronRight}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="v2-focus flex w-full items-center gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-[color:var(--v2-surface-2)]"
+        className="w-full justify-start rounded-none border-0 px-3"
       >
-        <MIcon
-          name={open ? 'expand_more' : 'chevron_right'}
-          size={16}
-          className="shrink-0 text-[color:var(--v2-faint)]"
-        />
-        <span className="text-xs font-bold text-[color:var(--v2-muted)]">Ajuste avanzado</span>
-        <span className="ml-auto hidden text-label text-[color:var(--v2-faint)] sm:inline">
-          modalidad · medida · objetivo · esquema, para el caso que el tipo no cubre
+        <span className="text-v2-fg">Ajuste avanzado</span>
+        <span className="ml-auto hidden truncate t-meta font-normal text-v2-faint sm:inline">
+          modalidad · medida · objetivo · esquema
         </span>
-      </button>
+      </Button>
       {open ? (
-        <div className="border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-4">
+        <div className="border-t border-v2-border p-4">
           <PrescriptionFields value={value} onChange={onChange} />
         </div>
       ) : null}

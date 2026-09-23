@@ -12,6 +12,8 @@ import { formatDuration } from '@fahybrid/shared/domain/prescription';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { cn } from '@/lib/utils';
 import { ClockCell, TextCell } from './fields';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 /** Reps frecuentes de fuerza (mock aprobado). El teclado cubre el resto. */
 export const REPS_CHIP_VALUES = [3, 4, 5, 8, 10, 12] as const;
@@ -104,13 +106,9 @@ export function TempoDisclosure({
   const [open, setOpen] = useState(false);
   if (!open && !tempo) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="v2-focus inline-flex h-[34px] items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-      >
-        ＋ tempo (3-1-1)
-      </button>
+      <Button size="sm" variant="ghost" icon={Plus} onClick={() => setOpen(true)} className="self-start">
+        tempo (3-1-1)
+      </Button>
     );
   }
   return (
@@ -133,7 +131,7 @@ export function TempoDisclosure({
  * lector de pantalla no ve el trazo.
  */
 export const PROPOSED_CELL =
-  'rounded-[var(--v2-r-2xs)] outline outline-1 outline-dashed outline-offset-1 outline-[color:var(--v2-warn)]';
+  'rounded-ctl outline outline-1 outline-dashed outline-offset-1 outline-[color:var(--v2-warn)]';
 
 /** La etiqueta accesible de un campo propuesto. */
 export function proposedAria(label: string, proposed: boolean): string {
@@ -155,10 +153,10 @@ export function Control({
 }) {
   return (
     <div className={cn('space-y-1.5', proposed && `${PROPOSED_CELL} p-1`)}>
-      <span className="v2-micro flex items-baseline gap-2">
+      <span className="flex items-baseline gap-2 t-meta text-v2-muted">
         {label}
         {hint ? (
-          <span className="font-medium normal-case tracking-normal text-[color:var(--v2-faint)]">
+          <span className="font-normal text-v2-faint">
             {hint}
           </span>
         ) : null}

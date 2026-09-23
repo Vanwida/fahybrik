@@ -25,6 +25,8 @@ import {
   proposedAria,
   REPS_CHIP_VALUES,
 } from './dose-controls';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 const RIR_CHIP_VALUES = [0, 1, 2, 3, 4] as const;
 const RPE_CHIP_VALUES = [6, 7, 8, 9, 10] as const;
@@ -34,9 +36,6 @@ const MAX_REPS_UI = 100; // mismo tope que el Stepper de reps
 const REPS_RANGE_DEFAULT_SPAN = 2; // "12" → "12-14" al activar; el coach ajusta el techo después
 
 /** Botón fantasma para activar algo opcional (mismo lenguaje que «＋ tempo», «＋ serie»). */
-const GHOST_ADD_CLASS =
-  'v2-focus inline-flex h-[34px] items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]';
-
 /** El par valor/rango de un objetivo escalar (%RM, kg, RIR, RPE…). */
 export function scalarOf(t: Target | undefined): { lo: number | null; hi: number | null } {
   if (!t || !isScalarTarget(t)) {
@@ -117,9 +116,7 @@ export function SharedControls({
             />
             {reps.max === undefined ? (
               reps.value < MAX_REPS_UI ? (
-                <button
-                  type="button"
-                  onClick={() =>
+                <Button size="sm" variant="ghost" icon={Plus} onClick={() =>
                     applyShared({
                       measure: {
                         kind: 'reps',
@@ -127,11 +124,9 @@ export function SharedControls({
                         max: Math.min(MAX_REPS_UI, reps.value + REPS_RANGE_DEFAULT_SPAN),
                       },
                     })
-                  }
-                  className={GHOST_ADD_CLASS}
-                >
-                  ＋ rango
-                </button>
+                  }>
+                  rango
+                </Button>
               ) : null
             ) : (
               <>
@@ -144,13 +139,9 @@ export function SharedControls({
                   ariaLabel="Techo del rango de reps"
                   onChange={(v) => applyShared({ measure: { kind: 'reps', value: reps.value, max: v } })}
                 />
-                <button
-                  type="button"
-                  onClick={() => applyShared({ measure: { kind: 'reps', value: reps.value } })}
-                  className="v2-focus rounded-[var(--v2-r-2xs)] text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-                >
+                <Button size="sm" variant="ghost" onClick={() => applyShared({ measure: { kind: 'reps', value: reps.value } })}>
                   quitar rango
-                </button>
+                </Button>
               </>
             )}
             <ChipGroup
@@ -244,7 +235,7 @@ export function SharedTargetValue({
               )
             }
           />
-          <p className="text-label leading-snug text-[color:var(--v2-faint)]">
+          <p className="t-meta leading-snug text-[color:var(--v2-faint)]">
             Toca un valor; toca otro y se convierte en rango (así entra el 65-80%).
           </p>
         </>
@@ -285,14 +276,9 @@ export function SharedTargetValue({
           />
         </div>
       ) : null}
-      <button
-        type="button"
-        aria-expanded={keyboard}
-        onClick={onToggleKb}
-        className="v2-focus rounded-[var(--v2-r-2xs)] text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-      >
+      <Button size="sm" variant="ghost" aria-expanded={keyboard} onClick={onToggleKb}>
         {keyboard ? 'ocultar teclado' : 'rango o teclado'}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -27,7 +27,8 @@ import {
   setTarget,
 } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
-import { MIcon } from '@/components/ui/MIcon';
+import { Check, Eye } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 // Con más estaciones que esto, la frase entera ya no cabe en una línea legible:
 // se dice el recuento (honesto) en vez de un churro truncado (la sim HYROX
@@ -101,39 +102,30 @@ export function AthleteSeesBar({
   const line = blockAthleteLine(block);
 
   return (
-    <div className="sticky bottom-0 z-10 mt-auto flex items-center gap-3 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] py-3">
-      <span aria-hidden className="shrink-0 text-[color:var(--v2-accent-text)]">
-        <MIcon name="visibility" size={16} />
-      </span>
+    <div className="sticky bottom-0 z-10 mt-auto flex items-center gap-3 border-t border-v2-border bg-v2-elevated py-3">
+      <Eye aria-hidden strokeWidth={1.75} className="size-4 shrink-0 text-v2-muted" />
       <div className="min-w-0 flex-1">
-        <p className="v2-micro mb-0.5">
+        <p className="mb-0.5 t-label text-v2-faint">
           {athleteName ? `El atleta ve · ${athleteName}` : 'El atleta ve'}
         </p>
         {line ? (
-          <p className="v2-num truncate text-sm font-semibold leading-snug text-[color:var(--v2-fg)]" title={line}>
-            <span aria-hidden className="text-[color:var(--v2-muted)]">
+          <p className="truncate t-body font-medium text-v2-fg t-tnum" title={line}>
+            <span aria-hidden className="text-v2-muted">
               «
             </span>
             {line}
-            <span aria-hidden className="text-[color:var(--v2-muted)]">
+            <span aria-hidden className="text-v2-muted">
               »
             </span>
           </p>
         ) : (
-          <p className="text-sm leading-snug text-[color:var(--v2-muted)]">
-            Ponle la dosis y aquí sale la frase.
-          </p>
+          <p className="t-body text-v2-muted">Ponle la dosis y aquí sale la frase.</p>
         )}
       </div>
       {onSave ? (
-        <button
-          type="button"
-          onClick={onSave}
-          className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-        >
-          <MIcon name="check" size={15} />
+        <Button size="sm" variant="primary" icon={Check} onClick={onSave}>
           Guardar bloque
-        </button>
+        </Button>
       ) : null}
     </div>
   );
