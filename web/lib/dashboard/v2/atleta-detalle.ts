@@ -218,7 +218,14 @@ export async function loadFichaShell(params: {
     adherence: peek.adherence,
     intake_pending: peek.status.key === 'nuevo',
     has_upcoming_plan: extras?.has_upcoming ?? false,
-    publish_target: hidden ? { week_start: hidden.week_start, sessions: hidden.sessions } : null,
+    publish_target: hidden
+      ? {
+          week_start: hidden.week_start,
+          sessions: hidden.sessions,
+          due: hidden.opens_on == null || hidden.opens_on <= today,
+          opens_on: hidden.opens_on ?? null,
+        }
+      : null,
     pending_comunicados: extras?.pending_comms ?? 0,
     last_missed:
       extras?.missed_id && extras.missed_date

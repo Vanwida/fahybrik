@@ -71,8 +71,16 @@ describe('Hacer ahora', () => {
     expect(buildHacerAhora(shell())).toEqual([]);
   });
   it('semana oculta → publicarla (H2: antes no se veía)', () => {
-    const chips = buildHacerAhora(shell({ publish_target: { week_start: '2026-09-21', sessions: 5 } }));
+    const chips = buildHacerAhora(
+      shell({ publish_target: { week_start: '2026-09-21', sessions: 5, due: true, opens_on: '2026-09-18' } }),
+    );
     expect(chips[0]).toMatchObject({ kind: 'publicar', label: 'Publicar 21–27 sept', week_start: '2026-09-21' });
+  });
+  it('la semana que se publicará sola en su día no es tarea todavía', () => {
+    const chips = buildHacerAhora(
+      shell({ publish_target: { week_start: '2026-09-28', sessions: 5, due: false, opens_on: '2026-09-25' } }),
+    );
+    expect(chips.map((c) => c.kind)).not.toContain('publicar');
   });
   it('check-in con comentario sin contestar → responder citándolo', () => {
     const chips = buildHacerAhora(
@@ -101,7 +109,7 @@ describe('Hacer ahora', () => {
     const chips = buildHacerAhora(
       shell({
         intake_pending: true,
-        publish_target: { week_start: '2026-09-21', sessions: 5 },
+        publish_target: { week_start: '2026-09-21', sessions: 5, due: true, opens_on: null },
         awaiting_reply: true,
         last_missed: { id: '1', date: '2026-09-22', title: 'Z2' },
         pending_comunicados: 2,

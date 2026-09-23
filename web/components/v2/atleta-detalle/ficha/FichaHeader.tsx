@@ -11,6 +11,7 @@ import { Avatar, Button, IconButton, Menu, Tag, useToast, type MenuEntry } from 
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import type { WeekPublishResult } from '@fahybrid/shared/schema/week-publishing';
 import { raceCountdown, weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
+import { shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
 import { cn } from '@/lib/utils';
 import { useFicha } from '../FichaContext';
 import { useLifecycleMenu } from '../lifecycle/LifecycleControl';
@@ -59,7 +60,13 @@ function PublishButton() {
     }
   };
   return (
-    <Button variant="primary" icon={Send} loading={busy} onClick={() => void publish()}>
+    <Button
+      variant={target.due ? 'primary' : 'secondary'}
+      icon={Send}
+      loading={busy}
+      onClick={() => void publish()}
+      title={!target.due && target.opens_on ? `Se publica sola el ${shortDate(target.opens_on)}` : undefined}
+    >
       <span className="hidden xl:inline">Publicar {range}</span>
       <span className="xl:hidden">Publicar semana</span>
     </Button>

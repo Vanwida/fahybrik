@@ -152,6 +152,7 @@ export function WeekColumn({ week, max, today }: { week: CalWeek; max: number; t
           width="min-w-56"
         />
       </div>
+      {hasSessions && !st.visible ? <span className="t-meta text-v2-faint">{tip}</span> : null}
       {hasSessions ? <LoadBars week={week} max={max} /> : null}
     </div>
   );

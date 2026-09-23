@@ -65,7 +65,8 @@ export function buildHacerAhora(shell: FichaShell): HacerAhoraChip[] {
   if (!paused && !shell.intake_pending && !shell.has_upcoming_plan) {
     push({ key: 'asignar', kind: 'asignar', label: 'Asignar programa' });
   }
-  if (!paused && shell.publish_target) {
+  // Una semana que se publicará sola en su día no es tarea del coach todavía.
+  if (!paused && shell.publish_target?.due) {
     push({
       key: `publicar-${shell.publish_target.week_start}`,
       kind: 'publicar',

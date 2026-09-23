@@ -256,7 +256,10 @@ export interface FichaShell {
   /** Tiene algún entreno del coach programado de hoy en adelante. */
   has_upcoming_plan: boolean;
   /** La primera semana oculta con entrenos entre esta y las dos siguientes. */
-  publish_target: { week_start: string; sessions: number } | null;
+  /** La primera semana oculta (no retenida) con entrenos. `due` = ya tocaba verla
+   *  (su día de publicación automática pasó, o no tiene): solo entonces es «hacer
+   *  ahora»; antes, publicarla es adelantarse, no una tarea. */
+  publish_target: { week_start: string; sessions: number; due: boolean; opens_on: string | null } | null;
   /** Comunicados publicados que el atleta aún tiene pendientes. */
   pending_comunicados: number;
   /** La debida sin hacer más reciente de los últimos 14 días (para «Ajustar …»). */
