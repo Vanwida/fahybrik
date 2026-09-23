@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El catálogo base nace de las migraciones (0247)
+
+**Decidido:** las ~77 filas base del catálogo que 0178 traducía y clasificaba (sentadilla, peso muerto, press banca, dominadas, las estaciones de HYROX, ergómetros, core…) las crea ahora una migración, `0247_exercise_base_catalog.sql`, con los mismos slugs y nombres ES/EN de 0178, la categoría y modalidad que exige el esquema, y la posición de las 8 estaciones. Vuelve a pasar los alias de 0178. Globales (`coach_id` null), `on conflict do nothing`: en producción, donde esas filas ya existen, no cambia nada. Las siete filas que 0178 archiva no se crean. Un test (`tests/exercises/base-catalog.db.test.ts`) resuelve 45 nombres ES/EN contra el catálogo que dejan las migraciones.
+
+**Por qué:** 0178 era un UPDATE sobre filas que ninguna migración creaba (entraron a mano). Toda base que no fuera la de producción —local, tests, una rama nueva, otro cliente de FLEXR— arrancaba con 71 ejercicios de movilidad y ni una sentadilla, y la línea rápida fallaba en el primer levantamiento que se teclea en una demo.
+
+**Se retira `infra/scripts/seed_exercises.ts`:** no rellena `modality` (NOT NULL) y siembra otro catálogo (free-exercise-db, en inglés, con slugs que duplican movimientos: «barbell-squat» junto a «back-squat»), que haría dudar al resolutor. Se niega a correr y queda para borrar junto a `seed:exercises`/`seed:all` en `infra/package.json`.
+
+**NO hacer:** no volver a meter filas del catálogo base fuera de una migración; no sembrar catálogos externos en bloque (una fila es un movimiento, 0205).
+
+---
+
 ## 2026-09-23 · Un descanso sin unidad: su tamaño dice la unidad, y lo dudoso se pregunta
 
 **Decidido:** en la gramática de notación (`shared/domain/import/dose.ts`, `bareRestSeconds`), un número sin unidad tras una señal de descanso (`r2`, `rec 90`, `descanso 3`) se lee por su tamaño: **≤ 10 → minutos** (`r2` = 2'), **≥ 15 → segundos** (`r90` = 90''). **11–14 no se adivina**: la línea va a revisión con el motivo «¿minutos o segundos?» y la línea rápida pregunta en el sitio («12 min» / «12 s»), reescribiendo el texto con la unidad elegida. Una unidad escrita (`r2'`, `r90''`, `2 min`, `90s`) manda siempre. La vista previa de la línea rápida pinta cada reloj con su unidad en negrita (2′ / 90″).

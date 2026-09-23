@@ -10,6 +10,16 @@
  * Idempotent: upsert on slug. Safe to re-run.
  *
  * Run: pnpm --filter @fahybrid/infra seed:exercises
+ *
+ * RETIRADO (2026-09-23). El catálogo base que recibe un coach nuevo lo crean las
+ * MIGRACIONES (0152, 0205 y 0247, que da de alta las filas base que 0178
+ * traduce): una base montada desde cero ya trae sentadilla, peso muerto, press
+ * banca y las estaciones de HYROX, con nombres ES/EN y alias. Este script no
+ * sirve para eso y ya no puede correr: no rellena `modality` (NOT NULL desde
+ * 0172) y siembra otro catálogo, en inglés y con otros slugs («barbell-squat»
+ * junto a «back-squat»), que duplicaría movimientos y haría dudar al resolutor
+ * de la línea rápida. Se niega a correr; queda para borrar (ver DECISIONS
+ * 2026-09-23 «El catálogo base nace de las migraciones»).
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -1219,8 +1229,14 @@ async function loadSourceDataset(): Promise<SourceExercise[]> {
   return (await res.json()) as SourceExercise[];
 }
 
+const RETIRED = true as boolean;
+
 async function main(): Promise<void> {
   void REPO_ROOT;
+  if (RETIRED) throw new Error(
+    'seed_exercises está retirado: el catálogo base lo crean las migraciones (0152, 0205, 0247). ' +
+      'Aplica las migraciones en esta base en vez de sembrar.',
+  );
   const sql = getSql();
   try {
     const sourceData = await loadSourceDataset();
