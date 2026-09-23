@@ -92,37 +92,42 @@ const EMPTY: SetupFacts = {
   max_athletes: null,
   athletes: 0,
   invitations: 0,
+  athletes_with_plan: 0,
+  athletes_with_visible_week: 0,
 };
 
 describe('buildSetupChecklist', () => {
-  test('coach nuevo sin Negocio: 8 pasos, nada hecho, no completo', () => {
+  test('coach nuevo: el camino corto (3) va primero y el método (6) es opcional', () => {
     const c = buildSetupChecklist(EMPTY);
-    expect(c.total).toBe(8);
+    expect(c.steps.slice(0, 3).map((x) => x.key)).toEqual(['primer_atleta', 'primer_plan', 'primera_semana']);
+    expect(c.total).toBe(3);
     expect(c.done).toBe(0);
     expect(c.complete).toBe(false);
+    expect(c.method).toEqual({ done: 0, total: 6 });
+    expect(c.steps.filter((x) => x.track === 'metodo').every((x) => x.optional)).toBe(true);
+    expect(c.steps.filter((x) => x.track === 'empieza').every((x) => !x.optional)).toBe(true);
     expect(c.steps.map((x) => x.key)).not.toContain('agenda');
   });
 
-  test('con Negocio aparece «Agenda y cupo»: 9 pasos', () => {
-    const c = buildSetupChecklist({ ...EMPTY, negocio: true });
-    expect(c.total).toBe(9);
-    expect(c.steps.find((x) => x.key === 'agenda')?.href).toBe('/ajustes/agenda');
+  test('ni grupos, ni tests, ni «Cómo entrenas» bloquean: un coach 1:1 completa con un atleta que ve su semana', () => {
+    const c = buildSetupChecklist({ ...EMPTY, athletes: 1, programs: 1, athletes_with_plan: 1, athletes_with_visible_week: 1 });
+    expect(c.complete).toBe(true);
+    expect(c.done).toBe(3);
+    expect(c.method.done).toBe(0);
   });
 
-  test('los niveles son opcionales: sin ellos se puede completar', () => {
-    const c = buildSetupChecklist({
-      ...EMPTY,
-      club_named: true,
-      method_written: true,
-      library_entrenos: 3,
-      programs: 1,
-      groups_with_plan: 1,
-      tests: 4,
-      athletes: 1,
-    });
-    expect(c.complete).toBe(true);
-    expect(c.done).toBe(7);
-    expect(c.total).toBe(8);
+  test('con programa asignado pero la semana oculta, aún no está completo', () => {
+    const c = buildSetupChecklist({ ...EMPTY, athletes: 1, programs: 1, athletes_with_plan: 1 });
+    expect(c.complete).toBe(false);
+    expect(c.steps.find((x) => x.key === 'primera_semana')?.detail).toBe('Hasta que la publiques, no la ve en su app');
+  });
+
+  test('con Negocio aparece «Agenda y cupo» en el método, también opcional', () => {
+    const c = buildSetupChecklist({ ...EMPTY, negocio: true });
+    const agenda = c.steps.find((x) => x.key === 'agenda');
+    expect(agenda).toMatchObject({ href: '/ajustes/agenda', track: 'metodo', optional: true });
+    expect(c.method.total).toBe(7);
+    expect(c.total).toBe(3);
   });
 
   test('una invitación enviada cuenta como primer atleta', () => {
@@ -132,10 +137,31 @@ describe('buildSetupChecklist', () => {
     expect(step?.detail).toBe('Invitación enviada');
   });
 
+  test('«Dale un programa» lleva a escribir uno si no hay, y a asignarlo si ya hay', () => {
+    expect(buildSetupChecklist(EMPTY).steps.find((x) => x.key === 'primer_plan')).toMatchObject({
+      href: '/programar/programas',
+      detail: 'Escribe un programa y asígnaselo',
+    });
+    expect(buildSetupChecklist({ ...EMPTY, programs: 2 }).steps.find((x) => x.key === 'primer_plan')).toMatchObject({
+      href: '/atletas',
+      detail: 'Asígnale uno de tus 2 programas',
+    });
+  });
+
   test('los textos cuentan lo que hay', () => {
-    const c = buildSetupChecklist({ ...EMPTY, library_entrenos: 1, programs: 2, negocio: true, availability_slots: 3, max_athletes: 40 });
+    const c = buildSetupChecklist({
+      ...EMPTY,
+      library_entrenos: 1,
+      negocio: true,
+      availability_slots: 3,
+      max_athletes: 40,
+      athletes: 100,
+      athletes_with_plan: 95,
+      athletes_with_visible_week: 94,
+    });
     expect(c.steps.find((x) => x.key === 'primer_entreno')?.detail).toBe('1 entreno en tu biblioteca');
-    expect(c.steps.find((x) => x.key === 'primer_programa')?.detail).toBe('2 programas');
+    expect(c.steps.find((x) => x.key === 'primer_plan')?.detail).toBe('95 atletas con programa');
+    expect(c.steps.find((x) => x.key === 'primera_semana')?.detail).toBe('94 atletas ven su semana');
     expect(c.steps.find((x) => x.key === 'agenda')?.detail).toBe('3 franjas · cupo 40');
   });
 });

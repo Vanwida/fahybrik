@@ -3,31 +3,43 @@ import 'server-only';
 // La lista de PRIMEROS PASOS de un coach (setup checklist, plan §6 Ajustes/Hoy):
 // qué le falta para que el panel trabaje por él. Se CALCULA de datos reales —
 // no hay casillas que marcar a mano, así que no puede mentir: un paso está hecho
-// cuando existe lo que el paso pide (un entreno en la biblioteca, un grupo con
-// plan…). Una consulta.
+// cuando existe lo que el paso pide. Una consulta.
 //
-// Los pasos son MECANISMO del producto (qué necesita el panel para funcionar);
-// nada de aquí es método del coach. «Niveles» es opcional: se enseña para que el
-// coach sepa que existe, pero no bloquea `complete` — quien no usa niveles no
-// está a medias. «Agenda y cupo» solo sale con el add-on Negocio.
+// DOS CAMINOS (DECISIONS 2026-09-23 «Primeros pasos: empieza con un atleta»):
+//
+//   · «Empieza con un atleta» — lo ÚNICO obligatorio: invitar → darle un
+//     programa → que vea su semana. Es lo mínimo para que el panel trabaje, y
+//     vale igual para un coach 1:1 que para un club de 100.
+//   · «Monta tu método» — club, cómo entrenas, niveles, biblioteca, grupos,
+//     tests, agenda. Todo OPCIONAL y en cualquier orden: grupos y tests son
+//     MÉTODO de cada coach (HARD RULE Nº0), no requisitos del producto; nada de
+//     esto bloquea invitar al primer atleta.
+//
+// `complete` = el primer camino hecho (≥ 1 atleta que ya ve una semana). Desde
+// ahí «Primeros pasos n/3» sale de la barra lateral: un club en marcha no lo
+// arrastra para siempre. «Agenda y cupo» solo sale con el add-on Negocio.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
 export type SetupStepKey =
+  | 'primer_atleta'
+  | 'primer_plan'
+  | 'primera_semana'
   | 'club'
   | 'metodo'
   | 'niveles'
   | 'primer_entreno'
-  | 'primer_programa'
   | 'primer_grupo'
   | 'tests'
-  | 'agenda'
-  | 'primer_atleta';
+  | 'agenda';
+
+export type SetupTrack = 'empieza' | 'metodo';
 
 export interface SetupStep {
   key: SetupStepKey;
-  /** «Tu club», «Cómo entrenas»… */
+  track: SetupTrack;
+  /** «Invita a tu primer atleta», «Cómo entrenas»… */
   label: string;
   /** Una línea: qué hay (si está hecho) o qué falta. */
   detail: string;
@@ -38,11 +50,15 @@ export interface SetupStep {
 }
 
 export interface SetupChecklist {
+  /** Todos los pasos: primero los de «Empieza con un atleta», luego el método. */
   steps: SetupStep[];
+  /** Hechos / total del camino obligatorio («Empieza con un atleta»). */
   done: number;
   total: number;
-  /** Todos los pasos obligatorios hechos (los opcionales no bloquean). */
+  /** El camino obligatorio hecho: hay al menos un atleta que ve su semana. */
   complete: boolean;
+  /** «Monta tu método» (opcional): hechos / total. */
+  method: { done: number; total: number };
 }
 
 /** Lo que se mira en la base para decidir cada paso. */
@@ -60,20 +76,70 @@ export interface SetupFacts {
   max_athletes: number | null;
   athletes: number;
   invitations: number;
+  /** Atletas (no el propio coach) con algún entreno puesto por el coach. */
+  athletes_with_plan: number;
+  /** De esos, cuántos tienen alguna semana que ya pueden ver (no oculta). */
+  athletes_with_visible_week: number;
 }
 
 function n(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** Puro: los pasos, en orden de montaje (lo que desbloquea lo siguiente, primero). */
+/** Puro: los pasos, en orden — el camino corto primero, el método después. */
 export function buildSetupChecklist(f: SetupFacts): SetupChecklist {
-  const steps: SetupStep[] = [
+  const invited = f.athletes + f.invitations;
+  const empieza: SetupStep[] = [
+    {
+      key: 'primer_atleta',
+      track: 'empieza',
+      label: 'Invita a tu primer atleta',
+      done: invited > 0,
+      optional: false,
+      href: '/atletas',
+      detail:
+        f.athletes > 0
+          ? n(f.athletes, 'atleta', 'atletas')
+          : f.invitations > 0
+            ? 'Invitación enviada'
+            : 'Por email o pegando una lista',
+    },
+    {
+      key: 'primer_plan',
+      track: 'empieza',
+      label: 'Dale un programa',
+      done: f.athletes_with_plan > 0,
+      optional: false,
+      // Sin programas, primero hay que escribir uno; con programas, se asigna desde Atletas.
+      href: f.athletes_with_plan > 0 || f.programs > 0 ? '/atletas' : '/programar/programas',
+      detail:
+        f.athletes_with_plan > 0
+          ? `${n(f.athletes_with_plan, 'atleta', 'atletas')} con programa`
+          : f.programs > 0
+            ? `Asígnale uno de tus ${n(f.programs, 'programa', 'programas')}`
+            : 'Escribe un programa y asígnaselo',
+    },
+    {
+      key: 'primera_semana',
+      track: 'empieza',
+      label: 'Publica su primera semana',
+      done: f.athletes_with_visible_week > 0,
+      optional: false,
+      href: '/atletas',
+      detail:
+        f.athletes_with_visible_week > 0
+          ? `${n(f.athletes_with_visible_week, 'atleta ve', 'atletas ven')} su semana`
+          : 'Hasta que la publiques, no la ve en su app',
+    },
+  ];
+
+  const metodo: SetupStep[] = [
     {
       key: 'club',
+      track: 'metodo',
       label: 'Tu club',
       done: f.club_named,
-      optional: false,
+      optional: true,
       href: '/ajustes/club',
       detail: f.club_named
         ? f.club_logo
@@ -83,14 +149,28 @@ export function buildSetupChecklist(f: SetupFacts): SetupChecklist {
     },
     {
       key: 'metodo',
+      track: 'metodo',
       label: 'Cómo entrenas',
       done: f.method_written,
-      optional: false,
+      optional: true,
       href: '/ajustes/metodo',
       detail: f.method_written ? 'Tu método está escrito' : 'Cuéntale al panel cómo programas',
     },
     {
+      key: 'primer_entreno',
+      track: 'metodo',
+      label: 'Tu biblioteca',
+      done: f.library_entrenos > 0,
+      optional: true,
+      href: '/programar/biblioteca',
+      detail:
+        f.library_entrenos > 0
+          ? `${n(f.library_entrenos, 'entreno', 'entrenos')} en tu biblioteca`
+          : 'Entrenos que reutilizas en tus programas',
+    },
+    {
       key: 'niveles',
+      track: 'metodo',
       label: 'Niveles',
       done: f.levels > 0,
       optional: true,
@@ -98,50 +178,34 @@ export function buildSetupChecklist(f: SetupFacts): SetupChecklist {
       detail: f.levels > 0 ? n(f.levels, 'nivel', 'niveles') : 'Si agrupas a tus atletas por nivel',
     },
     {
-      key: 'primer_entreno',
-      label: 'Primer entreno',
-      done: f.library_entrenos > 0,
-      optional: false,
-      href: '/programar/biblioteca',
-      detail:
-        f.library_entrenos > 0
-          ? `${n(f.library_entrenos, 'entreno', 'entrenos')} en tu biblioteca`
-          : 'Escribe o importa un entreno',
-    },
-    {
-      key: 'primer_programa',
-      label: 'Primer programa',
-      done: f.programs > 0,
-      optional: false,
-      href: '/programar/programas',
-      detail: f.programs > 0 ? n(f.programs, 'programa', 'programas') : 'Semanas de entrenos con un nombre',
-    },
-    {
       key: 'primer_grupo',
-      label: 'Primer grupo con plan',
+      track: 'metodo',
+      label: 'Grupos',
       done: f.groups_with_plan > 0,
-      optional: false,
+      optional: true,
       href: '/programar/grupos',
       detail:
         f.groups_with_plan > 0
           ? `${n(f.groups_with_plan, 'grupo', 'grupos')} con plan`
-          : 'Un grupo de atletas y los programas que siguen',
+          : 'Varios atletas que siguen los mismos programas',
     },
     {
       key: 'tests',
+      track: 'metodo',
       label: 'Batería de tests',
       done: f.tests > 0,
-      optional: false,
+      optional: true,
       href: '/programar/tests',
       detail: f.tests > 0 ? n(f.tests, 'test', 'tests') : 'Los tests con los que calculas zonas y cargas',
     },
   ];
   if (f.negocio) {
-    steps.push({
+    metodo.push({
       key: 'agenda',
+      track: 'metodo',
       label: 'Agenda y cupo',
       done: f.availability_slots > 0,
-      optional: false,
+      optional: true,
       href: '/ajustes/agenda',
       detail:
         f.availability_slots > 0
@@ -151,25 +215,15 @@ export function buildSetupChecklist(f: SetupFacts): SetupChecklist {
           : 'Cuándo pueden reservar llamada tus leads',
     });
   }
-  const invited = f.athletes + f.invitations;
-  steps.push({
-    key: 'primer_atleta',
-    label: 'Invitar a tu primer atleta',
-    done: invited > 0,
-    optional: false,
-    href: '/atletas',
-    detail:
-      f.athletes > 0
-        ? n(f.athletes, 'atleta', 'atletas')
-        : f.invitations > 0
-          ? 'Invitación enviada'
-          : 'Por email o pegando una lista',
-  });
 
-  const done = steps.filter((s) => s.done).length;
-  // Completo = todo lo obligatorio hecho: quien no usa niveles no se queda «a medias».
-  const complete = steps.every((s) => s.done || s.optional);
-  return { steps, done, total: steps.length, complete };
+  const done = empieza.filter((s) => s.done).length;
+  return {
+    steps: [...empieza, ...metodo],
+    done,
+    total: empieza.length,
+    complete: done === empieza.length,
+    method: { done: metodo.filter((s) => s.done).length, total: metodo.length },
+  };
 }
 
 interface FactsRow {
@@ -186,6 +240,8 @@ interface FactsRow {
   max_athletes: number | null;
   athletes: number;
   invitations: number;
+  athletes_with_plan: number;
+  athletes_with_visible_week: number;
 }
 
 /** Los hechos de un coach, en una consulta. */
@@ -235,7 +291,29 @@ export async function loadSetupFacts(coach_id: bigint | number, client: Sql = de
       (
         select count(*)::int from athlete_invitations ai
         where ai.created_by_coach_id = c.id
-      )                                                                    as invitations
+      )                                                                    as invitations,
+      (
+        select count(distinct wa.athlete_id)::int
+        from workout_assignments wa
+        join athletes a on a.id = wa.athlete_id
+        where a.coach_id = c.id and a.user_id is distinct from c.user_id
+          and wa.origin = 'coach'
+      )                                                                    as athletes_with_plan,
+      -- Una semana se ve salvo que su fila de weekly_plans diga «draft» (sin fila,
+      -- se ve): la misma y única puerta de visibilidad (week-publishing).
+      (
+        select count(distinct wa.athlete_id)::int
+        from workout_assignments wa
+        join athletes a on a.id = wa.athlete_id
+        where a.coach_id = c.id and a.user_id is distinct from c.user_id
+          and wa.origin = 'coach'
+          and not exists (
+            select 1 from weekly_plans wp
+            where wp.athlete_id = wa.athlete_id
+              and wp.week_start = date_trunc('week', wa.scheduled_for)::date
+              and wp.status = 'draft'
+          )
+      )                                                                    as athletes_with_visible_week
     from coaches c
     where c.id = ${id}
   `;

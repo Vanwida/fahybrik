@@ -22,8 +22,8 @@ import './v2-theme.css';
 //
 // Las cifras de la barra salen a la vez, cada una con dueño y cayendo sola:
 // Mensajes = hilos por responder; Hoy = lo que pinta Hoy (needs_you); Negocio =
-// leads nuevos + llamadas de hoy + pagos vencidos, solo con el add-on. «Setup n/9»
-// sale mientras falte algún paso obligatorio de la puesta en marcha.
+// leads nuevos + llamadas de hoy + pagos vencidos, solo con el add-on. «Primeros
+// pasos n/3» sale solo hasta que un atleta ve su primera semana.
 
 // Identidad PWA SOLO del dashboard: el icono COACH al anclar a la pantalla de
 // inicio. Scoped aquí (no en el layout raíz) para que la web pública conserve

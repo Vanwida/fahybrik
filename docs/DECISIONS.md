@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Primeros pasos: empieza con un atleta; el método es opcional y no bloquea
+
+**El hueco:** la lista de puesta en marcha (`web/lib/coach/setup-checklist.ts`) pedía seis pasos obligatorios antes de «Invitar a tu primer atleta» — club, «Cómo entrenas» (la entrevista de 24 preguntas), un entreno, un programa, **un grupo con plan** y **una batería de tests** —, y el atleta iba el último. Un coach 1:1 que quiere probar con una persona chocaba con una pared. Grupos y tests son MÉTODO de cada coach (HARD RULE Nº0), no requisitos del producto. Y el tenant #1, con 100 atletas entrenando, arrastraba «Setup 5/9» en la barra lateral para siempre.
+
+**Decidido:** dos caminos. **«Empieza con un atleta»** es lo único obligatorio: invitar → darle un programa (algún entreno del coach) → que vea una semana (la puerta de siempre: sin fila `draft` en `weekly_plans`). **«Monta tu método»** — club, cómo entrenas, biblioteca, niveles, grupos, tests, agenda (con Negocio) — es todo opcional y en cualquier orden. `complete` = hay ≥ 1 atleta que ya ve una semana; desde ahí «Primeros pasos n/3» sale de la barra lateral y de Hoy. «Primer programa» deja de ser paso aparte: vive dentro de «Dale un programa» (sin programas lleva a escribir uno; con programas, a asignarlo). Verificado con un coach nuevo en BD real (`lib/coach/__tests__/setup-checklist.db.test.ts`) y con un coach desechable en la base local.
+
+**NO hacer:** no volver a poner un paso de método (grupos, tests, entrevista, niveles) como requisito para invitar; no medir «en marcha» por lo configurado sino por un atleta que ve su semana.
+
+---
+
 ## 2026-09-23 · Catálogo de carreras: se lee compartido, se escribe por club
 
 **El hueco (revisión de aislamiento, hallazgo 5):** `ownedEventPredicate` dejaba a cualquier coach editar las filas del catálogo compartido (`events.created_by_coach_id is null`), que ven los atletas de todos los clubs: un club podía renombrar, cambiar la fecha u ocultar una carrera HYROX para todos. Un test (`tests/races/events-scope.db.test.ts`) lo fijaba como correcto. Además, `/api/events` enseñaba al atleta TODAS las carreras visibles, también las manuales de otros clubs.
