@@ -11,9 +11,14 @@
 // proximity, queue cap, severity ranking).
 //
 // Units are explicit in each field name (`_ms`, `_hours`, `_days`, `_pct`).
-// Readiness bands are NOT redefined here — they are re-exported from the existing
-// single source `lib/dashboard/constants/readiness.ts` so the 67/45 numbers live
-// in exactly one place.
+//
+// MÉTODO vs SISTEMA (HARD RULE Nº0): los umbrales que otro entrenador pondría
+// distinto (readiness, sesiones perdidas, RPE, check-in, mensajes, comunicados y
+// las bandas de readiness) NO se escriben aquí — son dato del coach con defecto,
+// y sus defectos viven en `shared/domain/coach/signal-thresholds.ts`
+// (`COACH_THRESHOLD_SPEC`). Aquí se esparcen para que el registro completo tenga
+// todas las claves; los vigentes de un coach se piden SIEMPRE a
+// `resolveEffectiveThresholds`, nunca a esta constante.
 
 import { z } from 'zod';
 import {
@@ -23,9 +28,10 @@ import {
   type ReadinessBucket,
 } from '@/lib/dashboard/constants/readiness';
 import {
-  COACH_SIGNAL_THRESHOLD_MAX_DAYS,
-  COACH_SIGNAL_THRESHOLD_MIN_DAYS,
-  DEFAULT_COACH_SIGNAL_THRESHOLDS,
+  COACH_THRESHOLD_KEYS,
+  COACH_THRESHOLD_SPEC,
+  DEFAULT_COACH_THRESHOLDS,
+  type CoachThresholdKey,
 } from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 // Re-export the readiness band single-source so consumers can pull both the
@@ -55,16 +61,11 @@ export const SIGNAL_THRESHOLDS = {
   no_sync_critical_hours: 48,
   /** No wearable sync for ≥ this many hours (but < critical) → no_sync Vigilar. */
   no_sync_warning_hours: 24,
-  /** Missed sessions in the trailing 7d at or above this → missed_sessions (Vigilar). */
-  missed_sessions_min: 2,
-  /** Yesterday's RPE at or above this → rpe_high (Vigilar). */
-  rpe_high_min: 9,
   /** A reported body-area discomfort within this many days → discomfort_reported
    *  (Vigilar). Auto-clears after the window if it doesn't recur (#58). */
   discomfort_recent_days: 10,
-  /** Unanswered athlete message older than this many hours → message_unanswered (Vigilar). */
-  message_unanswered_hours: 12,
-  /** No daily check-in for more than this many hours → checkin_skipped (Vigilar). */
+  /** LEGACY (lib/coach/cohort.ts): no daily check-in for more than this many hours.
+   *  The engine's checkin_skipped reads the coach's `checkin_skipped_days` instead. */
   checkin_skipped_hours: 48,
 
   // ── Inbox escalation (extracted from inbox.ts) ────────────────────────────
@@ -105,36 +106,35 @@ export const SIGNAL_THRESHOLDS = {
   /** Cadencia trimestral: revisión vencida si pasan más de estos días sin 1:1 → review_1on1_due. */
   review_due_trimestral_days: 90,
 
-  // ── Comunicados del coach — EDITABLES POR EL COACH (mig 0161) ──────────────
-  // Estos tres NO son constantes del sistema: son el DEFECTO que sirve mientras
-  // el coach no escriba su fila en `coach_signal_thresholds` (HARD RULE Nº0, el
-  // umbral es método). Se importan de shared para que el defecto viva en UN sitio
-  // — el resolutor (lib/coach/signal-thresholds.ts) los pisa con los suyos antes
-  // de evaluar. Nunca leer estas claves directamente desde una superficie: pedir
-  // los vigentes a `resolveEffectiveThresholds`.
-  ...DEFAULT_COACH_SIGNAL_THRESHOLDS,
+  // ── EDITABLES POR EL COACH (migs 0161 y 0211) ─────────────────────────────
+  // Readiness (bandas, suelo, caída vs base, persistencia, frescura), check-in,
+  // sesiones perdidas, RPE, mensajes y comunicados. NO son constantes del
+  // sistema: son el DEFECTO que sirve mientras el coach no escriba su fila en
+  // `coach_signal_thresholds`. Se importan de shared para que el defecto viva en
+  // UN sitio — el resolutor (lib/coach/signal-thresholds.ts) los pisa con los
+  // suyos antes de evaluar. Nunca leer estas claves directamente desde una
+  // superficie: pedir los vigentes a `resolveEffectiveThresholds`.
+  ...DEFAULT_COACH_THRESHOLDS,
 } as const;
 
 export type SignalThresholdKey = keyof typeof SIGNAL_THRESHOLDS;
 
 // ── Zod schema (validates the shape + sane bounds; guards future edits) ───────
 
-/** Los tres editables comparten límites: los mismos que refuerza la tabla. */
-const coachEditableDays = z
-  .number()
-  .int()
-  .min(COACH_SIGNAL_THRESHOLD_MIN_DAYS)
-  .max(COACH_SIGNAL_THRESHOLD_MAX_DAYS);
+/** Los editables por el coach, con los límites de su clave (los de la tabla). */
+const coachEditableShape = Object.fromEntries(
+  COACH_THRESHOLD_KEYS.map((k) => [
+    k,
+    z.number().int().min(COACH_THRESHOLD_SPEC[k].min).max(COACH_THRESHOLD_SPEC[k].max),
+  ]),
+) as Record<CoachThresholdKey, z.ZodNumber>;
 
 export const signalThresholdsSchema = z
   .object({
     hrv_crash_delta_ms: z.number().negative(),
     no_sync_critical_hours: z.number().int().positive(),
     no_sync_warning_hours: z.number().int().positive(),
-    missed_sessions_min: z.number().int().positive(),
-    rpe_high_min: z.number().min(0).max(10),
     discomfort_recent_days: z.number().int().positive(),
-    message_unanswered_hours: z.number().positive(),
     checkin_skipped_hours: z.number().positive(),
     intake_critical_hours: z.number().positive(),
     inactivity_alert_days: z.number().int().positive(),
@@ -150,9 +150,7 @@ export const signalThresholdsSchema = z
     workout_libre_recent_days: z.number().int().positive(),
     review_due_mensual_days: z.number().int().positive(),
     review_due_trimestral_days: z.number().int().positive(),
-    communication_question_unanswered_days: coachEditableDays,
-    communication_task_overdue_critical_days: coachEditableDays,
-    communication_protocol_unopened_days: coachEditableDays,
+    ...coachEditableShape,
   })
   .strict()
   // Trimestral debe ser una ventana MÁS larga que mensual (coherencia de cadencia).
