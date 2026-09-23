@@ -113,7 +113,7 @@ async function resolveExerciseIds(sql: Sql): Promise<Map<string, number>> {
     if (!hit) {
       throw new Error(
         `no exercise found for benchmark "${bench}" — tried slugs [${candidates.join(', ')}] ` +
-          `on this DB. Seed the exercise catalog first (seed_exercises).`,
+          `on this DB. Apply the migrations first (0247 creates the base catalog).`,
       );
     }
     idByBenchmark.set(bench, idBySlug.get(hit)!);

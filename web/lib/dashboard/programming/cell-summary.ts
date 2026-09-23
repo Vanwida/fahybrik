@@ -32,9 +32,16 @@ export interface CellSummary {
 
 const LETTERS = 'ABCDEFGHIJKLMNOP';
 
-/** La dosis compacta: la primera frase de `prescriptionToText` (sin «· descanso …»). */
+/**
+ * La dosis compacta: la primera frase de `prescriptionToText` más su descanso,
+ * abreviado («5×5 @ 75% RM · r2'»). Sin el descanso, una línea guardada no deja
+ * comprobar lo que se escribió en la línea rápida sin abrir el detalle.
+ */
 export function compactDose(text: string): string {
-  return text.split(' · ')[0] ?? text;
+  const parts = text.split(' · ');
+  const head = parts[0] ?? text;
+  const rest = parts.slice(1).find((x) => /^(descanso |r\d)/.test(x));
+  return rest ? `${head} · ${rest.replace(/^descanso /, 'r')}` : head;
 }
 
 export function blockModality(block: WeekDayPart): V2Modality | null {

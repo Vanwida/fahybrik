@@ -22,7 +22,7 @@ describe('línea rápida', () => {
     // escribir en un descanso lo convierte en día de entreno
     expect(day.kind).toBeUndefined();
     expect(weekDaySchema.safeParse(day).success).toBe(true);
-    expect(summarizeCell(day).entrenos[0]!.lines[0]!.text).toBe('Press de banca 4×4 @ 78-80% RM');
+    expect(summarizeCell(day).entrenos[0]!.lines[0]!.text).toBe("Press de banca 4×4 @ 78-80% RM · r90''");
   });
 
   test('una serie sin nombre se busca por su modalidad', () => {
