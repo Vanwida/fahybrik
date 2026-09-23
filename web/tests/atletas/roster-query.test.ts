@@ -183,5 +183,17 @@ describe('«Sin plan» es una sola definición; «Empieza pronto» no es «Sin p
     expect(countForQuery(r, 'semana=sin_plan')).toBe(1);
     expect(countForQuery(r, 'semana=empieza')).toBe(1);
   });
+
+  it('«Empieza pronto» es una vista de serie, al lado de «Sin plan», y cuenta solo a quien empieza', () => {
+    const keys = BUILTIN_SAVED_VIEWS.map((v) => v.key);
+    expect(keys.indexOf('empieza_pronto')).toBe(keys.indexOf('sin_plan') + 1);
+    const view = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'empieza_pronto')!;
+    expect(view.name).toBe('Empieza pronto');
+    const r = [
+      row('a', { week_visibility: 'sin_plan' }),
+      row('b', { week_visibility: 'empieza', next_start: '2026-09-28' }),
+    ];
+    expect(countForQuery(r, view.query)).toBe(1);
+  });
 });
 

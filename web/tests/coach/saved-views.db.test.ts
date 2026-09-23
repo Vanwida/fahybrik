@@ -50,7 +50,7 @@ describeWithDb('vistas guardadas (DB real)', () => {
     expect(v2.position).toBe(1);
 
     const list = (await (await listRoute.GET()).json()) as { builtin: Array<{ name: string }>; views: View[] };
-    expect(list.builtin.map((v) => v.name)).toEqual(['Necesitan algo', 'Todos', 'Sin plan', 'No ven su semana', 'Pausados']);
+    expect(list.builtin.map((v) => v.name)).toEqual(['Necesitan algo', 'Todos', 'Sin plan', 'Empieza pronto', 'No ven su semana', 'Pausados']);
     expect(list.views.map((v) => v.name)).toEqual(['N3 sin plan', 'Carrera en octubre']);
 
     await patch(v2.id, { position: 0 });

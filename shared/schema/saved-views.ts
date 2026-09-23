@@ -12,7 +12,7 @@ export const SAVED_VIEW_NAME_MAX = 60;
 export const SAVED_VIEW_QUERY_MAX = 2000;
 
 export interface BuiltinSavedView {
-  key: 'necesitan' | 'todos' | 'sin_plan' | 'no_ven_semana' | 'pausados';
+  key: 'necesitan' | 'todos' | 'sin_plan' | 'empieza_pronto' | 'no_ven_semana' | 'pausados';
   name: string;
   query: string;
 }
@@ -25,6 +25,9 @@ export const BUILTIN_SAVED_VIEWS: readonly BuiltinSavedView[] = [
   // vista por defecto («Necesitan algo»). `estado=todos` = sin filtro de estado.
   { key: 'todos', name: 'Todos', query: 'estado=todos' },
   { key: 'sin_plan', name: 'Sin plan', query: 'semana=sin_plan' },
+  // Quien tiene su programa empezando la semana que viene NO es «Sin plan»
+  // (DECISIONS 2026-09-23 · 0244): tiene su propia vista, al lado.
+  { key: 'empieza_pronto', name: 'Empieza pronto', query: 'semana=empieza' },
   { key: 'no_ven_semana', name: 'No ven su semana', query: 'semana=oculta' },
   { key: 'pausados', name: 'Pausados', query: 'estado=pausado' },
 ] as const;
