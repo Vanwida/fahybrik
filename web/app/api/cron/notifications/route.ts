@@ -1,10 +1,14 @@
 // GET /api/cron/notifications
 //
 // Vercel Cron entry-point — daily at 07:00 UTC (see vercel.json). Runs the three
-// scheduled notification triggers in one pass: skipped check-ins, HRV crashes,
-// and race countdown. Each trigger is independently idempotent on
-// (user, kind, dedupe window) — see lib/notifications/triggers.ts — so re-runs
-// never spam Pablo or the athletes. One failing trigger never aborts the others
+// scheduled notification triggers in one pass:
+//   · «Check-in saltado» and «VFC baja»: pushes to each coach (all of the club's
+//     members) the LIVE Hoy signals of those kinds — the ones the signal engine
+//     already decided with that coach's thresholds. The cron decides nothing.
+//     Once per episode: the notification carries the signal's `dedupe_key`.
+//   · Race countdown: the athlete gets the date of their target race, nothing
+//     else (no training advice their coach didn't write).
+// See lib/notifications/triggers.ts. One failing trigger never aborts the others
 // (per-trigger try/catch), and each crash is journalled via captureRouteError.
 //
 // Auth: `Authorization: Bearer ${CRON_SECRET}` (fail-closed if unset). Mirrors
