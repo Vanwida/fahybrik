@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Un nivel retirado no se elige; la ficha dice por qué no hay sugerencia; el tramo del alta lee la escalera del coach
+
+**Decidido:**
+- **Un nivel retirado (`athlete_levels.archived_at`) sale de todo lo que se ELIGE y se queda en quien ya lo lleva.** Un solo sitio: `lib/coach/level-options.ts` — `listLevelOptions(coach, { keep })` (los activos en su orden, más el valor actual de lo que se edita aunque esté retirado, marcado «(retirado)») y `checkAssignableLevel(client, coach, level, current)` (del coach y activo, o el que ya estaba puesto; el mensaje dice cuáles se pueden elegir). Lo usan: Programas (nuevo), editor de programa, regla de grupo, alta desde lead, Atletas (invitar, cambiar en bloque; el FILTRO sí añade los retirados que alguien lleva, porque filtrar no es elegir), ficha, MCP `search_library`; y las validaciones del nivel de un atleta (uno, en bloque, MCP), grupo, programa (crear/editar), bloque, celdas de secuencia y alta desde lead (que además no comprobaba que el nivel fuera del coach). «Subir de nivel» (fin de grupo) salta los retirados. Los pasos de puesta en marcha cuentan solo los activos.
+- **Las lecturas que RESUELVEN el nivel actual** (el nombre en una fila, la ficha, el contexto de un grupo en `groups-read.ts`) no filtran: tienen que encontrar el retirado.
+- **La ficha (Clasificación) dice por qué no hay sugerencia**, con el siguiente paso: sin nivel puesto, la sugerencia se calcula al leer (`computeLevelSuggestion`, sin escribir; la guardada puede venir de una escalera que el coach ya cambió) y, si no la hay, una línea con `levelSuggestionGap` + enlace: `no_levels` / `no_criteria` → Ajustes › Método (`#niveles`); `no_signals` → Programar › Tests.
+- **El tramo 1–4 del cuestionario se queda** (tiene lector: la foto del alta → contexto de la IA) y se lee con la escalera del coach, con el sexo del atleta; `explainLevel` usa la misma.
+
+**NO hacer:** no escribir otra consulta de «niveles para un selector» a mano — `listLevelOptions`; no validar un nivel nuevo solo por dueño — `checkAssignableLevel`.
+
+---
+
+## 2026-09-23 · Qué día es en cada sitio: el del club para lo que decide el coach, el del atleta para lo que vive el atleta
+
+**La regla:** lo que DECIDE o LEE el coach sobre el plan y el roster va en el calendario del CLUB (`coaches.timezone` vía `loadCoachTimezone` / `loadCoachToday` / `loadCoachTodayOfAthlete` / `mondayOfWeekInTz`; `BOX_TIMEZONE` solo como defecto). Lo que VIVE el atleta (su carrera, su test, lo que ya tenía que haber hecho) va en el suyo (`athletes.timezone`, `loadAthleteLocalDay`).
+
+**Decidido, sitio a sitio:**
+- **Club:** pausas y bajas (`athlete-lifecycle.ts`, `lifecycle-self-service.ts`, `athlete-lifecycle-detail.ts` — el mismo intervalo lo crean el coach y el atleta, así que un solo calendario), el lunes del plan al volver de una pausa y en los grupos (`athlete-lifecycle-plan.ts`, `assign-sequence.ts`), retirar un plan personal (`personal-plans.ts`), bandeja, actividad de hoy, qué microciclo se puede publicar, el chip de semana y el estado de programación del roster (`inbox`, `activity-today`, `program-publish-state`, `load-athlete-week-chip`, `programming-status` con `tz`, como `loadPlanFacts`), el roster del MCP (`cohort.ts`, que usaba el día UTC), las fechas de Cobros, el catálogo de carreras del coach.
+- **Atleta:** todas las lecturas de carreras (`races/{athlete-races,next-race}`, `getTargetRaceRow` sin `on_date`, la cuenta atrás del roster y de `cohort`, la del chat, `goal-gap`, `dobles-gap`, el catálogo de su app) — un solo «hoy» para que una carrera nunca caiga entre «próximas» y «pasadas»; empezar un test desde la app (`start-calibration`); desde qué día se suaviza un entreno (`suggestFrom`, ahora recibe el día); el camino del plan (`plan/camino.ts`: es suyo, lo leen él y el coach mirándole).
+- **El cron de pausas y bajas va coach a coach** (`runDueLifecycleTransitions`, con `coach_id` opcional) y pasa de diario a **cada hora** (`vercel.json`, «30 * * * *»): una vuelta del día 23 de un club en México cae dentro de la hora siguiente a SU medianoche, no a las 23:30 del día siguiente. Idempotente como antes. El informe da el día de cada coach (`days`).
+
+**Queda en el defecto (a propósito o pendiente):** los lectores del plan en `shared/domain/coach` que reciben `on_date` ya resuelto (`current-microciclo`, `macro-progress`, `coach-ia-context`, `weekly-evaluation`, `progress-readiness`, `intake-month-proposal`) y las superficies de la app del atleta en `lib/athlete` (`week-plan`, `vo2max`, `partner-snapshot`, `create-free-workout` · `freeWorkoutDay`, `prediction-review`) y de dobles (`dobles-streak`, `dobles-joint-summary`, con `'Europe/Madrid'` literal en SQL: una pareja es del club, debería ir en el huso de su coach). El fallback de `runAutoPublish` y `BOX_TIMEZONE` como defecto de los formateadores.
+
+**NO hacer:** no escribir otra `'Europe/Madrid'` ni otro `startOfDayInBox(new Date())`; antes de pedir «hoy», decidir de quién es el día y dejarlo en una línea de comentario.
+
+---
+
 ## 2026-09-23 · El método que ya era dato del coach tiene editor (0259)
 
 **El hueco (revisión pre-FLEXR, B):** cuatro piezas de método estaban modeladas como dato del coach pero no había pantalla para tocarlas, así que un coach nuevo se quedaba con los defectos o con nada: las bandas de FC y el reparto que persigue (`coach_hr_method`, 0168), los umbrales de las lecturas de carrera (`coach_running_thresholds`, 0183–0187), sus zonas de ritmo (`methodology_zones`, 0061) y la lista de niveles (`athlete_levels`: 0057 sembró N1–N5 solo a los coaches que existían; uno nuevo no tenía ni niveles ni forma de crearlos). Y `coaches.max_microcycle_weeks` (tope 8) no tenía editor: un programa de 12 semanas se rechazaba.
@@ -20,7 +47,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - **`max_microcycle_weeks` pasa a NULL = defecto** (0259 quita el `default 8` y el NOT NULL; los 8 guardados pasan a NULL porque eran el defecto).
 - Bandas de FC y zonas de ritmo se guardan como CONJUNTO (sus CHECK de coherencia son de conjunto); «Restaurar» borra la fila (sin fila = defectos). Umbrales de carrera por clave (null = el defecto de esa clave); si todo vuelve al defecto, se borra la fila. En las zonas de ritmo la Z4 empieza siempre en 0 s: el resultado del test ES su borde rápido (definición del ancla, no método); editar el modelo no recalcula los perfiles ya guardados de cada atleta (son una foto del test, 0061).
 
-**Queda (pedido a sus dueños):** los selectores de nivel que no son míos siguen listando también los retirados — `programar/programas/page.tsx`, `programar/grupos/[id]/page.tsx`, `lib/dashboard/programming/programs.ts:225`, `lib/coach/groups.ts:55`, `lib/coach/groups-read.ts:243`, `lib/dashboard/coach/leads.ts:251`, `lib/dashboard/athletes/level.ts:42`, `components/v2/atletas/load-atletas.ts` (loadLevels): falta `and archived_at is null` en cada uno.
+**Hecho después (ola 6):** todos los selectores y validaciones de nivel pasan por `lib/coach/level-options.ts` — ver la entrada «Un nivel retirado no se elige…» arriba.
 
 **NO hacer:** no volver a sembrar niveles por coach en una migración; no poner `default` de columna a ningún ajuste de método.
 
@@ -36,7 +63,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - **Cuando no se puede sugerir se dice por qué** (`no_levels` / `no_criteria` / `no_signals`, `levelSuggestionGap`) y se BORRA la sugerencia vieja. Un atleta sin sexo conocido se lee con los cortes de hombre, como siempre (anotado, no cambiado).
 - **Una sola tabla de cortes:** el tramo del cuestionario de entrada (1–4) deja su lista de marcas élite y se lee con la misma escalera (la del coach si se la pasan, si no la de los defectos), repartiendo el escalón en proporción y redondeando hacia abajo.
 
-**Queda:** `lib/coach/intake.ts` debería pasar `ladder: await loadCoachLadder(coach)` a `inferLevel` (o retirar el tramo 1–4, que solo va a la foto del alta y nadie lee). La ficha (`ClasificacionCard`) no enseña todavía el porqué cuando no hay sugerencia: `computeAndStoreLevelSuggestion` ya lo devuelve.
+**Hecho después (ola 6):** el tramo 1–4 SÍ tiene lector (la foto del alta `intake_notes_json.level` → `coach-ia-context` `identity.level`, contexto de la IA), así que se queda y se lee con la escalera del coach (`loadIntakeProfile` pasa `loadCoachLadder`). La ficha enseña el porqué cuando no hay sugerencia (ver la entrada «Un nivel retirado no se elige…»).
 
 **NO hacer:** no volver a buscar un nivel por su nombre; no escribir una segunda tabla de cortes en otro motor.
 
@@ -56,7 +83,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Decidido:** el huso del club (`coaches.timezone`, 0241) se edita en Ajustes › Tu club (combo con todas las zonas IANA; el defecto se guarda como NULL) y manda en: el calendario de Hoy y Atletas (`coachCalendar(now, tz)`, `loadPlanFacts`), lo resuelto hoy / actividad de hoy, la hora de «llamadas hoy», la publicación automática (el cron calcula el «hoy» de CADA coach en SQL; un huso que Postgres no conoce cae al defecto sin tumbar el barrido), el lunes de «asignar» y «entrar en un grupo», el «hoy» de los grupos y del alta, cuándo vence un «posponer», la serie semanal de Negocio, los correos de citas («hora de <ciudad>») y el recordatorio, la página pública de reserva (el contexto trae el huso) y los relojes del panel (chat, mensajes, citas, pagos, leads, embudo, carrera) vía `CoachTimeZoneProvider` en el layout. Los días sueltos del calendario (YYYY-MM-DD) se pintan en UTC para que ningún huso los mueva. `BOX_TIMEZONE` queda solo como defecto.
 
-**Dejado a propósito:** lo que es el día del ATLETA (`athletes.timezone`: readiness, check-ins, zonas, volumen de carrera, ficha) ya usa el suyo; `lib/athlete/**` es del atleta. **Queda en Madrid, por coach, para quien los tenga:** `athlete-lifecycle.ts:132` y `athlete-lifecycle-plan.ts:64`, `cron/lifecycle-runner.ts`, `start-calibration.ts:75`, `week-adjust-copy.ts:29`, `plan/camino.ts:95`, `races/{athlete-races,next-race,race-calendar}.ts`, `dashboard/coach/{personal-plans,athlete-lifecycle-detail,inbox,activity-today,program-publish-state,load-athlete-week-chip,assign-sequence}.ts`, `dashboard/athletes/list.ts:120`, `chat/context-preview.ts:332`, `pagos/CobrosScreen.tsx` (`formatDayShort` ya acepta el huso) y el resto de llamadas a `assertStartNotPast` sin huso. `analytics/visits.ts` (sal diaria de la web pública) no es del coach.
+**Dejado a propósito:** lo que es el día del ATLETA (`athletes.timezone`: readiness, check-ins, zonas, volumen de carrera, ficha) ya usa el suyo. `analytics/visits.ts` (sal diaria de la web pública) no es del coach. La lista de lo que quedaba en Madrid se cerró en la ola 6 (entrada «Qué día es en cada sitio…» arriba), con lo que aún queda escrito allí.
 
 **NO hacer:** no escribir otra `'Europe/Madrid'` en el panel; un formateador nuevo lee `useCoachTimeZone()` (cliente) o `loadCoachTimezone` (servidor).
 
