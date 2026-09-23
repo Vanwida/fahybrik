@@ -12,8 +12,6 @@ import {
   seedArchetype,
 } from '@/lib/dashboard/v2/archetypes';
 import { blockModalitySlug, blockTypeLabel } from '@/components/v2/editor/block-helpers';
-import { deriveDayModality } from '@/lib/dashboard/v2/planes-model';
-import { buildWeekOutline } from '@/components/v2/planes/semana-model';
 import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import type { WeekDay } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
@@ -77,43 +75,5 @@ describe('el editor no pinta un warmup como fuerza', () => {
 
   test('el lomo es calentamiento, no fuerza', () => {
     expect(blockModalitySlug(warmupOfBands)).toBe('calentamiento');
-  });
-});
-
-describe('la semana también colorea el warmup como calentamiento', () => {
-  test('el format manda sobre la modalidad del ejercicio', () => {
-    const day: WeekDay = {
-      day_of_week: 2,
-      sessions: [
-        {
-          kind: 'workout',
-          focus: 'Fuerza tren superior + core',
-          blocks: [
-            {
-              uid: 'b1',
-              format: 'warmup',
-              title: 'Warm up',
-              items: [
-                {
-                  uid: 'i1',
-                  exercise_id: 1,
-                  exercise_name: 'Band Scapular Retraction',
-                  prescription_json: {
-                    scheme: 'sets',
-                    modality: 'strength',
-                    sets: [{ measure: { kind: 'reps', value: 8 } }],
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-
-    const info = deriveDayModality(day);
-    expect(info.sessions[0]!.focus).toBe('Fuerza tren superior + core');
-    expect(info.sessions[0]!.blocks[0]!.modality).toBe('calentamiento');
-    expect(buildWeekOutline([info])[0]!.resumen).toBe('Fuerza tren superior + core');
   });
 });

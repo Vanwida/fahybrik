@@ -43,9 +43,10 @@ export function useProgramGrid(programId: string, weeks: GridWeek[]) {
     setHistory(h);
   }, []);
 
-  // Cuando cambian las semanas (añadir / borrar / duplicar semana) el servidor
-  // manda la rejilla nueva: se adopta si no hay nada pendiente de guardar.
-  const signature = weekIds.join(',');
+  // Cuando el servidor manda otra rejilla (añadir / quitar semana, una
+  // importación) se adopta si no hay nada pendiente de guardar. Las ediciones
+  // propias no recargan la página, así que no llegan por aquí.
+  const signature = useMemo(() => JSON.stringify(weeks), [weeks]);
   const lastSignature = useRef(signature);
   const queue = useRef<Pending[]>([]);
   useEffect(() => {

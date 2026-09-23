@@ -65,7 +65,7 @@ function blockColorVar(format: string | null): string {
 const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; soft: string; icon: string }> = {
   library: { label: 'De tu biblioteca', tone: '--v2-accent', soft: '--v2-accent-soft', icon: 'inventory_2' },
   llm: { label: 'IA compuesta', tone: '--v2-info', soft: '--v2-info-soft', icon: 'neurology' },
-  library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', soft: '--v2-warn-soft', icon: 'undo' },
+  library_fallback: { label: 'Propuesta de respaldo', tone: '--v2-warn', soft: '--v2-warn-soft', icon: 'undo' },
 };
 
 type Phase = 'form' | 'thinking' | 'proposal';

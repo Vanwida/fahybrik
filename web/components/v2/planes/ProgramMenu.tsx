@@ -7,10 +7,12 @@
 import { useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { Archive, Copy, MoreHorizontal, Pencil, Plus } from 'lucide-react';
+import { Archive, Copy, FileUp, MoreHorizontal, Pencil, Plus } from 'lucide-react';
 import type { ProgramRow } from '@/lib/dashboard/programming/programs';
 import { IconButton, Menu, useToast } from '@/components/v2/ui';
 import { ProgramMetaDialog } from './ProgramMetaDialog';
+import { ImportWorkoutsDialog } from './ImportWorkoutsDialog';
+import type { MicroWeekRef } from '@/lib/dashboard/v2/import-review';
 
 async function call(url: string, method: string, body?: unknown): Promise<{ ok: boolean; data: Record<string, unknown> | null }> {
   const res = await fetch(url, {
@@ -34,6 +36,7 @@ export function ProgramMenu({
   maxWeeks,
   hasPending,
   onChanged,
+  importWeeks,
 }: {
   program: ProgramRow;
   levels: Array<{ id: string; name: string; label: string }>;
@@ -41,11 +44,14 @@ export function ProgramMenu({
   maxWeeks: number;
   hasPending: () => boolean;
   onChanged: () => void;
+  /** Semanas para «Importar…» (Excel, texto, foto o IA → celdas). */
+  importWeeks: MicroWeekRef[];
 }) {
   const locale = useLocale();
   const router = useRouter();
   const { toast } = useToast();
   const [meta, setMeta] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const guard = () => {
     if (!hasPending()) return true;
@@ -97,12 +103,24 @@ export function ProgramMenu({
         items={[
           { label: 'Nombre, nivel y etiquetas…', icon: Pencil, onSelect: () => setMeta(true) },
           { type: 'separator' },
+          { label: 'Importar…', icon: FileUp, onSelect: () => { if (guard()) setImporting(true); } },
           { label: 'Añadir semana', icon: Plus, disabled: weekCount >= maxWeeks, onSelect: () => void addWeek() },
           { type: 'separator' },
           { label: 'Duplicar programa', icon: Copy, onSelect: () => void duplicate() },
           { label: program.archived ? 'Recuperar' : 'Archivar', icon: Archive, onSelect: () => void archive() },
         ]}
       />
+      {importing ? (
+        <ImportWorkoutsDialog
+          microcycleId={program.id}
+          microWeeks={importWeeks}
+          onClose={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false);
+            onChanged();
+          }}
+        />
+      ) : null}
       {meta ? <ProgramMetaDialog program={program} levels={levels} onClose={() => setMeta(false)} onSaved={onChanged} /> : null}
     </>
   );

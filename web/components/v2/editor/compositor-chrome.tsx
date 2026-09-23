@@ -319,7 +319,7 @@ export function QuickDoseLine({
     if (!raw) return;
     const name = exerciseName.trim();
     if (!name) {
-      setError('Elige primero el ejercicio y aquí escribes su dosis.');
+      setError('Elige primero el ejercicio y aquí escribes series, reps y carga.');
       return;
     }
     const line = parseNotationCell(`${name} ${raw}`)[0];
@@ -347,7 +347,7 @@ export function QuickDoseLine({
           type="text"
           value={text}
           placeholder="o escríbelo: 4x4 @rir2 c/1'30''"
-          aria-label="Escribir la dosis como siempre"
+          aria-label="Escribir series, reps y carga como siempre"
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => {

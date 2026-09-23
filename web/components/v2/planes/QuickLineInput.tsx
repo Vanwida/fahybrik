@@ -6,7 +6,7 @@
 // guardables (uno por línea). Lo que no se entiende entero no entra: se dice.
 // La usan la celda de un programa y el editor de una pieza de biblioteca.
 
-import { forwardRef, useMemo, useState } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { CircleAlert } from 'lucide-react';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
 import { Button, Input, Kbd } from '@/components/v2/ui';
@@ -25,6 +25,8 @@ export const QuickLineInput = forwardRef<
 >(function QuickLineInput({ placeholder, onAccept, onDetail, 'aria-label': ariaLabel = 'Añadir una línea' }, ref) {
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<Record<number, number>>({});
+  const inner = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => inner.current!, []);
 
   const parse = useMemo(() => parseQuickLine(text), [text]);
   const tokens = useMemo(() => (parse.typed ? parse.lines.map(lookupToken) : []), [parse]);
@@ -67,7 +69,7 @@ export const QuickLineInput = forwardRef<
   return (
     <div className="flex flex-col gap-1.5">
       <Input
-        ref={ref}
+        ref={inner}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -97,7 +99,10 @@ export const QuickLineInput = forwardRef<
         loading={loading}
         failed={failed}
         picked={picked}
-        onPick={(lineIdx, candIdx) => setPicked({ ...picked, [lineIdx]: candIdx })}
+        onPick={(lineIdx, candIdx) => {
+          setPicked({ ...picked, [lineIdx]: candIdx });
+          inner.current?.focus();
+        }}
         onDetail={onDetail}
       />
     </div>

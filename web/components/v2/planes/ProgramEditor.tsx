@@ -37,6 +37,7 @@ import {
   type GridRange,
 } from '@/lib/dashboard/programming/grid-model';
 import { appendPart, appendSession } from '@/lib/dashboard/programming/quick-line';
+import { weekVolume } from '@/lib/dashboard/programming/week-volume';
 import type { CellWrite } from '@/lib/dashboard/programming/grid-model';
 import { useProgramGrid } from './use-program-grid';
 import { ProgramGrid } from './ProgramGrid';
@@ -207,8 +208,8 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
     setCursor({ row, col });
     if (!e.shiftKey) setAnchor({ row, col });
     requestAnimationFrame(() => gridRef.current?.focus({ preventScroll: true }));
-  }, []);
-  const onOpen = useCallback((row: number, col: number) => setEditing({ row, col }), []);
+  }, [setCursor, setAnchor]);
+  const onOpen = useCallback((row: number, col: number) => setEditing({ row, col }), [setEditing]);
 
   // ── Arrastrar ──────────────────────────────────────────────────────────────
   const onDragStartCell = useCallback((row: number, col: number, e: DragEvent) => {
@@ -234,7 +235,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
       }
       const day = cellAt(g.gridRef.current, at.row, at.col);
       const next = item.kind === 'entreno' && body.session ? appendSession(day, body.session) : body.parts.reduce((d, part) => appendPart(d, part), day);
-      const label = `«${body.title ?? item.title ?? 'Pieza'}» en semana ${at.row + 1} · ${DAY_NAMES[at.col]}`;
+      const label = `«${body.title ?? item.title ?? (item.kind === 'entreno' ? 'Entreno' : 'Bloque')}» en semana ${at.row + 1} · ${DAY_NAMES[at.col]}`;
       g.commit([{ row: at.row, col: at.col, day: next }], 'Insertado');
       undoToast.current = toast({ title: label, undo: doUndo });
     },
@@ -265,7 +266,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
       setCursor({ row, col });
       setAnchor({ row, col });
     },
-    [g, commitWithUndo, insertLibrary],
+    [g, commitWithUndo, insertLibrary, setCursor, setAnchor],
   );
 
   const weekMenu = useCallback(
@@ -317,7 +318,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
             <Button variant="primary" icon={UserPlus} onClick={() => setAssign(true)}>
               Asignar…
             </Button>
-            <ProgramMenu program={program} levels={levels} weekCount={g.grid.length} maxWeeks={maxWeeks} hasPending={g.hasPending} onChanged={() => router.refresh()} />
+            <ProgramMenu program={program} levels={levels} weekCount={g.grid.length} maxWeeks={maxWeeks} hasPending={g.hasPending} onChanged={() => router.refresh()} importWeeks={weekMeta.map((w, i) => ({ id: w.id, index: i, label: w.focus ?? `Semana ${i + 1}`, session_count: weekVolume(g.grid[i] ?? []).sessions }))} />
           </>
         }
       />

@@ -19,7 +19,7 @@ export function WeekSelect({
   microWeeks,
   value,
   onChange,
-  ariaLabel = 'Semana del microciclo',
+  ariaLabel = 'Semana del programa',
 }: {
   microWeeks: MicroWeekRef[];
   value: string;
@@ -73,7 +73,7 @@ export function ImportPhotoDestination({
           microWeeks={microWeeks}
           value={weekId}
           onChange={onWeekId}
-          ariaLabel="Semana del microciclo por la que empieza"
+          ariaLabel="Semana del programa por la que empieza"
         />
         {/* El día va en trazo discontinuo porque es SECUNDARIO: vacío significa la
             semana entera, que es lo que pasa casi siempre. */}

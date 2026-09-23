@@ -63,7 +63,7 @@ const TONE_CELL: Record<DayTone, string> = {
 const TONE_TAG: Record<Exclude<DayTone, 'rest'>, { label: string; className: string }> = {
   ok: { label: 'tipado', className: 'bg-[color:var(--v2-ok)]/15 text-[color:var(--v2-ok)]' },
   review: { label: 'revisar', className: 'bg-[color:var(--v2-warn)]/15 text-[color:var(--v2-warn)]' },
-  incomplete: { label: 'sin dosis', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
+  incomplete: { label: 'sin cantidad', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
   unresolved: { label: 'ejercicio?', className: 'bg-[color:var(--v2-danger)]/15 text-[color:var(--v2-danger)]' },
   skipped: { label: 'no entra', className: 'bg-[color:var(--v2-faint)]/15 text-[color:var(--v2-muted)]' },
 };
@@ -515,8 +515,8 @@ export function ImportReviewGrid({
                   ? '1 línea sin ejercicio del catálogo.'
                   : `${unresolved} líneas sin ejercicio del catálogo.`
                 : incomplete === 1
-                  ? '1 línea sin dosis ejecutable.'
-                  : `${incomplete} líneas sin dosis ejecutable.`}
+                  ? '1 línea sin cantidad.'
+                  : `${incomplete} líneas sin cantidad.`}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {canCompleteGaps ? (
@@ -524,7 +524,7 @@ export function ImportReviewGrid({
                   type="button"
                   onClick={() => void completeGaps()}
                   disabled={completingGaps || confirming}
-                  title="Crea o une ejercicios y rellena dosis genéricas. Los cambias después en el microciclo."
+                  title="Crea o une ejercicios y rellena cantidades genéricas. Las cambias después en el programa."
                   className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 py-1 text-label font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
                 >
                   <MIcon
