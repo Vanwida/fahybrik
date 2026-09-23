@@ -46,4 +46,10 @@ describeWithDb('bloque sin grupo de metodología (DB real)', () => {
     await updateBlockFull(fx.coachId, id, { title: 'Otra vez', methodology_group_id: null, exercises: exercises(ex) }, sql);
     expect((await getBlockById(fx.coachId, id, sql))?.methodology_group_id).toBeNull();
   });
+
+  test('un grupo que no existe es un 400 claro', async () => {
+    await expect(
+      createBlock(fx.coachId, { title: 'Grupo fantasma', methodology_group_id: 999, exercises: exercises(ex) }, sql),
+    ).rejects.toMatchObject({ code: 'invalid_group', status: 400 });
+  });
 });

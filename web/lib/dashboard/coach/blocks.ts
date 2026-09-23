@@ -393,12 +393,22 @@ export async function getBlockLibraryExercises(
  * la lista de SET dinámicamente con tagged templates: cada fragmento es
  * parametrizado, nunca interpolación de strings.
  */
+/** Un grupo de metodología que no existe es un 400 claro, no un fallo de FK (0240: opcional). */
+async function assertMethodologyGroup(client: Sql, groupId: number | null | undefined): Promise<void> {
+  if (groupId == null) return;
+  const rows = await client<Array<{ id: number }>>`select id from methodology_groups where id = ${groupId} limit 1`;
+  if (rows.length === 0) {
+    throw new BlockError('invalid_group', 'Ese tipo de trabajo no existe', 400);
+  }
+}
+
 export async function updateBlock(
   coachId: number | bigint,
   blockId: number,
   patch: BlockUpdate,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
+  await assertMethodologyGroup(client, patch.methodology_group_id);
   // Level range guard: min/max_level_id are FKs to athlete_levels, which are
   // PER-COACH content — a crafted id must never tag a block with another club's
   // level (same rule as createMonthTemplateWithEmptyWeeks).
@@ -514,6 +524,7 @@ export async function createBlock(
   input: BlockWrite,
   client: Sql = defaultSql,
 ): Promise<number> {
+  await assertMethodologyGroup(client, input.methodology_group_id);
   let blockId = 0;
   await client.begin(async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
@@ -583,6 +594,7 @@ export async function updateBlockFull(
   input: BlockWrite,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
+  await assertMethodologyGroup(client, input.methodology_group_id);
   let updated: BlockRow | null = null;
   await client.begin(async (tx) => {
     const rows = await tx<BlockRow[]>`
