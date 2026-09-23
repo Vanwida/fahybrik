@@ -8,11 +8,13 @@ import { useState } from 'react';
 import type { GroupDetail } from '@fahybrid/shared/schema/groups';
 import { Button, Card, CardHeader, Field, Select, useToast } from '@/components/v2/ui';
 import { groupApi } from './group-api';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 const NONE = '__none__';
 
 export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; levels: Array<{ id: string; name: string; label: string }>; onChanged: () => void }) {
   const { toast } = useToast();
+  const axisLabel = useLevelAxisLabel();
   const [level, setLevel] = useState(group.level?.id ?? NONE);
   const [days, setDays] = useState(group.days_per_week ? String(group.days_per_week) : NONE);
   const [busy, setBusy] = useState(false);
@@ -35,7 +37,7 @@ export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; le
     <Card>
       <CardHeader title="Regla de pertenencia automática" subtitle={group.auto_rule ? `${group.level?.name} · ${group.days_per_week} días por semana` : 'Opcional'} />
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Nivel">
+        <Field label={axisLabel}>
           {({ id }) => (
             <Select id={id} value={level} onValueChange={setLevel} options={[{ value: NONE, label: 'Sin regla' }, ...levels.map((l) => ({ value: l.id, label: l.name }))]} />
           )}
@@ -46,7 +48,7 @@ export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; le
           )}
         </Field>
       </div>
-      {!complete ? <p className="mt-2 t-meta text-v2-muted">La regla necesita nivel y días.</p> : null}
+      {!complete ? <p className="mt-2 t-meta text-v2-muted">La regla necesita {axisLabel.toLowerCase()} y días.</p> : null}
       <div className="mt-3 flex justify-end gap-2">
         {group.auto_rule ? (
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setLevel(NONE); setDays(NONE); void save(NONE, NONE); }}>

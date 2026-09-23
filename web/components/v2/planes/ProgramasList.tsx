@@ -26,6 +26,7 @@ import {
 import { localToday, relativeDayLabel } from '@/components/v2/shared/format';
 import { matchesQuery, searchIndex } from '@/lib/dashboard/programming/search-key';
 import { NewProgramDialog } from './NewProgramDialog';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 type View = 'activos' | 'archivados';
 
@@ -58,6 +59,7 @@ export function ProgramasList({
   const [creating, setCreating] = useState(params?.get('nuevo') === '1');
   const today = localToday();
   const hrefOf = (id: string) => `/${locale}/programar/programas/${id}`;
+  const axisLabel = useLevelAxisLabel();
 
   const indexed = useMemo(
     () => (programs ?? []).map((p) => ({ p, idx: searchIndex([p.name, p.level?.name ?? '', ...p.tags, ...p.groups.map((g) => g.name)].join(' ')) })),
@@ -114,7 +116,7 @@ export function ProgramasList({
     },
     {
       id: 'level',
-      header: 'Nivel',
+      header: axisLabel,
       width: '120px',
       hideBelow: 'md',
       sortValue: (p) => p.level?.name ?? '',

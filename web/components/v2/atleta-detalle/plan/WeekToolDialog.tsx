@@ -1,12 +1,12 @@
 'use client';
 
 // Las herramientas de una semana (menú ··· de la fila): copiar a otra semana,
-// desplazar ±N días, reducir volumen x %, descarga (con el % del coach) y
+// desplazar ±N días, escalar el volumen (subir o bajar x %), descarga (con el % del coach) y
 // evaluar la semana. Cada una dice qué va a tocar antes de hacerlo; mover y
 // copiar se pueden deshacer.
 
 import { useMemo, useState } from 'react';
-import { Button, Dialog, Field, Input, Select, Sheet, useToast } from '@/components/v2/ui';
+import { Button, Dialog, Field, Input, SegmentedControl, Select, Sheet, useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import type { WeekOpResult } from '@/lib/dashboard/v2/ficha-week-ops';
 import { addDaysIso } from '@/lib/dashboard/v2/ficha-dates';
@@ -17,9 +17,17 @@ import { useFicha, type WeekTool } from '../FichaContext';
 const TITLE: Record<Exclude<WeekTool, 'evaluar'>, string> = {
   copy: 'Copiar semana',
   shift: 'Desplazar días',
-  scale: 'Reducir volumen',
+  scale: 'Escalar volumen',
   deload: 'Descarga',
 };
+
+/** Límites del escalado (la API acepta ×0,2–×1,5): bajar 5–80 %, subir 5–50 %. */
+const SCALE_LIMITS = { down: { min: 5, max: 80 }, up: { min: 5, max: 50 } } as const;
+
+/** «−20 %» / «+15 %» a partir del `pct` del resultado (positivo = baja). */
+function signedPct(pct: number): string {
+  return pct > 0 ? `−${pct} %` : `+${Math.abs(pct)} %`;
+}
 
 /** Semanas de destino que se ofrecen al copiar (desde la siguiente a la de hoy). */
 const COPY_TARGET_WEEKS = 12;
@@ -38,6 +46,7 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
   const [target, setTarget] = useState<string | null>(null);
   const [days, setDays] = useState('1');
   const [pct, setPct] = useState('20');
+  const [direction, setDirection] = useState<'down' | 'up'>('down');
   const range = weekRangeLabel(weekStart);
   const base = `/api/coach/athletes/${shell.athlete_id}`;
 
@@ -72,7 +81,7 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
         : tool === 'shift'
           ? { op: 'shift', days: Number(days) }
           : tool === 'scale'
-            ? { op: 'scale', pct: Number(pct) }
+            ? { op: 'scale', factor: direction === 'down' ? 1 - Number(pct) / 100 : 1 + Number(pct) / 100 }
             : { op: 'deload' };
     try {
       const { result } = await apiJson<{ result: WeekOpResult }>(`${base}/plan/semana/${weekStart}`, {
@@ -120,11 +129,11 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
         toast({
           title:
             result.lines_changed > 0
-              ? `Volumen −${result.pct} % en ${result.lines_changed} ${result.lines_changed === 1 ? 'línea' : 'líneas'}`
-              : 'Nada que reducir',
+              ? `Volumen ${signedPct(result.pct ?? 0)} en ${result.lines_changed} ${result.lines_changed === 1 ? 'línea' : 'líneas'}`
+              : 'Nada que escalar',
           description:
             result.lines_changed > 0
-              ? `Semana ${range}. La intensidad no cambia.`
+              ? `Semana ${range}${result.factor != null ? ` · ×${String(Math.round(result.factor * 100) / 100).replace('.', ',')}` : ''}. La intensidad no cambia.`
               : 'Los entrenos pendientes no tienen series ni tiempos que escalar.',
           tone: result.lines_changed > 0 ? 'ok' : 'neutral',
         });
@@ -139,7 +148,7 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
   const invalid =
     (tool === 'copy' && !target) ||
     (tool === 'shift' && (!Number.isInteger(Number(days)) || Number(days) === 0 || Math.abs(Number(days)) > 14)) ||
-    (tool === 'scale' && !(Number(pct) >= 5 && Number(pct) <= 80));
+    (tool === 'scale' && !(Number(pct) >= SCALE_LIMITS[direction].min && Number(pct) <= SCALE_LIMITS[direction].max));
 
   return (
     <Dialog
@@ -185,12 +194,36 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
         ) : tool === 'scale' ? (
           <>
             <p className="t-body text-v2-muted">
-              Menos series o rondas, o menos tiempo o distancia en un trabajo continuo. La intensidad no se toca. Solo
-              entrenos pendientes.
+              Series o rondas, o tiempo o distancia en un trabajo continuo. La intensidad no se toca. Solo entrenos
+              pendientes.
             </p>
-            <Field label="Reducir un">
-              {({ id }) => (
-                <Input id={id} type="number" min={5} max={80} step={5} value={pct} onChange={(e) => setPct(e.target.value)} trailing="%" size="lg" />
+            <SegmentedControl
+              aria-label="Sentido"
+              value={direction}
+              onValueChange={setDirection}
+              items={[
+                { value: 'down', label: 'Reducir' },
+                { value: 'up', label: 'Aumentar' },
+              ]}
+              className="self-start"
+            />
+            <Field
+              label={direction === 'down' ? 'Reducir un' : 'Aumentar un'}
+              hint={`Entre ${SCALE_LIMITS[direction].min} y ${SCALE_LIMITS[direction].max} %.`}
+            >
+              {({ id, describedBy }) => (
+                <Input
+                  id={id}
+                  aria-describedby={describedBy}
+                  type="number"
+                  min={SCALE_LIMITS[direction].min}
+                  max={SCALE_LIMITS[direction].max}
+                  step={5}
+                  value={pct}
+                  onChange={(e) => setPct(e.target.value)}
+                  trailing="%"
+                  size="lg"
+                />
               )}
             </Field>
           </>

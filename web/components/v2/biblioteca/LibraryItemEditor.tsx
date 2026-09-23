@@ -74,7 +74,7 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
         title: title.trim(),
         // El texto original no se pisa: es la fuente que el coach escribió.
         description: (model.prose?.trim() || summary || title).slice(0, 4000),
-        methodology_group_id: model.methodology_group_id ?? 1,
+        methodology_group_id: model.methodology_group_id ?? null,
         format: blocks[0]?.format ?? null,
         exercises: serializeBlockExercises(blocks),
       };

@@ -11,10 +11,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { Pill } from '@/components/v2/Pill';
+import { Sparkles } from 'lucide-react';
+import { Button, StatusBadge } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { Panel } from './parts';
-import { cn } from '@/lib/utils';
 import type { ClasificacionData } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 type Field = 'level' | 'days';
@@ -88,124 +88,80 @@ export function ClasificacionCard({
   const showSuggestion =
     levelId == null && data.suggested_level_id != null && data.suggested_level_name != null;
 
+  const axis = data.level_axis_label;
+  const axisLower = axis.toLowerCase();
+
   return (
     <Panel
       title={planPersonal ? 'Clasificación' : 'Clasificación · para asignación'}
       action={
         planPersonal ? (
           // Con plan personal la secuencia por nivel está en pausa: decir «lista
-          // para asignar» aquí mentiría. El nivel/días siguen siendo dato real
-          // (analíticas, y el punto de retorno si vuelve a periodización).
-          <Pill tone="neutral" variant="soft">
-            Plan personal · la secuencia no asigna
-          </Pill>
+          // para asignar» aquí mentiría. El nivel/días siguen siendo dato real.
+          <StatusBadge variant="soft" size="sm" tone="neutral" label="Plan personal · el grupo no asigna" />
         ) : bothSet ? (
-          <Pill tone="ok" variant="soft">
-            <MIcon name="check_circle" size={13} className="mr-1" />
-            Lista para asignar
-          </Pill>
+          <StatusBadge variant="soft" size="sm" tone="ok" label="Lista para asignar" />
         ) : (
-          <Pill tone="warn" variant="soft">
-            {levelId == null && days == null
-              ? 'Falta nivel y días'
-              : levelId == null
-                ? 'Falta nivel'
-                : 'Faltan días'}
-          </Pill>
+          <StatusBadge
+            variant="soft"
+            size="sm"
+            tone="warn"
+            label={
+              levelId == null && days == null
+                ? `Falta ${axisLower} y días`
+                : levelId == null
+                  ? `Falta ${axisLower}`
+                  : 'Faltan días'
+            }
+          />
         )
       }
       bodyClassName="flex flex-col gap-4"
     >
-      {/* NIVEL */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="v2-micro">Nivel</span>
+        <div className="flex min-h-7 items-center justify-between gap-2">
+          <span className="t-meta text-v2-muted">{axis}</span>
           {showSuggestion ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => chooseLevel(data.suggested_level_id!)}
-              className="v2-focus inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-accent-text)] hover:underline disabled:opacity-50"
-            >
-              <MIcon name="auto_awesome" size={13} />
+            <Button size="sm" variant="ghost" icon={Sparkles} disabled={busy} onClick={() => chooseLevel(data.suggested_level_id!)}>
               Sugerido: {data.suggested_level_name}
-            </button>
+            </Button>
           ) : null}
         </div>
         {showSuggestion && data.suggested_level_reason ? (
-          <p className="flex items-start gap-1 text-label text-[color:var(--v2-faint)]">
-            <MIcon name="insights" size={12} className="mt-px shrink-0" />
-            <span>{data.suggested_level_reason}</span>
-          </p>
+          <p className="t-meta text-v2-faint">{data.suggested_level_reason}</p>
         ) : null}
         {data.levels.length === 0 ? (
-          <p className="text-xs text-[color:var(--v2-faint)]">
-            No hay niveles definidos todavía. Créalos en Periodización.
-          </p>
+          <p className="t-body-sm text-v2-faint">Todavía no tienes valores de {axisLower}.</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {data.levels.map((lvl) => {
-              const active = lvl.id === levelId;
-              return (
-                <button
-                  key={lvl.id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => chooseLevel(lvl.id)}
-                  aria-pressed={active}
-                  title={lvl.label}
-                  className={cn(
-                    'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
-                    active
-                      ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                      : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                  )}
-                >
-                  <span className="v2-num">{lvl.name}</span>
-                  <span className="hidden text-[color:var(--v2-faint)] sm:inline">{lvl.label}</span>
-                  {saving === 'level' && active ? (
-                    <MIcon name="progress_activity" size={13} className="animate-spin" />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          <ChipGroup
+            mono={false}
+            ariaLabel={axis}
+            value={levelId}
+            onChange={chooseLevel}
+            options={data.levels.map((lvl) => ({
+              value: lvl.id,
+              label: lvl.name,
+              hint: lvl.label && lvl.label !== lvl.name ? lvl.label : undefined,
+              disabled: busy,
+            }))}
+          />
         )}
       </div>
 
-      {/* DÍAS / SEMANA */}
       <div className="flex flex-col gap-2">
-        <span className="v2-micro">Días de entreno / semana</span>
-        <div className="flex flex-wrap gap-1.5">
-          {dayOptions.map((d) => {
-            const active = d === days;
-            return (
-              <button
-                key={d}
-                type="button"
-                disabled={busy}
-                onClick={() => chooseDays(d)}
-                aria-pressed={active}
-                className={cn(
-                  'v2-focus inline-flex h-8 w-10 items-center justify-center rounded-[var(--v2-r-pill)] border text-sm font-semibold transition-colors disabled:opacity-50',
-                  active
-                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                    : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                )}
-              >
-                {saving === 'days' && active ? (
-                  <MIcon name="progress_activity" size={14} className="animate-spin" />
-                ) : (
-                  <span className="v2-num">{d}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <span className="t-meta text-v2-muted">Días de entreno por semana</span>
+        <ChipGroup
+          ariaLabel="Días de entreno por semana"
+          value={days}
+          onChange={chooseDays}
+          options={dayOptions.map((d) => ({ value: d, label: String(d), disabled: busy }))}
+        />
       </div>
 
       {error ? (
-        <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p role="alert" className="t-body-sm text-v2-danger">
+          {error}
+        </p>
       ) : null}
     </Panel>
   );

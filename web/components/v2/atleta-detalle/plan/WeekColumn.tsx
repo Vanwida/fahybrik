@@ -17,7 +17,7 @@ import {
   LockOpen,
   MoreHorizontal,
   Send,
-  TrendingDown,
+  ArrowUpDown,
   Waves,
 } from 'lucide-react';
 import { IconButton, Menu, StatusBadge, Tooltip, useToast, type MenuEntry } from '@/components/v2/ui';
@@ -120,7 +120,7 @@ export function WeekColumn({ week, max, today }: { week: CalWeek; max: number; t
   if (!past) {
     items.push(
       { label: 'Desplazar días…', icon: ArrowLeftRight, onSelect: () => openWeekTool('shift', week.week_start), disabled: !hasSessions },
-      { label: 'Reducir volumen…', icon: TrendingDown, onSelect: () => openWeekTool('scale', week.week_start), disabled: !hasSessions },
+      { label: 'Escalar volumen…', icon: ArrowUpDown, onSelect: () => openWeekTool('scale', week.week_start), disabled: !hasSessions },
       { label: 'Descarga', icon: Waves, onSelect: () => openWeekTool('deload', week.week_start), disabled: !hasSessions },
     );
   }

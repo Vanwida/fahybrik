@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { ProgramRow } from '@/lib/dashboard/programming/programs';
 import { Button, Dialog, Field, Input, Select, useToast } from '@/components/v2/ui';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 const NO_LEVEL = '__none__';
 
@@ -25,6 +26,7 @@ export function ProgramMetaDialog({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
+  const axisLabel = useLevelAxisLabel();
   const [name, setName] = useState(program.name);
   const [level, setLevel] = useState<string>(program.level?.id ?? NO_LEVEL);
   const [tags, setTags] = useState(program.tags.join(', '));
@@ -80,7 +82,7 @@ export function ProgramMetaDialog({
             <Input id={id} aria-describedby={describedBy} invalid={invalid} size="lg" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
           )}
         </Field>
-        <Field label="Nivel" optional>
+        <Field label={axisLabel} optional>
           {({ id }) => (
             <Select
               id={id}

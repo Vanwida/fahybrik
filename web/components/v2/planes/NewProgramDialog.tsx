@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { Button, Dialog, Field, Input, Select } from '@/components/v2/ui';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 const NO_LEVEL = '__none__';
 
@@ -21,6 +22,7 @@ export function NewProgramDialog({
   onCreated: (id: string) => void;
 }) {
   const [name, setName] = useState('');
+  const axisLabel = useLevelAxisLabel();
   const [weeks, setWeeks] = useState('4');
   const [level, setLevel] = useState(NO_LEVEL);
   const [saving, setSaving] = useState(false);
@@ -82,7 +84,7 @@ export function NewProgramDialog({
               <Input id={id} aria-describedby={describedBy} invalid={invalid} size="lg" inputMode="numeric" value={weeks} onChange={(e) => setWeeks(e.target.value)} />
             )}
           </Field>
-          <Field label="Nivel" optional>
+          <Field label={axisLabel} optional>
             {({ id }) => (
               <Select
                 id={id}

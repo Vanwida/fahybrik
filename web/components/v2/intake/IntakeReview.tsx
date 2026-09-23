@@ -33,6 +33,7 @@ import { BlockStructureStep } from '@/components/v2/intake/IntakeBlockStructure'
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
 import { INTAKE_PLAN_MODE_DEFAULT, type IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 /** La siguiente alta de la fila, con el resto de la fila detrás. */
 function nextHref(queue: string[]): string {
@@ -66,6 +67,7 @@ export function IntakeReview({
   queue?: string[];
 }) {
   const router = useRouter();
+  const axisLabel = useLevelAxisLabel();
   const { profile, classification, month_proposal } = review;
   const { athlete, suggestions, warnings, target_event } = profile;
 
@@ -99,7 +101,7 @@ export function IntakeReview({
 
   const checks: GateCheck[] = [
     { key: 'evento', label: 'Evento', state: eventOk ? 'ok' : 'blocked' },
-    { key: 'nivel', label: 'Nivel', state: nivelOk ? 'ok' : 'pending' },
+    { key: 'nivel', label: axisLabel, state: nivelOk ? 'ok' : 'pending' },
     {
       key: 'avisos',
       label: `Avisos ${manualWarnings.filter((w) => acknowledged.has(w.kind)).length}/${manualWarnings.length}`,
