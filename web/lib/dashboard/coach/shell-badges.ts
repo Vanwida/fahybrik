@@ -19,14 +19,20 @@ export async function countThreadsAwaitingReply(coach_id: bigint | number): Prom
     select count(*)::int as n
     from chat_threads t
     join lateral (
-      select m.sender_role
+      select m.sender_role, m.created_at
       from chat_messages m
       where m.thread_id = t.id and m.deleted_at is null
       order by m.created_at desc, m.id desc
       limit 1
     ) last on true
+    join athletes a on a.id = t.athlete_id and a.coach_id = t.coach_id
+    left join coach_alert_overrides o
+      on o.athlete_id = t.athlete_id and o.signal_kind = 'message_unanswered'
     where t.coach_id = ${Number(coach_id)}
       and last.sender_role = 'athlete'
+      -- Lo que Mensajes da por hecho o pospone no cuenta (mismo criterio que la bandeja).
+      and not coalesce(o.snoozed_until > now(), false)
+      and not coalesce(o.dismissed_at >= last.created_at, false)
   `;
   return rows[0]?.n ?? 0;
 }

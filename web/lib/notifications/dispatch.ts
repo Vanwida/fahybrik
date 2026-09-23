@@ -59,9 +59,10 @@ export function webUrlForNotification(
   deeplink?: Record<string, unknown>,
 ): string {
   if (type === 'chat_message') {
-    const thread = deeplink?.thread_id;
-    return typeof thread === 'string' && /^\d+$/.test(thread)
-      ? `/mensajes?hilo=${thread}`
+    // El panel abre el hilo por ATLETA (`?hilo=<athlete_id>`), no por id de hilo.
+    const athlete = deeplink?.athlete_id;
+    return typeof athlete === 'string' && /^\d+$/.test(athlete)
+      ? `/mensajes?hilo=${athlete}`
       : '/mensajes';
   }
   // El comunicado NO tiene pestaña propia en el dashboard a propósito

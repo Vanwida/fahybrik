@@ -54,6 +54,9 @@ const NO_MAGNITUDE = new Set([
   'monthly_block_pending',
   'intake_pending',
   'billing_at_risk',
+  // Su valor son las horas de espera: crecer no es empeorar. Vuelve por
+  // identidad (el último mensaje del atleta va en la dedupe_key).
+  'message_unanswered',
 ]);
 
 function escalated(item: SuppressionItem, override: SuppressionOverride): boolean {

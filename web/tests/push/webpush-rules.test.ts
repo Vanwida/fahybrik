@@ -9,7 +9,7 @@ import { vapidKeyToBytes } from '@/lib/push/client';
 
 describe('webUrlForNotification', () => {
   it('un mensaje de chat abre SU conversación', () => {
-    expect(webUrlForNotification('chat_message', { thread_id: '42' })).toBe('/mensajes?hilo=42');
+    expect(webUrlForNotification('chat_message', { thread_id: '42', athlete_id: '7' })).toBe('/mensajes?hilo=7');
   });
 
   it('un chat sin hilo válido abre la lista, nunca un 404', () => {
