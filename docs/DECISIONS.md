@@ -18,6 +18,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** no volver a enseñar el editor sin un lector real en el mismo lote; no borrar `coach_onboarding_forms` ni su API por estar oculta.
 
+**En el mismo rehacer de Ajustes (anotado aquí para que no se pierda):** cada campo tiene UN editor — nombre del club, logo, color, box, dirección y correo de avisos solo en Ajustes › Tu club; nombre, foto y bio de la persona solo en Tu perfil (fuera los cuatro editores duplicados de la auditoría A S7). Todo Ajustes guarda al salir de cada campo, sin botones «Guardar». Y el nombre del eje de clasificación pasa a ser del coach: `coaches.level_axis_label` (0223, NULL = «Nivel», defecto en `shared/domain/coach/level-axis.ts`), editable en Ajustes › Método — cierra lo que 2026-08-23 dejó abierto; las pantallas que aún escriben «Nivel» a mano deben leer `effectiveLevelAxisLabel`.
+
 ---
 
 ## 2026-09-23 · Negocio con dueño: un lead responde a su coach; «sin asignar» solo al operador del embudo; la agenda es por coach (0220)

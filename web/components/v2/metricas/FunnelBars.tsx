@@ -6,7 +6,7 @@
 import type { FunnelSnapshot, FunnelStageKey } from '@/lib/dashboard/coach/metrics';
 import { formatCount, formatIsoDayShort, formatPct } from './format';
 
-// El orden de las etapas (el mismo que STAGE_ORDER del loader, que es de
+// El orden de las etapas (el mismo que FUNNEL_STAGE_KEYS del loader, que es de
 // servidor: aquí solo se importan sus tipos). El Record de abajo obliga a que
 // estén todas.
 const STAGE_ORDER = ['iniciado', 'completado', 'cita', 'llamada', 'alta_enviada', 'convertido'] as const satisfies readonly FunnelStageKey[];
