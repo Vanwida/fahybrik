@@ -103,17 +103,19 @@ export interface AssignResponse {
   applied?: AssignApplied;
 }
 
+/**
+ * Deshacer. Lo hecho nunca se borra: un atleta que ya entrenó algo del programa
+ * nuevo NO se deshace (status 'failed' con el motivo) y se queda como está.
+ */
 export interface AssignUndoResult {
   batch_id: string;
   already_undone: boolean;
   undone: number;
   failed: number;
-  /** Entrenos ya hechos que se conservan (nunca se borra trabajo hecho). */
-  kept_done: number;
   results: Array<{
     athlete_id: string;
+    /** undone = vuelve a como estaba · failed = no se pudo (motivo) · nothing = no se le había aplicado. */
     status: 'undone' | 'failed' | 'nothing';
-    kept_done: number;
     reason: string | null;
   }>;
 }

@@ -75,7 +75,6 @@ create table if not exists coach_assign_batch_items (
   reason_code         text,
   reason              text,
   prior_plan_mode     text,
-  kept_done           integer,
   undone_at           timestamptz,
   created_at          timestamptz not null default now(),
 
