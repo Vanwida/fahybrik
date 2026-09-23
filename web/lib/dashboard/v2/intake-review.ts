@@ -3,7 +3,8 @@ import 'server-only';
 // v2 · ALTAS · INTAKE REVIEW — server loader for the coach's per-athlete intake
 // review screen. Composes the EXISTING intake surface (no parallel model):
 //   · loadIntakeProfile         → onboarding answers + auto-suggestions + warnings
-//   · proposeFirstMonthForIntake → the level-matched first microciclo suggestion
+//   · loadIntakePlanOptions     → what the athlete would get with each plan choice
+//                                 (their current plan, each group, each programa)
 //   · loadClassification        → the agnostic level/días picker data (reused by
 //                                 ClasificacionCard, the same control PerfilTab uses)
 //
@@ -15,10 +16,7 @@ import 'server-only';
 
 import { sql } from '@/lib/db';
 import { loadIntakeProfile, IntakeError, type IntakeProfile } from '@/lib/coach/intake';
-import {
-  proposeFirstMonthForIntake,
-  type IntakeMonthProposal,
-} from '@/lib/coach/intake-month-proposal';
+import { loadIntakePlanOptions, type IntakePlanOptions } from '@/lib/coach/intake-plan-options';
 import { loadClassification } from '@/lib/dashboard/v2/atleta-detalle';
 import type { ClasificacionData } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { computeAndStoreLevelSuggestion } from '@/lib/coach/level-proposal';
@@ -29,8 +27,8 @@ import type { RaceHistoryItem, UpcomingRace } from '@fahybrid/shared/schema';
 
 export interface IntakeReviewPayload {
   profile: IntakeProfile;
-  /** Level-matched first-microciclo suggestion; null until a level is set. */
-  month_proposal: IntakeMonthProposal | null;
+  /** Qué recibiría con cada elección de plan; `null` si no se pudo calcular. */
+  plan_options: IntakePlanOptions | null;
   /** The agnostic level + días classification, for the reused ClasificacionCard.
    *  Its `suggested_level_reason` carries the real-data "por qué". */
   classification: ClasificacionData;
@@ -64,22 +62,8 @@ export async function loadIntakeReview(params: {
       // suggestion best-effort — the coach can still set the level by hand.
     }
 
-    // Effective level = coach-assigned, else the algorithm's suggestion. Mirrors
-    // the GET intake route so the month proposal lines up with what the coach sees.
-    const levelRows = await sql<Array<{ level_id: string | null }>>`
-      select coalesce(a.level_id, a.suggested_level_id)::text as level_id
-      from athletes a
-      where a.id = ${Number(athlete_id)} and a.coach_id = ${Number(coach_id)}
-      limit 1
-    `;
-    const levelId = levelRows[0]?.level_id ?? null;
-
-    const [month_proposal, classification, pastRaces, upcomingRaces] = await Promise.all([
-      levelId
-        ? proposeFirstMonthForIntake({ coach_id, athlete_id, level_id: Number(levelId) }).catch(
-            () => null,
-          )
-        : Promise.resolve(null),
+    const [plan_options, classification, pastRaces, upcomingRaces] = await Promise.all([
+      loadIntakePlanOptions({ coach_id, athlete_id: Number(athlete_id), client: sql }).catch(() => null),
       loadClassification({ coach_id, athlete_id: Number(athlete_id), client: sql }),
       listAthletePastRaces(Number(athlete_id), sql).catch(() => [] as RaceHistoryItem[]),
       getUpcomingRaces(Number(athlete_id), sql).catch(() => [] as UpcomingRace[]),
@@ -102,7 +86,7 @@ export async function loadIntakeReview(params: {
 
     return {
       profile,
-      month_proposal,
+      plan_options,
       classification: { ...classification, suggested_level_reason: reason },
       races: { past: pastRaces, upcoming: upcomingRaces },
     };

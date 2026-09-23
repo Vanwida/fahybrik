@@ -1,282 +1,146 @@
 'use client';
 
-// v2 · INTAKE · STEPS — the left-column decision controls of the intake review.
-// Each step is presentational + controlled by the IntakeReview orchestrator, which
-// assembles them into the commit payload (POST /api/coach/intake/[id]). AGNOSTIC:
-// block names come from the coach's suggestions (never a hardcoded phase catalogue);
-// nothing here invents method.
+// v2 · ALTA · PASOS — las decisiones de la columna izquierda del alta, sobre los
+// primitivos. Cada paso es presentacional y lo controla IntakeReview, que arma el
+// envío (POST /api/coach/intake/[id]). Nada de método cableado: los tests son la
+// batería del coach; la carrera, la del atleta; el plan, el del coach
+// (IntakePlanStep).
 
-import { useId } from 'react';
-
-import { ArrowUp, Check, CircleAlert, Lock, Rocket } from 'lucide-react';
-import { Button, Checkbox, StatusBadge, Tag } from '@/components/v2/ui';
-import { Textarea } from '@/components/ui/textarea';
-import { Panel } from '@/components/v2/atleta-detalle/parts';
+import { Check, Lock, Rocket, TriangleAlert } from 'lucide-react';
+import {
+  Button,
+  Card,
+  CardHeader,
+  Checkbox,
+  EmptyState,
+  Field,
+  List,
+  ListRow,
+  StatusBadge,
+  Tag,
+  Textarea,
+  buttonVariants,
+} from '@/components/v2/ui';
+import { Link } from '@/i18n/navigation';
 import type { IntakeProfile, IntakeWarning } from '@/lib/coach/intake';
 import type { IntakeBaselineTest } from '@fahybrid/shared/schema/coach-intake';
-import { cn } from '@/lib/utils';
+import { shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
 
-// Warnings whose resolution is the event anchor itself — never manually confirmed.
-const EVENT_WARNING_KINDS = new Set<IntakeWarning['kind']>(['a_event_invalid', 'a_event_close']);
+// Avisos que resuelve la carrera misma (se cambian en su perfil): no se confirman.
+export const EVENT_WARNING_KINDS = new Set<IntakeWarning['kind']>(['a_event_invalid', 'a_event_close']);
 
 const WELCOME_MAX = 2000;
 
-function fmtEventDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-    .format(d)
-    .replace(/\.$/, '');
-}
-
-/** Numbered step gutter — keeps the decision flow scannable (mock steps 1-6). */
-export function StepShell({ n, children }: { n: number; children: React.ReactNode }) {
+// ── Carrera objetivo ──────────────────────────────────────────────────────────
+export function RaceStep({ targetEvent }: { targetEvent: IntakeProfile['target_event'] }) {
+  const valid = targetEvent != null && !targetEvent.is_in_past;
   return (
-    <section className="flex gap-3">
-      <span
-        aria-hidden
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] t-meta font-semibold text-[color:var(--v2-muted)]"
-      >
-        {n}
-      </span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </section>
-  );
-}
-
-// ── Step 1 · Evento objetivo (A) ────────────────────────────────────────────────
-export function EventAnchorStep({
-  targetEvent,
-}: {
-  targetEvent: IntakeProfile['target_event'];
-}) {
-  const anchored = targetEvent != null && !targetEvent.is_in_past;
-  return (
-    <Panel
-      title="Evento objetivo (A)"
-      action={
-        anchored ? (
-          <StatusBadge variant="soft" size="sm" tone="ok" label="Anclado" />
-        ) : (
-          <StatusBadge variant="soft" size="sm" tone="danger" label="Falta la fecha" />
-        )
-      }
-      bodyClassName="flex flex-col gap-2"
-    >
-      {anchored ? (
-        <>
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-              {targetEvent.name}
-            </span>
-            <span className="t-tnum text-xs text-[color:var(--v2-muted)]">
-              {fmtEventDate(targetEvent.iso_date)}
-            </span>
-            {targetEvent.division ? (
-              <span className="text-xs text-[color:var(--v2-faint)]">· {targetEvent.division}</span>
-            ) : null}
-          </div>
-          <p className="text-xs text-[color:var(--v2-muted)]">
-            El plan se construye hacia atrás desde esta fecha.
-          </p>
-        </>
-      ) : (
-        <div className="flex items-start gap-2 text-xs text-[color:var(--v2-muted)]">
-          <CircleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-v2-danger" />
-          <span>
-            {targetEvent?.is_in_past
-              ? 'El evento objetivo está en el pasado. Reasigna una fecha válida en el perfil del atleta para poder asignar.'
-              : 'Aún no anclado. Configura el evento objetivo (A) en el perfil del atleta para poder asignar el plan.'}
-          </span>
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-// Step 3 (Estructura del bloque + elección «periodización / plan solo para él»)
-// vive en `IntakeBlockStructure.tsx` — tiene estado propio y este archivo ya
-// andaba cerca del tope de 500 líneas.
-
-// ── Step 4 · Tests de la semana 1 ────────────────────────────────────────────────
-export function BaselineTestsStep({
-  tests,
-  included,
-  onToggle,
-}: {
-  tests: IntakeBaselineTest[];
-  included: ReadonlySet<string>;
-  onToggle: (slug: string) => void;
-}) {
-  const passive = tests.filter((t) => t.kind === 'auto');
-  const programmed = tests.filter((t) => t.kind === 'programmed');
-
-  return (
-    <Panel
-      title="Tests de la semana 1"
-      action={
-        <Tag>Decisión</Tag>
-      }
-      bodyClassName="flex flex-col gap-3"
-    >
-      {tests.length === 0 ? (
-        <p className="text-xs text-[color:var(--v2-faint)]">Sin tests sugeridos.</p>
-      ) : (
-        <>
-          {passive.length > 0 ? (
-            <TestGroup title="Pasivos · automáticos">
-              {passive.map((t) => (
-                <TestRow
-                  key={t.slug}
-                  test={t}
-                  checked={included.has(t.slug)}
-                  onToggle={() => onToggle(t.slug)}
-                />
-              ))}
-            </TestGroup>
-          ) : null}
-          {programmed.length > 0 ? (
-            <TestGroup title="Programados · los agendas tú">
-              {programmed.map((t) => (
-                <TestRow
-                  key={t.slug}
-                  test={t}
-                  checked={included.has(t.slug)}
-                  onToggle={() => onToggle(t.slug)}
-                />
-              ))}
-            </TestGroup>
-          ) : null}
-        </>
-      )}
-    </Panel>
-  );
-}
-
-function TestGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="t-label text-v2-faint">{title}</span>
-      <ul className="flex flex-col gap-1">{children}</ul>
-    </div>
-  );
-}
-
-function TestRow({
-  test,
-  checked,
-  onToggle,
-}: {
-  test: IntakeBaselineTest;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <li className={cn('rounded-ctl px-2 py-1.5', checked ? 'bg-v2-surface-2' : null)}>
-      <Checkbox
-        checked={checked}
-        onCheckedChange={() => onToggle()}
-        label={<span className={cn('t-body', checked ? 'text-v2-fg' : 'text-v2-muted')}>{test.label}</span>}
+    <Card>
+      <CardHeader
+        title="Carrera objetivo"
+        className="mb-1"
+        action={valid ? <Tag>{targetEvent.days_to_event} d</Tag> : null}
       />
-    </li>
+      {valid ? (
+        <p className="t-body text-v2-fg">
+          <span className="font-medium">{targetEvent.name}</span>
+          <span className="text-v2-muted">
+            {' · '}
+            {shortDate(targetEvent.iso_date)} {targetEvent.iso_date.slice(0, 4)}
+            {targetEvent.division ? ` · ${targetEvent.division}` : ''}
+          </span>
+        </p>
+      ) : (
+        <p className="t-body text-v2-muted">
+          {targetEvent?.is_in_past ? `${targetEvent.name} ya pasó` : 'No entrena para ninguna fecha'} · la elige en su app
+        </p>
+      )}
+    </Card>
   );
 }
 
-// ── Step 5 · Avisos por confirmar ────────────────────────────────────────────────
+// ── Tests ─────────────────────────────────────────────────────────────────────
+/** La batería del coach: entra sola con su primer plan (semana cero / semana 1). */
+export function TestsStep({ tests }: { tests: IntakeBaselineTest[] }) {
+  return (
+    <Card padding={tests.length > 0 ? 'none' : 'md'}>
+      <CardHeader
+        title="Tests"
+        subtitle={tests.length > 0 ? 'Tu batería: entra sola con su primer plan' : undefined}
+        className={tests.length > 0 ? 'px-4 pt-4' : 'mb-1'}
+      />
+      {tests.length === 0 ? (
+        <EmptyState
+          title="No tienes batería de tests"
+          action={
+            <Link href="/programar/tests" className={buttonVariants({ size: 'sm', variant: 'ghost' })}>
+              Crearla
+            </Link>
+          }
+        />
+      ) : (
+        <List aria-label="Tests" className="rounded-none border-x-0 border-b-0">
+          {tests.map((t) => (
+            <ListRow key={t.slug} density="compact" title={t.label} />
+          ))}
+        </List>
+      )}
+    </Card>
+  );
+}
+
+// ── Avisos ────────────────────────────────────────────────────────────────────
 export function WarningsStep({
   warnings,
   acknowledged,
   onAck,
-  eventResolved,
 }: {
   warnings: IntakeWarning[];
   acknowledged: ReadonlySet<string>;
   onAck: (kind: string) => void;
-  eventResolved: boolean;
 }) {
   const manual = warnings.filter((w) => !EVENT_WARNING_KINDS.has(w.kind));
-  const event = warnings.filter((w) => EVENT_WARNING_KINDS.has(w.kind));
-  const ackedCount = manual.filter((w) => acknowledged.has(w.kind)).length;
-
+  if (manual.length === 0) return null;
+  const acked = manual.filter((w) => acknowledged.has(w.kind)).length;
   return (
-    <Panel
-      title="Avisos por confirmar"
-      action={
-        manual.length === 0 ? (
-          <StatusBadge variant="soft" size="sm" tone="ok" label="Sin avisos" />
-        ) : (
-          <StatusBadge
-            variant="soft"
-            size="sm"
-            tone={ackedCount === manual.length ? 'ok' : 'warn'}
-            label={`${ackedCount}/${manual.length} confirmados`}
-          />
-        )
-      }
-      bodyClassName="flex flex-col gap-2"
-    >
-      {warnings.length === 0 ? (
-        <p className="text-xs text-[color:var(--v2-faint)]">Sin avisos. Todo en orden.</p>
-      ) : (
-        <>
-          {event.map((w) => (
-            <WarningRow key={w.kind} warning={w}>
-              <StatusBadge
-                size="sm"
-                tone={eventResolved ? 'ok' : 'neutral'}
-                icon={eventResolved ? undefined : ArrowUp}
-                label={eventResolved ? 'Resuelto' : 'Se resuelve al anclar el evento'}
+    <Card padding="none">
+      <CardHeader
+        title="Avisos"
+        subtitle="Léelos antes de asignar"
+        className="px-4 pt-4"
+        action={<span className="t-meta text-v2-muted t-tnum">{acked} de {manual.length} vistos</span>}
+      />
+      <List aria-label="Avisos" className="rounded-none border-x-0 border-b-0">
+        {manual.map((w) => (
+          <ListRow
+            key={w.kind}
+            leading={
+              <TriangleAlert
+                aria-label={w.severity === 'critical' ? 'Importante' : 'Aviso'}
+                strokeWidth={1.75}
+                className={w.severity === 'critical' ? 'size-4 text-v2-danger' : 'size-4 text-v2-warn'}
               />
-            </WarningRow>
-          ))}
-          {manual.map((w) => {
-            const acked = acknowledged.has(w.kind);
-            return (
-              <WarningRow key={w.kind} warning={w}>
-                {acked ? (
-                  <StatusBadge size="sm" tone="ok" label="Confirmado" />
-                ) : (
-                  <Button size="sm" icon={Check} onClick={() => onAck(w.kind)}>
-                    Confirmar
-                  </Button>
-                )}
-              </WarningRow>
-            );
-          })}
-        </>
-      )}
-    </Panel>
+            }
+            title={w.label}
+            detail={<span className="whitespace-normal">{w.detail}</span>}
+            className="py-2.5"
+            trailing={
+              acknowledged.has(w.kind) ? (
+                <StatusBadge size="sm" tone="ok" label="Visto" />
+              ) : (
+                <Button size="sm" variant="secondary" icon={Check} onClick={() => onAck(w.kind)} className="pointer-coarse:h-11">
+                  Visto
+                </Button>
+              )
+            }
+          />
+        ))}
+      </List>
+    </Card>
   );
 }
 
-function WarningRow({
-  warning,
-  children,
-}: {
-  warning: IntakeWarning;
-  children: React.ReactNode;
-}) {
-  const critical = warning.severity === 'critical';
-  return (
-    <div className="flex items-start gap-2.5 rounded-ctl bg-v2-surface-2 px-3 py-2">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge size="sm" tone={critical ? 'danger' : 'warn'} label={critical ? 'Crítico' : 'Aviso'} />
-          <span className="t-body-sm font-medium text-v2-fg">{warning.label}</span>
-        </div>
-        <span className="t-meta text-[color:var(--v2-muted)]">{warning.detail}</span>
-      </div>
-      <div className="shrink-0 self-center">{children}</div>
-    </div>
-  );
-}
-
-// ── Step 6 · Bienvenida y notas ──────────────────────────────────────────────────
+// ── Bienvenida y notas ────────────────────────────────────────────────────────
 export function WelcomeNotesStep({
   send,
   body,
@@ -292,25 +156,15 @@ export function WelcomeNotesStep({
   onChangeBody: (v: string) => void;
   onChangeNotes: (v: string) => void;
 }) {
-  // La etiqueta de las notas ya estaba escrita en pantalla pero suelta: nadie
-  // la ataba al campo, así que el lector de pantalla anunciaba «cuadro de
-  // texto» a secas (WCAG 4.1.2). Se ata a la que ya se ve, no se inventa otra.
-  const idNotas = useId();
-
   return (
-    <Panel
-      title="Bienvenida y notas"
-      action={
-        <Tag>Opcional</Tag>
-      }
-      bodyClassName="flex flex-col gap-3"
-    >
+    <Card className="flex flex-col gap-3">
+      <CardHeader title="Bienvenida" className="mb-0" />
       <Checkbox
         checked={send}
         onCheckedChange={(v) => onChangeSend(v)}
-        label={<span className="t-body font-medium">Enviar mensaje al atleta al asignar</span>}
+        label="Enviarle este mensaje al asignar"
+        className="pointer-coarse:min-h-11"
       />
-
       <Textarea
         aria-label="Mensaje de bienvenida"
         value={body}
@@ -319,85 +173,65 @@ export function WelcomeNotesStep({
         onChange={(e) => onChangeBody(e.target.value)}
         rows={4}
         placeholder="Mensaje de bienvenida…"
-        contador
       />
-
-      <div className="flex flex-col gap-1.5">
-        <span id={idNotas} className="t-label text-v2-faint">
-          Notas internas · privadas
-        </span>
-        <Textarea
-          aria-labelledby={idNotas}
-          value={notes}
-          maxLength={WELCOME_MAX}
-          onChange={(e) => onChangeNotes(e.target.value)}
-          rows={2}
-          placeholder="Notas para ti, no visibles para el atleta…"
-        />
-      </div>
-    </Panel>
+      <Field label="Notas para ti" optional hint="No las ve el atleta">
+        {({ id, describedBy }) => (
+          <Textarea
+            id={id}
+            aria-describedby={describedBy}
+            value={notes}
+            maxLength={WELCOME_MAX}
+            onChange={(e) => onChangeNotes(e.target.value)}
+            rows={2}
+          />
+        )}
+      </Field>
+    </Card>
   );
 }
 
-// ── Footer · "Listo para asignar" gate ──────────────────────────────────────────
-export interface GateCheck {
-  key: string;
-  label: string;
-  state: 'ok' | 'pending' | 'blocked';
-}
-
+// ── Pie · asignar ─────────────────────────────────────────────────────────────
 export function AssignBar({
-  checks,
+  pending,
   canAssign,
   submitting,
   error,
-  readyHint,
+  line,
   onAssign,
 }: {
-  checks: GateCheck[];
+  /** Lo que falta, en palabras («Elige su nivel», «2 avisos por leer»). */
+  pending: string[];
   canAssign: boolean;
   submitting: boolean;
   error: string | null;
-  /** Qué va a crear exactamente el botón — cambia según el modo del paso 3. */
-  readyHint: string;
+  /** Lo que recibe (la línea del plan). */
+  line: string | null;
   onAssign: () => void;
 }) {
-  const blockers = checks.filter((c) => c.state !== 'ok').length;
   return (
-    <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 flex flex-col gap-2.5 rounded-panel border border-v2-border bg-v2-elevated p-3 shadow-pop lg:bottom-4">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="t-label text-v2-faint">Listo para asignar</span>
-        {checks.map((c) => (
-          <StatusBadge
-            key={c.key}
-            size="sm"
-            tone={c.state === 'ok' ? 'ok' : c.state === 'blocked' ? 'danger' : 'neutral'}
-            label={c.label}
-          />
-        ))}
+    <div className="sticky bottom-[calc(var(--v2-tabbar-h,0px)+env(safe-area-inset-bottom)+8px)] z-10 flex flex-col gap-2 rounded-panel border border-v2-border bg-v2-elevated p-3 shadow-pop sm:flex-row sm:items-center sm:gap-4 lg:bottom-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {error ? (
+          <p role="alert" className="t-body-sm font-medium text-v2-danger">
+            {error}
+          </p>
+        ) : canAssign ? (
+          <p className="t-body-sm text-v2-fg">{line}</p>
+        ) : (
+          <p className="t-body-sm text-v2-muted">{pending.join(' · ')}</p>
+        )}
       </div>
-
-      {error ? (
-        <p className="t-meta font-medium text-[color:var(--v2-danger)]">{error}</p>
-      ) : null}
-
-      <div className="flex items-center justify-between gap-3">
-        <span className="t-meta text-[color:var(--v2-faint)]">
-          {canAssign
-            ? readyHint
-            : `${blockers} ${blockers === 1 ? 'punto' : 'puntos'} por resolver.`}
-        </span>
-        <Button
-          variant="primary"
-          size="lg"
-          icon={canAssign ? Rocket : Lock}
-          loading={submitting}
-          disabled={!canAssign}
-          onClick={onAssign}
-        >
-          Asignar plan
-        </Button>
-      </div>
+      <Button
+        variant="primary"
+        size="lg"
+        icon={canAssign ? Rocket : Lock}
+        loading={submitting}
+        disabled={!canAssign}
+        onClick={onAssign}
+        className="pointer-coarse:h-11"
+      >
+        Asignar plan
+      </Button>
     </div>
   );
 }

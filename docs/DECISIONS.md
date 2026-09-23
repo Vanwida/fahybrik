@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El alta dice qué plan recibe y cuándo lo ve (y se puede deshacer)
+
+**El hueco:** firmar el alta en modo «compartido» materializaba **el programa de biblioteca de id más bajo** del coach, en borrador privado — sin que nadie lo eligiera, ignorando el grupo en el que el atleta ya había entrado al invitarle (y chocando con su plan si ya lo tenía). La pantalla decía «Seguir su grupo» sin nombrar grupo ni programa, no decía cuándo lo vería el atleta y, tras asignar, saltaba a la siguiente alta sin confirmar nada. Los «tests de la semana 1» eran una lista cableada en inglés (HRV baseline 7d, HYROX simulation half, Update 1RMs, 5K test) — método de una escuela — y marcarlos o no **no hacía nada** (solo quedaba en la foto). La carrera objetivo era obligatoria para asignar, aunque no todo atleta entrena para una fecha.
+
+**Decidido (`web/lib/coach/intake-commit.ts`, `intake-plan-options.ts`, `intake-plan-line.ts`; esquema `shared/schema/coach-intake.ts`):**
+- El alta elige `plan`: **`keep`** (se queda con lo que tiene: su grupo), **`group`** (entra en un grupo el lunes que viene, en el programa y semana en que está el grupo), **`program`** (un programa desde un lunes) o **`personal`**. Grupo y programa van por el **motor de asignar a varios** (`runGroupJoin` / `runAssign`, lote con registro), con **entrega automática** (cada semana se abre N días antes, N del coach) y `replace` desde ese lunes (lo entrenado no se toca). Fuera `materializeFirstMicrocicloDraft` y `month_template_id`/`month_start_date` del esquema.
+- La pantalla enseña, antes de asignar, la línea de lo que recibe — «Entra en HYROX mañanas · Base, semana 2 · empieza lun 28 sept · semana visible el sáb 26» — calculada con la misma previa (sin escribir). Tras asignar, un aviso con esa línea y **Deshacer** (`DELETE /api/coach/intake/[id]` → `undoIntake`): repone el lote, retira la bienvenida (borrado lógico) y deja el alta pendiente. La foto guarda `assign_batch_id`, `welcome_message_id`, `prior_plan_mode`. Si ya entrenó algo del plan nuevo, se niega con el motivo.
+- Primero el plan: si no se puede dar, el alta **no** queda firmada; si algo falla después, el lote se deshace.
+- Los tests del alta son la **batería del coach** (`listCoachTests`, activos), de solo lectura: entran solos con su primer plan (`scheduleWeek1Calibration`). Fuera `recommendBaselineTests`.
+- La carrera objetivo **no es requisito** (`target_event_id` nullable): sin ella, un aviso informativo.
+- La ficha de un atleta «Nuevo» enseña el alta en vez del calendario aunque ya tenga semanas (plan §6).
+
+**Queda:** deshacer un lote no retira las sesiones de tests que el primer plan inyectó (`scheduleWeek1Calibration`) — hoy ningún coach local tiene batería, pero con batería quedarían; es del motor de deshacer (DOM). La señal «Alta pendiente» del barrido sigue viva unos minutos tras firmar (reconciliar como las de plan; SIG).
+
+**NO hacer:** no volver a darle a un atleta un programa que nadie eligió; no escribir tests o fases con nombre en código; no firmar un alta cuyo plan no se ha podido dar.
+
+---
+
 ## 2026-09-23 · Aislamiento entre coaches: las referencias que viajan en JSON se validan al escribir y se filtran al leer
 
 **El hueco (revisión de aislamiento, hallazgos 1, 2 y 4):** los ids que llegan en un body o dentro de un JSON guardado (`template_id` de «añadir sesión», `sessions[].template_id` / `blocks[].source_block_id` / `items[].exercise_id` de `slots_json`, el `to_template_id` de una propuesta, `athlete_id` / `lead_id` / `appointment_id` de un parte de sesión, el atleta del GET de la propuesta mensual) se seguían sin mirar de quién eran. El coach A clonaba el entreno de B en su atleta y lo leía; escribía partes en la ficha de otro club y mandaba correos a sus leads.

@@ -84,7 +84,7 @@ export default async function FichaAtletaPage({
       loadFichaEstado({ coach_id: session.coach_id, athlete_id: athleteId, readiness: shell.readiness }).catch(
         () => null,
       ),
-      shell.intake_pending && !shell.has_upcoming_plan
+      shell.intake_pending
         ? loadIntakeReview({ coach_id: session.coach_id, athlete_id: athleteId }).catch(() => null)
         : Promise.resolve(null),
     ]);

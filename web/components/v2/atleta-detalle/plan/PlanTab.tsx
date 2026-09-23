@@ -50,7 +50,9 @@ export function PlanTab({
   // Alta pendiente SIN plan: la lista de lo que falta para asignar ocupa el sitio del
   // calendario. Si ya tiene plan (p. ej. entró por un grupo), manda el calendario y
   // «Revisar alta» abre la revisión entera.
-  if (shell.intake_pending && intake && !shell.has_upcoming_plan) {
+  // Un atleta «Nuevo» (alta pendiente) enseña su alta en vez del calendario, tenga
+  // o no ya semanas (entró en su grupo al invitarle): el plan aún no está firmado.
+  if (shell.intake_pending && intake) {
     return <IntakeReview review={intake} athleteId={shell.athlete_id} embedded />;
   }
 

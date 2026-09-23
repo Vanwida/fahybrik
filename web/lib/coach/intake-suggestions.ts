@@ -22,7 +22,6 @@ import {
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import type {
   AthleteLevel,
-  IntakeBaselineTest,
 } from './intake-schema';
 
 export interface SuggestionBenchmark {
@@ -237,68 +236,6 @@ export function explainLevel(
 }
 
 // =============================================================================
-// Baseline tests
-// =============================================================================
-
-interface RecommendTestsParams {
-  benchmarks: SuggestionBenchmark[];
-  is_compressive: boolean;
-}
-
-export function recommendBaselineTests(params: RecommendTestsParams): IntakeBaselineTest[] {
-  const slugs = new Set(params.benchmarks.map((b) => b.exercise_slug));
-  const tests: IntakeBaselineTest[] = [
-    {
-      slug: 'hrv_baseline_7d',
-      label: 'HRV baseline 7d',
-      kind: 'auto',
-      scheduled_for: null,
-    },
-    {
-      slug: 'sleep_baseline_7d',
-      label: 'Sleep tracking 7d',
-      kind: 'auto',
-      scheduled_for: null,
-    },
-  ];
-
-  if (!params.is_compressive) {
-    tests.push({
-      slug: 'hyrox_sim_half',
-      label: 'HYROX simulation half',
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  const missing1RM = [
-    BENCH_BACK_SQUAT_1RM,
-    BENCH_DEADLIFT_1RM,
-    BENCH_BENCH_PRESS_1RM,
-    BENCH_CLEAN_1RM,
-  ].filter((s) => !slugs.has(s));
-  if (missing1RM.length >= 2) {
-    tests.push({
-      slug: 'one_rm_battery',
-      label: `Update 1RMs (${missing1RM.length} faltan)`,
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  if (!slugs.has(BENCH_RUN_5K) && !slugs.has(BENCH_RUN_10K)) {
-    tests.push({
-      slug: 'endurance_5k',
-      label: '5K test endurance',
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  return tests;
-}
-
-// =============================================================================
 // Welcome message draft
 // =============================================================================
 
@@ -317,10 +254,7 @@ export function composeWelcomeDraft(params: {
   const first = params.full_name.split(' ')[0];
   const eventPhrase = params.target_event && !params.target_event.is_in_past
     ? `El plan apunta a ${params.target_event.name}.`
-    : 'Vamos a definir tu evento objetivo en los próximos días.';
-  const weekPhrase = params.is_compressive
-    ? 'Esta semana es testing + arranque comprimido.'
-    : 'Esta semana es testing + arranque del primer microciclo.';
+    : 'Si entrenas para alguna carrera, dime cuál y apuntamos el plan a esa fecha.';
   // The welcome adjective agrees with the athlete's sex. When sex is unknown or
   // 'other' we use a non-gendered phrasing ("te doy la bienvenida") so the draft
   // never assumes a gender — masculine-by-default was the bug.
@@ -334,7 +268,7 @@ export function composeWelcomeDraft(params: {
   const opener = params.has_intake_data
     ? `Hola ${first}, ${welcome ?? 'te doy la bienvenida'}. He revisado tu perfil — tienes buena base. ${eventPhrase}`
     : `Hola ${first}, ${welcome ? `${welcome} a bordo` : 'te doy la bienvenida'}. Cuéntame tus objetivos y tu punto de partida para ajustar el plan. ${eventPhrase}`;
-  return [opener, weekPhrase, 'Cualquier duda escríbeme. Vamos.'].join(' ');
+  return [opener, 'Cualquier duda, escríbeme. Vamos.'].join(' ');
 }
 
 // =============================================================================

@@ -21,7 +21,7 @@ function intakePayload(
   block_specs: IntakeCommitInput['block_specs'] = [],
 ): IntakeCommitInput {
   return {
-    target_event_id: 1,
+    target_event_id: null,
     plan_mode,
     block_specs,
     level: 2,
@@ -88,7 +88,7 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     });
 
     expect(result.personal_plan).toBeNull();
-    expect(result.first_block_draft).toBeNull();
+    expect(result.batch_id).toBeNull();
 
     const assigned = await sql<Array<{ n: string }>>`
       select count(*)::text as n from athlete_month_assignments
@@ -194,38 +194,28 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     expect(row[0]!.notes_mode).toBe('personal');
   }, 120000);
 
-  test('modo compartido (defecto): sigue naciendo de la biblioteca, sin plan personal', async () => {
-    const { fx, libraryMonthId } = await coachWithLibrary();
+  test('modo compartido sin elección = se queda con lo que tiene: no se materializa nada', async () => {
+    // Antes este camino materializaba «el primer programa de la biblioteca» (el de
+    // id más bajo, sin que nadie lo eligiera). Retirado: el alta asigna lo que el
+    // coach elige (grupo o programa) — ver intake-commit-plan.db.test.ts.
+    const { fx } = await coachWithLibrary();
 
     const result = await commitIntake({
       athlete_id: fx.athleteId,
       coach_id: fx.coachId,
       coach_user_id: fx.coachUserId,
-      // Sin `plan_mode`: es exactamente lo que mandaba la pantalla antes de que
-      // existiera la elección, y tiene que comportarse igual que entonces.
       payload: intakePayload(undefined),
       client: sql,
     });
 
     expect(result.personal_plan).toBeNull();
-    expect(result.first_block_draft).not.toBeNull();
+    expect(result.batch_id).toBeNull();
+    expect(result.plan.kind).toBe('keep');
 
-    const assigned = await sql<Array<{ month_template_id: string; template_athlete_id: string | null }>>`
-      select ama.month_template_id::text, m.athlete_id::text as template_athlete_id
-      from athlete_month_assignments ama
-      join program_month_templates m on m.id = ama.month_template_id
-      where ama.athlete_id = ${fx.athleteId}
+    const assigned = await sql<Array<{ n: string }>>`
+      select count(*)::text as n from athlete_month_assignments where athlete_id = ${fx.athleteId}
     `;
-    expect(assigned).toHaveLength(1);
-    expect(Number(assigned[0]!.month_template_id)).toBe(libraryMonthId);
-    expect(assigned[0]!.template_athlete_id).toBeNull();
-
-    // Ni un solo contenedor personal creado por este camino.
-    const personal = await sql<Array<{ n: string }>>`
-      select count(*)::text as n from program_month_templates
-      where coach_id = ${fx.coachId} and athlete_id = ${fx.athleteId}
-    `;
-    expect(Number(personal[0]!.n)).toBe(0);
+    expect(Number(assigned[0]!.n)).toBe(0);
 
     const snapshot = await sql<Array<{ plan_mode: string; notes_mode: string | null }>>`
       select plan_mode, intake_notes_json ->> 'plan_mode' as notes_mode
@@ -235,8 +225,9 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
     expect(snapshot[0]!.notes_mode).toBe('shared');
   }, 120000);
 
-  test('un plan personal no se puede pedir desde una plantilla de la biblioteca', async () => {
+  test('un plan personal no puede venir con una elección de programa', async () => {
     const { fx, libraryMonthId } = await coachWithLibrary();
+    const nextMonday = isoDateString(addDays(mondayOfWeek(new Date()), 7));
 
     await expect(
       commitIntake({
@@ -245,8 +236,7 @@ describeWithDb('commitIntake · plan_mode (DB real)', () => {
         coach_user_id: fx.coachUserId,
         payload: {
           ...intakePayload('personal', [{ type: 'Arranque', weeks: 2 }]),
-          month_template_id: libraryMonthId,
-          month_start_date: isoDateString(mondayOfWeek(new Date())),
+          plan: { kind: 'program', program_id: libraryMonthId, start_date: nextMonday },
         },
         client: sql,
       }),

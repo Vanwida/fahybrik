@@ -11,10 +11,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
-import { Button, StatusBadge } from '@/components/v2/ui';
+import { Button, Card, CardHeader, StatusBadge } from '@/components/v2/ui';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
-import { Panel } from './parts';
 import type { ClasificacionData } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 type Field = 'level' | 'days';
@@ -92,16 +90,16 @@ export function ClasificacionCard({
   const axisLower = axis.toLowerCase();
 
   return (
-    <Panel
-      title={planPersonal ? 'Clasificación' : 'Clasificación · para asignación'}
-      action={
+    <Card className="flex flex-col gap-4">
+      <CardHeader
+        title={`${axis} y días`}
+        className="mb-0"
+        action={
         planPersonal ? (
           // Con plan personal la secuencia por nivel está en pausa: decir «lista
           // para asignar» aquí mentiría. El nivel/días siguen siendo dato real.
           <StatusBadge variant="soft" size="sm" tone="neutral" label="Plan personal · el grupo no asigna" />
-        ) : bothSet ? (
-          <StatusBadge variant="soft" size="sm" tone="ok" label="Lista para asignar" />
-        ) : (
+        ) : bothSet ? null : (
           <StatusBadge
             variant="soft"
             size="sm"
@@ -115,14 +113,13 @@ export function ClasificacionCard({
             }
           />
         )
-      }
-      bodyClassName="flex flex-col gap-4"
-    >
+        }
+      />
       <div className="flex flex-col gap-2">
         <div className="flex min-h-7 items-center justify-between gap-2">
           <span className="t-meta text-v2-muted">{axis}</span>
           {showSuggestion ? (
-            <Button size="sm" variant="ghost" icon={Sparkles} disabled={busy} onClick={() => chooseLevel(data.suggested_level_id!)}>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => chooseLevel(data.suggested_level_id!)} className="pointer-coarse:h-11">
               Sugerido: {data.suggested_level_name}
             </Button>
           ) : null}
@@ -163,6 +160,6 @@ export function ClasificacionCard({
           {error}
         </p>
       ) : null}
-    </Panel>
+    </Card>
   );
 }
