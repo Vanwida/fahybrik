@@ -24,6 +24,7 @@ import type {
   RunComplianceVerdict,
   WorkDurationVerdict,
 } from '@fahybrid/shared/domain/adherence';
+import { GRADIENT_RETIRES_PACE_PCT } from '@fahybrid/shared/domain/running/gradient';
 
 // ---------------------------------------------------------------------------
 // MÉTODO, no mecanismo (HARD RULE Nº0) — nacen como DEFECTO EDITABLE del coach
@@ -31,12 +32,14 @@ import type {
 
 /**
  * A partir de qué pendiente media el ritmo bruto deja de ser comparable y el
- * troceado pasa a medirse en TIEMPO. Otro entrenador competente lo pondría en
- * otro sitio (hay quien corrige el ritmo por pendiente en vez de retirarlo), así
- * que es método: valor por defecto, nunca una constante enterrada. Espeja
- * `PENDIENTE_QUE_RETIRA_EL_RITMO_PCT` del doble a propósito.
+ * troceado pasa a medirse en TIEMPO. Es método del coach
+ * (`coach_running_thresholds.gradient_retires_pace_pct`, editable en Ajustes ›
+ * Método) y el servidor lo manda en `run_compliance.gradient_retires_pace_pct`;
+ * la lectura compara contra ESE número (`ContextoDeLectura.pendienteQueRetiraPct`).
+ * Esto es solo el defecto para cuando no llega (un detalle que no lo resolvió):
+ * el mismo defecto del dominio, no un número propio del panel.
  */
-export const PENDIENTE_QUE_RETIRA_EL_RITMO_PCT = 3;
+export const PENDIENTE_QUE_RETIRA_EL_RITMO_PCT = GRADIENT_RETIRES_PACE_PCT;
 
 /**
  * Cuántos tramos de trabajo hacen falta para que el veredicto sea el SUJETO. Con
@@ -218,6 +221,8 @@ export interface ContextoDeLectura {
   segundosEnZona: number | null;
   /** El veredicto cuando hay UN solo tramo evaluable en toda la sesión. */
   veredictoUnico: RunComplianceVerdict | null;
+  /** La pendiente que retira el ritmo, la del coach (viaja en `run_compliance`). Null = el defecto. */
+  pendienteQueRetiraPct?: number | null;
 }
 
 export interface Decision {
@@ -256,7 +261,8 @@ export function decidirLectura(
     // compara, así que el eje del troceado pasa a TIEMPO y el veredicto de
     // ritmo se retira en vez de emitirse mal.
     const pendiente = pendienteMedia(trabajo);
-    if (pendiente != null && pendiente >= PENDIENTE_QUE_RETIRA_EL_RITMO_PCT) {
+    const umbral = ctx.pendienteQueRetiraPct ?? PENDIENTE_QUE_RETIRA_EL_RITMO_PCT;
+    if (pendiente != null && pendiente >= umbral) {
       const tiempos = trabajo.map((t) => t.duracionS).filter((s): s is number => s != null);
       if (tiempos.length >= MIN_TRAMOS_PARA_VEREDICTO) {
         return {

@@ -1,8 +1,9 @@
 'use client';
 
 // Client access to the coach "Coach IA redacta el entreno" endpoint (#33).
-// GET  /api/coach/ai/suggest-workout → { llm_configured } (gates the "Completo" mode).
-// POST /api/coach/ai/suggest-workout { focus, level?, mode, athlete_id? } → { suggestion }.
+// GET  /api/coach/ai/suggest-workout?athlete_id= → { llm_configured, levels, axis_label, athlete_level_id }
+//      (gates the "Completo" mode and offers the coach's OWN levels, not a fixed scale).
+// POST /api/coach/ai/suggest-workout { focus, level_id?, mode, athlete_id? } → { suggestion }.
 // The suggestion's `blocks` are WeekDayPart[]; the caller converts them to editor
 // blocks (ai-blocks-to-editor) for the preview + insert. No schema duplicated here.
 
@@ -11,7 +12,20 @@ import { serializeBlockExercises } from '@/lib/dashboard/v2/editor-serialize';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 
 export type SuggestMode = 'fast' | 'slow';
-export type ProgramLevel = 'beginner' | 'intermediate' | 'pro' | 'elite';
+/** Un valor del eje del coach («Nivel» por defecto), tal como lo ofrece el GET. */
+export interface CoachLevelOption {
+  id: string;
+  name: string;
+  label: string;
+}
+
+export interface SuggestContext {
+  llm_configured: boolean;
+  levels: CoachLevelOption[];
+  axis_label: string;
+  /** El nivel del atleta (o el sugerido), si lo tiene y sigue activo. */
+  athlete_level_id: string | null;
+}
 
 export interface AiSuggestion {
   mode: SuggestMode;
@@ -26,22 +40,35 @@ export interface AiSuggestion {
 export interface SuggestWorkoutInput {
   focus: string;
   mode: SuggestMode;
-  level?: ProgramLevel;
+  /** Un nivel del coach; sin él, la IA no filtra por nivel. */
+  level_id?: string | null;
   athlete_id?: string | number;
 }
 
 const ENDPOINT = '/api/coach/ai/suggest-workout';
 
-/** Whether Coach IA's LLM is configured — drives showing/enabling the "Completo" mode. */
-export async function getLlmConfigured(): Promise<boolean> {
+/** Whether Coach IA's LLM is configured (the "Completo" mode) + the coach's levels. */
+export async function getSuggestContext(athleteId?: string | number): Promise<SuggestContext> {
+  const empty: SuggestContext = { llm_configured: false, levels: [], axis_label: 'Nivel', athlete_level_id: null };
   try {
-    const res = await fetch(ENDPOINT, { credentials: 'include' });
-    if (!res.ok) return false;
-    const body = (await res.json()) as { llm_configured?: boolean };
-    return body.llm_configured === true;
+    const q = athleteId != null ? `?athlete_id=${encodeURIComponent(String(athleteId))}` : '';
+    const res = await fetch(`${ENDPOINT}${q}`, { credentials: 'include' });
+    if (!res.ok) return empty;
+    const body = (await res.json()) as Partial<SuggestContext>;
+    return {
+      llm_configured: body.llm_configured === true,
+      levels: Array.isArray(body.levels) ? body.levels : [],
+      axis_label: body.axis_label ?? 'Nivel',
+      athlete_level_id: body.athlete_level_id ?? null,
+    };
   } catch {
-    return false;
+    return empty;
   }
+}
+
+/** Solo si el LLM está configurado (el formulario de importar no necesita niveles). */
+export async function getLlmConfigured(): Promise<boolean> {
+  return (await getSuggestContext()).llm_configured;
 }
 
 export class SuggestWorkoutError extends Error {}
@@ -57,7 +84,7 @@ export async function requestSuggestion(input: SuggestWorkoutInput): Promise<AiS
       body: JSON.stringify({
         focus: input.focus,
         mode: input.mode,
-        ...(input.level ? { level: input.level } : {}),
+        ...(input.level_id ? { level_id: input.level_id } : {}),
         ...(input.athlete_id != null ? { athlete_id: input.athlete_id } : {}),
       }),
     });

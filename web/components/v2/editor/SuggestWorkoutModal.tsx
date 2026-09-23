@@ -19,26 +19,22 @@ import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-editor';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import {
-  getLlmConfigured,
+  getSuggestContext,
   getMethodologyGroups,
   requestSuggestion,
   saveBlockToLibrary,
   SuggestWorkoutError,
   type AiSuggestion,
+  type CoachLevelOption,
   type MethodologyGroupOption,
-  type ProgramLevel,
   type SuggestMode,
 } from './ai-suggest-workout';
 
 const FOCUS_MIN = 2;
 const FOCUS_MAX = 400;
 
-const LEVELS: { id: ProgramLevel; label: string }[] = [
-  { id: 'beginner', label: 'Inic.' },
-  { id: 'intermediate', label: 'Inter.' },
-  { id: 'pro', label: 'Pro' },
-  { id: 'elite', label: 'Élite' },
-];
+/** Sin nivel = la IA no filtra por nivel (no se inventa uno). */
+const NO_LEVEL = '';
 
 // Block left-border modality color from its format (same axis as the editor).
 function blockColorVar(format: string | null): string {
@@ -72,20 +68,22 @@ type Phase = 'form' | 'thinking' | 'proposal';
 export function SuggestWorkoutModal({
   destinationLabel,
   athleteId,
-  defaultLevel = 'pro',
   onClose,
   onInsert,
 }: {
   destinationLabel: string;
   athleteId?: string | number;
-  defaultLevel?: ProgramLevel;
   onClose: () => void;
   onInsert: (blocks: EditorBlock[]) => void;
 }) {
   const [phase, setPhase] = useState<Phase>('form');
   const [focus, setFocus] = useState('');
   const [mode, setMode] = useState<SuggestMode>('fast');
-  const [level, setLevel] = useState<ProgramLevel>(defaultLevel);
+  // Los niveles son los DEL COACH (su eje, con su nombre); por defecto el del
+  // atleta si lo tiene, si no ninguno.
+  const [level, setLevel] = useState<string>(NO_LEVEL);
+  const [levels, setLevels] = useState<CoachLevelOption[]>([]);
+  const [axisLabel, setAxisLabel] = useState('Nivel');
   const [llmConfigured, setLlmConfigured] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,15 +95,18 @@ export function SuggestWorkoutModal({
 
   useEffect(() => {
     let live = true;
-    void getLlmConfigured().then((ok) => {
+    void getSuggestContext(athleteId).then((ctx) => {
       if (!live) return;
-      setLlmConfigured(ok);
-      if (!ok) setMode('fast'); // no LLM → only Rápido is real
+      setLlmConfigured(ctx.llm_configured);
+      if (!ctx.llm_configured) setMode('fast'); // no LLM → only Rápido is real
+      setLevels(ctx.levels);
+      setAxisLabel(ctx.axis_label);
+      if (ctx.athlete_level_id) setLevel(ctx.athlete_level_id);
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [athleteId]);
 
 
   const canGenerate = focus.trim().length >= FOCUS_MIN;
@@ -118,7 +119,7 @@ export function SuggestWorkoutModal({
       const s = await requestSuggestion({
         focus: focus.trim(),
         mode,
-        level,
+        level_id: level === NO_LEVEL ? null : level,
         ...(athleteId != null ? { athlete_id: athleteId } : {}),
       });
       const eb = weekDayPartsToEditorBlocks(s.blocks);
@@ -202,6 +203,8 @@ export function SuggestWorkoutModal({
           setMode={setMode}
           level={level}
           setLevel={setLevel}
+          levels={levels}
+          axisLabel={axisLabel}
           llmConfigured={llmConfigured}
           error={error}
         />
@@ -241,6 +244,8 @@ function FormBody({
   setMode,
   level,
   setLevel,
+  levels,
+  axisLabel,
   llmConfigured,
   error,
 }: {
@@ -248,8 +253,10 @@ function FormBody({
   setFocus: (v: string) => void;
   mode: SuggestMode;
   setMode: (m: SuggestMode) => void;
-  level: ProgramLevel;
-  setLevel: (l: ProgramLevel) => void;
+  level: string;
+  setLevel: (l: string) => void;
+  levels: CoachLevelOption[];
+  axisLabel: string;
   llmConfigured: boolean | null;
   error: string | null;
 }) {
@@ -282,18 +289,21 @@ function FormBody({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="t-meta text-v2-muted">
-          Nivel <span className="font-normal text-v2-faint">· auto del atleta</span>
-        </span>
-        <ChipGroup
-          options={LEVELS.map((l) => ({ value: l.id, label: l.label }))}
-          value={level}
-          onChange={setLevel}
-          ariaLabel="Nivel"
-          mono={false}
-        />
-      </div>
+      {levels.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">{axisLabel}</span>
+          <ChipGroup
+            options={[
+              { value: NO_LEVEL, label: 'Cualquiera' },
+              ...levels.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+            value={level}
+            onChange={setLevel}
+            ariaLabel={axisLabel}
+            mono={false}
+          />
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="t-body-sm font-medium text-v2-danger">
