@@ -398,7 +398,9 @@ export async function resolveExercise(
     // verified directly against a live branch (see task report), not assumed.
 
     // (3) Catalog name, exact — matched against the coach's MERGED name
-    // (override.name ?? base.name; see file header). Scoped to what this coach
+    // (override.name ?? base.name; see file header) AND the row's own Spanish
+    // and English names (0172): «Bici libre» es el `name_es` de `bici-libre`
+    // aunque su `name` sea otro. Scoped to what this coach
     // may see so this can never resolve into another coach's PROPIO exercise.
     //
     // `unaccent(lower(...))` on BOTH sides (migration 0151): `normalized` is
@@ -413,7 +415,11 @@ export async function resolveExercise(
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
-      where unaccent(lower(coalesce(ceo.name, e.name))) = unaccent(${normalized})
+      where unaccent(${normalized}) in (
+          unaccent(lower(coalesce(ceo.name, e.name))),
+          unaccent(lower(coalesce(e.name_es, ''))),
+          unaccent(lower(coalesce(e.name_en, '')))
+        )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, e.id asc
       limit 1
