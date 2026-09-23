@@ -18,7 +18,7 @@ tenant-neutral: no club name, coach name, domain or method baked into code or co
   change in a file you don't own, write it in your final report instead of editing it.
 - **Commit only your own paths, with a pathspec commit** (the index is shared; a plain `git commit`
   can sweep up another agent's staged files):
-  `git add <your paths> && git -c user.name=Vanwida -c user.email=vanwida@aistudios.pro commit -m "<msg>" -- <your paths>`
+  `git add <your paths> && git commit --author="Vanwida <vanwida@aistudios.pro>" -m "<msg>" -- <your paths>` (the repo config sets the committer to Claude <noreply@anthropic.com>; do NOT override it with `-c user.*`)
   If you hit `index.lock`, wait a few seconds and retry. **Never** `git add -A`, `git add .`,
   `git stash`, `git reset`, `git checkout -- <others>`, rebase, or push. The lead pushes.
   Commit messages in Spanish, small and honest, ending with:
