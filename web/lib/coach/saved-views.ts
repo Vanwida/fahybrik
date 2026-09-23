@@ -30,6 +30,13 @@ type Row = { id: string; name: string; query: string; position: number; created_
 
 const toView = (r: Row): SavedView => ({ ...r });
 
+/** Columnas de una vista, con las fechas en ISO 8601 (UTC). */
+const columns = (sql: Sql) => sql`
+  id::text, name, query, position,
+  to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+  to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
+`;
+
 function translate(err: unknown, name: string | undefined): never {
   const e = err as { code?: string; constraint_name?: string };
   if (e.code === '23505' && e.constraint_name === 'coach_saved_views_name_uq') {
@@ -40,7 +47,7 @@ function translate(err: unknown, name: string | undefined): never {
 
 export async function listSavedViews(coach_id: number | bigint, client: Sql = defaultSql): Promise<SavedView[]> {
   const rows = await client<Row[]>`
-    select id::text, name, query, position, created_at::text, updated_at::text
+    select ${columns(client)}
     from coach_saved_views where coach_id = ${Number(coach_id)}
     order by position, id
   `;
@@ -71,7 +78,7 @@ export async function createSavedView(
       const rows = await tx<Row[]>`
         insert into coach_saved_views (coach_id, name, query, position)
         values (${coach}, ${input.name}, ${input.query}, ${input.position ?? count[0]?.next ?? 0})
-        returning id::text, name, query, position, created_at::text, updated_at::text
+        returning ${columns(tx)}
       `;
       return toView(rows[0]!);
     });
@@ -97,7 +104,7 @@ export async function updateSavedView(
         position = case when ${has('position')} then ${patch.position ?? 0}::int else position end,
         updated_at = now()
       where id = ${id} and coach_id = ${Number(coach_id)}
-      returning id::text, name, query, position, created_at::text, updated_at::text
+      returning ${columns(client)}
     `;
   } catch (err) {
     translate(err, patch.name);

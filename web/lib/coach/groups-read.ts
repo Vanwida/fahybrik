@@ -51,7 +51,7 @@ async function loadGroupRows(client: Sql, coach_id: number, only?: number): Prom
            ps.days_per_week, ps.end_policy, ps.progression_pct, ps.progression_applies_to,
            (select count(*)::int from athlete_sequence_progress asp
              where asp.sequence_id = ps.id and asp.status = 'active') as member_count,
-           ps.updated_at::text
+           to_char(ps.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
     from program_sequences ps
     left join athlete_levels al on al.id = ps.level_id
     where ps.coach_id = ${coach_id} and (${only ?? null}::bigint is null or ps.id = ${only ?? null}::bigint)
@@ -155,7 +155,7 @@ export async function getGroup(
   >`
     select a.id::text as athlete_id, a.full_name as name, a.avatar_url, al.name as level_label,
            a.lifecycle_status::text as lifecycle, asp.current_position as position,
-           asp.started_at::text as joined_at,
+           to_char(asp.started_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as joined_at,
            (select to_char(max(ama.end_date), 'YYYY-MM-DD') from athlete_month_assignments ama
              where ama.athlete_id = a.id) as plan_end
     from athlete_sequence_progress asp

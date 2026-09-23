@@ -15,6 +15,7 @@ import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/sh
 import {
   anchorFromRequest,
   groupAnchorFromMembers,
+  placeInGroup,
   type ExistingReceipt,
   type GroupAnchor,
   type OnConflict,
@@ -340,15 +341,21 @@ export async function runGroupJoin(params: {
     planGroupJoinTarget({ athlete, receipts, group, anchor, start, policy: params.on_conflict });
 
   const targets = recipients.map((r) => replan(r, receipts.get(r.id) ?? []));
-  const base = targets.find((t) => t.program)?.program ?? startItem?.program ?? null;
-  const baseWeek = targets.find((t) => t.program)?.start_week ?? 1;
+  // La cabecera de la previa dice lo que recibe quien entra SIN plan: el programa y
+  // la semana en que está el grupo ese lunes (los que adoptan o encadenan lo
+  // llevan en su fila).
+  const entry =
+    group.chain.length === 0
+      ? null
+      : placeInGroup({ receipts: [], start, policy: params.on_conflict, chain: group.chain, endPolicy: group.end_policy, anchor });
+  const entryItem = entry ? group.chain.find((c) => c.position === entry.position) ?? null : null;
   const preview = buildPreview({
     targets,
     recipients,
-    program: base,
+    program: entryItem?.program ?? null,
     group: { id: group.id, name: group.name },
-    start,
-    start_week: baseWeek,
+    start: entry?.placement.start_date ?? start,
+    start_week: entry?.week ?? 1,
   });
   if (params.dry_run) return { preview };
 
