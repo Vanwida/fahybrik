@@ -20,7 +20,7 @@ function Chip({ chip }: { chip: HacerAhoraChip }) {
 
   if (chip.kind === 'alta') {
     return (
-      <Link href={base} className={buttonVariants({ size: 'sm' })}>
+      <Link href={shell.has_upcoming_plan ? `${base}/intake` : base} className={buttonVariants({ size: 'sm' })}>
         {chip.label}
       </Link>
     );

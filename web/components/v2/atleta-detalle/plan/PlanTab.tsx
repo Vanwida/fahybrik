@@ -47,7 +47,10 @@ export function PlanTab({
   const router = useRouter();
   const c = useCalendar(calendar);
 
-  if (shell.intake_pending && intake) {
+  // Alta pendiente SIN plan: la lista de lo que falta para asignar ocupa el sitio del
+  // calendario. Si ya tiene plan (p. ej. entró por un grupo), manda el calendario y
+  // «Revisar alta» abre la revisión entera.
+  if (shell.intake_pending && intake && !shell.has_upcoming_plan) {
     return <IntakeReview review={intake} athleteId={shell.athlete_id} embedded />;
   }
 
