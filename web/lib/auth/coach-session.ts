@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { sql } from '../db';
 import { userRoles, type Role } from './roles';
@@ -173,7 +174,15 @@ async function resolveDemoCoachSession(): Promise<CoachSession | null> {
   return session;
 }
 
-export async function getCoachSession(): Promise<CoachSession | null> {
+/**
+ * The coach session of THIS request. Wrapped in React `cache()` so the (v2) layout and
+ * the page it renders share ONE resolution (Clerk + the membership query + roles) per
+ * request instead of repeating it. Outside a React render (route handlers, tests) `cache`
+ * is a pass-through and every call resolves afresh — same behaviour as before.
+ */
+export const getCoachSession = cache(resolveRequestCoachSession);
+
+async function resolveRequestCoachSession(): Promise<CoachSession | null> {
   // Gated demo path, BEFORE Clerk. Invisible unless DEMO_ACCESS=1; falls
   // through to the real Clerk path when there is no valid demo cookie, so the
   // production auth flow is completely untouched.
