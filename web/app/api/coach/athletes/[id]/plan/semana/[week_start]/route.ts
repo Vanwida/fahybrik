@@ -2,6 +2,8 @@
 //   { op: 'copy', to_week_start }   copiar la semana a otra
 //   { op: 'shift', days }           desplazar ±N días lo pendiente
 //   { op: 'scale', pct }            reducir el volumen pct % (5–80)
+//   { op: 'scale', factor }         escalar el volumen ×factor, en los dos sentidos
+//                                   (0,2–1,5; p. ej. 1,2 = +20 %)
 //   { op: 'deload' }                descarga con el % del coach
 // Solo toca entrenos del coach pendientes. Devuelve lo movido/creado para deshacer.
 
@@ -13,6 +15,7 @@ import { coachActor } from '@/lib/audit/record-edit';
 import { mondaySchema } from '@fahybrid/shared/schema/assign-many';
 import { DELOAD_VOLUME_MAX, DELOAD_VOLUME_MIN } from '@fahybrid/shared/domain/coach/progression-steps';
 import { applyWeekOp, WeekOpError } from '@/lib/dashboard/v2/ficha-week-ops';
+import { MAX_VOLUME_FACTOR, MIN_VOLUME_FACTOR } from '@/lib/dashboard/programming/progress-ops';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +33,11 @@ const bodySchema = z.discriminatedUnion('op', [
         .refine((d) => d !== 0, 'Elige cuántos días desplazar.'),
     })
     .strict(),
+  z.object({ op: z.literal('deload') }).strict(),
+]);
+
+// «Escalar volumen»: `pct` (reducir, la forma de siempre) o `factor` (subir o bajar).
+const scaleSchema = z.union([
   z
     .object({
       op: z.literal('scale'),
@@ -39,8 +47,19 @@ const bodySchema = z.discriminatedUnion('op', [
         .max(DELOAD_VOLUME_MAX, `Como mucho un ${DELOAD_VOLUME_MAX} %.`),
     })
     .strict(),
-  z.object({ op: z.literal('deload') }).strict(),
+  z
+    .object({
+      op: z.literal('scale'),
+      factor: z
+        .number()
+        .min(MIN_VOLUME_FACTOR, `Como poco ×${MIN_VOLUME_FACTOR}.`)
+        .max(MAX_VOLUME_FACTOR, `Como mucho ×${MAX_VOLUME_FACTOR}.`)
+        .refine((f) => f !== 1, 'Elige cuánto subir o bajar.'),
+    })
+    .strict(),
 ]);
+
+const opSchema = z.union([bodySchema, scaleSchema]);
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string; week_start: string }> }) {
   const auth = await requireCoach();
@@ -50,7 +69,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string; we
   if (!id.ok) return id.response;
   const week = parseWith(mondaySchema, params.week_start);
   if (!week.ok) return week.response;
-  const body = await parseBody(req, bodySchema);
+  const body = await parseBody(req, opSchema);
   if (!body.ok) return body.response;
 
   try {

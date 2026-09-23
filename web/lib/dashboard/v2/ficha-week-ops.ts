@@ -4,7 +4,8 @@ import 'server-only';
 //   copy    — copiar los entrenos de una semana a otra (cada copia con su
 //             instancia propia, mismo día de la semana);
 //   shift   — desplazar ±N días los entrenos pendientes de la semana;
-//   scale   — reducir el volumen x % (series/rondas, o tiempo/distancia de un
+//   scale   — escalar el volumen: `pct` = reducir x %, `factor` = ×f en los dos
+//             sentidos (0,2–1,5) (series/rondas, o tiempo/distancia de un
 //             trabajo continuo; la intensidad no se toca);
 //   deload  — lo mismo con el % de descarga del coach (su método, mig 0237).
 // El MECANISMO de escalar es el de «Progresar» del editor de programas
@@ -32,6 +33,7 @@ export type WeekOp =
   | { op: 'copy'; to_week_start: string }
   | { op: 'shift'; days: number }
   | { op: 'scale'; pct: number }
+  | { op: 'scale'; factor: number }
   | { op: 'deload' };
 
 export interface WeekOpResult {
@@ -44,8 +46,10 @@ export interface WeekOpResult {
   skipped: Array<{ id: string; date: string; reason: string }>;
   /** Líneas de prescripción cambiadas (scale / deload). */
   lines_changed: number;
-  /** El % aplicado (scale / deload). */
+  /** Cuánto baja el volumen, en % (scale / deload); negativo = sube (factor 1,2 → −20). */
   pct: number | null;
+  /** El factor de volumen aplicado (scale / deload): 0,7 = −30 %, 1,2 = +20 %. */
+  factor: number | null;
 }
 
 export class WeekOpError extends Error {
@@ -125,7 +129,7 @@ async function scaleSessions(
   client: Sql,
   athlete_id: number,
   rows: PendingRow[],
-  pct: number,
+  factor: number,
 ): Promise<number> {
   let changed = 0;
   await client.begin(async (txRaw) => {
@@ -142,7 +146,7 @@ async function scaleSessions(
       for (const s of segs) {
         const before =
           s.prescription_json ?? legacyItemToPrescription({ params_json: s.params_json, notes: s.notes });
-        const after = progressPrescription(before, { kind: 'deload', pct }, 1);
+        const after = progressPrescription(before, { kind: 'volume', factor }, 1);
         if (JSON.stringify(after) === JSON.stringify(before)) continue;
         await tx`
           update template_segments
@@ -170,7 +174,7 @@ export async function applyWeekOp(params: {
   const coachId = Number(params.coach_id);
   const ath = params.athlete_id;
   const today = await assertOwned(client, coachId, ath);
-  const result: WeekOpResult = { op: params.op.op, moved: [], created: [], skipped: [], lines_changed: 0, pct: null };
+  const result: WeekOpResult = { op: params.op.op, moved: [], created: [], skipped: [], lines_changed: 0, pct: null, factor: null };
 
   if (params.op.op === 'shift') {
     const days = params.op.days;
@@ -229,9 +233,11 @@ export async function applyWeekOp(params: {
       }
     }
   } else {
-    let pct: number;
+    // Todo es un FACTOR de volumen: reducir x % = 1 − x/100; la descarga, con el
+    // % del coach (su método); «escalar» puede venir ya como factor (sube o baja).
+    let factor: number;
     if (params.op.op === 'scale') {
-      pct = params.op.pct;
+      factor = 'factor' in params.op ? params.op.factor : 1 - params.op.pct / 100;
     } else {
       const rows = await client<
         Array<{ progression_load_step_pct: string | null; progression_sets_step: number | null; deload_volume_pct: number | null }>
@@ -239,13 +245,18 @@ export async function applyWeekOp(params: {
         select progression_load_step_pct::text, progression_sets_step, deload_volume_pct
         from coaches where id = ${coachId}
       `;
-      pct = resolveProgressionSteps(
-        rows[0] ?? { progression_load_step_pct: null, progression_sets_step: null, deload_volume_pct: null },
-      ).deload_volume_pct;
+      factor =
+        1 -
+        resolveProgressionSteps(
+          rows[0] ?? { progression_load_step_pct: null, progression_sets_step: null, deload_volume_pct: null },
+        ).deload_volume_pct /
+          100;
     }
     const rows = await pendingInWeek(client, ath, params.week_start);
-    result.pct = pct;
-    result.lines_changed = await scaleSessions(client, ath, rows, pct);
+    // `pct` = cuánto BAJA (positivo, como siempre); una subida sale negativa.
+    result.pct = Math.round((1 - factor) * 100);
+    result.factor = factor;
+    result.lines_changed = await scaleSessions(client, ath, rows, factor);
   }
 
   await recordAudit(client, {

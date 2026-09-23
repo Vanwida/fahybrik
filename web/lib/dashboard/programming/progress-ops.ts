@@ -19,6 +19,11 @@
 //   · descarga → volumen −x %: nº de series/rondas (mín. 1), y la duración o
 //              distancia de un trabajo continuo. La intensidad no se toca (si el
 //              coach quiere bajarla también, aplica una carga negativa).
+//   · volumen → el mismo mecanismo con un FACTOR en los dos sentidos (×0,7 baja,
+//              ×1,2 sube), acotado a [MIN_VOLUME_FACTOR, MAX_VOLUME_FACTOR]: el
+//              «Escalar volumen» de la semana en la ficha. La descarga es un
+//              volumen < 1 con el % del coach; se queda como operación propia
+//              porque su número es método (progression-steps).
 // Una línea sin prescripción estructurada se deriva de su legado igual que la
 // lee el editor; el resultado se guarda ya estructurado.
 
@@ -36,7 +41,16 @@ import { cellAt, type CellWrite, type GridBounds, type GridRange } from './grid-
 export type ProgressOp =
   | { kind: 'load'; pct: number }
   | { kind: 'sets'; n: number }
-  | { kind: 'deload'; pct: number };
+  | { kind: 'deload'; pct: number }
+  | { kind: 'volume'; factor: number };
+
+/**
+ * Límites de «escalar volumen»: por debajo de ×0,2 ya no es la misma sesión y
+ * por encima de ×1,5 de golpe es otra carga (un salto así se programa, no se
+ * escala). Cordura del mecanismo, no método: el coach elige el factor dentro.
+ */
+export const MIN_VOLUME_FACTOR = 0.2;
+export const MAX_VOLUME_FACTOR = 1.5;
 
 const PERCENT_RM_CAP = 100;
 const PERCENT_RM_STEP = 0.5;
@@ -127,11 +141,17 @@ function scaleMeasure(m: Measure, f: number): Measure {
 const CONTINUOUS_SCHEMES = new Set(['steady', 'amrap']);
 
 function deload(p: Prescription, pct: number): Prescription {
-  const f = clamp(1 - pct / 100, 0, 1);
+  return scaleVolume(p, clamp(1 - pct / 100, 0, 1));
+}
+
+/** Volumen × f (series/rondas, o tiempo/distancia de un trabajo continuo). */
+function scaleVolume(p: Prescription, factor: number): Prescription {
+  const f = clamp(factor, 0, MAX_VOLUME_FACTOR);
+  if (f === 1) return p;
   const working = workingIndexes(p.sets ?? []);
   // Varias series de trabajo (o rondas) → menos series/rondas.
   if (working.length > 1 || (working.length === 0 && (p.rounds ?? 0) > 1)) {
-    return changeSetCount(p, (n) => Math.max(1, Math.round(n * f)));
+    return changeSetCount(p, (n) => clamp(Math.round(n * f), 1, MAX_SETS));
   }
   // Un trabajo continuo (45′ Z2, 10 km, AMRAP 20′) → menos tiempo o distancia.
   const next: Prescription = { ...p };
@@ -160,12 +180,13 @@ export function itemPrescription(item: WeekDayPartItem): Prescription {
 export function progressPrescription(p: Prescription, op: ProgressOp, steps: number): Prescription {
   if (op.kind === 'load') return steps === 0 ? p : progressLoad(p, op.pct * steps);
   if (op.kind === 'sets') return steps === 0 ? p : changeSetCount(p, (n) => n + op.n * steps);
+  if (op.kind === 'volume') return scaleVolume(p, clamp(op.factor, MIN_VOLUME_FACTOR, MAX_VOLUME_FACTOR));
   return deload(p, op.pct);
 }
 
 /** Una celda entera: cada línea de cada bloque de cada entreno. */
 export function progressDay(day: WeekDay, op: ProgressOp, steps: number): WeekDay {
-  if (op.kind !== 'deload' && steps === 0) return day;
+  if (op.kind !== 'deload' && op.kind !== 'volume' && steps === 0) return day;
   return {
     ...day,
     sessions: day.sessions.map((s) => ({

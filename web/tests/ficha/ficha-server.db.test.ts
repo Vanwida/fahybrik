@@ -124,6 +124,16 @@ describeWithDb('ficha del atleta (BD real)', () => {
     expect(mine[0]!.n).toBe(2);
   });
 
+  it('escalar volumen también SUBE (factor 1,5): 2 series → 3; el resultado dice cuánto', async () => {
+    const res = await applyWeekOp({ coach_id: fx.coachId, athlete_id: fx.athleteId, week_start: monday, op: { op: 'scale', factor: 1.5 }, actor, client: sql });
+    expect(res).toMatchObject({ lines_changed: 1, factor: 1.5, pct: -50 });
+    const mine = await sql<Array<{ n: number }>>`
+      select jsonb_array_length(ts.prescription_json->'sets')::int as n
+      from workout_assignments wa join template_segments ts on ts.template_id = wa.template_id
+      where wa.athlete_id = ${fx.athleteId} and wa.scheduled_for between ${monday}::date and ${iso(addDays(parseIsoDate(monday), 6))}::date`;
+    expect(mine[0]!.n).toBe(3);
+  });
+
   it('guardar desde el panel escribe en la instancia del atleta (y bifurca si hacía falta)', async () => {
     const thu = iso(addDays(parseIsoDate(monday), 17));
     const id = await makeAssignment({ fx, templateId, scheduledForIso: thu });

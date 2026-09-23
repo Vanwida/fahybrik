@@ -87,6 +87,25 @@ describe('descarga', () => {
   });
 });
 
+describe('escalar volumen (factor, los dos sentidos)', () => {
+  test('×1,2 sube: 5 series → 6, 45′ → 54′; la intensidad no se toca', () => {
+    const up = progressPrescription(parse('sentadilla 5x5 @75%'), { kind: 'volume', factor: 1.2 }, 0);
+    expect(up.sets).toHaveLength(6);
+    expect(up.sets![5]!.target).toEqual({ kind: 'percent_rm', value: 75 });
+    expect(progressPrescription(parse("45' carrera z2"), { kind: 'volume', factor: 1.2 }, 0).total_s).toBe(3240);
+  });
+  test('×0,7 es lo mismo que una descarga del 30 %', () => {
+    const p = parse("8x400m r1' z4");
+    expect(progressPrescription(p, { kind: 'volume', factor: 0.7 }, 0)).toEqual(
+      progressPrescription(p, { kind: 'deload', pct: 30 }, 0),
+    );
+  });
+  test('se acota a ×1,5 (y a ×0,2 por abajo)', () => {
+    expect(progressPrescription(parse('sentadilla 4x5'), { kind: 'volume', factor: 3 }, 0).sets).toHaveLength(6);
+    expect(progressPrescription(parse('sentadilla 10x5'), { kind: 'volume', factor: 0 }, 0).sets).toHaveLength(2);
+  });
+});
+
 describe('rango', () => {
   test('la primera semana del rango es la base; cada semana suma un paso', () => {
     const w = [dayOf(1, 'sentadilla 5x5 @75%')];
