@@ -3,7 +3,7 @@
 // MECANISMO NUESTRO, MÉTODO DEL COACH: el coach elige UNA semilla (un hex) y
 // aquí se deriva todo lo que hace falta para pintarla, en las DOS superficies
 // del producto:
-//   · claro  → el panel del entrenador en tema claro (lienzo perla).
+//   · claro  → el panel del entrenador en tema claro (lienzo gris claro y tarjetas blancas).
 //   · oscuro → el panel en tema oscuro, la app del atleta y el reloj
 //              (lienzo casi negro).
 //
@@ -12,7 +12,7 @@
 // relleno, como TEXTO suelto sobre el fondo y como TINTE de fondo. Cada uso
 // tiene su mínimo de contraste, y el mínimo depende del lienzo. El naranja de
 // la marca actual (#f06a2a) es el ejemplo: va bien como relleno, pero como
-// texto sobre el perla del panel da 2,6:1 y no se lee. Si el coach elige un
+// texto sobre el lienzo claro del panel da ~2,7:1 y no se lee. Si el coach elige un
 // azul marino, desaparece sobre el casi negro de la app; si elige un amarillo,
 // el texto oscuro de encima deja de leerse.
 //
@@ -29,7 +29,7 @@ const AA_TEXT = 4.5;
  * Mínimo del RELLENO contra el lienzo. Deliberadamente 2:1 y no el 3:1 de AA
  * para superficies: un botón relleno se identifica por su etiqueta, que sí va a
  * 4,5:1 contra el propio relleno. Exigirle 3:1 al relleno obligaba a mover el
- * color de TODOS los clubes, incluido el naranja actual (2,6:1 sobre el perla),
+ * color de TODOS los clubes, incluido el naranja actual (~2,7:1 sobre el lienzo claro),
  * y un coach al que le cambias el color que acaba de elegir deja de fiarse.
  * Por debajo de 2:1 sí se mueve: ahí el botón se confunde con el fondo y eso ya
  * no es una preferencia, es un botón que no se ve.
@@ -49,17 +49,40 @@ export const SOFT_ALPHA_DARK = 0.14;
  */
 const CAMBIO_PERCEPTIBLE = 12;
 
-/** Los lienzos reales de cada superficie (v2-theme.css y Theme.swift). */
-export const CANVAS_LIGHT = '#f1efeb';
+/**
+ * Los fondos reales sobre los que se pinta cada superficie (v2-theme.css y
+ * Theme.swift). El acento tiene que cumplir contra TODOS los de su superficie:
+ * en el panel claro va sobre el lienzo y sobre las tarjetas blancas; en oscuro,
+ * sobre el lienzo de la app del atleta, el del panel y sus tarjetas.
+ */
+export const CANVAS_LIGHT = '#f4f4f2';
+export const SURFACE_LIGHT = '#ffffff';
+/** El lienzo de la app del atleta (y del reloj). */
 export const CANVAS_DARK = '#0a0a0a';
+export const PANEL_CANVAS_DARK = '#0b0b0c';
+export const SURFACE_DARK = '#161618';
 
-/** Los colores que YA significan algo: verde hecho, rojo fallo, ámbar atención.
- *  Un acento pegado a uno de ellos no rompe nada, pero confunde: se avisa. */
-const SEMANTIC_HUES: ReadonlyArray<{ name: string; hex: string; meaning: string }> = [
-  { name: 'verde', hex: '#2f7050', meaning: 'hecho' },
-  { name: 'rojo', hex: '#b0402f', meaning: 'fallado' },
-  { name: 'ámbar', hex: '#b36a00', meaning: 'atención' },
+const LIGHT_BACKGROUNDS = [CANVAS_LIGHT, SURFACE_LIGHT] as const;
+const DARK_BACKGROUNDS = [CANVAS_DARK, PANEL_CANVAS_DARK, SURFACE_DARK] as const;
+
+/**
+ * Los colores que YA significan algo en el panel: los tonos de estado de los dos
+ * temas (v2-theme.css). Un acento pegado a uno de ellos no rompe nada, pero
+ * confunde — un botón del club que se lee como «vencido» —, así que se avisa.
+ */
+const STATUS_HUES: ReadonlyArray<{ name: string; hex: string; meaning: string }> = [
+  { name: 'verde', hex: '#1d7447', meaning: 'hecho' },
+  { name: 'verde', hex: '#3ccf85', meaning: 'hecho' },
+  { name: 'ámbar', hex: '#8f5400', meaning: 'vigilar' },
+  { name: 'ámbar', hex: '#f0a43a', meaning: 'vigilar' },
+  { name: 'rojo', hex: '#bf3128', meaning: 'actuar ya' },
+  { name: 'rojo', hex: '#ff5d55', meaning: 'actuar ya' },
+  { name: 'azul', hex: '#2c5f9e', meaning: 'información' },
+  { name: 'azul', hex: '#5aa7f5', meaning: 'información' },
 ];
+
+/** Por debajo de esta distancia (ΔE76 en CIELAB) dos colores se leen como el mismo. */
+const COLLISION_DELTA_E = 15;
 
 /** Los cuatro papeles que juega el acento en una superficie. */
 export interface AccentRole {
@@ -148,24 +171,25 @@ const BLACK: Rgb = { r: 0, g: 0, b: 0 };
  * Búsqueda binaria sobre la mezcla, así el color conserva su tono todo lo que
  * puede en vez de saltar a blanco o negro de golpe.
  */
-function ensureContrast(seed: Rgb, canvas: Rgb, min: number): Rgb {
+function ensureContrast(seed: Rgb, canvases: readonly Rgb[], min: number): Rgb {
   // La búsqueda evalúa SIEMPRE el color ya redondeado a hex: si midiera el
   // color con decimales, el redondeo final podía comerse el último tramo y
   // devolver un color por debajo del mínimo (pasaba con el verde y el negro).
   const q = (c: Rgb): Rgb => ({ r: Math.round(c.r), g: Math.round(c.g), b: Math.round(c.b) });
-  if (contrastRatio(q(seed), canvas) >= min) return q(seed);
-  const target = relativeLuminance(canvas) < 0.5 ? WHITE : BLACK;
+  const worst = (c: Rgb) => Math.min(...canvases.map((bg) => contrastRatio(c, bg)));
+  if (worst(q(seed)) >= min) return q(seed);
+  const target = relativeLuminance(canvases[0]!) < 0.5 ? WHITE : BLACK;
   let lo = 0;
   let hi = 1;
   for (let i = 0; i < 24; i += 1) {
     const mid = (lo + hi) / 2;
-    if (contrastRatio(q(mixToward(seed, target, mid)), canvas) >= min) hi = mid;
+    if (worst(q(mixToward(seed, target, mid))) >= min) hi = mid;
     else lo = mid;
   }
   let t = hi;
   let out = q(mixToward(seed, target, t));
   // Red de seguridad: nunca se devuelve un color que no cumple.
-  while (t < 1 && contrastRatio(out, canvas) < min) {
+  while (t < 1 && worst(out) < min) {
     t = Math.min(1, t + 0.005);
     out = q(mixToward(seed, target, t));
   }
@@ -191,12 +215,12 @@ function soft(fill: Rgb, alpha: number): string {
 
 function buildRole(
   seed: Rgb,
-  canvasHex: string,
+  backgrounds: readonly string[],
   surface: 'claro' | 'oscuro',
   softAlpha: number,
   adjustments: AccentAdjustment[],
 ): AccentRole {
-  const canvas = hexToRgb(canvasHex) as Rgb;
+  const canvas = backgrounds.map((hex) => hexToRgb(hex) as Rgb);
 
   // El relleno conserva el color del coach salvo que se confunda con el fondo.
   const fillRgb = ensureContrast(seed, canvas, FILL_MIN);
@@ -215,7 +239,7 @@ function buildRole(
   }
 
   // El acento COMO TEXTO exige 4,5:1: es el papel donde más colores fallan (el
-  // naranja de marca da 2,6:1 sobre el perla del panel).
+  // naranja de marca no llega a 4,5:1 sobre el lienzo claro).
   const textRgb = ensureContrast(seed, canvas, AA_TEXT);
   const text = rgbToHex(textRgb);
   if (seVe(seed, textRgb)) {
@@ -239,10 +263,26 @@ function seVe(seed: Rgb, moved: Rgb): boolean {
   return Math.hypot(seed.r - moved.r, seed.g - moved.g, seed.b - moved.b) >= CAMBIO_PERCEPTIBLE;
 }
 
-/** Distancia de tono cruda: suficiente para avisar de un parecido, no para juzgar. */
-function looksLike(a: Rgb, b: Rgb): boolean {
-  const d = Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
-  return d < 60;
+function srgbToLab({ r, g, b }: Rgb): { l: number; a: number; b: number } {
+  const R = linearize(r);
+  const G = linearize(g);
+  const B = linearize(b);
+  // sRGB → XYZ (D65), normalizado por el blanco de referencia.
+  const x = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047;
+  const y = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  const z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+  const fx = f(x);
+  const fy = f(y);
+  const fz = f(z);
+  return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+/** ΔE76: distancia euclídea en CIELAB. Suficiente para avisar de un parecido. */
+export function deltaE(a: Rgb, b: Rgb): number {
+  const la = srgbToLab(a);
+  const lb = srgbToLab(b);
+  return Math.hypot(la.l - lb.l, la.a - lb.a, la.b - lb.b);
 }
 
 /**
@@ -258,10 +298,10 @@ export function buildClubAccent(seedHex: string | null | undefined): ClubAccentF
   const normalized = rgbToHex(seed);
 
   const adjustments: AccentAdjustment[] = [];
-  const light = buildRole(seed, CANVAS_LIGHT, 'claro', SOFT_ALPHA_LIGHT, adjustments);
-  const dark = buildRole(seed, CANVAS_DARK, 'oscuro', SOFT_ALPHA_DARK, adjustments);
+  const light = buildRole(seed, LIGHT_BACKGROUNDS, 'claro', SOFT_ALPHA_LIGHT, adjustments);
+  const dark = buildRole(seed, DARK_BACKGROUNDS, 'oscuro', SOFT_ALPHA_DARK, adjustments);
 
-  const hit = SEMANTIC_HUES.find((s) => looksLike(seed, hexToRgb(s.hex) as Rgb));
+  const hit = STATUS_HUES.find((s) => deltaE(seed, hexToRgb(s.hex) as Rgb) < COLLISION_DELTA_E);
 
   return {
     seed: normalized,
