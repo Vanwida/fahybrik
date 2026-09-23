@@ -21,6 +21,7 @@ import { GroupPrograms } from './GroupPrograms';
 import { GroupMembers } from './GroupMembers';
 import { GroupRule } from './GroupRule';
 import { groupApi } from './group-api';
+import { groupPaceLine } from './group-pace';
 
 export function GroupPage({
   group,
@@ -68,6 +69,7 @@ export function GroupPage({
     `${group.member_count} ${group.member_count === 1 ? 'atleta' : 'atletas'}`,
     group.total_weeks ? `plan de ${group.total_weeks} semanas` : 'sin plan',
     group.programs.length > 0 ? (group.end_policy === 'repeat' ? 'se repite' : group.end_policy === 'stop' ? 'termina al acabar' : 'sube de nivel al acabar') : null,
+    groupPaceLine(group.members),
   ]
     .filter(Boolean)
     .join(' · ');

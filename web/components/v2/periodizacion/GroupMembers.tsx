@@ -9,8 +9,9 @@ import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import type { GroupDetail, GroupMember, GroupRemoveResult } from '@fahybrid/shared/schema/groups';
 import { Avatar, BulkBar, Button, Card, CardHeader, DataTable, EmptyState, useToast, type DataTableColumn } from '@/components/v2/ui';
-import { shortDate } from '@/components/v2/shared/format';
+import { localToday, shortDate } from '@/components/v2/shared/format';
 import { groupApi } from './group-api';
+import { memberSpot } from './group-pace';
 
 export function GroupMembers({ group, onChanged, onAdd }: { group: GroupDetail; onChanged: () => void; onAdd: () => void }) {
   const locale = useLocale();
@@ -18,6 +19,7 @@ export function GroupMembers({ group, onChanged, onAdd }: { group: GroupDetail; 
   const { toast } = useToast();
   const [selection, setSelection] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const today = localToday();
 
   const columns: DataTableColumn<GroupMember>[] = [
     {
@@ -27,8 +29,13 @@ export function GroupMembers({ group, onChanged, onAdd }: { group: GroupDetail; 
       cell: (m) => (
         <div className="flex min-w-0 items-center gap-2.5">
           <Avatar name={m.name} src={m.avatar_url} size="sm" />
-          <span className="truncate font-medium text-v2-fg">{m.name}</span>
-          {m.level_label ? <span className="hidden shrink-0 t-meta text-v2-faint sm:inline">{m.level_label}</span> : null}
+          <div className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="truncate font-medium text-v2-fg">{m.name}</span>
+              {m.level_label ? <span className="hidden shrink-0 t-meta text-v2-faint sm:inline">{m.level_label}</span> : null}
+            </span>
+            <span className="truncate t-meta text-v2-muted t-tnum sm:hidden">{memberSpot(m, today)}</span>
+          </div>
         </div>
       ),
     },
@@ -38,15 +45,7 @@ export function GroupMembers({ group, onChanged, onAdd }: { group: GroupDetail; 
       width: '42%',
       hideBelow: 'sm',
       sortValue: (m) => m.position * 100 + (m.week ?? 0),
-      cell: (m) =>
-        m.program ? (
-          <span className="block truncate text-v2-muted">
-            {m.program.name}
-            {m.week ? <span className="t-tnum"> · semana {m.week} de {m.program.weeks}</span> : m.program_start ? ` · empieza ${shortDate(m.program_start)}` : ''}
-          </span>
-        ) : (
-          <span className="text-v2-faint">Sin programa</span>
-        ),
+      cell: (m) => <span className={m.program ? 'block truncate text-v2-muted t-tnum' : 'text-v2-faint'}>{memberSpot(m, today)}</span>,
     },
     {
       id: 'until',

@@ -49,7 +49,7 @@ import { AssignPreviewSummary, receivingCount } from './AssignPreview';
 import { EntityPicker, type PickerItem } from './EntityPicker';
 import { useGroupOptions } from './GroupPicker';
 import { searchAthletes } from './pickers';
-import { localToday, mondayLabel, upcomingMondays } from './format';
+import { localToday, mondayLabel, shortDate, upcomingMondays } from './format';
 import { deliveryLine } from './logic';
 
 export interface AssignSheetProps {
@@ -443,7 +443,37 @@ export function AssignSheet({
             <span className="t-body-sm text-v2-faint">{deliveryLine(delivery, days)}</span>
           </div>
 
-          {conflicts.length > 0 || onConflict !== 'chain' ? (
+          {groupSel.length > 0 && conflicts.length > 0 ? (
+            // Un grupo no es una promoción: cada miembro puede ir por una semana
+            // distinta de su programa. Se elige en sus palabras si el nuevo llega
+            // a cada uno al acabar lo suyo (encadenar) o si todos arrancan juntos
+            // ese lunes (sustituir desde ahí; lo ya entrenado no se toca).
+            <Field label={`${conflicts.length} ${conflicts.length === 1 ? 'va' : 'van'} a mitad de un programa`}>
+              {({ id }) => (
+                <div className="flex flex-col gap-1.5">
+                  <Select
+                    id={id}
+                    size="lg"
+                    value={onConflict}
+                    onValueChange={setOnConflict}
+                    options={[
+                      { value: 'chain' as OnConflict, label: 'Cada uno sigue en su semana' },
+                      { value: 'replace' as OnConflict, label: `Empiezan todos el lunes ${shortDate(start)}` },
+                      { value: 'skip' as OnConflict, label: 'Solo a quien no tiene programa' },
+                    ]}
+                    className="w-full"
+                  />
+                  <span className="t-body-sm text-v2-faint">
+                    {onConflict === 'chain'
+                      ? 'Terminan lo que hacen y el programa nuevo les llega detrás, a cada uno en su fecha.'
+                      : onConflict === 'replace'
+                        ? `Todos empiezan juntos el ${shortDate(start)}; lo que ya han entrenado no se toca.`
+                        : 'Quien va a mitad de un programa se queda como está.'}
+                  </span>
+                </div>
+              )}
+            </Field>
+          ) : conflicts.length > 0 || onConflict !== 'chain' ? (
             <div className="flex flex-col gap-1.5">
               <span className="t-meta text-v2-muted">
                 {conflicts.length > 0

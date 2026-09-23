@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Un grupo va «cada uno en su semana»; alinearlo es sustituir desde un lunes
+
+**Decidido:** un grupo sigue siendo rodante (cada miembro por su semana de la cadena, DECISIONS «Grupos, asignar a varios…»), y ahora se dice: la cabecera del grupo añade «cada atleta sigue en su semana» (o «van juntos: semana N de …») y cada miembro muestra su semana también en el móvil; un inicio pasado dice «empezó». Al asignar un programa a un grupo con gente a mitad de programa, el panel pregunta en palabras del coach: **«Cada uno sigue en su semana»** (= `on_conflict: chain`, el nuevo llega detrás de lo de cada uno), **«Empiezan todos el lunes X»** (= `replace`: todos arrancan juntos ese lunes; lo entrenado no se toca) o «Solo a quien no tiene programa» (= `skip`).
+
+**Sin cambio de dominio:** las tres ya existían en el motor de asignar (`plan-placement.ts`); solo cambia cómo se nombran cuando el destinatario es un grupo.
+
+**NO hacer:** no crear un «modo cohorte» aparte ni una columna nueva para alinear: alinear es sustituir desde un lunes.
+
+---
+
 ## 2026-09-23 · Primeros pasos: empieza con un atleta; el método es opcional y no bloquea
 
 **El hueco:** la lista de puesta en marcha (`web/lib/coach/setup-checklist.ts`) pedía seis pasos obligatorios antes de «Invitar a tu primer atleta» — club, «Cómo entrenas» (la entrevista de 24 preguntas), un entreno, un programa, **un grupo con plan** y **una batería de tests** —, y el atleta iba el último. Un coach 1:1 que quiere probar con una persona chocaba con una pared. Grupos y tests son MÉTODO de cada coach (HARD RULE Nº0), no requisitos del producto. Y el tenant #1, con 100 atletas entrenando, arrastraba «Setup 5/9» en la barra lateral para siempre.

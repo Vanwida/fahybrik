@@ -31,7 +31,6 @@ export function SidePanel({
   // detrás de la primera letra — un clic por carácter (Alex, 8-ago).
   useEffect(() => {
     ref.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
