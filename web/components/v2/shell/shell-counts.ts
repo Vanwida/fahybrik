@@ -2,7 +2,9 @@ import 'server-only';
 
 // Las cifras de la barra lateral que salen de la bandeja de Hoy, con la MISMA
 // cuenta que pinta Hoy (una cifra, una fuente — nunca dos números que no casan):
-//   Hoy     = `counts.needs_you` de loadHoy.
+//   Hoy     = `counts.needs_you` de loadHoy (atletas que te necesitan).
+//   Mensajes = `counts.awaiting_reply` de loadHoy — la MISMA lectura que el
+//             filtro «Por responder» de Hoy y la bandeja de Mensajes.
 //   Negocio = leads nuevos + llamadas de hoy (loadShellBadges, con dueño) + pagos
 //             vencidos (el grupo `payments_overdue` de Hoy).
 //
@@ -22,6 +24,7 @@ export const hasNegocioForRequest = cache((coach_id: number): Promise<boolean> =
 
 export interface HoyShellCounts {
   needs_you: number | null;
+  awaiting_reply: number | null;
   payments_overdue: number | null;
 }
 
@@ -29,8 +32,8 @@ export async function loadHoyShellCounts(coach_id: number): Promise<HoyShellCoun
   try {
     const view = await loadHoyForRequest(coach_id);
     const overdue = view.systemic.find((g) => g.kind === 'payments_overdue')?.count ?? 0;
-    return { needs_you: view.counts.needs_you, payments_overdue: overdue };
+    return { needs_you: view.counts.needs_you, awaiting_reply: view.counts.awaiting_reply, payments_overdue: overdue };
   } catch {
-    return { needs_you: null, payments_overdue: null };
+    return { needs_you: null, awaiting_reply: null, payments_overdue: null };
   }
 }

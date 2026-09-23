@@ -32,7 +32,7 @@ function shell(over: Partial<FichaShell> = {}): FichaShell {
     race: null,
     program: null,
     group: null,
-    status: { key: 'al_dia', tone: 'ok', label: 'Al día', reason: null, signals: [], snoozed_until: null },
+    status: { key: 'al_dia', tone: 'ok', label: 'Al día', reason: null, signals: [], snoozed_until: null, needs_you: false },
     lifecycle: {
       status: 'activo',
       pause_reason: null,
@@ -84,7 +84,7 @@ describe('Hacer ahora', () => {
     const chips = buildHacerAhora(
       shell({
         last_missed: { id: '183', date: '2026-09-23', title: 'Z2' },
-        status: { key: 'accion', tone: 'danger', label: 'Acción', reason: null, signals: [signal({})], snoozed_until: null },
+        status: { key: 'accion', tone: 'danger', label: 'Acción', reason: null, signals: [signal({})], snoozed_until: null, needs_you: false },
       }),
     );
     expect(chips.map((c) => c.kind)).toEqual(['ajustar', 'descarga']);
@@ -112,6 +112,7 @@ describe('Hacer ahora', () => {
           reason: null,
           signals: [signal({}), signal({ kind: 'billing_at_risk', label: 'Pago vencido' })],
           snoozed_until: null,
+          needs_you: true,
         },
       }),
     );
@@ -132,12 +133,13 @@ describe('motivo del estado (H1)', () => {
           signal({}),
         ],
         snoozed_until: null,
+        needs_you: true,
       },
     });
     expect(statusReasonParts(s)).toEqual(['terminó el cuestionario hace 1 d', 'Readiness 31 (−24 vs su base 55 · 3 días)']);
   });
   it('sin señales cae a la razón del estado', () => {
-    const s = shell({ status: { key: 'sin_plan', tone: 'warn', label: 'Sin plan', reason: 'Sin programa', signals: [], snoozed_until: null } });
+    const s = shell({ status: { key: 'sin_plan', tone: 'warn', label: 'Sin plan', reason: 'Sin programa', signals: [], snoozed_until: null, needs_you: false } });
     expect(statusReasonParts(s)).toEqual(['Sin programa']);
   });
 });

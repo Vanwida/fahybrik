@@ -18,7 +18,9 @@ export interface BuiltinSavedView {
 }
 
 export const BUILTIN_SAVED_VIEWS: readonly BuiltinSavedView[] = [
-  { key: 'necesitan', name: 'Necesitan algo', query: 'estado=accion,vigilar' },
+  // Quien te necesita: la MISMA cuenta que Hoy (`status.needs_you`; DECISIONS
+  // 2026-09-23 «Una sola cuenta de quién te necesita»).
+  { key: 'necesitan', name: 'Necesitan algo', query: 'atencion=si' },
   // «Todos» no puede ser la cadena vacía: una URL de Atletas sin filtros abre la
   // vista por defecto («Necesitan algo»). `estado=todos` = sin filtro de estado.
   { key: 'todos', name: 'Todos', query: 'estado=todos' },

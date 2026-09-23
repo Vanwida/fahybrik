@@ -188,7 +188,8 @@ describeWithDb('motor de señales → Hoy', () => {
       ['Ana', 'readiness_low', 1],
       ['Dani', 'missed_sessions', 0],
     ]);
-    expect(hoy.counts).toMatchObject({ needs_you: 4, critico: 1, vigilar: 2, snoozed: 0, resolved_today: 0 });
+    // Atletas, no filas: Ana y Bea (sin programa) + Dani; Bea tiene fila y grupo y cuenta una vez.
+    expect(hoy.counts).toMatchObject({ needs_you: 3, critico: 1, vigilar: 2, snoozed: 0, resolved_today: 0 });
     expect(hoy.week_visibility).toEqual({ visible: 1, total: 3 });
   });
 

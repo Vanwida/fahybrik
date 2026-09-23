@@ -109,7 +109,8 @@ export function withFacet(filter: RosterFilter, key: Facet['key'], values: strin
   const v = values.length > 0 ? values : null;
   switch (key) {
     case 'estado':
-      return { ...filter, estado: v as RosterFilter['estado'] };
+      // Elegir estados a mano sustituye a «te necesita» (la vista de serie).
+      return { ...filter, atencion: false, estado: v as RosterFilter['estado'] };
     case 'nivel':
       return { ...filter, nivel: v };
     case 'grupo':

@@ -155,3 +155,12 @@ describe('athleteSeesItFromWeeklyStatus — misma puerta que MCP / week-plan', (
     expect(weekIsDelivered(result.kind)).toBe(false);
   });
 });
+
+describe('athleteWeekChip — entrenos sueltos', () => {
+  test('sin programa pero con entrenos esta semana: se juzga su visibilidad, no «Sin plan»', () => {
+    expect(chip({ has_month_assignment: false, session_count_this_week: 2, upcoming_session_count: 2 }).kind).toBe('visible');
+  });
+  test('programa terminado con entrenos más adelante: semana vacía', () => {
+    expect(chip({ last_assignment_end: '2026-08-10', upcoming_session_count: 1 }).kind).toBe('semana_vacia');
+  });
+});

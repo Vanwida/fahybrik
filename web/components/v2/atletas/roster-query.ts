@@ -3,6 +3,8 @@
 // lista, las vistas guardadas (sus `query` son esta cadena) y la ficha del
 // atleta para su K/J (`?desde=<esta cadena>` → mismo orden, mismo filtro).
 //
+//   atencion=si                               te necesita (`status.needs_you`: la
+//                                              MISMA definición que la cifra de Hoy)
 //   estado=accion,vigilar | estado=todos     estado del atleta (§4.1)
 //   nivel=3,4 | nivel=sin                     id de athlete_levels del coach
 //   grupo=7 | grupo=sin                        id del grupo (program_sequences)
@@ -50,6 +52,8 @@ export const WEEK_LABEL: Record<WeekVisibility, string> = {
 };
 
 export interface RosterFilter {
+  /** Solo quien te necesita (la vista «Necesitan algo»; misma cuenta que Hoy). */
+  atencion: boolean;
   /** null = cualquier estado. */
   estado: AthleteStatusKey[] | null;
   nivel: string[] | null;
@@ -64,12 +68,12 @@ export interface RosterQuery extends RosterFilter {
   densidad: Density;
 }
 
-const FILTER_KEYS = ['estado', 'nivel', 'grupo', 'semana', 'carrera'] as const;
+const FILTER_KEYS = ['atencion', 'estado', 'nivel', 'grupo', 'semana', 'carrera'] as const;
 
 /** Sentido de cada columna cuando la URL no lo dice (el mismo que su primer clic). */
 export const DEFAULT_DIR: Record<string, 'asc' | 'desc'> = { ultimo_entreno: 'desc', responder: 'desc' };
 
-const DEFAULT_QUERY = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'necesitan')?.query ?? 'estado=accion,vigilar';
+const DEFAULT_QUERY = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'necesitan')?.query ?? 'atencion=si';
 
 function list<T extends string>(raw: string | null, allowed?: readonly T[]): T[] | null {
   if (raw == null) return null;
@@ -97,6 +101,7 @@ function parseFilter(p: URLSearchParams): RosterFilter {
   const estadoRaw = p.get('estado');
   const carrera = Number.parseInt(p.get('carrera') ?? '', 10);
   return {
+    atencion: p.get('atencion') === 'si',
     estado: estadoRaw === 'todos' ? null : list(estadoRaw, STATUS_KEYS),
     nivel: idList(p.get('nivel')),
     grupo: idList(p.get('grupo')),
@@ -125,7 +130,8 @@ export function parseRosterQuery(search: string | URLSearchParams): RosterQuery 
 /** Solo los filtros, en orden canónico: la identidad de una vista. */
 export function filterString(f: RosterFilter): string {
   const parts: string[] = [];
-  const any = f.nivel || f.grupo || f.semana || f.carrera != null;
+  const any = f.atencion || f.nivel || f.grupo || f.semana || f.carrera != null;
+  if (f.atencion) parts.push('atencion=si');
   if (f.estado) parts.push(`estado=${STATUS_KEYS.filter((k) => f.estado!.includes(k)).join(',')}`);
   else if (!any) parts.push('estado=todos');
   if (f.nivel) parts.push(`nivel=${[...f.nivel].sort().join(',')}`);
@@ -175,6 +181,7 @@ function matchesSearch(r: RosterRow, q: string): boolean {
 }
 
 export function matchesFilter(r: RosterRow, f: RosterFilter): boolean {
+  if (f.atencion && !r.status.needs_you) return false;
   if (f.estado && !f.estado.includes(r.status.key)) return false;
   if (f.nivel && !f.nivel.includes(r.level?.id ?? NONE)) return false;
   if (f.grupo && !f.grupo.includes(r.group?.id ?? NONE)) return false;

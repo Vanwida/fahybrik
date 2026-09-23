@@ -59,7 +59,8 @@ export default async function V2Layout({
 
   const counts = {
     hoy: hoy.needs_you,
-    mensajes: badges.awaiting_reply,
+    // La misma cifra que «Por responder» de Hoy; si Hoy no cargó, la cuenta barata.
+    mensajes: hoy.awaiting_reply ?? badges.awaiting_reply,
     negocio: negocio ? badges.negocio + (hoy.payments_overdue ?? 0) : null,
   };
 

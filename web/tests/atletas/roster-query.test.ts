@@ -24,7 +24,7 @@ function row(id: string, over: Partial<RosterRow> & { key?: AthleteStatusKey } =
     level: null,
     group: null,
     lifecycle: 'activo',
-    status: { key, tone: 'ok', label: key, reason: null, signals: [], snoozed_until: null },
+    status: { key, tone: 'ok', label: key, reason: null, signals: [], snoozed_until: null, needs_you: key === 'accion' || key === 'vigilar' },
     week_visibility: 'visible',
     readiness: null,
     adherence_14d: null,
@@ -49,12 +49,13 @@ const rows: RosterRow[] = [
 describe('parseRosterQuery', () => {
   test('sin filtros → la vista por defecto (Necesitan algo)', () => {
     const q = parseRosterQuery('');
-    expect(q.estado).toEqual(['accion', 'vigilar']);
+    expect(q.atencion).toBe(true);
+    expect(q.estado).toBeNull();
     expect(applyRosterQuery(rows, q).map((r) => r.athlete_id)).toEqual(['1', '2']);
   });
 
   test('la búsqueda sola no quita la vista por defecto', () => {
-    expect(parseRosterQuery('q=marta').estado).toEqual(['accion', 'vigilar']);
+    expect(parseRosterQuery('q=marta').atencion).toBe(true);
   });
 
   test('con un filtro, lo que falta no filtra', () => {
@@ -118,7 +119,9 @@ describe('serializar y vistas', () => {
 
   test('la vista por defecto se serializa vacía', () => {
     expect(serializeRosterQuery(parseRosterQuery(''))).toBe('');
-    expect(serializeRosterQuery(parseRosterQuery('estado=vigilar,accion'))).toBe('');
+    expect(serializeRosterQuery(parseRosterQuery('atencion=si'))).toBe('');
+    // Una vista vieja por estados sigue siendo válida, pero ya no es la de serie.
+    expect(serializeRosterQuery(parseRosterQuery('estado=vigilar,accion'))).toBe('estado=accion,vigilar');
   });
 
   test('«Todos» se distingue de la vista por defecto', () => {
@@ -159,7 +162,7 @@ describe('ficha: K/J con ?desde=', () => {
   });
 
   test('el enlace nunca lleva un desde vacío', () => {
-    expect(fichaHref('9', parseRosterQuery(''))).toBe('/atletas/9?desde=estado%3Daccion%2Cvigilar');
+    expect(fichaHref('9', parseRosterQuery(''))).toBe('/atletas/9?desde=atencion%3Dsi');
     expect(fichaHref('9', parseRosterQuery('estado=todos&densidad=tarjetas'))).toBe('/atletas/9?desde=estado%3Dtodos');
   });
 });

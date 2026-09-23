@@ -91,11 +91,14 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const critico = inbox.critico.filter((r) => rowInVista(r, vista));
   const vigilar = inbox.vigilar.filter((r) => rowInVista(r, vista));
   const systemic = vista === 'altas' ? [] : inbox.systemic.filter((g) => groupInVista(g, vista));
-  const order = navOrder(critico, vigilar, vigilarOpen);
+  // Las esperas que aún no son fila solo salen en «Por responder» (como en Mensajes).
+  const replies = vista === 'responder' ? inbox.replies : [];
+  const order = [...navOrder(critico, vigilar, vigilarOpen), ...replies.map((r) => r.athlete_id)];
+  const fullOrder = () => [...navOrder(critico, vigilar, true), ...replies.map((r) => r.athlete_id)];
 
   const rowsById = useMemo(() => {
     const m = new Map<string, HoyRow>();
-    for (const r of [...view.critico, ...view.vigilar, ...view.snoozed_rows]) m.set(r.athlete_id, r);
+    for (const r of [...view.critico, ...view.vigilar, ...view.snoozed_rows, ...view.replies]) m.set(r.athlete_id, r);
     return m;
   }, [view]);
   const peopleById = useMemo(() => new Map(extras.people.map((p) => [p.athlete_id, p])), [extras.people]);
@@ -133,7 +136,10 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   }, [activeId]);
 
   // Lo seleccionado que ya no está (resuelto, pospuesto) sale de la selección.
-  const visibleIds = useMemo(() => new Set([...inbox.critico, ...inbox.vigilar].map((r) => r.athlete_id)), [inbox]);
+  const visibleIds = useMemo(
+    () => new Set([...inbox.critico, ...inbox.vigilar, ...inbox.replies].map((r) => r.athlete_id)),
+    [inbox],
+  );
   const selection = [...selected].filter((id) => visibleIds.has(id));
   const selectionRows = selection.map((id) => rowsById.get(id)).filter((r): r is HoyRow => r != null);
 
@@ -188,8 +194,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
       if (extend) {
         const from = anchor ?? activeId ?? next;
         setAnchor(from);
-        const all = navOrder(critico, vigilar, true);
-        setSelected((prev) => new Set([...prev, ...rangeIds(all, from, next)]));
+        setSelected((prev) => new Set([...prev, ...rangeIds(fullOrder(), from, next)]));
       } else {
         setAnchor(null);
       }
@@ -224,7 +229,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const toggleRow = (row: HoyRow, checked: boolean, shift: boolean) => {
     const id = row.athlete_id;
     if (shift && anchor) {
-      const ids = rangeIds(navOrder(critico, vigilar, true), anchor, id);
+      const ids = rangeIds(fullOrder(), anchor, id);
       setSelected((prev) => new Set([...prev, ...ids]));
     } else {
       setSelected((prev) => {
@@ -270,7 +275,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const peekInitial = peekId
     ? (rowsById.get(peekId) ?? peopleById.get(peekId) ?? null)
     : null;
-  const anyRows = critico.length + vigilar.length > 0;
+  const anyRows = critico.length + vigilar.length + replies.length > 0;
   const empty = vista !== 'altas' && systemic.length === 0 && !anyRows;
 
   const subtitle = noAthletes ? (
@@ -338,6 +343,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
             {[
               { id: 'hoy-critico', title: 'Crítico', rows: critico, fold: null },
               { id: 'hoy-vigilar', title: 'Vigilar', rows: vigilar, fold: VIGILAR_FOLD },
+              { id: 'hoy-responder', title: 'Por responder', rows: replies, fold: null },
             ].map((s) => (
               <RowSection
                 key={s.id}
@@ -393,7 +399,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
                   <span>
                     <span className="t-tnum">{extras.activity_today}</span>{' '}
                     {extras.activity_today === 1 ? 'entreno registrado hoy' : 'entrenos registrados hoy'} ·{' '}
-                    <Link href="/atletas?orden=ultimo_entreno" className="font-medium text-v2-fg underline-offset-2 hover:underline">
+                    <Link href="/atletas?estado=todos&orden=ultimo_entreno" className="font-medium text-v2-fg underline-offset-2 hover:underline">
                       ver
                     </Link>
                   </span>

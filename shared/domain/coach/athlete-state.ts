@@ -13,9 +13,20 @@
 //
 // Precedencia (la primera que aplica):
 //   pausado  > accion (alguna señal crítica) > nuevo (alta pendiente, o invitado
-//            sin cuestionario) > sin_plan > vigilar (alguna señal de vigilar) > al_dia
+//            sin cuestionario) > sin_plan > vigilar (alguna señal de vigilar, o
+//            su semana oculta) > al_dia
 // El hueco de plan y el alta NO elevan a «acción» por sí mismos: son estados, y
-// «Sin plan» tiene que poder leerse.
+// «Sin plan» tiene que poder leerse. Una semana oculta al atleta NO es «Al día».
+//
+// «Te necesita» (`needs_you`) es UNA definición, la misma para la cifra de Hoy,
+// su insignia y la vista «Necesitan algo» de Atletas (DECISIONS 2026-09-23,
+// «Una sola cuenta de quién te necesita»): atleta activo con alguna de
+//   - una señal crítica o de vigilar (viva, ya reconciliada con los hechos),
+//   - el alta pendiente,
+//   - hueco de plan (sin programa o terminado; no el invitado sin cuestionario),
+//   - su semana oculta (la de ahora, o la que viene cuando por la regla del
+//     coach ya debería verse).
+// Hoy pinta eso como grupos + filas; la cifra cuenta ATLETAS, no filas.
 //
 // Puro: sin base de datos.
 
@@ -70,6 +81,8 @@ export interface AthleteStatus {
   signals: AthleteSignal[];
   /** Si alguna señal está pospuesta, hasta cuándo (la más tardía). */
   snoozed_until: string | null;
+  /** ¿Te necesita? La cuenta de Hoy y la vista «Necesitan algo» (ver arriba). */
+  needs_you: boolean;
 }
 
 // ── Qué hace el coach con cada señal y en qué filtro vive ─────────────────────
@@ -196,10 +209,15 @@ export function isGroupOwnedSignal(
 ): boolean {
   if (s.kind === 'intake_pending') return true;
   if (s.kind === 'billing_at_risk') return s.severity === 'critical';
-  if (s.kind === 'programming_status') {
-    return s.dedupe_key.endsWith(':no_month') || s.dedupe_key.endsWith(':block_ended');
-  }
-  return false;
+  return isPlanGapSignal(s);
+}
+
+/** «Sin programa» / «programa terminado» del motor (no la semana vacía). */
+export function isPlanGapSignal(s: Pick<AthleteSignal, 'kind' | 'dedupe_key'>): boolean {
+  return (
+    s.kind === 'programming_status' &&
+    (s.dedupe_key.endsWith(':no_month') || s.dedupe_key.endsWith(':block_ended'))
+  );
 }
 
 /** Crítica o vigilar: lo que pide acción (las informativas no). */
@@ -224,8 +242,15 @@ export interface AthleteStateInput {
   plan: PlanState;
   /** YYYY-MM-DD de cuando terminó su último programa (si `terminado`). */
   plan_ended_on?: string | null;
-  /** Señales VIVAS (ya sin las silenciadas por el coach). */
+  /** Señales VIVAS (ya sin las silenciadas por el coach, y reconciliadas). */
   signals: ReadonlyArray<AthleteSignal>;
+  /**
+   * Su semana está oculta al atleta: `actual` (la de ahora tiene entrenos y no
+   * la ve) o `siguiente` (la que viene, cuando ya debería verse). null = la ve.
+   */
+  week_hidden?: 'actual' | 'siguiente' | null;
+  /** Esa semana la retuvo el coach a mano. */
+  week_held?: boolean;
   snoozed_until?: string | null;
   /** Para decir «hace 2 d». */
   now: Date;
@@ -247,10 +272,55 @@ function signalReason(s: AthleteSignal): string {
   return s.evidence ? `${s.label} · ${s.evidence}` : s.label;
 }
 
+/**
+ * ¿Te necesita este atleta? LA definición (Hoy, su insignia y «Necesitan algo»).
+ * Pura; las señales ya vivas y reconciliadas (`reconcileSignals`).
+ */
+export function athleteNeedsYou(
+  input: Pick<
+    AthleteStateInput,
+    'lifecycle' | 'intake_pending' | 'not_onboarded' | 'plan' | 'signals' | 'week_hidden'
+  >,
+): boolean {
+  if (input.lifecycle !== 'activo') return false;
+  // El alta y el hueco de plan se juzgan por los hechos (abajo), no por la señal:
+  // así un invitado sin cuestionario no «necesita» un programa todavía.
+  const bySignal = input.signals.some(
+    (s) => isActionable(s) && s.kind !== 'intake_pending' && !isPlanGapSignal(s),
+  );
+  if (bySignal) return true;
+  if (input.intake_pending) return true;
+  if (input.plan !== 'con_programa' && !input.not_onboarded) return true;
+  return input.week_hidden != null;
+}
+
+/**
+ * Las señales persistidas por el motor que hablan de algo que el panel ya sabe
+ * AHORA se reconcilian con ese dato fresco (el barrido corre cada 15 min y un
+ * «asignar» o una respuesta no esperan a él):
+ *   - `programming_status` (sin programa · terminado · semana vacía) solo sigue
+ *     viva si el estado de programación actual es el mismo que dice su clave;
+ *   - `message_unanswered` solo sigue viva si el hilo sigue por responder
+ *     (cuando se conoce: `awaiting_reply` undefined = no se sabe, se deja).
+ */
+export function reconcileSignals(
+  signals: ReadonlyArray<AthleteSignal>,
+  now: { programming_status: string; awaiting_reply?: boolean },
+): AthleteSignal[] {
+  return signals.filter((s) => {
+    if (s.kind === 'programming_status') {
+      return s.dedupe_key.endsWith(`:${now.programming_status}`);
+    }
+    if (s.kind === 'message_unanswered' && now.awaiting_reply === false) return false;
+    return true;
+  });
+}
+
 /** El único derivador del estado. Puro. */
 export function deriveAthleteStatus(input: AthleteStateInput): AthleteStatus {
   const signals = sortSignals(input.signals);
   const snoozed_until = input.snoozed_until ?? null;
+  const needs_you = athleteNeedsYou(input);
   const base = (key: AthleteStatusKey, reason: string | null, label?: string): AthleteStatus => ({
     key,
     tone: STATUS_VIEW[key].tone,
@@ -258,6 +328,7 @@ export function deriveAthleteStatus(input: AthleteStateInput): AthleteStatus {
     reason,
     signals,
     snoozed_until,
+    needs_you,
   });
 
   if (input.lifecycle !== 'activo') {
@@ -300,6 +371,14 @@ export function deriveAthleteStatus(input: AthleteStateInput): AthleteStatus {
 
   const warning = counted.find((s) => s.severity === 'warning');
   if (warning) return base('vigilar', signalReason(warning));
+
+  if (input.week_hidden) {
+    const which = input.week_hidden === 'actual' ? 'Su semana' : 'La semana que viene';
+    return base(
+      'vigilar',
+      input.week_held ? `${which} está retenida por ti` : `${which} está oculta al atleta`,
+    );
+  }
 
   return base('al_dia', null);
 }

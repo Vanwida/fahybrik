@@ -33,7 +33,7 @@ import {
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
-import { loadAwaitingReply } from '@/lib/coach/attention/awaiting-reply';
+import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
 import { loadReadinessHistory } from '@/lib/coach/attention/readiness-history';
 import { latestReading, readinessBaseline, readinessTrend } from '@/lib/coach/attention/readiness-baseline';
 import { resolveCoachThresholds } from '@/lib/coach/signal-thresholds';
@@ -145,7 +145,6 @@ interface ExtrasRow {
   msg_body: string | null;
   msg_at: Date | null;
   msg_role: 'athlete' | 'coach' | null;
-  msg_done_at: Date | null;
   auto_days: number | null;
 }
 
@@ -156,7 +155,6 @@ async function loadExtras(client: Sql, coach_id: number, athlete_id: number, tod
       tr.name as race_name, tr.date as race_date, tr.days as race_days,
       ck.on as checkin_on, ck.at as checkin_at, ck.notes as checkin_notes, ck.score as checkin_score,
       lm.body as msg_body, lm.at as msg_at, lm.role as msg_role,
-      md.dismissed_at as msg_done_at,
       c.auto_publish_days_before as auto_days
     from athletes a
     join coaches c on c.id = a.coach_id
@@ -193,8 +191,6 @@ async function loadExtras(client: Sql, coach_id: number, athlete_id: number, tod
       order by m.created_at desc
       limit 1
     ) lm on true
-    left join coach_alert_overrides md
-      on md.athlete_id = a.id and md.signal_kind = 'message_unanswered'
     where a.id = ${athlete_id} and a.coach_id = ${coach_id}
   `;
   return rows[0] ?? null;
@@ -277,7 +273,7 @@ export async function loadAthletePeek(params: {
     loadReadinessHistory({ coach_id, athlete_ids: ids, now, client }),
     resolveCoachThresholds(coach_id, client),
     loadAdherenceSessionsBatch({ client, athlete_ids: ids, coach_id, window_days: PEEK_ADHERENCE_WINDOW_DAYS, now }),
-    loadAwaitingReply({ coach_id, athlete_ids: ids, client }),
+    loadReplyStates({ coach_id, athlete_ids: ids, now, client }),
   ]);
   const f = facts[0];
   if (!f) return null;
@@ -297,7 +293,6 @@ export async function loadAthletePeek(params: {
   const plan = adh.sessions.get(key) ?? [];
   const a = plan.length > 0 ? computeAdherence(plan, today, PEEK_ADHERENCE_WINDOW_DAYS) : null;
   const aw = awaiting.get(key);
-  const doneAfterLast = extras.msg_done_at != null && aw?.last_at != null && extras.msg_done_at >= aw.last_at;
   const visible = athleteSeesWeek(week.row);
   const autoDraft = week.row?.status === 'draft' && week.row.delivery_mode === 'scheduled';
 
@@ -319,7 +314,7 @@ export async function loadAthletePeek(params: {
           weeks: f.current_program.weeks,
         }
       : null,
-    status: buildAthleteStatus(f, signals.get(key), now),
+    status: buildAthleteStatus(f, signals.get(key), now, aw?.open ?? false),
     readiness:
       latest && h
         ? {
@@ -353,7 +348,7 @@ export async function loadAthletePeek(params: {
       extras.msg_at && extras.msg_role
         ? { body: extras.msg_body ?? '', created_at: extras.msg_at.toISOString(), from: extras.msg_role }
         : null,
-    awaiting_reply: (aw?.count ?? 0) > 0 && !doneAfterLast,
+    awaiting_reply: aw?.open ?? false,
     unread: aw?.unread ?? 0,
   };
 }

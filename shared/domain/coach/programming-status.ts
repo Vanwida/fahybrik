@@ -30,6 +30,13 @@ export type ProgrammingFacts = {
   last_month_end: string | null;
   /** YYYY-MM-DD del día de caja. */
   today: string;
+  /**
+   * Entrenos puestos por el coach desde el lunes de esta semana en adelante.
+   * Un atleta con entrenos sueltos (sin programa asignado) TIENE plan: «Sin
+   * plan» con un próximo entreno en la ficha era una contradicción. Sin el
+   * dato (undefined) se clasifica como antes, solo por el recibo del programa.
+   */
+  upcoming_session_count?: number;
 };
 
 type ProgrammingView = {
@@ -93,12 +100,14 @@ export function classifyProgrammingStatus(facts: ProgrammingFacts): Omit<
   AthleteProgrammingStatus,
   'athlete_id'
 > {
-  if (!facts.has_month_plan) return viewed('no_month');
+  const upcoming = facts.upcoming_session_count ?? 0;
+  if (!facts.has_month_plan && upcoming === 0) return viewed('no_month');
   if (facts.has_pending_month_proposal) return viewed('month_2_pending');
   if (facts.has_pending_week_proposal) return viewed('pending_proposal');
   if (facts.week_session_count === 0) {
     const end = facts.last_month_end;
-    if (end && end < facts.today) return viewed('block_ended');
+    // Con entrenos más adelante no está terminado: es una semana sin nada.
+    if (upcoming === 0 && end && end < facts.today) return viewed('block_ended');
     return viewed('empty_week');
   }
   return viewed('ok');
@@ -123,7 +132,14 @@ export async function getAthleteProgrammingStatus(params: {
       select count(*)::int as n from athlete_month_assignments
       where athlete_id = ${params.athlete_id as number}
     `;
-    const hasMonthPlan = (monthCount[0]?.n ?? 0) > 0;
+    const upcomingRows = await client<Array<{ n: number }>>`
+      select count(*)::int as n from workout_assignments
+      where athlete_id = ${params.athlete_id as number}
+        and origin = 'coach'
+        and scheduled_for >= ${weekStart}::date
+    `;
+    const upcoming = upcomingRows[0]?.n ?? 0;
+    const hasMonthPlan = (monthCount[0]?.n ?? 0) > 0 || upcoming > 0;
 
     const pendingMonth = hasMonthPlan
       ? await client<Array<{ id: string }>>`
@@ -171,6 +187,7 @@ export async function getAthleteProgrammingStatus(params: {
         week_session_count: weekSessionCount,
         last_month_end: lastMonthEnd,
         today: isoDateString(today),
+        upcoming_session_count: upcoming,
       }),
     };
   } catch (err) {
@@ -215,6 +232,7 @@ export async function loadProgrammingStatusMap(params: {
         pending_month: boolean;
         pending_week: boolean;
         week_sessions: number;
+        upcoming: number;
       }>
     >`
       select
@@ -237,7 +255,13 @@ export async function loadProgrammingStatusMap(params: {
           where w.athlete_id = a.id
             and w.scheduled_for >= ${weekStart}::date
             and w.scheduled_for <= ${weekEnd}::date
-        )::int as week_sessions
+        )::int as week_sessions,
+        (
+          select count(*) from workout_assignments w
+          where w.athlete_id = a.id
+            and w.origin = 'coach'
+            and w.scheduled_for >= ${weekStart}::date
+        )::int as upcoming
       from athletes a
       where a.id = any(${ids}::bigint[])
     `;
@@ -251,6 +275,7 @@ export async function loadProgrammingStatusMap(params: {
           week_session_count: r.week_sessions,
           last_month_end: r.last_end,
           today: todayIso,
+          upcoming_session_count: r.upcoming,
         }),
       });
     }

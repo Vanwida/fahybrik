@@ -11,7 +11,7 @@ import 'server-only';
 //   3. historia de readiness                (readiness-history.ts)
 //   4. sesiones del plan para la adherencia (shared/domain/coach/adherence.ts)
 //   5. señales vivas + silenciadas          (signals-read.ts)
-//   6. hilos por responder                  (awaiting-reply.ts)
+//   6. hilos por responder, con hecho/pospuesto (awaiting-reply.ts, la regla de Mensajes)
 //   7. bandas de readiness del coach        (signal-thresholds.ts)
 //
 // Todo en el vocabulario del panel: estado con su motivo (un solo modelo, §4.1),
@@ -32,7 +32,7 @@ import { readinessBandOf, type ReadinessBand } from '@fahybrid/shared/domain/coa
 import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
-import { loadAwaitingReply } from '@/lib/coach/attention/awaiting-reply';
+import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
 import { loadReadinessHistory } from '@/lib/coach/attention/readiness-history';
 import {
   latestReading,
@@ -70,7 +70,7 @@ export interface RosterRow {
   race: { name: string; date: string; days: number } | null;
   program: { id: string; name: string; week: number; weeks: number } | null;
   unread: number;
-  /** El último mensaje del hilo es del atleta y el coach no lo ha dado por hecho. */
+  /** Por responder: la regla de Mensajes (último mensaje del atleta, ni hecho ni pospuesto). */
   awaiting_reply: boolean;
 }
 
@@ -86,7 +86,6 @@ interface ExtrasRow {
   group_name: string | null;
   group_level: string | null;
   group_days: number | null;
-  msg_done_at: Date | null;
 }
 
 async function loadRosterExtras(
@@ -106,8 +105,7 @@ async function loadRosterExtras(
       grp.id                        as group_id,
       grp.name                      as group_name,
       grp.level_name                as group_level,
-      grp.days_per_week             as group_days,
-      md.dismissed_at               as msg_done_at
+      grp.days_per_week             as group_days
     from athletes a
     left join lateral (
       select max(coalesce(we.ended_at, we.started_at, we.created_at)) as at
@@ -151,8 +149,6 @@ async function loadRosterExtras(
       order by sp.started_at desc
       limit 1
     ) grp on true
-    left join coach_alert_overrides md
-      on md.athlete_id = a.id and md.signal_kind = 'message_unanswered'
     where a.coach_id = ${coach_id}
   `;
   return new Map(rows.map((r) => [r.athlete_id, r]));
@@ -220,7 +216,7 @@ export async function loadRoster(params: {
     loadRosterExtras(client, coach_id, cal.today),
     loadReadinessHistory({ coach_id, now, client }),
     loadAthleteSignals({ coach_id, now, client }),
-    loadAwaitingReply({ coach_id, client }),
+    loadReplyStates({ coach_id, now, client }),
     resolveCoachThresholds(coach_id, client),
     loadAdherenceSessionsBatch({
       client,
@@ -244,8 +240,6 @@ export async function loadRoster(params: {
           )
         : null;
     const aw = awaiting.get(f.athlete_id);
-    const doneAfterLast =
-      e?.msg_done_at != null && aw?.last_at != null && e.msg_done_at >= aw.last_at;
 
     return {
       athlete_id: f.athlete_id,
@@ -255,7 +249,7 @@ export async function loadRoster(params: {
       level: f.level ? { id: f.level.id, label: f.level.label } : null,
       group: e?.group_id ? { id: e.group_id, name: groupName(e) } : null,
       lifecycle: lifecycleOf(f),
-      status: buildAthleteStatus(f, signals.get(f.athlete_id), now),
+      status: buildAthleteStatus(f, signals.get(f.athlete_id), now, aw?.open ?? false),
       week_visibility: WEEK_VISIBILITY[f.week_chip.kind],
       readiness:
         latest && h
@@ -283,7 +277,7 @@ export async function loadRoster(params: {
           }
         : null,
       unread: aw?.unread ?? 0,
-      awaiting_reply: (aw?.count ?? 0) > 0 && !doneAfterLast,
+      awaiting_reply: aw?.open ?? false,
     };
   });
 

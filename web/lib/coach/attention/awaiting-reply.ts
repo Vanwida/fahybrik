@@ -11,6 +11,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { threadState, type ReplyOverride } from '@/lib/dashboard/v2/mensajes-inbox';
 
 export interface AwaitingReply {
   /** Mensajes del atleta tras la última respuesta del coach (0 = nada que responder). */
@@ -72,4 +73,59 @@ export async function loadAwaitingReply(params: {
     });
   }
   return out;
+}
+
+export interface ReplyState extends AwaitingReply {
+  /** Por responder de verdad: hay espera y el coach no la ha dado por hecha ni pospuesto. */
+  open: boolean;
+}
+
+/**
+ * El estado de respuesta de cada hilo del coach (atleta → espera), con lo que el coach hizo
+ * con cada espera (`coach_alert_overrides` de `message_unanswered`: «Hecho» y
+ * «Posponer», en Mensajes o en Hoy) ya aplicado por `threadState` — la misma
+ * regla que la bandeja de Mensajes y su insignia. Solo atletas que siguen siendo
+ * del coach. Dos consultas, sea cual sea el número de hilos.
+ *
+ * Es la fuente de «Por responder» en Hoy (su filtro) y en Atletas (la columna):
+ * una espera cuenta aquí desde el primer minuto; el umbral de horas del coach
+ * solo decide cuándo esa espera pasa a ser algo que «te necesita» hoy.
+ */
+export async function loadReplyStates(params: {
+  coach_id: bigint | number;
+  athlete_ids?: ReadonlyArray<number | bigint | string>;
+  now?: Date;
+  client?: Sql;
+}): Promise<Map<string, ReplyState>> {
+  const client = params.client ?? defaultSql;
+  const now = params.now ?? new Date();
+  const coach_id = Number(params.coach_id);
+  const [awaiting, overrides] = await Promise.all([
+    loadAwaitingReply({ coach_id, athlete_ids: params.athlete_ids, client }),
+    // Los atletas del coach, con su override de la espera si lo hay.
+    client<Array<{ athlete_id: string } & ReplyOverride>>`
+      select a.id::text as athlete_id, o.snoozed_until, o.dismissed_at, o.override_kind
+      from athletes a
+      left join coach_alert_overrides o
+        on o.athlete_id = a.id and o.coach_id = a.coach_id and o.signal_kind = 'message_unanswered'
+      where a.coach_id = ${coach_id}
+    `,
+  ]);
+  const byAthlete = new Map(overrides.map((o) => [o.athlete_id, o]));
+  const own = new Set(byAthlete.keys());
+  const out = new Map<string, ReplyState>();
+  for (const [athlete_id, aw] of awaiting) {
+    if (!own.has(athlete_id)) continue;
+    const open =
+      aw.count > 0 &&
+      aw.last_at != null &&
+      threadState({ last_at: aw.last_at }, byAthlete.get(athlete_id) ?? null, now).state === 'por_responder';
+    out.set(athlete_id, { ...aw, open });
+  }
+  return out;
+}
+
+/** Solo los hilos por responder (ver `loadReplyStates`). */
+export function openReplies(states: ReadonlyMap<string, ReplyState>): Map<string, ReplyState> {
+  return new Map([...states].filter(([, s]) => s.open));
 }

@@ -78,6 +78,9 @@ export interface VisibleInbox {
   systemic: SystemicGroup[];
   critico: HoyRow[];
   vigilar: HoyRow[];
+  /** Por responder sin fila (solo en su filtro). */
+  replies: HoyRow[];
+  /** Atletas (no filas): los de los grupos y las filas, cada uno una vez. */
   needs_you: number;
   resolved_today: number;
   snoozed: number;
@@ -89,14 +92,15 @@ export interface VisibleInbox {
  * suben — sin contar dos veces lo que el servidor ya refleja.
  */
 export function visibleInbox(
-  view: Pick<HoyView, 'systemic' | 'critico' | 'vigilar' | 'counts'>,
+  view: Pick<HoyView, 'systemic' | 'critico' | 'vigilar' | 'counts'> & { replies?: HoyRow[] },
   pending: ReadonlyMap<string, PendingRow>,
   hiddenGroups: ReadonlySet<string>,
 ): VisibleInbox {
   const systemic = view.systemic.filter((g) => !hiddenGroups.has(groupKey(g)));
   const critico = view.critico.filter((r) => !pending.has(r.athlete_id));
   const vigilar = view.vigilar.filter((r) => !pending.has(r.athlete_id));
-  const onServer = new Set([...view.critico, ...view.vigilar].map((r) => r.athlete_id));
+  const replies = (view.replies ?? []).filter((r) => !pending.has(r.athlete_id));
+  const onServer = new Set([...view.critico, ...view.vigilar, ...(view.replies ?? [])].map((r) => r.athlete_id));
   let done = 0;
   let snoozed = 0;
   for (const [id, p] of pending) {
@@ -108,7 +112,8 @@ export function visibleInbox(
     systemic,
     critico,
     vigilar,
-    needs_you: systemic.length + critico.length + vigilar.length,
+    replies,
+    needs_you: athletesIn(systemic, [...critico, ...vigilar]).size,
     resolved_today: view.counts.resolved_today + done,
     snoozed: view.counts.snoozed + snoozed,
   };
@@ -131,20 +136,59 @@ export function prunePending(
   return next;
 }
 
-/** Recuento de cada chip sobre la bandeja visible. Altas = atletas con alta pendiente. */
-export function vistaCounts(inbox: Pick<VisibleInbox, 'systemic' | 'critico' | 'vigilar' | 'needs_you'>): Record<HoyVista, number> {
+/**
+ * Los atletas (ids) de unos grupos y unas filas, cada uno una vez: la unidad de
+ * «te necesitan» (grupos de Negocio no llevan atletas y no cuentan).
+ */
+export function athletesIn(
+  groups: ReadonlyArray<Pick<SystemicGroup, 'athlete_ids'>>,
+  rows: ReadonlyArray<Pick<HoyRow, 'athlete_id'>>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const g of groups) for (const id of g.athlete_ids) ids.add(id);
+  for (const r of rows) ids.add(r.athlete_id);
+  return ids;
+}
+
+/**
+ * Recuento de cada chip sobre la bandeja visible, en ATLETAS (la misma unidad que
+ * la cabecera). «Por responder» = sus filas + las esperas sin fila: el mismo
+ * conjunto y la misma cifra que Mensajes. Altas = atletas con alta pendiente.
+ */
+export function vistaCounts(
+  inbox: Pick<VisibleInbox, 'systemic' | 'critico' | 'vigilar' | 'needs_you'> & { replies?: HoyRow[] },
+): Record<HoyVista, number> {
   const rows = [...inbox.critico, ...inbox.vigilar];
   const count = (v: HoyVista) =>
-    rows.filter((r) => rowInVista(r, v)).length + inbox.systemic.filter((g) => groupInVista(g, v)).length;
+    athletesIn(
+      inbox.systemic.filter((g) => groupInVista(g, v)),
+      rows.filter((r) => rowInVista(r, v)),
+    ).size;
   const altas = inbox.systemic.find((g) => g.kind === 'intake_pending')?.count ?? 0;
   return {
     todo: inbox.needs_you,
-    responder: count('responder'),
+    responder: count('responder') + (inbox.replies?.length ?? 0),
     sesiones: count('sesiones'),
     fisiologia: count('fisiologia'),
     plan: count('plan'),
     altas,
   };
+}
+
+/**
+ * A qué señales va «Hecho/Posponer» de cada fila. Una fila normal = el atleta
+ * entero (el servidor elige sus señales accionables). Una espera sin fila no
+ * tiene señal del motor todavía: se nombra (`message_unanswered`), que es lo que
+ * leen Mensajes y su insignia.
+ */
+export function overrideTargets(
+  rows: ReadonlyArray<Pick<HoyRow, 'athlete_id' | 'primary'>>,
+): Array<{ athlete_id: string; signal_kind?: SignalKind }> {
+  return rows.map((r) =>
+    r.primary.severity === 'info'
+      ? { athlete_id: r.athlete_id, signal_kind: r.primary.kind }
+      : { athlete_id: r.athlete_id },
+  );
 }
 
 // ── Recorrido con teclado ────────────────────────────────────────────────────

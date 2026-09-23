@@ -30,6 +30,12 @@ export type AthleteWeekChipInput = {
   athlete_sees_it: boolean;
   /** YYYY-MM-DD del día de caja contra el que se juzga el bloque. */
   today: string;
+  /**
+   * Entrenos del coach desde el lunes de esta semana en adelante. Entrenos
+   * sueltos sin programa también son plan (misma regla que
+   * `classifyProgrammingStatus`). Sin el dato, solo cuenta el programa.
+   */
+  upcoming_session_count?: number;
 };
 
 export const ATHLETE_WEEK_CHIP_LABEL: Record<AthleteWeekChipKind, string> = {
@@ -66,13 +72,14 @@ function of(kind: AthleteWeekChipKind): AthleteWeekChip {
  * nada que esconder.
  */
 export function athleteWeekChip(input: AthleteWeekChipInput): AthleteWeekChip {
-  if (!input.has_month_assignment) return of('sin_plan');
+  const upcoming = input.upcoming_session_count ?? 0;
+  if (!input.has_month_assignment && upcoming === 0) return of('sin_plan');
 
   if (input.session_count_this_week > 0) {
     return input.athlete_sees_it ? of('visible') : of('no_lo_ve');
   }
 
-  if (input.last_assignment_end != null && input.last_assignment_end < input.today) {
+  if (upcoming === 0 && input.last_assignment_end != null && input.last_assignment_end < input.today) {
     return of('bloque_terminado');
   }
 

@@ -32,6 +32,7 @@ import {
 } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import type { AthleteLifecycleStatus, PauseReason } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
 import type { PlanState } from '@fahybrid/shared/domain/coach/athlete-state';
+import { autoPublishDate, effectiveAutoPublishDays } from '@fahybrid/shared/domain/coach/week-publishing';
 
 export interface CurrentProgram {
   /** El programa (program_month_templates.id). */
@@ -73,6 +74,12 @@ export interface AthletePlanFacts {
   next_week_hidden: boolean;
   next_week_held: boolean;
   next_week_sessions: number;
+  /**
+   * Por la regla del coach («visible N días antes»), la semana que viene ya
+   * debería verse: una semana que viene oculta, a partir de ese día, es algo
+   * que el coach tiene que hacer (Hoy la agrupa; el estado la cuenta).
+   */
+  next_week_due: boolean;
 }
 
 interface Row {
@@ -98,6 +105,8 @@ interface Row {
   next_week_sessions: number;
   next_week_status: string | null;
   next_week_mode: string | null;
+  upcoming_sessions: number;
+  auto_days: string | null;
   cur_template_id: string | null;
   cur_name: string | null;
   cur_start: string | null;
@@ -173,6 +182,14 @@ export async function loadPlanFacts(params: {
       )::int                                       as next_week_sessions,
       wpn.status::text                             as next_week_status,
       wpn.delivery_mode                            as next_week_mode,
+      (
+        select count(*) from workout_assignments w
+        where w.athlete_id = a.id
+          and w.origin = 'coach'
+          and w.scheduled_for >= ${cal.week_start}::date
+      )::int                                       as upcoming_sessions,
+      -- to_jsonb: tolera un entorno sin la columna (mig 0217) → defecto.
+      to_jsonb(co) ->> 'auto_publish_days_before'  as auto_days,
       cur.template_id                              as cur_template_id,
       cur.name                                     as cur_name,
       cur.start_iso                                as cur_start,
@@ -184,6 +201,7 @@ export async function loadPlanFacts(params: {
       )                                            as next_start
     from athletes a
     left join users u on u.id = a.user_id
+    left join coaches co on co.id = a.coach_id
     left join athlete_levels al on al.id = a.level_id
     left join weekly_plans wpc on wpc.athlete_id = a.id and wpc.week_start = ${cal.week_start}::date
     left join weekly_plans wpn on wpn.athlete_id = a.id and wpn.week_start = ${cal.next_week_start}::date
@@ -236,6 +254,7 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
     athlete_id: r.athlete_id,
     ...classifyProgrammingStatus({
       has_month_plan: r.n_months > 0,
+      upcoming_session_count: r.upcoming_sessions,
       has_pending_month_proposal: r.pending_month,
       has_pending_week_proposal: r.pending_week,
       week_session_count: r.week_sessions,
@@ -252,6 +271,7 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
 
   const week_chip = athleteWeekChip({
     has_month_assignment: r.n_months > 0,
+    upcoming_session_count: r.upcoming_sessions,
     last_assignment_end: r.last_end,
     session_count_this_week: r.week_sessions,
     athlete_sees_it: athleteSeesItFromWeeklyStatus(r.week_status),
@@ -294,5 +314,11 @@ function toFacts(r: Row, cal: ReturnType<typeof coachCalendar>): AthletePlanFact
     next_week_hidden: r.next_week_sessions > 0 && !athleteSeesItFromWeeklyStatus(r.next_week_status),
     next_week_held: r.next_week_status === 'draft' && r.next_week_mode === 'manual',
     next_week_sessions: r.next_week_sessions,
+    next_week_due:
+      cal.today >=
+      autoPublishDate(
+        cal.next_week_start,
+        effectiveAutoPublishDays(r.auto_days == null ? null : Number(r.auto_days)),
+      ),
   };
 }

@@ -128,3 +128,30 @@ describe('resolveStatusPill', () => {
     ).toBe('revision');
   });
 });
+
+describe('classifyProgrammingStatus — entrenos sueltos también son plan', () => {
+  test('sin programa asignado pero con entrenos esta semana → ok, no «sin plan»', () => {
+    expect(
+      classifyProgrammingStatus(facts({ has_month_plan: false, upcoming_session_count: 3 })).status,
+    ).toBe('ok');
+  });
+  test('sin programa y con entrenos solo más adelante → semana vacía', () => {
+    expect(
+      classifyProgrammingStatus(
+        facts({ has_month_plan: false, week_session_count: 0, upcoming_session_count: 2 }),
+      ).status,
+    ).toBe('empty_week');
+  });
+  test('programa terminado pero con entrenos más adelante → semana vacía, no terminado', () => {
+    expect(
+      classifyProgrammingStatus(
+        facts({ week_session_count: 0, last_month_end: '2026-08-10', upcoming_session_count: 1 }),
+      ).status,
+    ).toBe('empty_week');
+  });
+  test('sin entrenos de hoy en adelante y sin programa → sin programa', () => {
+    expect(
+      classifyProgrammingStatus(facts({ has_month_plan: false, upcoming_session_count: 0 })).status,
+    ).toBe('no_month');
+  });
+});

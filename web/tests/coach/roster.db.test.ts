@@ -125,6 +125,43 @@ describeWithDb('loadRoster — set-based', () => {
     expect(r.status.key).toBe('al_dia');
   });
 
+  it('Hoy y Atletas cuentan lo mismo: «te necesitan» y «por responder» (una sola verdad)', async () => {
+    const check = async () => {
+      const [rows, hoy] = await Promise.all([
+        loadRoster({ coach_id: fx.coachId, now: NOW, client: sql }),
+        loadHoy({ coach_id: fx.coachId, now: NOW, client: sql }),
+      ]);
+      const needs = rows.filter((r) => r.status.needs_you).map((r) => r.athlete_id).sort();
+      const inHoy = new Set([
+        ...hoy.systemic.flatMap((g) => g.athlete_ids),
+        ...[...hoy.critico, ...hoy.vigilar].map((r) => r.athlete_id),
+      ]);
+      expect(hoy.counts.needs_you).toBe(needs.length);
+      expect([...inHoy].sort()).toEqual(needs);
+      expect(hoy.counts.awaiting_reply).toBe(rows.filter((r) => r.awaiting_reply).length);
+      return { rows, hoy };
+    };
+
+    // El atleta escribió hace 2 h (bajo el umbral): por responder en Mensajes y
+    // en el filtro de Hoy, pero todavía no «te necesita».
+    const first = await check();
+    expect(first.hoy.counts.needs_you).toBe(0);
+    expect(first.hoy.counts.awaiting_reply).toBe(1);
+    expect(first.hoy.replies.map((r) => r.athlete_id)).toEqual([String(fx.athleteId)]);
+    expect(first.hoy.replies[0]!.primary).toMatchObject({ kind: 'message_unanswered', severity: 'info', lens: 'mensajes' });
+
+    // Su semana oculta: ya no está «Al día» y te necesita, en las dos pantallas.
+    await sql`insert into weekly_plans (athlete_id, week_start, status, delivery_mode)
+              values (${fx.athleteId}, '2026-09-21', 'draft', 'manual')`;
+    try {
+      const hidden = await check();
+      expect(hidden.hoy.counts.needs_you).toBe(1);
+      expect(hidden.rows[0]!.status).toMatchObject({ key: 'vigilar', reason: 'Su semana está retenida por ti' });
+    } finally {
+      await sql`delete from weekly_plans where athlete_id = ${fx.athleteId}`;
+    }
+  });
+
   it('«hecho» en el hilo quita el por responder hasta que vuelva a escribir', async () => {
     await sql`
       insert into coach_alert_overrides (coach_id, athlete_id, signal_kind, dismissed_at, override_kind)

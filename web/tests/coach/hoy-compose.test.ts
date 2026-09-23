@@ -34,6 +34,7 @@ function facts(id: string, p: Partial<AthletePlanFacts> = {}): AthletePlanFacts 
     next_week_hidden: false,
     next_week_held: false,
     next_week_sessions: 0,
+    next_week_due: false,
     ...p,
   };
 }
@@ -62,7 +63,6 @@ function input(p: Partial<HoyComposeInput>): HoyComposeInput {
   return {
     now: NOW,
     calendar: CAL,
-    auto_publish_days: 2,
     facts: [],
     signals: new Map(),
     resolved_today: 0,
@@ -104,18 +104,20 @@ describe('composeHoy — grupos', () => {
     expect(view.systemic[2]).toMatchObject({ athlete_ids: ['5'], detail: 'la más antigua, hace 3 d' });
     // El pago vencido no se repite como fila.
     expect(view.critico).toEqual([]);
-    expect(view.counts.needs_you).toBe(4);
+    // La cifra cuenta ATLETAS: 1-2 (semana), 3-4 (sin programa), 5 (alta), 6 (pago).
+    expect(view.counts.needs_you).toBe(6);
     expect(view.week_visibility).toEqual({ visible: 2, total: 7 });
   });
 
   it('la semana que viene solo es grupo cuando, por la regla del coach, ya debería verse', () => {
+    // `next_week_due` lo decide plan-facts con la regla del coach (N días antes).
     const f = [facts('1', { next_week_hidden: true, next_week_sessions: 4 })];
     // Miércoles con N = 2 → se abre el sábado: todavía no es un problema.
     expect(composeHoy(input({ facts: f })).systemic).toEqual([]);
     // Sábado 26 → ya debería verse.
     const sat = composeHoy(
       input({
-        facts: f,
+        facts: [facts('1', { next_week_hidden: true, next_week_sessions: 4, next_week_due: true })],
         now: new Date('2026-09-26T10:00:00Z'),
         calendar: { ...CAL, today: '2026-09-26' },
       }),
@@ -201,13 +203,31 @@ describe('composeHoy — filas', () => {
   it('una semana vacía con programa SÍ es fila (no la cubre ningún grupo)', () => {
     const view = composeHoy(
       input({
-        facts: [facts('1', { week_chip: { kind: 'semana_vacia', label: 'Semana vacía' } })],
+        facts: [
+          facts('1', {
+            week_chip: { kind: 'semana_vacia', label: 'Semana vacía' },
+            programming: { athlete_id: '1', status: 'empty_week', label: 'Semana vacía', detail: null, cta: null, cta_label: null },
+          }),
+        ],
         signals: new Map([
           ['1', live(sig({ kind: 'programming_status', severity: 'warning', dedupe_key: 'programming_status:1:empty_week' }))],
         ]),
       }),
     );
     expect(view.vigilar).toHaveLength(1);
+  });
+
+  it('una señal de plan que ya no es verdad (asignado después del barrido) no es fila ni cuenta', () => {
+    const view = composeHoy(
+      input({
+        facts: [facts('1')], // programming: ok — tiene programa AHORA
+        signals: new Map([
+          ['1', live(sig({ kind: 'programming_status', severity: 'warning', dedupe_key: 'programming_status:1:empty_week' }))],
+        ]),
+      }),
+    );
+    expect(view.vigilar).toHaveLength(0);
+    expect(view.counts.needs_you).toBe(0);
   });
 
   it('pospuestos: fuera de la bandeja, contados y listados para deshacer', () => {

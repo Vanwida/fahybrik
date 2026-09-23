@@ -62,7 +62,8 @@ function row(id: string, primary: Partial<AthleteSignal> = {}, others: Partial<A
 }
 
 function group(kind: SystemicGroup['kind'], count: number, week_start?: string): SystemicGroup {
-  return { kind, count, title: `${count}`, detail: 'x', athlete_ids: [], week_start };
+  const athlete_ids = Array.from({ length: count }, (_, i) => `${kind}-${i}`);
+  return { kind, count, title: `${count}`, detail: 'x', athlete_ids, week_start };
 }
 
 const msg = { kind: 'message_unanswered', severity: 'warning', lens: 'mensajes', action: 'responder' } as const;
@@ -76,6 +77,7 @@ function view(over: Partial<HoyView> = {}): HoyView {
     generated_at: '2026-09-23T10:00:00.000Z',
     counts: {
       needs_you: systemic.length + critico.length + vigilar.length,
+      awaiting_reply: 0,
       critico: critico.length,
       vigilar: vigilar.length,
       resolved_today: 2,
@@ -86,6 +88,7 @@ function view(over: Partial<HoyView> = {}): HoyView {
     critico,
     vigilar,
     snoozed_rows: [],
+    replies: [],
     ...over,
   };
 }
@@ -115,9 +118,26 @@ describe('vistas', () => {
     expect(groupInVista(group('week_hidden', 1), 'responder')).toBe(false);
   });
 
-  it('recuentos de chip sobre la bandeja visible; Altas cuenta atletas, no filas', () => {
+  it('recuentos de chip en ATLETAS (la unidad de la cabecera): un grupo de 47 son 47', () => {
     const c = vistaCounts(visibleInbox(view(), new Map(), new Set()));
-    expect(c).toEqual({ todo: 6, responder: 2, sesiones: 1, fisiologia: 1, plan: 2, altas: 6 });
+    expect(c).toEqual({ todo: 76, responder: 2, sesiones: 1, fisiologia: 1, plan: 67, altas: 6 });
+  });
+
+  it('un atleta en un grupo y con fila cuenta una vez', () => {
+    const g = { ...group('week_hidden', 1, '2026-09-21'), athlete_ids: ['1'] };
+    const inbox = visibleInbox(view({ systemic: [g] }), new Map(), new Set());
+    expect(inbox.needs_you).toBe(3);
+  });
+
+  it('«Por responder» suma las esperas sin fila (el conjunto de Mensajes)', () => {
+    const inbox = visibleInbox(
+      view({ replies: [row('7', { ...msg, severity: 'info' })] }),
+      new Map(),
+      new Set(),
+    );
+    expect(vistaCounts(inbox).responder).toBe(3);
+    // Una espera sin fila no «te necesita» todavía.
+    expect(inbox.needs_you).toBe(76);
   });
 });
 
@@ -134,7 +154,7 @@ describe('optimista', () => {
     expect(inbox.critico.map((r) => r.athlete_id)).toEqual(['2']);
     expect(inbox.vigilar).toEqual([]);
     expect(inbox.systemic.map((g) => g.kind)).toEqual(['no_program', 'intake_pending']);
-    expect(inbox.needs_you).toBe(3);
+    expect(inbox.needs_you).toBe(27);
     // '99' ya no está en el servidor: el servidor ya lo cuenta.
     expect(inbox.resolved_today).toBe(3);
     expect(inbox.snoozed).toBe(2);

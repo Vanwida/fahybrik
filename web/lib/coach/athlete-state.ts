@@ -10,6 +10,9 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
   deriveAthleteStatus,
+  reconcileSignals,
+  type AthleteSignal,
+  type AthleteStateInput,
   type AthleteStatus,
 } from '@fahybrid/shared/domain/coach/athlete-state';
 import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
@@ -18,12 +21,37 @@ import { loadAthleteSignals, type AthleteSignalsRead } from '@/lib/coach/attenti
 
 export type { AthleteStatus };
 
-/** El estado de un atleta a partir de lo ya cargado (sin consultas). */
+/** Su semana oculta, en el vocabulario del estado (misma regla que los grupos de Hoy). */
+export function weekHiddenOf(facts: AthletePlanFacts): AthleteStateInput['week_hidden'] {
+  if (facts.week_chip.kind === 'no_lo_ve') return 'actual';
+  if (facts.next_week_hidden && facts.next_week_due) return 'siguiente';
+  return null;
+}
+
+/** Las señales vivas del motor, reconciliadas con los hechos de ahora. */
+export function liveSignalsOf(
+  facts: AthletePlanFacts,
+  signals: AthleteSignalsRead | undefined,
+  awaiting_reply?: boolean,
+): AthleteSignal[] {
+  return reconcileSignals(signals?.live ?? [], {
+    programming_status: facts.programming.status,
+    awaiting_reply,
+  });
+}
+
+/**
+ * El estado de un atleta a partir de lo ya cargado (sin consultas).
+ * `awaiting_reply`: si se sabe, si su hilo sigue por responder (reconcilia la
+ * señal de mensaje con la bandeja de Mensajes).
+ */
 export function buildAthleteStatus(
   facts: AthletePlanFacts,
   signals: AthleteSignalsRead | undefined,
   now: Date,
+  awaiting_reply?: boolean,
 ): AthleteStatus {
+  const week_hidden = weekHiddenOf(facts);
   return deriveAthleteStatus({
     lifecycle: facts.lifecycle,
     pause_label: facts.pause_reason ? PAUSE_REASON_LABELS[facts.pause_reason] : null,
@@ -32,7 +60,9 @@ export function buildAthleteStatus(
     not_onboarded: facts.not_onboarded,
     plan: facts.plan,
     plan_ended_on: facts.last_program_end,
-    signals: signals?.live ?? [],
+    signals: liveSignalsOf(facts, signals, awaiting_reply),
+    week_hidden,
+    week_held: week_hidden === 'actual' ? facts.week_held : week_hidden === 'siguiente' ? facts.next_week_held : false,
     snoozed_until: signals?.snoozed_until ?? null,
     now,
   });

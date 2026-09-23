@@ -48,8 +48,15 @@ export interface HoySnoozedRow extends HoyRow {
 export interface HoyView {
   generated_at: string;
   counts: {
-    /** Filas que piden algo hoy: grupos + crítico + vigilar. Baja al actuar. */
+    /**
+     * ATLETAS que te necesitan (`athleteNeedsYou`): los de los grupos más los de
+     * las filas, cada uno una vez. Es la insignia de Hoy y la vista «Necesitan
+     * algo» de Atletas. Baja al actuar. Leads y llamadas no cuentan aquí (son
+     * de Negocio, con su propia insignia).
+     */
     needs_you: number;
+    /** extra — hilos por responder (la regla y la cifra de Mensajes). */
+    awaiting_reply: number;
     critico: number;
     vigilar: number;
     /** Atletas que el coach marcó «hecho» hoy. */
@@ -67,4 +74,10 @@ export interface HoyView {
   vigilar: HoyRow[];
   /** extra — las filas pospuestas, para desplegarlas y deshacer. */
   snoozed_rows: HoySnoozedRow[];
+  /**
+   * extra — hilos por responder SIN fila en la bandeja (la espera aún no pasa el
+   * umbral del coach, o el atleta está en pausa). Solo en el filtro «Por
+   * responder»; la más larga primero. Su señal es informativa.
+   */
+  replies: HoyRow[];
 }

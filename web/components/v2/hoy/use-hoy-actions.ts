@@ -24,6 +24,7 @@ import { weekdayDate } from '@/components/v2/shared/format';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import {
   groupKey,
+  overrideTargets,
   prunePending,
   reopenPayload,
   type PendingKind,
@@ -118,7 +119,10 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
       try {
         const res = await apiJson<OverrideResult>('/api/coach/inbox/bulk', {
           method: 'POST',
-          body: kind === 'done' ? { action: 'done', athlete_ids: ids } : { action: 'snooze', athlete_ids: ids, until },
+          body:
+            kind === 'done'
+              ? { action: 'done', items: overrideTargets(rows) }
+              : { action: 'snooze', items: overrideTargets(rows), until },
         });
         settle(ids, res.until_at);
         refresh();

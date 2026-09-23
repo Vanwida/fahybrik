@@ -6,6 +6,7 @@ import {
   ageLabel,
   deriveAthleteStatus,
   isGroupOwnedSignal,
+  reconcileSignals,
   relativeDay,
   shortDate,
   sortSignals,
@@ -165,5 +166,60 @@ describe('fechas del panel (plan §2)', () => {
     expect(ageLabel('2026-09-23T09:20:00Z', NOW)).toBe('40 min');
     expect(ageLabel('2026-09-23T05:00:00Z', NOW)).toBe('5 h');
     expect(ageLabel('2026-09-20T09:00:00Z', NOW)).toBe('3 d');
+  });
+});
+
+describe('te necesita (needs_you) — UNA definición para Hoy y «Necesitan algo»', () => {
+  it('una semana oculta NO es «Al día»: vigilar con su motivo, y te necesita', () => {
+    const s = deriveAthleteStatus(input({ week_hidden: 'actual' }));
+    expect(s).toMatchObject({ key: 'vigilar', reason: 'Su semana está oculta al atleta', needs_you: true });
+    const held = deriveAthleteStatus(input({ week_hidden: 'siguiente', week_held: true }));
+    expect(held.reason).toBe('La semana que viene está retenida por ti');
+  });
+
+  it('una señal de vigilar gana el motivo a la semana oculta', () => {
+    const s = deriveAthleteStatus(
+      input({ week_hidden: 'actual', signals: [sig({ kind: 'missed_sessions', severity: 'warning', label: '2 sin hacer' })] }),
+    );
+    expect(s.reason).toBe('2 sin hacer');
+  });
+
+  it('sin plan, alta pendiente y pago vencido te necesitan; al día, pausa e invitado no', () => {
+    expect(deriveAthleteStatus(input({ plan: 'sin_programa' })).needs_you).toBe(true);
+    expect(deriveAthleteStatus(input({ intake_pending: true })).needs_you).toBe(true);
+    expect(
+      deriveAthleteStatus(input({ signals: [sig({ kind: 'billing_at_risk', severity: 'critical' })] })).needs_you,
+    ).toBe(true);
+    expect(deriveAthleteStatus(input()).needs_you).toBe(false);
+    expect(deriveAthleteStatus(input({ lifecycle: 'pausado', plan: 'sin_programa' })).needs_you).toBe(false);
+    // Invitado sin cuestionario: ni el hueco de plan ni la señal del motor le hacen «necesitar» nada.
+    const invited = deriveAthleteStatus(
+      input({
+        not_onboarded: true,
+        plan: 'sin_programa',
+        signals: [sig({ kind: 'programming_status', severity: 'warning', dedupe_key: 'programming_status:1:no_month' })],
+      }),
+    );
+    expect(invited).toMatchObject({ key: 'nuevo', needs_you: false });
+  });
+
+  it('las informativas no te necesitan', () => {
+    expect(
+      deriveAthleteStatus(input({ signals: [sig({ kind: 'transition_ready', severity: 'info' })] })).needs_you,
+    ).toBe(false);
+  });
+});
+
+describe('reconcileSignals — el dato fresco gana a lo que persistió el barrido', () => {
+  const plan = sig({ kind: 'programming_status', severity: 'warning', dedupe_key: 'programming_status:1:no_month' });
+  const msg = sig({ kind: 'message_unanswered', severity: 'warning' });
+  it('el plan: solo sigue la señal cuyo estado coincide con el de ahora', () => {
+    expect(reconcileSignals([plan], { programming_status: 'no_month' })).toHaveLength(1);
+    expect(reconcileSignals([plan], { programming_status: 'ok' })).toHaveLength(0);
+  });
+  it('el mensaje: fuera si el hilo ya no está por responder; se deja si no se sabe', () => {
+    expect(reconcileSignals([msg], { programming_status: 'ok', awaiting_reply: false })).toHaveLength(0);
+    expect(reconcileSignals([msg], { programming_status: 'ok', awaiting_reply: true })).toHaveLength(1);
+    expect(reconcileSignals([msg], { programming_status: 'ok' })).toHaveLength(1);
   });
 });
