@@ -38,14 +38,17 @@ const EXPECTED_ES: Record<string, string> = {
   bigint: 'un número',
 };
 
+/** Los mensajes por defecto de zod (en inglés); cualquier otro lo puso un esquema. */
+const ZOD_DEFAULT = /^(Required|Expected |Invalid |Number must|String must|Array must|Set must|Date must|BigInt must|Unrecognized key)/;
+
 /**
- * La frase del primer problema. Los tipos, campos que faltan, sobrantes y listas
- * cerradas se traducen aquí; el resto (rangos, formatos, reglas) llega con el
- * mensaje en castellano que le pone cada esquema.
+ * La frase del primer problema. Si el esquema puso su mensaje (en castellano, y
+ * diciendo qué hacer), ese manda; los genéricos de zod se traducen aquí.
  */
 function firstIssueMessage(error: ZodError): string {
   const issue = error.issues[0];
   if (!issue) return 'Datos inválidos.';
+  if (!ZOD_DEFAULT.test(issue.message)) return issue.message;
   const where = issue.path.length > 0 ? issue.path.join('.') : null;
   switch (issue.code) {
     case 'invalid_type':
@@ -61,8 +64,6 @@ function firstIssueMessage(error: ZodError): string {
       return `«${where ?? 'action'}» tiene que ser uno de: ${issue.options.map(String).join(', ')}.`;
     case 'too_small':
     case 'too_big': {
-      // Mensaje propio del esquema → tal cual; el genérico de zod se traduce.
-      if (!/^(Number|String|Array|Set|Date|BigInt) must/.test(issue.message)) return issue.message;
       const bound = issue.code === 'too_small' ? issue.minimum : issue.maximum;
       const side = issue.code === 'too_small' ? 'como mínimo' : 'como máximo';
       if (issue.type === 'array' || issue.type === 'string') {
