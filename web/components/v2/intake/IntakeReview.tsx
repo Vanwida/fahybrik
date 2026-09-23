@@ -221,11 +221,15 @@ export function IntakeReview({
           <StatusBadge size="sm" tone="info" label="Alta pendiente" />
           <h1 className="t-title text-v2-fg">{athlete.full_name}</h1>
           <div className="flex flex-wrap items-center gap-2 t-meta text-v2-muted">
-            {athlete.age != null ? <span className="t-tnum">{athlete.age} años</span> : null}
-            {athlete.sex ? <span>· {SEX_LABEL[athlete.sex] ?? athlete.sex}</span> : null}
-            {athlete.primary_discipline ? (
-              <span className="uppercase">· {athlete.primary_discipline}</span>
-            ) : null}
+            <span className="t-tnum">
+              {[
+                athlete.age != null ? `${athlete.age} años` : null,
+                athlete.sex ? (SEX_LABEL[athlete.sex] ?? athlete.sex) : null,
+                athlete.primary_discipline ? athlete.primary_discipline.toUpperCase() : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
             {tenure ? (
               <span className="inline-flex items-center gap-1 text-v2-faint">
                 <Hourglass aria-hidden strokeWidth={1.75} className="size-3.5" />
