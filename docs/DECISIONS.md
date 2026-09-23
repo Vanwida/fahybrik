@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Cuestionarios de entrada: oculto hasta que algo lo lea
+
+**El hueco:** `/cuestionarios` editaba `coach_onboarding_forms` (migración 0201) con aspecto de pantalla terminada — lista, duplicar, editar, reordenar, correo de destino —, pero **nada lo consume**: ni el embudo público, ni la cola de altas, ni la app del atleta leen esas filas (auditoría A §2.8). Un coach que lo edita no cambia nada, y eso es peor que no tenerlo.
+
+**Decidido:** la pantalla se oculta. `/cuestionarios` y `/ajustes/alta` redirigen a `/ajustes/perfil`; el editor (`components/v2/cuestionarios/**`) sale del panel. **El backend se queda intacto** (tabla, `/api/coach/onboarding-forms`, esquema): no se borra dato de nadie y el día que un flujo lo lea, vuelve como Ajustes › Alta con el nombre «Cuestionario de entrada».
+
+**NO hacer:** no volver a enseñar el editor sin un lector real en el mismo lote; no borrar `coach_onboarding_forms` ni su API por estar oculta.
+
+---
+
 ## 2026-09-23 · Negocio con dueño: un lead responde a su coach; «sin asignar» solo al operador del embudo; la agenda es por coach (0220)
 
 **El hueco:** todo el grupo Negocio era club-global. `listLeadsForCoach`, `countNewLeads`, las llamadas, la lista de espera, el embudo y la agenda de citas leían la tabla entera: con un segundo coach, cada club veía los prospectos (con datos de salud) de todos, guardar un horario borraba el de otro y la reserva de un lead bloqueaba la hora de otro club. DECISIONS 2026-08-10 lo tenía apuntado como deuda.
