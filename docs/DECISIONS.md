@@ -30,6 +30,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Grupos, asignar a varios y publicar por semana
+
+**Decidido (migraciones 0215–0218):**
+- **Retener una semana = `draft` + `delivery_mode='manual'`**: el mismo estado que ya escribían el borrador privado, el alta y `unpublish_week`. No hay columna `held`. La visibilidad sigue decidiéndose solo en `weekly_plans` (solo `draft` esconde).
+- **Publicación automática**: cada semana se abre N días antes de empezar (`coaches.auto_publish_days_before`, NULL → defecto 2 en `shared/domain/coach/week-publishing.ts`). Cron diario (`0 4 * * *`) que recupera días perdidos y salta semanas retenidas y atletas en pausa. **Fuera el cron del sábado.**
+- **Un grupo es una fila de `program_sequences` con nombre** y una cadena ordenada de programas; nivel y días son opcionales y, si están los dos, son la regla de pertenencia automática (índice único parcial). Miembros = cursores activos; **un atleta, un grupo** (entrar en otro marca el anterior `left`). **Fuera la banda de 3–6 días** (1–7).
+- **Entrar en un grupo** = recibir el programa y la semana en que está el grupo el lunes de inicio (posición del grupo = mayoría de los recibos de sus miembros). Quien ya hace un programa de la cadena **lo conserva** (`adopt`, no se materializa nada).
+- **Asignar a varios y entrar en un grupo son un solo motor con lotes**: cada atleta en su transacción, cada fila tocada registrada. **Deshacer repone exactamente** lo que había (incluido lo que «Sustituir» cortó) y **nunca borra lo ya entrenado**: si el atleta ya hizo una sesión del programa nuevo, se niega con motivo.
+- `plan_week_horizon` (cuánto futuro puede ojear el atleta) se queda como capa aparte y se presenta junto a la publicación automática en Ajustes › Plan del atleta, explicado en una línea.
+
+**NO hacer:** no añadir una columna `held`; no volver al cron del sábado; no notificar «Tu plan está listo» si ninguna semana es visible; no mostrar «Ajustar a varios» hasta arreglar `mass-adjustments` (escribe en `workout_assignments.notes`, que el materializador usa como identidad de hueco).
+
+---
+
 ## 2026-09-23 · Una señal compara al atleta consigo mismo; una adherencia; un estado
 
 **El hueco:** con 100 atletas el motor marcaba 93: el readiness disparaba con una sola lectura bajo 67 sin base ni fecha, «sesiones fallidas» contaba días sin actividad, la adherencia contaba sesiones futuras (un miércoles perfecto salía 40 % en rojo) y había tres definiciones de «Atención».
