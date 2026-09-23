@@ -3,8 +3,13 @@
 // el color no aporta nada que no diga ya la etiqueta. Pasar por encima de una
 // barra da el número exacto y su conversión desde la etapa anterior.
 
-import { FUNNEL_STAGE_KEYS, type FunnelSnapshot, type FunnelStageKey } from '@/lib/dashboard/coach/metrics';
+import type { FunnelSnapshot, FunnelStageKey } from '@/lib/dashboard/coach/metrics';
 import { formatCount, formatIsoDayShort, formatPct } from './format';
+
+// El orden de las etapas (el mismo que STAGE_ORDER del loader, que es de
+// servidor: aquí solo se importan sus tipos). El Record de abajo obliga a que
+// estén todas.
+const STAGE_ORDER = ['iniciado', 'completado', 'cita', 'llamada', 'alta_enviada', 'convertido'] as const satisfies readonly FunnelStageKey[];
 
 const STAGE: Record<FunnelStageKey, { name: string; def: string }> = {
   iniciado: { name: 'Empiezan el formulario', def: 'dejan su correo' },
@@ -86,8 +91,8 @@ export function FunnelBars({ snapshot }: { snapshot: FunnelSnapshot }) {
           <span className="hidden sm:block" />
         </div>
       )}
-      {FUNNEL_STAGE_KEYS.map((key, i) => {
-        const prev = i > 0 ? stages[FUNNEL_STAGE_KEYS[i - 1]!] : 0;
+      {STAGE_ORDER.map((key, i) => {
+        const prev = i > 0 ? stages[STAGE_ORDER[i - 1]!] : 0;
         const cur = stages[key];
         const drop = DROP[key];
         const conv = key === 'iniciado' ? null : conversions[key as Exclude<FunnelStageKey, 'iniciado'>];
