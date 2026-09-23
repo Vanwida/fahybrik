@@ -17,6 +17,7 @@ import { AssignSheet, AthletePeek, SetupChecklist } from '@/components/v2/shared
 import { mondayOf } from '@/components/v2/shared/format';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import { HelpArticle, useShell } from '@/components/v2/shell/ShellContext';
+import { GUIA_SLUGS } from '@/components/v2/guia/config';
 import { cn } from '@/lib/utils';
 import {
   VIGILAR_FOLD,
@@ -293,7 +294,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
 
   return (
     <div className={cn('transition-[padding] duration-[var(--v2-dur)] motion-reduce:transition-none', peekId && 'lg:pr-[460px]')}>
-      <HelpArticle slug="tu-pantalla-hoy" />
+      <HelpArticle slug={GUIA_SLUGS.hoy} />
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
         <PageHeader title="Hoy" subtitle={subtitle}>
           {noAthletes ? null : (

@@ -7,12 +7,13 @@
 import { useSyncExternalStore } from 'react';
 import { ChevronDown, CircleHelp, PanelLeftClose, PanelLeftOpen, Plus, Search } from 'lucide-react';
 import type { ClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
-import { Link, useRouter } from '@/i18n/navigation';
+import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { ClubLockup, clubBrandLabel } from '@/components/v2/club/ClubBrand';
 import { Button, IconButton, Kbd, Menu, type MenuEntry } from '@/components/v2/ui';
 import { ThemeToggle } from '@/components/v2/theme/ThemeToggle';
 import { AccountMenu } from '@/components/v2/AccountMenu';
 import { GUIA_HREF, HOME_HREF } from '@/components/v2/nav';
+import { guiaSlugForPath } from '@/components/v2/guia/screen-for-path';
 import { ACTIONS } from './destinations';
 import { PENDING_ACTIONS } from './ShellOverlays';
 import { useShell } from './ShellContext';
@@ -52,8 +53,11 @@ export function TopBar({
   railCollapsed: boolean;
   onToggleRail: () => void;
 }) {
-  const { openPalette, runAction, helpSlug } = useShell();
+  const { openPalette, runAction, helpSlug: declaredHelp } = useShell();
   const router = useRouter();
+  const pathname = usePathname();
+  // Lo que declara la pantalla manda; si no declara nada, su ruta.
+  const helpSlug = declaredHelp ?? guiaSlugForPath(pathname);
   const keyLabel = usePaletteKeyLabel();
 
   const newItems: MenuEntry[] = ACTIONS.flatMap((a, i): MenuEntry[] => {

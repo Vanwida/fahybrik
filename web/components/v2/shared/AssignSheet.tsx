@@ -76,7 +76,7 @@ const MONDAYS_AHEAD = 16;
 const DELIVERY_ITEMS: { value: WeekDelivery; label: string }[] = [
   { value: 'auto', label: 'Semana a semana' },
   { value: 'visible', label: 'Todo visible' },
-  { value: 'draft', label: 'Borrador' },
+  { value: 'draft', label: 'Todo oculto' },
 ];
 
 const CONFLICT_ITEMS: { value: OnConflict; label: string }[] = [
