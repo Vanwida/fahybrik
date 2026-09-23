@@ -10,6 +10,24 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Quién habla en cada texto: el club con su piel, la plataforma con UNA constante
+
+**El hueco (revisión FLEXR, P0 5–7; revisión de método):** el nombre del tenant #1 salía en lo que ve otro club — «Videollamada FAHYBRID · Ana» en su calendario, «FAHYBRID · Entrenamiento personalizado» en el cobro de su atleta, «Únete … en FAHYBRID» en la invitación de pareja, adjunto `cita-fahybrid.ics` y UID `@fahybrid.com`; el webhook de Clerk sobrescribía `coaches.full_name` (el nombre del CLUB) con el nombre personal del dueño en cada cambio de perfil; `/api/coach/events` inventaba carreras «demo» a un coach real con la lista vacía; y la etiqueta muerta «Entrenamiento · grupos de Pablo».
+
+**Decidido (la regla, para todo texto nuevo):**
+- **Habla el club → su piel** (`resolveClubEmailSkin(coach).wordmark`): título del evento de calendario (`meetingSummary`), producto de Stripe (`altaProductName`, en el alta y al cambiar el precio), correo de pareja («entrenar en <club>», con el club de quien invita).
+- **Habla la plataforma → `BRAND_WORDMARK`** (`shared/domain/coach/club-skin.ts`), la única constante de marca del binario: push de prueba, mensaje del conector MCP, aviso interno de lead/cita al coach (es la plataforma avisando, ya estaba probado así), respaldo de los shells de correo, «la app X» (el binario que se instala). Su valor sigue siendo FAHYBRID hasta que Alex decida el binario de FLEXR (informe D, opciones A/B/C).
+- `.ics`: UID `appt-<id>@<host que lo emite>` (`citaIcsUid`), adjunto `cita.ics`.
+- **El webhook de Clerk no escribe en `coaches`.** Solo mantiene `users`. El nombre del club se edita en Ajustes.
+- **Una lista vacía es una lista vacía:** fuera el relleno demo de carreras; `lib/coach/demo-events.ts` queda sin uso.
+- Guardia: `web/tests/tenancy/brand-literals.test.ts` barre el texto de ejecución de los ficheros limpiados (sin FAHYBRID/Fabrik/Pablo ni `@fahybrid.com`).
+
+**En la misma tanda (piezas sueltas de la ola 4):** deshacer un lote de asignar (y el alta) retira también la calibración que el primer plan inyectó fuera de la ventana del programa (el lote apunta toda sesión de calibración nueva); la ficha pasa `baseline_readings` («aún sin su base (n de 7 lecturas)»); vista de serie «Empieza pronto» (`semana=empieza`) al lado de «Sin plan»; el texto del recordatorio de pago vive en `components/v2/hoy/payment-reminder.ts` para Hoy y Cobros; las barras de acciones pegadas abajo se marcan con `BOTTOM_BAR_ATTR` y los avisos se levantan por encima (`bottomBarLift`); «volver» del PageHeader con 44 px en el móvil.
+
+**Queda (fuera de este lote, para Alex / dueños):** literales en títulos de páginas públicas (`cita`, `empieza`, `invite`, `partner/redeem`, `no-mas-emails`, `pago/*`), `InviteLandingCard` «Abrir en FAHYBRID», `UnsubscribeConfirm`, `Wordmark` aria-label, `manifest.ts`/`layout.tsx`, `api/citas/google/callback`, `api/devices/test-push`, `api/coros/status`, `lib/coros/config.ts`, `lib/stripe/client.ts` (appInfo), `PRODID` de `shared/domain/citas/ics.ts`, `DEFAULT_WORDMARK` duplicado en `lib/coach/voice.ts`, la opción «Fabrik» del embudo (`shared/domain/leads/questions.ts`), y landing + legal (términos y privacidad nombran al responsable de datos del tenant #1).
+
+**NO hacer:** no escribir una marca a mano en un texto de ejecución — o es el club (su piel) o es la plataforma (`BRAND_WORDMARK`); no escribir en `coaches` desde la identidad de una persona; no rellenar con datos inventados lo que un coach real tiene vacío.
+
 ## 2026-09-23 · Hoy honesto: sin base no hay «Acción»; la descarga lee su señal; «Todo» incluye Por responder; una definición de «Sin plan» (0244)
 
 **El hueco (revisión de producto, informe C):** los 9 «Crítico» de Hoy eran «Readiness 3x · sin base aún (0 lecturas)», con «Proponer descarga» como acción; al pulsarla, el motor contestaba «mantener · Cumplimiento 100 % 7d» porque solo miraba la semana pasada, y la fila decía «Descarga propuesta». Hoy decía «Crítico 9» y Atletas «Acción 15»; «6 sin programa» frente a «Sin plan 11»; «No ven su semana 0» junto a «89 de 100 ven su semana»; el grupo decía «empieza 21 sept» y Atletas «28 sept» del mismo atleta; «nunca ha tenido programa» a quien entrenó una semana del coach; y los 15 que esperaban respuesta no estaban en «Todo».
