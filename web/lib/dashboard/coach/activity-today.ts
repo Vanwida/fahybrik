@@ -22,7 +22,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { loadCoachToday } from '@/lib/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { zonedDayString } from '@fahybrid/shared/domain/dates';
 import type { AdherenceBand } from '@fahybrid/shared/domain/adherence';
 import { formatRelative } from '@/lib/dashboard/relative-time';
 
@@ -120,7 +121,11 @@ export async function loadActivityToday(params: {
 }): Promise<ActivityToday> {
   const client = params.client ?? defaultSql;
   const limit = Math.min(Math.max(params.limit ?? ACTIVITY_GLANCE_LIMIT, 1), ACTIVITY_DRAWER_LIMIT);
-  const todayIso = await loadCoachToday(params.coach_id, { client });
+  // «Hoy» es el día del coach, y un entreno cuenta en el día de su reloj: el
+  // instante se pasa a su huso antes de quedarse con la fecha (un ::date a secas
+  // usaría el huso de la sesión SQL y, de 00:00 a 02:00 en Madrid, lo perdería).
+  const tz = await loadCoachTimezone(params.coach_id, client);
+  const todayIso = zonedDayString(new Date(), tz);
 
   // Count + page in one round-trip: total over the window (for the header) and
   // the newest `limit` rows (for the render). `logged_at` coalesces the most
@@ -132,7 +137,7 @@ export async function loadActivityToday(params: {
       join workout_assignments wa on wa.id = we.assignment_id
       join athletes a on a.id = we.athlete_id
       where a.coach_id = ${params.coach_id as number}
-        and coalesce(we.ended_at, we.started_at, we.created_at)::date = ${todayIso}::date
+        and (coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz})::date = ${todayIso}::date
     `,
     client<ActivityRow[]>`
       select
@@ -152,7 +157,7 @@ export async function loadActivityToday(params: {
       join templates t on t.id = wa.template_id
       join athletes a on a.id = we.athlete_id
       where a.coach_id = ${params.coach_id as number}
-        and coalesce(we.ended_at, we.started_at, we.created_at)::date = ${todayIso}::date
+        and (coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz})::date = ${todayIso}::date
       order by coalesce(we.ended_at, we.started_at, we.created_at) desc
       limit ${limit}
     `,
