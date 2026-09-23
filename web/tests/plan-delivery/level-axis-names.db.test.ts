@@ -26,10 +26,11 @@ describeWithDb('nombre de grupo con el eje del coach (DB real)', () => {
     const program = await makeProgram(club, 2, 'Base');
     const g = await createGroup(
       club.coachId,
-      { name: null, level_id: String(level), days_per_week: 4, end_policy: 'repeat', programs: [{ program_id: String(program) }] },
+      { name: 'Temporal', level_id: String(level), days_per_week: 4, end_policy: 'repeat', programs: [{ program_id: String(program) }] },
       sql,
     );
-    expect(g.display_name).toBe('Objetivo Sub-60 · 4 días');
+    // Un grupo sin nombre propio: las celdas nivel × días de antes de 0215.
+    await sql`update program_sequences set name = null where id = ${Number(g.id)}`;
     expect((await listGroups(club.coachId, sql)).find((x) => x.id === g.id)?.display_name).toBe('Objetivo Sub-60 · 4 días');
     const row = (await listPrograms({ coach_id: club.coachId, client: sql })).find((p) => p.id === String(program));
     expect(row?.groups).toEqual([{ id: g.id, name: 'Objetivo Sub-60 · 4 días' }]);
