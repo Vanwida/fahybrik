@@ -19,11 +19,11 @@ export function PanelButton({
   children: React.ReactNode;
 }) {
   const base =
-    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--v2-r-pill)] px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+    'v2-focus inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-ctl px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
   const cls = cn(
     base,
     variant === 'primary' &&
-      'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
+      'bg-v2-fg text-v2-bg hover:bg-[color:var(--v2-accent-press)]',
     variant === 'ghost' &&
       'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
     variant === 'outline' &&
@@ -56,8 +56,8 @@ export function SelectInput({
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
-        'v2-focus h-[34px] w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)]',
-        'bg-[color:var(--v2-surface-2)] px-2.5 text-body text-[color:var(--v2-fg)]',
+        'v2-focus h-[34px] w-full rounded-ctl border border-[color:var(--v2-border)]',
+        'bg-[color:var(--v2-surface-2)] px-2.5 t-body-sm text-[color:var(--v2-fg)]',
         'focus:border-[color:var(--v2-border-strong)]',
       )}
     >
