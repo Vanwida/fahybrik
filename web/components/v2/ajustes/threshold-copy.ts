@@ -87,6 +87,83 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
     unit: 'días antes',
     hint: 'Quien canceló pasa a Vigilar («Se da de baja en N d») para que le escribas antes de que se vaya.',
   },
+  readiness_weight_checkin: {
+    label: 'Check-in',
+    unit: 'de peso',
+    hint: 'Cómo dice el atleta que llega: sueño, agujetas, ánimo, fatiga.',
+  },
+  readiness_weight_hrv: { label: 'Variabilidad (VFC)', unit: 'de peso', hint: 'La de hoy frente a su media de las semanas anteriores.' },
+  readiness_weight_sleep: { label: 'Sueño', unit: 'de peso', hint: 'Horas dormidas frente a tu objetivo de sueño.' },
+  readiness_weight_rhr: { label: 'FC en reposo', unit: 'de peso', hint: 'Pulsaciones en reposo del día.' },
+  readiness_weight_recovery: { label: 'Recuperación del reloj', unit: 'de peso', hint: 'La puntuación de recuperación que da su reloj.' },
+  readiness_sleep_target_hours: {
+    label: 'Objetivo de sueño',
+    unit: 'horas',
+    hint: 'Dormir esto o más puntúa el sueño entero.',
+  },
+  readiness_adherence_floor_pct: {
+    label: 'Resta si la adherencia (7 d) baja del',
+    unit: '%',
+    hint: 'Solo cuentan los entrenos que ya tocaban.',
+  },
+  readiness_adherence_penalty: {
+    label: 'Cuánto resta',
+    unit: 'puntos',
+    hint: 'Con 0, la adherencia no toca el readiness.',
+  },
+  race_readiness_weight_freshness: {
+    label: 'Frescura',
+    unit: 'de peso',
+    hint: 'El equilibrio entre la carga de las últimas semanas y la de los últimos días (TSB).',
+  },
+  race_readiness_weight_adherence: { label: 'Adherencia (7 d)', unit: 'de peso', hint: 'Los entrenos hechos de los que tocaban.' },
+  race_readiness_weight_hrv: { label: 'Variabilidad (VFC)', unit: 'de peso', hint: 'Con 0, no hace falta reloj con VFC para dar el índice.' },
+  race_readiness_weight_activity: { label: 'Actividad', unit: 'de peso', hint: 'Días con entreno en la última semana.' },
+  race_readiness_tsb_span: {
+    label: 'Frescura entera con TSB de',
+    unit: 'o más',
+    hint: 'Y cero con el mismo número en negativo. Entre medias, proporcional.',
+  },
+  progress_adherence_min_pct: {
+    label: 'Adherencia mínima para progresar',
+    unit: '%',
+    hint: 'De los entrenos del programa actual que ya tocaban.',
+  },
+  progress_acr_high_pct: {
+    label: 'Sobrecarga si la carga aguda pasa del',
+    unit: '% de la crónica',
+    hint: 'La carga de los últimos 7 días frente a la de las últimas 6 semanas (ACWR × 100).',
+  },
+  progress_acr_low_pct: {
+    label: 'Infraentrenado por debajo del',
+    unit: '% de la crónica',
+    hint: 'Con tan poca carga reciente no hay estímulo para subir.',
+  },
+  progress_tsb_fatigue: {
+    label: 'Demasiado fatigado con TSB por debajo de',
+    unit: 'en negativo',
+    hint: 'Con 25, un TSB de −26 frena la progresión.',
+  },
+  progress_benchmark_drop_pct: {
+    label: 'Retroceso en tests desde',
+    unit: '% de caída',
+    hint: 'La media de sus tests del programa frente a los de antes.',
+  },
+  pause_budget_days: {
+    label: 'Días de pausa al año',
+    unit: 'días',
+    hint: 'En pausa no se cobra y la plaza se guarda. Se cuentan en los últimos 12 meses.',
+  },
+  intake_low_sleep_max: {
+    label: 'Avisar si duerme mal: sueño de',
+    unit: 'de 10 o menos',
+    hint: 'Lo que contesta en el cuestionario de entrada.',
+  },
+  intake_high_stress_min: {
+    label: 'Avisar si va estresado: estrés de',
+    unit: 'de 10 o más',
+    hint: 'Lo que contesta en el cuestionario de entrada.',
+  },
 };
 
 export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThresholdKey[] }> = [
@@ -114,4 +191,39 @@ export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThres
   },
   { title: 'Revisiones 1:1', keys: ['review_reproposal_days'] },
   { title: 'Bajas', keys: ['renewal_alert_days'] },
+  {
+    title: 'Cómo se calcula el readiness',
+    keys: [
+      'readiness_weight_checkin',
+      'readiness_weight_hrv',
+      'readiness_weight_sleep',
+      'readiness_weight_rhr',
+      'readiness_weight_recovery',
+      'readiness_sleep_target_hours',
+      'readiness_adherence_floor_pct',
+      'readiness_adherence_penalty',
+    ],
+  },
+  {
+    title: 'Índice de disposición',
+    keys: [
+      'race_readiness_weight_freshness',
+      'race_readiness_weight_adherence',
+      'race_readiness_weight_hrv',
+      'race_readiness_weight_activity',
+      'race_readiness_tsb_span',
+    ],
+  },
+  {
+    title: 'Listo para progresar',
+    keys: [
+      'progress_adherence_min_pct',
+      'progress_acr_high_pct',
+      'progress_acr_low_pct',
+      'progress_tsb_fatigue',
+      'progress_benchmark_drop_pct',
+    ],
+  },
+  { title: 'Pausas', keys: ['pause_budget_days'] },
+  { title: 'Cuestionario de entrada', keys: ['intake_low_sleep_max', 'intake_high_stress_min'] },
 ];

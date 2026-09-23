@@ -11,6 +11,8 @@ import { RotateCcw } from 'lucide-react';
 import {
   COACH_THRESHOLD_KEYS,
   COACH_THRESHOLD_SPEC,
+  normalizedWeights,
+  weightGroupOf,
   type CoachThresholdKey,
   type CoachThresholds,
 } from '@fahybrid/shared/domain/coach/signal-thresholds';
@@ -24,6 +26,14 @@ const ENDPOINT = '/api/coach/signal-thresholds';
 
 function pick(res: CoachSignalThresholdsResponse): CoachThresholds {
   return Object.fromEntries(COACH_THRESHOLD_KEYS.map((k) => [k, res[k]])) as CoachThresholds;
+}
+
+/** Los pesos son relativos: lo que cuenta de verdad es su parte del total (entero %). */
+function shareOf(values: CoachThresholds, k: CoachThresholdKey): number | null {
+  const group = weightGroupOf(k);
+  if (!group) return null;
+  const w = normalizedWeights(values, group) as Record<string, number> | null;
+  return w ? Math.round((w[k] ?? 0) * 100) : null;
 }
 
 export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholdsResponse }) {
@@ -88,6 +98,7 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
               value={values[key]}
               fallback={defaults[key]}
               isCustom={custom.has(key)}
+              share={shareOf(values, key)}
               save={(v) => put({ [key]: v })}
             />
           ))}
@@ -102,12 +113,15 @@ function ThresholdRow({
   value,
   fallback,
   isCustom,
+  share,
   save,
 }: {
   k: CoachThresholdKey;
   value: number;
   fallback: number;
   isCustom: boolean;
+  /** Para un peso: su parte del total ahora mismo, en %. */
+  share: number | null;
   save: (v: number | null) => Promise<{ ok: true } | { ok: false; message: string }>;
 }) {
   const id = useId();
@@ -148,7 +162,9 @@ function ThresholdRow({
       error={localError ?? error}
       hint={
         <>
-          {copy.hint} <span className="text-v2-faint t-tnum">Por defecto: {fallback}.</span>
+          {copy.hint}{' '}
+          {share != null ? <span className="t-tnum">Ahora cuenta el {share} % del total. </span> : null}
+          <span className="text-v2-faint t-tnum">Por defecto: {fallback}.</span>
         </>
       }
     >

@@ -25,10 +25,30 @@
 // Puro y sin base de datos, como el resto de `shared/domain`.
 
 /** Cómo se dice la unidad en la pantalla (la pantalla pone la palabra). */
-export type ThresholdUnit = 'dias' | 'horas' | 'puntos' | 'checkins' | 'entrenos' | 'rpe' | 'pct';
+export type ThresholdUnit =
+  | 'dias'
+  | 'horas'
+  | 'puntos'
+  | 'checkins'
+  | 'entrenos'
+  | 'rpe'
+  | 'pct'
+  | 'peso'
+  | 'escala10';
 
 /** Para agrupar en la pantalla de Método sin repetir la lista a mano. */
-export type ThresholdGroup = 'readiness' | 'sesiones' | 'mensajes' | 'comunicados' | 'revisiones' | 'cobros';
+export type ThresholdGroup =
+  | 'readiness'
+  | 'sesiones'
+  | 'mensajes'
+  | 'comunicados'
+  | 'revisiones'
+  | 'cobros'
+  | 'calculo_readiness'
+  | 'disposicion'
+  | 'progresion'
+  | 'pausas'
+  | 'alta';
 
 export interface ThresholdSpec {
   default: number;
@@ -71,6 +91,23 @@ export interface ThresholdSpec {
  *   atleta que no reservó la anterior.
  * Bajas (0244): quien canceló y se va en 7 días o menos pasa a Vigilar («Se da de
  *   baja en N d»), para que el coach le escriba antes de que termine.
+ *
+ * Motores secundarios (0256) — lo que era `const` en código y es método:
+ *   - Cálculo del readiness: cuánto pesa cada parte (check-in 35 · VFC 25 · sueño
+ *     20 · FC en reposo 10 · recuperación 10), las horas de sueño que puntúan
+ *     entero (8) y el castigo de 5 puntos cuando la adherencia de 7 días baja
+ *     del 60 %. Los pesos son RELATIVOS: el motor los normaliza (suman 1 por
+ *     construcción) y reparte entre las partes que hay ese día.
+ *   - Índice de disposición (roster, ficha, MCP): frescura 40 · adherencia 30 ·
+ *     VFC 20 · actividad 10, también relativos y normalizados a 100; la frescura
+ *     va de 0 con TSB −10 a entera con +10. Una banda con peso 0 no cuenta ni se
+ *     echa en falta.
+ *   - «Listo para progresar»: adherencia ≥ 75 %, sobrecarga con ACWR > 150 % o
+ *     TSB < −25, infraentrenado con ACWR < 50 %, retroceso en tests > 2 %.
+ *   - Pausa: 28 días por año móvil.
+ *   - Alta: avisa si llega con sueño ≤ 4/10 o estrés ≥ 7/10.
+ * Magnitudes siempre positivas (el TSB «−25» se guarda 25): la pantalla no pide
+ * signos ni decimales.
  */
 export const COACH_THRESHOLD_SPEC = {
   readiness_ok_min: { default: 67, min: 1, max: 100, unit: 'puntos', group: 'readiness' },
@@ -109,6 +146,27 @@ export const COACH_THRESHOLD_SPEC = {
   },
   review_reproposal_days: { default: 14, min: 1, max: 90, unit: 'dias', group: 'revisiones' },
   renewal_alert_days: { default: 7, min: 1, max: 60, unit: 'dias', group: 'cobros' },
+  readiness_weight_checkin: { default: 35, min: 0, max: 100, unit: 'peso', group: 'calculo_readiness' },
+  readiness_weight_hrv: { default: 25, min: 0, max: 100, unit: 'peso', group: 'calculo_readiness' },
+  readiness_weight_sleep: { default: 20, min: 0, max: 100, unit: 'peso', group: 'calculo_readiness' },
+  readiness_weight_rhr: { default: 10, min: 0, max: 100, unit: 'peso', group: 'calculo_readiness' },
+  readiness_weight_recovery: { default: 10, min: 0, max: 100, unit: 'peso', group: 'calculo_readiness' },
+  readiness_sleep_target_hours: { default: 8, min: 5, max: 12, unit: 'horas', group: 'calculo_readiness' },
+  readiness_adherence_floor_pct: { default: 60, min: 0, max: 100, unit: 'pct', group: 'calculo_readiness' },
+  readiness_adherence_penalty: { default: 5, min: 0, max: 30, unit: 'puntos', group: 'calculo_readiness' },
+  race_readiness_weight_freshness: { default: 40, min: 0, max: 100, unit: 'peso', group: 'disposicion' },
+  race_readiness_weight_adherence: { default: 30, min: 0, max: 100, unit: 'peso', group: 'disposicion' },
+  race_readiness_weight_hrv: { default: 20, min: 0, max: 100, unit: 'peso', group: 'disposicion' },
+  race_readiness_weight_activity: { default: 10, min: 0, max: 100, unit: 'peso', group: 'disposicion' },
+  race_readiness_tsb_span: { default: 10, min: 3, max: 50, unit: 'puntos', group: 'disposicion' },
+  progress_adherence_min_pct: { default: 75, min: 0, max: 100, unit: 'pct', group: 'progresion' },
+  progress_acr_high_pct: { default: 150, min: 100, max: 300, unit: 'pct', group: 'progresion' },
+  progress_acr_low_pct: { default: 50, min: 10, max: 100, unit: 'pct', group: 'progresion' },
+  progress_tsb_fatigue: { default: 25, min: 5, max: 80, unit: 'puntos', group: 'progresion' },
+  progress_benchmark_drop_pct: { default: 2, min: 0, max: 20, unit: 'pct', group: 'progresion' },
+  pause_budget_days: { default: 28, min: 0, max: 365, unit: 'dias', group: 'pausas' },
+  intake_low_sleep_max: { default: 4, min: 1, max: 10, unit: 'escala10', group: 'alta' },
+  intake_high_stress_min: { default: 7, min: 1, max: 10, unit: 'escala10', group: 'alta' },
 } as const satisfies Record<string, ThresholdSpec>;
 
 export type CoachThresholdKey = keyof typeof COACH_THRESHOLD_SPEC;
@@ -143,6 +201,52 @@ export function mergeCoachThresholds(overrides: CoachThresholdOverrides | null):
   return out;
 }
 
+/**
+ * Pesos RELATIVOS: el motor divide cada uno por la suma del grupo, así que los
+ * pesos efectivos suman 1 por construcción y el coach puede guardar campo a
+ * campo (la pantalla guarda al salir de cada uno) sin pasar por estados que no
+ * suman. Lo único incoherente es un grupo entero a cero.
+ */
+export const THRESHOLD_WEIGHT_GROUPS = {
+  readiness: [
+    'readiness_weight_checkin',
+    'readiness_weight_hrv',
+    'readiness_weight_sleep',
+    'readiness_weight_rhr',
+    'readiness_weight_recovery',
+  ],
+  race_readiness: [
+    'race_readiness_weight_freshness',
+    'race_readiness_weight_adherence',
+    'race_readiness_weight_hrv',
+    'race_readiness_weight_activity',
+  ],
+} as const satisfies Record<string, readonly CoachThresholdKey[]>;
+
+export type ThresholdWeightGroup = keyof typeof THRESHOLD_WEIGHT_GROUPS;
+
+/** El grupo de pesos al que pertenece una clave, o null. */
+export function weightGroupOf(key: CoachThresholdKey): ThresholdWeightGroup | null {
+  for (const g of Object.keys(THRESHOLD_WEIGHT_GROUPS) as ThresholdWeightGroup[]) {
+    if ((THRESHOLD_WEIGHT_GROUPS[g] as readonly CoachThresholdKey[]).includes(key)) return g;
+  }
+  return null;
+}
+
+/** Los pesos de un grupo, normalizados (suman 1). Todo a cero → null (no hay reparto). */
+export function normalizedWeights<G extends ThresholdWeightGroup>(
+  t: CoachThresholds,
+  group: G,
+): Record<(typeof THRESHOLD_WEIGHT_GROUPS)[G][number], number> | null {
+  const keys = THRESHOLD_WEIGHT_GROUPS[group] as readonly CoachThresholdKey[];
+  const sum = keys.reduce((s, k) => s + t[k], 0);
+  if (sum <= 0) return null;
+  return Object.fromEntries(keys.map((k) => [k, t[k] / sum])) as Record<
+    (typeof THRESHOLD_WEIGHT_GROUPS)[G][number],
+    number
+  >;
+}
+
 /** Una incoherencia entre umbrales que el PUT tiene que rechazar. */
 export interface ThresholdIssue {
   key: CoachThresholdKey;
@@ -168,6 +272,24 @@ export function thresholdIssues(t: CoachThresholds): ThresholdIssue[] {
     issues.push({
       key: 'readiness_critical_floor',
       message: 'El suelo crítico tiene que estar por debajo de la banda de «bien».',
+    });
+  }
+  if (normalizedWeights(t, 'readiness') == null) {
+    issues.push({
+      key: 'readiness_weight_checkin',
+      message: 'Al menos una parte del readiness tiene que pesar algo.',
+    });
+  }
+  if (normalizedWeights(t, 'race_readiness') == null) {
+    issues.push({
+      key: 'race_readiness_weight_freshness',
+      message: 'Al menos una parte del índice de disposición tiene que pesar algo.',
+    });
+  }
+  if (t.progress_acr_low_pct >= t.progress_acr_high_pct) {
+    issues.push({
+      key: 'progress_acr_low_pct',
+      message: 'El límite de infraentrenado tiene que estar por debajo del de sobrecarga.',
     });
   }
   return issues;
