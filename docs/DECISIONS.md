@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · ClickUp sale del flujo: el estado se cuenta en el chat y en git
+
+**El hueco:** los hooks `clickup-recordatorio.sh` (UserPromptSubmit) y `clickup-guard.sh` (Stop) obligaban a abrir y cerrar una card de ClickUp por cada tarea y bloqueaban el turno si el último commit no estaba registrado. Alex ya no usa ClickUp («talk to me here, forget notion or clickup»).
+
+**Decidido:** fuera los dos hooks, su registro en `.claude/settings.json` y la skill `.claude/skills/clickup/`. El estado se le cuenta a Alex en el chat de la sesión; lo persistente sigue en git (`FOCUS.md`, `docs/DECISIONS.md`, `docs/`).
+
+**NO hacer:** no volver a meter un paso obligatorio hacia ClickUp ni Notion; no escribir cards ni páginas «para que conste». Si el registro de Alex vuelve a otra herramienta, lo dice él.
+
+---
+
 ## 2026-09-21 · FH-56 — El enlace muñeca↔móvil lo dice Apple: qué se borra y por qué
 
 **El hueco:** el enlace lo gobernaban tres máquinas caseras — bucle
