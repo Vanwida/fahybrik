@@ -28,7 +28,7 @@
 // Es MECANISMO (nuestro): los nombres, alias y sinónimos son dato; aquí no hay nombres de
 // ningún método.
 
-import { sql } from '@/lib/db';
+import { sql, type Sql } from '@/lib/db';
 import { GLOBAL_ALIASES, normalizeTerm } from '@/lib/import/exercise-resolve';
 import { joinCoachOverride, visibleToCoach } from '@/lib/exercises/coach-override';
 
@@ -151,10 +151,10 @@ interface CatalogEntry {
 }
 
 /** Todo lo que el coach puede enlazar, con todos sus nombres. Tres consultas en paralelo. */
-async function loadCatalog(coach_id: bigint | number): Promise<CatalogEntry[]> {
+async function loadCatalog(coach_id: bigint | number, client: Sql = sql): Promise<CatalogEntry[]> {
   const coach = Number(coach_id);
   const [rows, aliases, synonyms] = await Promise.all([
-    sql<
+    client<
       {
         id: string;
         slug: string;
@@ -167,18 +167,18 @@ async function loadCatalog(coach_id: bigint | number): Promise<CatalogEntry[]> {
              coalesce(ceo.name_es, ceo.name, e.name_es, e.name, e.name_en) as display,
              array[e.name, e.name_es, e.name_en, ceo.name, ceo.name_es, ceo.name_en] as names
       from exercises e
-      ${joinCoachOverride(sql, coach)}
-      where ${visibleToCoach(sql, coach)} and e.archived_at is null
+      ${joinCoachOverride(client, coach)}
+      where ${visibleToCoach(client, coach)} and e.archived_at is null
     `,
-    sql<{ exercise_id: string; term: string }[]>`
+    client<{ exercise_id: string; term: string }[]>`
       select a.exercise_id::text as exercise_id, a.term_normalized as term
       from exercise_aliases a join exercises e on e.id = a.exercise_id
-      where ${visibleToCoach(sql, coach)} and e.archived_at is null
+      where ${visibleToCoach(client, coach)} and e.archived_at is null
     `,
-    sql<{ exercise_id: string; term: string }[]>`
+    client<{ exercise_id: string; term: string }[]>`
       select s.exercise_id::text as exercise_id, s.term_normalized as term
       from coach_exercise_synonyms s join exercises e on e.id = s.exercise_id
-      where s.coach_id = ${coach} and ${visibleToCoach(sql, coach)} and e.archived_at is null
+      where s.coach_id = ${coach} and ${visibleToCoach(client, coach)} and e.archived_at is null
     `,
   ]);
 
@@ -270,8 +270,9 @@ export async function resolveExercise(params: {
 export async function resolveExercises(params: {
   coach_id: bigint | number;
   tokens: string[];
+  client?: Sql;
 }): Promise<ExerciseResolution[]> {
   if (params.tokens.length === 0) return [];
-  const catalog = await loadCatalog(params.coach_id);
+  const catalog = await loadCatalog(params.coach_id, params.client);
   return params.tokens.map((t) => resolveAgainst(catalog, t));
 }

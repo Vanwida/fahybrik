@@ -11,6 +11,7 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { BEST_MIN, resolveExercises } from '@/lib/exercises/resolve';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
+import type { Sql } from '@/lib/db';
 
 // Lo que un coach escribe → el slug del catálogo base.
 const LIFTS: Array<[string, string]> = [
@@ -65,19 +66,13 @@ describeWithDb('catálogo base de un coach nuevo (real DB, sin sembrar nada)', (
   const sql = getTestSql();
   let club: Fixture;
   const slugId = new Map<string, string>();
-  // Filas globales que otros tests crean con el mismo nombre («Back Squat») y no
-  // borran: en una base limpia no existen, y aquí empatarían con la base. Se
-  // apartan (archivadas) mientras dura este test y se devuelven al terminar.
-  let parked: number[] = [];
+  // Filas globales que crean otros tests con el mismo nombre («Back Squat»), a
+  // veces EN PARALELO con este fichero: en una base limpia no existen y aquí
+  // empatarían con la base. Se apartan dentro de una transacción que se deshace,
+  // así ningún otro test las ve archivadas.
 
   beforeAll(async () => {
     club = await makeCoachAndAthlete(sql);
-    const leaked = await sql<{ id: string }[]>`
-      update exercises set archived_at = now()
-      where coach_id is null and archived_at is null and slug like 'ex-%'
-        and created_at < now() - interval '10 minutes'
-      returning id::text as id`;
-    parked = leaked.map((r) => Number(r.id));
     const slugs = [...new Set(LIFTS.map(([, s]) => s))];
     const rows = await sql<{ slug: string; id: string }[]>`
       select slug, id::text as id from exercises
@@ -86,7 +81,6 @@ describeWithDb('catálogo base de un coach nuevo (real DB, sin sembrar nada)', (
   });
 
   afterAll(async () => {
-    if (parked.length) await sql`update exercises set archived_at = null where id in ${sql(parked)}`;
     await club.cleanup();
     await closeTestSql();
   });
@@ -97,7 +91,19 @@ describeWithDb('catálogo base de un coach nuevo (real DB, sin sembrar nada)', (
   });
 
   test(`los ${LIFTS.length} nombres más comunes (ES/EN) se enlazan solos al ejercicio correcto`, async () => {
-    const res = await resolveExercises({ coach_id: club.coachId, tokens: LIFTS.map(([t]) => t) });
+    const ROLLBACK = new Error('rollback');
+    let res: Awaited<ReturnType<typeof resolveExercises>> = [];
+    await sql
+      .begin(async (tx) => {
+        await tx`
+          update exercises set archived_at = now()
+          where coach_id is null and archived_at is null and slug ~ '^ex-[0-9]{13}-[0-9]+-[0-9]+$'`;
+        res = await resolveExercises({ coach_id: club.coachId, tokens: LIFTS.map(([t]) => t), client: tx as unknown as Sql });
+        throw ROLLBACK;
+      })
+      .catch((e: unknown) => {
+        if (e !== ROLLBACK) throw e;
+      });
     const wrong = LIFTS.flatMap(([token, slug], i) => {
       const r = res[i]!;
       const ok = r.best?.id === slugId.get(slug) && r.confidence >= BEST_MIN;
