@@ -48,7 +48,11 @@ export function rowInVista(row: Pick<HoyRow, 'primary' | 'others'>, vista: HoyVi
   return rowSignals(row).some((s) => s.lens === lens);
 }
 
-/** ¿El grupo sale en la vista? Plan = semanas ocultas y sin programa; Altas = altas. */
+/**
+ * ¿El grupo sale en la vista? Plan = semanas ocultas y sin programa; Altas =
+ * altas. «Por responder» es grupo solo en Todo: en su filtro sale cada espera
+ * como fila (el mismo conjunto).
+ */
 export function groupInVista(group: Pick<SystemicGroup, 'kind'>, vista: HoyVista): boolean {
   if (vista === 'todo') return true;
   if (vista === 'plan') return group.kind === 'week_hidden' || group.kind === 'no_program';
@@ -96,7 +100,19 @@ export function visibleInbox(
   pending: ReadonlyMap<string, PendingRow>,
   hiddenGroups: ReadonlySet<string>,
 ): VisibleInbox {
-  const systemic = view.systemic.filter((g) => !hiddenGroups.has(groupKey(g)));
+  // Una espera cerrada desde su fila (Hecho/Posponer en «Por responder») sale ya
+  // del grupo «N por responder»: la cifra baja al actuar, como el resto.
+  const repliedIds = new Set(
+    [...pending.values()].filter((p) => p.row.primary.kind === 'message_unanswered').map((p) => p.row.athlete_id),
+  );
+  const systemic = view.systemic
+    .filter((g) => !hiddenGroups.has(groupKey(g)))
+    .map((g) => {
+      if (g.kind !== 'awaiting_reply' || repliedIds.size === 0) return g;
+      const athlete_ids = g.athlete_ids.filter((id) => !repliedIds.has(id));
+      return { ...g, athlete_ids, count: athlete_ids.length, title: `${athlete_ids.length} por responder` };
+    })
+    .filter((g) => g.kind !== 'awaiting_reply' || g.count > 0);
   const critico = view.critico.filter((r) => !pending.has(r.athlete_id));
   const vigilar = view.vigilar.filter((r) => !pending.has(r.athlete_id));
   const replies = (view.replies ?? []).filter((r) => !pending.has(r.athlete_id));
@@ -177,15 +193,15 @@ export function vistaCounts(
 
 /**
  * A qué señales va «Hecho/Posponer» de cada fila. Una fila normal = el atleta
- * entero (el servidor elige sus señales accionables). Una espera sin fila no
- * tiene señal del motor todavía: se nombra (`message_unanswered`), que es lo que
- * leen Mensajes y su insignia.
+ * entero (el servidor elige sus señales accionables que no cubre un grupo). Una
+ * espera por responder se nombra (`message_unanswered`, lo que leen Mensajes y
+ * su insignia): cerrar la espera no cierra lo demás del atleta, ni al revés.
  */
 export function overrideTargets(
   rows: ReadonlyArray<Pick<HoyRow, 'athlete_id' | 'primary'>>,
 ): Array<{ athlete_id: string; signal_kind?: SignalKind }> {
   return rows.map((r) =>
-    r.primary.severity === 'info'
+    r.primary.severity === 'info' || r.primary.kind === 'message_unanswered'
       ? { athlete_id: r.athlete_id, signal_kind: r.primary.kind }
       : { athlete_id: r.athlete_id },
   );
@@ -261,6 +277,25 @@ export function snoozedTargets(row: Pick<HoySnoozedRow, 'athlete_id' | 'primary'
 export function otherSignalsLabel(n: number): string | null {
   if (n <= 0) return null;
   return `+${n} ${n === 1 ? 'señal' : 'señales'}`;
+}
+
+/**
+ * «+6 con el pago vencido»: los de Acción sin fila porque su motivo ya es una
+ * causa compartida de arriba (hoy solo un pago vencido lleva a «Acción» sin
+ * fila propia). Filas + esto = «Acción» de Atletas.
+ */
+export function accionInGroupsLabel(n: number): string | null {
+  if (n <= 0) return null;
+  return `+${n} con el pago vencido`;
+}
+
+/**
+ * «89 de 89 ven su semana programada»: de quienes tienen entrenos esta semana,
+ * cuántos la ven. Suma con «No ven su semana» de Atletas.
+ */
+export function weekVisibilityLabel(v: { visible: number; programmed: number }): string {
+  if (v.programmed === 0) return 'nadie tiene entrenos esta semana';
+  return `${v.visible} de ${v.programmed} ven su semana programada`;
 }
 
 /** «N te necesitan» con su concordancia. */

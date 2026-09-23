@@ -2,7 +2,7 @@ import 'server-only';
 
 // loadHoy — la bandeja de Hoy (plan §4.3): grupos de causa compartida primero,
 // luego una fila por atleta, peor primero. Carga en un número CONSTANTE de
-// consultas (7, o 9 con Negocio) sea cual sea el tamaño del roster, y compone
+// consultas (8, o 10 con Negocio) sea cual sea el tamaño del roster, y compone
 // con `composeHoy` (puro, testeado aparte).
 //
 // Lee las señales que el barrido ya persistió (`coach_attention_items`) — no
@@ -17,7 +17,7 @@ import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import { loadReplyStates, openReplies } from '@/lib/coach/attention/awaiting-reply';
 import { leadOwnedBy } from '@/lib/leads/owner';
 import { coachCalendar, loadPlanFacts } from '@/lib/dashboard/athletes/plan-facts';
-import { composeHoy, type NegocioInput } from './hoy-compose';
+import { composeHoy, type NegocioInput, type ProposalFact } from './hoy-compose';
 import type { HoyView } from './hoy-types';
 
 export type { HoyView, HoyRow, SystemicGroup, HoySnoozedRow } from './hoy-types';
@@ -36,6 +36,41 @@ async function loadResolvedToday(client: Sql, coach_id: number, dayStart: Date):
       and o.dismissed_at >= ${dayStart.toISOString()}::timestamptz
   `;
   return rows[0]?.resolved ?? 0;
+}
+
+/**
+ * La última propuesta de ajuste de cada atleta desde esta semana (lo que contestó
+ * el motor a «Proponer descarga»): la fila lo enseña en vez de volver a ofrecerlo.
+ */
+async function loadProposals(client: Sql, coach_id: number, weekStart: string): Promise<Map<string, ProposalFact>> {
+  const rows = await client<
+    Array<{ athlete_id: string; id: string; status: string; recommendation: string | null; summary: string | null; created_at: Date }>
+  >`
+    select distinct on (p.athlete_id)
+      p.athlete_id::text                     as athlete_id,
+      p.id::text                             as id,
+      p.status::text                         as status,
+      p.proposal_json ->> 'recommendation'   as recommendation,
+      p.proposal_json ->> 'coach_summary'    as summary,
+      p.created_at
+    from week_adjustment_proposals p
+    join athletes a on a.id = p.athlete_id and a.coach_id = ${coach_id}
+    where p.week_start >= ${weekStart}::date
+      and p.status in ('pending', 'approved')
+    order by p.athlete_id, p.created_at desc
+  `;
+  return new Map(
+    rows.map((r) => [
+      r.athlete_id,
+      {
+        id: r.id,
+        status: r.status,
+        recommendation: r.recommendation ?? 'keep',
+        summary: r.summary ?? '',
+        created_at: r.created_at.toISOString(),
+      },
+    ]),
+  );
 }
 
 async function loadNegocio(
@@ -83,12 +118,13 @@ export async function loadHoy(params: {
   const dayStart = zonedWallClockToUtc(today, BOX_TIMEZONE);
   const dayEnd = zonedWallClockToUtc(today, BOX_TIMEZONE, { days: 1 });
 
-  const [facts, signals, resolved_today, awaiting, negocioOn] = await Promise.all([
+  const [facts, signals, resolved_today, awaiting, negocioOn, proposals] = await Promise.all([
     loadPlanFacts({ coach_id, now, client }),
     loadAthleteSignals({ coach_id, now, client }),
     loadResolvedToday(client, coach_id, dayStart),
     loadReplyStates({ coach_id, now, client }).then(openReplies),
     hasEntitlement({ coach_id, feature: NEGOCIO_FEATURE, client }),
+    loadProposals(client, coach_id, calendar.week_start),
   ]);
   const negocio = negocioOn ? await loadNegocio(client, coach_id, dayStart, dayEnd) : null;
 
@@ -100,5 +136,6 @@ export async function loadHoy(params: {
     awaiting,
     resolved_today,
     negocio,
+    proposals,
   });
 }

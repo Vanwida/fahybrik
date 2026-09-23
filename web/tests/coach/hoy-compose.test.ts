@@ -106,7 +106,10 @@ describe('composeHoy — grupos', () => {
     expect(view.critico).toEqual([]);
     // La cifra cuenta ATLETAS: 1-2 (semana), 3-4 (sin programa), 5 (alta), 6 (pago).
     expect(view.counts.needs_you).toBe(6);
-    expect(view.week_visibility).toEqual({ visible: 2, total: 7 });
+    // «programadas» = con entrenos esta semana (visibles u ocultos): 5-6 y 1-2.
+    expect(view.week_visibility).toEqual({ visible: 2, total: 7, programmed: 4 });
+    // 6 está en Acción solo por el pago (lo cubre su grupo): sin fila, contado aparte.
+    expect(view.counts.accion_in_groups).toBe(1);
   });
 
   it('la semana que viene solo es grupo cuando, por la regla del coach, ya debería verse', () => {
@@ -168,7 +171,7 @@ describe('composeHoy — filas', () => {
               sig({ kind: 'readiness_low', severity: 'critical', label: 'Readiness 31' }),
             ),
           ],
-          ['2', live(sig({ kind: 'message_unanswered', severity: 'warning' }))],
+          ['2', live(sig({ kind: 'rpe_high', severity: 'warning' }))],
           ['3', live(sig({ kind: 'transition_ready', severity: 'info' }))],
         ]),
       }),
@@ -177,7 +180,7 @@ describe('composeHoy — filas', () => {
     expect(view.critico[0]!.others.map((s) => s.kind)).toEqual(['missed_sessions']);
     // «Listo para progresar» no es una fila.
     expect(view.vigilar.map((r) => r.name)).toEqual(['Ana']);
-    expect(view.counts).toMatchObject({ critico: 1, vigilar: 1, needs_you: 2 });
+    expect(view.counts).toMatchObject({ critico: 1, vigilar: 1, needs_you: 2, accion_in_groups: 0 });
     expect(view.critico[0]!.age_label).toBe('2 h');
   });
 
@@ -190,14 +193,14 @@ describe('composeHoy — filas', () => {
             '1',
             live(
               sig({ kind: 'programming_status', severity: 'warning', dedupe_key: 'programming_status:1:no_month' }),
-              sig({ kind: 'message_unanswered', severity: 'warning', label: 'Por responder' }),
+              sig({ kind: 'rpe_high', severity: 'warning', label: 'RPE alto' }),
             ),
           ],
         ]),
       }),
     );
     expect(view.systemic.map((g) => g.kind)).toEqual(['no_program']);
-    expect(view.vigilar.map((r) => [r.primary.kind, r.other_count])).toEqual([['message_unanswered', 0]]);
+    expect(view.vigilar.map((r) => [r.primary.kind, r.other_count])).toEqual([['rpe_high', 0]]);
   });
 
   it('una semana vacía con programa SÍ es fila (no la cubre ningún grupo)', () => {
@@ -254,3 +257,100 @@ describe('composeHoy — filas', () => {
     expect(view.snoozed_rows[0]).toMatchObject({ athlete_id: '1', until: '2026-09-26T22:00:00.000Z' });
   });
 });
+
+describe('composeHoy — «Todo» es todo: lo que espera respuesta está en la bandeja', () => {
+  const aw = (hoursAgo: number, count = 1) => ({
+    count,
+    since: new Date(NOW.getTime() - hoursAgo * 3_600_000),
+    last_at: new Date(NOW.getTime() - hoursAgo * 3_600_000),
+    unread: count,
+    open: true,
+  });
+
+  it('las esperas son UN grupo en Todo (la más antigua primero) y cada una fila en su filtro', () => {
+    const view = composeHoy(
+      input({
+        facts: [facts('1', { name: 'Ana' }), facts('2', { name: 'Bea' }), facts('3', { name: 'Carla' })],
+        // 3 ya pasó el umbral del coach: su espera es señal de vigilar, y NO fila aparte.
+        signals: new Map([['3', live(sig({ kind: 'message_unanswered', severity: 'warning', label: 'Por responder' }))]]),
+        awaiting: new Map([
+          ['1', aw(2)],
+          ['2', aw(30, 3)],
+          ['3', aw(14)],
+        ]),
+      }),
+    );
+    expect(view.systemic[0]).toMatchObject({
+      kind: 'awaiting_reply',
+      count: 3,
+      title: '3 por responder',
+      detail: 'la más antigua espera 1 d',
+      athlete_ids: ['2', '3', '1'],
+    });
+    expect(view.vigilar).toEqual([]);
+    expect(view.replies.map((r) => [r.name, r.primary.severity])).toEqual([
+      ['Bea', 'info'],
+      ['Carla', 'warning'],
+      ['Ana', 'info'],
+    ]);
+    // Quien espera respuesta te necesita desde el primer minuto (la cifra de Hoy = Atletas).
+    expect(view.counts.needs_you).toBe(3);
+    expect(view.counts.awaiting_reply).toBe(3);
+  });
+
+  it('una espera de un atleta con otra fila: la fila es lo suyo, la espera va al grupo', () => {
+    const view = composeHoy(
+      input({
+        facts: [facts('1', { name: 'Ana' })],
+        signals: new Map([['1', live(sig({ kind: 'rpe_high', severity: 'warning' }))]]),
+        awaiting: new Map([['1', aw(3)]]),
+      }),
+    );
+    expect(view.vigilar.map((r) => [r.primary.kind, r.others.map((s) => s.kind)])).toEqual([['rpe_high', []]]);
+    expect(view.systemic.map((g) => g.kind)).toEqual(['awaiting_reply']);
+    expect(view.counts.needs_you).toBe(1);
+  });
+});
+
+describe('composeHoy — secciones = estado del atleta; la descarga dice lo que contestó el motor', () => {
+  it('Acción = estado acción aunque la fila sea de vigilar; lo cubierto por un grupo se cuenta aparte', () => {
+    const view = composeHoy(
+      input({
+        facts: [facts('1', { name: 'Ana' }), facts('2', { name: 'Bea' })],
+        signals: new Map([
+          // Ana: pago vencido (grupo) + entrenos sin hacer → estado acción, fila en Acción.
+          ['1', live(sig({ kind: 'billing_at_risk', severity: 'critical' }), sig({ kind: 'missed_sessions', severity: 'warning' }))],
+          // Bea: solo el pago → sin fila, contada en «+1 con el pago vencido».
+          ['2', live(sig({ kind: 'billing_at_risk', severity: 'critical' }))],
+        ]),
+      }),
+    );
+    expect(view.critico.map((r) => [r.name, r.primary.kind])).toEqual([['Ana', 'missed_sessions']]);
+    expect(view.vigilar).toEqual([]);
+    expect(view.counts).toMatchObject({ critico: 1, accion_in_groups: 1 });
+  });
+
+  it('«mantener» del motor posterior a la señal: la fila lo dice; uno anterior no cuenta', () => {
+    const descarga = sig({
+      kind: 'readiness_low',
+      severity: 'critical',
+      action: 'proponer_descarga',
+      first_seen_at: '2026-09-23T08:00:00.000Z',
+    });
+    const proposal = (created_at: string) =>
+      new Map([['1', { id: '7', status: 'approved', recommendation: 'keep', summary: 'Su semana no pide cambios · Adherencia (7 d) 100 %', created_at }]]);
+    const after = composeHoy(
+      input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: proposal('2026-09-23T09:00:00.000Z') }),
+    );
+    expect(after.critico[0]!.proposal).toEqual({
+      id: '7',
+      outcome: 'mantener',
+      summary: 'Su semana no pide cambios · Adherencia (7 d) 100 %',
+    });
+    const before = composeHoy(
+      input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: proposal('2026-09-22T09:00:00.000Z') }),
+    );
+    expect(before.critico[0]!.proposal).toBeNull();
+  });
+});
+

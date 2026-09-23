@@ -9,7 +9,10 @@
 //   posponer / hecho       → POST /api/coach/inbox/bulk (1 o N atletas)
 //   reabrir (pie)          → la misma API, `undo` con `previous: null`
 //   proponer descarga      → POST /api/coach/athletes/[id]/week-adjustment/propose
-//                            (deshacer = rechazar esa propuesta)
+//                            (deshacer = rechazar esa propuesta). Si el motor
+//                            contesta «mantener», la fila lo dice y ofrece Hecho.
+//   recordar pagos         → POST /api/coach/messages/broadcast, uno por atleta con
+//                            su nombre (se confirma antes, como Publicar)
 //   publicar a los N       → POST /api/coach/weeks/publish (sin deshacer: ya les
 //                            ha llegado el aviso; por eso se confirma antes)
 //   mensaje a N            → POST /api/coach/messages/broadcast
@@ -17,7 +20,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import type { BulkWeekPublishResult } from '@fahybrid/shared/schema/week-publishing';
-import type { HoyRow, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
+import type { HoyProposal, HoyRow, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import { useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import { weekdayDate } from '@/components/v2/shared/format';
@@ -32,6 +35,7 @@ import {
   type ReopenTarget,
 } from './hoy-model';
 import { untilLabel } from './hoy-format';
+import { paymentReminderText } from './payment-reminder';
 
 interface OverrideResult {
   applied: number;
@@ -54,7 +58,16 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
   const undoToasts = useRef(new Map<string, string>());
   const [pending, setPending] = useState<Map<string, PendingRow>>(() => new Map());
   const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(() => new Set());
-  const [proposed, setProposed] = useState<Set<string>>(() => new Set());
+  // Lo que contestó el motor a «Proponer descarga» en esta visita (gana a la fila).
+  const [proposals, setProposals] = useState<Map<string, HoyProposal | 'enviando'>>(() => new Map());
+  const setProposal = useCallback((id: string, value: HoyProposal | 'enviando' | null) => {
+    setProposals((prev) => {
+      const next = new Map(prev);
+      if (value == null) next.delete(id);
+      else next.set(id, value);
+      return next;
+    });
+  }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -172,23 +185,29 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
     [dismiss, refresh, toast, unmark],
   );
 
-  /** «Proponer descarga»: crea la propuesta de ajuste de la semana que viene. */
+  /**
+   * «Proponer descarga»: el motor evalúa (con la señal que la pidió) y crea la
+   * propuesta. Si contesta «mantener», la fila enseña su motivo y ofrece Hecho.
+   */
   const proposeDeload = useCallback(
     async (row: Pick<HoyRow, 'athlete_id' | 'name'>): Promise<void> => {
       const id = row.athlete_id;
-      setProposed((prev) => new Set(prev).add(id));
+      setProposal(id, 'enviando');
       try {
         const res = await apiJson<ProposalResult>(`/api/coach/athletes/${id}/week-adjustment/propose`, {
           method: 'POST',
           body: {},
         });
         const p = res.proposal;
+        const keep = p.proposal.recommendation === 'keep';
+        setProposal(id, {
+          id: p.id,
+          outcome: keep ? 'mantener' : 'propuesta',
+          summary: p.proposal.coach_summary || (keep ? 'Su semana no pide cambios' : ''),
+        });
         refresh();
-        if (p.proposal.recommendation === 'keep') {
-          toast({
-            title: `${row.name}: su semana no pide cambios`,
-            description: p.proposal.coach_summary || undefined,
-          });
+        if (keep) {
+          toast({ title: `${row.name}: el motor no propone cambios`, description: p.proposal.coach_summary || undefined });
           return;
         }
         toast({
@@ -199,11 +218,7 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
           undo: async () => {
             try {
               await apiJson(`/api/coach/athletes/${id}/week-adjustment/${p.id}/reject`, { method: 'POST', body: {} });
-              setProposed((prev) => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-              });
+              setProposal(id, null);
             } catch (err) {
               toast({ title: 'No se ha podido retirar la propuesta', description: errorMessage(err), tone: 'danger' });
             } finally {
@@ -212,15 +227,44 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
           },
         });
       } catch (err) {
-        setProposed((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
+        setProposal(id, null);
         toast({ title: 'No se ha podido proponer la descarga', description: errorMessage(err), tone: 'danger' });
       }
     },
-    [refresh, router, toast],
+    [refresh, router, setProposal, toast],
+  );
+
+  /**
+   * «Recordar pagos» (ya confirmado): a cada atleta, un mensaje suyo en su chat
+   * con su nombre. El grupo sigue hasta que paguen (el pago lo cierra, no el aviso).
+   */
+  const remindPayments = useCallback(
+    async (people: ReadonlyArray<{ athlete_id: string; name: string }>): Promise<void> => {
+      if (people.length === 0) return;
+      try {
+        const results = await Promise.all(
+          people.map((p) =>
+            apiJson<{ sent: number; failed: number }>('/api/coach/messages/broadcast', {
+              method: 'POST',
+              body: { athlete_ids: [p.athlete_id], body: paymentReminderText(p.name) },
+            }).then(
+              (r) => r.sent > 0,
+              () => false,
+            ),
+          ),
+        );
+        const ok = results.filter(Boolean).length;
+        refresh();
+        toast(
+          ok === people.length
+            ? { title: ok === 1 ? `Recordatorio enviado a ${people[0]!.name}` : `Recordatorio enviado a ${ok}`, tone: 'ok' }
+            : { title: `Enviado a ${ok} de ${people.length}`, description: 'Vuelve a probar con los que faltan.', tone: 'warn' },
+        );
+      } catch (err) {
+        toast({ title: 'No se ha podido enviar', description: errorMessage(err), tone: 'danger' });
+      }
+    },
+    [refresh, toast],
   );
 
   /** «Publicar a los N» (ya confirmado): la fila del grupo se va al momento. */
@@ -278,5 +322,16 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
     [refresh, toast],
   );
 
-  return { pending, hiddenGroups, proposed, override, reopen, proposeDeload, publishGroup, broadcast, refresh };
+  return {
+    pending,
+    hiddenGroups,
+    proposals,
+    override,
+    reopen,
+    proposeDeload,
+    remindPayments,
+    publishGroup,
+    broadcast,
+    refresh,
+  };
 }

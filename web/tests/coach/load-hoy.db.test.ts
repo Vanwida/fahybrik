@@ -78,7 +78,12 @@ describeWithDb('motor de señales → Hoy', () => {
               ${new Date(NOW.getTime() - 19 * 3_600_000).toISOString()}::timestamptz)
     `;
 
-    // Bea: una sola lectura, 35, hoy → crítico por el suelo.
+    // Bea: 7 lecturas en 70 (ya tiene base) y hoy 35 → crítico por el suelo.
+    // (Sin base sería «Vigilar» como mucho: readiness-evidence.test.ts.)
+    for (let i = -8; i <= -2; i += 1) {
+      await sql`insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score)
+                values (${ids.bea}, ${day(i)}::date, 70)`;
+    }
     await sql`insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score)
               values (${ids.bea}, ${day(0)}::date, 35)`;
 
@@ -141,8 +146,8 @@ describeWithDb('motor de señales → Hoy', () => {
     const r = ana.find((i) => i.signal_kind === 'readiness_low')!;
     expect(r).toMatchObject({
       severity: 'warning',
-      label: 'Readiness 50',
-      detail: '−20 vs su base 70 (28 d) · 3 días seguidos · hoy',
+      label: 'Readiness baja',
+      detail: '50 hoy · −20 vs su base 70 (28 d) · 3 días seguidos',
       window_label: '28 d',
     });
     expect(r.observed_at?.toISOString().slice(0, 10)).toBe('2026-09-23');
@@ -150,7 +155,8 @@ describeWithDb('motor de señales → Hoy', () => {
     const bea = await items(ids.bea);
     expect(bea.find((i) => i.signal_kind === 'readiness_low')).toMatchObject({
       severity: 'critical',
-      label: 'Readiness 35',
+      label: 'Readiness baja',
+      detail: '35 hoy · −35 vs su base 70 (28 d) · bajo tu suelo de 40',
     });
   });
 
@@ -180,17 +186,22 @@ describeWithDb('motor de señales → Hoy', () => {
 
   it('Hoy: grupos primero, una fila por atleta, peor primero', async () => {
     const hoy = await loadHoy({ coach_id: fx.coachId, now: NOW, client: sql });
+    // «Todo» es todo: la pregunta de Ana es el grupo «1 por responder».
     expect(hoy.systemic.map((g) => [g.kind, [...g.athlete_ids].sort()])).toEqual([
+      ['awaiting_reply', [String(ids.ana)]],
       ['no_program', [String(ids.ana), String(ids.bea)].sort()],
     ]);
     expect(hoy.critico.map((r) => r.name)).toEqual(['Bea']);
+    // La espera de Ana no se repite en su fila: es del grupo.
     expect(hoy.vigilar.map((r) => [r.name, r.primary.kind, r.other_count])).toEqual([
-      ['Ana', 'readiness_low', 1],
+      ['Ana', 'readiness_low', 0],
       ['Dani', 'missed_sessions', 0],
     ]);
+    // …y en su filtro, cada espera es una fila (el mismo conjunto que Mensajes).
+    expect(hoy.replies.map((r) => r.name)).toEqual(['Ana']);
     // Atletas, no filas: Ana y Bea (sin programa) + Dani; Bea tiene fila y grupo y cuenta una vez.
     expect(hoy.counts).toMatchObject({ needs_you: 3, critico: 1, vigilar: 2, snoozed: 0, resolved_today: 0 });
-    expect(hoy.week_visibility).toEqual({ visible: 1, total: 3 });
+    expect(hoy.week_visibility).toEqual({ visible: 1, total: 3, programmed: 1 });
   });
 
   it('posponer 1 d quita la fila hasta mañana; deshacer la devuelve igual', async () => {
@@ -204,12 +215,10 @@ describeWithDb('motor de señales → Hoy', () => {
     });
     // Mañana 00:00 en Madrid = 22:00 UTC de hoy.
     expect(res.until_at).toBe('2026-09-23T22:00:00.000Z');
-    expect(res.applied).toBe(2);
-    // La fila entera menos lo que resuelve un grupo (su «sin programa»).
-    expect(res.undo.restore.map((r) => [r.signal_kind, r.previous]).sort()).toEqual([
-      ['message_unanswered', null],
-      ['readiness_low', null],
-    ]);
+    expect(res.applied).toBe(1);
+    // La fila entera menos lo que resuelve un grupo (su «sin programa» y su
+    // espera por responder: esa se cierra en su hilo o en su filtro).
+    expect(res.undo.restore.map((r) => [r.signal_kind, r.previous]).sort()).toEqual([['readiness_low', null]]);
 
     let hoy = await loadHoy({ coach_id: fx.coachId, now: NOW, client: sql });
     expect(hoy.vigilar.map((r) => r.name)).toEqual(['Dani']);
@@ -218,7 +227,7 @@ describeWithDb('motor de señales → Hoy', () => {
     // Pasado el plazo, vuelve sola.
     const tomorrow = new Date('2026-09-24T07:00:00Z');
     const later = await loadAthleteSignals({ coach_id: fx.coachId, now: tomorrow, client: sql });
-    // Vuelven las dos de la fila (el «sin programa» nunca se pospuso: es del grupo).
+    // Vuelve la de la fila (el «sin programa» y la espera nunca se pospusieron: son de grupo).
     expect(later.get(String(ids.ana))!.live.map((x) => x.kind).sort()).toEqual([
       'message_unanswered',
       'programming_status',

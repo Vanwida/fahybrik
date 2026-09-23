@@ -10,7 +10,7 @@ import { useRef } from 'react';
 import { Check, ChevronDown, Clock, MoreHorizontal } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/navigation';
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
-import type { HoyRow } from '@/lib/dashboard/hoy/hoy-types';
+import type { HoyProposal, HoyRow } from '@/lib/dashboard/hoy/hoy-types';
 import {
   Avatar,
   Button,
@@ -39,8 +39,11 @@ export interface InboxRowProps {
   negocio: boolean;
   /** Lunes de esta semana (para «Publicar semana»). */
   weekStart: string;
-  /** Ya se le propuso la descarga en esta visita. */
-  proposed: boolean;
+  /**
+   * Lo que contestó el motor a «Proponer descarga» (del servidor o de esta
+   * visita); `enviando` mientras responde. null = aún no se ha pedido.
+   */
+  proposal: HoyProposal | 'enviando' | null;
   onOpen: () => void;
   onToggle: (checked: boolean, shift: boolean) => void;
   onAction: (action: SignalAction) => void;
@@ -55,7 +58,7 @@ export function InboxRow({
   active,
   negocio,
   weekStart,
-  proposed,
+  proposal,
   onOpen,
   onToggle,
   onAction,
@@ -67,21 +70,29 @@ export function InboxRow({
   const shift = useRef(false);
   const { primary } = row;
   const action = primary.action;
-  const href = actionHref(action, row.athlete_id, negocio);
-  const label =
-    action === 'proponer_descarga' && proposed ? 'Descarga propuesta' : SIGNAL_ACTION_LABEL[action];
+  const descarga = action === 'proponer_descarga' ? proposal : null;
+  // El motor dijo «mantener»: la fila dice por qué y lo que queda es darla por hecha.
+  const kept = descarga != null && descarga !== 'enviando' && descarga.outcome === 'mantener' ? descarga : null;
+  // Hay una descarga pendiente de aprobar: se revisa en su ficha.
+  const proposedChange = descarga != null && descarga !== 'enviando' && descarga.outcome === 'propuesta';
+  const href = proposedChange ? `/atletas/${row.athlete_id}` : actionHref(action, row.athlete_id, negocio);
+  const label = proposedChange ? 'Ver propuesta' : SIGNAL_ACTION_LABEL[action];
+  const busy = descarga === 'enviando';
   const others = otherSignalsLabel(row.other_count);
   const othersTitle = row.others.map((s) => s.label).join(' · ');
 
-  const primaryEl =
-    action === 'publicar_semana' ? (
+  const primaryEl = kept ? (
+    <Button size="sm" variant="secondary" icon={Check} onClick={onDone}>
+      Hecho
+    </Button>
+  ) : action === 'publicar_semana' ? (
       <PublishWeekControl athleteId={row.athlete_id} name={row.name} weekStart={weekStart} layout="compact" onChange={onChange} />
     ) : href ? (
       <Link href={href} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
         {label}
       </Link>
     ) : (
-      <Button size="sm" variant="secondary" disabled={proposed && action === 'proponer_descarga'} onClick={() => onAction(action)}>
+      <Button size="sm" variant="secondary" loading={busy} onClick={() => onAction(action)}>
         {label}
       </Button>
     );
@@ -94,12 +105,12 @@ export function InboxRow({
   }));
 
   const compactItems: MenuEntry[] = [
-    ...(action === 'publicar_semana'
+    ...(action === 'publicar_semana' || kept
       ? []
       : [
           {
             label,
-            disabled: proposed && action === 'proponer_descarga',
+            disabled: busy,
             onSelect: () => (href ? router.push(href) : onAction(action)),
           } satisfies MenuEntry,
           { type: 'separator' } as MenuEntry,
@@ -141,7 +152,12 @@ export function InboxRow({
       }
       detail={
         <>
-          <SignalBadge signal={primary} withEvidence size="sm" className="min-w-0" />
+          {kept ? (
+            // La respuesta del motor, en una línea, en lugar de la evidencia.
+            <SignalBadge signal={{ ...primary, evidence: kept.summary }} withEvidence size="sm" className="min-w-0" />
+          ) : (
+            <SignalBadge signal={primary} withEvidence size="sm" className="min-w-0" />
+          )}
           {others ? (
             <span className="shrink-0 t-meta text-v2-faint" title={othersTitle}>
               {others}
@@ -164,7 +180,7 @@ export function InboxRow({
               }
               items={snoozeItems}
             />
-            <IconButton icon={Check} label="Hecho" shortcut="E" size="sm" onClick={onDone} />
+            {kept ? null : <IconButton icon={Check} label="Hecho" shortcut="E" size="sm" onClick={onDone} />}
           </span>
           <span className="inline-flex @min-[800px]:hidden">
             <Menu

@@ -1,10 +1,11 @@
 'use client';
 
-// Una sección de filas de atleta (Crítico / Vigilar). Vigilar se pliega a partir
-// de 10 con un «Ver N más» que SÍ despliega (el viejo «+ 38 más» no hacía nada).
+// Una sección de filas de atleta (Acción / Vigilar / Por responder: el estado
+// del atleta, las mismas palabras que Atletas). Vigilar se pliega a partir de 10
+// con un «Ver N más» que SÍ despliega (el viejo «+ 38 más» no hacía nada).
 
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
-import type { HoyRow } from '@/lib/dashboard/hoy/hoy-types';
+import type { HoyProposal, HoyRow } from '@/lib/dashboard/hoy/hoy-types';
 import { Button, List, SectionHeader } from '@/components/v2/ui';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -13,13 +14,14 @@ import { InboxRow } from './InboxRow';
 export function RowSection({
   id,
   title,
+  note,
   rows,
   fold,
   expanded,
   onExpand,
   activeId,
   selected,
-  proposed,
+  proposals,
   negocio,
   weekStart,
   onOpen,
@@ -31,6 +33,8 @@ export function RowSection({
 }: {
   id: string;
   title: string;
+  /** Una nota corta tras la cifra («+6 con el pago vencido»). */
+  note?: string | null;
   rows: ReadonlyArray<HoyRow>;
   /** Plegar a partir de N (null = nunca). */
   fold: number | null;
@@ -38,7 +42,8 @@ export function RowSection({
   onExpand: (open: boolean) => void;
   activeId: string | null;
   selected: ReadonlySet<string>;
-  proposed: ReadonlySet<string>;
+  /** Lo contestado a «Proponer descarga» en esta visita (gana a lo del servidor). */
+  proposals: ReadonlyMap<string, HoyProposal | 'enviando'>;
   negocio: boolean;
   weekStart: string;
   onOpen: (row: HoyRow) => void;
@@ -55,7 +60,12 @@ export function RowSection({
 
   return (
     <section className="flex flex-col gap-2" aria-labelledby={id}>
-      <SectionHeader id={id} title={title} count={rows.length} />
+      <SectionHeader
+        id={id}
+        title={title}
+        count={rows.length}
+        action={note ? <span className="t-meta text-v2-faint t-tnum">{note}</span> : null}
+      />
       <List aria-label={title} className="@container">
         <div data-hoy-list="" role="presentation" className="contents">
           {shown.map((row) => (
@@ -64,7 +74,7 @@ export function RowSection({
               row={row}
               active={activeId === row.athlete_id}
               selected={selected.has(row.athlete_id)}
-              proposed={proposed.has(row.athlete_id)}
+              proposal={proposals.get(row.athlete_id) ?? row.proposal ?? null}
               negocio={negocio}
               weekStart={weekStart}
               onOpen={() => onOpen(row)}

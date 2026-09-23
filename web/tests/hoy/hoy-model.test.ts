@@ -5,8 +5,11 @@ import { describe, expect, it } from 'vitest';
 import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { HoyRow, HoyView, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import {
+  accionInGroupsLabel,
   actionHref,
   groupInVista,
+  overrideTargets,
+  weekVisibilityLabel,
   intakeQueueHref,
   sortIntakes,
   kindsLabel,
@@ -80,10 +83,11 @@ function view(over: Partial<HoyView> = {}): HoyView {
       awaiting_reply: 0,
       critico: critico.length,
       vigilar: vigilar.length,
+      accion_in_groups: 0,
       resolved_today: 2,
       snoozed: 1,
     },
-    week_visibility: { visible: 26, total: 100 },
+    week_visibility: { visible: 26, total: 100, programmed: 73 },
     systemic,
     critico,
     vigilar,
@@ -259,3 +263,41 @@ describe('reabrir y textos', () => {
     expect(actionHref('responder', '9', true)).toBeNull();
   });
 });
+
+describe('«Todo» es todo: por responder en la bandeja', () => {
+  const awaiting = { kind: 'awaiting_reply' as const, count: 2, title: '2 por responder', detail: 'x', athlete_ids: ['a', 'b'] };
+
+  it('el grupo sale en Todo; en su filtro salen sus filas, no el grupo', () => {
+    expect(groupInVista(awaiting, 'todo')).toBe(true);
+    expect(groupInVista(awaiting, 'responder')).toBe(false);
+  });
+
+  it('cerrar una espera desde su fila la saca ya del grupo (la cifra baja al actuar)', () => {
+    const reply = row('a', { kind: 'message_unanswered', severity: 'info', lens: 'mensajes', action: 'responder' });
+    const pending = new Map<string, PendingRow>([['a', { kind: 'done', row: reply, until: null, settled_at: null }]]);
+    const inbox = visibleInbox(view({ systemic: [awaiting], critico: [], vigilar: [] }), pending, new Set());
+    expect(inbox.systemic).toEqual([{ ...awaiting, count: 1, title: '1 por responder', athlete_ids: ['b'] }]);
+    expect(inbox.needs_you).toBe(1);
+  });
+
+  it('Hecho/Posponer de una espera nombra la espera (nunca el resto del atleta)', () => {
+    const warn = row('a', { kind: 'message_unanswered', severity: 'warning', lens: 'mensajes', action: 'responder' });
+    expect(overrideTargets([warn, row('b')])).toEqual([
+      { athlete_id: 'a', signal_kind: 'message_unanswered' },
+      { athlete_id: 'b' },
+    ]);
+  });
+});
+
+describe('una cifra por concepto', () => {
+  it('«N de M ven su semana programada» suma con «No ven su semana»', () => {
+    expect(weekVisibilityLabel({ visible: 89, programmed: 89 })).toBe('89 de 89 ven su semana programada');
+    expect(weekVisibilityLabel({ visible: 0, programmed: 0 })).toBe('nadie tiene entrenos esta semana');
+  });
+
+  it('Acción: filas + los que solo tienen el pago vencido = Acción de Atletas', () => {
+    expect(accionInGroupsLabel(0)).toBeNull();
+    expect(accionInGroupsLabel(5)).toBe('+5 con el pago vencido');
+  });
+});
+

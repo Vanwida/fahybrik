@@ -1,18 +1,19 @@
 'use client';
 
 // HOY — la bandeja que tiende a cero (plan §6). Cabecera con la cifra que baja al
-// actuar; vistas en `?vista=`; grupos de causa compartida primero; luego Crítico y
-// Vigilar, una fila por atleta, peor primero. Clic o Enter abre el vistazo (no
+// actuar; vistas en `?vista=`; grupos de causa compartida primero; luego Acción y
+// Vigilar (el estado del atleta, las palabras de Atletas), una fila por atleta,
+// peor primero. Clic o Enter abre el vistazo (no
 // modal: la lista sigue viva y J/K lo mueven). Todo es optimista con «Deshacer».
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, CircleCheck } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { HoyRow, HoyView, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import type { SetupChecklist as SetupChecklistData } from '@/lib/coach/setup-checklist';
 import type { HoyExtras, HoyPerson } from '@/app/[locale]/(v2)/hoy/_data/hoy-extras';
-import { Button, Dialog, EmptyState, FilterChip, List, PageHeader, SectionHeader } from '@/components/v2/ui';
+import { Button, EmptyState, PageHeader } from '@/components/v2/ui';
 import { AssignSheet, AthletePeek, SetupChecklist } from '@/components/v2/shared';
 import { mondayOf } from '@/components/v2/shared/format';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
@@ -21,7 +22,7 @@ import { GUIA_SLUGS } from '@/components/v2/guia/config';
 import { cn } from '@/lib/utils';
 import {
   VIGILAR_FOLD,
-  VISTAS,
+  accionInGroupsLabel,
   groupInVista,
   intakeQueueHref,
   sortIntakes,
@@ -33,15 +34,17 @@ import {
   rowInVista,
   snoozedTargets,
   step,
-  toTheN,
   visibleInbox,
   vistaCounts,
+  weekVisibilityLabel,
   type HoyVista,
 } from './hoy-model';
 import { agoLabel, boxToday, nextExpectedLine, untilLabel } from './hoy-format';
 import { useHoyActions } from './use-hoy-actions';
 import { useHoyKeys } from './use-hoy-keys';
-import { SystemicRow } from './SystemicRow';
+import { SystemicSection } from './SystemicSection';
+import { VistaChips } from './VistaChips';
+import { PublishConfirmDialog, RemindConfirmDialog } from './HoyConfirmDialogs';
 import { RowSection } from './RowSection';
 import { AltasList } from './AltasList';
 import { HoyFooter, type FooterEntry } from './HoyFooter';
@@ -70,7 +73,8 @@ export interface HoyInboxProps {
 export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVista, dateLabel }: HoyInboxProps) {
   const { openChat } = useShell();
   const actions = useHoyActions({ generatedAt: view.generated_at });
-  const { pending, hiddenGroups, proposed, override, reopen, proposeDeload, publishGroup, broadcast, refresh } = actions;
+  const { pending, hiddenGroups, proposals, override, reopen, proposeDeload, remindPayments, publishGroup, broadcast, refresh } =
+    actions;
 
   const [vista, setVista] = useState<HoyVista>(initialVista);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -81,6 +85,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const [vigilarOpen, setVigilarOpen] = useState(false);
   const [assign, setAssign] = useState<AssignTarget | null>(null);
   const [confirmGroup, setConfirmGroup] = useState<SystemicGroup | null>(null);
+  const [remindGroup, setRemindGroup] = useState<SystemicGroup | null>(null);
   const [help, setHelp] = useState(false);
 
   const now = useMemo(() => new Date(view.generated_at), [view.generated_at]);
@@ -121,14 +126,6 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
     else url.searchParams.set('vista', next);
     window.history.replaceState(window.history.state, '', url);
   };
-
-  // En el móvil los chips se desplazan: el activo, a la vista.
-  const chipsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const chip = chipsRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    const box = chipsRef.current;
-    if (chip && box) box.scrollLeft = Math.max(0, chip.offsetLeft - box.offsetLeft - 16);
-  }, [vista]);
 
   // La fila activa, siempre a la vista.
   useEffect(() => {
@@ -285,10 +282,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
     <>
       <strong className="font-semibold text-v2-fg t-tnum">{needsYouLabel(inbox.needs_you)}</strong>
       {' · '}
-      <span className="t-tnum">
-        {view.week_visibility.visible} de {view.week_visibility.total}
-      </span>{' '}
-      ven su semana · {dateLabel}
+      <span className="t-tnum">{weekVisibilityLabel(view.week_visibility)}</span> · {dateLabel}
     </>
   );
 
@@ -298,13 +292,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
         <PageHeader title="Hoy" subtitle={subtitle}>
           {noAthletes ? null : (
-            <div ref={chipsRef} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-              {VISTAS.map((v) => (
-                <FilterChip key={v.key} active={vista === v.key} count={counts[v.key]} onClick={() => changeVista(v.key)}>
-                  {v.label}
-                </FilterChip>
-              ))}
-            </div>
+            <VistaChips vista={vista} counts={counts} onChange={changeVista} />
           )}
         </PageHeader>
 
@@ -316,35 +304,32 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
               <AltasList people={intakePeople} now={now} onOpen={(p) => openPeek(p.athlete_id)} />
             ) : null}
 
-            {systemic.length > 0 ? (
-              <section className="flex flex-col gap-2" aria-labelledby="hoy-varios">
-                <SectionHeader id="hoy-varios" title="Afecta a varios" count={systemic.length} />
-                <List aria-label="Afecta a varios" className="@container">
-                  {systemic.map((g) => (
-                    <SystemicRow
-                      key={`${g.kind}:${g.week_start ?? ''}`}
-                      group={g}
-                      people={peopleOf(g)}
-                      negocio={negocio}
-                      onPublish={() => setConfirmGroup(g)}
-                      onAssign={() =>
-                        setAssign({
-                          ids: g.athlete_ids,
-                          people: peopleOf(g).map((p) => ({ id: p.athlete_id, name: p.name, avatar_url: p.avatar_url })),
-                        })
-                      }
-                      onOpenAthlete={(p) => openPeek(p.athlete_id)}
-                      queueHref={g.kind === 'intake_pending' ? intakeQueueHref(intakePeople.map((p) => p.athlete_id)) : null}
-                    />
-                  ))}
-                </List>
-              </section>
-            ) : null}
+            <SystemicSection
+              groups={systemic}
+              peopleOf={peopleOf}
+              negocio={negocio}
+              onPublish={setConfirmGroup}
+              onRemind={setRemindGroup}
+              onAssign={(g) =>
+                setAssign({
+                  ids: g.athlete_ids,
+                  people: peopleOf(g).map((p) => ({ id: p.athlete_id, name: p.name, avatar_url: p.avatar_url })),
+                })
+              }
+              onOpenAthlete={(p) => openPeek(p.athlete_id)}
+              queueHrefOf={(g) => (g.kind === 'intake_pending' ? intakeQueueHref(intakePeople.map((p) => p.athlete_id)) : null)}
+            />
 
             {[
-              { id: 'hoy-critico', title: 'Crítico', rows: critico, fold: null },
-              { id: 'hoy-vigilar', title: 'Vigilar', rows: vigilar, fold: VIGILAR_FOLD },
-              { id: 'hoy-responder', title: 'Por responder', rows: replies, fold: null },
+              {
+                id: 'hoy-accion',
+                title: 'Acción',
+                rows: critico,
+                fold: null,
+                note: vista === 'todo' ? accionInGroupsLabel(view.counts.accion_in_groups) : null,
+              },
+              { id: 'hoy-vigilar', title: 'Vigilar', rows: vigilar, fold: VIGILAR_FOLD, note: null },
+              { id: 'hoy-responder', title: 'Por responder', rows: replies, fold: null, note: null },
             ].map((s) => (
               <RowSection
                 key={s.id}
@@ -353,7 +338,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
                 onExpand={setVigilarOpen}
                 activeId={activeId}
                 selected={selected}
-                proposed={proposed}
+                proposals={proposals}
                 negocio={negocio}
                 weekStart={weekStart}
                 onOpen={(row) => openPeek(row.athlete_id)}
@@ -460,37 +445,24 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
         onAssigned={() => refresh()}
       />
 
-      <Dialog
-        open={confirmGroup != null}
-        onOpenChange={(o) => {
-          if (!o) setConfirmGroup(null);
+      <PublishConfirmDialog
+        group={confirmGroup}
+        onCancel={() => setConfirmGroup(null)}
+        onConfirm={(g) => {
+          setConfirmGroup(null);
+          void publishGroup(g);
         }}
-        title={confirmGroup ? (confirmGroup.count === 1 ? 'Publicar a 1 atleta' : `Publicar a los ${confirmGroup.count} atletas`) : ''}
-        description={confirmGroup ? `${confirmGroup.detail[0]?.toUpperCase()}${confirmGroup.detail.slice(1)}.` : undefined}
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmGroup(null)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                const g = confirmGroup;
-                setConfirmGroup(null);
-                if (g) void publishGroup(g);
-              }}
-            >
-              {confirmGroup ? toTheN('Publicar', confirmGroup.count) : 'Publicar'}
-            </Button>
-          </>
-        }
-      >
-        <p className="t-body text-v2-muted">
-          La verán ya en la app y les llega un aviso. Luego puedes ocultarla atleta por atleta, pero el aviso ya se habrá
-          enviado.
-        </p>
-      </Dialog>
+      />
+
+      <RemindConfirmDialog
+        group={remindGroup}
+        names={remindGroup ? peopleOf(remindGroup).map((p) => p.name) : []}
+        onCancel={() => setRemindGroup(null)}
+        onConfirm={(g) => {
+          setRemindGroup(null);
+          void remindPayments(peopleOf(g).map((p) => ({ athlete_id: p.athlete_id, name: p.name })));
+        }}
+      />
 
       <ShortcutsDialog open={help} onOpenChange={setHelp} />
     </div>

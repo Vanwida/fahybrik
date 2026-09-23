@@ -4,7 +4,7 @@
 // acción en bloque. «Ver quiénes» despliega los atletas (cada uno abre su vistazo).
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Send, UserPlus } from 'lucide-react';
+import { BellRing, ChevronDown, ChevronUp, MessageCircle, Send, UserPlus } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import { Avatar, Button, buttonVariants } from '@/components/v2/ui';
@@ -18,13 +18,23 @@ export interface SystemicRowProps {
   negocio: boolean;
   onPublish: () => void;
   onAssign: () => void;
+  /** «Recordar pagos»: confirma en el sitio (no navega). */
+  onRemind: () => void;
   onOpenAthlete: (person: HoyPerson) => void;
   /** Enlace de «Revisar en fila» (altas). */
   queueHref: string | null;
 }
 
-function GroupAction({ group, negocio, onPublish, onAssign, queueHref }: Omit<SystemicRowProps, 'people' | 'onOpenAthlete'>) {
+function GroupAction({ group, onPublish, onAssign, onRemind, queueHref }: Omit<SystemicRowProps, 'people' | 'onOpenAthlete'>) {
   switch (group.kind) {
+    case 'awaiting_reply':
+      // Mensajes abre por defecto en «Por responder», la más antigua primero.
+      return (
+        <Link href="/mensajes" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+          <MessageCircle aria-hidden strokeWidth={1.75} />
+          {group.count === 1 ? 'Responder' : 'Responder en fila'}
+        </Link>
+      );
     case 'week_hidden':
       return (
         <Button size="sm" variant="secondary" icon={Send} onClick={onPublish}>
@@ -44,11 +54,11 @@ function GroupAction({ group, negocio, onPublish, onAssign, queueHref }: Omit<Sy
         </Link>
       ) : null;
     case 'payments_overdue':
-      return negocio ? (
-        <Link href="/negocio/cobros" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-          Recordar pagos
-        </Link>
-      ) : null;
+      return (
+        <Button size="sm" variant="secondary" icon={BellRing} onClick={onRemind}>
+          {group.count === 1 ? 'Recordar pago' : 'Recordar pagos'}
+        </Button>
+      );
     case 'leads_new':
       return (
         <Link href="/negocio/leads" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>

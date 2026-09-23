@@ -14,25 +14,43 @@
 //   4. La cifra «te necesitan» cuenta ATLETAS (`athleteNeedsYou`, la misma
 //      definición que el estado del roster y la vista «Necesitan algo»), no
 //      filas: un grupo de 47 son 47 personas que te necesitan.
-//   5. «Por responder» es el conjunto de Mensajes (`loadReplyStates`): una espera
-//      cuenta desde el primer minuto en su filtro; el umbral de horas del coach
-//      solo decide cuándo pasa a ser una fila de la bandeja (la señal del motor).
+//   5. «Por responder» es el conjunto de Mensajes (`loadReplyStates`) y está en
+//      «Todo» como UN grupo («15 por responder → Responder en fila»), la espera
+//      más antigua primero. Quien espera respuesta te necesita desde el primer
+//      minuto (la cifra de Hoy, su insignia y «Necesitan algo» lo cuentan). El
+//      umbral de horas del coach solo decide cuándo la espera pasa a «Vigilar»
+//      en su estado; en su filtro sale cada espera como fila, con Hecho/Posponer.
+//   6. Las secciones son el ESTADO del atleta (el mismo de Atletas): «Acción» =
+//      estado acción, «Vigilar» = el resto con algo que mirar. Quien está en
+//      acción solo por algo que ya cubre un grupo (un pago vencido) no tiene
+//      fila: la cabecera de Acción lo dice («+6 en pagos vencidos») para que
+//      Hoy y Atletas sumen lo mismo.
 
 import {
   ageLabel,
-  athleteNeedsYou,
   compareSignals,
   isActionable,
   isGroupOwnedSignal,
+  isWithoutPlan,
   shortDate,
   type AthleteSignal,
 } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { AwaitingReply } from '@/lib/coach/attention/awaiting-reply';
-import { liveSignalsOf, weekHiddenOf } from '@/lib/coach/athlete-state';
+import { buildAthleteStatus, liveSignalsOf, weekHiddenOf } from '@/lib/coach/athlete-state';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { AthletePlanFacts } from '@/lib/dashboard/athletes/plan-facts';
 import type { AthleteSignalsRead } from '@/lib/coach/attention/signals-read';
-import type { HoyRow, HoySnoozedRow, HoyView, SystemicGroup } from './hoy-types';
+import type { HoyProposal, HoyRow, HoySnoozedRow, HoyView, SystemicGroup } from './hoy-types';
+
+/** La última respuesta del motor de ajuste a «Proponer descarga» de un atleta. */
+export interface ProposalFact {
+  id: string;
+  /** pending · approved (un «mantener» se guarda aprobado). */
+  status: string;
+  recommendation: string;
+  summary: string;
+  created_at: string;
+}
 
 export interface NegocioInput {
   leads: Array<{ id: string; created_at: string }>;
@@ -53,6 +71,8 @@ export interface HoyComposeInput {
   resolved_today: number;
   /** null = el coach no tiene el add-on de Negocio (sin grupos de leads ni llamadas). */
   negocio: NegocioInput | null;
+  /** La última propuesta de ajuste de cada atleta (desde esta semana). */
+  proposals?: ReadonlyMap<string, ProposalFact>;
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -87,6 +107,25 @@ export function composeHoy(input: HoyComposeInput): HoyView {
   const hasLiveKind = (id: string, kind: string, severity?: string): boolean =>
     (liveOf.get(id) ?? []).some((s) => s.kind === kind && (severity == null || s.severity === severity));
 
+  // ── 0. Por responder — el conjunto de Mensajes, la espera más antigua primero ─
+  const waiting = input.facts
+    .filter((f) => input.awaiting?.get(f.athlete_id)?.since != null)
+    .sort(
+      (a, b) =>
+        input.awaiting!.get(a.athlete_id)!.since!.getTime() - input.awaiting!.get(b.athlete_id)!.since!.getTime(),
+    );
+  if (waiting.length > 0) {
+    const n = waiting.length;
+    const oldest = input.awaiting!.get(waiting[0]!.athlete_id)!.since!.toISOString();
+    systemic.push({
+      kind: 'awaiting_reply',
+      count: n,
+      title: `${n} por responder`,
+      detail: `${n === 1 ? 'espera' : 'la más antigua espera'} ${ageLabel(oldest, now)}`,
+      athlete_ids: waiting.map((f) => f.athlete_id),
+    });
+  }
+
   // ── 1. Semana oculta (la de ahora) ─────────────────────────────────────────
   const hiddenNow = active.filter((f) => f.week_chip.kind === 'no_lo_ve');
   if (hiddenNow.length > 0) {
@@ -106,9 +145,7 @@ export function composeHoy(input: HoyComposeInput): HoyView {
 
   // ── 2. Sin programa (nunca o terminado) — el alta pendiente va en su grupo, y
   //       el invitado sin cuestionario no pide nada todavía ──────────────────
-  const noProgram = active.filter(
-    (f) => f.plan !== 'con_programa' && !f.intake_pending && !f.not_onboarded,
-  );
+  const noProgram = active.filter((f) => isWithoutPlan(f));
   if (noProgram.length > 0) {
     const never = noProgram.filter((f) => f.plan === 'sin_programa').length;
     const ended = noProgram.length - never;
@@ -207,29 +244,35 @@ export function composeHoy(input: HoyComposeInput): HoyView {
   const vigilar: HoyRow[] = [];
   const snoozedRows: HoySnoozedRow[] = [];
   const replies: HoyRow[] = [];
+  // La espera de un hilo: la señal del motor si ya pasó el umbral del coach
+  // (vigilar, con su evidencia), o la informativa desde el primer minuto.
   const replySignal = (id: string): AthleteSignal | null => {
     const aw = input.awaiting?.get(id);
     if (!aw || !aw.since) return null;
-    if ((liveOf.get(id) ?? []).some((s) => s.kind === 'message_unanswered')) return null;
-    return waitingSignal(id, aw, now);
+    const engine = (liveOf.get(id) ?? []).find((s) => s.kind === 'message_unanswered');
+    return engine ?? waitingSignal(id, aw, now);
   };
+  const statusOf = new Map(
+    input.facts.map((f) => [
+      f.athlete_id,
+      buildAthleteStatus(f, input.signals.get(f.athlete_id), now, input.awaiting ? input.awaiting.has(f.athlete_id) : undefined),
+    ]),
+  );
+  let accionInGroups = 0;
   for (const f of active) {
     const read = input.signals.get(f.athlete_id);
+    const status = statusOf.get(f.athlete_id)!;
     const actionable = (liveOf.get(f.athlete_id) ?? [])
       .filter((s) => isActionable(s) && !covered(s))
       .sort(compareSignals);
     if (actionable.length > 0) {
       const row = toRow(f, actionable, now);
-      // Una espera aún bajo el umbral no es su fila, pero sí la sitúa en
-      // «Por responder» (va con las demás señales del atleta).
-      const waiting = replySignal(f.athlete_id);
-      if (waiting) {
-        row.others = [...row.others, waiting];
-        row.other_count = row.others.length;
-      }
-      (row.primary.severity === 'critical' ? critico : vigilar).push(row);
+      row.proposal = proposalFor(row.primary, input.proposals?.get(f.athlete_id));
+      // La sección es su ESTADO (el de Atletas), no la severidad de la fila.
+      (status.key === 'accion' ? critico : vigilar).push(row);
       continue;
     }
+    if (status.key === 'accion') accionInGroups += 1;
     const silenced = (read?.silenced ?? []).filter(
       (x) => x.by === 'snooze' && isActionable(x.signal) && !covered(x.signal),
     );
@@ -243,13 +286,11 @@ export function composeHoy(input: HoyComposeInput): HoyView {
     }
   }
 
-  // Esperas por responder sin fila en la bandeja (bajo el umbral, o de un atleta
-  // en pausa): solo salen en el filtro «Por responder», como en Mensajes.
-  const inRows = new Set([...critico, ...vigilar].map((r) => r.athlete_id));
-  for (const f of input.facts) {
-    if (inRows.has(f.athlete_id)) continue;
-    const waiting = replySignal(f.athlete_id);
-    if (waiting) replies.push({ ...toRow(f, [waiting], now), snoozable: true });
+  // Cada espera como fila, para su filtro («Por responder»): el mismo conjunto
+  // que el grupo de «Todo» y que Mensajes, con Hecho/Posponer por hilo.
+  for (const f of waiting) {
+    const signal = replySignal(f.athlete_id);
+    if (signal) replies.push({ ...toRow(f, [signal], now), snoozable: true });
   }
 
   const byWorst = (a: HoyRow, b: HoyRow) =>
@@ -257,20 +298,12 @@ export function composeHoy(input: HoyComposeInput): HoyView {
   critico.sort(byWorst);
   vigilar.sort(byWorst);
   snoozedRows.sort(byWorst);
-  // La espera más larga primero (como Mensajes).
-  replies.sort((a, b) => (a.primary.observed_at ?? '').localeCompare(b.primary.observed_at ?? ''));
+  // `replies` ya va en el orden del grupo: la espera más larga primero (como Mensajes).
 
   const visible = active.filter((f) => f.week_chip.kind === 'visible').length;
-  const needsYou = active.filter((f) =>
-    athleteNeedsYou({
-      lifecycle: f.lifecycle,
-      intake_pending: f.intake_pending,
-      not_onboarded: f.not_onboarded,
-      plan: f.plan,
-      signals: liveOf.get(f.athlete_id) ?? [],
-      week_hidden: weekHiddenOf(f),
-    }),
-  ).length;
+  const programmed = active.filter((f) => f.week_chip.kind === 'visible' || f.week_chip.kind === 'no_lo_ve').length;
+  // LA definición de «te necesita» (la del estado: la misma que Atletas).
+  const needsYou = input.facts.filter((f) => statusOf.get(f.athlete_id)!.needs_you).length;
   const factIds = new Set(input.facts.map((f) => f.athlete_id));
 
   return {
@@ -282,10 +315,11 @@ export function composeHoy(input: HoyComposeInput): HoyView {
         : 0,
       critico: critico.length,
       vigilar: vigilar.length,
+      accion_in_groups: accionInGroups,
       resolved_today: input.resolved_today,
       snoozed: snoozedRows.length,
     },
-    week_visibility: { visible, total: active.length },
+    week_visibility: { visible, total: active.length, programmed },
     systemic,
     critico,
     vigilar,
@@ -315,6 +349,22 @@ function waitingSignal(athlete_id: string, aw: AwaitingReply, now: Date): Athlet
     lens: 'mensajes',
     first_seen_at: since,
     dedupe_key: `message_unanswered:${athlete_id}:${aw.last_at?.toISOString() ?? since}`,
+  };
+}
+
+/**
+ * La respuesta del motor a «Proponer descarga» para ESTA señal: una propuesta
+ * hecha después de que el motor viera la señal (una de otra semana no cuenta).
+ */
+export function proposalFor(primary: AthleteSignal, p: ProposalFact | undefined): HoyProposal | null {
+  if (!p || primary.action !== 'proponer_descarga') return null;
+  if (primary.first_seen_at && p.created_at < primary.first_seen_at) return null;
+  if (p.status !== 'pending' && p.status !== 'approved') return null;
+  const keep = p.recommendation === 'keep';
+  return {
+    id: p.id,
+    outcome: keep ? 'mantener' : 'propuesta',
+    summary: p.summary || (keep ? 'Su semana no pide cambios' : 'Descarga propuesta, pendiente de aprobar'),
   };
 }
 
