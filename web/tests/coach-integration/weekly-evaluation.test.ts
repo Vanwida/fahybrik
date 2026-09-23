@@ -78,7 +78,9 @@ describeWithDb('evaluateAthleteWeek (real DB)', () => {
     expect(r.verdict).toBe('needs_adjustment');
     expect(r.triggers).toContain('compliance_7d_below_60');
     expect(r.triggers).toContain('missed_sessions_2plus');
-    expect(r.context_pack.compliance.missed_7d).toBe(3);
+    // Adherencia del panel (solo lo debido): el viernes sin hacer también es un
+    // entreno que tocaba y no se hizo, aunque nadie lo marcara «missed».
+    expect(r.context_pack.compliance.missed_7d).toBe(4);
     expect(r.context_pack.compliance_7d).toBe(0.2);
   });
 

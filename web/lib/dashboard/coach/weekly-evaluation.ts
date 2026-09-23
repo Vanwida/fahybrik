@@ -21,6 +21,9 @@ import {
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
 import { recordLlmInvocation } from '@/lib/observability/llm-cost';
+import { loadBodySignals } from '@/lib/coach/week-adjust-signals';
+import { heuristicNoChangeReason, keepSummary, suggestFrom } from '@/lib/coach/week-adjust-copy';
+
 
 export type { WeeklyVerdict, WeeklyEvaluationResult };
 export { defaultEvaluationWeekStart } from '@fahybrid/shared/domain/coach/weekly-evaluation';
@@ -53,16 +56,21 @@ export class WeekAdjustmentError extends Error {
   }
 }
 
-export function evaluateAthleteWeek(params: {
+export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string | undefined;
   client?: Sql | undefined;
 }): Promise<WeeklyEvaluationResult> {
   // Omit week_start when undefined: the shared signature uses exactOptionalPropertyTypes
   // and treats the optional key as absent rather than explicitly undefined.
+  // Las señales vivas del cuerpo (las de Hoy) entran en el veredicto: el motor
+  // responde a lo que llevó al coach a pedir la descarga.
+  const client = params.client ?? defaultSql;
+  const body_signals = await loadBodySignals({ athlete_id: params.athlete_id, client });
   return _evaluateAthleteWeek({
     athlete_id: params.athlete_id,
-    client: params.client ?? defaultSql,
+    client,
+    body_signals,
     ...(params.week_start !== undefined ? { week_start: params.week_start } : {}),
   });
 }
@@ -100,9 +108,9 @@ export async function proposeWeekAdjustment(params: {
   if (evaluation.verdict === 'ok') {
     proposal = weekAdjustmentProposalJsonSchema.parse({
       recommendation: 'keep',
-      rationale: 'Semana evaluada OK — mantener plan N+1 sin cambios',
+      rationale: 'Semana evaluada sin motivo de ajuste: se mantiene la semana que viene.',
       slot_changes: [],
-      coach_summary: evaluation.context_pack.summary,
+      coach_summary: keepSummary(evaluation.context_pack.summary),
     });
   } else if (isCoachIaLlmConfigured()) {
     try {
@@ -200,16 +208,21 @@ async function buildHeuristicProposal(params: {
       wa.notes
     from workout_assignments wa
     where wa.athlete_id = ${params.athlete_id as number}
-      and wa.scheduled_for >= ${params.week_start}::date
+      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd)}::date
       and wa.scheduled_for <= ${weekEnd}::date
       and wa.status = 'scheduled'
     order by wa.scheduled_for asc
   `;
 
+  // El entreno de recuperación sale de la biblioteca de ESTE coach (nunca de la
+  // de otro club ni de la instancia de un atleta), como en el motor del cron.
   const recoveryTpl = await params.client<Array<{ id: string }>>`
-    select id::text from templates
-    where format::text = 'recovery' or name ilike '%recovery%' or name ilike '%recuper%'
-    order by id asc limit 1
+    select t.id::text from templates t
+    join athletes a on a.id = ${params.athlete_id as number} and a.coach_id = t.coach_id
+    where t.instance_athlete_id is null
+      and t.archived_at is null
+      and (t.format::text = 'recovery' or t.name ilike '%recovery%' or t.name ilike '%recuper%')
+    order by t.id asc limit 1
   `;
   const recoveryId = recoveryTpl[0]?.id ?? null;
 
@@ -230,8 +243,8 @@ async function buildHeuristicProposal(params: {
     rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
-      ? 'Va mal — suavizar primera sesión dura de la semana.'
-      : 'Va mal — revisar manualmente.',
+      ? 'Suavizar su próximo entreno (se cambia por uno de recuperación).'
+      : heuristicNoChangeReason(assignments.length, recoveryId),
   });
 }
 

@@ -131,6 +131,8 @@ export async function getPendingProposalForAthlete(params: {
  */
 export async function loadProposalTemplateNames(params: {
   proposal: WeekAdjustmentProposalJson;
+  /** Solo los entrenos de este coach tienen nombre (ver `loadTemplateNames`). */
+  coach_id: number | bigint;
   client?: Sql;
 }): Promise<Record<string, string>> {
   const ids = new Set<string>();
@@ -138,7 +140,7 @@ export async function loadProposalTemplateNames(params: {
     if (c.from_template_id != null) ids.add(String(c.from_template_id));
     if (c.to_template_id != null) ids.add(String(c.to_template_id));
   }
-  const map = await loadTemplateNames({ ids: [...ids], client: params.client ?? defaultSql });
+  const map = await loadTemplateNames({ ids: [...ids], coach_id: params.coach_id, client: params.client ?? defaultSql });
   return Object.fromEntries(map);
 }
 

@@ -10,16 +10,20 @@ import {
   type WeeklyVerdict,
 } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';
+import { loadBodySignals } from './week-adjust-signals';
 
 export type { WeeklyVerdict, WeeklyEvaluationResult };
 export { evaluateWeeklyVerdictFromContext } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 
-export function evaluateAthleteWeek(params: {
+/** La evaluación de la semana con las señales vivas del cuerpo (las de Hoy) dentro. */
+export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string;
   client?: Sql;
 }): Promise<WeeklyEvaluationResult> {
-  return _evaluateAthleteWeek({ ...params, client: params.client ?? defaultSql });
+  const client = params.client ?? defaultSql;
+  const body_signals = await loadBodySignals({ athlete_id: params.athlete_id, client });
+  return _evaluateAthleteWeek({ ...params, client, body_signals });
 }
 
 export async function persistWeeklyEvaluationSummary(params: {

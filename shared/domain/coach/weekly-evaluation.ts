@@ -6,8 +6,9 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '../dates';
-import { buildAthleteContextPack, type AthleteContextPack } from './coach-ia-context';
+import { buildAthleteContextPack, type AthleteContextPack, type BodySignal } from './coach-ia-context';
 import {
+  BODY_SIGNAL_TRIGGER,
   evaluateWeeklyVerdictFromContext,
   type WeeklyVerdict,
 } from './weekly-verdict-rules';
@@ -77,6 +78,12 @@ export function defaultEvaluationWeekStart(now: Date = new Date()): string {
 export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string;
+  /**
+   * Las señales vivas del cuerpo que piden descarga (las de Hoy). Quien pide la
+   * evaluación las carga (`web/lib/coach/week-adjust-signals.ts`); sin ellas el
+   * veredicto mira solo la semana evaluada.
+   */
+  body_signals?: BodySignal[];
   client: Sql;
 }): Promise<WeeklyEvaluationResult> {
   const client = params.client;
@@ -87,11 +94,15 @@ export async function evaluateAthleteWeek(params: {
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
-  const pack = await buildAthleteContextPack({
+  const built = await buildAthleteContextPack({
     athlete_id: params.athlete_id,
     on_date: addDays(weekStart, 6),
     client,
   });
+  const pack: AthleteContextPack =
+    params.body_signals && params.body_signals.length > 0
+      ? { ...built, body_signals: params.body_signals }
+      : built;
 
   const { verdict, triggers } = evaluateWeeklyVerdictFromContext(pack);
 
@@ -102,7 +113,7 @@ export async function evaluateAthleteWeek(params: {
     client,
   });
 
-  const fired_triggers = buildFiredTriggers(triggers, pack, week_feed);
+  const fired_triggers = buildFiredTriggers(triggers, pack);
 
   return {
     athlete_id: String(params.athlete_id),
@@ -205,28 +216,31 @@ export function firedTriggersFromContext(pack: AthleteContextPack): FiredTrigger
 function buildFiredTriggers(
   triggers: string[],
   pack: AthleteContextPack,
-  feed?: WeekFeedSummary,
 ): FiredTrigger[] {
   const fired: FiredTrigger[] = [];
   const pct = pack.compliance_7d != null ? Math.round(pack.compliance_7d * 100) : null;
 
   for (const code of triggers) {
+    if (code.startsWith(BODY_SIGNAL_TRIGGER)) {
+      // La señal viva que llevó al coach a pedirlo, con SUS palabras (las de Hoy).
+      const kind = code.slice(BODY_SIGNAL_TRIGGER.length);
+      const s = (pack.body_signals ?? []).find((b) => b.kind === kind);
+      fired.push({
+        code,
+        label: s?.label ?? kind,
+        value: s?.evidence || '—',
+        tone: s?.severity === 'critical' ? 'danger' : 'warning',
+      });
+      continue;
+    }
     switch (code) {
       case 'compliance_7d_below_60':
         fired.push({
           code,
-          label: 'Cumplimiento bajo',
-          // El conteo done/scheduled solo está cuando hay feed (evaluación en
-          // vivo). Para el "por qué" de la card (solo context_pack persistido) cae
-          // al porcentaje, que es el mismo número de la regla del veredicto.
-          value:
-            pct != null
-              ? feed
-                ? `${pct}% (${feed.completed}/${feed.scheduled})`
-                : `${pct}%`
-              : feed
-                ? `${feed.completed}/${feed.scheduled}`
-                : 'bajo',
+          label: 'Adherencia (7 d) baja',
+          // El porcentaje es el de la regla (adherencia due-only, la del panel);
+          // el feed cuenta también lo que aún no tocaba, así que no se mezcla.
+          value: pct != null ? `${pct} %` : 'baja',
           tone: 'danger',
         });
         break;
@@ -253,7 +267,7 @@ function buildFiredTriggers(
       case 'missed_sessions_2plus':
         fired.push({
           code,
-          label: 'Sesiones perdidas',
+          label: 'Entrenos sin hacer (7 d)',
           value: `${pack.compliance.missed_7d}`,
           tone: 'danger',
         });

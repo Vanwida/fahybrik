@@ -11,6 +11,9 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
 import { proposeWeekAdjustment } from '@/lib/coach/ai-propose-week-adjustment';
+// El motor del botón «Proponer descarga» (Hoy / ficha): misma regla de club.
+import { proposeWeekAdjustment as proposeFromButton } from '@/lib/dashboard/coach/weekly-evaluation';
+import { loadTemplateNames } from '@/lib/dashboard/coach/inbox';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeAssignment,
@@ -159,5 +162,33 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     expect(rec.verdict).toBe('needs_adjustment');
     expect(rec.proposal.slot_changes).toEqual([]);
     expect(rec.proposal.recommendation).toBe('keep');
+  }, 60000);
+
+  test('dos coaches: el botón tampoco usa ni NOMBRA un entreno de otro club', async () => {
+    const fx: Fixture = await makeCoachAndAthlete(sql);
+    const otherClub: Fixture = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup, otherClub.cleanup);
+
+    const foreign = await makeTemplate({ fx: otherClub, name: 'Recovery ajeno' });
+    const hardTpl = await makeTemplate({ fx, name: 'Hard intervals' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[0]!, status: 'completed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[1]!, status: 'missed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[2]!, status: 'missed' });
+    await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: NEXT_DAYS[0]!, status: 'scheduled', notes: 'slot:am' });
+
+    const rec = await proposeFromButton({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      week_start: WEEK_START,
+      client: sql,
+    });
+    expect(rec.verdict).toBe('needs_adjustment');
+    expect(rec.proposal.slot_changes).toEqual([]);
+    // Lo que Hoy enseña en la fila: el motivo, en una línea.
+    expect(rec.proposal.coach_summary).toMatch(/entreno de recuperación en tu biblioteca/);
+
+    // Y el nombre de un entreno ajeno no se resuelve para este coach.
+    const names = await loadTemplateNames({ ids: [String(foreign), String(hardTpl)], coach_id: fx.coachId, client: sql });
+    expect([...names.entries()]).toEqual([[String(hardTpl), 'Hard intervals']]);
   }, 60000);
 });

@@ -15,6 +15,7 @@ import {
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
 import { loadCoachMethodMirror } from '@/lib/coach/method-interview';
+import { heuristicNoChangeReason, keepSummary, suggestFrom } from './week-adjust-copy';
 
 export type WeekAdjustmentProposalRecord = {
   id: string;
@@ -284,9 +285,9 @@ export async function proposeWeekAdjustment(params: {
   if (evaluation.verdict === 'ok') {
     proposal = {
       recommendation: 'keep',
-      rationale: 'Semana evaluada OK — mantener plan N+1 sin cambios',
+      rationale: 'Semana evaluada sin motivo de ajuste: se mantiene la semana que viene.',
       slot_changes: [],
-      coach_summary: evaluation.context_pack.summary,
+      coach_summary: keepSummary(evaluation.context_pack.summary),
     } satisfies WeekAdjustmentProposalJson;
   } else if (isCoachIaLlmConfigured()) {
     // Va mal + LLM disponible → intento LLM, fallback heurístico si falla.
@@ -425,7 +426,7 @@ async function buildHeuristicProposal(params: {
       wa.notes
     from workout_assignments wa
     where wa.athlete_id = ${params.athlete_id as number}
-      and wa.scheduled_for >= ${params.week_start}::date
+      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd)}::date
       and wa.scheduled_for <= ${weekEnd}::date
       and wa.status = 'scheduled'
     order by wa.scheduled_for asc
@@ -461,8 +462,8 @@ async function buildHeuristicProposal(params: {
     rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
-      ? 'Va mal — suavizar primera sesión dura de la semana.'
-      : 'Va mal — revisar manualmente.',
+      ? 'Suavizar su próximo entreno (se cambia por uno de recuperación).'
+      : heuristicNoChangeReason(assignments.length, recoveryId),
   });
 }
 
