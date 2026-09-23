@@ -19,7 +19,9 @@ export interface BuiltinSavedView {
 
 export const BUILTIN_SAVED_VIEWS: readonly BuiltinSavedView[] = [
   { key: 'necesitan', name: 'Necesitan algo', query: 'estado=accion,vigilar' },
-  { key: 'todos', name: 'Todos', query: '' },
+  // «Todos» no puede ser la cadena vacía: una URL de Atletas sin filtros abre la
+  // vista por defecto («Necesitan algo»). `estado=todos` = sin filtro de estado.
+  { key: 'todos', name: 'Todos', query: 'estado=todos' },
   { key: 'sin_plan', name: 'Sin plan', query: 'semana=sin_plan' },
   { key: 'no_ven_semana', name: 'No ven su semana', query: 'semana=oculta' },
   { key: 'pausados', name: 'Pausados', query: 'estado=pausado' },
