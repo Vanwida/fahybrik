@@ -33,7 +33,6 @@ export function SistemaView() {
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-10 pb-24">
         <PageHeader
           title="Sistema"
-          count={32}
           subtitle="Primitivos y tokens del panel · cambia el tema arriba a la derecha para verlos en claro"
         >
           <nav aria-label="Secciones" className="-mx-1 flex flex-wrap gap-x-1 gap-y-1">
