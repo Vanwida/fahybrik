@@ -10,6 +10,78 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El método que ya era dato del coach tiene editor (0259)
+
+**El hueco (revisión pre-FLEXR, B):** cuatro piezas de método estaban modeladas como dato del coach pero no había pantalla para tocarlas, así que un coach nuevo se quedaba con los defectos o con nada: las bandas de FC y el reparto que persigue (`coach_hr_method`, 0168), los umbrales de las lecturas de carrera (`coach_running_thresholds`, 0183–0187), sus zonas de ritmo (`methodology_zones`, 0061) y la lista de niveles (`athlete_levels`: 0057 sembró N1–N5 solo a los coaches que existían; uno nuevo no tenía ni niveles ni forma de crearlos). Y `coaches.max_microcycle_weeks` (tope 8) no tenía editor: un programa de 12 semanas se rechazaba.
+
+**Decidido:**
+- **Ajustes › Método** gana: «Cómo agrupas a tus atletas» (el nombre del eje + sus valores: crear, renombrar, ordenar con ↑/↓, retirar, borrar si nadie lo usa, qué marca abre cada uno; vacío con «Empezar con cinco (N1 a N5)»), «Zonas de frecuencia cardiaca», «Zonas de ritmo» (carrera y ergómetro, con un umbral de ejemplo al lado de cada banda) y «Lecturas de carrera». **Ajustes › Plan del atleta** gana «Duración máxima de un programa». Rutas: `/api/coach/{levels,levels/reorder,levels/[id]/criteria,hr-method,running-thresholds,pace-zones,settings}`.
+- **Retirar un nivel** = `athlete_levels.archived_at` (0259). Sale de los selectores nuevos y de la sugerencia; se queda en quien ya lo lleva. **Borrar** solo si nadie lo usa (atletas, grupos, programas, bloques); si no, 409 con quién lo usa.
+- **`max_microcycle_weeks` pasa a NULL = defecto** (0259 quita el `default 8` y el NOT NULL; los 8 guardados pasan a NULL porque eran el defecto).
+- Bandas de FC y zonas de ritmo se guardan como CONJUNTO (sus CHECK de coherencia son de conjunto); «Restaurar» borra la fila (sin fila = defectos). Umbrales de carrera por clave (null = el defecto de esa clave); si todo vuelve al defecto, se borra la fila. En las zonas de ritmo la Z4 empieza siempre en 0 s: el resultado del test ES su borde rápido (definición del ancla, no método); editar el modelo no recalcula los perfiles ya guardados de cada atleta (son una foto del test, 0061).
+
+**Queda (pedido a sus dueños):** los selectores de nivel que no son míos siguen listando también los retirados — `programar/programas/page.tsx`, `programar/grupos/[id]/page.tsx`, `lib/dashboard/programming/programs.ts:225`, `lib/coach/groups.ts:55`, `lib/coach/groups-read.ts:243`, `lib/dashboard/coach/leads.ts:251`, `lib/dashboard/athletes/level.ts:42`, `components/v2/atletas/load-atletas.ts` (loadLevels): falta `and archived_at is null` en cada uno.
+
+**NO hacer:** no volver a sembrar niveles por coach en una migración; no poner `default` de columna a ningún ajuste de método.
+
+---
+
+## 2026-09-23 · Qué marca abre cada nivel: una escalera del coach, sin buscar «N»+n (0259)
+
+**El hueco:** había dos motores de nivel con cortes cableados — `level-algorithm.ts` (HYROX/5K/2K/sentadilla por sexo, N1–N5) y `intake-suggestions.ts` (una lista propia de «marcas élite»: sentadilla 130, 5K 21′, HYROX Pro 70′…) — y la sugerencia buscaba el nivel llamado literalmente `'N'+n`: un coach con otros nombres nunca recibía sugerencia, sin que nadie se lo dijera.
+
+**Decidido:**
+- **Mecanismo** (`shared/domain/coach/level-criteria.ts`): cada marca que el sistema sabe leer (HYROX individual, 5 km, remo 2000 m por sexo; sentadilla relativa al peso; años entrenando, solo sin otra marca) coloca al atleta en el escalón más alto cuyo corte cumple; se promedian y se redondea. Un resultado REAL de HYROX decide solo, con confianza alta. La escalera son los niveles ACTIVOS del coach en su orden — nunca por nombre.
+- **Método**: los cortes son del coach, por nivel (`athlete_level_criteria`, 0259). `athlete_levels.criteria_set_at` NULL = ese nivel usa el defecto del producto **por su posición** (los cortes de siempre, así que un coach con cinco niveles que no toca nada recibe lo mismo que antes); no nulo = sus filas, que pueden ser ninguna («este nivel no se abre por marcas» — para ejes de turno u objetivo).
+- **Cuando no se puede sugerir se dice por qué** (`no_levels` / `no_criteria` / `no_signals`, `levelSuggestionGap`) y se BORRA la sugerencia vieja. Un atleta sin sexo conocido se lee con los cortes de hombre, como siempre (anotado, no cambiado).
+- **Una sola tabla de cortes:** el tramo del cuestionario de entrada (1–4) deja su lista de marcas élite y se lee con la misma escalera (la del coach si se la pasan, si no la de los defectos), repartiendo el escalón en proporción y redondeando hacia abajo.
+
+**Queda:** `lib/coach/intake.ts` debería pasar `ladder: await loadCoachLadder(coach)` a `inferLevel` (o retirar el tramo 1–4, que solo va a la foto del alta y nadie lee). La ficha (`ClasificacionCard`) no enseña todavía el porqué cuando no hay sugerencia: `computeAndStoreLevelSuggestion` ya lo devuelve.
+
+**NO hacer:** no volver a buscar un nivel por su nombre; no escribir una segunda tabla de cortes en otro motor.
+
+---
+
+## 2026-09-23 · «Toca test» sale de la cadencia de tests del coach (0259)
+
+**Decidido:** `coaches.test_retest_weeks smallint[]` (1–52, hasta 4; NULL = defecto [6, 12] de `shared/domain/coach/test-cadence.ts`), editable en Ajustes › Método › Tests. Son las opciones de «Repetir» al aplicar un test y, la más corta, cuándo salta «Toca test» (`testDueDays`): `resolveEffectiveThresholds` pisa el `test_due_days` fijo. **Cambia el defecto de 35 a 42 días**: con una cadencia por defecto de 6 semanas, avisar a las 5 contradecía la propia cadencia.
+
+«Aplicar test» (Programar › Tests) lee las semanas del coach de `GET /api/coach/settings` al abrirse.
+
+**NO hacer:** no volver a un número de días de test independiente de la cadencia.
+
+---
+
+## 2026-09-23 · El día del coach es el de su huso, no el de Madrid
+
+**Decidido:** el huso del club (`coaches.timezone`, 0241) se edita en Ajustes › Tu club (combo con todas las zonas IANA; el defecto se guarda como NULL) y manda en: el calendario de Hoy y Atletas (`coachCalendar(now, tz)`, `loadPlanFacts`), lo resuelto hoy / actividad de hoy, la hora de «llamadas hoy», la publicación automática (el cron calcula el «hoy» de CADA coach en SQL; un huso que Postgres no conoce cae al defecto sin tumbar el barrido), el lunes de «asignar» y «entrar en un grupo», el «hoy» de los grupos y del alta, cuándo vence un «posponer», la serie semanal de Negocio, los correos de citas («hora de <ciudad>») y el recordatorio, la página pública de reserva (el contexto trae el huso) y los relojes del panel (chat, mensajes, citas, pagos, leads, embudo, carrera) vía `CoachTimeZoneProvider` en el layout. Los días sueltos del calendario (YYYY-MM-DD) se pintan en UTC para que ningún huso los mueva. `BOX_TIMEZONE` queda solo como defecto.
+
+**Dejado a propósito:** lo que es el día del ATLETA (`athletes.timezone`: readiness, check-ins, zonas, volumen de carrera, ficha) ya usa el suyo; `lib/athlete/**` es del atleta. **Queda en Madrid, por coach, para quien los tenga:** `athlete-lifecycle.ts:132` y `athlete-lifecycle-plan.ts:64`, `cron/lifecycle-runner.ts`, `start-calibration.ts:75`, `week-adjust-copy.ts:29`, `plan/camino.ts:95`, `races/{athlete-races,next-race,race-calendar}.ts`, `dashboard/coach/{personal-plans,athlete-lifecycle-detail,inbox,activity-today,program-publish-state,load-athlete-week-chip,assign-sequence}.ts`, `dashboard/athletes/list.ts:120`, `chat/context-preview.ts:332`, `pagos/CobrosScreen.tsx` (`formatDayShort` ya acepta el huso) y el resto de llamadas a `assertStartNotPast` sin huso. `analytics/visits.ts` (sal diaria de la web pública) no es del coach.
+
+**NO hacer:** no escribir otra `'Europe/Madrid'` en el panel; un formateador nuevo lee `useCoachTimeZone()` (cliente) o `loadCoachTimezone` (servidor).
+
+---
+
+## 2026-09-23 · Se prescribe lo que tiene el modelo: Z6 de ritmo, cinco de FC
+
+**Decidido:** las zonas prescribibles salen del modelo, no de un número del editor: `run-structure.ts` usa `ZONE_ROLES.length` (6, `methodology_zones`) para `pace_zone` y `HR_ZONES.length` (5) para `hr_zone`; el selector del editor pinta esas. El canal plano `hr_zone` de `Target` (al que se pliega `pace_zone` para la app instalada) sube su tope a 6: en carrera lleva la zona de RITMO y el resolutor ya pinta Z6 como banda de ritmo (en FC, Z6 usa la banda de Z5, `HR_ZONE_Z6_FALLBACK`).
+
+**NO hacer:** no clavar el número de zonas en un selector.
+
+---
+
+## 2026-09-23 · Días por semana de un grupo o una pareja: 1 a 7 (0260)
+
+**Decidido:** `SEQUENCE_DAYS_MIN/MAX` (shared/schema/program-sequences.ts) pasa de 3–6 a 1–7, como ya decía DECISIONS «Grupos…» y el CHECK de `program_sequences` (0215). `doubles_pairs` tenía su propio CHECK 3–6 (0065): 0260 lo alinea, o una pareja de 2 días pasaba el zod y la base la rechazaba.
+
+---
+
+## 2026-09-23 · «Redactar con IA» usa los niveles del coach; la lectura de carrera, su pendiente
+
+**Decidido:** el modal de «Redactar con IA» deja la escala fija Inic./Inter./Pro/Élite (y el `'pro'` por defecto del servidor): ofrece los niveles activos del coach con el nombre de su eje, parte del del atleta si lo tiene y, sin nivel, no filtra ni inventa uno (`level_id` validado como suyo y activo). La lectura de carrera del panel (`carrera/modelo.ts`) compara la pendiente contra la del coach (`gradient_retires_pace_pct`, que ahora el detalle de sesión del coach resuelve y manda en `run_compliance`); el 3 del panel deja de ser un número propio y es solo el defecto del dominio.
+
+---
+
 ## 2026-09-23 · Quién habla en cada texto: el club con su piel, la plataforma con UNA constante
 
 **El hueco (revisión FLEXR, P0 5–7; revisión de método):** el nombre del tenant #1 salía en lo que ve otro club — «Videollamada FAHYBRID · Ana» en su calendario, «FAHYBRID · Entrenamiento personalizado» en el cobro de su atleta, «Únete … en FAHYBRID» en la invitación de pareja, adjunto `cita-fahybrid.ics` y UID `@fahybrid.com`; el webhook de Clerk sobrescribía `coaches.full_name` (el nombre del CLUB) con el nombre personal del dueño en cada cambio de perfil; `/api/coach/events` inventaba carreras «demo» a un coach real con la lista vacía; y la etiqueta muerta «Entrenamiento · grupos de Pablo».
