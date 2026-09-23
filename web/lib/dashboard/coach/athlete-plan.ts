@@ -7,7 +7,7 @@ import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-micr
 import {
   loadMicrocicloPublishState,
   type MicrocicloPublishState,
-} from '@/lib/coach/publish-microciclo';
+} from './program-publish-state';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { loadSessionContentSummaries } from '@/lib/coach/session-content';
 import { DAY_LABELS } from '@/lib/dashboard/constants/calendar';

@@ -1,29 +1,18 @@
 import 'server-only';
 
-// Publish an ASSIGNED microciclo (an `athlete_month_assignments` row) to its
-// athlete in ONE action — the athlete-scoped publish surface for the V2 plan.
+// El estado de visibilidad del programa en curso (o el siguiente) de un atleta,
+// SOLO LECTURA: cuántas de sus semanas ve y cuáles siguen ocultas. Lo lee el plan
+// del atleta (`athlete-plan.ts`) y, por él, el MCP (`get_plan`: «publicado a
+// medias», etc.).
 //
-// A microciclo template (`program_month_templates`) is NOT athlete-facing and has
-// no draft/published state; the publish lifecycle lives per athlete-week in
-// `weekly_plans`. When a microciclo is assigned (assign-draft / assign-month) it
-// is materialized into `microcycles` + `workout_assignments`, and its weeks are
-// gated by `weekly_plans.status`. "Publishing the microciclo" = flipping every one
-// of those weeks to 'published' so the athlete plan endpoint stops hiding them.
-//
-// This module does NOT re-materialize (the materializer is not dedupe-safe). It
-// reuses `publishBlock` verbatim (idempotent upsert + single notification), so
-// re-publishing never duplicates anything. The empty-microciclo GATE rejects
-// publishing a microciclo with no materialized weeks/sessions — there is nothing
-// to deliver.
+// Antes vivía en `publish-microciclo.ts` junto a `publishMicrociclo` (publicar
+// el programa entero de golpe). Esa escritura se retiró con el rehacer del panel
+// — la visibilidad es por semana y se abre sola N días antes (DECISIONS
+// 2026-09-23) — y aquí queda la lectura, que sigue viva.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
-import {
-  publishBlock,
-  PublishWeekError,
-  type PublishBlockResult,
-} from '@/lib/coach/publish-week';
 import { weekStates } from '@/lib/mcp/shape-write';
 import { athleteSeesItFromWeeklyStatus } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 
@@ -195,59 +184,4 @@ export async function loadMicrocicloPublishState(params: {
     publish_state,
     weeks,
   };
-}
-
-/**
- * Publish an assigned microciclo: flip every weekly_plans week of the assignment
- * to 'published' (reusing `publishBlock`). Coach-gated (must own the athlete),
- * idempotent, and rejects an empty microciclo (the GATE). Throws PublishWeekError
- * with an honest code/message/status on every failure path.
- */
-export async function publishMicrociclo(params: {
-  coach_id: number | bigint;
-  athlete_id: number | bigint;
-  month_assignment_id: number | bigint;
-  client?: Sql;
-}): Promise<PublishBlockResult> {
-  const client = params.client ?? defaultSql;
-  const coachId = Number(params.coach_id);
-  const athleteId = Number(params.athlete_id);
-  const assignmentId = Number(params.month_assignment_id);
-
-  // Ownership first — fail fast before touching the assignment.
-  const owned = await client<Array<{ id: string }>>`
-    select id::text from athletes
-    where id = ${athleteId} and coach_id = ${coachId} limit 1
-  `;
-  if (!owned[0]) {
-    throw new PublishWeekError('not_found', 'Atleta no encontrado', 404);
-  }
-
-  const micro = await loadAssignmentWeeks(client, athleteId, assignmentId);
-  if (!micro) {
-    throw new PublishWeekError(
-      'not_found',
-      'Microciclo no encontrado para este atleta',
-      404,
-    );
-  }
-
-  // GATE — an empty microciclo (no materialized weeks/sessions) has nothing to
-  // deliver. Reject honestly instead of publishing a hollow plan.
-  if (micro.week_starts.length === 0 || micro.session_count === 0) {
-    throw new PublishWeekError(
-      'empty_microcycle',
-      'Este microciclo no tiene sesiones; no hay nada que publicar.',
-      422,
-    );
-  }
-
-  // Reuse the block-publish path verbatim: idempotent upsert of every week to
-  // 'published' + ONE `plan_published` notification. Re-publishing never dupes.
-  return publishBlock({
-    coach_id: coachId,
-    athlete_id: athleteId,
-    week_starts: micro.week_starts,
-    client,
-  });
 }
