@@ -355,6 +355,7 @@ export function AtletasScreen({ data }: { data: AtletasData }) {
         onClose={() => setPeekId(null)}
         initial={peekRow ? { name: peekRow.name, avatar_url: peekRow.avatar_url, level_label: peekRow.level?.label ?? null } : undefined}
         onChange={() => router.refresh()}
+        fichaHref={(id) => fichaHref(id, query)}
       />
 
       {invite ? (

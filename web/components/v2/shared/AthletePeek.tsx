@@ -57,6 +57,12 @@ export interface AthletePeekProps {
   /** Devuelve true si la pantalla se ocupa de la acción (no se hace la de serie). */
   onAction?: (action: SignalAction, athlete: AthletePeekData) => boolean | void;
   replyFocusKey?: number;
+  /**
+   * Adónde lleva «Abrir ficha». Atletas pasa `fichaHref(id, query)` para que la
+   * ficha conserve la lista (su K/J recorre el mismo filtro y orden). Sin él,
+   * la ficha a secas.
+   */
+  fichaHref?: (athleteId: string) => string;
 }
 
 type Load =
@@ -352,7 +358,7 @@ function PeekBody({
   );
 }
 
-export function AthletePeek({ athleteId, onClose, initial, onChange, onAction, replyFocusKey }: AthletePeekProps) {
+export function AthletePeek({ athleteId, onClose, initial, onChange, onAction, replyFocusKey, fichaHref }: AthletePeekProps) {
   const { load, reload } = usePeek(athleteId);
   const data = load.state === 'ready' && load.data.athlete_id === athleteId ? load.data : null;
   const name = data?.name ?? initial?.name ?? '';
@@ -392,7 +398,7 @@ export function AthletePeek({ athleteId, onClose, initial, onChange, onAction, r
               <Kbd>K</Kbd> otro atleta · <Kbd>Esc</Kbd> cerrar
             </span>
             <Link
-              href={`/atletas/${athleteId}`}
+              href={fichaHref ? fichaHref(athleteId) : `/atletas/${athleteId}`}
               className={cn(buttonVariants({ variant: 'secondary', size: 'md' }), 'ml-auto')}
             >
               Abrir ficha
