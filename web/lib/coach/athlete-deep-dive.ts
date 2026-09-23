@@ -19,8 +19,12 @@ import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import {
   estimateRaceReadiness,
+  raceReadinessMethodOf,
   READINESS_COMPLIANCE_DAYS,
+  type RaceReadinessMethod,
 } from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { loadAdherenceWindows, loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
   computeAcr,
@@ -158,11 +162,16 @@ export async function buildAthleteDeepDive(
   const active_days_7d = tssSeries
     .slice(-7)
     .filter((p) => (p.known_seconds ?? 0) + (p.unknown_seconds ?? 0) > 0).length;
-  const readiness = await loadReadiness(client, numericId, now, {
-    tsb: load.tsb,
-    coverage: loadCoverage,
-    active_days_7d,
-  });
+  // El método del coach (0256): pesos del índice de disposición y umbrales de
+  // «Listo para progresar» — los mismos que el roster y el barrido.
+  const thresholds = await loadCoachThresholds(client, params.coach_id);
+  const readiness = await loadReadiness(
+    client,
+    numericId,
+    now,
+    { tsb: load.tsb, coverage: loadCoverage, active_days_7d },
+    raceReadinessMethodOf(thresholds),
+  );
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
     on_date: now,
@@ -396,13 +405,16 @@ async function loadCompliance(
     // skip rest days (status != 'missed' but != 'completed') without breaking
   }
 
+  // UNA fuente de check-ins: `daily_checkins` (lo que escribe la app; la misma
+  // que Fisiología, la columna Estado y las señales). Antes contaba filas de
+  // `notifications` con kind `daily_checkin`, que nadie escribe: siempre 0. Los
+  // 7 días acaban en el hoy del ATLETA (su huso), como `recorded_for`.
   const checkin = await client<Array<{ n: number }>>`
     select count(*)::int as n
-    from notifications n
-    where n.type = 'system'
-      and n.payload_json ->> 'kind' = 'daily_checkin'
-      and (n.payload_json ->> 'athlete_id')::bigint = ${athlete_id}
-      and n.created_at >= ${isoDate(addDays(now, -7))}::date
+    from daily_checkins dc
+    join athletes a on a.id = dc.athlete_id
+    where dc.athlete_id = ${athlete_id}
+      and dc.recorded_for > (${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date - 7
   `;
 
   return {
@@ -423,6 +435,7 @@ async function loadReadiness(
   athlete_id: number,
   now: Date,
   load: { tsb: number; coverage: LoadCoverage; active_days_7d: number },
+  method: RaceReadinessMethod,
 ): Promise<KpiReadiness> {
   const rows = await client<
     Array<{
@@ -489,9 +502,8 @@ async function loadReadiness(
   const sleep_avg_h = r?.sleep_h != null ? round1(r.sleep_h) : null;
   const recovery_pct = r?.recovery != null ? Math.round(r.recovery) : null;
 
-  // Mood/fatigue: best-effort lookup against latest daily check-in payload.
-  const mood = await loadLatestCheckinMetric(client, athlete_id, 'mood');
-  const fatigue = await loadLatestCheckinMetric(client, athlete_id, 'fatigue');
+  // Ánimo y fatiga del último check-in (1–5, `daily_checkins`).
+  const { mood, fatigue } = await loadLatestCheckin(client, athlete_id);
 
   // Race readiness composite — literally the same function the roster calls
   // (shared/domain/coach/race-readiness.ts), fed from the load reading this page
@@ -505,13 +517,16 @@ async function loadReadiness(
     days: READINESS_COMPLIANCE_DAYS,
     client,
   });
-  const race_readiness = estimateRaceReadiness({
-    tsb: load.tsb,
-    compliance_pct: compliance7,
-    hrv_delta_ms,
-    active_days_7d: load.active_days_7d,
-    load_coverage: load.coverage,
-  });
+  const race_readiness = estimateRaceReadiness(
+    {
+      tsb: load.tsb,
+      compliance_pct: compliance7,
+      hrv_delta_ms,
+      active_days_7d: load.active_days_7d,
+      load_coverage: load.coverage,
+    },
+    method,
+  );
   const daily = await getLatestReadiness({ athlete_id, on_date: now, client });
 
   return {
@@ -530,22 +545,18 @@ async function loadReadiness(
   };
 }
 
-async function loadLatestCheckinMetric(
+async function loadLatestCheckin(
   client: Sql,
   athlete_id: number,
-  key: string,
-): Promise<number | null> {
-  const rows = await client<Array<{ v: number | null }>>`
-    select (n.payload_json -> 'metrics' ->> ${key})::float as v
-    from notifications n
-    where n.type = 'system'
-      and n.payload_json ->> 'kind' = 'daily_checkin'
-      and (n.payload_json ->> 'athlete_id')::bigint = ${athlete_id}
-    order by n.created_at desc
+): Promise<{ mood: number | null; fatigue: number | null }> {
+  const rows = await client<Array<{ mood: number | null; fatigue: number | null }>>`
+    select mood, fatigue from daily_checkins
+    where athlete_id = ${athlete_id}
+    order by recorded_for desc
     limit 1
   `;
-  const v = rows[0]?.v;
-  return v == null ? null : Math.round(v);
+  const r = rows[0];
+  return { mood: r?.mood ?? null, fatigue: r?.fatigue ?? null };
 }
 
 // ---------------------------------------------------------------------------
