@@ -57,6 +57,8 @@ import {
   type IntakeBlockSpec,
 } from './intake-schema';
 import { IntakeError } from './intake-error';
+import { loadCoachLadder } from './levels';
+import type { ResolvedRung } from '@fahybrid/shared/domain/coach/level-criteria';
 import { listCoachTests } from './coach-tests';
 import { resolveCoachThresholds } from './signal-thresholds';
 import type { CoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
@@ -578,7 +580,11 @@ export async function loadIntakeProfile(params: {
   // Los tests del alta son la batería del COACH (su catálogo, lo que entra solo
   // con el primer plan), no una lista cableada: cada coach mide con lo suyo.
   const coachTests = await listCoachTests(params.coach_id, { onlyEnabled: true }, client).catch(() => []);
+  // El tramo 1–4 (va a la foto del alta y al contexto de la IA) se lee con la
+  // escalera del COACH, la misma que la sugerencia de nivel; sin ella, los defectos.
+  const ladder = await loadCoachLadder(params.coach_id, client).catch(() => []);
   const suggestions = buildSuggestions({
+    ladder,
     coach_tests: coachTests.map((t) => ({ slug: t.slug, label: t.name, kind: 'programmed' as const, scheduled_for: null })),
     target_event,
     benchmarks,
@@ -761,6 +767,8 @@ interface BuildSuggestionsParams {
   sex: 'male' | 'female' | 'other' | null;
   now: Date;
   onboarding_training_level: AthleteLevel | null;
+  /** La escalera del coach (`loadCoachLadder`); vacía = los defectos del producto. */
+  ladder: ResolvedRung[];
   hours_per_week: number | null;
   goal: {
     goal_type: import('./intake-suggestions').GoalType | null;
@@ -811,10 +819,13 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
   }));
 
   const levelFromOnboarding = params.onboarding_training_level;
+  const sex = params.sex === 'male' || params.sex === 'female' ? params.sex : null;
   const inferred = inferLevel({
     benchmarks: suggestionBench,
     training_experience_years: params.training_experience_years,
     goal: params.goal,
+    ladder: params.ladder,
+    sex,
   });
   const levelSuggestion = suggestAthleteTrainingLevel({
     athlete_level: levelFromOnboarding,
@@ -845,6 +856,8 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
         : explainLevel(level, {
             training_experience_years: params.training_experience_years,
             benchmarks: suggestionBench,
+            ladder: params.ladder,
+            sex,
             division: params.target_event?.division ?? null,
           }),
     baseline_tests,

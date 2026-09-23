@@ -195,9 +195,17 @@ export function explainLevel(
     training_experience_years: number | null;
     benchmarks: SuggestionBenchmark[];
     division: string | null;
+    /** La misma escalera con la que se infirió el tramo (sin ella, los defectos). */
+    ladder?: ResolvedRung[];
+    sex?: 'male' | 'female' | null;
   },
 ): string {
-  const { suggestion } = readLadder({ benchmarks: ctx.benchmarks, training_experience_years: ctx.training_experience_years });
+  const { suggestion } = readLadder({
+    benchmarks: ctx.benchmarks,
+    training_experience_years: ctx.training_experience_years,
+    ladder: ctx.ladder,
+    sex: ctx.sex,
+  });
   const parts: string[] = [];
   const yrs = ctx.training_experience_years ?? 0;
   if (yrs > 0) parts.push(`${yrs} ${yrs === 1 ? 'año' : 'años'} entrenando`);
