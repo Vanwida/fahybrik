@@ -374,6 +374,8 @@ export interface ClasificacionData {
   training_days_per_week: number | null;
   levels: ClasificacionLevelOption[];
   days_band: { min: number; max: number };
+  /** Cómo llama el coach a su eje («Nivel» por defecto; `coaches.level_axis_label`). */
+  level_axis_label: string;
 }
 
 export interface TrainingDayCell {

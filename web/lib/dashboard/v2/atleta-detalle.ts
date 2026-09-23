@@ -12,6 +12,7 @@ import 'server-only';
 // Cada pieza degrada por separado: un fallo se devuelve como error de ESA pieza,
 // nunca como «sin datos».
 
+import { effectiveLevelAxisLabel } from '@fahybrid/shared/domain/coach/level-axis';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { loadAthletePeek } from '@/lib/coach/athlete-peek';
@@ -367,11 +368,13 @@ export async function loadClassification(params: {
         suggested_level_id: string | null;
         suggested_level_name: string | null;
         training_days_per_week: number | null;
+        axis_label: string | null;
       }>
     >`
       select a.level_id::text as level_id, al.name as level_name,
              a.suggested_level_id::text as suggested_level_id, sal.name as suggested_level_name,
-             a.training_days_per_week
+             a.training_days_per_week,
+             (select c.level_axis_label from coaches c where c.id = a.coach_id) as axis_label
       from athletes a
       left join athlete_levels al  on al.id = a.level_id
       left join athlete_levels sal on sal.id = a.suggested_level_id
@@ -390,6 +393,7 @@ export async function loadClassification(params: {
     training_days_per_week: row?.training_days_per_week ?? null,
     levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label })),
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+    level_axis_label: effectiveLevelAxisLabel(row?.axis_label),
   };
 }
 
@@ -457,6 +461,7 @@ export async function loadFichaPerfil(params: {
         training_days_per_week: null,
         levels: [],
         days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+        level_axis_label: effectiveLevelAxisLabel(null),
       },
       'clasificacion',
     ),
