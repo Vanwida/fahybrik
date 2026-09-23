@@ -65,7 +65,9 @@ export async function POST(req: Request) {
         leadName: res.lead.nombre,
         modality,
         location: locationStr,
-        coach_id,
+        // El evento va al Google del coach cuya AGENDA ocupa la cita (el dueño del lead,
+        // o el operador del embudo si no tiene): su conexión, nunca una global (0254).
+        coach_id: res.coach_id,
       });
       if (m.meet_link) {
         await setAppointmentMeetLink({

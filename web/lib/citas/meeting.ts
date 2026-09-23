@@ -6,16 +6,17 @@
 //     (/api/citas/google/connect → a refresh_token is stored), create a Calendar event
 //     with conferenceData (Meet) + attendees and return the hangoutLink.
 //
-// The switch is DATA, not env: a stored refresh_token (getGoogleRefreshToken) means
-// "connected". No token → null (unchanged v1 behavior). NEVER throws — a null link is
-// valid, and any Google failure falls back to the manual-paste path.
+// The switch is DATA, not env, and it is PER COACH (0254): the cita's coach has a
+// connection (getGoogleConnection) → the event goes on THAT coach's calendar. No coach or
+// no connection → null (the manual-paste path). NEVER throws — a null link is valid, and
+// any Google failure falls back to the manual-paste path.
 //
 // #21: generalized to an ATTENDEE {email,name} so the SAME engine mints a Meet for a
 // lead intro call (createMeeting) OR an athlete 1:1 review (createReviewMeeting), reusing
 // createCalendarEventWithMeet with zero duplication. The cancel-hook (deleteCalendarEvent)
 // is already generic (keys on google_event_id), so it covers both.
 
-import { getGoogleRefreshToken } from './google-tokens';
+import { getGoogleConnection, type GoogleConnection } from './google-tokens';
 import { createCalendarEventWithMeet, createCalendarEventInPerson } from './google';
 import type { CitaModality } from '@fahybrid/shared/schema';
 
@@ -44,20 +45,21 @@ async function createAttendeeMeeting(args: {
   modality: CitaModality;
   /** #40: presencial address string (box name + street). Ignored for video. */
   location?: string | null;
-  /** Club that owns this cita — attendees include its notify inbox when set. */
+  /** Club that owns this cita: the event goes on ITS Google calendar, and the attendees
+   *  include its notify inbox. No coach → no calendar event. */
   coach_id?: bigint | number | null;
 }): Promise<MeetingResult> {
-  // Connected only if a coach completed the one-shot Google connect. Any DB hiccup here
+  // Connected only if THIS cita's coach completed the Google connect. Any DB hiccup here
   // must not break the accept/book flow → treat as "not connected".
-  let refreshToken: string | null = null;
+  let conn: GoogleConnection | null = null;
   try {
-    refreshToken = await getGoogleRefreshToken();
+    conn = await getGoogleConnection(args.coach_id);
   } catch {
     return { meet_link: null };
   }
   // Not connected: no calendar event either way. Presencial still shows its address in the
   // email (the caller passes the location there regardless of Google).
-  if (!refreshToken) return { meet_link: null };
+  if (!conn) return { meet_link: null };
 
   const end = new Date(args.start.getTime() + args.durationMinutes * 60 * 1000);
   let clubInbox: string | null = null;
@@ -76,7 +78,7 @@ async function createAttendeeMeeting(args: {
     // have an address to put on it. No address → no event, null link (the manual-paste path).
     if (args.modality === 'presencial') {
       if (!args.location) return { meet_link: null };
-      const { event_id } = await createCalendarEventInPerson({
+      const { event_id } = await createCalendarEventInPerson(conn, {
         summary: args.summary,
         startIso: args.start.toISOString(),
         endIso: end.toISOString(),
@@ -87,7 +89,7 @@ async function createAttendeeMeeting(args: {
       return { meet_link: null, event_id };
     }
 
-    const { event_id, meet_link } = await createCalendarEventWithMeet({
+    const { event_id, meet_link } = await createCalendarEventWithMeet(conn, {
       summary: args.summary,
       startIso: args.start.toISOString(),
       endIso: end.toISOString(),

@@ -126,7 +126,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     } else if (res.newStatus === 'cancelada') {
       // Best-effort: if the meeting was auto-created on Google, delete the calendar
       // event so a cancelled cita doesn't leave a stray Meet on Alex's calendar.
-      if (a.google_event_id) await deleteCalendarEvent(a.google_event_id).catch(() => {});
+      if (a.google_event_id) await deleteCalendarEvent(session.coach_id, a.google_event_id).catch(() => {});
       await sendAppointmentCancelled(emailPayload(a));
     }
     // completada / no_show → no lead email.

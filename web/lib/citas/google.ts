@@ -2,24 +2,24 @@
 // token exchange/refresh, and Calendar-event-with-Meet creation. No `googleapis`
 // dependency (we only need three HTTP calls), so this stays a thin, auditable module.
 //
-// Flow:
-//   1. /api/citas/google/connect → buildConsentUrl(state) → Google consent screen.
-//   2. Google → /api/citas/google/callback?code=…&state=… → exchangeCode → store
-//      refresh_token (offline). One-shot; done once by the coach.
-//   3. On each accepted cita, createMeeting (lib/citas/meeting.ts) mints an access
-//      token from the stored refresh_token and creates a Calendar event whose
-//      conferenceData yields a Google Meet link.
+// Flow (per COACH — migration 0254):
+//   1. /api/citas/google/connect → buildConsentUrl(state bound to the coach) → consent.
+//   2. Google → /api/citas/google/callback?code=…&state=… → the state's coach must be
+//      the signed-in coach → exchangeCode → store THAT coach's refresh_token.
+//   3. On each accepted cita, createMeeting (lib/citas/meeting.ts) takes the connection
+//      of the cita's coach, mints an access token and creates the event on THAT coach's
+//      calendar. No connection → no event.
 //
-// CSRF: the OAuth `state` is a stateless HMAC-signed token (nonce+timestamp, keyed
-// by AUTH_SECRET). No cookie/DB round-trip — the callback simply re-computes the MAC
-// and rejects any tampered or expired state (RFC 6749 §10.12).
+// CSRF: the OAuth `state` is a stateless HMAC-signed token (coach_id+nonce+timestamp,
+// keyed by AUTH_SECRET). The callback re-computes the MAC, rejects tampered or expired
+// states (RFC 6749 §10.12) and returns the coach it was issued to.
 //
 // Never logs tokens. Env is read at call time (never at import) so tests and the
 // gated/unconnected state don't need Google creds present.
 
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { AUTH_CONFIG } from '@/lib/auth/config';
-import { getGoogleRefreshToken } from '@/lib/citas/google-tokens';
+import { getGoogleConnection, type GoogleConnection } from '@/lib/citas/google-tokens';
 
 // ── Endpoints & scope ──────────────────────────────────────────────────────────
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -33,8 +33,8 @@ export const CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.e
 // 15 min: the consent round-trip is seconds; cap replay risk. 16 bytes → 128 bits nonce.
 const STATE_TTL_SECONDS = 15 * 60;
 const STATE_NONCE_BYTES = 16;
-// state = `${nonce}.${issuedAtSec}.${base64url(HMAC-SHA256(nonce.issuedAtSec))}`
-const STATE_PARTS = 3;
+// state = `${coachId}.${nonce}.${issuedAtSec}.${base64url(HMAC-SHA256(coachId.nonce.issuedAtSec))}`
+const STATE_PARTS = 4;
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -48,41 +48,44 @@ function redirectUri(): string {
   return `${AUTH_CONFIG.appUrl()}/api/citas/google/callback`;
 }
 
-function calendarId(): string {
-  return requiredEnv('GOOGLE_CALENDAR_ID');
-}
-
 function signStatePayload(payload: string): string {
   // AUTH_SECRET is the app's signing key; reusing it avoids a new secret to manage.
   return createHmac('sha256', AUTH_CONFIG.authSecret()).update(payload).digest('base64url');
 }
 
-/** Build a fresh HMAC-signed OAuth `state` token to embed in the consent URL. */
-export function createSignedState(now: Date = new Date()): string {
+/** Build a fresh HMAC-signed OAuth `state`, bound to the coach who starts the connect. */
+export function createSignedState(coach_id: bigint | number, now: Date = new Date()): string {
   const nonce = randomBytes(STATE_NONCE_BYTES).toString('hex');
   const issuedAt = Math.floor(now.getTime() / 1000).toString();
-  const payload = `${nonce}.${issuedAt}`;
+  const payload = `${String(coach_id)}.${nonce}.${issuedAt}`;
   return `${payload}.${signStatePayload(payload)}`;
 }
 
-/** Verify an OAuth `state`: constant-time MAC check + TTL. False = reject the callback. */
-export function verifySignedState(state: string, now: Date = new Date()): boolean {
+/**
+ * Verify an OAuth `state`: constant-time MAC check + TTL. Returns the coach it was
+ * issued to, or null = reject the callback. The caller must ALSO check that coach is
+ * the one signed in: otherwise a coach could start the flow and send the consent link
+ * to someone else, whose Google account would end up wired to that coach's club.
+ */
+export function verifySignedState(state: string, now: Date = new Date()): bigint | null {
   const parts = state.split('.');
-  if (parts.length !== STATE_PARTS) return false;
-  const [nonce, issuedAt, sig] = parts;
-  if (!nonce || !issuedAt || !sig) return false;
+  if (parts.length !== STATE_PARTS) return null;
+  const [coach, nonce, issuedAt, sig] = parts;
+  if (!coach || !nonce || !issuedAt || !sig || !/^\d{1,18}$/.test(coach)) return null;
 
-  const expected = signStatePayload(`${nonce}.${issuedAt}`);
+  const expected = signStatePayload(`${coach}.${nonce}.${issuedAt}`);
   const got = Buffer.from(sig);
   const want = Buffer.from(expected);
   // Length guard first: timingSafeEqual throws on length mismatch.
-  if (got.length !== want.length || !timingSafeEqual(got, want)) return false;
+  if (got.length !== want.length || !timingSafeEqual(got, want)) return null;
 
   const issued = Number(issuedAt);
-  if (!Number.isFinite(issued)) return false;
+  if (!Number.isFinite(issued)) return null;
   const ageSec = Math.floor(now.getTime() / 1000) - issued;
   // Reject clock-skewed-future and expired states.
-  return ageSec >= 0 && ageSec <= STATE_TTL_SECONDS;
+  if (ageSec < 0 || ageSec > STATE_TTL_SECONDS) return null;
+  const id = BigInt(coach);
+  return id > BigInt(0) ? id : null;
 }
 
 // ── Consent + token exchange ─────────────────────────────────────────────────────
@@ -124,9 +127,9 @@ export async function exchangeCode(code: string): Promise<{ refresh_token: strin
   return { refresh_token: data.refresh_token, access_token: data.access_token };
 }
 
-/** Mint a short-lived access token from the stored refresh_token. */
-export async function getAccessToken(): Promise<string> {
-  const refresh_token = await getGoogleRefreshToken();
+/** Mint a short-lived access token from a coach's refresh_token. */
+export async function getAccessToken(conn: GoogleConnection): Promise<string> {
+  const refresh_token = conn.refresh_token;
   if (!refresh_token) throw new Error('google not connected: no refresh_token stored');
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
@@ -154,16 +157,17 @@ export interface CreateCalendarEventInput {
 }
 
 /**
- * Create a Calendar event on GOOGLE_CALENDAR_ID with a Google Meet conference, then
+ * Create a Calendar event on the COACH's calendar with a Google Meet conference, then
  * return its id + Meet link. conferenceDataVersion=1 is required for createRequest to
  * be honored. We do NOT set sendUpdates — the branded Resend confirmation email is the
  * single notification the lead gets; the attendees are added silently.
  */
 export async function createCalendarEventWithMeet(
+  conn: GoogleConnection,
   input: CreateCalendarEventInput,
 ): Promise<{ event_id: string; meet_link: string | null }> {
-  const accessToken = await getAccessToken();
-  const url = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId())}/events?conferenceDataVersion=1`;
+  const accessToken = await getAccessToken(conn);
+  const url = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(conn.calendar_id)}/events?conferenceDataVersion=1`;
   const body = {
     summary: input.summary,
     ...(input.description ? { description: input.description } : {}),
@@ -199,10 +203,11 @@ export async function createCalendarEventWithMeet(
  * confirmation email is the single notification), attendees added silently.
  */
 export async function createCalendarEventInPerson(
+  conn: GoogleConnection,
   input: CreateCalendarEventInput & { location: string },
 ): Promise<{ event_id: string; meet_link: null }> {
-  const accessToken = await getAccessToken();
-  const url = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId())}/events`;
+  const accessToken = await getAccessToken(conn);
+  const url = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(conn.calendar_id)}/events`;
   const body = {
     summary: input.summary,
     ...(input.description ? { description: input.description } : {}),
@@ -231,15 +236,21 @@ function extractMeetLink(data: {
 }
 
 /**
- * Best-effort delete of a Calendar event (cancel-hook). Swallows everything —
- * removing the calendar entry must NEVER block a cita cancellation — and treats
- * 404/410 (already gone) as success.
+ * Best-effort delete of a Calendar event (cancel-hook) from the calendar of the coach
+ * whose cita it is. Swallows everything — removing the calendar entry must NEVER block
+ * a cita cancellation — and treats 404/410 (already gone) as success. No connection →
+ * nothing to delete there.
  */
-export async function deleteCalendarEvent(event_id: string): Promise<void> {
+export async function deleteCalendarEvent(
+  coach_id: bigint | number | null | undefined,
+  event_id: string,
+): Promise<void> {
   try {
-    const accessToken = await getAccessToken();
+    const conn = await getGoogleConnection(coach_id);
+    if (!conn) return;
+    const accessToken = await getAccessToken(conn);
     await fetch(
-      `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId())}/events/${encodeURIComponent(event_id)}`,
+      `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(event_id)}`,
       { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } },
     );
     // Any status (incl. 404/410) is acceptable: the goal is "not on the calendar".

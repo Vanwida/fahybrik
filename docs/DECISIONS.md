@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Google Calendar es de cada coach (0254)
+
+**El hueco (revisión de aislamiento, hallazgo 3; la deuda que dejó «Negocio con dueño»):** un solo refresh_token para toda la plataforma (`google_oauth_tokens`, 0096) y el calendario en una variable de entorno (`GOOGLE_CALENDAR_ID`). El siguiente coach que pulsara «conectar Google» se quedaba las llamadas y revisiones de todos los clubs en su calendario (nombres, emails, horas), y cancelar borraba en ese calendario. El `state` del OAuth no sabía qué coach lo había empezado.
+
+**Decidido:**
+- `coach_google_connections (coach_id pk, refresh_token, calendar_id)`. `calendar_id` NULL = el principal de la cuenta conectada. Se retira `GOOGLE_CALENDAR_ID` del código: un calendario global es justo el fallo.
+- **El `state` va firmado con el coach** (`coach.nonce.issuedAt.hmac`) y el callback exige además que el coach con sesión sea ése. Sin lo segundo, un coach podría empezar la conexión y mandar el enlace de consentimiento a otra persona, cuya cuenta de Google acabaría conectada a su club.
+- **Cada cita usa la conexión del coach de ESA cita:** el dueño del lead (o el operador del embudo si no tiene dueño — el coach cuya agenda ocupa, `bookAppointment.coach_id`), el coach del atleta en una revisión, el coach con sesión al aceptar o cancelar. Sin conexión o sin coach, **no hay evento**: la cita sigue, y el coach pega el enlace a mano como siempre (el bloque de la cita ya lo ofrece).
+- **La fila global que existía se atribuye por evidencia, nunca por descarte:** (1) si las citas que ya tienen `google_event_id` son todas de un mismo coach, suya; (2) si no hay ninguna, el dueño único de los leads (el único embudo que ha existido, el mismo hecho de 0147/0220); (3) una instalación de un solo coach. Si nada da un coach único no se migra y cada coach reconecta. No se escribe ningún id a mano en la migración. La tabla vieja se queda (nadie la lee) hasta una limpieza. El calendario de la fila migrada queda NULL: si en producción `GOOGLE_CALENDAR_ID` apuntaba a otro calendario de esa cuenta, se fija con un `update` tras desplegar.
+
+**Pendiente de producto (no de aislamiento):** no hay botón «Conectar Google» en el panel nuevo (la ruta existe) ni forma de elegir calendario; es Ajustes.
+
+**NO hacer:** no volver a una conexión o un calendario de plataforma; no aceptar un callback cuyo coach no es el de la sesión; no crear eventos con la conexión de otro coach «porque es la que hay».
+
+---
+
 ## 2026-09-23 · Embudo público: un lead es único por dueño, y solo lo reescribe quien lo abrió (0253)
 
 **El hueco (revisión de aislamiento, hallazgo 6):** `leads.email` era único en toda la plataforma y `/api/leads` + `/api/leads/complete` (públicos, sin sesión) hacían `on conflict (email) do update`. Escribir el email de otra persona en el formulario sobrescribía sus respuestas (teléfono, lesiones…) fuese del club que fuese, y la respuesta devolvía su `token` de reserva. Además, una persona solo podía ser lead de UN club: el embudo del segundo se fundía en la fila del primero.
