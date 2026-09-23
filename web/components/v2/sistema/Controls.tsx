@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Combobox,
+  MultiCombobox,
   Field,
   FilterChip,
   IconButton,
@@ -36,6 +37,7 @@ const PEOPLE = [
 export function Controls() {
   const [level, setLevel] = useState<string | null>('n3');
   const [person, setPerson] = useState<number | null>(null);
+  const [people, setPeople] = useState<typeof PEOPLE>([PEOPLE[0]!]);
   const [tab, setTab] = useState<'plan' | 'rendimiento' | 'perfil'>('plan');
   const [view, setView] = useState<'tabla' | 'tarjetas'>('tabla');
   const [range, setRange] = useState<'semana' | '3' | 'plan'>('3');
@@ -136,6 +138,19 @@ export function Controls() {
             <Select aria-label="Nivel" options={LEVELS} value={level} onValueChange={setLevel} className="w-44" />
             <Select aria-label="Nivel (vacío)" options={LEVELS} value={null} onValueChange={setLevel} placeholder="Nivel" size="sm" className="w-32" />
             <Combobox aria-label="Atleta" options={PEOPLE} value={person} onValueChange={setPerson} placeholder="Buscar atleta…" className="w-60" />
+          </Spec>
+          <Spec label="MultiCombobox">
+            <MultiCombobox
+              aria-label="Atletas"
+              options={PEOPLE}
+              value={people}
+              onValueChange={setPeople}
+              getKey={(o) => String(o.value)}
+              getLabel={(o) => o.label}
+              getHint={(o) => o.hint}
+              placeholder="Añadir atletas…"
+              className="max-w-[420px]"
+            />
           </Spec>
           <Spec label="Casillas · interruptor">
             <Checkbox checked={a} onCheckedChange={setA} label="Avisar al atleta" />

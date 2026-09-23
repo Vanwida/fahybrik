@@ -3,9 +3,11 @@
 import { Avatar as AvatarPrimitive } from '@base-ui/react/avatar';
 import { cn } from '@/lib/utils';
 
+// Nada por debajo de 11 px (plan §3): en xs (20 px) cabe UNA inicial a 11 px, en
+// sm (24 px) las dos.
 const SIZE = {
-  xs: 'size-5 text-[9px]',
-  sm: 'size-6 text-[10px]',
+  xs: 'size-5 text-[11px]',
+  sm: 'size-6 text-[11px] tracking-[-0.02em]',
   md: 'size-7 text-[11px]',
   lg: 'size-8 text-[12px]',
   xl: 'size-10 text-[14px]',
@@ -45,7 +47,7 @@ export function Avatar({
       )}
     >
       {src ? <AvatarPrimitive.Image src={src} alt="" className="size-full object-cover" /> : null}
-      <AvatarPrimitive.Fallback>{initials(name)}</AvatarPrimitive.Fallback>
+      <AvatarPrimitive.Fallback>{size === 'xs' ? initials(name).slice(0, 1) : initials(name)}</AvatarPrimitive.Fallback>
     </AvatarPrimitive.Root>
   );
 }

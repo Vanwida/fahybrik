@@ -104,7 +104,10 @@ export function V2ThemeProvider({
 
   return (
     <V2ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      <div className={cn('v2-root', className)} data-theme={theme} style={accentStyle}>
+      {/* `data-theme` lo pone ya el script previo al pintado (V2ThemeScript, dentro
+          de este mismo contenedor) para que el tema claro no destelle en oscuro;
+          se tolera la diferencia al hidratar. */}
+      <div className={cn('v2-root', className)} data-theme={theme} style={accentStyle} suppressHydrationWarning>
         {children}
       </div>
     </V2ThemeContext.Provider>

@@ -69,14 +69,16 @@ export default async function V2Layout({
       {/* Headless: registra el SW y refresca la suscripción push de este
           navegador si ya estaba dada de alta. */}
       <PushSync />
-      {/* OJO: aquí fuera aún no existe `.v2-root`, así que este script no pinta
-          nada antes de hidratar. Llevarlo a `prepaint` (dentro) quita el destello
-          del tema claro, pero exige `suppressHydrationWarning` en la raíz de
-          V2ThemeProvider (pedido a su dueño). */}
-      <V2ThemeScript />
       <V2Shell
         font_vars={flexrFontVars}
-        prepaint={<RailPrepaintScript />}
+        // Dentro de `.v2-root`: el tema y el menú plegado se aplican antes de pintar
+        // (sin destello del tema claro; V2ThemeProvider tolera la diferencia).
+        prepaint={
+          <>
+            <V2ThemeScript />
+            <RailPrepaintScript />
+          </>
+        }
         coach_name={session.full_name}
         coach_email={session.email}
         coach_avatar_url={session.avatar_url}

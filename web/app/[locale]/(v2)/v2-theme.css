@@ -190,7 +190,6 @@
   --v2-r-s: 6px;
   --v2-r-nav: 6px;
   --v2-r-m: 8px; /* anidado dentro de una tarjeta: nunca más que ella */
-  --v2-r-block: 8px; /* alias heredado (lo usaba ClubSkinPreview sin definir) */
   --v2-r-card: 10px;
   --v2-r-l: 10px;
   --v2-r-pill: 9999px;
@@ -218,8 +217,7 @@
 
 /* Mockups de la app del atleta (guía): naranja + Archivo, anidados en su
    propio `.v2-root`. No sangran al panel del coach. */
-.v2-root.guia-phone[data-theme="dark"],
-.v2-root.guia-win[data-theme="dark"] {
+.v2-root.guia-phone[data-theme="dark"] {
   --v2-accent: #f06a2a;
   --v2-accent-press: #d85a20;
   --v2-accent-fg: #0a0a0a;
@@ -282,8 +280,7 @@
   letter-spacing: -0.015em;
   line-height: 1.15;
 }
-.v2-root.guia-phone[data-theme="dark"] .v2-display,
-.v2-root.guia-win[data-theme="dark"] .v2-display {
+.v2-root.guia-phone[data-theme="dark"] .v2-display {
   font-weight: 900;
   font-style: italic;
   letter-spacing: -0.01em;

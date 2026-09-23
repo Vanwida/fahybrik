@@ -10,6 +10,8 @@ export { Select } from './Select';
 export type { SelectGroup, SelectOption, SelectProps } from './Select';
 export { Combobox } from './Combobox';
 export type { ComboboxOption, ComboboxProps } from './Combobox';
+export { MultiCombobox } from './MultiCombobox';
+export type { MultiComboboxProps } from './MultiCombobox';
 export { Checkbox, Switch } from './Checkbox';
 export type { CheckboxProps, SwitchProps } from './Checkbox';
 export { Tabs, TabPanel, SegmentedControl } from './Tabs';

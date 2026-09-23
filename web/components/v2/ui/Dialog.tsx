@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactElement, ReactNode } from 'react';
+import { useRef, type ReactElement, type ReactNode, type RefObject } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -104,6 +104,10 @@ const SHEET_W = { sm: 'sm:w-[380px]', md: 'sm:w-[460px]', lg: 'sm:w-[600px]' } a
  * se recorre la lista con J/K): sin fondo, no se cierra al pulsar fuera,
  * Escape sí cierra. En el móvil ocupa todo el ancho.
  */
+/** El primer campo editable dentro de `root` (para abrir un formulario escribiendo). */
+const FIRST_FIELD =
+  'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]';
+
 export function Sheet({
   open,
   onOpenChange,
@@ -115,8 +119,25 @@ export function Sheet({
   actions,
   modal = true,
   size = 'md',
-}: OverlayBase & { modal?: boolean; size?: keyof typeof SHEET_W; actions?: ReactNode }) {
+  initialFocus,
+}: OverlayBase & {
+  modal?: boolean;
+  size?: keyof typeof SHEET_W;
+  actions?: ReactNode;
+  /**
+   * Dónde cae el foco al abrir (modal). Por defecto, el primer elemento enfocable
+   * (suele ser «Cerrar»). `'first-field'` = el primer campo del cuerpo: un
+   * formulario se abre escribiendo. O un ref concreto.
+   */
+  initialFocus?: 'first-field' | RefObject<HTMLElement | null>;
+}) {
   const { anchor, container } = usePanelPortal();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusOnOpen = !modal
+    ? false
+    : initialFocus === 'first-field'
+      ? () => bodyRef.current?.querySelector<HTMLElement>(FIRST_FIELD) ?? true
+      : (initialFocus ?? undefined);
   return (
     <DialogPrimitive.Root
       open={open}
@@ -130,7 +151,7 @@ export function Sheet({
         <DialogPrimitive.Popup
           // No modal: el foco se queda donde estaba (la fila de la tabla), para
           // que J/K sigan cambiando de atleta con el panel abierto.
-          initialFocus={modal ? undefined : false}
+          initialFocus={focusOnOpen}
           finalFocus={modal ? undefined : false}
           className={cn(
             'fixed inset-y-0 right-0 flex w-full flex-col border-l border-v2-border bg-v2-elevated text-v2-fg outline-none',
@@ -146,7 +167,9 @@ export function Sheet({
           <div className="border-b border-v2-border">
             <Header title={title} description={description} actions={actions} />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5 t-body">{children}</div>
+          <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto p-5 t-body">
+            {children}
+          </div>
           {footer ? <Footer>{footer}</Footer> : null}
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>

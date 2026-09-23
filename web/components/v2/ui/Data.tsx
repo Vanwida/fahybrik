@@ -68,6 +68,9 @@ export function KPIRow({ children, className }: { children: ReactNode; className
       className={cn(
         'grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-v2-border bg-v2-border sm:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]',
         '[&>*]:bg-v2-surface [&>*]:px-4 [&>*]:py-3.5',
+        // Móvil (2 columnas) con un número impar: el último ocupa la fila entera en
+        // vez de dejar un hueco del color del filete.
+        '[&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-auto',
         className,
       )}
     >

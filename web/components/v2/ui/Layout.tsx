@@ -37,8 +37,10 @@ export function PageHeader({
           {back.label}
         </Link>
       ) : null}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+      {/* En el móvil, título y acciones se apilan (las acciones no se cuelan en la
+          línea del título); desde sm, en una fila. */}
+      <div className="flex flex-col gap-y-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 sm:flex-1">
           <h1 className="t-title text-v2-fg">{title}</h1>
           {count != null ? <span className="t-title font-medium text-v2-faint t-tnum">{count}</span> : null}
           {subtitle ? <p className="basis-full t-body-sm text-v2-muted sm:basis-auto">{subtitle}</p> : null}
