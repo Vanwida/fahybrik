@@ -809,3 +809,45 @@
     font-feature-settings: "tnum" 1;
   }
 }
+
+/* ── Tokens del panel como utilidades ────────────────────────────────────────
+   `bg-v2-surface`, `text-v2-muted`, `border-v2-border`, `rounded-ctl`,
+   `shadow-pop`… en vez de `bg-[color:var(--v2-surface)]`. `inline` → la
+   utilidad escribe var(--v2-…) y el valor lo pone el tema de `.v2-root`.
+   Fuera de `.v2-root` no resuelven: son solo para el panel. */
+@theme inline {
+  --color-v2-bg: var(--v2-bg);
+  --color-v2-surface: var(--v2-surface);
+  --color-v2-surface-2: var(--v2-surface-2);
+  --color-v2-elevated: var(--v2-elevated);
+  --color-v2-border: var(--v2-border);
+  --color-v2-border-strong: var(--v2-border-strong);
+  --color-v2-fg: var(--v2-fg);
+  --color-v2-muted: var(--v2-muted);
+  --color-v2-faint: var(--v2-faint);
+  --color-v2-scrim: var(--v2-scrim);
+  --color-v2-hover: var(--v2-hover);
+  --color-v2-select: var(--v2-select);
+  --color-v2-select-fg: var(--v2-select-fg);
+  --color-v2-select-bar: var(--v2-select-bar);
+  --color-v2-accent: var(--v2-accent);
+  --color-v2-accent-press: var(--v2-accent-press);
+  --color-v2-accent-fg: var(--v2-accent-fg);
+  --color-v2-accent-soft: var(--v2-accent-soft);
+  --color-v2-accent-text: var(--v2-accent-text);
+  --color-v2-ok: var(--v2-ok);
+  --color-v2-ok-soft: var(--v2-ok-soft);
+  --color-v2-ok-fg: var(--v2-ok-fg);
+  --color-v2-warn: var(--v2-warn);
+  --color-v2-warn-soft: var(--v2-warn-soft);
+  --color-v2-warn-fg: var(--v2-warn-fg);
+  --color-v2-danger: var(--v2-danger);
+  --color-v2-danger-soft: var(--v2-danger-soft);
+  --color-v2-danger-fg: var(--v2-danger-fg);
+  --color-v2-info: var(--v2-info);
+  --color-v2-info-soft: var(--v2-info-soft);
+  --color-v2-info-fg: var(--v2-info-fg);
+  --radius-ctl: 6px;
+  --radius-panel: 10px;
+  --shadow-pop: var(--v2-shadow-pop);
+}

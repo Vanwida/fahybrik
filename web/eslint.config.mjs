@@ -23,12 +23,58 @@ const NO_COLLIDING_MAXW = {
     "max-w-xl / max-w-xs colisionan con la escala --spacing-* de globals.css y resuelven a 24px / 4px, no a 36rem / 20rem. Usa un valor arbitrario: max-w-[576px] para lo que querías que fuese max-w-xl, max-w-[320px] para max-w-xs.",
 };
 
+// Panel del coach: los controles pasan por los primitivos de components/v2/ui
+// (Button, IconButton, Input, Textarea, Select…). Un <button>/<input>/<select>/
+// <textarea> con className pintado a mano es como nacieron las 143 variantes de
+// botón de la auditoría (E, C1-C2). Hoy es aviso; al cerrar la reconstrucción
+// pasa a error. Dentro de components/v2/ui es legítimo: ahí se definen.
+const RAW_CONTROLS = new Set(["button", "input", "select", "textarea"]);
+const panelPlugin = {
+  rules: {
+    "no-raw-styled-control": {
+      meta: {
+        type: "suggestion",
+        docs: { description: "Controles del panel solo vía primitivos de components/v2/ui" },
+        schema: [],
+        messages: {
+          raw: "<{{tag}} className=…> en el panel: usa el primitivo de @/components/v2/ui ({{hint}}).",
+        },
+      },
+      create(context) {
+        const HINT = {
+          button: "Button / IconButton",
+          input: "Input / Checkbox / Switch",
+          select: "Select / Combobox",
+          textarea: "Textarea",
+        };
+        return {
+          JSXOpeningElement(node) {
+            if (node.name.type !== "JSXIdentifier" || !RAW_CONTROLS.has(node.name.name)) return;
+            const styled = node.attributes.some(
+              (a) => a.type === "JSXAttribute" && a.name && a.name.name === "className",
+            );
+            if (styled) {
+              context.report({ node, messageId: "raw", data: { tag: node.name.name, hint: HINT[node.name.name] } });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
     files: ["**/*.{ts,tsx,js,jsx,mjs}"],
     rules: { "no-restricted-syntax": ["error", NO_COLLIDING_MAXW] },
+  },
+  {
+    files: ["components/v2/**/*.{ts,tsx}", "app/\\[locale\\]/\\(v2\\)/**/*.{ts,tsx}"],
+    ignores: ["components/v2/ui/**"],
+    plugins: { panel: panelPlugin },
+    rules: { "panel/no-raw-styled-control": "warn" },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
