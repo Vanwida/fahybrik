@@ -37,7 +37,7 @@ import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
 import { loadReadinessHistory } from '@/lib/coach/attention/readiness-history';
 import {
   latestReading,
-  readinessBaseline,
+  baselineOf,
   readinessTrend,
 } from '@/lib/coach/attention/readiness-baseline';
 import { resolveCoachThresholds } from '@/lib/coach/signal-thresholds';
@@ -60,6 +60,8 @@ export interface RosterRow {
   readiness: {
     value: number;
     baseline: number | null;
+    /** Lecturas previas de su base («aún sin su base (1 de 7 lecturas)»). */
+    baseline_readings: number;
     trend_14d: (number | null)[];
     observed_at: string;
     /** extra — banda con las bandas del COACH (bien · cautela · bajo). */
@@ -257,7 +259,7 @@ export async function loadRoster(params: {
         latest && h
           ? {
               value: latest.score,
-              baseline: readinessBaseline(h.series, latest.on).baseline,
+              ...baselineOf(h.series, latest.on),
               trend_14d: readinessTrend(h.series, h.today),
               observed_at: latest.on,
               band: readinessBandOf(latest.score, bands),

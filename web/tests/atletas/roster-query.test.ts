@@ -104,7 +104,7 @@ describe('parseRosterQuery', () => {
 
   test('orden por columna; los vacíos siempre al final', () => {
     const withR = rows.map((r, i) =>
-      i < 3 ? { ...r, readiness: { value: [50, 30, 70][i]!, baseline: null, trend_14d: [], observed_at: '2026-09-22', band: 'ok' as const } } : r,
+      i < 3 ? { ...r, readiness: { value: [50, 30, 70][i]!, baseline: null, baseline_readings: 0, trend_14d: [], observed_at: '2026-09-22', band: 'ok' as const } } : r,
     );
     const q = parseRosterQuery('estado=todos&orden=readiness&dir=asc');
     expect(applyRosterQuery(withR, q).map((r) => r.athlete_id)).toEqual(['2', '1', '3', '4', '5']);

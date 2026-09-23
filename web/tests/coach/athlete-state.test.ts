@@ -223,3 +223,25 @@ describe('reconcileSignals — el dato fresco gana a lo que persistió el barrid
     expect(reconcileSignals([msg], { programming_status: 'ok' })).toHaveLength(1);
   });
 });
+
+describe('peor primero DENTRO de un tipo (no por edad)', () => {
+  it('«3 de 5 sin hacer» va antes que «2 de 6», aunque sea más nueva', () => {
+    const older = sig({ kind: 'missed_sessions', severity: 'warning', value: 2, baseline: 6, first_seen_at: '2026-09-20T08:00:00.000Z', dedupe_key: 'a' });
+    const worse = sig({ kind: 'missed_sessions', severity: 'warning', value: 3, baseline: 5, first_seen_at: '2026-09-23T08:00:00.000Z', dedupe_key: 'b' });
+    expect(sortSignals([older, worse]).map((s) => s.dedupe_key)).toEqual(['b', 'a']);
+  });
+
+  it('a igual proporción, más entrenos sin hacer; a igualdad total, la más antigua', () => {
+    const a = sig({ kind: 'missed_sessions', severity: 'warning', value: 2, baseline: 4, dedupe_key: 'a' });
+    const b = sig({ kind: 'missed_sessions', severity: 'warning', value: 3, baseline: 6, dedupe_key: 'b' });
+    expect(sortSignals([a, b]).map((s) => s.dedupe_key)).toEqual(['b', 'a']);
+    const c = sig({ kind: 'missed_sessions', severity: 'warning', value: 2, baseline: 4, first_seen_at: '2026-09-20T08:00:00.000Z', dedupe_key: 'c' });
+    expect(sortSignals([a, c]).map((s) => s.dedupe_key)).toEqual(['c', 'a']);
+  });
+
+  it('un readiness más bajo va antes', () => {
+    const a = sig({ kind: 'readiness_low', severity: 'warning', value: 38, dedupe_key: 'a' });
+    const b = sig({ kind: 'readiness_low', severity: 'warning', value: 30, dedupe_key: 'b' });
+    expect(sortSignals([a, b]).map((s) => s.dedupe_key)).toEqual(['b', 'a']);
+  });
+});

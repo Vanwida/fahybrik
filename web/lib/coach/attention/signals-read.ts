@@ -14,11 +14,10 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
 import {
-  SIGNAL_ACTION,
   SIGNAL_LENS,
+  signalActionFor,
   sortSignals,
   type AthleteSignal,
-  type SignalAction,
 } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { SignalKind, SignalSeverity } from '@fahybrid/shared/domain/coach/signals';
 import { isSuppressed, type SuppressionOverride } from './resurface';
@@ -59,15 +58,6 @@ interface Row {
   override_kind: 'snooze' | 'done' | null;
 }
 
-/** La acción de una señal: la de su tipo, con dos matices de instancia. */
-export function signalAction(kind: SignalKind, severity: SignalSeverity, dedupe_key: string): SignalAction {
-  // Cancelar la suscripción no se «recuerda»: se habla con el atleta.
-  if (kind === 'billing_at_risk' && severity !== 'critical') return 'mensaje';
-  // Una semana vacía con programa se mira; sin programa se asigna.
-  if (kind === 'programming_status' && dedupe_key.endsWith(':empty_week')) return 'ver_semana';
-  return SIGNAL_ACTION[kind];
-}
-
 function toSignal(r: Row): AthleteSignal {
   return {
     kind: r.signal_kind,
@@ -78,7 +68,12 @@ function toSignal(r: Row): AthleteSignal {
     baseline: r.baseline_numeric,
     window_label: r.window_label,
     observed_at: r.observed_at ? r.observed_at.toISOString() : null,
-    action: signalAction(r.signal_kind, r.severity, r.dedupe_key),
+    action: signalActionFor({
+      kind: r.signal_kind,
+      severity: r.severity,
+      dedupe_key: r.dedupe_key,
+      baseline: r.baseline_numeric,
+    }),
     lens: SIGNAL_LENS[r.signal_kind] ?? 'plan',
     first_seen_at: r.first_seen_at.toISOString(),
     dedupe_key: r.dedupe_key,

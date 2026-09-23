@@ -36,7 +36,7 @@ import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
 import { loadReadinessHistory } from '@/lib/coach/attention/readiness-history';
-import { latestReading, readinessBaseline, readinessTrend } from '@/lib/coach/attention/readiness-baseline';
+import { latestReading, baselineOf, readinessTrend } from '@/lib/coach/attention/readiness-baseline';
 import { resolveCoachThresholds } from '@/lib/coach/signal-thresholds';
 import { loadPlanFacts } from '@/lib/dashboard/athletes/plan-facts';
 
@@ -66,6 +66,8 @@ export interface AthletePeekData {
   readiness: {
     value: number;
     baseline: number | null;
+    /** Lecturas previas de su base («aún sin su base (1 de 7 lecturas)»). */
+    baseline_readings: number;
     /** 14 días, el más viejo primero; null = sin lectura ese día. */
     trend_14d: (number | null)[];
     /** YYYY-MM-DD de cada punto de `trend_14d`. */
@@ -320,7 +322,7 @@ export async function loadAthletePeek(params: {
       latest && h
         ? {
             value: latest.score,
-            baseline: readinessBaseline(h.series, latest.on).baseline,
+            ...baselineOf(h.series, latest.on),
             trend_14d: readinessTrend(h.series, trendEnd),
             trend_days: Array.from({ length: 14 }, (_, i) => isoDateString(addDays(parseIsoDate(trendEnd), i - 13))),
             observed_at: latest.on,

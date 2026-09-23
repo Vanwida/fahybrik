@@ -95,17 +95,29 @@ describe('readiness_low — vs su base propia, persistencia y frescura', () => {
     expect(r.severity).toBe('critical');
     expect(r.value).toBe(31);
     expect(r.baseline).toBe(70);
-    expect(r.label).toBe('Readiness 31');
-    expect(r.detail).toBe('−39 vs su base 70 (28 d) · bajo tu suelo de 40 · hoy');
+    expect(r.label).toBe('Readiness baja');
+    expect(r.detail).toBe('31 hoy · −39 vs su base 70 (28 d) · bajo tu suelo de 40');
     expect(r.window_label).toBe('28 d');
     expect(r.dedupe_key).toBe(`readiness_low:${ATHLETE_ID}:${TODAY}`);
   });
 
-  it('CRÍTICO bajo el suelo aunque aún no haya base (y lo dice)', () => {
+  it('SIN base, bajo el suelo es VIGILAR como mucho — nunca crítico (y lo dice)', () => {
     const r = fired('readiness_low', baseFacts({ readiness_series: series([38]) }));
-    expect(r.severity).toBe('critical');
+    expect(r.severity).toBe('warning');
     expect(r.baseline).toBeNull();
-    expect(r.detail).toBe('sin base aún (0 lecturas) · bajo tu suelo de 40 · hoy');
+    expect(r.detail).toBe('38 hoy · aún sin su base (0 de 7 lecturas) · bajo tu suelo de 40');
+  });
+
+  it('SIN base con 3 lecturas previas: dice cuántas lleva de las 7', () => {
+    const r = fired('readiness_low', baseFacts({ readiness_series: series([70, 68, 72, 35]) }));
+    expect(r.severity).toBe('warning');
+    expect(r.detail).toBe('35 hoy · aún sin su base (3 de 7 lecturas) · bajo tu suelo de 40');
+  });
+
+  it('con 7 lecturas previas ya hay base y el suelo vuelve a ser crítico', () => {
+    const r = fired('readiness_low', baseFacts({ readiness_series: series([70, 70, 70, 70, 70, 70, 70, 35]) }));
+    expect(r.severity).toBe('critical');
+    expect(r.baseline).toBe(70);
   });
 
   it('VIGILAR: 15+ bajo su base 3 días seguidos', () => {
@@ -113,7 +125,7 @@ describe('readiness_low — vs su base propia, persistencia y frescura', () => {
     expect(r.severity).toBe('warning');
     expect(r.value).toBe(50);
     expect(r.baseline).toBe(70);
-    expect(r.detail).toBe('−20 vs su base 70 (28 d) · 3 días seguidos · hoy');
+    expect(r.detail).toBe('50 hoy · −20 vs su base 70 (28 d) · 3 días seguidos');
     // El episodio empieza el primer día de la racha.
     expect(r.dedupe_key).toBe(`readiness_low:${ATHLETE_ID}:${dayOffset(-2)}`);
   });

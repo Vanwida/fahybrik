@@ -12,6 +12,7 @@
 
 import { Sparkline } from '@/components/v2/ui';
 import { relativeDay } from '@fahybrid/shared/domain/coach/athlete-state';
+import { readinessBaseText } from '@fahybrid/shared/domain/coach/readiness-evidence';
 import { cn } from '@/lib/utils';
 import { plusDays, shortDate } from './format';
 
@@ -24,16 +25,17 @@ export interface ReadinessMiniValue {
   observed_at: string;
   /** Banda con los umbrales del coach, si el loader la trae. */
   band?: 'ok' | 'caution' | 'low';
+  /** Lecturas previas con las que se calcula su base (para «1 de 7 lecturas»). */
+  baseline_readings?: number;
 }
 
 const BAND_TEXT = { ok: 'text-v2-fg', caution: 'text-v2-warn', low: 'text-v2-danger' } as const;
 const BAND_END = { ok: 'neutral', caution: 'warn', low: 'danger' } as const;
 
-function deltaText(value: number, baseline: number | null): string | null {
-  if (baseline == null) return null;
-  const d = value - baseline;
-  if (d === 0) return 'igual que su base';
-  return `${d > 0 ? '+' : '−'}${Math.abs(d)} vs su base ${baseline}`;
+/** LA frase de la base (la misma que la evidencia de Hoy y del roster). */
+function baseText(r: ReadinessMiniValue): string {
+  if (r.baseline == null && r.baseline_readings == null) return 'aún sin su base';
+  return readinessBaseText({ value: r.value, baseline: r.baseline, baseline_readings: r.baseline_readings ?? 0 });
 }
 
 export function ReadinessMini({
@@ -53,7 +55,7 @@ export function ReadinessMini({
   }
   const band = readiness.band ?? 'ok';
   const when = today ? relativeDay(readiness.observed_at, today) : shortDate(readiness.observed_at);
-  const delta = deltaText(readiness.value, readiness.baseline);
+  const base = baseText(readiness);
   const last = readiness.trend_14d.length;
   const end = today ?? readiness.observed_at;
   const labels = readiness.trend_14d.map((_, i) => shortDate(plusDays(end, i - (last - 1))));
@@ -66,7 +68,7 @@ export function ReadinessMini({
     return (
       <span
         className={cn('inline-flex items-center gap-2', className)}
-        title={`Readiness ${readiness.value} · ${when}${delta ? ` · ${delta}` : ' · sin base todavía'}`}
+        title={`Readiness ${readiness.value} ${when} · ${base}`}
       >
         <span className={cn('w-6 text-right t-body-sm font-semibold t-tnum', BAND_TEXT[band])}>{readiness.value}</span>
         {hasTrend ? (
@@ -94,7 +96,7 @@ export function ReadinessMini({
       </div>
       <div className="flex items-baseline gap-2">
         <span className={cn('t-num-l', BAND_TEXT[band])}>{readiness.value}</span>
-        <span className="t-body-sm text-v2-muted">{delta ?? 'sin base todavía (menos de 7 lecturas)'}</span>
+        <span className="t-body-sm text-v2-muted">{base}</span>
       </div>
       {hasTrend ? (
         <Sparkline

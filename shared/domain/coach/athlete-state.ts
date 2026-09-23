@@ -148,6 +148,25 @@ export const SIGNAL_LENS: Record<SignalKind, SignalLens> = {
 };
 
 /**
+ * La acción de UNA señal: la de su tipo, con los matices de la instancia.
+ *   - Cancelar la suscripción no se «recuerda»: se habla con el atleta.
+ *   - Una semana vacía con programa se mira; sin programa se asigna.
+ *   - Un readiness bajo de alguien SIN base todavía no justifica una descarga:
+ *     la acción es preguntarle cómo está (la descarga pide evidencia).
+ */
+export function signalActionFor(s: {
+  kind: SignalKind;
+  severity: SignalSeverity;
+  dedupe_key: string;
+  baseline: number | null;
+}): SignalAction {
+  if (s.kind === 'billing_at_risk' && s.severity !== 'critical') return 'mensaje';
+  if (s.kind === 'programming_status' && s.dedupe_key.endsWith(':empty_week')) return 'ver_semana';
+  if (s.kind === 'readiness_low' && s.baseline == null) return 'mensaje';
+  return SIGNAL_ACTION[s.kind];
+}
+
+/**
  * Dentro de una misma severidad, qué va antes («peor primero»): lo que afecta al
  * cuerpo del atleta, luego lo que espera al coach, luego las sesiones, luego el
  * plan. Menor = antes.
@@ -183,12 +202,33 @@ const KIND_PRIORITY: SignalKind[] = [
 ];
 const KIND_RANK = new Map<SignalKind, number>(KIND_PRIORITY.map((k, i) => [k, i]));
 
-/** Peor primero: severidad, luego prioridad del tipo, luego la más antigua. */
+/**
+ * Cuánto de mal está una señal frente a otra DEL MISMO TIPO (mayor = peor), o
+ * null si el tipo no se gradúa. «3 de 5 sin hacer» es peor que «2 de 6»: se mira
+ * la proporción de lo debido y, a igualdad, el número; un readiness más bajo es
+ * peor. Sin esto el orden dentro de Vigilar era la edad de la fila.
+ */
+function signalBadness(s: Pick<AthleteSignal, 'kind' | 'value' | 'baseline'>): [number, number] | null {
+  if (s.value == null) return null;
+  if (s.kind === 'missed_sessions' || s.kind === 'rpe_high') {
+    return [s.baseline != null && s.baseline > 0 ? s.value / s.baseline : 0, s.value];
+  }
+  if (s.kind === 'readiness_low') return [-s.value, 0];
+  return null;
+}
+
+/** Peor primero: severidad, prioridad del tipo, gravedad dentro del tipo y, al final, la más antigua. */
 export function compareSignals(a: AthleteSignal, b: AthleteSignal): number {
   const bySev = SIGNAL_SEVERITY_RANK[a.severity] - SIGNAL_SEVERITY_RANK[b.severity];
   if (bySev !== 0) return bySev;
   const byKind = (KIND_RANK.get(a.kind) ?? 99) - (KIND_RANK.get(b.kind) ?? 99);
   if (byKind !== 0) return byKind;
+  const ba = signalBadness(a);
+  const bb = signalBadness(b);
+  if (ba && bb) {
+    if (bb[0] !== ba[0]) return bb[0] - ba[0];
+    if (bb[1] !== ba[1]) return bb[1] - ba[1];
+  }
   return (a.first_seen_at ?? '').localeCompare(b.first_seen_at ?? '');
 }
 

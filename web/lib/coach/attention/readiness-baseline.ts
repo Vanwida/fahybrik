@@ -14,11 +14,14 @@
 // Puro: sin base de datos. Las lecturas llegan ya en el día del atleta.
 
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import {
+  READINESS_BASELINE_MIN_READINGS,
+  READINESS_BASELINE_WINDOW_DAYS,
+} from '@fahybrid/shared/domain/coach/readiness-evidence';
 
-/** Ventana de la base, en días anteriores a la lectura más reciente. */
-export const READINESS_BASELINE_WINDOW_DAYS = 28;
-/** Lecturas mínimas para que exista base. */
-export const READINESS_BASELINE_MIN_READINGS = 7;
+// Los dos números de la base viven con la frase que los dice
+// (shared/domain/coach/readiness-evidence.ts): cálculo y copy, una fuente.
+export { READINESS_BASELINE_MIN_READINGS, READINESS_BASELINE_WINDOW_DAYS };
 /** Días de la mini-serie que pintan roster y ficha. */
 export const READINESS_TREND_DAYS = 14;
 /**
@@ -82,6 +85,15 @@ export function readinessBaseline(
   return { baseline: Math.round(median(values)), readings: values.length };
 }
 
+/** La base con sus lecturas, en la forma que pintan roster, vistazo y ficha. */
+export function baselineOf(
+  series: ReadonlyArray<ReadinessReading>,
+  anchor: string,
+): { baseline: number | null; baseline_readings: number } {
+  const b = readinessBaseline(series, anchor);
+  return { baseline: b.baseline, baseline_readings: b.readings };
+}
+
 /** Los últimos 14 días (el más viejo primero, hoy el último), null donde no hubo lectura. */
 export function readinessTrend(
   series: ReadonlyArray<ReadinessReading>,
@@ -115,8 +127,10 @@ export interface ReadinessAssessment {
 /**
  * ¿Hay que avisar al coach del readiness de este atleta?
  *
- *   - Suelo: la última lectura por debajo del suelo crítico → CRÍTICO, con o sin
- *     base (una lectura muy baja es «actúa hoy»).
+ *   - Suelo: la última lectura por debajo del suelo crítico → CRÍTICO si el
+ *     atleta YA tiene base. Sin base (menos de 7 lecturas previas) es VIGILAR
+ *     como mucho: un número suelto de alguien cuyo normal aún no conocemos no
+ *     es evidencia para «actúa hoy» ni para una descarga (informe C, P0).
  *   - Tendencia: ≥ X puntos por debajo de su base durante N días seguidos
  *     (acabando en la última lectura; un día sin lectura corta la racha) → VIGILAR.
  *   - Frescura: nada dispara si la última lectura tiene más de M días.
@@ -179,6 +193,6 @@ export function assessReadiness(
     episode_start: fires ? episode_start : null,
     stale,
     fires,
-    severity: fires ? (below_floor ? 'critical' : 'warning') : null,
+    severity: fires ? (below_floor && baseline != null ? 'critical' : 'warning') : null,
   };
 }
