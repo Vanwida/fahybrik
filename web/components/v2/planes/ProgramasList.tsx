@@ -149,7 +149,7 @@ export function ProgramasList({
     {
       id: 'actions',
       header: <span className="sr-only">Acciones</span>,
-      width: '48px',
+      width: '56px',
       cell: (p) => (
         <Menu
           trigger={<IconButton icon={MoreHorizontal} label={`Acciones de ${p.name}`} size="sm" />}

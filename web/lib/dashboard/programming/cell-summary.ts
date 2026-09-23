@@ -69,7 +69,9 @@ export function summarizeCell(day: WeekDay | null | undefined): CellSummary {
     .filter((s) => s.kind === 'workout')
     .map((s) => {
       const blocks = s.blocks ?? [];
-      const lines = blocks.map((b, i) => blockLine(b, i));
+      // Un bloque sin líneas que se llama igual que el entreno no dice nada nuevo.
+      const focus = s.focus?.trim();
+      const lines = blocks.map((b, i) => blockLine(b, i)).filter((l, i) => !(focus && (blocks[i]!.items ?? []).length === 0 && l.text === focus));
       for (const l of lines) if (l.modality) counts.set(l.modality, (counts.get(l.modality) ?? 0) + 1);
       return { title: s.focus?.trim() || null, lines };
     });

@@ -10,7 +10,7 @@
 // No 'use client': only rendered from TestsView, which is already the boundary.
 
 import { useMemo, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { Button, Checkbox, Dialog, Field, Input, SegmentedControl } from '@/components/v2/ui';
 
 const REPEAT_OPTIONS: { label: string; weeks: number }[] = [
   { label: 'No repetir', weeks: 0 },
@@ -132,166 +132,83 @@ export function AplicarTestSheet({
     }
   }
 
-  const chipOn =
-    'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent-text)]';
-  const chipOff =
-    'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]';
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--v2-scrim)] sm:items-center sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Aplicar ${test.name}`}
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[92vh] w-full max-w-[520px] flex-col overflow-hidden rounded-t-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] sm:rounded-[var(--v2-r-l)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--v2-border)] px-5 py-4">
-          <h2 className="text-base font-bold tracking-tight text-[color:var(--v2-fg)]">
-            Aplicar · {test.name}
-          </h2>
-          <p className="mt-1 text-xs text-[color:var(--v2-muted)]">
-            Entra en su plan como una sesión normal. Podrás moverla o quitarla después.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-5 overflow-y-auto px-5 py-5">
-          <div>
-            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              ¿A quién?
-            </p>
-            <div className="overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)]">
-              {roster.length === 0 ? (
-                <p className="px-3.5 py-4 text-body text-[color:var(--v2-muted)]">
-                  Todavía no tienes atletas.
-                </p>
-              ) : (
-                roster.map((a) => {
-                  const on = selected.has(a.athlete_id);
-                  return (
-                    <button
-                      key={a.athlete_id}
-                      type="button"
-                      onClick={() => toggle(a.athlete_id)}
-                      className={`v2-focus flex w-full items-center gap-3 border-b border-[color:var(--v2-border)] px-3.5 py-2.5 text-left last:border-b-0 ${
-                        on ? 'bg-[color:var(--v2-accent-soft)]' : ''
-                      }`}
-                    >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border ${
-                          on
-                            ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                            : 'border-[color:var(--v2-border-strong)]'
-                        }`}
-                      >
-                        {on ? <MIcon name="check" size={12} /> : null}
-                      </span>
-                      <span className="flex-1 truncate text-body text-[color:var(--v2-fg)]">
-                        {a.full_name}
-                      </span>
-                      {a.pending_by_test[test.id] ? (
-                        <span className="shrink-0 text-label font-semibold text-[color:var(--v2-accent-text)]">
-                          programado · {scheduledLabel(a.pending_by_test[test.id]!)}
-                        </span>
-                      ) : (
-                        <span className="shrink-0 text-label text-[color:var(--v2-faint)]">
-                          {a.lifecycle_status === 'pausado'
-                            ? 'en pausa'
-                            : `último: ${lastDoneLabel(a.last_done_by_test[test.id])}`}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[color:var(--v2-faint)]">
-              <span>
-                Seleccionados {selected.size} de {roster.length}
-              </span>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => setSelected(new Set(roster.map((a) => a.athlete_id)))}
-                className="v2-focus font-semibold text-[color:var(--v2-accent-text)]"
-              >
-                todos
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => setSelected(new Set(neverDone))}
-                className="v2-focus font-semibold text-[color:var(--v2-accent-text)]"
-              >
-                los que no lo han hecho nunca
-              </button>
-            </div>
-          </div>
-
-          <label className="flex flex-col gap-2">
-            <span className="text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              ¿Qué día?
-            </span>
-            <input
-              type="date"
-              value={date}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDate(e.target.value)}
-              className="v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5 py-3 text-reading font-semibold text-[color:var(--v2-fg)]"
-            />
-          </label>
-
-          <div>
-            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              Repetirlo
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {REPEAT_OPTIONS.map((o) => (
-                <button
-                  key={o.weeks}
-                  type="button"
-                  onClick={() => setRepeat(o.weeks)}
-                  className={o.weeks === repeat ? chipOn : chipOff}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+      title={`Aplicar «${test.name}»`}
+      description="Entra en su plan como una sesión más. Puedes moverla o quitarla después."
+      footer={
+        <>
           {error ? (
-            <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
+            <p role="alert" className="mr-auto t-body-sm text-v2-danger">
               {error}
             </p>
           ) : null}
-        </div>
-
-        <div className="flex justify-end gap-2.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-5 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
-          >
+          <Button variant="ghost" onClick={onClose}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={busy || selected.size === 0}
-            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
-          >
-            {busy ? (
-              <MIcon name="progress_activity" size={15} className="animate-spin" />
-            ) : (
-              <MIcon name="event_available" size={15} />
-            )}
+          </Button>
+          <Button variant="primary" loading={busy} disabled={selected.size === 0} onClick={() => void submit()}>
             {selected.size > 0 ? `Ponérselo a ${selected.size}` : 'Ponérselo'}
-          </button>
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="t-meta text-v2-muted">
+              A quién · {selected.size} de {roster.length}
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(roster.map((a) => a.athlete_id)))}>
+              Todos
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(neverDone))}>
+              Los que no lo han hecho nunca
+            </Button>
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-ctl border border-v2-border">
+            {roster.length === 0 ? (
+              <p className="px-3 py-3 t-body-sm text-v2-muted">Todavía no tienes atletas.</p>
+            ) : (
+              roster.map((a) => (
+                <div key={a.athlete_id} className="flex min-h-10 items-center gap-3 border-b border-v2-border px-3 last:border-b-0">
+                  <Checkbox
+                    checked={selected.has(a.athlete_id)}
+                    onCheckedChange={() => toggle(a.athlete_id)}
+                    label={a.full_name}
+                    className="min-w-0 flex-1"
+                  />
+                  <span className="shrink-0 t-meta text-v2-faint">
+                    {a.pending_by_test[test.id]
+                      ? `programado · ${scheduledLabel(a.pending_by_test[test.id]!)}`
+                      : a.lifecycle_status === 'pausado'
+                        ? 'en pausa'
+                        : `último: ${lastDoneLabel(a.last_done_by_test[test.id])}`}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <Field label="Qué día">
+          {({ id }) => (
+            <Input id={id} type="date" size="lg" value={date} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} className="w-48" />
+          )}
+        </Field>
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">Repetirlo</span>
+          <SegmentedControl
+            aria-label="Repetirlo"
+            value={String(repeat)}
+            onValueChange={(v) => setRepeat(Number(v))}
+            items={REPEAT_OPTIONS.map((o) => ({ value: String(o.weeks), label: o.label }))}
+            className="self-start"
+          />
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
