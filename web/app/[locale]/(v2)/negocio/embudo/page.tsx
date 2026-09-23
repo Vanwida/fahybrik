@@ -1,29 +1,25 @@
-// v2 · MÉTRICAS DEL FUNNEL (#20) — server component. Gates on the coach session,
-// reads the range from `?rango=` (server-rendered; the selector is link-buttons,
-// not a client component), then DERIVES the ingest funnel from the real tables
-// (leads / appointments / session_reports / athlete_invitations). Each loader is
-// wrapped in .catch so one dead source degrades its own panel instead of 500ing
-// the page (same resilience pattern as hoy/page.tsx). Nothing is invented — see
-// lib/dashboard/coach/metrics.ts.
+// Negocio › Embudo — dónde se cae la gente, por cohorte y periodo (?rango=).
+// Cada fuente se degrada sola; nada se inventa (lib/dashboard/coach/metrics).
 
+import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import {
-  parseMetricsRange,
-  loadFunnelSnapshot,
-  loadCallOutcomes,
-  loadWeeklySeries,
-  loadByObjetivo,
-  emptyFunnelSnapshot,
   EMPTY_CALL_OUTCOMES,
   EMPTY_WEEKLY_SERIES,
-  type FunnelMetrics,
+  emptyFunnelSnapshot,
+  loadByObjetivo,
+  loadCallOutcomes,
+  loadFunnelSnapshot,
+  loadWeeklySeries,
+  parseMetricsRange,
 } from '@/lib/dashboard/coach/metrics';
-import { MetricasPanel } from '@/components/v2/metricas/MetricasPanel';
+import { EmbudoScreen } from '@/components/v2/metricas/EmbudoScreen';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Embudo · Negocio' };
 
-export default async function V2MetricasPage({
+export default async function EmbudoPage({
   params,
   searchParams,
 }: {
@@ -32,10 +28,8 @@ export default async function V2MetricasPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-
   const session = await getCoachSession();
   if (!session) return null;
-
   const range = parseMetricsRange((await searchParams).rango);
 
   const [snapshot, outcomes, weekly, by_objetivo] = await Promise.all([
@@ -45,7 +39,5 @@ export default async function V2MetricasPage({
     loadByObjetivo(session.coach_id, range).catch(() => []),
   ]);
 
-  const data: FunnelMetrics = { snapshot, outcomes, weekly, by_objetivo };
-
-  return <MetricasPanel {...data} />;
+  return <EmbudoScreen snapshot={snapshot} outcomes={outcomes} weekly={weekly} by_objetivo={by_objetivo} />;
 }

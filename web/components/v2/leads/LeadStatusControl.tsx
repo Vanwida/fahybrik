@@ -1,172 +1,81 @@
 'use client';
 
-// LeadStatusControl — moves a lead through the sales pipeline. Shows the current
-// status (highlighted) + the valid coach-settable transitions as buttons. On click
-// it PATCHes /api/coach/leads/{id}; on success it router.refresh()es so the server
-// re-renders the detail with the new status; on error it shows an inline message.
-// Buttons disable while a change is in flight. `convertido` (the alta flow) and
-// `parcial` (system-only) are never settable here — the backend is the source of
-// truth for what's allowed.
+// Mover un lead por el embudo: solo hacia delante (nuevo → contactado →
+// agendado) o a descartado; un descartado se puede reabrir. «Convertido» lo
+// pone el alta, nunca un botón. PATCH /api/coach/leads/{id} y refresco.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { Button } from '@/components/ui/button';
-import { Pill } from '@/components/v2/Pill';
-import {
-  LEAD_STATUS_META,
-  leadStatusAllowedNext,
-  type LeadStatus,
-} from '@/lib/dashboard/coach/leads-status';
-import { cn } from '@/lib/utils';
+import { CalendarCheck, Phone, RotateCcw, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Button, useToast } from '@/components/v2/ui';
+import { LEAD_STATUS_META, leadStatusAllowedNext, type LeadStatus } from '@/lib/dashboard/coach/leads-status';
+import { readApiError } from '@/components/v2/ajustes/autosave';
 
-// Icon + verb-form action label per settable status. Only the coach-settable states
-// (contactado/agendado/descartado) are ever rendered; the rest are '' for type-completeness.
-const ACTION_ICON: Record<LeadStatus, string> = {
-  parcial: '',
-  nuevo: '',
-  contactado: 'call',
-  agendado: 'event_available',
-  convertido: '',
-  descartado: 'block',
+const ACTION: Partial<Record<LeadStatus, { label: string; icon: LucideIcon }>> = {
+  contactado: { label: 'Marcar contactado', icon: Phone },
+  agendado: { label: 'Cita agendada', icon: CalendarCheck },
+  descartado: { label: 'Descartar', icon: X },
 };
 
-const ACTION_LABEL: Record<LeadStatus, string> = {
-  parcial: '',
-  nuevo: '',
-  contactado: 'Marcar contactado',
-  agendado: 'Cita agendada',
-  convertido: '',
-  descartado: 'Descartar',
-};
-
-export function LeadStatusControl({
-  leadId,
-  currentStatus,
-}: {
-  leadId: string;
-  currentStatus: LeadStatus;
-}) {
+export function LeadStatusControl({ leadId, status }: { leadId: string; status: LeadStatus }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [fetching, setFetching] = useState(false);
-  const [savingTo, setSavingTo] = useState<LeadStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState<LeadStatus | null>(null);
 
-  const busy = isPending || fetching;
-  const meta = LEAD_STATUS_META[currentStatus];
-
-  async function setStatus(status: LeadStatus) {
-    if (busy || status === currentStatus) return;
-    setError(null);
-    setSavingTo(status);
-    setFetching(true);
+  const move = async (to: LeadStatus, previous: LeadStatus = status) => {
+    setSaving(to);
     try {
       const res = await fetch(`/api/coach/leads/${leadId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: to }),
       });
       if (!res.ok) {
-        let message = 'No se pudo actualizar el estado. Reintenta.';
-        try {
-          const body = (await res.json()) as { error?: { message?: string } };
-          if (body?.error?.message) message = body.error.message;
-        } catch {
-          /* keep the default message */
-        }
-        setError(message);
-        setFetching(false);
-        setSavingTo(null);
+        toast.toast({ title: 'No se ha podido mover el lead', description: await readApiError(res, ''), tone: 'danger' });
         return;
       }
-      // Re-render the server component so the header pill + control reflect the
-      // new status. isPending stays true across the refresh → buttons stay disabled.
-      setFetching(false);
+      toast.toast({
+        title: `Movido a «${LEAD_STATUS_META[to].label}»`,
+        tone: 'ok',
+        // Descartar se deshace reabriendo; avanzar no tiene vuelta (el embudo no retrocede).
+        undo: to === 'descartado' && previous !== 'descartado' ? () => void move('nuevo', 'descartado') : undefined,
+      });
       startTransition(() => router.refresh());
     } catch {
-      setError('Error de red. Reintenta.');
-      setFetching(false);
-      setSavingTo(null);
+      toast.toast({ title: 'Sin conexión. No se ha movido.', tone: 'danger' });
+    } finally {
+      setSaving(null);
     }
+  };
+
+  if (status === 'convertido') return null;
+  if (status === 'descartado') {
+    return (
+      <Button icon={RotateCcw} loading={saving === 'nuevo'} disabled={pending} onClick={() => void move('nuevo')}>
+        Reabrir
+      </Button>
+    );
   }
-
-  // Forward-only transitions per the shared NO-RETREAT rule (leadStatusAllowedNext):
-  // nuevo→contactado→agendado, plus →descartado; never backwards, never out of a
-  // terminal state. `convertido` (the alta flow, task #5) and `parcial` are not settable.
-  const actions = leadStatusAllowedNext(currentStatus);
-
-  const isConverted = currentStatus === 'convertido'; // terminal, untouchable
-  const isDiscarded = currentStatus === 'descartado'; // terminal in the pipeline, but reopenable
-  const reopening = busy && savingTo === 'nuevo';
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <span className="v2-micro">Estado actual</span>
-        <Pill tone={meta.tone} variant="solid">
-          {meta.label}
-        </Pill>
-      </div>
-
-      {isConverted ? (
-        <p className="text-xs text-[color:var(--v2-muted)]">Este lead ya se convirtió en atleta.</p>
-      ) : isDiscarded ? (
-        // Discarded is terminal in the pipeline, but a mis-tap must be undoable →
-        // the explicit "Reabrir" human correction (descartado → nuevo).
-        <div className="flex flex-col gap-1.5">
-          <span className="v2-micro">Descartado</span>
+    <>
+      {leadStatusAllowedNext(status).map((to) => {
+        const a = ACTION[to];
+        if (!a) return null;
+        return (
           <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => setStatus('nuevo')}
-            disabled={busy}
-            loading={reopening}
+            key={to}
+            variant={to === 'descartado' ? 'ghost' : 'secondary'}
+            icon={a.icon}
+            loading={saving === to}
+            disabled={saving !== null || pending}
+            onClick={() => void move(to)}
           >
-            {reopening ? null : <MIcon name="restart_alt" size={16} />}
-            Reabrir
+            {a.label}
           </Button>
-          <p className="text-xs text-[color:var(--v2-muted)]">Corrección: devuelve el lead a “Nuevo”.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <span className="v2-micro">Mover a</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {actions.map((s) => {
-              const isDiscard = s === 'descartado';
-              const spinning = busy && savingTo === s;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  disabled={busy}
-                  className={cn(
-                    'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border px-3 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                    isDiscard
-                      ? 'border-[color:var(--v2-border)] text-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]'
-                      : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
-                  )}
-                >
-                  <MIcon
-                    name={spinning ? 'progress_activity' : ACTION_ICON[s]}
-                    size={16}
-                    className={spinning ? 'animate-spin' : undefined}
-                  />
-                  {ACTION_LABEL[s]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {error ? (
-        <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
-          {error}
-        </p>
-      ) : null}
-    </div>
+        );
+      })}
+    </>
   );
 }
