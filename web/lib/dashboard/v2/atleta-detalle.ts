@@ -18,7 +18,9 @@ import { sql as defaultSql } from '@/lib/db';
 import { loadAthletePeek } from '@/lib/coach/athlete-peek';
 import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecycle-detail';
 import { getTargetRace } from '@/lib/races/next-race';
-import { loadCoachLevels } from '@/lib/dashboard/v2/periodizacion';
+import { listLevelOptions } from '@/lib/coach/level-options';
+import { computeLevelSuggestion } from '@/lib/coach/level-proposal';
+import { levelSuggestionGapLine } from '@/lib/dashboard/v2/level-gap';
 import { listAthleteWeeks } from '@/lib/coach/week-publishing';
 import { loadAthleteKeyMarkers } from '@/lib/coach/key-markers';
 import { getAthleteBilling, listAthleteInvoices } from '@/lib/coach/billing';
@@ -368,8 +370,7 @@ export async function loadClassification(params: {
   client: Sql;
 }): Promise<ClasificacionData> {
   const { coach_id, athlete_id, client } = params;
-  const [rows, levels] = await Promise.all([
-    client<
+  const rows = await client<
       Array<{
         level_id: string | null;
         level_name: string | null;
@@ -388,20 +389,34 @@ export async function loadClassification(params: {
       left join athlete_levels sal on sal.id = a.suggested_level_id
       where a.id = ${athlete_id} and a.coach_id = ${coach_id}
       limit 1
-    `,
-    loadCoachLevels(coach_id, client),
-  ]);
+    `;
   const row = rows[0];
+  const axis = effectiveLevelAxisLabel(row?.axis_label);
+  // Los que se pueden elegir, más el que ya lleva aunque esté retirado. Sin
+  // nivel puesto, la sugerencia se calcula al leer (sin escribir): la guardada
+  // puede ser de una escalera que el coach ya cambió, y si no hay, se dice por qué.
+  const [levels, fresh] = await Promise.all([
+    listLevelOptions(coach_id, { keep: [row?.level_id], client }),
+    row && row.level_id == null ? computeLevelSuggestion(athlete_id, Number(coach_id), client) : Promise.resolve(null),
+  ]);
+  const suggested = fresh
+    ? fresh.status === 'suggested'
+      ? { id: fresh.level_id, name: fresh.level_name }
+      : null
+    : row?.suggested_level_id
+      ? { id: row.suggested_level_id, name: row.suggested_level_name ?? '' }
+      : null;
   return {
     level_id: row?.level_id ?? null,
     level_name: row?.level_name ?? null,
-    suggested_level_id: row?.suggested_level_id ?? null,
-    suggested_level_name: row?.suggested_level_name ?? null,
+    suggested_level_id: suggested?.id ?? null,
+    suggested_level_name: suggested?.name ?? null,
     suggested_level_reason: null,
+    suggestion_gap: fresh ? levelSuggestionGapLine(fresh, axis) : null,
     training_days_per_week: row?.training_days_per_week ?? null,
-    levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label })),
+    levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label, archived: l.archived })),
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
-    level_axis_label: effectiveLevelAxisLabel(row?.axis_label),
+    level_axis_label: axis,
   };
 }
 
@@ -468,6 +483,7 @@ export async function loadFichaPerfil(params: {
         suggested_level_reason: null,
         training_days_per_week: null,
         levels: [],
+        suggestion_gap: null,
         days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
         level_axis_label: effectiveLevelAxisLabel(null),
       },

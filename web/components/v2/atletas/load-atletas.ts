@@ -16,6 +16,7 @@ import type { SavedView } from '@fahybrid/shared/schema/saved-views';
 import { loadRoster, type RosterRow } from '@/lib/dashboard/athletes/roster';
 import { coachCalendar } from '@/lib/dashboard/athletes/plan-facts';
 import { listSavedViews } from '@/lib/coach/saved-views';
+import { listLevelOptions } from '@/lib/coach/level-options';
 
 export interface CoachLevel {
   id: string;
@@ -40,12 +41,9 @@ export interface AtletasData {
 
 async function loadLevels(client: Sql, coach_id: number): Promise<{ levels: CoachLevel[]; axis: string | null }> {
   const [levels, coach] = await Promise.all([
-    client<CoachLevel[]>`
-      select id::text as id, name, label
-      from athlete_levels
-      where coach_id = ${coach_id}
-      order by sort_order asc, id asc
-    `,
+    // Solo los activos: son los que se eligen (invitar, cambiar en bloque). Un
+    // nivel retirado que alguien aún lleva lo añade el filtro desde las filas.
+    listLevelOptions(coach_id, { client }),
     // to_jsonb: tolera un entorno donde la columna aún no exista.
     client<Array<{ axis: string | null }>>`
       select to_jsonb(c) ->> 'level_axis_label' as axis from coaches c where c.id = ${coach_id}

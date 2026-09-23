@@ -39,7 +39,7 @@ export function ProgramMenu({
   importWeeks,
 }: {
   program: ProgramRow;
-  levels: Array<{ id: string; name: string; label: string }>;
+  levels: Array<{ id: string; name: string; label: string; archived?: boolean }>;
   weekCount: number;
   maxWeeks: number;
   hasPending: () => boolean;

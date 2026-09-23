@@ -17,6 +17,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import type {
   GroupCreateInput,
   GroupDetail,
@@ -45,23 +46,11 @@ export class GroupError extends Error {
 
 type Ref = { program_id: string; item_id?: string };
 
-async function assertLevel(tx: Sql, coach_id: number, level_id: string | null | undefined): Promise<void> {
+/** El nivel de la regla: del coach y activo, o el que el grupo ya tenía (retirar no obliga a cambiarlo). */
+async function assertLevel(tx: Sql, coach_id: number, level_id: string | null | undefined, current: string | null = null): Promise<void> {
   if (level_id == null) return;
-  const rows = await tx<Array<{ id: string }>>`
-    select id::text from athlete_levels where id = ${Number(level_id)} and coach_id = ${coach_id} limit 1
-  `;
-  if (!rows[0]) {
-    const mine = await tx<Array<{ name: string }>>`
-      select name from athlete_levels where coach_id = ${coach_id} order by sort_order, id
-    `;
-    throw new GroupError(
-      'level_not_found',
-      mine.length > 0
-        ? `Ese nivel no es tuyo. Tus niveles: ${mine.map((m) => m.name).join(', ')}. También puede ir sin nivel.`
-        : 'No tienes niveles creados; el grupo puede ir sin nivel.',
-      422,
-    );
-  }
+  const check = await checkAssignableLevel(tx, coach_id, level_id, [current]);
+  if (!check.ok) throw new GroupError('level_not_found', `${check.message} También puede ir sin nivel.`, 422);
 }
 
 /** Traduce los choques de la base a una frase que dice qué hacer. */
@@ -226,11 +215,11 @@ export async function updateGroup(
   try {
     await client.begin(async (raw) => {
       const tx = raw as unknown as Sql;
-      const found = await tx<Array<{ id: string }>>`
-        select id::text from program_sequences where id = ${group_id} and coach_id = ${coach} for update
+      const found = await tx<Array<{ id: string; level_id: string | null }>>`
+        select id::text, level_id::text from program_sequences where id = ${group_id} and coach_id = ${coach} for update
       `;
       if (!found[0]) throw new GroupError('group_not_found', 'No encuentro ese grupo entre los tuyos.', 404);
-      if (patch.level_id !== undefined) await assertLevel(tx, coach, patch.level_id);
+      if (patch.level_id !== undefined) await assertLevel(tx, coach, patch.level_id, found[0].level_id);
       const has = (k: keyof GroupPatchInput) => patch[k] !== undefined;
       if (has('name') || has('level_id') || has('days_per_week') || has('end_policy') || has('progression_pct')) {
         await tx`

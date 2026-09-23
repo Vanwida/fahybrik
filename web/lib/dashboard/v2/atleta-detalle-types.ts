@@ -360,6 +360,8 @@ export interface FichaEstado {
   markers: AthleteKeyMarker[];
 }
 
+import type { LevelSuggestionGapLine } from './level-gap';
+
 // ── Perfil ───────────────────────────────────────────────────────────────────
 
 export interface ClasificacionLevelOption {
@@ -367,6 +369,8 @@ export interface ClasificacionLevelOption {
   /** Código interno (N1…); el coach ve `label`. */
   name: string;
   label: string;
+  /** Retirado: solo sale porque es el que ya lleva. */
+  archived?: boolean;
 }
 
 export interface ClasificacionData {
@@ -378,6 +382,8 @@ export interface ClasificacionData {
   suggested_level_reason: string | null;
   training_days_per_week: number | null;
   levels: ClasificacionLevelOption[];
+  /** Sin nivel y sin sugerencia: por qué, y qué hacer para que la haya. */
+  suggestion_gap: LevelSuggestionGapLine | null;
   days_band: { min: number; max: number };
   /** Cómo llama el coach a su eje («Nivel» por defecto; `coaches.level_axis_label`). */
   level_axis_label: string;

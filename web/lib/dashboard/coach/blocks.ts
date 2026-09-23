@@ -1,6 +1,7 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
@@ -416,12 +417,15 @@ export async function updateBlock(
     (v): v is number => v != null,
   ))];
   if (levelIds.length > 0) {
-    const owned = await client<Array<{ id: string }>>`
-      select id::text from athlete_levels
-      where coach_id = ${Number(coachId)} and id = any(${levelIds}::bigint[])
+    // Del coach y activos — o los que el bloque ya tenía (retirar no lo obliga a cambiar).
+    const current = await client<Array<{ min_level_id: string | null; max_level_id: string | null }>>`
+      select min_level_id::text, max_level_id::text from blocks
+      where id = ${blockId} and coach_id = ${Number(coachId)}
     `;
-    if (owned.length !== levelIds.length) {
-      throw new BlockError('invalid_level', 'El nivel no pertenece a este coach', 400);
+    const kept = [current[0]?.min_level_id, current[0]?.max_level_id];
+    for (const id of levelIds) {
+      const check = await checkAssignableLevel(client, coachId, id, kept);
+      if (!check.ok) throw new BlockError('invalid_level', check.message, 400);
     }
   }
 
@@ -620,18 +624,4 @@ export async function updateBlockFull(
     await insertBlockExercises(tx, blockId, input.exercises);
   });
   return updated ? mapBlockRow(updated) : null;
-}
-
-/** Coach's athlete levels (for the block editor's optional level selector). */
-export async function listCoachLevels(
-  coachId: number | bigint,
-  client: Sql = defaultSql,
-): Promise<Array<{ id: number; name: string; label: string }>> {
-  const rows = await client<Array<{ id: string; name: string; label: string }>>`
-    select id::text as id, name, label
-    from athlete_levels
-    where coach_id = ${Number(coachId)}
-    order by sort_order, id
-  `;
-  return rows.map((r) => ({ id: Number(r.id), name: r.name, label: r.label }));
 }

@@ -12,7 +12,7 @@ import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
 const NONE = '__none__';
 
-export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; levels: Array<{ id: string; name: string; label: string }>; onChanged: () => void }) {
+export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; levels: Array<{ id: string; name: string; label: string; archived?: boolean }>; onChanged: () => void }) {
   const { toast } = useToast();
   const axisLabel = useLevelAxisLabel();
   const [level, setLevel] = useState(group.level?.id ?? NONE);
@@ -39,7 +39,7 @@ export function GroupRule({ group, levels, onChanged }: { group: GroupDetail; le
       <div className="grid grid-cols-2 gap-3">
         <Field label={axisLabel}>
           {({ id }) => (
-            <Select id={id} value={level} onValueChange={setLevel} options={[{ value: NONE, label: 'Sin regla' }, ...levels.map((l) => ({ value: l.id, label: l.name }))]} />
+            <Select id={id} value={level} onValueChange={setLevel} options={[{ value: NONE, label: 'Sin regla' }, ...levels.map((l) => ({ value: l.id, label: l.archived ? `${l.name} (retirado)` : l.name }))]} />
           )}
         </Field>
         <Field label="Días por semana">

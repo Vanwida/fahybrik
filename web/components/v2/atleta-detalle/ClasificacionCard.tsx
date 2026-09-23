@@ -11,7 +11,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardHeader, StatusBadge } from '@/components/v2/ui';
+import { Button, Card, CardHeader, StatusBadge, buttonVariants } from '@/components/v2/ui';
+import { Link } from '@/i18n/navigation';
+import { cn } from '@/lib/utils';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import type { ClasificacionData } from '@/lib/dashboard/v2/atleta-detalle-types';
 
@@ -86,6 +88,9 @@ export function ClasificacionCard({
   const showSuggestion =
     levelId == null && data.suggested_level_id != null && data.suggested_level_name != null;
 
+  // Sin nivel y sin sugerencia: por qué, y dónde se arregla.
+  const gap = levelId == null && !showSuggestion ? data.suggestion_gap : null;
+
   const axis = data.level_axis_label;
   const axisLower = axis.toLowerCase();
 
@@ -127,8 +132,16 @@ export function ClasificacionCard({
         {showSuggestion && data.suggested_level_reason ? (
           <p className="t-meta text-v2-faint">{data.suggested_level_reason}</p>
         ) : null}
+        {gap ? (
+          <p className="t-meta flex flex-wrap items-center gap-x-2 text-v2-faint">
+            <span>{gap.text}</span>
+            <Link href={gap.action.href} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 pointer-coarse:h-11')}>
+              {gap.action.label}
+            </Link>
+          </p>
+        ) : null}
         {data.levels.length === 0 ? (
-          <p className="t-body-sm text-v2-faint">Todavía no tienes valores de {axisLower}.</p>
+          gap ? null : <p className="t-body-sm text-v2-faint">Todavía no tienes valores de {axisLower}.</p>
         ) : (
           <ChipGroup
             mono={false}
@@ -138,7 +151,7 @@ export function ClasificacionCard({
             onChange={chooseLevel}
             options={data.levels.map((lvl) => ({
               value: lvl.id,
-              label: lvl.name,
+              label: lvl.archived ? `${lvl.name} (retirado)` : lvl.name,
               hint: lvl.label && lvl.label !== lvl.name ? lvl.label : undefined,
               disabled: busy,
             }))}

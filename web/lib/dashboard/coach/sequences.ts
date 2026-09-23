@@ -1,5 +1,6 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import type {
   ProgramSequence,
   ProgramSequenceItem,
@@ -235,14 +236,16 @@ export async function saveCoachSequence(
   const progressionPct = payload.progression_pct ?? null;
   const progressionAppliesTo = payload.progression_applies_to ?? null;
 
-  // Ownership guard: the level must belong to this coach.
-  const ownedLevel = await client<{ id: string }[]>`
-    select id::text from athlete_levels
-    where id = ${levelId} and coach_id = ${coach}
+  // Ownership guard: the level must belong to this coach and be active — or be
+  // the level of a cell that already exists (retiring a level keeps its cells).
+  const existingCell = await client<{ id: string }[]>`
+    select id::text from program_sequences
+    where coach_id = ${coach} and level_id = ${levelId} and days_per_week = ${payload.days_per_week}
     limit 1
   `;
-  if (!ownedLevel[0]) {
-    throw new SaveSequenceError('invalid_level', 'El nivel no pertenece a este coach.');
+  const levelCheck = await checkAssignableLevel(client, coachId, levelId, existingCell[0] ? [levelId] : []);
+  if (!levelCheck.ok) {
+    throw new SaveSequenceError('invalid_level', levelCheck.message);
   }
 
   // Ownership guard: every microciclo (month_template) referenced must belong to
@@ -353,13 +356,10 @@ export async function duplicateSequenceCell(
 
   // Target level must belong to this coach (also gives us its name for the guard).
   const targetLevelId = String(target.level_id);
-  const ownedLevel = await client<{ id: string; name: string }[]>`
-    select id::text, name from athlete_levels
-    where id = ${targetLevelId} and coach_id = ${coach}
-    limit 1
-  `;
-  if (!ownedLevel[0]) {
-    throw new SaveSequenceError('invalid_level', 'El nivel de destino no pertenece a este coach.');
+  // A retired level takes no new cells.
+  const targetCheck = await checkAssignableLevel(client, coachId, targetLevelId);
+  if (!targetCheck.ok) {
+    throw new SaveSequenceError('invalid_level', targetCheck.message);
   }
 
   // V1 guard: never merge into a filled cell — self-copy (same coordinate) is
@@ -373,7 +373,7 @@ export async function duplicateSequenceCell(
   if (targetExisting && targetExisting.items.length > 0) {
     throw new SaveSequenceError(
       'target_occupied',
-      `${ownedLevel[0].name} · ${target.days_per_week} días ya tiene contenido.`,
+      `${targetCheck.level.name} · ${target.days_per_week} días ya tiene contenido.`,
     );
   }
 

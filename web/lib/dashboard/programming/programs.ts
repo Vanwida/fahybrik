@@ -20,6 +20,7 @@ import { upsertWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
 import { resyncWeekTemplateAssignments } from '@/lib/dashboard/coach/instantiate-program';
 import { invisibleExerciseIds } from '@/lib/exercises/coach-override';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
+import { checkAssignableLevel, listLevelOptions, type LevelOption } from '@/lib/coach/level-options';
 import { mergeDayIntoDays } from '@/lib/dashboard/v2/editor-serialize';
 
 export class ProgramError extends Error {
@@ -172,8 +173,12 @@ export async function updateProgramMeta(params: {
   const coachId = Number(params.coach_id);
   const { patch } = params;
   if (patch.level_id != null) {
-    const lv = await client`select 1 from athlete_levels where id = ${patch.level_id} and coach_id = ${coachId}`;
-    if (lv.length === 0) throw new ProgramError('invalid_level', 'Ese nivel no es tuyo.', 400);
+    const current = await client<Array<{ level_id: string | null }>>`
+      select level_id::text from program_month_templates
+      where id = ${params.program_id} and coach_id = ${coachId} and athlete_id is null
+    `;
+    const check = await checkAssignableLevel(client, coachId, patch.level_id, [current[0]?.level_id]);
+    if (!check.ok) throw new ProgramError('invalid_level', check.message, 400);
   }
   const rows = await client`
     update program_month_templates set
@@ -201,7 +206,7 @@ export interface ProgramGrid {
   weeks: ProgramGridWeek[];
   steps: ProgressionSteps;
   max_weeks: number;
-  levels: Array<{ id: string; name: string; label: string }>;
+  levels: LevelOption[];
 }
 
 export async function loadProgramGrid(params: {
@@ -214,19 +219,18 @@ export async function loadProgramGrid(params: {
   const full = await loadMonthTemplateWithWeeks({ coach_id: coachId, month_id: params.program_id, client });
   if (!full || full.month.athlete_id != null) return null;
 
-  const [list, coachRows, maxWeeks, levels] = await Promise.all([
+  const [list, coachRows, maxWeeks] = await Promise.all([
     listPrograms({ coach_id: coachId, client }),
     client<Array<{ progression_load_step_pct: string | null; progression_sets_step: number | null; deload_volume_pct: number | null }>>`
       select progression_load_step_pct::text, progression_sets_step, deload_volume_pct
       from coaches where id = ${coachId}
     `,
     loadCoachMaxMicrocicloWeeks({ coach_id: coachId, client }),
-    client<Array<{ id: string; name: string; label: string }>>`
-      select id::text, name, label from athlete_levels where coach_id = ${coachId} order by sort_order, id
-    `,
   ]);
   const program = list.find((p) => p.id === String(params.program_id));
   if (!program) return null;
+  // Activos, más el del programa aunque esté retirado: el selector no lo pierde.
+  const levels = await listLevelOptions(coachId, { keep: [program.level?.id], client });
   const c = coachRows[0] ?? { progression_load_step_pct: null, progression_sets_step: null, deload_volume_pct: null };
 
   return {

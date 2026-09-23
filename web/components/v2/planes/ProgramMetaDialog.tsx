@@ -21,7 +21,7 @@ export function ProgramMetaDialog({
   onSaved,
 }: {
   program: ProgramRow;
-  levels: Array<{ id: string; name: string; label: string }>;
+  levels: Array<{ id: string; name: string; label: string; archived?: boolean }>;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -89,7 +89,7 @@ export function ProgramMetaDialog({
               size="lg"
               value={level}
               onValueChange={setLevel}
-              options={[{ value: NO_LEVEL, label: 'Sin nivel' }, ...levels.map((l) => ({ value: l.id, label: l.label && l.label !== l.name ? `${l.name} · ${l.label}` : l.name }))]}
+              options={[{ value: NO_LEVEL, label: 'Sin nivel' }, ...levels.map((l) => ({ value: l.id, label: `${l.label && l.label !== l.name ? `${l.name} · ${l.label}` : l.name}${l.archived ? ' (retirado)' : ''}` }))]}
             />
           )}
         </Field>

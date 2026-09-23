@@ -16,7 +16,10 @@ export function SettingsSection({
   children,
   className,
   bare = false,
+  id,
 }: {
+  /** Ancla para enlazar a esta sección desde fuera (`/ajustes/metodo#niveles`). */
+  id?: string;
   title: ReactNode;
   action?: ReactNode;
   children: ReactNode;
@@ -25,7 +28,7 @@ export function SettingsSection({
   bare?: boolean;
 }) {
   return (
-    <section className={cn('flex flex-col gap-2', className)}>
+    <section id={id} className={cn('flex scroll-mt-20 flex-col gap-2', className)}>
       <SectionHeader title={title} action={action} />
       {bare ? children : <Card padding="none" className="divide-y divide-v2-border">{children}</Card>}
     </section>

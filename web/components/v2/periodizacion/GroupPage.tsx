@@ -34,7 +34,7 @@ export function GroupPage({
   volumes: Record<string, PlanWeekVolume[]>;
   races: GroupRace[];
   programs: Array<{ id: string; name: string; weeks: number }>;
-  levels: Array<{ id: string; name: string; label: string }>;
+  levels: Array<{ id: string; name: string; label: string; archived?: boolean }>;
 }) {
   const locale = useLocale();
   const router = useRouter();

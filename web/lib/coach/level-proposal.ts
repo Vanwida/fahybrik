@@ -7,20 +7,14 @@ import { loadCoachLadder } from './levels';
 import { getBestRealHyroxResult } from '@/lib/races/athlete-races';
 
 /**
- * Calcula la sugerencia de nivel de un atleta sobre la escalera de SU coach y la
- * guarda en `athletes.suggested_level_id` + `level_confidence`.
+ * La sugerencia de nivel de un atleta sobre la escalera de SU coach, sin
+ * escribir nada: la ficha la lee para decir por qué no hay sugerencia.
  *
  * La escalera son los niveles activos del coach en su orden, con los cortes de
  * cada uno (los suyos o, sin tocar, el defecto por posición) — nunca un nivel
- * buscado por el nombre literal 'N'+n. Cuando no se puede sugerir, se BORRA la
- * sugerencia anterior (una vieja que ya no se sostiene es peor que ninguna) y se
- * devuelve el porqué, para que quien la pinte lo diga
- * (`levelSuggestionGap`).
- *
- * Solo escribe mientras el coach no haya fijado el nivel a mano (`level_id is
- * null`), así que se puede volver a llamar cuando entren carreras nuevas.
+ * buscado por el nombre literal 'N'+n. Null si el atleta no es del coach.
  */
-export async function computeAndStoreLevelSuggestion(
+export async function computeLevelSuggestion(
   athleteId: number,
   coachId: number,
   client: Sql = defaultSql,
@@ -45,13 +39,31 @@ export async function computeAndStoreLevelSuggestion(
   ]);
 
   const sex = athlete.sex === 'male' || athlete.sex === 'female' ? athlete.sex : null;
-  const result = suggestLevelForAthlete({
+  return suggestLevelForAthlete({
     ladder,
     benchmarks,
     profile: { ...athlete, sex },
     realHyroxSeconds: realHyrox.best_time_seconds,
   });
+}
 
+/**
+ * Calcula la sugerencia (`computeLevelSuggestion`) y la guarda en
+ * `athletes.suggested_level_id` + `level_confidence`. Cuando no se puede
+ * sugerir, se BORRA la sugerencia anterior (una vieja que ya no se sostiene es
+ * peor que ninguna) y se devuelve el porqué, para que quien la pinte lo diga
+ * (`levelSuggestionGap`).
+ *
+ * Solo escribe mientras el coach no haya fijado el nivel a mano (`level_id is
+ * null`), así que se puede volver a llamar cuando entren carreras nuevas.
+ */
+export async function computeAndStoreLevelSuggestion(
+  athleteId: number,
+  coachId: number,
+  client: Sql = defaultSql,
+): Promise<LevelSuggestion | null> {
+  const result = await computeLevelSuggestion(athleteId, coachId, client);
+  if (!result) return null;
   await client`
     update athletes
     set suggested_level_id = ${result.status === 'suggested' ? Number(result.level_id) : null},

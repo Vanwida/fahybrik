@@ -59,7 +59,7 @@ export interface ProgramEditorProps {
   weeks: Array<{ id: string; focus: string | null; days: WeekDay[] }>;
   steps: ProgressionSteps;
   library: LibraryRow[];
-  levels: Array<{ id: string; name: string; label: string }>;
+  levels: Array<{ id: string; name: string; label: string; archived?: boolean }>;
   maxWeeks: number;
 }
 

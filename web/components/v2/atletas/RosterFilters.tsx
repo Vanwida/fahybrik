@@ -53,6 +53,10 @@ export function useFacets(
     const byLevel = countBy(rows, (r) => r.level?.id ?? NONE);
     const byGroup = countBy(rows, (r) => r.group?.id ?? NONE);
     const byWeek = countBy(rows, (r) => r.week_visibility);
+    const active = new Set(levels.map((l) => l.id));
+    const retiredMap = new Map<string, string>();
+    for (const r of rows) if (r.level && !active.has(r.level.id)) retiredMap.set(r.level.id, r.level.label);
+    const retired = [...retiredMap.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
     const groups = new Map<string, string>();
     for (const r of rows) if (r.group) groups.set(r.group.id, r.group.name);
     const withRace = (days: number) => rows.filter((r) => r.race && r.race.days >= 0 && r.race.days <= days).length;
@@ -72,6 +76,8 @@ export function useFacets(
             label: l.label && l.label !== l.name ? `${l.name} · ${l.label}` : l.name,
             count: byLevel.get(l.id) ?? 0,
           })),
+          // Un nivel retirado ya no se elige, pero quien lo lleva se sigue filtrando.
+          ...retired.map(([id, label]) => ({ value: id, label: `${label} (retirado)`, count: byLevel.get(id) ?? 0 })),
           { value: NONE, label: `Sin ${axisLabel.toLocaleLowerCase('es')}`, count: byLevel.get(NONE) ?? 0 },
         ].filter((o) => o.value !== NONE || o.count > 0 || filter.nivel?.includes(NONE)),
         selected: filter.nivel ?? [],

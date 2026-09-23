@@ -92,8 +92,8 @@ export async function runBulkAthletes(params: {
         if (err instanceof AthleteLevelError) {
           throw new BulkAthletesError(
             'level_not_found',
-            'Ese nivel no es tuyo o ya no existe. Elige uno de tus niveles; no se ha cambiado nada.',
-            404,
+            `${err.message} No se ha cambiado nada.`,
+            err.status,
           );
         }
         throw err;

@@ -18,6 +18,7 @@ import { buildAltaPrefill, type AltaPrefill } from '@/lib/leads/alta-mapping';
 import { listSessionReportsForLead, type SessionReportView } from '@/lib/coach/session-reports';
 import { LEAD_STATUS_ORDER, type LeadStatus } from './leads-status';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { listLevelOptions } from '@/lib/coach/level-options';
 
 // Short "jue 18:00" for the "Llamada …" next-action, in the COACH's timezone (the
 // clock the lead booked against since 0241). es-ES short weekday renders "jue," so
@@ -245,14 +246,9 @@ export interface CoachLevelOption {
   label: string;
 }
 
-/** The coach's level catalog (N1–N5, seeded in 0057) — drives the alta modal's level select. */
+/** Los niveles que se pueden elegir en el alta (los activos del coach; un retirado no se pone a nadie nuevo). */
 export async function listCoachLevels(coach_id: number | bigint): Promise<CoachLevelOption[]> {
-  return await sql<CoachLevelOption[]>`
-    select id::text as id, name, label
-    from athlete_levels
-    where coach_id = ${Number(coach_id)}
-    order by sort_order, name
-  `;
+  return await listLevelOptions(coach_id);
 }
 
 /** A lead's transition history (#43), newest first, with the changer's name resolved. */

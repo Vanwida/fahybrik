@@ -830,6 +830,7 @@ async function resolveLevelUp(
     select id::text, name from athlete_levels
     where coach_id = ${String(coachId)}
       and sort_order > ${currentSort}
+      and archived_at is null -- un nivel retirado no está en la escalera (0259)
     order by sort_order asc
   `;
 

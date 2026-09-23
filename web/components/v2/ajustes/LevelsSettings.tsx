@@ -135,6 +135,7 @@ export function LevelsSettings({ axisStored, initial }: { axisStored: string | n
 
   return (
     <SettingsSection
+      id="niveles"
       title="Cómo agrupas a tus atletas"
       action={<SaveStatus state={state} error={error} />}
     >

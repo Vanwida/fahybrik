@@ -256,7 +256,7 @@ export async function loadSetupFacts(coach_id: bigint | number, client: Sql = de
         where mi.coach_id = c.id
           and coalesce(nullif(btrim(mi.mirror_text), ''), nullif(btrim(mi.generated_mirror), '')) is not null
       )                                                                    as method_written,
-      (select count(*)::int from athlete_levels l where l.coach_id = c.id) as levels,
+      (select count(*)::int from athlete_levels l where l.coach_id = c.id and l.archived_at is null) as levels,
       (
         select count(*)::int from templates t
         where t.coach_id = c.id and t.archived_at is null

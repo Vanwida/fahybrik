@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getGroup } from '@/lib/coach/groups';
-import { sql } from '@/lib/db';
+import { listLevelOptions } from '@/lib/coach/level-options';
 import { listPrograms } from '@/lib/dashboard/programming/programs';
 import { loadGroupPlanExtras } from '@/lib/dashboard/programming/group-plan';
 import { GroupPage } from '@/components/v2/periodizacion/GroupPage';
@@ -26,7 +26,8 @@ export default async function GrupoPage({ params }: { params: Promise<{ locale: 
   const [extras, programs, levels] = await Promise.all([
     loadGroupPlanExtras({ coach_id: coachId, program_ids: group.programs.map((p) => p.program_id), member_ids: group.members.map((m) => m.athlete_id) }).catch(() => ({ volumes: {}, races: [] })),
     listPrograms({ coach_id: coachId }).catch(() => []),
-    sql<Array<{ id: string; name: string; label: string }>>`select id::text, name, label from athlete_levels where coach_id = ${coachId} order by sort_order, id`.catch(() => []),
+    // Activos, más el de su regla aunque esté retirado: el selector no lo pierde.
+    listLevelOptions(coachId, { keep: [group.level?.id] }).catch(() => []),
   ]);
   return (
     <GroupPage

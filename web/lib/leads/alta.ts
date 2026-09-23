@@ -3,6 +3,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { sql, type TransactionClient } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import { subscriptionPlanType } from '@fahybrid/shared/schema/_primitives';
 import {
   createCompAthlete,
@@ -107,7 +108,8 @@ export class AltaError extends Error {
       | 'email_in_use'
       | 'athlete_already_linked'
       | 'stripe_not_configured'
-      | 'stripe_checkout_failed',
+      | 'stripe_checkout_failed'
+      | 'invalid_level',
     message: string,
     readonly status: number,
   ) {
@@ -287,6 +289,13 @@ async function createAthleteFromLead(
       `El lead ya está "${lead.status}" — no se puede dar de alta.`,
       409,
     );
+  }
+
+  // El nivel elegido tiene que ser del coach y estar activo (un retirado no se
+  // pone a nadie nuevo, 0259).
+  if (input.level_id != null) {
+    const check = await checkAssignableLevel(trx, coach_id, input.level_id);
+    if (!check.ok) throw new AltaError('invalid_level', check.message, 422);
   }
 
   // 2) Create the athlete carrying the onboarding data, with the requested

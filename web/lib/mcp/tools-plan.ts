@@ -297,7 +297,7 @@ export function registerPlanTools(server: McpServer): void {
             return fail(
               err.message.includes('Atleta')
                 ? NO_SUCH_ATHLETE_MESSAGE
-                : 'Ese nivel no existe o no es tuyo. Pide los niveles con search_library (kind: "level").',
+                : `${err.message} Pide los niveles con search_library (kind: "level").`,
             );
           }
           throw err;

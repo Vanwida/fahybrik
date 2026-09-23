@@ -48,7 +48,7 @@ export async function loadPipelineProgress(
   const cid = Number(coachId);
   const rows = await client<CountRow[]>`
     select
-      (select count(*) from athlete_levels         where coach_id = ${cid})::text as levels,
+      (select count(*) from athlete_levels         where coach_id = ${cid} and archived_at is null)::text as levels,
       (select count(*) from blocks                 where coach_id = ${cid})::text as sesiones,
       -- athlete_id is null (0164): this step tracks the coach's REUSABLE library,
       -- not a one-off personal plan they built for a single athlete.

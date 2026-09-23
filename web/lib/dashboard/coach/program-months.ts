@@ -28,6 +28,7 @@ import {
 } from './program-week-slots';
 import { upsertWeekTemplate } from './program-weeks';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 
 // Re-exports — shared CRUD core + schemas/types. Slot-serializing functions
 // (createMonthTemplateWithEmptyWeeks / loadMonthTemplateWithWeeks) stay local
@@ -184,23 +185,11 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
     // fue nullable, hay microciclos sin nivel desde antes de esto, y los niveles
     // son la forma de organizarse de ALGUNOS entrenadores, no de todos.
     if (body.level_id != null) {
-      const levels = await tx<Array<{ id: string; name: string }>>`
-        select id::text, name from athlete_levels
-        where coach_id = ${coach_id}
-        order by sort_order asc, id asc
-      `;
-      if (!levels.some((l) => l.id === String(body.level_id))) {
-        // El error ENSEÑA: dice cuáles son. Antes decía sólo «no pertenece a
-        // este coach», y como no hay ninguna herramienta que liste los niveles,
-        // quien se equivocaba no tenía forma de acertar al segundo intento.
-        const suyos = levels.map((l) => l.name).join(', ');
-        throw new ProgramMonthError(
-          'invalid_level',
-          levels.length > 0
-            ? `Ese nivel no es tuyo. Los tuyos son: ${suyos}. También puedes crear el bloque sin nivel.`
-            : 'No tienes niveles definidos, así que el bloque va sin nivel: quita el campo.',
-          400,
-        );
+      // El error ENSEÑA: dice cuáles se pueden elegir (los activos; un nivel
+      // retirado no se pone a nada nuevo).
+      const check = await checkAssignableLevel(tx, coach_id, body.level_id);
+      if (!check.ok) {
+        throw new ProgramMonthError('invalid_level', `${check.message} También puedes crear el bloque sin nivel.`, 400);
       }
     }
 
