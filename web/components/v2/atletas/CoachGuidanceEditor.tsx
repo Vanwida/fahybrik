@@ -11,13 +11,21 @@
 // backed by its own context. Both contexts are fetched on open so switching
 // tabs is instant and never drops an in-progress edit on the other tab.
 //
-// Idiom: same V2 modal shell as DoblesSimulationEditor (fixed inset-0 overlay,
-// max-w-2xl card, --v2-* tokens), reusing SegmentedControl for the tab toggle.
+// Idiom: the panel's Dialog + primitives; a SegmentedControl switches context.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { SegmentedControl, type SegmentOption } from '@/components/v2/SegmentedControl';
-import { cn } from '@/lib/utils';
+import { Check, Plus, X } from 'lucide-react';
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  IconButton,
+  Input,
+  SegmentedControl,
+  SkeletonRows,
+  type SegmentItem,
+} from '@/components/v2/ui';
 import {
   COACH_GUIDANCE_CONTEXTS,
   COACH_GUIDANCE_MAX_ITEMS,
@@ -26,10 +34,7 @@ import {
 } from '@fahybrid/shared/domain/coach-guidance';
 import type { CoachGuidanceResponse } from '@fahybrid/shared/schema/coach-guidance';
 
-const BTN_BASE =
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors disabled:opacity-50';
-
-const TAB_OPTIONS: ReadonlyArray<SegmentOption<CoachGuidanceContext>> = [
+const TAB_OPTIONS: SegmentItem<CoachGuidanceContext>[] = [
   { value: 'race_doubles', label: 'Carrera' },
   { value: 'sim_doubles', label: 'Simulación' },
 ];
@@ -124,14 +129,6 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  // Escape closes the modal.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
 
   // Clear any pending "Guardado" flash timers on unmount.
   useEffect(() => {
@@ -229,154 +226,86 @@ export function CoachGuidanceEditor({ onClose }: { onClose: () => void }) {
   const current = tabs[active];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Consejos de dobles"
-      onClick={onClose}
-    >
-      <div
-        className="my-4 w-full max-w-2xl rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Consejos de dobles</h2>
-            <p className="mt-0.5 text-body text-[color:var(--v2-muted)]">
-              Tácticas que ve la pareja en el tablero de carrera y en la simulación.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={18} />
-          </button>
-        </div>
-
-        {/* Tabs — one context per tab, state kept independently. */}
-        <div className="mb-4 mt-3">
-          <SegmentedControl<CoachGuidanceContext>
-            options={TAB_OPTIONS}
-            value={active}
-            onChange={setActive}
-            size="sm"
-            ariaLabel="Contexto de los consejos"
-          />
-        </div>
-
-        {current.loading ? (
-          <p className="py-8 text-center text-body text-[color:var(--v2-muted)]">Cargando…</p>
-        ) : current.loadError ? (
-          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-body text-[color:var(--v2-danger)]">
-            {current.loadError}
-          </p>
+    <Dialog
+      open
+      onOpenChange={(o) => (o ? null : onClose())}
+      size="lg"
+      title="Consejos de dobles"
+      description="Tácticas que ve la pareja en el tablero de carrera y en la simulación."
+      footer={
+        current.loading || current.loadError ? (
+          <Button variant="ghost" onClick={onClose}>
+            Cerrar
+          </Button>
         ) : (
           <>
-            {!current.isCustom ? (
-              <div className="mb-3 flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
-                <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]" />
-                <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
-                  Estás viendo los consejos del sistema. Guarda para personalizarlos.
-                </p>
-              </div>
+            {current.saveError ? (
+              <span className="mr-auto t-body-sm text-v2-danger">{current.saveError}</span>
+            ) : current.saved ? (
+              <span className="mr-auto t-body-sm text-v2-ok">Guardado</span>
             ) : null}
-
-            {/* Editable list — one row per tip. */}
-            <div className="flex flex-col gap-2">
-              {current.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="relative min-w-0 flex-1">
-                    <label className="sr-only" htmlFor={`guidance-${active}-${index}`}>
-                      Consejo {index + 1}
-                    </label>
-                    <input
-                      id={`guidance-${active}-${index}`}
-                      type="text"
-                      value={item}
-                      onChange={(e) => updateItem(active, index, e.target.value)}
-                      maxLength={COACH_GUIDANCE_MAX_ITEM_CHARS}
-                      placeholder="Escribe un consejo…"
-                      className="v2-focus h-9 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 pr-14 text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
-                    />
-                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-eyebrow font-medium text-[color:var(--v2-muted)]">
-                      {item.length}/{COACH_GUIDANCE_MAX_ITEM_CHARS}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(active, index)}
-                    aria-label={`Eliminar consejo ${index + 1}`}
-                    className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1.5 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-danger)]"
-                  >
-                    <MIcon name="close" size={16} />
-                  </button>
-                </div>
-              ))}
-              {current.items.length === 0 ? (
-                <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] p-3 text-center text-xs text-[color:var(--v2-muted)]">
-                  Sin consejos. Añade al menos uno.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => addItem(active)}
+            <Button variant="ghost" onClick={onClose} disabled={current.saving}>
+              Cancelar
+            </Button>
+            <Button variant="primary" icon={Check} loading={current.saving} onClick={() => void save(active)}>
+              Guardar
+            </Button>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <SegmentedControl<CoachGuidanceContext>
+          aria-label="Dónde se ven"
+          items={TAB_OPTIONS}
+          value={active}
+          onValueChange={setActive}
+          size="sm"
+          className="self-start"
+        />
+        {current.loading ? (
+          <SkeletonRows rows={4} />
+        ) : current.loadError ? (
+          <ErrorState title="No se han podido cargar los consejos" description={current.loadError} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {!current.isCustom ? (
+              <p className="t-meta text-v2-faint">Son los consejos de serie: al guardar pasan a ser los tuyos.</p>
+            ) : null}
+            {current.items.map((item, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  aria-label={`Consejo ${index + 1}`}
+                  size="md"
+                  value={item}
+                  onChange={(e) => updateItem(active, index, e.target.value)}
+                  maxLength={COACH_GUIDANCE_MAX_ITEM_CHARS}
+                  placeholder="Escribe un consejo…"
+                  trailing={`${item.length}/${COACH_GUIDANCE_MAX_ITEM_CHARS}`}
+                  className="min-w-0 flex-1"
+                />
+                <IconButton icon={X} label={`Quitar consejo ${index + 1}`} size="md" onClick={() => removeItem(active, index)} />
+              </div>
+            ))}
+            {current.items.length === 0 ? <EmptyState title="Sin consejos" description="añade al menos uno" /> : null}
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Plus}
+                className="-ml-2"
                 disabled={current.items.length >= COACH_GUIDANCE_MAX_ITEMS}
-                className={cn(
-                  BTN_BASE,
-                  'h-8 border border-[color:var(--v2-border)] px-2.5 text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
-                )}
+                onClick={() => addItem(active)}
               >
-                <MIcon name="add" size={15} />
                 Añadir consejo
-              </button>
-              <span className="text-label text-[color:var(--v2-muted)]">
-                {current.items.length} / {COACH_GUIDANCE_MAX_ITEMS} consejos
+              </Button>
+              <span className="t-meta text-v2-faint t-tnum">
+                {current.items.length} de {COACH_GUIDANCE_MAX_ITEMS}
               </span>
             </div>
-
-            {current.saveError ? (
-              <p className="mt-3 text-xs font-medium text-[color:var(--v2-danger)]">{current.saveError}</p>
-            ) : current.saved ? (
-              <p className="mt-3 text-xs font-medium text-[color:var(--v2-accent-text)]">Guardado</p>
-            ) : null}
-
-            {/* Footer */}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={current.saving}
-                className={cn(
-                  BTN_BASE,
-                  'h-10 border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                )}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => save(active)}
-                disabled={current.saving}
-                className={cn(
-                  BTN_BASE,
-                  'h-10 bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
-                )}
-              >
-                <MIcon name="check" size={16} />
-                {current.saving ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </>
+          </div>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -13,7 +13,7 @@ import { DataTable, type DataTableColumn, type SortState } from '@/components/v2
 import { AdherenceMini } from '@/components/v2/shared/AdherenceMini';
 import { ReadinessMini } from '@/components/v2/shared/ReadinessMini';
 import { AthleteCell, LastSessionCell, NextSessionCell, RaceCell, ReplyCell, StatusCell, WeekChip } from './cells';
-import { SORT_VALUES } from './roster-query';
+import { DEFAULT_DIR, SORT_VALUES } from './roster-query';
 
 export interface AthletesTableProps {
   rows: RosterRow[];
@@ -68,7 +68,7 @@ export function AthletesTable({
       {
         id: 'atleta',
         header: 'Atleta',
-        width: '180px',
+        width: '184px',
         sortValue: SORT_VALUES.atleta,
         cell: (r) => (
           <Link
@@ -116,11 +116,11 @@ export function AthletesTable({
         cell: (r) => <AdherenceMini adherence={r.adherence_14d} windowDays={14} width={32} />,
       },
       {
-        id: 'ultimo',
+        id: 'ultimo_entreno',
         header: 'Últ. entreno',
         width: '104px',
-        sortValue: SORT_VALUES.ultimo,
-        defaultDir: 'desc',
+        sortValue: SORT_VALUES.ultimo_entreno,
+        defaultDir: DEFAULT_DIR.ultimo_entreno,
         hideBelow: 'lg',
         cell: (r) => <LastSessionCell row={r} today={today} />,
       },
@@ -129,7 +129,7 @@ export function AthletesTable({
             {
               id: 'proximo',
               header: 'Próximo',
-              width: '128px',
+              width: '120px',
               sortValue: SORT_VALUES.proximo,
               cell: (r: RosterRow) => <NextSessionCell row={r} today={today} />,
             },
@@ -138,7 +138,7 @@ export function AthletesTable({
       {
         id: 'carrera',
         header: 'Carrera',
-        width: '100px',
+        width: '108px',
         sortValue: SORT_VALUES.carrera,
         hideBelow: 'lg',
         cell: (r) => <RaceCell row={r} />,
@@ -153,7 +153,7 @@ export function AthletesTable({
         ),
         width: '76px',
         sortValue: SORT_VALUES.responder,
-        defaultDir: 'desc',
+        defaultDir: DEFAULT_DIR.responder,
         hideBelow: 'lg',
         cell: (r) => <ReplyCell row={r} now={now} />,
       },

@@ -9,7 +9,9 @@
 //   semana=visible,oculta,sin_plan,terminado  su semana en curso (§4.4)
 //   carrera=30                                 carrera objetivo en ≤ N días
 //   q=ber                                      búsqueda (nombre, email, grupo, nivel)
-//   orden=readiness&dir=asc                    columna y sentido (sin él: peor primero)
+//   orden=readiness&dir=asc                    columna y sentido (sin orden: peor primero;
+//                                              sin dir: el de la columna, p. ej. último
+//                                              entreno = el más reciente primero)
 //   densidad=tarjetas                          presentación (no forma parte de la vista)
 //
 // Sin NINGÚN filtro en la URL se aplica la vista por defecto (Necesitan algo).
@@ -64,6 +66,9 @@ export interface RosterQuery extends RosterFilter {
 
 const FILTER_KEYS = ['estado', 'nivel', 'grupo', 'semana', 'carrera'] as const;
 
+/** Sentido de cada columna cuando la URL no lo dice (el mismo que su primer clic). */
+export const DEFAULT_DIR: Record<string, 'asc' | 'desc'> = { ultimo_entreno: 'desc', responder: 'desc' };
+
 const DEFAULT_QUERY = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'necesitan')?.query ?? 'estado=accion,vigilar';
 
 function list<T extends string>(raw: string | null, allowed?: readonly T[]): T[] | null {
@@ -109,7 +114,10 @@ export function parseRosterQuery(search: string | URLSearchParams): RosterQuery 
   return {
     ...filter,
     q: (p.get('q') ?? '').trim().slice(0, 80),
-    orden: orden && /^[a-z_]{1,24}$/.test(orden) ? { id: orden, dir: dir === 'desc' ? 'desc' : 'asc' } : null,
+    orden:
+      orden && /^[a-z_]{1,24}$/.test(orden)
+        ? { id: orden, dir: dir === 'desc' || dir === 'asc' ? dir : (DEFAULT_DIR[orden] ?? 'asc') }
+        : null,
     densidad: p.get('densidad') === 'tarjetas' ? 'tarjetas' : 'tabla',
   };
 }
@@ -194,7 +202,7 @@ export const SORT_VALUES: Record<string, (r: RosterRow) => SortValue> = {
   semana: (r) => WEEK_RANK[r.week_visibility],
   readiness: (r) => r.readiness?.value,
   adherencia: (r) => r.adherence_14d?.pct,
-  ultimo: (r) => (r.last_session_at ? Date.parse(r.last_session_at) : null),
+  ultimo_entreno: (r) => (r.last_session_at ? Date.parse(r.last_session_at) : null),
   proximo: (r) => r.next_session?.date,
   carrera: (r) => r.race?.days,
   // Por responder: quien más lleva esperando, primero en «desc».

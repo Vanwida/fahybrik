@@ -94,6 +94,13 @@ describe('parseRosterQuery', () => {
     ]);
   });
 
+  test('sin dir, cada columna usa su sentido (último entreno: el más reciente primero)', () => {
+    const withLast = rows.map((r, i) => ({ ...r, last_session_at: i < 3 ? `2026-09-2${i}T10:00:00Z` : null }));
+    const q = parseRosterQuery('estado=todos&orden=ultimo_entreno');
+    expect(q.orden).toEqual({ id: 'ultimo_entreno', dir: 'desc' });
+    expect(applyRosterQuery(withLast, q).map((r) => r.athlete_id)).toEqual(['3', '2', '1', '4', '5']);
+  });
+
   test('orden por columna; los vacíos siempre al final', () => {
     const withR = rows.map((r, i) =>
       i < 3 ? { ...r, readiness: { value: [50, 30, 70][i]!, baseline: null, trend_14d: [], observed_at: '2026-09-22', band: 'ok' as const } } : r,
