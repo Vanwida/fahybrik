@@ -68,6 +68,8 @@ interface EventRow {
   location: string | null;
   is_visible_to_athletes: boolean;
   athlete_id: number | null;
+  created_by_coach_id: string | null;
+  athlete_coach_id: string | null;
 }
 
 export interface SetTargetRaceParams {
@@ -158,7 +160,9 @@ export async function setAthleteTargetRace(
       e.is_tentative                      as is_tentative,
       e.location                          as location,
       e.is_visible_to_athletes            as is_visible_to_athletes,
-      e.athlete_id::int                   as athlete_id
+      e.athlete_id::int                   as athlete_id,
+      e.created_by_coach_id::text         as created_by_coach_id,
+      (select a.coach_id::text from athletes a where a.id = ${params.athlete_id}) as athlete_coach_id
     from events e
     where e.id = ${params.event_id}
     limit 1
@@ -169,6 +173,15 @@ export async function setAthleteTargetRace(
   }
   const ownedCustom =
     event.athlete_id != null && event.athlete_id === params.athlete_id;
+  // Aislamiento (DECISIONS 2026-09-23 · catálogo de carreras): el atleta solo
+  // apunta a una carrera del catálogo compartido, de SU club o suya. Otra de otro
+  // club es «no encontrada», venga por la app o por el panel.
+  const ownClub =
+    event.created_by_coach_id != null && event.created_by_coach_id === event.athlete_coach_id;
+  const sharedCatalog = event.created_by_coach_id == null && event.athlete_id == null;
+  if (!ownedCustom && !ownClub && !sharedCatalog) {
+    throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
+  }
   if (params.require_visible && !event.is_visible_to_athletes && !ownedCustom) {
     throw new TargetRaceError('event_not_found', 'Evento no encontrado', 404);
   }
@@ -181,10 +194,11 @@ export async function setAthleteTargetRace(
     );
   }
   const effectiveStartDate = params.start_date;
+  // La fecha que pone un atleta solo se escribe en un evento que es suyo o de su
+  // club; en el catálogo compartido vive en su `races.race_date` y nada más (una
+  // carrera «por confirmar» es de todos los clubes).
   const shouldPersistEventDate =
-    event.start_date == null ||
-    event.is_tentative ||
-    (event.athlete_id != null && event.athlete_id === params.athlete_id);
+    ownedCustom || (ownClub && (event.start_date == null || event.is_tentative));
 
   const eventType = eventSeriesToRaceEventType(event.series, event.type);
   const format: RaceFormat = params.format ?? 'singles';
