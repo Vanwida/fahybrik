@@ -10,6 +10,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Negocio con dueño: un lead responde a su coach; «sin asignar» solo al operador del embudo; la agenda es por coach (0220)
+
+**El hueco:** todo el grupo Negocio era club-global. `listLeadsForCoach`, `countNewLeads`, las llamadas, la lista de espera, el embudo y la agenda de citas leían la tabla entera: con un segundo coach, cada club veía los prospectos (con datos de salud) de todos, guardar un horario borraba el de otro y la reserva de un lead bloqueaba la hora de otro club. DECISIONS 2026-08-10 lo tenía apuntado como deuda.
+
+**Decidido (una sola regla, `leadOwnedBy` en `web/lib/leads/owner.ts`):**
+- El dueño de un lead es `leads.coach_id` (0147, se graba al captar). Listado, contadores, ficha, transición, reabrir, alta, lista de espera, llamadas, embudo (cohortes, resultados de llamada, serie semanal, por objetivo) y la ocupación de la agenda filtran por él.
+- **Lead sin dueño (NULL):** ya NO es accionable por cualquier club (**revoca esa parte de 2026-08-10**). Solo lo ve y lo tría el coach que opera el embudo público (`FUNNEL_COACH_ID`, configuración explícita). Sin embudo declarado no lo ve nadie desde el panel. No se rellena ningún dueño por descarte (se mantiene). Dar el alta a un lead sin dueño es asignarlo a mano: queda del club que lo convierte.
+- **La agenda es del coach (migración 0220):** `coach_availability` y `coach_availability_exceptions` ganan `coach_id`; el día bloqueado es único por (coach, fecha). Relleno por evidencia: quién la escribió → su club; si no, el club 60 (el del único embudo que ha existido, mismo hecho que 0147); si no, la instalación de un solo coach. Lo que no encaja queda NULL e inerte; un CHECK `not valid` impide filas nuevas sin dueño.
+- Los huecos que ve un lead son los de su dueño (o del operador del embudo si no tiene); los de una revisión 1:1, los del coach del atleta. La ocupación y el re-chequeo de reserva miran solo las citas de ESE coach; el lock va por (coach, hueco). Las citas siguen sin `coach_id`: su dueño deriva del lead o del atleta (se mantiene 2026-08-10).
+- La cola de espera y la liberación automática son por coach contra SU cupo; el cron sin coach recorre cada coach con cupo.
+- Visitas de la landing: solo las ve el operador del embudo. Cobros (`buildBusinessMetrics`) acepta `coach_id` (suscripciones de los atletas del coach); sin él es plataforma y solo lo usa /admin.
+
+**Deuda que queda, y por qué no se tocó aquí:** el token de Google Calendar (`google_oauth_tokens`) sigue siendo UNO para la plataforma — con varios coaches, las reuniones de todos se crean en ese calendario. Hacerlo por coach exige rehacer el flujo de conexión (`/api/citas/google/*`). `TIER_PRICE_EUR` (precios en código) es método del coach y debería ser dato.
+
+**NO hacer:** no volver a leer leads, citas o agenda sin `leadOwnedBy`/`coach_id`; no reabrir el fallback «sin asignar lo ve cualquiera»; no escribir en la agenda sin coach; no añadir `coach_id` a `appointments` mientras el dueño derive del lead o del atleta.
+
+**Dónde vive:** `web/lib/leads/owner.ts`, `web/lib/citas/{store,availability,calls,reviews,reminder}.ts`, `web/lib/leads/{store,waitlist,alta}.ts`, `web/lib/dashboard/coach/{leads,metrics,business-metrics}.ts`, `infra/migrations/0220_availability_owner.sql`, tests en `web/tests/negocio/two-coaches.db.test.ts` y `web/tests/leads/tenancy.db.test.ts`.
+
+---
+
 ## 2026-09-23 · El panel del coach se rehace alrededor del día del entrenador (auditoría aprobada)
 
 **El hueco:** la auditoría con 100 atletas (`docs/auditoria-panel-coach/index.html`) mostró que el panel está organizado por el modelo de datos y por acumulación de funciones, no por los tres trabajos del coach (saber quién le necesita hoy, actuar sobre muchos a la vez, construir y cambiar el plan donde lo mira). Hoy decía «92 decisiones» para 100 atletas, los números se contradecían entre pantallas y dar un bloque a 20 atletas costaba ~500 clics. Alex aprobó la propuesta entera («plan approved 100 %, every decision you recommended»).
