@@ -8,7 +8,8 @@ import 'server-only';
 // Cada señal sale ya en la forma del contrato (`AthleteSignal`), con su acción y
 // su filtro, y separada en VIVAS (lo que el coach ve) y SILENCIADAS (pospuestas
 // o hechas y sin motivo para volver — `resurface.ts`). Solo atletas activos: un
-// pausado o de baja no pide nada (#13).
+// pausado o de baja no pide nada (#13). Lo que el propio atleta ya dice que no
+// vale (un alta ya firmada) se descarta al leer, sin esperar al barrido.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -133,6 +134,10 @@ export async function loadAthleteSignals(params: {
         on o.athlete_id = i.athlete_id and o.signal_kind = i.signal_kind
       where i.coach_id = ${Number(params.coach_id)}
         and (${ids}::bigint[] is null or i.athlete_id = any(${ids}::bigint[]))
+        -- «Alta pendiente» se reconcilia con el hecho FRESCO: firmado el alta,
+        -- la fila persistida no espera al siguiente barrido para irse (la línea
+        -- de estado de la ficha y Hoy dejan de decir «Nuevo» al instante).
+        and not (i.signal_kind = 'intake_pending' and a.intake_completed_at is not null)
     `;
   } catch (err) {
     if (isPgMissingRelation(err, 'coach_attention_items')) return new Map();
