@@ -39,6 +39,7 @@ import {
 import { cn } from '@/lib/utils';
 import { BroadcastDialog } from './BroadcastDialog';
 import { ContextPane } from './ContextPane';
+import { nextAfterSend, useSendAndNext } from './send-and-next';
 import { ThreadList } from './ThreadList';
 import { ThreadPane } from './ThreadPane';
 import { useInbox } from './use-inbox';
@@ -242,17 +243,34 @@ function MensajesBody({ initial, initialHilo, initialFilter, initialQ }: Mensaje
   const openProfile = useCallback((t: MensajesThread) => router.push(`/atletas/${t.athlete_id}`), [router]);
 
   // ── En vivo ───────────────────────────────────────────────────────────────
+  // «Enviar y siguiente»: en «Por responder», contestar abre el siguiente que
+  // espera. Una vez por mensaje (el eco del canal en vivo trae el mismo id).
+  const [sendAndNext, setSendAndNext] = useSendAndNext();
+  const advancedFor = useRef<string | null>(null);
   const onActivity = useCallback(
     (m: MessageDTO) => {
       if (!selectedId) return;
+      const current = byAthlete.get(selectedId) ?? null;
       inbox.patch(selectedId, (x) =>
         x.thread_id === m.thread_id
           ? applyIncoming(x, { thread_id: m.thread_id, from: m.sender_role, preview: previewOf(m), at: m.created_at }, { open: true, now: new Date() })
           : x,
       );
       inbox.refreshSoon();
+      const answered =
+        m.sender_role === 'coach' && current?.thread_id === m.thread_id && current.state === 'por_responder';
+      if (!answered || !sendAndNext || filter !== 'por_responder' || inbox.search) return;
+      if (advancedFor.current === String(m.id)) return;
+      advancedFor.current = String(m.id);
+      const next = nextAfterSend(visible, selectedId);
+      if (next) {
+        openThread(next);
+        toast({ title: `Enviado a ${current.athlete_name}`, description: `Ahora: ${next.athlete_name}` });
+      } else {
+        toast({ title: `Enviado a ${current.athlete_name}`, description: 'Nadie más espera respuesta' });
+      }
     },
-    [inbox, selectedId],
+    [byAthlete, filter, inbox, openThread, selectedId, sendAndNext, toast, visible],
   );
 
   useChatLiveMessages((m) => {
@@ -360,6 +378,8 @@ function MensajesBody({ initial, initialHilo, initialFilter, initialQ }: Mensaje
             onMarkUnread={(t) => void markUnread(t)}
             onOpenProfile={openProfile}
             onBroadcast={() => setBroadcastOpen(true)}
+            sendAndNext={sendAndNext}
+            onSendAndNext={setSendAndNext}
           />
         </div>
         <div className="shrink-0 p-3 empty:hidden">

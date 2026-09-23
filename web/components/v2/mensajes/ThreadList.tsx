@@ -17,6 +17,7 @@ import {
   Kbd,
   List,
   SkeletonRows,
+  Switch,
 } from '@/components/v2/ui';
 import type { SnoozeUntil } from '@/components/v2/shared';
 import { filterCounts } from '@/lib/dashboard/v2/mensajes-inbox';
@@ -64,6 +65,9 @@ export interface ThreadListProps {
   onMarkUnread: (t: MensajesThread) => void;
   onOpenProfile: (t: MensajesThread) => void;
   onBroadcast: () => void;
+  /** «Enviar y siguiente» (solo cuenta en «Por responder»). */
+  sendAndNext: boolean;
+  onSendAndNext: (on: boolean) => void;
 }
 
 export const ThreadList = forwardRef<HTMLInputElement, ThreadListProps>(function ThreadList(p, searchRef) {
@@ -188,6 +192,14 @@ export const ThreadList = forwardRef<HTMLInputElement, ThreadListProps>(function
             ))}
           </div>
         )}
+        {!searching && p.filter === 'por_responder' ? (
+          <Switch
+            checked={p.sendAndNext}
+            onCheckedChange={p.onSendAndNext}
+            label={<span className="t-body-sm text-v2-muted">Al enviar, abrir el siguiente</span>}
+            className="min-h-11 pointer-fine:min-h-7"
+          />
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
     </div>
