@@ -15,6 +15,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { CoachSubject } from '../tenant';
 
 // Live v2 status hues (never drift from the app tokens).
 const TONE = {
@@ -296,7 +297,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               Tu plan está en pausa
             </div>
             <p style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 auto' }}>
-              Pablo lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo. Tu progreso
+              <CoachSubject /> lo ha pausado mientras te recuperas. Retomamos en cuanto estés listo. Tu progreso
               está guardado.
             </p>
             <div

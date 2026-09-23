@@ -12,6 +12,8 @@ import {
 } from '../doc';
 import type { CSSProperties } from 'react';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 // Canonical modality hue (only one used here, for the sample plan attribution).
 const MOD = { carrera: 'var(--v2-mod-carrera)' } as const;
@@ -177,7 +179,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="log" title="“Tu marca” = tu sello, no un logo blanco">
         <p>
-          La app se llama <b>FAHYBRID</b> para tu atleta, y eso no cambia. Tu marca aquí es otra cosa
+          La app se llama <b>{BRAND_WORDMARK}</b> para tu atleta, y eso no cambia. Tu marca aquí es otra cosa
           y más valiosa: tu <b>nombre</b>, tu <b>cara</b> y tu <b>box</b> puestos delante de su
           entrenamiento. Eso es lo que hace que sienta que entrena contigo, no con un software.
         </p>
@@ -210,7 +212,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M10 21h4" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick">Miércoles 14 ene</div>

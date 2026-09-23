@@ -13,6 +13,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { AppUrl, ClubMark } from '../tenant';
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -93,7 +94,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </div>
         <div className="ed-row">
           <span className="ed-input" style={{ flex: 1 }}>
-            fahybrid.com/activar/9f3a-…-c1
+            <AppUrl path="/activar/9f3a-…-c1" />
           </span>
           <span className="btn pri">Copiar</span>
         </div>
@@ -157,7 +158,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd">
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div />
           </div>
           <div className="kick" style={{ marginTop: '20px' }}>
@@ -212,7 +213,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd">
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick" style={{ marginTop: '18px' }}>

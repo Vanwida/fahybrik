@@ -43,8 +43,8 @@ export function GuiaSidebar() {
       <Link href="/guia" className="guia-sb-brand" aria-label="Guía del entrenador">
         <img src="/brand/fh-icon-300.png" alt="" className="guia-sb-mark" />
         <span className="nm">
-          FAHYBRID
-          <small>Guía del entrenador</small>
+          Guía
+          <small>del entrenador</small>
         </span>
       </Link>
 

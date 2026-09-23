@@ -13,6 +13,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
 
 // Canonical hues — never drift from the live app tokens.
 const LANE = {
@@ -246,7 +247,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M10 21h4" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick">Jueves 19 jun</div>

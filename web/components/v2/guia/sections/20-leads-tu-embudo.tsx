@@ -12,6 +12,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
 
 // Pipeline hues from the live tokens (mirrors LEAD_STATUS_META tones — never drift):
 // nuevo=accent, contactado=info, agendado/convertido=ok, parcial/descartado=faint.
@@ -238,7 +239,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd" style={{ paddingBottom: '10px' }}>
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div />
           </div>
 

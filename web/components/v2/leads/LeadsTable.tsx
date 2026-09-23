@@ -32,7 +32,7 @@ export function LeadsTable({
             description={
               hasAnyLeads
                 ? 'Ajusta los filtros o la búsqueda para ver más leads.'
-                : 'Cuando alguien complete el onboarding en fahybrid.com aparecerá aquí.'
+                : 'Cuando alguien complete tu formulario de entrada, aparecerá aquí.'
             }
           />
         </div>

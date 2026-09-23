@@ -28,9 +28,10 @@
 
 import { DocSection, QCWTriad, DocFlow, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
+import { AppUrl, ClubMark } from '../tenant';
 
-/** La dirección del conector. Una sola vez en el fichero. */
-const CONECTOR_URL = 'app.fahybrid.com/api/mcp';
+/** La dirección del conector: el host público de ESTA app (entorno) + la ruta del MCP. */
+const CONECTOR_URL = <AppUrl path="/api/mcp" />;
 
 const MOD = {
   carrera: 'var(--v2-mod-carrera)',
@@ -86,7 +87,7 @@ function AjustesConector() {
       </div>
 
       {[
-        { label: 'Nombre', value: 'FAHYBRID' },
+        { label: 'Nombre', value: <ClubMark /> },
         { label: 'Dirección', value: CONECTOR_URL },
       ].map((field) => (
         <div key={field.label} style={{ marginBottom: '11px' }}>
@@ -367,7 +368,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         En tu asistente vas a <code>Ajustes</code> › <code>Conectores</code> ›{' '}
         <code>Añadir conector personalizado</code>. Le pones el nombre que quieras (por ejemplo{' '}
-        <b>FAHYBRID</b>) y esta dirección: <code>{CONECTOR_URL}</code>. Pulsas <b>Conectar</b>, entras
+        <b>
+          <ClubMark />
+        </b>
+        ) y esta dirección: <code>{CONECTOR_URL}</code>. Pulsas <b>Conectar</b>, entras
         con tu cuenta y autorizas el acceso. Ya está. No hay nada que instalar ni claves que copiar.
       </p>
 

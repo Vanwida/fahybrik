@@ -13,6 +13,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark, WithCoach } from '../tenant';
 
 /** A bookable slot chip inside the phone (web booking). Frame aliases resolve in the
  *  `.guia-phone` scope where this is rendered. */
@@ -243,11 +244,11 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd" style={{ paddingBottom: '8px' }}>
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div />
           </div>
 
-          <div className="kick">30 min con Pablo</div>
+          <div className="kick">30 min<WithCoach /></div>
           <div className="ph-title sm" style={{ marginBottom: '2px' }}>
             Reserva tu videollamada
           </div>

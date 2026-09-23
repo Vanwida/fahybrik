@@ -15,6 +15,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark, CoachSubject } from '../tenant';
 
 /** One row of the coach's FIFO waitlist (dashboard frame — reads the .guia-win vars). */
 function QRow({
@@ -105,7 +106,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Pablo entrena a un <b>grupo reducido</b> para poder seguir cada plan de cerca. Por eso su
+          Entrenas a un <b>grupo reducido</b> para poder seguir cada plan de cerca. Por eso tu
           cupo tiene un tope. Cuando se llena, los leads nuevos <b>no se pierden</b>: entran en una{' '}
           <b>lista de espera</b> y pasan por orden al liberarse una plaza. Y esa escasez, bien
           contada, <em className="em">suma</em>, no resta.
@@ -346,7 +347,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd" style={{ paddingBottom: '10px' }}>
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div />
           </div>
 
@@ -383,7 +384,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               Ahora mismo no quedan plazas.
             </div>
             <p style={{ fontSize: '12px', lineHeight: 1.55, color: 'var(--muted)', margin: '12px 6px 0' }}>
-              Pablo entrena a un grupo reducido para cuidar cada plan al detalle, Marcos, y justo ahora
+              <CoachSubject /> entrena a un grupo reducido para cuidar cada plan al detalle, Marcos, y justo ahora
               está completo. Te hemos guardado sitio en la lista: en cuanto se libere una plaza te
               avisamos por email, por orden de llegada.
             </p>

@@ -149,7 +149,7 @@ function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
           <span className="text-body font-semibold leading-tight text-[color:var(--v2-muted)]">
             Visitas web
           </span>
-          <span className="text-eyebrow text-[color:var(--v2-faint)]">landing fahybrid.com</span>
+          <span className="text-eyebrow text-[color:var(--v2-faint)]">tu web pública</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="h-8 flex-1 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)]" />
@@ -169,7 +169,7 @@ function VisitasRow({ visitas }: { visitas: FunnelSnapshot['visitas'] }) {
           Visitas web
         </span>
         <span className="text-eyebrow text-[color:var(--v2-faint)]">
-          {visitas.since_date ? `desde ${formatIsoDayShort(visitas.since_date)}` : 'landing fahybrid.com'}
+          {visitas.since_date ? `desde ${formatIsoDayShort(visitas.since_date)}` : 'tu web pública'}
         </span>
       </div>
       <div className="flex items-center gap-3">

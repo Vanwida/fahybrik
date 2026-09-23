@@ -18,6 +18,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
 
 // Colores de modalidad (nunca se desvían de los tokens v2 vivos). Las estaciones
 // HYROX caen aquí: ergo (SkiErg / remo), fuerza (trineos, farmers, zancadas),
@@ -146,7 +147,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd">
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">L</div>
           </div>
           <div className="kick" style={{ color: PARTNER }}>

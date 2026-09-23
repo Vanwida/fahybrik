@@ -15,6 +15,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark, CoachObject } from '../tenant';
 
 // Canonical modality hues (never drift from the live v2 tokens). The 8 HYROX
 // stations map onto these: ergo (SkiErg / remo), fuerza (trineos, farmers, zancadas),
@@ -189,7 +190,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         estaciones. Pero es <b>de la pareja</b>, no solo tuyo: tú lo recomiendas con el botón{' '}
         <code>Reparto</code>, y <b>cualquiera de los dos atletas</b> puede ajustarlo desde su app
         (gana el último cambio). Cada surface muestra <em className="em">quién lo tocó</em>:{' '}
-        <em className="em">«Propuesta de Pablo»</em> o <em className="em">«Ajustado por Laia»</em>.
+        <em className="em">«Propuesta de <CoachObject />»</em> o <em className="em">«Ajustado por Laia»</em>.
       </p>
 
       <h3>3 · El relevo no es tu volumen</h3>
@@ -271,7 +272,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             >
               Reparto de estaciones · simulación HYROX
             </span>
-            <span style={{ fontSize: '9.5px', color: 'var(--faint)' }}>Propuesta de Pablo</span>
+            <span style={{ fontSize: '9.5px', color: 'var(--faint)' }}>
+              Propuesta de <CoachObject />
+            </span>
           </div>
           <StationRow hue={MOD.ergo} station="SkiErg 1 km" who="Marc" whoColor="var(--fg)" />
           <StationRow hue={MOD.fuerza} station="Sled Push 50 m" who="Laia" whoColor="var(--fg)" />
@@ -328,7 +331,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         >
           <div className="ph-hd">
             <div />
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">L</div>
           </div>
           <div className="kick">Invitación</div>

@@ -14,6 +14,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
 
 // Canonical payment-state hues — mirror lib/coach/billing-state (the single source
 // of truth the real Pagos panel + ficha tab both read). Never drift from the app.
@@ -275,10 +276,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M4 7l8 6 8-6" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
-          <div className="kick">Bienvenido/a a FAHYBRID</div>
+          <div className="kick">
+            Bienvenido/a a <ClubMark />
+          </div>
           <div className="ph-title">Activa tu plan</div>
           <div
             style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.5 }}

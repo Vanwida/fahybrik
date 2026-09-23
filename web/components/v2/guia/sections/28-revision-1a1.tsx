@@ -16,6 +16,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark, CoachInitial, CoachSubject, WithCoach } from '../tenant';
 
 /** Small leading dot for a lane / signal header. */
 function Dot({ color }: { color: string }) {
@@ -121,7 +122,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>3 · Tú propones, tu atleta elige el hueco</h3>
       <p>
         Tú solo pulsas <b>Proponer revisión</b>. Tu atleta recibe un aviso en la app{' '}
-        (<em className="em">«Pablo te propone una revisión»</em>) y <b>reserva él</b> el hueco que
+        (<em className="em">«<CoachSubject /> te propone una revisión»</em>) y <b>reserva él</b> el hueco que
         mejor le venga, de tu disponibilidad real. Cero ida y vuelta por WhatsApp para cuadrar día y
         hora.
       </p>
@@ -305,7 +306,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M10 21h4" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick">Miércoles 14 ene</div>
@@ -316,7 +317,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               <span className="slot">Revisión</span>
               <span className="hk">Tu coach te propone veros</span>
             </div>
-            <div className="ht">Pablo te propone una revisión</div>
+            <div className="ht">
+              <CoachSubject /> te propone una revisión
+            </div>
             <div className="meta">Elige el hueco que mejor te venga para la videollamada.</div>
             <div
               style={{
@@ -335,7 +338,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </div>
 
           <div className="row-card">
-            <div className="ca">P</div>
+            <div className="ca">
+              <CoachInitial />
+            </div>
             <div className="tx">
               <div className="e">Tu coach</div>
               <div className="m">Repasamos el bloque y ajustamos</div>
@@ -348,7 +353,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Agendada.</b> Al reservar, ve su <b>próxima sesión con Pablo</b> con el enlace de{' '}
+              <b>Agendada.</b> Al reservar, ve su <b>próxima sesión<WithCoach /></b> con el enlace de{' '}
               <b>Meet</b>, y le llega el recordatorio 24h antes.
             </>
           }
@@ -361,7 +366,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M10 21h4" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick">Revisión</div>
@@ -372,7 +377,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
               <span className="slot" style={{ background: 'var(--okSoft)', color: 'var(--ok)' }}>
                 Agendada
               </span>
-              <span className="hk">Tu próxima sesión con Pablo</span>
+              <span className="hk">
+                Tu próxima sesión<WithCoach />
+              </span>
             </div>
             <div className="ht">Revisión mensual</div>
             <div className="meta num">Miércoles 9 · 19:30 · 30 min · Google Meet</div>

@@ -14,7 +14,7 @@
 //   · Fechas bloqueadas — upcoming exceptions; add a date / remove one.
 // Weekly windows + address live in local editable state; exceptions render straight off the
 // server props and re-sync via router.refresh after each mutation. Honest empty state when no
-// windows are defined (leads then see the "Pablo te escribirá" fallback).
+// windows are defined (leads then see the "<coach> te escribirá" fallback).
 
 import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
@@ -488,8 +488,8 @@ export function AvailabilityEditor({
           >
             <MIcon name="info" size={18} className="mt-0.5 text-[color:var(--v2-warn)]" />
             <p className="text-sm text-[color:var(--v2-fg)]">
-              Aún no has definido tu disponibilidad, los leads verán{' '}
-              <span className="font-semibold">“Pablo te escribirá para cuadrar la llamada”</span>.
+              Aún no has definido tu disponibilidad: tus leads no verán huecos, solo un aviso de que{' '}
+              <span className="font-semibold">les escribirás para cuadrar la llamada</span>.
             </p>
           </div>
         ) : null}

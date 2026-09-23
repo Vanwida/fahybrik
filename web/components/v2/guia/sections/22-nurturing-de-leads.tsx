@@ -14,6 +14,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubInitial, ClubMark, Signature, WithCoach } from '../tenant';
 
 // Email palette — LITERALS on purpose: these mirror lib/leads/email-shell.ts, which
 // inlines them because mail clients strip CSS custom properties. Keep them in sync with
@@ -156,7 +157,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             El nurturing no es una pantalla de la app: es un <b>email</b>, corto y en tono cercano, que
             aterriza en la bandeja del lead. Este es el primero de la secuencia «sin cita», tal cual
-            sale desde <b>hello@fahybrid.com</b>.
+            sale: con el nombre de tu club y firmado por ti.
           </>
         }
       >
@@ -317,18 +318,17 @@ function EmailCard() {
                 flexShrink: 0,
               }}
             >
-              F
+              <ClubInitial />
             </span>
             <div style={{ minWidth: 0, lineHeight: 1.3 }}>
               <div style={{ fontSize: '12.5px', fontWeight: 700 }}>
-                FAHYBRID{' '}
-                <span style={{ fontWeight: 400, color: MAIL.faint }}>&lt;hello@fahybrid.com&gt;</span>
+                <ClubMark />
               </div>
               <div style={{ fontSize: '11px', color: MAIL.faint }}>para marc@correo.com</div>
             </div>
           </div>
           <div style={{ fontSize: '13.5px', fontWeight: 800, marginTop: '10px' }}>
-            Reserva tu llamada con Pablo
+            Reserva tu llamada<WithCoach />
           </div>
         </div>
 
@@ -344,14 +344,14 @@ function EmailCard() {
               marginBottom: '10px',
             }}
           >
-            FAHYBRID
+            <ClubMark />
           </div>
           <div style={{ fontSize: '15px', fontWeight: 800, marginBottom: '10px' }}>
             El siguiente paso es una llamada
           </div>
           <p style={{ fontSize: '12.5px', lineHeight: 1.55, margin: '0 0 9px' }}>Hola Marc,</p>
           <p style={{ fontSize: '12.5px', lineHeight: 1.55, margin: '0 0 9px', color: '#33322f' }}>
-            Ya tenemos tus respuestas. El siguiente paso es una videollamada de 30 minutos con Pablo
+            Ya tenemos tus respuestas. El siguiente paso es una videollamada de 30 minutos<WithCoach />{' '}
             para ver tu caso y cómo enfocar tu plan.
           </p>
           <p style={{ fontSize: '12.5px', lineHeight: 1.55, margin: '0 0 14px', color: '#33322f' }}>
@@ -370,7 +370,9 @@ function EmailCard() {
           >
             Reservar mi llamada
           </span>
-          <p style={{ fontSize: '12px', color: '#6a6a6a', margin: '18px 0 0' }}>Pablo · FAHYBRID</p>
+          <p style={{ fontSize: '12px', color: '#6a6a6a', margin: '18px 0 0' }}>
+            <Signature />
+          </p>
           <p style={{ fontSize: '11px', color: MAIL.faint, margin: '14px 0 0' }}>
             Si no quieres más recordatorios,{' '}
             <span style={{ textDecoration: 'underline' }}>cancela aquí</span>.

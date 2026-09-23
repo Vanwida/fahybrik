@@ -156,7 +156,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <div style={{ marginBottom: '20px' }}>
           <FunnelStage
             name="Visitas a la web"
-            def="landing fahybrid.com"
+            def="tu web pública"
             count="420"
             width="100%"
             tone="var(--muted)"

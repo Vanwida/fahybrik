@@ -11,6 +11,7 @@ import {
   DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
+import { ClubMark } from '../tenant';
 
 // Canonical modality hues from the live v2 tokens (never drift from the app).
 const MOD = {
@@ -291,7 +292,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
                 <path d="M10 21h4" />
               </svg>
             </div>
-            <div className="ph-mark">FAHYBRID</div>
+            <div className="ph-mark"><ClubMark /></div>
             <div className="avatar">M</div>
           </div>
           <div className="kick">Miércoles 14 ene</div>
