@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 let listed: unknown[] = [];
 
 vi.mock('@/lib/auth/coach-session', () => ({
-  getCoachSession: async () => ({ coach_id: 7n, user_id: 70n }),
+  getCoachSession: async () => ({ coach_id: BigInt(7), user_id: BigInt(70) }),
 }));
 
 vi.mock('@/lib/coach/events', async (importOriginal) => {
