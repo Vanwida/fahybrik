@@ -149,10 +149,16 @@ async function materializeWithLog(
   const { itemId, coachId, athleteId, target } = params;
   const start = target.start_date!;
   const end = target.end_date!;
+  // Lo que ya había: la ventana del programa y TODA su calibración. Con el primer
+  // plan, el motor inyecta la batería del coach (`scheduleWeek1Calibration`) también
+  // FUERA de la ventana — la semana cero antes del lunes y los re-tests de semanas
+  // posteriores al final —, y eso también es del lote: si no se apunta, «Deshacer»
+  // deja tests sueltos en un atleta que ya no tiene plan.
   const preIds = (
     await tx<Array<{ id: string }>>`
       select id::text from workout_assignments
-      where athlete_id = ${athleteId} and scheduled_for between ${start}::date and ${end}::date
+      where athlete_id = ${athleteId}
+        and (scheduled_for between ${start}::date and ${end}::date or calibration_test_id is not null)
     `
   ).map((r) => Number(r.id));
   // Lo que el motor puede reemplazar o podar en la ventana: copia de antes.
@@ -197,7 +203,8 @@ async function materializeWithLog(
   const created = await tx<Array<{ id: string }>>`
     insert into coach_assign_batch_session_changes (batch_item_id, change, assignment_id)
     select ${itemId}, 'created', wa.id from workout_assignments wa
-    where wa.athlete_id = ${athleteId} and wa.scheduled_for between ${start}::date and ${end}::date
+    where wa.athlete_id = ${athleteId}
+      and (wa.scheduled_for between ${start}::date and ${end}::date or wa.calibration_test_id is not null)
       and wa.id <> all(${preIds}::bigint[]) and wa.origin <> 'self'
     returning assignment_id::text as id
   `;
