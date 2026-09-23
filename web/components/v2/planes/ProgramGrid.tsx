@@ -18,7 +18,7 @@ import { GridCell } from './GridCell';
 import { WeekFocusInput } from './WeekFocusInput';
 
 const DAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-export const GRID_COLUMNS = 'grid-cols-[96px_repeat(7,minmax(114px,1fr))_104px]';
+export const GRID_COLUMNS = 'grid-cols-[124px_repeat(7,minmax(114px,1fr))_104px]';
 
 export interface ProgramGridProps {
   grid: WeekDay[][];

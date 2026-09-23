@@ -46,6 +46,7 @@ export function WeekFocusInput({
       maxLength={200}
       placeholder="Foco…"
       aria-label="Foco de la semana"
+      title={text || undefined}
       onChange={(e) => setText(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => {

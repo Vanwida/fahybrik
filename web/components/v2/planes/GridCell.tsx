@@ -94,7 +94,7 @@ export const GridCell = memo(function GridCell({
         <div className="flex min-w-0 flex-col gap-0.5">
           {shown.map((l) =>
             l.kind === 'title' ? (
-              <p key={l.key} className="truncate text-[12px] leading-4 font-semibold text-v2-fg">
+              <p key={l.key} className="line-clamp-2 break-words text-[12px] leading-4 font-semibold text-v2-fg">
                 {l.text}
               </p>
             ) : (
