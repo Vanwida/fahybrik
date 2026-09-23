@@ -9,6 +9,9 @@
 // nuestro. Por eso el nombre se resuelve en cada envío y la plantilla vive aquí.
 
 import type { Sql } from '@/lib/db';
+import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { athleteSeesItFromWeeklyStatus } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { notifyAthlete } from './dispatch';
 
 /** Cómo se nombra al coach cuando su ficha aún no tiene nombre (alta recién
  *  creada desde Clerk sin perfil, `coaches.full_name` vacío). Sujeto neutro y
@@ -76,4 +79,61 @@ export async function planPublishedPush(
     // se queda el sujeto neutro
   }
   return { title: tpl.title, body: tpl.body(coach) };
+}
+
+/**
+ * La primera semana VISIBLE al atleta de una asignación recién hecha (de
+ * `start_date`, `week_count` semanas), o null si todas están ocultas. Misma puerta
+ * que el móvil: solo un borrador esconde; sin fila se ve.
+ */
+export async function firstVisibleWeek(
+  sql: Sql,
+  athlete_id: bigint | number,
+  start_date: string,
+  week_count: number,
+): Promise<string | null> {
+  const monday = mondayOfWeek(parseIsoDate(start_date));
+  const weeks = Array.from({ length: Math.max(0, week_count) }, (_, i) => isoDateString(addDays(monday, i * 7)));
+  if (weeks.length === 0) return null;
+  const rows = await sql<Array<{ week_start: string; status: string }>>`
+    select to_char(week_start, 'YYYY-MM-DD') as week_start, status::text as status
+    from weekly_plans
+    where athlete_id = ${Number(athlete_id)} and week_start = any(${weeks}::date[])
+  `;
+  const status = new Map(rows.map((r) => [r.week_start, r.status]));
+  return weeks.find((w) => athleteSeesItFromWeeklyStatus(status.get(w))) ?? null;
+}
+
+/**
+ * «Tu plan está listo» tras asignar — SOLO si el atleta ya ve alguna semana de lo
+ * asignado. Un programa que empieza dentro de tres semanas se abre solo N días
+ * antes (y ese día avisa el cron de publicación): avisar hoy era mandarle a una
+ * pantalla vacía. Best-effort: el plan ya está; un aviso fallido no lo deshace.
+ * Devuelve la semana avisada (o null).
+ */
+export async function notifyPlanAssignedIfVisible(params: {
+  sql: Sql;
+  athlete_id: bigint | number;
+  start_date: string;
+  week_count: number;
+}): Promise<string | null> {
+  const { sql } = params;
+  const athlete = BigInt(params.athlete_id);
+  try {
+    const week = await firstVisibleWeek(sql, athlete, params.start_date, params.week_count);
+    if (!week) return null;
+    await notifyAthlete({
+      sql,
+      athlete_id: athlete,
+      type: 'plan_published',
+      payload: { athlete_id: String(athlete), week_start: week, deep_link: `/plan?week=${week}` },
+      push: {
+        ...(await planPublishedPush(sql, athlete, 'assigned')),
+        deeplink: { screen: 'plan', week_start: week },
+      },
+    });
+    return week;
+  } catch {
+    return null;
+  }
 }

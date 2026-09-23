@@ -22,6 +22,7 @@ import {
 } from '@fahybrid/shared/domain/coach-communications';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
 import { weekStartOf, type WeekPublishState, type WeekState } from './shape-write';
 
 /** Cuánto cuerpo de mensaje cabe en una frase de una línea antes de cortarlo. */
@@ -33,8 +34,8 @@ const PREVIEW_MAX_CHARS = 120;
  * Cómo estaba una semana ANTES de publicarla, dicho para el coach.
  *
  * El borrador se parte en dos porque son dos cosas distintas para él: uno
- * `manual` estaba esperándole a ÉL, y uno `scheduled` se le habría abierto solo el
- * sábado — publicarlo es ADELANTARLO, y eso hay que decirlo o el coach no sabe que
+ * `manual` estaba esperándole a ÉL, y uno `scheduled` se le habría abierto solo N
+ * días antes — publicarlo es ADELANTARLO, y eso hay que decirlo o el coach no sabe que
  * ha cambiado el calendario de entrega.
  */
 function wasText(week: WeekState): string {
@@ -42,7 +43,9 @@ function wasText(week: WeekState): string {
     case 'draft':
       return week.delivery_mode === 'manual'
         ? 'estaba en borrador, esperando que la publicaras'
-        : 'estaba en borrador y se le habría abierto sola el sábado: se la has adelantado';
+        : week.opens
+          ? `estaba en borrador y se le habría abierto sola el ${shortDate(week.opens.on)}: se la has adelantado`
+          : 'estaba en borrador y se le habría abierto sola unos días antes: se la has adelantado';
     case 'sin_marcar':
       return 'no estaba marcada (el atleta ya la veía)';
     case 'published':

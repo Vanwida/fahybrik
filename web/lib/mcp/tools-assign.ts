@@ -7,8 +7,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sql } from '@/lib/db';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanAssignedIfVisible } from '@/lib/notifications/plan-published';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import {
   AssignMonthError,
@@ -91,22 +90,16 @@ export function registerAssignTools(server: McpServer): void {
           week_count: result.microcycle_ids.length,
         });
 
-        if (result.assignment_count > 0) {
-          await notifyAthlete({
-            sql,
-            athlete_id: BigInt(args.athlete_id),
-            type: 'plan_published',
-            payload: {
-              athlete_id: args.athlete_id,
-              week_start: result.start_date,
-              deep_link: `/plan?week=${result.start_date}`,
-            },
-            push: {
-              ...(await planPublishedPush(sql, BigInt(args.athlete_id), 'assigned')),
-              deeplink: { screen: 'plan', week_start: result.start_date },
-            },
-          }).catch(() => undefined);
-        }
+        // «Tu plan está listo» solo si ya ve alguna semana de lo asignado.
+        const notified =
+          result.assignment_count > 0
+            ? await notifyPlanAssignedIfVisible({
+                sql,
+                athlete_id: BigInt(args.athlete_id),
+                start_date: result.start_date,
+                week_count: result.microcycle_ids.length,
+              })
+            : null;
 
         return ok(
           {
@@ -118,9 +111,14 @@ export function registerAssignTools(server: McpServer): void {
             end_date: result.end_date,
             assignment_count: result.assignment_count,
             week_count: result.microcycle_ids.length,
+            /** Primera semana que el atleta ya ve (y de la que se le ha avisado), o null. */
+            visible_from: notified,
           },
           `${athlete.full_name}: asignado el microciclo del ${result.start_date} al ${result.end_date} ` +
-            `(${result.assignment_count} ${result.assignment_count === 1 ? 'sesión' : 'sesiones'}).`,
+            `(${result.assignment_count} ${result.assignment_count === 1 ? 'sesión' : 'sesiones'}). ` +
+            (notified
+              ? `Ya lo ve desde la semana del ${notified} y se le ha avisado.`
+              : 'Todavía no lo ve: cada semana se le abre sola unos días antes de empezar, y entonces se le avisa.'),
         );
       }),
   );

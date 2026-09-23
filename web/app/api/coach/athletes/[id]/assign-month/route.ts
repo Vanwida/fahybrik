@@ -7,8 +7,7 @@ import {
 } from '@/lib/dashboard/programming/assign-month';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { assignMonthInputSchema } from '@fahybrid/shared/schema/assign-month';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanAssignedIfVisible } from '@/lib/notifications/plan-published';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,10 +46,9 @@ export async function POST(
       start_week_number: parsed.data.start_week_number,
     });
 
-    // STAGGERED DELIVERY: leave the first week published (delivered now) and mark
-    // every subsequent week as draft, so the athlete sees only the current week.
-    // The Saturday cron (publish-weekly-plans) unlocks the next week each weekend.
-    // Without this, a multi-week microciclo would surface all weeks at once.
+    // AUTO DELIVERY: each week opens by itself N days before it starts (the coach's
+    // rule); a week already due is visible now. Without this, a multi-week
+    // programa would surface all weeks at once.
     await markFutureWeeksDraft({
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
@@ -58,26 +56,16 @@ export async function POST(
       week_count: result.microcycle_ids.length,
     });
 
-    // Notifica al atleta que su coach publicó el plan — solo si se materializó
-    // al menos una sesión (publicar un microciclo vacío no entrega nada que
-    // ver). Best-effort: el assign ya está commiteado; un push fallido no
-    // revierte la publicación (mismo patrón que el cron de publicación semanal).
+    // «Tu plan está listo» solo si ya ve alguna semana de lo asignado (un programa
+    // que empieza más adelante se abre N días antes y avisa entonces el cron).
     if (result.assignment_count > 0) {
       const { sql } = await import('@/lib/db');
-      await notifyAthlete({
+      await notifyPlanAssignedIfVisible({
         sql,
         athlete_id: BigInt(parsedId.data.id),
-        type: 'plan_published',
-        payload: {
-          athlete_id: parsedId.data.id,
-          week_start: result.start_date,
-          deep_link: `/plan?week=${result.start_date}`,
-        },
-        push: {
-          ...(await planPublishedPush(sql, BigInt(parsedId.data.id), 'assigned')),
-          deeplink: { screen: 'plan', week_start: result.start_date },
-        },
-      }).catch(() => undefined);
+        start_date: result.start_date,
+        week_count: result.microcycle_ids.length,
+      });
     }
 
     return jsonOk({ assign_month: result });
