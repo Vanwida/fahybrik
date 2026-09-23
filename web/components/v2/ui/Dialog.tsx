@@ -128,6 +128,10 @@ export function Sheet({
       <DialogPrimitive.Portal container={container}>
         {modal ? <Backdrop /> : null}
         <DialogPrimitive.Popup
+          // No modal: el foco se queda donde estaba (la fila de la tabla), para
+          // que J/K sigan cambiando de atleta con el panel abierto.
+          initialFocus={modal ? undefined : false}
+          finalFocus={modal ? undefined : false}
           className={cn(
             'fixed inset-y-0 right-0 flex w-full flex-col border-l border-v2-border bg-v2-elevated text-v2-fg outline-none',
             'shadow-pop sm:inset-y-2 sm:right-2 sm:rounded-panel sm:border',

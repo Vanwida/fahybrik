@@ -105,7 +105,7 @@ export function ErrorState({
 
 /** Bloque de carga con la forma de lo que viene (por componente, no genérico). */
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('animate-pulse rounded-[4px] bg-v2-surface-2 motion-reduce:animate-none', className)} />;
+  return <div aria-hidden className={cn('animate-pulse rounded-[4px] bg-v2-select motion-reduce:animate-none', className)} />;
 }
 
 /** N filas de 40 px con avatar + dos líneas: el esqueleto de una tabla o bandeja. */

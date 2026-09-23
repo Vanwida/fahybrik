@@ -64,7 +64,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap font-medium',
+        'inline-flex min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap font-medium',
         size === 'sm' ? 'text-[12px] leading-4' : 'text-[13px] leading-[18px]',
         variant === 'text' ? TONE_TEXT[tone] : cn(TONE_SOFT[tone], 'rounded-ctl', size === 'sm' ? 'h-5 px-1.5' : 'h-6 px-2'),
         className,

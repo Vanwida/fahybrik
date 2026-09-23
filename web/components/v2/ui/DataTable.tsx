@@ -35,7 +35,8 @@ export interface DataTableColumn<T> {
   /** Primera dirección al pulsar (fechas recientes / peor primero → 'desc'). */
   defaultDir?: SortDir;
   align?: 'left' | 'right' | 'center';
-  /** Ancho CSS de la columna («160px», «18%»). Sin él, reparte. */
+  /** Ancho CSS desde sm («160px», «18%»). Las columnas sin ancho se reparten
+   *  el resto a partes iguales (table-layout: fixed → filas que no bailan). */
   width?: string;
   /** Oculta la columna por debajo de ese ancho (móvil = triaje). */
   hideBelow?: 'sm' | 'md' | 'lg' | 'xl';
@@ -81,6 +82,24 @@ const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' } 
 const ROW_H = { compact: 40, comfy: 48 } as const;
 const VIRTUAL_MIN = 80;
 
+const BP_MIN = { sm: 640, md: 768, lg: 1024, xl: 1280 } as const;
+
+/**
+ * Ancho de la ventana → columnas que caben. Con table-layout: fixed una columna
+ * oculta solo por CSS sigue reservando su hueco, así que las que no tocan en
+ * este ancho ni se pintan. Antes de hidratar se pintan todas (y el CSS las oculta).
+ */
+function useViewportWidth(): number | null {
+  const [w, setW] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => setW(window.innerWidth);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return w;
+}
+
 function isEditable(el: EventTarget | null): boolean {
   const node = el as HTMLElement | null;
   if (!node) return false;
@@ -105,7 +124,7 @@ function isInteractive(el: EventTarget | null, stop: HTMLElement): boolean {
  */
 export function DataTable<T>({
   rows,
-  columns,
+  columns: allColumns,
   getRowId,
   sort: sortProp,
   onSortChange,
@@ -139,14 +158,20 @@ export function DataTable<T>({
   const scroller = useRef<HTMLDivElement>(null);
   const [scroll, setScroll] = useState({ top: 0, height: 600 });
 
+  const viewport = useViewportWidth();
+  const columns = useMemo(
+    () => (viewport == null ? allColumns : allColumns.filter((c) => !c.hideBelow || viewport >= BP_MIN[c.hideBelow])),
+    [allColumns, viewport],
+  );
+
   const selectable = Boolean(onSelectionChange);
   const selected = useMemo(() => selection ?? [], [selection]);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   const sorted = useMemo(() => {
-    const col = sort ? columns.find((c) => c.id === sort.id) : undefined;
+    const col = sort ? allColumns.find((c) => c.id === sort.id) : undefined;
     return col?.sortValue && sort ? sortRows(rows, col.sortValue, sort.dir) : rows;
-  }, [rows, columns, sort]);
+  }, [rows, allColumns, sort]);
   const ordered = useMemo(() => sorted.map(getRowId), [sorted, getRowId]);
 
   const rowH = ROW_H[density];
@@ -260,11 +285,17 @@ export function DataTable<T>({
       )}
       style={maxHeight ? { maxHeight } : undefined}
     >
-      <table aria-label={ariaLabel} aria-rowcount={sorted.length + 1} className="w-full border-separate border-spacing-0 t-body-sm">
+      <table aria-label={ariaLabel} aria-rowcount={sorted.length + 1} className="w-full table-fixed border-separate border-spacing-0 t-body-sm">
         <colgroup>
           {selectable ? <col style={{ width: 44 }} /> : null}
+          {/* Los anchos valen desde sm: en el móvil las columnas que quedan se
+              reparten el ancho (si no, una fija de 200 px aplasta a las demás). */}
           {columns.map((c) => (
-            <col key={c.id} style={c.width ? { width: c.width } : undefined} />
+            <col
+              key={c.id}
+              className={c.width ? 'sm:w-[var(--col-w)]' : undefined}
+              style={c.width ? ({ '--col-w': c.width } as CSSProperties) : undefined}
+            />
           ))}
         </colgroup>
         <thead>
@@ -300,7 +331,7 @@ export function DataTable<T>({
                       type="button"
                       onClick={() => onHeaderSort(col)}
                       className={cn(
-                        'group/sort -mx-1 inline-flex items-center gap-1 rounded-[4px] px-1 uppercase outline-none',
+                        'group/sort -mx-1 inline-flex items-center gap-1 rounded-[4px] px-1 align-middle uppercase outline-none',
                         'hover:text-v2-fg focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]',
                         active && 'text-v2-fg',
                         col.align === 'right' && 'flex-row-reverse',
@@ -321,7 +352,12 @@ export function DataTable<T>({
             })}
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          onMouseDown={(e) => {
+            // ⇧-clic selecciona un rango de filas, no un rango de texto.
+            if (e.shiftKey) e.preventDefault();
+          }}
+        >
           {windowed && start > 0 ? (
             <tr aria-hidden style={{ height: start * rowH }}>
               <td colSpan={colCount} />
@@ -371,7 +407,7 @@ export function DataTable<T>({
                   <td
                     key={col.id}
                     className={cn(
-                      'max-w-0 truncate px-3 align-middle text-v2-fg first:pl-4 last:pr-4',
+                      'truncate px-3 align-middle text-v2-fg first:pl-4 last:pr-4',
                       ALIGN[col.align ?? 'left'],
                       col.align === 'right' && 't-tnum',
                       col.hideBelow && HIDE[col.hideBelow],

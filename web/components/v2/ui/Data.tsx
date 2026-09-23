@@ -144,7 +144,7 @@ export function Sparkline({
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
-        className="overflow-visible"
+        className="max-w-full overflow-visible"
         onPointerMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           const rel = ((e.clientX - r.left) / r.width) * width;
