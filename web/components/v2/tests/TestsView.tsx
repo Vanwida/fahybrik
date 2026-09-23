@@ -167,9 +167,11 @@ export function TestsView({
         subtitle="Fijan el punto de partida de cada atleta: sus zonas y sus máximos."
         actions={
           <>
-            <Button loading={restoring} onClick={() => void applyDefaults()}>
-              Usar la batería por defecto
-            </Button>
+            {tests.length > 0 ? (
+              <Button loading={restoring} className="max-sm:hidden" onClick={() => void applyDefaults()}>
+                Usar la batería por defecto
+              </Button>
+            ) : null}
             <Button variant="primary" icon={Plus} onClick={() => setDraft(emptyTestDraft())}>
               Nuevo test
             </Button>

@@ -309,10 +309,10 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
             <Button icon={Eye} onClick={() => setPreview(true)}>
               Vista atleta
             </Button>
-            <Button icon={TrendingUp} onClick={() => setProgress('load')}>
+            <Button icon={TrendingUp} className="max-sm:hidden" onClick={() => setProgress('load')}>
               Progresar selección…
             </Button>
-            <Button icon={BookOpen} className="min-[1600px]:hidden" onClick={() => setLibOpen(true)}>
+            <Button icon={BookOpen} className="max-sm:hidden min-[1600px]:hidden" onClick={() => setLibOpen(true)}>
               Biblioteca
             </Button>
             <Button variant="primary" icon={UserPlus} onClick={() => setAssign(true)}>
