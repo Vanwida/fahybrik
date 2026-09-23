@@ -20,10 +20,11 @@
 // atleta, que es para quien se graba.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
 import { MAX_AUDIO_SECONDS } from '@fahybrid/shared/domain/coach-communications';
 import { canRecordVoice, VoiceRecorder, VoiceRecordingError } from '@/components/v2/chat/voice-recorder';
 import { pedirSubidaDeAudio } from './api';
+import { AudioLines, Mic, Square, X } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 /** Cada cuánto se refresca el contador mientras se graba, en ms. */
 const TICK_MS = 200;
@@ -135,19 +136,13 @@ export function GrabadorDeAudio({
       ) : audio ? (
         <Reproductor audio={audio} onQuitar={() => onCambiar(null)} disabled={disabled} />
       ) : (
-        <button
-          type="button"
-          onClick={() => void empezar()}
-          disabled={disabled || subiendo}
-          className="v2-focus inline-flex h-9 w-fit items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
-        >
-          <MIcon name={subiendo ? 'progress_activity' : 'mic'} size={16} className={subiendo ? 'animate-spin' : undefined} />
+        <Button size="sm" icon={Mic} loading={subiendo} disabled={disabled} onClick={() => void empezar()} className="w-fit">
           {subiendo ? 'Guardando el audio…' : 'Grabar una nota de voz'}
-        </button>
+        </Button>
       )}
 
       {fallo ? (
-        <p className="text-label font-medium text-[color:var(--v2-danger)]">{fallo}</p>
+        <p className="t-meta font-medium text-[color:var(--v2-danger)]">{fallo}</p>
       ) : null}
     </div>
   );
@@ -165,31 +160,22 @@ function BarraGrabando({
   onCortar: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2.5 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
       <span
         aria-hidden
         className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[color:var(--v2-danger)] motion-reduce:animate-none"
       />
-      <span className="text-label font-semibold text-[color:var(--v2-fg)]">Grabando</span>
-      <span className="v2-num text-label tabular-nums text-[color:var(--v2-muted)]" role="timer">
+      <span className="t-meta font-semibold text-[color:var(--v2-fg)]">Grabando</span>
+      <span className="t-tnum t-meta tabular-nums text-[color:var(--v2-muted)]" role="timer">
         {duracionCorta(segundos)}
       </span>
       <span className="flex-1" />
-      <button
-        type="button"
-        onClick={onDescartar}
-        className="v2-focus rounded-[var(--v2-r-pill)] px-2 py-1 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-      >
+      <Button size="sm" variant="ghost" onClick={onDescartar}>
         Descartar
-      </button>
-      <button
-        type="button"
-        onClick={onCortar}
-        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)]"
-      >
-        <MIcon name="stop" size={15} filled />
+      </Button>
+      <Button size="sm" icon={Square} onClick={onCortar}>
         Listo
-      </button>
+      </Button>
     </div>
   );
 }
@@ -206,22 +192,14 @@ function Reproductor({
   disabled: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-      <MIcon name="graphic_eq" size={17} className="shrink-0 text-[color:var(--v2-accent-text)]" />
-      <span className="text-label font-semibold text-[color:var(--v2-fg)]">Nota de voz</span>
-      <span className="v2-num text-label tabular-nums text-[color:var(--v2-muted)]">
+    <div className="flex flex-wrap items-center gap-2.5 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
+      <AudioLines aria-hidden strokeWidth={1.75} className="size-4 shrink-0 text-v2-muted" />
+      <span className="t-meta font-semibold text-[color:var(--v2-fg)]">Nota de voz</span>
+      <span className="t-tnum t-meta tabular-nums text-[color:var(--v2-muted)]">
         {duracionCorta(audio.seconds)}
       </span>
       <audio src={audio.url} controls preload="none" className="h-8 min-w-0 flex-1" />
-      <button
-        type="button"
-        onClick={onQuitar}
-        disabled={disabled}
-        aria-label="Quitar la nota de voz"
-        className="v2-focus shrink-0 rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-50"
-      >
-        <MIcon name="close" size={16} />
-      </button>
+      <IconButton icon={X} size="sm" onClick={onQuitar} disabled={disabled} label="Quitar la nota de voz" className="hover:text-v2-danger" />
     </div>
   );
 }

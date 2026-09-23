@@ -86,7 +86,7 @@ export function SeccionGrafica({
           onChange={(weeks) => onCambiar(conOtroTamano(grafica, Number(weeks)))}
           ariaLabel={`Periodo de la gráfica de la sección ${indice + 1}`}
         />
-        <span className="text-label text-[color:var(--v2-faint)]">
+        <span className="t-meta text-[color:var(--v2-faint)]">
           De la semana del {formatWeekLong(grafica.week_start)} a la del {formatWeekLong(fin)}. El
           periodo se congela: dentro de tres meses seguirá contando esta misma historia.
         </span>
@@ -113,7 +113,7 @@ export function SeccionGrafica({
           />
         </div>
       ) : (
-        <span className="text-label text-[color:var(--v2-faint)]">
+        <span className="t-meta text-[color:var(--v2-faint)]">
           Sin marcas encima. Se publica igual: verá su gráfica y lo que le escribas debajo. Para
           señalarle un tramo, márcalo sobre la gráfica de Rendimiento y vuelve a «Dar feedback».
         </span>

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { KIND_LABEL, type CommunicationKind } from '@fahybrid/shared/domain/coach-communications';
 import { Campo } from './campos';
 import { listarDeAtleta, listarPublicados } from './api';
+import { Select } from '@/components/v2/ui';
 
 /** Lo mínimo para elegir uno de la lista: qué es y cómo se llama. */
 export interface CandidatoEnlace {
@@ -44,19 +45,17 @@ export function EnlaceCruzado({
       htmlFor="enlace-cruzado"
       ayuda="Lo que le falta a esto para cerrarse. Le sale al final, y cuando lo resuelva se queda como el recibo de lo que decidió."
     >
-      <select
+      <Select
         id="enlace-cruzado"
+        size="lg"
         value={valor}
-        onChange={(e) => onChange(e.target.value)}
-        className="v2-focus w-full max-w-[420px] rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-3 py-2.5 text-body text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)] focus:outline-none"
-      >
-        <option value={SIN_ENLACE}>Sin enlazar</option>
-        {candidatos.map((c) => (
-          <option key={c.id} value={c.id}>
-            {KIND_LABEL[c.kind]} · {c.title}
-          </option>
-        ))}
-      </select>
+        onValueChange={onChange}
+        className="w-full max-w-[420px]"
+        options={[
+          { value: SIN_ENLACE, label: 'Sin enlazar' },
+          ...candidatos.map((c) => ({ value: c.id, label: `${KIND_LABEL[c.kind]} · ${c.title}` })),
+        ]}
+      />
     </Campo>
   );
 }

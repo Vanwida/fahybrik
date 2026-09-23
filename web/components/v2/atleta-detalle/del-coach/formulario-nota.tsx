@@ -23,7 +23,6 @@ import {
   REPARTO_MIN_SEGMENTS,
   type CommunicationDisplay,
 } from '@fahybrid/shared/domain/coach-communications';
-import { MIcon } from '@/components/ui/MIcon';
 import {
   anclaSirveParaCamino,
   anclaSirveParaComparativa,
@@ -50,6 +49,8 @@ import {
   RotuloFila,
 } from './campos';
 import type { PropsFormulario } from './formularios';
+import { X } from 'lucide-react';
+import { IconButton } from '@/components/v2/ui';
 
 /** Cómo se llama cada forma para el coach. Las tres últimas se nombran distinto
  *  a propósito: no son formatos de texto como las tres primeras, son cosas que se
@@ -145,7 +146,7 @@ export function FormNota({ b, set, errores, idp, onFoco }: PropsFormulario) {
                 onChange={(display) => cambiar(i, { display })}
                 ariaLabel={`Forma de la sección ${i + 1}`}
               />
-              <span className="text-label text-[color:var(--v2-faint)]">
+              <span className="t-meta text-[color:var(--v2-faint)]">
                 {QUE_ES[seccion.display]}
               </span>
               <Seccion
@@ -164,7 +165,7 @@ export function FormNota({ b, set, errores, idp, onFoco }: PropsFormulario) {
           onClick={() => set({ sections: [...b.sections, filaVacia()] })}
           disabled={b.sections.length >= MAX_ITEMS}
         >
-          + Añadir sección
+          Añadir sección
         </BotonAnadir>
       </Campo>
     </>
@@ -305,7 +306,7 @@ function Seccion({
             ariaLabel={`La cifra de la sección ${indice + 1}`}
             onChange={(v) => onCambiar({ content: v })}
             placeholder="1:15 a 1:18"
-            className="v2-num text-base font-bold"
+            className="t-tnum text-base font-semibold"
           />
           {err('content') ? <ErrorCampo mensaje={err('content')!} /> : null}
         </div>
@@ -415,7 +416,7 @@ function Segmentos({
               ariaLabel={`Cuánto pesa el trozo ${i + 1}`}
               onChange={(v) => cambiar(i, { value: v })}
               placeholder={i === 0 ? '3' : undefined}
-              className="v2-num text-right"
+              className="t-tnum text-right"
             />
             {errorDe(i, 'value_num') ? <ErrorCampo mensaje="Escribe un número." /> : null}
           </div>
@@ -430,22 +431,21 @@ function Segmentos({
             />
             {errorDe(i, 'label') ? <ErrorCampo mensaje={errorDe(i, 'label')!} /> : null}
           </div>
-          <button
-            type="button"
+          <IconButton
+            icon={X}
+            size="sm"
             onClick={() => onCambiar(sinLa(segmentos, i))}
             disabled={segmentos.length <= REPARTO_MIN_SEGMENTS}
-            aria-label={`Quitar el trozo ${i + 1}`}
-            className="v2-focus mt-1 shrink-0 rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <MIcon name="close" size={16} />
-          </button>
+            label={`Quitar el trozo ${i + 1}`}
+            className="mt-1.5 hover:text-v2-danger"
+          />
         </div>
       ))}
       <BotonAnadir
         onClick={() => onCambiar([...segmentos, segmentoVacio()])}
         disabled={segmentos.length >= REPARTO_MAX_SEGMENTS}
       >
-        + Añadir trozo
+        Añadir trozo
       </BotonAnadir>
     </div>
   );

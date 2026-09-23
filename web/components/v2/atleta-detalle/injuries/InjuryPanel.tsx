@@ -12,7 +12,8 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { Button, EmptyState as UiEmptyState, ErrorState } from '@/components/v2/ui';
+import { Plus } from 'lucide-react';
 import { Panel } from '../parts';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 import type { InjuryDTO } from '@fahybrid/shared/schema/injuries';
@@ -20,7 +21,6 @@ import {
   INJURY_ZONE_LABEL,
   type InjuryStatus,
 } from '@fahybrid/shared/domain/coach/injury-taxonomy';
-import { cn } from '@/lib/utils';
 import { useInjuries } from './use-injuries';
 import {
   buildTimeline,
@@ -76,16 +76,16 @@ function Timeline({ entries }: { entries: InjuryTimelineEntry[] }) {
             style={{ background: 'var(--v2-accent)' }}
           />
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="v2-num text-label font-semibold text-[color:var(--v2-faint)]">
+            <span className="t-tnum t-meta font-semibold text-[color:var(--v2-faint)]">
               {formatInjuryDate(e.at)} · {BY_LABEL[e.by]}
             </span>
             {e.kind === 'created' ? (
-              <Pill tone="neutral" className="px-1.5 py-0 text-eyebrow">
+              <Pill tone="neutral" className="px-1.5 py-0 t-meta">
                 registrada
               </Pill>
             ) : null}
             {e.status ? (
-              <Pill tone={statusMeta(e.status).tone} variant="soft" className="px-1.5 py-0 text-eyebrow">
+              <Pill tone={statusMeta(e.status).tone} variant="soft" className="px-1.5 py-0 t-meta">
                 → {statusMeta(e.status).label}
               </Pill>
             ) : null}
@@ -114,22 +114,15 @@ function CardButton({
   colorVar?: string;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      size="sm"
+      variant={variant === 'ghost' ? 'ghost' : 'secondary'}
       onClick={onClick}
-      className={cn(
-        'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border px-2.5 text-xs font-semibold transition-colors',
-        variant === 'accent'
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]'
-          : variant === 'toned'
-            ? 'border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]'
-            : 'border-[color:var(--v2-border)] text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]',
-      )}
       style={variant === 'toned' && colorVar ? { color: `var(${colorVar})` } : undefined}
     >
-      <MIcon name={icon} size={15} />
+      <MIcon name={icon} size={14} />
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -158,13 +151,13 @@ function OpenInjuryCard({
 
   return (
     <div
-      className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5"
+      className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5"
       style={{ borderLeft: `3px solid var(${toneColorVar(status.tone)})` }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-bold text-[color:var(--v2-fg)]">
+            <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
               {zoneAndTypeLabel(injury)}
             </span>
             <Pill tone={status.tone} variant="soft">
@@ -174,7 +167,7 @@ function OpenInjuryCard({
               {severity.label}
             </Pill>
           </div>
-          <p className="v2-num mt-1 text-label text-[color:var(--v2-muted)]">{meta}</p>
+          <p className="t-tnum mt-1 t-meta text-[color:var(--v2-muted)]">{meta}</p>
         </div>
       </div>
 
@@ -212,12 +205,12 @@ function OpenInjuryCard({
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[color:var(--v2-border)] pt-2.5">
-        <p className="text-label leading-snug text-[color:var(--v2-faint)]">
+        <p className="t-meta leading-snug text-[color:var(--v2-faint)]">
           Las sesiones adaptadas no cuentan como fallo de adherencia.
         </p>
         <Link
           href={`/atletas/${athleteId}?tab=sesiones`}
-          className="v2-focus inline-flex shrink-0 items-center gap-1 text-label font-semibold text-[color:var(--v2-accent-text)]"
+          className="v2-focus inline-flex shrink-0 items-center gap-1 t-meta font-semibold text-v2-fg"
         >
           <MIcon name="north_east" size={13} /> Ver 1:1
         </Link>
@@ -235,12 +228,12 @@ function ResolvedRow({ injury }: { injury: InjuryDTO }) {
     .filter(Boolean)
     .join(' → ');
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-panel border border-[color:var(--v2-border)] px-3 py-2">
       <div className="min-w-0">
-        <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
+        <span className="truncate t-body-sm font-semibold text-[color:var(--v2-fg)]">
           {zoneAndTypeLabel(injury)}
         </span>
-        <span className="v2-num ml-2 text-label text-[color:var(--v2-faint)]">{range}</span>
+        <span className="t-tnum ml-2 t-meta text-[color:var(--v2-faint)]">{range}</span>
       </div>
       <Pill tone="ok" variant="soft" className="shrink-0">
         {severityMeta(injury.severity).label}
@@ -278,38 +271,20 @@ export function InjuryPanel({
     <Panel
       title="Lesiones"
       action={
-        <button
-          type="button"
-          onClick={() => setDialog({ kind: 'register' })}
-          className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="add" size={14} /> Registrar
-        </button>
+        <Button size="sm" icon={Plus} onClick={() => setDialog({ kind: 'register' })}>
+          Registrar
+        </Button>
       }
       bodyClassName="flex flex-col gap-3"
     >
       {loading ? (
         <div className="flex flex-col gap-2" aria-hidden>
-          <div className="h-16 animate-pulse rounded-[var(--v2-r-m)] bg-[color:var(--v2-surface-2)]" />
+          <div className="h-16 animate-pulse rounded-panel bg-[color:var(--v2-surface-2)]" />
         </div>
       ) : loadError ? (
-        <div className="flex flex-col items-start gap-2 py-2">
-          <p className="text-sm text-[color:var(--v2-danger)]">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => reload()}
-            className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
-          >
-            <MIcon name="refresh" size={15} /> Reintentar
-          </button>
-        </div>
+        <ErrorState title={loadError} onRetry={() => reload()} />
       ) : open.length === 0 && resolved.length === 0 ? (
-        <EmptyState
-          icon="health_and_safety"
-          title="Sin lesiones registradas"
-          description="Cuando el atleta o tú registréis una lesión, aparecerá aquí con su evolución y las sesiones adaptadas."
-          className="border-none py-6"
-        />
+        <UiEmptyState title="Sin lesiones registradas" />
       ) : (
         <>
           {open.map((injury) => (
@@ -324,7 +299,7 @@ export function InjuryPanel({
 
           {resolved.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="v2-micro">Histórico</span>
+              <span className="t-label text-v2-faint">Histórico</span>
               {resolved.map((injury) => (
                 <ResolvedRow key={injury.id} injury={injury} />
               ))}

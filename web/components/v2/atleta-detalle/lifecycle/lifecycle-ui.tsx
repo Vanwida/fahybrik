@@ -5,24 +5,13 @@
 // One home so the pause dialog, the baja dialog and the pending-request banner all
 // read the same — reason labels come from shared/domain (DRY), never re-typed here.
 
-import { Button, FilterChip } from '@/components/v2/ui';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import {
   PAUSE_REASONS,
   PAUSE_REASON_LABELS,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
-
-// ── Clases de campo (las mismas que los primitivos Input/Textarea) ─────────────
-const FIELD_BASE = cn(
-  'w-full min-w-0 rounded-ctl border border-v2-border bg-v2-surface px-3 text-sm text-v2-fg',
-  'placeholder:text-v2-faint outline-none hover:border-v2-border-strong',
-  'focus-visible:border-v2-border-strong focus-visible:shadow-[0_0_0_3px_var(--v2-accent-soft)]',
-  'disabled:cursor-not-allowed disabled:opacity-50',
-);
-
-export const DATE_INPUT_CLS = cn(FIELD_BASE, 'h-10');
-export const TEXTAREA_CLS = cn(FIELD_BASE, 'resize-y py-2 leading-5');
 
 // ── Campo ───────────────────────────────────────────────────────────────────────
 export function DialogField({
@@ -48,7 +37,7 @@ export function DialogField({
   );
 }
 
-// ── Motivo (pausa y baja): una elección, como chips de filtro ─────────────────────
+// ── Motivo (pausa y baja): una elección a un toque ─────────────────────
 export function ReasonChips({
   value,
   onChange,
@@ -59,13 +48,13 @@ export function ReasonChips({
   disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label="Motivo" className={cn('flex flex-wrap gap-1.5', disabled && 'pointer-events-none opacity-50')}>
-      {PAUSE_REASONS.map((r) => (
-        <FilterChip key={r} active={r === value} onClick={() => onChange(r)}>
-          {PAUSE_REASON_LABELS[r]}
-        </FilterChip>
-      ))}
-    </div>
+    <ChipGroup
+      mono={false}
+      ariaLabel="Motivo"
+      value={value}
+      onChange={onChange}
+      options={PAUSE_REASONS.map((r) => ({ value: r, label: PAUSE_REASON_LABELS[r], disabled }))}
+    />
   );
 }
 

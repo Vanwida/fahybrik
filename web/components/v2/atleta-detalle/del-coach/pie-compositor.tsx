@@ -7,8 +7,7 @@
 // antes de pulsar — qué falla, qué se pierde si cierra, y qué le va a pasar al
 // atleta — que juntas pesan tanto como el formulario entero.
 
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/v2/ui';
 import { GrabadorDeAudio, type AudioDelComunicado } from './audio';
 
 /** Qué está mandándose ahora mismo. Null = nada en vuelo. */
@@ -56,37 +55,23 @@ export function PieCompositor({
   const ocupado = enviando !== null;
 
   return (
-    <div className="flex shrink-0 flex-col gap-2.5 border-t border-[color:var(--v2-border)] p-4 sm:p-5">
+    <div className="flex shrink-0 flex-col gap-2.5 border-t border-v2-border p-4 sm:p-5">
       {fallo ? (
-        <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2 text-label font-medium text-[color:var(--v2-danger)]">
+        <p role="alert" className="t-body-sm font-medium text-v2-danger">
           {fallo}
         </p>
       ) : null}
-      {faltaAlgo ? (
-        <p className="text-label font-medium text-[color:var(--v2-danger)]">
-          Falta algo por rellenar. Los campos en rojo dicen qué.
-        </p>
-      ) : null}
+      {faltaAlgo ? <p className="t-body-sm text-v2-danger">Falta algo por rellenar. Los campos en rojo dicen qué.</p> : null}
       {confirmarCierre ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-3 py-2">
-          <span className="text-label font-medium text-[color:var(--v2-fg)]">
-            Tienes cosas escritas. Si cierras ahora se pierden.
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ctl bg-v2-warn-soft px-3 py-2">
+          <span className="t-body-sm text-v2-fg">Tienes cosas escritas. Si cierras ahora se pierden.</span>
           <span className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onSeguirEscribiendo}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-            >
+            <Button size="sm" variant="ghost" onClick={onSeguirEscribiendo}>
               Seguir escribiendo
-            </button>
-            <button
-              type="button"
-              onClick={onCerrarYPerder}
-              className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-semibold text-[color:var(--v2-fg)]"
-            >
+            </Button>
+            <Button size="sm" variant="destructive" onClick={onCerrarYPerder}>
               Cerrar y perderlo
-            </button>
+            </Button>
           </span>
         </div>
       ) : null}
@@ -95,37 +80,27 @@ export function PieCompositor({
           y lo primero que tiene que poder repasar antes de mandarlo. */}
       <GrabadorDeAudio audio={audio} onCambiar={onAudio} disabled={ocupado} />
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="primary"
+          size="lg"
           onClick={() => void principal.hacer()}
-          disabled={ocupado}
-          className={cn(
-            'v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-pill)] px-5 text-body font-bold transition-opacity',
-            'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:opacity-90 disabled:opacity-50',
-          )}
+          disabled={ocupado && enviando !== principal.clave}
+          loading={enviando === principal.clave}
         >
-          {enviando === principal.clave ? (
-            <MIcon name="progress_activity" size={16} className="animate-spin" />
-          ) : null}
           {principal.texto}
-        </button>
+        </Button>
         {ofreceBorrador ? (
-          <button
-            type="button"
+          <Button
+            size="lg"
             onClick={onGuardarBorrador}
-            disabled={ocupado}
-            className="v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-4 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)] disabled:opacity-50"
+            disabled={ocupado && enviando !== 'borrador'}
+            loading={enviando === 'borrador'}
           >
-            {enviando === 'borrador' ? (
-              <MIcon name="progress_activity" size={16} className="animate-spin" />
-            ) : null}
             Guardar sin publicar
-          </button>
+          </Button>
         ) : null}
-        <span className="min-w-[200px] flex-1 text-label leading-relaxed text-[color:var(--v2-muted)]">
-          {nota}
-        </span>
+        <span className="min-w-[200px] flex-1 t-meta text-v2-muted">{nota}</span>
       </div>
     </div>
   );

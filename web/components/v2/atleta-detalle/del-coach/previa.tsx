@@ -162,8 +162,8 @@ export function ColumnaPrevia({
     <>
       <div className="hidden lg:block lg:sticky lg:top-0">
         <div className="mb-2.5 flex items-baseline justify-between gap-2">
-          <span className="v2-micro">Cómo le queda</span>
-          <span className="text-label text-[color:var(--v2-muted)]">Su móvil</span>
+          <span className="t-label text-v2-faint">Cómo le queda</span>
+          <span className="t-meta text-[color:var(--v2-muted)]">Su móvil</span>
         </div>
         <div className="h-[min(600px,58vh)]">
           <PreviaMovil
@@ -181,7 +181,7 @@ export function ColumnaPrevia({
       </div>
 
       <details className="lg:hidden">
-        <summary className="v2-focus cursor-pointer list-none rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-4 py-2.5 text-center text-body font-semibold text-[color:var(--v2-fg)]">
+        <summary className="v2-focus cursor-pointer list-none rounded-ctl border border-[color:var(--v2-border-strong)] px-4 py-2.5 text-center t-body-sm font-semibold text-[color:var(--v2-fg)]">
           Ver cómo le queda
         </summary>
         <div className="mt-3 h-[520px]">
@@ -400,7 +400,7 @@ export function PieDePrevia({ b }: { b: Borrador }) {
     ),
   };
   return (
-    <p className="text-label leading-relaxed text-[color:var(--v2-muted)] [&_b]:font-semibold [&_b]:text-[color:var(--v2-fg)]">
+    <p className="t-meta leading-relaxed text-[color:var(--v2-muted)] [&_b]:font-semibold [&_b]:text-[color:var(--v2-fg)]">
       {texto[b.kind]}
     </p>
   );

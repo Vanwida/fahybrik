@@ -153,7 +153,7 @@ export function FormProtocolo({ b, set, errores, idp, onFoco }: PropsFormulario)
                   ariaLabel={`Marca de tiempo del paso ${i + 1}`}
                   onChange={(v) => cambiarPaso(i, { label: v })}
                   placeholder={ejemplo(i, "−40'")}
-                  className="v2-num sm:w-[92px] sm:shrink-0 sm:text-right"
+                  className="t-tnum sm:w-[92px] sm:shrink-0 sm:text-right"
                 />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <Entrada
@@ -179,7 +179,7 @@ export function FormProtocolo({ b, set, errores, idp, onFoco }: PropsFormulario)
           onClick={() => set({ steps: [...b.steps, filaVacia()] })}
           disabled={b.steps.length >= MAX_ITEMS}
         >
-          + Añadir paso
+          Añadir paso
         </BotonAnadir>
       </Campo>
 
@@ -292,7 +292,7 @@ export function FormPregunta({ b, set, errores, idp, onFoco }: PropsFormulario) 
           onClick={() => set({ options: [...b.options, opcionVacia()] })}
           disabled={b.options.length >= QUESTION_MAX_OPTIONS}
         >
-          + Añadir opción
+          Añadir opción
         </BotonAnadir>
       </Campo>
 

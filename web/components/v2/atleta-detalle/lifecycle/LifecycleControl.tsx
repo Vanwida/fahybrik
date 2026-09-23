@@ -21,15 +21,14 @@ import {
 import { useLifecycleMutation } from './lifecycle-mutations';
 import { LifecycleDialog } from './LifecycleDialog';
 import {
-  DATE_INPUT_CLS,
   DialogError,
   DialogField,
   DialogGhostButton,
   DialogPrimaryButton,
   ReasonChips,
-  TEXTAREA_CLS,
   todayIsoLocal,
 } from './lifecycle-ui';
+import { Input, Textarea } from '@/components/v2/ui';
 
 const NOTE_MAX = 1000;
 
@@ -85,25 +84,24 @@ function PauseDialog({ athleteId, onClose }: { athleteId: string; onClose: () =>
         <ReasonChips value={reason} onChange={setReason} disabled={busy} />
       </DialogField>
       <DialogField label="Vuelve el" hint="opcional">
-        <input
+        <Input
           type="date"
+          size="lg"
           value={endDate}
           min={todayIsoLocal()}
           disabled={busy}
           onChange={(e) => setEndDate(e.target.value)}
-          className={DATE_INPUT_CLS}
           aria-label="Fecha de vuelta"
         />
       </DialogField>
       <DialogField label="Nota" hint="opcional">
-        <textarea
+        <Textarea
           value={note}
           rows={2}
           maxLength={NOTE_MAX}
           disabled={busy}
           onChange={(e) => setNote(e.target.value)}
           placeholder="p. ej. sobrecarga en el gemelo…"
-          className={TEXTAREA_CLS}
         />
       </DialogField>
       {error ? <DialogError>{error}</DialogError> : null}
