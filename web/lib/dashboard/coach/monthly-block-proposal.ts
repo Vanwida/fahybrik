@@ -29,15 +29,20 @@ export class MonthlyBlockError extends Error {
   }
 }
 
+/** La propuesta pendiente de un atleta DE ESTE COACH. El de otro club da null,
+ *  igual que uno sin propuesta: no se distingue «no es tuyo» de «no hay». */
 export async function loadPendingMonthlyBlock(params: {
+  coach_id: number | bigint;
   athlete_id: number | bigint;
   client?: Sql;
 }): Promise<MonthlyBlockProposal | null> {
   const client = params.client ?? defaultSql;
   const rows = await client<Array<{ id: string }>>`
-    select id::text from monthly_block_proposals
-    where athlete_id = ${params.athlete_id as number} and status = 'pending'
-    order by created_at desc limit 1
+    select p.id::text from monthly_block_proposals p
+    join athletes a on a.id = p.athlete_id
+    where p.athlete_id = ${Number(params.athlete_id)} and p.status = 'pending'
+      and a.coach_id = ${Number(params.coach_id)}
+    order by p.created_at desc limit 1
   `;
   if (!rows[0]) return null;
   return loadProposal(client, rows[0].id);
