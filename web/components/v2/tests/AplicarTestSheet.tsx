@@ -11,12 +11,11 @@
 
 import { useMemo, useState } from 'react';
 import { Button, Checkbox, Dialog, Field, Input, SegmentedControl } from '@/components/v2/ui';
+import { effectiveTestRetestWeeks, testRetestOptions } from '@fahybrid/shared/domain/coach/test-cadence';
 
-const REPEAT_OPTIONS: { label: string; weeks: number }[] = [
-  { label: 'No repetir', weeks: 0 },
-  { label: 'En 6 semanas', weeks: 6 },
-  { label: 'En 12 semanas', weeks: 12 },
-];
+// Cada cuánto se repite un test es método del coach: el defecto y la regla viven
+// en shared/domain (test-cadence.ts), nunca aquí.
+const REPEAT_OPTIONS = testRetestOptions(effectiveTestRetestWeeks(null));
 
 export interface ApplyRosterEntry {
   athlete_id: string;
