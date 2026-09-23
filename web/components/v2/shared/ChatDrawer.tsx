@@ -289,7 +289,6 @@ export function ChatDrawer({
       onOpenChange={onOpenChange}
       modal={modal}
       title={athleteName}
-      description="Mensajes"
       actions={
         <Link
           href={`/mensajes?hilo=${encodeURIComponent(athleteId)}`}

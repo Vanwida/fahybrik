@@ -193,7 +193,7 @@ export function SharedDemo({
           </Demo>
         ) : null}
 
-        <Demo id="setup" title="Primeros pasos">
+        <Demo id="setup" title="SetupChecklist · SetupProgress">
           <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_200px]">
             <SetupChecklist checklist={checklist} />
             <SetupProgress checklist={checklist} />

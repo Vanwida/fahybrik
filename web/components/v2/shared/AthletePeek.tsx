@@ -391,7 +391,10 @@ export function AthletePeek({ athleteId, onClose, initial, onChange, onAction, r
               <Kbd>J</Kbd>
               <Kbd>K</Kbd> otro atleta · <Kbd>Esc</Kbd> cerrar
             </span>
-            <Link href={`/atletas/${athleteId}`} className={buttonVariants({ variant: 'secondary', size: 'md' })}>
+            <Link
+              href={`/atletas/${athleteId}`}
+              className={cn(buttonVariants({ variant: 'secondary', size: 'md' }), 'ml-auto')}
+            >
               Abrir ficha
               <ArrowUpRight aria-hidden strokeWidth={1.75} />
             </Link>
