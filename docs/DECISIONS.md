@@ -10,6 +10,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El panel del coach se rehace alrededor del día del entrenador (auditoría aprobada)
+
+**El hueco:** la auditoría con 100 atletas (`docs/auditoria-panel-coach/index.html`) mostró que el panel está organizado por el modelo de datos y por acumulación de funciones, no por los tres trabajos del coach (saber quién le necesita hoy, actuar sobre muchos a la vez, construir y cambiar el plan donde lo mira). Hoy decía «92 decisiones» para 100 atletas, los números se contradecían entre pantallas y dar un bloque a 20 atletas costaba ~500 clics. Alex aprobó la propuesta entera («plan approved 100 %, every decision you recommended»).
+
+**Decidido (las siete + los defectos):**
+
+1. **La casa es Hoy**, la bandeja única que tiende a cero (una fila por atleta, peor primero, resolver/posponer/hecho, teclado). **Revoca 2026-08-19** («Atletas va primero, el triage es una franja»).
+2. **Oscuro por defecto**, claro como alternativa en el mismo botón. **Revoca el claro por defecto de 2026-08-19/20.** Sigue en pie: cromo neutro y el acento como dato del club.
+3. **«Programa»** sustituye a «Microciclo» en toda la interfaz del coach (un microciclo es ~1 semana; «Mesociclo» es vocabulario de una escuela y el producto no cablea escuelas). Vocabulario visible: Ejercicio → Bloque (parte A/B/C de un entreno) → Entreno → Semana → Programa → Plan · Grupo. Los identificadores técnicos (`program_month_templates`, etc.) NO se renombran.
+4. **Grupos primero.** Un grupo es un conjunto de atletas con su plan (cadena ordenada de programas). Se construye sobre `program_sequences`: la secuencia gana nombre y `level_id`/`days_per_week` pasan a opcionales; la celda nivel×días queda como regla opcional de pertenencia automática. **Reabre 2026-08-23** (la matriz exigía nivel).
+5. **La ficha es un cockpit** (por qué está marcado + estado + calendario editable de 3 semanas + «hacer ahora») con dos pestañas más: Rendimiento y Perfil. **Revoca las 5 pestañas de 2026-08-13.**
+6. **Publicación por semana, automática N días antes** (N es dato del coach, con defecto). El coach puede retener una semana. Sustituye a «publicar el microciclo entero».
+7. **Negocio** (leads, cobros, embudo) solo para coaches con el add-on (`coach_entitlements`).
+
+Defectos aceptados: lienzo claro neutro frío con tarjetas blancas; una sola familia (Figtree), números tabulares grandes como voz display; botones rectángulo 6 px y pastillas solo para filtros; barra lateral de 5 destinos + Ajustes, plegable; el color del club solo en botón primario, anillo de foco y logo; Atletas por defecto en tabla; comunicados como acción (no pestaña); carga con términos estándar (CTL/ATL/TSB) y glosa; en el móvil el panel es triaje; posponer 1 d / 3 d / hasta nueva señal; «Listo para progresar» sale de la bandeja diaria a una revisión semanal; «Leads» en inglés, el resto en castellano.
+
+**Mecanismo que se unifica:** una sola fuente de señales (`coach_attention_items`) para Hoy, Atletas, Mensajes y la ficha; una sola fórmula de adherencia (solo lo que ya tocaba); un solo modelo de estado. Umbrales, niveles y marcadores son dato del coach con defecto.
+
+**NO hacer:** no volver a poner el roster como casa ni una segunda Hoy dentro de Atletas; no pintar un número de adherencia que cuente sesiones futuras; no escribir «microciclo», «receta», «secuencia», «tipar» o «dosis» en la interfaz del coach; no pintar el acento del club en navegación, filtros o «hoy»; no usar rojo para un recuento de cabecera.
+
+---
+
 ## 2026-09-23 · ClickUp sale del flujo: el estado se cuenta en el chat y en git
 
 **El hueco:** los hooks `clickup-recordatorio.sh` (UserPromptSubmit) y `clickup-guard.sh` (Stop) obligaban a abrir y cerrar una card de ClickUp por cada tarea y bloqueaban el turno si el último commit no estaba registrado. Alex ya no usa ClickUp («talk to me here, forget notion or clickup»).
