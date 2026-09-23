@@ -338,19 +338,34 @@ describe('composeHoy — secciones = estado del atleta; la descarga dice lo que 
       first_seen_at: '2026-09-23T08:00:00.000Z',
     });
     const proposal = (created_at: string) =>
-      new Map([['1', { id: '7', status: 'approved', recommendation: 'keep', summary: 'Su semana no pide cambios · Adherencia (7 d) 100 %', created_at }]]);
+      new Map([
+        [
+          '1',
+          {
+            id: '7',
+            status: 'pending',
+            recommendation: 'keep',
+            summary: 'No hay un entreno de recuperación en tu biblioteca para cambiarlo: ajústalo a mano',
+            created_at,
+            signal_kinds: ['readiness_low'],
+          },
+        ],
+      ]);
     const after = composeHoy(
       input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: proposal('2026-09-23T09:00:00.000Z') }),
     );
     expect(after.critico[0]!.proposal).toEqual({
       id: '7',
       outcome: 'mantener',
-      summary: 'Su semana no pide cambios · Adherencia (7 d) 100 %',
+      summary: 'No hay un entreno de recuperación en tu biblioteca para cambiarlo: ajústalo a mano',
     });
     const before = composeHoy(
       input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: proposal('2026-09-22T09:00:00.000Z') }),
     );
     expect(before.critico[0]!.proposal).toBeNull();
+    // Una respuesta que no leyó la señal (la evaluación semanal) tampoco cuenta.
+    const blind = new Map([['1', { ...proposal('2026-09-23T09:00:00.000Z').get('1')!, signal_kinds: [] }]]);
+    expect(composeHoy(input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: blind })).critico[0]!.proposal).toBeNull();
   });
 });
 

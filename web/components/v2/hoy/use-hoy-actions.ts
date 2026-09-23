@@ -207,7 +207,7 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
         });
         refresh();
         if (keep) {
-          toast({ title: `${row.name}: el motor no propone cambios`, description: p.proposal.coach_summary || undefined });
+          toast({ title: `${row.name}: sin cambios propuestos`, description: p.proposal.coach_summary || undefined });
           return;
         }
         toast({

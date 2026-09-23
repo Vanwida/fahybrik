@@ -44,7 +44,15 @@ async function loadResolvedToday(client: Sql, coach_id: number, dayStart: Date):
  */
 async function loadProposals(client: Sql, coach_id: number, weekStart: string): Promise<Map<string, ProposalFact>> {
   const rows = await client<
-    Array<{ athlete_id: string; id: string; status: string; recommendation: string | null; summary: string | null; created_at: Date }>
+    Array<{
+      athlete_id: string;
+      id: string;
+      status: string;
+      recommendation: string | null;
+      summary: string | null;
+      created_at: Date;
+      signal_kinds: string[] | null;
+    }>
   >`
     select distinct on (p.athlete_id)
       p.athlete_id::text                     as athlete_id,
@@ -52,7 +60,11 @@ async function loadProposals(client: Sql, coach_id: number, weekStart: string): 
       p.status::text                         as status,
       p.proposal_json ->> 'recommendation'   as recommendation,
       p.proposal_json ->> 'coach_summary'    as summary,
-      p.created_at
+      p.created_at,
+      (
+        select array_agg(b ->> 'kind')
+        from jsonb_array_elements(coalesce(p.context_pack_json -> 'body_signals', '[]'::jsonb)) b
+      )                                      as signal_kinds
     from week_adjustment_proposals p
     join athletes a on a.id = p.athlete_id and a.coach_id = ${coach_id}
     where p.week_start >= ${weekStart}::date
@@ -68,6 +80,7 @@ async function loadProposals(client: Sql, coach_id: number, weekStart: string): 
         recommendation: r.recommendation ?? 'keep',
         summary: r.summary ?? '',
         created_at: r.created_at.toISOString(),
+        signal_kinds: r.signal_kinds ?? [],
       },
     ]),
   );

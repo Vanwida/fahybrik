@@ -50,6 +50,8 @@ export interface ProposalFact {
   recommendation: string;
   summary: string;
   created_at: string;
+  /** Las señales del cuerpo que el motor leyó al decidir (`context_pack.body_signals`). */
+  signal_kinds: string[];
 }
 
 export interface NegocioInput {
@@ -354,11 +356,15 @@ function waitingSignal(athlete_id: string, aw: AwaitingReply, now: Date): Athlet
 
 /**
  * La respuesta del motor a «Proponer descarga» para ESTA señal: una propuesta
- * hecha después de que el motor viera la señal (una de otra semana no cuenta).
+ * hecha después de que el motor viera la señal y que la LEYÓ (está en sus
+ * `body_signals`). Una de otra semana, o una que decidió sin mirarla (la
+ * evaluación semanal, o una anterior a que el motor leyera señales), no cuenta:
+ * el botón vuelve a ofrecerse.
  */
 export function proposalFor(primary: AthleteSignal, p: ProposalFact | undefined): HoyProposal | null {
   if (!p || primary.action !== 'proponer_descarga') return null;
   if (primary.first_seen_at && p.created_at < primary.first_seen_at) return null;
+  if (!p.signal_kinds.includes(primary.kind)) return null;
   if (p.status !== 'pending' && p.status !== 'approved') return null;
   const keep = p.recommendation === 'keep';
   return {
