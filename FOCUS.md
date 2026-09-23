@@ -2,26 +2,27 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-23** (panel del coach reconstruido; ola 3 de pulido en curso)
+Última actualización: **2026-09-23** (panel reconstruido + revisión pre-FLEXR cerrada; esperando decisiones de Alex)
 
 ## Ahora
 
-**Panel del coach (web `(v2)`) — RECONSTRUIDO, pulido final en curso.** Alex aprobó
-el plan entero de la auditoría (`docs/auditoria-panel-coach/`, plan de obra en
-`PLAN-CONSTRUCCION.md`; decisiones en DECISIONS 2026-09-23). Rama
-`claude/focused-bardeen-u9zz33`.
-- Hecho: shell nuevo (Hoy casa · Atletas · Mensajes · Programar · Negocio tras add-on),
-  Hoy = bandeja única (con 100 atletas: 42 «te necesitan», filas + grupos con acción en
-  lote), Atletas tabla densa con vistas, ficha = cockpit con 3 pestañas, Programar
-  (programas, biblioteca, grupos, tests, asignar a varios ≈15 clics para 20 atletas),
-  publicación por semana con auto N días, Negocio y Ajustes por coach, guía reescrita.
-- Motor: una señal vs la base del propio atleta, una adherencia (solo lo debido), un
-  estado, una cuenta de «te necesitan»; umbrales = dato del coach (0211–0243).
-- Tests: sin regresiones frente a la base (27 ficheros fallan igual: dependen de la rama
-  demo de Neon).
-- UI toda sobre primitivos: `panel/no-raw-styled-control` es ya error (v2 + media).
-- Falta: QA visual final, revisión completa para FLEXR (petición de Alex).
-- PROD: aplicar migraciones 0211–0243 en Neon; fila de entitlement 'negocio' para el club.
+**Panel del coach (web `(v2)`) — RECONSTRUIDO y REVISADO para FLEXR.** Rama
+`claude/focused-bardeen-u9zz33`. Auditoría: `docs/auditoria-panel-coach/`. Revisión
+pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de Alex:
+`docs/revision-flexr/index.html` (https://claude.ai/artifact/EhJpMWGaSBkytzi5LVaUb2).
+- Hoy = bandeja única (100 atletas: 55 te necesitan = Atletas = barra; Acción 7,
+  Vigilar 32, sin «Acción» sin base); asignar un programa a 20 = 4 clics.
+- Aislamiento: 3 agujeros P0 cerrados (clonar plantillas ajenas, partes de sesión,
+  Google Calendar global → por coach 0254) + P1; tests de dos coaches en `web/tests/tenancy/`.
+- Método = dato del coach con defecto (0211–0260): motores secundarios, niveles,
+  zonas, lecturas de carrera, cadencia de tests, huso del coach; editores en Ajustes.
+- Tests sin regresiones frente a la base; tsc limpio salvo tests/e2e; eslint 0 errores.
+- PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
+  coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
+  legal, permiso para borrar código muerto.
+- PROD: migraciones 0211–0260 en Neon; entitlement 'negocio' del club; reconectar Google
+  Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago
+  apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
 Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISIONS.md`
@@ -44,11 +45,14 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Pendiente decisión Alex
 
-- Panel coach: borrar código muerto (sin importadores) que el clasificador de permisos no
-  deja borrar a los agentes: `web/components/v2/orientacion/**`,
-  `web/lib/dashboard/v2/orientacion{,-types}.ts`, `web/components/v2/{SegmentedControl,
-  InlineSave,OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`,
-  `v2/tests/chrome.tsx`. Al borrarlos, quitarlos de los `ignores` de eslint.config.mjs.
+- Panel coach: borrar código muerto sin importadores (el clasificador no deja a los
+  agentes): `web/components/v2/orientacion/**`, `web/lib/dashboard/v2/{orientacion,
+  orientacion-types,periodizacion}.ts`, `web/components/v2/{SegmentedControl,InlineSave,
+  OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`,
+  `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`, `v2/ajustes/LevelAxisSetting.tsx`,
+  `web/lib/coach/{deep-dive-body,deep-dive-body-demo,demo-events,program-weeks}.ts`,
+  `infra/scripts/seed_exercises.ts`; tabla `google_oauth_tokens`. Luego quitar los
+  `ignores` de eslint.config.mjs.
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
   falta Terminar+Empezar (no se inventa un segundo motor).
@@ -57,8 +61,9 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Sabido y no hecho
 
-- Panel coach: sin Stripe Connect (Cobros lee, no cobra); huso del coach solo en
-  Agenda (el resto del «día» usa BOX_TIMEZONE, sin editor en Ajustes › Tu club).
+- Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach
+  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; lecturas del plan compartido
+  y de la app del atleta aún en el huso por defecto (lista en DECISIONS «Qué día es…»).
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`); `0051` no corre en
   `migrate.ts` (CONCURRENTLY dentro de transacción).
 - FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
