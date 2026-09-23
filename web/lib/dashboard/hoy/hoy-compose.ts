@@ -223,7 +223,10 @@ export function composeHoy(input: HoyComposeInput): HoyView {
       // Una espera aún bajo el umbral no es su fila, pero sí la sitúa en
       // «Por responder» (va con las demás señales del atleta).
       const waiting = replySignal(f.athlete_id);
-      if (waiting) row.others = [...row.others, waiting];
+      if (waiting) {
+        row.others = [...row.others, waiting];
+        row.other_count = row.others.length;
+      }
       (row.primary.severity === 'critical' ? critico : vigilar).push(row);
       continue;
     }
