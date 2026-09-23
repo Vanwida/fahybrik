@@ -29,6 +29,7 @@ import {
   loadAdherenceSessionsBatch,
 } from '@fahybrid/shared/domain/coach/adherence';
 import { readinessBandOf, type ReadinessBand } from '@fahybrid/shared/domain/coach/signal-thresholds';
+import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
 import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
 import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
@@ -86,6 +87,7 @@ interface ExtrasRow {
   group_name: string | null;
   group_level: string | null;
   group_days: number | null;
+  axis_label: string | null;
 }
 
 async function loadRosterExtras(
@@ -105,8 +107,10 @@ async function loadRosterExtras(
       grp.id                        as group_id,
       grp.name                      as group_name,
       grp.level_name                as group_level,
-      grp.days_per_week             as group_days
+      grp.days_per_week             as group_days,
+      co.level_axis_label           as axis_label
     from athletes a
+    left join coaches co on co.id = a.coach_id
     left join lateral (
       select max(coalesce(we.ended_at, we.started_at, we.created_at)) as at
       from workout_executions we
@@ -154,14 +158,12 @@ async function loadRosterExtras(
   return new Map(rows.map((r) => [r.athlete_id, r]));
 }
 
-/** «Nivel N3 · 5 días» cuando el grupo no tiene nombre propio. */
+/** «Nivel N3 · 5 días» (con el eje del coach) cuando el grupo no tiene nombre propio. */
 function groupName(e: ExtrasRow): string {
   if (e.group_name && e.group_name.trim()) return e.group_name.trim();
-  const parts = [
-    e.group_level ? `Nivel ${e.group_level}` : null,
-    e.group_days != null ? `${e.group_days} ${e.group_days === 1 ? 'día' : 'días'}` : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : 'Grupo';
+  return (
+    groupRuleName({ axis_label: e.axis_label, level_name: e.group_level, days_per_week: e.group_days }) ?? 'Grupo'
+  );
 }
 
 const WEEK_VISIBILITY: Record<AthleteWeekChipKind, RosterRow['week_visibility']> = {

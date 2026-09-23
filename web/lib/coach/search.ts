@@ -20,6 +20,7 @@
 //
 // Pantallas y acciones del ⌘K son estáticas y viven en el cliente; aquí solo datos.
 
+import { DEFAULT_LEVEL_AXIS_LABEL } from '@fahybrid/shared/domain/coach/level-axis';
 import type { PendingQuery, Row } from 'postgres';
 import { sql } from '@/lib/db';
 
@@ -128,9 +129,12 @@ async function searchPrograms(coach: number, tokens: string[], phrase: string): 
 
 async function searchGroups(coach: number, tokens: string[], phrase: string): Promise<SearchGroup[]> {
   const named = await hasSequenceName();
-  // Sin nombre (o columna aún inexistente), el grupo se llama como su regla nivel × días.
+  // Sin nombre (o columna aún inexistente), el grupo se llama como su regla nivel × días,
+  // con el eje del coach (`coaches.level_axis_label`; misma forma que groupRuleName).
+  const axis = sql`coalesce(nullif(btrim(c.level_axis_label), ''), ${DEFAULT_LEVEL_AXIS_LABEL})`;
   const rule = sql`case when s.level_id is not null and s.days_per_week is not null
-    then 'Nivel ' || coalesce(lv.name, '?') || ' · ' || s.days_per_week || ' días'
+    then ${axis} || ' ' || coalesce(lv.name, '?') || ' · ' || s.days_per_week
+         || case when s.days_per_week = 1 then ' día' else ' días' end
     else 'Grupo ' || s.id end`;
   const display = named ? sql`coalesce(nullif(btrim(s.name), ''), ${rule})` : rule;
   const norm = sql`fahybrid_normalize_term(${display})`;
@@ -138,6 +142,7 @@ async function searchGroups(coach: number, tokens: string[], phrase: string): Pr
     select s.id::text as id, ${display} as name
     from program_sequences s
     left join athlete_levels lv on lv.id = s.level_id and lv.coach_id = s.coach_id
+    left join coaches c on c.id = s.coach_id
     where s.coach_id = ${coach} and ${allTokensIn(norm, tokens)}
     order by ${rankOf(norm, phrase)}, length(${display}), s.id
     limit ${SEARCH_GROUP_LIMIT}

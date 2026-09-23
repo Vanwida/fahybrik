@@ -8,6 +8,7 @@ import 'server-only';
 // Solo programas de BIBLIOTECA (`athlete_id is null`): un plan personal de un
 // atleta se edita desde su ficha, no aquí.
 
+import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
 import { sql as defaultSql, type Sql } from '@/lib/db';
 import {
   weekDaySchema,
@@ -69,6 +70,7 @@ export async function listPrograms(params: {
       groups: Array<{ id: string; name: string | null; level: string | null; days: number | null }> | null;
       updated_at: string;
       archived: boolean;
+      axis_label: string | null;
     }>
   >`
     with progs as (
@@ -115,7 +117,8 @@ export async function listPrograms(params: {
            coalesce(used.n, 0) as used_by,
            grp.groups,
            coalesce(wk.last_edit, p.updated_at)::text as updated_at,
-           (p.archived_at is not null) as archived
+           (p.archived_at is not null) as archived,
+           (select c.level_axis_label from coaches c where c.id = ${coachId}) as axis_label
     from progs p
     left join athlete_levels al on al.id = p.level_id
     left join wk on wk.id = p.id
@@ -133,7 +136,10 @@ export async function listPrograms(params: {
     used_by: r.used_by,
     groups: (r.groups ?? []).map((g) => ({
       id: g.id,
-      name: g.name ?? [g.level ? `Nivel ${g.level}` : null, g.days ? `${g.days} días` : null].filter(Boolean).join(' · '),
+      name:
+        g.name?.trim() ||
+        groupRuleName({ axis_label: r.axis_label, level_name: g.level, days_per_week: g.days }) ||
+        'Grupo sin nombre',
     })),
     updated_at: r.updated_at,
     archived: r.archived,

@@ -30,3 +30,21 @@ export function normalizeLevelAxisLabel(raw: string | null | undefined): string 
   if (t.length === 0 || t === DEFAULT_LEVEL_AXIS_LABEL) return null;
   return t;
 }
+
+/**
+ * El nombre de un grupo SIN nombre propio, dicho por su regla con el eje del
+ * coach: «Nivel N3 · 5 días» (o «Objetivo Sub-60 · 4 días» si así llama él a su
+ * eje). null si el grupo no tiene regla. Una sola implementación para la lista
+ * de grupos, el roster, el vistazo, la biblioteca y la búsqueda.
+ */
+export function groupRuleName(g: {
+  axis_label?: string | null;
+  level_name: string | null;
+  days_per_week: number | null;
+}): string | null {
+  const parts = [
+    g.level_name ? `${effectiveLevelAxisLabel(g.axis_label)} ${g.level_name}` : null,
+    g.days_per_week != null ? `${g.days_per_week} ${g.days_per_week === 1 ? 'día' : 'días'}` : null,
+  ].filter((p): p is string => p != null);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}

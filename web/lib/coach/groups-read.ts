@@ -19,6 +19,7 @@ import type {
 import { getSequenceById } from '@/lib/dashboard/coach/sequences';
 import { AssignManyError, loadPrograms, type GroupPlanContext } from './assign-many-plan';
 import { boxToday } from './week-publishing';
+import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
 
 type GroupRow = {
   id: string;
@@ -27,6 +28,7 @@ type GroupRow = {
   level_name: string | null;
   level_label: string | null;
   days_per_week: number | null;
+  axis_label: string | null;
   end_policy: GroupSummary['end_policy'];
   progression_pct: string | number | null;
   progression_applies_to: GroupSummary['progression_applies_to'];
@@ -36,19 +38,22 @@ type GroupRow = {
 
 type ItemRow = { id: string; sequence_id: string; position: number; month_template_id: string };
 
-export function groupDisplayName(g: { name: string | null; level_name: string | null; days_per_week: number | null }): string {
+export function groupDisplayName(g: {
+  name: string | null;
+  level_name: string | null;
+  days_per_week: number | null;
+  /** Cómo llama el coach a su eje (`coaches.level_axis_label`); null = defecto. */
+  axis_label?: string | null;
+}): string {
   if (g.name && g.name.trim()) return g.name.trim();
-  const parts = [
-    g.level_name ? `Nivel ${g.level_name}` : null,
-    g.days_per_week != null ? `${g.days_per_week} ${g.days_per_week === 1 ? 'día' : 'días'}` : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : 'Grupo sin nombre';
+  return groupRuleName(g) ?? 'Grupo sin nombre';
 }
 
 async function loadGroupRows(client: Sql, coach_id: number, only?: number): Promise<GroupRow[]> {
   return client<GroupRow[]>`
     select ps.id::text, ps.name, ps.level_id::text, al.name as level_name, al.label as level_label,
            ps.days_per_week, ps.end_policy, ps.progression_pct, ps.progression_applies_to,
+           (select c.level_axis_label from coaches c where c.id = ps.coach_id) as axis_label,
            (select count(*)::int from athlete_sequence_progress asp
              where asp.sequence_id = ps.id and asp.status = 'active') as member_count,
            to_char(ps.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
@@ -236,7 +241,10 @@ export async function loadGroupPlanContext(
   if (!seq) throw new AssignManyError('group_not_found', 'No encuentro ese grupo entre los tuyos.', 404);
   const level = seq.level_id == null
     ? []
-    : await client<Array<{ name: string }>>`select name from athlete_levels where id = ${seq.level_id} limit 1`;
+    : await client<Array<{ name: string; axis_label: string | null }>>`
+        select al.name, c.level_axis_label as axis_label
+        from athlete_levels al left join coaches c on c.id = al.coach_id
+        where al.id = ${seq.level_id} limit 1`;
   const programs = await loadPrograms(client, coach_id, seq.items.map((i) => Number(i.month_template_id)));
   const chain = seq.items
     .map((i) => ({ position: i.position, weeks: programs.get(Number(i.month_template_id))?.weeks ?? 0, program: programs.get(Number(i.month_template_id))! }))
@@ -268,7 +276,12 @@ export async function loadGroupPlanContext(
   }
   return {
     id: Number(seq.id),
-    name: groupDisplayName({ name: seq.name, level_name: level[0]?.name ?? null, days_per_week: seq.days_per_week }),
+    name: groupDisplayName({
+      name: seq.name,
+      level_name: level[0]?.name ?? null,
+      days_per_week: seq.days_per_week,
+      axis_label: level[0]?.axis_label ?? null,
+    }),
     end_policy: seq.end_policy,
     chain: chain.map(({ position, weeks, program }) => ({ position, weeks, program })),
     anchor: groupAnchorFromMembers(votes),

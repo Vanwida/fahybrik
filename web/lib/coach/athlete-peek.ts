@@ -31,6 +31,7 @@ import {
   isHeld,
 } from '@fahybrid/shared/domain/coach/week-publishing';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
 import { buildAthleteStatus } from '@/lib/coach/athlete-state';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import { loadReplyStates } from '@/lib/coach/attention/awaiting-reply';
@@ -146,6 +147,7 @@ interface ExtrasRow {
   msg_at: Date | null;
   msg_role: 'athlete' | 'coach' | null;
   auto_days: number | null;
+  axis_label: string | null;
 }
 
 async function loadExtras(client: Sql, coach_id: number, athlete_id: number, today: string): Promise<ExtrasRow | null> {
@@ -155,7 +157,8 @@ async function loadExtras(client: Sql, coach_id: number, athlete_id: number, tod
       tr.name as race_name, tr.date as race_date, tr.days as race_days,
       ck.on as checkin_on, ck.at as checkin_at, ck.notes as checkin_notes, ck.score as checkin_score,
       lm.body as msg_body, lm.at as msg_at, lm.role as msg_role,
-      c.auto_publish_days_before as auto_days
+      c.auto_publish_days_before as auto_days,
+      c.level_axis_label as axis_label
     from athletes a
     join coaches c on c.id = a.coach_id
     left join lateral (
@@ -246,11 +249,9 @@ async function loadWeek(
 
 function groupName(e: ExtrasRow): string {
   if (e.group_name && e.group_name.trim()) return e.group_name.trim();
-  const parts = [
-    e.group_level ? `Nivel ${e.group_level}` : null,
-    e.group_days != null ? `${e.group_days} ${e.group_days === 1 ? 'día' : 'días'}` : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : 'Grupo';
+  return (
+    groupRuleName({ axis_label: e.axis_label, level_name: e.group_level, days_per_week: e.group_days }) ?? 'Grupo'
+  );
 }
 
 /** El vistazo de UN atleta del coach, o null si no es suyo (o no existe). */
