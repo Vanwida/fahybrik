@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHacerAhora, statusReasonParts } from '@/lib/dashboard/v2/ficha-actions';
+import { buildHacerAhora, missedIsActionable, statusReasonParts } from '@/lib/dashboard/v2/ficha-actions';
 import type { FichaShell } from '@/lib/dashboard/v2/atleta-detalle-types';
 import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
 
@@ -98,6 +98,21 @@ describe('Hacer ahora', () => {
     expect(chips.map((c) => c.kind)).toEqual(['ajustar', 'descarga']);
     expect(chips[0]).toMatchObject({ session_id: '183', label: 'Ajustar miércoles 23 (sin hacer)' });
     expect(chips[1]!.week_start).toBe('2026-09-21');
+  });
+  it('un sin hacer viejo es historia: solo se ofrece de esta semana o de los 7 días anteriores', () => {
+    const at = (date: string) =>
+      buildHacerAhora(shell({ last_missed: { id: '9', date, title: 'Z2' } })).map((c) => c.kind);
+    // hoy es miércoles 23: el lunes 21, el martes 22 y el miércoles 16 (7 días) valen
+    expect(at('2026-09-22')).toEqual(['ajustar']);
+    expect(at('2026-09-16')).toEqual(['ajustar']);
+    // el sábado 12 (11 días, el caso de la revisión) y el martes 15 (8 días) no
+    expect(at('2026-09-15')).toEqual([]);
+    expect(at('2026-09-12')).toEqual([]);
+  });
+  it('en domingo la semana en curso entera cuenta (lunes = 6 días)', () => {
+    expect(missedIsActionable('2026-09-21', '2026-09-27')).toBe(true);
+    expect(missedIsActionable('2026-09-19', '2026-09-27')).toBe(false);
+    expect(missedIsActionable('2026-09-24', '2026-09-23')).toBe(false);
   });
   it('sin plan de hoy en adelante → asignar; en pausa no', () => {
     expect(buildHacerAhora(shell({ has_upcoming_plan: false }))[0]!.kind).toBe('asignar');

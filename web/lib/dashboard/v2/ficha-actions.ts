@@ -32,6 +32,31 @@ export interface HacerAhoraChip {
 /** Como mucho, para que siga siendo un vistazo. */
 export const HACER_AHORA_MAX = 4;
 
+/**
+ * Hasta dónde atrás un entreno sin hacer sigue siendo una ACCIÓN («Ajustar …»):
+ * la semana en curso o los 7 días anteriores (lo que llegue más atrás, que siempre
+ * son los 7 días: el lunes de esta semana cae dentro). Más viejo es historia: cuenta
+ * en la adherencia, no pide nada hoy. Mecanismo de la ficha, no método: no cambia
+ * qué es «sin hacer», solo qué se ofrece como botón.
+ */
+export const MISSED_ACTIONABLE_DAYS = 7;
+
+/** Días entre dos fechas YYYY-MM-DD (b − a). */
+function daysBetween(a: string, b: string): number {
+  const t = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((t(b) - t(a)) / 86_400_000);
+}
+
+/** ¿Este entreno sin hacer todavía se puede ajustar hoy? */
+export function missedIsActionable(missed_date: string, today: string): boolean {
+  const age = daysBetween(missed_date, today);
+  const sinceMonday = daysBetween(mondayOf(today), today);
+  return age >= 0 && age <= Math.max(MISSED_ACTIONABLE_DAYS, sinceMonday);
+}
+
 const DESCARGA_KINDS: ReadonlySet<SignalKind> = new Set(['readiness_low', 'hrv_crash', 'rpe_high']);
 const COMUNICADO_KINDS: ReadonlySet<SignalKind> = new Set([
   'communication_question_unanswered',
@@ -80,7 +105,7 @@ export function buildHacerAhora(shell: FichaShell): HacerAhoraChip[] {
   } else if (shell.awaiting_reply || kinds.has('message_unanswered')) {
     push({ key: 'responder', kind: 'responder', label: 'Responder' });
   }
-  if (shell.last_missed) {
+  if (shell.last_missed && missedIsActionable(shell.last_missed.date, shell.today)) {
     push({
       key: `ajustar-${shell.last_missed.id}`,
       kind: 'ajustar',
