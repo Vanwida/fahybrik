@@ -59,7 +59,7 @@ export function HistoricoTab({
             completedMicros.map((p) => {
               // Compliance for this microcycle = avg of its weeks (best-effort).
               const weeks = allWeeks.filter((w) => w.microcycle_id === p.microcycle_id);
-              const vals = weeks.map((w) => w.compliance_pct).filter((v): v is number => v != null);
+              const vals = weeks.map((w) => (w.compliance_ratio == null ? null : w.compliance_ratio * 100)).filter((v): v is number => v != null);
               const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
               const colorVar = avg != null ? ADHERENCE_BAND_COLOR_VAR[adherenceBand(avg)] : '--v2-faint';
               return (

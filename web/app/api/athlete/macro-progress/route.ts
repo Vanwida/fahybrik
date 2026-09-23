@@ -32,7 +32,9 @@ export async function GET(request: Request) {
       weeks: progress.weeks.map((w) => ({
         week_start: w.week_start,
         status: w.status,
-        compliance_pct: w.compliance_pct,
+        // Fracción 0–1 bajo el nombre histórico del cable: iOS lo lee así
+        // (FAHYBRIKCore/Theme/Formato.swift). No cambiar sin cambiar la app.
+        compliance_pct: w.compliance_ratio,
       })),
     },
   });

@@ -210,8 +210,8 @@ export async function buildAthleteResumen(params: {
 
   const currentWeek = macro.weeks.find((w) => w.status === 'current');
   const load_label =
-    currentWeek?.compliance_pct != null
-      ? `Cumplimiento sem ${currentWeek.compliance_pct}%`
+    currentWeek?.compliance_ratio != null
+      ? `Cumplimiento sem ${Math.round(currentWeek.compliance_ratio * 100)}%`
       : null;
 
   // Adherencia is undefined without an ACTIVE microciclo. Gate on the SAME signal

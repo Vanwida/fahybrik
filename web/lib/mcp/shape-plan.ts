@@ -149,7 +149,7 @@ export function toPlanMacro(plan: AthletePlanPayload): Record<string, unknown> {
       weeks: macro.weeks.map((w) => ({
         week_start: w.week_start,
         week_end: w.week_end,
-        compliance_pct: w.compliance_pct,
+        compliance_pct: w.compliance_ratio,
         status: w.status,
         adjusted: w.adjusted,
       })),

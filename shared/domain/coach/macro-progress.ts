@@ -8,7 +8,7 @@ export type MacroWeekStatus = 'completed' | 'current' | 'upcoming' | 'missed';
 export type MacroProgressWeek = {
   week_start: string;
   week_end: string;
-  compliance_pct: number | null;
+  compliance_ratio: number | null;
   adjusted: boolean;
   status: MacroWeekStatus;
   microcycle_id: string | null;
@@ -162,7 +162,7 @@ export async function buildMacroProgress(params: {
     return {
       week_start: w.week_start,
       week_end: isoDateString(we),
-      compliance_pct: compliance,
+      compliance_ratio: compliance,
       adjusted: w.adjusted,
       status,
       microcycle_id: w.microcycle_id,
@@ -231,7 +231,7 @@ export type MicrocycleWeekDetail = {
   week_end: string;
   scheduled: number;
   completed: number;
-  compliance_pct: number | null;
+  compliance_ratio: number | null;
 };
 
 export type MicrocycleDetailPayload = {
@@ -243,7 +243,7 @@ export type MicrocycleDetailPayload = {
   end_date: string;
   scheduled_total: number;
   completed_total: number;
-  compliance_pct: number | null;
+  compliance_ratio: number | null;
   ai_adjustments_approved: number;
   weeks: MicrocycleWeekDetail[];
 };
@@ -296,7 +296,7 @@ export async function loadMicrocycleDetail(params: {
   `;
   const scheduled_total = totals[0]?.scheduled ?? 0;
   const completed_total = totals[0]?.completed ?? 0;
-  const compliance_pct =
+  const compliance_ratio =
     scheduled_total > 0
       ? Math.round((completed_total / scheduled_total) * 100) / 100
       : null;
@@ -347,7 +347,7 @@ export async function loadMicrocycleDetail(params: {
       week_end: weIso,
       scheduled: sched,
       completed: done,
-      compliance_pct: sched > 0 ? Math.round((done / sched) * 100) / 100 : null,
+      compliance_ratio: sched > 0 ? Math.round((done / sched) * 100) / 100 : null,
     });
     cursor = addDays(cursor, 7);
     idx += 1;
@@ -362,7 +362,7 @@ export async function loadMicrocycleDetail(params: {
     end_date: row.end_date,
     scheduled_total,
     completed_total,
-    compliance_pct,
+    compliance_ratio,
     ai_adjustments_approved,
     weeks,
   };
@@ -537,7 +537,7 @@ export type AthleteMacroProgressPayload = {
   /** Kept null for iOS Codable parity — the athlete never receives a phase label. */
   block: null;
   total_assigned_weeks: number;
-  weeks: Array<{ week_start: string; status: MacroWeekStatus; compliance_pct: number | null }>;
+  weeks: Array<{ week_start: string; status: MacroWeekStatus; compliance_ratio: number | null }>;
 };
 
 /**
@@ -578,12 +578,12 @@ export async function buildAthleteMacroProgress(params: {
   const weeks = rows.map((w) => {
     const ws = parseIsoDate(w.week_start);
     const we = addDays(ws, 6);
-    const compliance_pct =
+    const compliance_ratio =
       w.scheduled > 0 ? Math.round((w.completed / w.scheduled) * 100) / 100 : null;
     let status: MacroWeekStatus = 'upcoming';
     if (we < today) status = w.completed >= w.scheduled * 0.5 ? 'completed' : 'missed';
     else if (ws <= today && we >= today) status = 'current';
-    return { week_start: w.week_start, status, compliance_pct };
+    return { week_start: w.week_start, status, compliance_ratio };
   });
 
   return { block: null, total_assigned_weeks: weeks.length, weeks };

@@ -345,7 +345,7 @@ export function PlanTab({
               <div className="mt-3 flex flex-wrap gap-2">
                 {plan.macro.weeks.slice(0, 6).map((w, i) => {
                   const actual = w.status === 'current';
-                  const pct = w.compliance_pct != null ? Math.round(w.compliance_pct) : null;
+                  const pct = w.compliance_ratio != null ? Math.round(w.compliance_ratio * 100) : null;
                   return (
                     <div
                       key={w.week_start}
