@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Un descanso sin unidad: su tamaño dice la unidad, y lo dudoso se pregunta
+
+**Decidido:** en la gramática de notación (`shared/domain/import/dose.ts`, `bareRestSeconds`), un número sin unidad tras una señal de descanso (`r2`, `rec 90`, `descanso 3`) se lee por su tamaño: **≤ 10 → minutos** (`r2` = 2'), **≥ 15 → segundos** (`r90` = 90''). **11–14 no se adivina**: la línea va a revisión con el motivo «¿minutos o segundos?» y la línea rápida pregunta en el sitio («12 min» / «12 s»), reescribiendo el texto con la unidad elegida. Una unidad escrita (`r2'`, `r90''`, `2 min`, `90s`) manda siempre. La vista previa de la línea rápida pinta cada reloj con su unidad en negrita (2′ / 90″).
+
+**Por qué:** antes todo número desnudo eran segundos, así que `r2` —como escribe un coach «2 minutos»— se guardaba como `descanso 2''` sin aviso. Es mecanismo de lectura (cómo se entiende una grafía), no método: no depende del coach. De paso, `stripRestClocks` dejaba de comerse una comilla de `r90''` (la regla de las comillas), y «sentadilla 5x5 r90''» se tipa.
+
+**NO hacer:** no volver a «número desnudo = segundos»; no resolver la franja 11–14 con un valor por defecto silencioso ni tirar el descanso sin decirlo.
+
+---
+
 ## 2026-09-23 · «Entrenos sin hacer» avisa por número Y por proporción de lo debido (0243)
 
 **El hueco:** la señal `missed_sessions` saltaba con 2 entrenos debidos sin hacer en 7 días, fuera cual fuera el total. Con 100 atletas eso metía en «Te necesitan» a quien hizo 8 de 10 — una semana normal. Medido en local (100 atletas, tras correr la publicación automática): 45 atletas «te necesitan»; 3 eran «2 de 9» o «2 de 10».

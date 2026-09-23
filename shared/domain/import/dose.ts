@@ -287,8 +287,59 @@ const REST_PREFIX_CUE =
  */
 export function stripRestClocks(raw: string): string {
   return raw
-    .replace(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*\d+\s*'(?:\s*\d+\s*'')?`, 'gi'), ' ')
+    // `'(?!')`: la regla de las comillas — un reloj de segundos («r90''») no
+    // puede perder una comilla a manos del lector de minutos.
+    .replace(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*\d+\s*'(?!')(?:\s*\d+\s*'')?`, 'gi'), ' ')
     .replace(new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*\d+\s*''`, 'gi'), ' ');
+}
+
+// Un número sin unidad tras la señal («r2», «rec 90», «descanso 45»).
+const BARE_REST_TAIL = /^(\d+)(?![\d.,:'"]|\s*(?:m\b|km|kg|%))/;
+
+/** Hasta aquí, un descanso sin unidad son MINUTOS («r2», «r3»: nadie descansa
+ *  dos segundos entre series). */
+export const BARE_REST_MINUTES_MAX = 10;
+/** Desde aquí, SEGUNDOS («r90», «rec 60», «r15»). */
+export const BARE_REST_SECONDS_MIN = 15;
+
+/**
+ * La unidad de un descanso escrito sin ella, por su tamaño: ≤ 10 son minutos
+ * («r2» = 2'), ≥ 15 son segundos («r90» = 90''). Entre medias («r12») las dos
+ * lecturas son verosímiles y la gramática NO elige: devuelve undefined, la
+ * línea no se tipa y quien la escribe decide (ver ambiguousBareRest). Una
+ * unidad escrita («r2'», «r90''», «rec 2 min», «90s») siempre manda y nunca
+ * llega aquí.
+ */
+export function bareRestSeconds(n: number): number | undefined {
+  if (n <= BARE_REST_MINUTES_MAX) return n * 60;
+  if (n >= BARE_REST_SECONDS_MIN) return n;
+  return undefined;
+}
+
+/** Un descanso sin unidad cuyo tamaño no dice si son minutos o segundos. */
+export interface AmbiguousBareRest {
+  value: number;
+  /** Posición del número en el texto (para reescribirlo con su unidad). */
+  start: number;
+  end: number;
+}
+
+/**
+ * El primer descanso sin unidad y de tamaño ambiguo («r12», «rec 11») del
+ * texto, o null. Lo usa la línea rápida para preguntar «¿12 min o 12 s?» y
+ * reescribir el texto con la unidad elegida, en vez de guardar una suposición.
+ */
+export function ambiguousBareRest(raw: string): AmbiguousBareRest | null {
+  const re = new RegExp(String.raw`${REST_PREFIX_CUE}\s*:?\s*(?=\d)`, 'gi');
+  for (const m of raw.matchAll(re)) {
+    if (m[0].trim().toLowerCase() === 'cada') continue;
+    const at = m.index! + m[0].length;
+    const bare = raw.slice(at).match(BARE_REST_TAIL);
+    if (!bare) continue;
+    const value = parseInt(bare[1]!, 10);
+    if (bareRestSeconds(value) === undefined) return { value, start: at, end: at + bare[1]!.length };
+  }
+  return null;
 }
 
 export function parseRest(raw: string): number | undefined {
@@ -323,14 +374,13 @@ export function parseRest(raw: string): number | undefined {
     const tail = raw.slice(prefixCue.index! + prefixCue[0].length);
     const clock = parseClockSeconds(tail);
     if (clock !== undefined) return clock;
-    // Número DESNUDO tras una señal de descanso explícita: son segundos. Es la
-    // convención universal («r90», «rec 60», «descanso 45»); nadie escribe
-    // «r90» queriendo decir noventa minutos. Se excluye `cada`, que introduce
-    // un ciclo y no un descanso («cada 2'» es cada dos minutos), y ahí un
-    // número sin unidad no significa lo mismo.
+    // Número DESNUDO tras una señal de descanso explícita: su unidad la dice
+    // su tamaño (ver bareRestSeconds). Se excluye `cada`, que introduce un
+    // ciclo y no un descanso («cada 2'» es cada dos minutos), y ahí un número
+    // sin unidad no significa lo mismo.
     if (cueText !== 'cada') {
-      const desnudo = tail.match(/^(\d+)(?![\d.,:'"]|\s*(?:m\b|km|kg|%))/);
-      if (desnudo) return parseInt(desnudo[1]!, 10);
+      const desnudo = tail.match(BARE_REST_TAIL);
+      if (desnudo) return bareRestSeconds(parseInt(desnudo[1]!, 10));
     }
   }
   const cue = /(?:rest|descanso|walking|float|trote|est[aá]tico|off|caminando)/i;

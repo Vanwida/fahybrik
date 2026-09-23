@@ -9,6 +9,7 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { CircleAlert } from 'lucide-react';
 import type { WeekDayPart } from '@fahybrid/shared/schema/program-templates';
+import { ambiguousBareRest } from '@fahybrid/shared/domain/import/dose';
 import { Button, Input, Kbd } from '@/components/v2/ui';
 import { doseText, lookupToken, parseQuickLine, partFromQuickLines } from '@/lib/dashboard/programming/quick-line';
 import { cn } from '@/lib/utils';
@@ -93,6 +94,11 @@ export const QuickLineInput = forwardRef<
       />
       <LineFeedback
         text={text}
+        onRewrite={(next) => {
+          setText(next);
+          setPicked({});
+          inner.current?.focus();
+        }}
         parse={parse}
         resolutions={resolutions}
         chosen={chosen}
@@ -111,6 +117,7 @@ export const QuickLineInput = forwardRef<
 
 function LineFeedback({
   text,
+  onRewrite,
   parse,
   resolutions,
   chosen,
@@ -121,6 +128,7 @@ function LineFeedback({
   onDetail,
 }: {
   text: string;
+  onRewrite: (text: string) => void;
   parse: ReturnType<typeof parseQuickLine>;
   resolutions: Array<Resolution | null>;
   chosen: Array<{ id: string; name: string } | null>;
@@ -131,6 +139,25 @@ function LineFeedback({
   onDetail?: () => void;
 }) {
   if (!text.trim()) return null;
+  const ambiguous = ambiguousBareRest(text);
+  if (ambiguous) {
+    // «r12»: ni minutos ni segundos por defecto. Elegir reescribe la línea con
+    // su unidad, así lo que se guarda es lo que se lee.
+    const withUnit = (mark: string) =>
+      onRewrite(text.slice(0, ambiguous.end) + mark + text.slice(ambiguous.end));
+    return (
+      <p role="status" className="flex flex-wrap items-center gap-1.5 t-body-sm text-v2-warn">
+        <CircleAlert aria-hidden className="size-3.5 shrink-0" strokeWidth={2} />
+        <span>Descanso: ¿{ambiguous.value} min o {ambiguous.value} s?</span>
+        <Button size="sm" variant="secondary" onClick={() => withUnit("'")}>
+          {ambiguous.value} min
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => withUnit("''")}>
+          {ambiguous.value} s
+        </Button>
+      </p>
+    );
+  }
   if (!parse.typed) {
     return (
       <p role="status" className="flex items-start gap-1.5 t-body-sm text-v2-warn">
@@ -167,7 +194,7 @@ function LineFeedback({
               ) : (
                 <span className="text-v2-warn">¿Qué ejercicio es «{line.exercise_token}»?</span>
               )}
-              {dose ? <span className="text-v2-muted t-tnum">{dose}</span> : null}
+              {dose ? <DoseWithUnits text={dose} /> : null}
             </p>
             {!loading && alternatives.length > (ex ? 1 : 0) ? (
               <div className="flex flex-wrap gap-1">
@@ -194,5 +221,31 @@ function LineFeedback({
         );
       })}
     </div>
+  );
+}
+
+// Un reloj de la dosis («2'», «90''», «1'30''») con su unidad a la vista y en
+// negrita: 2′ no se confunde con 2″. La unidad es lo que más se equivoca al
+// escribir deprisa, así que es lo que más se ve al leer.
+const CLOCK_RE = /(\d+'\d+''|\d+''|\d+'(?!'))/g;
+
+function clockGlyphs(clock: string): string {
+  return clock.replace(/''/g, '″').replace(/'/g, '′');
+}
+
+function DoseWithUnits({ text }: { text: string }) {
+  const pieces = text.split(CLOCK_RE);
+  return (
+    <span className="text-v2-muted t-tnum">
+      {pieces.map((p, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} className="font-semibold text-v2-fg">
+            {clockGlyphs(p)}
+          </strong>
+        ) : (
+          p
+        ),
+      )}
+    </span>
   );
 }
