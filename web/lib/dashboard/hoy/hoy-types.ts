@@ -63,6 +63,8 @@ export interface HoySnoozedRow extends HoyRow {
 
 export interface HoyView {
   generated_at: string;
+  /** El huso del coach: el «hoy» que pinta la pantalla es el suyo. */
+  timezone?: string;
   counts: {
     /**
      * ATLETAS que te necesitan (`athleteNeedsYou`): los de los grupos más los de

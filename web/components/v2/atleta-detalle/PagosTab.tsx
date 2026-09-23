@@ -21,10 +21,11 @@ import { formatCents } from '@/components/v2/metricas/format';
 import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
 import { Pencil } from 'lucide-react';
 import { Button, Input } from '@/components/v2/ui';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
 
 /** ISO instant / calendar date → "8 jul 2026". null → em-dash. */
-function formatLongDate(iso: string | null): string {
+function formatLongDate(iso: string | null, tz: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
@@ -33,17 +34,17 @@ function formatLongDate(iso: string | null): string {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
-      timeZone: 'Europe/Madrid',
+      timeZone: tz,
     })
     .replace(/\.(?=\s|$)/, '');
 }
 
 /** Period date / created instant → "jul 2026" (the invoice's billing month). */
-function formatMonth(iso: string): string {
+function formatMonth(iso: string, tz: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d
-    .toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: 'Europe/Madrid' })
+    .toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: tz })
     .replace(/\.(?=\s|$)/, '');
 }
 
@@ -169,6 +170,7 @@ function PriceEditor({
 
 // ── Invoice history ─────────────────────────────────────────────────────────────
 function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
+  const tz = useCoachTimeZone();
   if (invoices.length === 0) {
     return (
       <p className="text-sm text-[color:var(--v2-muted)]">
@@ -201,7 +203,7 @@ function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
             return (
               <tr key={inv.id} className="border-b border-[color:var(--v2-border)] last:border-b-0">
                 <th scope="row" className="px-2.5 py-2.5 text-left font-semibold text-[color:var(--v2-fg)]">
-                  {formatMonth(inv.period_start ?? inv.created_at)}
+                  {formatMonth(inv.period_start ?? inv.created_at, tz)}
                 </th>
                 <td className="t-tnum px-2.5 py-2.5 text-right text-[color:var(--v2-fg)]">
                   {formatCents(inv.amount_cents)}
@@ -210,7 +212,7 @@ function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
                   <Pill tone={pill.tone}>{pill.label}</Pill>
                 </td>
                 <td className="t-tnum px-2.5 py-2.5 text-right text-[color:var(--v2-muted)]">
-                  {formatLongDate(inv.paid_at ?? inv.created_at)}
+                  {formatLongDate(inv.paid_at ?? inv.created_at, tz)}
                 </td>
               </tr>
             );
@@ -231,6 +233,7 @@ export function PagosTab({
   invoices: AthleteInvoice[];
   athleteId: string;
 }) {
+  const tz = useCoachTimeZone();
   // No subscription at all → honest empty state.
   if (!billing) {
     return (
@@ -270,7 +273,7 @@ export function PagosTab({
               <div className="flex flex-col gap-0.5">
                 <span className="t-label text-v2-faint">Próxima renovación</span>
                 <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                  {formatLongDate(billing.current_period_end)}
+                  {formatLongDate(billing.current_period_end, tz)}
                 </span>
               </div>
               {billing.cancel_at_period_end ? (

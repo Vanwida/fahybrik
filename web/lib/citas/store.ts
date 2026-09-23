@@ -29,6 +29,7 @@ import {
 } from '@fahybrid/shared/domain/citas/slots';
 import type { CitaModality } from '@fahybrid/shared/schema';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 
 export class CitasError extends Error {
   constructor(
@@ -146,6 +147,8 @@ export interface BookingContext {
   slots: DaySlots[];
   /** #18: lead is on the waitlist and not yet released → no slots offered until released. */
   waitlisted: boolean;
+  /** Huso de la agenda del coach: los huecos se pintan en él. */
+  timezone: string;
 }
 
 // Internal booking row: the public BookingLead plus the two waitlist stamps (#18) the gate
@@ -205,7 +208,9 @@ export async function getBookingContext(
   // (mirrors the existing empty-slots fallback the UI already renders).
   const calendar = calendarCoachForLead(row.coach_id == null ? null : BigInt(row.coach_id));
   const slots = active || waitlisted ? [] : await computeSlots(calendar, modality, now);
-  return { lead, active_appointment: active, slots, waitlisted };
+  // El reloj de esos huecos: el del coach cuya agenda se ofrece (0241).
+  const timezone = calendar != null ? await loadCoachTimezone(calendar) : BOX_TIMEZONE;
+  return { lead, active_appointment: active, slots, waitlisted, timezone };
 }
 
 export interface BookResult {

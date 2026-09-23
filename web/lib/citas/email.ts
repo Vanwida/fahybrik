@@ -22,6 +22,9 @@ import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin, type ClubEmailSkin } from '@/lib/coach/club-skin';
 import { emailFromSender } from '@fahybrid/shared/domain/coach/club-notify';
 import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { timezoneCity } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export interface CitaEmailResult {
   sent: boolean;
@@ -37,21 +40,26 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** e.g. "jueves 10 de julio, 18:00" (Europe/Madrid). */
-export function formatMadrid(iso: string): string {
+/** e.g. "jueves 10 de julio, 18:00", en el huso del club (`coaches.timezone`). */
+export function formatCitaWhen(iso: string, tz: string = BOX_TIMEZONE): string {
   const d = new Date(iso);
   const day = new Intl.DateTimeFormat('es-ES', {
-    timeZone: 'Europe/Madrid',
+    timeZone: tz,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   }).format(d);
   const time = new Intl.DateTimeFormat('es-ES', {
-    timeZone: 'Europe/Madrid',
+    timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
   }).format(d);
   return `${day}, ${time}`;
+}
+
+/** El huso del club de la cita (sin coach, el defecto del producto). */
+async function coachTz(appt: { coach_id?: bigint | number | null }): Promise<string> {
+  return appt.coach_id != null ? loadCoachTimezone(appt.coach_id) : BOX_TIMEZONE;
 }
 
 function bookingUrl(token: string): string {
@@ -166,7 +174,9 @@ async function send(opts: {
 /** Lead: "recibimos tu solicitud de cita". */
 export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
   const v = coachVoice(appt.coach_name);
@@ -175,12 +185,12 @@ export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> 
     subject: `Hemos recibido tu solicitud de cita · ${skin.wordmark}`,
     text:
       `${appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,'}\n\n` +
-      `Hemos recibido tu solicitud de ${noun}${v.withCoach} para el ${when} (hora de Madrid). ` +
+      `Hemos recibido tu solicitud de ${noun}${v.withCoach} para el ${when} (hora de ${city}). ` +
       `${v.subject} la confirmará en breve y te llegará un email con los detalles.\n\nEl equipo de ${skin.wordmark}`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Solicitud de cita recibida</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun}${escapeHtml(v.withCoach)} para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). ${escapeHtml(v.subject)} la confirmará en breve y te llegará un email con los detalles.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun}${escapeHtml(v.withCoach)} para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). ${escapeHtml(v.subject)} la confirmará en breve y te llegará un email con los detalles.</p>
        <p style="margin:24px 0 0;color:#666;">El equipo de ${escapeHtml(skin.wordmark)}</p>`,
       skin,
     ),
@@ -192,18 +202,20 @@ export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> 
   const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
   const to = await resolveClubNotifyEmail(appt.coach_id ?? null);
   if (!to) return { sent: false, skipped_reason: 'no_inbox' };
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const name = appt.lead_nombre || appt.lead_email;
   const noun = citaNoun(appt.modality);
   return send({
     to,
     replyTo: appt.lead_email,
     subject: `Nueva solicitud de cita · ${name}`,
-    text: `${name} (${appt.lead_email}) ha solicitado una ${noun} para el ${when} (Madrid). Acéptala o recházala en el dashboard.`,
+    text: `${name} (${appt.lead_email}) ha solicitado una ${noun} para el ${when} (${city}). Acéptala o recházala en el dashboard.`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Nueva solicitud de cita</h1>
        <p style="margin:0 0 8px;line-height:1.6;"><strong>${escapeHtml(name)}</strong> · <a href="mailto:${escapeHtml(appt.lead_email)}" style="color:#0a0a0a;">${escapeHtml(appt.lead_email)}</a></p>
-       <p style="margin:0 0 12px;line-height:1.6;">Ha solicitado una ${noun} para el <strong>${escapeHtml(when)}</strong> (Madrid). Acéptala o recházala en el dashboard.</p>`,
+       <p style="margin:0 0 12px;line-height:1.6;">Ha solicitado una ${noun} para el <strong>${escapeHtml(when)}</strong> (${city}). Acéptala o recházala en el dashboard.</p>`,
     ),
   });
 }
@@ -216,7 +228,9 @@ export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> 
  */
 export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const hiText = appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,';
   const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
@@ -255,12 +269,12 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
       subject: `Sesión presencial confirmada${v.withCoach} · ${skin.wordmark}`,
       text:
         `${hiText}\n\n` +
-        `Tu sesión presencial${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+        `Tu sesión presencial${v.withCoach} está confirmada para el ${when} (hora de ${city}). 30 minutos.\n\n` +
         `${whereText}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de ${skin.wordmark}`,
       html: shell(
         `<h1 style="margin:8px 0 14px;font-size:22px;">Sesión confirmada</h1>
          <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). 30 minutos.</p>
          ${whereHtml}
          <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
         skin,
@@ -293,12 +307,12 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
     subject: `Cita confirmada${v.withCoach} · ${skin.wordmark}`,
     text:
       `${hiText}\n\n` +
-      `Tu videollamada${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+      `Tu videollamada${v.withCoach} está confirmada para el ${when} (hora de ${city}). 30 minutos.\n\n` +
       `${linkLine}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de ${skin.wordmark}`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Cita confirmada</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). 30 minutos.</p>
        ${linkHtml}
        <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
       skin,
@@ -333,7 +347,7 @@ export async function sendAppointmentRejected(appt: Appt): Promise<CitaEmailResu
 export async function sendAppointmentCancelled(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
   const url = bookingUrl(appt.lead_token);
-  const when = formatMadrid(appt.requested_start);
+  const when = formatCitaWhen(appt.requested_start, await coachTz(appt));
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
   const v = coachVoice(appt.coach_name);

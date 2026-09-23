@@ -18,6 +18,7 @@
 // Visits are counted on the PUBLIC landing, which belongs to the funnel operator
 // (`FUNNEL_COACH_ID`): only that coach sees them; any other coach gets `visitas: null`.
 
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { sql } from '@/lib/db';
 import { leadOwnedBy } from '@/lib/leads/owner';
 import { readFunnelCoachId } from '@/lib/leads/funnel-coach';
@@ -362,11 +363,11 @@ export async function loadCallOutcomes(
   };
 }
 
-// ── Weekly series (last 8 ISO weeks, Europe/Madrid) ────────────────────────────────
+// ── Weekly series (last 8 ISO weeks, coach timezone) ───────────────────────────────
 export const WEEKLY_SERIES_WEEKS = 8;
 
 export interface WeeklyPoint {
-  /** ISO calendar date (YYYY-MM-DD) of the week's Monday, Madrid wall-clock. */
+  /** ISO calendar date (YYYY-MM-DD) of the week's Monday, coach wall-clock. */
   week_start: string;
   /** Onboardings completados (leads.submitted_at) that week. */
   onboardings: number;
@@ -382,12 +383,14 @@ export const EMPTY_WEEKLY_SERIES: WeeklySeries = [];
 
 export async function loadWeeklySeries(coach_id: bigint | number): Promise<WeeklySeries> {
   // date_trunc('week', …) is ISO Monday-start. All timestamps are converted to the
-  // box timezone first so week boundaries land on Madrid midnights, not UTC.
+  // COACH's timezone first (`coaches.timezone`, validated; else the product
+  // default) so week boundaries land on his midnights, not UTC or Madrid.
+  const tz = await loadCoachTimezone(coach_id);
   const rows = await sql<WeeklyPoint[]>`
     with weeks as (
       select generate_series(
-        date_trunc('week', (now() at time zone 'Europe/Madrid')) - (${WEEKLY_SERIES_WEEKS - 1} * interval '1 week'),
-        date_trunc('week', (now() at time zone 'Europe/Madrid')),
+        date_trunc('week', (now() at time zone ${tz})) - (${WEEKLY_SERIES_WEEKS - 1} * interval '1 week'),
+        date_trunc('week', (now() at time zone ${tz})),
         interval '1 week'
       ) as wk_start
     )
@@ -397,23 +400,23 @@ export async function loadWeeklySeries(coach_id: bigint | number): Promise<Weekl
         select count(*) from leads l
         where l.submitted_at is not null
           and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
-          and (l.submitted_at at time zone 'Europe/Madrid') >= w.wk_start
-          and (l.submitted_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
+          and (l.submitted_at at time zone ${tz}) >= w.wk_start
+          and (l.submitted_at at time zone ${tz}) <  w.wk_start + interval '1 week'
       )::int as onboardings,
       (
         select count(distinct a.lead_id) from appointments a
         join leads l on l.id = a.lead_id
         where ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
-          and (a.created_at at time zone 'Europe/Madrid') >= w.wk_start
-          and (a.created_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
+          and (a.created_at at time zone ${tz}) >= w.wk_start
+          and (a.created_at at time zone ${tz}) <  w.wk_start + interval '1 week'
       )::int as citas,
       (
         select count(*) from athlete_invitations ai
         join leads l on l.id = ai.lead_id
         where ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
           and ai.redeemed_at is not null
-          and (ai.redeemed_at at time zone 'Europe/Madrid') >= w.wk_start
-          and (ai.redeemed_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
+          and (ai.redeemed_at at time zone ${tz}) >= w.wk_start
+          and (ai.redeemed_at at time zone ${tz}) <  w.wk_start + interval '1 week'
       )::int as altas
     from weeks w
     order by w.wk_start

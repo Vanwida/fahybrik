@@ -33,9 +33,9 @@ import { waitLabel, waitTone } from '@/lib/dashboard/v2/mensajes-inbox';
 import type { MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 import { SNOOZE_CHOICES } from './ThreadRow';
 import { cn } from '@/lib/utils';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
 const PAGE = 50;
-const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' });
 
 type FirstPage =
   | { state: 'loading' }
@@ -70,6 +70,7 @@ function useFirstPage(athleteId: string) {
 
 /** La línea de estado bajo el nombre: la espera con su color, o qué se hizo con ella. */
 function StateLine({ thread, now, thresholdHours }: { thread: MensajesThread | null; now: Date; thresholdHours: number }) {
+  const DAY = zonedFormat(useCoachTimeZone(), 'en-CA', {});
   if (!thread) return null;
   if (thread.state === 'por_responder' && thread.waiting) {
     const tone = waitTone(thread.waiting.since, now, thresholdHours);

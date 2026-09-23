@@ -32,6 +32,7 @@ import { formatCitaDateTime } from '@/components/v2/citas/format';
 import { cn } from '@/lib/utils';
 import { LEAD_TONE, leadName } from './lead-ui';
 import { WaitlistList } from './WaitlistList';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
 type Filter = 'activos' | LeadStatus | 'archivados';
 
@@ -207,6 +208,7 @@ function LeadRow({ lead, active }: { lead: LeadListItem; active: boolean }) {
 }
 
 function CallsList({ calls }: { calls: UpcomingCall[] }) {
+  const tz = useCoachTimeZone();
   const locale = useLocale();
   return (
     <section className="flex flex-col gap-2">
@@ -223,7 +225,7 @@ function CallsList({ calls }: { calls: UpcomingCall[] }) {
               title={name}
               detail={
                 <span className="t-tnum">
-                  {formatCitaDateTime(c.requested_start)} · {c.duration_minutes} min ·{' '}
+                  {formatCitaDateTime(c.requested_start, tz)} · {c.duration_minutes} min ·{' '}
                   {c.modality === 'presencial' ? 'presencial' : 'videollamada'}
                 </span>
               }

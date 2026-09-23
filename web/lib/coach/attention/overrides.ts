@@ -25,12 +25,9 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import {
-  BOX_TIMEZONE,
-  addDays,
-  startOfDayInBox,
-  zonedWallClockToUtc,
-} from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, addDays, zonedWallClockToUtc } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import {
   SIGNAL_KINDS,
   SIGNAL_SEVERITIES,
@@ -90,10 +87,10 @@ export class OverrideForbiddenError extends Error {
   }
 }
 
-/** Inicio del día N (huso de caja) contando desde hoy. */
-export function snoozeUntilDate(until: '1d' | '3d', now: Date): Date {
+/** Inicio del día N contando desde hoy, en el huso del coach (a su medianoche, no a la de Madrid). */
+export function snoozeUntilDate(until: '1d' | '3d', now: Date, tz: string = BOX_TIMEZONE): Date {
   const days = until === '1d' ? 1 : 3;
-  return zonedWallClockToUtc(addDays(startOfDayInBox(now), days), BOX_TIMEZONE);
+  return zonedWallClockToUtc(addDays(startOfDayInTz(now, tz), days), tz);
 }
 
 async function assertOwned(tx: TransactionClient, coach_id: number, ids: number[]): Promise<void> {
@@ -153,7 +150,7 @@ export async function applyOverrides(params: {
 
   const timed =
     params.action === 'snooze' && (params.until === '1d' || params.until === '3d')
-      ? snoozeUntilDate(params.until, now)
+      ? snoozeUntilDate(params.until, now, await loadCoachTimezone(coach_id, client))
       : params.action === 'snooze' && !params.until && params.snooze_until
         ? new Date(params.snooze_until)
         : null;

@@ -61,6 +61,8 @@ export interface NegocioInput {
 
 export interface HoyComposeInput {
   now: Date;
+  /** El huso del coach (sus horas); sin él, el defecto del producto. */
+  tz?: string;
   calendar: { today: string; week_start: string; week_end: string; next_week_start: string };
   facts: ReadonlyArray<AthletePlanFacts>;
   signals: ReadonlyMap<string, AthleteSignalsRead>;
@@ -230,7 +232,7 @@ export function composeHoy(input: HoyComposeInput): HoyView {
         kind: 'calls_today',
         count: calls.length,
         title: calls.length === 1 ? '1 llamada hoy' : `${calls.length} llamadas hoy`,
-        detail: `la primera, a las ${hourLabel(first.starts_at)}`,
+        detail: `la primera, a las ${hourLabel(first.starts_at, input.tz ?? BOX_TIMEZONE)}`,
         athlete_ids: [],
         item_ids: calls.map((c) => c.id),
       });
@@ -316,6 +318,7 @@ export function composeHoy(input: HoyComposeInput): HoyView {
 
   return {
     generated_at: now.toISOString(),
+    timezone: input.tz ?? BOX_TIMEZONE,
     counts: {
       needs_you: needsYou,
       awaiting_reply: input.awaiting
@@ -395,11 +398,11 @@ function toRow(f: AthletePlanFacts, signals: AthleteSignal[], now: Date): HoyRow
   };
 }
 
-/** «10:30» en el huso de la caja (el del coach hasta que exista `coaches.timezone`). */
-function hourLabel(iso: string): string {
+/** «10:30» en el huso del coach. */
+function hourLabel(iso: string, tz: string): string {
   return new Intl.DateTimeFormat('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: BOX_TIMEZONE,
+    timeZone: tz,
   }).format(new Date(iso));
 }

@@ -17,9 +17,9 @@ import { formatRelative } from '@/lib/dashboard/relative-time';
 import { LeadStatusControl } from './LeadStatusControl';
 import { LeadAltaControl } from './LeadAltaControl';
 import { LEAD_TONE, leadName } from './lead-ui';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
-const DAY: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' };
-const day = (iso: string) => new Date(iso).toLocaleDateString('es-ES', DAY).replace('.', '');
+const DAY: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -53,6 +53,8 @@ export function LeadPanel({
   stripeConfigured: boolean;
 }) {
   const router = useRouter();
+  const DAY_FMT = zonedFormat(useCoachTimeZone(), 'es-ES', DAY);
+  const day = (iso: string) => DAY_FMT.format(new Date(iso)).replace('.', '');
   const [completedTick, setCompletedTick] = useState(0);
   const meta = LEAD_STATUS_META[lead.status];
   const name = leadName(lead);

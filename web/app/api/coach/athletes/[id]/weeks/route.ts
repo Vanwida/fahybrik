@@ -11,6 +11,7 @@ import { parseRouteId, parseWith } from '@/lib/coach/api-input';
 import { boxToday, listAthleteWeeks, WeekPublishingError } from '@/lib/coach/week-publishing';
 import { mondaySchema } from '@fahybrid/shared/schema/assign-many';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   });
   if (!q.ok) return q.response;
 
-  const thisMonday = isoDateString(mondayOfWeek(parseIsoDate(boxToday())));
+  const tz = await loadCoachTimezone(auth.session.coach_id);
+  const thisMonday = isoDateString(mondayOfWeek(parseIsoDate(boxToday(new Date(), tz))));
   const from = q.data.from ?? thisMonday;
   const to = q.data.to ?? isoDateString(addDays(parseIsoDate(from), 14));
 

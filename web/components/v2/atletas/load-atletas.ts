@@ -8,6 +8,7 @@ import 'server-only';
 // podido cargar» (distinto de «no tienes atletas»); sin niveles o sin vistas,
 // la lista funciona igual con lo que haya.
 
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { effectiveLevelAxisLabel } from '@fahybrid/shared/domain/coach/level-axis';
@@ -57,7 +58,7 @@ export async function loadAtletas(params: { coach_id: bigint | number; now?: Dat
   const client = params.client ?? defaultSql;
   const coach_id = Number(params.coach_id);
   const now = params.now ?? new Date();
-  const cal = coachCalendar(now);
+  const cal = coachCalendar(now, await loadCoachTimezone(coach_id, client));
   const [rows, lv, views] = await Promise.all([
     loadRoster({ coach_id, now, client }).catch(() => null),
     loadLevels(client, coach_id).catch(() => ({ levels: [] as CoachLevel[], axis: null })),

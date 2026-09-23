@@ -11,27 +11,27 @@ import { groupLeadSummary, summarizeLead, type LeadSummaryGroup } from '@fahybri
 import { deriveNextAction, type NextAction } from '@fahybrid/shared/domain/leads/next-action';
 import type { AppointmentStatus } from '@fahybrid/shared/domain/citas/status';
 import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { latestAppointmentForLead, type AppointmentView } from '@/lib/citas/store';
 import { countWaitlist } from '@/lib/leads/waitlist';
 import { leadOwnedBy } from '@/lib/leads/owner';
 import { buildAltaPrefill, type AltaPrefill } from '@/lib/leads/alta-mapping';
 import { listSessionReportsForLead, type SessionReportView } from '@/lib/coach/session-reports';
 import { LEAD_STATUS_ORDER, type LeadStatus } from './leads-status';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
-// Short Madrid "jue 18:00" for the "Llamada …" next-action. es-ES short weekday renders
-// "jue," so the trailing comma is stripped. One shared formatter (instantiating Intl is
-// comparatively expensive). The coach always reads the same clock the athlete booked.
-const APPT_WHEN_FMT = new Intl.DateTimeFormat('es-ES', {
-  timeZone: BOX_TIMEZONE,
-  weekday: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-function apptWhenShort(iso: string): string {
+// Short "jue 18:00" for the "Llamada …" next-action, in the COACH's timezone (the
+// clock the lead booked against since 0241). es-ES short weekday renders "jue," so
+// the trailing comma is stripped.
+function apptWhenShort(iso: string, tz: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  const APPT_WHEN_FMT = new Intl.DateTimeFormat('es-ES', {
+    timeZone: tz,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
   return APPT_WHEN_FMT.format(d).replace(',', '');
 }
 
@@ -93,6 +93,7 @@ interface LeadListRow {
 }
 
 export async function listLeadsForCoach(coach_id: bigint | number): Promise<LeadsListResult> {
+  const tz = await loadCoachTimezone(coach_id);
   // ONE query. Two LATERAL joins fold the per-lead appointment + latest report into the
   // row (no N+1). The appointment lateral picks the "most relevant" slot: a FUTURE active
   // (pendiente|aceptada) slot, soonest first; otherwise the latest slot by time. The
@@ -148,7 +149,7 @@ export async function listLeadsForCoach(coach_id: bigint | number): Promise<Lead
           ? {
               status: r.appt_status,
               requested_start: apptStartIso,
-              when_short: apptWhenShort(apptStartIso),
+              when_short: apptWhenShort(apptStartIso, tz),
             }
           : null;
       return {

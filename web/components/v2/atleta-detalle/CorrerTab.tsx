@@ -21,16 +21,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { EmptyState, ErrorState, Skeleton } from '@/components/v2/ui';
 import type { RunningAnalyticsPayload } from '@/lib/coach/running-analytics';
 import { PanelCalibracion, PanelComprometida, PanelHuella, PanelVolumen } from './correr/paneles';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
-const GENERADO = new Intl.DateTimeFormat('es-ES', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Madrid',
-});
+const GENERADO_OPTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
 
 export function CorrerTab({ athleteId }: { athleteId: string }) {
+  const GENERADO = zonedFormat(useCoachTimeZone(), 'es-ES', GENERADO_OPTS);
   const [analytics, setAnalytics] = useState<RunningAnalyticsPayload | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando');
 

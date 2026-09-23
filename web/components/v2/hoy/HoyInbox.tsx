@@ -89,7 +89,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const [help, setHelp] = useState(false);
 
   const now = useMemo(() => new Date(view.generated_at), [view.generated_at]);
-  const today = boxToday(now);
+  const today = boxToday(now, view.timezone);
   const weekStart = mondayOf(today);
 
   const inbox = useMemo(() => visibleInbox(view, pending, hiddenGroups), [view, pending, hiddenGroups]);

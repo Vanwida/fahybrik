@@ -13,12 +13,16 @@ import type { SnoozeUntil } from '@/components/v2/shared';
 import { waitLabel, waitTone } from '@/lib/dashboard/v2/mensajes-inbox';
 import type { MensajesThread } from '@/lib/dashboard/v2/mensajes-types';
 import { cn } from '@/lib/utils';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 
-const TIME = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' });
+/** El día (YYYY-MM-DD) de un instante en el huso del club. */
+const dayOf = (tz: string) => zonedFormat(tz, 'en-CA', {});
 
-/** «16:40» si es de hoy; «ayer»; si no, «lun 22 sept». */
-export function whenLabel(iso: string, now: Date): string {
+/** «16:40» si es de hoy; «ayer»; si no, «lun 22 sept» — en el huso del club. */
+export function whenLabel(iso: string, now: Date, tz: string = BOX_TIMEZONE): string {
+  const DAY = dayOf(tz);
+  const TIME = zonedFormat(tz, 'es-ES', { hour: '2-digit', minute: '2-digit' });
   const day = DAY.format(new Date(iso));
   const today = DAY.format(now);
   if (day === today) return TIME.format(new Date(iso));
@@ -47,6 +51,7 @@ function previewOf(t: MensajesThread): { text: string; from: 'athlete' | 'coach'
 }
 
 function StateTag({ t }: { t: MensajesThread }) {
+  const DAY = dayOf(useCoachTimeZone());
   if (t.state === 'hecho') return <Tag icon={Check}>Hecho</Tag>;
   if (t.state === 'pospuesto') {
     return (
@@ -77,6 +82,7 @@ export function ThreadRow({
   const preview = previewOf(t);
   const waiting = t.state === 'por_responder' && t.waiting ? t.waiting : null;
   const tone = waiting ? waitTone(waiting.since, now, thresholdHours) : null;
+  const tz = useCoachTimeZone();
   const handled = t.state === 'hecho' || t.state === 'pospuesto';
   /** Hay una espera que despachar (por responder, o pospuesta y aún viva). */
   const pending = t.state === 'por_responder' || t.state === 'pospuesto';
@@ -128,7 +134,7 @@ export function ThreadRow({
               label={waitLabel(waiting.since, now)}
             />
           ) : t.last_message ? (
-            <span suppressHydrationWarning>{whenLabel(t.last_message.at, now)}</span>
+            <span suppressHydrationWarning>{whenLabel(t.last_message.at, now, tz)}</span>
           ) : null}
           {t.unread > 0 ? (
             <span

@@ -1,19 +1,19 @@
 // Textos de Hoy que dependen de fechas. Puros (se prueban en node).
 
 import { ageLabel, shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 import { plusDays, weekdayDate, mondayOf } from '@/components/v2/shared/format';
 
 const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const;
 
-/** Hoy en el huso de la caja, YYYY-MM-DD. */
-export function boxToday(now: Date): string {
-  return isoDateString(startOfDayInBox(now));
+/** Hoy en el huso del coach (`HoyView.timezone`), YYYY-MM-DD. */
+export function boxToday(now: Date, tz: string = BOX_TIMEZONE): string {
+  return zonedDayString(now, tz);
 }
 
-/** «miércoles 23 sept». */
-export function longDateLabel(now: Date): string {
-  const iso = boxToday(now);
+/** «miércoles 23 sept», en el día del coach. */
+export function longDateLabel(now: Date, tz: string = BOX_TIMEZONE): string {
+  const iso = boxToday(now, tz);
   const [y, m, d] = iso.split('-').map(Number);
   const dow = new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
   return `${DIAS_LARGOS[dow]} ${shortDate(iso)}`;

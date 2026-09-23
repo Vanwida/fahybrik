@@ -69,10 +69,12 @@ const VERDICT_META: Record<Verdict, { label: string; tone: Tone }> = {
 
 const TRIGGER_TONE: Record<FiredTrigger['tone'], Tone> = { warning: 'warn', danger: 'danger' };
 
+// Días del calendario (YYYY-MM-DD, medianoche UTC): se formatean en UTC para que
+// ningún huso los mueva al día anterior.
 const WEEK_FMT = new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
   month: 'short',
-  timeZone: 'Europe/Madrid',
+  timeZone: 'UTC',
 });
 
 function fromGet(r: GetResp): ShownProposal | null {

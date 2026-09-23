@@ -21,6 +21,7 @@ import { getSequenceById } from '@/lib/dashboard/coach/sequences';
 import { AssignManyError, loadPrograms, type GroupPlanContext } from './assign-many-plan';
 import { boxToday } from './week-publishing';
 import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 type GroupRow = {
   id: string;
@@ -145,7 +146,7 @@ export async function getGroup(
   const rows = await loadGroupRows(client, coach, group_id);
   if (rows.length === 0) return null;
   const [summary] = await summarize(client, coach, rows);
-  const today = boxToday();
+  const today = boxToday(new Date(), await loadCoachTimezone(coach, client));
 
   const members = await client<
     Array<{
@@ -252,7 +253,7 @@ export async function loadGroupPlanContext(
     where sequence_id = ${group_id} and coach_id = ${coach_id} and status = 'active'
   `;
   const voters = members.filter((m) => !excluding.includes(Number(m.athlete_id)));
-  const today = boxToday();
+  const today = boxToday(new Date(), await loadCoachTimezone(coach_id, client));
   const votes: MemberAnchorVote[] = [];
   if (voters.length > 0) {
     const receiptRows = await client<Array<{ athlete_id: string; month_template_id: string; end_date: string }>>`

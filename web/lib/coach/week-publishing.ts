@@ -16,7 +16,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { addDays, BOX_TIMEZONE, isoDateString, parseIsoDate, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import {
   AUTO_PUBLISH_DAYS_MAX,
   DEFAULT_AUTO_PUBLISH_DAYS_BEFORE,
@@ -51,9 +52,12 @@ export class WeekPublishingError extends Error {
   }
 }
 
-/** Hoy en el día de caja del club (Europe/Madrid), como YYYY-MM-DD. */
-export function boxToday(now: Date = new Date()): string {
-  return isoDateString(startOfDayInBox(now));
+/**
+ * Hoy en el día del club, como YYYY-MM-DD. `tz` = el huso del coach
+ * (`loadCoachTimezone`); sin él, el defecto del producto.
+ */
+export function boxToday(now: Date = new Date(), tz: string = BOX_TIMEZONE): string {
+  return zonedDayString(now, tz);
 }
 
 // ── N días antes: el ajuste del coach ────────────────────────────────────────
@@ -185,7 +189,7 @@ export async function applyDeliveryToWeeks(
     days_before?: number;
   },
 ): Promise<DeliveryOutcome> {
-  const today = params.today ?? boxToday();
+  const today = params.today ?? boxToday(new Date(), await loadCoachTimezone(params.coach_id, client));
   const days = params.days_before ?? (await effectiveDays(client, params.coach_id));
   const before = await loadWeekRows(client, params.athlete_id, params.week_starts);
   const after = new Map<string, WeekRowState | null>();
@@ -303,7 +307,7 @@ async function actOnWeek(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
   await assertOwned(client, coachId, params.athlete_id);
-  const today = boxToday();
+  const today = boxToday(new Date(), await loadCoachTimezone(coachId, client));
   const days = await effectiveDays(client, coachId);
 
   const outcome = await client.begin(async (txRaw) => {
@@ -458,20 +462,32 @@ export async function runAutoPublish(
   } = {},
 ): Promise<AutoPublishRunResult> {
   const client = params.client ?? defaultSql;
-  const today = boxToday(params.now);
+  const now = params.now ?? new Date();
+  const today = boxToday(now);
   const onlyCoach = params.coach_id == null ? null : Number(params.coach_id);
+  // «Hoy» es el de CADA coach (su huso; uno que Postgres no conozca cae al
+  // defecto en vez de tumbar el barrido de todos).
   const opened = await client<Array<{ athlete_id: string; week_start: string }>>`
+    with valid as (select name from pg_timezone_names),
+    coach_day as (
+      select c.id as coach_id,
+             c.auto_publish_days_before,
+             (${now.toISOString()}::timestamptz at time zone
+               coalesce((select v.name from valid v where v.name = c.timezone), ${BOX_TIMEZONE}))::date as today
+      from coaches c
+    )
     update weekly_plans wp
        set status = 'published', updated_at = now()
       from athletes a
-      left join coaches c on c.id = a.coach_id
+      left join coach_day d on d.coach_id = a.coach_id
      where a.id = wp.athlete_id
        and wp.status = 'draft'
        and wp.delivery_mode = 'scheduled'
        and a.lifecycle_status = 'activo'
        and (${onlyCoach}::bigint is null or a.coach_id = ${onlyCoach}::bigint)
-       and wp.week_start - coalesce(c.auto_publish_days_before, ${DEFAULT_AUTO_PUBLISH_DAYS_BEFORE})::int <= ${today}::date
-       and wp.week_start + 6 >= ${today}::date
+       and wp.week_start - coalesce(d.auto_publish_days_before, ${DEFAULT_AUTO_PUBLISH_DAYS_BEFORE})::int
+           <= coalesce(d.today, ${today}::date)
+       and wp.week_start + 6 >= coalesce(d.today, ${today}::date)
     returning wp.athlete_id::text as athlete_id, to_char(wp.week_start, 'YYYY-MM-DD') as week_start
   `;
 

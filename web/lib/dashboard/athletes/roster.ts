@@ -17,6 +17,7 @@ import 'server-only';
 // Todo en el vocabulario del panel: estado con su motivo (un solo modelo, §4.1),
 // adherencia SOLO de lo debido y con su ventana, readiness 0–100 con su base.
 
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
@@ -222,12 +223,13 @@ export async function loadRoster(params: {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
   const coach_id = Number(params.coach_id);
-  const cal = coachCalendar(now);
+  const tz = await loadCoachTimezone(coach_id, client);
+  const cal = coachCalendar(now, tz);
 
   // El alcance de las cargas por atleta es «los atletas del coach»: se resuelve
   // dentro de cada consulta (coach_id), así que todas salen a la vez.
   const [facts, extras, readiness, signals, awaiting, bands, sessions] = await Promise.all([
-    loadPlanFacts({ coach_id, now, client }),
+    loadPlanFacts({ coach_id, now, client, tz }),
     loadRosterExtras(client, coach_id, cal.today),
     loadReadinessHistory({ coach_id, now, client }),
     loadAthleteSignals({ coach_id, now, client }),

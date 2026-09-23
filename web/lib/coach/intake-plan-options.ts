@@ -11,6 +11,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { autoPublishDate } from '@fahybrid/shared/domain/coach/week-publishing';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import type { IntakePlanSummary } from './intake-plan-line';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 /** Lunes que se ofrecen para empezar un programa (el que viene y los siguientes). */
 export const INTAKE_START_MONDAYS = 4;
@@ -48,7 +49,7 @@ export async function loadIntakePlanOptions(params: {
   const coachId = Number(params.coach_id);
   const ath = params.athlete_id;
   const { boxToday, getAutoPublishSetting } = await import('./week-publishing');
-  const today = boxToday();
+  const today = boxToday(new Date(), await loadCoachTimezone(coachId, client));
   const thisMonday = mondayOfWeek(parseIsoDate(today));
   const mondays = Array.from({ length: INTAKE_START_MONDAYS }, (_, i) => isoDateString(addDays(thisMonday, 7 * (i + 1))));
   const n = (await getAutoPublishSetting(coachId, client)).effective_days;

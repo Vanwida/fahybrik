@@ -24,6 +24,7 @@ import {
 } from '@/components/v2/ui';
 import { FunnelBars } from './FunnelBars';
 import { formatCount, formatDayShort, formatDelta, formatEur, formatIsoDayShort, formatPct1 } from './format';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
 const RANGES: { value: MetricsRange; label: string }[] = [
   { value: '7d', label: '7 días' },
@@ -62,6 +63,7 @@ const OBJ_COLUMNS: DataTableColumn<ObjetivoRow>[] = [
 ];
 
 export function EmbudoScreen({ snapshot, outcomes, weekly, by_objetivo }: FunnelMetrics) {
+  const tz = useCoachTimeZone();
   const router = useRouter();
   const { range, stages, conversions, cohort_since, cohort_until } = snapshot;
   const setRange = (r: MetricsRange) => router.push(`/negocio/embudo?rango=${r}`);
@@ -89,7 +91,9 @@ export function EmbudoScreen({ snapshot, outcomes, weekly, by_objetivo }: Funnel
   }
 
   const cohortPhrase =
-    cohort_since === null ? 'desde el principio' : `del ${formatDayShort(cohort_since)} al ${formatDayShort(cohort_until)}`;
+    cohort_since === null
+      ? 'desde el principio'
+      : `del ${formatDayShort(cohort_since, tz)} al ${formatDayShort(cohort_until, tz)}`;
 
   const byObjetivo: ObjetivoRow[] = (() => {
     const byCode = new Map(by_objetivo.map((r) => [r.objetivo, r]));

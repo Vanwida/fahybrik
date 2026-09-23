@@ -241,13 +241,13 @@ export async function loadReceipts(
 
 // ── Decidir ──────────────────────────────────────────────────────────────────
 
-/** Lunes de la semana en curso (día de caja): no se empieza en una semana pasada. */
-export function earliestStart(now?: Date): string {
-  return isoDateString(mondayOfWeek(parseIsoDate(boxToday(now))));
+/** Lunes de la semana en curso (día del coach, su huso): no se empieza en una semana pasada. */
+export function earliestStart(now?: Date, tz?: string): string {
+  return isoDateString(mondayOfWeek(parseIsoDate(boxToday(now, tz))));
 }
 
-export function assertStartNotPast(start: string, now?: Date): void {
-  const earliest = earliestStart(now);
+export function assertStartNotPast(start: string, now?: Date, tz?: string): void {
+  const earliest = earliestStart(now, tz);
   if (start < earliest) {
     throw new AssignManyError(
       'start_in_past',

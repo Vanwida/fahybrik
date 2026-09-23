@@ -10,11 +10,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import {
-  BOX_TIMEZONE,
-  startOfDayInBox,
-  zonedWallClockToUtc,
-} from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedWallClockToUtc } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { effectiveAutoPublishDays } from '@fahybrid/shared/domain/coach/week-publishing';
 import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
 
@@ -49,11 +46,12 @@ export interface HoyExtras {
   auto_publish_days: number;
 }
 
-function dayBounds(now: Date): { start: string; end: string } {
-  const today = startOfDayInBox(now);
+/** El día de HOY del coach (su huso), como dos instantes. */
+function dayBounds(now: Date, tz: string): { start: string; end: string } {
+  const today = startOfDayInTz(now, tz);
   return {
-    start: zonedWallClockToUtc(today, BOX_TIMEZONE).toISOString(),
-    end: zonedWallClockToUtc(today, BOX_TIMEZONE, { days: 1 }).toISOString(),
+    start: zonedWallClockToUtc(today, tz).toISOString(),
+    end: zonedWallClockToUtc(today, tz, { days: 1 }).toISOString(),
   };
 }
 
@@ -87,10 +85,12 @@ export async function loadHoyPeople(params: {
 export async function loadResolvedToday(params: {
   coach_id: bigint | number;
   now?: Date;
+  /** El huso del coach (`HoyView.timezone`). */
+  tz?: string;
   client?: Sql;
 }): Promise<HoyResolved[]> {
   const client = params.client ?? defaultSql;
-  const { start } = dayBounds(params.now ?? new Date());
+  const { start } = dayBounds(params.now ?? new Date(), params.tz ?? BOX_TIMEZONE);
   const rows = await client<
     Array<{
       athlete_id: string;
@@ -132,8 +132,9 @@ async function loadScalars(
   client: Sql,
   coach_id: number,
   now: Date,
+  tz: string,
 ): Promise<{ activity_today: number; auto_publish_days: number }> {
-  const { start, end } = dayBounds(now);
+  const { start, end } = dayBounds(now, tz);
   const rows = await client<Array<{ activity: number; auto_days: number | null }>>`
     select
       (
@@ -158,15 +159,18 @@ export async function loadHoyExtras(params: {
   coach_id: bigint | number;
   athlete_ids: ReadonlyArray<string>;
   now?: Date;
+  /** El huso del coach (`HoyView.timezone`); sin él, el defecto. */
+  tz?: string;
   client?: Sql;
 }): Promise<HoyExtras> {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
+  const tz = params.tz ?? BOX_TIMEZONE;
   const coach_id = Number(params.coach_id);
   const [people, resolved, scalars] = await Promise.all([
     loadHoyPeople({ coach_id, athlete_ids: params.athlete_ids, client }).catch((): HoyPerson[] => []),
-    loadResolvedToday({ coach_id, now, client }).catch((): HoyResolved[] => []),
-    loadScalars(client, coach_id, now).catch(() => null),
+    loadResolvedToday({ coach_id, now, tz, client }).catch((): HoyResolved[] => []),
+    loadScalars(client, coach_id, now, tz).catch(() => null),
   ]);
   return {
     people,

@@ -1,4 +1,5 @@
-// Ajustes › Tu club — nombre, logo, color, box, dirección y correo de avisos.
+// Ajustes › Tu club — nombre, logo, color, box, dirección, correo de avisos y
+// el huso horario del club.
 // Es el único editor de estos campos en todo el panel.
 
 import type { Metadata } from 'next';
@@ -9,6 +10,8 @@ import { getCoachProfile } from '@/lib/coach/profile';
 import { AjustesPanel } from '@/components/v2/ajustes/AjustesPanel';
 import { AjustesLoadError } from '@/components/v2/ajustes/AjustesLoadError';
 import { ClubForm } from '@/components/v2/club/ClubForm';
+import { TimezoneSetting } from '@/components/v2/ajustes/TimezoneSetting';
+import { getCoachTimezoneSetting } from '@/lib/coach/coach-timezone';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Tu club · Ajustes' };
@@ -19,9 +22,10 @@ export default async function ClubPage({ params }: { params: Promise<{ locale: s
   const session = await getCoachSession();
   if (!session) return null;
 
-  const [club, profile] = await Promise.all([
+  const [club, profile, tz] = await Promise.all([
     getClubSkin(session.coach_id).catch(() => null),
     getCoachProfile(session.coach_id).catch(() => null),
+    getCoachTimezoneSetting(session.coach_id).catch(() => null),
   ]);
 
   return (
@@ -31,6 +35,7 @@ export default async function ClubPage({ params }: { params: Promise<{ locale: s
       ) : (
         <AjustesLoadError what="los datos de tu club" />
       )}
+      {tz ? <TimezoneSetting initial={tz} /> : <AjustesLoadError what="tu huso horario" />}
     </AjustesPanel>
   );
 }

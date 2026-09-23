@@ -38,7 +38,7 @@ export default async function HoyPage({
   const view = await loadHoyForRequest(coach_id);
   const groupIds = view.systemic.flatMap((g) => g.athlete_ids);
   const [extras, negocio] = await Promise.all([
-    loadHoyExtras({ coach_id, athlete_ids: groupIds }),
+    loadHoyExtras({ coach_id, athlete_ids: groupIds, tz: view.timezone }),
     hasNegocioForRequest(coach_id),
   ]);
 
@@ -58,7 +58,7 @@ export default async function HoyPage({
       setup={setup && !setup.complete ? setup : null}
       noAthletes={view.week_visibility.total === 0}
       initialVista={parseVista(query.vista)}
-      dateLabel={longDateLabel(new Date())}
+      dateLabel={longDateLabel(new Date(view.generated_at), view.timezone)}
     />
   );
 }

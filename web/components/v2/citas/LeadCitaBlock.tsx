@@ -21,6 +21,7 @@ import type { AppointmentView } from '@/lib/citas/store';
 import { Button, Input, StatusBadge, buttonVariants, type StatusTone } from '@/components/v2/ui';
 import { useCitaMutation } from './useCitaMutation';
 import { formatCitaDateTime } from './format';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
 const STATUS_TONE: Record<AppointmentStatus, StatusTone> = {
   pendiente: 'warn',
@@ -64,6 +65,7 @@ export function LeadCitaBlock({
   onCompleted?: () => void;
 }) {
   const { mutate, busy, activeKey, error } = useCitaMutation();
+  const tz = useCoachTimeZone();
   const [meet, setMeet] = useState('');
   const [editingMeet, setEditingMeet] = useState(false);
 
@@ -74,7 +76,7 @@ export function LeadCitaBlock({
   const when = (
     <span className="inline-flex items-center gap-1.5 t-body text-v2-fg t-tnum">
       <CalendarClock aria-hidden className="size-4 text-v2-muted" strokeWidth={1.75} />
-      {formatCitaDateTime(appointment.requested_start)} · {appointment.duration_minutes} min
+      {formatCitaDateTime(appointment.requested_start, tz)} · {appointment.duration_minutes} min
     </span>
   );
 

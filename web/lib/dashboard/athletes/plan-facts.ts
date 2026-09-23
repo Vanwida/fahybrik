@@ -14,12 +14,9 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import {
-  addDays,
-  isoDateString,
-  mondayOfWeek,
-  startOfDayInBox,
-} from '@fahybrid/shared/domain/dates';
+import { addDays, BOX_TIMEZONE, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import {
   classifyProgrammingStatus,
   type AthleteProgrammingStatus,
@@ -124,14 +121,20 @@ interface Row {
 }
 
 /** «Hoy» del coach (día de caja) y sus lunes, en YYYY-MM-DD. */
-export function coachCalendar(now: Date): {
+/**
+ * El calendario del coach en SU huso (`coaches.timezone`; sin él, el defecto):
+ * qué día es hoy para él y qué semana es «esta». Hoy, Atletas y el roster lo
+ * leen igual, así que un coach en otro huso no ve cambiar el día a medianoche
+ * de Madrid.
+ */
+export function coachCalendar(now: Date, tz: string = BOX_TIMEZONE): {
   today: string;
   week_start: string;
   week_end: string;
   next_week_start: string;
   next_week_end: string;
 } {
-  const today = startOfDayInBox(now);
+  const today = startOfDayInTz(now, tz);
   const monday = mondayOfWeek(today);
   return {
     today: isoDateString(today),
@@ -147,9 +150,12 @@ export async function loadPlanFacts(params: {
   athlete_ids?: ReadonlyArray<number | bigint | string>;
   now?: Date;
   client?: Sql;
+  /** El huso del coach si quien llama ya lo tiene; si no, se lee. */
+  tz?: string;
 }): Promise<AthletePlanFacts[]> {
   const client = params.client ?? defaultSql;
-  const cal = coachCalendar(params.now ?? new Date());
+  const tz = params.tz ?? (await loadCoachTimezone(params.coach_id, client));
+  const cal = coachCalendar(params.now ?? new Date(), tz);
   const ids = params.athlete_ids ? [...new Set(params.athlete_ids.map((x) => Number(x)))] : null;
 
   const rows = await client<Row[]>`

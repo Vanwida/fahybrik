@@ -24,12 +24,9 @@ import { Button, IconButton } from '@/components/v2/ui';
 import { ChatAttachment } from './ChatAttachment';
 import type { UIMessage } from './useConversation';
 import { cn } from '@/lib/utils';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
-const TIME_FMT = new Intl.DateTimeFormat('es-ES', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Madrid',
-});
+const TIME_OPTS: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
 
 export function ChatBubble({
   message,
@@ -156,6 +153,7 @@ function Footer({
   isCoach: boolean;
   onRetry?: (id: string) => void;
 }) {
+  const TIME_FMT = zonedFormat(useCoachTimeZone(), 'es-ES', TIME_OPTS);
   if (message.failed) {
     return (
       <span className="flex items-center gap-1.5 px-1 t-meta text-v2-danger">

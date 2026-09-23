@@ -17,6 +17,8 @@ import { Button, EmptyState, IconButton, Input, SegmentedControl } from '@/compo
 import { SettingRow, SettingsSection } from '@/components/v2/ajustes/SettingsKit';
 import { SaveStatus, sendJson, useSaveState } from '@/components/v2/ajustes/autosave';
 import { formatCitaDate } from './format';
+import { zonedDayString } from '@fahybrid/shared/domain/dates';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
 interface Range {
   start: string;
@@ -47,13 +49,6 @@ function split(windows: AvailabilityRow[]): Record<CitaModality, Week> {
   return out;
 }
 const valid = (r: Range) => Boolean(r.start) && Boolean(r.end) && r.end > r.start;
-
-const TODAY_MADRID = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Europe/Madrid',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-}).format(new Date());
 
 export function AgendaEditor({
   windows,
@@ -295,6 +290,8 @@ function DayRow({
 // ── Días libres ─────────────────────────────────────────────────────────────
 
 function DiasLibresSection({ initial }: { initial: ExceptionRow[] }) {
+  // «Hoy» en la hora del club: no se puede bloquear un día que ya pasó allí.
+  const today = zonedDayString(new Date(), useCoachTimeZone());
   const dateId = useId();
   const motivoId = useId();
   const [items, setItems] = useState(initial);
@@ -336,7 +333,7 @@ function DiasLibresSection({ initial }: { initial: ExceptionRow[] }) {
       <div className="flex flex-wrap items-end gap-2 px-4 py-3.5">
         <label className="flex flex-col gap-1.5" htmlFor={dateId}>
           <span className="t-meta text-v2-muted">Día</span>
-          <Input id={dateId} type="date" min={TODAY_MADRID} value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-40 t-tnum" />
+          <Input id={dateId} type="date" min={today} value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-40 t-tnum" />
         </label>
         <label className="flex min-w-40 flex-1 flex-col gap-1.5" htmlFor={motivoId}>
           <span className="t-meta text-v2-muted">Motivo (opcional)</span>

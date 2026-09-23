@@ -17,26 +17,22 @@ import { ChatBubble } from './ChatBubble';
 import { ChatComposer } from './ChatComposer';
 import { useConversation, type UIMessage } from './useConversation';
 import { cn } from '@/lib/utils';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
 /** A cuántos píxeles del fondo se sigue considerando que estás "abajo". */
 const AT_BOTTOM_SLACK_PX = 80;
 
-const DAY_FMT = new Intl.DateTimeFormat('es-ES', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'Europe/Madrid',
-});
+const DAY_OPTS: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'short' };
 
-/** Clave estable de día natural en Madrid, para agrupar por jornada. */
-function dayKey(iso: string): string {
-  return DAY_FMT.format(new Date(iso));
+/** Clave estable de día natural en el huso del club, para agrupar por jornada. */
+function dayKey(iso: string, tz: string): string {
+  return zonedFormat(tz, 'es-ES', DAY_OPTS).format(new Date(iso));
 }
 
-function dayLabel(iso: string): string {
-  const key = dayKey(iso);
-  if (key === dayKey(new Date().toISOString())) return 'Hoy';
-  if (key === dayKey(new Date(Date.now() - 86_400_000).toISOString())) return 'Ayer';
+function dayLabel(iso: string, tz: string): string {
+  const key = dayKey(iso, tz);
+  if (key === dayKey(new Date().toISOString(), tz)) return 'Hoy';
+  if (key === dayKey(new Date(Date.now() - 86_400_000).toISOString(), tz)) return 'Ayer';
   return key.replace(/\.$/, '');
 }
 
@@ -128,6 +124,7 @@ export function Conversation({
 }
 
 function MessageList({ chat, athleteId }: { chat: ReturnType<typeof useConversation>; athleteId: string }) {
+  const tz = useCoachTimeZone();
   if (chat.loadFailed) {
     return (
       <div className="p-4">
@@ -158,14 +155,14 @@ function MessageList({ chat, athleteId }: { chat: ReturnType<typeof useConversat
     <div className="flex flex-col gap-2 p-4">
       {chat.messages.map((message: UIMessage, i) => {
         const previous = chat.messages[i - 1];
-        const newDay = !previous || dayKey(message.created_at) !== dayKey(previous.created_at);
+        const newDay = !previous || dayKey(message.created_at, tz) !== dayKey(previous.created_at, tz);
         return (
           <div key={message.id} className="flex flex-col gap-2">
             {newDay ? (
               // «Hoy»/«Ayer» dependen de «ahora»: servidor y navegador pueden
               // discrepar en el filo de medianoche.
               <div suppressHydrationWarning className="py-1 text-center t-meta text-v2-faint first-letter:uppercase">
-                {dayLabel(message.created_at)}
+                {dayLabel(message.created_at, tz)}
               </div>
             ) : null}
             <ChatBubble message={message} athleteId={athleteId} onRetry={chat.retry} onDelete={chat.remove} />

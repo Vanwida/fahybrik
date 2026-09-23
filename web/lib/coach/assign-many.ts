@@ -47,6 +47,7 @@ import {
 } from './assign-many-plan';
 import { applyTarget, type ApplyContext } from './assign-many-apply';
 import { loadGroupPlanContext } from './groups-read';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export { AssignManyError } from './assign-many-plan';
 export { undoAssignBatch } from './assign-many-undo';
@@ -179,7 +180,7 @@ async function executeBatch(
     delivery: spec.delivery,
     policy: spec.on_conflict,
     start: spec.start,
-    today: boxToday(),
+    today: boxToday(new Date(), await loadCoachTimezone(spec.coach_id, client)),
     days_before: (await getAutoPublishSetting(spec.coach_id, client)).effective_days,
     replan,
   };
@@ -207,7 +208,8 @@ export async function runAssign(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
   const input = params.input;
-  assertStartNotPast(input.start_date);
+  const tz = await loadCoachTimezone(coachId, client);
+  assertStartNotPast(input.start_date, undefined, tz);
 
   const program = await loadProgramOrThrow(client, coachId, Number(input.program_id));
   if (program.weeks === 0) {
@@ -263,9 +265,9 @@ export async function runAssign(params: {
 
 // ── Entrar en un grupo (alineado con su calendario) ──────────────────────────
 
-/** El lunes que viene (día de caja). */
-export function nextMonday(): string {
-  return isoDateString(addDays(mondayOfWeek(parseIsoDate(boxToday())), 7));
+/** El lunes que viene (en el día del coach, su huso). */
+export function nextMonday(tz?: string): string {
+  return isoDateString(addDays(mondayOfWeek(parseIsoDate(boxToday(new Date(), tz))), 7));
 }
 
 export async function runGroupJoin(params: {
@@ -283,8 +285,9 @@ export async function runGroupJoin(params: {
 }): Promise<AssignResponse> {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
-  const start = params.start_date ?? nextMonday();
-  assertStartNotPast(start);
+  const tz = await loadCoachTimezone(coachId, client);
+  const start = params.start_date ?? nextMonday(tz);
+  assertStartNotPast(start, undefined, tz);
 
   const recipients = await resolveRecipients(client, coachId, params.athlete_ids, []);
   const group = await loadGroupPlanContext(client, coachId, params.group_id, params.athlete_ids);
@@ -299,7 +302,7 @@ export async function runGroupJoin(params: {
   }
   // Ancla: la de sus miembros; si el grupo aún no tiene, la de quienes entran
   // haciendo ya un programa de la cadena (adopt); si no, la que define la petición.
-  const today = boxToday();
+  const today = boxToday(new Date(), tz);
   const adoptersAnchor =
     manual || group.anchor
       ? null

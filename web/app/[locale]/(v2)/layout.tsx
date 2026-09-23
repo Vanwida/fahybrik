@@ -6,6 +6,9 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { loadShellBadges } from '@/lib/dashboard/coach/shell-badges';
 import { getClubSkin } from '@/lib/coach/club-skin';
 import { loadSetupChecklist } from '@/lib/coach/setup-checklist';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { CoachTimeZoneProvider } from '@/lib/coach/coach-timezone-context';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { V2Shell } from '@/components/v2/V2Shell';
 import { SetupProgress } from '@/components/v2/shared';
 import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
@@ -47,7 +50,7 @@ export default async function V2Layout({
   if (!session) redirect('/sign-in');
   const coach_id = Number(session.coach_id);
 
-  const [badges, club, hoy, negocio, setup] = await Promise.all([
+  const [badges, club, hoy, negocio, setup, tz] = await Promise.all([
     loadShellBadges(session.coach_id),
     getClubSkin(session.coach_id)
       .then((skin) => skin ?? emptyClubSkin())
@@ -55,6 +58,7 @@ export default async function V2Layout({
     loadHoyShellCounts(coach_id),
     hasNegocioForRequest(coach_id),
     loadSetupChecklist(session.coach_id).catch(() => null),
+    loadCoachTimezone(session.coach_id).catch(() => BOX_TIMEZONE),
   ]);
 
   const counts = {
@@ -87,7 +91,7 @@ export default async function V2Layout({
         negocio={negocio}
         setup={setup && !setup.complete ? <SetupProgress checklist={setup} /> : null}
       >
-        {children}
+        <CoachTimeZoneProvider tz={tz}>{children}</CoachTimeZoneProvider>
       </V2Shell>
     </>
   );

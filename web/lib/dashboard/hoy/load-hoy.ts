@@ -11,7 +11,9 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { startOfDayInBox, zonedWallClockToUtc, BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { zonedWallClockToUtc } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { hasEntitlement, type EntitlementFeature } from '@/lib/coach/entitlements';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import { loadReplyStates, openReplies } from '@/lib/coach/attention/awaiting-reply';
@@ -126,13 +128,15 @@ export async function loadHoy(params: {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
   const coach_id = Number(params.coach_id);
-  const calendar = coachCalendar(now);
-  const today = startOfDayInBox(now);
-  const dayStart = zonedWallClockToUtc(today, BOX_TIMEZONE);
-  const dayEnd = zonedWallClockToUtc(today, BOX_TIMEZONE, { days: 1 });
+  // El día de Hoy es el del COACH (su huso, `coaches.timezone`), no el de Madrid.
+  const tz = await loadCoachTimezone(coach_id, client);
+  const calendar = coachCalendar(now, tz);
+  const today = startOfDayInTz(now, tz);
+  const dayStart = zonedWallClockToUtc(today, tz);
+  const dayEnd = zonedWallClockToUtc(today, tz, { days: 1 });
 
   const [facts, signals, resolved_today, awaiting, negocioOn, proposals] = await Promise.all([
-    loadPlanFacts({ coach_id, now, client }),
+    loadPlanFacts({ coach_id, now, client, tz }),
     loadAthleteSignals({ coach_id, now, client }),
     loadResolvedToday(client, coach_id, dayStart),
     loadReplyStates({ coach_id, now, client }).then(openReplies),
@@ -143,6 +147,7 @@ export async function loadHoy(params: {
 
   return composeHoy({
     now,
+    tz,
     calendar,
     facts,
     signals,

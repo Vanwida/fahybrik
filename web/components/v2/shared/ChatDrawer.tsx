@@ -28,6 +28,7 @@ import {
 } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { apiJson, errorMessage } from './api';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
 const PAGE = 50;
 
@@ -63,12 +64,7 @@ function useFirstPage(athleteId: string) {
   };
 }
 
-const DAY = new Intl.DateTimeFormat('es-ES', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'Europe/Madrid',
-});
+const DAY_OPTS: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' };
 
 /** Caja de escribir: Textarea + Enviar, ⌘Enter envía. */
 function Composer({
@@ -142,6 +138,8 @@ function Messages({
   onRetry: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  // El día de cada mensaje, en el huso del club.
+  const DAY = zonedFormat(useCoachTimeZone(), 'es-ES', DAY_OPTS);
   return (
     <div className="flex flex-col gap-2">
       {messages.map((m, i) => {
