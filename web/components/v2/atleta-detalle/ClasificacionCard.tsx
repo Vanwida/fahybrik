@@ -133,6 +133,7 @@ export function ClasificacionCard({
           <ChipGroup
             mono={false}
             ariaLabel={axis}
+            className="pointer-coarse:gap-2 pointer-coarse:[&_[role=radio]]:min-h-11"
             value={levelId}
             onChange={chooseLevel}
             options={data.levels.map((lvl) => ({
@@ -152,6 +153,8 @@ export function ClasificacionCard({
           value={days}
           onChange={chooseDays}
           options={dayOptions.map((d) => ({ value: d, label: String(d), disabled: busy }))}
+          // En el móvil, 44 px de toque por opción (plan §8).
+          className="pointer-coarse:gap-2 pointer-coarse:[&_[role=radio]]:min-h-11 pointer-coarse:[&_[role=radio]]:min-w-11 pointer-coarse:[&_[role=radio]]:justify-center"
         />
       </div>
 

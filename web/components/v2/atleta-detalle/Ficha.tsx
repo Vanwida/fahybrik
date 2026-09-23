@@ -141,7 +141,14 @@ export function Ficha({
         <FichaHeader nav={nav} />
         <StatusBanner />
         <HacerAhora />
-        <Tabs items={TAB_ITEMS} value={url.tab} onValueChange={goTab} aria-label="Secciones del atleta" />
+        <Tabs
+          items={TAB_ITEMS}
+          value={url.tab}
+          onValueChange={goTab}
+          aria-label="Secciones del atleta"
+          // En el móvil, 44 px de toque por pestaña (plan §8).
+          className="pointer-coarse:[&_[role=tab]]:h-11 pointer-coarse:[&_[role=tab]]:min-w-11 pointer-coarse:[&_[role=tab]]:justify-center"
+        />
         <div
           aria-busy={pending || undefined}
           className={cn('min-w-0 transition-opacity duration-[var(--v2-dur)]', pending && 'opacity-60')}

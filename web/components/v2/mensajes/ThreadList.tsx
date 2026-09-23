@@ -167,6 +167,7 @@ export const ThreadList = forwardRef<HTMLInputElement, ThreadListProps>(function
           trailing={p.q ? undefined : <Kbd>/</Kbd>}
           placeholder="Buscar atleta o mensaje…"
           aria-label="Buscar en los mensajes"
+          className="pointer-coarse:[&_input]:h-11"
         />
         {searching ? (
           <div className="flex min-h-7 items-center justify-between gap-2 t-body-sm text-v2-muted">
