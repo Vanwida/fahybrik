@@ -1,43 +1,49 @@
-// POST /api/coach/messages/broadcast — fan ONE coach message out to N athletes'
-// threads in a single request (the /hoy "Mensaje al grupo" cohort op). This is a
-// SCALE lever: one gesture touches every selected athlete, each in their OWN
-// 1:1 thread (never a group chat — the athlete experience stays personal).
+// POST /api/coach/messages/broadcast — UN mensaje del coach a varios atletas,
+// elegidos a mano y/o por grupo, cada uno en SU hilo 1:1 (nunca un chat de
+// grupo: para el atleta es un mensaje normal de su coach).
 //
-// Per athlete: getOrCreateThread (idempotent) → sendMessage (the SAME send path
-// as a 1:1 reply, so a broadcast also lands live on the athlete's phone and is
-// indistinguishable from a normal message on their side). Each send is
-// independent (Promise.allSettled) so one failure never blocks the rest; the
-// response reports per-athlete outcome so the client can toast "Enviado a N" and
-// surface the few that failed.
+//   { athlete_ids?: string[], group_ids?: string[], body }   (al menos uno de los dos)
+//   → { recipients, sent, failed, failed_ids }
 //
-// Every athlete is validated to belong to the calling coach before any write.
+// Por atleta: getOrCreateThread (idempotente) → sendMessage, el MISMO envío que
+// una respuesta 1:1 (llega en vivo y con push). Cada envío es independiente
+// (allSettled): un fallo no para el resto y la respuesta dice quién no lo
+// recibió. Todo atleta y grupo se valida contra el coach ANTES de escribir nada.
 
 import { z } from 'zod';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { sql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
 import { CHAT_BODY_MAX } from '@/lib/chat/schema';
 import { getOrCreateThread, sendMessage } from '@/lib/chat/service';
+import { BroadcastForbiddenError, resolveBroadcastRecipients } from '@/lib/chat/broadcast';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Max cohort size per broadcast — mirrors the inbox/bulk cap (SPEC §9). */
-const MAX_RECIPIENTS = 100;
+/** Tope de destinatarios por envío, ya resueltos los grupos. */
+const MAX_RECIPIENTS = 500;
+/** Envíos a la vez (cada uno abre hilo, inserta, avisa y publica en vivo). */
+const SEND_CONCURRENCY = 10;
 
-const broadcastBodySchema = z.object({
-  athlete_ids: z
-    .array(z.string().regex(/^\d+$/))
-    .min(1)
-    .max(MAX_RECIPIENTS),
-  body: z.string().trim().min(1, 'Mensaje vacío').max(CHAT_BODY_MAX),
-});
+const id = z.string().regex(/^\d{1,18}$/);
+const broadcastBodySchema = z
+  .object({
+    athlete_ids: z.array(id).max(MAX_RECIPIENTS).default([]),
+    group_ids: z.array(id).max(100).default([]),
+    body: z.string().trim().min(1, 'Mensaje vacío').max(CHAT_BODY_MAX),
+  })
+  .refine((b) => b.athlete_ids.length + b.group_ids.length > 0, {
+    message: 'Elige al menos un atleta o un grupo',
+    path: ['athlete_ids'],
+  });
 
 export interface BroadcastResult {
+  /** A cuántos atletas iba (grupos resueltos, sin repetidos). */
+  recipients: number;
   sent: number;
   failed: number;
-  /** athlete_ids whose send failed (so the client can name them). */
+  /** Los atletas a los que no llegó, para nombrarlos. */
   failed_ids: string[];
 }
 
@@ -54,58 +60,55 @@ export async function POST(req: Request): Promise<Response> {
 
   const parsed = broadcastBodySchema.safeParse(raw);
   if (!parsed.success) {
-    return jsonError('bad_request', 'invalid payload', 400, parsed.error.flatten());
+    const first = parsed.error.issues[0]?.message;
+    return jsonError('bad_request', first ?? 'Envío no válido', 400, parsed.error.flatten());
   }
-
-  // De-dupe the recipient set (selecting the same athlete twice = one message).
-  const athleteIds = [...new Set(parsed.data.athlete_ids.map((id) => Number(id)))];
-  const body = parsed.data.body;
+  const { athlete_ids, group_ids, body } = parsed.data;
 
   try {
-    // Ownership gate: every athlete must belong to the coach before any write.
-    const owned = await sql<Array<{ id: string }>>`
-      select id::text
-      from athletes
-      where coach_id = ${session.coach_id}
-        and id = any(${athleteIds}::bigint[])
-    `;
-    const ownedSet = new Set(owned.map((r) => Number(r.id)));
-    if (athleteIds.some((id) => !ownedSet.has(id))) {
-      return jsonError('forbidden', 'Uno o más atletas no pertenecen al coach', 403);
+    let recipients: number[];
+    try {
+      recipients = await resolveBroadcastRecipients({ coach_id: session.coach_id, athlete_ids, group_ids });
+    } catch (err) {
+      if (err instanceof BroadcastForbiddenError) return jsonError('forbidden', err.message, 403);
+      throw err;
     }
-
-    // Independent per-athlete sends: one failure never blocks the cohort.
-    const outcomes = await Promise.allSettled(
-      athleteIds.map(async (athleteId) => {
-        const { thread_id } = await getOrCreateThread({
-          coach_id: session.coach_id,
-          athlete_id: athleteId,
-        });
-        await sendMessage({
-          thread_id,
-          sender_user_id: session.user_id,
-          sender_role: 'coach',
-          input: { body },
-        });
-        return athleteId;
-      }),
-    );
+    if (recipients.length === 0) {
+      return jsonError('bad_request', 'Esos grupos no tienen atletas activos', 400);
+    }
+    if (recipients.length > MAX_RECIPIENTS) {
+      return jsonError('bad_request', `Como mucho ${MAX_RECIPIENTS} atletas por envío`, 400);
+    }
 
     const failedIds: string[] = [];
     let sent = 0;
-    outcomes.forEach((o, idx) => {
-      if (o.status === 'fulfilled') sent += 1;
-      else failedIds.push(String(athleteIds[idx]));
-    });
+    for (let i = 0; i < recipients.length; i += SEND_CONCURRENCY) {
+      const chunk = recipients.slice(i, i + SEND_CONCURRENCY);
+      const outcomes = await Promise.allSettled(
+        chunk.map(async (athleteId) => {
+          const { thread_id } = await getOrCreateThread({ coach_id: session.coach_id, athlete_id: athleteId });
+          await sendMessage({
+            thread_id,
+            sender_user_id: session.user_id,
+            sender_role: 'coach',
+            input: { body },
+          });
+        }),
+      );
+      outcomes.forEach((o, k) => {
+        if (o.status === 'fulfilled') sent += 1;
+        else failedIds.push(String(chunk[k]));
+      });
+    }
 
-    const result: BroadcastResult = {
+    return jsonOk<BroadcastResult>({
+      recipients: recipients.length,
       sent,
       failed: failedIds.length,
       failed_ids: failedIds,
-    };
-    return jsonOk(result);
+    });
   } catch (err) {
     captureRouteError(err, { route: 'api/coach/messages/broadcast.POST' });
-    return jsonError('internal', 'No se pudo enviar el mensaje al grupo', 500);
+    return jsonError('internal', 'No se ha podido enviar el mensaje', 500);
   }
 }

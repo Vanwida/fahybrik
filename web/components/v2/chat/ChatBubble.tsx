@@ -6,20 +6,21 @@
 //
 // Un mensaje puede llevar texto, un adjunto, o las dos cosas. El adjunto se pinta
 // SIN la caja de la burbuja —una foto ya tiene su propio borde— y el texto, si lo
-// hay, va debajo en su burbuja. Envolver una imagen en un rectángulo de color
-// solo consigue que se vea más pequeña.
+// hay, va debajo en su burbuja.
+//
+// Color: neutro. Lo del coach en tinta invertida, lo del atleta sobre la
+// superficie; el acento del club no pinta burbujas (plan §3: solo botón
+// primario, anillo de foco y logo).
 //
 // El pie cuenta la verdad del mensaje: la hora, o que está saliendo, o que no
-// salió y se puede reintentar. Un mensaje propio ya leído se marca con el doble
-// check, que es la pregunta que el coach se hace de verdad.
+// salió y se puede reintentar. Un mensaje propio ya leído lleva el doble check.
 
 // Sin directiva `use client` a propósito: siempre se monta desde un componente
-// que ya es de cliente (la conversación), así que hereda ese lado. Ponérsela lo
-// convertiría en punto de entrada del bundle de cliente y Next exigiría que sus
-// props fueran serializables — cosa que un `onRetry` no es.
+// que ya es de cliente (la conversación), así que hereda ese lado.
 import { useState } from 'react';
 import Link from 'next/link';
-import { MIcon } from '@/components/ui/MIcon';
+import { Check, CheckCheck, ChevronRight, CircleAlert, RotateCcw, Trash2 } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 import { ChatAttachment } from './ChatAttachment';
 import type { UIMessage } from './useConversation';
 import { cn } from '@/lib/utils';
@@ -53,41 +54,32 @@ export function ChatBubble({
     <div className={cn('group/msg flex w-full gap-1.5', isCoach ? 'justify-end' : 'justify-start')}>
       {/* Las acciones van por fuera de la burbuja, del lado de dentro, para que no
           tapen el texto ni desplacen nada al aparecer. */}
-      {isCoach && onDelete ? (
-        <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/msg:opacity-100">
+      {isCoach && onDelete && !message.pending ? (
+        <div
+          className={cn(
+            // En táctil no hay «pasar por encima»: el borrado se queda para el escritorio.
+            'flex items-center transition-opacity pointer-coarse:hidden',
+            confirmingDelete ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover/msg:opacity-100',
+          )}
+        >
           {confirmingDelete ? (
             <span className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-danger)] hover:bg-[color:var(--v2-danger-soft)]"
-              >
+              <Button size="sm" variant="destructive" onClick={() => onDelete(message.id)}>
                 Borrar
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)]"
-              >
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
                 No
-              </button>
+              </Button>
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(true)}
-              aria-label="Borrar el mensaje"
-              className="v2-focus flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-            >
-              <MIcon name="delete" size={15} />
-            </button>
+            <IconButton icon={Trash2} label="Borrar el mensaje" size="sm" onClick={() => setConfirmingDelete(true)} />
           )}
         </div>
       ) : null}
 
       <div
         className={cn(
-          'flex max-w-[78%] flex-col gap-1',
+          'flex max-w-[78%] min-w-0 flex-col gap-1',
           isCoach ? 'items-end' : 'items-start',
           message.pending && 'opacity-70',
         )}
@@ -96,9 +88,7 @@ export function ChatBubble({
           <SobreQue
             label={message.context.label}
             preview={message.context.preview}
-            // Solo lleva a algún sitio una SESIÓN que siga existiendo. Una
-            // carrera y un ejercicio de catálogo enseñan su dato y no navegan:
-            // el panel no tiene todavía a dónde llevarlos.
+            // Solo lleva a algún sitio una SESIÓN que siga existiendo.
             href={
               message.context.kind === 'session' && message.context.exists && athleteId
                 ? `/atletas/${athleteId}?tab=plan&sesion=${message.context.ref}`
@@ -112,10 +102,8 @@ export function ChatBubble({
         {hasText ? (
           <span
             className={cn(
-              'whitespace-pre-wrap break-words rounded-[var(--v2-r-m)] px-3 py-2 text-body leading-relaxed',
-              isCoach
-                ? 'rounded-br-[var(--v2-r-xs)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                : 'rounded-bl-[var(--v2-r-xs)] bg-[color:var(--v2-bg)] text-[color:var(--v2-fg)]',
+              'whitespace-pre-wrap break-words rounded-panel px-3 py-2 t-body',
+              isCoach ? 'rounded-br-[4px] bg-v2-fg text-v2-bg' : 'rounded-bl-[4px] bg-v2-surface-2 text-v2-fg',
             )}
           >
             {message.body}
@@ -129,55 +117,30 @@ export function ChatBubble({
 }
 
 /**
- * SOBRE QUÉ va el mensaje.
- *
- * Es la mitad del valor de la pieza: sin esto el coach lee «no me llega con 90 s»
- * y tiene que gastar un turno preguntando de qué bloque. La etiqueta la redacta
- * el servidor (`web/lib/chat/context.ts`) — aquí no se compone texto, solo se
- * pinta, para que diga exactamente lo mismo en el móvil, en el panel y en el push.
- *
- * `preview` es la línea de DATO de la cosa AHORA (la etiqueta es identidad y va
- * congelada; el estado es el de hoy, porque quien lee está a punto de contestar o
- * de corregir). Con ella, el caso común se resuelve sin abrir nada.
- *
- * `href` solo llega cuando hay a dónde ir de verdad — una sesión que sigue
- * existiendo — y entonces la tarjeta es un enlace a esa sesión en la ficha del
- * atleta. Sin destino no se dibuja ni el galón ni el cursor de mano: prometer un
- * click que no lleva a ninguna parte es peor que no ofrecerlo.
+ * SOBRE QUÉ va el mensaje (una sesión, un ejercicio, una carrera). La etiqueta
+ * la redacta el servidor (`lib/chat/context.ts`); `preview` es el dato de HOY de
+ * esa cosa. Solo es enlace cuando hay a dónde ir de verdad.
  */
-function SobreQue({
-  label,
-  preview,
-  href,
-}: {
-  label: string;
-  preview?: string | null;
-  href?: string | null;
-}) {
+function SobreQue({ label, preview, href }: { label: string; preview?: string | null; href?: string | null }) {
   const cuerpo = (
     <>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-faint)]">
-          Sobre
-        </span>
-        <span className="break-words text-label font-semibold text-[color:var(--v2-fg)]">{label}</span>
-        {preview ? (
-          <span className="break-words text-label text-[color:var(--v2-muted)]">{preview}</span>
-        ) : null}
+        <span className="t-label text-v2-faint">Sobre</span>
+        <span className="break-words t-body-sm font-medium text-v2-fg">{label}</span>
+        {preview ? <span className="break-words t-meta text-v2-muted">{preview}</span> : null}
       </span>
-      {href ? <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" /> : null}
+      {href ? <ChevronRight aria-hidden strokeWidth={1.75} className="size-3.5 shrink-0 text-v2-faint" /> : null}
     </>
   );
-
-  const marco =
-    'flex max-w-full items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5';
-
+  const marco = 'flex max-w-full items-center gap-1.5 rounded-ctl border border-v2-border bg-v2-surface px-2 py-1.5';
   if (!href) return <span className={marco}>{cuerpo}</span>;
-
   return (
     <Link
       href={href}
-      className={cn(marco, 'v2-focus transition-colors hover:border-[color:var(--v2-border-strong)]')}
+      className={cn(
+        marco,
+        'outline-none transition-colors hover:border-v2-border-strong focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]',
+      )}
     >
       {cuerpo}
     </Link>
@@ -195,34 +158,30 @@ function Footer({
 }) {
   if (message.failed) {
     return (
-      <span className="flex items-center gap-1.5 px-1 text-eyebrow text-[color:var(--v2-danger)]">
-        <MIcon name="error" size={12} />
+      <span className="flex items-center gap-1.5 px-1 t-meta text-v2-danger">
+        <CircleAlert aria-hidden strokeWidth={2} className="size-3.5" />
         No se envió
         {onRetry ? (
-          <button
-            type="button"
-            onClick={() => onRetry(message.id)}
-            className="v2-focus rounded-[var(--v2-r-s)] font-bold underline underline-offset-2"
-          >
+          <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => onRetry(message.id)}>
             Reintentar
-          </button>
+          </Button>
         ) : null}
       </span>
     );
   }
 
   if (message.pending) {
-    return <span className="px-1 text-eyebrow text-[color:var(--v2-faint)]">enviando…</span>;
+    return <span className="px-1 t-meta text-v2-faint">enviando…</span>;
   }
 
+  const ReadIcon = message.read_at ? CheckCheck : Check;
   return (
-    <span className="v2-num flex items-center gap-1 px-1 text-eyebrow text-[color:var(--v2-faint)]">
+    <span suppressHydrationWarning className="flex items-center gap-1 px-1 t-meta text-v2-faint t-tnum">
       {TIME_FMT.format(new Date(message.created_at))}
       {isCoach ? (
-        <MIcon
-          name={message.read_at ? 'done_all' : 'done'}
-          size={13}
-          className={message.read_at ? 'text-[color:var(--v2-accent-text)]' : undefined}
+        <ReadIcon
+          strokeWidth={2}
+          className={cn('size-3.5', message.read_at && 'text-v2-info')}
           aria-label={message.read_at ? 'Leído' : 'Enviado'}
         />
       ) : null}

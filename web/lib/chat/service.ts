@@ -584,5 +584,30 @@ export async function markRead(args: {
   return { marked: updated.length };
 }
 
+/**
+ * «Marcar sin leer» del coach: el hilo vuelve a contar como sin abrir (mínimo 1)
+ * para que no se le olvide. No toca `read_at` de ningún mensaje: el atleta ya
+ * vio su doble check y deshacerlo sería mentirle. Con dueño: solo un hilo del
+ * coach cuyo atleta sigue siendo suyo. Devuelve si había hilo.
+ */
+export async function markThreadUnreadForCoach(args: {
+  sql?: Sql;
+  coach_id: number | bigint;
+  athlete_id: number | bigint | string;
+}): Promise<boolean> {
+  const client = args.sql ?? defaultSql;
+  const rows = await client<{ id: string }[]>`
+    update chat_threads t
+       set unread_for_coach = greatest(t.unread_for_coach, 1), updated_at = now()
+      from athletes a
+     where a.id = t.athlete_id
+       and a.coach_id = t.coach_id
+       and t.coach_id = ${Number(args.coach_id)}
+       and t.athlete_id = ${Number(args.athlete_id)}
+    returning t.id::text
+  `;
+  return rows.length > 0;
+}
+
 // El pub/sub SSE vive en `./pubsub` (Postgres LISTEN/NOTIFY, entre instancias).
 // `sendMessage` publica por ahí; la ruta del stream se suscribe por ahí.
