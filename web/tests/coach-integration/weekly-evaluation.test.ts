@@ -2,9 +2,10 @@
  * Real-DB integration tests for `evaluateAthleteWeek` (the weekly verdict).
  *
  * Drives the actual aggregation SQL in `buildAthleteContextPack` (compliance
- * windows, missed-session counts, check-in sub_score) and asserts the verdict
- * + triggers the rules engine produces. No SQL is faked — compliance is
- * computed by Postgres over real `workout_assignments` rows.
+ * windows, missed-session counts, check-in sub_score). The verdict itself is
+ * Hoy's live signals (`body_signals`, see tests/coach/verdict-agrees-with-hoy);
+ * the week's numbers are the IA's CONTEXT, never rules of their own. No SQL is
+ * faked — compliance is computed by Postgres over real `workout_assignments`.
  *
  * NOTE on the date window: `evaluateAthleteWeek` evaluates the week starting at
  * `week_start` (snapped to Monday) and builds context with `on_date =
@@ -62,9 +63,27 @@ describeWithDb('evaluateAthleteWeek (real DB)', () => {
     expect(r.verdict).toBe('ok');
     expect(r.triggers).toEqual([]);
     expect(r.context_pack.compliance_7d).toBe(1);
+    // 100 % ≥ the coach's default 75 % to progress.
+    expect(r.context_pack.progression_verdict).toBe('up');
   });
 
-  test('verdict needs_adjustment when compliance < 60% and 2+ missed', async () => {
+  test('a live Hoy signal passed in IS the verdict, and is kept in the pack', async () => {
+    const { fx } = await freshAthlete();
+    const missed = { kind: 'missed_sessions', severity: 'warning' as const, label: '3 de 4 debidas sin hacer', evidence: 'últimos 7 d' };
+    const r = await evaluateAthleteWeek({
+      athlete_id: fx.athleteId,
+      week_start: WEEK_START,
+      body_signals: [missed],
+      client: sql,
+    });
+    expect(r.verdict).toBe('needs_adjustment');
+    expect(r.triggers).toEqual(['signal:missed_sessions']);
+    expect(r.context_pack.body_signals).toEqual([missed]);
+    expect(r.context_pack.progression_verdict).toBe('down');
+    expect(r.fired_triggers[0]).toMatchObject({ label: '3 de 4 debidas sin hacer', tone: 'warning' });
+  });
+
+  test('a bad week is CONTEXT: without a live Hoy signal the verdict is ok', async () => {
     const { fx, tplId } = await freshAthlete();
     // 5 scheduled, 1 completed, 3 missed → compliance 20%, missed 3.
     await makeAssignment({ fx, templateId: tplId, scheduledForIso: DAYS[0]!, status: 'completed' });
@@ -75,16 +94,15 @@ describeWithDb('evaluateAthleteWeek (real DB)', () => {
 
     const r = await evaluateAthleteWeek({ athlete_id: fx.athleteId, week_start: WEEK_START, client: sql });
 
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('compliance_7d_below_60');
-    expect(r.triggers).toContain('missed_sessions_2plus');
+    expect(r.verdict).toBe('ok');
+    expect(r.triggers).toEqual([]);
     // Adherencia del panel (solo lo debido): el viernes sin hacer también es un
     // entreno que tocaba y no se hizo, aunque nadie lo marcara «missed».
     expect(r.context_pack.compliance.missed_7d).toBe(4);
     expect(r.context_pack.compliance_7d).toBe(0.2);
   });
 
-  test('verdict needs_adjustment when check-in sub_score < 40', async () => {
+  test('one poor check-in is context, not a verdict (a photo is not a trend)', async () => {
     const { fx, tplId } = await freshAthlete();
     // Full compliance (no compliance/missed trigger) but a poor check-in.
     for (const d of DAYS) {
@@ -94,9 +112,7 @@ describeWithDb('evaluateAthleteWeek (real DB)', () => {
 
     const r = await evaluateAthleteWeek({ athlete_id: fx.athleteId, week_start: WEEK_START, client: sql });
 
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('sub_score_below_40');
-    expect(r.triggers).not.toContain('compliance_7d_below_60');
+    expect(r.verdict).toBe('ok');
     expect(r.context_pack.readiness_sub_score).toBe(30);
   });
 
@@ -105,7 +121,7 @@ describeWithDb('evaluateAthleteWeek (real DB)', () => {
     // Zero assignments → compliance_7d is null → rule must not fire.
     const r = await evaluateAthleteWeek({ athlete_id: fx.athleteId, week_start: WEEK_START, client: sql });
     expect(r.context_pack.compliance_7d).toBeNull();
-    expect(r.triggers).not.toContain('compliance_7d_below_60');
+    expect(r.context_pack.progression_verdict).toBe('flat');
     expect(r.verdict).toBe('ok');
   });
 });

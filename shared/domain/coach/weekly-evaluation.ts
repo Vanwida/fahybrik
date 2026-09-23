@@ -79,9 +79,9 @@ export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string;
   /**
-   * Las señales vivas del cuerpo que piden descarga (las de Hoy). Quien pide la
-   * evaluación las carga (`web/lib/coach/week-adjust-signals.ts`); sin ellas el
-   * veredicto mira solo la semana evaluada.
+   * Las señales vivas de Hoy que piden tocar la semana. Quien pide la evaluación
+   * las carga (`web/lib/coach/week-adjust-signals.ts`); son el veredicto: sin
+   * ellas, «ok».
    */
   body_signals?: BodySignal[];
   client: Sql;
@@ -94,15 +94,12 @@ export async function evaluateAthleteWeek(params: {
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
-  const built = await buildAthleteContextPack({
+  const pack: AthleteContextPack = await buildAthleteContextPack({
     athlete_id: params.athlete_id,
     on_date: addDays(weekStart, 6),
+    body_signals: params.body_signals ?? [],
     client,
   });
-  const pack: AthleteContextPack =
-    params.body_signals && params.body_signals.length > 0
-      ? { ...built, body_signals: params.body_signals }
-      : built;
 
   const { verdict, triggers } = evaluateWeeklyVerdictFromContext(pack);
 
@@ -207,86 +204,26 @@ export function firedTriggersFromContext(pack: AthleteContextPack): FiredTrigger
 }
 
 /**
- * Traduce los códigos de trigger disparados a {label, value, tone} con el
- * número REAL del context_pack. NO recalcula reglas — sólo da formato a lo que
- * `evaluateWeeklyVerdictFromContext` ya decidió. El conteo de cumplimiento
- * (done/scheduled) sale del feed de la semana evaluada para que cuadre con
- * "LO QUE HIZO".
+ * Traduce los códigos de trigger disparados a {label, value, tone} con las
+ * palabras de la señal de Hoy que los disparó (su etiqueta y su evidencia). NO
+ * recalcula reglas — sólo da formato a lo que `evaluateWeeklyVerdictFromContext`
+ * ya decidió.
  */
 function buildFiredTriggers(
   triggers: string[],
   pack: AthleteContextPack,
 ): FiredTrigger[] {
   const fired: FiredTrigger[] = [];
-  const pct = pack.compliance_7d != null ? Math.round(pack.compliance_7d * 100) : null;
-
   for (const code of triggers) {
-    if (code.startsWith(BODY_SIGNAL_TRIGGER)) {
-      // La señal viva que llevó al coach a pedirlo, con SUS palabras (las de Hoy).
-      const kind = code.slice(BODY_SIGNAL_TRIGGER.length);
-      const s = (pack.body_signals ?? []).find((b) => b.kind === kind);
-      fired.push({
-        code,
-        label: s?.label ?? kind,
-        value: s?.evidence || '—',
-        tone: s?.severity === 'critical' ? 'danger' : 'warning',
-      });
-      continue;
-    }
-    switch (code) {
-      case 'compliance_7d_below_60':
-        fired.push({
-          code,
-          label: 'Adherencia (7 d) baja',
-          // El porcentaje es el de la regla (adherencia due-only, la del panel);
-          // el feed cuenta también lo que aún no tocaba, así que no se mezcla.
-          value: pct != null ? `${pct} %` : 'baja',
-          tone: 'danger',
-        });
-        break;
-      case 'sub_score_below_40':
-        fired.push({
-          code,
-          label: 'Check-in bajo',
-          value:
-            pack.readiness_sub_score != null
-              ? `${pack.readiness_sub_score}/100`
-              : 'bajo',
-          tone: 'warning',
-        });
-        break;
-      case 'readiness_below_45':
-        fired.push({
-          code,
-          label: 'Readiness baja',
-          value:
-            pack.readiness.score != null ? `${pack.readiness.score} ▼` : 'baja',
-          tone: 'warning',
-        });
-        break;
-      case 'missed_sessions_2plus':
-        fired.push({
-          code,
-          label: 'Entrenos sin hacer (7 d)',
-          value: `${pack.compliance.missed_7d}`,
-          tone: 'danger',
-        });
-        break;
-      case 'hrv_drop_15':
-        fired.push({
-          code,
-          label: 'HRV en caída',
-          value:
-            pack.readiness.hrv_delta_pct != null
-              ? `${Math.round(pack.readiness.hrv_delta_pct * 100)}%`
-              : 'baja',
-          tone: 'warning',
-        });
-        break;
-      default:
-        // Trigger code desconocido (regla nueva sin formato) → fallback legible.
-        fired.push({ code, label: code, value: '—', tone: 'warning' });
-    }
+    // La señal viva que llevó a pedirlo, con SUS palabras (las de Hoy).
+    const kind = code.startsWith(BODY_SIGNAL_TRIGGER) ? code.slice(BODY_SIGNAL_TRIGGER.length) : code;
+    const s = (pack.body_signals ?? []).find((b) => b.kind === kind);
+    fired.push({
+      code,
+      label: s?.label ?? kind,
+      value: s?.evidence || '—',
+      tone: s?.severity === 'critical' ? 'danger' : 'warning',
+    });
   }
 
   return fired;

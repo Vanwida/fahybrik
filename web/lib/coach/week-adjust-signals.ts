@@ -1,13 +1,14 @@
 import 'server-only';
 
-// Las señales del cuerpo que llevan al coach a pedir una descarga — la entrada
-// del motor de ajuste semanal (`evaluateAthleteWeek`, `week_adjustment_proposals`).
+// Las señales de Hoy que piden tocar la semana — LA entrada (y el veredicto) del
+// motor de ajuste semanal (`evaluateAthleteWeek`, `week_adjustment_proposals`,
+// `weekly-verdict-rules`).
 //
 // Son las MISMAS que ve en Hoy (`loadAthleteSignals`: vivas, sin lo pospuesto o
-// hecho) y cuya acción es «Proponer descarga» (`signalActionFor`: readiness bajo
-// CON base, HRV hundida, RPE alto). Así el botón y el motor hablan de lo mismo:
-// si Hoy ofrece la descarga por un readiness de hoy, el motor lo lee, en vez de
-// contestar «mantener» mirando solo la adherencia de la semana pasada.
+// hecho): las de «Proponer descarga» (`signalActionFor`: readiness bajo CON base,
+// HRV hundida, RPE alto) y los entrenos sin hacer (número y proporción del
+// coach). Así el botón, el cron del lunes y Hoy contestan lo mismo: el motor ya
+// no tiene reglas ni números propios (adherencia < 60 %, readiness < 45…).
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -15,10 +16,15 @@ import { isActionable, type AthleteSignal } from '@fahybrid/shared/domain/coach/
 import type { BodySignal } from '@fahybrid/shared/domain/coach/coach-ia-context';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 
-/** De las señales vivas de un atleta, las que piden descarga (puro). */
+/** Una señal de Hoy pide tocar la semana si ofrece la descarga o son entrenos sin hacer. */
+export function asksToAdjustWeek(s: Pick<AthleteSignal, 'action' | 'kind' | 'severity'>): boolean {
+  return isActionable(s) && (s.action === 'proponer_descarga' || s.kind === 'missed_sessions');
+}
+
+/** De las señales vivas de un atleta, las que piden tocar la semana (puro). */
 export function bodySignalsFrom(signals: ReadonlyArray<AthleteSignal>): BodySignal[] {
   return signals
-    .filter((s) => s.action === 'proponer_descarga' && isActionable(s))
+    .filter(asksToAdjustWeek)
     .map((s) => ({
       kind: s.kind,
       severity: s.severity === 'critical' ? 'critical' : 'warning',
@@ -27,7 +33,7 @@ export function bodySignalsFrom(signals: ReadonlyArray<AthleteSignal>): BodySign
     }));
 }
 
-/** Las señales del cuerpo que piden descarga de UN atleta (del coach que lo lleva). */
+/** Las señales de Hoy que piden tocar la semana de UN atleta (del coach que lo lleva). */
 export async function loadBodySignals(params: {
   athlete_id: number | bigint;
   now?: Date;

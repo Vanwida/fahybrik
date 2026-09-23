@@ -36,7 +36,9 @@ const LLM_ENV_KEYS = [
   'LLM_EMBEDDING_MODEL',
 ];
 
-// Evaluated week: drive needs_adjustment via missed sessions in this window.
+// The verdict is Hoy's live signal (weekly-verdict-rules): a persisted
+// «entrenos sin hacer» row, as the sweep writes it, drives needs_adjustment. The
+// evaluated week's rows below are the context the proposal reads.
 const WEEK_START = '2026-04-06'; // Monday
 const EVAL_DAYS = ['2026-04-06', '2026-04-07', '2026-04-08', '2026-04-09'];
 // Heuristic reads the NEXT week's scheduled assignments (week_start + 7).
@@ -68,6 +70,19 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     await closeTestSql();
   });
 
+  /** Hoy's live «entrenos sin hacer» for this athlete, as the sweep persists it. */
+  async function hoyMissedSignal(fx: Fixture): Promise<void> {
+    await sql`
+      insert into coach_attention_items
+        (coach_id, athlete_id, signal_kind, severity, value_numeric, baseline_numeric, label, detail, dedupe_key, window_label)
+      values (${fx.coachId}, ${fx.athleteId}, 'missed_sessions', 'warning', 3, 4,
+              '3 de 4 debidas sin hacer', 'últimos 7 d', ${`missed_sessions:${fx.athleteId}`}, '7 d')
+    `;
+    cleanups.push(async () => {
+      await sql`delete from coach_attention_items where athlete_id = ${fx.athleteId}`;
+    });
+  }
+
   test('needs_adjustment + no LLM → heuristic soften proposal pointing at recovery template', async () => {
     const fx: Fixture = await makeCoachAndAthlete(sql);
     cleanups.push(fx.cleanup);
@@ -76,7 +91,8 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     // Recovery template — name match drives the heuristic's swap target.
     const recoveryTpl = await makeTemplate({ fx, name: 'Recovery flow + movilidad' });
 
-    // Evaluated week: 3 missed → needs_adjustment (missed>=2, compliance<60%).
+    await hoyMissedSignal(fx);
+    // Evaluated week: 3 missed (the context of the proposal).
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[0]!, status: 'completed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[1]!, status: 'missed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[2]!, status: 'missed' });
@@ -149,6 +165,7 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[2]!, status: 'missed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[3]!, status: 'missed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: NEXT_DAYS[0]!, status: 'scheduled', notes: 'slot:am' });
+    await hoyMissedSignal(fx);
 
     const rec = await proposeWeekAdjustment({
       coach_id: fx.coachId,
@@ -175,6 +192,7 @@ describeWithDb('proposeWeekAdjustment heuristic fallback (real DB, no LLM)', () 
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[1]!, status: 'missed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: EVAL_DAYS[2]!, status: 'missed' });
     await makeAssignment({ fx, templateId: hardTpl, scheduledForIso: NEXT_DAYS[0]!, status: 'scheduled', notes: 'slot:am' });
+    await hoyMissedSignal(fx);
 
     const rec = await proposeFromButton({
       coach_id: fx.coachId,

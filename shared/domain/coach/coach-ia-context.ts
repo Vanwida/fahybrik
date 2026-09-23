@@ -4,6 +4,8 @@ import { getTargetRaceRow } from './target-race';
 import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 import { loadAdherenceBatch } from './adherence';
+import { loadCoachThresholdsForAthlete } from './signal-thresholds-db';
+import { progressionVerdictOf } from './weekly-verdict-rules';
 
 export type ProgressionVerdict = 'up' | 'flat' | 'down';
 
@@ -70,17 +72,17 @@ export type AthleteContextPack = {
   readiness_sub_score: number | null;
   data_gaps: string[];
   /**
-   * Las señales VIVAS del cuerpo del atleta que piden descarga (readiness, HRV,
-   * RPE), tal y como las ve el coach en Hoy — con su etiqueta y su evidencia.
-   * Las pone quien pide la evaluación (el botón «Proponer descarga», el cron):
-   * el veredicto las lee, así que el motor responde a la señal que lo disparó y
-   * no solo a la adherencia de la semana pasada. Se guardan con el paquete para
+   * Las señales VIVAS de Hoy que piden tocar la semana (readiness baja con base,
+   * VFC, RPE alto, entrenos sin hacer), tal y como las ve el coach — con su
+   * etiqueta y su evidencia. Las pone quien pide la evaluación (el botón
+   * «Proponer descarga», el cron): son el veredicto (`weekly-verdict-rules`),
+   * así que el motor y Hoy no pueden discrepar. Se guardan con el paquete para
    * que el «por qué» de la propuesta se pueda volver a leer.
    */
   body_signals?: BodySignal[];
 };
 
-/** Una señal del cuerpo que pide descarga (ver `body_signals`). */
+/** Una señal de Hoy que pide tocar la semana (ver `body_signals`). */
 export type BodySignal = {
   kind: string;
   severity: 'critical' | 'warning';
@@ -91,6 +93,10 @@ export type BodySignal = {
 export async function buildAthleteContextPack(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** Las señales vivas de Hoy que piden tocar la semana (sin ellas, ninguna). */
+  body_signals?: BodySignal[];
+  /** El mínimo de adherencia del coach para progresar; sin él, se lee de su fila. */
+  progress_adherence_min_pct?: number;
   client: Sql;
 }): Promise<AthleteContextPack> {
   const client = params.client;
@@ -210,12 +216,13 @@ export async function buildAthleteContextPack(params: {
   if (hrvRecent == null) dataGaps.push('hrv');
   if (subScore == null) dataGaps.push('checkin');
 
-  const progression = computeProgressionVerdict({
-    compliance_7d: pct7,
-    hrv_delta_pct: hrvDeltaPct,
-    sub_score: subScore,
-    readiness_score: readinessScore,
-    missed_7d: missed7,
+  const body_signals = params.body_signals ?? [];
+  const progression = progressionVerdictOf({
+    body_signals,
+    adherence_7d: pct7,
+    progress_adherence_min_pct:
+      params.progress_adherence_min_pct ??
+      (await loadCoachThresholdsForAthlete(client, params.athlete_id)).progress_adherence_min_pct,
   });
 
   const summaryParts: string[] = [];
@@ -255,26 +262,8 @@ export async function buildAthleteContextPack(params: {
     compliance_7d: pct7,
     readiness_sub_score: subScore,
     data_gaps: dataGaps,
+    ...(body_signals.length > 0 ? { body_signals } : {}),
   };
-}
-
-function computeProgressionVerdict(input: {
-  compliance_7d: number | null;
-  hrv_delta_pct: number | null;
-  sub_score: number | null;
-  readiness_score: number | null;
-  missed_7d: number;
-}): ProgressionVerdict {
-  const bad =
-    (input.compliance_7d != null && input.compliance_7d < 0.6) ||
-    (input.hrv_delta_pct != null && input.hrv_delta_pct < -0.15) ||
-    (input.sub_score != null && input.sub_score < 40) ||
-    (input.readiness_score != null && input.readiness_score < 45) ||
-    input.missed_7d >= 2;
-
-  if (bad) return 'down';
-  if (input.compliance_7d != null && input.compliance_7d >= 0.85) return 'up';
-  return 'flat';
 }
 
 function truncate(s: string, max: number): string {

@@ -20,57 +20,35 @@ function basePack(overrides: Partial<AthleteContextPack> = {}): AthleteContextPa
   };
 }
 
-describe('evaluateWeeklyVerdictFromContext', () => {
-  it('returns ok when no triggers fire', () => {
-    const r = evaluateWeeklyVerdictFromContext(basePack());
+describe('evaluateWeeklyVerdictFromContext: el veredicto son las señales de Hoy', () => {
+  it('sin señales vivas, ok aunque la semana evaluada tenga números bajos (son contexto)', () => {
+    const r = evaluateWeeklyVerdictFromContext(
+      basePack({
+        compliance_7d: 0.5,
+        compliance: { pct_7d: 0.5, pct_28d: 0.5, missed_7d: 2 },
+        readiness_sub_score: 30,
+        readiness: { score: 43, sub_score: 30, delta_7d: -10, hrv_delta_pct: -0.2 },
+      }),
+    );
     expect(r.verdict).toBe('ok');
     expect(r.triggers).toHaveLength(0);
   });
 
-  it('returns needs_adjustment when compliance below 60%', () => {
-    const r = evaluateWeeklyVerdictFromContext(
-      basePack({ compliance_7d: 0.55, compliance: { pct_7d: 0.55, pct_28d: 0.5, missed_7d: 0 } }),
-    );
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('compliance_7d_below_60');
+  it('«entrenos sin hacer» de Hoy pide ajuste, con su código', () => {
+    const missed = { kind: 'missed_sessions', severity: 'warning' as const, label: '3 de 4 debidas sin hacer', evidence: 'últimos 7 d' };
+    const r = evaluateWeeklyVerdictFromContext(basePack({ body_signals: [missed] }));
+    expect(r).toEqual({ verdict: 'needs_adjustment', triggers: ['signal:missed_sessions'] });
   });
+});
 
-  it('returns needs_adjustment when sub_score below 40', () => {
-    const r = evaluateWeeklyVerdictFromContext(
-      basePack({
-        readiness_sub_score: 35,
-        readiness: { score: 50, sub_score: 35, delta_7d: -10, hrv_delta_pct: -0.05 },
-      }),
-    );
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('sub_score_below_40');
-  });
-
-  it('returns needs_adjustment when 2+ missed sessions', () => {
-    const r = evaluateWeeklyVerdictFromContext(
-      basePack({ compliance: { pct_7d: 0.7, pct_28d: 0.7, missed_7d: 2 } }),
-    );
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('missed_sessions_2plus');
-  });
-
-  it('returns needs_adjustment when HRV drops more than 15%', () => {
-    const r = evaluateWeeklyVerdictFromContext(
-      basePack({
-        readiness: { score: 60, sub_score: 50, delta_7d: -5, hrv_delta_pct: -0.18 },
-      }),
-    );
-    expect(r.verdict).toBe('needs_adjustment');
-    expect(r.triggers).toContain('hrv_drop_15');
-  });
-
-  it('does NOT fire HRV trigger at -10% (above threshold)', () => {
-    const r = evaluateWeeklyVerdictFromContext(
-      basePack({
-        readiness: { score: 60, sub_score: 50, delta_7d: -2, hrv_delta_pct: -0.1 },
-      }),
-    );
-    expect(r.triggers).not.toContain('hrv_drop_15');
+describe('progressionVerdictOf', () => {
+  const missed = { kind: 'missed_sessions', severity: 'warning' as const, label: 'x', evidence: 'y' };
+  it('down si Hoy pide tocar la semana; up con la adherencia mínima del coach; flat si no', async () => {
+    const { progressionVerdictOf } = await import('@fahybrid/shared/domain/coach/weekly-verdict-rules');
+    expect(progressionVerdictOf({ body_signals: [missed], adherence_7d: 1, progress_adherence_min_pct: 75 })).toBe('down');
+    expect(progressionVerdictOf({ body_signals: [], adherence_7d: 0.8, progress_adherence_min_pct: 75 })).toBe('up');
+    expect(progressionVerdictOf({ body_signals: [], adherence_7d: 0.8, progress_adherence_min_pct: 90 })).toBe('flat');
+    expect(progressionVerdictOf({ body_signals: [], adherence_7d: null, progress_adherence_min_pct: 75 })).toBe('flat');
   });
 });
 
@@ -95,7 +73,7 @@ describe('el motor de la descarga lee la señal que la pidió (informe C, P0)', 
     ]);
   });
 
-  it('sin señales vivas, la semana decide sola (como antes)', () => {
+  it('sin señales vivas, no hay ajuste', () => {
     expect(evaluateWeeklyVerdictFromContext(basePack({ body_signals: [] })).verdict).toBe('ok');
   });
 });
