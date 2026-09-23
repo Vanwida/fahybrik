@@ -17,7 +17,8 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
-import { resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
+import { resolveCoachThresholds, resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
+import type { CoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { evaluateAll } from '@/lib/coach/attention/evaluators';
 import { communicationClaims } from './communication-claims';
 import { invalidateAttention } from './invalidate';
@@ -62,6 +63,8 @@ interface CoachLevelMaps {
   plan: Map<string, AthletePlanFacts>;
   readiness: Map<string, ReadinessHistory>;
   sessions: AdherenceSessionsBatch;
+  /** El método del coach (umbrales de «Listo para progresar», 0256). */
+  thresholds: CoachThresholds;
 }
 
 // ── Public: rollupAthleteFacts ────────────────────────────────────────────────
@@ -113,6 +116,7 @@ async function assembleFacts(
   const progress = await assessAthleteProgressReadiness({
     athlete_id: athleteIdNum,
     on_date: now,
+    thresholds: maps.thresholds,
     client,
   });
   const plan = maps.plan.get(row.athlete_id) ?? null;
@@ -264,7 +268,7 @@ async function loadCoachLevelMaps(
   now: Date,
 ): Promise<CoachLevelMaps> {
   const scope = athlete_ids.length > 0 ? athlete_ids : ['0'];
-  const [intakeRows, weekAdjRows, monthlyRows, awaiting, planRows, readiness, sessions] =
+  const [intakeRows, weekAdjRows, monthlyRows, awaiting, planRows, readiness, sessions, thresholds] =
     await Promise.all([
       listPendingIntake({ coach_id, client }).catch((err) => {
         captureRouteError(err, { route: 'recompute.listPendingIntake' });
@@ -287,6 +291,7 @@ async function loadCoachLevelMaps(
         window_days: MISSED_WINDOW_DAYS,
         now,
       }),
+      resolveCoachThresholds(coach_id, client),
     ]);
 
   const intake: CoachLevelMaps['intake'] = new Map();
@@ -317,7 +322,7 @@ async function loadCoachLevelMaps(
 
   const plan: CoachLevelMaps['plan'] = new Map(planRows.map((p) => [p.athlete_id, p]));
 
-  return { intake, weekAdj, monthly, awaiting, plan, readiness, sessions };
+  return { intake, weekAdj, monthly, awaiting, plan, readiness, sessions, thresholds };
 }
 
 // ── Public: recomputeCoach (the sweep) ────────────────────────────────────────

@@ -175,6 +175,7 @@ export async function buildAthleteDeepDive(
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
     on_date: now,
+    thresholds,
     client,
   });
   const modality = await loadModality(client, numericId, now);

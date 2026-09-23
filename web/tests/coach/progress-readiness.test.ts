@@ -8,8 +8,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   assessProgressReadiness,
+  DEFAULT_PROGRESS_METHOD,
+  progressMethodOf,
   type ProgressReadinessInput,
 } from '@fahybrid/shared/domain/coach/progress-readiness';
+import { mergeCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 /** A microciclo finished cleanly, with load fully measured and benchmarks up. */
 function baseInput(over: Partial<ProgressReadinessInput> = {}): ProgressReadinessInput {
@@ -94,5 +97,34 @@ describe('assessProgressReadiness · carga parcialmente conocida', () => {
     );
     expect(r.flags).not.toContain('load_partial');
     expect(r.recommendation).toBe('advance');
+  });
+});
+
+describe('assessProgressReadiness · umbrales del coach (0256)', () => {
+  test('sin fila: 75 % · ACWR 1,5 / 0,5 · TSB −25 · tests −2 %', () => {
+    expect(DEFAULT_PROGRESS_METHOD).toEqual({
+      compliance_min: 0.75,
+      acr_overreach: 1.5,
+      acr_undertrained: 0.5,
+      tsb_overreach: -25,
+      benchmark_regression_pct: -2,
+    });
+  });
+
+  test('un coach más exigente con la adherencia frena lo que el defecto dejaba pasar', () => {
+    const input = baseInput({ compliance_pct: 0.8 });
+    expect(assessProgressReadiness(input).recommendation).toBe('advance');
+    const strict = progressMethodOf(mergeCoachThresholds({ progress_adherence_min_pct: 90 }));
+    const r = assessProgressReadiness(input, strict);
+    expect(r.recommendation).toBe('hold');
+    expect(r.flags).toContain('compliance_low');
+    expect(r.reasons.join(' ')).toContain('umbral 90%');
+  });
+
+  test('su TSB de fatiga y su ACWR de sobrecarga', () => {
+    const tired = baseInput({ load: { ctl: 60, atl: 80, tsb: -20, acr: 1.3, intensity_coverage: 1 } });
+    expect(assessProgressReadiness(tired).recommendation).toBe('advance');
+    const m = progressMethodOf(mergeCoachThresholds({ progress_tsb_fatigue: 15, progress_acr_high_pct: 120 }));
+    expect(assessProgressReadiness(tired, m).flags).toContain('overreaching');
   });
 });

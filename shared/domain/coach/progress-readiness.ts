@@ -6,7 +6,9 @@
 // progression + microciclo completion. The coach has the final call — nothing
 // auto-promotes; the engine just surfaces a defensible suggestion.
 //
-// Los umbrales son un DEFECTO editable, no una verdad del producto.
+// Los umbrales son un DEFECTO editable, no una verdad del producto: salen de
+// los umbrales del coach (`progressMethodOf`, 0256), y editarlos en Ajustes ›
+// Método cambia lo que dice este motor.
 //
 // DEFENSIBLE means the evidence exists. Where a signal is missing — nothing was
 // scheduled yet, or part of the executed work has no intensity — the engine
@@ -18,6 +20,8 @@ import { LOAD_COVERAGE_MIN, getLoadSummary, loadIntensityCoverage } from '../tra
 import { adherencePct } from '../adherence/completion';
 import { addDays, isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 import { getCurrentMicrociclo } from './current-microciclo';
+import { DEFAULT_COACH_THRESHOLDS, type CoachThresholds } from './signal-thresholds';
+import { loadCoachThresholdsForAthlete } from './signal-thresholds-db';
 
 export type ProgressRecommendation = 'advance' | 'hold' | 'regress';
 
@@ -68,36 +72,70 @@ export type ProgressReadinessInput = {
   benchmark_progression_pct: number | null;
 };
 
-// Empirical thresholds — Pablo tunes with real data (verbatim from prior engine).
-const COMPLIANCE_MIN = 0.75; // < 75% missed sessions → hold
-const ACR_OVERREACH = 1.5; // > 1.5 sustained → high injury risk
-const ACR_UNDERTRAINED = 0.5; // < 0.5 → not enough stimulus to advance
-const TSB_OVERREACH = -25; // very negative → too fatigued
-const BENCHMARK_REGRESSION_PCT = -2.0; // < -2% mean → fitness lost
+/**
+ * The coach's thresholds for this engine (HARD RULE Nº0, migration 0256): the
+ * adherence that allows progressing, the ACWR above which it is overreaching and
+ * below which it is undertrained, the TSB below which the athlete is too
+ * fatigued, and the benchmark drop that counts as fitness lost. They live in
+ * `coach_signal_thresholds` as positive magnitudes; defaults are the numbers this
+ * engine always used (75 % · 1,5 · 0,5 · −25 · −2 %).
+ */
+export type ProgressMethod = {
+  /** 0..1 */
+  compliance_min: number;
+  acr_overreach: number;
+  acr_undertrained: number;
+  /** Negative: the TSB below which the athlete is too fatigued. */
+  tsb_overreach: number;
+  /** Negative %: the mean benchmark change below which fitness was lost. */
+  benchmark_regression_pct: number;
+};
+
+export function progressMethodOf(t: CoachThresholds): ProgressMethod {
+  return {
+    compliance_min: t.progress_adherence_min_pct / 100,
+    acr_overreach: t.progress_acr_high_pct / 100,
+    acr_undertrained: t.progress_acr_low_pct / 100,
+    tsb_overreach: -t.progress_tsb_fatigue,
+    benchmark_regression_pct: -t.progress_benchmark_drop_pct,
+  };
+}
+
+export const DEFAULT_PROGRESS_METHOD: ProgressMethod = progressMethodOf(DEFAULT_COACH_THRESHOLDS);
 // LOAD_COVERAGE_MIN is imported, not redeclared: it is a property of a load
 // reading, and this engine must draw the line exactly where the roster and the
 // deep-dive draw it. See shared/domain/training-load/coverage.ts.
 
-export function assessProgressReadiness(input: ProgressReadinessInput): ProgressReadiness {
+export function assessProgressReadiness(
+  input: ProgressReadinessInput,
+  method: ProgressMethod = DEFAULT_PROGRESS_METHOD,
+): ProgressReadiness {
+  const {
+    compliance_min: COMPLIANCE_MIN,
+    acr_overreach: ACR_OVERREACH,
+    acr_undertrained: ACR_UNDERTRAINED,
+    tsb_overreach: TSB_OVERREACH,
+    benchmark_regression_pct: BENCHMARK_REGRESSION_PCT,
+  } = method;
   const reasons: string[] = [];
   const flags: ProgressFlag[] = [];
 
   const microComplete = input.week_index >= input.week_count;
   if (microComplete) {
     flags.push('microciclo_complete');
-    reasons.push(`Microciclo: ${input.week_index}/${input.week_count} semanas completadas.`);
+    reasons.push(`Programa: ${input.week_index}/${input.week_count} semanas completadas.`);
   } else {
     flags.push('microciclo_underdone');
-    reasons.push(`Microciclo: solo ${input.week_index}/${input.week_count} semanas hechas.`);
+    reasons.push(`Programa: solo ${input.week_index}/${input.week_count} semanas hechas.`);
   }
 
   if (input.compliance_pct == null) {
     flags.push('compliance_unknown');
-    reasons.push('Adherencia: aún no había sesiones programadas en el microciclo — no se puede medir.');
+    reasons.push('Adherencia: aún no había entrenos debidos en el programa — no se puede medir.');
   } else if (input.compliance_pct < COMPLIANCE_MIN) {
     flags.push('compliance_low');
     reasons.push(
-      `Adherencia ${(input.compliance_pct * 100).toFixed(0)}% por debajo del umbral ${COMPLIANCE_MIN * 100}%.`,
+      `Adherencia ${(input.compliance_pct * 100).toFixed(0)}% por debajo del umbral ${Math.round(COMPLIANCE_MIN * 100)}%.`,
     );
   } else {
     reasons.push(`Adherencia ${(input.compliance_pct * 100).toFixed(0)}%.`);
@@ -201,6 +239,8 @@ export type AthleteProgressReadiness = ProgressReadiness & {
 export async function assessAthleteProgressReadiness(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** The coach's thresholds; when omitted, loaded from the athlete's coach. */
+  thresholds?: CoachThresholds;
   client: Sql;
 }): Promise<AthleteProgressReadiness | null> {
   const client = params.client;
@@ -297,13 +337,18 @@ export async function assessAthleteProgressReadiness(params: {
   const lastFullWeekEnd = addDays(microStart, (current.week_index - 1) * 7 + 6);
   const weekBoost = today.getTime() >= lastFullWeekEnd.getTime() ? 1 : 0;
 
-  const readiness = assessProgressReadiness({
-    week_index: Math.min(current.week_index + weekBoost, current.week_count),
-    week_count: current.week_count,
-    compliance_pct,
-    load,
-    benchmark_progression_pct,
-  });
+  const thresholds =
+    params.thresholds ?? (await loadCoachThresholdsForAthlete(client, params.athlete_id));
+  const readiness = assessProgressReadiness(
+    {
+      week_index: Math.min(current.week_index + weekBoost, current.week_count),
+      week_count: current.week_count,
+      compliance_pct,
+      load,
+      benchmark_progression_pct,
+    },
+    progressMethodOf(thresholds),
+  );
 
   return {
     ...readiness,
