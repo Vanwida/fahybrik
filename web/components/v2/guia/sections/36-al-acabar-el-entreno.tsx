@@ -25,7 +25,7 @@
 //     (buzón "Enviar sugerencia o error" → equipo del producto, hello@fahybrid.com; NO al
 //      coach. OJO: el copy iOS dice "le llega a tu coach" — contradice al backend, flageado)
 
-import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';
+import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
 // El oro de la celebración es fijo (un momento nocturno), no sale de los tokens.
@@ -50,78 +50,6 @@ function FeedbackPill({ label, selected, tone }: { label: string; selected?: boo
     >
       {label}
     </span>
-  );
-}
-
-// Una fila del glance "Actividad de hoy" del panel: atleta · sesión · resultado, con
-// el feedback del atleta y, si reportó molestia, la señal Vigilar.
-function ActivityRow({
-  initial,
-  name,
-  session,
-  result,
-  difficulty,
-  molestia,
-}: {
-  initial: string;
-  name: string;
-  session: string;
-  result: string;
-  difficulty: string;
-  molestia?: string;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        background: 'var(--surface)',
-        border: '1px solid var(--hair)',
-        borderRadius: '9px',
-        padding: '9px 11px',
-      }}
-    >
-      <div
-        style={{
-          width: '26px',
-          height: '26px',
-          borderRadius: '50%',
-          background: 'var(--accSoft)',
-          color: 'var(--acc)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '11px',
-          fontWeight: 800,
-          flexShrink: 0,
-        }}
-      >
-        {initial}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)' }}>{name}</div>
-        <div className="num" style={{ fontSize: '10px', color: 'var(--muted)' }}>
-          {session} · {result}
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-        <span
-          className="chip"
-          style={{ fontSize: '9px', color: 'var(--warn)', borderColor: 'var(--warn)' }}
-        >
-          {difficulty}
-        </span>
-        {molestia ? (
-          <span
-            className="chip"
-            style={{ fontSize: '9px', color: 'var(--v2-danger)', borderColor: 'var(--v2-danger)' }}
-          >
-            Vigilar · {molestia}
-          </span>
-        ) : null}
-      </div>
-    </div>
   );
 }
 
@@ -328,37 +256,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         levanta una señal <b>«Vigilar»</b> en tu cola, con la zona y la nota, para que la veas aunque
         no abras la ficha.
       </p>
-
-      <DashboardMockup url="tu-panel / hoy / actividad de hoy">
-        <div style={{ display: 'grid', gap: '8px', padding: '2px' }}>
-          <div
-            style={{
-              fontSize: '9px',
-              fontWeight: 800,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-            }}
-          >
-            Actividad de hoy
-          </div>
-          <ActivityRow
-            initial="M"
-            name="Marta R."
-            session="Intervalos · 13×800"
-            result="42 min · RPE 8"
-            difficulty="Duro de más"
-            molestia="Molestia · Rodilla"
-          />
-          <ActivityRow
-            initial="J"
-            name="Jordi P."
-            session="Rodaje Z2"
-            result="55 min · RPE 5"
-            difficulty="Como debía"
-          />
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="No confundas «Cómo ha ido» con el buzón de la app">
         <p>

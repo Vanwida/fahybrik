@@ -11,7 +11,6 @@ import {
   DocFlow,
   DocNote,
   MovilBand,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubInitial, ClubMark, Signature, WithCoach } from '../tenant';
@@ -27,43 +26,6 @@ const MAIL = {
   hair: '#eceae6',
   band: '#f6f5f2',
 } as const;
-
-/** One row of the ficha's nurture timeline (dashboard frame — reads the .guia-win vars). */
-function TlStep({
-  color,
-  title,
-  time,
-  note,
-  last = false,
-}: {
-  color: string;
-  title: string;
-  time: string;
-  note?: string;
-  last?: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', gap: '10px' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-        <span
-          style={{ width: '9px', height: '9px', borderRadius: '99px', background: color, marginTop: '3px' }}
-        />
-        {last ? null : (
-          <span style={{ flex: 1, width: '1px', background: 'var(--hair)', marginTop: '2px' }} />
-        )}
-      </div>
-      <div style={{ paddingBottom: last ? 0 : '12px', minWidth: 0 }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)' }}>{title}</div>
-        {note ? (
-          <div style={{ fontSize: '10.5px', color: 'var(--muted)', marginTop: '1px' }}>{note}</div>
-        ) : null}
-        <div className="num2" style={{ fontSize: '9.5px', color: 'var(--faint)', marginTop: '2px' }}>
-          {time}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -85,7 +47,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           { label: 'Un lead se enfría' },
           { label: 'El cron diario lo detecta' },
           { label: 'Email de reenganche · máx. 2' },
-          { label: 'Vuelve a tu funnel' },
+          { label: 'Vuelve a tu embudo' },
         ]}
       />
 
@@ -148,9 +110,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         sistema le ha mandado el primer toque y tiene el segundo en cola.
       </p>
 
-      {/* Dashboard mockup: la ficha del lead + el timeline de la secuencia (automático) */}
-      <DashboardMockupFicha />
-
       <MovilBand
         title="En la bandeja de tu lead"
         subtitle={
@@ -196,90 +155,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
     </DocSection>
-  );
-}
-
-// ── Dashboard: ficha del lead con el timeline de la secuencia ──────────────────────────
-function DashboardMockupFicha() {
-  return (
-    <DashboardMockup url="tu-panel / leads / marc-vidal">
-      <div className="ath-hd">
-        <div className="av">M</div>
-        <div className="nm">
-          Marc Vidal
-          <small>Lead · completó el cuestionario · sin reservar cita</small>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
-            Nurturing activo
-          </span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--hair)',
-          borderRadius: '11px',
-          padding: '13px 15px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '10px',
-              fontWeight: 800,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-            }}
-          >
-            Nurturing automático · en segundo plano
-          </span>
-          <span className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>
-            próximo toque en 1 día · máx. 2
-          </span>
-        </div>
-
-        <TlStep color="var(--faint)" title="Lead creado" note="Dejó su email en la landing" time="hace 4 días" />
-        <TlStep color="var(--ok)" title="Completó el cuestionario" note="Objetivo: su primer HYROX · intermedio" time="hace 3 días" />
-        <TlStep
-          color="var(--acc)"
-          title="Toque 1 enviado · «Reserva tu llamada»"
-          note="Secuencia «sin cita» · +1 día"
-          time="hace 2 días"
-        />
-        <TlStep
-          color="var(--faint)"
-          title="Toque 2 programado · recordatorio"
-          note="Secuencia «sin cita» · +4 días · último toque"
-          time="en 1 día"
-          last
-        />
-      </div>
-
-      <div
-        className="num2"
-        style={{
-          fontSize: '10px',
-          color: 'var(--faint)',
-          marginTop: '10px',
-          display: 'flex',
-          gap: '6px',
-          alignItems: 'center',
-        }}
-      >
-        <span style={{ width: '5px', height: '5px', borderRadius: '99px', background: 'var(--ok)' }} />
-        Automático: tú no envías nada. Solo ves al lead avanzar de estado en tu lista de Leads.
-      </div>
-    </DashboardMockup>
   );
 }
 

@@ -17,36 +17,12 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
 const MOD = {
   carrera: 'var(--v2-mod-carrera)',
 } as const;
-
-// Un arquetipo en la fila de prefills del editor.
-function Archetype({ name, hint, active }: { name: string; hint: string; active?: boolean }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        background: active ? 'var(--accSoft)' : 'var(--surface)',
-        border: `1px solid ${active ? 'var(--acc)' : 'var(--hair)'}`,
-        borderRadius: '9px',
-        padding: '8px 9px',
-      }}
-    >
-      <div style={{ fontSize: '11px', fontWeight: 800, color: active ? 'var(--acc)' : 'var(--fg)' }}>
-        {name}
-      </div>
-      <div style={{ fontSize: '8.5px', color: 'var(--faint)', marginTop: '2px', lineHeight: 1.35 }}>
-        {hint}
-      </div>
-    </div>
-  );
-}
 
 // Una fila de tramo dentro de una fase: punto de modalidad + medida + objetivo.
 function Leg({
@@ -85,24 +61,6 @@ function Leg({
           {target}
         </span>
       ) : null}
-    </div>
-  );
-}
-
-// Cabecera de una fase (calentamiento · principal · vuelta).
-function PhaseHead({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        fontSize: '9px',
-        fontWeight: 800,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'var(--muted)',
-        margin: '2px 0',
-      }}
-    >
-      {label}
     </div>
   );
 }
@@ -174,103 +132,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que es exactamente como se escribe un <b>3×(4×400)</b>: tres bloques, cada uno con cuatro
         cuatrocientos y sus micro-recuperaciones, con una pausa más larga entre bloques.
       </p>
-
-      {/* Dashboard mockup: el editor con arquetipos + las tres fases + un 3×(4×400) anidado */}
-      <DashboardMockup url="tu-panel / semana / editor de carrera">
-        <div className="wk-head">
-          <div className="wk-title">Editor de carrera</div>
-          <div className="wk-tools">
-            <span className="btn">Vista previa</span>
-            <span className="btn pri">Guardar tramo</span>
-          </div>
-        </div>
-
-        {/* Fila de arquetipos que prefillan la fase principal */}
-        <div style={{ display: 'flex', gap: '7px', marginBottom: '14px' }}>
-          <Archetype name="Series" hint="N × distancia @ ritmo + recuperación" active />
-          <Archetype name="Progresivo" hint="Tramos que suben de zona" />
-          <Archetype name="Fartlek" hint="Cambios fuerte/suave por RPE" />
-          <Archetype name="Cuestas" hint="Repes en pendiente, bajada andando" />
-          <Archetype name="Pirámide" hint="Distancias que suben y bajan" />
-        </div>
-
-        {/* Calentamiento */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '9px 13px 11px',
-            marginBottom: '9px',
-          }}
-        >
-          <PhaseHead label="Calentamiento" />
-          <Leg measure="10 min" target="Z1 suave" />
-        </div>
-
-        {/* Principal: 3×(4×400) anidado */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '9px 13px 11px',
-            marginBottom: '9px',
-          }}
-        >
-          <PhaseHead label="Principal" />
-          <div
-            style={{
-              border: '1px solid var(--hair)',
-              borderRadius: '8px',
-              padding: '4px 10px 8px',
-              marginTop: '4px',
-            }}
-          >
-            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--acc)', padding: '5px 0 1px' }}>
-              Repetir ×3
-            </div>
-            <div
-              style={{
-                border: '1px solid var(--hair)',
-                borderRadius: '8px',
-                padding: '4px 10px 8px',
-                marginTop: '2px',
-              }}
-            >
-              <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--acc)', padding: '5px 0 1px' }}>
-                Repetir ×4
-              </div>
-              <Leg measure="400 m" target="4:00/km" />
-              <Leg measure="60 s" extra="trote" kind="recovery" />
-            </div>
-            <Leg measure="3 min" extra="caminar" kind="recovery" />
-          </div>
-        </div>
-
-        {/* Vuelta a la calma */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '9px 13px 11px',
-          }}
-        >
-          <PhaseHead label="Vuelta a la calma" />
-          <Leg measure="10 min" target="Z1 suave" />
-        </div>
-
-        {/* Chips de objetivo disponibles por tramo */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '13px' }}>
-          <span className="chip">Ritmo exacto o banda</span>
-          <span className="chip">Zona de ritmo Z1–Z5</span>
-          <span className="chip">Zona de pulso Z1–Z5</span>
-          <span className="chip">RPE 1–10</span>
-          <span className="chip">Inclinación 0–15 %</span>
-          <span className="chip">Cadencia 120–220 spm</span>
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="cue" title="Empieza por un arquetipo, no de cero">
         <p>

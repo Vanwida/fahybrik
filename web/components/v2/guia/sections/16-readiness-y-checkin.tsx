@@ -9,7 +9,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -210,79 +209,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         empezar la mañana.
       </p>
 
-      {/* Dashboard mockup: Pulso del equipo */}
-      <DashboardMockup url="tu-panel / hoy">
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Pulso del equipo · readiness
-        </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {[
-            { n: 9, l: 'Listos', c: 'var(--ok)' },
-            { n: 3, l: 'Con cautela', c: 'var(--warn)' },
-            { n: 1, l: 'En rojo', c: 'var(--dng)' },
-            { n: 2, l: 'Sin dato', c: 'var(--faint)' },
-          ].map((b) => (
-            <div
-              key={b.l}
-              style={{
-                flex: 1,
-                background: 'var(--surface)',
-                border: '1px solid var(--hair)',
-                borderRadius: '9px',
-                padding: '11px 12px',
-              }}
-            >
-              <div
-                className="num2"
-                style={{ fontSize: '24px', fontWeight: 800, color: b.c, lineHeight: 1 }}
-              >
-                {b.n}
-              </div>
-              <div
-                style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginTop: '5px',
-                }}
-              >
-                {b.l}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="lane" style={{ marginTop: 0 }}>
-          <div className="lh" style={{ color: 'var(--warn)' }}>
-            ⚑ Necesitan atención
-          </div>
-          <div className="ac" style={{ marginBottom: '7px' }}>
-            <div className="av">L</div>
-            <div className="nm">Laia</div>
-            <div className="rs" style={{ color: 'var(--dng)' }}>
-              Readiness 38%
-            </div>
-          </div>
-          <div className="ac">
-            <div className="av">J</div>
-            <div className="nm">Jordi</div>
-            <div className="rs" style={{ color: 'var(--warn)' }}>
-              Check-in 2d
-            </div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <p style={{ marginTop: '18px' }}>
         Su check-in de la mañana se vuelve tu radar del equipo. Lo que aquí es{' '}

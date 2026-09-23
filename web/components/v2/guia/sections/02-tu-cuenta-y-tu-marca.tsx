@@ -8,27 +8,13 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { CSSProperties } from 'react';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
-import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 // Canonical modality hue (only one used here, for the sample plan attribution).
 const MOD = { carrera: 'var(--v2-mod-carrera)' } as const;
-
-// Inline styles for the few bits with no dedicated guia.css class. They read the
-// frame-local vars (--fg/--muted/--hair…) so they never drift from the live app.
-const FIELD_LABEL: CSSProperties = {
-  fontSize: '9px',
-  fontWeight: 800,
-  letterSpacing: '0.07em',
-  textTransform: 'uppercase',
-  color: 'var(--muted)',
-};
-const FIELD_VALUE: CSSProperties = { fontSize: '12px', fontWeight: 600, color: 'var(--fg)' };
-const FIELD: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '3px' };
 
 const CHAT_ROW: CSSProperties = {
   display: 'flex',
@@ -75,113 +61,45 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            Tu identidad dentro de la app: <b>nombre</b>, foto, box o estudio, ubicación, una bio y
-            tus especialidades. Todo vive en un único sitio, <b>Ajustes</b>.
+            Dos paneles en Ajustes. <b>Tu perfil</b>: la persona (nombre, foto, bio, especialidades,
+            titulaciones). <b>Tu club</b>: la marca (nombre del club, logo, color, box, dirección y el
+            correo que recibe los avisos).
           </>
         }
         como={
           <>
-            Arriba a la derecha, tu <b>avatar</b> abre tu cuenta; desde ahí entras a{' '}
-            <b>Ajustes y perfil</b>. Rellenas los campos y pulsas <b>Guardar cambios</b> una vez: se
-            guarda todo junto.
+            Desde tu avatar, arriba a la derecha: <b>Tu perfil</b> o <b>Tu club</b>. Escribes y sales
+            del campo: se guarda solo y te dice «Guardado». No hay botón de guardar.
           </>
         }
         porque={
           <>
             Porque tu atleta no entrena con una app anónima: entrena <em className="em">contigo</em>.
-            Ver tu nombre y tu cara convierte un plan en algo personal, y la confianza es la mitad
-            de la adherencia.
+            Tu nombre, tu cara y tu club delante del plan hacen que sea personal.
           </>
         }
       />
 
-      <h3>1 · Tu perfil, en un solo sitio</h3>
+      <h3>1 · Tu perfil: la persona</h3>
       <p>
-        En <code>Ajustes</code> tienes un único formulario con todo tu perfil: <b>foto</b>,{' '}
-        <b>nombre</b>, <b>box o estudio</b>, <b>ubicación</b>, una <b>bio</b> corta, y tus{' '}
-        <b>especialidades</b> y <b>certificaciones</b> como etiquetas. Editas lo que quieras y un solo
-        botón <code>Guardar cambios</code> lo persiste todo de golpe: no hay que guardar campo a
-        campo.
+        Tu <b>nombre</b> es tu firma pública: el saludo de su app, el remitente de cada mensaje y
+        quien firma su semana. La <b>foto</b> se guarda al elegirla; sin ella, tu atleta ve tus
+        iniciales. El <b>correo de acceso</b> no se cambia aquí: está en <b>Ajustes › Cuenta</b>.
       </p>
 
-      <DocNote variant="cue" title="Dos detalles prácticos">
-        <ul>
-          <li>
-            Tu <b>email</b> aparece bloqueado con un candado: es el que usas para entrar, no se cambia
-            desde aquí.
-          </li>
-          <li>
-            La <b>foto</b> admite JPG, PNG o WEBP hasta 4 MB. Si no subes ninguna, tu atleta ve tus{' '}
-            <b>iniciales</b> sobre un avatar de color.
-          </li>
-        </ul>
-      </DocNote>
-
-      {/* Dashboard mockup: the Ajustes profile form */}
-      <DashboardMockup url="tu-panel / ajustes">
-        <div className="ath-hd">
-          <div className="av">S</div>
-          <div className="nm">
-            Sara Vidal<small>Tu perfil de entrenadora</small>
-          </div>
-          <span className="btn pri" style={{ marginLeft: 'auto' }}>
-            Guardar cambios
-          </span>
-        </div>
-
-        <div
-          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}
-        >
-          <div style={FIELD}>
-            <span style={FIELD_LABEL}>Nombre · lo ve el atleta</span>
-            <span style={FIELD_VALUE}>Sara Vidal</span>
-          </div>
-          <div style={FIELD}>
-            <span style={FIELD_LABEL}>Email</span>
-            <span style={{ ...FIELD_VALUE, color: 'var(--muted)', fontWeight: 500 }}>
-              🔒 sara@tubox.com
-            </span>
-          </div>
-          <div style={FIELD}>
-            <span style={FIELD_LABEL}>Box / estudio</span>
-            <span style={FIELD_VALUE}>Hybrid Club Barcelona</span>
-          </div>
-          <div style={FIELD}>
-            <span style={FIELD_LABEL}>Ubicación</span>
-            <span style={FIELD_VALUE}>Barcelona, España</span>
-          </div>
-        </div>
-
-        <div style={{ ...FIELD, marginTop: '12px' }}>
-          <span style={FIELD_LABEL}>Bio</span>
-          <span style={{ ...FIELD_VALUE, color: 'var(--muted)', fontWeight: 500 }}>
-            Especialista en híbrido y HYROX. Diez años preparando atletas para competir.
-          </span>
-        </div>
-
-        <div style={{ ...FIELD, marginTop: '12px' }}>
-          <span style={FIELD_LABEL}>Especialidades</span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            <span className="chip">HYROX</span>
-            <span className="chip">Híbrido</span>
-            <span className="chip">Fuerza</span>
-          </div>
-        </div>
-      </DashboardMockup>
-
-      <h3>2 · Tu nombre es lo que ve tu atleta</h3>
+      <h3>2 · Tu club: la marca</h3>
       <p>
-        El campo <code>Nombre</code> lleva la coletilla <em className="em">lo ve el atleta</em> a
-        propósito: es tu firma pública. Cuando tu atleta abre la app, tú eres{' '}
-        <b>«su entrenador»</b> en el saludo, el remitente de cada mensaje del chat, y el nombre que
-        firma la semana que le has publicado. No hay un «coach» genérico: hay un nombre, el tuyo.
+        El <b>nombre del club</b> y el <b>logo</b> sustituyen a los de la app en el móvil de tus
+        atletas y en sus correos. El <b>color</b> va en tres sitios del panel (el botón principal, el
+        anillo de foco y tu logo) y en la app de tus atletas; la vista previa te enseña cómo queda en
+        claro y en oscuro, y si hay que ajustarlo para que se lea, te lo dice. Si se parece a un color
+        que ya significa algo (rojo, ámbar, verde, azul), te avisa.
       </p>
 
-      <DocNote variant="log" title="“Tu marca” = tu sello, no un logo blanco">
+      <DocNote variant="cue" title="Un campo, un sitio">
         <p>
-          La app se llama <b>{BRAND_WORDMARK}</b> para tu atleta, y eso no cambia. Tu marca aquí es otra cosa
-          y más valiosa: tu <b>nombre</b>, tu <b>cara</b> y tu <b>box</b> puestos delante de su
-          entrenamiento. Eso es lo que hace que sienta que entrena contigo, no con un software.
+          El nombre del box y la dirección de las sesiones presenciales viven solo en Tu club: son los
+          que salen en el correo y el calendario de quien reserva.
         </p>
       </DocNote>
 

@@ -15,66 +15,14 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
-
-// Colores de modalidad (nunca se desvían de los tokens v2 vivos). Las estaciones
-// HYROX caen aquí: ergo (SkiErg / remo), fuerza (trineos, farmers, zancadas),
-// circuito (burpees, wall balls). Las carreras entre estaciones = carrera.
-const MOD = {
-  carrera: 'var(--v2-mod-carrera)',
-  fuerza: 'var(--v2-mod-fuerza)',
-  circuito: 'var(--v2-mod-circuito)',
-  ergo: 'var(--v2-mod-ergo)',
-} as const;
 
 // El azul de "en pareja": el compañero y lo que hacéis juntos — distinto del naranja,
 // que es siempre lo tuyo. La franja en vivo y el aro de pareja usan este mismo azul.
 const PARTNER = 'var(--v2-info)';
 const PARTNER_SOFT = 'var(--v2-info-soft)';
-
-// Una fila del reparto ejecutado en el panel: estación + lo prescrito y lo hecho de
-// cada atleta. La clave honesta: hecho = lo que ESE atleta apuntó, no el total.
-function ExecRow({
-  hue,
-  station,
-  who,
-  prescrito,
-  hecho,
-}: {
-  hue: string;
-  station: string;
-  who: string;
-  prescrito: string;
-  hecho: string;
-}) {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 62px 90px',
-        gap: '8px',
-        alignItems: 'center',
-        padding: '8px 2px',
-        borderTop: '1px solid var(--hair)',
-        fontSize: '11.5px',
-      }}
-    >
-      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-        <span className="mdot" style={{ background: hue }} />
-        <span style={{ color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {station}
-        </span>
-      </span>
-      <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)' }}>{who}</span>
-      <span className="num" style={{ textAlign: 'right', fontSize: '10.5px', color: 'var(--muted)' }}>
-        {prescrito} · <b style={{ color: 'var(--ok)' }}>{hecho}</b>
-      </span>
-    </div>
-  );
-}
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -353,49 +301,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           </div>
         </PhoneMockup>
       </MovilBand>
-
-      {/* Panel: el reparto EJECUTADO — prescrito vs hecho por atleta, sin inflar */}
-      <DashboardMockup url="tu-panel / atletas / marc + laia · simulación dobles">
-        <div className="wk-head">
-          <div className="wk-title">Simulación HYROX Dobles · ejecutada</div>
-          <div className="wk-sum">
-            <span className="chip" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>
-              Registro honesto
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '10px 13px 12px',
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 62px 90px',
-              gap: '8px',
-              padding: '0 2px 2px',
-              fontSize: '8.5px',
-              fontWeight: 800,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: 'var(--faint)',
-            }}
-          >
-            <span>Estación</span>
-            <span>Quién</span>
-            <span style={{ textAlign: 'right' }}>Prescrito · hecho</span>
-          </div>
-          <ExecRow hue={MOD.circuito} station="Wall Balls" who="Laia" prescrito="60" hecho="60" />
-          <ExecRow hue={MOD.circuito} station="Wall Balls" who="Marc" prescrito="40" hecho="40" />
-          <ExecRow hue={MOD.fuerza} station="Sled Push 50 m" who="Marc" prescrito="50 m" hecho="50 m" />
-          <ExecRow hue={MOD.ergo} station="SkiErg 1 km" who="Laia" prescrito="1 km" hecho="1 km" />
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Cada uno apunta lo suyo">
         <p>

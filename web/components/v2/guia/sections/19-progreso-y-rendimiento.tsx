@@ -8,7 +8,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -32,7 +31,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             La <b>progresión de tests</b>: cada test repetido en una fila (<b>Antes → Ahora → Δ</b>)
             con el salto en verde si mejora y en rojo si retrocede. Más la biometría de fondo (VFC,
-            sueño, FC en reposo) y los microciclos ya completados.
+            sueño, FC en reposo) y los programas ya completados.
           </>
         }
         como={
@@ -82,98 +81,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      {/* Dashboard mockup: Histórico — progresión de tests + biometría */}
-      <DashboardMockup url="tu-panel / atletas / marc · histórico">
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Progresión de tests
-        </div>
-        <table className="sesstbl" style={{ marginBottom: '18px' }}>
-          <tbody>
-            <tr>
-              <th>Test</th>
-              <th style={{ textAlign: 'right' }}>Antes</th>
-              <th style={{ textAlign: 'right' }}>Ahora</th>
-              <th style={{ textAlign: 'right' }}>Δ</th>
-            </tr>
-            <tr>
-              <td>Sentadilla · 1RM</td>
-              <td className="n" style={{ textAlign: 'right' }}>120 kg</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--fg)', fontWeight: 700 }}>132 kg</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--ok)', fontWeight: 700 }}>+12 kg</td>
-            </tr>
-            <tr>
-              <td>5 km · ritmo</td>
-              <td className="n" style={{ textAlign: 'right' }}>21:40</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--fg)', fontWeight: 700 }}>20:18</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--ok)', fontWeight: 700 }}>−1:22</td>
-            </tr>
-            <tr>
-              <td>Remo · 2000 m</td>
-              <td className="n" style={{ textAlign: 'right' }}>7:24</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--fg)', fontWeight: 700 }}>7:31</td>
-              <td className="n" style={{ textAlign: 'right', color: 'var(--dng)', fontWeight: 700 }}>+0:07</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Biometría · últimos 30 días
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {[
-            { v: '68', u: 'ms', l: 'VFC 7d', c: 'var(--info)' },
-            { v: '48', u: 'bpm', l: 'FC reposo', c: 'var(--fg)' },
-            { v: '7,4', u: 'h', l: 'Sueño', c: 'var(--fg)' },
-            { v: '78,2', u: 'kg', l: 'Peso', c: 'var(--fg)' },
-          ].map((t) => (
-            <div
-              key={t.l}
-              style={{
-                flex: 1,
-                background: 'var(--surface)',
-                border: '1px solid var(--hair)',
-                borderRadius: '9px',
-                padding: '10px 11px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-                <span className="num2" style={{ fontSize: '19px', fontWeight: 800, color: t.c }}>{t.v}</span>
-                <span className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>{t.u}</span>
-              </div>
-              <div
-                style={{
-                  fontSize: '8.5px',
-                  fontWeight: 800,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginTop: '4px',
-                }}
-              >
-                {t.l}
-              </div>
-            </div>
-          ))}
-        </div>
-      </DashboardMockup>
 
       <MovilBand
         title="Cuando repite un test, en su móvil"
@@ -260,110 +167,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <b>rechazas</b>: nada se aplica solo. Si la semana está correcta, se cierra sin tocar el plan.
       </p>
 
-      {/* Dashboard mockup: Rendimiento — diagnóstico + Evaluar semana (propone / firmas) */}
-      <DashboardMockup url="tu-panel / atletas / marc · rendimiento">
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Diagnóstico de rendimiento
-        </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {[
-            { v: '71', u: '/100', l: 'Readiness', c: 'var(--ok)' },
-            { v: '4:52', u: '/km', l: 'Economía Z2', c: 'var(--fg)' },
-            { v: '168', u: 'ppm', l: 'FC umbral', c: 'var(--fg)' },
-            { v: '82/0/18', u: '', l: 'Polarización', c: 'var(--fg)' },
-          ].map((t) => (
-            <div
-              key={t.l}
-              style={{
-                flex: 1,
-                background: 'var(--surface)',
-                border: '1px solid var(--hair)',
-                borderRadius: '9px',
-                padding: '10px 11px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-                <span className="num2" style={{ fontSize: '16px', fontWeight: 800, color: t.c }}>{t.v}</span>
-                {t.u ? (
-                  <span className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>{t.u}</span>
-                ) : null}
-              </div>
-              <div
-                style={{
-                  fontSize: '8.5px',
-                  fontWeight: 800,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginTop: '4px',
-                }}
-              >
-                {t.l}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '13px 14px',
-          }}
-        >
-          <div className="wk-head" style={{ marginBottom: '10px' }}>
-            <div className="wk-title">
-              Evaluar semana&nbsp; <small>semana del 5 ene</small>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '12px' }}>
-            <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
-              ▲ Requiere ajuste
-            </span>
-            <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
-              Recomendación · Suavizar
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: '9.5px',
-              fontWeight: 800,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-              marginBottom: '6px',
-            }}
-          >
-            Disparadores
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-            <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
-              HRV en caída · −12%
-            </span>
-            <span className="chip" style={{ color: 'var(--dng)', borderColor: 'var(--dng)' }}>
-              Sesiones perdidas · 2
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--fg)', lineHeight: 1.5, marginBottom: '12px' }}>
-            Baja el volumen de las series esta semana y mete un rodaje suave; recupera antes de
-            volver a cargar.
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <span className="btn">Rechazar</span>
-            <span className="btn pri">Aprobar</span>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="cue" title="El sistema propone, tú firmas">
         <ul>

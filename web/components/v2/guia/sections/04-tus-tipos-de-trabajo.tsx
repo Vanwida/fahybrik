@@ -11,7 +11,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -93,29 +92,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </li>
       </ul>
 
-      {/* Dashboard mockup: the archetype picker grid */}
-      <DashboardMockup url="tu-panel / sesión / añadir bloque">
-        <div className="wk-title" style={{ fontSize: '15px', marginBottom: '2px' }}>
-          ¿Qué tipo de trabajo es?
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>
-          Elige el formato. El formulario llega ya hecho para ese tipo.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '9px' }}>
-          <TypeTile color={MOD.calent} icon="◎" name="Calentamiento" />
-          <TypeTile color={MOD.carrera} icon="🏃" name="Carrera continua / Z2" />
-          <TypeTile color={MOD.carrera} icon="↻" name="Series / Intervalos" />
-          <TypeTile color={MOD.fuerza} icon="⌗" name="Fuerza" />
-          <TypeTile color={MOD.circuito} icon="◇" name="Simulación HYROX" />
-          <TypeTile color={MOD.circuito} icon="▦" name="Circuito / Core" />
-          <TypeTile color={MOD.circuito} icon="⏱" name="WOD / Metcon" />
-          <TypeTile color={MOD.fuerza} icon="⚡" name="Fuerza-potencia / EMOM" />
-          <TypeTile color={MOD.ergo} icon="⏲" name="Test" />
-          <TypeTile color={MOD.calent} icon="❋" name="Activación / Tapering" />
-          <TypeTile color={MOD.calent} icon="○" name="Vuelta a la calma" />
-        </div>
-      </DashboardMockup>
-
       <DocNote variant="cue" title="El tipo decide cómo se mide y contra qué">
         <ul>
           <li>
@@ -196,43 +172,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
     </DocSection>
-  );
-}
-
-// ── Mock helpers ─────────────────────────────────────────────────────────────
-function TypeTile({ color, icon, name }: { color: string; icon: string; name: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '9px',
-        border: '1px solid var(--hair)',
-        background: 'var(--surface)',
-        borderRadius: '10px',
-        padding: '10px',
-      }}
-    >
-      <span
-        style={{
-          width: '30px',
-          height: '30px',
-          borderRadius: '7px',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '15px',
-          background: `color-mix(in srgb, ${color} 16%, transparent)`,
-          color,
-        }}
-      >
-        {icon}
-      </span>
-      <span style={{ fontSize: '11px', fontWeight: 700, lineHeight: 1.2, color: 'var(--fg)' }}>
-        {name}
-      </span>
-    </div>
   );
 }
 

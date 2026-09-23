@@ -8,7 +8,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -73,94 +72,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      {/* Dashboard mockup: la pestaña Carreras del coach */}
-      <DashboardMockup url="tu-panel / atletas / marc · carreras">
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Próximas · objetivos
-        </div>
-        <div
-          style={{
-            position: 'relative',
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '14px 16px',
-            marginBottom: '18px',
-            maxWidth: '320px',
-            overflow: 'hidden',
-          }}
-        >
-          <span className="topbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'var(--acc)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--acc)' }}>
-              Próxima carrera
-            </span>
-            <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
-              Objetivo
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
-            <span className="num2" style={{ fontSize: '30px', fontWeight: 800, color: 'var(--acc)', lineHeight: 1 }}>
-              26
-            </span>
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>días</span>
-          </div>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--fg)' }}>HYROX Barcelona</div>
-          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Individual · Pro · Masculino</div>
-          <div className="num2" style={{ fontSize: '11px', color: 'var(--acc)', marginTop: '5px', fontWeight: 700 }}>
-            ◎ Objetivo 1:05:00
-          </div>
-        </div>
-
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '10px',
-          }}
-        >
-          Pasadas · resultados
-        </div>
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px',
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--fg)' }}>HYROX Valencia</span>
-              <span className="chip">Individual</span>
-            </div>
-            <div className="num2" style={{ fontSize: '10px', color: 'var(--faint)', marginTop: '2px' }}>
-              18 nov · Pro · Masculino
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>↓ Ver splits</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="num2" style={{ fontSize: '15px', fontWeight: 800, color: 'var(--fg)' }}>1:08:42</div>
-            <div className="num2" style={{ fontSize: '10px', fontWeight: 700, color: 'var(--acc)' }}>Top 12%</div>
-            <div className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>#84 de 712</div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <MovilBand
         title="Su cuenta atrás, en su móvil"

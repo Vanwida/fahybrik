@@ -36,7 +36,7 @@ export interface GuiaArea {
 }
 
 export interface GuiaSection {
-  /** 1-based number shown in the sidebar (01…19). */
+  /** Número del índice (01…41). */
   num: number;
   area: GuiaAreaId;
   /** URL slug. The first section is served at /guia; the rest at /guia/<slug>. */
@@ -73,15 +73,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'empezar',
     slug: 'que-es-esta-guia',
     title: 'Qué es esta guía',
-    blurb: 'Cómo funciona el panel y por qué tu nombre aparece en la app de tu atleta.',
+    blurb: 'Cómo está ordenado el panel: Hoy, Atletas, Mensajes, Programar, Negocio y Ajustes.',
     built: true,
   },
   {
     num: 2,
     area: 'empezar',
     slug: 'tu-cuenta-y-tu-marca',
-    title: 'Tu cuenta y tu marca',
-    blurb: 'Tu identidad de entrenador: tu nombre y tu sello en la experiencia del atleta.',
+    title: 'Tu perfil y tu club',
+    blurb: 'Ajustes › Tu perfil y Tu club: tu nombre, tu logo y tu color en la app de tu atleta.',
     built: true,
   },
   // ── Tu biblioteca ───────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'biblioteca',
     slug: 'tu-catalogo-de-ejercicios',
     title: 'Tu catálogo de ejercicios',
-    blurb: 'Tus ejercicios con vídeo, listos para usar en cualquier sesión.',
+    blurb: 'Tus ejercicios con vídeo, listos para usar en cualquier entreno.',
     built: true,
   },
   {
@@ -98,15 +98,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'biblioteca',
     slug: 'tus-tipos-de-trabajo',
     title: 'Tus tipos de trabajo',
-    blurb: 'Los bloques con los que montas una sesión: carrera, fuerza, circuito, test…',
+    blurb: 'Los bloques con los que montas un entreno: carrera, fuerza, circuito, test…',
     built: true,
   },
   {
     num: 5,
     area: 'biblioteca',
     slug: 'tu-metodologia-y-tus-fases',
-    title: 'Tu metodología y tus fases',
-    blurb: 'El nombre de tus fases es tuyo: tú lo escribes, tu atleta lo lee.',
+    title: 'Tu método y tus fases',
+    blurb: 'Ajustes › Método: cómo entrenas, en tus palabras. El nombre de tus fases es tuyo.',
     built: true,
   },
   // ── El plan ──────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'plan',
     slug: 'como-se-estructura-un-plan',
     title: 'Cómo se estructura un plan',
-    blurb: 'De la fase a la semana, de la semana al día, del día a la sesión.',
+    blurb: 'Ejercicio, bloque, entreno, semana, programa y plan: qué es cada cosa.',
     built: true,
   },
   {
@@ -123,7 +123,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'plan',
     slug: 'monta-la-semana',
     title: 'Monta la semana de tu atleta',
-    blurb: 'Foco, sesiones por día, carga e intensidad y el guardado honesto.',
+    blurb: 'Programar › Programas: la rejilla de semanas, la línea rápida y «Progresar».',
     built: true,
   },
   {
@@ -138,8 +138,8 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 9,
     area: 'plan',
     slug: 'periodizacion-nombrar-fases',
-    title: 'Periodización: nombrar fases',
-    blurb: 'Nombrar y secuenciar tus fases a lo largo del plan.',
+    title: 'Grupos: un plan para muchos',
+    blurb: 'Programar › Grupos: atletas que comparten plan, una cadena de programas en orden.',
     built: true,
   },
   // ── Asignar y empezar ───────────────────────────────────────────────────────
@@ -147,8 +147,8 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 10,
     area: 'asignar',
     slug: 'da-de-alta-e-invita',
-    title: 'Da de alta e invita',
-    blurb: 'De captar al atleta a que reciba la invitación a su app.',
+    title: 'Invita a tus atletas',
+    blurb: 'Desde Atletas o convirtiendo un lead: la invitación que le lleva a su app.',
     built: true,
   },
   {
@@ -156,15 +156,15 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'asignar',
     slug: 'cuestionario-inicial-y-tests',
     title: 'Cuestionario inicial y tests',
-    blurb: 'Lo que sabes de tu atleta antes de montarle el primer plan.',
+    blurb: 'Lo que sabes de tu atleta antes de su primer plan: alta pendiente y tests.',
     built: true,
   },
   {
     num: 12,
     area: 'asignar',
     slug: 'asigna-el-plan',
-    title: 'Asigna el plan: borrador → publicado',
-    blurb: 'El paso que hace que el plan aparezca en su móvil.',
+    title: 'Asigna y publica por semanas',
+    blurb: 'Un programa a uno o a muchos; cada semana se hace visible sola N días antes.',
     built: true,
   },
   // ── El día a día ─────────────────────────────────────────────────────────────
@@ -172,8 +172,8 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 13,
     area: 'dia-a-dia',
     slug: 'tu-pantalla-hoy',
-    title: 'Tu pantalla /hoy',
-    blurb: 'Tu cola de decisiones del día: a quién atender primero.',
+    title: 'Hoy: quién te necesita',
+    blurb: 'Una bandeja que tiende a cero: resuelve, pospón o marca hecho, peor primero.',
     built: true,
   },
   {
@@ -181,7 +181,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'dia-a-dia',
     slug: 'estado-de-cada-entreno',
     title: 'El estado de cada entreno',
-    blurb: 'El círculo marcar → ver: adherencia, estados y la cola /hoy.',
+    blurb: 'El círculo marcar → ver: estados, adherencia (con su ventana) y lo que sube a Hoy.',
     built: true,
   },
   {
@@ -238,8 +238,8 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 20,
     area: 'negocio',
     slug: 'leads-tu-embudo',
-    title: 'Leads: tu embudo de entrada',
-    blurb: 'Cada visita que deja su email entra aquí como lead, con su estado y su objetivo.',
+    title: 'Leads',
+    blurb: 'Negocio › Leads: quien rellena tu formulario entra aquí, con su estado y su siguiente paso.',
     built: true,
   },
   {
@@ -270,16 +270,16 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     num: 24,
     area: 'negocio',
     slug: 'pagos',
-    title: 'Pagos: cobro por Stripe',
-    blurb: 'El precio nace en el alta y el pago activa el acceso. Ves estados reales y tu MRR.',
+    title: 'Cobros',
+    blurb: 'Negocio › Cobros: quién te debe, quién renueva, y recordar o marcar cobrado.',
     built: true,
   },
   {
     num: 25,
     area: 'negocio',
     slug: 'metricas-del-funnel',
-    title: 'Métricas del funnel',
-    blurb: 'De la visita al alta: dónde entra la gente y dónde se cae, semana a semana.',
+    title: 'Embudo',
+    blurb: 'Negocio › Embudo: del formulario a entrenar contigo, y dónde se cae la gente.',
     built: true,
   },
   // ── Ciclo de vida del atleta ─────────────────────────────────────────────────
@@ -296,7 +296,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'ciclo-vida',
     slug: 'lesiones',
     title: 'Lesiones',
-    blurb: 'Registra una lesión, adáptale el plan y velo de un vistazo en tu roster.',
+    blurb: 'Registra una lesión, adáptale el plan y velo de un vistazo en Atletas.',
     built: true,
   },
   {
@@ -330,7 +330,7 @@ export const GUIA_SECTIONS: readonly GuiaSection[] = [
     area: 'herramientas',
     slug: 'importador-de-entrenos',
     title: 'Importar entrenos del Excel',
-    blurb: 'Rellena un microciclo desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
+    blurb: 'Rellena un programa desde tu Excel: por rango, tipado, y tú eliges qué días entran.',
     built: true,
   },
   {
@@ -427,6 +427,36 @@ export function guiaAreaLabel(area: GuiaAreaId): string {
 export function guiaSectionsForArea(area: GuiaAreaId): GuiaSection[] {
   return GUIA_SECTIONS.filter((s) => s.area === area);
 }
+
+/**
+ * El artículo de ayuda de cada pantalla del panel. Lo usan el «?» de la barra
+ * superior y los enlaces de ayuda de cada pantalla: `guiaHref(GUIA_SLUGS.hoy)`.
+ * Un slug que deje de existir rompe el tipo, no el enlace.
+ */
+export const GUIA_SLUGS = {
+  inicio: 'que-es-esta-guia',
+  hoy: 'tu-pantalla-hoy',
+  atletas: 'estado-de-cada-entreno',
+  atleta: 'progreso-y-rendimiento',
+  mensajes: 'habla-con-tu-atleta',
+  programar: 'como-se-estructura-un-plan',
+  programas: 'monta-la-semana',
+  biblioteca: 'tus-tipos-de-trabajo',
+  ejercicios: 'tu-catalogo-de-ejercicios',
+  grupos: 'periodizacion-nombrar-fases',
+  asignar: 'asigna-el-plan',
+  tests: 'cuestionario-inicial-y-tests',
+  leads: 'leads-tu-embudo',
+  cobros: 'pagos',
+  embudo: 'metricas-del-funnel',
+  ajustes_perfil: 'tu-cuenta-y-tu-marca',
+  ajustes_club: 'tu-cuenta-y-tu-marca',
+  ajustes_metodo: 'tu-metodologia-y-tus-fases',
+  ajustes_plan: 'asigna-el-plan',
+  ajustes_agenda: 'cupo-y-lista-de-espera',
+} as const satisfies Record<string, (typeof GUIA_SECTIONS)[number]['slug']>;
+
+export type GuiaScreen = keyof typeof GUIA_SLUGS;
 
 /** Look a section up by slug. */
 export function findGuiaSection(slug: string): GuiaSection | undefined {

@@ -4,7 +4,7 @@
 // + components/v2/editor/PrescriptionFields), and the athlete-facing line comes
 // from the SAME renderer the app uses (shared/domain prescriptionToText).
 
-import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';
+import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
 const MOD = {
@@ -58,97 +58,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         solo muestran lo coherente con esa modalidad. Cambiar cualquiera de los tres reescribe los
         campos de abajo al instante.
       </p>
-
-      {/* Dashboard mockup: the real PrescriptionFields — 3 axes + CAMPOS + preview */}
-      <DashboardMockup url="tu-panel / sesión / añadir ejercicio">
-        <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '12px' }}>
-          Sentadilla trasera
-        </div>
-
-        <AxisRow
-          label="Modalidad"
-          opts={[
-            { t: 'Carrera' },
-            { t: 'Ergómetro' },
-            { t: 'Fuerza', on: true },
-            { t: 'Circuito' },
-          ]}
-        />
-        <AxisRow
-          label="Cómo se mide"
-          opts={[{ t: 'Reps', on: true }, { t: 'Tiempo' }]}
-        />
-        <AxisRow
-          label="Contra qué objetivo"
-          opts={[
-            { t: '%máx', on: true },
-            { t: 'kg' },
-            { t: 'RIR' },
-            { t: 'RPE' },
-            { t: 'Peso corp.' },
-          ]}
-        />
-
-        {/* CAMPOS — strength per-set table */}
-        <div className="ed-block" style={{ marginTop: '12px', marginBottom: '10px' }}>
-          <div className="bt">
-            <span className="mdot" style={{ background: MOD.fuerza }} />
-            Por serie
-          </div>
-          <table className="extbl">
-            <tbody>
-              <tr>
-                <th>Serie</th>
-                <th>Reps</th>
-                <th>Carga</th>
-                <th>Tempo</th>
-                <th>Descanso</th>
-              </tr>
-              {[1, 2, 3, 4].map((n) => (
-                <tr key={n}>
-                  <td className="n">{n}</td>
-                  <td className="n">5</td>
-                  <td className="n">75% RM</td>
-                  <td className="n">3·0·1</td>
-                  <td className="n">2:00</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Vista previa atleta — the resolved line (real AthletePreviewLine wording) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            background: 'var(--accSoft)',
-            border: '1px solid var(--hair)',
-            borderRadius: '8px',
-            padding: '9px 11px',
-          }}
-        >
-          <span style={{ color: 'var(--acc)', fontWeight: 800, fontSize: '11px' }}>◉</span>
-          <div>
-            <div
-              style={{
-                fontSize: '8px',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--muted)',
-                marginBottom: '2px',
-              }}
-            >
-              Vista previa atleta · modelo
-            </div>
-            <div className="num2" style={{ fontSize: '11.5px', color: 'var(--fg)' }}>
-              Sentadilla trasera · 4×5 @ 75% RM · descanso 2&apos;
-            </div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <h3>2 · Cada modalidad mide y apunta distinto</h3>
       <ul className="clean">
@@ -247,46 +156,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       </MovilBand>
     </DocSection>
   );
-}
-
-// ── Editor mockup: one labelled axis with segmented pills ────────────────────
-function AxisRow({ label, opts }: { label: string; opts: { t: string; on?: boolean }[] }) {
-  return (
-    <div style={{ marginBottom: '11px' }}>
-      <div
-        style={{
-          fontSize: '8.5px',
-          fontWeight: 800,
-          letterSpacing: '0.09em',
-          textTransform: 'uppercase',
-          color: 'var(--muted)',
-          marginBottom: '5px',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        {opts.map((o) => (
-          <span key={o.t} style={pill(o.on)}>
-            {o.t}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function pill(on?: boolean): React.CSSProperties {
-  return {
-    fontSize: '10.5px',
-    fontWeight: 700,
-    padding: '5px 11px',
-    borderRadius: '7px',
-    border: '1px solid',
-    borderColor: on ? 'var(--acc)' : 'var(--hair2)',
-    background: on ? 'var(--acc)' : 'var(--elev)',
-    color: on ? 'var(--accOn)' : 'var(--muted)',
-  };
 }
 
 // ── Athlete phone: one exercise card (name + resolved load line) ─────────────

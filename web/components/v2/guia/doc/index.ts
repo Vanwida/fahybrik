@@ -9,5 +9,4 @@ export { DocFlow, type FlowStep } from './DocFlow';
 export { DocNote, type DocNoteVariant } from './DocNote';
 export { MovilBand } from './MovilBand';
 export { PhoneMockup } from './PhoneMockup';
-export { DashboardMockup } from './DashboardMockup';
 export { GuiaStub } from './GuiaStub';

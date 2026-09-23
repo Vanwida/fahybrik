@@ -12,7 +12,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { CoachSubject } from '../tenant';
@@ -96,99 +95,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         dos.
       </p>
 
-      {/* Dashboard mockup: la ficha con el control de ciclo de vida (activo → pausado) */}
-      <DashboardMockup url="tu-panel / atletas / marc · ciclo de vida">
-        {/* Estado actual: Activo, con las dos acciones válidas */}
-        <div className="ath-hd">
-          <div className="av">M</div>
-          <div className="nm">
-            Marc Vidal<small>N3 · 4 días/semana</small>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="chip" style={{ color: TONE.ok, borderColor: TONE.ok }}>
-              ● Activo
-            </span>
-            <span className="btn">Pausar</span>
-            <span className="btn" style={{ color: TONE.danger, borderColor: TONE.danger }}>
-              Dar de baja
-            </span>
-          </div>
-        </div>
-
-        {/* Aviso honesto de la pausa */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '11px',
-            color: 'var(--muted)',
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '9px',
-            padding: '9px 12px',
-            marginBottom: '14px',
-          }}
-        >
-          <span style={{ color: TONE.ok, fontWeight: 800 }}>✓</span>
-          La pausa <b style={{ color: 'var(--fg)' }}>no penaliza la adherencia</b>: esos días se
-          excluyen del cálculo, no cuentan como 0%.
-        </div>
-
-        {/* Ejemplo · el mismo atleta, ya pausado */}
-        <div
-          style={{
-            fontSize: '9px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--faint)',
-            margin: '2px 0 8px',
-          }}
-        >
-          Cuando lo pausas
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px',
-            background: 'var(--warnSoft)',
-            border: `1px solid color-mix(in srgb, ${TONE.warn} 30%, transparent)`,
-            borderRadius: '11px',
-            padding: '11px 13px',
-          }}
-        >
-          <span style={{ color: TONE.warn, fontSize: '15px', lineHeight: 1 }}>⏸</span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--fg)' }}>
-              En pausa desde el 3 jul · Lesión · vuelve el 17 jul
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-              Su plan está congelado y estos días no cuentan para la adherencia.
-            </div>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '7px', flexShrink: 0 }}>
-            <span className="btn pri">Reactivar</span>
-            <span className="btn" style={{ color: TONE.danger, borderColor: TONE.danger }}>
-              Dar de baja
-            </span>
-          </div>
-        </div>
-
-        {/* Qué implica la baja */}
-        <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginTop: '12px' }}>
-          <span className="chip" style={{ color: 'var(--muted)' }}>
-            Baja → factura a fin de periodo
-          </span>
-          <span className="chip" style={{ color: TONE.ok, borderColor: TONE.ok }}>
-            Libera una plaza del cupo
-          </span>
-          <span className="chip" style={{ color: 'var(--muted)' }}>
-            Historial conservado · re-alta lo recupera
-          </span>
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="La pausa no penaliza">
         <ul>

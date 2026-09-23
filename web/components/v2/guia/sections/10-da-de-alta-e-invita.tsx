@@ -10,10 +10,9 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
-import { AppUrl, ClubMark } from '../tenant';
+import { ClubMark } from '../tenant';
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -62,7 +61,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · Lo das de alta en tres campos</h3>
       <p>
-        En tu lista de atletas, <code>Agregar atleta</code> abre una ficha breve:{' '}
+        En <b>Atletas</b>, <code>Invitar atletas</code> abre una ficha breve:{' '}
         <code>Nombre completo</code>, <code>Email</code> y <code>Modalidad</code>. El email se valida
         al vuelo: si no es válido, el botón no se activa. Eliges la modalidad con un toque y pulsas{' '}
         <code>Crear e invitar</code>. Eso crea su sitio en tu panel con acceso completo, sin cobros.
@@ -76,39 +75,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         forma de invitar.
       </p>
 
-      {/* Dashboard mockup: el modal Agregar atleta en su estado de éxito */}
-      <DashboardMockup url="tu-panel / atletas / agregar atleta">
-        <div className="wk-head">
-          <div className="wk-title">
-            Atleta creado&nbsp; <small>acceso completo · sin cobros</small>
-          </div>
-        </div>
-        <div className="ath-hd">
-          <div className="av">M</div>
-          <div className="nm">
-            Marta Ruiz<small>Individual · ya está en tu lista</small>
-          </div>
-        </div>
-        <div className="savegate">
-          Envíale este enlace para que active su cuenta:
-        </div>
-        <div className="ed-row">
-          <span className="ed-input" style={{ flex: 1 }}>
-            <AppUrl path="/activar/9f3a-…-c1" />
-          </span>
-          <span className="btn pri">Copiar</span>
-        </div>
-        <div
-          style={{
-            fontSize: '9.5px',
-            color: 'var(--faint)',
-            marginTop: '6px',
-          }}
-        >
-          Enlace de un solo uso. Caduca; puedes regenerarlo desde el perfil del atleta.
-        </div>
-      </DashboardMockup>
-
       <DocNote variant="cue" title="Dos formas de dar de alta">
         <ul>
           <li>
@@ -119,7 +85,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <li>
             <span className="k">Dar de alta desde un lead</span>: desde la ficha del lead, tras la
             videollamada. Ahí fijas el <b>precio acordado</b> y es el <b>pago</b> lo que activa su
-            acceso. Ese camino de cobro vive en la sección <b>«Pagos»</b>.
+            acceso. Ese camino de cobro vive en <b>Negocio › Cobros</b>.
           </li>
         </ul>
       </DocNote>
@@ -198,7 +164,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             Nada más activar su cuenta (ya de pago o de cortesía), el primer arranque es una{' '}
             <b>bienvenida de ~30 segundos</b>, no un cuestionario: su perfil ya viajó desde el
-            onboarding del funnel, así que aquí solo lo <b>confirma</b> antes de aterrizar en Inicio.
+            formulario de entrada, así que aquí solo lo <b>confirma</b> antes de aterrizar en Inicio.
           </>
         }
       >
@@ -206,7 +172,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           caption={
             <>
               <b>Su primer día.</b> Le saluda por su nombre y le devuelve el objetivo que puso en el
-              funnel. El perfil ya está cargado: solo confirma. Los números finos los medirán sus{' '}
+              formulario. El perfil ya está cargado: solo confirma. Los números finos los medirán sus{' '}
               <b>tests de la semana 1</b>, sin formularios.
             </>
           }
@@ -253,7 +219,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
 
-      <DocNote variant="log" title="Sin formularios: su perfil ya viajó desde el funnel; los tests miden lo preciso">
+      <DocNote variant="log" title="Sin formularios: su perfil ya viajó desde el formulario; los tests miden lo preciso">
         <ul>
           <li>
             El día-1 no vuelve a preguntar nada del onboarding: nombre, objetivo, nivel y días ya

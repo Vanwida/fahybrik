@@ -10,7 +10,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark, WithCoach } from '../tenant';
@@ -43,16 +42,6 @@ const DAY_LABEL = {
   textTransform: 'uppercase',
   color: 'var(--faint)',
   margin: '0 0 7px',
-} as const;
-
-const FIELD_LABEL = {
-  fontSize: '9px',
-  fontWeight: 800,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: 'var(--faint)',
-  width: '82px',
-  flexShrink: 0,
 } as const;
 
 export default function Section({ meta }: { meta: GuiaSection }) {
@@ -120,74 +109,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         de confirmación con el archivo <b>.ics</b> para su calendario, el enlace de <b>Google Meet</b>{' '}
         y un <b>recordatorio 24 h antes</b>.
       </p>
-
-      {/* Dashboard mockup: Próximas llamadas + el parte 1:1 post-llamada */}
-      <DashboardMockup url="tu-panel / leads">
-        {/* Próximas llamadas — confirmadas, la más próxima primero */}
-        <div className="lane" style={{ maxWidth: 'none', marginTop: 0, marginBottom: '14px' }}>
-          <div className="lh" style={{ color: 'var(--acc)' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '8px',
-                borderRadius: '99px',
-                background: 'var(--v2-accent)',
-              }}
-            />
-            Próximas llamadas
-          </div>
-          <div className="ac" style={{ marginBottom: '7px' }}>
-            <div className="av">N</div>
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)' }}>Nora Vidal</span>
-              <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'var(--v2-font-mono)' }}>
-                hoy · 18:30 · 30 min
-              </span>
-            </div>
-            <span className="btn pri" style={{ marginLeft: 'auto' }}>
-              ▶ Unirse a Meet
-            </span>
-          </div>
-          <div className="ac">
-            <div className="av">B</div>
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)' }}>Bruno Sáez</span>
-              <span style={{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'var(--v2-font-mono)' }}>
-                mañana · 09:00 · 30 min
-              </span>
-            </div>
-            <span className="btn pri" style={{ marginLeft: 'auto' }}>
-              ▶ Unirse a Meet
-            </span>
-          </div>
-        </div>
-
-        {/* El parte 1:1 — se abre solo al marcar la cita «Completada» */}
-        <div style={{ border: '1px solid var(--hair)', borderRadius: '11px', padding: '13px' }}>
-          <div className="ath-hd" style={{ marginBottom: '12px' }}>
-            <div className="av">N</div>
-            <div className="nm">
-              Parte 1:1 · Nora Vidal
-              <small>tras la videollamada · se abre al marcar «Completada»</small>
-            </div>
-          </div>
-          <div className="ed-row">
-            <span style={FIELD_LABEL}>Notas</span>
-            <span className="ed-input">
-              Viene de CrossFit, 2 años. Quiere su primera HYROX en noviembre. 4 días/semana.
-            </span>
-          </div>
-          <div className="ed-row">
-            <span style={FIELD_LABEL}>Precio/mes</span>
-            <span className="ed-input">95 €</span>
-          </div>
-          <div className="ed-row" style={{ marginBottom: 0 }}>
-            <span style={FIELD_LABEL}>Próximos</span>
-            <span className="ed-input">Le monto el plan base y le mando la invitación esta semana.</span>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <h3>3 · Tras la llamada: el parte 1:1</h3>
       <p>

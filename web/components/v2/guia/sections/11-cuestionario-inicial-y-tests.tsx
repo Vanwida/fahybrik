@@ -10,7 +10,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -45,7 +44,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         como={
           <>
-            Su cuestionario aparece en <code>Altas</code> como un alta sin revisar. La abres: a la
+            Su cuestionario aparece en <b>Hoy</b> como <b>Alta pendiente</b>. La abres: a la
             derecha, <b>sus respuestas</b>; a la izquierda, tus decisiones. Marcas qué tests entran en
             la primera semana.
           </>
@@ -61,7 +60,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <h3>1 · El atleta responde, tú recibes ordenado</h3>
       <p>
         Nada más entrar, tu atleta rellena el cuestionario en su móvil. Cuando termina, su alta cae en
-        tu cola <code>Altas</code> marcada como <em className="em">sin revisar</em>. No tienes que
+        <b>Hoy</b> como <b>Alta pendiente</b>. No tienes que
         perseguir nada: lo abres cuando puedas y tienes toda su foto en una pantalla.
       </p>
 
@@ -82,53 +81,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         semana). Tú marcas cuáles entran con un toque; solo los seleccionados llegan a su plan.
       </p>
 
-      {/* Dashboard mockup: revisión de intake — respuestas + tests semana 1 */}
-      <DashboardMockup url="tu-panel / altas / marta · intake">
-        <div className="ath-hd">
-          <div className="av">M</div>
-          <div className="nm">
-            Marta Ruiz<small>esperando 2 días · sin revisar</small>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span style={{ fontWeight: 700, color: 'var(--fg)' }}>Respuestas del atleta</span>
-          <span className="chip">Objetivo: mejorar marca</span>
-          <span className="chip">3 días/sem</span>
-          <span className="chip" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>
-            Rodilla · leve
-          </span>
-        </div>
-        <table className="sesstbl">
-          <tbody>
-            <tr>
-              <th>Tests de la semana 1</th>
-              <th>Tipo</th>
-              <th>Entra</th>
-            </tr>
-            <tr>
-              <td>Umbral de carrera</td>
-              <td className="n">Programado</td>
-              <td>
-                <span className="sp done">● Sí</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Ritmo medio · zonas</td>
-              <td className="n">Automático</td>
-              <td>
-                <span className="sp done">● Sí</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Fuerza máxima · sentadilla</td>
-              <td className="n">Programado</td>
-              <td>
-                <span className="sp pend">○ No</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Pasivos vs programados">
         <ul>

@@ -30,7 +30,7 @@
 //   infra/migrations/0045_segment_execution_modality.sql (modality/pace/power/stroke;
 //     el array de splits + drag + cal/h viajan en raw_lap_data_json, sin columnas nuevas)
 
-import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';
+import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
 // El color de ergo (nunca se desvía de los tokens v2 vivos): remo / SkiErg / bici.
@@ -110,48 +110,6 @@ function ErgHead({ cols }: { cols: string[] }) {
       <span>{cols[3]}</span>
       <span style={{ textAlign: 'right' }}>{cols[4]}</span>
       <span style={{ textAlign: 'right' }}>{cols[5]}</span>
-    </div>
-  );
-}
-
-// Una fila de la tabla del COACH (panel): # | Tiempo | m | /500m | spm | W | Desc.
-function CoachErgRow({
-  n,
-  time,
-  m,
-  pace,
-  spm,
-  w,
-  rest,
-}: {
-  n: string;
-  time: string;
-  m: string;
-  pace: string;
-  spm: string;
-  w: string;
-  rest: string;
-}) {
-  return (
-    <div
-      className="num"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '18px 1fr 1fr 1fr 42px 42px 52px',
-        gap: '8px',
-        alignItems: 'center',
-        padding: '8px 2px',
-        borderTop: '1px solid var(--hair)',
-        fontSize: '11px',
-      }}
-    >
-      <span style={{ color: ERGO, fontWeight: 800 }}>{n}</span>
-      <span style={{ color: 'var(--fg)', fontWeight: 700 }}>{time}</span>
-      <span style={{ color: 'var(--muted)' }}>{m}</span>
-      <span style={{ color: 'var(--fg)', fontWeight: 700 }}>{pace}</span>
-      <span style={{ color: 'var(--muted)', textAlign: 'right' }}>{spm}</span>
-      <span style={{ color: 'var(--fg)', fontWeight: 700, textAlign: 'right' }}>{w}</span>
-      <span style={{ color: 'var(--faint)', textAlign: 'right' }}>{rest}</span>
     </div>
   );
 }
@@ -296,55 +254,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <b>drag factor</b> y las <b>cal/h</b> de la sesión. Es lo que necesitas para decidir si la
         próxima vez subes la carga, aprietas el pacing o bajas el drag.
       </p>
-
-      <DashboardMockup url="tu-panel / atletas / laia · remo 4×500 m">
-        <div className="wk-head">
-          <div className="wk-title">
-            Remo · 4×500 m <small>· ejecutada con PM5</small>
-          </div>
-          <div className="wk-sum">
-            <span className="chip" style={{ color: ERGO, borderColor: ERGO }}>
-              Drag 118 · 926 cal/h
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '10px 13px 12px',
-          }}
-        >
-          <div
-            className="num"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '18px 1fr 1fr 1fr 42px 42px 52px',
-              gap: '8px',
-              padding: '0 2px 3px',
-              fontSize: '8.5px',
-              fontWeight: 800,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              color: 'var(--faint)',
-            }}
-          >
-            <span>#</span>
-            <span>Tiempo</span>
-            <span>m</span>
-            <span>/500m</span>
-            <span style={{ textAlign: 'right' }}>spm</span>
-            <span style={{ textAlign: 'right' }}>W</span>
-            <span style={{ textAlign: 'right' }}>Desc.</span>
-          </div>
-          <CoachErgRow n="1" time="1:45" m="500" pace="1:45" spm="30" w="248" rest="1:30" />
-          <CoachErgRow n="2" time="1:47" m="500" pace="1:47" spm="29" w="236" rest="1:30" />
-          <CoachErgRow n="3" time="1:48" m="500" pace="1:48" spm="29" w="230" rest="1:30" />
-          <CoachErgRow n="4" time="1:46" m="500" pace="1:46" spm="31" w="242" rest="—" />
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Una sola verdad, atleta y coach">
         <p>

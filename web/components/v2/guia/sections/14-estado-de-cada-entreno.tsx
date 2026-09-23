@@ -9,7 +9,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -239,7 +238,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Todo eso vuelve a ti sin que tu atleta tenga que escribirte. En su ficha, la pestaña{' '}
         <b>Plan</b> muestra cada sesión con su estado (<span style={OK}>Completada</span>,{' '}
         <span style={WARN}>Pendiente</span>, <span style={DNG}>Perdida</span>) y su RPE. Arriba, un{' '}
-        <b>% de adherencia</b> resume su constancia. Y en tu pantalla <code>/hoy</code>, quien falla
+        <b>% de adherencia</b> resume su constancia. Y en <b>Hoy</b>, quien falla
         sesiones aparece solo en la cola <em className="em">“Falló sesiones”</em>, para que sepas a
         quién atender primero.
       </p>
@@ -253,75 +252,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      {/* Dashboard mockup: coach back-view */}
-      <DashboardMockup url="tu-panel / atletas / marc · plan">
-        <div className="ath-hd">
-          <div className="av">M</div>
-          <div className="nm">
-            Marc<small>Acumulación · semana 1</small>
-          </div>
-          <div className="adh">
-            <div className="l">Adherencia</div>
-            <div className="v" style={{ color: 'var(--warn)' }}>
-              67%
-            </div>
-            <div className="adhbar">
-              <span style={{ width: '67%', background: 'var(--warn)' }} />
-            </div>
-          </div>
-        </div>
-        <table className="sesstbl">
-          <tbody>
-            <tr>
-              <th>Sesión</th>
-              <th>Día</th>
-              <th>Estado</th>
-              <th>RPE</th>
-            </tr>
-            <tr>
-              <td>Tirada larga Z2</td>
-              <td className="n">Lun 12</td>
-              <td>
-                <span className="sp done">● Completada</span>
-              </td>
-              <td className="n">7</td>
-            </tr>
-            <tr>
-              <td>Fuerza · tren inferior</td>
-              <td className="n">Mar 13</td>
-              <td>
-                <span className="sp done">● Completada</span>
-              </td>
-              <td className="n">8</td>
-            </tr>
-            <tr>
-              <td>Series 6×800</td>
-              <td className="n">Mié 14</td>
-              <td>
-                <span className="sp pend">● Pendiente</span>
-              </td>
-              <td className="n">—</td>
-            </tr>
-            <tr>
-              <td>Simulación HYROX</td>
-              <td className="n">Vie 16</td>
-              <td>
-                <span className="sp miss">● Perdida</span>
-              </td>
-              <td className="n">—</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="lane">
-          <div className="lh">⚑ Falló sesiones</div>
-          <div className="ac">
-            <div className="av">M</div>
-            <div className="nm">Marc</div>
-            <div className="rs">1 perdida · 67%</div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <p style={{ marginTop: '18px' }}>
         Ese es el círculo entero: <b>tú montas → tu atleta hace y marca → tú ves y decides</b>. El

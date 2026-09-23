@@ -44,7 +44,7 @@
 
 import type { ReactNode } from 'react';
 
-import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';
+import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
 // Rampa de zona baja→alta usando SOLO tokens vivos (nada hardcodeado). Espeja
@@ -636,68 +636,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Z3+Z4, alta Z5; y si no tiene ancla el panel <b>no enseña nada</b> en vez de un reparto falso.
       </p>
 
-      <DashboardMockup url="tu-panel / atletas / laia · rendimiento">
-        <div className="ath-hd">
-          <div className="av">L</div>
-          <div className="nm">
-            Laia M.
-            <small>Rendimiento</small>
-          </div>
-        </div>
-
-        <div className="wk-head">
-          <div className="wk-title" style={{ fontSize: '14px' }}>
-            Polarización <small>· distribución por intensidad</small>
-          </div>
-          <span className="num2" style={{ fontSize: '10.5px', color: 'var(--faint)' }}>
-            Objetivo 80 / 0 / 20
-          </span>
-        </div>
-
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '12px 14px',
-          }}
-        >
-          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '10px' }}>
-            {[
-              ['Baja', 'var(--ok)'],
-              ['Media', 'var(--warn)'],
-              ['Alta', 'var(--acc)'],
-            ].map(([label, tone]) => (
-              <span
-                key={label}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', color: 'var(--muted)' }}
-              >
-                <span className="mdot" style={{ background: tone }} />
-                {label}
-              </span>
-            ))}
-          </div>
-
-          {[
-            ['7 días', 74, 9, 17],
-            ['28 días', 79, 5, 16],
-          ].map(([win, low, mid, high]) => (
-            <div
-              key={String(win)}
-              style={{ display: 'grid', gridTemplateColumns: '58px 1fr', gap: '10px', alignItems: 'center', marginBottom: '8px' }}
-            >
-              <span className="num2" style={{ fontSize: '10px', color: 'var(--faint)' }}>
-                {win}
-              </span>
-              <span style={{ display: 'flex', height: '9px', borderRadius: '99px', overflow: 'hidden' }}>
-                <span style={{ width: `${low}%`, background: 'var(--ok)' }} />
-                <span style={{ width: `${mid}%`, background: 'var(--warn)' }} />
-                <span style={{ width: `${high}%`, background: 'var(--acc)' }} />
-              </span>
-            </div>
-          ))}
-        </div>
-      </DashboardMockup>
 
       <p>
         Y en su ficha, pestaña <b>«Perfil &amp; objetivos»</b>, sigues viendo su <b>FC máx medida</b>{' '}

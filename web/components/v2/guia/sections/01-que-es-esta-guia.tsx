@@ -34,6 +34,37 @@ export default function Section() {
       </Principle>
 
       <div className="seclbl">
+        <span className="pin">●</span> El panel
+      </div>
+      <h2>Seis sitios, uno para cada trabajo</h2>
+      <ul className="clean">
+        <li>
+          <b>Hoy</b>: quién te necesita. Una bandeja que tiende a cero; es la primera pantalla al entrar.
+        </li>
+        <li>
+          <b>Atletas</b>: todos en una tabla, con su estado; seleccionas varios y actúas sobre todos.
+        </li>
+        <li>
+          <b>Mensajes</b>: los chats, con los que esperan tu respuesta primero.
+        </li>
+        <li>
+          <b>Programar</b>: tus <b>programas</b> (semanas de entrenos), la biblioteca de entrenos,
+          bloques y ejercicios, tus <b>grupos</b> y los tests.
+        </li>
+        <li>
+          <b>Negocio</b> (si lo tienes contratado): leads, cobros y el embudo.
+        </li>
+        <li>
+          <b>Ajustes</b>: tu perfil, tu club, tu método, qué ve el atleta de su plan, tu agenda y tu
+          cuenta.
+        </li>
+      </ul>
+      <p>
+        Arriba siempre tienes el buscador (<b>⌘K</b>), <b>+ Nuevo</b> para crear lo que sea y{' '}
+        <b>?</b> para volver a esta guía.
+      </p>
+
+      <div className="seclbl">
         <span className="pin">●</span> El puente · los dos lados
       </div>
       <h2>Dos lados, un mismo plan</h2>
@@ -47,16 +78,16 @@ export default function Section() {
           <span className="ico">Tú · en el panel</span>
           <div className="lt">Montas el trabajo</div>
           <p>
-            Desde el ordenador construyes la semana: el foco, las sesiones de cada día, los
-            ejercicios y su carga. Es tu mesa de trabajo.
+            Desde el ordenador construyes programas y se los das a tus atletas: los entrenos de cada
+            día, los ejercicios y su carga. Es tu mesa de trabajo.
           </p>
         </div>
         <div className="lg ath">
           <span className="ico">Tu atleta · en el móvil</span>
           <div className="lt">Recibe y entrena</div>
           <p>
-            En su teléfono ve su día, abre la sesión, entrena y marca cómo le fue. Solo ve lo que tú
-            has publicado, limpio y sin jerga.
+            En su teléfono ve su día, abre el entreno, entrena y marca cómo le fue. Solo ve las semanas visibles,
+            limpio y sin jerga.
           </p>
         </div>
       </div>

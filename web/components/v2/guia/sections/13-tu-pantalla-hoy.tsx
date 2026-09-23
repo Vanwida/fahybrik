@@ -1,45 +1,11 @@
-// GUÍA · 13 Tu pantalla Hoy — área "El día a día". La pantalla de operar: la cola
-// de decisiones del día. Cuatro colas + las tiras que suben solas + la bandeja
-// vacía como buena señal. El puente: cada cosa que tu atleta vive en su inicio es,
-// si se tuerce, una de tus colas de Hoy.
+// GUÍA · 13 Hoy: quién te necesita — área «El día a día». La casa del panel:
+// una bandeja que tiende a cero, una fila por atleta (su peor señal), con
+// resolver / posponer / hecho y teclado. El puente con la app: cada cosa que el
+// atleta vive en su inicio es, si se tuerce, una fila de Hoy.
 
-import {
-  DocSection,
-  QCWTriad,
-  DocFlow,
-  DocNote,
-  MovilBand,
-  PhoneMockup,
-  DashboardMockup,
-} from '../doc';
+import { DocSection, QCWTriad, DocFlow, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
-
-// Canonical hues — never drift from the live app tokens.
-const LANE = {
-  fallo: 'var(--v2-mod-carrera)', // coral-red
-  listo: 'var(--v2-ok)',
-  vigilar: 'var(--v2-warn)',
-  espera: 'var(--v2-info)',
-} as const;
-
-/** Small leading dot for a lane header. */
-function Dot({ color }: { color: string }) {
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: '8px',
-        height: '8px',
-        borderRadius: '99px',
-        background: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
-const laneBox = { marginTop: 0, maxWidth: 'none' } as const;
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -49,193 +15,99 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Hoy no es una lista de tareas: es tu <b>cola de decisiones del día</b>. El sistema entrega
-          el plan a cada atleta solo, siguiendo tu método. A esta pantalla solo sube lo que se{' '}
-          <b>sale del molde</b>: quien falló, quien va sobrado, quien manda una señal o un mensaje.
-          Lo demás no te molesta: va según lo previsto.
+          Hoy es la primera pantalla al entrar y responde una sola pregunta: <b>quién te necesita</b>.
+          El plan llega solo a cada atleta; aquí sube únicamente quien se sale de él. Cada fila que
+          resuelves desaparece. El objetivo del día es dejarla <b>a cero</b>.
         </>
       }
     >
       <DocFlow
         steps={[
-          { label: 'El sistema entrega el plan' },
-          { label: 'Tu atleta entrena y vive su día', app: true },
-          { label: 'Solo sube lo que se sale del molde', app: true },
-          { label: 'Tú decides: aceptar o ajustar' },
+          { label: 'El plan llega solo' },
+          { label: 'Tu atleta entrena, hace check-in, te escribe', app: true },
+          { label: 'Sube a Hoy solo lo que se sale', app: true },
+          { label: 'Resuelves, pospones o marcas hecho' },
         ]}
       />
 
       <QCWTriad
         que={
           <>
-            Una pantalla con <b>cuatro colas</b> y, encima, las decisiones que el sistema te propone.
-            Arriba, tres números: cuántos atletas tienes, cuántos requieren atención y cuántos
-            esperan respuesta.
+            Una bandeja con <b>una fila por atleta</b>: su señal más grave, con la prueba (valor, su
+            base, la ventana y la fecha) y la acción que toca. Arriba, los asuntos que afectan a
+            muchos a la vez.
           </>
         }
         como={
           <>
-            La lees de un vistazo y actúas en el sitio: <b>Ver</b> la ficha, <b>Responder</b> un
-            mensaje, <b>aceptar</b> una propuesta. Buscas a un atleta por nombre y se filtran todas
-            las colas a la vez.
+            Actúas en la fila: <b>Responder</b>, <b>Publicar semana</b>, <b>Proponer descarga</b>…
+            o la <b>pospones</b> 1 día, 3 días o hasta que haya una señal nueva. <b>J/K</b> para
+            moverte, <b>E</b> hecho, <b>H</b> posponer, <b>R</b> responder, <b>Intro</b> abre su
+            vistazo.
           </>
         }
         porque={
           <>
-            Porque con muchos atletas no puedes mirarlos uno a uno cada mañana. Hoy te enseña{' '}
-            <b>solo lo que necesita tu cabeza</b>, y deja en paz a quien va bien.
+            Con cien atletas no puedes mirarlos uno a uno cada mañana. Hoy te enseña solo lo que
+            necesita tu cabeza y deja en paz a quien va bien.
           </>
         }
       />
 
-      <h3>1 · Las cuatro colas</h3>
+      <h3>1 · Primero, lo que afecta a muchos</h3>
       <p>
-        Cada atleta cae como mucho en una de las tres colas de seguimiento (gana la más urgente), y
-        los mensajes van por su cuenta:
+        Si 30 atletas no tienen programa o 47 no ven su semana, no son 77 filas: es una fila con una
+        acción para todos. <b>Publicar a los 47</b>, <b>Asignar a los 30</b>, <b>Revisar altas
+        pendientes</b>, <b>Recordar pagos</b> (si tienes Negocio). Lo resuelves de una vez.
       </p>
+
+      <h3>2 · Después, cada atleta: crítico y vigilar</h3>
       <ul>
         <li>
-          <b style={{ color: LANE.fallo }}>Falló sesiones</b>: adherencia baja o días sin completar
-          nada. A quién empujar.
+          <b>Crítico</b>: actúa hoy. Readiness bajo tu suelo, entrenos debidos sin hacer, un pago
+          vencido.
         </li>
         <li>
-          <b style={{ color: LANE.listo }}>Listo para progresar</b>: semana limpia y constante, sin
-          incidencias. A quién subir carga.
-        </li>
-        <li>
-          <b style={{ color: LANE.vigilar }}>Vigilar fisiología</b>: readiness en rojo o una señal
-          de fatiga. A quién dar margen.
-        </li>
-        <li>
-          <b style={{ color: LANE.espera }}>Espera respuesta</b>: te escribió y sigue esperando. El
-          más antiguo, primero.
+          <b>Vigilar</b>: mira esta semana. Una caída sostenida frente a su propia base, una semana
+          muy dura, un mensaje esperando. Se pliega a partir de diez.
         </li>
       </ul>
-
-      <h3>2 · Lo que el sistema te propone (y tú firmas)</h3>
       <p>
-        Sobre las colas aparecen <b>tiras de decisión</b>: un atleta nuevo con su{' '}
-        <b>nivel sugerido</b> a confirmar, una <b>asignación sugerida</b> lista para arrancar con un
-        clic, el <b>siguiente microciclo</b> de quien acaba de terminar el suyo, una propuesta de{' '}
-        <b>ajuste de la semana</b>, o una <b>revisión 1:1</b> que ya toca por cadencia. El sistema
-        hace el trabajo; tú solo aceptas o ajustas. Nada se aplica a tus espaldas.
+        Un atleta sale una sola vez, con su peor señal; si tiene más, la fila lo dice («+2»). Los
+        chips de arriba filtran por tipo: <b>Por responder</b>, <b>Entrenos</b>, <b>Fisiología</b>,{' '}
+        <b>Plan</b>, <b>Altas</b>.
       </p>
 
-      <DocNote variant="log" title="Bandeja vacía = buena señal">
+      <DocNote variant="log" title="Qué cuenta como señal lo decides tú">
         <p>
-          Si Hoy está vacía, no está rota: significa que <b>todos siguen su plan</b> y nada se ha
-          salido del molde. Es la única pantalla del panel donde “sin nada que hacer” es exactamente
-          lo que quieres ver.
+          Cuánto tiene que caer el readiness, cuántos días seguidos o cuántas horas esperar a un
+          mensaje son tu método: se cambian en <b>Ajustes › Método</b>, con los valores por defecto a
+          la vista.
         </p>
       </DocNote>
 
-      {/* Dashboard mockup: la pantalla Hoy — barra + tira de decisión + 4 colas */}
-      <DashboardMockup url="tu-panel / hoy">
-        <div className="wk-head">
-          <div className="wk-title">
-            Hoy&nbsp; <small>jueves 19 jun</small>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span className="chip" style={{ color: 'var(--muted)' }}>
-            24 atletas
-          </span>
-          <span className="chip" style={{ color: 'var(--dng)', borderColor: 'var(--dng)' }}>
-            3 requieren atención
-          </span>
-          <span className="chip" style={{ color: LANE.espera, borderColor: LANE.espera }}>
-            2 sin respuesta
-          </span>
-        </div>
-
-        {/* Tira de decisión: el sistema propone */}
-        <div className="lane" style={{ ...laneBox, marginBottom: '6px' }}>
-          <div className="lh" style={{ color: LANE.listo }}>
-            <Dot color={LANE.listo} /> Asignación sugerida
-          </div>
-          <div className="ac">
-            <div className="av">N</div>
-            <div className="nm">
-              Nora&nbsp;<small style={{ color: 'var(--faint)', fontWeight: 600 }}>N2 · 4 días</small>
-            </div>
-            <div className="rs" style={{ color: LANE.listo }}>
-              Empezar «Acumulación» ›
-            </div>
-          </div>
-        </div>
-
-        {/* Tablero · 4 colas */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-          <div className="lane" style={laneBox}>
-            <div className="lh" style={{ color: LANE.fallo }}>
-              <Dot color={LANE.fallo} /> Falló sesiones
-            </div>
-            <div className="ac">
-              <div className="av">M</div>
-              <div className="nm">Marc</div>
-              <div className="rs" style={{ color: LANE.fallo }}>
-                67%
-              </div>
-            </div>
-          </div>
-
-          <div className="lane" style={laneBox}>
-            <div className="lh" style={{ color: LANE.listo }}>
-              <Dot color={LANE.listo} /> Listo para progresar
-            </div>
-            <div className="ac">
-              <div className="av">J</div>
-              <div className="nm">Júlia</div>
-              <div className="rs" style={{ color: LANE.listo }}>
-                94%
-              </div>
-            </div>
-          </div>
-
-          <div className="lane" style={laneBox}>
-            <div className="lh" style={{ color: LANE.vigilar }}>
-              <Dot color={LANE.vigilar} /> Vigilar fisiología
-            </div>
-            <div className="ac">
-              <div className="av">L</div>
-              <div className="nm">Leo</div>
-              <div className="rs" style={{ color: LANE.vigilar }}>
-                RDN 48
-              </div>
-            </div>
-          </div>
-
-          <div className="lane" style={laneBox}>
-            <div className="lh" style={{ color: LANE.espera }}>
-              <Dot color={LANE.espera} /> Espera respuesta
-            </div>
-            <div className="ac">
-              <div className="av">O</div>
-              <div className="nm">Ona</div>
-              <div className="rs" style={{ color: LANE.espera }}>
-                hace 3 h
-              </div>
-            </div>
-          </div>
-        </div>
-      </DashboardMockup>
+      <DocNote variant="cue" title="Bandeja vacía = buena señal">
+        <p>
+          «Todo al día» no es que falte algo: todos siguen su plan. Es la única pantalla donde no
+          tener nada que hacer es exactamente lo que quieres ver.
+        </p>
+      </DocNote>
 
       <MovilBand
         title="Así lo ve tu atleta en el móvil"
         subtitle={
           <>
-            Tu atleta no ve “colas”: ve su día normal. Pero cada pieza de su inicio es, si se tuerce,
-            una de tus colas de Hoy. Por eso no tienes que perseguir a nadie: su día te habla solo.
+            Tu atleta no ve señales: ve su día normal. Pero cada pieza de su inicio es, si se tuerce,
+            una fila de tu Hoy. Por eso no tienes que perseguir a nadie: su día te habla solo.
           </>
         }
       >
         <PhoneMockup
           caption={
             <>
-              <b>Su inicio.</b> La <b>sesión de hoy</b> → si no la marca, cae en <b>Falló sesiones</b>
-              . El <b>readiness</b> → si baja, en <b>Vigilar fisiología</b>. Su <b>mensaje</b> → en{' '}
-              <b>Espera respuesta</b>. Y una racha de semanas al verde lo asoma a{' '}
-              <b>Listo para progresar</b>.
+              <b>Su inicio.</b> El <b>entreno de hoy</b> → si se le acumulan sin hacer, sube a Hoy. El{' '}
+              <b>readiness</b> → si cae frente a su base varios días. Su <b>mensaje</b> → como{' '}
+              <b>Por responder</b>.
             </>
           }
         >
@@ -346,9 +218,8 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       </MovilBand>
 
       <p style={{ marginTop: '18px' }}>
-        Hoy es donde <b>vigilas, no donde montas</b>. Cuando un atleta sube a una cola, un clic te
-        lleva a su ficha o a su chat para resolverlo. El resto del seguimiento{' '}
-        (<em className="em">cómo</em> lee cada señal) lo ves en las secciones siguientes.
+        Hoy es donde <b>decides, no donde montas</b>: el plan se cambia en la ficha del atleta o en
+        Programar. Cómo se lee cada señal lo ves en las secciones siguientes.
       </p>
     </DocSection>
   );

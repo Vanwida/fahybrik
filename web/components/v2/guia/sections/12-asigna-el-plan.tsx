@@ -1,18 +1,9 @@
-// GUÍA · 12 Asigna el plan: borrador → publicado — área "Asignar y empezar". BUILT.
-// Real flow: AssignBar (gate "Listo para asignar": Evento/Nivel/Estructura/Avisos/
-// Bienvenida → "Asignar plan") materializa el primer microciclo en BORRADOR →
-// PlanTab muestra el estado (sin publicar / N de M publicadas) y el
-// botón "Publicar microciclo" lo pone en el móvil del atleta. Strings reales.
+// GUÍA · 12 Asigna y publica por semanas — área «Asignar y empezar».
+// Un programa se asigna a un atleta, a varios o a un grupo (previa + deshacer);
+// cada semana es Visible u Oculta al atleta y se abre sola N días antes de su
+// lunes (Ajustes › Plan del atleta). Retener una semana = dejarla oculta.
 
-import {
-  DocSection,
-  QCWTriad,
-  DocFlow,
-  DocNote,
-  MovilBand,
-  PhoneMockup,
-  DashboardMockup,
-} from '../doc';
+import { DocSection, QCWTriad, DocFlow, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
 
@@ -31,109 +22,72 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Este es el paso que conecta tu trabajo con su teléfono. Primero <b>asignas</b>, y el plan
-          nace en <b>borrador</b>, solo para ti, para que lo revises con calma. Cuando estás conforme,
-          lo <b>publicas</b> y, en ese instante, aparece en el móvil de tu atleta. Nada le llega hasta
-          que tú lo decides.
+          Asignar pone un programa en el calendario de tus atletas; <b>publicar</b> decide qué semanas
+          ven. No tienes que acordarte de publicar: cada semana se hace <b>visible sola</b> unos días
+          antes de empezar. Tú solo retienes la que no quieras enseñar todavía.
         </>
       }
     >
       <DocFlow
         steps={[
-          { label: 'Pasas el gate' },
-          { label: 'Asignas → borrador' },
-          { label: 'Lo revisas' },
-          { label: 'Publicas → en su móvil', app: true },
+          { label: 'Eliges programa y atletas' },
+          { label: 'Ves la previa y confirmas' },
+          { label: 'Cada semana se abre sola N días antes' },
+          { label: 'Aparece en su móvil', app: true },
         ]}
       />
 
       <QCWTriad
         que={
           <>
-            Dos estados claros. <b>Borrador</b>: el plan existe en tu panel pero tu atleta no lo ve.{' '}
-            <b>Publicado</b>: la semana ya está en su móvil. El paso entre uno y otro es deliberado y
-            es tuyo.
+            Cada semana de cada atleta está <b>Visible</b> u <b>Oculta</b>. Visible = la ve en su app.
+            Oculta = existe en tu panel y él no la ve.
           </>
         }
         como={
           <>
-            Cuando el gate <code>Listo para asignar</code> está en verde, pulsas <code>Asignar plan</code>{' '}
-            y se crea el primer microciclo en borrador. Lo repasas, y cuando esté, pulsas{' '}
-            <code>Publicar microciclo</code>.
+            <b>Asignar…</b> desde un programa, desde Atletas (varios a la vez) o desde un grupo. Eliges
+            el lunes de inicio y qué hacer si alguien ya tiene plan: encadenar, sustituir u omitir.
           </>
         }
         porque={
           <>
-            Porque nadie quiere que su atleta vea un plan a medio montar. El borrador te da margen para
-            revisar sin prisa; publicar es un acto consciente, no un accidente.
+            Dar un programa a veinte atletas son unos pocos clics con previa, y si te equivocas,{' '}
+            <b>Deshacer</b> deja cada plan exactamente como estaba (nunca borra lo ya entrenado).
           </>
         }
       />
 
-      <h3>1 · El gate: cinco puntos en verde</h3>
+      <h3>1 · Asignar a uno, a varios o a un grupo</h3>
       <p>
-        Asignar no se desbloquea hasta que todo cuadra. La barra <code>Listo para asignar</code> te
-        muestra los puntos: <b>Evento</b> (la carrera objetivo tiene que estar anclada: el plan se
-        construye hacia atrás desde esa fecha), <b>Nivel</b>, <b>Estructura</b>, <b>Avisos</b> por
-        confirmar y <b>Bienvenida</b>. En rojo o pendiente, el botón sigue bloqueado y te dice cuántos
-        puntos quedan. En verde, <code>Asignar plan</code> se enciende.
+        La previa te dice, atleta por atleta, qué recibe y con quién choca («ya tiene Base 4 semanas
+        hasta el 18 oct»). Confirmas y se aplica a todos; el aviso final lleva su <b>Deshacer</b>. Al
+        entrar en un grupo, el atleta recibe el programa y la semana en que está el grupo.
       </p>
 
-      <h3>2 · Asignar crea el borrador</h3>
+      <h3>2 · Cuándo lo ve: la publicación por semanas</h3>
       <p>
-        Al pulsar <code>Asignar plan</code>, el panel te lo dice tal cual:{' '}
-        <em className="em">«Se creará el primer microciclo en borrador para que lo revises antes de
-        publicar»</em>. Aterrizas en el plan del atleta con la semana ya montada, pero en borrador,
-        invisible para él. Aquí ajustas lo que quieras sin que nadie lo vea.
+        Al asignar eliges cómo se entrega: <b>automático</b> (cada semana se abre sola), todo{' '}
+        <b>visible</b> ya, o todo <b>oculto</b> hasta que lo publiques tú. El automático abre cada
+        semana los días antes de su lunes que tengas en <b>Ajustes › Plan del atleta</b> (por defecto,
+        el sábado anterior).
+      </p>
+      <p>
+        En la ficha del atleta, cada semana lleva su <span className="k">Visible</span> /{' '}
+        <span className="k">Oculta</span>. <b>Publicar semana</b> la enseña ya; <b>Retener</b> la
+        mantiene oculta aunque le llegue su día. En Hoy, si muchos no ven su semana, una sola fila te
+        deja publicarla a todos.
       </p>
 
-      <h3>3 · Publicar lo pone en su móvil</h3>
-      <p>
-        En la ficha del atleta, una etiqueta honesta te dice en qué estado está:{' '}
-        <span className="k">N de M publicadas</span> y el carril
-        <span className="k">Visible</span> / <span className="k">Borrador</span> por semana. Mientras haya borrador,
-        verás el botón <code>Publicar microciclo</code>. Lo pulsas y todas las semanas en borrador
-        pasan a publicadas: tu atleta abre su app y ahí está su semana.
-      </p>
-
-      {/* Dashboard mockup: ficha del atleta — estado borrador + botón publicar */}
-      <DashboardMockup url="tu-panel / atletas / marta · plan">
-        <div className="wk-head">
-          <div className="wk-title">
-            Microciclo «Acumulación»&nbsp;{' '}
-            <small style={{ color: 'var(--warn)' }}>● borrador · aún no lo ve el atleta</small>
-          </div>
-          <div className="wk-tools">
-            <span className="btn pri">Publicar microciclo</span>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span style={{ fontWeight: 700, color: 'var(--fg)' }}>Semana 1 · base aeróbica</span>
-          <span className="chip" style={{ color: MOD.carrera, borderColor: MOD.carrera }}>
-            3 Carrera
-          </span>
-          <span className="chip" style={{ color: MOD.fuerza }}>
-            1 Fuerza
-          </span>
-          <span className="chip" style={{ color: MOD.ergo }}>
-            1 Ergómetro
-          </span>
-        </div>
-        <div className="savegate">
-          Revísalo con calma. Nada llega a su móvil hasta que pulses «Publicar microciclo».
-        </div>
-      </DashboardMockup>
-
-      <DocNote variant="bad" title="Borrador = invisible. A propósito.">
+      <DocNote variant="bad" title="Oculta = invisible. A propósito.">
         <ul>
           <li>
-            Mientras el microciclo esté en borrador, tu atleta <span className="k">no ve nada</span>{' '}
-            de esa semana. Puedes montar, deshacer y rehacer sin que se entere.
+            Mientras una semana esté oculta, tu atleta <span className="k">no ve nada</span> de ella.
+            Puedes montar, deshacer y rehacer sin que se entere.
           </li>
           <li>
-            Publicar es el único acto que se lo enseña. Si el badge no llega a
-            <span className="k">M de M publicadas</span>, quedan semanas en
-            <span className="k">Borrador</span>: el botón sigue ahí.
+            Aparte, en <b>Ajustes › Plan del atleta</b> decides cuánto puede mirar por delante entre
+            las semanas ya visibles (solo la actual, la siguiente, dos o cuatro).
           </li>
         </ul>
       </DocNote>
@@ -142,17 +96,17 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Antes y después de publicar"
         subtitle={
           <>
-            A la izquierda, lo que ve tu atleta mientras el plan está en borrador: nada todavía, solo
-            la espera. A la derecha, el instante en que pulsas <b>Publicar</b>: su semana aparece, lista
+            A la izquierda, lo que ve tu atleta mientras su semana está oculta: nada todavía, solo
+            la espera. A la derecha, el momento en que se hace visible: su semana aparece, lista
             para empezar.
           </>
         }
       >
-        {/* PHONE 1: esperando (borrador) */}
+        {/* PHONE 1: esperando (semana oculta) */}
         <PhoneMockup
           caption={
             <>
-              <b>En borrador.</b> Su cuenta está activa, pero la semana aún no existe para él. Solo ve
+              <b>Oculta.</b> Su cuenta está activa, pero la semana aún no existe para él. Solo ve
               que su coach está en ello.
             </>
           }
@@ -191,7 +145,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <PhoneMockup
           caption={
             <>
-              <b>Publicado.</b> Pulsaste «Publicar microciclo» y su semana entera aterriza, día a día,
+              <b>Visible.</b> Llegó su día (o pulsaste «Publicar semana») y su semana aterriza, día a día,
               lista para entrenar.
             </>
           }

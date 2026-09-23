@@ -43,7 +43,7 @@ const MOD = {
 // ── Piezas locales ───────────────────────────────────────────────────────────
 // La conversación y la pantalla de ajustes viven en la crema del manual (no en el
 // negro de la app): esto no es ni el panel ni el móvil del atleta, es el asistente
-// del coach. Por eso NO usan PhoneMockup ni DashboardMockup, que en esta guía
+// del coach. Por eso NO usan PhoneMockup ni que en esta guía
 // significan otra cosa. Todo con tokens v2, que en la crema resuelven en claro.
 
 const cardBase = {
@@ -344,7 +344,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
           <>
             Un <b>conector</b> que enseña tu club a tu asistente. Le das acceso una vez y desde el chat
             ve lo mismo que ves tú: tu día, tus atletas, la ficha de uno, su plan, una sesión, sus
-            carreras, tu biblioteca, tu metodología y lo que le has comunicado. Y si se lo pides,{' '}
+            carreras, tu biblioteca, tu método y lo que le has comunicado. Y si se lo pides,{' '}
             <b>escribe</b>.
           </>
         }
@@ -456,13 +456,13 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         sabías, y por eso se lee antes de dar por bueno el cambio.
       </p>
 
-      <h3>5 · Publicado o borrador: te lo dice</h3>
+      <h3>5 · Visible u oculta: te lo dice</h3>
       <p>
         Tocar el plan y publicarlo siguen siendo dos cosas distintas, igual que en el panel. Si esa
-        semana <b>ya está publicada</b>, lo que cambies le llega al atleta <b>al momento</b>, lo mismo
-        que si lo hubieras cambiado con el ratón. Si está <b>en borrador</b>, no lo ve hasta que
+        semana <b>ya es visible</b>, lo que cambies le llega al atleta <b>al momento</b>, lo mismo
+        que si lo hubieras cambiado con el ratón. Si está <b>oculta</b>, no lo ve hasta que
         publiques, y te lo dice: sigue guardado para ti. Y si esa semana era de las que{' '}
-        <b>se abren solas el sábado</b>, también te lo avisa, para que no la publiques a mano sin
+        <b>se abren solas unos días antes</b>, también te lo avisa, para que no la publiques a mano sin
         querer.
       </p>
       <p>
@@ -474,7 +474,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <DocNote variant="bad" title="Ojo con esto, que es lo que más sorprende">
         <ul>
           <li>
-            Una semana que <b>no está marcada como borrador ya la ve tu atleta</b>. No hace falta
+            Una semana que <b>no está oculta ya la ve tu atleta</b>. No hace falta
             volver a publicarla: si le tocas el miércoles, el miércoles le cambia.
           </li>
           <li>
@@ -579,7 +579,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             para escribirle.
           </li>
           <li>
-            <b>No borra ni asigna bloques enteros.</b> Borrar sesiones, montar microciclos, leads,
+            <b>No borra ni asigna bloques enteros.</b> Borrar sesiones, montar programas, leads,
             citas y pagos siguen siendo del panel. Esto es para lo del día, de pie.
           </li>
         </ul>

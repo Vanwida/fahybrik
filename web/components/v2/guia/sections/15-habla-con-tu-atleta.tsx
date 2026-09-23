@@ -9,7 +9,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -156,127 +155,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      {/* Dashboard mockup: pantalla Mensajes — lista + conversación */}
-      <DashboardMockup url="tu-panel / mensajes / marc">
-        <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '12px', minHeight: '260px' }}>
-          {/* Lista de conversaciones */}
-          <div>
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 800,
-                color: 'var(--fg)',
-                marginBottom: '8px',
-              }}
-            >
-              Conversaciones
-            </div>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-              <span className="chip" style={{ color: 'var(--acc)', borderColor: 'var(--acc)' }}>
-                Sin leer · 2
-              </span>
-              <span className="chip" style={{ color: 'var(--muted)' }}>
-                Todas
-              </span>
-            </div>
-            <div className="ac" style={{ borderColor: 'var(--acc)', marginBottom: '6px' }}>
-              <div className="av">M</div>
-              <div className="nm">Marc</div>
-              <div className="rs" style={{ color: 'var(--acc)' }}>
-                2
-              </div>
-            </div>
-            <div className="ac" style={{ marginBottom: '6px' }}>
-              <div className="av">O</div>
-              <div className="nm">Ona</div>
-            </div>
-            <div className="ac">
-              <div className="av">J</div>
-              <div className="nm">Júlia</div>
-            </div>
-          </div>
-
-          {/* Conversación abierta */}
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            {/* Cabecera de la conversación */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '9px',
-                paddingBottom: '10px',
-                borderBottom: '1px solid var(--hair)',
-                marginBottom: '12px',
-              }}
-            >
-              <div className="av" style={{ width: '30px', height: '30px', fontSize: '12px' }}>
-                M
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 800, color: 'var(--fg)' }}>
-                  Marc&nbsp;
-                  <span
-                    className="chip"
-                    style={{ color: 'var(--acc)', borderColor: 'var(--acc)', fontSize: '8.5px' }}
-                  >
-                    N2
-                  </span>
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Acumulación · semana 1</div>
-              </div>
-              <span
-                style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                }}
-              >
-                Ver perfil ↗
-              </span>
-            </div>
-
-            {/* Hilo */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <span style={dayPill}>Hoy</span>
-              <div style={athleteBubble}>¿Cambio la sesión del viernes? Tengo viaje y no llego al box.</div>
-              <span style={{ ...voiceChip, marginBottom: '2px' }}>
-                <Mic size={15} />
-                <Wave />
-                <span style={timeStamp}>0:14</span>
-              </span>
-              <div style={coachBubble}>Sin problema. Te la muevo al sábado por la mañana y dejo el viernes suave.</div>
-              <span style={{ ...timeStamp, alignSelf: 'flex-end' }}>14:32</span>
-            </div>
-
-            {/* Composer — texto (sin micro en el panel) */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginTop: 'auto',
-                paddingTop: '12px',
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                  fontSize: '10.5px',
-                  color: 'var(--faint)',
-                  border: '1px solid var(--hair)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                }}
-              >
-                Escribe una respuesta…
-              </div>
-              <span className="btn pri">Enviar ›</span>
-            </div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <MovilBand
         title="Así lo ve tu atleta en el móvil"

@@ -1,23 +1,14 @@
-// GUÍA · 09 Periodización: nombrar fases — área "El plan". The agnostic model from
-// the real Periodización section (components/v2/periodizacion/PeriodizacionView):
-// a LEVEL holds an ordered SEQUENCE of microciclos per días/semana, and that order
-// IS the periodization. No fixed phases, no hardcoded catalogue — the coach names and
-// sequences his own. Each microciclo's name is the fase the athlete reads.
+// GUÍA · 09 Grupos: un plan para muchos — área «El plan». Un grupo es un
+// conjunto de atletas con su plan: una cadena ORDENADA de programas (ese orden
+// es la periodización; no hay fases fijas). Nivel y días son una regla opcional
+// de pertenencia automática. Cada programa se llama como la fase que lee el atleta.
 
-import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup, DashboardMockup } from '../doc';
+import { DocSection, QCWTriad, DocNote, MovilBand, PhoneMockup } from '../doc';
 import type { GuiaSection } from '../config';
 
 const MOD = {
   carrera: 'var(--v2-mod-carrera)',
   circuito: 'var(--v2-mod-circuito)',
-} as const;
-
-// Phase hues for the sequence cards — purely illustrative grouping (your method
-// decides the names; these just show that the ORDER is the periodization).
-const PH = {
-  acum: 'var(--v2-info)',
-  transf: 'var(--v2-warn)',
-  real: 'var(--v2-accent)',
 } as const;
 
 export default function Section({ meta }: { meta: GuiaSection }) {
@@ -28,124 +19,48 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Periodizar es <b>nombrar tus fases y ponerlas en orden</b>. Cada fase es un microciclo que
-          tú nombras; encadenarlas a lo largo del plan es la periodización. No hay fases prefijadas
-          ni jerga impuesta: el lenguaje y la progresión son tuyos.
+          Un <b>grupo</b> son atletas que comparten plan: una cadena de programas en orden. Periodizar
+          es eso, <b>nombrar tus fases y ponerlas en orden</b>; el grupo lo aplica a todos a la vez.
+          Sin fases prefijadas ni jerga impuesta: el lenguaje y la progresión son tuyos.
         </>
       }
     >
       <QCWTriad
         que={
           <>
-            La periodización vive dentro de cada <b>nivel</b>: una secuencia ordenada de microciclos
-            por <b>días/semana</b>. Ese orden, no una etiqueta fija, <em className="em">es</em> la
+            En <b>Programar › Grupos</b>, cada grupo tiene nombre, sus miembros y su cadena de
+            programas: el primero, el segundo, el tercero… Ese orden <em className="em">es</em> la
             progresión.
           </>
         }
         como={
           <>
-            En <code>Periodización</code> defines tus niveles, entras en uno y encadenas sus
-            microciclos. Le pones nombre a cada fase y la colocas donde toca en la secuencia.
+            Creas el grupo, ordenas sus programas y añades atletas. Quien entra recibe el programa y
+            la semana en que va el grupo; quien ya hacía uno de la cadena, lo conserva.
           </>
         }
         porque={
           <>
-            Porque tu método es tuyo. Hoy «Acumulación → Transformación → Realización»; mañana, lo
-            que tu sistema use. La app no te impone fases: lee las que tú escribes.
+            Porque la mayoría de tus atletas siguen unos pocos caminos. Un grupo te ahorra asignar
+            atleta a atleta y te deja cambiar el camino de todos en un sitio.
           </>
         }
       />
 
-      <h3>1 · El nivel es el marco; el orden, la periodización</h3>
+      <h3>1 · El orden de la cadena es la periodización</h3>
       <p>
-        Un <b>nivel</b> clasifica al atleta y guarda su periodización. Dentro, encadenas microciclos
-        por días/semana: el primero, el segundo, el tercero… y ese orden es la progresión que vivirá
-        tu atleta. No existe una entidad «fase» suelta ni una matriz aparte:{' '}
-        <em className="em">la secuencia es la fase puesta en el tiempo</em>.
+        No existe una entidad «fase» suelta: el nombre de cada programa es la <b>fase</b> que ve tu
+        atleta, y su posición en la cadena es cuándo le toca. Reordenar la cadena reordena la
+        progresión de quien aún no ha llegado a ese punto.
       </p>
 
-      {/* Dashboard mockup: Periodización — niveles + the ordered microciclo sequence */}
-      <DashboardMockup url="tu-panel / periodización">
-        <div className="wk-head" style={{ marginBottom: '12px' }}>
-          <div className="wk-title">
-            Periodización&nbsp; <small>· niveles</small>
-          </div>
-        </div>
-
-        {/* niveles */}
-        <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          {[
-            { t: 'Iniciación' },
-            { t: 'Intermedio' },
-            { t: 'Avanzado', on: true },
-          ].map((l) => (
-            <span
-              key={l.t}
-              className="chip"
-              style={{
-                fontSize: '11px',
-                padding: '5px 11px',
-                borderColor: l.on ? 'var(--acc)' : 'var(--hair2)',
-                background: l.on ? 'var(--accSoft)' : 'var(--elev)',
-                color: l.on ? 'var(--acc)' : 'var(--muted)',
-                fontWeight: 700,
-              }}
-            >
-              {l.t}
-            </span>
-          ))}
-        </div>
-
-        <div
-          style={{
-            fontSize: '8.5px',
-            fontWeight: 800,
-            letterSpacing: '0.09em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '8px',
-          }}
-        >
-          Avanzado · 5 días/semana · secuencia de microciclos
-        </div>
-
-        {/* the ordered sequence: ORDER = periodization */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'stretch' }}>
-          <SeqCard n={1} name="Acumulación" weeks="5 sem" hue={PH.acum} />
-          <SeqArrow />
-          <SeqCard n={2} name="Transformación" weeks="4 sem" hue={PH.transf} />
-          <SeqArrow />
-          <SeqCard n={3} name="Realización" weeks="3 sem" hue={PH.real} />
-        </div>
-
-        <div
-          style={{
-            marginTop: '12px',
-            fontSize: '10px',
-            color: 'var(--faint)',
-            fontStyle: 'italic',
-          }}
-        >
-          El atleta cae en su nivel y sus días, y recibe esta secuencia. Tú la vigilas en Hoy.
-        </div>
-      </DashboardMockup>
-
-      <h3>2 · Tú nombras, tú ordenas</h3>
+      <h3>2 · Nivel y días: una regla opcional</h3>
       <p>
-        El nombre de cada microciclo es la <b>fase</b> que ve tu atleta. Lo escribes tú, en tu
-        idioma de entrenador, y lo colocas en la posición que tu método pide. Reordenar la secuencia
-        reordena la progresión, sin tocar nada del lado del atleta.
+        Si clasificas a tus atletas (por nivel u otra cosa: el nombre lo pones en{' '}
+        <b>Ajustes › Método</b>) y por días por semana, un grupo puede llevar esa pareja como regla: los
+        atletas que la cumplen entran solos. Si no, lo llenas a mano. Un atleta está en un solo grupo:
+        entrar en otro le saca del anterior sin perder lo que ya entrenó.
       </p>
-
-      <DocNote variant="cue" title="Duplicar una variante como punto de partida">
-        <p>
-          ¿Ya tienes montado <b>Nivel 3 · 5 días</b> y quieres el de <b>6 días</b>? En esa celda,{' '}
-          <span className="k">Duplicar a…</span> copia la secuencia entera (todos sus microciclos) al
-          nivel y los días que elijas. La copia es <b>independiente</b>: ajústala (añade el día extra,
-          cambia lo que haga falta) sin tocar el original. Solo se duplica sobre una celda{' '}
-          <b>vacía</b>.
-        </p>
-      </DocNote>
 
       <DocNote variant="log" title="Agnóstico de principio a fin">
         <p>
@@ -235,43 +150,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
     </DocSection>
-  );
-}
-
-// ── Dashboard sequence card (a microciclo / fase in the ordered sequence) ────
-function SeqCard({ n, name, weeks, hue }: { n: number; name: string; weeks: string; hue: string }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: '120px',
-        background: 'var(--surface)',
-        border: '1px solid var(--hair)',
-        borderRadius: '9px',
-        padding: '9px 11px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: hue }} />
-      <div className="num" style={{ fontSize: '8.5px', fontWeight: 800, color: 'var(--faint)' }}>
-        {String(n).padStart(2, '0')}
-      </div>
-      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)', margin: '2px 0 1px' }}>
-        {name}
-      </div>
-      <div className="num" style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
-        {weeks}
-      </div>
-    </div>
-  );
-}
-
-function SeqArrow() {
-  return (
-    <span style={{ alignSelf: 'center', color: 'var(--acc)', fontWeight: 800, fontSize: '14px' }}>
-      →
-    </span>
   );
 }
 

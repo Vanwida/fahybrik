@@ -12,7 +12,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark, CoachObject } from '../tenant';
@@ -53,85 +52,6 @@ function StationRow({
       <span className="mdot" style={{ background: hue }} />
       <span style={{ flex: 1, color: 'var(--fg)' }}>{station}</span>
       <span style={{ fontWeight: 700, color: whoColor ?? 'var(--muted)' }}>{who}</span>
-    </div>
-  );
-}
-
-// One athlete column in the side-by-side pair view.
-function PairCol({
-  initial,
-  name,
-  level,
-  adherence,
-  adhColor,
-  mark,
-}: {
-  initial: string;
-  name: string;
-  level: string;
-  adherence: string;
-  adhColor: string;
-  mark: string;
-}) {
-  return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--hair)',
-        borderRadius: '10px',
-        padding: '12px 13px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '10px' }}>
-        <div
-          style={{
-            width: '30px',
-            height: '30px',
-            borderRadius: '50%',
-            background: 'var(--accSoft)',
-            color: 'var(--acc)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: '12px',
-            flexShrink: 0,
-          }}
-        >
-          {initial}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--fg)' }}>{name}</div>
-          <div style={{ fontSize: '10.5px', color: 'var(--muted)' }}>{level}</div>
-        </div>
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          marginBottom: '6px',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '9px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-          }}
-        >
-          Adherencia
-        </span>
-        <span
-          className="num2"
-          style={{ fontSize: '18px', fontWeight: 800, color: adhColor }}
-        >
-          {adherence}
-        </span>
-      </div>
-      <div style={{ fontSize: '10.5px', color: 'var(--faint)' }}>Última: {mark}</div>
     </div>
   );
 }
@@ -200,92 +120,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         el motor no registra nada ahí; solo tu mitad del trabajo es tuya. Así la analítica de cada
         atleta sigue siendo honesta aunque la sesión sea a dos.
       </p>
-
-      {/* Dashboard mockup: la pareja lado a lado + el reparto de estaciones + botón Reparto */}
-      <DashboardMockup url="tu-panel / atletas / marc + laia · dobles">
-        <div className="wk-head">
-          <div className="wk-title">Pareja · HYROX Dobles</div>
-          <div className="wk-tools">
-            <span className="btn">Reparto</span>
-            <span className="btn pri">Asignar plan a los dos</span>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span className="chip">N3 · 4 días</span>
-          <span className="chip" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>
-            Un cobro · 115€/mes
-          </span>
-        </div>
-
-        {/* Lado a lado: los dos atletas */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '10px',
-            marginBottom: '14px',
-          }}
-        >
-          <PairCol
-            initial="M"
-            name="Marc Vidal"
-            level="N3 · 4 días"
-            adherence="94%"
-            adhColor="var(--ok)"
-            mark="HYROX sim · 1:04:10"
-          />
-          <PairCol
-            initial="L"
-            name="Laia Roca"
-            level="N3 · 4 días"
-            adherence="88%"
-            adhColor="var(--ok)"
-            mark="HYROX sim · 1:04:10"
-          />
-        </div>
-
-        {/* El reparto de estaciones (con colores de modalidad) */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '10px',
-            padding: '10px 13px 12px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '2px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--muted)',
-              }}
-            >
-              Reparto de estaciones · simulación HYROX
-            </span>
-            <span style={{ fontSize: '9.5px', color: 'var(--faint)' }}>
-              Propuesta de <CoachObject />
-            </span>
-          </div>
-          <StationRow hue={MOD.ergo} station="SkiErg 1 km" who="Marc" whoColor="var(--fg)" />
-          <StationRow hue={MOD.fuerza} station="Sled Push 50 m" who="Laia" whoColor="var(--fg)" />
-          <StationRow hue={MOD.fuerza} station="Sled Pull 50 m" who="Marc" whoColor="var(--fg)" />
-          <StationRow hue={MOD.circuito} station="Burpee Broad Jump 80 m" who="Laia" whoColor="var(--fg)" />
-          <StationRow hue={MOD.ergo} station="Remo 1 km" who="Marc" whoColor="var(--fg)" />
-          <StationRow hue={MOD.fuerza} station="Farmers Carry 200 m" who="50 · 50" />
-          <StationRow hue={MOD.fuerza} station="Sandbag Lunges 100 m" who="Laia" whoColor="var(--fg)" />
-          <StationRow hue={MOD.circuito} station="Wall Balls ×100" who="Marc" whoColor="var(--fg)" />
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="cue" title="El reparto lo edita cualquiera de los dos (y tú)">
         <p>

@@ -10,7 +10,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -85,67 +84,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         ves lo que has puesto sin abrir otra pestaña. Lo que dejes en blanco hereda el contenido
         base; lo que escribas, lo verán <b>tus</b> atletas.
       </p>
-
-      {/* Dashboard mockup: the exercise picker command-sheet */}
-      <DashboardMockup url="tu-panel / sesión / añadir ejercicio">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div className="wk-title" style={{ fontSize: '15px' }}>
-            Añadir ejercicio <small>· Fuerza principal</small>
-          </div>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'var(--sunken)',
-            border: '1px solid var(--hair)',
-            borderRadius: '8px',
-            padding: '8px 11px',
-            marginBottom: '10px',
-            fontSize: '12px',
-            color: 'var(--faint)',
-          }}
-        >
-          ⌕ Buscar ejercicio…
-        </div>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          <span className="chip pri-chip" style={{ background: 'var(--acc)', color: 'var(--accOn)', borderColor: 'var(--acc)' }}>
-            Todo
-          </span>
-          <span className="chip">Fuerza</span>
-          <span className="chip">Cardio</span>
-          <span className="chip">HYROX</span>
-          <span className="chip">Core</span>
-        </div>
-
-        <div style={{ fontSize: '8px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 0 6px' }}>
-          Recientes
-        </div>
-        <ExRow color={MOD.fuerza} name="Sentadilla trasera" sub="Barra · cuádriceps" tag="Fuerza" hasVideo />
-        <ExRow color={MOD.fuerza} name="Peso muerto rumano" sub="Barra · isquios" tag="Fuerza" />
-        <div style={{ fontSize: '8px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)', margin: '10px 0 6px' }}>
-          Catálogo
-        </div>
-        <ExRow color={MOD.fuerza} name="Zancada búlgara" sub="Mancuerna · glúteo" tag="Fuerza" hasVideo />
-        <ExRow color={MOD.circuito} name="Wall ball" sub="Balón · full body" tag="Funcional" />
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderTop: '1px solid var(--hair)',
-            marginTop: '8px',
-            paddingTop: '10px',
-            fontSize: '12px',
-            color: 'var(--muted)',
-          }}
-        >
-          <span style={{ color: 'var(--acc)', fontWeight: 800 }}>+</span>
-          Crear “<b style={{ color: 'var(--fg)' }}>Hip thrust</b>” como ejercicio nuevo
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Tu versión, no la de todos">
         <p>
@@ -260,56 +198,5 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
     </DocSection>
-  );
-}
-
-// Small catalog row used inside the dashboard picker mock.
-function ExRow({
-  color,
-  name,
-  sub,
-  tag,
-  hasVideo,
-}: {
-  color: string;
-  name: string;
-  sub: string;
-  tag: string;
-  hasVideo?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '9px',
-        padding: '7px 4px',
-        borderRadius: '7px',
-      }}
-    >
-      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--fg)' }}>{name}</span>
-        <span style={{ display: 'block', fontSize: '10px', color: 'var(--faint)' }}>{sub}</span>
-      </span>
-      <span
-        style={{
-          fontSize: '9px',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.04em',
-          padding: '2px 7px',
-          borderRadius: '99px',
-          background: 'var(--surface)',
-          color: 'var(--muted)',
-          border: '1px solid var(--hair)',
-        }}
-      >
-        {tag}
-      </span>
-      <span style={{ color: hasVideo ? 'var(--acc)' : 'var(--faint)', fontSize: '13px', width: '16px', textAlign: 'center' }}>
-        {hasVideo ? '▶' : '✎'}
-      </span>
-    </div>
   );
 }

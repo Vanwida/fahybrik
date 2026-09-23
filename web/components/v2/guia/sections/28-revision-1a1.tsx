@@ -13,26 +13,9 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark, CoachInitial, CoachSubject, WithCoach } from '../tenant';
-
-/** Small leading dot for a lane / signal header. */
-function Dot({ color }: { color: string }) {
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: '8px',
-        height: '8px',
-        borderRadius: '99px',
-        background: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
 
 // A slot chip inside the phone (the athlete's hueco picker). Selected = accent.
 function Slot({ children, sel }: { children: ReactNode; sel?: boolean }) {
@@ -115,7 +98,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <p>
         El sistema mira los días desde la última 1:1. Si pasan más de <b>30</b> (mensual) o{' '}
         <b>90</b> (trimestral) sin una revisión y no hay ninguna reservada, levanta la señal{' '}
-        <code>Revisión 1:1 vencida</code> en tu pantalla Hoy, junto al resto de tus colas. Para no
+        <code>Revisión 1:1 vencida</code> en Hoy, junto al resto de lo que te necesita. Para no
         agobiar, no vuelve a dejarte proponer al mismo atleta en <b>14 días</b>.
       </p>
 
@@ -134,126 +117,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         Después de la llamada la cierras como un <b>parte de seguimiento</b>, con tus notas y los
         próximos pasos.
       </p>
-
-      {/* Dashboard mockup: la ficha del atleta con la señal de Hoy + el bloque de revisión 1:1 */}
-      <DashboardMockup url="tu-panel / atletas / marc · revisión">
-        {/* Señal de Hoy — vencida */}
-        <div className="lane" style={{ marginTop: 0, maxWidth: 'none', marginBottom: '14px' }}>
-          <div className="lh" style={{ color: 'var(--warn)' }}>
-            <Dot color="var(--warn)" /> Revisión 1:1 pendiente · Marc
-          </div>
-          <div className="ac">
-            <div className="av">M</div>
-            <div className="nm">
-              Cadencia mensual&nbsp;
-              <small style={{ color: 'var(--faint)', fontWeight: 600 }}>última hace 34 días</small>
-            </div>
-            <div className="rs" style={{ color: 'var(--warn)' }}>
-              Vencida
-            </div>
-          </div>
-        </div>
-
-        {/* Ficha del atleta */}
-        <div className="ath-hd">
-          <div className="av">M</div>
-          <div className="nm">
-            Marc Vidal
-            <small>N3 · 4 días · ficha</small>
-          </div>
-        </div>
-
-        {/* Bloque de revisión 1:1 */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '14px 16px',
-            marginBottom: '14px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '9px',
-              fontWeight: 800,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-              marginBottom: '9px',
-            }}
-          >
-            Cadencia de revisión
-          </div>
-          <div style={{ display: 'flex', gap: '7px', marginBottom: '12px' }}>
-            <span className="chip">Sin revisiones</span>
-            <span
-              className="chip"
-              style={{
-                color: 'var(--accOn)',
-                background: 'var(--acc)',
-                borderColor: 'var(--acc)',
-              }}
-            >
-              Mensual
-            </span>
-            <span className="chip">Trimestral</span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-            }}
-          >
-            <div style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
-              Próxima revisión ·{' '}
-              <b style={{ color: 'var(--warn)' }}>vencida</b>{' '}
-              <span style={{ color: 'var(--faint)' }}>(última hace 34 días)</span>
-            </div>
-            <span className="btn pri">Proponer revisión</span>
-          </div>
-        </div>
-
-        {/* Historial de sesiones 1:1 */}
-        <table className="sesstbl">
-          <thead>
-            <tr>
-              <th>Sesión 1:1</th>
-              <th>Duración</th>
-              <th>Resultado</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Revisión mensual · propuesta</td>
-              <td className="n">—</td>
-              <td>Esperando que Marc reserve</td>
-              <td>
-                <span className="sp pend">Propuesta</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Revisión mensual · 5 jun</td>
-              <td className="n">30 min</td>
-              <td>Seguimiento · «subimos volumen de carrera»</td>
-              <td>
-                <span className="sp done">Registrada</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Revisión mensual · 3 may</td>
-              <td className="n">30 min</td>
-              <td>Seguimiento · «primer bloque cerrado»</td>
-              <td>
-                <span className="sp done">Registrada</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </DashboardMockup>
 
       <DocNote variant="cue" title="Default mensual, opt-out">
         <p>

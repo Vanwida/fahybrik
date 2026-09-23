@@ -1,8 +1,8 @@
 // GUÍA · 05 Tu metodología y tus fases — área "Tu biblioteca". BUILT.
 // Real flow: Periodización es 100% dato del coach. Niveles (athlete_levels:
 // código + etiqueta + descripción) = eje "quién". Una secuencia (nivel × días) es
-// una lista ORDENADA de microciclos; el ORDEN es la periodización (no hay entidad
-// "fase"). El NOMBRE del microciclo es la fase que ve el atleta. Sin catálogo
+// una lista ORDENADA de programas; el ORDEN es la periodización (no hay entidad
+// "fase"). El NOMBRE del programa es la fase que ve el atleta. Sin catálogo
 // hardcodeado, sin nombres impuestos. Doc kit en '../doc'; hues var(--v2-mod-*).
 
 import {
@@ -12,7 +12,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -30,9 +29,10 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       title={meta.title}
       lead={
         <>
-          Aquí no hay un método impuesto. La metodología es <b>tuya</b>: tú defines tus{' '}
-          <b>niveles</b> de atleta y ordenas tus <b>microciclos</b> a lo largo del plan. Y el nombre
-          que le pones a cada microciclo es la <b>fase</b> que tu atleta lee en su móvil.
+          Aquí no hay un método impuesto. En <b>Ajustes › Método</b> cuentas <b>cómo entrenas</b> (siete
+          capítulos de casillas y un párrafo que lo resume), cómo llamas a tu clasificación de atletas
+          y qué te tiene que avisar. Y el nombre que le pones a cada programa es la <b>fase</b> que tu
+          atleta lee en su móvil.
         </>
       }
     >
@@ -47,16 +47,16 @@ export default function Section({ meta }: { meta: GuiaSection }) {
       <QCWTriad
         que={
           <>
-            Dos piezas tuyas: tus <b>niveles</b> (cómo agrupas a tus atletas) y tus{' '}
-            <b>secuencias</b> (en qué orden encadenas los microciclos). El <b>orden</b> de los
-            microciclos es tu periodización.
+            Tu método por escrito (la entrevista y su párrafo, que leen el plan, el chat y el
+            conector), tu <b>clasificación</b> de atletas y tus <b>grupos</b> (en qué orden encadenas
+            los programas). El orden es tu periodización.
           </>
         }
         como={
           <>
-            En <em className="em">Periodización</em> defines un nivel (código, etiqueta y el criterio
-            que lo distingue) y, por nivel y días/semana, colocas los microciclos en orden. El nombre
-            de cada uno será su fase.
+            En <b>Ajustes › Método</b> respondes la entrevista y corriges el párrafo. En{' '}
+            <b>Programar › Grupos</b> colocas los programas en orden. El nombre de cada uno será su
+            fase.
           </>
         }
         porque={
@@ -67,48 +67,25 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
       />
 
-      <h3>1 · Tus niveles: cómo agrupas a tus atletas</h3>
+      <h3>1 · Cómo entrenas, en un párrafo</h3>
       <p>
-        Un <b>nivel</b> es tu forma de clasificar: un código corto (lo que se ve como etiqueta),
-        un nombre legible y la descripción del criterio que lo distingue. Por ejemplo{' '}
-        <code>N1 · Iniciación</code> o <code>Elite</code>. Son tuyos y editables, no conceptos del
-        sistema. Cada atleta lleva un nivel, y el nivel decide qué secuencia recibe.
+        La entrevista son siete capítulos de casillas: a qué te dedicas, cómo partes el tiempo, la
+        semana, qué se ve en un entreno, de dónde salen los números, cómo avanza y cómo se lo dices.
+        Cada casilla reescribe el párrafo de arriba, y tú lo corriges a mano si algo no suena a ti.
+        Ese párrafo es lo que leen el plan, el chat y el conector cuando te ayudan.
       </p>
 
-      <h3>2 · Tus secuencias: el orden ES la periodización</h3>
+      <h3>2 · Tu clasificación y tus avisos</h3>
       <p>
-        Para cada nivel y cada cadencia (3, 4, 5 o 6 días/semana) ordenas tus microciclos uno tras
-        otro. Ese <b>orden</b> es la periodización, no hay una entidad “fase” aparte. Cada microciclo
-        dura las semanas que tú le des, y la suma es la duración del plan.
+        Si agrupas a tus atletas por nivel (o por objetivo, o por turno), el nombre de esa
+        clasificación lo pones tú. Y qué cuenta como aviso (cuánto cae un readiness, cuántos
+        entrenos sin hacer, cuántas horas esperando un mensaje) son números tuyos, con el valor por
+        defecto a la vista y «Restaurar valores por defecto».
       </p>
-
-      {/* Dashboard mockup: a periodization sequence (nivel × días → ordered microciclos) */}
-      <DashboardMockup url="tu-panel / periodización / N2 · intermedio">
-        <div className="wk-title" style={{ fontSize: '15px', marginBottom: '2px' }}>
-          Secuencia · <small>N2 · Intermedio · 4 días/semana</small>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>
-          El orden de los microciclos es la periodización. Cada nombre es la fase que ve el atleta.
-        </div>
-
-        <SeqItem n={1} color={MOD.fuerza} name="Acumulación" weeks={5} />
-        <SeqItem n={2} color={MOD.carrera} name="Transformación" weeks={4} />
-        <SeqItem n={3} color={MOD.ergo} name="Realización" weeks={3} />
-
-        {/* sparkline: segment width ∝ weeks */}
-        <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
-          <span style={{ flex: 5, height: '6px', borderRadius: '99px', background: MOD.fuerza }} />
-          <span style={{ flex: 4, height: '6px', borderRadius: '99px', background: MOD.carrera }} />
-          <span style={{ flex: 3, height: '6px', borderRadius: '99px', background: MOD.ergo }} />
-        </div>
-        <div style={{ fontSize: '9px', color: 'var(--faint)', marginTop: '6px', fontFamily: 'var(--v2-font-mono)' }}>
-          12 semanas en total · 3 microciclos
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Agnóstico de verdad">
         <p>
-          El panel no impone ningún modelo: tus niveles, tus microciclos y tus nombres son datos
+          El panel no impone ningún modelo: tus niveles, tus programas y tus nombres son datos
           tuyos. Cambia las palabras y cambian en todo, empezando por la pantalla de tu atleta.
         </p>
       </DocNote>
@@ -117,15 +94,15 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Tu fase, en su teléfono"
         subtitle={
           <>
-            El nombre que le diste al microciclo encabeza la semana del atleta como su <b>fase</b>.
-            Lo que escribes en Periodización es exactamente lo que él lee.
+            El nombre que le diste al programa encabeza la semana del atleta como su <b>fase</b>.
+            Lo que escribes es exactamente lo que él lee.
           </>
         }
       >
         <PhoneMockup
           caption={
             <>
-              <b>Su semana.</b> La fase es lo primero que ve: el nombre de tu microciclo, tal cual lo
+              <b>Su semana.</b> La fase es lo primero que ve: el nombre de tu programa, tal cual lo
               escribiste.
             </>
           }
@@ -142,7 +119,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
             </div>
           </div>
 
-          {/* Phase banner — the microciclo name */}
+          {/* Phase banner — the programa name */}
           <div
             style={{
               background: 'var(--accSoft)',
@@ -189,47 +166,5 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </PhoneMockup>
       </MovilBand>
     </DocSection>
-  );
-}
-
-// One ordered microciclo slot in the sequence mock.
-function SeqItem({ n, color, name, weeks }: { n: number; color: string; name: string; weeks: number }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '11px',
-        background: 'var(--surface)',
-        border: '1px solid var(--hair)',
-        borderLeft: `3px solid ${color}`,
-        borderRadius: '10px',
-        padding: '10px 12px',
-        marginBottom: '7px',
-      }}
-    >
-      <span
-        style={{
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '10px',
-          fontWeight: 800,
-          fontFamily: 'var(--v2-font-mono)',
-          background: 'var(--elev)',
-          color: 'var(--muted)',
-        }}
-      >
-        {n}
-      </span>
-      <span style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--fg)' }}>{name}</span>
-      <span style={{ fontSize: '10.5px', color: 'var(--faint)', fontFamily: 'var(--v2-font-mono)' }}>
-        {weeks} sem
-      </span>
-    </div>
   );
 }

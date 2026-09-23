@@ -8,7 +8,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 
@@ -79,7 +78,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <DocNote variant="cue" title="La constancia queda en el histórico">
         <p>
-          Cuando un microciclo termina del todo, pasa a <span className="k">Microciclos completados</span>{' '}
+          Cuando un programa termina del todo, pasa a <span className="k">Programas completados</span>{' '}
           en su histórico con su cumplimiento medio. Así ves de un vistazo si tu atleta es de los que
           rematan los bloques o de los que se diluyen al final.
         </p>
@@ -162,83 +161,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         intervenir.
       </p>
 
-      {/* Dashboard mockup: adherencia del equipo + Falló sesiones */}
-      <DashboardMockup url="tu-panel / hoy">
-        <div
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--muted)',
-            marginBottom: '12px',
-          }}
-        >
-          Pulso del equipo · cumplimiento
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '18px',
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '14px 16px',
-            marginBottom: '14px',
-          }}
-        >
-          <div>
-            <div className="num2" style={{ fontSize: '30px', fontWeight: 800, color: 'var(--ok)', lineHeight: 1 }}>
-              78%
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
-              media de la semana
-            </div>
-          </div>
-          <div
-            style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              color: 'var(--ok)',
-              background: 'var(--okSoft)',
-              borderRadius: '7px',
-              padding: '4px 9px',
-            }}
-          >
-            ▲ +6 pts vs semana pasada
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'flex-end', gap: '4px', height: '40px' }}>
-            {[62, 80, 71, 90, 78, 0, 0].map((h, i) => (
-              <div
-                key={i}
-                style={{
-                  width: '9px',
-                  height: h ? `${h}%` : '8%',
-                  borderRadius: '3px',
-                  background: h ? 'var(--acc)' : 'var(--hair2)',
-                  opacity: h ? 1 : 0.5,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="lane" style={{ marginTop: 0 }}>
-          <div className="lh">⚑ Falló sesiones</div>
-          <div className="ac" style={{ marginBottom: '7px' }}>
-            <div className="av">M</div>
-            <div className="nm">Marc</div>
-            <div className="rs">1 perdida · 67%</div>
-          </div>
-          <div className="ac">
-            <div className="av">P</div>
-            <div className="nm">Pol</div>
-            <div className="rs">2 perdidas · 54%</div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <p style={{ marginTop: '18px' }}>
         Readiness te dice cómo llega; adherencia, cuánto cumple. La siguiente pieza pone rumbo a todo

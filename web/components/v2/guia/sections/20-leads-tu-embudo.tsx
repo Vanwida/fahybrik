@@ -9,7 +9,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
@@ -118,89 +117,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         <StatusPill label="Convertido" color={HUE.convertido} />
       </div>
 
-      {/* Dashboard mockup: el embudo — cabecera con contadores + tabla de leads */}
-      <DashboardMockup url="tu-panel / leads">
-        <div className="wk-head">
-          <div className="wk-title">
-            Leads&nbsp; <small>tu embudo de entrada</small>
-          </div>
-          <div className="wk-tools">
-            <span className="btn">Filtrar</span>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span className="chip" style={{ color: HUE.nuevo, borderColor: HUE.nuevo }}>
-            8 nuevos
-          </span>
-          <span className="chip" style={{ color: HUE.agendado, borderColor: HUE.agendado }}>
-            3 citas
-          </span>
-          <span className="chip" style={{ color: 'var(--muted)' }}>
-            2 sin terminar
-          </span>
-        </div>
-
-        <table className="sesstbl">
-          <tbody>
-            <tr>
-              <th>Nombre</th>
-              <th>Objetivo</th>
-              <th>Estado</th>
-              <th>Origen</th>
-              <th>Cuándo</th>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 700 }}>Nora Vidal</td>
-              <td>Primera HYROX</td>
-              <td>
-                <StatusPill label="Nuevo" color={HUE.nuevo} />
-              </td>
-              <td className="n">Onboarding web</td>
-              <td className="n">hace 2 h</td>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 700 }}>Marc Puig</td>
-              <td>Bajar de 1h en 10K</td>
-              <td>
-                <StatusPill label="Contactado" color={HUE.contactado} />
-              </td>
-              <td className="n">Onboarding web</td>
-              <td className="n">ayer</td>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 700 }}>Júlia Roca</td>
-              <td>Dobles con su pareja</td>
-              <td>
-                <StatusPill label="Cita agendada" color={HUE.agendado} />
-              </td>
-              <td className="n">Onboarding web</td>
-              <td className="n">hace 3 d</td>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: 700 }}>Bruno Sáez</td>
-              <td>Volver a competir</td>
-              <td>
-                <StatusPill label="Nuevo" color={HUE.nuevo} />
-              </td>
-              <td className="n">Onboarding web</td>
-              <td className="n">hace 5 h</td>
-            </tr>
-            <tr>
-              <td>
-                <span style={{ color: 'var(--faint)' }}>laura@gmail.com</span>
-              </td>
-              <td>
-                <span style={{ color: 'var(--faint)' }}>Primera HYROX</span>
-              </td>
-              <td>
-                <StatusPill label="Sin terminar" color={HUE.parcial} dim />
-              </td>
-              <td className="n">Onboarding web</td>
-              <td className="n">hace 40 min</td>
-            </tr>
-          </tbody>
-        </table>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Convertido = solo al reclamar la cuenta">
         <p>
@@ -211,11 +127,12 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         </p>
       </DocNote>
 
-      <DocNote variant="cue" title="Leads globales: todos tuyos">
+      <DocNote variant="cue" title="Tus leads, y solo los tuyos">
         <p>
-          Al ser un único entrenador, no hay reparto de leads entre coaches: todos los que entran
-          son tuyos. En el menú lateral, la entrada <b>Leads</b> lleva un contador con los{' '}
-          <b>nuevos</b> sin tocar, para que sepas cuántos te esperan sin abrir la sección.
+          Cada lead es del entrenador cuyo formulario rellenó; nadie más lo ve. En la barra lateral,{' '}
+          <b>Negocio</b> lleva un contador con los leads nuevos, las llamadas de hoy y los cobros
+          vencidos. Al abrir un lead, su ficha sale en un panel a la derecha y la lista sigue a la
+          vista: <b>J/K</b> pasan al siguiente.
         </p>
       </DocNote>
 
@@ -223,7 +140,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Lo que vive tu futuro atleta"
         subtitle={
           <>
-            Ojo: el lead todavía <b>no tiene la app</b>. Vive el funnel en la <b>web</b>, respondiendo
+            Ojo: el lead todavía <b>no tiene la app</b>. Vive el embudo en la <b>web</b>, respondiendo
             un onboarding tap-first. El momento clave es cuando deja su email: ahí, y no antes, se
             vuelve un lead en tu panel.
           </>

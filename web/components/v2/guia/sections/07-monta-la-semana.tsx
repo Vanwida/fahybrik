@@ -8,7 +8,6 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark } from '../tenant';
@@ -41,7 +40,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         que={
           <>
             Una semana = 7 días. Cada día tiene una o dos sesiones (mañana / tarde). La semana vive
-            dentro de un <b>microciclo</b>, al que tú le das un nombre, y ese nombre es la{' '}
+            dentro de un <b>programa</b>, al que tú le das un nombre, y ese nombre es la{' '}
             <b>fase</b> que ve tu atleta.
           </>
         }
@@ -60,9 +59,9 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
       />
 
-      <h3>1 · El nombre del microciclo es la fase que ve tu atleta</h3>
+      <h3>1 · El nombre del programa es la fase que ve tu atleta</h3>
       <p>
-        Al abrir un microciclo, su título es editable: haz clic y escribe. El propio panel te lo
+        Al abrir un programa, su título es editable: haz clic y escribe. El propio panel te lo
         recuerda: <code>El atleta ve este nombre como su fase</code>. No hay fases prefijadas ni
         jerga impuesta: escribes el nombre que usa tu método.{' '}
         <em className="em">La metodología es tuya; nosotros solo te damos dónde escribirla.</em>
@@ -83,149 +82,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         lista mientras editas a la derecha. Así nunca pierdes el contexto de la semana entera.
       </p>
 
-      {/* Dashboard mockup: week canvas + master-detail */}
-      <DashboardMockup url="tu-panel / microciclos / acumulación">
-        <div className="wk-head">
-          <div className="wk-title">
-            Microciclo · «Acumulación»&nbsp; <small>✎ lo ve el atleta como su fase</small>
-          </div>
-          <div className="wk-tools">
-            <span className="btn">Añadir semana</span>
-            <span className="btn pri">Asignar a atleta</span>
-          </div>
-        </div>
-        <div className="wk-sum">
-          <span style={{ fontWeight: 700, color: 'var(--fg)' }}>Semana 1 · base aeróbica</span>
-          <span className="chip" style={{ color: MOD.carrera, borderColor: MOD.carrera }}>
-            3 Carrera
-          </span>
-          <span className="chip" style={{ color: MOD.fuerza }}>
-            1 Fuerza
-          </span>
-          <span className="chip" style={{ color: MOD.circuito }}>
-            1 HYROX
-          </span>
-          <span className="chip" style={{ color: MOD.ergo }}>
-            1 Ergómetro
-          </span>
-        </div>
-        <div className="cal">
-          <div className="col today">
-            <span className="topbar" style={{ background: MOD.carrera }} />
-            <div className="cd">LUN 12</div>
-            <div className="ch">Tirada larga Z2</div>
-            <div className="blk">
-              Carrera · 14 km <span className="x">@ Z2</span>
-            </div>
-            <div className="foot">1 bl · 1 ej</div>
-          </div>
-          <div className="col">
-            <span className="topbar" style={{ background: MOD.fuerza }} />
-            <div className="cd">MAR 13</div>
-            <div className="ch">Fuerza · tren inferior</div>
-            <div className="blk">
-              Sentadilla 4×5 <span className="x">75%</span>
-            </div>
-            <div className="blk">Peso muerto 3×5</div>
-            <div className="foot">2 bl · 4 ej</div>
-          </div>
-          <div className="col">
-            <span className="topbar" style={{ background: MOD.carrera }} />
-            <div className="cd">MIÉ 14</div>
-            <div className="ch">Series 6×800</div>
-            <div className="blk">
-              Intervalos <span className="x">@ Z4</span>
-            </div>
-            <div className="foot">1 bl · 1 ej</div>
-          </div>
-          <div className="col">
-            <div className="cd">JUE 15</div>
-            <div className="rest">Descanso</div>
-          </div>
-          <div className="col">
-            <span className="topbar" style={{ background: MOD.circuito }} />
-            <div className="cd">VIE 16</div>
-            <div className="ch">Simulación HYROX</div>
-            <div className="blk">4 estaciones</div>
-            <div className="foot">3 bl · 6 ej</div>
-          </div>
-          <div className="col">
-            <span className="topbar" style={{ background: MOD.ergo }} />
-            <div className="cd">SÁB 17</div>
-            <div className="ch">Ergómetro Z2</div>
-            <div className="blk">
-              Remo 40 min <span className="x">@ Z2</span>
-            </div>
-            <div className="foot">1 bl · 1 ej</div>
-          </div>
-          <div className="col">
-            <span className="topbar" style={{ background: MOD.calent }} />
-            <div className="cd">DOM 18</div>
-            <div className="ch" style={{ color: MOD.calent }}>
-              Movilidad
-            </div>
-            <div className="blk">Rutina 20 min</div>
-            <div className="foot">1 bl · 5 ej</div>
-          </div>
-        </div>
-
-        <div className="md">
-          <div className="rail">
-            <div className="rc on">
-              <div className="d">LUN 12</div>Tirada larga Z2 <div className="s">Carrera · 1 ej</div>
-            </div>
-            <div className="rc">
-              <div className="d">MAR 13</div>Fuerza <div className="s">tren inferior · 4 ej</div>
-            </div>
-            <div className="rc">
-              <div className="d">MIÉ 14</div>Series 6×800 <div className="s">Carrera · 1 ej</div>
-            </div>
-            <div className="rc">
-              <div className="d">JUE 15</div>
-              <span style={{ color: 'var(--faint)' }}>Descanso</span>
-            </div>
-          </div>
-          <div className="edit">
-            <div className="ed-row">
-              <span className="ed-slot">AM</span>
-              <span className="ed-input">Tirada larga Z2</span>
-              <span className="ed-ai">◌ Sugerir título</span>
-            </div>
-            <div className="ed-block">
-              <div className="bt">
-                <span className="mdot" style={{ background: MOD.carrera }} />
-                Carrera continua / Z2
-              </div>
-              <table className="extbl">
-                <tbody>
-                  <tr>
-                    <th>Tramo</th>
-                    <th>Medida</th>
-                    <th>Objetivo</th>
-                  </tr>
-                  <tr>
-                    <td>Rodaje continuo</td>
-                    <td className="n">14 km</td>
-                    <td className="n">Z2 · 5:10–5:25/km</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div
-              style={{
-                fontSize: '9.5px',
-                color: 'var(--faint)',
-                display: 'flex',
-                gap: '6px',
-                alignItems: 'center',
-                marginTop: '4px',
-              }}
-            >
-              <span className="num2">Guardar día</span> · <span>Copiar día a…</span>
-            </div>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <h3>4 · Dentro de la sesión: título, bloques, ejercicios y carga</h3>
       <p>
@@ -269,7 +125,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         title="Lo que montaste, en su teléfono"
         subtitle={
           <>
-            El nombre del microciclo se convierte en su <b>fase</b>. El foco de la semana aparece
+            El nombre del programa se convierte en su <b>fase</b>. El foco de la semana aparece
             bajo el saludo. Y las sesiones que rellenaste por día se vuelven su plan, una sesión cada
             mañana.
           </>

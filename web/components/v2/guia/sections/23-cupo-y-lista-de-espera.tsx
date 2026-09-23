@@ -12,91 +12,9 @@ import {
   DocNote,
   MovilBand,
   PhoneMockup,
-  DashboardMockup,
 } from '../doc';
 import type { GuiaSection } from '../config';
 import { ClubMark, CoachSubject } from '../tenant';
-
-/** One row of the coach's FIFO waitlist (dashboard frame — reads the .guia-win vars). */
-function QRow({
-  pos,
-  initial,
-  name,
-  meta,
-  wait,
-  released = false,
-}: {
-  pos: number;
-  initial: string;
-  name: string;
-  meta: string;
-  wait: string;
-  released?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '11px',
-        padding: '9px 4px',
-        borderTop: '1px solid var(--hair)',
-      }}
-    >
-      <span
-        style={{
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '11px',
-          fontWeight: 800,
-          background: released ? 'var(--sunken)' : 'var(--accSoft)',
-          color: released ? 'var(--faint)' : 'var(--acc)',
-        }}
-        className="num2"
-      >
-        {pos}
-      </span>
-      <div
-        style={{
-          width: '26px',
-          height: '26px',
-          borderRadius: '50%',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '10px',
-          fontWeight: 800,
-          background: 'var(--accSoft)',
-          color: 'var(--acc)',
-        }}
-      >
-        {initial}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--fg)' }}>{name}</div>
-        <div style={{ fontSize: '10px', color: 'var(--faint)' }}>{meta}</div>
-      </div>
-      <span className="num2" style={{ fontSize: '10px', color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>
-        {wait}
-      </span>
-      {released ? (
-        <span className="chip" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>
-          ✓ Avisado
-        </span>
-      ) : (
-        <span className="btn" style={{ flexShrink: 0 }}>
-          Liberar plaza
-        </span>
-      )}
-    </div>
-  );
-}
 
 export default function Section({ meta }: { meta: GuiaSection }) {
   return (
@@ -133,7 +51,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         }
         como={
           <>
-            Fijas el cupo en <b>Disponibilidad y cupo</b>. A partir de ahí es automático: al llenarse,
+            Fijas el cupo en <b>Ajustes › Agenda y cupo</b>. A partir de ahí es automático: al llenarse,
             el onboarding termina en lista de espera; al liberarse una plaza, avisa al primero. Y
             tienes el botón <b>Liberar plaza</b> para saltarte el orden.
           </>
@@ -148,7 +66,7 @@ export default function Section({ meta }: { meta: GuiaSection }) {
 
       <h3>1 · El cupo y el borde exacto</h3>
       <p>
-        El cupo es tu <b>máximo de atletas</b>, y lo fijas en <code>Disponibilidad y cupo</code>.
+        El cupo es tu <b>máximo de atletas</b>, y lo fijas en <b>Ajustes › Agenda y cupo</b>.
         Dejarlo <b>vacío = sin límite</b>: la lista de espera es <em className="em">opt-in</em>, solo
         existe si defines un número. El grupo se llena en el <b>borde exacto</b>: en cuanto los{' '}
         <b>atletas activos igualan el cupo</b> (24 de 24), pasa a completo y el siguiente lead entra
@@ -171,127 +89,6 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         avisar a quien quieras ahora mismo. Un lead ya avisado <b>retiene su plaza</b> hasta que
         reserva, así que nunca se libera de más.
       </p>
-
-      {/* Dashboard mockup: panel "Disponibilidad y cupo" + cola FIFO */}
-      <DashboardMockup url="tu-panel / disponibilidad">
-        <div className="wk-head">
-          <div className="wk-title">Disponibilidad y cupo</div>
-        </div>
-
-        {/* Panel cupo */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '14px 15px',
-            marginBottom: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-            <div>
-              <div
-                style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginBottom: '3px',
-                }}
-              >
-                Atletas activos / cupo
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span
-                  className="num2"
-                  style={{
-                    fontFamily: 'var(--v2-font-display)',
-                    fontStyle: 'italic',
-                    fontWeight: 900,
-                    fontSize: '30px',
-                    letterSpacing: '-0.03em',
-                    color: 'var(--fg)',
-                  }}
-                >
-                  24
-                </span>
-                <span className="num2" style={{ fontSize: '15px', fontWeight: 700, color: 'var(--faint)' }}>
-                  / 24
-                </span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '7px' }}>
-              <span
-                className="chip"
-                style={{ color: 'var(--dng)', borderColor: 'var(--dng)', background: 'var(--dngSoft)' }}
-              >
-                ● Completo
-              </span>
-              <span className="btn">Editar cupo</span>
-            </div>
-          </div>
-          <div
-            style={{
-              height: '10px',
-              borderRadius: '99px',
-              background: 'var(--sunken)',
-              overflow: 'hidden',
-              margin: '12px 0 7px',
-            }}
-          >
-            <span
-              style={{
-                display: 'block',
-                height: '100%',
-                width: '100%',
-                background: 'linear-gradient(90deg, var(--acc), color-mix(in srgb, var(--acc) 72%, transparent))',
-              }}
-            />
-          </div>
-          <div className="num2" style={{ fontSize: '11px', color: 'var(--muted)' }}>
-            <b style={{ color: 'var(--fg)' }}>0 plazas libres</b> · 24 activos ·{' '}
-            <b style={{ color: 'var(--fg)' }}>3</b> en lista de espera
-          </div>
-        </div>
-
-        {/* Panel lista de espera */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--hair)',
-            borderRadius: '11px',
-            padding: '12px 15px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--fg)' }}>Lista de espera · 3</span>
-            <span className="chip" style={{ color: 'var(--faint)' }}>
-              orden de llegada
-            </span>
-          </div>
-          <QRow pos={1} initial="M" name="Marcos Vidal" meta="Su primer HYROX · intermedio · Barcelona" wait="en espera 2 días" />
-          <QRow pos={2} initial="L" name="Laura Feng" meta="Mejorar su marca · avanzado · online" wait="en espera 5 días" />
-          <QRow pos={3} initial="D" name="Dídac Roca" meta="Podio / competir · competidor · Barcelona" wait="en espera 6 días" />
-          <div
-            style={{
-              fontSize: '10px',
-              color: 'var(--faint)',
-              marginTop: '11px',
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'flex-start',
-              lineHeight: 1.5,
-            }}
-          >
-            <span style={{ width: '5px', height: '5px', borderRadius: '99px', background: 'var(--ok)', marginTop: '5px', flexShrink: 0 }} />
-            <span>
-              <b style={{ color: 'var(--fg)' }}>Automático:</b> cuando se libera una plaza avisamos al
-              primero de la cola. «Liberar plaza» se salta el orden.
-            </span>
-          </div>
-        </div>
-      </DashboardMockup>
 
       <DocNote variant="log" title="Se llena en el borde exacto">
         <ul>
