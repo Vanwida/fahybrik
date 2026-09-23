@@ -89,12 +89,23 @@ export function V2ThemeProvider({
     [persist, theme],
   );
 
-  // Barra de estado / splash de la PWA al color del lienzo elegido.
+  // Barra de estado / splash de la PWA y el fondo de <body> al color del lienzo
+  // elegido (el script previo al pintado hace lo mismo antes de hidratar). Al
+  // salir del panel se devuelve el <body> a su CSS.
   useEffect(() => {
     document
       .querySelectorAll('meta[name="theme-color"]')
       .forEach((m) => m.setAttribute('content', V2_THEME_CANVAS[theme]));
+    document.body.style.backgroundColor = V2_THEME_CANVAS[theme];
+    document.body.style.colorScheme = theme;
   }, [theme]);
+  useEffect(
+    () => () => {
+      document.body.style.backgroundColor = '';
+      document.body.style.colorScheme = '';
+    },
+    [],
+  );
 
   // La piel del club sirve las DOS familias (clara y oscura) y es `v2-theme.css`
   // quien elige según `data-theme`. Así el acento correcto está pintado ya en el
