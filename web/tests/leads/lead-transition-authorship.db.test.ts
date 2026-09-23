@@ -30,8 +30,8 @@ describeWithDb('lead transition authorship (real DB)', () => {
       returning id::text as id
     `;
     actorUserId = BigInt(u[0]!.id);
-    // The tenancy-scoped signatures need an acting club; the seeded lead below has
-    // coach_id NULL («sin asignar»), which any authenticated club may act on.
+    // The tenancy-scoped signatures need an acting club; the seeded lead below is OWNED by
+    // it (leads.coach_id) — the only way a club that doesn't run the funnel may act on it.
     const c = await sql<Array<{ id: string }>>`
       insert into coaches (user_id, full_name) values (${Number(actorUserId)}, 'Gerard Club')
       returning id::text as id
@@ -61,7 +61,7 @@ describeWithDb('lead transition authorship (real DB)', () => {
   test('transition records event + last_edited stamp + audit, and the timeline reads it', async () => {
     const email = uniqueLeadEmail();
     const seeded = await sql<Array<{ id: string }>>`
-      insert into leads (email, status) values (${email}, 'nuevo'::lead_status)
+      insert into leads (email, status, coach_id) values (${email}, 'nuevo'::lead_status, ${Number(actorCoachId)})
       returning id::text as id
     `;
     const leadId = BigInt(seeded[0]!.id);

@@ -1,7 +1,8 @@
 // Coach-dashboard funnel metrics (#20). Reads ONLY existing tables — leads,
 // appointments, session_reports, athlete_invitations — and DERIVES the ingest
-// funnel from them; nothing is invented. Single-coach launch → no coach scoping
-// (every lead belongs to the one coach), mirroring lib/dashboard/coach/leads.ts.
+// funnel from them; nothing is invented. EVERY loader takes `coach_id` and counts only
+// that coach's leads (`leadOwnedBy`, lib/leads/owner.ts) — and what hangs off them
+// (citas, 1:1 reports, altas) through the lead.
 //
 // The funnel is a COHORT model: the cohort is the set of leads whose created_at
 // falls in the selected range; each stage is a boolean predicate on that lead
@@ -14,8 +15,12 @@
 // only a daily aggregate). The recorder + reader live in web/lib/analytics/visits.ts
 // (see its header for the RGPD reasoning). We read the totals here and expose them on
 // the snapshot as `visitas`; null while the table is empty (collecting from today).
+// Visits are counted on the PUBLIC landing, which belongs to the funnel operator
+// (`FUNNEL_COACH_ID`): only that coach sees them; any other coach gets `visitas: null`.
 
 import { sql } from '@/lib/db';
+import { leadOwnedBy } from '@/lib/leads/owner';
+import { readFunnelCoachId } from '@/lib/leads/funnel-coach';
 import { loadVisitTotals, type VisitTotals } from '@/lib/analytics/visits';
 import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
 
@@ -121,7 +126,11 @@ function cohortWindow(since: Date | null, until: Date | null) {
 
 /** All stage counts + side-exits for one cohort window. Shared by the current and
  *  prior windows so the delta compares like with like. */
-async function cohortCounts(since: Date | null, until: Date | null): Promise<CohortRow> {
+async function cohortCounts(
+  coach_id: bigint | number,
+  since: Date | null,
+  until: Date | null,
+): Promise<CohortRow> {
   const rows = await sql<CohortRow[]>`
     select
       count(*)::int as iniciado,
@@ -163,6 +172,7 @@ async function cohortCounts(since: Date | null, until: Date | null): Promise<Coh
       )::int as pensandoselo
     from leads l
     where ${cohortWindow(since, until)}
+      and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
   `;
   return (
     rows[0] ?? {
@@ -185,6 +195,7 @@ function ratio(n: number, d: number): number | null {
 }
 
 export async function loadFunnelSnapshot(
+  coach_id: bigint | number,
   range: MetricsRange,
   now: Date = new Date(),
 ): Promise<FunnelSnapshot> {
@@ -195,14 +206,19 @@ export async function loadFunnelSnapshot(
   const priorReq =
     range === 'todo' || since === null
       ? Promise.resolve(null)
-      : cohortCounts(new Date(since.getTime() - RANGE_DAYS[range] * MS_PER_DAY), since);
+      : cohortCounts(coach_id, new Date(since.getTime() - RANGE_DAYS[range] * MS_PER_DAY), since);
+  const funnelCoach = readFunnelCoachId();
+  const ownsLanding = funnelCoach !== null && funnelCoach === BigInt(coach_id);
 
   const [cur, prior, visitTotals] = await Promise.all([
-    cohortCounts(since, null),
+    cohortCounts(coach_id, since, null),
     priorReq,
     // Visits degrade to null on their own (e.g. table not yet migrated) without taking
     // the whole funnel down — same "one dead source degrades its own panel" resilience.
-    loadVisitTotals(since).catch(() => ({ views: 0, visitors: 0, since_date: null }) as VisitTotals),
+    // Only the landing's operator reads them (see header).
+    ownsLanding
+      ? loadVisitTotals(since).catch(() => ({ views: 0, visitors: 0, since_date: null }) as VisitTotals)
+      : Promise.resolve({ views: 0, visitors: 0, since_date: null } as VisitTotals),
   ]);
 
   // null when nothing collected yet (empty table): honest "recogiendo datos" state.
@@ -303,16 +319,21 @@ export const EMPTY_CALL_OUTCOMES: CallOutcomesData = {
 };
 
 export async function loadCallOutcomes(
+  coach_id: bigint | number,
   range: MetricsRange,
   now: Date = new Date(),
 ): Promise<CallOutcomesData> {
   const since = metricsSince(range, now);
+  const ownLead = sql`exists (
+    select 1 from leads l where l.id = sr.lead_id and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
+  )`;
 
   const [outcomeRows, priceRows] = await Promise.all([
     sql<{ outcome: SessionOutcome; n: number }[]>`
       select sr.outcome, count(*)::int as n
       from session_reports sr
       where sr.lead_id is not null
+        and ${ownLead}
         and sr.deleted_at is null
         and sr.outcome is not null
         and (${since}::timestamptz is null or sr.occurred_at >= ${since}::timestamptz)
@@ -322,6 +343,7 @@ export async function loadCallOutcomes(
       select avg(sr.quoted_price_eur)::float8 as avg_price, count(sr.quoted_price_eur)::int as n
       from session_reports sr
       where sr.lead_id is not null
+        and ${ownLead}
         and sr.deleted_at is null
         and sr.quoted_price_eur is not null
         and (${since}::timestamptz is null or sr.occurred_at >= ${since}::timestamptz)
@@ -358,7 +380,7 @@ export type WeeklySeries = WeeklyPoint[];
 
 export const EMPTY_WEEKLY_SERIES: WeeklySeries = [];
 
-export async function loadWeeklySeries(): Promise<WeeklySeries> {
+export async function loadWeeklySeries(coach_id: bigint | number): Promise<WeeklySeries> {
   // date_trunc('week', …) is ISO Monday-start. All timestamps are converted to the
   // box timezone first so week boundaries land on Madrid midnights, not UTC.
   const rows = await sql<WeeklyPoint[]>`
@@ -374,17 +396,22 @@ export async function loadWeeklySeries(): Promise<WeeklySeries> {
       (
         select count(*) from leads l
         where l.submitted_at is not null
+          and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
           and (l.submitted_at at time zone 'Europe/Madrid') >= w.wk_start
           and (l.submitted_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
       )::int as onboardings,
       (
         select count(distinct a.lead_id) from appointments a
-        where (a.created_at at time zone 'Europe/Madrid') >= w.wk_start
+        join leads l on l.id = a.lead_id
+        where ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
+          and (a.created_at at time zone 'Europe/Madrid') >= w.wk_start
           and (a.created_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
       )::int as citas,
       (
         select count(*) from athlete_invitations ai
-        where ai.lead_id is not null and ai.redeemed_at is not null
+        join leads l on l.id = ai.lead_id
+        where ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
+          and ai.redeemed_at is not null
           and (ai.redeemed_at at time zone 'Europe/Madrid') >= w.wk_start
           and (ai.redeemed_at at time zone 'Europe/Madrid') <  w.wk_start + interval '1 week'
       )::int as altas
@@ -406,6 +433,7 @@ export interface ObjetivoRow {
 }
 
 export async function loadByObjetivo(
+  coach_id: bigint | number,
   range: MetricsRange,
   now: Date = new Date(),
 ): Promise<ObjetivoRow[]> {
@@ -423,6 +451,7 @@ export async function loadByObjetivo(
     from leads l
     where l.objetivo is not null
       and ${cohortWindow(since, null)}
+      and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
     group by l.objetivo
   `;
   return rows.map((r) => ({
@@ -443,14 +472,15 @@ export interface FunnelMetrics {
 }
 
 export async function loadFunnelMetrics(
+  coach_id: bigint | number,
   range: MetricsRange,
   now: Date = new Date(),
 ): Promise<FunnelMetrics> {
   const [snapshot, outcomes, weekly, by_objetivo] = await Promise.all([
-    loadFunnelSnapshot(range, now),
-    loadCallOutcomes(range, now),
-    loadWeeklySeries(),
-    loadByObjetivo(range, now),
+    loadFunnelSnapshot(coach_id, range, now),
+    loadCallOutcomes(coach_id, range, now),
+    loadWeeklySeries(coach_id),
+    loadByObjetivo(coach_id, range, now),
   ]);
   return { snapshot, outcomes, weekly, by_objetivo };
 }

@@ -30,6 +30,12 @@ import { COACH_FALLBACK_SUBJECT } from '@/lib/coach/voice';
  *     de bien sin él (ver `lib/coach/voice.ts`).
  */
 export async function funnelCoachId(): Promise<bigint | null> {
+  return readFunnelCoachId();
+}
+
+/** Lo mismo que `funnelCoachId`, síncrono: es una lectura de entorno, y el predicado de
+ *  dueño de un lead (`leadOwnedBy`, lib/leads/owner.ts) se construye dentro de un SQL. */
+export function readFunnelCoachId(): bigint | null {
   const configured = process.env.FUNNEL_COACH_ID?.trim();
   if (!configured || !/^\d+$/.test(configured)) return null;
   return BigInt(configured);

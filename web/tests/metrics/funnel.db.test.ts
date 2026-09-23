@@ -2,11 +2,11 @@
  * Real-DB test for the funnel metrics aggregator (#20). No SQL mocked (Neon
  * branch, per CLAUDE.md).
  *
- * ISOLATION: the funnel is a global cohort aggregate (all leads whose created_at
- * is in the window), so a shared branch's pre-existing rows would pollute exact
- * counts. We seed the cohort in a FAR-FUTURE window (year 2999) and query with a
- * matching `now`, so `since = now − 30d` excludes every real/pre-existing lead
- * and the assertions are deterministic.
+ * ISOLATION: the funnel is a per-coach cohort aggregate (the coach's leads whose
+ * created_at is in the window); each test seeds its own coach, and on top of that the
+ * cohort sits in a FAR-FUTURE window (year 2999) queried with a matching `now`, so
+ * `since = now − 30d` excludes every real/pre-existing lead and the assertions are
+ * deterministic.
  *
  * The weekly series is hard-wired to the real "last 8 weeks" (no injectable now),
  * so it is verified with a baseline→seed→delta comparison instead.
@@ -40,6 +40,9 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
   const userIds: number[] = [];
   const invitationIds: number[] = [];
   const emails: string[] = [];
+  // The coach who OWNS the seeded leads (the last `seedCoach()` of the test): every loader
+  // is scoped to a coach now (leadOwnedBy), so the cohort is read back as that coach's.
+  let owner = 0;
 
   function email(tag: string): string {
     const e = `fn-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
@@ -54,7 +57,8 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     const c = await sql<{ id: string }[]>`
       insert into coaches (user_id, full_name) values (${Number(u[0]!.id)}, 'FN Coach') returning id::text as id`;
     coachIds.push(Number(c[0]!.id));
-    return Number(c[0]!.id);
+    owner = Number(c[0]!.id);
+    return owner;
   }
 
   async function seedAthlete(coachId: number): Promise<number> {
@@ -81,9 +85,9 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     const created = s.createdAt ?? FUTURE_LEAD_AT;
     const submitted = s.submitted ? (s.submittedAt ?? created) : null;
     const r = await sql<{ id: string }[]>`
-      insert into leads (email, nombre, status, source, objetivo, created_at, submitted_at, alta_sent_at, converted_athlete_id)
+      insert into leads (email, nombre, status, source, objetivo, created_at, submitted_at, alta_sent_at, converted_athlete_id, coach_id)
       values (${email('lead')}, 'FN Lead', ${s.status}, 'onboarding_web', ${s.objetivo},
-              ${created}, ${submitted}, ${s.altaSentAt ?? null}, ${s.convertedAthleteId ?? null})
+              ${created}, ${submitted}, ${s.altaSentAt ?? null}, ${s.convertedAthleteId ?? null}, ${owner || null})
       returning id::text as id`;
     leadIds.push(Number(r[0]!.id));
     return Number(r[0]!.id);
@@ -203,7 +207,7 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     await seedAppointment(l10, 'aceptada');
     await seedReport(l10, coachId, { outcome: 'no_asistio' });
 
-    const snap = await loadFunnelSnapshot('30d', FUTURE_NOW);
+    const snap = await loadFunnelSnapshot(owner, '30d', FUTURE_NOW);
 
     expect(snap.stages).toEqual({
       iniciado: 10,
@@ -238,7 +242,7 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     await seedReport(b, coachId, { outcome: 'pensandoselo', price: 200 });
     await seedReport(c, coachId, { outcome: 'no_asistio' }); // no price → not in avg
 
-    const out = await loadCallOutcomes('30d', FUTURE_NOW);
+    const out = await loadCallOutcomes(owner, '30d', FUTURE_NOW);
 
     expect(out.counts).toEqual({
       quiere_empezar: 1,
@@ -271,7 +275,7 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     });
     await seedAppointment(q2, 'completada');
 
-    const rows = await loadByObjetivo('30d', FUTURE_NOW);
+    const rows = await loadByObjetivo(owner, '30d', FUTURE_NOW);
     const byCode = new Map(rows.map((r) => [r.objetivo, r]));
 
     const ph = byCode.get('primer_hyrox');
@@ -289,7 +293,7 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     const athleteId = await seedAthlete(coachId);
     const userId = userIds[userIds.length - 1]!; // the athlete's user
 
-    const baseline = await loadWeeklySeries();
+    const baseline = await loadWeeklySeries(owner);
     const last = baseline.length - 1;
 
     const now = new Date();
@@ -306,7 +310,7 @@ describeWithDb('funnel metrics aggregator (#20, real DB)', () => {
     // 1 alta redeemed this week.
     await seedInvitation({ leadId: w2, athleteId, userId, coachId, redeemedAt: now });
 
-    const after = await loadWeeklySeries();
+    const after = await loadWeeklySeries(owner);
 
     expect(after[last]!.onboardings - baseline[last]!.onboardings).toBe(2);
     expect(after[last]!.citas - baseline[last]!.citas).toBe(1);

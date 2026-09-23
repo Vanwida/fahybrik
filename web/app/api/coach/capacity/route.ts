@@ -1,4 +1,4 @@
-// POST /api/coach/capacity — set the single coach's max athlete cap (#18). Coach-guarded,
+// POST /api/coach/capacity — set the session coach's max athlete cap (#18). Coach-guarded,
 // Zod-validated. `max_athletes`: a non-negative integer, or null to remove the limit
 // (uncapped → the waitlist never engages). Capacity is its own resource (coaches.max_athletes,
 // lib/coach/capacity.ts), so it gets its own route rather than being folded into the
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   // the cap is already persisted, so a release failure must never fail the cupo save.
   let released = 0;
   try {
-    ({ released } = await releaseWaitlistToCapacity());
+    ({ released } = await releaseWaitlistToCapacity(session.coach_id));
   } catch (err) {
     captureRouteError(err, { route: 'api/coach/capacity.POST', meta: { max_athletes } });
   }

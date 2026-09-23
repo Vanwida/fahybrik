@@ -20,6 +20,7 @@
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { recordAudit, type Actor } from '@/lib/audit/record-edit';
 import { funnelCoachId } from './funnel-coach';
+import { leadOwnedBy } from './owner';
 import type { LeadDraftInput, LeadSubmitInput } from '@fahybrid/shared/schema';
 import {
   canReopenLead,
@@ -186,21 +187,12 @@ export async function upsertLeadComplete(
 // ── Ownership (multi-tenancy) ────────────────────────────────────────────────────
 /**
  * True when `coachId` may act on `leadId` — the coach-side authorization guard
- * (mirror of `coachOwnsAthlete`, lib/injuries). THE ownership rule for leads:
- *
- *   • `leads.coach_id = coachId` — el lead se atribuyó a este club en la captura
- *     (migración 0147: el enlace del embudo tiene dueño).
- *   • `leads.coach_id IS NULL` — «sin asignar» (entró sin enlace atribuible).
- *     Deliberadamente accionable por CUALQUIER club autenticado: alguien tiene que
- *     triarlo, y la captura es el negocio (misma lectura fail-open que el cupo en
- *     lib/leads/funnel-coach.ts). Hoy hay un solo club, así que esto ES el
- *     comportamiento actual; cuando llegue el multi-club, lo sin-asignar pasa a una
- *     superficie de asignación explícita en vez de este fallback.
- *
- * Un lead ASIGNADO a otro club es invisible: los callers mapean `false` a 404
- * (nunca 403 — la existencia no se filtra). Toda consulta coach-facing sobre un
- * lead concreto usa este mismo predicado inline (getLeadDetail, transition/reopen,
- * appointmentWithLead) — esta función es la regla escrita una vez.
+ * (mirror of `coachOwnsAthlete`, lib/injuries). THE ownership rule for leads lives in
+ * `leadOwnedBy` (lib/leads/owner.ts): own lead, or an unassigned one ONLY for the coach
+ * that operates the public funnel. Un lead de otro club es invisible: los callers
+ * mapean `false` a 404 (nunca 403 — la existencia no se filtra). Toda consulta
+ * coach-facing sobre un lead usa ese mismo predicado (getLeadDetail, transition/reopen,
+ * appointmentWithLead, alta, listados y contadores).
  */
 export async function coachOwnsLead(
   coachId: bigint | number,
@@ -209,7 +201,7 @@ export async function coachOwnsLead(
 ): Promise<boolean> {
   const rows = await client<{ id: string }[]>`
     select id::text as id from leads
-    where id = ${Number(leadId)} and (coach_id = ${Number(coachId)} or coach_id is null)
+    where id = ${Number(leadId)} and ${leadOwnedBy(client, coachId, client`coach_id`)}
     limit 1
   `;
   return rows.length > 0;
@@ -240,7 +232,7 @@ export class LeadTransitionError extends Error {
 export async function transitionLeadStatus(args: {
   id: bigint;
   to: string;
-  /** The acting coach (session.coach_id) — the lead must be theirs or unassigned. */
+  /** The acting coach (session.coach_id) — the lead must be theirs (leadOwnedBy). */
   coach_id: bigint;
   /** Who moved it (#43) — recorded on the transition event + audit trail. */
   actor: Actor;
@@ -260,7 +252,7 @@ export async function transitionLeadStatus(args: {
     const current = await tx<{ status: LeadStatus }[]>`
       select status::text as status from leads
       where id = ${Number(args.id)}
-        and (coach_id = ${Number(args.coach_id)} or coach_id is null)
+        and ${leadOwnedBy(tx, args.coach_id, tx`coach_id`)}
       limit 1
     `;
     const row = current[0];
@@ -329,7 +321,7 @@ async function recordLeadTransition(
  */
 export async function reopenLead(args: {
   id: bigint;
-  /** The acting coach (session.coach_id) — the lead must be theirs or unassigned. */
+  /** The acting coach (session.coach_id) — the lead must be theirs (leadOwnedBy). */
   coach_id: bigint;
   /** Who reopened it (#43). */
   actor: Actor;
@@ -338,7 +330,7 @@ export async function reopenLead(args: {
     const current = await tx<{ status: LeadStatus }[]>`
       select status::text as status from leads
       where id = ${Number(args.id)}
-        and (coach_id = ${Number(args.coach_id)} or coach_id is null)
+        and ${leadOwnedBy(tx, args.coach_id, tx`coach_id`)}
       limit 1
     `;
     const row = current[0];

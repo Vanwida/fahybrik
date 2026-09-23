@@ -1,5 +1,6 @@
 // GET /api/coach/citas/pending — upcoming confirmed calls for the dashboard. Auto-accept
-// (#2/#4) removed the pending-approval queue; this now returns "próximas llamadas".
+// (#2/#4) removed the pending-approval queue; this now returns "próximas llamadas" —
+// only the session coach's (through each cita's lead owner).
 
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -11,6 +12,6 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
-  const calls = await listUpcomingCalls();
+  const calls = await listUpcomingCalls(session.coach_id);
   return jsonOk({ calls });
 }

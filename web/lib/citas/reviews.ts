@@ -13,11 +13,12 @@ import 'server-only';
 // review_1on1_due, que se SILENCIA para un atleta pausado/baja (#13) porque el batch de
 // señales ya filtra lifecycle_status='activo'.
 //
-// Single-coach: sin coach_id en appointments (ver store.ts). Europe/Madrid en todo el
+// Tenancy: sin coach_id en appointments (ver store.ts) — la revisión es del coach del
+// ATLETA, y sus huecos salen de la agenda de ESE coach (0220). Europe/Madrid en todo el
 // cálculo de huecos (computeSlots).
 
 import { sql } from '@/lib/db';
-import { CitasError, computeSlots } from '@/lib/citas/store';
+import { CitasError, computeSlots, lockAndCheckSlot } from '@/lib/citas/store';
 import { createReviewMeeting } from '@/lib/citas/meeting';
 import { isOfferedSlot, type DaySlots } from '@fahybrid/shared/domain/citas/slots';
 import type { AppointmentStatus } from '@fahybrid/shared/domain/citas/status';
@@ -196,8 +197,11 @@ export async function listAthleteReviewSlots(args: {
   const now = args.now ?? new Date();
   const active = await activeReviewFor(args.athlete_id);
   if (active) return [];
-  // #40: reviews are video-only (createReviewMeeting mints a Meet) → the video schedule.
-  return computeSlots('video', now);
+  const athlete = await loadAthlete(args.athlete_id);
+  const coach = athlete?.coach_id != null ? BigInt(athlete.coach_id) : null;
+  // #40: reviews are video-only (createReviewMeeting mints a Meet) → the video schedule
+  // of the athlete's OWN coach (no coach → no calendar → no slots).
+  return computeSlots(coach, 'video', now);
 }
 
 // ── bookAthleteReview (atleta) ──────────────────────────────────────────────────
@@ -223,9 +227,10 @@ export async function bookAthleteReview(args: {
   const startMs = Date.parse(args.requested_start);
   if (Number.isNaN(startMs)) throw new CitasError('invalid_slot', 'Hueco no válido', 400);
 
-  // #40: reviews are video-only (createReviewMeeting mints a Meet) → the video schedule.
-  const slots = await computeSlots('video', now);
-  if (!isOfferedSlot(slots, startMs)) {
+  // #40: reviews are video-only → the video schedule of the athlete's own coach.
+  const coach = athlete.coach_id != null ? BigInt(athlete.coach_id) : null;
+  const slots = await computeSlots(coach, 'video', now);
+  if (coach === null || !isOfferedSlot(slots, startMs)) {
     throw new CitasError('slot_unavailable', 'Ese hueco ya no está disponible', 409);
   }
   const startIso = new Date(startMs).toISOString();
@@ -233,19 +238,10 @@ export async function bookAthleteReview(args: {
   let appointment: ReviewAppointmentView;
   try {
     appointment = await sql.begin(async (tx) => {
-      // Mismas dos garantías que bookAppointment: (1) advisory lock por hueco serializa
-      // reservas concurrentes del MISMO hueco; (2) el índice parcial one-active-per-athlete
+      // Mismas dos garantías que bookAppointment: (1) lock por (coach, hueco) + re-chequeo
+      // de solape en la agenda de ESE coach; (2) el índice parcial one-active-per-athlete
       // (23505 abajo) corta que el mismo atleta reserve dos.
-      await tx`select pg_advisory_xact_lock(${startMs})`;
-
-      const clash = await tx<{ id: string }[]>`
-        select id::text as id from appointments
-        where requested_start = ${startIso}::timestamptz and status in ('pendiente', 'aceptada')
-        limit 1
-      `;
-      if (clash.length) {
-        throw new CitasError('slot_unavailable', 'Ese hueco ya no está disponible', 409);
-      }
+      await lockAndCheckSlot(tx, coach, startMs);
 
       const rows = await tx<
         { id: string; requested_start: Date; duration_minutes: number; status: AppointmentStatus; meet_link: string | null }[]

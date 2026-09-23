@@ -1,5 +1,6 @@
 // GET /api/coach/availability — the coach's weekly windows + upcoming blocked dates.
 // PUT /api/coach/availability — replace the full weekly availability. Coach-guarded, Zod.
+// Per coach (0220): a coach only ever reads and replaces their OWN windows.
 
 import { availabilitySetInput } from '@fahybrid/shared/schema';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
-  const data = await getAvailability();
+  const data = await getAvailability(session.coach_id);
   return jsonOk(data);
 }
 
@@ -30,7 +31,7 @@ export async function PUT(req: Request) {
   if (!parsed.success) {
     return jsonError('invalid_request', 'Disponibilidad no válida', 400, parsed.error.flatten());
   }
-  await setAvailability(parsed.data.windows);
-  const data = await getAvailability();
+  await setAvailability(session.coach_id, parsed.data.windows);
+  const data = await getAvailability(session.coach_id);
   return jsonOk(data);
 }

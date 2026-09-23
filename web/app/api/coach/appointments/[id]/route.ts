@@ -86,8 +86,9 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     let a = res.appointment;
 
     if (res.newStatus === 'aceptada') {
-      // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
-      const studio = a.modality === 'presencial' ? await getStudioLocation() : null;
+      // #40: presencial → the box address of the session's club (the cita's owner, or the
+      // funnel coach triaging an unassigned lead — leadOwnedBy). Null if unset.
+      const studio = a.modality === 'presencial' ? await getStudioLocation(session.coach_id) : null;
       const locationStr = studio
         ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
         : null;

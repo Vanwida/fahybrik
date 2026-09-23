@@ -43,7 +43,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<NextResponse> {
     // Re-send the confirmation with the fresh link only if the appointment is confirmed.
     if (a.status === 'aceptada') {
       // #40: presencial → include the box address in the re-sent confirmation.
-      const location = a.modality === 'presencial' ? await getStudioLocation() : null;
+      const location = a.modality === 'presencial' ? await getStudioLocation(session.coach_id) : null;
       await sendAppointmentAccepted({
         id: a.id,
         requested_start: a.requested_start,

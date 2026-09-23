@@ -1,3 +1,4 @@
+import { leadOwnedBy } from './owner';
 import 'server-only';
 
 import { z } from 'zod';
@@ -270,6 +271,8 @@ async function createAthleteFromLead(
       carrera_mente, carrera_cual, carrera_cuando, categoria_objetivo, sexo
     from leads
     where id = ${Number(lead_id)}
+      -- Tenancy (leadOwnedBy): another club's lead is indistinguishable from a missing one.
+      and ${leadOwnedBy(trx, coach_id, trx`coach_id`)}
     limit 1
     for update
   `;
@@ -365,7 +368,10 @@ async function createAthleteFromLead(
   // 4) Mark the alta as sent (visible on the lead card). Status is untouched —
   //    the lead only becomes `convertido` when the invite is redeemed.
   await trx`
-    update leads set alta_sent_at = now(), updated_at = now()
+    update leads
+       -- Dar el alta a un lead «sin asignar» es asignarlo a mano (0147): queda del club
+       -- que lo convierte. Un lead con dueño no cambia de dueño.
+       set alta_sent_at = now(), updated_at = now(), coach_id = coalesce(coach_id, ${Number(coach_id)})
     where id = ${Number(lead_id)}
   `;
 

@@ -1,11 +1,12 @@
 /**
  * Multi-tenancy of the coach funnel surfaces (real Neon branch, no mocks).
  *
- * THE rule under test — `coachOwnsLead` (lib/leads/store.ts):
+ * THE rule under test — `leadOwnedBy` (lib/leads/owner.ts), via `coachOwnsLead`:
  *   • own lead (leads.coach_id = coach)      → actionable
  *   • another club's lead                    → invisible (null / not_found 404)
- *   • unassigned lead (coach_id NULL, 0147)  → actionable by any club (fail-open,
- *     single-club today; see the rule's doc-comment)
+ *   • unassigned lead (coach_id NULL, 0147)  → ONLY the coach that operates the public
+ *     funnel (FUNNEL_COACH_ID) may see it; every other club → invisible (DECISIONS
+ *     2026-09-23 — it used to be fail-open to any club)
  *
  * Appointments carry no coach_id (0093) — they scope THROUGH their lead's owner.
  * Skipped when TEST_DATABASE_URL is unset (describeWithDb, never false-green).
@@ -84,18 +85,41 @@ describeWithDb('tenancy: leads + citas scoped by the lead\'s coach (real DB)', (
     await closeTestSql();
   });
 
+  /** Run `fn` with FUNNEL_COACH_ID set to `coach` (or unset), restoring it after. */
+  async function asFunnel<T>(coach: bigint | null, fn: () => Promise<T>): Promise<T> {
+    const saved = process.env.FUNNEL_COACH_ID;
+    if (coach === null) delete process.env.FUNNEL_COACH_ID;
+    else process.env.FUNNEL_COACH_ID = String(coach);
+    try {
+      return await fn();
+    } finally {
+      if (saved === undefined) delete process.env.FUNNEL_COACH_ID;
+      else process.env.FUNNEL_COACH_ID = saved;
+    }
+  }
+
   // ── The rule itself ─────────────────────────────────────────────────────────────
-  test('coachOwnsLead: own → true, alien → false, unassigned → true', async () => {
-    expect(await coachOwnsLead(coachA, leadA)).toBe(true);
-    expect(await coachOwnsLead(coachA, leadB)).toBe(false);
-    expect(await coachOwnsLead(coachA, leadNull)).toBe(true);
+  test('coachOwnsLead: own → true, alien → false, unassigned → only the funnel operator', async () => {
+    await asFunnel(null, async () => {
+      expect(await coachOwnsLead(coachA, leadA)).toBe(true);
+      expect(await coachOwnsLead(coachA, leadB)).toBe(false);
+      expect(await coachOwnsLead(coachA, leadNull)).toBe(false); // no funnel declared → nobody
+    });
+    await asFunnel(coachA, async () => {
+      expect(await coachOwnsLead(coachA, leadNull)).toBe(true); // A operates the funnel
+      expect(await coachOwnsLead(coachB, leadNull)).toBe(false); // B never sees it
+      expect(await coachOwnsLead(coachA, leadB)).toBe(false); // still not B's lead
+    });
   });
 
   // ── Lead ficha (GET detail) ─────────────────────────────────────────────────────
-  test('getLeadDetail: own reads, alien reads as null, unassigned reads', async () => {
-    expect((await getLeadDetail(leadA, coachA))?.id).toBe(String(leadA));
-    expect(await getLeadDetail(leadB, coachA)).toBeNull();
-    expect((await getLeadDetail(leadNull, coachA))?.id).toBe(String(leadNull));
+  test('getLeadDetail: own reads, alien reads as null, unassigned only for the funnel operator', async () => {
+    await asFunnel(coachA, async () => {
+      expect((await getLeadDetail(leadA, coachA))?.id).toBe(String(leadA));
+      expect(await getLeadDetail(leadB, coachA)).toBeNull();
+      expect((await getLeadDetail(leadNull, coachA))?.id).toBe(String(leadNull));
+      expect(await getLeadDetail(leadNull, coachB)).toBeNull();
+    });
   });
 
   // ── Lead pipeline transition (PATCH) ────────────────────────────────────────────

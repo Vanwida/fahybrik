@@ -1,6 +1,6 @@
 // GET /api/coach/leads — list web-onboarding leads for the coach dashboard.
-// Coach-guarded. Leads are a standalone pipeline (not athletes); single-coach launch
-// so no per-coach scoping. See web/lib/dashboard/coach/leads.ts.
+// Coach-guarded. Leads are a standalone pipeline (not athletes), scoped to the session's
+// coach (`leadOwnedBy`, lib/leads/owner.ts). See web/lib/dashboard/coach/leads.ts.
 
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
@@ -13,6 +13,6 @@ export async function GET() {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
 
-  const data = await listLeadsForCoach();
+  const data = await listLeadsForCoach(session.coach_id);
   return jsonOk(data);
 }

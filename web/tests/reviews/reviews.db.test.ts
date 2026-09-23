@@ -31,7 +31,6 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
   const coachIds: number[] = [];
   const athleteIds: number[] = [];
   const userIds: number[] = [];
-  const availIds: number[] = [];
 
   function email(tag: string) {
     const e = `rev-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
@@ -43,8 +42,16 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
     const u = await sql<{ id: string }[]>`insert into users (email, role) values (${email('coach')}, 'coach') returning id::text as id`;
     userIds.push(Number(u[0]!.id));
     const c = await sql<{ id: string }[]>`insert into coaches (user_id, full_name) values (${Number(u[0]!.id)}, 'Rev Coach') returning id::text as id`;
-    coachIds.push(Number(c[0]!.id));
-    return Number(c[0]!.id);
+    const coachId = Number(c[0]!.id);
+    coachIds.push(coachId);
+    // Broad availability every weekday 08:00–20:00 on THIS coach's agenda (0220: per coach;
+    // deleting the coach cascades it) so slots are offered in the next 14 days.
+    for (let wd = 0; wd <= 6; wd++) {
+      await sql`
+        insert into coach_availability (coach_id, weekday, start_time, end_time, activo)
+        values (${coachId}, ${wd}, '08:00', '20:00', true)`;
+    }
+    return coachId;
   }
 
   async function seedAthlete(
@@ -64,20 +71,13 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
   }
 
   /** Offered slot start ISOs (already excludes busy/blocked). */
-  async function offeredSlots(now: Date): Promise<string[]> {
-    const days = await computeSlots('video', now);
+  async function offeredSlots(coachId: number, now: Date): Promise<string[]> {
+    const days = await computeSlots(BigInt(coachId), 'video', now);
     return days.flatMap((d) => d.slots.map((s) => s.start));
   }
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
-    // Broad availability every weekday 08:00–20:00 so slots are offered in the next 14 days.
-    for (let wd = 0; wd <= 6; wd++) {
-      const r = await sql<{ id: string }[]>`
-        insert into coach_availability (weekday, start_time, end_time, activo)
-        values (${wd}, '08:00', '20:00', true) returning id::text as id`;
-      availIds.push(Number(r[0]!.id));
-    }
   });
 
   afterEach(async () => {
@@ -93,7 +93,6 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
   });
 
   afterAll(async () => {
-    if (availIds.length) await sql`delete from coach_availability where id in ${sql(availIds)}`;
     await closeTestSql();
   });
 
@@ -124,7 +123,7 @@ describeWithDb('recurring 1:1 reviews (#21, real DB)', () => {
     const coachId = await seedCoach();
     const { athlete_id } = await seedAthlete(coachId);
     const now = new Date();
-    const slots = await offeredSlots(now);
+    const slots = await offeredSlots(coachId, now);
     expect(slots.length).toBeGreaterThan(1);
 
     const res = await bookAthleteReview({ athlete_id, requested_start: slots[0]!, now });

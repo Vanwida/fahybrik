@@ -1,8 +1,7 @@
 // Coach-dashboard leads data layer. Reads the standalone `leads` table (web-onboarding
 // prospects — migration 0092). Since 0147 a lead has a DUEÑO (`leads.coach_id`, stamped
-// at capture; NULL = «sin asignar»): the per-lead reads here scope by it — see
-// `coachOwnsLead` (lib/leads/store.ts) for the rule. The LIST is still club-global
-// (single-club today; scoping it is part of the multi-coach obra). Fully isolated from
+// at capture; NULL = «sin asignar»): EVERY read here — list, counts, ficha — scopes by
+// it through ONE rule, `leadOwnedBy` (lib/leads/owner.ts). Fully isolated from
 // the athletes roster (different table, no joins) — a lead is never an athlete until the
 // alta flow (task #5) converts it.
 
@@ -15,6 +14,7 @@ import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { latestAppointmentForLead, type AppointmentView } from '@/lib/citas/store';
 import { countWaitlist } from '@/lib/leads/waitlist';
+import { leadOwnedBy } from '@/lib/leads/owner';
 import { buildAltaPrefill, type AltaPrefill } from '@/lib/leads/alta-mapping';
 import { listSessionReportsForLead, type SessionReportView } from '@/lib/coach/session-reports';
 import { LEAD_STATUS_ORDER, type LeadStatus } from './leads-status';
@@ -92,7 +92,7 @@ interface LeadListRow {
   latest_outcome: SessionOutcome | null;
 }
 
-export async function listLeadsForCoach(): Promise<LeadsListResult> {
+export async function listLeadsForCoach(coach_id: bigint | number): Promise<LeadsListResult> {
   // ONE query. Two LATERAL joins fold the per-lead appointment + latest report into the
   // row (no N+1). The appointment lateral picks the "most relevant" slot: a FUTURE active
   // (pendiente|aceptada) slot, soonest first; otherwise the latest slot by time. The
@@ -124,9 +124,10 @@ export async function listLeadsForCoach(): Promise<LeadsListResult> {
       order by r.occurred_at desc
       limit 1
     ) sr on true
+    where ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
     order by l.created_at desc
   `,
-    countWaitlist(),
+    countWaitlist(coach_id),
   ]);
 
   const rankOf = (s: LeadStatus) => {
@@ -284,12 +285,12 @@ async function listLeadTimeline(id: bigint): Promise<LeadTimelineEvent[]> {
   }));
 }
 
-/** The lead's full ficha, scoped to the acting coach (coachOwnsLead rule: theirs or
- *  unassigned). Another club's lead reads as null → the caller 404s / notFound()s. */
+/** The lead's full ficha, scoped to the acting coach (`leadOwnedBy`). Another club's
+ *  lead reads as null → the caller 404s / notFound()s. */
 export async function getLeadDetail(id: bigint, coach_id: bigint | number): Promise<LeadDetail | null> {
   const rows = await sql<Record<string, unknown>[]>`
     select * from leads
-    where id = ${Number(id)} and (coach_id = ${Number(coach_id)} or coach_id is null)
+    where id = ${Number(id)} and ${leadOwnedBy(sql, coach_id, sql`coach_id`)}
     limit 1
   `;
   const r = rows[0];
@@ -345,8 +346,11 @@ export async function getLeadDetail(id: bigint, coach_id: bigint | number): Prom
 // alongside the two-phase upserts, so all lead writes + the NO-RETREAT invariant share
 // one source of truth.
 
-/** Count of `nuevo` (untouched) leads — powers the sidebar "Leads" badge. */
-export async function countNewLeads(): Promise<number> {
-  const rows = await sql<{ n: number }[]>`select count(*)::int as n from leads where status = 'nuevo'`;
+/** Count of this coach's `nuevo` (untouched) leads — powers the Negocio badge. */
+export async function countNewLeads(coach_id: bigint | number): Promise<number> {
+  const rows = await sql<{ n: number }[]>`
+    select count(*)::int as n from leads l
+    where l.status = 'nuevo' and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
+  `;
   return rows[0]?.n ?? 0;
 }

@@ -65,8 +65,21 @@ export interface BusinessMetrics {
 
 export async function buildBusinessMetrics(params: {
   client?: Sql;
+  /**
+   * Scope to ONE coach's athletes (a subscription belongs to the coach of the athlete
+   * whose user holds it — `subscriptions` has no club column). Omitted = platform-wide,
+   * which only the admin surface (/admin, /api/admin/metrics) may ask for.
+   */
+  coach_id?: bigint | number;
 }): Promise<BusinessMetrics> {
   const client = params.client ?? defaultSql;
+  const scope =
+    params.coach_id === undefined
+      ? client`true`
+      : client`exists (
+          select 1 from athletes ath
+          where ath.user_id = subscriptions.user_id and ath.coach_id = ${Number(params.coach_id)}
+        )`;
 
   // Active subscriptions grouped by tier — HEADCOUNT (includes comp). One row
   // per billing record, so Dobles is naturally counted once.
@@ -75,7 +88,7 @@ export async function buildBusinessMetrics(params: {
   >`
     select plan_type, count(*)::int as count
     from subscriptions
-    where status = 'active'
+    where status = 'active' and ${scope}
     group by plan_type
   `;
 
@@ -88,17 +101,18 @@ export async function buildBusinessMetrics(params: {
     from subscriptions
     where status = 'active'
       and source = 'stripe'
+      and ${scope}
     group by plan_type
   `;
 
   const totalRows = await client<Array<{ count: number }>>`
-    select count(*)::int as count from subscriptions
+    select count(*)::int as count from subscriptions where ${scope}
   `;
 
   const newRows = await client<Array<{ count: number }>>`
     select count(*)::int as count
     from subscriptions
-    where created_at >= date_trunc('month', current_date)
+    where created_at >= date_trunc('month', current_date) and ${scope}
   `;
 
   // Revenue churn — paid subscriptions only (source='stripe'). A comp athlete
@@ -109,6 +123,7 @@ export async function buildBusinessMetrics(params: {
     where status = 'canceled'
       and source = 'stripe'
       and updated_at >= date_trunc('month', current_date)
+      and ${scope}
   `;
 
   // Active (paid) at month start = currently-active paid created before this
@@ -123,6 +138,7 @@ export async function buildBusinessMetrics(params: {
         status = 'active'
         or (status = 'canceled' and updated_at >= date_trunc('month', current_date))
       )
+      and ${scope}
   `;
 
   const renewalRows = await client<Array<{ count: number }>>`
@@ -132,6 +148,7 @@ export async function buildBusinessMetrics(params: {
       and current_period_end is not null
       and current_period_end >= current_date
       and current_period_end < current_date + ${`${RENEWAL_WINDOW_DAYS} days`}::interval
+      and ${scope}
   `;
 
   const breakdown: TierBreakdownEntry[] = (
