@@ -1,7 +1,14 @@
-import { z } from 'zod';
-import { getCoachSession } from '@/lib/auth/coach-session';
+// PATCH  /api/coach/levels/[id]  body: { name?, label?, description?, archived? }
+// DELETE /api/coach/levels/[id]  → 204; 409 si alguien lo usa (se retira, no se borra)
+//
+// La propiedad viaja dentro de cada escritura (lib/coach/levels.ts).
+
+import { requireCoach } from '@/lib/auth/require-coach';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { sql } from '@/lib/db';
+import { parseBody } from '@/lib/coach/api-input';
+import { deleteCoachLevel, LevelError, updateCoachLevel } from '@/lib/coach/levels';
+import { levelPatchSchema } from '@fahybrid/shared/domain/coach/level-editor';
+import { levelErrorResponse } from '../errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,132 +17,37 @@ interface Ctx {
   params: Promise<{ id: string }>;
 }
 
-// Row shape returned by the DB for athlete_levels
-interface LevelRow {
-  id: string;
-  coach_id: string;
-  name: string;
-  label: string;
-  description: string | null;
-  sort_order: number;
-}
-
-const updateLevelSchema = z.object({
-  name: z.string().min(1).max(32).optional(),
-  label: z.string().min(1).max(64).optional(),
-  description: z.string().max(512).nullable().optional(),
-  sort_order: z.number().int().min(0).optional(),
-});
-
 function parseLevelId(raw: string): number | null {
   const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  return Number.isFinite(n) && n > 0 && String(n) === raw ? n : null;
 }
 
-// PATCH /api/coach/levels/[id]
 export async function PATCH(req: Request, ctx: Ctx) {
-  const session = await getCoachSession();
-  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
-
-  const { id: rawId } = await ctx.params;
-  const level_id = parseLevelId(rawId);
+  const auth = await requireCoach();
+  if (!auth.ok) return auth.response;
+  const level_id = parseLevelId((await ctx.params).id);
   if (level_id === null) return jsonError('bad_request', 'id inválido', 400);
-
-  let raw: unknown;
+  const body = await parseBody(req, levelPatchSchema);
+  if (!body.ok) return body.response;
   try {
-    raw = await req.json();
-  } catch {
-    return jsonError('bad_request', 'JSON inválido', 400);
-  }
-
-  const parsed = updateLevelSchema.safeParse(raw);
-  if (!parsed.success) {
-    return jsonError('validation_error', 'Datos inválidos', 422, parsed.error.flatten());
-  }
-
-  if (Object.keys(parsed.data).length === 0) {
-    return jsonError('bad_request', 'No hay campos para actualizar', 400);
-  }
-
-  const coach_id = Number(session.coach_id);
-  const { name, label, description, sort_order } = parsed.data;
-
-  // Build a dynamic SET clause using individual conditional updates to keep
-  // typed template literals (postgres.js doesn't support dynamic fragments easily).
-  // We re-fetch after update for a clean returning shape.
-  try {
-    const existing = await sql<Array<{ id: string }>>`
-      select id::text from athlete_levels
-      where id = ${level_id} and coach_id = ${coach_id}
-      limit 1
-    `;
-    if (!existing[0]) return jsonError('not_found', 'Nivel no encontrado', 404);
-
-    // Apply only the provided fields. Ownership rides EVERY write (no
-    // check-then-act window between the select above and these updates).
-    if (name !== undefined) {
-      await sql`update athlete_levels set name = ${name} where id = ${level_id} and coach_id = ${coach_id}`;
-    }
-    if (label !== undefined) {
-      await sql`update athlete_levels set label = ${label} where id = ${level_id} and coach_id = ${coach_id}`;
-    }
-    if (description !== undefined) {
-      await sql`update athlete_levels set description = ${description} where id = ${level_id} and coach_id = ${coach_id}`;
-    }
-    if (sort_order !== undefined) {
-      await sql`update athlete_levels set sort_order = ${sort_order} where id = ${level_id} and coach_id = ${coach_id}`;
-    }
-
-    const rows = await sql<LevelRow[]>`
-      select id::text, coach_id::text, name, label, description, sort_order
-      from athlete_levels
-      where id = ${level_id} and coach_id = ${coach_id}
-      limit 1
-    `;
-
-    return jsonOk({ level: rows[0] });
+    await updateCoachLevel(auth.session.coach_id, level_id, body.data);
+    return jsonOk({ ok: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('athlete_levels_coach_name_uq') || msg.includes('unique')) {
-      return jsonError('conflict', `Ya existe un nivel con ese nombre`, 409);
-    }
+    if (err instanceof LevelError) return levelErrorResponse(err);
     throw err;
   }
 }
 
-// DELETE /api/coach/levels/[id]
 export async function DELETE(_req: Request, ctx: Ctx) {
-  const session = await getCoachSession();
-  if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
-
-  const { id: rawId } = await ctx.params;
-  const level_id = parseLevelId(rawId);
+  const auth = await requireCoach();
+  if (!auth.ok) return auth.response;
+  const level_id = parseLevelId((await ctx.params).id);
   if (level_id === null) return jsonError('bad_request', 'id inválido', 400);
-
-  const coach_id = Number(session.coach_id);
-
-  const existing = await sql<Array<{ id: string }>>`
-    select id::text from athlete_levels
-    where id = ${level_id} and coach_id = ${coach_id}
-    limit 1
-  `;
-  if (!existing[0]) return jsonError('not_found', 'Nivel no encontrado', 404);
-
-  // Guard: refuse deletion if any athlete currently holds this level
-  const inUse = await sql<Array<{ cnt: string }>>`
-    select count(*)::text as cnt from athletes
-    where level_id = ${level_id}
-    limit 1
-  `;
-  if (Number(inUse[0]?.cnt ?? '0') > 0) {
-    return jsonError(
-      'conflict',
-      'No se puede eliminar un nivel asignado a atletas. Reasigna los atletas primero.',
-      409,
-    );
+  try {
+    await deleteCoachLevel(auth.session.coach_id, level_id);
+    return new Response(null, { status: 204 });
+  } catch (err) {
+    if (err instanceof LevelError) return levelErrorResponse(err);
+    throw err;
   }
-
-  await sql`delete from athlete_levels where id = ${level_id} and coach_id = ${coach_id}`;
-
-  return new Response(null, { status: 204 });
 }

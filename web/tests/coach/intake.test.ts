@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { inferLevel } from '@/lib/coach/intake-suggestions';
+import { resolveLadder } from '@fahybrid/shared/domain/coach/level-criteria';
 // Los tests del alta ya no salen de una lista cableada (HRV, simulación HYROX,
 // 1RM, 5 km): son la batería del coach (`listCoachTests`). Ver
 // tests/coach/intake-plan-personal.db.test.ts.
@@ -34,15 +35,34 @@ describe('inferLevel', () => {
     expect(level).toBe(1);
   });
 
-  test('élite (4) when sub-1h HYROX pro declared + 4y experience', () => {
+  test('élite (4) cuando la marca abre el último escalón (HYROX individual sub-55′)', () => {
     const level = inferLevel({
       training_experience_years: 5,
-      benchmarks: [
-        { exercise_slug: 'hyrox_pro', label: 'HYROX', value: 59 * 60, unit: 's' },
-        { exercise_slug: 'back_squat_1rm', label: 'BS', value: 150, unit: 'kg' },
-      ],
+      benchmarks: [{ exercise_slug: 'hyrox_open', label: 'HYROX', value: 54 * 60, unit: 's' }],
     });
     expect(level).toBe(4);
+  });
+
+  test('lee la escalera del coach cuando se la dan: su último escalón es el tramo más alto', () => {
+    const ladder = resolveLadder([
+      { id: '1', name: 'Base', criteria_set_at: '2026-09-23', criteria: [] },
+      { id: '2', name: 'Alto', criteria_set_at: '2026-09-23', criteria: [{ metric: 'run_5k_s', sex: null, threshold: 1500 }] },
+    ]);
+    const level = inferLevel({
+      training_experience_years: 1,
+      benchmarks: [{ exercise_slug: 'run_5k', label: '5K', value: 1400, unit: 's' }],
+      ladder,
+    });
+    expect(level).toBe(3);
+  });
+
+  test('una primera HYROX con solo años es principiante', () => {
+    const level = inferLevel({
+      training_experience_years: 6,
+      benchmarks: [],
+      goal: { goal_type: 'first_hyrox', run_experience: null, strength_experience: null },
+    });
+    expect(level).toBe(1);
   });
 
   test('pro (3) when many élite hits but no HYROX sub-1h', () => {
