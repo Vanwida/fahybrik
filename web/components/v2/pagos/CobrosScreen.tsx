@@ -31,6 +31,7 @@ import type { CoachBilling } from '@/lib/coach/billing';
 import { formatCents, formatDayShort } from '@/components/v2/metricas/format';
 import { readApiError } from '@/components/v2/ajustes/autosave';
 import { buildCobros, type CobroRow } from './cobros-model';
+import { paymentReminderText, personalizePaymentReminder } from '@/components/v2/hoy/payment-reminder';
 
 const REASON: Record<NonNullable<CobroRow['reason']>, { tone: StatusTone; label: (r: CobroRow) => string }> = {
   vencido: { tone: 'danger', label: () => 'Pago vencido' },
@@ -44,14 +45,6 @@ const REASON: Record<NonNullable<CobroRow['reason']>, { tone: StatusTone; label:
     label: (r) => `Renueva el ${r.row.current_period_end ? formatDayShort(r.row.current_period_end) : '—'}`,
   },
 };
-
-function firstName(full: string): string {
-  return full.trim().split(/\s+/)[0] ?? full;
-}
-
-function reminderText(name: string): string {
-  return `Hola ${firstName(name)}: tu último pago no se ha podido cobrar. Puedes revisar la tarjeta en la app, en «Mi suscripción». Si ya está resuelto, ignora este mensaje.`;
-}
 
 export function CobrosScreen({
   data,
@@ -282,7 +275,7 @@ function RowActions({
 function RemindDialog({ rows, onClose }: { rows: CobroRow[]; onClose: () => void }) {
   const toast = useToast();
   const single = rows.length === 1 ? rows[0]! : null;
-  const [text, setText] = useState(single ? reminderText(single.row.full_name) : reminderText('').replace('Hola : ', 'Hola: '));
+  const [text, setText] = useState(paymentReminderText(single ? single.row.full_name : null));
   const [sending, setSending] = useState(false);
 
   const send = async () => {
@@ -296,7 +289,7 @@ function RemindDialog({ rows, onClose }: { rows: CobroRow[]; onClose: () => void
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
               athlete_ids: [r.row.athlete_id],
-              body: single ? text : text.replace(/^Hola:/, `Hola ${firstName(r.row.full_name)}:`),
+              body: single ? text : personalizePaymentReminder(text, r.row.full_name),
             }),
           }).then((res) => res.ok),
         ),
