@@ -1,21 +1,23 @@
 'use client';
 
-// Cerrar sesión del coach. El auth del dashboard es Clerk (ver coach-session.ts),
-// así que basta con signOut() de Clerk: borra la sesión → getCoachSession pasa a
-// null → el gate del layout redirige. Hacemos un hard-redirect a /sign-in después
-// para no dejar una vista con sesión ya muerta.
+// Cerrar sesión del coach. El acceso al panel es de Clerk (coach-session.ts):
+// signOut() borra la sesión, el layout deja de encontrarla y se va a /sign-in.
+// Redirección dura después, para no dejar una vista con la sesión ya muerta.
+
 import { useState } from 'react';
 import { useClerk } from '@clerk/nextjs';
-import { MIcon } from '@/components/ui/MIcon';
+import { LogOut } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
-export function LogoutButton() {
+export function LogoutButton({ className }: { className?: string }) {
   const { signOut } = useClerk();
   const [loading, setLoading] = useState(false);
 
   return (
-    <button
-      type="button"
-      disabled={loading}
+    <Button
+      icon={LogOut}
+      loading={loading}
+      className={className}
       onClick={async () => {
         setLoading(true);
         try {
@@ -24,11 +26,8 @@ export function LogoutButton() {
           window.location.href = '/sign-in';
         }
       }}
-      className="v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-danger)] transition-colors hover:border-[color:var(--v2-danger)] disabled:opacity-60"
-      aria-label="Cerrar sesión"
     >
-      <MIcon name="logout" size={18} />
-      {loading ? 'Cerrando sesión…' : 'Cerrar sesión'}
-    </button>
+      Cerrar sesión
+    </Button>
   );
 }

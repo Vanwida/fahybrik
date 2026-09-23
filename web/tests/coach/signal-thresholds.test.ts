@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
   COACH_THRESHOLD_KEYS,
   COACH_THRESHOLD_SPEC,
-  COACH_SIGNAL_THRESHOLD_KEYS,
   DEFAULT_COACH_THRESHOLDS,
   mergeCoachThresholds,
   readinessBandOf,
@@ -30,14 +29,6 @@ describe('COACH_THRESHOLD_SPEC', () => {
   it('el registro del motor lleva todos los editables y valida', () => {
     for (const k of COACH_THRESHOLD_KEYS) expect(SIGNAL_THRESHOLDS[k]).toBe(DEFAULT_COACH_THRESHOLDS[k]);
     expect(() => signalThresholdsSchema.parse(SIGNAL_THRESHOLDS)).not.toThrow();
-  });
-
-  it('la tarjeta vieja de Ajustes sigue viendo solo los tres del comunicado', () => {
-    expect(COACH_SIGNAL_THRESHOLD_KEYS).toEqual([
-      'communication_question_unanswered_days',
-      'communication_task_overdue_critical_days',
-      'communication_protocol_unopened_days',
-    ]);
   });
 });
 

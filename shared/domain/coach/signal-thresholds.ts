@@ -17,7 +17,7 @@
 // (`web/lib/coach/signal-thresholds.ts`), el esquema del PUT
 // (`shared/schema/coach-signal-thresholds.ts`), los CHECK de la tabla
 // (`coach_signal_thresholds`, migs 0161 y 0211) y los pasos de la pantalla
-// Ajustes › Método. Añadir un umbral = una entrada aquí + una columna.
+// Ajustes › Método (components/v2/ajustes/ThresholdsSettings). Añadir un umbral = una entrada aquí + una columna.
 //
 // NULL en la fila del coach = «usa el defecto». Un coach que no toca nada se
 // comporta exactamente como el sistema.
@@ -176,46 +176,4 @@ export function readinessBandOf(
   if (score >= t.readiness_ok_min) return 'ok';
   if (score >= t.readiness_caution_min) return 'caution';
   return 'low';
-}
-
-// ── Compatibilidad con la tarjeta vieja de Ajustes (0161) ─────────────────────
-//
-// `components/v2/ajustes/SignalThresholdsForm.tsx` edita SOLO los tres días del
-// comunicado e itera `COACH_SIGNAL_THRESHOLD_KEYS` para pintar su copy. Estos
-// nombres conservan ese significado mientras exista esa tarjeta; la pantalla
-// Ajustes › Método (ola 2) la sustituye leyendo `COACH_THRESHOLD_SPEC`, y en ese
-// momento este bloque se borra.
-
-const COMMUNICATION_KEYS = [
-  'communication_question_unanswered_days',
-  'communication_task_overdue_critical_days',
-  'communication_protocol_unopened_days',
-] as const satisfies ReadonlyArray<CoachThresholdKey>;
-
-/** @deprecated Solo los tres del comunicado. Usar `CoachThresholds`. */
-export type CoachSignalThresholds = Pick<CoachThresholds, (typeof COMMUNICATION_KEYS)[number]>;
-
-/** @deprecated Usar `COACH_THRESHOLD_KEYS`. */
-export const COACH_SIGNAL_THRESHOLD_KEYS: Array<keyof CoachSignalThresholds> = [
-  ...COMMUNICATION_KEYS,
-];
-
-/** @deprecated Usar `DEFAULT_COACH_THRESHOLDS`. */
-export const DEFAULT_COACH_SIGNAL_THRESHOLDS: CoachSignalThresholds = {
-  communication_question_unanswered_days:
-    COACH_THRESHOLD_SPEC.communication_question_unanswered_days.default,
-  communication_task_overdue_critical_days:
-    COACH_THRESHOLD_SPEC.communication_task_overdue_critical_days.default,
-  communication_protocol_unopened_days:
-    COACH_THRESHOLD_SPEC.communication_protocol_unopened_days.default,
-};
-
-/** @deprecated Límites de los tres del comunicado — ver `COACH_THRESHOLD_SPEC`. */
-export const COACH_SIGNAL_THRESHOLD_MIN_DAYS = 1;
-/** @deprecated Límites de los tres del comunicado — ver `COACH_THRESHOLD_SPEC`. */
-export const COACH_SIGNAL_THRESHOLD_MAX_DAYS = 30;
-
-/** @deprecated Usar `defaultCoachThresholds`. */
-export function defaultCoachSignalThresholds(): CoachSignalThresholds {
-  return { ...DEFAULT_COACH_SIGNAL_THRESHOLDS };
 }

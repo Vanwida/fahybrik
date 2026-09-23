@@ -29,7 +29,7 @@ export function ClubMark({
     <img
       src={painted}
       alt={alt}
-      className={cn('rounded-[var(--v2-r-s)] object-contain', className)}
+      className={cn('rounded-ctl object-contain', className)}
       style={style}
     />
   );
