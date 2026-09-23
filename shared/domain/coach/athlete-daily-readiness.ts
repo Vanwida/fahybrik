@@ -13,6 +13,13 @@ import {
   loadAthleteTimezone,
   loadAthleteTimezones,
 } from '../db/athlete-timezone';
+import { loadAdherenceBatch } from './adherence';
+import {
+  DEFAULT_COACH_THRESHOLDS,
+  normalizedWeights,
+  type CoachThresholds,
+} from './signal-thresholds';
+import { loadCoachThresholdsForAthlete } from './signal-thresholds-db';
 
 // SLEEP belongs to the readiness of the day the athlete WAKES, so its window opens
 // the previous local evening. Wall-clock hour in the athlete's own tz.
@@ -55,11 +62,10 @@ const MAX_REFRESH_DAYS = 10;
 const HRV_BASE_FROM_DAYS = 60;
 const HRV_BASE_TO_DAYS = 14;
 
-// The sleep duration (hours) that scores a FULL sleep component. Named so the
-// athlete detail sheet can surface it as the reference ("objetivo 8 h") instead
-// of a magic divisor — this is the ONLY sleep reference the model uses (there is
-// no personal sleep average).
-const SLEEP_TARGET_HOURS = 8;
+// The sleep duration (hours) that scores a FULL sleep component is the coach's
+// (`readiness_sleep_target_hours`, default 8) and travels in the breakdown as the
+// reference the athlete sheet renders ("objetivo 8 h") — the ONLY sleep reference
+// the model uses (there is no personal sleep average).
 
 // Span of the athlete readiness trend (today + the prior days) for the sheet.
 const TREND_DAYS = 7;
@@ -104,17 +110,85 @@ export type DailyReadinessSnapshot = {
   trend?: ReadinessTrendPoint[];
 };
 
-const WEIGHTS = {
-  sub_score: 0.35,
-  hrv: 0.25,
-  sleep: 0.2,
-  rhr: 0.1,
-  recovery: 0.1,
-} as const;
+/**
+ * El MÉTODO del compuesto — del coach, con defecto (HARD RULE Nº0, migración
+ * 0256): cuánto pesa cada parte, las horas de sueño que puntúan entero y el
+ * castigo cuando la adherencia de 7 días cae bajo un suelo. El MECANISMO (las
+ * ventanas, el arrastre del check-in, repartir el peso entre las partes que hay
+ * ese día, null cuando no hay ninguna) es del producto y vive aquí.
+ */
+export type ReadinessMethod = {
+  /** Pesos normalizados: suman 1. */
+  weights: { sub_score: number; hrv: number; sleep: number; rhr: number; recovery: number };
+  sleep_target_hours: number;
+  /** 0..1 — bajo esta adherencia (7 d, solo lo debido) se resta `adherence_penalty`. */
+  adherence_floor: number;
+  adherence_penalty: number;
+};
+
+/** El método de un coach a partir de sus umbrales efectivos. */
+export function readinessMethodOf(t: CoachThresholds): ReadinessMethod {
+  // `thresholdIssues` no deja guardar un grupo entero a cero; si llegara, el
+  // defecto antes que un compuesto sin reparto.
+  const w =
+    normalizedWeights(t, 'readiness') ?? normalizedWeights(DEFAULT_COACH_THRESHOLDS, 'readiness')!;
+  return {
+    weights: {
+      sub_score: w.readiness_weight_checkin,
+      hrv: w.readiness_weight_hrv,
+      sleep: w.readiness_weight_sleep,
+      rhr: w.readiness_weight_rhr,
+      recovery: w.readiness_weight_recovery,
+    },
+    sleep_target_hours: t.readiness_sleep_target_hours,
+    adherence_floor: t.readiness_adherence_floor_pct / 100,
+    adherence_penalty: t.readiness_adherence_penalty,
+  };
+}
+
+/** El método del sistema (un coach que no toca nada). */
+export const DEFAULT_READINESS_METHOD: ReadinessMethod = readinessMethodOf(DEFAULT_COACH_THRESHOLDS);
+
+/** Las partes de un día, ya puntuadas 0–100 (null = no hay). */
+export type ReadinessParts = {
+  sub_score: number | null;
+  hrv: number | null;
+  sleep: number | null;
+  rhr: number | null;
+  recovery: number | null;
+};
+
+/**
+ * El compuesto, puro: media ponderada de las partes que hay (el peso de las que
+ * faltan se reparte entre las presentes), menos el castigo si la adherencia de 7
+ * días está bajo el suelo del coach. Null si no hay ninguna parte — nunca un 50
+ * inventado. La adherencia es un MODIFICADOR, no una parte: sola no da número.
+ */
+export function composeReadiness(
+  parts: ReadinessParts,
+  adherence: number | null,
+  method: ReadinessMethod = DEFAULT_READINESS_METHOD,
+): number | null {
+  const present: Array<{ w: number; v: number }> = [];
+  for (const k of ['sub_score', 'hrv', 'sleep', 'rhr', 'recovery'] as const) {
+    const v = parts[k];
+    if (v != null && method.weights[k] > 0) present.push({ w: method.weights[k], v });
+  }
+  const totalW = present.reduce((s, p) => s + p.w, 0);
+  if (totalW === 0) return null;
+  let score = Math.round(present.reduce((s, p) => s + p.v * (p.w / totalW), 0));
+  if (adherence != null && adherence < method.adherence_floor) score -= method.adherence_penalty;
+  return clampScore(score);
+}
+
+/** La puntuación del sueño con el objetivo del coach. */
+export function sleepComponentOf(hours: number, method: ReadinessMethod = DEFAULT_READINESS_METHOD): number {
+  return clampScore(Math.min(100, (hours / method.sleep_target_hours) * 100));
+}
 
 const EMPTY_BREAKDOWN: ReadinessBreakdown = {
   sub_score: null,
-  sub_score_weight: WEIGHTS.sub_score,
+  sub_score_weight: DEFAULT_READINESS_METHOD.weights.sub_score,
   hrv_component: null,
   sleep_hours: null,
   sleep_component: null,
@@ -158,10 +232,14 @@ export async function computeAthleteDailyReadiness(params: {
   recorded_for: string;
   /** Athlete IANA tz; when omitted it's loaded from athletes.timezone (fallback box tz). */
   timezone?: string;
+  /** The coach's method; when omitted it's loaded from the athlete's coach (defaults if none). */
+  method?: ReadinessMethod;
   client: Sql;
 }): Promise<DailyReadinessSnapshot | null> {
   const client = params.client;
   const tz = params.timezone ?? (await loadAthleteTimezone(client, params.athlete_id));
+  const method =
+    params.method ?? readinessMethodOf(await loadCoachThresholdsForAthlete(client, params.athlete_id));
   const day = parseIsoDate(params.recorded_for);
   const weekAgoIso = isoDateString(addDays(day, -7));
 
@@ -218,29 +296,26 @@ export async function computeAthleteDailyReadiness(params: {
   });
   const rhr = rhrResolved?.is_for_day ? rhrResolved.bpm : null;
 
-  const complianceRows = await client<Array<{ scheduled: number; completed: number }>>`
-    select
-      count(*)::int as scheduled,
-      count(*) filter (where status = 'completed')::int as completed
-    from workout_assignments
-    where athlete_id = ${params.athlete_id as number}
-      and scheduled_for >= ${weekAgoIso}::date
-      and scheduled_for <= ${params.recorded_for}::date
-  `;
-  const compliance =
-    complianceRows[0] && complianceRows[0].scheduled > 0
-      ? complianceRows[0].completed / complianceRows[0].scheduled
-      : null;
+  // Adherencia de 7 días: LA del panel (solo lo que ya tocaba, `adherence.ts`),
+  // leída en el día del atleta. Antes contaba como fallado lo de hoy sin hacer
+  // todavía y solo `completed` como hecho: el castigo caía por la mañana sobre
+  // quien entrenaba por la tarde.
+  const adherence = (
+    await loadAdherenceBatch({
+      client,
+      athlete_ids: [params.athlete_id],
+      window_days: 7,
+      now: new Date(`${params.recorded_for}T12:00:00.000Z`),
+    })
+  ).get(String(params.athlete_id));
+  const compliance = adherence?.pct != null ? adherence.pct / 100 : null;
 
   const hrvComponent =
     b?.hrv_recent != null && b?.hrv_base != null && b.hrv_base > 0
       ? clampScore(50 + ((b.hrv_recent - b.hrv_base) / b.hrv_base) * 100)
       : null;
 
-  const sleepComponent =
-    b?.sleep_h != null
-      ? clampScore(Math.min(100, (b.sleep_h / SLEEP_TARGET_HOURS) * 100))
-      : null;
+  const sleepComponent = b?.sleep_h != null ? sleepComponentOf(b.sleep_h, method) : null;
 
   const rhrComponent = rhr != null ? clampScore(100 - Math.max(0, rhr - 50) * 2) : null;
 
@@ -249,7 +324,7 @@ export async function computeAthleteDailyReadiness(params: {
 
   const breakdown: ReadinessBreakdown = {
     sub_score: subScore,
-    sub_score_weight: WEIGHTS.sub_score,
+    sub_score_weight: method.weights.sub_score,
     hrv_component: hrvComponent,
     sleep_hours: b?.sleep_h ?? null,
     sleep_component: sleepComponent,
@@ -260,7 +335,7 @@ export async function computeAthleteDailyReadiness(params: {
     hrv_ms: b?.hrv_recent ?? null,
     hrv_baseline_ms: b?.hrv_base ?? null,
     rhr_bpm: rhr,
-    sleep_target_h: SLEEP_TARGET_HOURS,
+    sleep_target_h: method.sleep_target_hours,
     // Display-only escape hatch for the day the reading hasn't landed yet.
     rhr_last_bpm: rhrResolved && !rhrResolved.is_for_day ? rhrResolved.bpm : null,
     rhr_last_on: rhrResolved && !rhrResolved.is_for_day ? rhrResolved.on : null,
@@ -270,25 +345,23 @@ export async function computeAthleteDailyReadiness(params: {
   // concept, not a "how you arrive today" readiness contributor, and no surface
   // renders it as a chip.
 
-  const parts: Array<{ w: number; v: number }> = [];
-  if (subScore != null) parts.push({ w: WEIGHTS.sub_score, v: subScore });
-  if (hrvComponent != null) parts.push({ w: WEIGHTS.hrv, v: hrvComponent });
-  if (sleepComponent != null) parts.push({ w: WEIGHTS.sleep, v: sleepComponent });
-  if (rhrComponent != null) parts.push({ w: WEIGHTS.rhr, v: rhrComponent });
-  if (recoveryComponent != null) parts.push({ w: WEIGHTS.recovery, v: recoveryComponent });
-
   // Zero real signals (no check-in ever recorded AND no wearable component) →
   // there is nothing to score. We must NOT invent a 50 and persist it: a
   // fabricated number reads as a real readiness on Today and suppresses the
   // honest "Sin datos · haz tu check-in" empty state. Return null so the UI
-  // renders the empty state instead. (`compliance` is a modifier, not a
-  // signal, so it is intentionally excluded from this check.)
-  const totalW = parts.reduce((s, p) => s + p.w, 0);
-  if (totalW === 0) return null;
-
-  let score = Math.round(parts.reduce((s, p) => s + p.v * (p.w / totalW), 0));
-  if (compliance != null && compliance < 0.6) score = Math.min(score, score - 5);
-  score = clampScore(score);
+  // renders the empty state instead.
+  const score = composeReadiness(
+    {
+      sub_score: subScore,
+      hrv: hrvComponent,
+      sleep: sleepComponent,
+      rhr: rhrComponent,
+      recovery: recoveryComponent,
+    },
+    compliance,
+    method,
+  );
+  if (score == null) return null;
 
   const prevRows = await client<Array<{ score: number }>>`
     select score from athlete_daily_readiness_snapshots
