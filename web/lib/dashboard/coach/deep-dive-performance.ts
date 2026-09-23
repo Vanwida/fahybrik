@@ -42,7 +42,9 @@ import {
   type RaceReadinessGap,
   type RaceReadinessPoint,
   type RaceReadinessSample,
+  raceReadinessMethodOf,
 } from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import { AthleteAnalyticsError } from './deep-dive-body';
 import {
   loadDataCoverage,
@@ -650,7 +652,9 @@ async function loadRaceReadiness(
     loadHrvSamples(client, athlete_id, now, READINESS_TREND_DAYS + HRV_BASELINE_FROM_DAYS),
   ]);
 
-  return buildRaceReadinessHistory({ series, assignments, hrv, samples });
+  // Los mismos pesos del coach que el número de la ficha: la tendencia acaba en ese número.
+  const method = raceReadinessMethodOf(await loadCoachThresholdsForAthlete(client, athlete_id));
+  return buildRaceReadinessHistory({ series, assignments, hrv, samples, method });
 }
 
 /** Raw HRV readings over the span. Raw, because the baseline windows are instants. */

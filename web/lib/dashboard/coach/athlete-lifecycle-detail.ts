@@ -23,7 +23,9 @@ import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybri
 import {
   PAUSE_BUDGET_WINDOW_DAYS,
   computePauseBudget,
+  pauseBudgetDaysOf,
 } from '@fahybrid/shared/domain/coach/pause-budget';
+import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 const ACTIVE_DEFAULT: DetalleLifecycle = {
@@ -129,7 +131,11 @@ export async function loadAthleteLifecycleDetail(params: {
     where athlete_id = ${params.athlete_id}
       and coalesce(end_date, current_date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}::int
   `;
-  const budget = computePauseBudget(spans, todayIso);
+  const budget = computePauseBudget(
+    spans,
+    todayIso,
+    pauseBudgetDaysOf(await loadCoachThresholdsForAthlete(client, params.athlete_id)),
+  );
 
   return {
     status: r.status,

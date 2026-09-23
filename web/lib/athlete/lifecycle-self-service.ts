@@ -43,9 +43,11 @@ import {
 } from '@/lib/athlete/lifecycle-coach-alerts';
 import {
   computePauseBudget,
+  pauseBudgetDaysOf,
   pauseSpanLength,
   type PauseBudget,
 } from '@fahybrid/shared/domain/coach/pause-budget';
+import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
 
 /** The athlete's "today" as an ISO calendar day in the box timezone. */
@@ -93,9 +95,11 @@ export async function getSelfServiceState(input: {
     readScheduledBaja(input.athlete_id),
     getSubscriptionByUserId(sql, input.user_id),
   ]);
+  // Las semanas de pausa al año son del coach (DECISIONS 2026-09-23 · motores secundarios).
+  const budgetDays = pauseBudgetDaysOf(await loadCoachThresholdsForAthlete(sql, input.athlete_id));
   if (!lifecycle) throw new LifecycleError('not_found', 'Atleta no encontrado', 404);
 
-  const budget = computePauseBudget(spans, todayIso);
+  const budget = computePauseBudget(spans, todayIso, budgetDays);
   const open = lifecycle.open_pause;
   // `end_date` IS the return day (the coach dialog's "Vuelve el"), so it needs no shift.
   const returns_on = open?.end_date ?? null;
@@ -170,7 +174,11 @@ export async function pauseSelf(input: PauseSelfInput): Promise<{ status: 'pausa
   }
 
   const days = pauseSpanLength(todayIso, input.return_date);
-  const budget = computePauseBudget(await getAthletePauseIntervals(input.athlete_id), todayIso);
+  const budget = computePauseBudget(
+    await getAthletePauseIntervals(input.athlete_id),
+    todayIso,
+    pauseBudgetDaysOf(await loadCoachThresholdsForAthlete(sql, input.athlete_id)),
+  );
   if (days > budget.available_days) {
     throw new LifecycleError(
       'pause_budget_exceeded',

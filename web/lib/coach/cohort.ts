@@ -8,8 +8,11 @@ import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-micr
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
 import {
   estimateRaceReadiness,
+  raceReadinessMethodOf,
   READINESS_COMPLIANCE_DAYS,
+  type RaceReadinessMethod,
 } from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import { loadCompliancePct } from './compliance-window';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
@@ -200,9 +203,11 @@ async function loadRealCohort(
     client,
   });
 
+  // Los pesos del índice de disposición son del coach: una lectura para todo el roster.
+  const raceMethod = raceReadinessMethodOf(await loadCoachThresholds(client, coach_id));
   const rows: CohortRow[] = [];
   for (const a of athletes) {
-    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null));
+    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null, raceMethod));
   }
   return rows;
 }
@@ -212,6 +217,7 @@ async function rollupAthlete(
   client: Sql,
   now: Date,
   restingHr: ResolvedRestingHr | null,
+  raceMethod: RaceReadinessMethod,
 ): Promise<CohortRow> {
   const athlete_id_num = Number(a.athlete_id);
 
@@ -341,7 +347,7 @@ async function rollupAthlete(
       hrv_delta_ms,
       active_days_7d,
       load_coverage,
-    }),
+    }, raceMethod),
     polarization_pct: null,
     z45_pct_7d: null,
     vo2max: a.vo2max ?? null,
