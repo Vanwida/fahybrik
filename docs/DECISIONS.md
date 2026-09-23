@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Las bandas de FC del coach llegan también a la prescripción y al reloj
+
+**El hueco:** los cortes de las zonas de FC (0.81 / 0.82–0.88 / … de LTHR) ya eran dato del coach desde 0168 (`coach_hr_method`, defectos en `shared/domain/methodology/hr-zones.ts` vía `shared/domain/coach/hr-method.ts`) y el teléfono, la ficha y el tiempo en zona los leían. Pero el resolvedor de etiquetas de la prescripción (`resolveTarget` / `resolveSegmentTarget`) llamaba a `resolveHrZones` sin fracciones: una «Z2» de FC en el reloj (Garmin/Suunto/FIT) se cortaba siempre con los defectos, aunque el coach hubiera movido sus bandas.
+
+**Decidido:** no hace falta tabla nueva (se reutiliza `coach_hr_method`). `ResolveOpts` y `ResolveSegmentOpts` aceptan `hrZoneFractions`; `watch-workout-source.ts` carga el método del coach del atleta (`resolveCoachHrMethod` → `hrZoneFractionsFrom`) y lo pasa. Sin coach, los defectos de siempre.
+
+**NO hacer:** no llamar a `resolveHrZones` sin las fracciones del coach cuando hay coach; no copiar fracciones a mano en ningún otro sitio (la única fuente de defectos es `DEFAULT_HR_ZONE_FRACTIONS`).
+
+---
+
 ## 2026-09-23 · El huso del coach es dato (0241): la agenda deja de estar en Madrid
 
 **El hueco:** la agenda de citas razonaba en `'Europe/Madrid'` escrito a mano — los huecos que ve un lead, los días bloqueados «desde hoy» y el recuento de «llamadas hoy». Un coach en otro huso ofrecía horas que no eran las suyas.

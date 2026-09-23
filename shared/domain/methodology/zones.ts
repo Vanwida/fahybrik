@@ -25,7 +25,7 @@
 // identically. Output is a Target the existing targetSchema (0043) accepts.
 
 import type { Modality, Target } from '../prescription/types';
-import { hrBandFor, resolveHrZones, type HrZone } from './hr-zones';
+import { hrBandFor, resolveHrZones, type HrZone, type HrZoneFractions } from './hr-zones';
 import {
   resolveZonesForAthlete,
   findResolvedZone,
@@ -338,11 +338,12 @@ export function parseZoneLabel(raw: string): ZoneLabel | null {
 
 // ── Target construction ─────────────────────────────────────────────────────
 
-function hrTarget(zone: HrZone, b: AthleteBenchmarks): ResolvedTarget | null {
+function hrTarget(zone: HrZone, b: AthleteBenchmarks, fractions?: HrZoneFractions): ResolvedTarget | null {
   // ONE model: the same bands the athlete's phone paints and the coach's
-  // time-in-zone counts against. A watch must never receive a band this file
-  // computed on its own terms.
-  const zones = resolveHrZones(b);
+  // time-in-zone counts against — cut where THE COACH cuts them (his method;
+  // system defaults only when the caller has no coach). A watch must never
+  // receive a band this file computed on its own terms.
+  const zones = resolveHrZones(b, fractions);
   if (!zones) {
     // No anchor at all → return the zone itself; the caller leaves the step open
     // and keeps the label, rather than inventing a band (watch-workout does).
@@ -436,6 +437,10 @@ export interface ResolveOpts {
   // seeded STANDARD bands are used. Single source — the same rows the test
   // resolver (resolveZonesForAthlete) and the stored athlete_zone_profiles use.
   coachZones?: CoachZone[];
+  // The coach's HR band cuts as fractions of LTHR (`coach_hr_method`, 0168, via
+  // `hrZoneFractionsFrom`). Without them the system defaults apply — the SAME
+  // bands the athlete's phone paints only when the caller passes the coach's.
+  hrZoneFractions?: HrZoneFractions;
 }
 
 /**
@@ -475,11 +480,11 @@ export function resolveTarget(
     case 'hr_zone': {
       // Bare "Z2": if the line's modality is a pacing one, prefer the pace zone.
       const m = opts.modality;
-      if (m === 'run') return runPaceTarget(parsed.zone, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks);
+      if (m === 'run') return runPaceTarget(parsed.zone, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks, opts.hrZoneFractions);
       if (m === 'row' || m === 'ski')
-        return ergPaceTarget(parsed.zone, m, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks);
+        return ergPaceTarget(parsed.zone, m, benchmarks, opts.coachZones) ?? hrTarget(parsed.zone, benchmarks, opts.hrZoneFractions);
       if (m === 'bike') return bikePowerTarget(parsed.zone, benchmarks);
-      return hrTarget(parsed.zone, benchmarks);
+      return hrTarget(parsed.zone, benchmarks, opts.hrZoneFractions);
     }
   }
 }
