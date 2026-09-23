@@ -124,3 +124,11 @@ describe('volumen planificado', () => {
     expect(volumeTimeLabel(dayVolume({ day_of_week: 1, sessions: [] }))).toBeNull();
   });
 });
+
+describe('una sola semana', () => {
+  test('recibe un paso entero', () => {
+    const g = gridFromWeeks([{ days: [dayOf(1, 'sentadilla 5x5 @75%')] }]);
+    const [w] = progressRange(g, { r0: 0, r1: 0, c0: 0, c1: 0 }, { kind: 'load', pct: 2.5 }, { rows: 1, cols: 7 });
+    expect(first(w!.day).sets![0]!.target).toEqual({ kind: 'percent_rm', value: 77.5 });
+  });
+});

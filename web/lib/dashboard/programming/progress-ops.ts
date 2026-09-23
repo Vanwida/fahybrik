@@ -183,11 +183,16 @@ export function progressDay(day: WeekDay, op: ProgressOp, steps: number): WeekDa
   };
 }
 
-/** El rango seleccionado: la primera semana del rango es la base (k = 0). */
+/**
+ * El rango seleccionado. Varias semanas: la primera es la base (k = 0) y cada
+ * una suma un paso. Una sola semana: recibe UN paso (el coach está diciendo
+ * «esta semana, +2,5»).
+ */
 export function progressRange(grid: WeekDay[][], range: GridRange, op: ProgressOp, bounds: GridBounds): CellWrite[] {
   const out: CellWrite[] = [];
+  const single = range.r1 === range.r0;
   for (let row = range.r0; row <= Math.min(range.r1, bounds.rows - 1); row++) {
-    const steps = row - range.r0;
+    const steps = single ? 1 : row - range.r0;
     for (let col = range.c0; col <= Math.min(range.c1, bounds.cols - 1); col++) {
       out.push({ row, col, day: progressDay(cellAt(grid, row, col), op, steps) });
     }

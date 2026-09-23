@@ -186,7 +186,7 @@ describe('avisos honestos — lo que NO se pudo hacer se dice', () => {
     expect(notice.message).toContain('14 «Simulaciones de Carrera (HYROX / DEKA)»');
     expect(notice.message).toContain('9 «WODs / Metcons Competitivos»');
     expect(notice.message).toContain('no he podido usarlos');
-    expect(notice.href).toBe('/biblioteca');
+    expect(notice.href).toBe('/programar/biblioteca');
   });
 
   test('si no lo pidió → info, no warning (no se le da la brasa)', () => {
