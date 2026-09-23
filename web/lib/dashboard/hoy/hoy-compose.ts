@@ -267,7 +267,12 @@ export function composeHoy(input: HoyComposeInput): HoyView {
     const actionable = (liveOf.get(f.athlete_id) ?? [])
       .filter((s) => isActionable(s) && !covered(s))
       .sort(compareSignals);
-    if (actionable.length > 0) {
+    // Un alta pendiente o un «sin plan» ya tiene su grupo (y ese es su estado en
+    // Atletas): sus demás avisos se ven al revisarlo, no como otra fila en
+    // «Vigilar» — así Vigilar de Hoy = Vigilar de Atletas. El invitado sin
+    // cuestionario no tiene grupo: si algo suyo pide mirar, conserva su fila.
+    const inGroupByState = (status.key === 'nuevo' && f.intake_pending) || status.key === 'sin_plan';
+    if (actionable.length > 0 && !inGroupByState) {
       const row = toRow(f, actionable, now);
       row.proposal = proposalFor(row.primary, input.proposals?.get(f.athlete_id));
       // La sección es su ESTADO (el de Atletas), no la severidad de la fila.
@@ -275,6 +280,7 @@ export function composeHoy(input: HoyComposeInput): HoyView {
       continue;
     }
     if (status.key === 'accion') accionInGroups += 1;
+    if (inGroupByState) continue;
     const silenced = (read?.silenced ?? []).filter(
       (x) => x.by === 'snooze' && isActionable(x.signal) && !covered(x.signal),
     );

@@ -184,7 +184,19 @@ describe('composeHoy — filas', () => {
     expect(view.critico[0]!.age_label).toBe('2 h');
   });
 
-  it('lo que cubre un grupo no se repite como fila, pero lo demás del atleta sí', () => {
+  it('Vigilar de Hoy = Vigilar de Atletas: un alta pendiente con avisos va en su grupo, no en otra fila', () => {
+    const view = composeHoy(
+      input({
+        facts: [facts('1', { intake_pending: true, onboarded_at: '2026-09-20T10:00:00Z' })],
+        signals: new Map([['1', live(sig({ kind: 'missed_sessions', severity: 'warning' }))]]),
+      }),
+    );
+    expect(view.systemic.map((g) => g.kind)).toEqual(['intake_pending']);
+    expect(view.vigilar).toEqual([]);
+    expect(view.counts.needs_you).toBe(1);
+  });
+
+  it('lo que cubre un grupo no se repite como fila', () => {
     const view = composeHoy(
       input({
         facts: [facts('1', { plan: 'sin_programa', week_chip: { kind: 'sin_plan', label: 'Sin plan' } })],
@@ -199,8 +211,9 @@ describe('composeHoy — filas', () => {
         ]),
       }),
     );
+    // «Sin plan» es su estado y su grupo: el RPE se ve al asignarle (no es otra fila).
     expect(view.systemic.map((g) => g.kind)).toEqual(['no_program']);
-    expect(view.vigilar.map((r) => [r.primary.kind, r.other_count])).toEqual([['rpe_high', 0]]);
+    expect(view.vigilar).toEqual([]);
   });
 
   it('una semana vacía con programa SÍ es fila (no la cubre ningún grupo)', () => {

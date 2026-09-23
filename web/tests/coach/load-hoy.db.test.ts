@@ -13,6 +13,7 @@ import {
 } from '@/lib/coach/attention/overrides';
 import { loadHoy } from '@/lib/dashboard/hoy/load-hoy';
 import { loadAthleteState } from '@/lib/coach/athlete-state';
+import { loadRoster } from '@/lib/dashboard/athletes/roster';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeTemplate, type Fixture } from '../utils/db-fixtures';
 
@@ -192,22 +193,38 @@ describeWithDb('motor de señales → Hoy', () => {
       ['no_program', [String(ids.ana), String(ids.bea)].sort()],
     ]);
     expect(hoy.critico.map((r) => r.name)).toEqual(['Bea']);
-    // La espera de Ana no se repite en su fila: es del grupo.
-    expect(hoy.vigilar.map((r) => [r.name, r.primary.kind, r.other_count])).toEqual([
-      ['Ana', 'readiness_low', 0],
-      ['Dani', 'missed_sessions', 0],
-    ]);
+    // Ana está «Sin plan» (su estado en Atletas): va en su grupo y en el de por
+    // responder, no como otra fila en Vigilar (Vigilar de Hoy = Vigilar de Atletas).
+    expect(hoy.vigilar.map((r) => [r.name, r.primary.kind, r.other_count])).toEqual([['Dani', 'missed_sessions', 0]]);
     // …y en su filtro, cada espera es una fila (el mismo conjunto que Mensajes).
     expect(hoy.replies.map((r) => r.name)).toEqual(['Ana']);
     // Atletas, no filas: Ana y Bea (sin programa) + Dani; Bea tiene fila y grupo y cuenta una vez.
-    expect(hoy.counts).toMatchObject({ needs_you: 3, critico: 1, vigilar: 2, snoozed: 0, resolved_today: 0 });
+    expect(hoy.counts).toMatchObject({ needs_you: 3, critico: 1, vigilar: 1, snoozed: 0, resolved_today: 0 });
     expect(hoy.week_visibility).toEqual({ visible: 1, total: 3, programmed: 1 });
+    // Una cifra por concepto: Acción y Vigilar de Hoy = los de Atletas.
+    const rows = await loadRoster({ coach_id: fx.coachId, now: NOW, client: sql });
+    const byKey = (k: string) => rows.filter((r) => r.status.key === k).length;
+    expect(hoy.counts.critico + hoy.counts.accion_in_groups).toBe(byKey('accion'));
+    expect(hoy.counts.vigilar).toBe(byKey('vigilar'));
   });
 
   it('posponer 1 d quita la fila hasta mañana; deshacer la devuelve igual', async () => {
-    const res = await applyOverrides({
+    // Ana: posponer el atleta entero no toca lo que es de grupo (su «sin
+    // programa» y su espera por responder).
+    const ana = await applyOverrides({
       coach_id: fx.coachId,
       targets: [{ athlete_id: String(ids.ana) }],
+      action: 'snooze',
+      until: '1d',
+      now: NOW,
+      client: sql,
+    });
+    expect(ana.undo.restore.map((r) => [r.signal_kind, r.previous]).sort()).toEqual([['readiness_low', null]]);
+    await restoreOverrides({ coach_id: fx.coachId, restore: ana.undo.restore, client: sql });
+
+    const res = await applyOverrides({
+      coach_id: fx.coachId,
+      targets: [{ athlete_id: String(ids.dani) }],
       action: 'snooze',
       until: '1d',
       now: NOW,
@@ -216,27 +233,20 @@ describeWithDb('motor de señales → Hoy', () => {
     // Mañana 00:00 en Madrid = 22:00 UTC de hoy.
     expect(res.until_at).toBe('2026-09-23T22:00:00.000Z');
     expect(res.applied).toBe(1);
-    // La fila entera menos lo que resuelve un grupo (su «sin programa» y su
-    // espera por responder: esa se cierra en su hilo o en su filtro).
-    expect(res.undo.restore.map((r) => [r.signal_kind, r.previous]).sort()).toEqual([['readiness_low', null]]);
+    expect(res.undo.restore.map((r) => [r.signal_kind, r.previous])).toEqual([['missed_sessions', null]]);
 
     let hoy = await loadHoy({ coach_id: fx.coachId, now: NOW, client: sql });
-    expect(hoy.vigilar.map((r) => r.name)).toEqual(['Dani']);
+    expect(hoy.vigilar).toEqual([]);
     expect(hoy.counts.snoozed).toBe(1);
-    expect(hoy.snoozed_rows[0]).toMatchObject({ name: 'Ana', until: '2026-09-23T22:00:00.000Z' });
+    expect(hoy.snoozed_rows[0]).toMatchObject({ name: 'Dani', until: '2026-09-23T22:00:00.000Z' });
     // Pasado el plazo, vuelve sola.
     const tomorrow = new Date('2026-09-24T07:00:00Z');
     const later = await loadAthleteSignals({ coach_id: fx.coachId, now: tomorrow, client: sql });
-    // Vuelve la de la fila (el «sin programa» y la espera nunca se pospusieron: son de grupo).
-    expect(later.get(String(ids.ana))!.live.map((x) => x.kind).sort()).toEqual([
-      'message_unanswered',
-      'programming_status',
-      'readiness_low',
-    ]);
+    expect(later.get(String(ids.dani))!.live.map((x) => x.kind)).toEqual(['missed_sessions']);
 
     await restoreOverrides({ coach_id: fx.coachId, restore: res.undo.restore, client: sql });
     hoy = await loadHoy({ coach_id: fx.coachId, now: NOW, client: sql });
-    expect(hoy.vigilar.map((r) => r.name)).toEqual(['Ana', 'Dani']);
+    expect(hoy.vigilar.map((r) => r.name)).toEqual(['Dani']);
     expect(hoy.counts.snoozed).toBe(0);
   });
 
