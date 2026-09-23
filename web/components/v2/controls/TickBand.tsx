@@ -2,10 +2,12 @@
 
 // TickBand — banda de valores donde UN toque fija un valor y un SEGUNDO toque en
 // otro lo convierte en rango (así entra el «65-80 % RM» real de la biblioteca sin
-// teclear). Un tercer toque reinicia a valor suelto. El rango pinta sus bordes en
-// acento pleno y el interior en tinta suave: se lee de un vistazo qué está dentro.
+// teclear). Un tercer toque reinicia a valor suelto. Los bordes del rango van en
+// tinta invertida y el interior en el gris de selección: se lee de un vistazo qué
+// está dentro (neutro; el acento del club no marca selecciones).
 // La selección es del padre (controlado): {min} = valor suelto, {min,max} = rango.
 
+import { Button } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 
 export type TickSelection = { min: number; max?: number } | null;
@@ -43,23 +45,24 @@ export function TickBand({
         const isEdge = v === lo || v === hi;
         const isIn = lo !== undefined && hi !== undefined && v > lo && v < hi;
         return (
-          <button
+          <Button
             key={v}
-            type="button"
+            size="sm"
+            variant="secondary"
             aria-pressed={isEdge || isIn}
             aria-label={`${ariaLabel}: ${v}`}
             onClick={() => pick(v)}
             className={cn(
-              'v2-focus v2-num flex-1 rounded-[var(--v2-r-s)] border px-0.5 py-2 text-[12.5px] font-bold transition-colors',
+              'min-w-0 flex-1 px-0.5 t-tnum',
               isEdge
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
+                ? 'border-v2-fg bg-v2-fg text-v2-bg hover:border-v2-fg hover:bg-v2-fg'
                 : isIn
-                  ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                  : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
+                  ? 'border-v2-border-strong bg-v2-select text-v2-fg'
+                  : 'border-v2-border text-v2-muted hover:text-v2-fg',
             )}
           >
             {format ? format(v) : v}
-          </button>
+          </Button>
         );
       })}
     </div>
