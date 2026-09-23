@@ -58,6 +58,8 @@ import {
 } from './intake-schema';
 import { IntakeError } from './intake-error';
 import { listCoachTests } from './coach-tests';
+import { resolveCoachThresholds } from './signal-thresholds';
+import type { CoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 // Re-export pure helpers for callers / tests.
 export {
@@ -591,7 +593,10 @@ export async function loadIntakeProfile(params: {
     has_intake_data,
   });
 
+  // Los avisos de sueño y estrés del alta usan los umbrales del coach (0256).
+  const thresholds = await resolveCoachThresholds(params.coach_id, client);
   const warnings = buildWarnings({
+    thresholds,
     target_event,
     benchmarks,
     training_days_per_week: effectiveTrainingDays,
@@ -856,6 +861,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
 // =============================================================================
 
 interface BuildWarningsParams {
+  thresholds: Pick<CoachThresholds, 'intake_low_sleep_max' | 'intake_high_stress_min'>;
   target_event: IntakeProfile['target_event'];
   benchmarks: IntakeProfile['benchmarks'];
   training_days_per_week: number | null;
@@ -869,10 +875,24 @@ interface BuildWarningsParams {
   stress_level: number | null;
 }
 
-// Low sleep or high stress at intake is a load-calibration flag (we run softer
-// the first weeks). 1-10 scales; thresholds are deliberately conservative.
-const LOW_SLEEP_THRESHOLD = 4;
-const HIGH_STRESS_THRESHOLD = 7;
+/**
+ * Low sleep or high stress at intake is a load-calibration flag (the coach may
+ * start softer). 1–10 scales. Where each one starts is the coach's method
+ * (`intake_low_sleep_max` 4, `intake_high_stress_min` 7 by default — 0256).
+ */
+export function intakeLoadFlags(
+  answers: { sleep_quality: number | null; stress_level: number | null },
+  t: Pick<CoachThresholds, 'intake_low_sleep_max' | 'intake_high_stress_min'>,
+): string[] {
+  const flags: string[] = [];
+  if (answers.sleep_quality != null && answers.sleep_quality <= t.intake_low_sleep_max) {
+    flags.push(`sueño ${answers.sleep_quality}/10`);
+  }
+  if (answers.stress_level != null && answers.stress_level >= t.intake_high_stress_min) {
+    flags.push(`estrés ${answers.stress_level}/10`);
+  }
+  return flags;
+}
 
 function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
   const out: IntakeWarning[] = [];
@@ -953,13 +973,7 @@ function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
   }
 
   // Step 3 — sleep/stress load-calibration flag.
-  const loadFlags: string[] = [];
-  if (params.sleep_quality != null && params.sleep_quality <= LOW_SLEEP_THRESHOLD) {
-    loadFlags.push(`sueño ${params.sleep_quality}/10`);
-  }
-  if (params.stress_level != null && params.stress_level >= HIGH_STRESS_THRESHOLD) {
-    loadFlags.push(`estrés ${params.stress_level}/10`);
-  }
+  const loadFlags = intakeLoadFlags(params, params.thresholds);
   if (loadFlags.length > 0) {
     out.push({
       kind: 'low_readiness_self_report',
