@@ -132,7 +132,7 @@ describe('#61 editor · segment edits', () => {
 describe('#61 editor · build a real 6×1000 and SAVE it', () => {
   test('built structure → valid prescription with a sensible flatten', () => {
     // Build "6×1000 @ Z3, rec 90″" the way the UI would: a Repeat with a work + rec.
-    let repeat = defaultRepeat(); // {times:4, elements:[work 1000 z3]}
+    const repeat = defaultRepeat(); // {times:4, elements:[work 1000 z3]}
     // add a recovery into it, set times 6
     let els: Element[] = [repeat];
     els = appendInto(els, [0], defaultRecoverySegment());

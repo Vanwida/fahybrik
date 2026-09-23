@@ -19,6 +19,11 @@ import {
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeExercise, makeInlineMonthTemplate, type Fixture } from '../utils/db-fixtures';
 
+/** Lo justo del JSON de la semana que tocan estos tests. */
+type SlotsDoc = {
+  days: Array<{ day_of_week: number; sessions: Array<{ blocks: Array<{ items: Array<{ notes?: string; exercise_name?: string }> }> }> }>;
+};
+
 describeWithDb('resyncWeekTemplateAssignments (real DB)', () => {
   const sql = getTestSql();
   const cleanups: Array<() => Promise<void>> = [];
@@ -87,7 +92,7 @@ describeWithDb('resyncWeekTemplateAssignments (real DB)', () => {
 
     // Simulate the coach editor save (day route persists exactly this shape):
     // add a per-exercise note to the SAME item, nothing else.
-    const [week] = await sql<Array<{ slots_json: any }>>`
+    const [week] = await sql<Array<{ slots_json: SlotsDoc }>>`
       select slots_json from program_week_templates where id = ${weekId}
     `;
     const editedSlots = structuredClone(week!.slots_json);
@@ -168,7 +173,7 @@ describeWithDb('resyncWeekTemplateAssignments (real DB)', () => {
       where id = ${Number(before[0]!.id)}
     `;
 
-    const [week] = await sql<Array<{ slots_json: any }>>`
+    const [week] = await sql<Array<{ slots_json: SlotsDoc }>>`
       select slots_json from program_week_templates where id = ${weekId}
     `;
     const editedSlots = structuredClone(week!.slots_json);
@@ -253,7 +258,7 @@ describeWithDb('resyncWeekTemplateAssignments (real DB)', () => {
       where id = ${Number(thu[0]!.id)}
     `;
 
-    const [week] = await sql<Array<{ slots_json: any }>>`
+    const [week] = await sql<Array<{ slots_json: SlotsDoc }>>`
       select slots_json from program_week_templates where id = ${weekId}
     `;
     const editedSlots = structuredClone(week!.slots_json);
