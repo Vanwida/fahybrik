@@ -15,7 +15,11 @@ import 'server-only';
 // que ya se hizo.
 
 import { revalidateTag } from 'next/cache';
-import { attentionTag } from './queue';
+
+/** Etiqueta de caché de la atención de un coach (la invalidan el barrido y los overrides). */
+export function attentionTag(coach_id: string | number | bigint): string {
+  return `coach:${coach_id}:attention`;
+}
 
 export function invalidateAttention(coach_id: string | number | bigint): void {
   try {
