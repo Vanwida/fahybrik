@@ -21,7 +21,7 @@ import {
   estimateRaceReadiness,
   READINESS_COMPLIANCE_DAYS,
 } from '@fahybrid/shared/domain/coach/race-readiness';
-import { loadCompliancePct } from '@/lib/coach/compliance-window';
+import { loadAdherenceWindows, loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
   computeAcr,
   computeLoadSeries,
@@ -66,9 +66,11 @@ import type {
   ZoneTimeBlock,
 } from './deep-dive-types';
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
-import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import { SEG_COUNTS_AS_VOLUME, SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
+
+/** «Total» = toda la historia que importa: diez años. */
+const COMPLIANCE_TOTAL_DAYS = 3650;
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
@@ -367,34 +369,16 @@ async function loadCompliance(
 ): Promise<KpiCompliance> {
   const todayIso = isoDate(now);
 
-  const rows = await client<Array<{ window: string; scheduled: number; completed: number }>>`
-    with windows as (
-      select '7d'::text as w, ${isoDate(addDays(now, -7))}::date as start
-      union all select '30d', ${isoDate(addDays(now, -30))}::date
-      union all select 'total', '2000-01-01'::date
-    )
-    select
-      w.w as window,
-      count(wa.id) filter (where wa.scheduled_for <= ${todayIso}::date)::int as scheduled,
-      count(wa.id) filter (
-        where wa.scheduled_for <= ${todayIso}::date and wa.status = 'completed'
-      )::int as completed
-    from windows w
-    left join workout_assignments wa
-      on wa.athlete_id = ${athlete_id}
-     and wa.scheduled_for >= w.start
-     -- #13: EXCLUDE days inside a pause (frozen) from the join so both counts drop
-     -- them together; a whole paused window ⇒ scheduled 0 ⇒ pct null, not 0%.
-     ${adherenceExclusionSql(client, client`wa.athlete_id`, client`wa.scheduled_for`, client`wa.injury_adaptation`)}
-    group by w.w
-  `;
-
-  const byWin = new Map(rows.map((r) => [r.window, r]));
-  const pct = (k: string) => {
-    const r = byWin.get(k);
-    if (!r || r.scheduled === 0) return null;
-    return Math.round((r.completed / r.scheduled) * 100);
-  };
+  // The one due-only rule (plan §4.2), same rows as the roster and Hoy: today's
+  // not-yet-done session and a hidden week never count as missed, partial is done.
+  const windows = await loadAdherenceWindows({
+    athlete_id,
+    on_date: now,
+    windows: [7, 30, COMPLIANCE_TOTAL_DAYS],
+    client,
+  });
+  const pct = (k: '7d' | '30d' | 'total') =>
+    windows.get(k === '7d' ? 7 : k === '30d' ? 30 : COMPLIANCE_TOTAL_DAYS) ?? null;
 
   // Streak: count contiguous past days with no `missed` assignments.
   const streakRows = await client<Array<{ d: string; status: string }>>`
