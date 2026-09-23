@@ -10,6 +10,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Embudo público: un lead es único por dueño, y solo lo reescribe quien lo abrió (0253)
+
+**El hueco (revisión de aislamiento, hallazgo 6):** `leads.email` era único en toda la plataforma y `/api/leads` + `/api/leads/complete` (públicos, sin sesión) hacían `on conflict (email) do update`. Escribir el email de otra persona en el formulario sobrescribía sus respuestas (teléfono, lesiones…) fuese del club que fuese, y la respuesta devolvía su `token` de reserva. Además, una persona solo podía ser lead de UN club: el embudo del segundo se fundía en la fila del primero.
+
+**Decidido:**
+- **Unicidad por (dueño, email)** — índice `leads_owner_email_uq` sobre `(coalesce(coach_id, 0), email)`. «Sin asignar» (NULL) cuenta como un dueño más. Un mismo email puede ser lead de varios clubs; cada fila es de su club.
+- **Clave de captura** (`leads.capture_key_hash`, `lib/leads/capture-key.ts`): el navegador que CREA la fila recibe una clave aleatoria en una cookie HttpOnly (`Path=/api/leads`, un día) y la fila guarda su sha-256. Retocar el borrador o completar un lead que ya existe exige esa clave, dentro del `where` del `on conflict`. Sin ella no se escribe nada.
+- **Lo que recibe el que no la tiene:** la misma respuesta que un envío sin hueco inline (`{ ok, waitlisted: false }`), sin token, sin id, sin estado — no se revela si el email existe. Si el lead está en `parcial`/`nuevo` y admite correo, se le manda su enlace de reserva a SU dirección (confirmación por email). El borrador (`/api/leads`) deja de devolver `lead_id` y `status`.
+- **Filas anteriores a 0253:** `capture_key_hash` NULL = nadie tiene la clave, así que desde el embudo ya no se reescriben. Es lo seguro.
+- **El dueño del embudo** sigue saliendo de `FUNNEL_COACH_ID` (un solo embudo público existe). El store ya trabaja por dueño; el día que haya un embudo por club, el dueño saldrá del enlace (`/empieza/<club>`) y lo único que cambia es `funnelCoachId()`. No se ha construido aquí: es producto (la URL pública de cada club), no aislamiento.
+
+**Lo que se pierde, a sabiendas:** quien rellenó el formulario hace semanas y vuelve desde otro dispositivo no actualiza sus respuestas desde el embudo (le llega su enlace; el coach las actualiza en la llamada). Ese reenvío tampoco avisa al coach: sus datos no están verificados.
+
+**NO hacer:** no volver a `on conflict (email)`; no devolver el token de un lead existente a una petición sin su clave; no usar el email como identidad en el embudo público.
+
+---
+
 ## 2026-09-23 · Un grupo va «cada uno en su semana»; alinearlo es sustituir desde un lunes
 
 **Decidido:** un grupo sigue siendo rodante (cada miembro por su semana de la cadena, DECISIONS «Grupos, asignar a varios…»), y ahora se dice: la cabecera del grupo añade «cada atleta sigue en su semana» (o «van juntos: semana N de …») y cada miembro muestra su semana también en el móvil; un inicio pasado dice «empezó». Al asignar un programa a un grupo con gente a mitad de programa, el panel pregunta en palabras del coach: **«Cada uno sigue en su semana»** (= `on_conflict: chain`, el nuevo llega detrás de lo de cada uno), **«Empiezan todos el lunes X»** (= `replace`: todos arrancan juntos ese lunes; lo entrenado no se toca) o «Solo a quien no tiene programa» (= `skip`).

@@ -11,6 +11,7 @@ import { sql } from '@/lib/db';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { upsertLeadComplete } from '@/lib/leads/store';
+import { captureKeyFromCookieHeader, captureKeySetCookie } from '@/lib/leads/capture-key';
 import { sendLeadConfirmation, sendLeadNotification } from '@/lib/leads/email';
 import { getCapacityState, type CapacityState } from '@/lib/coach/capacity';
 import { coachIdForLead, coachNameForLead, funnelCoachId } from '@/lib/leads/funnel-coach';
@@ -42,10 +43,30 @@ export async function POST(req: Request) {
     return jsonOk({ ok: true }, 200); // honeypot — feign success, persist nothing
   }
 
-  const res = await upsertLeadComplete(input, {
-    ip: getClientIp(req),
-    userAgent: req.headers.get('user-agent'),
-  });
+  const res = await upsertLeadComplete(
+    input,
+    { ip: getClientIp(req), userAgent: req.headers.get('user-agent') },
+    { key: captureKeyFromCookieHeader(req.headers.get('cookie')) },
+  );
+
+  // UN LEAD QUE YA EXISTÍA y esta petición no lo abrió (sin su clave de captura):
+  // no se ha escrito nada y el token NO sale en la respuesta — quien escribe un
+  // email ajeno no se lleva la reserva de otro. Si de verdad es él (otro
+  // dispositivo, otra semana), le llega su enlace a SU correo. Respuesta idéntica
+  // a la de un envío normal sin hueco inline, para no revelar que el email existe.
+  if (res.outcome === 'existing') {
+    const bookable = (res.status === 'parcial' || res.status === 'nuevo') && !res.no_contactar;
+    if (bookable) {
+      const leadId = BigInt(res.id);
+      await sendLeadConfirmation(
+        { ...input, email: res.email, nombre: res.nombre ?? undefined },
+        res.token,
+        await coachNameForLead(sql, leadId),
+        await coachIdForLead(sql, leadId),
+      ).catch(() => undefined);
+    }
+    return jsonOk({ ok: true, waitlisted: false }, 200);
+  }
 
   // CAPACITY GATE (#18). Only a FRESH lead (status ended up 'nuevo') can be waitlisted — a
   // lead the coach already worked (contactado/agendado/convertido/descartado) keeps its
@@ -81,10 +102,12 @@ export async function POST(req: Request) {
     // Position = how many leads are actively waiting (this one just joined, so it's last).
     const waitlist_position = await countWaitlist(coachId ?? undefined);
     // Back-compat: always include `waitlisted`. NO token — a waitlisted lead can't book yet.
-    return jsonOk(
+    const out = jsonOk(
       { ok: true, lead_id: res.id, status: res.status, waitlisted: true, waitlist_position },
       res.created ? 201 : 200,
     );
+    if (res.capture_key) out.headers.append('set-cookie', captureKeySetCookie(res.capture_key));
+    return out;
   }
 
   // Not full (or an already-worked lead): unchanged behaviour. Fire both emails; guarded
@@ -95,9 +118,12 @@ export async function POST(req: Request) {
     sendLeadConfirmation(input, res.token, coachName, coachId),
   ]);
 
-  // Return the token so the onboarding final screen can offer the slot picker inline.
-  return jsonOk(
+  // Return the token so the onboarding final screen can offer the slot picker inline —
+  // only to the browser that created (or reopened with its key) this lead.
+  const out = jsonOk(
     { ok: true, lead_id: res.id, status: res.status, token: res.token, waitlisted: false },
     res.created ? 201 : 200,
   );
+  if (res.capture_key) out.headers.append('set-cookie', captureKeySetCookie(res.capture_key));
+  return out;
 }

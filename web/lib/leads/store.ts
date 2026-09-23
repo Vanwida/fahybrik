@@ -1,9 +1,14 @@
-// Lead persistence — two-phase upsert keyed by email (migration 0092_leads.sql).
+// Lead persistence — two-phase upsert keyed by (owner, email) (0092, 0253).
 //
 //   • upsertLeadDraft    — end of bloque A (email captured). Writes contact + bloque A,
 //     status='parcial'. Never regresses a further-along lead or nulls fields it doesn't own.
 //   • upsertLeadComplete — full submit. Overwrites every answer with the authoritative
 //     client state, sets status='nuevo' (unless already further), stamps consent + audit.
+//
+// Both are PUBLIC and unauthenticated. A lead that already exists is only touched by
+// the browser that created it (its capture key, lib/leads/capture-key.ts); any other
+// request with the same email gets `outcome: 'existing'`, changes nothing, and the
+// route never hands it the lead's token (DECISIONS 2026-09-23 «Embudo público»).
 //   • transitionLeadStatus — coach pipeline move, enforcing the shared NO-RETREAT rule.
 //
 // All three keep the same "a lead never moves backwards" invariant (the upserts never
@@ -20,6 +25,7 @@
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { recordAudit, type Actor } from '@/lib/audit/record-edit';
 import { funnelCoachId } from './funnel-coach';
+import { hashCaptureKey, newCaptureKey } from './capture-key';
 import { leadOwnedBy } from './owner';
 import type { LeadDraftInput, LeadSubmitInput } from '@fahybrid/shared/schema';
 import {
@@ -35,34 +41,68 @@ export interface LeadCaptureMeta {
 }
 
 export interface LeadUpsertResult {
+  /** created = new row; updated = the creating browser came back (capture key matched);
+   *  existing = a lead with that email already belongs to this owner and the request
+   *  did not prove it opened it → NOTHING was written. */
+  outcome: 'created' | 'updated' | 'existing';
   id: string;
   status: string;
-  /** Opaque public booking token (leads.token) — drives /es/cita/[token]. */
+  /** Opaque public booking token (leads.token) — drives /es/cita/[token]. NEVER send it
+   *  back to the requester when `outcome === 'existing'`. */
   token: string;
   /** true when this call created the row (no prior lead for that email). */
   created: boolean;
+  /** Key to leave in the browser (Set-Cookie) — only on `created`. */
+  capture_key: string | null;
+  /** The contact ON FILE (for `existing`: mail the lead at its own address). */
+  email: string;
+  nombre: string | null;
+  no_contactar: boolean;
+}
+
+type UpsertRow = { id: string; status: string; token: string; created: boolean; email: string; nombre: string | null; no_contactar: boolean };
+
+/** Wraps the upsert's RETURNING: a returned row is created/updated; none = existing. */
+async function settle(
+  rows: UpsertRow[],
+  key: string,
+  owner: bigint | null,
+  email: string,
+): Promise<LeadUpsertResult> {
+  const r = rows[0];
+  if (r) {
+    return { ...r, outcome: r.created ? 'created' : 'updated', capture_key: r.created ? key : null };
+  }
+  const found = await sql<Omit<UpsertRow, 'created'>[]>`
+    select id::text as id, status::text as status, token, email, nombre, no_contactar
+    from leads
+    where coalesce(coach_id, 0::bigint) = ${owner === null ? 0 : Number(owner)} and email = ${email}
+    limit 1
+  `;
+  return { ...found[0]!, created: false, outcome: 'existing', capture_key: null };
 }
 
 /** Partial capture at the email step — only touches contact + bloque A. */
-export async function upsertLeadDraft(input: LeadDraftInput): Promise<LeadUpsertResult> {
+export async function upsertLeadDraft(
+  input: LeadDraftInput,
+  capture: { key: string | null } = { key: null },
+): Promise<LeadUpsertResult> {
   const coach_id = await funnelCoachId();
-  const rows = await sql<{ id: string; status: string; token: string; created: boolean }[]>`
+  const fresh = newCaptureKey();
+  const presented = capture.key ? hashCaptureKey(capture.key) : null;
+  const rows = await sql<UpsertRow[]>`
     insert into leads (
       email, nombre,
       objetivo, carrera_mente, carrera_cual, carrera_cuando, plazo, motivo, inicio,
-      status, source, coach_id
+      status, source, coach_id, capture_key_hash
     ) values (
       ${input.email}, ${input.nombre ?? null},
       ${input.objetivo ?? null}, ${input.carrera_mente ?? null}, ${input.carrera_cual ?? null},
       ${input.carrera_cuando ?? null}, ${input.plazo ?? null}, ${input.motivo ?? null},
       ${input.inicio ?? null},
-      'parcial', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}
+      'parcial', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}, ${fresh.hash}
     )
-    on conflict (email) do update set
-      -- El dueño se graba en la PRIMERA captura y no se reescribe: a quien ya tenía
-      -- dueño no se lo cambia una visita posterior, y a quien entró sin enlace
-      -- atribuible se le puede poner después (a mano o al completar).
-      coach_id       = coalesce(leads.coach_id, excluded.coach_id),
+    on conflict ((coalesce(coach_id, 0::bigint)), email) do update set
       nombre         = coalesce(excluded.nombre, leads.nombre),
       objetivo       = coalesce(excluded.objetivo, leads.objetivo),
       carrera_mente  = coalesce(excluded.carrera_mente, leads.carrera_mente),
@@ -72,18 +112,24 @@ export async function upsertLeadDraft(input: LeadDraftInput): Promise<LeadUpsert
       motivo         = coalesce(excluded.motivo, leads.motivo),
       inicio         = coalesce(excluded.inicio, leads.inicio),
       updated_at     = now()
-    returning id::text as id, status::text as status, token, (xmax = 0) as created
+    -- Solo el navegador que creó la fila la retoca (0253). Sin clave: nada.
+    where leads.capture_key_hash is not null and leads.capture_key_hash = ${presented}
+    returning id::text as id, status::text as status, token, (xmax = 0) as created,
+              email, nombre, no_contactar
   `;
-  return rows[0];
+  return settle(rows, fresh.key, coach_id, input.email);
 }
 
 /** Full submit — authoritative overwrite of every answer + consent + audit. */
 export async function upsertLeadComplete(
   input: LeadSubmitInput,
   meta: LeadCaptureMeta,
+  capture: { key: string | null } = { key: null },
 ): Promise<LeadUpsertResult> {
   const coach_id = await funnelCoachId();
-  const rows = await sql<{ id: string; status: string; token: string; created: boolean }[]>`
+  const fresh = newCaptureKey();
+  const presented = capture.key ? hashCaptureKey(capture.key) : null;
+  const rows = await sql<UpsertRow[]>`
     insert into leads (
       email, nombre, telefono, edad, sexo, ubicacion,
       objetivo, carrera_mente, carrera_cual, carrera_cuando, plazo, motivo, inicio,
@@ -95,7 +141,7 @@ export async function upsertLeadComplete(
       planes_previos, planes_fallo, espera_coaching, conocido, nota_libre,
       consent_rgpd, consent_at, consent_ip, consent_user_agent,
       submitted_at, submit_ip, submit_user_agent,
-      status, source, coach_id
+      status, source, coach_id, capture_key_hash
     ) values (
       ${input.email}, ${input.nombre ?? null}, ${input.telefono}, ${input.edad ?? null},
       ${input.sexo ?? null}, ${input.ubicacion ?? null},
@@ -118,11 +164,9 @@ export async function upsertLeadComplete(
       ${input.espera_coaching ?? null}, ${input.conocido ?? null}, ${input.nota_libre ?? null},
       true, now(), ${meta.ip}, ${meta.userAgent},
       now(), ${meta.ip}, ${meta.userAgent},
-      'nuevo', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}
+      'nuevo', 'onboarding_web', ${coach_id === null ? null : Number(coach_id)}, ${fresh.hash}
     )
-    on conflict (email) do update set
-      -- Ver upsertLeadDraft: la atribución es de la captura y no se pisa.
-      coach_id             = coalesce(leads.coach_id, excluded.coach_id),
+    on conflict ((coalesce(coach_id, 0::bigint)), email) do update set
       nombre               = coalesce(excluded.nombre, leads.nombre),
       telefono             = excluded.telefono,
       edad                 = excluded.edad,
@@ -179,9 +223,12 @@ export async function upsertLeadComplete(
       status               = case when leads.status in ('parcial', 'nuevo')
                                   then 'nuevo'::lead_status else leads.status end,
       updated_at           = now()
-    returning id::text as id, status::text as status, token, (xmax = 0) as created
+    -- Solo el navegador que creó la fila la completa (0253). Sin clave: nada.
+    where leads.capture_key_hash is not null and leads.capture_key_hash = ${presented}
+    returning id::text as id, status::text as status, token, (xmax = 0) as created,
+              email, nombre, no_contactar
   `;
-  return rows[0];
+  return settle(rows, fresh.key, coach_id, input.email);
 }
 
 // ── Ownership (multi-tenancy) ────────────────────────────────────────────────────
