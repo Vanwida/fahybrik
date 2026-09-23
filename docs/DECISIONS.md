@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · Aislamiento entre coaches: las referencias que viajan en JSON se validan al escribir y se filtran al leer
+
+**El hueco (revisión de aislamiento, hallazgos 1, 2 y 4):** los ids que llegan en un body o dentro de un JSON guardado (`template_id` de «añadir sesión», `sessions[].template_id` / `blocks[].source_block_id` / `items[].exercise_id` de `slots_json`, el `to_template_id` de una propuesta, `athlete_id` / `lead_id` / `appointment_id` de un parte de sesión, el atleta del GET de la propuesta mensual) se seguían sin mirar de quién eran. El coach A clonaba el entreno de B en su atleta y lo leía; escribía partes en la ficha de otro club y mandaba correos a sus leads.
+
+**Decidido (la regla, para todo lo que venga):**
+- **La frontera vive en la primitiva, no en cada llamador.** `cloneTemplateAsInstance` solo copia un template del mismo coach que el atleta destino y escribe la copia a nombre de ese coach; todos los caminos que forkean (día, semana, propuesta, calibración, ficha) pasan por ahí. Un origen ajeno se trata como uno borrado. No hay catálogo base de entrenos ni de bloques (todas sus filas llevan coach), así que no hay excepción.
+- **Un JSON con ids se valida AL ESCRIBIR** (`upsertWeekTemplate`, que usan el editor, la rejilla, el conector y la importación: `lib/dashboard/coach/week-slot-refs.ts`) **y se filtra AL LEER** (`hydrateBlockParts`, la vista previa de publicar): lo segundo cubre lo que se guardó antes de la regla. Un id que ya no existe se deja pasar al escribir (los ids no se reutilizan).
+- Un parte de sesión exige atleta del coach, lead suyo (`leadOwnedBy`) y cita de ESE sujeto; sus listas devuelven solo partes del coach que atiende al sujeto; el resumen por correo solo sale hacia un lead propio. La propuesta mensual pendiente se lee con el coach.
+- Cada regla tiene su test de dos coaches en `web/tests/tenancy/` (falla con el código anterior).
+
+**NO hacer:** no seguir un id de un body o de un JSON sin el coach en el `where`; no poner la comprobación solo en la ruta cuando existe una primitiva por la que pasan todas.
+
+---
+
 ## 2026-09-23 · Google Calendar es de cada coach (0254)
 
 **El hueco (revisión de aislamiento, hallazgo 3; la deuda que dejó «Negocio con dueño»):** un solo refresh_token para toda la plataforma (`google_oauth_tokens`, 0096) y el calendario en una variable de entorno (`GOOGLE_CALENDAR_ID`). El siguiente coach que pulsara «conectar Google» se quedaba las llamadas y revisiones de todos los clubs en su calendario (nombres, emails, horas), y cancelar borraba en ese calendario. El `state` del OAuth no sabía qué coach lo había empezado.
