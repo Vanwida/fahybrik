@@ -264,7 +264,7 @@ function AccentRow({ initialHex, onPreview }: { initialHex: string | null; onPre
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
           }}
-          className="w-36 font-mono uppercase"
+          className="w-36 font-mono uppercase placeholder:normal-case placeholder:font-sans"
         />
         {saved !== '' ? (
           <Button

@@ -135,29 +135,26 @@ export function CobrosScreen({
       </KPIRow>
 
       <section className="flex flex-col gap-2">
-        <SectionHeader
-          title="Por atender"
-          count={action.length}
-          action={
-            <div className="flex items-center gap-2">
-              {overdue.length > 1 ? (
-                <Button size="sm" icon={BellRing} onClick={() => setRemind(overdue)}>
-                  Recordar a los {overdue.length} vencidos
-                </Button>
-              ) : null}
-              <Input
-                type="search"
-                icon={Search}
-                size="sm"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar atleta"
-                aria-label="Buscar atleta"
-                className="w-44 sm:w-56"
-              />
-            </div>
-          }
-        />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SectionHeader title="Por atender" count={action.length} />
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {overdue.length > 1 ? (
+              <Button size="sm" icon={BellRing} onClick={() => setRemind(overdue)} className="shrink-0">
+                Recordar a los {overdue.length} vencidos
+              </Button>
+            ) : null}
+            <Input
+              type="search"
+              icon={Search}
+              size="sm"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar atleta"
+              aria-label="Buscar atleta"
+              className="min-w-0 flex-1 sm:w-56 sm:flex-none"
+            />
+          </div>
+        </div>
         {action.length === 0 ? (
           <EmptyState
             icon={CircleCheck}

@@ -28,7 +28,7 @@ const DROP: Partial<Record<FunnelStageKey, { reason: string; side?: 'descartados
   convertido: { reason: 'no canjean la invitación' },
 };
 
-const GRID = 'grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(150px,200px)_1fr_64px] sm:items-center';
+const GRID = 'grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(150px,200px)_1fr_96px] sm:items-center';
 
 function Bar({ label, def, count, width, sub }: { label: string; def: string; count: number | string; width: number; sub: string }) {
   return (
@@ -103,7 +103,7 @@ export function FunnelBars({ snapshot }: { snapshot: FunnelSnapshot }) {
                 lost={Math.max(0, prev - cur)}
                 pct={(prev - cur) / prev}
                 reason={drop.reason}
-                side={drop.side && side_exits[drop.side] ? `${formatCount(side_exits[drop.side])} ${drop.sideLabel}` : undefined}
+                side={drop.side && side_exits[drop.side] ? `${drop.sideLabel}: ${formatCount(side_exits[drop.side])}` : undefined}
               />
             ) : null}
             <Bar
