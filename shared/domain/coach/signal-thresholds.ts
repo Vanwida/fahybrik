@@ -65,6 +65,8 @@ export interface ThresholdSpec {
  * Mensajes: 12 horas esperando respuesta para subir a Hoy.
  * Comunicados (0161): 2 días sin responder una pregunta, 3 de retraso para que
  *   una tarea pase a crítica, 3 de antelación para un protocolo sin abrir.
+ * Entrenos sin hacer (0243): además del mínimo, una parte de lo debido (30 %):
+ *   2 de 10 es una semana normal; 2 de 4 no.
  * Revisiones 1:1 (0242): 14 días antes de volver a proponer una revisión al mismo
  *   atleta que no reservó la anterior.
  */
@@ -78,6 +80,7 @@ export const COACH_THRESHOLD_SPEC = {
   checkin_habit_min: { default: 10, min: 1, max: 14, unit: 'checkins', group: 'readiness' },
   checkin_skipped_days: { default: 2, min: 1, max: 14, unit: 'dias', group: 'readiness' },
   missed_sessions_min: { default: 2, min: 1, max: 14, unit: 'entrenos', group: 'sesiones' },
+  missed_sessions_share_pct: { default: 30, min: 0, max: 100, unit: 'pct', group: 'sesiones' },
   rpe_high_min: { default: 9, min: 6, max: 10, unit: 'rpe', group: 'sesiones' },
   rpe_high_share_pct: { default: 50, min: 10, max: 100, unit: 'pct', group: 'sesiones' },
   message_unanswered_hours: { default: 12, min: 1, max: 168, unit: 'horas', group: 'mensajes' },

@@ -92,6 +92,8 @@ export const missedSessionsEvaluator: SignalEvaluator = {
     // y lo de hoy aún no se ha perdido. Antes contaba `status='missed'` sin más.
     const n = facts.missed_sessions_7d;
     if (n < thresholds.missed_sessions_min!) return null;
+    // Y una parte de lo debido: 2 de 10 es una semana normal, 2 de 4 no.
+    if (n * 100 < thresholds.missed_sessions_share_pct! * facts.due_sessions_7d) return null;
     const last = facts.last_missed_on ? relativeDay(facts.last_missed_on, facts.today_iso) : null;
     return {
       kind: 'missed_sessions',

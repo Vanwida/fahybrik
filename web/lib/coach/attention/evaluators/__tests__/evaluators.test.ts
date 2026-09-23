@@ -172,6 +172,18 @@ describe('missed_sessions — solo lo debido', () => {
       missed_sessions_min: 3,
     });
   });
+
+  it('pide también una parte de lo debido: 2 de 10 es una semana normal', () => {
+    notFired('missed_sessions', baseFacts({ missed_sessions_7d: 2, due_sessions_7d: 10 }));
+    fired('missed_sessions', baseFacts({ missed_sessions_7d: 3, due_sessions_7d: 10 }));
+  });
+
+  it('con la proporción a 0 basta el número', () => {
+    fired('missed_sessions', baseFacts({ missed_sessions_7d: 2, due_sessions_7d: 10 }), {
+      ...THRESHOLDS,
+      missed_sessions_share_pct: 0,
+    });
+  });
 });
 
 describe('rpe_high — una tendencia de la semana, no un día duro', () => {

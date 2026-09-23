@@ -46,6 +46,11 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
     unit: 'entrenos',
     hint: 'Solo cuentan los que ya tocaban y el atleta podía ver.',
   },
+  missed_sessions_share_pct: {
+    label: 'Y que sean al menos el',
+    unit: '% de lo debido',
+    hint: 'Con 0, basta el número de entrenos.',
+  },
   rpe_high_min: { label: 'RPE alto desde', unit: 'RPE', hint: 'Desde qué esfuerzo cuenta un entreno como duro.' },
   rpe_high_share_pct: {
     label: 'Semana dura si llega a',
@@ -92,7 +97,7 @@ export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThres
       'checkin_skipped_days',
     ],
   },
-  { title: 'Avisos de entrenos', keys: ['missed_sessions_min', 'rpe_high_min', 'rpe_high_share_pct'] },
+  { title: 'Avisos de entrenos', keys: ['missed_sessions_min', 'missed_sessions_share_pct', 'rpe_high_min', 'rpe_high_share_pct'] },
   {
     title: 'Avisos de mensajes y comunicados',
     keys: [

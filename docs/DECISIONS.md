@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · «Entrenos sin hacer» avisa por número Y por proporción de lo debido (0243)
+
+**El hueco:** la señal `missed_sessions` saltaba con 2 entrenos debidos sin hacer en 7 días, fuera cual fuera el total. Con 100 atletas eso metía en «Te necesitan» a quien hizo 8 de 10 — una semana normal. Medido en local (100 atletas, tras correr la publicación automática): 45 atletas «te necesitan»; 3 eran «2 de 9» o «2 de 10».
+
+**Decidido:** nuevo umbral `missed_sessions_share_pct` en `COACH_THRESHOLD_SPEC` (defecto 30 %, 0–100, grupo «sesiones»), columna nullable en `coach_signal_thresholds` (0243). La señal pide las dos cosas: `n ≥ missed_sessions_min` y `n ≥ share × debidas`. Con 0 basta el número (el comportamiento anterior). Editable en Ajustes › Método. Tras el cambio: 42 de 100, todos casos reales (alta pendiente, pago vencido, sin programa, readiness baja, semana con 3+ sin hacer).
+
+**NO hacer:** no volver a una señal de adherencia que cuente solo en absoluto; la proporción es la forma de que el aviso escale con el volumen del atleta.
+
+---
+
 ## 2026-09-23 · La espera para volver a proponer una revisión 1:1 es del coach (0242)
 
 **El hueco:** `proposeReview` no volvía a proponer una revisión 1:1 al mismo atleta durante `const PROPOSAL_DEDUPE_DAYS = 14` (web/lib/citas/reviews.ts). Otro entrenador la re-propondría a la semana o al mes: es método.
