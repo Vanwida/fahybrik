@@ -30,6 +30,7 @@ const { loadFunnelSnapshot, loadCallOutcomes, loadWeeklySeries, loadByObjetivo }
 const { buildBusinessMetrics } = await import('@/lib/dashboard/coach/business-metrics');
 const { countThreadsAwaitingReply, loadShellBadges } = await import('@/lib/dashboard/coach/shell-badges');
 const { searchCoach } = await import('@/lib/coach/search');
+const { loadHoy } = await import('@/lib/dashboard/hoy/load-hoy');
 const leadsRoute = await import('@/app/api/coach/leads/route');
 const callsRoute = await import('@/app/api/coach/citas/pending/route');
 const availabilityRoute = await import('@/app/api/coach/availability/route');
@@ -184,6 +185,28 @@ describeWithDb('Negocio: two coaches, zero cross-tenant rows (real DB)', () => {
       expect(idsOf(await listWaitlist(B.coachId))).not.toContain(lead.unassigned);
     } finally {
       delete process.env.FUNNEL_COACH_ID;
+    }
+  });
+
+  test('Hoy «leads nuevos» uses the same owner rule: an unassigned lead is not everybody\'s', async () => {
+    await sql`insert into coach_entitlements (coach_id, feature, source)
+              values (${A.coachId}, 'negocio', 'test'), (${B.coachId}, 'negocio', 'test')`;
+    try {
+      const leadsOf = async (coach: number) =>
+        (await loadHoy({ coach_id: coach, client: sql })).systemic.find((g) => g.kind === 'leads_new')?.item_ids ?? [];
+      // Sin operador del embudo: solo los suyos (antes, el sin dueño salía a los dos).
+      expect((await leadsOf(A.coachId)).map(Number)).not.toContain(lead.unassigned);
+      expect((await leadsOf(B.coachId)).map(Number)).not.toContain(lead.unassigned);
+      expect(await leadsOf(B.coachId)).toHaveLength(await countNewLeads(B.coachId));
+      process.env.FUNNEL_COACH_ID = String(A.coachId);
+      try {
+        expect((await leadsOf(A.coachId)).map(Number)).toContain(lead.unassigned);
+        expect((await leadsOf(B.coachId)).map(Number)).not.toContain(lead.unassigned);
+      } finally {
+        delete process.env.FUNNEL_COACH_ID;
+      }
+    } finally {
+      await sql`delete from coach_entitlements where coach_id = any(${[A.coachId, B.coachId]}::bigint[]) and source = 'test'`;
     }
   });
 
