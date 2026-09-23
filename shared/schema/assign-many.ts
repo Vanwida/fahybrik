@@ -44,7 +44,14 @@ export const assignManyInputSchema = z
   });
 export type AssignManyInput = z.infer<typeof assignManyInputSchema>;
 
-export type AssignAction = 'assign' | 'chain' | 'replace' | 'skip' | 'blocked';
+/**
+ * assign = sin conflicto · chain = detrás de lo que tiene · replace = sustituye lo
+ * que tiene desde el inicio · skip = se queda como está · blocked = no se le puede
+ * asignar (de baja, ya está en el grupo…) · adopt = al entrar en un grupo ya estaba
+ * haciendo un programa de su cadena: se queda con él, alineado a su propio
+ * calendario, y no se le materializa nada nuevo.
+ */
+export type AssignAction = 'assign' | 'chain' | 'replace' | 'skip' | 'blocked' | 'adopt';
 
 /** El plan que ya tiene y estorba (el último, si son varios). */
 export interface AssignConflict {

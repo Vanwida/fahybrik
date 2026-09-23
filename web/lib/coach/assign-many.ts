@@ -14,6 +14,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
   anchorFromRequest,
+  groupAnchorFromMembers,
   type ExistingReceipt,
   type GroupAnchor,
   type OnConflict,
@@ -30,6 +31,8 @@ import { planPublishedPush } from '@/lib/notifications/plan-published';
 import { boxToday, getAutoPublishSetting } from './week-publishing';
 import {
   AssignManyError,
+  adoptableReceipt,
+  adoptVote,
   assertStartNotPast,
   buildPreview,
   loadProgramOrThrow,
@@ -284,6 +287,7 @@ export async function runGroupJoin(params: {
 
   const recipients = await resolveRecipients(client, coachId, params.athlete_ids, []);
   const group = await loadGroupPlanContext(client, coachId, params.group_id, params.athlete_ids);
+  const receipts = await loadReceipts(client, recipients.map((r) => r.id), start);
   const manual = params.start_position != null || params.start_week != null;
   if (params.start_position != null && group.chain.length > 0 && !group.chain.some((c) => c.position === params.start_position)) {
     throw new AssignManyError(
@@ -292,9 +296,24 @@ export async function runGroupJoin(params: {
       422,
     );
   }
-  const anchor: GroupAnchor = manual || !group.anchor
-    ? anchorFromRequest(params.start_position ?? group.chain[0]?.position ?? 1, params.start_week ?? 1, start)
-    : group.anchor;
+  // Ancla: la de sus miembros; si el grupo aún no tiene, la de quienes entran
+  // haciendo ya un programa de la cadena (adopt); si no, la que define la petición.
+  const today = boxToday();
+  const adoptersAnchor =
+    manual || group.anchor
+      ? null
+      : groupAnchorFromMembers(
+          recipients.flatMap((r) => {
+            const a = adoptableReceipt(group, receipts.get(r.id) ?? [], start, params.on_conflict);
+            return a ? [adoptVote(a, today)] : [];
+          }),
+        );
+  const anchor: GroupAnchor =
+    !manual && group.anchor
+      ? group.anchor
+      : !manual && adoptersAnchor
+        ? adoptersAnchor
+        : anchorFromRequest(params.start_position ?? group.chain[0]?.position ?? 1, params.start_week ?? 1, start);
   const startItem = group.chain.find((c) => c.position === anchor.position);
   if (params.start_week != null && startItem && params.start_week > startItem.weeks) {
     throw new AssignManyError(
@@ -320,7 +339,6 @@ export async function runGroupJoin(params: {
   const replan = (athlete: RecipientInfo, receipts: ExistingReceipt[]): PlanTarget =>
     planGroupJoinTarget({ athlete, receipts, group, anchor, start, policy: params.on_conflict });
 
-  const receipts = await loadReceipts(client, recipients.map((r) => r.id), start);
   const targets = recipients.map((r) => replan(r, receipts.get(r.id) ?? []));
   const base = targets.find((t) => t.program)?.program ?? startItem?.program ?? null;
   const baseWeek = targets.find((t) => t.program)?.start_week ?? 1;

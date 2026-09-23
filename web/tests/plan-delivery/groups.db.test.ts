@@ -155,10 +155,12 @@ describeWithDb('grupos (DB real)', () => {
 
     test('con un plan personal, se encadena detrás y entra donde esté el grupo entonces', async () => {
       const personal = club.athleteIds[4]!;
+      // Su plan propio (un programa que NO está en la cadena del grupo), 3 semanas.
+      const own = await makeProgram(club, 3, 'Plan de Marta');
       await instantiateMonthFromTemplate({
         coach_id: club.coachId,
         athlete_id: personal,
-        month_template_id: B,
+        month_template_id: own,
         start_date: thisMonday,
         client: sql,
       }); // hasta el domingo de dentro de 2 semanas
@@ -170,7 +172,7 @@ describeWithDb('grupos (DB real)', () => {
       });
       const row = res.preview.athletes[0]!;
       expect(row.action).toBe('chain');
-      expect(row.conflict?.program_name).toBe('Build');
+      expect(row.conflict?.program_name).toBe('Plan de Marta');
       // El lunes siguiente al fin de su plan el grupo va por «Build», semana 2.
       expect(row).toMatchObject({ start_date: mondayPlus(today, 3), program: { name: 'Build' }, start_week: 2 });
     });
@@ -247,6 +249,39 @@ describeWithDb('grupos (DB real)', () => {
       await deleteGroup(club.coachId, Number(g.id), sql);
       expect((await receiptsOf(who)).length).toBe(1);
     });
+  });
+
+  test('quien ya hace el programa del grupo lo conserva (adopt); el nuevo se alinea con ellos', async () => {
+    const [x, y, fresh] = [club.athleteIds[9]!, club.athleteIds[10]!, club.athleteIds[6]!];
+    for (const id of [x, y]) {
+      await instantiateMonthFromTemplate({
+        coach_id: club.coachId,
+        athlete_id: id,
+        month_template_id: A,
+        start_date: mondayPlus(today, -1),
+        client: sql,
+      });
+    }
+    const g = await createGroup(club.coachId, { name: 'Migrados', end_policy: 'stop', programs: [{ program_id: String(A) }] }, sql);
+    const before = await sql`select id from workout_assignments where athlete_id in (${x}, ${y})`;
+    const res = await addMembers({
+      coach_id: club.coachId,
+      group_id: Number(g.id),
+      input: { athlete_ids: [String(x), String(y), String(fresh)], ...defaults },
+      client: sql,
+    });
+    const byId = new Map(res.preview.athletes.map((a) => [a.id, a]));
+    expect(byId.get(String(x))).toMatchObject({ action: 'adopt', start_week: 3, program: { name: 'Acumulación' } });
+    // El ancla la ponen los que ya lo hacen: el nuevo entra en SU semana 3, no en la 1.
+    expect(byId.get(String(fresh))).toMatchObject({ action: 'assign', start_week: 3, program: { name: 'Acumulación' } });
+    expect(await sql`select id from workout_assignments where athlete_id in (${x}, ${y})`).toHaveLength(before.length);
+    expect((await cursorOf(x)).at(-1)).toMatchObject({ sequence_id: g.id, status: 'active', current_position: 1 });
+    const detail = await getGroup(club.coachId, Number(g.id), sql);
+    expect(detail!.calendar.anchor).toEqual({ position: 1, program_start: mondayPlus(today, -1) });
+
+    await undoAssignBatch({ coach_id: club.coachId, batch_id: Number(res.applied!.batch_id), client: sql });
+    expect((await cursorOf(x)).filter((c) => c.status === 'active')).toEqual([]);
+    expect(await sql`select id from workout_assignments where athlete_id in (${x}, ${y})`).toHaveLength(before.length);
   });
 
   test('tenencia: otro coach no ve ni toca el grupo; un atleta ajeno invalida el alta', async () => {

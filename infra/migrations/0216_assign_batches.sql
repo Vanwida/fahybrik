@@ -63,7 +63,9 @@ create table if not exists coach_assign_batch_items (
   athlete_id          bigint   not null references athletes(id) on delete cascade,
   -- applied | skipped | failed | undone
   status              text     not null,
-  -- assign | chain | replace | skip | blocked — lo que el plan decidió para él.
+  -- assign | chain | replace | skip | blocked | adopt — lo que el plan decidió para él.
+  -- adopt = al entrar en un grupo ya estaba haciendo un programa de su cadena:
+  -- se queda con él (cursor en esa posición) y no se materializa nada.
   action              text     not null,
   month_template_id   bigint   references program_month_templates(id) on delete set null,
   start_date          date,
@@ -81,7 +83,7 @@ create table if not exists coach_assign_batch_items (
   constraint coach_assign_batch_items_status_chk
     check (status in ('applied', 'skipped', 'failed', 'undone')),
   constraint coach_assign_batch_items_action_chk
-    check (action in ('assign', 'chain', 'replace', 'skip', 'blocked')),
+    check (action in ('assign', 'chain', 'replace', 'skip', 'blocked', 'adopt')),
   constraint coach_assign_batch_items_uq unique (batch_id, athlete_id)
 );
 

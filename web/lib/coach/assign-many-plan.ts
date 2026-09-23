@@ -14,6 +14,7 @@ import {
   placeProgram,
   windowEnd,
   type ChainItem,
+  type MemberAnchorVote,
   type ExistingReceipt,
   type GroupAnchor,
   type GroupEndPolicy,
@@ -296,6 +297,42 @@ export function planAssignTarget(input: {
   };
 }
 
+/**
+ * El programa del grupo que el atleta YA está haciendo el día que entra: un recibo
+ * suyo de un programa de la cadena que cubre `start`. Entonces se queda con él
+ * (adopt) — no se le vuelve a dar. Con «Sustituir» no se adopta: el coach pidió
+ * rehacerlo alineado con el grupo.
+ */
+export function adoptableReceipt(
+  group: GroupPlanContext,
+  receipts: ExistingReceipt[],
+  start: string,
+  policy: OnConflict,
+): { receipt: ExistingReceipt; position: number; weeks: number } | null {
+  if (policy === 'replace') return null;
+  for (const r of [...receipts].sort((a, b) => (a.start_date < b.start_date ? -1 : 1))) {
+    if (!(r.start_date <= start && r.end_date >= start)) continue;
+    const item = [...group.chain]
+      .sort((a, b) => a.position - b.position)
+      .find((c) => String(c.program.id) === r.month_template_id);
+    if (item) return { receipt: r, position: item.position, weeks: item.weeks };
+  }
+  return null;
+}
+
+/** El voto de quien va a adoptar: sirve de ancla a un grupo que aún no tiene miembros. */
+export function adoptVote(
+  adopt: { receipt: ExistingReceipt; position: number; weeks: number },
+  today: string,
+): MemberAnchorVote {
+  return {
+    position: adopt.position,
+    program_weeks: adopt.weeks,
+    receipt_end: adopt.receipt.end_date,
+    current: adopt.receipt.end_date >= today,
+  };
+}
+
 export function planGroupJoinTarget(input: {
   athlete: RecipientInfo;
   receipts: ExistingReceipt[];
@@ -321,6 +358,23 @@ export function planGroupJoinTarget(input: {
       start_week: null,
       start_date: null,
       end_date: null,
+      conflicts: [],
+    };
+  }
+  const adopt = adoptableReceipt(group, input.receipts, input.start, input.policy);
+  if (adopt) {
+    const programStart = isoDateString(addDays(parseIsoDate(adopt.receipt.end_date), 1 - adopt.weeks * 7));
+    const weekAtStart =
+      Math.floor((parseIsoDate(input.start).getTime() - parseIsoDate(programStart).getTime()) / 604_800_000) + 1;
+    return {
+      athlete_id: athlete.id,
+      action: 'adopt',
+      blocked: null,
+      program: group.chain.find((c) => c.position === adopt.position)!.program,
+      position: adopt.position,
+      start_week: Math.max(1, weekAtStart),
+      start_date: adopt.receipt.start_date,
+      end_date: adopt.receipt.end_date,
       conflicts: [],
     };
   }
@@ -395,7 +449,7 @@ export function buildPreview(input: {
   const byId = new Map(input.recipients.map((r) => [r.id, r]));
   const included = new Set(input.recipients.map((r) => r.id));
   const athletes = input.targets.map((t) => previewAthlete(t, byId.get(t.athlete_id)!, included));
-  const counts = { total: athletes.length, assign: 0, chain: 0, replace: 0, skip: 0, blocked: 0 };
+  const counts = { total: athletes.length, assign: 0, chain: 0, replace: 0, skip: 0, blocked: 0, adopt: 0 };
   for (const a of athletes) counts[a.action] += 1;
   const weeks = input.program ? input.program.weeks - input.start_week + 1 : 0;
   return {

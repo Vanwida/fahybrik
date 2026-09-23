@@ -281,7 +281,8 @@ export async function applyTarget(client: Sql, ctx: ApplyContext, athlete: Recip
       if (target.action === 'replace') await cutReceipts(tx, itemId, athlete.id, target.conflicts, target.start_date!);
 
       let visibleWeek: string | null = null;
-      if (target.program) {
+      // 'adopt': ya está haciendo este programa del grupo → nada que materializar.
+      if (target.program && target.action !== 'adopt') {
         const mat = await materializeWithLog(tx, { itemId, coachId: ctx.coach_id, athleteId: athlete.id, target });
         const outcome = await applyDeliveryToWeeks(tx, {
           coach_id: ctx.coach_id,
