@@ -8,9 +8,9 @@
 
 import { useId } from 'react';
 
-import { MIcon } from '@/components/ui/MIcon';
+import { ArrowUp, Check, CircleAlert, Lock, Rocket } from 'lucide-react';
+import { Button, Checkbox, StatusBadge, Tag } from '@/components/v2/ui';
 import { Textarea } from '@/components/ui/textarea';
-import { Pill } from '@/components/v2/Pill';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import type { IntakeProfile, IntakeWarning } from '@/lib/coach/intake';
 import type { IntakeBaselineTest } from '@fahybrid/shared/schema/coach-intake';
@@ -40,7 +40,7 @@ export function StepShell({ n, children }: { n: number; children: React.ReactNod
     <section className="flex gap-3">
       <span
         aria-hidden
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]"
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] t-meta font-semibold text-[color:var(--v2-muted)]"
       >
         {n}
       </span>
@@ -61,15 +61,9 @@ export function EventAnchorStep({
       title="Evento objetivo (A)"
       action={
         anchored ? (
-          <Pill tone="ok" variant="soft">
-            <MIcon name="check" size={13} className="mr-0.5" />
-            Anclado
-          </Pill>
+          <StatusBadge variant="soft" size="sm" tone="ok" label="Anclado" />
         ) : (
-          <Pill tone="danger" variant="soft">
-            <MIcon name="block" size={13} className="mr-0.5" />
-            Gate
-          </Pill>
+          <StatusBadge variant="soft" size="sm" tone="danger" label="Falta la fecha" />
         )
       }
       bodyClassName="flex flex-col gap-2"
@@ -80,7 +74,7 @@ export function EventAnchorStep({
             <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
               {targetEvent.name}
             </span>
-            <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+            <span className="t-tnum text-xs text-[color:var(--v2-muted)]">
               {fmtEventDate(targetEvent.iso_date)}
             </span>
             {targetEvent.division ? (
@@ -93,7 +87,7 @@ export function EventAnchorStep({
         </>
       ) : (
         <div className="flex items-start gap-2 text-xs text-[color:var(--v2-muted)]">
-          <MIcon name="error" size={15} className="mt-0.5 text-[color:var(--v2-danger)]" />
+          <CircleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-v2-danger" />
           <span>
             {targetEvent?.is_in_past
               ? 'El evento objetivo está en el pasado. Reasigna una fecha válida en el perfil del atleta para poder asignar.'
@@ -126,9 +120,7 @@ export function BaselineTestsStep({
     <Panel
       title="Tests de la semana 1"
       action={
-        <Pill tone="neutral" variant="soft">
-          Decisión
-        </Pill>
+        <Tag>Decisión</Tag>
       }
       bodyClassName="flex flex-col gap-3"
     >
@@ -169,7 +161,7 @@ export function BaselineTestsStep({
 function TestGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="v2-micro">{title}</span>
+      <span className="t-label text-v2-faint">{title}</span>
       <ul className="flex flex-col gap-1">{children}</ul>
     </div>
   );
@@ -185,31 +177,12 @@ function TestRow({
   onToggle: () => void;
 }) {
   return (
-    <li>
-      <button
-        type="button"
-        aria-pressed={checked}
-        onClick={onToggle}
-        className={cn(
-          'v2-focus flex w-full items-center gap-2.5 rounded-[var(--v2-r-s)] border px-3 py-2 text-left transition-colors',
-          checked
-            ? 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]'
-            : 'border-dashed border-[color:var(--v2-border)] opacity-60 hover:opacity-100',
-        )}
-      >
-        <span
-          aria-hidden
-          className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
-            checked
-              ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-              : 'border-[color:var(--v2-border-strong)]',
-          )}
-        >
-          {checked ? <MIcon name="check" size={12} /> : null}
-        </span>
-        <span className="truncate text-sm text-[color:var(--v2-fg)]">{test.label}</span>
-      </button>
+    <li className={cn('rounded-ctl px-2 py-1.5', checked ? 'bg-v2-surface-2' : null)}>
+      <Checkbox
+        checked={checked}
+        onCheckedChange={() => onToggle()}
+        label={<span className={cn('t-body', checked ? 'text-v2-fg' : 'text-v2-muted')}>{test.label}</span>}
+      />
     </li>
   );
 }
@@ -235,15 +208,14 @@ export function WarningsStep({
       title="Avisos por confirmar"
       action={
         manual.length === 0 ? (
-          <Pill tone="ok" variant="soft">
-            <MIcon name="check" size={13} className="mr-0.5" />
-            Sin avisos
-          </Pill>
+          <StatusBadge variant="soft" size="sm" tone="ok" label="Sin avisos" />
         ) : (
-          <Pill tone={ackedCount === manual.length ? 'ok' : 'warn'} variant="soft">
-            <MIcon name="shield" size={13} className="mr-0.5" />
-            {ackedCount}/{manual.length} confirmados
-          </Pill>
+          <StatusBadge
+            variant="soft"
+            size="sm"
+            tone={ackedCount === manual.length ? 'ok' : 'warn'}
+            label={`${ackedCount}/${manual.length} confirmados`}
+          />
         )
       }
       bodyClassName="flex flex-col gap-2"
@@ -254,15 +226,12 @@ export function WarningsStep({
         <>
           {event.map((w) => (
             <WarningRow key={w.kind} warning={w}>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 text-label font-semibold',
-                  eventResolved ? 'text-[color:var(--v2-ok)]' : 'text-[color:var(--v2-muted)]',
-                )}
-              >
-                <MIcon name={eventResolved ? 'check' : 'arrow_upward'} size={13} />
-                {eventResolved ? 'Resuelto' : 'Se resuelve al anclar el evento'}
-              </span>
+              <StatusBadge
+                size="sm"
+                tone={eventResolved ? 'ok' : 'neutral'}
+                icon={eventResolved ? undefined : ArrowUp}
+                label={eventResolved ? 'Resuelto' : 'Se resuelve al anclar el evento'}
+              />
             </WarningRow>
           ))}
           {manual.map((w) => {
@@ -270,19 +239,11 @@ export function WarningsStep({
             return (
               <WarningRow key={w.kind} warning={w}>
                 {acked ? (
-                  <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-ok)]">
-                    <MIcon name="check_circle" size={14} />
-                    Confirmado
-                  </span>
+                  <StatusBadge size="sm" tone="ok" label="Confirmado" />
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => onAck(w.kind)}
-                    className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 py-1 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-                  >
-                    <MIcon name="check" size={13} />
+                  <Button size="sm" icon={Check} onClick={() => onAck(w.kind)}>
                     Confirmar
-                  </button>
+                  </Button>
                 )}
               </WarningRow>
             );
@@ -302,20 +263,13 @@ function WarningRow({
 }) {
   const critical = warning.severity === 'critical';
   return (
-    <div className="flex items-start gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-      <MIcon
-        name={critical ? 'priority_high' : 'info'}
-        size={16}
-        className={cn('mt-0.5 shrink-0', critical ? 'text-[color:var(--v2-danger)]' : 'text-[color:var(--v2-info)]')}
-      />
+    <div className="flex items-start gap-2.5 rounded-ctl bg-v2-surface-2 px-3 py-2">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-[color:var(--v2-fg)]">{warning.label}</span>
-          <Pill tone={critical ? 'danger' : 'warn'} variant="soft">
-            {critical ? 'Crítico' : 'Aviso'}
-          </Pill>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge size="sm" tone={critical ? 'danger' : 'warn'} label={critical ? 'Crítico' : 'Aviso'} />
+          <span className="t-body-sm font-medium text-v2-fg">{warning.label}</span>
         </div>
-        <span className="text-label text-[color:var(--v2-muted)]">{warning.detail}</span>
+        <span className="t-meta text-[color:var(--v2-muted)]">{warning.detail}</span>
       </div>
       <div className="shrink-0 self-center">{children}</div>
     </div>
@@ -347,33 +301,15 @@ export function WelcomeNotesStep({
     <Panel
       title="Bienvenida y notas"
       action={
-        <Pill tone="neutral" variant="soft">
-          Opcional
-        </Pill>
+        <Tag>Opcional</Tag>
       }
       bodyClassName="flex flex-col gap-3"
     >
-      <button
-        type="button"
-        aria-pressed={send}
-        onClick={() => onChangeSend(!send)}
-        className="v2-focus flex items-center gap-2 text-left"
-      >
-        <span
-          aria-hidden
-          className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
-            send
-              ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-              : 'border-[color:var(--v2-border-strong)]',
-          )}
-        >
-          {send ? <MIcon name="check" size={12} /> : null}
-        </span>
-        <span className="text-sm font-medium text-[color:var(--v2-fg)]">
-          Enviar mensaje al atleta al asignar
-        </span>
-      </button>
+      <Checkbox
+        checked={send}
+        onCheckedChange={(v) => onChangeSend(v)}
+        label={<span className="t-body font-medium">Enviar mensaje al atleta al asignar</span>}
+      />
 
       <Textarea
         aria-label="Mensaje de bienvenida"
@@ -387,7 +323,7 @@ export function WelcomeNotesStep({
       />
 
       <div className="flex flex-col gap-1.5">
-        <span id={idNotas} className="v2-micro">
+        <span id={idNotas} className="t-label text-v2-faint">
           Notas internas · privadas
         </span>
         <Textarea
@@ -428,58 +364,39 @@ export function AssignBar({
 }) {
   const blockers = checks.filter((c) => c.state !== 'ok').length;
   return (
-    <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 lg:bottom-4 flex flex-col gap-2.5 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5 shadow-[var(--v2-shadow-card)]">
+    <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 flex flex-col gap-2.5 rounded-panel border border-v2-border bg-v2-elevated p-3 shadow-pop lg:bottom-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="v2-micro">Listo para asignar</span>
+        <span className="t-label text-v2-faint">Listo para asignar</span>
         {checks.map((c) => (
-          <span
+          <StatusBadge
             key={c.key}
-            className={cn(
-              'inline-flex items-center gap-1 text-label font-semibold',
-              c.state === 'ok'
-                ? 'text-[color:var(--v2-ok)]'
-                : c.state === 'blocked'
-                  ? 'text-[color:var(--v2-danger)]'
-                  : 'text-[color:var(--v2-muted)]',
-            )}
-          >
-            <MIcon
-              name={c.state === 'ok' ? 'check' : c.state === 'blocked' ? 'close' : 'pending'}
-              size={13}
-            />
-            {c.label}
-          </span>
+            size="sm"
+            tone={c.state === 'ok' ? 'ok' : c.state === 'blocked' ? 'danger' : 'neutral'}
+            label={c.label}
+          />
         ))}
       </div>
 
       {error ? (
-        <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p>
+        <p className="t-meta font-medium text-[color:var(--v2-danger)]">{error}</p>
       ) : null}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-label text-[color:var(--v2-faint)]">
+        <span className="t-meta text-[color:var(--v2-faint)]">
           {canAssign
             ? readyHint
             : `${blockers} ${blockers === 1 ? 'punto' : 'puntos'} por resolver.`}
         </span>
-        <button
-          type="button"
-          disabled={!canAssign || submitting}
+        <Button
+          variant="primary"
+          size="lg"
+          icon={canAssign ? Rocket : Lock}
+          loading={submitting}
+          disabled={!canAssign}
           onClick={onAssign}
-          className={cn(
-            'v2-focus inline-flex h-10 items-center gap-2 rounded-[var(--v2-r-pill)] px-4 text-sm font-semibold transition-colors',
-            canAssign && !submitting
-              ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]'
-              : 'cursor-not-allowed bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
-          )}
         >
-          <MIcon
-            name={submitting ? 'progress_activity' : canAssign ? 'rocket_launch' : 'lock'}
-            size={17}
-            className={submitting ? 'animate-spin' : undefined}
-          />
-          {submitting ? 'Asignando…' : 'Asignar plan'}
-        </button>
+          Asignar plan
+        </Button>
       </div>
     </div>
   );

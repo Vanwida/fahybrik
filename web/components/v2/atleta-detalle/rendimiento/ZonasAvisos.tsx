@@ -24,6 +24,7 @@ import {
 } from '@/lib/zones/chart';
 import { HR_ANCHOR_LABEL } from '@fahybrid/shared/domain/methodology';
 import type { WeeklyZonesPayload } from '@/lib/zones/weekly';
+import { ErrorState } from '@/components/v2/ui';
 
 // ── Los avisos ────────────────────────────────────────────────────────────────
 
@@ -48,8 +49,8 @@ export function AvisoUmbral({
     <div
       className={
         falta
-          ? 'flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] p-3'
-          : 'flex items-start gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3'
+          ? 'flex items-start gap-2.5 rounded-panel border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] p-3'
+          : 'flex items-start gap-2.5 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3'
       }
     >
       <MIcon
@@ -79,17 +80,7 @@ export function AvisoUmbral({
 
 export function ErrorConReintento({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-3">
-      <span className="text-xs font-medium text-[color:var(--v2-danger)]">{message}</span>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="v2-focus inline-flex h-7 shrink-0 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-danger)]"
-      >
-        <MIcon name="refresh" size={13} />
-        Reintentar
-      </button>
-    </div>
+    <ErrorState title={message} onRetry={onRetry} />
   );
 }
 
@@ -99,7 +90,7 @@ export function Leyenda() {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
       {ZONE_PART_KEYS.map((key) => (
-        <li key={key} className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
+        <li key={key} className="flex items-center gap-1.5 t-meta text-[color:var(--v2-muted)]">
           <span
             aria-hidden
             className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
@@ -144,7 +135,7 @@ export function Resumen({
         ·
       </span>
       <span>
-        <span className="v2-num font-semibold text-[color:var(--v2-fg)]">{formatDuration(total)}</span>{' '}
+        <span className="t-tnum font-semibold text-[color:var(--v2-fg)]">{formatDuration(total)}</span>{' '}
         en {weeksWithData} {weeksWithData === 1 ? 'semana' : 'semanas'} con dato
       </span>
       {faltan ? (
@@ -168,12 +159,12 @@ export function LineaDeConfianza({ meta }: { meta: WeeklyZonesPayload['meta'] | 
   const usados = (meta?.computed_with ?? []).filter((c) => c.anchor != null);
   if (usados.length === 0) return null;
   return (
-    <p className="border-t border-[color:var(--v2-border)] pt-3 text-label text-[color:var(--v2-faint)]">
+    <p className="border-t border-[color:var(--v2-border)] pt-3 t-meta text-[color:var(--v2-faint)]">
       Calculado con{' '}
       {usados.map((c, i) => (
         <span key={`${c.anchor}-${c.lthr_bpm}`}>
           {i > 0 ? ' y con ' : ''}
-          <span className="v2-num">{c.lthr_bpm} ppm</span>
+          <span className="t-tnum">{c.lthr_bpm} ppm</span>
           {c.anchor ? ` (${HR_ANCHOR_LABEL[c.anchor].toLowerCase()})` : ''}
         </span>
       ))}

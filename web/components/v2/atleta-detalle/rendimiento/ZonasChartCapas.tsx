@@ -23,6 +23,7 @@ import {
   type ZonePlanBand,
   type ZoneRangeBand,
 } from '@/lib/zones/chart';
+import { Button } from '@/components/v2/ui';
 
 /** Los cinco tonos de la espina, aquí como rampa de naranja por posición. */
 const BAND_FILL_OPACITY = [0.3, 0.24, 0.18, 0.13, 0.09];
@@ -152,9 +153,9 @@ export function CapaDeMarcado({
         const elegida = i === desdeIndex;
         const estilo: CSSProperties = { width: slot };
         return (
-          <button
+          <Button
             key={week}
-            type="button"
+            variant="ghost"
             onClick={() => onElegir(week)}
             aria-pressed={elegida}
             aria-label={
@@ -165,8 +166,8 @@ export function CapaDeMarcado({
             style={estilo}
             className={
               elegida
-                ? 'v2-focus h-full shrink-0 rounded-[var(--v2-r-2xs)] bg-[color:var(--v2-accent)]/20 ring-1 ring-[color:var(--v2-accent)]'
-                : 'v2-focus h-full shrink-0 rounded-[var(--v2-r-2xs)] hover:bg-[color:var(--v2-fg)]/8'
+                ? 'h-full shrink-0 rounded-[4px] border-0 bg-v2-select px-0 ring-1 ring-v2-fg'
+                : 'h-full shrink-0 rounded-[4px] border-0 px-0 hover:bg-v2-hover'
             }
           />
         );

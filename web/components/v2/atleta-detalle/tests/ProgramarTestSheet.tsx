@@ -16,8 +16,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { ModalPortal } from '@/components/v2/editor/ModalPortal';
+import { CalendarCheck } from 'lucide-react';
+import { Button, Dialog, Input } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 
 const REPEAT_OPTIONS: { label: string; weeks: number }[] = [
   { label: 'No repetir', weeks: 0 },
@@ -89,129 +90,70 @@ export function ProgramarTestSheet({
   }
 
   return (
-    <ModalPortal onEscape={onClose} escapeEnabled={!busy}>
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--v2-scrim)] p-0 sm:items-center sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Programar test para ${athleteName}`}
-      onClick={onClose}
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o && !busy) onClose();
+      }}
+      title={`Programar test · ${athleteName}`}
+      description="De tu biblioteca. Entra en su plan como un entreno normal y podrás moverlo o quitarlo."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="primary" icon={CalendarCheck} loading={busy} disabled={!testId} onClick={submit}>
+            Programar
+          </Button>
+        </>
+      }
     >
-      <div
-        className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-t-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] sm:rounded-[var(--v2-r-l)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--v2-border)] px-5 py-4">
-          <h2 className="text-base font-bold tracking-tight text-[color:var(--v2-fg)]">
-            Programar test · {athleteName}
-          </h2>
-          <p className="mt-1 text-xs text-[color:var(--v2-muted)]">
-            De tu biblioteca. Entra en su plan como una sesión normal y podrás moverla o quitarla.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-5 px-5 py-5">
-          <div>
-            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              ¿Cuál?
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {library.map((t) => {
-                const on = t.id === testId;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTestId(t.id)}
-                    className={
-                      on
-                        ? 'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent-text)]'
-                        : 'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
-                    }
-                  >
-                    {t.name}
-                  </button>
-                );
-              })}
-            </div>
-            {selected ? (
-              <p className="mt-2 text-xs text-[color:var(--v2-faint)]">
-                {selected.last_done
-                  ? `Lo hizo por última vez el ${longDate(selected.last_done)}.`
-                  : 'No lo ha hecho nunca.'}
-              </p>
-            ) : null}
-          </div>
-
-          <label className="flex flex-col gap-2">
-            <span className="text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              ¿Qué día?
-            </span>
-            <input
-              type="date"
-              value={date}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDate(e.target.value)}
-              className="v2-focus rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3.5 py-3 text-reading font-semibold text-[color:var(--v2-fg)]"
-            />
-          </label>
-
-          <div>
-            <p className="mb-2 text-eyebrow font-bold uppercase tracking-[0.11em] text-[color:var(--v2-faint)]">
-              Repetirlo
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {REPEAT_OPTIONS.map((o) => {
-                const on = o.weeks === repeat;
-                return (
-                  <button
-                    key={o.weeks}
-                    type="button"
-                    onClick={() => setRepeat(o.weeks)}
-                    className={
-                      on
-                        ? 'v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-accent)]/40 bg-[color:var(--v2-accent-soft)] px-3 py-2 text-body font-semibold text-[color:var(--v2-accent-text)]'
-                        : 'v2-focus rounded-[var(--v2-r-pill)] border border-transparent bg-[color:var(--v2-surface-2)] px-3 py-2 text-body text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]'
-                    }
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {error ? (
-            <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
-              {error}
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">¿Cuál?</span>
+          <ChipGroup
+            mono={false}
+            ariaLabel="Test"
+            value={testId}
+            onChange={setTestId}
+            options={library.map((t) => ({ value: t.id, label: t.name }))}
+          />
+          {selected ? (
+            <p className="t-meta text-v2-faint">
+              {selected.last_done ? `Lo hizo por última vez el ${longDate(selected.last_done)}.` : 'No lo ha hecho nunca.'}
             </p>
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-2.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-5 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="v2-focus rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-fg)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={busy || !testId}
-            className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-2 text-body font-semibold text-[color:var(--v2-accent-fg)] disabled:opacity-40"
-          >
-            {busy ? (
-              <MIcon name="progress_activity" size={15} className="animate-spin" />
-            ) : (
-              <MIcon name="event_available" size={15} />
-            )}
-            Programar
-          </button>
+        <label className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">¿Qué día?</span>
+          <Input
+            type="date"
+            size="lg"
+            value={date}
+            min={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDate(e.target.value)}
+            className="max-w-[220px] t-tnum"
+          />
+        </label>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">Repetirlo</span>
+          <ChipGroup
+            mono={false}
+            ariaLabel="Repetirlo"
+            value={repeat}
+            onChange={setRepeat}
+            options={REPEAT_OPTIONS.map((o) => ({ value: o.weeks, label: o.label }))}
+          />
         </div>
+
+        {error ? (
+          <p role="alert" className="t-body-sm text-v2-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </div>
-    </ModalPortal>
+    </Dialog>
   );
 }

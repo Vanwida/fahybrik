@@ -15,6 +15,8 @@ import { ZoneCalculator } from './ZoneCalculator';
 import { RegistrarResultadoForm } from './RegistrarResultadoForm';
 import { Panel } from './parts';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 export function RitmosZonasTab({
   athleteId,
@@ -36,14 +38,9 @@ export function RitmosZonasTab({
             title="Zonas vigentes"
             action={
               recording ? null : (
-                <button
-                  type="button"
-                  onClick={() => setRecording(true)}
-                  className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-2 py-1 text-label font-bold text-[color:var(--v2-accent-text)] transition-colors hover:bg-[color:var(--v2-accent-soft)]"
-                >
-                  <MIcon name="add" size={14} />
+                <Button size="sm" variant="ghost" icon={Plus} onClick={() => setRecording(true)}>
                   Nuevo resultado
-                </button>
+                </Button>
               )
             }
             bodyClassName="p-0 border-0 bg-transparent shadow-none"
@@ -66,7 +63,7 @@ export function RitmosZonasTab({
               <MIcon name="speed" size={26} />
             </span>
             <div>
-              <p className="text-sm font-bold text-[color:var(--v2-fg)]">Sin test aún</p>
+              <p className="text-sm font-semibold text-[color:var(--v2-fg)]">Sin test aún</p>
               <p className="mt-1 max-w-sm text-xs leading-snug text-[color:var(--v2-muted)]">
                 Registra un resultado de test para calcular las 6 zonas de{' '}
                 {athleteName.split(' ')[0]} y empezar a resolver sus ritmos en el plan.

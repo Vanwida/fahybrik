@@ -28,7 +28,7 @@ export function Panel({
   return (
     <section className="flex flex-col gap-4 rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 sm:p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-        <h3 className="v2-micro">{titulo}</h3>
+        <h3 className="t-label text-v2-faint">{titulo}</h3>
         {chip ? (
           <Pill tone={chipTono} variant="outline">
             {chip}
@@ -55,7 +55,7 @@ export function Veredicto({
   return (
     <div className="flex flex-col gap-1.5">
       <p
-        className="v2-display max-w-[34ch] text-[clamp(19px,2.6vw,24px)] leading-tight"
+        className="t-title-sm max-w-[34ch] text-[clamp(19px,2.6vw,24px)] leading-tight"
         style={tono === 'alerta' ? { color: 'var(--v2-warn)' } : undefined}
       >
         {frase}
@@ -74,7 +74,7 @@ export function NotaMetodo({ children }: { children: ReactNode }) {
 /** Cuando una tarjeta no tiene con qué hablar. Dice qué falta, no «sin datos». */
 export function SinBastante({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] px-3.5 py-3 text-xs leading-relaxed text-[color:var(--v2-muted)]">
+    <p className="rounded-ctl border border-dashed border-[color:var(--v2-border-strong)] px-3.5 py-3 text-xs leading-relaxed text-[color:var(--v2-muted)]">
       {children}
     </p>
   );
@@ -86,12 +86,12 @@ export function Cifras({ children }: { children: ReactNode }) {
 
 export function Cifra({ etiqueta, valor, pie, tono }: { etiqueta: string; valor: string; pie?: string; tono?: string }) {
   return (
-    <div className="min-w-[7rem] flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-      <span className="v2-micro block text-[9.5px]">{etiqueta}</span>
-      <span className="v2-num mt-1.5 block text-2xl font-semibold" style={{ color: tono ?? 'var(--v2-fg)' }}>
+    <div className="min-w-[7rem] flex-1 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
+      <span className="t-label block t-label text-v2-faint">{etiqueta}</span>
+      <span className="t-tnum mt-1.5 block text-2xl font-semibold" style={{ color: tono ?? 'var(--v2-fg)' }}>
         {valor}
       </span>
-      {pie ? <span className="mt-0.5 block text-[11px] leading-snug text-[color:var(--v2-muted)]">{pie}</span> : null}
+      {pie ? <span className="mt-0.5 block t-meta leading-snug text-[color:var(--v2-muted)]">{pie}</span> : null}
     </div>
   );
 }
@@ -134,13 +134,13 @@ export function BarraSesgo({
   return (
     <div className="flex flex-col gap-1.5">
       <div
-        className="flex h-8 w-full overflow-hidden rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]"
+        className="flex h-8 w-full overflow-hidden rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]"
         role="img"
         aria-label={`${dentro} en banda, ${rapido} más rápido, ${lento} más lento`}
       >
         {rapido > 0 ? (
           <span
-            className="flex items-center justify-center overflow-hidden text-[11px] font-bold text-[color:var(--v2-warn)]"
+            className="flex items-center justify-center overflow-hidden t-meta font-semibold text-[color:var(--v2-warn)]"
             style={{
               width: w(rapido),
               background:
@@ -150,7 +150,7 @@ export function BarraSesgo({
         ) : null}
         {dentro > 0 ? (
           <span
-            className="v2-num flex items-center justify-center overflow-hidden whitespace-nowrap px-1 text-[11px] font-bold text-[color:var(--v2-ok)]"
+            className="t-tnum flex items-center justify-center overflow-hidden whitespace-nowrap px-1 t-meta font-semibold text-[color:var(--v2-ok)]"
             style={{ width: w(dentro), background: 'var(--v2-ok-soft)' }}
           >
             {dentro} en banda
@@ -158,14 +158,14 @@ export function BarraSesgo({
         ) : null}
         {lento > 0 ? (
           <span
-            className="v2-num flex items-center justify-center overflow-hidden text-[11px] font-bold text-[color:var(--v2-warn)]"
+            className="t-tnum flex items-center justify-center overflow-hidden t-meta font-semibold text-[color:var(--v2-warn)]"
             style={{ width: w(lento), background: 'var(--v2-warn-soft)' }}
           >
             {lento}
           </span>
         ) : null}
       </div>
-      <div className="flex items-baseline justify-between gap-2 text-[11px] leading-snug text-[color:var(--v2-muted)]">
+      <div className="flex items-baseline justify-between gap-2 t-meta leading-snug text-[color:var(--v2-muted)]">
         <span>{rapido > 0 ? `${rapido} más ${rapido === 1 ? 'rápido' : 'rápidos'}` : ''}</span>
         <span className="text-[color:var(--v2-faint)]">{pct != null ? `${pct} % de acierto` : ''}</span>
         <span className="text-right">{lento > 0 ? `${lento} más ${lento === 1 ? 'lento' : 'lentos'}` : ''}</span>
@@ -207,7 +207,7 @@ export function ColumnasPorPosicion({
           return (
             <div key={p.position} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
               <span
-                className="v2-num text-[11px] font-bold leading-none"
+                className="t-tnum t-meta font-semibold leading-none"
                 style={{ color, fontSize: sinPct ? 10 : undefined }}
               >
                 {sinPct ? `${p.n} aún` : `${p.pct_dentro} %`}
@@ -222,8 +222,8 @@ export function ColumnasPorPosicion({
                   boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 34%, transparent)`,
                 }}
               />
-              <span className="text-[10.5px] leading-none text-[color:var(--v2-faint)]">{ordinal(p.position)}</span>
-              <span className="v2-num text-[9.5px] leading-none text-[color:var(--v2-faint)] opacity-75">{p.n}</span>
+              <span className="t-meta leading-none text-[color:var(--v2-faint)]">{ordinal(p.position)}</span>
+              <span className="t-tnum t-meta leading-none text-[color:var(--v2-faint)] opacity-75">{p.n}</span>
             </div>
           );
         })}
@@ -260,7 +260,7 @@ export function BarrasSemanales({
       {semanas.map((s) => (
         <div key={s.week_start} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
           <span
-            className="v2-num text-[11px] font-bold leading-none"
+            className="t-tnum t-meta font-semibold leading-none"
             style={{ color: s.en_curso ? 'var(--v2-accent)' : 'var(--v2-fg)' }}
           >
             {s.km.toFixed(1).replace('.', ',')}
@@ -277,7 +277,7 @@ export function BarrasSemanales({
                 : 'inset 0 0 0 1px color-mix(in srgb, var(--v2-fg) 10%, transparent)',
             }}
           />
-          <span className="whitespace-nowrap text-[9.5px] leading-none text-[color:var(--v2-faint)]">
+          <span className="whitespace-nowrap t-meta leading-none text-[color:var(--v2-faint)]">
             {etiqueta(s.week_start)}
           </span>
         </div>
@@ -330,16 +330,16 @@ export function LineaDeCoste({ puntos }: { puntos: Array<{ week_start: string; c
               <circle key={p.week_start} cx={x(i)} cy={y(p.cost_s_per_km)} r={1.6} fill="var(--v2-accent)" vectorEffect="non-scaling-stroke" />
             ))}
           </svg>
-          <div className="flex justify-between text-[9.5px] leading-none text-[color:var(--v2-faint)]">
+          <div className="flex justify-between t-meta leading-none text-[color:var(--v2-faint)]">
             <span>{etiqueta(puntos[0]!.week_start)}</span>
             {puntos.length > 1 ? <span>{etiqueta(puntos[puntos.length - 1]!.week_start)}</span> : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
-          <span className="v2-num text-2xl font-semibold leading-none text-[color:var(--v2-fg)]">
+          <span className="t-tnum text-2xl font-semibold leading-none text-[color:var(--v2-fg)]">
             {formatCoste(valores[valores.length - 1]!)}
           </span>
-          <span className="text-[10.5px] leading-none text-[color:var(--v2-muted)]">s/km ahora</span>
+          <span className="t-meta leading-none text-[color:var(--v2-muted)]">s/km ahora</span>
         </div>
       </div>
     </div>

@@ -146,7 +146,7 @@ function Stat({
       {value != null ? (
         <span
           className={cn(
-            'v2-num text-2xl font-semibold leading-none',
+            't-tnum text-2xl font-semibold leading-none',
             caution ? 'text-[color:var(--v2-warn)]' : 'text-[color:var(--v2-fg)]',
           )}
         >
@@ -154,11 +154,11 @@ function Stat({
           <span className="text-xs font-medium text-[color:var(--v2-muted)]">/10</span>
         </span>
       ) : (
-        <span className="v2-num text-2xl font-semibold leading-none text-[color:var(--v2-faint)]">
+        <span className="t-tnum text-2xl font-semibold leading-none text-[color:var(--v2-faint)]">
           —
         </span>
       )}
-      <span className="v2-micro mt-1.5">{label}</span>
+      <span className="t-label mt-1.5 text-v2-faint">{label}</span>
     </div>
   );
 }
@@ -166,7 +166,7 @@ function Stat({
 /** A "Clave · valor" line (Experiencia). */
 function KeyLine({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-baseline gap-2 text-body">
+    <div className="flex items-baseline gap-2 t-body-sm">
       <span className="text-[color:var(--v2-muted)]">{k}</span>
       <span aria-hidden className="text-[color:var(--v2-faint)]">
         ·
@@ -180,7 +180,7 @@ function KeyLine({ k, v }: { k: string; v: string }) {
 function GoalTerm({ term, value }: { term: string; value: string }) {
   return (
     <div className="flex gap-2 text-xs">
-      <span className="v2-micro min-w-[44px] shrink-0 pt-px">{term}</span>
+      <span className="t-label min-w-[44px] shrink-0 pt-px text-v2-faint">{term}</span>
       <span className="text-[color:var(--v2-fg)]">{value}</span>
     </div>
   );
@@ -200,9 +200,9 @@ function AvailCell({
     <span
       title={AVAIL_TITLES[value ?? 'rest']}
       className={cn(
-        'flex h-[26px] w-[26px] items-center justify-center rounded-[var(--v2-r-m)] border text-eyebrow font-bold',
+        'flex h-[26px] w-[26px] items-center justify-center rounded-panel border t-meta font-semibold',
         isProgram &&
-          'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]',
+          'border-v2-border-strong bg-v2-select text-v2-fg',
         isOther &&
           'border-[color:var(--v2-border)] bg-[color:var(--v2-info-soft)] text-[color:var(--v2-info)]',
         !isProgram &&
@@ -217,7 +217,7 @@ function AvailCell({
 
 /** A muted single line used when a panel has nothing to show. */
 function MutedLine({ children }: { children: ReactNode }) {
-  return <p className="text-body text-[color:var(--v2-muted)]">{children}</p>;
+  return <p className="t-body-sm text-[color:var(--v2-muted)]">{children}</p>;
 }
 
 // =============================================================================
@@ -248,7 +248,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
   if (trainingDays != null) {
     availParts.push(
       <span key="days" className="flex items-baseline gap-1">
-        <span className="v2-num text-lg font-semibold text-[color:var(--v2-fg)]">
+        <span className="t-tnum text-lg font-semibold text-[color:var(--v2-fg)]">
           {trainingDays}
         </span>
         <span className="text-xs text-[color:var(--v2-muted)]">días/sem</span>
@@ -257,7 +257,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
   }
   if (window) {
     availParts.push(
-      <span key="window" className="v2-num text-body text-[color:var(--v2-fg)]">
+      <span key="window" className="t-tnum t-body-sm text-[color:var(--v2-fg)]">
         {window}
       </span>,
     );
@@ -265,7 +265,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
   if (s.session_minutes != null) {
     availParts.push(
       <span key="mins" className="text-xs text-[color:var(--v2-muted)]">
-        <span className="v2-num">{s.session_minutes}</span> min/sesión
+        <span className="t-tnum">{s.session_minutes}</span> min/sesión
       </span>,
     );
   }
@@ -342,7 +342,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
             {athlete.injuries.map((inj, i) => (
               <div
                 key={`${inj.area}-${i}`}
-                className="flex flex-wrap items-center gap-1.5 text-body text-[color:var(--v2-fg)]"
+                className="flex flex-wrap items-center gap-1.5 t-body-sm text-[color:var(--v2-fg)]"
               >
                 <span>{inj.area}</span>
                 {inj.severity ? (
@@ -412,8 +412,8 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
           <div className="grid grid-cols-2 gap-x-3.5 gap-y-2">
             {benchmarks.map((b) => (
               <div key={b.exercise_slug} className="flex flex-col gap-0.5">
-                <span className="text-label text-[color:var(--v2-muted)]">{b.label}</span>
-                <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">
+                <span className="t-meta text-[color:var(--v2-muted)]">{b.label}</span>
+                <span className="t-tnum text-sm font-semibold text-[color:var(--v2-fg)]">
                   {b.value} {b.unit}
                 </span>
               </div>
@@ -424,7 +424,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
 
       {/* 7 · INSTALACIÓN & EQUIPO */}
       <RailPanel title="Instalación & equipo" icon="warehouse">
-        <p className="text-body font-semibold text-[color:var(--v2-fg)]">{facilityLabel}</p>
+        <p className="t-body-sm font-semibold text-[color:var(--v2-fg)]">{facilityLabel}</p>
         {s.owned_equipment.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {s.owned_equipment.map((e) => (
@@ -435,7 +435,7 @@ export function AthleteAnswers({ profile }: { profile: IntakeProfile }) {
           </div>
         ) : null}
         {s.equipment_incompatible_count > 0 ? (
-          <p className="mt-2 flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
+          <p className="mt-2 flex items-center gap-1.5 t-meta text-[color:var(--v2-muted)]">
             <MIcon name="swap_horiz" size={13} className="shrink-0 text-[color:var(--v2-warn)]" />
             <span>
               Sin {s.missing_equipment_tags.map(humanizeSlug).join(', ')} ·{' '}

@@ -95,7 +95,7 @@ export function PanelCalibracion({ analytics }: { analytics: RunningAnalyticsPay
 
       {positions.length > 0 ? (
         <>
-          <h4 className="v2-micro mt-1">Dónde se rompe dentro de la serie</h4>
+          <h4 className="t-label mt-1 text-v2-faint">Dónde se rompe dentro de la serie</h4>
           <ColumnasPorPosicion posiciones={positions} minPorPosicion={thresholds.min_reps_per_position} />
         </>
       ) : null}

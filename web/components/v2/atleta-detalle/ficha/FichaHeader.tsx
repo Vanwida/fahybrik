@@ -23,7 +23,7 @@ function UnreadCount({ n, className }: { n: number; className?: string }) {
     <span
       aria-label={`${n} sin leer`}
       className={cn(
-        'inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-v2-info px-1 text-[11px] font-semibold leading-none text-v2-bg t-tnum',
+        'inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-v2-info px-1 t-meta font-semibold leading-none text-v2-bg t-tnum',
         className,
       )}
     >

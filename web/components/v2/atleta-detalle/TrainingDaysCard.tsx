@@ -31,18 +31,18 @@ export function TrainingDaysStrip({ data }: { data: TrainingDaysData }) {
           : 'El atleta aún no ha marcado sus días reales en su app'
       }
     >
-      <span className="v2-micro hidden sm:inline">días</span>
+      <span className="t-label hidden sm:inline text-v2-faint">días</span>
       <div className="flex items-center gap-1">
         {days.map((d) => (
           <span
             key={d.key}
             aria-hidden
             className={cn(
-              'flex h-5 w-5 items-center justify-center rounded-[var(--v2-r-2xs)] text-nano font-bold uppercase',
+              'flex h-5 w-5 items-center justify-center rounded-ctl t-label font-semibold',
               !has_availability
                 ? 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)]'
                 : d.trains
-                  ? 'bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
+                  ? 'bg-v2-select text-v2-fg'
                   : 'bg-[color:var(--v2-surface-2)] text-[color:var(--v2-faint)]',
             )}
           >
@@ -93,17 +93,17 @@ export function TrainingDaysCard({
             key={d.key}
             title={has_availability ? `${d.full_label} · ${d.trains ? 'entreno' : 'descanso'}` : d.full_label}
             className={cn(
-              'flex flex-col items-center gap-1.5 rounded-[var(--v2-r-m)] border py-2.5 text-center',
+              'flex flex-col items-center gap-1.5 rounded-panel border py-2.5 text-center',
               !has_availability
                 ? 'border-dashed border-[color:var(--v2-border)]'
                 : d.trains
-                  ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
+                  ? 'border-v2-border-strong bg-v2-select'
                   : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
             )}
           >
-            <span className="v2-micro text-nano">{d.label}</span>
+            <span className="t-label t-label text-v2-faint">{d.label}</span>
             {!has_availability ? (
-              <span className="text-eyebrow text-[color:var(--v2-faint)]">{EM_DASH}</span>
+              <span className="t-meta text-[color:var(--v2-faint)]">{EM_DASH}</span>
             ) : d.trains ? (
               <span
                 aria-hidden
@@ -117,11 +117,11 @@ export function TrainingDaysCard({
         ))}
       </div>
       {!has_availability ? (
-        <p className="mt-2.5 text-label text-[color:var(--v2-faint)]">
+        <p className="mt-2.5 t-meta text-[color:var(--v2-faint)]">
           El atleta aún no ha marcado sus días reales en su app.
         </p>
       ) : daysConflict ? (
-        <p className="mt-2.5 flex items-start gap-1.5 text-label text-[color:var(--v2-warn)]">
+        <p className="mt-2.5 flex items-start gap-1.5 t-meta text-[color:var(--v2-warn)]">
           <MIcon name="warning" size={14} className="mt-px shrink-0" />
           <span>
             El atleta entrena {realCount} días/sem y en Clasificación tienes {coachDaysPerWeek}.

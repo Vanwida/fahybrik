@@ -71,11 +71,22 @@ export function SessionChip({
         className="w-[3px] shrink-0 self-stretch rounded-full"
         style={{ background: s.modality ? MOD_VAR[s.modality] : 'var(--v2-border-strong)' }}
       />
-      <span className="line-clamp-2 min-w-0 flex-1 text-[12px] leading-4 font-medium text-v2-fg">{s.title}</span>
-      {s.done ? (
-        <Check aria-hidden strokeWidth={2.5} className="mt-px size-3.5 shrink-0 text-v2-ok" />
-      ) : s.missed ? (
-        <X aria-hidden strokeWidth={2.5} className="mt-px size-3.5 shrink-0 text-v2-danger" />
+      <span lang="es" className="line-clamp-2 min-w-0 flex-1 t-meta leading-4 font-medium text-v2-fg hyphens-auto">
+        {s.title}
+      </span>
+      {/* La marca va en la esquina, fuera del renglón: dentro se comía el ancho
+          del título en columnas estrechas («Umbra…» a 1440). */}
+      {s.done || s.missed ? (
+        <span
+          aria-hidden
+          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border border-v2-border bg-v2-surface"
+        >
+          {s.done ? (
+            <Check strokeWidth={3} className="size-2.5 text-v2-ok" />
+          ) : (
+            <X strokeWidth={3} className="size-2.5 text-v2-danger" />
+          )}
+        </span>
       ) : null}
     </ButtonPrimitive>
   );

@@ -134,17 +134,17 @@ export function SplitsTable({
     calPerHour != null ? `${round(calPerHour)} cal/h` : null,
   ].filter(Boolean);
   return (
-    <div className="mt-0.5 overflow-x-auto rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
+    <div className="mt-0.5 overflow-x-auto rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
       {meta.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--v2-border)] px-2.5 py-1.5">
           {meta.map((m) => (
-            <span key={m} className="v2-num text-label text-[color:var(--v2-muted)]">
+            <span key={m} className="t-tnum t-meta text-[color:var(--v2-muted)]">
               {m}
             </span>
           ))}
         </div>
       ) : null}
-      <table className="w-full border-collapse text-label">
+      <table className="w-full border-collapse t-meta">
         <thead>
           <tr className="text-[color:var(--v2-faint)]">
             <th className="px-2.5 py-1 text-left font-medium">#</th>
@@ -156,7 +156,7 @@ export function SplitsTable({
             {hasRest ? <th className="px-2.5 py-1 text-right font-medium">Desc.</th> : null}
           </tr>
         </thead>
-        <tbody className="v2-num text-[color:var(--v2-fg)]">
+        <tbody className="t-tnum text-[color:var(--v2-fg)]">
           {splits.map((s) => (
             <tr key={s.index} className="border-t border-[color:var(--v2-border)]">
               <td className="px-2.5 py-1 text-left text-[color:var(--v2-muted)]">{s.index + 1}</td>
@@ -184,7 +184,7 @@ export function HechoChips({ tokens }: { tokens: string[] }) {
       {tokens.map((tk, i) => (
         <span
           key={i}
-          className="v2-num inline-flex items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft)] px-2 py-0.5 text-label font-semibold text-[color:var(--v2-ok)]"
+          className="t-tnum inline-flex items-center rounded-ctl border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft)] px-2 py-0.5 t-meta font-semibold text-[color:var(--v2-ok)]"
         >
           {tk}
         </span>
@@ -209,11 +209,11 @@ export function ItemPrescritoHecho({
       /* Rejilla de dos columnas: el ancho de la columna de etiquetas lo fija la
          más larga, así que «Prescrito» —mayúsculas y espaciado— NUNCA puede
          montarse encima del dato y comerse una cifra. */
-      className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2.5 gap-y-1.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
+      className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2.5 gap-y-1.5 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5"
     >
       <span className="col-span-2 text-sm font-semibold text-[color:var(--v2-fg)]">{item.exercise_name}</span>
-      <span className="v2-micro">Prescrito</span>
-      <span className="v2-num text-xs text-[color:var(--v2-muted)]">
+      <span className="t-label text-v2-faint">Prescrito</span>
+      <span className="t-tnum text-xs text-[color:var(--v2-muted)]">
         {prescritoLine(item)}
         {item.resolved_intensity ? (
           <span className="text-[color:var(--v2-faint)]">
@@ -228,12 +228,12 @@ export function ItemPrescritoHecho({
           const verdict = verdictByLap.get(`${item.uid}#${a.position}`);
           return (
             <Fragment key={a.position}>
-              <span className="v2-micro text-[color:var(--v2-ok)]">Hecho</span>
+              <span className="t-label text-[color:var(--v2-ok)]">Hecho</span>
               <span className="flex flex-wrap items-center gap-2">
                 {tokens.length > 0 ? (
                   <HechoChips tokens={tokens} />
                 ) : (
-                  <span className="v2-num text-xs text-[color:var(--v2-muted)]">registrado sin métricas</span>
+                  <span className="t-tnum text-xs text-[color:var(--v2-muted)]">registrado sin métricas</span>
                 )}
                 {verdict ? <VerdictPill verdict={verdict} /> : null}
               </span>
@@ -247,7 +247,7 @@ export function ItemPrescritoHecho({
         })
       ) : (
         <>
-          <span className="v2-micro">Hecho</span>
+          <span className="t-label text-v2-faint">Hecho</span>
           <span className="text-xs text-[color:var(--v2-faint)]">sin registro</span>
         </>
       )}

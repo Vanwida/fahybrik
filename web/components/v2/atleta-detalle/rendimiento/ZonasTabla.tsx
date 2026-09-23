@@ -30,15 +30,15 @@ export function ZonasTabla({ cells }: { cells: ZoneWeekCell[] }) {
         </caption>
         <thead>
           <tr className="border-b border-[color:var(--v2-border)]">
-            <th scope="col" className="v2-micro py-2 pr-3 text-left font-medium">
+            <th scope="col" className="t-label py-2 pr-3 text-left font-medium text-v2-faint">
               Semana
             </th>
             {ZONE_PART_KEYS.map((key) => (
-              <th key={key} scope="col" className="v2-micro py-2 pl-3 text-right font-medium">
+              <th key={key} scope="col" className="t-label py-2 pl-3 text-right font-medium text-v2-faint">
                 {ZONE_PART_LABEL[key]}
               </th>
             ))}
-            <th scope="col" className="v2-micro py-2 pl-3 text-right font-medium">
+            <th scope="col" className="t-label py-2 pl-3 text-right font-medium text-v2-faint">
               Total
             </th>
           </tr>
@@ -75,15 +75,15 @@ export function ZonasTabla({ cells }: { cells: ZoneWeekCell[] }) {
                           key={key}
                           className={
                             v > 0
-                              ? 'v2-num py-1.5 pl-3 text-right text-[color:var(--v2-fg)]'
-                              : 'v2-num py-1.5 pl-3 text-right text-[color:var(--v2-faint)]'
+                              ? 't-tnum py-1.5 pl-3 text-right text-[color:var(--v2-fg)]'
+                              : 't-tnum py-1.5 pl-3 text-right text-[color:var(--v2-faint)]'
                           }
                         >
                           {v > 0 ? formatDuration(v) : '0'}
                         </td>
                       );
                     })}
-                    <td className="v2-num py-1.5 pl-3 text-right font-semibold text-[color:var(--v2-fg)]">
+                    <td className="t-tnum py-1.5 pl-3 text-right font-semibold text-[color:var(--v2-fg)]">
                       {formatDuration(weekTotal(cell.week))}
                     </td>
                   </>

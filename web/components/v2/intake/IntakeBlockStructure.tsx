@@ -14,13 +14,14 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import type { IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/v2/ui';
 
 const MODE_OPTIONS: Array<{ mode: IntakePlanMode; icon: string; title: string; detail: string }> = [
   {
     mode: 'shared',
     icon: 'stacks',
-    title: 'Seguir la periodización',
-    detail: 'Arranca con lo que ya tienes montado.',
+    title: 'Seguir su grupo',
+    detail: 'Arranca con los programas que ya tienes montados.',
   },
   {
     mode: 'personal',
@@ -69,30 +70,21 @@ function ModeOption({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        'v2-focus flex flex-col gap-1 rounded-[var(--v2-r-m)] border px-3 py-2.5 text-left transition-colors',
-        selected
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-surface-2)]'
-          : 'border-[color:var(--v2-border)] hover:border-[color:var(--v2-border-strong)]',
+        'h-auto flex-col items-stretch gap-1 whitespace-normal px-3 py-2.5 text-left font-normal',
+        selected ? 'border-v2-fg bg-v2-surface-2 hover:border-v2-fg' : 'border-v2-border',
       )}
     >
       <span className="flex items-center gap-1.5">
-        <MIcon
-          name={icon}
-          size={16}
-          className={selected ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]'}
-        />
-        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{title}</span>
-        {selected ? (
-          <MIcon name="check_circle" size={14} className="ml-auto text-[color:var(--v2-accent-text)]" />
-        ) : null}
+        <MIcon name={icon} size={16} className={selected ? 'text-v2-fg' : 'text-v2-muted'} />
+        <span className="t-body font-medium text-v2-fg">{title}</span>
+        {selected ? <MIcon name="check_circle" size={14} className="ml-auto text-v2-fg" /> : null}
       </span>
-      <span className="text-label text-[color:var(--v2-muted)]">{detail}</span>
-    </button>
+      <span className="t-meta text-v2-muted">{detail}</span>
+    </Button>
   );
 }

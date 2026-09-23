@@ -31,10 +31,10 @@ export function IntakeRaces({
   const hasAny = past.length > 0 || upcoming.length > 0;
 
   return (
-    <section className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
+    <section className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
       <div className="mb-2 flex items-center gap-1.5">
         <MIcon name="flag" size={14} className="text-[color:var(--v2-muted)]" />
-        <span className="v2-micro">Carreras</span>
+        <span className="t-label text-v2-faint">Carreras</span>
       </div>
 
       {!hasAny ? (
@@ -45,7 +45,7 @@ export function IntakeRaces({
         <div className="flex flex-col gap-3">
           {past.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+              <span className="t-label font-semibold text-[color:var(--v2-faint)]">
                 Resultados
               </span>
               {past.map((r) => {
@@ -60,17 +60,17 @@ export function IntakeRaces({
                       <span className="truncate font-medium text-[color:var(--v2-fg)]">
                         {r.name}
                       </span>
-                      <span className="truncate text-eyebrow text-[color:var(--v2-faint)]">
+                      <span className="truncate t-meta text-[color:var(--v2-faint)]">
                         {eventLabel(r.event_type)} · {raceCategoryLineEs(r)}
                         {date ? ` · ${date}` : ''}
                       </span>
                     </div>
                     {time ? (
-                      <span className="v2-num shrink-0 font-semibold text-[color:var(--v2-fg)]">
+                      <span className="t-tnum shrink-0 font-semibold text-[color:var(--v2-fg)]">
                         {time}
                       </span>
                     ) : (
-                      <span className="shrink-0 text-eyebrow text-[color:var(--v2-faint)]">
+                      <span className="shrink-0 t-meta text-[color:var(--v2-faint)]">
                         sin marca
                       </span>
                     )}
@@ -82,7 +82,7 @@ export function IntakeRaces({
 
           {upcoming.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+              <span className="t-label font-semibold text-[color:var(--v2-faint)]">
                 Objetivos
               </span>
               {upcoming.map((r) => {
@@ -97,13 +97,13 @@ export function IntakeRaces({
                       <span className="truncate font-medium text-[color:var(--v2-fg)]">
                         {r.name}
                       </span>
-                      <span className="truncate text-eyebrow text-[color:var(--v2-faint)]">
+                      <span className="truncate t-meta text-[color:var(--v2-faint)]">
                         {eventLabel(r.event_type)} · {RACE_PRIORITY_LABEL[r.priority]}
                         {date ? ` · ${date}` : ''}
                       </span>
                     </div>
                     {goal ? (
-                      <span className="v2-num shrink-0 text-[color:var(--v2-muted)]">
+                      <span className="t-tnum shrink-0 text-[color:var(--v2-muted)]">
                         meta {goal}
                       </span>
                     ) : null}

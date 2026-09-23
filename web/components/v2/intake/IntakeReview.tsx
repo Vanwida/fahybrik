@@ -14,8 +14,8 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
-import { buttonVariants } from '@/components/v2/ui';
-import { MIcon } from '@/components/ui/MIcon';
+import { StatusBadge, buttonVariants } from '@/components/v2/ui';
+import { ArrowRight, ChevronRight, CircleCheck, Hourglass } from 'lucide-react';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
 import { ClasificacionCard } from '@/components/v2/atleta-detalle/ClasificacionCard';
 import { AthleteAnswers } from '@/components/v2/intake/AthleteAnswers';
@@ -165,27 +165,19 @@ export function IntakeReview({
   if (alreadyReviewed) {
     return (
       <div className="mx-auto flex w-full max-w-[560px] flex-col items-center gap-4 py-16 text-center">
-        <span className="text-[color:var(--v2-ok)]">
-          <MIcon name="task_alt" size={40} />
+        <span className="flex size-10 items-center justify-center rounded-full bg-v2-ok-soft text-v2-ok">
+          <CircleCheck aria-hidden strokeWidth={1.75} className="size-5" />
         </span>
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-[color:var(--v2-fg)]">Alta ya revisada</h1>
-          <p className="text-sm text-[color:var(--v2-muted)]">
-            El intake de {athlete.full_name} ya está completado. Su plan está en marcha.
-          </p>
+          <h1 className="t-title-sm text-v2-fg">Alta ya revisada</h1>
+          <p className="t-body text-v2-muted">El alta de {athlete.full_name} ya está revisada. Su plan está en marcha.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/atletas/${athleteId}`}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-          >
+          <Link href={`/atletas/${athleteId}`} className={buttonVariants({ variant: 'primary' })}>
             Ver plan del atleta
-            <MIcon name="arrow_forward" size={15} />
+            <ArrowRight aria-hidden strokeWidth={1.75} />
           </Link>
-          <Link
-            href="/hoy?vista=altas"
-            className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-          >
+          <Link href="/hoy?vista=altas" className={buttonVariants({ variant: 'ghost' })}>
             Volver a Hoy
           </Link>
           {queue.length > 0 ? (
@@ -205,19 +197,16 @@ export function IntakeReview({
       {embedded ? null : (
       <>
       {/* ── Breadcrumb ───────────────────────────────────────────────────────── */}
-      <nav aria-label="Ruta" className="flex items-center gap-1 text-xs text-[color:var(--v2-muted)]">
-        <Link href="/hoy?vista=altas" className="v2-focus hover:text-[color:var(--v2-fg)]">
-          Altas
+      <nav aria-label="Ruta" className="flex items-center gap-1 t-meta text-v2-muted">
+        <Link href="/hoy?vista=altas" className="v2-focus rounded-[4px] hover:text-v2-fg">
+          Altas pendientes
         </Link>
-        <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
-        <Link
-          href={`/atletas/${athleteId}`}
-          className="v2-focus hover:text-[color:var(--v2-fg)]"
-        >
+        <ChevronRight aria-hidden strokeWidth={1.75} className="size-3.5 text-v2-faint" />
+        <Link href={`/atletas/${athleteId}`} className="v2-focus rounded-[4px] hover:text-v2-fg">
           {athlete.full_name}
         </Link>
-        <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
-        <span className="text-[color:var(--v2-fg)]">Alta</span>
+        <ChevronRight aria-hidden strokeWidth={1.75} className="size-3.5 text-v2-faint" />
+        <span className="text-v2-fg">Alta pendiente</span>
         {queue.length > 0 ? (
           <Link href={nextHref(queue)} className={buttonVariants({ size: 'sm', className: 'ml-auto' })}>
             Siguiente alta · quedan {queue.length}
@@ -229,19 +218,17 @@ export function IntakeReview({
       <header className="flex flex-wrap items-center gap-3">
         <AthleteAvatar name={athlete.full_name} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="v2-micro text-[color:var(--v2-accent-text)]">Intake pendiente de revisión</span>
-          <h1 className="v2-display text-2xl text-[color:var(--v2-fg)] sm:text-3xl">
-            {athlete.full_name}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--v2-muted)]">
-            {athlete.age != null ? <span className="v2-num">{athlete.age} años</span> : null}
+          <StatusBadge size="sm" tone="info" label="Alta pendiente" />
+          <h1 className="t-title text-v2-fg">{athlete.full_name}</h1>
+          <div className="flex flex-wrap items-center gap-2 t-meta text-v2-muted">
+            {athlete.age != null ? <span className="t-tnum">{athlete.age} años</span> : null}
             {athlete.sex ? <span>· {SEX_LABEL[athlete.sex] ?? athlete.sex}</span> : null}
             {athlete.primary_discipline ? (
               <span className="uppercase">· {athlete.primary_discipline}</span>
             ) : null}
             {tenure ? (
-              <span className="inline-flex items-center gap-1 text-[color:var(--v2-faint)]">
-                <MIcon name="hourglass_top" size={13} />
+              <span className="inline-flex items-center gap-1 text-v2-faint">
+                <Hourglass aria-hidden strokeWidth={1.75} className="size-3.5" />
                 {tenure}
               </span>
             ) : null}
@@ -263,11 +250,8 @@ export function IntakeReview({
             <div className="flex flex-col gap-2">
               <ClasificacionCard athleteId={athleteId} data={classification} />
               {planMode === 'shared' && month_proposal ? (
-                <p className="flex items-start gap-1.5 px-0.5 text-label text-[color:var(--v2-faint)]">
-                  <MIcon name="auto_awesome" size={13} className="mt-px" />
-                  <span>
-                    Para su nivel, plantilla de referencia: {month_proposal.month_name}.
-                  </span>
+                <p className="px-0.5 t-meta text-v2-faint">
+                  Programa de referencia para su {axisLabel.toLowerCase()}: {month_proposal.month_name}.
                 </p>
               ) : null}
             </div>
@@ -310,7 +294,7 @@ export function IntakeReview({
         <aside className="flex flex-col gap-3">
           <IntakeRaces past={review.races.past} upcoming={review.races.upcoming} />
           <div className="flex flex-col gap-2">
-            <span className="v2-micro">Respuestas del atleta</span>
+            <span className="t-label text-v2-faint">Respuestas del atleta</span>
             <AthleteAnswers profile={profile} />
           </div>
         </aside>
@@ -323,8 +307,8 @@ export function IntakeReview({
         error={error}
         readyHint={
           planMode === 'personal'
-            ? 'No se crea ningún microciclo todavía. Los escribes tú desde su plan.'
-            : 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
+            ? 'No se crea ningún programa todavía. Lo escribes tú desde su plan.'
+            : 'Se asigna el primer programa con sus semanas ocultas al atleta, para que lo revises antes de publicar.'
         }
         onAssign={assign}
       />

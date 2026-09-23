@@ -10,6 +10,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { MODALITY_META, type V2Modality } from '@/components/v2/constants';
 import { modalityColor } from './modality';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/v2/ui';
 
 /** Tracked uppercase section label with an optional right-aligned action slot. */
 export function SectionHeading({
@@ -23,7 +24,7 @@ export function SectionHeading({
 }) {
   return (
     <div className={cn('flex items-center justify-between gap-2', className)}>
-      <h3 className="v2-micro">{children}</h3>
+      <h3 className="t-label text-v2-faint">{children}</h3>
       {action ?? null}
     </div>
   );
@@ -162,18 +163,10 @@ export function DashedAction({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'v2-focus flex w-full items-center justify-center gap-2 rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors',
-        'hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-        className,
-      )}
-    >
+    <Button onClick={onClick} className={cn('w-full border-dashed', className)}>
       <MIcon name={icon} size={16} />
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -215,7 +208,7 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
         const color = modalityColor(d.modality);
         const interactive = !!d.href;
         const cellClass = cn(
-          'flex min-w-0 flex-col items-center gap-1 rounded-[var(--v2-r-s)] border px-1 py-1.5 text-center',
+          'flex min-w-0 flex-col items-center gap-1 rounded-ctl border px-1 py-1.5 text-center',
           isRest
             ? 'border-dashed border-[color:var(--v2-border)]'
             : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
@@ -226,18 +219,18 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
         const cellStyle = !isRest ? { borderLeft: `2px solid ${color}` } : undefined;
         const inner = (
           <>
-            <span className="v2-micro text-nano">{d.label}</span>
+            <span className="t-label t-label text-v2-faint">{d.label}</span>
             {d.state === 'done' ? (
               <MIcon name="check" size={13} className="text-[color:var(--v2-ok)]" />
             ) : d.state === 'today' ? (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--v2-accent)' }} />
             ) : isRest ? (
-              <span className="text-eyebrow text-[color:var(--v2-faint)]">·</span>
+              <span className="t-meta text-[color:var(--v2-faint)]">·</span>
             ) : (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
             )}
             {d.title ? (
-              <span className="w-full truncate text-nano leading-tight text-[color:var(--v2-muted)]">
+              <span className="w-full truncate t-meta leading-tight text-[color:var(--v2-muted)]">
                 {d.title}
               </span>
             ) : null}
