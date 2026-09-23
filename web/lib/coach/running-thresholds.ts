@@ -16,10 +16,10 @@ import 'server-only';
 // se inserten. `resolveEffectiveRunningThresholds` es por tanto el único
 // resolutor: la fila del coach si existe, si no, los defectos.
 //
-// Sólo lectura por ahora: nadie ha pedido todavía la pantalla donde el coach
-// los edita. Cuando exista, el PUT es el mismo patrón de
-// `upsertCoachSignalThresholds` — reemplazo del conjunto entero, sin parche
-// por campo.
+// El editor vive en Ajustes › Método (sección «Lecturas de carrera»). Guardar
+// mezcla lo que cambia sobre lo vigente y escribe el conjunto entero: las
+// columnas son NOT NULL, así que «volver al defecto» de una clave es escribir
+// el defecto, y sin fila el coach ve los defectos.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -118,4 +118,70 @@ export async function resolveAthleteRunningThresholds(
   const coachId = rows[0]?.coach_id;
   if (!coachId) return defaultCoachRunningThresholds();
   return resolveEffectiveRunningThresholds(Number(coachId), client);
+}
+
+/** Lo que pinta el editor: lo vigente, si hay fila suya, y los defectos. */
+export async function getCoachRunningThresholdsSetting(
+  coach_id: bigint | number,
+  client: Sql = defaultSql,
+): Promise<{ thresholds: CoachRunningThresholds; is_custom: boolean; defaults: CoachRunningThresholds }> {
+  const row = await loadRow(coach_id, client);
+  return {
+    thresholds: await resolveEffectiveRunningThresholds(coach_id, client),
+    is_custom: row != null,
+    defaults: defaultCoachRunningThresholds(),
+  };
+}
+
+/**
+ * Cambiar umbrales: las claves de `patch` (null = su defecto) sobre lo vigente,
+ * guardado como conjunto entero. Si todo queda en los defectos, se borra la fila
+ * (sin fila = defectos; así «restaurar» deja al coach como uno que nunca tocó).
+ */
+export async function patchCoachRunningThresholds(
+  coach_id: bigint | number,
+  patch: Partial<Record<keyof CoachRunningThresholds, number | null>>,
+  client: Sql = defaultSql,
+): Promise<CoachRunningThresholds> {
+  const defaults = defaultCoachRunningThresholds();
+  const current = await resolveEffectiveRunningThresholds(coach_id, client);
+  const next: CoachRunningThresholds = { ...current };
+  for (const k of COACH_RUNNING_THRESHOLD_KEYS) {
+    if (!(k in patch)) continue;
+    const v = patch[k];
+    next[k] = v == null ? defaults[k] : v;
+  }
+  if (COACH_RUNNING_THRESHOLD_KEYS.every((k) => next[k] === defaults[k])) {
+    await client`delete from coach_running_thresholds where coach_id = ${coach_id}`;
+    return next;
+  }
+  await client`
+    insert into coach_running_thresholds (
+      coach_id, min_reps_per_position, min_series_for_calibration, freshness_alert_tsb,
+      min_pairs_for_compromised_trend, min_weeks_to_judge, meaningful_gain_s_per_km,
+      volume_surge_ratio, good_in_band_pct, min_reps_to_judge_band, same_hr_reference_zone,
+      same_hr_tolerance_bpm, same_hr_min_distance_m, gradient_retires_pace_pct, updated_at
+    ) values (
+      ${coach_id}, ${next.min_reps_per_position}, ${next.min_series_for_calibration}, ${next.freshness_alert_tsb},
+      ${next.min_pairs_for_compromised_trend}, ${next.min_weeks_to_judge}, ${next.meaningful_gain_s_per_km},
+      ${next.volume_surge_ratio}, ${next.good_in_band_pct}, ${next.min_reps_to_judge_band}, ${next.same_hr_reference_zone},
+      ${next.same_hr_tolerance_bpm}, ${next.same_hr_min_distance_m}, ${next.gradient_retires_pace_pct}, now()
+    )
+    on conflict (coach_id) do update set
+      min_reps_per_position = excluded.min_reps_per_position,
+      min_series_for_calibration = excluded.min_series_for_calibration,
+      freshness_alert_tsb = excluded.freshness_alert_tsb,
+      min_pairs_for_compromised_trend = excluded.min_pairs_for_compromised_trend,
+      min_weeks_to_judge = excluded.min_weeks_to_judge,
+      meaningful_gain_s_per_km = excluded.meaningful_gain_s_per_km,
+      volume_surge_ratio = excluded.volume_surge_ratio,
+      good_in_band_pct = excluded.good_in_band_pct,
+      min_reps_to_judge_band = excluded.min_reps_to_judge_band,
+      same_hr_reference_zone = excluded.same_hr_reference_zone,
+      same_hr_tolerance_bpm = excluded.same_hr_tolerance_bpm,
+      same_hr_min_distance_m = excluded.same_hr_min_distance_m,
+      gradient_retires_pace_pct = excluded.gradient_retires_pace_pct,
+      updated_at = now()
+  `;
+  return next;
 }

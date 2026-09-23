@@ -145,3 +145,22 @@ export async function upsertCoachHrMethod(
   `;
   return { ...values };
 }
+
+/** Volver a los defectos del producto: sin fila, el resolutor sirve los defectos. */
+export async function resetCoachHrMethod(coach_id: bigint | number, client: Sql = defaultSql): Promise<CoachHrMethod> {
+  await client`delete from coach_hr_method where coach_id = ${coach_id}`;
+  return defaultCoachHrMethod();
+}
+
+/** Lo que pinta el editor: lo vigente, si es suyo, y los defectos al lado. */
+export async function getCoachHrMethodSetting(
+  coach_id: bigint | number,
+  client: Sql = defaultSql,
+): Promise<{ method: CoachHrMethod; is_custom: boolean; defaults: CoachHrMethod }> {
+  const row = await loadRow(coach_id, client);
+  return {
+    method: row ? { ...DEFAULT_COACH_HR_METHOD, ...row } : defaultCoachHrMethod(),
+    is_custom: row != null,
+    defaults: defaultCoachHrMethod(),
+  };
+}

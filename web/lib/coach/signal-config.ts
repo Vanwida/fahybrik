@@ -20,6 +20,7 @@
 // todas las claves; los vigentes de un coach se piden SIEMPRE a
 // `resolveEffectiveThresholds`, nunca a esta constante.
 
+import { testDueDays } from '@fahybrid/shared/domain/coach/test-cadence';
 import { z } from 'zod';
 import {
   READINESS_OK_MIN,
@@ -93,8 +94,10 @@ export const SIGNAL_THRESHOLDS = {
   test_logged_recent_days: 7,
   /** A finished race within this many days → race_completed (review level/block). */
   race_completed_recent_days: 14,
-  /** No test for at least this many days on an active plan → test_due (schedule one). */
-  test_due_days: 35,
+  /** No test for at least this many days on an active plan → test_due (schedule one).
+   *  Derivado de la cadencia de tests del coach (su repetición más corta, mig
+   *  0259); aquí el defecto sin coach. `resolveEffectiveThresholds` lo pisa. */
+  test_due_days: testDueDays(null),
   /** An athlete-originated "entreno libre" within this many days → workout_libre. */
   workout_libre_recent_days: 3,
 

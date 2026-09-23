@@ -1,7 +1,7 @@
-// Tope de semanas de UN microciclo, por coach (card 135, migración
-// infra/migrations/0206_coach_max_microcycle_weeks.sql). Metodología del
-// entrenador, no del sistema — igual que `max_athletes` (ver lib/coach/capacity.ts):
-// vive en `coaches.max_microcycle_weeks`, defecto 8, CHECK entre 2 y 26.
+// Tope de semanas de UN programa, por coach (card 135, migraciones 0206 y 0259).
+// Metodología del entrenador, no del sistema: vive en
+// `coaches.max_microcycle_weeks` (CHECK entre 2 y 26); NULL = el defecto del
+// producto `MICROCICLO_DEFAULT_MAX_WEEKS`. Se edita en Ajustes › Plan del atleta.
 //
 // Único cargador, reusado por TODOS los caminos que crean o alargan un
 // microciclo (biblioteca, plan personal desde cero, encadenar un tramo,
@@ -16,18 +16,37 @@ import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { MICROCICLO_DEFAULT_MAX_WEEKS } from '@fahybrid/shared/domain/coach/program-months';
 
-/** El tope de semanas de un microciclo de ESTE coach. Nunca null: la columna
- *  es NOT NULL con defecto 8 (migración 0206). */
+/** El tope de semanas de un programa de ESTE coach: el suyo o, sin él, el defecto. */
 export async function loadCoachMaxMicrocicloWeeks(params: {
   coach_id: number | bigint;
   client?: Sql | TransactionClient;
 }): Promise<number> {
   const client = params.client ?? defaultSql;
-  const rows = await client<Array<{ max_microcycle_weeks: number }>>`
+  const rows = await client<Array<{ max_microcycle_weeks: number | null }>>`
     select max_microcycle_weeks from coaches where id = ${Number(params.coach_id)} limit 1
   `;
-  // Sin fila de coach (id inválido) el defecto de la columna no aplica —
-  // el llamador ya validó ownership del coach antes de llegar aquí; esto es
-  // sólo una guarda defensiva, nunca el camino esperado.
   return rows[0]?.max_microcycle_weeks ?? MICROCICLO_DEFAULT_MAX_WEEKS;
+}
+
+/** El ajuste para el editor: lo guardado (null = defecto), lo vigente y el defecto. */
+export async function getMaxProgramWeeksSetting(
+  coach_id: number | bigint,
+  client: Sql = defaultSql,
+): Promise<{ stored: number | null; effective: number; default_weeks: number }> {
+  const rows = await client<Array<{ max_microcycle_weeks: number | null }>>`
+    select max_microcycle_weeks from coaches where id = ${Number(coach_id)} limit 1
+  `;
+  const stored = rows[0]?.max_microcycle_weeks ?? null;
+  return { stored, effective: stored ?? MICROCICLO_DEFAULT_MAX_WEEKS, default_weeks: MICROCICLO_DEFAULT_MAX_WEEKS };
+}
+
+/** Guardar el tope (null o el mismo defecto = volver al defecto). Los programas que ya pasan del tope nuevo no se tocan. */
+export async function setMaxProgramWeeks(
+  coach_id: number | bigint,
+  weeks: number | null,
+  client: Sql = defaultSql,
+): Promise<{ stored: number | null; effective: number; default_weeks: number }> {
+  const value = weeks == null || weeks === MICROCICLO_DEFAULT_MAX_WEEKS ? null : weeks;
+  await client`update coaches set max_microcycle_weeks = ${value}, updated_at = now() where id = ${Number(coach_id)}`;
+  return getMaxProgramWeeksSetting(coach_id, client);
 }

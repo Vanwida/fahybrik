@@ -9,13 +9,26 @@
 //
 // No 'use client': only rendered from TestsView, which is already the boundary.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, Dialog, Field, Input, SegmentedControl } from '@/components/v2/ui';
 import { effectiveTestRetestWeeks, testRetestOptions } from '@fahybrid/shared/domain/coach/test-cadence';
 
-// Cada cuánto se repite un test es método del coach: el defecto y la regla viven
-// en shared/domain (test-cadence.ts), nunca aquí.
-const REPEAT_OPTIONS = testRetestOptions(effectiveTestRetestWeeks(null));
+// Cada cuánto se repite un test es método del coach (`coaches.test_retest_weeks`,
+// Ajustes › Método): se leen sus semanas al abrir; mientras llegan, el defecto.
+function useRetestOptions() {
+  const [weeks, setWeeks] = useState<number[] | null>(null);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch('/api/coach/settings', { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b: { test_retest_weeks?: { effective?: number[] } } | null) => {
+        if (b?.test_retest_weeks?.effective) setWeeks(b.test_retest_weeks.effective);
+      })
+      .catch(() => undefined);
+    return () => ctrl.abort();
+  }, []);
+  return testRetestOptions(effectiveTestRetestWeeks(weeks));
+}
 
 export interface ApplyRosterEntry {
   athlete_id: string;
@@ -71,6 +84,7 @@ export function AplicarTestSheet({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(defaultDate());
   const [repeat, setRepeat] = useState(0);
+  const REPEAT_OPTIONS = useRetestOptions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

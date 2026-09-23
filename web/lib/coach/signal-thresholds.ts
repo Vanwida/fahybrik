@@ -13,6 +13,8 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
 import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
+import { getTestCadenceSetting } from '@/lib/coach/test-cadence';
+import { testDueDays } from '@fahybrid/shared/domain/coach/test-cadence';
 import {
   COACH_THRESHOLD_KEYS,
   DEFAULT_COACH_THRESHOLDS,
@@ -74,8 +76,13 @@ export async function resolveEffectiveThresholds(
   coach_id: bigint | number,
   client: Sql = defaultSql,
 ): Promise<EffectiveThresholds> {
-  const coach = await resolveCoachThresholds(coach_id, client);
-  return { ...SIGNAL_THRESHOLDS, ...coach };
+  const [coach, cadence] = await Promise.all([
+    resolveCoachThresholds(coach_id, client),
+    getTestCadenceSetting(coach_id, client),
+  ]);
+  // «Toca test» no es un número suelto: salta cuando pasa la repetición más
+  // corta del coach (su cadencia de tests, mig 0259), no a los 35 días fijos.
+  return { ...SIGNAL_THRESHOLDS, ...coach, test_due_days: testDueDays(cadence.stored) };
 }
 
 function toResponse(row: ThresholdRow | null): CoachSignalThresholdsResponse {
