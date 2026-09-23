@@ -35,7 +35,7 @@ export function SessionEditorBody({
 }: {
   editor: FichaSessionEditor;
   startWithAi: boolean;
-  onSaved: () => void;
+  onSaved: (name: string) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const { shell } = useFicha();
@@ -68,7 +68,7 @@ export function SessionEditorBody({
       });
       setDirty(false);
       toast({ title: 'Entreno guardado', description: `${shell.name.split(' ')[0]} lo verá así.`, tone: 'ok' });
-      onSaved();
+      onSaved(name.trim());
     } catch (err) {
       toast({ title: 'No se ha podido guardar', description: errorMessage(err), tone: 'danger' });
     } finally {
@@ -180,7 +180,7 @@ export function SessionEditorBody({
           </div>
         ) : null}
 
-        <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center justify-end gap-3 border-t border-v2-border bg-v2-elevated px-5 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-v2-border pt-3">
           {!gate.ok ? <span className="mr-auto t-body-sm text-v2-danger">{gate.reason}</span> : dirty ? <span className="mr-auto t-body-sm text-v2-muted">Cambios sin guardar</span> : null}
           <Button variant="primary" loading={saving} disabled={!gate.ok || !name.trim() || !dirty} onClick={() => void save()}>
             Guardar entreno

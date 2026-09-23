@@ -59,9 +59,11 @@ export function Ficha({
       const p = new URLSearchParams(search.toString());
       mutate(p);
       const qs = p.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+      // Solo la barra de direcciones (enlazable, «atrás» no cambia): sin volver a
+      // pedir la página al servidor por abrir o cerrar un panel.
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
     },
-    [pathname, router, search],
+    [search],
   );
 
   const openChat = useCallback(
@@ -80,7 +82,9 @@ export function Ficha({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const refresh = useCallback(() => startTransition(() => router.refresh()), [router]);
+  // Refrescar el estado tras un cambio no atenúa la página (solo cambiar de pestaña).
+  const [, startRefresh] = useTransition();
+  const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
   const bumpCalendar = useCallback(() => {
     setCalendarVersion((v) => v + 1);
     refresh();

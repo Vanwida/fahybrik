@@ -174,7 +174,8 @@ export async function loadFichaShell(params: {
     ? await canRevertToSequence({ athlete_id: params.athlete_id, client }).catch(() => false)
     : false;
 
-  const hidden = weeks.find((w) => !w.visible && w.sessions > 0);
+  // Una semana RETENIDA la ocultó el coach a propósito: no se le pide publicarla.
+  const hidden = weeks.find((w) => !w.visible && !w.held && w.sessions > 0);
   const race =
     peek.race && target && target.race_date === peek.race.date
       ? {

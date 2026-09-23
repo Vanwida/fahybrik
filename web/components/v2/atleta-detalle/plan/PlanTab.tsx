@@ -131,7 +131,7 @@ export function PlanTab({
           <span className="t-label text-v2-faint">Esta semana</span>
           {adh && adh.due > 0 ? (
             <span className="t-meta text-v2-muted t-tnum">
-              {adh.done} de {adh.due} debidas · {adh.window_days} d
+              Adh. {adh.window_days} d: {adh.done} de {adh.due}
             </span>
           ) : null}
         </div>

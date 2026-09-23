@@ -240,7 +240,10 @@ export function SessionSheet({
                 editor={editor}
                 startWithAi={startWithAi}
                 onDirtyChange={setDirty}
-                onSaved={() => bumpCalendar()}
+                onSaved={(name) => {
+                  setEditor((e) => (e ? { ...e, title: name, shared_template: false } : e));
+                  bumpCalendar();
+                }}
               />
             ) : (
               <SessionResult athleteId={shell.athlete_id} sessionId={sessionId} />

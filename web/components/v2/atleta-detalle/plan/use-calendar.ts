@@ -6,7 +6,6 @@
 // hasta ahora, P2); añadir usa el de crear entreno de un día (P3).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage, PanelApiError } from '@/components/v2/shared/api';
@@ -29,8 +28,6 @@ export function planErrorMessage(err: unknown, fallback?: string): string {
 export function useCalendar(initial: FichaCalendar | null) {
   const { shell, calendarVersion, refresh } = useFicha();
   const { toast } = useToast();
-  const router = useRouter();
-  const pathname = usePathname();
   const search = useSearchParams();
   const [cal, setCal] = useState<FichaCalendar | null>(initial);
   const [zoom, setZoomState] = useState<CalZoom>(initial?.zoom ?? '3sem');
@@ -75,7 +72,8 @@ export function useCalendar(initial: FichaCalendar | null) {
     if (z === '3sem') p.delete('zoom');
     else p.set('zoom', z);
     const qs = p.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+    // Solo la URL: el calendario se pide aquí mismo, sin repintar la página.
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
     void load(z);
   };
 
@@ -91,7 +89,6 @@ export function useCalendar(initial: FichaCalendar | null) {
     setCal(moveSession(cal, id, toDate));
     try {
       await apiJson(`${base}/sessions/${id}/reschedule`, { method: 'POST', body: { to_iso_date: toDate } });
-      refresh();
       toast({
         title: `${s.title} → ${dayLabel(toDate)}`,
         undo: async () => {
@@ -105,6 +102,7 @@ export function useCalendar(initial: FichaCalendar | null) {
           }
         },
       });
+      refresh();
     } catch (err) {
       setCal(before);
       toast({ title: 'No se ha podido mover', description: errorMessage(err), tone: 'danger' });
