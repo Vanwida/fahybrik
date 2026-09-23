@@ -8,7 +8,8 @@
 // ONE rule, `leadOwnedBy` (lib/leads/owner.ts); another club's cita → 404.
 // The AGENDA is per coach since 0220 (`coach_availability[_exceptions].coach_id`): the
 // slots a lead sees are its owner's, computed against that coach's own busy citas —
-// one coach's booking never blocks another's hour. Europe/Madrid throughout.
+// one coach's booking never blocks another's hour. Wall clock = the coach's timezone
+// (`coaches.timezone`, 0241; default BOX_TIMEZONE).
 
 import { sql, type TransactionClient } from '@/lib/db';
 import { isRowWaitlisted } from '@/lib/leads/waitlist';
@@ -27,6 +28,7 @@ import {
   type DaySlots,
 } from '@fahybrid/shared/domain/citas/slots';
 import type { CitaModality } from '@fahybrid/shared/schema';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export class CitasError extends Error {
   constructor(
@@ -90,12 +92,13 @@ export async function computeSlots(
   now: Date = new Date(),
 ): Promise<DaySlots[]> {
   if (coach_id === null) return [];
-  const [availability, blockedDates, busyStartMs] = await Promise.all([
+  const [availability, blockedDates, busyStartMs, timezone] = await Promise.all([
     loadAvailabilityWindows(coach_id, modality),
     loadBlockedDates(coach_id),
     loadBusyStartMs(coach_id),
+    loadCoachTimezone(coach_id),
   ]);
-  return generateSlots({ now, availability, blockedDates, busyStartMs });
+  return generateSlots({ now, availability, blockedDates, busyStartMs, timezone });
 }
 
 /**

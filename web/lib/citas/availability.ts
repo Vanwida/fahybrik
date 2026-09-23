@@ -1,6 +1,7 @@
 // The coach's citas AGENDA (weekly windows + blocked days) and the presencial address —
 // per coach since 0220. The slot engine reading them lives in ./store (computeSlots).
 
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { sql } from '@/lib/db';
 import type { CitaModality } from '@fahybrid/shared/schema';
 
@@ -37,6 +38,7 @@ export interface ExceptionRow {
 export async function getAvailability(
   coach_id: bigint | number,
 ): Promise<{ windows: AvailabilityRow[]; exceptions: ExceptionRow[] }> {
+  const tz = await loadCoachTimezone(coach_id);
   const [windows, exceptions] = await Promise.all([
     sql<AvailabilityRow[]>`
       select id::text as id, weekday, to_char(start_time, 'HH24:MI') as start_time,
@@ -48,7 +50,8 @@ export async function getAvailability(
     sql<{ id: string; fecha: Date; motivo: string | null }[]>`
       select id::text as id, fecha, motivo from coach_availability_exceptions
       where coach_id = ${Number(coach_id)}
-        and fecha >= (now() at time zone 'Europe/Madrid')::date
+        -- «Desde hoy» en el reloj del coach (coaches.timezone, 0241), no en uno cableado.
+        and fecha >= (now() at time zone ${tz})::date
       order by fecha
     `,
   ]);

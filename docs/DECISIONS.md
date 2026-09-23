@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El huso del coach es dato (0241): la agenda deja de estar en Madrid
+
+**El hueco:** la agenda de citas razonaba en `'Europe/Madrid'` escrito a mano — los huecos que ve un lead, los días bloqueados «desde hoy» y el recuento de «llamadas hoy». Un coach en otro huso ofrecía horas que no eran las suyas.
+
+**Decidido:** `coaches.timezone` (IANA, migración 0241, sin `default` de columna; un CHECK de forma). El dominio (`shared/domain/coach/coach-timezone.ts`: `effectiveCoachTimezone`) usa el del coach si es una zona válida y, si no, el defecto del producto `BOX_TIMEZONE` — así un coach que no ha tocado nada se comporta exactamente igual que antes. El motor de huecos (`generateSlots`) recibe el huso; `computeSlots`, `getAvailability` y `countCallsToday` lo leen del coach (`loadCoachTimezone`).
+
+**Queda (deuda anotada, no tocada aquí):** el resto de «día del coach» (su Hoy, la fecha de publicación, los emails de citas con `timeZone: 'Europe/Madrid'`, `week-publishing.boxToday`) sigue en `BOX_TIMEZONE`; debe pasar a `loadCoachTimezone` pieza a pieza. Falta el campo para editarlo (Ajustes › Tu club).
+
+**NO hacer:** no volver a escribir un huso a mano en la agenda; no poner `default 'Europe/Madrid'` en la columna.
+
+---
+
 ## 2026-09-23 · El grupo de metodología de un bloque deja de ser obligatorio (0240)
 
 **El hueco:** `blocks.methodology_group_id` era NOT NULL contra `methodology_groups`, una tabla GLOBAL con los diez tipos de trabajo de una escuela («Fuerza Base», «Series de Running»…), y el editor de la biblioteca ponía el 1 por defecto: todo bloque nuevo de cualquier coach nacía como «Fuerza Base». Eso es método cableado (HARD RULE Nº0) y además un dato falso.

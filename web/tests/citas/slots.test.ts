@@ -2,6 +2,8 @@
 // Timezone Europe/Madrid; July → CEST (UTC+2). Availability is all-week 17:00–19:00
 // (four 30-min slots/day) unless a case narrows it.
 
+import { effectiveCoachTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { describe, expect, test } from 'vitest';
 import { generateSlots, isOfferedSlot, type AvailabilityWindow } from '@fahybrid/shared/domain/citas/slots';
 
@@ -75,5 +77,31 @@ describe('isOfferedSlot — the server re-check against the client', () => {
     const good = days[0].slots[0].ms;
     expect(isOfferedSlot(days, good)).toBe(true);
     expect(isOfferedSlot(days, good + 7 * 60_000)).toBe(false); // 17:07 — not a slot boundary
+  });
+});
+
+describe('generateSlots — el reloj del coach (0241)', () => {
+  test('las 10:00 de la ventana son las 10:00 del huso del coach, no de Madrid', () => {
+    const now = new Date('2026-09-23T06:00:00Z'); // miércoles
+    const window = [{ weekday: 4, start_time: '10:00', end_time: '10:30' }]; // jueves
+    const madrid = generateSlots({ now, availability: window, blockedDates: new Set(), busyStartMs: new Set() });
+    const mexico = generateSlots({
+      now,
+      availability: window,
+      blockedDates: new Set(),
+      busyStartMs: new Set(),
+      timezone: 'America/Mexico_City',
+    });
+    expect(madrid[0]!.slots[0]!.start).toBe('2026-09-24T08:00:00.000Z');
+    expect(mexico[0]!.slots[0]!.start).toBe('2026-09-24T16:00:00.000Z');
+    expect(mexico[0]!.slots[0]!.time).toBe('10:00');
+  });
+});
+
+describe('effectiveCoachTimezone', () => {
+  test('el suyo si es IANA válido; si no, el defecto', () => {
+    expect(effectiveCoachTimezone('America/Mexico_City')).toBe('America/Mexico_City');
+    expect(effectiveCoachTimezone(null)).toBe(BOX_TIMEZONE);
+    expect(effectiveCoachTimezone('Marte/Olimpo')).toBe(BOX_TIMEZONE);
   });
 });

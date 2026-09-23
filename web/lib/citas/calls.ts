@@ -3,6 +3,7 @@
 
 import { sql } from '@/lib/db';
 import { leadOwnedBy } from '@/lib/leads/owner';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import type { CitaModality } from '@fahybrid/shared/schema';
 
 // Auto-accept (#2/#4): a booking is confirmed on the spot, so the coach surface is
@@ -20,18 +21,19 @@ export interface UpcomingCall {
   modality: CitaModality;
 }
 
-/** Lead intro calls of THIS coach still ahead TODAY (Europe/Madrid calendar day, from now
- *  to midnight) — the "llamadas hoy" count of the Negocio badge and Hoy. #21: lead calls only
+/** Lead intro calls of THIS coach still ahead TODAY (the coach's calendar day — its
+ *  `coaches.timezone`, default BOX_TIMEZONE — from now to midnight) — the "llamadas hoy" count of the Negocio badge and Hoy. #21: lead calls only
  *  (lead_id not null); athlete 1:1 reviews are a separate surface. */
 export async function countCallsToday(coach_id: bigint | number, now: Date = new Date()): Promise<number> {
+  const tz = await loadCoachTimezone(coach_id);
   const rows = await sql<{ n: number }[]>`
     select count(*)::int as n
     from appointments a join leads l on l.id = a.lead_id
     where a.status = 'aceptada'
       and a.requested_start >= ${now.toISOString()}::timestamptz
       and a.requested_start < (
-        (date_trunc('day', ${now.toISOString()}::timestamptz at time zone 'Europe/Madrid') + interval '1 day')
-          at time zone 'Europe/Madrid'
+        (date_trunc('day', ${now.toISOString()}::timestamptz at time zone ${tz}) + interval '1 day')
+          at time zone ${tz}
       )
       and ${leadOwnedBy(sql, coach_id, sql`l.coach_id`)}
   `;

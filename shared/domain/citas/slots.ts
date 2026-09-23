@@ -1,12 +1,13 @@
 // Appointment slot engine — PURE (no DB, no framework). Given the coach's weekly
 // availability, blocked dates, and already-busy slots, produce the bookable 30-min slots
-// for the next N days. All wall-clock reasoning is Europe/Madrid (BOX_TIMEZONE); slot
-// starts are absolute instants (UTC), DST-safe via zonedWallClockToUtc.
+// for the next N days. All wall-clock reasoning is in the COACH's timezone (`timezone`,
+// coach data since 0241; default BOX_TIMEZONE); slot starts are absolute instants
+// (UTC), DST-safe via zonedWallClockToUtc.
 //
 // Contract: an empty result means "no availability" → the UI shows the honest fallback
 // ("Pablo te escribirá para cuadrar la llamada"), never an empty calendar.
 
-import { addDays, BOX_TIMEZONE, isoDateString, startOfDayInBox, zonedWallClockToUtc } from '../dates';
+import { addDays, BOX_TIMEZONE, isoDateString, parseIsoDate, zonedDayString, zonedWallClockToUtc } from '../dates';
 
 export interface AvailabilityWindow {
   /** 0=Sunday … 6=Saturday (JS getUTCDay), interpreted in Europe/Madrid. */
@@ -25,6 +26,8 @@ export interface SlotEngineInput {
   busyStartMs: ReadonlySet<number>;
   daysAhead?: number; // default 14
   slotMinutes?: number; // default 30
+  /** IANA zone of the coach's wall clock (windows, blocked days, labels). Default BOX_TIMEZONE. */
+  timezone?: string;
 }
 
 export interface Slot {
@@ -69,7 +72,8 @@ export function generateSlots(input: SlotEngineInput): DaySlots[] {
     byWeekday.set(w.weekday, list);
   }
 
-  const today = startOfDayInBox(now); // UTC-midnight anchor of Madrid's "today"
+  const tz = input.timezone ?? BOX_TIMEZONE;
+  const today = parseIsoDate(zonedDayString(now, tz)); // UTC-midnight anchor of the coach's "today"
   const out: DaySlots[] = [];
 
   for (let d = 0; d < daysAhead; d += 1) {
@@ -87,7 +91,7 @@ export function generateSlots(input: SlotEngineInput): DaySlots[] {
       const e = parseHhMm(w.end_time);
       const endMin = e.h * 60 + e.m;
       for (let cur = s.h * 60 + s.m; cur + slotMinutes <= endMin; cur += slotMinutes) {
-        const start = zonedWallClockToUtc(day, BOX_TIMEZONE, {
+        const start = zonedWallClockToUtc(day, tz, {
           hours: Math.floor(cur / 60),
           minutes: cur % 60,
         });
