@@ -140,7 +140,8 @@ export interface BlockEditorModel {
   block_id: number | null; // null = nuevo (unsaved)
   title: string;
   description: string;
-  methodology_group_id: number;
+  /** null = sin clasificar (0240: el grupo es opcional y nunca se pone por defecto). */
+  methodology_group_id: number | null;
   format: string | null;
   blocks: EditorBlock[];
 }

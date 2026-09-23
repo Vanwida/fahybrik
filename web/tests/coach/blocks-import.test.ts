@@ -123,7 +123,7 @@ describeWithDb('listBlocks (real DB — seeded library)', () => {
     const all = await listBlocks(coachId, null, sql);
     expect(all.length).toBeGreaterThanOrEqual(97);
     const groups = new Set(all.map((b) => b.methodology_group_id));
-    expect([...groups].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect([...groups].sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // every block carries the verbatim description (non-empty) + a title
     for (const b of all) {
       expect(b.description.length).toBeGreaterThan(0);

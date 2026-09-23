@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-23 · El grupo de metodología de un bloque deja de ser obligatorio (0240)
+
+**El hueco:** `blocks.methodology_group_id` era NOT NULL contra `methodology_groups`, una tabla GLOBAL con los diez tipos de trabajo de una escuela («Fuerza Base», «Series de Running»…), y el editor de la biblioteca ponía el 1 por defecto: todo bloque nuevo de cualquier coach nacía como «Fuerza Base». Eso es método cableado (HARD RULE Nº0) y además un dato falso.
+
+**Decidido:** migración 0240 quita el NOT NULL (la FK se queda para los bloques que sí tienen grupo). Los esquemas (`shared/schema/blocks.ts`) aceptan `null` y dejan de limitar a 1–10 (la FK dice qué existe). Crear sin grupo = sin clasificar; un reemplazo completo que no menciona el grupo lo conserva; `null` explícito lo quita. El compositor IA (`loadComposableBlocks`) solo considera bloques clasificados — elige por grupo —; uno sin clasificar se usa a mano. La modalidad derivada (`modalityForGroup`) ya toleraba null.
+
+**Queda:** el selector del editor (`components/v2/biblioteca/LibraryItemEditor.tsx`, `?? 1`) debe dejar de enviar 1 por defecto — cambio de una línea pedido a su dueño. La clasificación en sí (tipos de trabajo) debería ser del coach, no una tabla global; hasta entonces, sin grupo es la opción honesta.
+
+**NO hacer:** no volver a poner un grupo por defecto a un bloque; no añadir grupos a `methodology_groups` como si fuera un catálogo del coach.
+
+---
+
 ## 2026-09-23 · «Ajustes masivos» (`mass-adjustments`) se retira
 
 **El hueco:** `/api/coach/mass-adjustments` (+ preview, historial, rollback; servicio `lib/coach/mass-adjustments.ts`, esquema `shared/schema/coach-mass-adjustments.ts`, migración 0006) aplicaba un ajuste a varios atletas escribiendo un prefijo `[mass-adj …]` en `workout_assignments.notes`. Ese campo es la **identidad del hueco** para el materializador (`slot:am`, `slot:pm`… en `instantiate-program.ts`): una nota reescrita hace que el re-sync de una semana no reconozca el hueco y lo duplique o lo borre. Y el tipo «carga %» nunca cambiaba una carga: solo dejaba texto. Ninguna pantalla lo usaba desde el rehacer del panel.

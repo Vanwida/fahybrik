@@ -107,7 +107,7 @@ export async function listLibrary(params: { coach_id: number | bigint; client?: 
   const coachId = Number(params.coach_id);
 
   const [blocks, templates, usage] = await Promise.all([
-    client<Array<{ id: string; title: string; description: string; methodology_group_id: number; tags: string[]; archived: boolean; updated_at: string; lines: LineJson[] | null }>>`
+    client<Array<{ id: string; title: string; description: string; methodology_group_id: number | null; tags: string[]; archived: boolean; updated_at: string; lines: LineJson[] | null }>>`
       select b.id::text, b.title, b.description, b.methodology_group_id::int, b.tags,
              (b.archived_at is not null) as archived, b.updated_at::text,
              coalesce(json_agg(json_build_object(

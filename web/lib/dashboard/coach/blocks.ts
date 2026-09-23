@@ -148,7 +148,7 @@ export async function listBlocksWithStructure(
      where b.coach_id = ${cid}
        ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
      group by b.id
-     order by b.methodology_group_id asc, b.id asc
+     order by b.methodology_group_id asc nulls last, b.id asc
   `;
   return rows.map((r) => ({ ...mapBlockRow(r), ...structureOf(r.lines ?? []) }));
 }
@@ -210,7 +210,7 @@ export async function listBlocks(
                  format, source_ref, needs_review
           from blocks
           where coach_id = ${cid}
-          order by methodology_group_id asc, id asc
+          order by methodology_group_id asc nulls last, id asc
         `
       : await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
@@ -228,7 +228,7 @@ type BlockRow = {
   slug: string;
   title: string;
   description: string;
-  methodology_group_id: number;
+  methodology_group_id: number | null;
   format: string | null;
   source_ref: string | null;
   needs_review: boolean;
@@ -238,7 +238,7 @@ function mapBlockRow(r: BlockRow): Block {
   return {
     ...r,
     id: Number(r.id),
-    methodology_group_id: Number(r.methodology_group_id),
+    methodology_group_id: r.methodology_group_id == null ? null : Number(r.methodology_group_id),
     needs_review: Boolean(r.needs_review),
   };
 }
@@ -525,7 +525,7 @@ export async function createBlock(
         ${slugifyTitle(input.title)},
         ${input.title},
         ${input.description ?? input.title},
-        ${input.methodology_group_id},
+        ${input.methodology_group_id ?? null},
         ${input.format ?? null},
         ${false},
         ${Number(coachId)}
@@ -589,7 +589,8 @@ export async function updateBlockFull(
       update blocks set
         title                = ${input.title},
         description          = ${input.description ?? input.title},
-        methodology_group_id = ${input.methodology_group_id},
+        -- Sin el campo, se queda el que tenía (nunca se le pone uno por defecto).
+        methodology_group_id = ${input.methodology_group_id === undefined ? tx`methodology_group_id` : input.methodology_group_id},
         format               = ${input.format ?? null},
         needs_review         = ${false}
       where id = ${blockId}
