@@ -11,6 +11,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { loadRestingHrBodySection } from '@/lib/biometrics/resting-hr-series';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 
 const HRV_DAYS = 90;
 const SLEEP_DAYS = 30;
@@ -492,7 +493,15 @@ async function loadWellness(
   now: Date,
   days: number,
 ): Promise<WellnessSection> {
-  const startDay = isoDate(addDays(now, -(days - 1)));
+  // Los check-ins son días del ATLETA (`recorded_for`, su huso): la ventana acaba
+  // en SU hoy, no en el día UTC — si no, pasada la medianoche de Madrid el
+  // check-in de hoy se caía de la serie.
+  const tz = await client<Array<{ today: string }>>`
+    select to_char((${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date, 'YYYY-MM-DD') as today
+    from athletes a where a.id = ${athlete_id}
+  `;
+  const localToday = new Date(`${tz[0]?.today ?? isoDate(now)}T00:00:00Z`);
+  const startDay = isoDate(addDays(localToday, -(days - 1)));
   // UNA fuente de check-ins: `daily_checkins` (lo que escribe la app y lo que
   // leen la columna Estado de la ficha, el vistazo y las señales). Antes esto
   // leía `notifications` con `kind = 'daily_checkin'`, que nadie escribe: la
@@ -525,8 +534,7 @@ async function loadWellness(
   ): BodyPoint[] => {
     const out: BodyPoint[] = [];
     for (let i = days - 1; i >= 0; i--) {
-      const day = addDays(now, -i);
-      const k = isoDate(day);
+      const k = isoDate(addDays(localToday, -i));
       const r = byDate.get(k);
       out.push({ iso_date: k, value: r?.[key] != null ? round1(r[key] as number) : null });
     }
